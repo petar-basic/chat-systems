@@ -1,0 +1,49 @@
+name: Bug report
+description: Report something that isn't working
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to ...
+        2. Click ...
+        3. See error
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Backend (chat-api)
+        - Backend (chat-realtime)
+        - Frontend
+        - Deployment / Docker
+        - Other / not sure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      placeholder: v1.0.0
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      placeholder: OS, browser, deployment (docker / local dev), self-hosted vs other
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste any console / server logs. Redact secrets.
+      render: shell

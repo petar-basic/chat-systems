@@ -1,0 +1,3 @@
+# Default owner for everything in the repo. Combined with a branch ruleset
+# that requires Code Owner review, this makes the owner a required reviewer.
+* @petar-basic
