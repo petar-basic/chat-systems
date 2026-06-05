@@ -1,0 +1,117 @@
+# =============================================================================
+# Chat Systems — Production override
+# =============================================================================
+# Layers TLS (Caddy auto-HTTPS), restart policies, resource limits, hardened
+# config, and automated Postgres backups on top of docker-compose.yml.
+#
+#   # required in .env: DOMAIN, ACME_EMAIL, JWT_SECRET, ADMIN_PASSWORD,
+#   #                   POSTGRES_PASSWORD, MINIO_ROOT_PASSWORD, SMTP_*
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+#     --profile frontend --profile s3 up -d --build
+#
+# Caddy obtains and renews a Let's Encrypt cert for $DOMAIN and serves it on 443.
+# It is the ONLY service that publishes a public port; everything else stays on
+# the docker network (the base file's host ports are loopback-only).
+#
+# Requires Docker Compose v2 (deploy.resources.limits are honored by `up`).
+# =============================================================================
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - frontend
+    environment:
+      DOMAIN: ${DOMAIN:?DOMAIN must be set for production (e.g. chat.example.com)}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL must be set for Let's Encrypt}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+
+  postgres:
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+
+  redis:
+    deploy:
+      resources:
+        limits:
+          memory: 384m
+
+  minio:
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+
+  # Production uses real SMTP (set SMTP_* in .env), not MailHog.
+  mailhog:
+    profiles: ["disabled"]
+
+  api:
+    environment:
+      PUBLIC_URL: https://${DOMAIN:?DOMAIN must be set}
+      CORS_ORIGINS: https://${DOMAIN:?DOMAIN must be set}
+      STORAGE_BACKEND: s3
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set}
+      SMTP_HOST: ${SMTP_HOST:?SMTP_HOST must be set for production}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_ADDRESS: ${SMTP_FROM_ADDRESS:?SMTP_FROM_ADDRESS must be set}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Chat Systems}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+
+  realtime:
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+
+  frontend:
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+
+  db-backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+      BACKUP_INTERVAL_SECS: ${BACKUP_INTERVAL_SECS:-86400}
+    entrypoint: ["/bin/sh", "/backup.sh"]
+    volumes:
+      - ./docker/backup.sh:/backup.sh:ro
+      - pg_backups:/backups
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+
+volumes:
+  caddy_data:
+  caddy_config:
+  pg_backups:

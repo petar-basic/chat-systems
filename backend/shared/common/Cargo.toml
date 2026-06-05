@@ -1,0 +1,14 @@
+[package]
+name = "shared-common"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+axum = { workspace = true }
+tower-http = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+validator = { workspace = true }

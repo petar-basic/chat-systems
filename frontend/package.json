@@ -1,0 +1,107 @@
+{
+  "name": "frontend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "preview": "vite preview",
+    "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:3001 && electron .\"",
+    "electron:build": "tsc -b && vite build && electron-builder",
+    "electron:pack": "tsc -b && vite build && electron-builder --dir",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\" \"e2e/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"e2e/**/*.ts\""
+  },
+  "build": {
+    "appId": "com.chatsystems.app",
+    "productName": "Chat Systems",
+    "protocols": [
+      {
+        "name": "Chat Systems",
+        "schemes": [
+          "chatsystems"
+        ]
+      }
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.social-networking",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ]
+    }
+  },
+  "dependencies": {
+    "@emoji-mart/data": "^1.2.1",
+    "@tanstack/react-query": "^5.90.21",
+    "@tiptap/extension-link": "^3.22.1",
+    "@tiptap/extension-mention": "^3.22.1",
+    "@tiptap/extension-placeholder": "^3.22.1",
+    "@tiptap/extension-underline": "^3.22.1",
+    "@tiptap/react": "^3.22.1",
+    "@tiptap/starter-kit": "^3.22.1",
+    "@tiptap/suggestion": "^3.22.1",
+    "emoji-mart": "^5.6.0",
+    "lucide-react": "^0.577.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.17.0",
+    "reactilities": "^0.5.0",
+    "tiptap-markdown": "^0.9.0",
+    "zustand": "^5.0.11"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@playwright/test": "^1.60.0",
+    "@tailwindcss/vite": "^4.2.1",
+    "@tanstack/react-query-devtools": "^5.91.3",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "concurrently": "^9.2.1",
+    "electron": "^40.7.0",
+    "electron-builder": "^26.8.1",
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "jsdom": "^29.1.1",
+    "prettier": "^3.8.3",
+    "tailwindcss": "^4.2.1",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.48.0",
+    "vite": "^7.3.1",
+    "vitest": "^4.1.8",
+    "wait-on": "^9.0.4"
+  }
+}

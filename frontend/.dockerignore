@@ -1,0 +1,9 @@
+node_modules/
+dist/
+out/
+release/
+electron/
+playwright-report/
+.git/
+.gitignore
+*.md
