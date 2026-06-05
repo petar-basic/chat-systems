@@ -1,0 +1,173 @@
+@import "tailwindcss";
+
+/* ── Base resets ──────────────────────────────────────────────── */
+@layer base {
+  /* Tailwind v4 Preflight sets buttons to cursor:default; restore the pointer
+     once globally instead of hand-adding `cursor-pointer` to every control. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+
+  /* Visible keyboard focus everywhere (Preflight strips the UA outline). */
+  :focus-visible {
+    outline: 2px solid rgb(167 139 250);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}
+
+/* Respect OS "reduce motion" — kill the spinners/bounces for sensitive users. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Tiptap shared content styles ─────────────────────────────── */
+.tiptap-content,
+.tiptap-editor .tiptap {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: rgb(203 213 225);
+  word-break: break-words;
+}
+
+.tiptap-content p,
+.tiptap-editor .tiptap p {
+  margin: 0;
+}
+
+.tiptap-content p + p,
+.tiptap-editor .tiptap p + p {
+  margin-top: 0.25rem;
+}
+
+.tiptap-content strong,
+.tiptap-editor .tiptap strong {
+  font-weight: 700;
+  color: rgb(226 232 240);
+}
+
+.tiptap-content em,
+.tiptap-editor .tiptap em {
+  font-style: italic;
+}
+
+.tiptap-content u,
+.tiptap-editor .tiptap u {
+  text-decoration: underline;
+}
+
+.tiptap-content s,
+.tiptap-editor .tiptap s {
+  text-decoration: line-through;
+  color: rgb(148 163 184);
+}
+
+.tiptap-content code:not(pre code),
+.tiptap-editor .tiptap code:not(pre code) {
+  padding: 0.125rem 0.375rem;
+  background: rgba(51, 65, 85, 0.7);
+  color: rgb(249 168 212);
+  border-radius: 0.25rem;
+  font-size: 0.85em;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+
+.tiptap-content pre,
+.tiptap-editor .tiptap pre {
+  margin: 0.25rem 0;
+  padding: 0.75rem;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+  border-radius: 0.5rem;
+  overflow-x: auto;
+}
+
+.tiptap-content pre code,
+.tiptap-editor .tiptap pre code {
+  padding: 0;
+  background: transparent;
+  color: rgb(134 239 172);
+  font-size: 0.875rem;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+
+.tiptap-content ul,
+.tiptap-editor .tiptap ul {
+  list-style-type: disc;
+  padding-left: 1.25rem;
+  margin: 0.25rem 0;
+}
+
+.tiptap-content ol,
+.tiptap-editor .tiptap ol {
+  list-style-type: decimal;
+  padding-left: 1.25rem;
+  margin: 0.25rem 0;
+}
+
+.tiptap-content blockquote,
+.tiptap-editor .tiptap blockquote {
+  border-left: 3px solid rgb(100 116 139);
+  padding-left: 0.75rem;
+  margin: 0.25rem 0;
+  color: rgb(148 163 184);
+}
+
+.tiptap-content a,
+.tiptap-editor .tiptap a {
+  color: rgb(96 165 250);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ── Mention pill ─────────────────────────────────────────────── */
+.tiptap-editor .tiptap .mention,
+.tiptap-content .mention {
+  display: inline;
+  border-radius: 3px;
+  padding: 0 3px;
+  font-weight: 500;
+  cursor: default;
+}
+
+/* Input editor: all mentions use the "other" style (no self-detection needed) */
+.tiptap-editor .tiptap .mention {
+  background: rgba(139, 92, 246, 0.15);
+  color: rgb(167 139 250);
+}
+
+/* Display: mention of another user */
+.tiptap-content .mention-other {
+  background: rgba(139, 92, 246, 0.15);
+  color: rgb(167 139 250);
+}
+
+/* Display: mention of current user / @here / @everyone / @channel */
+.tiptap-content .mention-self {
+  background: rgba(245, 158, 11, 0.2);
+  color: rgb(251 191 36);
+}
+
+/* ── Editor (input) specific ──────────────────────────────────── */
+.tiptap-editor .tiptap {
+  outline: none;
+  min-height: 1.5rem;
+  flex: 1;
+}
+
+/* Placeholder */
+.tiptap-editor .tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: rgb(100 116 139);
+  pointer-events: none;
+  float: left;
+  height: 0;
+}

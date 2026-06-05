@@ -1,0 +1,88 @@
+[workspace]
+members = [
+    "shared/common",
+    "shared/events",
+    "api",
+    "realtime",
+]
+resolver = "2"
+
+[workspace.package]
+version = "1.0.0"
+edition = "2021"
+rust-version = "1.75"
+license = "MIT"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Web framework
+axum = { version = "0.7", features = ["ws", "multipart"] }
+axum-extra = { version = "0.9", features = ["typed-header", "cookie"] }
+tower = { version = "0.4" }
+tower-http = { version = "0.5", features = ["cors", "compression-gzip", "trace", "limit", "timeout", "request-id"] }
+
+# Database
+sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "chrono", "json", "migrate"] }
+
+# Redis
+redis = { version = "0.27", features = ["tokio-comp", "connection-manager"] }
+
+# S3 / MinIO
+aws-sdk-s3 = "1"
+aws-config = "1"
+
+# Auth
+jsonwebtoken = "9"
+argon2 = "0.5"
+
+# Crypto (webhook signing)
+hmac = "0.12"
+sha2 = "0.10"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+# Utilities
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+time = { version = "0.3", features = ["serde"] }
+rand = "0.8"
+mime_guess = "2"
+base64 = "0.22"
+url = "2"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Metrics
+metrics = "0.24"
+metrics-exporter-prometheus = { version = "0.18", default-features = false }
+
+# Email
+lettre = { version = "0.11", default-features = false, features = ["tokio1-rustls-tls", "builder", "smtp-transport"] }
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json"] }
+
+# Error handling
+thiserror = "1"
+anyhow = "1"
+
+# Validation
+validator = { version = "0.18", features = ["derive"] }
+
+# Async traits
+async-trait = "0.1"
+
+# Concurrency
+dashmap = "5"
+futures-util = "0.3"
+
+# Internal shared crates
+shared-common = { path = "shared/common" }
+shared-events = { path = "shared/events" }

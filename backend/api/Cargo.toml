@@ -1,0 +1,83 @@
+[package]
+name = "chat-api"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+shared-common = { path = "../shared/common" }
+shared-events = { path = "../shared/events" }
+
+# Async runtime
+tokio = { workspace = true }
+
+# Web framework
+axum = { workspace = true }
+axum-extra = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+
+# Database
+sqlx = { workspace = true }
+
+# Redis
+redis = { workspace = true }
+
+# S3 / MinIO
+aws-sdk-s3 = { workspace = true }
+aws-config = { workspace = true }
+
+# Auth
+jsonwebtoken = { workspace = true }
+argon2 = { workspace = true }
+
+# Async traits (FileStorage)
+async-trait = { workspace = true }
+
+# Crypto (webhook signing)
+hmac = { workspace = true }
+sha2 = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Utilities
+uuid = { workspace = true }
+chrono = { workspace = true }
+time = { workspace = true }
+rand = { workspace = true }
+mime_guess = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# Metrics
+metrics = { workspace = true }
+metrics-exporter-prometheus = { workspace = true }
+
+# Email
+lettre = { workspace = true }
+
+# HTTP client (for outgoing webhooks)
+reqwest = { workspace = true }
+
+# Error handling
+anyhow = { workspace = true }
+
+# Async streams (for Redis consumers)
+futures-util = { workspace = true }
+
+# Environment variables
+dotenv = "0.15"
+
+[dev-dependencies]
+# `#[tokio::test]` (macros) + a real runtime for async tests.
+tokio = { workspace = true }
+# `#[sqlx::test]` spins up a fresh DB + runs migrations per test.
+sqlx = { workspace = true }
+# Decoding/asserting JWT claims directly in tests.
+jsonwebtoken = { workspace = true }
+uuid = { workspace = true }
+# `ServiceExt::oneshot` for driving the router in HTTP integration tests.
+tower = { workspace = true, features = ["util"] }

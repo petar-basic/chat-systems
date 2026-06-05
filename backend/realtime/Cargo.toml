@@ -1,0 +1,33 @@
+[package]
+name = "chat-realtime"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "chat-realtime"
+path = "src/main.rs"
+
+[dependencies]
+shared-common = { path = "../shared/common" }
+
+tokio = { workspace = true }
+axum = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+redis = { workspace = true }
+sqlx = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+jsonwebtoken = { workspace = true }
+dashmap = { workspace = true }
+futures-util = { workspace = true }
+dotenv = "0.15"
+
+[dev-dependencies]
+# `ServiceExt::oneshot` for driving the realtime router in integration tests.
+tower = { workspace = true, features = ["util"] }

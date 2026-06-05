@@ -1,0 +1,20 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# The frontend nginx serves the SPA and proxies /api and /ws internally.
+	# Caddy handles TLS termination and forwards everything (WebSocket upgrades
+	# included) to it.
+	reverse_proxy frontend:8080
+}
