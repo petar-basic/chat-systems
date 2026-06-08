@@ -273,6 +273,22 @@ export const useWebSocketQuerySync = () => {
       }),
     );
 
+    unsubs.push(
+      globalEventBus.on('huddle.started', (event) => {
+        if (!event.channel_id) return;
+        useWorkspaceStore
+          .getState()
+          .setChannelHuddle(event.channel_id, {
+            huddleId: event.huddle_id,
+            initiatorId: event.initiator_id,
+          });
+      }),
+      globalEventBus.on('huddle.ended', (event) => {
+        if (!event.channel_id) return;
+        useWorkspaceStore.getState().clearChannelHuddle(event.channel_id);
+      }),
+    );
+
     return () => {
       for (const unsub of unsubs) unsub();
     };

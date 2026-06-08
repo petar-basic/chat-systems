@@ -24,7 +24,7 @@ pub async fn start_consumer(redis_url: &str, repo: Arc<NotificationRepo>) {
         }
     };
 
-    let channels = ["events:message", "events:reaction"];
+    let channels = ["events:message", "events:reaction", "events:huddle"];
     for ch in &channels {
         if let Err(e) = pubsub.subscribe(ch).await {
             warn!(
@@ -148,6 +148,57 @@ pub async fn start_consumer(redis_url: &str, repo: Arc<NotificationRepo>) {
                                 pub_conn.publish("events:notification", &json).await;
                         }
                     }
+                }
+            }
+            "huddle.ring" => {
+                let to_user_id = event_payload
+                    .get("to_user_id")
+                    .and_then(|v| v.as_str())
+                    .and_then(|v| v.parse::<uuid::Uuid>().ok());
+                let workspace_id = event_payload
+                    .get("workspace_id")
+                    .and_then(|v| v.as_str())
+                    .and_then(|v| v.parse::<uuid::Uuid>().ok());
+
+                if let (Some(uid), Some(ws_id)) = (to_user_id, workspace_id) {
+                    let data_json = serde_json::json!({
+                        "huddle_id": event_payload.get("huddle_id"),
+                        "from_user_id": event_payload.get("from_user_id"),
+                    });
+
+                    if let Err(e) = repo
+                        .create(
+                            uid,
+                            ws_id,
+                            &NotificationType::Call,
+                            "Incoming huddle",
+                            Some("Someone is starting a huddle"),
+                            &data_json,
+                        )
+                        .await
+                    {
+                        warn!(
+                            user_id = %uid,
+                            "Huddle consumer: failed to persist call notification: {}", e
+                        );
+                    }
+
+                    if repo.is_dnd_active(uid).await.unwrap_or(false) {
+                        continue;
+                    }
+
+                    let notif_event = serde_json::json!({
+                        "event_type": "notification.push",
+                        "payload": {
+                            "user_id": uid.to_string(),
+                            "workspace_id": ws_id.to_string(),
+                            "title": "Incoming huddle",
+                            "body": "Someone is starting a huddle",
+                            "priority": "call",
+                        }
+                    });
+                    let json = serde_json::to_string(&notif_event).unwrap_or_default();
+                    let _: Result<(), _> = pub_conn.publish("events:notification", &json).await;
                 }
             }
             "reaction.added" => {}

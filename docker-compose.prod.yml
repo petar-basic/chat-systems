@@ -86,6 +86,15 @@ services:
         limits:
           memory: 512m
 
+  # Enable with `--profile turn`. Set TURN_SECRET, TURN_URLS, and TURN_REALM in
+  # .env; for turns:// mount a TLS cert/key and uncomment cert/pkey in
+  # docker/coturn/turnserver.conf.
+  coturn:
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+
   frontend:
     deploy:
       resources:

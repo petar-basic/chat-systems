@@ -122,6 +122,7 @@ pub async fn handle_ws(socket: WebSocket, user_id: Uuid, exp: i64, cm: Arc<Conne
                     break;
                 }
                 cm.presence_refresh(user_id).await;
+                cm.huddle_redis_refresh_conn(&conn_id, user_id).await;
             }
         }
     }
@@ -134,8 +135,22 @@ pub async fn handle_ws(socket: WebSocket, user_id: Uuid, exp: i64, cm: Arc<Conne
     info!("WS disconnected: user={}, conn={}", user_id, conn_id);
 }
 
-async fn cleanup(cm: &Arc<ConnectionManager>, conn_id: &Uuid, _user_id: Uuid) {
-    if let Some((uid, was_last)) = cm.remove_connection(conn_id) {
+async fn cleanup(cm: &Arc<ConnectionManager>, conn_id: &Uuid, user_id: Uuid) {
+    let huddles = cm.huddle_ids_for_conn(conn_id);
+    let removed = cm.remove_connection(conn_id);
+
+    for huddle_id in huddles {
+        if !cm.user_in_huddle_local(user_id, huddle_id) {
+            cm.huddle_redis_leave(huddle_id, user_id).await;
+            cm.publish_huddle(
+                "huddle.member_left",
+                serde_json::json!({ "huddle_id": huddle_id, "user_id": user_id }),
+            )
+            .await;
+        }
+    }
+
+    if let Some((uid, was_last)) = removed {
         if was_last {
             let fully_offline = cm.presence_clear(uid).await;
             if fully_offline {
@@ -248,6 +263,188 @@ pub(crate) async fn handle_client_message(
                 }
             }
         }
+        "huddle.join" => {
+            let Some(huddle_id) = msg_uuid(&msg, "huddle_id") else {
+                return;
+            };
+            let allowed = if let Some(channel_id) = msg_uuid(&msg, "channel_id") {
+                cm.is_channel_member(channel_id, user_id).await
+            } else if let (Some(ws_id), Some(partner_id)) = (
+                msg_uuid(&msg, "workspace_id"),
+                msg_uuid(&msg, "dm_partner_id"),
+            ) {
+                cm.is_workspace_member(ws_id, user_id).await
+                    && cm.is_workspace_member(ws_id, partner_id).await
+            } else {
+                false
+            };
+            if !allowed {
+                warn!(
+                    "Denied huddle.join: user {} not authorized for huddle {}",
+                    user_id, huddle_id
+                );
+                return;
+            }
+            cm.join_huddle(conn_id, huddle_id);
+            cm.huddle_redis_join(huddle_id, user_id).await;
+            cm.publish_huddle(
+                "huddle.member_joined",
+                serde_json::json!({ "huddle_id": huddle_id, "user_id": user_id }),
+            )
+            .await;
+            let members = cm.huddle_redis_members(huddle_id).await;
+            let snapshot = serde_json::json!({
+                "type": "huddle.members",
+                "huddle_id": huddle_id,
+                "user_ids": members,
+            });
+            cm.send_to_user(user_id, &snapshot.to_string()).await;
+            info!("User {} joined huddle {}", user_id, huddle_id);
+        }
+        "huddle.leave" => {
+            let Some(huddle_id) = msg_uuid(&msg, "huddle_id") else {
+                return;
+            };
+            cm.leave_huddle(conn_id, huddle_id);
+            if !cm.user_in_huddle_local(user_id, huddle_id) {
+                cm.huddle_redis_leave(huddle_id, user_id).await;
+                cm.publish_huddle(
+                    "huddle.member_left",
+                    serde_json::json!({ "huddle_id": huddle_id, "user_id": user_id }),
+                )
+                .await;
+            }
+            info!("User {} left huddle {}", user_id, huddle_id);
+        }
+        "huddle.offer" | "huddle.answer" | "huddle.ice" => {
+            let (Some(huddle_id), Some(to_user_id)) =
+                (msg_uuid(&msg, "huddle_id"), msg_uuid(&msg, "to_user_id"))
+            else {
+                return;
+            };
+            if !cm.huddle_redis_is_member(huddle_id, user_id).await
+                || !cm.huddle_redis_is_member(huddle_id, to_user_id).await
+            {
+                warn!(
+                    "Denied huddle signaling: {} -> {} not both in huddle {}",
+                    user_id, to_user_id, huddle_id
+                );
+                return;
+            }
+            let mut payload = serde_json::json!({
+                "huddle_id": huddle_id,
+                "from_user_id": user_id,
+                "to_user_id": to_user_id,
+            });
+            if let Some(sdp) = msg.get("sdp") {
+                payload["sdp"] = sdp.clone();
+            }
+            if let Some(candidate) = msg.get("candidate") {
+                payload["candidate"] = candidate.clone();
+            }
+            cm.publish_huddle(msg_type, payload).await;
+        }
+        "huddle.mute" => {
+            let Some(huddle_id) = msg_uuid(&msg, "huddle_id") else {
+                return;
+            };
+            if !cm.huddle_redis_is_member(huddle_id, user_id).await {
+                return;
+            }
+            let audio_muted = msg
+                .get("audio_muted")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            cm.publish_huddle(
+                "huddle.mute",
+                serde_json::json!({
+                    "huddle_id": huddle_id,
+                    "user_id": user_id,
+                    "audio_muted": audio_muted,
+                }),
+            )
+            .await;
+        }
+        "huddle.camera" => {
+            let Some(huddle_id) = msg_uuid(&msg, "huddle_id") else {
+                return;
+            };
+            if !cm.huddle_redis_is_member(huddle_id, user_id).await {
+                return;
+            }
+            let camera_on = msg
+                .get("camera_on")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            cm.publish_huddle(
+                "huddle.camera",
+                serde_json::json!({
+                    "huddle_id": huddle_id,
+                    "user_id": user_id,
+                    "camera_on": camera_on,
+                }),
+            )
+            .await;
+        }
+        "huddle.screenshare" => {
+            let Some(huddle_id) = msg_uuid(&msg, "huddle_id") else {
+                return;
+            };
+            if !cm.huddle_redis_is_member(huddle_id, user_id).await {
+                return;
+            }
+            let sharing = msg
+                .get("sharing")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            cm.publish_huddle(
+                "huddle.screenshare",
+                serde_json::json!({
+                    "huddle_id": huddle_id,
+                    "user_id": user_id,
+                    "sharing": sharing,
+                }),
+            )
+            .await;
+        }
+        "huddle.reaction" => {
+            let Some(huddle_id) = msg_uuid(&msg, "huddle_id") else {
+                return;
+            };
+            let Some(emoji) = msg.get("emoji").and_then(|v| v.as_str()) else {
+                return;
+            };
+            if emoji.chars().count() > 8 || !cm.huddle_redis_is_member(huddle_id, user_id).await {
+                return;
+            }
+            cm.publish_huddle(
+                "huddle.reaction",
+                serde_json::json!({
+                    "huddle_id": huddle_id,
+                    "user_id": user_id,
+                    "emoji": emoji,
+                }),
+            )
+            .await;
+        }
+        "huddle.hand" => {
+            let Some(huddle_id) = msg_uuid(&msg, "huddle_id") else {
+                return;
+            };
+            if !cm.huddle_redis_is_member(huddle_id, user_id).await {
+                return;
+            }
+            let raised = msg.get("raised").and_then(|v| v.as_bool()).unwrap_or(false);
+            cm.publish_huddle(
+                "huddle.hand",
+                serde_json::json!({
+                    "huddle_id": huddle_id,
+                    "user_id": user_id,
+                    "raised": raised,
+                }),
+            )
+            .await;
+        }
         "ping" => {
             cm.send_to_user(user_id, &serde_json::json!({"type":"pong"}).to_string())
                 .await;
@@ -256,4 +453,10 @@ pub(crate) async fn handle_client_message(
             warn!("Unknown client message type: {}", msg_type);
         }
     }
+}
+
+fn msg_uuid(msg: &serde_json::Value, key: &str) -> Option<Uuid> {
+    msg.get(key)
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse::<Uuid>().ok())
 }

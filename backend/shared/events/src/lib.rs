@@ -1,4 +1,5 @@
 pub mod auth_events;
+pub mod huddle_events;
 pub mod messaging_events;
 pub mod workspace_events;
 

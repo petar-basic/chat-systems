@@ -1,4 +1,4 @@
-const { app, BrowserWindow, shell, ipcMain, Notification } = require('electron');
+const { app, BrowserWindow, shell, ipcMain, Notification, desktopCapturer } = require('electron');
 const path = require('path');
 
 const isDev = !app.isPackaged;
@@ -49,6 +49,19 @@ function createWindow() {
     shell.openExternal(url);
     return { action: 'deny' };
   });
+
+  // Huddle screen share: getDisplayMedia() in the renderer needs a main-process
+  // handler. On macOS 15+/Windows the OS picker is used; elsewhere we grant the
+  // first available source.
+  mainWindow.webContents.session.setDisplayMediaRequestHandler(
+    (request, callback) => {
+      desktopCapturer
+        .getSources({ types: ['screen', 'window'] })
+        .then((sources) => callback(sources[0] ? { video: sources[0] } : undefined))
+        .catch(() => callback(undefined));
+    },
+    { useSystemPicker: true },
+  );
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:3001');

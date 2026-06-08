@@ -261,6 +261,18 @@ Instance-level administration. Requires `is_instance_admin = true`.
 
 ---
 
+### huddle
+
+Live voice/video rooms (Slack-style huddles) over mesh WebRTC. Live membership and media signaling run over `chat-realtime`; this REST surface covers what the browser needs from the API.
+
+| Method | Route | Input | Output |
+|--------|-------|-------|--------|
+| GET | `/workspaces/:ws_id/ice-servers` | — | `{ ice_servers: IceServer[], ttl: number }` |
+
+`IceServer` is the WebRTC `RTCIceServer` shape: `{ urls: string[], username?, credential? }`. STUN entries are always returned; a TURN entry with time-limited credentials (TURN REST API, `username = "<expiry-unix>:<user-id>"`, `credential = base64(hmac_sha1(TURN_SECRET, username))`) is added only when `TURN_SECRET` and `TURN_URLS` are configured. See the coturn service in `docker-compose.yml` and the TURN section of `.env.example`.
+
+---
+
 ## chat-realtime (WebSocket Gateway)
 
 Single WebSocket endpoint. Validates the JWT on the upgrade handshake, re-checks channel/workspace membership against the DB on every subscribe/join, then relays Redis pub/sub events to connected clients. The socket is also closed when the access token's `exp` passes, so a long-lived connection can't outlive its token.
@@ -297,7 +309,7 @@ All events use the envelope: `{ id, event_type, payload, timestamp }`.
 
 ### shared-events
 - `Event<T>` envelope with `id`, `event_type`, `payload`, `timestamp`
-- Typed event payloads for auth, messaging, and workspace domains
+- Typed event payloads for auth, messaging, workspace, and huddle domains
 
 ---
 

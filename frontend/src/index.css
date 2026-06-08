@@ -29,6 +29,26 @@
   }
 }
 
+/* ── Huddle floating reactions ────────────────────────────────── */
+@keyframes huddle-float {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.6);
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(-8px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-72px) scale(1.1);
+  }
+}
+
+.huddle-float {
+  animation: huddle-float 2.4s ease-out forwards;
+}
+
 /* ── Tiptap shared content styles ─────────────────────────────── */
 .tiptap-content,
 .tiptap-editor .tiptap {

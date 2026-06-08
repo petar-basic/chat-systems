@@ -84,6 +84,28 @@ impl MessageRepo {
         Ok(msg)
     }
 
+    pub async fn create_system_message(
+        &self,
+        channel_id: Uuid,
+        user_id: Uuid,
+        content: &str,
+        metadata: serde_json::Value,
+    ) -> sqlx::Result<Message> {
+        sqlx::query_as::<_, Message>(
+            r#"
+            INSERT INTO messages (channel_id, user_id, content, metadata)
+            VALUES ($1, $2, $3, $4)
+            RETURNING *
+            "#,
+        )
+        .bind(channel_id)
+        .bind(user_id)
+        .bind(content)
+        .bind(metadata)
+        .fetch_one(&self.pool)
+        .await
+    }
+
     pub async fn find_by_id(&self, id: Uuid) -> sqlx::Result<Option<Message>> {
         sqlx::query_as::<_, Message>("SELECT * FROM messages WHERE id = $1 AND deleted_at IS NULL")
             .bind(id)
