@@ -134,18 +134,6 @@ async fn start_huddle(
             let _ = state
                 .publisher
                 .publish(
-                    "huddle.started",
-                    serde_json::json!({
-                        "huddle_id": huddle_id,
-                        "workspace_id": ws_id,
-                        "dm_partner_id": partner_id,
-                        "initiator_id": auth.user_id,
-                    }),
-                )
-                .await;
-            let _ = state
-                .publisher
-                .publish(
                     "huddle.ring",
                     serde_json::json!({
                         "huddle_id": huddle_id,

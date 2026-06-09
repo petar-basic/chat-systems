@@ -348,8 +348,11 @@ impl ConnectionManager {
     }
 
     pub async fn publish_huddle(&self, event_type: &str, payload: serde_json::Value) {
-        self.publish_event("events:huddle", event_type, payload)
-            .await;
+        let channel = match event_type {
+            "huddle.member_joined" | "huddle.member_left" => "events:huddle",
+            _ => "events:huddle-signal",
+        };
+        self.publish_event(channel, event_type, payload).await;
     }
 
     fn huddle_members_key(huddle_id: &Uuid) -> String {

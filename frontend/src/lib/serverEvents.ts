@@ -88,13 +88,6 @@ export type AppServerEvent =
       from_user_id: string;
       to_user_id: string;
       channel_id?: string;
-    }
-  | {
-      type: 'huddle.invited';
-      huddle_id: string;
-      workspace_id: string;
-      from_user_id: string;
-      to_user_id: string;
     };
 
 export type ServerEventType = AppServerEvent['type'];

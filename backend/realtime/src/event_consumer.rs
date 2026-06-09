@@ -31,6 +31,7 @@ pub async fn start_event_consumer(redis_url: &str, cm: Arc<ConnectionManager>) {
         "events:presence",
         "events:typing",
         "events:huddle",
+        "events:huddle-signal",
     ];
     for ch in &channels {
         if let Err(e) = pubsub.subscribe(ch).await {

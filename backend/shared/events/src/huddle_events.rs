@@ -26,11 +26,3 @@ pub struct HuddleRing {
     pub to_user_id: Uuid,
     pub channel_id: Option<Uuid>,
 }
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HuddleInvited {
-    pub huddle_id: Uuid,
-    pub workspace_id: Uuid,
-    pub from_user_id: Uuid,
-    pub to_user_id: Uuid,
-}
