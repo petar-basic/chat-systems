@@ -22,9 +22,7 @@ export interface IncomingCall {
   instanceUrl: string;
 }
 
-export type HuddleScope =
-  | { kind: 'dm'; partnerId: string }
-  | { kind: 'channel'; channelId: string };
+export type HuddleScope = { kind: 'dm'; partnerId: string } | { kind: 'channel'; channelId: string };
 
 export interface ActiveHuddle {
   huddleId: string;

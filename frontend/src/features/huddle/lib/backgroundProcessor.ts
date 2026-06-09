@@ -6,7 +6,7 @@ const MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite';
 const BLUR_PX = 12;
 const FRAME_INTERVAL_MS = 40;
-const PERSON_THRESHOLD = 0;
+const BACKGROUND_THRESHOLD = 0;
 
 function makeCanvas(width: number, height: number): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
@@ -59,7 +59,12 @@ export class BackgroundProcessor {
   private loop = (): void => {
     if (!this.running) return;
     const now = performance.now();
-    if (this.video && this.segmenter && this.video.readyState >= 2 && now - this.lastFrame >= FRAME_INTERVAL_MS) {
+    if (
+      this.video &&
+      this.segmenter &&
+      this.video.readyState >= 2 &&
+      now - this.lastFrame >= FRAME_INTERVAL_MS
+    ) {
       this.lastFrame = now;
       try {
         this.segmenter.segmentForVideo(this.video, now, (result) => this.composite(result));
@@ -96,7 +101,7 @@ export class BackgroundProcessor {
     const data = mask.getAsUint8Array();
     const maskImage = mctx.createImageData(width, height);
     for (let i = 0; i < data.length; i++) {
-      const alpha = data[i] > PERSON_THRESHOLD ? 255 : 0;
+      const alpha = data[i] > BACKGROUND_THRESHOLD ? 0 : 255;
       const j = i * 4;
       maskImage.data[j] = 255;
       maskImage.data[j + 1] = 255;

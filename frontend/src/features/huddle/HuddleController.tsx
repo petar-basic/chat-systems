@@ -86,17 +86,11 @@ export function HuddleController() {
       micStreamRef.current = stream;
       useHuddleStore.getState().setLocalStream(stream);
 
-      const mesh = new MeshManager(
-        active.huddleId,
-        active.selfUserId,
-        iceServers,
-        send,
-        (peerId, remote) => {
-          const store = useHuddleStore.getState();
-          store.upsertParticipant(peerId);
-          store.setParticipantStream(peerId, remote);
-        },
-      );
+      const mesh = new MeshManager(active.huddleId, active.selfUserId, iceServers, send, (peerId, remote) => {
+        const store = useHuddleStore.getState();
+        store.upsertParticipant(peerId);
+        store.setParticipantStream(peerId, remote);
+      });
       mesh.setLocalStream(stream);
       meshRef.current = mesh;
 
@@ -277,7 +271,12 @@ export function HuddleController() {
     screenTrackRef.current = null;
     useHuddleStore.getState().setLocalSharing(false);
     const store = useHuddleStore.getState();
-    if (store.localCameraOn && store.background === 'blur' && camTrackRef.current && !processedTrackRef.current) {
+    if (
+      store.localCameraOn &&
+      store.background === 'blur' &&
+      camTrackRef.current &&
+      !processedTrackRef.current
+    ) {
       void startBlur();
     } else {
       updateVideoOutput();
@@ -332,23 +331,26 @@ export function HuddleController() {
     }
   }, []);
 
-  const selectCamera = useCallback(async (deviceId: string) => {
-    useHuddleStore.getState().setDevice('cameraId', deviceId);
-    if (!useHuddleStore.getState().localCameraOn) return;
-    try {
-      const camStream = await acquireCamera(deviceId);
-      stopBlur();
-      camTrackRef.current?.stop();
-      camTrackRef.current = camStream.getVideoTracks()[0];
-      if (useHuddleStore.getState().background === 'blur' && !useHuddleStore.getState().localSharing) {
-        await startBlur();
-      } else {
-        updateVideoOutput();
+  const selectCamera = useCallback(
+    async (deviceId: string) => {
+      useHuddleStore.getState().setDevice('cameraId', deviceId);
+      if (!useHuddleStore.getState().localCameraOn) return;
+      try {
+        const camStream = await acquireCamera(deviceId);
+        stopBlur();
+        camTrackRef.current?.stop();
+        camTrackRef.current = camStream.getVideoTracks()[0];
+        if (useHuddleStore.getState().background === 'blur' && !useHuddleStore.getState().localSharing) {
+          await startBlur();
+        } else {
+          updateVideoOutput();
+        }
+      } catch (err) {
+        logger.error('HuddleController', 'selectCamera', err);
       }
-    } catch (err) {
-      logger.error('HuddleController', 'selectCamera', err);
-    }
-  }, [startBlur, stopBlur, updateVideoOutput]);
+    },
+    [startBlur, stopBlur, updateVideoOutput],
+  );
 
   const selectSpeaker = useCallback((deviceId: string) => {
     useHuddleStore.getState().setDevice('speakerId', deviceId);

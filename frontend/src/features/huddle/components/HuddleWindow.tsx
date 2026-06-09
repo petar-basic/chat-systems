@@ -15,6 +15,8 @@ import {
   UserPlus,
   LayoutGrid,
   Maximize2,
+  Expand,
+  Shrink,
 } from 'lucide-react';
 import { useHuddleStore, type ActiveHuddle } from '@/stores/huddle';
 import { useUserCache } from '@/stores/users';
@@ -44,6 +46,7 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
   const speakerId = useHuddleStore((s) => s.devices.speakerId);
   const reactions = useHuddleStore((s) => s.reactions);
   const [layout, setLayout] = useState<Layout>('grid');
+  const [expanded, setExpanded] = useState(false);
 
   if (!active) return null;
 
@@ -82,7 +85,11 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
     <div
       role="dialog"
       aria-label="Huddle"
-      className="fixed bottom-4 right-4 z-60 w-[30rem] max-w-[calc(100vw-2rem)] bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-3 flex flex-col gap-3"
+      className={
+        expanded
+          ? 'fixed inset-0 z-60 bg-slate-900 p-4 flex flex-col gap-3'
+          : 'fixed bottom-4 right-4 z-60 w-120 max-w-[calc(100vw-2rem)] bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-3 flex flex-col gap-3'
+      }
     >
       {tiles.map((t) => (
         <SpeakingDetector key={`spk-${t.userId}`} userId={t.userId} stream={t.audioStream ?? t.stream} />
@@ -92,17 +99,27 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
         <span className="text-sm font-semibold text-white">
           Huddle <span className="text-slate-400 font-normal">· {tiles.length}</span>
         </span>
-        <button
-          onClick={() => setLayout((l) => (l === 'grid' ? 'focus' : 'grid'))}
-          aria-label={layout === 'grid' ? 'Focus view' : 'Grid view'}
-          title={layout === 'grid' ? 'Focus view' : 'Grid view'}
-          className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/50 transition"
-        >
-          {layout === 'grid' ? <Maximize2 className="w-4 h-4" /> : <LayoutGrid className="w-4 h-4" />}
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setLayout((l) => (l === 'grid' ? 'focus' : 'grid'))}
+            aria-label={layout === 'grid' ? 'Focus view' : 'Grid view'}
+            title={layout === 'grid' ? 'Focus view' : 'Grid view'}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/50 transition"
+          >
+            {layout === 'grid' ? <Maximize2 className="w-4 h-4" /> : <LayoutGrid className="w-4 h-4" />}
+          </button>
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            aria-label={expanded ? 'Collapse huddle' : 'Expand huddle'}
+            title={expanded ? 'Collapse' : 'Full screen'}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/50 transition"
+          >
+            {expanded ? <Shrink className="w-4 h-4" /> : <Expand className="w-4 h-4" />}
+          </button>
+        </div>
       </div>
 
-      <div className="relative">
+      <div className={`relative ${expanded ? 'flex-1 min-h-0 overflow-y-auto' : ''}`}>
         {layout === 'focus' ? (
           <div className="flex flex-col gap-2">
             <VideoTile
@@ -128,7 +145,9 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-2">
+          <div
+            className={`grid gap-2 ${expanded ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 content-start' : 'grid-cols-2'}`}
+          >
             {tiles.map((t) => (
               <VideoTile
                 key={t.userId}
@@ -289,7 +308,9 @@ function VideoTile({
           {name}
           {isSelf && ' (you)'}
         </span>
-        {sharing && <span className="px-1 py-0.5 rounded bg-purple-600/80 text-[10px] text-white">Sharing</span>}
+        {sharing && (
+          <span className="px-1 py-0.5 rounded bg-purple-600/80 text-[10px] text-white">Sharing</span>
+        )}
         {muted && <MicOff className="w-3 h-3 text-red-400 shrink-0" />}
       </div>
 

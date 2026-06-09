@@ -7,10 +7,7 @@ type StartHuddleBody = { channel_id: string } | { dm_partner_id: string };
 export const useStartHuddle = (workspaceId: string, instanceUrl?: string) =>
   useMutation({
     mutationFn: async (body: StartHuddleBody) =>
-      getApiForInstance(instanceUrl).post<{ huddle_id: string }>(
-        `/workspaces/${workspaceId}/huddles`,
-        body,
-      ),
+      getApiForInstance(instanceUrl).post<{ huddle_id: string }>(`/workspaces/${workspaceId}/huddles`, body),
     onError: (err) => logger.error('useStartHuddle', 'mutationFn', err),
   });
 
