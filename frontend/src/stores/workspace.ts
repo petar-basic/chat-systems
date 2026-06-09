@@ -85,6 +85,9 @@ interface WorkspaceState {
   setCurrentUserId: (id: string | null) => void;
   setChannelHuddle: (channelId: string, info: { huddleId: string; initiatorId: string }) => void;
   clearChannelHuddle: (channelId: string) => void;
+  replaceActiveHuddleChannels: (
+    entries: Array<{ channelId: string; huddleId: string; initiatorId: string }>,
+  ) => void;
   markChannelRead: (channelId: string) => void;
   markDmRead: (partnerId: string) => void;
   markDmUnread: (partnerId: string) => void;
@@ -144,6 +147,15 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       if (!s.activeHuddleChannels.has(channelId)) return s;
       const next = new Map(s.activeHuddleChannels);
       next.delete(channelId);
+      return { activeHuddleChannels: next };
+    }),
+
+  replaceActiveHuddleChannels: (entries) =>
+    set(() => {
+      const next = new Map<string, { huddleId: string; initiatorId: string }>();
+      for (const e of entries) {
+        next.set(e.channelId, { huddleId: e.huddleId, initiatorId: e.initiatorId });
+      }
       return { activeHuddleChannels: next };
     }),
 

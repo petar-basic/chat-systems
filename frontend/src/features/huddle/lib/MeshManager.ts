@@ -8,6 +8,7 @@ interface PeerState {
   makingOffer: boolean;
   ignoreOffer: boolean;
   polite: boolean;
+  pendingCandidates: RTCIceCandidateInit[];
 }
 
 export class MeshManager {
@@ -54,6 +55,7 @@ export class MeshManager {
       makingOffer: false,
       ignoreOffer: false,
       polite: this.selfUserId < peerId,
+      pendingCandidates: [],
     };
     this.peers.set(peerId, state);
 
@@ -93,10 +95,23 @@ export class MeshManager {
     };
 
     pc.onconnectionstatechange = () => {
+      logger.info('MeshManager', 'connectionState', `${peerId} -> ${pc.connectionState}`);
       if (pc.connectionState === 'failed') pc.restartIce();
     };
 
     this.applyVideo(peerId, pc);
+  }
+
+  private async flushCandidates(state: PeerState): Promise<void> {
+    const pending = state.pendingCandidates;
+    state.pendingCandidates = [];
+    for (const candidate of pending) {
+      try {
+        await state.pc.addIceCandidate(candidate);
+      } catch (err) {
+        logger.error('MeshManager', 'flushCandidates', err);
+      }
+    }
   }
 
   private applyVideo(peerId: string, pc: RTCPeerConnection): void {
@@ -120,6 +135,7 @@ export class MeshManager {
     if (state.ignoreOffer) return;
 
     await pc.setRemoteDescription(sdp);
+    await this.flushCandidates(state);
     await pc.setLocalDescription();
     this.send({
       type: 'huddle.answer',
@@ -133,11 +149,16 @@ export class MeshManager {
     const state = this.peers.get(peerId);
     if (!state || state.pc.signalingState === 'stable') return;
     await state.pc.setRemoteDescription(sdp);
+    await this.flushCandidates(state);
   }
 
   async handleCandidate(peerId: string, candidate: RTCIceCandidateInit): Promise<void> {
     const state = this.peers.get(peerId);
     if (!state) return;
+    if (!state.pc.remoteDescription) {
+      state.pendingCandidates.push(candidate);
+      return;
+    }
     try {
       await state.pc.addIceCandidate(candidate);
     } catch (err) {

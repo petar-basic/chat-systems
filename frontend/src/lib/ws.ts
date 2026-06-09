@@ -18,7 +18,12 @@ export class WebSocketClient {
   private joinedChannels = new Set<string>();
   private hasConnectedOnce = false;
 
-  onReconnect: (() => void) | null = null;
+  private reconnectListeners = new Set<() => void>();
+
+  addReconnectListener(listener: () => void): () => void {
+    this.reconnectListeners.add(listener);
+    return () => this.reconnectListeners.delete(listener);
+  }
 
   private static readonly RECONNECT_BASE_MS = 1000;
   private static readonly RECONNECT_FACTOR = 2;
@@ -75,7 +80,7 @@ export class WebSocketClient {
       if (this.subscribedWorkspace) this.send({ type: 'subscribe', workspace_id: this.subscribedWorkspace });
       this.joinedChannels.forEach((channelId) => this.send({ type: 'channel.join', channel_id: channelId }));
 
-      if (isReconnect) this.onReconnect?.();
+      if (isReconnect) this.reconnectListeners.forEach((listener) => listener());
     };
 
     this.ws.onmessage = (evt) => {

@@ -321,3 +321,61 @@ async fn huddle_history_lifecycle_tracks_participants_and_ends(pool: PgPool) {
         "ending an already-ended session is a no-op"
     );
 }
+
+#[sqlx::test(migrations = "../migrations")]
+async fn active_huddles_lists_only_live_channel_huddles(pool: PgPool) {
+    use redis::AsyncCommands;
+
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, token) = seed_and_login(&app, &state, "huddle-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "huddle-ws").await;
+    let channel_id = seed_channel(&state, ws_id, owner_id, "huddle-room", false).await;
+
+    let (_s0, body) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/huddles"),
+        Some(&token),
+        Some(json!({ "channel_id": channel_id })),
+    )
+    .await;
+    let huddle_id = body["huddle_id"].as_str().unwrap().to_string();
+
+    let (s1, empty) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws_id}/active-huddles"),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_eq!(s1, StatusCode::OK, "{empty:?}");
+    assert_eq!(
+        empty["data"].as_array().map(|a| a.len()),
+        Some(0),
+        "a session with no live members must not be listed: {empty:?}"
+    );
+
+    let key = format!("huddle:{huddle_id}:members");
+    let mut conn = state.redis.clone();
+    let _: i64 = conn.sadd(&key, owner_id.to_string()).await.unwrap();
+
+    let (s2, listed) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws_id}/active-huddles"),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_eq!(s2, StatusCode::OK, "{listed:?}");
+    let data = listed["data"].as_array().expect("data array");
+    assert!(
+        data.iter()
+            .any(|h| h["huddle_id"].as_str() == Some(huddle_id.as_str())
+                && h["channel_id"].as_str() == Some(channel_id.to_string().as_str())),
+        "a channel huddle with a live member must be listed: {listed:?}"
+    );
+
+    let _: i64 = conn.del(&key).await.unwrap();
+}

@@ -268,12 +268,13 @@ Live voice/video rooms (Slack-style huddles) over mesh WebRTC. Live membership a
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/ice-servers` | — | `{ ice_servers: IceServer[], ttl: number }` |
+| GET | `/workspaces/:ws_id/active-huddles` | — | `{ data: { huddle_id, channel_id, initiator_id }[] }` |
 | POST | `/workspaces/:ws_id/huddles` | `{ channel_id }` XOR `{ dm_partner_id }` | `{ huddle_id }` |
 | POST | `/workspaces/:ws_id/huddles/:huddle_id/invite` | `{ user_ids: string[] }` | `{ status: "ok" }` |
 
 `IceServer` is the WebRTC `RTCIceServer` shape: `{ urls: string[], username?, credential? }`. STUN entries are always returned; a TURN entry with time-limited credentials (TURN REST API, `username = "<expiry-unix>:<user-id>"`, `credential = base64(hmac_sha1(TURN_SECRET, username))`) is added only when `TURN_SECRET` and `TURN_URLS` are configured. See the coturn service in `docker-compose.yml` and the TURN section of `.env.example`.
 
-**Start** generates a `huddle_id`, persists a `huddle_sessions` row, publishes `huddle.started`, and (for channels) posts a `metadata.kind="huddle_started"` system message; DM huddles also publish `huddle.ring` to the partner. **Invite** publishes `huddle.ring` to each workspace-member invitee. Live membership/media is ephemeral — see the `events:huddle` WS surface below. Session/participant history is persisted by the API's huddle consumer, which also emits `huddle.ended` when the last participant leaves; ring/invite also raise a `Call` notification (DND-respecting).
+**Start** generates a `huddle_id`, persists a `huddle_sessions` row, publishes `huddle.started`, and (for channels) posts a `metadata.kind="huddle_started"` system message; DM huddles also publish `huddle.ring` to the partner. **Invite** publishes `huddle.ring` to each workspace-member invitee. **Active-huddles** returns currently-live channel huddles — open DB sessions (`ended_at IS NULL`) intersected with live Redis room membership (`SCARD huddle:{id}:members > 0`), so abrupt-drop sessions that never emitted `huddle.ended` are excluded. The frontend fetches it on workspace load and on WS reconnect to backfill the channel huddle banner (so late-joiners see "Join" and stale banners self-heal). Live membership/media is ephemeral — see the `events:huddle` WS surface below. Session/participant history is persisted by the API's huddle consumer, which also emits `huddle.ended` when the last participant leaves; ring/invite also raise a `Call` notification (DND-respecting).
 
 ---
 

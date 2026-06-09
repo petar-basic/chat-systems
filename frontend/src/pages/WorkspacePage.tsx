@@ -9,10 +9,13 @@ import DmView from './DmView';
 import AddInstancePanel from '../components/AddInstancePanel';
 import UserProfilePanel from '../components/UserProfilePanel';
 import TypingIndicator from '../components/TypingIndicator';
+import { useActiveHuddlesSync } from '@/features/huddle';
 
 export default function WorkspacePage() {
   const c = useWorkspaceController();
   const { panel, currentWorkspace, currentChannel, user } = c;
+
+  useActiveHuddlesSync(currentWorkspace?.id, currentWorkspace?.instanceUrl);
 
   return (
     <div className="h-dvh flex bg-slate-900 text-white relative">

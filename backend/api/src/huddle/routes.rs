@@ -5,6 +5,7 @@ use axum::routing::{get, post};
 use axum::{middleware, Json, Router};
 use base64::Engine;
 use hmac::{Hmac, Mac};
+use redis::AsyncCommands;
 use sha1::Sha1;
 use uuid::Uuid;
 
@@ -20,6 +21,7 @@ type HmacSha1 = Hmac<Sha1>;
 pub fn router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/workspaces/:ws_id/ice-servers", get(ice_servers))
+        .route("/workspaces/:ws_id/active-huddles", get(active_huddles))
         .route("/workspaces/:ws_id/huddles", post(start_huddle))
         .route(
             "/workspaces/:ws_id/huddles/:huddle_id/invite",
@@ -27,6 +29,36 @@ pub fn router(state: Arc<AppState>) -> Router {
         )
         .layer(middleware::from_fn(auth_middleware))
         .with_state(state)
+}
+
+async fn active_huddles(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(ws_id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    require_workspace_member(&state, ws_id, auth.user_id).await?;
+
+    let sessions = state
+        .huddle_repo
+        .list_open_channel_sessions(ws_id)
+        .await
+        .map_err(|e| AppError::Database(e.to_string()))?;
+
+    let mut conn = state.redis.clone();
+    let mut active = Vec::new();
+    for session in sessions {
+        let key = format!("huddle:{}:members", session.id);
+        let count: i64 = conn.scard(&key).await.unwrap_or(0);
+        if count > 0 {
+            active.push(serde_json::json!({
+                "huddle_id": session.id,
+                "channel_id": session.channel_id,
+                "initiator_id": session.initiated_by,
+            }));
+        }
+    }
+
+    Ok(Json(serde_json::json!({ "data": active })))
 }
 
 async fn invite_to_huddle(

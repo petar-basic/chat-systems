@@ -67,6 +67,20 @@ impl HuddleRepo {
         .await
     }
 
+    pub async fn list_open_channel_sessions(
+        &self,
+        workspace_id: Uuid,
+    ) -> sqlx::Result<Vec<HuddleSession>> {
+        sqlx::query_as::<_, HuddleSession>(
+            "SELECT * FROM huddle_sessions
+             WHERE workspace_id = $1 AND channel_id IS NOT NULL AND ended_at IS NULL
+             ORDER BY started_at DESC",
+        )
+        .bind(workspace_id)
+        .fetch_all(&self.pool)
+        .await
+    }
+
     pub async fn end_session(&self, huddle_id: Uuid) -> sqlx::Result<Option<HuddleSession>> {
         sqlx::query_as::<_, HuddleSession>(
             "UPDATE huddle_sessions SET ended_at = NOW()

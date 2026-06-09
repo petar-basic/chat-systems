@@ -1,6 +1,27 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
+import { QUERY_KEYS } from '@/shared/constants';
 import { logger } from '@/lib/logger';
+
+export interface ActiveHuddle {
+  huddle_id: string;
+  channel_id: string;
+  initiator_id: string;
+}
+
+export const useActiveHuddles = (workspaceId?: string | null, instanceUrl?: string) =>
+  useQuery({
+    queryKey: QUERY_KEYS.workspaceActiveHuddles(workspaceId ?? ''),
+    queryFn: async () => {
+      const res = await getApiForInstance(instanceUrl).get<{ data: ActiveHuddle[] }>(
+        `/workspaces/${workspaceId}/active-huddles`,
+      );
+      return res.data;
+    },
+    enabled: !!workspaceId && !!instanceUrl,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+  });
 
 type StartHuddleBody = { channel_id: string } | { dm_partner_id: string };
 

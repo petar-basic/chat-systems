@@ -26,6 +26,16 @@ export interface HuddleControls {
 
 const wsFor = (active: ActiveHuddle) => instanceManager.get(active.instanceUrl).ws;
 
+const joinMessage = (active: ActiveHuddle): Record<string, unknown> =>
+  active.scope.kind === 'channel'
+    ? { type: 'huddle.join', huddle_id: active.huddleId, channel_id: active.scope.channelId }
+    : {
+        type: 'huddle.join',
+        huddle_id: active.huddleId,
+        workspace_id: active.workspaceId,
+        dm_partner_id: active.scope.partnerId,
+      };
+
 export function HuddleController() {
   const active = useHuddleStore((s) => s.active);
   const incomingCalls = useHuddleStore((s) => s.incomingCalls);
@@ -36,6 +46,27 @@ export function HuddleController() {
   const screenTrackRef = useRef<MediaStreamTrack | null>(null);
   const processedTrackRef = useRef<MediaStreamTrack | null>(null);
   const bgProcessorRef = useRef<BackgroundProcessor | null>(null);
+  const iceServersRef = useRef<RTCIceServer[]>([]);
+  const joinedRef = useRef(false);
+  const rejoiningRef = useRef(false);
+  const rejoinRef = useRef<(() => void) | null>(null);
+
+  const onRemoteTrack = useCallback((peerId: string, remote: MediaStream) => {
+    const store = useHuddleStore.getState();
+    store.upsertParticipant(peerId);
+    store.setParticipantStream(peerId, remote);
+  }, []);
+
+  const announceLocalState = useCallback(() => {
+    const a = useHuddleStore.getState().active;
+    if (!a) return;
+    const ws = wsFor(a);
+    const st = useHuddleStore.getState();
+    if (st.localMuted) ws.send({ type: 'huddle.mute', huddle_id: a.huddleId, audio_muted: true });
+    if (st.localCameraOn) ws.send({ type: 'huddle.camera', huddle_id: a.huddleId, camera_on: true });
+    if (st.localSharing) ws.send({ type: 'huddle.screenshare', huddle_id: a.huddleId, sharing: true });
+    if (st.localHandRaised) ws.send({ type: 'huddle.hand', huddle_id: a.huddleId, raised: true });
+  }, []);
 
   useEffect(() => {
     return globalEventBus.on('huddle.ring', (event) => {
@@ -85,28 +116,19 @@ export function HuddleController() {
 
       micStreamRef.current = stream;
       useHuddleStore.getState().setLocalStream(stream);
+      iceServersRef.current = iceServers;
 
-      const mesh = new MeshManager(active.huddleId, active.selfUserId, iceServers, send, (peerId, remote) => {
-        const store = useHuddleStore.getState();
-        store.upsertParticipant(peerId);
-        store.setParticipantStream(peerId, remote);
-      });
+      const mesh = new MeshManager(active.huddleId, active.selfUserId, iceServers, send, onRemoteTrack);
       mesh.setLocalStream(stream);
       meshRef.current = mesh;
 
-      send(
-        active.scope.kind === 'channel'
-          ? { type: 'huddle.join', huddle_id: active.huddleId, channel_id: active.scope.channelId }
-          : {
-              type: 'huddle.join',
-              huddle_id: active.huddleId,
-              workspace_id: active.workspaceId,
-              dm_partner_id: active.scope.partnerId,
-            },
-      );
+      send(joinMessage(active));
+      joinedRef.current = true;
     };
 
     void start();
+
+    const offReconnect = ws.addReconnectListener(() => rejoinRef.current?.());
 
     const unsubs = [
       globalEventBus.on('huddle.members', (event) => {
@@ -121,6 +143,7 @@ export function HuddleController() {
         if (event.huddle_id !== active.huddleId || event.user_id === active.selfUserId) return;
         useHuddleStore.getState().upsertParticipant(event.user_id);
         meshRef.current?.addPeer(event.user_id);
+        announceLocalState();
       }),
       globalEventBus.on('huddle.member_left', (event) => {
         if (event.huddle_id !== active.huddleId) return;
@@ -165,6 +188,8 @@ export function HuddleController() {
 
     return () => {
       cancelled = true;
+      joinedRef.current = false;
+      offReconnect();
       for (const off of unsubs) off();
       send({ type: 'huddle.leave', huddle_id: active.huddleId });
       meshRef.current?.close();
@@ -188,7 +213,7 @@ export function HuddleController() {
       store.setLocalSharing(false);
       store.resetParticipants();
     };
-  }, [active]);
+  }, [active, onRemoteTrack, announceLocalState]);
 
   const toggleMute = useCallback(() => {
     const a = useHuddleStore.getState().active;
@@ -234,6 +259,30 @@ export function HuddleController() {
     processedTrackRef.current?.stop();
     processedTrackRef.current = null;
   }, []);
+
+  const rejoin = useCallback(() => {
+    const a = useHuddleStore.getState().active;
+    if (!a || !joinedRef.current || rejoiningRef.current) return;
+    rejoiningRef.current = true;
+    try {
+      const ws = wsFor(a);
+      const send = (msg: Record<string, unknown>) => ws.send(msg);
+      meshRef.current?.close();
+      const mesh = new MeshManager(a.huddleId, a.selfUserId, iceServersRef.current, send, onRemoteTrack);
+      if (micStreamRef.current) mesh.setLocalStream(micStreamRef.current);
+      meshRef.current = mesh;
+      useHuddleStore.getState().resetParticipants();
+      updateVideoOutput();
+      send(joinMessage(a));
+      announceLocalState();
+    } finally {
+      rejoiningRef.current = false;
+    }
+  }, [onRemoteTrack, updateVideoOutput, announceLocalState]);
+
+  useEffect(() => {
+    rejoinRef.current = rejoin;
+  }, [rejoin]);
 
   const toggleCamera = useCallback(async () => {
     const a = useHuddleStore.getState().active;
