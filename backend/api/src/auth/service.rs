@@ -632,6 +632,10 @@ mod tests {
             s3_bucket: String::new(),
             s3_access_key: String::new(),
             s3_secret_key: String::new(),
+            turn_secret: String::new(),
+            turn_urls: String::new(),
+            stun_urls: String::new(),
+            turn_ttl_secs: 43200,
         }
     }
 

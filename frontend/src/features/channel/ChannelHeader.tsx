@@ -1,5 +1,6 @@
 import { Hash, Lock, Search, Pin, Users, Menu } from 'lucide-react';
 import type { Channel } from '@/stores/workspace';
+import { HuddleBar } from '@/features/huddle';
 
 interface Props {
   channel: Channel | null;
@@ -47,6 +48,7 @@ export default function ChannelHeader({
           )}
 
           <div className="ml-auto flex items-center gap-1">
+            <HuddleBar channelId={channel.id} />
             <button
               onClick={onToggleChannelMembers}
               aria-label="Channel members"

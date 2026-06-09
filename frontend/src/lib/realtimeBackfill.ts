@@ -7,4 +7,5 @@ export function backfillAfterReconnect() {
   queryClient.invalidateQueries({ queryKey: QUERY_KEYS.messagesAll() });
   queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notificationsAll() });
   queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dm() });
+  queryClient.invalidateQueries({ queryKey: QUERY_KEYS.huddlesActive() });
 }

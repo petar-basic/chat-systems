@@ -83,7 +83,7 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
         clients.ws.onStatusChange = (status) => {
           useWsStatusStore.getState().setStatus(config.url, status);
         };
-        clients.ws.onReconnect = backfillAfterReconnect;
+        clients.ws.addReconnectListener(backfillAfterReconnect);
 
         try {
           const normalized = instanceManager.normalize(config.url);
@@ -133,7 +133,7 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
       clients.ws.onStatusChange = (status) => {
         useWsStatusStore.getState().setStatus(normalized, status);
       };
-      clients.ws.onReconnect = backfillAfterReconnect;
+      clients.ws.addReconnectListener(backfillAfterReconnect);
 
       const res = await clients.api.post<{ user: InstanceUser; expires_in: number; access_token: string }>(
         '/auth/login',

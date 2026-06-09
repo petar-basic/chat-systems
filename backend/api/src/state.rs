@@ -4,6 +4,7 @@ use crate::dm::repo::DmRepo;
 use crate::files::repo::FileRepo;
 use crate::files::storage::FileStorage;
 use crate::hooks::repo::HookRepo;
+use crate::huddle::repo::HuddleRepo;
 use crate::messaging::publisher::EventPublisher;
 use crate::messaging::repo::MessageRepo;
 use crate::notifications::repo::NotificationRepo;
@@ -22,4 +23,5 @@ pub struct AppState {
     pub hook_repo: HookRepo,
     pub notification_repo: NotificationRepo,
     pub dm_repo: DmRepo,
+    pub huddle_repo: HuddleRepo,
 }

@@ -29,4 +29,7 @@ export const QUERY_KEYS = {
   notificationDnd: () => ['notifications', 'dnd'] as const,
 
   search: (query: string) => ['search', query] as const,
+
+  huddlesActive: () => ['huddles', 'active'] as const,
+  workspaceActiveHuddles: (workspaceId: string) => ['huddles', 'active', workspaceId] as const,
 } as const;

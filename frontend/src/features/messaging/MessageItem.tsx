@@ -2,6 +2,7 @@ import { memo, useState, useRef } from 'react';
 import { Pencil, Trash2, MessageSquare, SmilePlus, Pin, Link2 } from 'lucide-react';
 import type { Message, WorkspaceMember, Channel } from '@/stores/workspace';
 import RichTextDisplay from '@/components/RichTextDisplay';
+import { HuddleSystemMessage } from '@/features/huddle/components/HuddleSystemMessage';
 import EmojiPicker from './EmojiPicker';
 import MessageInput from './MessageInput';
 
@@ -68,6 +69,16 @@ function MessageItem({
   const reactionGroups = groupReactions(message, currentUserId);
   const isOwn = currentUserId === message.user_id;
   const isEdited = message.updated_at !== message.created_at;
+
+  if (message.metadata?.kind === 'huddle_started' && message.metadata.huddle_id && !message.deleted_at) {
+    return (
+      <HuddleSystemMessage
+        channelId={message.channel_id}
+        huddleId={message.metadata.huddle_id}
+        initiatorId={message.metadata.initiator_id ?? message.user_id}
+      />
+    );
+  }
   const initials = senderName.charAt(0).toUpperCase();
   const time = new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 

@@ -5,6 +5,7 @@ mod dm;
 mod files;
 mod health;
 mod hooks;
+mod huddle;
 mod messaging;
 mod metrics;
 mod middleware;
@@ -40,6 +41,7 @@ use crate::dm::repo::DmRepo;
 use crate::files::repo::FileRepo;
 use crate::files::storage::create_storage;
 use crate::hooks::repo::HookRepo;
+use crate::huddle::repo::HuddleRepo;
 use crate::messaging::publisher::EventPublisher;
 use crate::messaging::repo::MessageRepo;
 use crate::middleware::JwtSecret;
@@ -83,6 +85,7 @@ async fn main() -> anyhow::Result<()> {
 
     let hook_repo_bg = Arc::new(state.hook_repo.clone());
     let notif_repo_bg = Arc::new(state.notification_repo.clone());
+    let huddle_repo_bg = Arc::new(state.huddle_repo.clone());
 
     {
         let redis_url = redis_url.clone();
@@ -129,6 +132,21 @@ async fn main() -> anyhow::Result<()> {
         });
     }
 
+    {
+        let redis_url = redis_url.clone();
+        let huddle_repo = huddle_repo_bg.clone();
+        tokio::spawn(async move {
+            supervise("huddle_consumer", || {
+                let redis_url = redis_url.clone();
+                let huddle_repo = huddle_repo.clone();
+                async move {
+                    huddle::consumer::start_consumer(&redis_url, huddle_repo).await;
+                }
+            })
+            .await;
+        });
+    }
+
     let app = build_app(state).merge(metrics::router(metrics_handle));
 
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
@@ -156,6 +174,7 @@ pub(crate) async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Resu
     let hook_repo = HookRepo::new(pool.clone());
     let notification_repo = NotificationRepo::new(pool.clone());
     let dm_repo = DmRepo::new(pool.clone());
+    let huddle_repo = HuddleRepo::new(pool.clone());
 
     Ok(Arc::new(AppState {
         config,
@@ -170,6 +189,7 @@ pub(crate) async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Resu
         hook_repo,
         notification_repo,
         dm_repo,
+        huddle_repo,
     }))
 }
 
@@ -185,7 +205,8 @@ pub(crate) fn build_app(state: Arc<AppState>) -> Router {
         .merge(hooks::routes::router(state.clone()))
         .merge(notifications::routes::router(state.clone()))
         .merge(admin::routes::router(state.clone()))
-        .merge(dm::routes::router(state.clone()));
+        .merge(dm::routes::router(state.clone()))
+        .merge(huddle::routes::router(state.clone()));
 
     Router::new()
         .nest("/api", api)

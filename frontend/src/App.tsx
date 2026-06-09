@@ -8,6 +8,7 @@ import { useInstanceStore } from './stores/instances';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Toaster } from '@/shared/components/Toast';
 import { NotificationStream } from '@/features/notifications';
+import { HuddleController } from '@/features/huddle';
 import { logger } from '@/lib/logger';
 import { isSessionExpired } from '@/lib/errors';
 
@@ -69,6 +70,7 @@ function AppContent() {
   return (
     <BrowserRouter>
       <NotificationStream />
+      <HuddleController />
       <Suspense fallback={<SplashScreen />}>
         <Routes>
           <Route path="/add-instance" element={<AddInstancePage />} />

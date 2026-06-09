@@ -261,6 +261,23 @@ Instance-level administration. Requires `is_instance_admin = true`.
 
 ---
 
+### huddle
+
+Live voice/video rooms (Slack-style huddles) over mesh WebRTC. Live membership and media signaling run over `chat-realtime`; this REST surface covers what the browser needs from the API.
+
+| Method | Route | Input | Output |
+|--------|-------|-------|--------|
+| GET | `/workspaces/:ws_id/ice-servers` | — | `{ ice_servers: IceServer[], ttl: number }` |
+| GET | `/workspaces/:ws_id/active-huddles` | — | `{ data: { huddle_id, channel_id, initiator_id }[] }` |
+| POST | `/workspaces/:ws_id/huddles` | `{ channel_id }` XOR `{ dm_partner_id }` | `{ huddle_id }` |
+| POST | `/workspaces/:ws_id/huddles/:huddle_id/invite` | `{ user_ids: string[] }` | `{ status: "ok" }` |
+
+`IceServer` is the WebRTC `RTCIceServer` shape: `{ urls: string[], username?, credential? }`. STUN entries are always returned; a TURN entry with time-limited credentials (TURN REST API, `username = "<expiry-unix>:<user-id>"`, `credential = base64(hmac_sha1(TURN_SECRET, username))`) is added only when `TURN_SECRET` and `TURN_URLS` are configured. See the coturn service in `docker-compose.yml` and the TURN section of `.env.example`.
+
+**Start** generates a `huddle_id`, persists a `huddle_sessions` row, publishes `huddle.started`, and (for channels) posts a `metadata.kind="huddle_started"` system message; DM huddles also publish `huddle.ring` to the partner. **Invite** publishes `huddle.ring` to each workspace-member invitee. **Active-huddles** returns currently-live channel huddles — open DB sessions (`ended_at IS NULL`) intersected with live Redis room membership (`SCARD huddle:{id}:members > 0`), so abrupt-drop sessions that never emitted `huddle.ended` are excluded. The frontend fetches it on workspace load and on WS reconnect to backfill the channel huddle banner (so late-joiners see "Join" and stale banners self-heal). Live membership/media is ephemeral — see the `events:huddle` WS surface below. Session/participant history is persisted by the API's huddle consumer, which also emits `huddle.ended` when the last participant leaves; ring/invite also raise a `Call` notification (DND-respecting).
+
+---
+
 ## chat-realtime (WebSocket Gateway)
 
 Single WebSocket endpoint. Validates the JWT on the upgrade handshake, re-checks channel/workspace membership against the DB on every subscribe/join, then relays Redis pub/sub events to connected clients. The socket is also closed when the access token's `exp` passes, so a long-lived connection can't outlive its token.
@@ -275,6 +292,23 @@ Single WebSocket endpoint. Validates the JWT on the upgrade handshake, re-checks
 { "type": "unsubscribe_channel", "channel_id": "..." }
 ```
 
+**Huddle signaling (incoming client messages).** Mesh WebRTC uses this socket purely as the signaling channel — no media flows through the server. After membership is verified, the server relays via `events:huddle`:
+
+```json
+{ "type": "huddle.join", "huddle_id": "...", "channel_id": "..." }   // or workspace_id + dm_partner_id
+{ "type": "huddle.leave", "huddle_id": "..." }
+{ "type": "huddle.offer",  "huddle_id": "...", "to_user_id": "...", "sdp": { ... } }
+{ "type": "huddle.answer", "huddle_id": "...", "to_user_id": "...", "sdp": { ... } }
+{ "type": "huddle.ice",    "huddle_id": "...", "to_user_id": "...", "candidate": { ... } }
+{ "type": "huddle.mute",   "huddle_id": "...", "audio_muted": true }
+{ "type": "huddle.camera", "huddle_id": "...", "camera_on": true }
+{ "type": "huddle.screenshare", "huddle_id": "...", "sharing": true }
+{ "type": "huddle.hand",   "huddle_id": "...", "raised": true }
+{ "type": "huddle.reaction", "huddle_id": "...", "emoji": "👍" }
+```
+
+`offer`/`answer`/`ice` are relayed only to `to_user_id` (and only when both users are current room members); the rest broadcast to the room. On join the caller gets a `huddle.members` snapshot. Disconnect removes the user and, when a room empties, the API consumer emits `huddle.ended`.
+
 **Outgoing events pushed to client** (sourced from Redis pub/sub):
 
 | Redis channel | Event types |
@@ -283,6 +317,8 @@ Single WebSocket endpoint. Validates the JWT on the upgrade handshake, re-checks
 | `events:reaction` | `reaction.added`, `reaction.removed` |
 | `events:notification` | `notification.created` |
 | `events:workspace` | `workspace.updated`, `member.joined`, `member.left` |
+| `events:huddle` | `huddle.started`, `huddle.ended`, `huddle.ring`, `huddle.member_joined`, `huddle.member_left` — lifecycle; also consumed by the API for history + call notifications |
+| `events:huddle-signal` | `huddle.offer`, `huddle.answer`, `huddle.ice`, `huddle.mute`, `huddle.camera`, `huddle.screenshare`, `huddle.hand`, `huddle.reaction` — high-frequency relay, realtime-only (kept off `events:huddle` so the API consumers don't parse every ICE candidate) |
 
 All events use the envelope: `{ id, event_type, payload, timestamp }`.
 
@@ -297,7 +333,7 @@ All events use the envelope: `{ id, event_type, payload, timestamp }`.
 
 ### shared-events
 - `Event<T>` envelope with `id`, `event_type`, `payload`, `timestamp`
-- Typed event payloads for auth, messaging, and workspace domains
+- Typed event payloads for auth, messaging, workspace, and huddle domains
 
 ---
 

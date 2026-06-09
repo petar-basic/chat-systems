@@ -36,6 +36,11 @@ pub struct AppConfig {
     pub s3_bucket: String,
     pub s3_access_key: String,
     pub s3_secret_key: String,
+
+    pub turn_secret: String,
+    pub turn_urls: String,
+    pub stun_urls: String,
+    pub turn_ttl_secs: i64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -81,6 +86,10 @@ impl AppConfig {
             s3_bucket: env_or("S3_BUCKET", "chatsystems"),
             s3_access_key: env_or("S3_ACCESS_KEY", "minioadmin"),
             s3_secret_key: env_or("S3_SECRET_KEY", "minioadmin"),
+            turn_secret: env_or("TURN_SECRET", ""),
+            turn_urls: env_or("TURN_URLS", ""),
+            stun_urls: env_or("STUN_URLS", "stun:stun.l.google.com:19302"),
+            turn_ttl_secs: parse_env("TURN_TTL_SECS", 43200),
         };
         if config.jwt_secret == "dev-secret-change-me-in-production" || config.jwt_secret.len() < 32
         {

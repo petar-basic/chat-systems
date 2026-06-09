@@ -31,6 +31,12 @@ export interface Reaction {
   created_at: string;
 }
 
+export interface MessageMetadata {
+  kind?: string;
+  huddle_id?: string;
+  initiator_id?: string;
+}
+
 export interface Message {
   id: string;
   channel_id: string;
@@ -43,6 +49,7 @@ export interface Message {
   thread_parent_id: string | null;
   reply_count: number;
   is_pinned: boolean;
+  metadata?: MessageMetadata;
   pending?: boolean;
   failed?: boolean;
 }
@@ -69,12 +76,18 @@ interface WorkspaceState {
   currentDmPartnerId: string | null;
   unreadDmPartners: Set<string>;
   currentUserId: string | null;
+  activeHuddleChannels: Map<string, { huddleId: string; initiatorId: string }>;
 
   selectWorkspace: (ws: Workspace) => Promise<void>;
   selectChannel: (ch: Channel) => void;
   selectDmPartner: (userId: string | null) => void;
   setCurrentUserRole: (role: WorkspaceRole | null) => void;
   setCurrentUserId: (id: string | null) => void;
+  setChannelHuddle: (channelId: string, info: { huddleId: string; initiatorId: string }) => void;
+  clearChannelHuddle: (channelId: string) => void;
+  replaceActiveHuddleChannels: (
+    entries: Array<{ channelId: string; huddleId: string; initiatorId: string }>,
+  ) => void;
   markChannelRead: (channelId: string) => void;
   markDmRead: (partnerId: string) => void;
   markDmUnread: (partnerId: string) => void;
@@ -99,6 +112,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   currentDmPartnerId: null,
   unreadDmPartners: new Set<string>(),
   currentUserId: null,
+  activeHuddleChannels: new Map<string, { huddleId: string; initiatorId: string }>(),
 
   selectWorkspace: async (ws) => {
     set({ currentWorkspace: ws, currentChannel: null, currentUserRole: null, currentDmPartnerId: null });
@@ -120,6 +134,30 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   setCurrentUserRole: (role) => set({ currentUserRole: role }),
 
   setCurrentUserId: (id) => set({ currentUserId: id }),
+
+  setChannelHuddle: (channelId, info) =>
+    set((s) => {
+      const next = new Map(s.activeHuddleChannels);
+      next.set(channelId, info);
+      return { activeHuddleChannels: next };
+    }),
+
+  clearChannelHuddle: (channelId) =>
+    set((s) => {
+      if (!s.activeHuddleChannels.has(channelId)) return s;
+      const next = new Map(s.activeHuddleChannels);
+      next.delete(channelId);
+      return { activeHuddleChannels: next };
+    }),
+
+  replaceActiveHuddleChannels: (entries) =>
+    set(() => {
+      const next = new Map<string, { huddleId: string; initiatorId: string }>();
+      for (const e of entries) {
+        next.set(e.channelId, { huddleId: e.huddleId, initiatorId: e.initiatorId });
+      }
+      return { activeHuddleChannels: next };
+    }),
 
   markChannelRead: (channelId) => {
     set((s) => {

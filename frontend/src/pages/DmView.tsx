@@ -16,6 +16,7 @@ import type { DirectMessage } from '../hooks/queries/useDm';
 import { displayNameOf, avatarColorFor } from '@/lib/userHelpers';
 import { ConnectionBanner } from '@/shared/components/ConnectionBanner/ConnectionBanner';
 import { QueryState } from '@/shared/components/QueryState/QueryState';
+import { HuddleStartButton } from '@/features/huddle';
 import { EmptyLabels, MESSAGE_GROUP_WINDOW_MS } from '@/shared/constants';
 
 interface Props {
@@ -107,6 +108,14 @@ export default function DmView({
         <Circle className={`w-2.5 h-2.5 fill-current ${dotColor} shrink-0`} />
         <span className="font-semibold text-white">{partnerName}</span>
         {status === 'online' && <span className="text-xs text-slate-400">Active now</span>}
+        <div className="ml-auto">
+          <HuddleStartButton
+            workspaceId={workspaceId}
+            instanceUrl={instanceUrl}
+            partnerId={partnerId}
+            currentUserId={currentUserId}
+          />
+        </div>
       </div>
 
       <QueryState

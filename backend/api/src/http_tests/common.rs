@@ -47,6 +47,10 @@ pub fn test_config() -> AppConfig {
         s3_bucket: "test".into(),
         s3_access_key: "test".into(),
         s3_secret_key: "test".into(),
+        turn_secret: String::new(),
+        turn_urls: String::new(),
+        stun_urls: "stun:stun.l.google.com:19302".into(),
+        turn_ttl_secs: 43200,
     }
 }
 

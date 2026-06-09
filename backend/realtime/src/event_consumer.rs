@@ -30,6 +30,8 @@ pub async fn start_event_consumer(redis_url: &str, cm: Arc<ConnectionManager>) {
         "events:dm",
         "events:presence",
         "events:typing",
+        "events:huddle",
+        "events:huddle-signal",
     ];
     for ch in &channels {
         if let Err(e) = pubsub.subscribe(ch).await {
@@ -69,6 +71,14 @@ pub(crate) async fn handle_event(
 ) {
     let channel_id = payload
         .get("channel_id")
+        .and_then(|v| v.as_str())
+        .and_then(|v| v.parse::<uuid::Uuid>().ok());
+    let huddle_id = payload
+        .get("huddle_id")
+        .and_then(|v| v.as_str())
+        .and_then(|v| v.parse::<uuid::Uuid>().ok());
+    let to_user_id = payload
+        .get("to_user_id")
         .and_then(|v| v.as_str())
         .and_then(|v| v.parse::<uuid::Uuid>().ok());
 
@@ -278,6 +288,55 @@ pub(crate) async fn handle_event(
                 let msg = ws_event.to_string();
                 cm.send_to_user(from_id, &msg).await;
                 cm.send_to_user(to_id, &msg).await;
+            }
+        }
+        "huddle.member_joined"
+        | "huddle.member_left"
+        | "huddle.mute"
+        | "huddle.camera"
+        | "huddle.screenshare"
+        | "huddle.reaction"
+        | "huddle.hand" => {
+            if let Some(hid) = huddle_id {
+                let mut ws_msg = payload.clone();
+                if let Some(obj) = ws_msg.as_object_mut() {
+                    obj.insert("type".to_string(), serde_json::json!(event_type));
+                }
+                cm.broadcast_to_huddle(hid, &ws_msg.to_string()).await;
+            }
+        }
+        "huddle.offer" | "huddle.answer" | "huddle.ice" | "huddle.ring" => {
+            if let Some(to_id) = to_user_id {
+                let mut ws_msg = payload.clone();
+                if let Some(obj) = ws_msg.as_object_mut() {
+                    obj.insert("type".to_string(), serde_json::json!(event_type));
+                }
+                cm.send_to_user(to_id, &ws_msg.to_string()).await;
+            }
+        }
+        "huddle.started" | "huddle.ended" => {
+            let mut ws_msg = payload.clone();
+            if let Some(obj) = ws_msg.as_object_mut() {
+                obj.insert("type".to_string(), serde_json::json!(event_type));
+            }
+            let msg = ws_msg.to_string();
+            if let Some(ch_id) = channel_id {
+                cm.broadcast_to_channel(ch_id, &msg).await;
+            } else {
+                let initiator = payload
+                    .get("initiator_id")
+                    .and_then(|v| v.as_str())
+                    .and_then(|v| v.parse::<uuid::Uuid>().ok());
+                if let Some(init) = initiator {
+                    cm.send_to_user(init, &msg).await;
+                }
+                if let Some(partner) = payload
+                    .get("dm_partner_id")
+                    .and_then(|v| v.as_str())
+                    .and_then(|v| v.parse::<uuid::Uuid>().ok())
+                {
+                    cm.send_to_user(partner, &msg).await;
+                }
             }
         }
         _ => {

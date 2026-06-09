@@ -12,6 +12,8 @@ pub const WRITER_CHANNEL_CAP: usize = 256;
 
 pub const PRESENCE_TTL_SECS: u64 = 60;
 
+pub const HUDDLE_TTL_SECS: i64 = 120;
+
 pub type WsSender = mpsc::Sender<Message>;
 
 #[derive(Debug)]
@@ -20,6 +22,7 @@ pub struct Connection {
     pub sender: WsSender,
     pub subscribed_workspaces: HashSet<Uuid>,
     pub subscribed_channels: HashSet<Uuid>,
+    pub subscribed_huddles: HashSet<Uuid>,
 }
 
 pub struct ConnectionManager {
@@ -108,6 +111,7 @@ impl ConnectionManager {
                 sender,
                 subscribed_workspaces: HashSet::new(),
                 subscribed_channels: HashSet::new(),
+                subscribed_huddles: HashSet::new(),
             },
         );
         let mut entry = self.user_connections.entry(user_id).or_default();
@@ -149,6 +153,31 @@ impl ConnectionManager {
         if let Some(mut conn) = self.connections.get_mut(conn_id) {
             conn.subscribed_channels.remove(&channel_id);
         }
+    }
+
+    pub fn join_huddle(&self, conn_id: &Uuid, huddle_id: Uuid) {
+        if let Some(mut conn) = self.connections.get_mut(conn_id) {
+            conn.subscribed_huddles.insert(huddle_id);
+        }
+    }
+
+    pub fn leave_huddle(&self, conn_id: &Uuid, huddle_id: Uuid) {
+        if let Some(mut conn) = self.connections.get_mut(conn_id) {
+            conn.subscribed_huddles.remove(&huddle_id);
+        }
+    }
+
+    pub fn huddle_ids_for_conn(&self, conn_id: &Uuid) -> Vec<Uuid> {
+        self.connections
+            .get(conn_id)
+            .map(|c| c.subscribed_huddles.iter().copied().collect())
+            .unwrap_or_default()
+    }
+
+    pub fn user_in_huddle_local(&self, user_id: Uuid, huddle_id: Uuid) -> bool {
+        self.connections
+            .iter()
+            .any(|c| c.user_id == user_id && c.subscribed_huddles.contains(&huddle_id))
     }
 
     fn enqueue(&self, conn_id: &Uuid, message: &str) -> Option<Uuid> {
@@ -194,6 +223,10 @@ impl ConnectionManager {
 
     pub async fn broadcast_to_workspace(&self, workspace_id: Uuid, message: &str) {
         self.fan_out(message, |c| c.subscribed_workspaces.contains(&workspace_id));
+    }
+
+    pub async fn broadcast_to_huddle(&self, huddle_id: Uuid, message: &str) {
+        self.fan_out(message, |c| c.subscribed_huddles.contains(&huddle_id));
     }
 
     pub async fn broadcast_to_all(&self, message: &str) {
@@ -312,6 +345,60 @@ impl ConnectionManager {
             }),
         )
         .await;
+    }
+
+    pub async fn publish_huddle(&self, event_type: &str, payload: serde_json::Value) {
+        let channel = match event_type {
+            "huddle.member_joined" | "huddle.member_left" => "events:huddle",
+            _ => "events:huddle-signal",
+        };
+        self.publish_event(channel, event_type, payload).await;
+    }
+
+    fn huddle_members_key(huddle_id: &Uuid) -> String {
+        format!("huddle:{}:members", huddle_id)
+    }
+
+    pub async fn huddle_redis_join(&self, huddle_id: Uuid, user_id: Uuid) {
+        let mut conn = self.redis.clone();
+        let key = Self::huddle_members_key(&huddle_id);
+        let _: redis::RedisResult<()> = conn.sadd(&key, user_id.to_string()).await;
+        let _: redis::RedisResult<()> = conn.expire(&key, HUDDLE_TTL_SECS).await;
+    }
+
+    pub async fn huddle_redis_leave(&self, huddle_id: Uuid, user_id: Uuid) {
+        let mut conn = self.redis.clone();
+        let key = Self::huddle_members_key(&huddle_id);
+        let _: redis::RedisResult<()> = conn.srem(&key, user_id.to_string()).await;
+    }
+
+    pub async fn huddle_redis_is_member(&self, huddle_id: Uuid, user_id: Uuid) -> bool {
+        let mut conn = self.redis.clone();
+        let key = Self::huddle_members_key(&huddle_id);
+        let res: redis::RedisResult<bool> = conn.sismember(&key, user_id.to_string()).await;
+        res.unwrap_or(false)
+    }
+
+    pub async fn huddle_redis_members(&self, huddle_id: Uuid) -> Vec<Uuid> {
+        let mut conn = self.redis.clone();
+        let key = Self::huddle_members_key(&huddle_id);
+        let res: redis::RedisResult<Vec<String>> = conn.smembers(&key).await;
+        match res {
+            Ok(v) => v.into_iter().filter_map(|s| s.parse().ok()).collect(),
+            Err(e) => {
+                warn!(
+                    "huddle_redis_members redis error huddle={}: {}",
+                    huddle_id, e
+                );
+                Vec::new()
+            }
+        }
+    }
+
+    pub async fn huddle_redis_refresh_conn(&self, conn_id: &Uuid, user_id: Uuid) {
+        for huddle_id in self.huddle_ids_for_conn(conn_id) {
+            self.huddle_redis_join(huddle_id, user_id).await;
+        }
     }
 
     async fn publish_event(
