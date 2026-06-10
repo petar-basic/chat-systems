@@ -76,8 +76,6 @@ function createWindow() {
     minWidth: 900,
     minHeight: 600,
     title: 'Chat Systems',
-    titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 16, y: 16 },
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
