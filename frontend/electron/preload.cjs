@@ -15,4 +15,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on(channel, (event, ...args) => func(...args));
     }
   },
+  auth: {
+    setRefresh: (url, token) => ipcRenderer.invoke('auth:set-refresh', { url, token }),
+    clearRefresh: (url) => ipcRenderer.invoke('auth:clear-refresh', { url }),
+    refresh: (url) => ipcRenderer.invoke('auth:refresh', { url }),
+  },
 });

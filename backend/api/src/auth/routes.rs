@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
 use axum::extract::{Path, State};
+use axum::http::header::AUTHORIZATION;
+use axum::http::HeaderMap;
 use axum::routing::{get, patch, post};
 use axum::{middleware, Json, Router};
 use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
@@ -53,14 +55,7 @@ async fn login(
     let secure = state.config.public_url.starts_with("https://");
     let jar = set_auth_cookies(jar, &tokens, secure);
 
-    Ok((
-        jar,
-        Json(AuthSession {
-            access_token: tokens.access_token.clone(),
-            user: tokens.user,
-            expires_in: tokens.expires_in,
-        }),
-    ))
+    Ok((jar, Json(tokens.into())))
 }
 
 async fn verify_invite(
@@ -144,24 +139,19 @@ async fn complete_registration(
     let secure = state.config.public_url.starts_with("https://");
     let jar = set_auth_cookies(jar, &tokens, secure);
 
-    Ok((
-        jar,
-        Json(AuthSession {
-            access_token: tokens.access_token.clone(),
-            user: tokens.user,
-            expires_in: tokens.expires_in,
-        }),
-    ))
+    Ok((jar, Json(tokens.into())))
 }
 
 async fn refresh(
     State(state): State<Arc<AppState>>,
     jar: CookieJar,
+    headers: HeaderMap,
 ) -> AppResult<(CookieJar, Json<AuthSession>)> {
     let refresh_token = jar
         .get("refresh_token")
         .map(|c| c.value().to_string())
-        .ok_or_else(|| AppError::Unauthorized("No refresh token cookie".into()))?;
+        .or_else(|| bearer_token(&headers))
+        .ok_or_else(|| AppError::Unauthorized("No refresh token".into()))?;
 
     let tokens = state
         .auth_service
@@ -170,14 +160,7 @@ async fn refresh(
     let secure = state.config.public_url.starts_with("https://");
     let jar = set_auth_cookies(jar, &tokens, secure);
 
-    Ok((
-        jar,
-        Json(AuthSession {
-            access_token: tokens.access_token.clone(),
-            user: tokens.user,
-            expires_in: tokens.expires_in,
-        }),
-    ))
+    Ok((jar, Json(tokens.into())))
 }
 
 async fn logout(
@@ -260,6 +243,14 @@ async fn change_password(
         .change_password(auth.user_id, &req.current_password, &req.new_password)
         .await?;
     Ok(Json(serde_json::json!({ "status": "password_changed" })))
+}
+
+fn bearer_token(headers: &HeaderMap) -> Option<String> {
+    headers
+        .get(AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .map(|s| s.to_string())
 }
 
 fn set_auth_cookies(jar: CookieJar, tokens: &AuthTokens, secure: bool) -> CookieJar {

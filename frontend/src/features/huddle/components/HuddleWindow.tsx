@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import {
   Mic,
   MicOff,
@@ -26,6 +26,7 @@ import { useInviteToHuddle } from '@/hooks/queries/useHuddle';
 import { useSpeaking } from '../hooks/useSpeaking';
 import { useMediaDevices } from '../hooks/useMediaDevices';
 import type { HuddleControls } from '../HuddleController';
+import { logger } from '@/lib/logger';
 
 type Layout = 'grid' | 'focus';
 
@@ -242,13 +243,12 @@ interface TileProps {
   large?: boolean;
 }
 
-type SinkVideo = HTMLVideoElement & { setSinkId?: (id: string) => Promise<void> };
+type SinkAudio = HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> };
 
 function VideoTile({
   userId,
   stream,
   muted,
-  cameraOn,
   sharing,
   handRaised,
   isSelf,
@@ -260,19 +260,67 @@ function VideoTile({
   const { getUser } = useUserCache();
   const name = displayNameOf(getUser(userId)?.display_name);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const hasVideo = (cameraOn || sharing) && !!stream;
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  const subscribeVideo = useCallback(
+    (onChange: () => void) => {
+      if (!stream) return () => undefined;
+      const subscribed = new Set<MediaStreamTrack>();
+      const sync = () => {
+        for (const t of stream.getVideoTracks()) {
+          if (!subscribed.has(t)) {
+            subscribed.add(t);
+            t.addEventListener('mute', onChange);
+            t.addEventListener('unmute', onChange);
+            t.addEventListener('ended', onChange);
+          }
+        }
+      };
+      const onMutation = () => {
+        sync();
+        onChange();
+      };
+      sync();
+      stream.addEventListener('addtrack', onMutation);
+      stream.addEventListener('removetrack', onMutation);
+      return () => {
+        stream.removeEventListener('addtrack', onMutation);
+        stream.removeEventListener('removetrack', onMutation);
+        for (const t of subscribed) {
+          t.removeEventListener('mute', onChange);
+          t.removeEventListener('unmute', onChange);
+          t.removeEventListener('ended', onChange);
+        }
+      };
+    },
+    [stream],
+  );
+  const hasVideo = useSyncExternalStore(
+    subscribeVideo,
+    () => !!stream && stream.getVideoTracks().some((t) => t.readyState === 'live' && !t.muted),
+  );
 
   useEffect(() => {
-    const el = videoRef.current;
-    if (el && el.srcObject !== stream) el.srcObject = stream;
+    const v = videoRef.current;
+    if (v && v.srcObject !== stream) v.srcObject = stream;
+    const a = audioRef.current;
+    if (a && a.srcObject !== stream) {
+      a.srcObject = stream;
+      void a.play().catch((e) => logger.warn('VideoTile', 'audioPlay', String(e)));
+    }
   }, [stream]);
 
   useEffect(() => {
-    const el = videoRef.current as SinkVideo | null;
-    if (el?.setSinkId && speakerId && !isSelf) {
-      void el.setSinkId(speakerId).catch(() => undefined);
+    if (hasVideo)
+      void videoRef.current?.play().catch((e) => logger.warn('VideoTile', 'videoPlay', String(e)));
+  }, [hasVideo]);
+
+  useEffect(() => {
+    const a = audioRef.current as SinkAudio | null;
+    if (a?.setSinkId && speakerId) {
+      void a.setSinkId(speakerId).catch((e) => logger.warn('VideoTile', 'setSinkId', String(e)));
     }
-  }, [speakerId, isSelf]);
+  }, [speakerId]);
 
   return (
     <div
@@ -284,9 +332,10 @@ function VideoTile({
         ref={videoRef}
         autoPlay
         playsInline
-        muted={isSelf}
+        muted
         className={`w-full h-full object-cover ${hasVideo ? '' : 'hidden'} ${isSelf && !sharing ? 'scale-x-[-1]' : ''}`}
       />
+      {!isSelf && <audio ref={audioRef} autoPlay />}
       {!hasVideo && (
         <div className="absolute inset-0 flex items-center justify-center">
           <div

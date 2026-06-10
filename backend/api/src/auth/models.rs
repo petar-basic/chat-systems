@@ -68,6 +68,18 @@ pub struct AuthSession {
     pub user: UserPublic,
     pub expires_in: i64,
     pub access_token: String,
+    pub refresh_token: String,
+}
+
+impl From<AuthTokens> for AuthSession {
+    fn from(t: AuthTokens) -> Self {
+        Self {
+            user: t.user,
+            expires_in: t.expires_in,
+            access_token: t.access_token,
+            refresh_token: t.refresh_token,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]

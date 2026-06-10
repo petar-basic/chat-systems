@@ -59,12 +59,14 @@ export const useCompleteRegistration = () => {
       const clients = instanceManager.get(instanceUrl);
       clients.api.onSessionExpired = () => useInstanceStore.getState().removeInstance(instanceUrl);
 
-      const res = await clients.api.post<{ user: InstanceUser; expires_in: number; access_token: string }>(
-        '/auth/complete-registration',
-        { token, password, display_name: displayName },
-      );
+      const res = await clients.api.post<{
+        user: InstanceUser;
+        expires_in: number;
+        access_token: string;
+        refresh_token: string;
+      }>('/auth/complete-registration', { token, password, display_name: displayName });
 
-      clients.api.setToken(res.access_token);
+      clients.api.setTokens(res.access_token, res.refresh_token);
       clients.ws.onStatusChange = (status) => {
         useWsStatusStore.getState().setStatus(instanceUrl, status);
       };

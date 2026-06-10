@@ -2,8 +2,15 @@
   "name": "frontend",
   "private": true,
   "version": "1.0.0",
+  "license": "MIT",
   "type": "module",
   "main": "electron/main.cjs",
+  "description": "Self-hosted team chat — desktop client.",
+  "author": "Petar Basic <petarbasic1910@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/petar-basic/chat-systems.git"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -13,14 +20,19 @@
     "test:e2e": "playwright test",
     "preview": "vite preview",
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:3001 && electron .\"",
-    "electron:build": "tsc -b && vite build && electron-builder",
-    "electron:pack": "tsc -b && vite build && electron-builder --dir",
+    "electron:build": "tsc -b && vite build --mode electron && electron-builder",
+    "electron:pack": "tsc -b && vite build --mode electron && electron-builder --dir",
     "format": "prettier --write \"src/**/*.{ts,tsx}\" \"e2e/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"e2e/**/*.ts\""
   },
   "build": {
     "appId": "com.chatsystems.app",
     "productName": "Chat Systems",
+    "publish": {
+      "provider": "github",
+      "owner": "petar-basic",
+      "repo": "chat-systems"
+    },
     "protocols": [
       {
         "name": "Chat Systems",
