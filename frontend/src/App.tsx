@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient } from './lib/queryClient';
@@ -11,6 +11,8 @@ import { NotificationStream } from '@/features/notifications';
 import { HuddleController } from '@/features/huddle';
 import { logger } from '@/lib/logger';
 import { isSessionExpired } from '@/lib/errors';
+
+const Router = import.meta.env.MODE === 'electron' ? HashRouter : BrowserRouter;
 
 const AddInstancePage = lazy(() => import('./pages/AddInstancePage'));
 const CompleteRegistrationPage = lazy(() => import('./pages/CompleteRegistrationPage'));
@@ -68,7 +70,7 @@ function AppContent() {
   }
 
   return (
-    <BrowserRouter>
+    <Router>
       <NotificationStream />
       <HuddleController />
       <Suspense fallback={<SplashScreen />}>
@@ -129,7 +131,7 @@ function AppContent() {
           <Route path="*" element={<Navigate to="/app" replace />} />
         </Routes>
       </Suspense>
-    </BrowserRouter>
+    </Router>
   );
 }
 

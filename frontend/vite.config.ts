@@ -3,8 +3,28 @@ import { fileURLToPath, URL } from 'node:url';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
-export default defineConfig(({ command }) => ({
-  plugins: [react(), tailwindcss()],
+const ELECTRON_CSP =
+  "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; " +
+  "img-src 'self' data: blob: http: https:; font-src 'self' data:; connect-src 'self' http: https: ws: wss:; " +
+  "media-src 'self' blob: https:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'";
+
+export default defineConfig(({ command, mode }) => ({
+  base: mode === 'electron' ? './' : '/',
+  plugins: [
+    react(),
+    tailwindcss(),
+    mode === 'electron'
+      ? {
+          name: 'inject-csp',
+          transformIndexHtml(html: string) {
+            return html.replace(
+              '</title>',
+              `</title>\n    <meta http-equiv="Content-Security-Policy" content="${ELECTRON_CSP}" />`,
+            );
+          },
+        }
+      : null,
+  ],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

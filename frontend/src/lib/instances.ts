@@ -22,10 +22,9 @@ class InstanceManager {
     const key = this.normalize(instanceUrl);
     if (!this.clients.has(key)) {
       const wsUrl = this.wsUrls.get(key);
-      this.clients.set(key, {
-        api: new ApiClient(key),
-        ws: new WebSocketClient(key, wsUrl),
-      });
+      const api = new ApiClient(key);
+      const ws = new WebSocketClient(key, wsUrl, () => api.getValidToken());
+      this.clients.set(key, { api, ws });
     }
     return this.clients.get(key)!;
   }

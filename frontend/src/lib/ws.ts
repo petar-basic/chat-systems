@@ -13,6 +13,8 @@ export class WebSocketClient {
   private reconnectAttempts = 0;
   private instanceUrl?: string;
   private wsUrl?: string;
+  private getToken?: () => Promise<string | null>;
+  private connectSeq = 0;
 
   private subscribedWorkspace: string | null = null;
   private joinedChannels = new Set<string>();
@@ -31,12 +33,14 @@ export class WebSocketClient {
 
   onStatusChange: ((status: WsConnectionStatus) => void) | null = null;
 
-  constructor(instanceUrl?: string, wsUrl?: string) {
+  constructor(instanceUrl?: string, wsUrl?: string, getToken?: () => Promise<string | null>) {
     this.instanceUrl = instanceUrl;
     this.wsUrl = wsUrl;
+    this.getToken = getToken;
   }
 
   connect() {
+    this.connectSeq += 1;
     if (this.ws) {
       this.ws.onclose = null;
       this.ws.close();
@@ -48,10 +52,11 @@ export class WebSocketClient {
     }
     this.reconnectAttempts = 0;
     this.hasConnectedOnce = false;
-    this.doConnect();
+    void this.doConnect();
   }
 
-  private doConnect() {
+  private async doConnect() {
+    const seq = this.connectSeq;
     let url: string;
     if (this.wsUrl) {
       const base = this.wsUrl.replace(/\/$/, '');
@@ -64,7 +69,14 @@ export class WebSocketClient {
     }
 
     this.onStatusChange?.('connecting');
-    this.ws = new WebSocket(url);
+    let token: string | null = null;
+    try {
+      token = (await this.getToken?.()) ?? null;
+    } catch {
+      token = null;
+    }
+    if (seq !== this.connectSeq) return;
+    this.ws = token ? new WebSocket(url, ['bearer', token]) : new WebSocket(url);
 
     this.ws.onopen = () => {
       const isReconnect = this.hasConnectedOnce;
@@ -103,6 +115,7 @@ export class WebSocketClient {
   }
 
   disconnect() {
+    this.connectSeq += 1;
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -129,7 +142,7 @@ export class WebSocketClient {
     logger.info('WebSocketClient', 'scheduleReconnect', `disconnected, retrying in ${delay}ms`);
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
-      this.doConnect();
+      void this.doConnect();
     }, delay);
   }
 

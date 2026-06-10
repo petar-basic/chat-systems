@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use axum::extract::ws::WebSocketUpgrade;
 use axum::extract::State;
-use axum::http::header::COOKIE;
+use axum::http::header::{COOKIE, SEC_WEBSOCKET_PROTOCOL};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
@@ -45,7 +45,7 @@ struct Claims {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    dotenv::dotenv().ok();
+    dotenvy::dotenv().ok();
 
     tracing_subscriber::fmt()
         .json()
@@ -101,11 +101,15 @@ pub(crate) fn build_app(state: AppState) -> Router {
         .with_state(state)
 }
 
-pub(crate) fn authenticate_ws(
-    headers: &axum::http::HeaderMap,
-    jwt_secret: &str,
-) -> Result<(uuid::Uuid, i64), AppError> {
-    let token = headers
+fn protocol_token(headers: &axum::http::HeaderMap) -> Option<String> {
+    let raw = headers.get(SEC_WEBSOCKET_PROTOCOL)?.to_str().ok()?;
+    let parts: Vec<&str> = raw.split(',').map(|p| p.trim()).collect();
+    let idx = parts.iter().position(|&p| p == "bearer")?;
+    parts.get(idx + 1).map(|s| s.to_string())
+}
+
+fn cookie_token(headers: &axum::http::HeaderMap) -> Option<String> {
+    headers
         .get(COOKIE)
         .and_then(|v| v.to_str().ok())
         .and_then(|s| {
@@ -115,7 +119,15 @@ pub(crate) fn authenticate_ws(
                     .map(|v| v.to_string())
             })
         })
-        .ok_or_else(|| AppError::Unauthorized("Missing access_token cookie".into()))?;
+}
+
+pub(crate) fn authenticate_ws(
+    headers: &axum::http::HeaderMap,
+    jwt_secret: &str,
+) -> Result<(uuid::Uuid, i64), AppError> {
+    let token = protocol_token(headers)
+        .or_else(|| cookie_token(headers))
+        .ok_or_else(|| AppError::Unauthorized("Missing access token".into()))?;
 
     let token_data = decode::<Claims>(
         &token,
@@ -142,7 +154,9 @@ async fn ws_upgrade(
 ) -> Result<Response, AppError> {
     let (user_id, exp) = authenticate_ws(&headers, &state.jwt_secret)?;
     let cm = state.cm.clone();
-    Ok(ws.on_upgrade(move |socket| ws_handler::handle_ws(socket, user_id, exp, cm)))
+    Ok(ws
+        .protocols(["bearer"])
+        .on_upgrade(move |socket| ws_handler::handle_ws(socket, user_id, exp, cm)))
 }
 
 async fn livez() -> impl IntoResponse {

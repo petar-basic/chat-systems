@@ -158,6 +158,15 @@ pub fn cookie_header(token: &str) -> axum::http::HeaderMap {
     h
 }
 
+pub fn protocol_header(token: &str) -> axum::http::HeaderMap {
+    let mut h = axum::http::HeaderMap::new();
+    h.insert(
+        header::SEC_WEBSOCKET_PROTOCOL,
+        format!("bearer, {token}").parse().unwrap(),
+    );
+    h
+}
+
 pub async fn get_status(app: &Router, uri: &str) -> StatusCode {
     let req = Request::builder()
         .method("GET")

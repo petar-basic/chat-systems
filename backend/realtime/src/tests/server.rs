@@ -55,3 +55,21 @@ fn ws_auth_accepts_genuine_access_token() {
         .expect("access token should be accepted");
     assert_eq!(sub, user);
 }
+
+#[test]
+fn ws_auth_accepts_subprotocol_token() {
+    let user = Uuid::new_v4();
+    let token = mint_token(user, "access");
+    let (sub, _exp) = authenticate_ws(&protocol_header(&token), JWT_SECRET)
+        .expect("subprotocol access token should be accepted");
+    assert_eq!(sub, user);
+}
+
+#[test]
+fn ws_auth_rejects_non_access_subprotocol_token() {
+    let token = mint_token(Uuid::new_v4(), "refresh");
+    assert!(
+        authenticate_ws(&protocol_header(&token), JWT_SECRET).is_err(),
+        "a refresh token must not open a socket via subprotocol"
+    );
+}

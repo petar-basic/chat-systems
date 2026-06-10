@@ -64,6 +64,43 @@ Open **http://localhost:8080** and log in with your `ADMIN_EMAIL` / `ADMIN_PASSW
 Full setup — local development, production deployment with HTTPS and backups, and
 the contribution workflow — lives in **[docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)**.
 
+## Desktop app
+
+The desktop client is an Electron wrapper around the same web app. It connects to
+whichever server you point it at — on first launch it asks for your instance URL
+(e.g. `https://chat.yourcompany.com`), so one build works for every self-hoster.
+
+**Download & install.** Grab the installer for your OS from the
+[Releases](https://github.com/petar-basic/chat-systems/releases) page:
+
+| OS      | File          |
+|---------|---------------|
+| macOS   | `.dmg`        |
+| Windows | `.exe` (NSIS) |
+| Linux   | `.AppImage` or `.deb` |
+
+**Opening an unsigned build.** The published builds are *not* code-signed (no Apple
+Developer ID or Windows Authenticode cert), so the OS shows a one-time warning you
+can dismiss:
+
+- **macOS** — right-click the app → **Open** → **Open**, or clear the quarantine flag:
+  `xattr -dr com.apple.quarantine "/Applications/Chat Systems.app"`
+- **Windows** — on the SmartScreen "Windows protected your PC" prompt, click
+  **More info** → **Run anyway**.
+- **Linux** — make the AppImage executable: `chmod +x "Chat Systems-*.AppImage"`.
+
+**Cutting a release (maintainers).** Bump `version` in `frontend/package.json`, then
+push a matching tag — `.github/workflows/release.yml` builds the macOS, Windows, and
+Linux installers on their respective runners and uploads them to a GitHub Release:
+
+```bash
+git tag v1.0.0 && git push origin v1.0.0
+```
+
+**Building locally.** `cd frontend && npm run electron:build` produces installers for
+the current OS only (into `frontend/release/`). A macOS `.dmg` can only be built on
+macOS; use the release workflow to produce all three at once.
+
 ## Documentation
 
 - **[Contributing & running](docs/CONTRIBUTING.md)** — dev setup, production deploy, coding standards, testing, CI
