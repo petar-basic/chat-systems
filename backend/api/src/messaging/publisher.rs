@@ -1,5 +1,5 @@
 use redis::AsyncCommands;
-use tracing::info;
+use tracing::{info, warn};
 use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
@@ -25,10 +25,13 @@ impl EventPublisher {
         );
 
         let mut conn = self.redis.clone();
-        let _: () = conn
-            .publish(&channel, &json)
-            .await
-            .map_err(|e| AppError::Internal(format!("Redis publish failed: {}", e)))?;
+        if let Err(e) = conn.publish::<_, _, ()>(&channel, &json).await {
+            warn!(
+                "Redis publish failed for event {} (id={}): {}",
+                event_type, event.id, e
+            );
+            return Err(AppError::Internal(format!("Redis publish failed: {}", e)));
+        }
 
         info!("Published event: {} (id={})", event_type, event.id);
         Ok(())

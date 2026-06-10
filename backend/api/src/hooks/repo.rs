@@ -74,6 +74,18 @@ impl HookRepo {
         Ok(())
     }
 
+    pub async fn find_active_incoming_hook_by_token(
+        &self,
+        token: &str,
+    ) -> sqlx::Result<Option<Hook>> {
+        sqlx::query_as::<_, Hook>(
+            "SELECT * FROM hooks WHERE hook_type = 'incoming_webhook' AND is_active = true AND config->>'token' = $1",
+        )
+        .bind(token)
+        .fetch_optional(&self.pool)
+        .await
+    }
+
     pub async fn list_active_outgoing_hooks(&self, workspace_id: Uuid) -> sqlx::Result<Vec<Hook>> {
         sqlx::query_as::<_, Hook>(
             "SELECT * FROM hooks WHERE workspace_id = $1 AND hook_type = 'outgoing_webhook' AND is_active = true",

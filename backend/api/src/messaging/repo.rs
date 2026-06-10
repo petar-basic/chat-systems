@@ -7,6 +7,16 @@ pub struct MessageRepo {
     pool: PgPool,
 }
 
+pub struct MessageSearch<'a> {
+    pub query: &'a str,
+    pub workspace_id: Uuid,
+    pub requester_id: Uuid,
+    pub channel_id: Option<Uuid>,
+    pub author_id: Option<Uuid>,
+    pub limit: i64,
+    pub offset: i64,
+}
+
 impl MessageRepo {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
@@ -275,15 +285,7 @@ impl MessageRepo {
         .await
     }
 
-    pub async fn search(
-        &self,
-        query: &str,
-        workspace_id: Uuid,
-        channel_id: Option<Uuid>,
-        user_id: Option<Uuid>,
-        limit: i64,
-        offset: i64,
-    ) -> sqlx::Result<Vec<Message>> {
+    pub async fn search(&self, params: MessageSearch<'_>) -> sqlx::Result<Vec<Message>> {
         sqlx::query_as::<_, Message>(
             r#"
             SELECT m.* FROM messages m
@@ -291,18 +293,26 @@ impl MessageRepo {
             WHERE m.content_search @@ plainto_tsquery('english', $1)
               AND c.workspace_id = $2
               AND m.deleted_at IS NULL
-              AND ($3::uuid IS NULL OR m.channel_id = $3)
-              AND ($4::uuid IS NULL OR m.user_id = $4)
+              AND (
+                c.channel_type = 'public'
+                OR EXISTS (
+                  SELECT 1 FROM channel_members cm
+                  WHERE cm.channel_id = c.id AND cm.user_id = $3
+                )
+              )
+              AND ($4::uuid IS NULL OR m.channel_id = $4)
+              AND ($5::uuid IS NULL OR m.user_id = $5)
             ORDER BY ts_rank(m.content_search, plainto_tsquery('english', $1)) DESC
-            LIMIT $5 OFFSET $6
+            LIMIT $6 OFFSET $7
             "#,
         )
-        .bind(query)
-        .bind(workspace_id)
-        .bind(channel_id)
-        .bind(user_id)
-        .bind(limit)
-        .bind(offset)
+        .bind(params.query)
+        .bind(params.workspace_id)
+        .bind(params.requester_id)
+        .bind(params.channel_id)
+        .bind(params.author_id)
+        .bind(params.limit)
+        .bind(params.offset)
         .fetch_all(&self.pool)
         .await
     }

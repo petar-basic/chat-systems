@@ -1,6 +1,5 @@
 # Chat Systems
 
-<!-- Replace <owner> with your GitHub org/user once the repo is pushed. -->
 ![CI](https://github.com/petar-basic/chat-systems/actions/workflows/ci.yml/badge.svg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
@@ -27,7 +26,7 @@ integration-test suite and a real CI pipeline.
 - **Multi-workspace** — one instance, many teams; the client can connect to several instances
 - **Role-based access** — Instance Admin, Workspace Owner/Admin, Channel Admin, Member, Guest
 - **Invite-only onboarding** — email invites, password reset, no open sign-up
-- **Outgoing webhooks** — SSRF-hardened and HMAC-signed
+- **Webhooks** — incoming (Slack-compatible `{"text":...}` → channel) and outgoing (SSRF-hardened, HMAC-signed)
 - **Notifications** — in-app + native desktop, with mention highlighting and a favicon badge
 - **Desktop app** — Electron build with native notifications, dock badge, and `chatsystems://` deep links
 
@@ -104,9 +103,26 @@ macOS; use the release workflow to produce all three at once.
 ## Documentation
 
 - **[Contributing & running](docs/CONTRIBUTING.md)** — dev setup, production deploy, coding standards, testing, CI
+- **[Operations runbook](docs/RUNBOOK.md)** — backups, restore, upgrade/rollback, alerts
 - **[Backend architecture](docs/backend.md)** — design rationale + REST/WebSocket API reference
 - **[Frontend architecture](docs/frontend.md)** — design rationale + components, stores, and data flow
 - **[Manual QA script](docs/manual-qa.md)** — end-to-end test checklist
+- **[Roadmap & known limitations](docs/ROADMAP.md)** — what's deliberately not done yet, and why
+
+## Known limitations
+
+Honest about the edges, since this is a reference codebase:
+
+- **Real-time delivery is at-most-once.** Events fan out over Redis pub/sub; a client
+  that misses messages while disconnected recovers by refetching open views on reconnect,
+  not by replaying a gap. Durable delivery (Redis Streams + a per-client cursor) is the
+  next planned step — see the [roadmap](docs/ROADMAP.md).
+- **Huddles use a WebRTC mesh**, which is great up to ~6–8 participants; large all-hands
+  calls would need an SFU.
+- **No SSO/2FA yet** — email + password only.
+- **Desktop builds are unsigned** (no Apple Developer ID / Windows Authenticode cert).
+
+The full prioritized list lives in **[docs/ROADMAP.md](docs/ROADMAP.md)**.
 
 ## License
 

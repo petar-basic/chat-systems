@@ -46,10 +46,14 @@ pub fn router(state: Arc<AppState>) -> Router {
 async fn login(
     State(state): State<Arc<AppState>>,
     jar: CookieJar,
+    headers: HeaderMap,
     Json(req): Json<LoginRequest>,
 ) -> AppResult<(CookieJar, Json<AuthSession>)> {
     let key = format!("rate_limit:login:{}", req.email.to_lowercase());
     check_rate_limit(&state, &key, 10, 900).await?;
+    if let Some(ip) = client_ip(&headers) {
+        check_rate_limit(&state, &format!("rate_limit:login_ip:{ip}"), 30, 900).await?;
+    }
 
     let tokens = state.auth_service.login(&req.email, &req.password).await?;
     let secure = state.config.public_url.starts_with("https://");
@@ -299,4 +303,20 @@ async fn check_rate_limit(
 ) -> AppResult<()> {
     let mut conn = state.redis.clone();
     crate::rate_limit::enforce(&mut conn, key, max_attempts, window_secs).await
+}
+
+fn client_ip(headers: &HeaderMap) -> Option<String> {
+    headers
+        .get("x-forwarded-for")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.split(',').next())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .or_else(|| {
+            headers
+                .get("x-real-ip")
+                .and_then(|v| v.to_str().ok())
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+        })
 }

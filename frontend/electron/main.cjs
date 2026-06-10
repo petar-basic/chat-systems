@@ -69,6 +69,23 @@ function sendDeepLink(url) {
   }
 }
 
+function isSafeExternal(url) {
+  try {
+    const { protocol } = new URL(url);
+    return protocol === 'http:' || protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function isSameOrigin(url, current) {
+  try {
+    return new URL(url).origin === new URL(current).origin;
+  } catch {
+    return false;
+  }
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -97,8 +114,19 @@ function createWindow() {
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    if (isSafeExternal(url)) {
+      shell.openExternal(url);
+    }
     return { action: 'deny' };
+  });
+
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    const current = mainWindow.webContents.getURL();
+    if (url === current || isSameOrigin(url, current)) return;
+    event.preventDefault();
+    if (isSafeExternal(url)) {
+      shell.openExternal(url);
+    }
   });
 
   // Huddle screen share: getDisplayMedia() in the renderer needs a main-process

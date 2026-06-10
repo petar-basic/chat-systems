@@ -558,6 +558,53 @@ async fn search_member_succeeds(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../migrations")]
+async fn search_excludes_private_channels_for_non_channel_member(pool: PgPool) {
+    let (app, state, owner_id, owner_token, ws_id, _ch_id) = setup_channel(pool).await;
+    let private_ch = seed_channel(
+        &state,
+        ws_id,
+        owner_id,
+        &format!("secret-{}", uuid::Uuid::new_v4()),
+        true,
+    )
+    .await;
+    create_message(&app, &owner_token, private_ch, "classified needle").await;
+
+    let (member_id, _email, member_token) = seed_and_login(&app, &state, "member", false).await;
+    add_ws_member(&state, ws_id, member_id, "member").await;
+
+    let (status, body) = send(
+        &app,
+        "GET",
+        &format!("/api/search?q=needle&workspace_id={ws_id}"),
+        Some(&member_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(
+        body["data"].as_array().expect("data array").len(),
+        0,
+        "workspace member who is not in the private channel must not see its messages: {body:?}"
+    );
+
+    let (status, body) = send(
+        &app,
+        "GET",
+        &format!("/api/search?q=needle&workspace_id={ws_id}"),
+        Some(&owner_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(
+        body["data"].as_array().expect("data array").len(),
+        1,
+        "channel member must see the private channel message: {body:?}"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
 async fn search_non_member_forbidden(pool: PgPool) {
     let (app, state, _owner, _token, ws_id, _ch_id) = setup_channel(pool).await;
     let (_outsider, _email, outsider_token) = seed_and_login(&app, &state, "outsider", false).await;

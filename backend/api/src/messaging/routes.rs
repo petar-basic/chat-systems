@@ -503,14 +503,15 @@ async fn search_messages(
 
     let messages = state
         .message_repo
-        .search(
-            &query,
-            params.workspace_id,
-            params.channel_id,
-            params.user_id,
+        .search(crate::messaging::repo::MessageSearch {
+            query: &query,
+            workspace_id: params.workspace_id,
+            requester_id: auth.user_id,
+            channel_id: params.channel_id,
+            author_id: params.user_id,
             limit,
             offset,
-        )
+        })
         .await
         .map_err(|e| AppError::Database(e.to_string()))?;
 

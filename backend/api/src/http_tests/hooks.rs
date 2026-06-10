@@ -9,6 +9,7 @@ async fn owner_can_create_hook(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Hooks WS").await;
+    let ch = seed_channel(&state, ws, owner_id, "deploys", false).await;
 
     let (status, body) = send(
         &app,
@@ -19,12 +20,104 @@ async fn owner_can_create_hook(pool: PgPool) {
             "hook_type": "incoming_webhook",
             "name": "deploy-bot",
             "description": "Posts deploy events",
-            "config": { "url": "https://example.test/in" }
+            "config": { "channel_id": ch }
         })),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "owner creates hook: {body:?}");
     assert!(body["id"].is_string(), "hook id returned: {body:?}");
+    assert!(
+        body["config"]["token"].is_string(),
+        "server mints a token for incoming webhooks: {body:?}"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn incoming_webhook_requires_channel_id(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Hooks WS").await;
+
+    let (status, _body) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws}/hooks"),
+        Some(&token),
+        Some(json!({
+            "hook_type": "incoming_webhook",
+            "name": "no-channel",
+            "config": { "url": "https://example.test/in" }
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn incoming_webhook_posts_message_to_channel(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Hooks WS").await;
+    let ch = seed_channel(&state, ws, owner_id, "deploys", false).await;
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws}/hooks"),
+        Some(&token),
+        Some(json!({
+            "hook_type": "incoming_webhook",
+            "name": "deploy-bot",
+            "config": { "channel_id": ch }
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    let webhook_token = body["config"]["token"].as_str().expect("token").to_string();
+
+    // No auth header — the URL token is the only credential.
+    let (post_status, post_body) = send(
+        &app,
+        "POST",
+        &format!("/api/hooks/incoming/{webhook_token}"),
+        None,
+        Some(json!({ "text": "deploy succeeded :rocket:" })),
+    )
+    .await;
+    assert_eq!(post_status, StatusCode::OK, "incoming post: {post_body:?}");
+
+    let (list_status, list_body) = send(
+        &app,
+        "GET",
+        &format!("/api/channels/{ch}/messages"),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_eq!(list_status, StatusCode::OK, "{list_body:?}");
+    let found = list_body["data"]
+        .as_array()
+        .expect("data array")
+        .iter()
+        .any(|m| m["content"].as_str() == Some("deploy succeeded :rocket:"));
+    assert!(
+        found,
+        "webhook message must land in the channel: {list_body:?}"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn incoming_webhook_invalid_token_rejected(pool: PgPool) {
+    let (app, _state) = app_and_state(pool).await;
+    let (status, _body) = send(
+        &app,
+        "POST",
+        "/api/hooks/incoming/not-a-real-token",
+        None,
+        Some(json!({ "text": "hello" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
 #[sqlx::test(migrations = "../migrations")]
@@ -186,6 +279,7 @@ async fn get_hook_by_id_redacts_secrets(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Hooks WS").await;
+    let ch = seed_channel(&state, ws, owner_id, "alerts", false).await;
 
     let (status, created) = send(
         &app,
@@ -195,7 +289,7 @@ async fn get_hook_by_id_redacts_secrets(pool: PgPool) {
         Some(json!({
             "hook_type": "incoming_webhook",
             "name": "single-hook",
-            "config": { "apiKey": "k-123", "url": "https://example.test" }
+            "config": { "apiKey": "k-123", "channel_id": ch }
         })),
     )
     .await;

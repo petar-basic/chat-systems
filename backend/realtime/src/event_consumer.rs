@@ -1,11 +1,17 @@
+use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
 
 use futures_util::StreamExt;
 use tracing::{info, warn};
 
 use crate::connection_manager::ConnectionManager;
 
-pub async fn start_event_consumer(redis_url: &str, cm: Arc<ConnectionManager>) {
+pub async fn start_event_consumer(
+    redis_url: &str,
+    cm: Arc<ConnectionManager>,
+    heartbeat: Arc<AtomicI64>,
+) {
     let client = match redis::Client::open(redis_url) {
         Ok(c) => c,
         Err(e) => {
@@ -32,6 +38,7 @@ pub async fn start_event_consumer(redis_url: &str, cm: Arc<ConnectionManager>) {
         "events:typing",
         "events:huddle",
         "events:huddle-signal",
+        "events:user",
     ];
     for ch in &channels {
         if let Err(e) = pubsub.subscribe(ch).await {
@@ -40,27 +47,42 @@ pub async fn start_event_consumer(redis_url: &str, cm: Arc<ConnectionManager>) {
     }
 
     info!("Event consumer started, subscribed to: {:?}", channels);
+    heartbeat.store(crate::now_unix(), Ordering::Relaxed);
 
     let mut stream = pubsub.into_on_message();
 
-    while let Some(msg) = stream.next().await {
-        let payload: String = match msg.get_payload() {
-            Ok(p) => p,
-            Err(_) => continue,
-        };
+    loop {
+        tokio::select! {
+            maybe_msg = stream.next() => {
+                let Some(msg) = maybe_msg else {
+                    warn!("Event consumer stream ended");
+                    return;
+                };
+                heartbeat.store(crate::now_unix(), Ordering::Relaxed);
+                metrics::counter!("realtime_events_total").increment(1);
 
-        let event: serde_json::Value = match serde_json::from_str(&payload) {
-            Ok(v) => v,
-            Err(_) => continue,
-        };
+                let payload: String = match msg.get_payload() {
+                    Ok(p) => p,
+                    Err(_) => continue,
+                };
 
-        let event_type = event
-            .get("event_type")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        let event_payload = event.get("payload").cloned().unwrap_or_default();
+                let event: serde_json::Value = match serde_json::from_str(&payload) {
+                    Ok(v) => v,
+                    Err(_) => continue,
+                };
 
-        handle_event(event_type, &event_payload, &cm).await;
+                let event_type = event
+                    .get("event_type")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let event_payload = event.get("payload").cloned().unwrap_or_default();
+
+                handle_event(event_type, &event_payload, &cm).await;
+            }
+            _ = tokio::time::sleep(Duration::from_secs(15)) => {
+                heartbeat.store(crate::now_unix(), Ordering::Relaxed);
+            }
+        }
     }
 }
 
@@ -198,6 +220,16 @@ pub(crate) async fn handle_event(
                 .and_then(|v| v.as_str())
                 .and_then(|v| v.parse::<uuid::Uuid>().ok());
             let status = payload.get("status").and_then(|v| v.as_str()).unwrap_or("");
+            let workspace_ids: Vec<uuid::Uuid> = payload
+                .get("workspace_ids")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str())
+                        .filter_map(|s| s.parse().ok())
+                        .collect()
+                })
+                .unwrap_or_default();
 
             if let Some(subject_id) = subject {
                 let ws_msg = serde_json::json!({
@@ -205,12 +237,7 @@ pub(crate) async fn handle_event(
                     "user_id": subject_id,
                     "status": status,
                 });
-                let msg = ws_msg.to_string();
-                for uid in cm.local_users() {
-                    if uid != subject_id {
-                        cm.send_to_user(uid, &msg).await;
-                    }
-                }
+                cm.send_to_workspace_members(subject_id, &workspace_ids, &ws_msg.to_string());
             }
         }
         "typing.indicator" => {
@@ -337,6 +364,15 @@ pub(crate) async fn handle_event(
                 {
                     cm.send_to_user(partner, &msg).await;
                 }
+            }
+        }
+        "user.suspended" => {
+            if let Some(uid) = payload
+                .get("user_id")
+                .and_then(|v| v.as_str())
+                .and_then(|v| v.parse::<uuid::Uuid>().ok())
+            {
+                cm.disconnect_user(uid);
             }
         }
         _ => {

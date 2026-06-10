@@ -122,6 +122,35 @@ async fn activate_user_as_admin_returns_200(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../migrations")]
+async fn suspended_user_live_access_token_is_revoked(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (_admin_id, _email, admin_token) = seed_and_login(&app, &state, "admin-revoke", true).await;
+    let (target_id, _t_email, target_token) =
+        seed_and_login(&app, &state, "revoke-target", false).await;
+
+    let (pre, _b) = send(&app, "GET", "/api/workspaces", Some(&target_token), None).await;
+    assert_eq!(pre, StatusCode::OK, "token valid before suspension");
+
+    let suspend_uri = format!("/api/admin/users/{target_id}/suspend");
+    let (s, _b) = send(&app, "POST", &suspend_uri, Some(&admin_token), None).await;
+    assert_eq!(s, StatusCode::OK);
+
+    let (post, _b) = send(&app, "GET", "/api/workspaces", Some(&target_token), None).await;
+    assert_eq!(
+        post,
+        StatusCode::UNAUTHORIZED,
+        "suspended user's still-unexpired access token must be rejected"
+    );
+
+    let activate_uri = format!("/api/admin/users/{target_id}/activate");
+    let (a, _b) = send(&app, "POST", &activate_uri, Some(&admin_token), None).await;
+    assert_eq!(a, StatusCode::OK);
+
+    let (after, _b) = send(&app, "GET", "/api/workspaces", Some(&target_token), None).await;
+    assert_eq!(after, StatusCode::OK, "reactivated user regains access");
+}
+
+#[sqlx::test(migrations = "../migrations")]
 async fn suspend_user_without_token_returns_401(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (target_id, _target_email) = seed(&state, "suspend-noauth", false).await;

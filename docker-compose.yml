@@ -130,6 +130,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    image: chat-api:${VERSION:-latest}
     restart: unless-stopped
     environment:
       SERVICE: chat-api
@@ -176,11 +177,22 @@ services:
     # /api here. In full-docker mode the SPA reaches it via nginx instead.
     ports:
       - "127.0.0.1:3000:3000"
+    # /readyz checks DB + Redis (unlike the image's /livez), so a wedged process
+    # is marked unhealthy and the prod autoheal sidecar can restart it.
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/readyz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    labels:
+      autoheal: "true"
 
   realtime:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    image: chat-realtime:${VERSION:-latest}
     restart: unless-stopped
     environment:
       SERVICE: chat-realtime
@@ -199,6 +211,15 @@ services:
     # In full-docker mode the SPA reaches it via nginx instead.
     ports:
       - "127.0.0.1:3004:3004"
+    # /readyz checks DB + Redis + that the event consumer is not stalled.
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3004/readyz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    labels:
+      autoheal: "true"
 
   # ── Frontend (React → nginx) ──────────────────────────────────────────────
 
@@ -207,6 +228,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    image: chat-frontend:${VERSION:-latest}
     restart: unless-stopped
     depends_on:
       - api

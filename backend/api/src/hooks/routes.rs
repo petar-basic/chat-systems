@@ -3,6 +3,7 @@ use std::sync::Arc;
 use axum::extract::{Path, State};
 use axum::routing::{delete, get, post};
 use axum::{middleware, Json, Router};
+use rand::RngCore;
 use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
@@ -14,7 +15,7 @@ use crate::state::AppState;
 use crate::workspace::models::WorkspaceRole;
 
 pub fn router(state: Arc<AppState>) -> Router {
-    let routes = Router::new()
+    let protected = Router::new()
         .route("/workspaces/:ws_id/hooks", get(list_hooks))
         .route("/workspaces/:ws_id/hooks", post(create_hook))
         .route("/hooks/:hook_id", get(get_hook))
@@ -23,7 +24,21 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/workspaces/:ws_id/reminders", post(create_reminder))
         .layer(middleware::from_fn(auth_middleware));
 
-    Router::new().merge(routes).with_state(state)
+    // The incoming webhook is authenticated by its URL token, not a session, so
+    // it must NOT sit behind auth_middleware.
+    let public = Router::new().route("/hooks/incoming/:token", post(incoming_webhook));
+
+    Router::new()
+        .merge(protected)
+        .merge(public)
+        .with_state(state)
+}
+
+fn generate_token() -> String {
+    use base64::Engine;
+    let mut bytes = [0u8; 24];
+    rand::rngs::OsRng.fill_bytes(&mut bytes);
+    base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
 }
 
 async fn list_hooks(
@@ -53,7 +68,33 @@ async fn create_hook(
     Json(req): Json<CreateHookRequest>,
 ) -> AppResult<Json<Hook>> {
     require_ws_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
-    let config = req.config.unwrap_or(serde_json::json!({}));
+    let mut config = req.config.unwrap_or(serde_json::json!({}));
+
+    if req.hook_type == HookType::IncomingWebhook {
+        let channel_id = config
+            .get("channel_id")
+            .and_then(|v| v.as_str())
+            .and_then(|s| s.parse::<Uuid>().ok())
+            .ok_or_else(|| {
+                AppError::Validation("incoming_webhook requires a channel_id in config".into())
+            })?;
+        let channel = state
+            .workspace_service
+            .repo
+            .find_channel_by_id(channel_id)
+            .await
+            .map_err(|e| AppError::Database(e.to_string()))?
+            .ok_or_else(|| AppError::NotFound("Channel not found".into()))?;
+        if channel.workspace_id != ws_id {
+            return Err(AppError::Validation(
+                "channel does not belong to this workspace".into(),
+            ));
+        }
+        if let Some(obj) = config.as_object_mut() {
+            obj.insert("token".to_string(), serde_json::json!(generate_token()));
+        }
+    }
+
     let hook = state
         .hook_repo
         .create_hook(
@@ -169,6 +210,71 @@ async fn create_reminder(
         .await
         .map_err(|e| AppError::Database(e.to_string()))?;
     Ok(Json(reminder))
+}
+
+async fn incoming_webhook(
+    State(state): State<Arc<AppState>>,
+    Path(token): Path<String>,
+    Json(payload): Json<IncomingWebhookPayload>,
+) -> AppResult<Json<serde_json::Value>> {
+    let mut conn = state.redis.clone();
+    crate::rate_limit::enforce(
+        &mut conn,
+        &format!("rate_limit:hook_incoming:{token}"),
+        60,
+        60,
+    )
+    .await?;
+
+    let hook = state
+        .hook_repo
+        .find_active_incoming_hook_by_token(&token)
+        .await
+        .map_err(|e| AppError::Database(e.to_string()))?
+        .ok_or_else(|| AppError::Unauthorized("Invalid webhook token".into()))?;
+
+    shared_common::validation::validate_message_content(&payload.text)?;
+
+    let channel_id = hook
+        .config
+        .get("channel_id")
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse::<Uuid>().ok())
+        .ok_or_else(|| AppError::Internal("hook is missing a channel_id".into()))?;
+
+    let msg = state
+        .message_repo
+        .create_message(channel_id, hook.created_by, &payload.text, None)
+        .await
+        .map_err(|e| AppError::Database(e.to_string()))?;
+
+    let msg_json = serde_json::to_value(&msg).map_err(|e| AppError::Internal(e.to_string()))?;
+    if let Err(e) = state
+        .publisher
+        .publish_message_created(&msg_json, hook.workspace_id, &[])
+        .await
+    {
+        tracing::warn!(
+            "incoming webhook publish failed for hook {}: {}",
+            hook.id,
+            e
+        );
+    }
+
+    let _ = state
+        .hook_repo
+        .log_execution(
+            hook.id,
+            "incoming.message",
+            &serde_json::json!({ "text": payload.text }),
+            Some(200),
+            None,
+        )
+        .await;
+
+    Ok(Json(
+        serde_json::json!({ "status": "ok", "message_id": msg.id }),
+    ))
 }
 
 async fn require_ws_role(
