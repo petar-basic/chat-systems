@@ -23,12 +23,14 @@ cp .env.example .env
 #   ADMIN_PASSWORD=<something strong>
 #   POSTGRES_PASSWORD=<something strong>
 docker compose --profile frontend up -d --build
-# App:      http://localhost:3000
+# App:      http://localhost:8080   (frontend nginx; proxies /api + /ws internally)
+# API:      http://localhost:3000   (chat-api, loopback-only; health/metrics live here, NOT behind nginx)
+# Realtime: http://localhost:3004   (chat-realtime, loopback-only)
 # MailHog:  http://localhost:8025   (catches all outgoing email)
 ```
 - First admin: `admin@dev.local` / `<ADMIN_PASSWORD from .env>`.
-- Health: `curl localhost:3000/livez` → `ok`; `curl localhost:3000/readyz` → `ready`.
-- Metrics: `curl localhost:3000/metrics` → Prometheus text.
+- Health: `curl localhost:3000/livez` → `ok`; `curl localhost:3000/readyz` → `ready`. Realtime too: `curl localhost:3004/livez` / `curl localhost:3004/readyz`. (`/livez`,`/readyz`,`/metrics` are served at the service root, not under `/api`, so hit the api/realtime ports directly.)
+- Metrics: `curl localhost:3000/metrics` and `curl localhost:3004/metrics` → Prometheus text (api exposes `http_requests_total`/`http_request_duration_seconds`; realtime exposes `realtime_ws_connections`/`realtime_consumer_heartbeat_age_seconds`/`realtime_events_total`/`realtime_backpressure_drops_total`).
 
 ### Option B — dev mode (hot reload, two API ports)
 ```bash
@@ -90,9 +92,11 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - **Expected:** counts render; user list paginates.
 - 🔴 **Edge — non-admin:** log in as a normal user and navigate to the admin URL directly → blocked (403 / redirected). Hit `/api/admin/users` without admin → 403.
 
-### 2.2 🟠 Suspend user
-- **Steps:** suspend a user → that user can no longer log in / act.
-- **Expected:** suspended user's requests rejected; un-suspend restores access.
+### 2.2 🟠 Suspend user → session revocation
+- **Reach:** admin area → user row → Suspend (or `POST /api/admin/users/<user_id>/suspend`).
+- **Steps:** with the target user logged in and on a live socket, suspend them.
+- **Expected:** their existing **access token is rejected (401 "Session revoked")** on the next `/api/...` call — not just on next login — and their **live WebSocket drops** (driven by a `user.suspended` event); fresh login fails too ("Account is not active"). Their refresh tokens are deleted, so silent refresh can't resurrect the session.
+- 🟠 **Edge — activate restores:** `POST /api/admin/users/<user_id>/activate` clears the Redis revocation flag → the user can log in again and act. (Revocation is a Redis `revoked:<uid>` key TTL'd to the access-token lifetime; if Redis is unavailable the access token is *not* treated as revoked — fail-open.)
 
 ---
 
@@ -118,6 +122,7 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 ### 3.4 🟠 Soft-delete + restore
 - **Steps:** delete a workspace → it disappears for members; as Owner/Admin you see it in a "deleted" view → restore it.
 - **Expected:** delete broadcasts to connected members live; restore brings it back. Members (non-admin) are moved out on delete.
+- 🟠 **Edge — instance-admin delete is also soft + reversible:** `DELETE /api/admin/workspaces/<id>` no longer hard-deletes — it sets `is_active=false`/`deleted_at` and writes the audit row in the **same transaction** (so the audit can't silently drop), and broadcasts `workspace.deleted`. The workspace can still be restored.
 
 ---
 
@@ -171,9 +176,10 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
   - **Expected:** rendered as inert text/markdown — **no alert fires**, no clickable `javascript:`/`data:` link, no raw HTML injected. (tiptap renders through a schema; raw HTML is stripped.)
 
 ### 5.7 🟢 Search
-- **Reach:** Search panel.
+- **Reach:** Search panel (`GET /api/search?workspace_id=<id>&q=…`, optional `channel_id`/`user_id`).
 - **Steps:** search for a word present in messages; filter by channel/user if available.
-- **Expected:** full-text results ranked by relevance; deleted messages excluded; only workspaces/channels you can see.
+- **Expected:** full-text results ranked by relevance; deleted messages excluded. Results are **access-scoped**: you must be a member of the queried workspace (else 403), and matches only come from **public channels + the private/DM channels you actually belong to**.
+- 🔴 **Edge — private leakage:** as a user who is NOT a member of a private channel, search for a term you know is only in that private channel → **no results** from it. Search a workspace you're not in → **403**.
 
 ### 5.8 🟠 Read tracking / unread badges
 - **Steps:** in tab A send to a channel; in tab B (different user) don't open it.
@@ -222,6 +228,7 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 - **Steps:** user A @-mentions user B while B is offline or viewing another channel → B opens the app / Notifications panel.
 - **Expected:** B sees a **persisted** notification ("You were mentioned") with a deep link; the unread count reflects it; marking read clears it (and it stays cleared after refresh — it's persisted in the DB, not just a live push).
 - 🟠 **Edge:** open the deep link → jumps to the message.
+- 🔴 **Edge — workspace membership:** the workspace-scoped notifications routes now require membership. As a user NOT in workspace W, call `GET /api/workspaces/<W>/notifications` (also `.../notifications/unread-count`, `.../notifications/read-all`, `.../channels/<id>/notifications/read`) → **403** "Not a member of this workspace".
 
 ---
 
@@ -233,6 +240,7 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 ### 9.1 🟢 Presence (online/offline)
 - **Steps:** user A and B both online → A sees B as online → B closes the tab/logs out → A sees B go offline within ~60s (TTL) or immediately on clean disconnect.
 - 🟠 **Edge — multi-tab:** B opens two tabs, closes one → B stays **online** (other tab/connection holds presence). Close the last → goes offline. (Presence is keyed per connection/node, so one tab closing doesn't flip you offline.)
+- 🔴 **Edge — presence is workspace-scoped:** A and B share **no** workspace (C is in a workspace with B but A is not). A should **never** see B's presence — neither the initial `presence.batch` snapshot on subscribe nor live `presence.changed` updates reach A. Verify B going online/offline shows up for C (shared workspace) but not for A. (`presence.changed` carries the subject's `workspace_ids` and is delivered only to connections subscribed to a shared workspace.)
 
 ### 9.2 🟢 Typing indicators
 - **Steps:** A types in a channel → B (viewing it) sees "A is typing…" → stops → indicator clears.
@@ -241,8 +249,17 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 ### 9.3 🟢 Live message delivery + ordering
 - **Steps:** A sends several messages quickly → B sees them in the **correct order**, no gaps/dupes.
 - 🟠 **Edge — reconnect:** kill the realtime connection (stop `chat-realtime` or toggle network) → the client shows "disconnected" and reconnects with backoff; after reconnect, new messages flow again.
-- 🔴 **Edge — WS authz:** as user B, try to subscribe to a channel you're NOT a member of (craft a WS `channel.join` with another channel's id via devtools console) → you receive **no** messages for it.
+- 🔴 **Edge — WS authz:** as user B, try to subscribe to a channel you're NOT a member of (craft a WS `channel.join` with another channel's id via devtools console) → you receive **no** messages for it. (Valid client message `type`s are `subscribe`, `channel.join`, `channel.leave`, `typing.start`, `typing.stop`, `ping`, plus the `huddle.*` set — anything else is ignored.)
 - 🔴 **Edge — WS token type:** connect the websocket using a reset/refresh token in the `access_token` cookie → connection refused (only access tokens open a socket).
+
+### 9.4 🟠 Realtime health & consumer supervision
+- **Reach:** `GET /readyz` on api (`:3000`) and realtime (`:3004`); `GET /metrics` on both.
+- **Steps:** with the stack healthy, `curl localhost:3000/readyz` and `curl localhost:3004/readyz` → both **200 `ready`**.
+- 🔴 **Edge — kill Redis flips realtime to 503:** `docker stop redis` → `curl -i localhost:3004/readyz` returns **503** (`redis unavailable`); api `/readyz` also 503s. Restart Redis → both go back to 200. (Realtime `/readyz` checks DB + Redis PING + that the supervised event consumer's heartbeat is <60s old; the consumer auto-restarts with backoff, and `realtime_consumer_heartbeat_age_seconds` in `/metrics` should stay small while events flow.)
+
+### 9.5 🔴 WS upgrade hardening (Origin + revocation)
+- 🔴 **Edge — Origin check:** open a WS to `/ws` from a page whose `Origin` is not in `CORS_ORIGINS` (e.g. via a script on another host) → upgrade **rejected** ("Origin not allowed"). Same-origin app connects fine.
+- 🔴 **Edge — revoked session can't connect:** suspend a user (§2.2), then try to open a fresh `/ws` with their (still-unexpired) access token → upgrade **rejected** ("Session revoked").
 
 ---
 
@@ -259,6 +276,22 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 - **Steps:** create a reminder for yourself → it fires around the due time (delivered as a notification).
 - 🔴 **Edge:** try to create a reminder targeting another user as a non-admin → 403.
 
+### 10.3 🟢 Incoming webhook (token-authed, Slack-compatible)
+- **Reach:** workspace Admin → create a hook (`POST /api/workspaces/<id>/hooks`) with `hook_type: "incoming_webhook"` and `config: { "channel_id": "<channel in this workspace>" }`. The server **mints `config.token`** and binds the hook to that channel; the creator becomes the message author.
+  ```bash
+  # create (admin session/bearer required); copy config.token from the response
+  curl -s -X POST localhost:3000/api/workspaces/<WS_ID>/hooks -H "Authorization: Bearer $TOKEN" \
+    -H 'Content-Type: application/json' \
+    -d '{"hook_type":"incoming_webhook","name":"ci","config":{"channel_id":"<CH_ID>"}}' | jq
+  # post a message — NO auth header, just the token in the URL (Slack-style {"text":...})
+  curl -s -X POST localhost:3000/api/hooks/incoming/<TOKEN> -H 'Content-Type: application/json' \
+    -d '{"text":"deploy finished ✅"}' | jq
+  ```
+- **Expected:** the unauthenticated POST returns `{"status":"ok","message_id":…}` and the message **appears live in the bound channel** (authored by the hook creator).
+- 🔴 **Edge — bad token:** POST to `/api/hooks/incoming/<garbage>` → **401** "Invalid webhook token" (and a suspended/inactive hook is rejected too).
+- 🔴 **Edge — config requires channel:** creating an `incoming_webhook` without `config.channel_id` (or with a channel from another workspace) → **400/validation error**, no hook created.
+- 🟠 **Edge — rate limit:** hammer the same token >60×/min → **429** (per-token limit), the channel isn't flooded.
+
 ---
 
 ## 11. Cross-cutting security & resilience (mostly API-level)
@@ -266,10 +299,11 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 | # | Case | How to reach | Expected |
 |---|---|---|---|
 | 11.1 🔴 | Cross-tenant read | log in as B, hit `GET /api/workspaces/<A's id>/...` (members, channels, hooks, files) | **403** everywhere |
-| 11.2 🔴 | Login brute-force | POST `/api/auth/login` wrong pw >10× for one email within 15 min | **429 Too Many Requests** |
+| 11.2 🔴 | Login brute-force (per-email) | POST `/api/auth/login` wrong pw >10× for one email within 15 min | **429 Too Many Requests** |
+| 11.2b 🔴 | Login brute-force (per-IP) | POST `/api/auth/login` >30× within 15 min from one IP, varying the email each time | **429** (secondary per-IP limit, keyed on `X-Forwarded-For`/`X-Real-IP`, so spraying many accounts from one host is also throttled) |
 | 11.3 🟠 | Redis down (fail-open) | stop the `redis` container, then log in with correct creds | login still **succeeds** (rate-limit fails open, doesn't lock everyone out) |
 | 11.4 🔴 | Error leakage | trigger a 500 (e.g. stop Postgres mid-request) | response body is generic `{"error":"internal server error"}` — **no SQL/internal detail**; detail only in server logs |
-| 11.5 🟠 | Graceful shutdown | `docker stop` the api with an in-flight request | request drains (not abruptly cut); `/readyz` flips to 503 when DB/Redis down |
+| 11.5 🟠 | Graceful shutdown | `docker stop` the api with an in-flight request | request drains (not abruptly cut); api `/readyz` flips to 503 when DB/Redis down. Realtime `/readyz` additionally 503s if the event consumer stalls (>60s since last heartbeat) — see §9.4. |
 | 11.6 🟠 | Body limit | POST a >100 MB JSON/file | rejected, not OOM |
 | 11.7 🔴 | Missing/invalid token | call any `/api/...` (non-auth) without a token, or with a garbage token | **401**, flat "invalid or expired token" (no library internals) |
 

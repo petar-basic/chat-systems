@@ -1,7 +1,10 @@
+# Accepted advisories. Each entry must name a crate that is in Cargo.lock but NOT
+# compiled into either binary, with the reason it's unreachable.
 [advisories]
 ignore = [
+    # rsa (Marvin timing attack). Present only as a lock entry under sqlx's MySQL
+    # driver, which we never enable (postgres-only). Not in the build graph:
+    # `cargo tree -i rsa` is empty. jsonwebtoken uses the aws_lc_rs provider, not
+    # the rust_crypto/rsa path.
     "RUSTSEC-2023-0071",
-    "RUSTSEC-2026-0104",
-    "RUSTSEC-2026-0098",
-    "RUSTSEC-2026-0099",
 ]

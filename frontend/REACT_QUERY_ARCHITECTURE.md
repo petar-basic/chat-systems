@@ -1,45 +1,53 @@
 # React Query Architecture
 
+All query keys come from the single `QUERY_KEYS` factory in
+`src/shared/constants/query-keys.ts` (the literals below mirror it).
+
 ## Query Keys Strategy
 
 ### 1. Workspaces
 ```typescript
 ['workspaces'] // List all workspaces
+['workspaces', instanceUrls] // List query (keyed by joined instance URLs)
 ['workspaces', workspaceId] // Single workspace
 ['workspaces', workspaceId, 'members'] // Workspace members
 ['workspaces', workspaceId, 'channels'] // Workspace channels
+['workspaces', 'deleted', instanceUrls] // Soft-deleted workspaces
 ```
 
 **WS Events that invalidate:**
 - `workspace.created` → invalidate `['workspaces']`
 - `workspace.updated` → invalidate `['workspaces', workspaceId]` + `['workspaces']`
-- `workspace.deleted` → invalidate `['workspaces']` (+ navigate away if current workspace)
+- `workspace.deleted` → invalidate `['workspaces']` + `['workspaces', 'deleted']` (+ navigate away unless workspace/instance admin)
 - `workspace.restored` → invalidate `['workspaces']`
 - `member.added` → invalidate `['workspaces', workspaceId, 'members']`
 - `member.removed` → invalidate `['workspaces', workspaceId, 'members']`
-- `member.role_changed` → invalidate `['workspaces', workspaceId, 'members']`
 
 ### 2. Channels
 ```typescript
 ['channels', channelId] // Single channel
 ['channels', channelId, 'members'] // Channel members
 ['channels', channelId, 'pins'] // Pinned messages
+['channels', 'unread', workspaceId] // Unread channel IDs
 ```
 
 **WS Events that invalidate:**
 - `channel.created` → invalidate `['workspaces', workspaceId, 'channels']`
 - `channel.updated` → invalidate `['channels', channelId]`
-- `channel.deleted` → invalidate `['workspaces', workspaceId, 'channels']`
 - `channel.member_added` → invalidate `['channels', channelId, 'members']`
 - `channel.member_removed` → invalidate `['channels', channelId, 'members']`
 
 ### 6. Notifications
 ```typescript
+['notifications'] // Root key (invalidated on reconnect backfill)
 ['notifications', workspaceId] // Notifications list
 ['notifications', workspaceId, 'unread-count'] // Unread count
+['notifications', 'dnd'] // Do-not-disturb window
 ```
 
-**WS Events:** None (notifications are fetched on demand or polled)
+**WS Events:** `notification` → handled by `NotificationStream` (not `wsQuerySync`): invalidates
+`['notifications', workspaceId]` and `['notifications', workspaceId, 'unread-count']`, and marks
+the channel unread/mention in `useWorkspaceStore`.
 
 ### 3. Messages
 ```typescript
@@ -65,59 +73,109 @@
 - `reaction.removed` → **optimistic update** (remove from message.reactions)
 
 ### 5. Presence
-```typescript
-['presence', workspaceId] // Workspace presence
-```
+Presence is **not** in React Query — it lives entirely in the `usePresenceStore` Zustand store.
 
-**WS Events that update:**
-- `presence.changed` → **direct state update** (too frequent for query invalidation)
+**WS Events that update the store:**
+- `presence.changed` → direct Zustand update (with a 5s offline grace timer)
+- `presence.batch` → bulk Zustand update
 
 ### 6. Search
 ```typescript
-['search', query, filters] // Search results
+['search', query] // Search results
 ```
+The `SearchPanel` component actually calls `api.get('/search?q=...&limit=20')` directly (debounced
+local state), not a `useQuery` keyed by `['search', query]`; the key exists in `QUERY_KEYS` for
+reuse.
 
 **WS Events:** None (search is always fresh on query)
+
+### 7. Direct Messages
+```typescript
+['dm'] // Root (invalidated on reconnect backfill)
+['dm', 'conversations', workspaceId] // Conversation list
+['dm', 'messages', workspaceId, partnerId] // Infinite DM thread
+```
+
+**WS Events that update:**
+- `dm.new` → upsert into thread + conversation list (mark unread / notify if incoming)
+- `dm.updated` / `dm.deleted` → patch / soft-delete
+- `dm.reaction.added` / `dm.reaction.removed` → patch reactions
+
+### 8. Huddles
+```typescript
+['huddles', 'active'] // Active huddles (root)
+['huddles', 'active', workspaceId] // Active huddles for a workspace
+```
+
+**WS Events:** `huddle.started` / `huddle.ended` update the active-huddle map in `useWorkspaceStore`.
+
+### 9. Auth
+```typescript
+['auth', 'currentUser'] // Reserved key; current user is read from useInstanceStore, not fetched
+```
 
 ---
 
 ## Query Hooks Structure
 
-All hooks (queries and mutations) live in `src/hooks/queries/`.
+All hooks (queries and mutations) live in `src/hooks/queries/` and use the TanStack Query v5
+object API (`useQuery({ queryKey, queryFn, ... })`). Keys come from `QUERY_KEYS`.
 
 ```typescript
+// src/hooks/queries/useAuth.ts
+export const useCurrentUser = () => /* reads useInstanceStore, no fetch */
+export const useAddInstance = () => useMutation(...)            // POST /auth/login (via store)
+export const useCompleteRegistration = () => useMutation(...)   // POST /auth/complete-registration
+export const useLogout = (instanceUrl?) => useMutation(...)     // POST /auth/logout
+
 // src/hooks/queries/useWorkspaces.ts
-export const useWorkspaces = () => useQuery(['workspaces', instanceUrls], ...)
-export const useWorkspace = (id) => useQuery(['workspaces', id], ...)
-export const useWorkspaceMembers = (id, instanceUrl?) => useQuery(['workspaces', id, 'members'], ...)
-export const useWorkspaceChannels = (id, instanceUrl?) => useQuery(['workspaces', id, 'channels'], ...)
-export const useDeletedWorkspaces = () => useQuery(['workspaces', 'deleted', instanceUrls], ...)
+export const useWorkspaces = () => useQuery({ queryKey: QUERY_KEYS.workspacesList(instanceUrls), ... })
+export const useWorkspace = (id) => useQuery(...)
+export const useWorkspaceMembers = (id, instanceUrl?) => useQuery(...)
+export const useWorkspaceChannels = (id, instanceUrl?) => useQuery(...)
+export const useDeletedWorkspaces = () => useQuery(...)
 export const useRestoreWorkspace = () => useMutation(...)
 export const useCreateWorkspace = () => useMutation(...)
 export const useCreateChannel = () => useMutation(...)
 
 // src/hooks/queries/useChannels.ts
-export const useChannel = (id) => useQuery(['channels', id], ...)
-export const useChannelMembers = (id) => useQuery(['channels', id, 'members'], ...)
-export const useChannelPins = (id) => useQuery(['channels', id, 'pins'], ...)
+export const useChannelMembers = (id) => useQuery(...)
+export const useChannelPins = (id) => useQuery(...)
+export const useUnreadChannelIds = (workspaceId, instanceUrl?) => useQuery(...)
+export const useSetChannelMuted = (workspaceId, instanceUrl?) => useMutation(...)
 
 // src/hooks/queries/useMessages.ts
-export const useMessages = (channelId) => useInfiniteQuery(['messages', channelId], ...)
+export const useMessages = (channelId) => useInfiniteQuery(...)
 export const useSendMessage = (channelId, userId) => useMutation(...)
 export const useEditMessage = () => useMutation(...)
 export const useDeleteMessage = () => useMutation(...)
 export const useReactToMessage = () => useMutation(...)
 export const useRemoveReaction = () => useMutation(...)
+export const usePinMessage = () => useMutation(...)
 
 // src/hooks/queries/useThreads.ts
-export const useThreadMessages = (parentMessageId) => useQuery(['threads', parentMessageId], ...)
+export const useThreadMessages = (parentMessageId) => useQuery(...)
 export const useSendThreadReply = (parentMessageId, channelId) => useMutation(...)
 
+// src/hooks/queries/useDm.ts
+export const useDmConversations = (workspaceId, instanceUrl?) => useQuery(...)
+export const useDirectMessages = (workspaceId, partnerId, instanceUrl?) => useInfiniteQuery(...)
+export const useSendDirectMessage = (...) => useMutation(...)
+export const useEditDirectMessage / useDeleteDirectMessage = (...) => useMutation(...)
+export const useReactToDm / useRemoveDmReaction = (...) => useMutation(...)
+export const useMarkDmRead = (workspaceId, instanceUrl?) => useMutation(...)
+
 // src/hooks/queries/useNotifications.ts
-export const useNotifications = (workspaceId) => useQuery(['notifications', workspaceId], ...)
-export const useUnreadNotificationCount = (workspaceId) => useQuery(['notifications', workspaceId, 'unread-count'], ...)
+export const useNotifications = (workspaceId) => useQuery(...)
+export const useUnreadNotificationCount = (workspaceId) => useQuery(...)
+export const useWorkspaceUnreadCounts = (workspaces) => useQueries(...)
 export const useMarkNotificationsRead = (workspaceId) => useMutation(...)
+export const useMarkChannelNotificationsRead = (workspaceId) => useMutation(...)
 export const useMarkAllNotificationsRead = (workspaceId) => useMutation(...)
+export const useDndStatus / useSetDnd = () => useQuery / useMutation(...)
+
+// src/hooks/queries/useHuddle.ts
+export const useActiveHuddles = (workspaceId?, instanceUrl?) => useQuery(...)
 ```
 
 ---
@@ -142,16 +200,15 @@ export const useSendMessage = (channelId, userId) => useMutation({
     }))
   },
   onError: (_err, { id }) => {
-    // Rollback: remove the optimistic message
-    queryClient.setQueryData(['messages', channelId], (old) => ({
-      ...old,
-      pages: old.pages.map((page) => ({
-        ...page,
-        data: page.data.filter((m) => m.id !== id),
-      })),
-    }))
+    // Mark the optimistic message as failed (kept in the list with a retry affordance)
+    queryClient.setQueryData(['messages', channelId], (old) =>
+      patchMessageById(old, id, (m) => ({ ...m, pending: false, failed: true })))
+  },
+  onSuccess: (_data, { id }) => {
+    // Clear the failed flag; wsQuerySync flips `pending` off when the WS message.new arrives
+    queryClient.setQueryData(['messages', channelId], (old) =>
+      patchMessageById(old, id, (m) => ({ ...m, failed: false })))
   }
-  // No onSuccess needed — wsQuerySync confirms the message when WS event arrives
 })
 
 export const useEditMessage = () => useMutation({
@@ -170,7 +227,7 @@ export const useRemoveReaction = () => useMutation(...)
 
 ## WebSocket Integration
 
-`useWebSocketQuerySync()` is called once in `App.tsx`. It subscribes to `globalEventBus` (not `wsClient` directly — all WS clients from all instances forward events to the bus).
+`useWebSocketQuerySync()` is called once in `App.tsx`. It subscribes to `globalEventBus` (not `wsClient` directly — all WS clients from all instances forward events to the bus). The sketch below shows the channel-message reducer; the real `wsQuerySync.ts` also handles `dm.*` and `huddle.started`/`huddle.ended`. `presence.*`, `typing.indicator`, and `notification` are handled outside this file (`usePresenceStore`, `TypingIndicator`, `NotificationStream`).
 
 ```typescript
 // src/lib/wsQuerySync.ts
@@ -346,5 +403,5 @@ Migration to React Query is **complete**. The architecture described in this doc
 - `QueryClientProvider` is configured in `App.tsx` with `ReactQueryDevtools`
 - All query and mutation hooks are in `src/hooks/queries/`
 - `useWebSocketQuerySync()` is called once in `App.tsx`
-- Zustand stores (`useWorkspaceStore`, `useInstanceStore`, `usePresenceStore`, `useUserCache`) hold **UI-only state** — no server data
-- React Query owns all server data (workspaces, channels, messages, threads, notifications)
+- Zustand stores hold UI/session state: `useWorkspaceStore`, `usePresenceStore`, `useUserCache`, plus `drafts`, `notificationPrefs`, `wsStatus`, and `huddle`. `useInstanceStore` is the exception — it owns the connected-instance list and the logged-in user (and, cross-origin, the persisted tokens)
+- React Query owns server data (workspaces, channels, messages, threads, DMs, notifications, active huddles)
