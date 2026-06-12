@@ -46,7 +46,7 @@ jobs:
       # Pinned (not @stable) so clippy lints are reproducible: a new stable
       # release must not turn CI red on lints that can't be reproduced locally.
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@1.93.0
+        uses: dtolnay/rust-toolchain@1.100.0
         with:
           components: rustfmt, clippy
 
