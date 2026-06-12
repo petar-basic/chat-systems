@@ -65,12 +65,16 @@ cd frontend && npm install && npm run dev
 ### Production (HTTPS, restart policies, backups)
 
 The production override adds a Caddy edge proxy (automatic Let's Encrypt TLS),
-`restart: unless-stopped`, resource limits, S3/MinIO storage, real SMTP, and a
-`pg_dump` backup sidecar. Point your domain's DNS at the host first.
+`restart: unless-stopped`, resource limits, S3/MinIO storage, real SMTP, an
+`autoheal` sidecar that restarts containers Docker marks unhealthy, and two
+backup sidecars — `db-backup` (verified `pg_dump`) and `minio-backup`
+(`mc mirror` of the upload bucket). Point your domain's DNS at the host first.
 
 ```bash
-# In .env: DOMAIN, ACME_EMAIL, JWT_SECRET, ADMIN_PASSWORD, POSTGRES_PASSWORD,
-#          MINIO_ROOT_PASSWORD, SMTP_HOST, SMTP_FROM_ADDRESS
+# Required in .env: DOMAIN, ACME_EMAIL, JWT_SECRET, ADMIN_PASSWORD,
+#   POSTGRES_PASSWORD, MINIO_ROOT_PASSWORD, SMTP_HOST, SMTP_FROM_ADDRESS
+# Optional in .env: VERSION (tags the app images for rollback — set to a git SHA
+#   or release tag), BACKUP_OFFSITE_REMOTE (off-host copy of each verified dump).
 docker compose -f docker-compose.yml -f docker-compose.prod.yml \
   --profile frontend --profile s3 up -d --build
 ```
@@ -78,8 +82,9 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml \
 Caddy is the only service that publishes public ports (80/443); everything else
 stays on the docker network. `PUBLIC_URL=https://$DOMAIN` makes auth cookies
 `Secure`; HSTS and other security headers are applied at the edge and in nginx.
-Backups land in the `pg_backups` volume — restore with
-`gunzip -c dump.sql.gz | psql ...`.
+Postgres dumps land in the `pg_backups` volume and the mirrored upload bucket in
+`minio_backups`. For backup, restore, upgrade, and rollback procedures see
+[RUNBOOK.md](./RUNBOOK.md).
 
 ## Project layout
 
@@ -93,7 +98,7 @@ frontend/
   src/        React SPA (features/, components/, hooks/, stores/, lib/, shared/)
   electron/   desktop wrapper (main + preload)
   e2e/        Playwright end-to-end tests
-docker/       Caddyfile, MinIO init, Postgres backup script
+docker/       Caddyfile, MinIO init, Postgres + MinIO backup scripts
 docs/         this folder
 ```
 
@@ -146,12 +151,16 @@ migrations, and drive the full Axum stack — including the authorization matrix
 
 ## CI
 
-[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs on every push and PR, all
-steps **blocking**:
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs on every push to
+`main` and every PR, all steps **blocking**:
 
 - **Backend:** `cargo fmt --check`, `clippy -D warnings`, `cargo build`, `cargo test`
-  (against live Postgres + Redis service containers).
-- **Frontend:** `prettier --check`, `eslint`, `tsc -b`, `vite build`, `vitest`.
+  (against live Postgres + Redis service containers), then `cargo audit`.
+- **Frontend:** `npm audit --audit-level=high`, `prettier --check`, `eslint`,
+  `tsc -b`, `vite build`, `vitest`.
+
+[`.github/dependabot.yml`](../.github/dependabot.yml) opens weekly grouped update
+PRs for cargo (`/backend`), npm (`/frontend`), and github-actions.
 
 ## Commits & PRs
 

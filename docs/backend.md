@@ -25,7 +25,7 @@ a Postgres database, a Redis instance, and the crates under `shared/`.
 ### Feature-modular layering
 
 Every feature under `api/src/` (`auth`, `workspace`, `messaging`, `dm`, `files`, `hooks`,
-`notifications`, `admin`) follows the same shape, with files added only where warranted:
+`notifications`, `admin`, `huddle`) follows the same shape, with files added only where warranted:
 
 | File | Responsibility |
 |------|----------------|
@@ -50,7 +50,9 @@ in `main.rs`.
   never trusted from the body — and re-checked against the DB on every WebSocket
   subscribe/join.
 - **Rate limiting.** A shared Redis fixed-window limiter (`rate_limit.rs`) guards auth
-  endpoints and, via a per-user middleware, all authenticated write paths.
+  endpoints (per-email and per-IP on login, per-email on forgot-password) and incoming
+  webhooks (per-token). A per-user `write_rate_limit` middleware caps write methods on the
+  messaging and files routers (120 writes / 60s per user).
 - **Error handling.** `AppError` (`shared/common`) maps to status codes; 500-class errors
   log detail but return an opaque body so internals/SQL never leak (with tests proving it).
 - **Files.** A `FileStorage` trait abstracts local disk vs S3/MinIO; both serve downloads
@@ -71,6 +73,14 @@ the right frames reach the right subscribers.
 
 ## chat-api (REST API)
 
+All routes below are nested under the **`/api`** prefix (e.g. `POST /api/auth/login`);
+the tables omit it for brevity. Only the health probes (`/livez`, `/readyz`) and
+`/metrics` live at the root, outside `/api`.
+
+On success, login / complete-registration / refresh all return the same `AuthSession`
+shape: `{ user: UserPublic, expires_in, access_token, refresh_token }`. They also set
+the `access_token` / `refresh_token` cookies (see Cross-cutting concerns).
+
 ### auth
 
 Handles user identity — login, registration, JWT, and profile.
@@ -79,20 +89,24 @@ Handles user identity — login, registration, JWT, and profile.
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
-| POST | `/auth/login` | `{ email, password }` | `{ access_token, refresh_token, expires_in }` |
-| POST | `/auth/complete-registration` | `{ token, password, display_name }` | `{ access_token, refresh_token, expires_in }` |
-| POST | `/auth/refresh` | `{ refresh_token }` | `{ access_token, refresh_token, expires_in }` |
+| POST | `/auth/login` | `{ email, password }` | `AuthSession` |
+| GET | `/auth/invites/:token/verify` | — | `{ email, workspace_name, workspace_id }` |
+| POST | `/auth/complete-registration` | `{ token, password, display_name }` | `AuthSession` |
+| POST | `/auth/refresh` | `{ refresh_token }` (or refresh cookie / Bearer) | `AuthSession` |
+| POST | `/auth/logout` | refresh cookie | `{ status: "logged_out" }` |
 | POST | `/auth/forgot-password` | `{ email }` | `{ status: "sent" }` |
 | POST | `/auth/reset-password` | `{ token, password }` | `{ status: "reset" }` |
-| GET | `/instance/info` | — | `{ name, icon_url, version }` |
-| GET | `/users/me` | JWT header | `UserPublic` |
+| GET | `/instance/info` | — | `{ name, icon_url }` |
+| GET | `/users/me` | JWT | `UserPublic` |
 | PATCH | `/users/me` | `{ display_name?, avatar_url?, bio?, timezone? }` | `UserPublic` |
+| PATCH | `/users/me/password` | `{ current_password, new_password }` | `{ status: "password_changed" }` |
 
 ---
 
 ### workspace
 
-Manages workspaces, members, invites, channels, and DMs.
+Manages workspaces, members, invites, and channels. (Direct messages are their own
+feature — see `dm` below.)
 
 **Workspaces:**
 
@@ -119,18 +133,21 @@ Manages workspaces, members, invites, channels, and DMs.
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/invites` | — | `{ data: WorkspaceInvite[] }` |
-| POST | `/workspaces/:ws_id/invites` | `{ email?, role }` | `WorkspaceInvite` |
+| POST | `/workspaces/:ws_id/invites` | `{ email?, role? }` | `WorkspaceInvite` |
+| DELETE | `/workspaces/:ws_id/invites/:invite_id` | — | `{ status: "revoked" }` |
 | POST | `/invites/:token/accept` | — | `WorkspaceMember` |
 
 **Channels:**
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
-| GET | `/workspaces/:ws_id/channels` | — | `{ data: Channel[] }` |
+| GET | `/workspaces/:ws_id/channels` | — | `{ data: Channel[] }` (each augmented with `muted`) |
+| GET | `/workspaces/:ws_id/channels/unread` | — | `{ channel_ids: string[] }` |
 | POST | `/workspaces/:ws_id/channels` | `{ name, channel_type?, description?, is_default? }` | `Channel` |
 | GET | `/channels/:ch_id` | — | `Channel` |
 | PATCH | `/channels/:ch_id` | `{ name?, topic?, description? }` | `Channel` |
 | DELETE | `/channels/:ch_id` | — | `{ status: "archived" }` |
+| PATCH | `/channels/:ch_id/notifications` | `{ muted }` | `{ muted: bool }` |
 
 **Channel members:**
 
@@ -140,11 +157,27 @@ Manages workspaces, members, invites, channels, and DMs.
 | POST | `/channels/:ch_id/members` | `{ user_id }` | `ChannelMember` |
 | DELETE | `/channels/:ch_id/members/:user_id` | — | `{ status: "removed" }` |
 
-**Direct messages:**
+---
+
+### dm
+
+Per-pair direct messages, scoped to a workspace (no channel row — DMs are rows in their own
+`direct_messages` table with `workspace_id` / `from_user_id` / `to_user_id`). Every route
+requires both the caller and the partner to be members of the workspace.
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
-| POST | `/workspaces/:ws_id/dm` | `{ user_id }` | `Channel` (gets or creates DM) |
+| GET | `/workspaces/:ws_id/dm` | — | `{ data: DmConversation[] }` |
+| GET | `/workspaces/:ws_id/dm/:user_id` | Query: `limit=50, before?` | `{ data: DirectMessage[], next_cursor }` |
+| POST | `/workspaces/:ws_id/dm/:user_id` | `{ content, id? }` | `DirectMessage` |
+| POST | `/workspaces/:ws_id/dm/:user_id/read` | — | `{ status: "ok" }` |
+| PATCH | `/workspaces/:ws_id/dm/:user_id/:msg_id` | `{ content }` | `DirectMessage` |
+| DELETE | `/workspaces/:ws_id/dm/:user_id/:msg_id` | — | `{ status: "deleted" }` |
+| POST | `/workspaces/:ws_id/dm/:user_id/:msg_id/reactions` | `{ emoji }` | `DmReaction` |
+| DELETE | `/workspaces/:ws_id/dm/:user_id/:msg_id/reactions/:emoji` | — | `{ status: "ok" }` |
+
+Edit/delete are author-only. Mutations publish to `events:dm` (`dm.created`, `dm.updated`,
+`dm.deleted`, `dm.reaction.added`, `dm.reaction.removed`), fanned out to both participants.
 
 ---
 
@@ -189,7 +222,10 @@ Sends and manages messages, threads, reactions, pins, read tracking, and search.
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | POST | `/channels/:ch_id/read` | `{ message_id }` | `{ status: "read" }` |
-| GET | `/search` | Query: `q, channel_id?, user_id?, limit=20, offset=0` | `{ data: Message[] }` |
+| GET | `/search` | Query: `q, workspace_id, channel_id?, user_id?, limit=20, offset=0` | `{ data: Message[] }` |
+
+Search is access-scoped: results come only from public channels in the workspace
+plus the private/DM channels the caller belongs to.
 
 ---
 
@@ -219,8 +255,16 @@ Incoming/outgoing webhooks, bots, slash commands, and reminders. Background task
 | POST | `/workspaces/:ws_id/hooks` | `{ hook_type, name, description?, config? }` | `Hook` |
 | GET | `/hooks/:hook_id` | — | `Hook` |
 | DELETE | `/hooks/:hook_id` | — | `{ status: "deleted" }` |
+| POST | `/hooks/incoming/:token` | `{ text }` | `{ status: "ok", message_id }` |
 
 Hook types: `incoming_webhook`, `outgoing_webhook`, `bot`, `slash_command`, `scheduled`
+
+`GET`/`POST`/`DELETE` on `/hooks` and `/workspaces/:ws_id/hooks` require a workspace
+admin session; secrets in `config` (`token`, `secret`, …) are redacted on read.
+Creating an `incoming_webhook` requires `config.channel_id`, and the server mints a
+`config.token`. **`POST /hooks/incoming/:token` is authenticated by that URL token,
+not a session** (Slack-compatible `{ "text": ... }`); it posts to the bound channel
+as the hook's creator and is rate-limited per token.
 
 **Reminders:**
 
@@ -240,7 +284,12 @@ In-app notifications for mentions, DMs, replies, reactions, calls, reminders, an
 | GET | `/workspaces/:ws_id/notifications` | Query: `limit=50, offset=0` | `{ data: Notification[] }` |
 | POST | `/notifications/read` | `{ notification_ids: string[] }` | `{ updated: number }` |
 | POST | `/workspaces/:ws_id/notifications/read-all` | — | `{ updated: number }` |
+| POST | `/workspaces/:ws_id/channels/:ch_id/notifications/read` | — | `{ updated: number }` |
 | GET | `/workspaces/:ws_id/notifications/unread-count` | — | `{ unread_count: number }` |
+| GET | `/notifications/dnd` | — | `{ dnd_until: timestamp \| null }` |
+| PATCH | `/notifications/dnd` | `{ dnd_until: timestamp \| null }` | `{ dnd_until: timestamp \| null }` |
+
+All workspace-scoped routes require workspace membership.
 
 ---
 
@@ -258,6 +307,11 @@ Instance-level administration. Requires `is_instance_admin = true`.
 | PATCH | `/admin/users/:user_id/instance-role` | `{ is_instance_admin: bool }` | `{ is_instance_admin: bool }` |
 | GET | `/admin/workspaces` | Query: `limit?, offset?` | `{ data: Workspace[] }` |
 | DELETE | `/admin/workspaces/:ws_id` | — | `{ status: "deleted" }` |
+
+`suspend` revokes the user immediately: it deletes their refresh tokens, sets a
+Redis revocation flag the auth middleware checks (so an unexpired access token is
+rejected), and closes their live WebSockets; `activate` clears the flag. Workspace
+delete is a soft-delete (reversible via restore), audited in the same transaction.
 
 ---
 
@@ -282,14 +336,19 @@ Live voice/video rooms (Slack-style huddles) over mesh WebRTC. Live membership a
 
 Single WebSocket endpoint. Validates the JWT on the upgrade handshake, re-checks channel/workspace membership against the DB on every subscribe/join, then relays Redis pub/sub events to connected clients. The socket is also closed when the access token's `exp` passes, so a long-lived connection can't outlive its token.
 
+The upgrade additionally checks the `Origin` against the configured CORS origins and rejects users carrying a revocation flag (e.g. just-suspended); suspending a user also closes their live sockets. Alongside `/ws`, the gateway serves `/livez`, `/readyz` (DB + Redis + event-consumer liveness — it reports unhealthy if the consumer has stalled), and `/metrics` (Prometheus: connection count, consumer heartbeat age, events, backpressure drops). Presence is workspace-scoped: a client only sees the online roster and status changes for workspaces it shares. See [RUNBOOK.md](RUNBOOK.md) for ops.
+
 **Connection:** `wss://<host>/ws` — the browser sends the `access_token` `HttpOnly` cookie on the upgrade automatically (no token in the URL).
 
-**Incoming client messages (subscribe/unsubscribe):**
+**Incoming client messages (subscribe / join / typing):**
 
 ```json
-{ "type": "subscribe_workspace", "workspace_id": "..." }
-{ "type": "subscribe_channel", "channel_id": "..." }
-{ "type": "unsubscribe_channel", "channel_id": "..." }
+{ "type": "subscribe",     "workspace_id": "..." }
+{ "type": "channel.join",  "channel_id": "..." }
+{ "type": "channel.leave", "channel_id": "..." }
+{ "type": "typing.start",  "channel_id": "..." }
+{ "type": "typing.stop",   "channel_id": "..." }
+{ "type": "ping" }
 ```
 
 **Huddle signaling (incoming client messages).** Mesh WebRTC uses this socket purely as the signaling channel — no media flows through the server. After membership is verified, the server relays via `events:huddle`:
@@ -313,10 +372,14 @@ Single WebSocket endpoint. Validates the JWT on the upgrade handshake, re-checks
 
 | Redis channel | Event types |
 |---------------|-------------|
-| `events:message` | `message.created`, `message.updated`, `message.deleted` |
+| `events:message` | `message.created`, `message.updated`, `message.deleted`, `message.pinned` |
 | `events:reaction` | `reaction.added`, `reaction.removed` |
-| `events:notification` | `notification.created` |
-| `events:workspace` | `workspace.updated`, `member.joined`, `member.left` |
+| `events:notification` | `notification.push` |
+| `events:dm` | `dm.created`, `dm.updated`, `dm.deleted`, `dm.reaction.added`, `dm.reaction.removed` |
+| `events:presence` | `presence.changed` (fanned out only to workspaces shared with the subject) |
+| `events:typing` | `typing.indicator` |
+| `events:workspace` | `workspace.deleted`, `workspace.restored` |
+| `events:user` | `user.suspended` — consumed by the gateway to close the user's sockets (not pushed to clients) |
 | `events:huddle` | `huddle.started`, `huddle.ended`, `huddle.ring`, `huddle.member_joined`, `huddle.member_left` — lifecycle; also consumed by the API for history + call notifications |
 | `events:huddle-signal` | `huddle.offer`, `huddle.answer`, `huddle.ice`, `huddle.mute`, `huddle.camera`, `huddle.screenshare`, `huddle.hand`, `huddle.reaction` — high-frequency relay, realtime-only (kept off `events:huddle` so the API consumers don't parse every ICE candidate) |
 
@@ -327,12 +390,12 @@ All events use the envelope: `{ id, event_type, payload, timestamp }`.
 ## Shared
 
 ### shared-common
-- `AppError` — unified error type mapped to HTTP status codes (400, 401, 403, 404, 409, 500)
+- `AppError` — unified error type mapped to HTTP status codes (400, 401, 403, 404, 409, 422, 429, 500)
 - CORS layer configuration
 - Input validation helpers
 
 ### shared-events
-- `Event<T>` envelope with `id`, `event_type`, `payload`, `timestamp`
+- `Event` envelope with `id`, `event_type`, `payload` (`serde_json::Value`), `timestamp`
 - Typed event payloads for auth, messaging, workspace, and huddle domains
 
 ---

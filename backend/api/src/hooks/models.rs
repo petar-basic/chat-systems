@@ -61,6 +61,11 @@ pub struct CreateHookRequest {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct IncomingWebhookPayload {
+    pub text: String,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct CreateReminderRequest {
     pub target_user_id: Uuid,
     pub channel_id: Option<Uuid>,

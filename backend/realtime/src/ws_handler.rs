@@ -20,7 +20,11 @@ fn spawn_writer(
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
+            let is_close = matches!(msg, Message::Close(_));
             if sink.send(msg).await.is_err() {
+                break;
+            }
+            if is_close {
                 break;
             }
         }
@@ -199,7 +203,7 @@ pub(crate) async fn handle_client_message(
                     cm.subscribe_workspace(conn_id, ws_id);
                     info!("User {} subscribed to workspace {}", user_id, ws_id);
 
-                    let online = cm.get_online_users().await;
+                    let online = cm.online_users_in_workspace(ws_id).await;
                     let batch = serde_json::json!({
                         "type": "presence.batch",
                         "users": online.iter().map(|u| {

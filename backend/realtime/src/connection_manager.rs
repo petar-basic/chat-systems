@@ -189,6 +189,7 @@ impl ConnectionManager {
                     "backpressure: writer channel full, dropping slow connection conn={} user={}",
                     conn_id, conn.user_id
                 );
+                metrics::counter!("realtime_backpressure_drops_total").increment(1);
                 Some(conn.user_id)
             }
             Err(mpsc::error::TrySendError::Closed(_)) => Some(conn.user_id),
@@ -245,8 +246,26 @@ impl ConnectionManager {
         }
     }
 
-    pub fn local_users(&self) -> Vec<Uuid> {
-        self.user_connections.iter().map(|e| *e.key()).collect()
+    pub fn connection_count(&self) -> usize {
+        self.connections.len()
+    }
+
+    pub fn disconnect_user(&self, user_id: Uuid) {
+        let conn_ids: Vec<Uuid> = match self.user_connections.get(&user_id) {
+            Some(conns) => conns.iter().copied().collect(),
+            None => return,
+        };
+        for conn_id in conn_ids {
+            if let Some(conn) = self.connections.get(&conn_id) {
+                let _ = conn.sender.try_send(Message::Close(None));
+            }
+        }
+    }
+
+    pub async fn is_revoked(&self, user_id: Uuid) -> bool {
+        let mut conn = self.redis.clone();
+        let res: redis::RedisResult<bool> = conn.exists(format!("revoked:{}", user_id)).await;
+        res.unwrap_or(false)
     }
 
     fn presence_key(&self, user_id: &Uuid) -> String {
@@ -325,11 +344,65 @@ impl ConnectionManager {
         set.into_iter().collect()
     }
 
+    pub async fn online_users_in_workspace(&self, workspace_id: Uuid) -> Vec<Uuid> {
+        let online = self.get_online_users().await;
+        if online.is_empty() {
+            return Vec::new();
+        }
+        let result = sqlx::query_scalar::<_, Uuid>(
+            "SELECT user_id FROM workspace_members WHERE workspace_id = $1 AND user_id = ANY($2)",
+        )
+        .bind(workspace_id)
+        .bind(&online)
+        .fetch_all(&self.db)
+        .await;
+        match result {
+            Ok(users) => users,
+            Err(e) => {
+                warn!(
+                    "online_users_in_workspace DB error workspace={}: {}",
+                    workspace_id, e
+                );
+                Vec::new()
+            }
+        }
+    }
+
+    pub async fn user_workspace_ids(&self, user_id: Uuid) -> Vec<Uuid> {
+        let result = sqlx::query_scalar::<_, Uuid>(
+            "SELECT workspace_id FROM workspace_members WHERE user_id = $1",
+        )
+        .bind(user_id)
+        .fetch_all(&self.db)
+        .await;
+        match result {
+            Ok(ids) => ids,
+            Err(e) => {
+                warn!("user_workspace_ids DB error user={}: {}", user_id, e);
+                Vec::new()
+            }
+        }
+    }
+
+    pub fn send_to_workspace_members(&self, exclude: Uuid, workspace_ids: &[Uuid], message: &str) {
+        self.fan_out(message, |c| {
+            c.user_id != exclude
+                && c.subscribed_workspaces
+                    .iter()
+                    .any(|w| workspace_ids.contains(w))
+        });
+    }
+
     pub async fn publish_presence(&self, user_id: Uuid, status: &str) {
+        let workspace_ids = self.user_workspace_ids(user_id).await;
         self.publish_event(
             "events:presence",
             "presence.changed",
-            serde_json::json!({ "user_id": user_id, "status": status }),
+            serde_json::json!({
+                "user_id": user_id,
+                "status": status,
+                "workspace_ids": workspace_ids,
+            }),
         )
         .await;
     }

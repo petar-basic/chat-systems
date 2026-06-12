@@ -30,11 +30,12 @@ sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres",
 redis = { version = "0.27", features = ["tokio-comp", "connection-manager"] }
 
 # S3 / MinIO
-aws-sdk-s3 = "1"
+aws-sdk-s3 = { version = "1", default-features = false, features = ["sigv4a", "http-1x", "default-https-client", "rt-tokio"] }
 aws-config = "1"
 
-# Auth
-jsonwebtoken = "9"
+# Auth — aws_lc_rs provider (reuses the aws-lc-rs already built for rustls) keeps the
+# pure-Rust `rsa` crate (RUSTSEC-2023-0071) out of the tree; we only use HS256.
+jsonwebtoken = { version = "10", default-features = false, features = ["use_pem", "aws_lc_rs"] }
 argon2 = "0.5"
 
 # Crypto (webhook signing + TURN REST credentials)

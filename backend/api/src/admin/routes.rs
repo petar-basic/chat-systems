@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
 
-use crate::middleware::{admin_middleware, auth_middleware, AuthUser};
+use crate::middleware::{admin_middleware, auth_middleware, AuthUser, RevocationStore};
 use crate::state::AppState;
 
 pub fn router(state: Arc<AppState>) -> Router {
@@ -126,6 +126,27 @@ async fn suspend_user(
         .execute(&state.pool)
         .await
         .map_err(|e| AppError::Database(e.to_string()))?;
+
+    if let Err(e) = state
+        .auth_service
+        .repo()
+        .delete_user_refresh_tokens(user_id)
+        .await
+    {
+        tracing::warn!(
+            "failed to delete refresh tokens for user {}: {}",
+            user_id,
+            e
+        );
+    }
+    RevocationStore(state.redis.clone())
+        .revoke(user_id, state.config.access_token_expiry.max(0) as u64)
+        .await;
+    let _ = state
+        .publisher
+        .publish("user.suspended", serde_json::json!({ "user_id": user_id }))
+        .await;
+
     audit(
         &state,
         auth.user_id,
@@ -148,6 +169,9 @@ async fn activate_user(
         .execute(&state.pool)
         .await
         .map_err(|e| AppError::Database(e.to_string()))?;
+
+    RevocationStore(state.redis.clone()).restore(user_id).await;
+
     audit(
         &state,
         auth.user_id,
@@ -230,20 +254,40 @@ async fn delete_workspace(
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    sqlx::query("DELETE FROM workspaces WHERE id = $1")
-        .bind(ws_id)
-        .execute(&state.pool)
+    // Soft-delete (reversible via restore) instead of an irreversible cascade,
+    // and write the audit row in the same transaction so it can't silently drop.
+    let mut tx = state
+        .pool
+        .begin()
         .await
         .map_err(|e| AppError::Database(e.to_string()))?;
-    audit(
-        &state,
-        auth.user_id,
-        "workspace.delete",
-        "workspace",
-        ws_id,
-        serde_json::json!({}),
+    sqlx::query(
+        "UPDATE workspaces SET is_active = false, deleted_at = NOW(), updated_at = NOW() WHERE id = $1",
     )
-    .await;
+    .bind(ws_id)
+    .execute(&mut *tx)
+    .await
+    .map_err(|e| AppError::Database(e.to_string()))?;
+    sqlx::query(
+        "INSERT INTO audit_log (user_id, action, resource_type, resource_id, details) VALUES ($1, $2, $3, $4, $5)",
+    )
+    .bind(auth.user_id)
+    .bind("workspace.delete")
+    .bind("workspace")
+    .bind(ws_id)
+    .bind(serde_json::json!({ "soft": true }))
+    .execute(&mut *tx)
+    .await
+    .map_err(|e| AppError::Database(e.to_string()))?;
+    tx.commit()
+        .await
+        .map_err(|e| AppError::Database(e.to_string()))?;
+
+    let _ = state
+        .publisher
+        .publish_workspace_deleted(ws_id, "soft")
+        .await;
+
     Ok(Json(serde_json::json!({ "status": "deleted" })))
 }
 

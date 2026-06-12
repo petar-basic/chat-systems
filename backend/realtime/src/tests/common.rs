@@ -36,6 +36,8 @@ pub fn app(cm: Arc<ConnectionManager>) -> Router {
     build_app(AppState {
         cm,
         jwt_secret: JWT_SECRET.to_string(),
+        consumer_heartbeat: Arc::new(std::sync::atomic::AtomicI64::new(crate::now_unix())),
+        cors_origins: "http://localhost".to_string(),
     })
 }
 

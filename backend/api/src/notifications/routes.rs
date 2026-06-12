@@ -33,12 +33,25 @@ pub fn router(state: Arc<AppState>) -> Router {
     Router::new().merge(routes).with_state(state)
 }
 
+async fn require_ws_member(state: &AppState, ws_id: Uuid, user_id: Uuid) -> AppResult<()> {
+    if state
+        .workspace_service
+        .is_workspace_member(ws_id, user_id)
+        .await?
+    {
+        Ok(())
+    } else {
+        Err(AppError::Forbidden("Not a member of this workspace".into()))
+    }
+}
+
 async fn list_notifications(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> AppResult<Json<serde_json::Value>> {
+    require_ws_member(&state, ws_id, auth.user_id).await?;
     let limit = params
         .get("limit")
         .and_then(|v| v.parse().ok())
@@ -73,6 +86,7 @@ async fn mark_all_read(
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
+    require_ws_member(&state, ws_id, auth.user_id).await?;
     let count = state
         .notification_repo
         .mark_all_read(auth.user_id, ws_id)
@@ -86,6 +100,7 @@ async fn mark_channel_read(
     auth: AuthUser,
     Path((ws_id, ch_id)): Path<(Uuid, Uuid)>,
 ) -> AppResult<Json<serde_json::Value>> {
+    require_ws_member(&state, ws_id, auth.user_id).await?;
     let count = state
         .notification_repo
         .mark_channel_read(auth.user_id, ws_id, ch_id)
@@ -99,6 +114,7 @@ async fn unread_count(
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
+    require_ws_member(&state, ws_id, auth.user_id).await?;
     let count = state
         .notification_repo
         .unread_count(auth.user_id, ws_id)

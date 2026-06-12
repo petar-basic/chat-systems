@@ -29,20 +29,24 @@ response as soon as possible.
 
 ## Dependency advisories
 
-CI runs `cargo audit` against `backend/Cargo.lock` on every push. A small set of
-advisories are accepted and tracked in `backend/audit.toml`; each is reachable
-only through code paths this project does not build or trust:
+CI runs `cargo audit` against `backend/Cargo.lock` on every push. Exactly one
+advisory is accepted and tracked in `backend/.cargo/audit.toml`, for a crate that is
+present in the lockfile but **not compiled into either binary**:
 
-- **RUSTSEC-2023-0071 (`rsa`)** — pulled in only as part of `sqlx`'s optional
-  MySQL driver. The build enables Postgres only, so `rsa` is never compiled into
-  either binary (`cargo tree -i rsa` is empty). No fixed version exists upstream.
-- **RUSTSEC-2026-0104 / -0098 / -0099 (`rustls-webpki` 0.101)** — pulled in by the
-  AWS SDK's legacy TLS connector (`aws-smithy-http-client` → `rustls` 0.21), already
-  at the latest `aws-sdk-s3`/`aws-config`. These are X.509 name-constraint /
-  CRL-parsing issues on the TLS path to the object store; the S3/MinIO endpoint is
-  operator-configured and trusted (MinIO is reached over the internal network), so
-  the exposure is negligible. Drop the ignores once a newer AWS SDK moves off
-  `rustls` 0.21.
+- **RUSTSEC-2023-0071 (`rsa`)** — the Marvin timing side-channel in RSA key
+  operations. `rsa` appears in `Cargo.lock` only as a dependency of `sqlx`'s MySQL
+  driver, which this project never enables (it is postgres-only), so it is not in
+  the build graph — `cargo tree -i rsa` is empty. Token signing/verification uses
+  HMAC (`HS256`) via `EncodingKey/DecodingKey::from_secret`, and `jsonwebtoken` is
+  built with the `aws_lc_rs` crypto provider (reusing the `aws-lc-rs` already
+  compiled for `rustls`), so the pure-Rust `rsa` code path is never pulled in either.
+  No fixed `rsa` version exists upstream; the entry can't be removed while depending
+  on the `sqlx` facade crate.
 
-Review `backend/audit.toml` whenever dependencies change — do not add ignores
-without recording the reachability rationale here.
+Previously the ignore list also carried `RUSTSEC-2026-0104 / -0098 / -0099`
+(`rustls-webpki` 0.101, via the AWS SDK's old `rustls` 0.21 connector). The SDK now
+uses `default-https-client` (rustls 0.23 / `rustls-webpki` 0.103), so those crates
+are gone from the tree and the stale ignores have been removed.
+
+Review `backend/.cargo/audit.toml` whenever dependencies change — do not add
+ignores without recording the reachability rationale here.

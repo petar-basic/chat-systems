@@ -26,6 +26,8 @@ anyhow = { workspace = true }
 jsonwebtoken = { workspace = true }
 dashmap = { workspace = true }
 futures-util = { workspace = true }
+metrics = { workspace = true }
+metrics-exporter-prometheus = { workspace = true }
 dotenvy = "0.15"
 
 [dev-dependencies]

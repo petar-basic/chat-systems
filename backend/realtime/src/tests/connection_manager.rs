@@ -174,9 +174,10 @@ async fn remove_connection_drops_the_connection(pool: PgPool) {
         "removed connection must not receive broadcasts"
     );
 
-    assert!(
-        !cm.local_users().contains(&user),
-        "user with no remaining connections is not a local user"
+    assert_eq!(
+        cm.connection_count(),
+        0,
+        "no connections remain after removing the only one"
     );
 
     assert!(
@@ -186,15 +187,16 @@ async fn remove_connection_drops_the_connection(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../migrations")]
-async fn local_users_contains_connected_user(pool: PgPool) {
+async fn connection_count_reflects_active_connections(pool: PgPool) {
     let cm = manager(pool).await;
     let user = seed_user(cm.db()).await;
 
+    assert_eq!(cm.connection_count(), 0, "no connections at start");
     let (_conn, _rx) = fake_conn(&cm, user);
-
-    assert!(
-        cm.local_users().contains(&user),
-        "a connected user appears in local_users"
+    assert_eq!(
+        cm.connection_count(),
+        1,
+        "a connected user adds one active connection"
     );
 }
 
@@ -212,6 +214,25 @@ async fn presence_set_online_then_get_online_users_contains_user(pool: PgPool) {
     assert!(
         cm.get_online_users().await.contains(&user),
         "user marked online must appear in get_online_users"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn online_users_in_workspace_excludes_non_members(pool: PgPool) {
+    let cm = manager(pool).await;
+    let member = seed_user(cm.db()).await;
+    let stranger = seed_user(cm.db()).await;
+    let ws = seed_workspace(cm.db(), member).await;
+    add_ws_member(cm.db(), ws, member).await;
+
+    cm.presence_set_online(member).await;
+    cm.presence_set_online(stranger).await;
+
+    let online = cm.online_users_in_workspace(ws).await;
+    assert!(online.contains(&member), "workspace member must be listed");
+    assert!(
+        !online.contains(&stranger),
+        "an online user who is not a workspace member must not leak into the roster"
     );
 }
 

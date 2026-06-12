@@ -73,7 +73,7 @@ async fn list_notifications_without_token_is_401(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../migrations")]
-async fn list_notifications_only_returns_own(pool: PgPool) {
+async fn list_notifications_non_member_forbidden(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner, _e1, _t1) = seed_and_login(&app, &state, "notif-owner", false).await;
     let ws = seed_workspace(&state, owner, "Notif WS").await;
@@ -81,7 +81,7 @@ async fn list_notifications_only_returns_own(pool: PgPool) {
 
     let (_other, _e2, other_token) = seed_and_login(&app, &state, "notif-other", false).await;
 
-    let (status, body) = send(
+    let (status, _body) = send(
         &app,
         "GET",
         &format!("/api/workspaces/{ws}/notifications"),
@@ -92,14 +92,8 @@ async fn list_notifications_only_returns_own(pool: PgPool) {
 
     assert_eq!(
         status,
-        StatusCode::OK,
-        "still 200 (no membership check): {body:?}"
-    );
-    let data = body["data"].as_array().expect("data array");
-    assert_eq!(
-        data.len(),
-        0,
-        "another user must not see the owner's notifications"
+        StatusCode::FORBIDDEN,
+        "a non-member of the workspace must be rejected"
     );
 }
 

@@ -4,6 +4,7 @@ use axum::http::request::Parts;
 use axum::middleware::Next;
 use axum::response::Response;
 use jsonwebtoken::{decode, DecodingKey, Validation};
+use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -68,6 +69,12 @@ pub async fn auth_middleware(request: Request, next: Next) -> Result<Response, A
         return Err(AppError::Unauthorized("Invalid or expired token".into()));
     }
 
+    if let Some(revocation) = parts.extensions.get::<RevocationStore>() {
+        if revocation.is_revoked(token_data.claims.sub).await {
+            return Err(AppError::Unauthorized("Session revoked".into()));
+        }
+    }
+
     let auth_user = AuthUser {
         user_id: token_data.claims.sub,
         is_instance_admin: token_data.claims.is_instance_admin,
@@ -95,6 +102,37 @@ pub async fn admin_middleware(request: Request, next: Next) -> Result<Response, 
 
 #[derive(Debug, Clone)]
 pub struct JwtSecret(pub String);
+
+#[derive(Clone)]
+pub struct RevocationStore(pub redis::aio::ConnectionManager);
+
+impl RevocationStore {
+    pub fn key(user_id: Uuid) -> String {
+        format!("revoked:{user_id}")
+    }
+
+    pub async fn revoke(&self, user_id: Uuid, ttl_secs: u64) {
+        let mut conn = self.0.clone();
+        let res: redis::RedisResult<()> = conn.set_ex(Self::key(user_id), 1, ttl_secs).await;
+        if let Err(e) = res {
+            tracing::warn!("failed to revoke sessions for user {}: {}", user_id, e);
+        }
+    }
+
+    pub async fn restore(&self, user_id: Uuid) {
+        let mut conn = self.0.clone();
+        let res: redis::RedisResult<()> = conn.del(Self::key(user_id)).await;
+        if let Err(e) = res {
+            tracing::warn!("failed to clear revocation for user {}: {}", user_id, e);
+        }
+    }
+
+    pub async fn is_revoked(&self, user_id: Uuid) -> bool {
+        let mut conn = self.0.clone();
+        let res: redis::RedisResult<bool> = conn.exists(Self::key(user_id)).await;
+        res.unwrap_or(false)
+    }
+}
 
 fn extract_cookie_token(headers: &axum::http::HeaderMap) -> Option<String> {
     headers

@@ -343,18 +343,28 @@ async fn notification_push_delivers_to_target_user(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../migrations")]
-async fn presence_changed_fans_out_to_local_users_except_subject(pool: PgPool) {
+async fn presence_changed_fans_out_to_workspace_subscribers_only(pool: PgPool) {
     let cm = manager(pool).await;
     let subject = Uuid::new_v4();
     let observer = Uuid::new_v4();
+    let outsider = Uuid::new_v4();
+    let ws = Uuid::new_v4();
 
     let (_subject_conn, mut subject_rx) = fake_conn(&cm, subject);
-    let (_observer_conn, mut observer_rx) = fake_conn(&cm, observer);
+    let (observer_conn, mut observer_rx) = fake_conn(&cm, observer);
+    let (_outsider_conn, mut outsider_rx) = fake_conn(&cm, outsider);
 
-    let payload = json!({ "user_id": subject.to_string(), "status": "online" });
+    cm.subscribe_workspace(&observer_conn, ws);
+
+    let payload = json!({
+        "user_id": subject.to_string(),
+        "status": "online",
+        "workspace_ids": [ws.to_string()],
+    });
     crate::event_consumer::handle_event("presence.changed", &payload, &cm).await;
 
-    let frame = next_json(&mut observer_rx).expect("observer should see presence change");
+    let frame =
+        next_json(&mut observer_rx).expect("workspace subscriber should see presence change");
     assert_eq!(
         frame.get("type").and_then(|t| t.as_str()),
         Some("presence.changed")
@@ -366,6 +376,10 @@ async fn presence_changed_fans_out_to_local_users_except_subject(pool: PgPool) {
     assert_eq!(frame.get("status").and_then(|s| s.as_str()), Some("online"));
 
     assert!(next_json(&mut subject_rx).is_none());
+    assert!(
+        next_json(&mut outsider_rx).is_none(),
+        "a connection not subscribed to the subject's workspace must not see the presence change"
+    );
 }
 
 #[sqlx::test(migrations = "../migrations")]

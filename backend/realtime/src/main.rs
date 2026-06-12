@@ -7,7 +7,9 @@ mod ws_handler;
 mod tests;
 
 use std::net::SocketAddr;
+use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::extract::ws::WebSocketUpgrade;
 use axum::extract::State;
@@ -17,6 +19,7 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::Router;
 use jsonwebtoken::{decode, DecodingKey, Validation};
+use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
 use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
 
@@ -29,6 +32,17 @@ use crate::connection_manager::ConnectionManager;
 struct AppState {
     cm: Arc<ConnectionManager>,
     jwt_secret: String,
+    consumer_heartbeat: Arc<AtomicI64>,
+    cors_origins: String,
+}
+
+const CONSUMER_STALE_SECS: i64 = 60;
+
+fn now_unix() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
 }
 
 fn default_token_type() -> String {
@@ -69,18 +83,54 @@ async fn main() -> anyhow::Result<()> {
 
     let cm = Arc::new(ConnectionManager::new(db, redis_conn));
 
+    let prometheus = PrometheusBuilder::new()
+        .install_recorder()
+        .map_err(|e| anyhow::anyhow!("failed to install Prometheus recorder: {e}"))?;
+
+    let consumer_heartbeat = Arc::new(AtomicI64::new(now_unix()));
+
+    {
+        let cm = cm.clone();
+        let hb = consumer_heartbeat.clone();
+        tokio::spawn(async move {
+            let mut tick = tokio::time::interval(Duration::from_secs(15));
+            loop {
+                tick.tick().await;
+                metrics::gauge!("realtime_ws_connections").set(cm.connection_count() as f64);
+                let age = now_unix() - hb.load(Ordering::Relaxed);
+                metrics::gauge!("realtime_consumer_heartbeat_age_seconds").set(age as f64);
+            }
+        });
+    }
+
     let consumer_cm = cm.clone();
     let redis_url = config.redis_url.clone();
+    let heartbeat = consumer_heartbeat.clone();
     tokio::spawn(async move {
-        event_consumer::start_event_consumer(&redis_url, consumer_cm).await;
+        let mut backoff = 1u64;
+        loop {
+            event_consumer::start_event_consumer(
+                &redis_url,
+                consumer_cm.clone(),
+                heartbeat.clone(),
+            )
+            .await;
+            warn!("event consumer exited, restarting in {}s", backoff);
+            tokio::time::sleep(Duration::from_secs(backoff)).await;
+            backoff = (backoff * 2).min(30);
+        }
     });
 
     let state = AppState {
         cm,
         jwt_secret: config.jwt_secret.clone(),
+        consumer_heartbeat,
+        cors_origins: config.cors_origins.clone(),
     };
 
-    let app = build_app(state).layer(shared_common::cors::cors_layer(&config.cors_origins));
+    let app = build_app(state)
+        .merge(metrics_router(prometheus))
+        .layer(shared_common::cors::cors_layer(&config.cors_origins));
 
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     info!("chat-realtime listening on {}", addr);
@@ -99,6 +149,22 @@ pub(crate) fn build_app(state: AppState) -> Router {
         .route("/livez", get(livez))
         .route("/readyz", get(readyz))
         .with_state(state)
+}
+
+fn metrics_router(handle: PrometheusHandle) -> Router {
+    Router::new()
+        .route("/metrics", get(render_metrics))
+        .with_state(handle)
+}
+
+async fn render_metrics(State(handle): State<PrometheusHandle>) -> impl IntoResponse {
+    (
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/plain; version=0.0.4",
+        )],
+        handle.render(),
+    )
 }
 
 fn protocol_token(headers: &axum::http::HeaderMap) -> Option<String> {
@@ -147,12 +213,31 @@ pub(crate) fn authenticate_ws(
     Ok((token_data.claims.sub, token_data.claims.exp))
 }
 
+fn origin_allowed(headers: &axum::http::HeaderMap, allowed: &str) -> bool {
+    let Some(origin) = headers
+        .get(axum::http::header::ORIGIN)
+        .and_then(|v| v.to_str().ok())
+    else {
+        return true;
+    };
+    allowed
+        .split(',')
+        .map(|s| s.trim())
+        .any(|a| a == "*" || a == origin)
+}
+
 async fn ws_upgrade(
     State(state): State<AppState>,
     ws: WebSocketUpgrade,
     headers: axum::http::HeaderMap,
 ) -> Result<Response, AppError> {
+    if !origin_allowed(&headers, &state.cors_origins) {
+        return Err(AppError::Unauthorized("Origin not allowed".into()));
+    }
     let (user_id, exp) = authenticate_ws(&headers, &state.jwt_secret)?;
+    if state.cm.is_revoked(user_id).await {
+        return Err(AppError::Unauthorized("Session revoked".into()));
+    }
     let cm = state.cm.clone();
     Ok(ws
         .protocols(["bearer"])
@@ -174,13 +259,18 @@ async fn readyz(State(state): State<AppState>) -> Response {
 
     let mut redis_conn = state.cm.redis();
     let ping: redis::RedisResult<String> = redis::cmd("PING").query_async(&mut redis_conn).await;
-    match ping {
-        Ok(_) => (StatusCode::OK, "ready").into_response(),
-        Err(e) => {
-            warn!("readyz Redis check failed: {}", e);
-            (StatusCode::SERVICE_UNAVAILABLE, "redis unavailable").into_response()
-        }
+    if let Err(e) = ping {
+        warn!("readyz Redis check failed: {}", e);
+        return (StatusCode::SERVICE_UNAVAILABLE, "redis unavailable").into_response();
     }
+
+    let age = now_unix() - state.consumer_heartbeat.load(Ordering::Relaxed);
+    if age > CONSUMER_STALE_SECS {
+        warn!("readyz consumer stalled: last heartbeat {}s ago", age);
+        return (StatusCode::SERVICE_UNAVAILABLE, "consumer stalled").into_response();
+    }
+
+    (StatusCode::OK, "ready").into_response()
 }
 
 async fn shutdown_signal() {
