@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { BrowserRouter, HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient } from './lib/queryClient';
@@ -12,7 +12,7 @@ import { HuddleController } from '@/features/huddle';
 import { logger } from '@/lib/logger';
 import { isSessionExpired } from '@/lib/errors';
 
-const Router = import.meta.env.MODE === 'electron' ? HashRouter : BrowserRouter;
+const Router = BrowserRouter;
 
 const AddInstancePage = lazy(() => import('./pages/AddInstancePage'));
 const CompleteRegistrationPage = lazy(() => import('./pages/CompleteRegistrationPage'));

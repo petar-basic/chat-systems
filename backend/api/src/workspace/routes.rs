@@ -63,8 +63,7 @@ async fn list_workspaces(
         .workspace_service
         .repo
         .list_user_workspaces(auth.user_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     Ok(Json(serde_json::json!({ "data": workspaces })))
 }
 
@@ -91,8 +90,7 @@ async fn get_workspace(
         .workspace_service
         .repo
         .find_workspace_by_id(ws_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::NotFound("Workspace not found".into()))?;
     Ok(Json(workspace))
 }
@@ -116,8 +114,7 @@ async fn update_workspace(
             req.description.as_deref(),
             req.icon_url.as_deref(),
         )
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     Ok(Json(workspace))
 }
 
@@ -136,8 +133,7 @@ async fn delete_workspace(
             .workspace_service
             .repo
             .hard_delete_workspace(ws_id)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+            .await?;
         let _ = state
             .publisher
             .publish_workspace_deleted(ws_id, "hard")
@@ -148,8 +144,7 @@ async fn delete_workspace(
             .workspace_service
             .repo
             .soft_delete_workspace(ws_id)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+            .await?;
         let _ = state
             .publisher
             .publish_workspace_deleted(ws_id, "soft")
@@ -170,8 +165,7 @@ async fn restore_workspace(
         .workspace_service
         .repo
         .restore_workspace(ws_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     let _ = state.publisher.publish_workspace_restored(ws_id).await;
     Ok(Json(workspace))
 }
@@ -184,8 +178,7 @@ async fn list_deleted_workspaces(
         .workspace_service
         .repo
         .list_deleted_workspaces_for_user(auth.user_id, auth.is_instance_admin)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     Ok(Json(serde_json::json!({ "data": workspaces })))
 }
 
@@ -199,8 +192,7 @@ async fn list_members(
         .workspace_service
         .repo
         .list_members_with_users(ws_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     Ok(Json(serde_json::json!({ "data": members })))
 }
 
@@ -215,8 +207,7 @@ async fn update_member_role(
         .workspace_service
         .repo
         .update_member_role(ws_id, user_id, &req.role)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     Ok(Json(member))
 }
 
@@ -230,8 +221,7 @@ async fn remove_member(
         .workspace_service
         .repo
         .remove_member(ws_id, user_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     Ok(Json(serde_json::json!({ "status": "removed" })))
 }
 
@@ -241,12 +231,7 @@ async fn list_invites(
     Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
     require_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
-    let invites = state
-        .workspace_service
-        .repo
-        .list_invites(ws_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+    let invites = state.workspace_service.repo.list_invites(ws_id).await?;
     Ok(Json(serde_json::json!({ "data": invites })))
 }
 
@@ -292,8 +277,7 @@ async fn revoke_invite(
         .workspace_service
         .repo
         .find_invite_by_id(invite_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::NotFound("Invite not found".into()))?;
     if invite.workspace_id != ws_id {
         return Err(AppError::NotFound("Invite not found".into()));
@@ -302,8 +286,7 @@ async fn revoke_invite(
         .workspace_service
         .repo
         .delete_invite(invite_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     Ok(Json(serde_json::json!({ "status": "revoked" })))
 }
 
@@ -317,14 +300,12 @@ async fn list_channels(
         .workspace_service
         .repo
         .list_user_channels(ws_id, auth.user_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     let muted: std::collections::HashSet<Uuid> = state
         .workspace_service
         .repo
         .muted_channel_ids(ws_id, auth.user_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .into_iter()
         .collect();
     let data: Vec<serde_json::Value> = channels
@@ -351,8 +332,7 @@ async fn set_channel_notifications(
         .workspace_service
         .repo
         .set_channel_muted(ch_id, auth.user_id, req.muted)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     Ok(Json(serde_json::json!({ "muted": req.muted })))
 }
 
@@ -366,8 +346,7 @@ async fn unread_channels(
         .workspace_service
         .repo
         .unread_channel_ids(ws_id, auth.user_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     Ok(Json(serde_json::json!({ "channel_ids": channel_ids })))
 }
 
@@ -391,8 +370,7 @@ async fn create_channel(
             auth.user_id,
             req.is_default.unwrap_or(false),
         )
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
 
     let _ = state
         .workspace_service
@@ -412,8 +390,7 @@ async fn get_channel(
         .workspace_service
         .repo
         .find_channel_by_id(ch_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::NotFound("Channel not found".into()))?;
     require_member(&state, channel.workspace_id, auth.user_id).await?;
     Ok(Json(channel))
@@ -432,8 +409,7 @@ async fn update_channel(
         .workspace_service
         .repo
         .find_channel_by_id(ch_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::NotFound("Channel not found".into()))?;
     require_role(
         &state,
@@ -451,8 +427,7 @@ async fn update_channel(
             req.topic.as_deref(),
             req.description.as_deref(),
         )
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     Ok(Json(updated))
 }
 
@@ -465,8 +440,7 @@ async fn archive_channel(
         .workspace_service
         .repo
         .find_channel_by_id(ch_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::NotFound("Channel not found".into()))?;
     require_role(
         &state,
@@ -475,12 +449,7 @@ async fn archive_channel(
         &WorkspaceRole::Admin,
     )
     .await?;
-    state
-        .workspace_service
-        .repo
-        .archive_channel(ch_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+    state.workspace_service.repo.archive_channel(ch_id).await?;
     Ok(Json(serde_json::json!({ "status": "archived" })))
 }
 
@@ -493,16 +462,14 @@ async fn list_channel_members(
         .workspace_service
         .repo
         .find_channel_by_id(ch_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::NotFound("Channel not found".into()))?;
     require_member(&state, channel.workspace_id, auth.user_id).await?;
     let members = state
         .workspace_service
         .repo
         .list_channel_members(ch_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     Ok(Json(serde_json::json!({ "data": members })))
 }
 
@@ -516,8 +483,7 @@ async fn add_channel_member(
         .workspace_service
         .repo
         .find_channel_by_id(ch_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::NotFound("Channel not found".into()))?;
     require_role(
         &state,
@@ -530,8 +496,7 @@ async fn add_channel_member(
         .workspace_service
         .repo
         .add_channel_member(ch_id, req.user_id, &ChannelRole::Member)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     Ok(Json(member))
 }
 
@@ -545,8 +510,7 @@ async fn remove_channel_member(
             .workspace_service
             .repo
             .find_channel_by_id(ch_id)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?
+            .await?
             .ok_or_else(|| AppError::NotFound("Channel not found".into()))?;
         require_role(
             &state,
@@ -560,8 +524,7 @@ async fn remove_channel_member(
         .workspace_service
         .repo
         .remove_channel_member(ch_id, user_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     Ok(Json(serde_json::json!({ "status": "removed" })))
 }
 
@@ -574,8 +537,7 @@ async fn require_member(
         .workspace_service
         .repo
         .get_member(workspace_id, user_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::Forbidden("Not a member of this workspace".into()))
 }
 
@@ -588,8 +550,7 @@ async fn require_role(
     let member = require_member(state, workspace_id, user_id).await?;
     if !member.role.has_at_least(minimum) {
         return Err(AppError::Forbidden(format!(
-            "Requires at least {:?} role",
-            minimum
+            "Requires at least {minimum:?} role"
         )));
     }
     Ok(member)

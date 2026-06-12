@@ -96,7 +96,7 @@ mod tests {
     fn assert_validation_err(result: AppResult<()>) {
         match result {
             Err(AppError::Validation(_)) => {}
-            Err(other) => panic!("expected AppError::Validation, got {:?}", other),
+            Err(other) => panic!("expected AppError::Validation, got {other:?}"),
             Ok(()) => panic!("expected a validation error, got Ok(())"),
         }
     }

@@ -17,7 +17,7 @@ impl EventPublisher {
     pub async fn publish(&self, event_type: &str, payload: serde_json::Value) -> AppResult<()> {
         let event = Event::new(event_type, payload);
         let json = serde_json::to_string(&event)
-            .map_err(|e| AppError::Internal(format!("Event serialize failed: {}", e)))?;
+            .map_err(|e| AppError::Internal(format!("Event serialize failed: {e}")))?;
 
         let channel = format!(
             "events:{}",
@@ -30,7 +30,7 @@ impl EventPublisher {
                 "Redis publish failed for event {} (id={}): {}",
                 event_type, event.id, e
             );
-            return Err(AppError::Internal(format!("Redis publish failed: {}", e)));
+            return Err(AppError::Internal(format!("Redis publish failed: {e}")));
         }
 
         info!("Published event: {} (id={})", event_type, event.id);

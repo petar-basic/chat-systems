@@ -47,11 +47,7 @@ async fn list_hooks(
     Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
     require_ws_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
-    let hooks = state
-        .hook_repo
-        .list_hooks(ws_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+    let hooks = state.hook_repo.list_hooks(ws_id).await?;
     let mut data = serde_json::to_value(&hooks).map_err(|e| AppError::Internal(e.to_string()))?;
     if let Some(arr) = data.as_array_mut() {
         for hook in arr.iter_mut() {
@@ -82,8 +78,7 @@ async fn create_hook(
             .workspace_service
             .repo
             .find_channel_by_id(channel_id)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?
+            .await?
             .ok_or_else(|| AppError::NotFound("Channel not found".into()))?;
         if channel.workspace_id != ws_id {
             return Err(AppError::Validation(
@@ -105,8 +100,7 @@ async fn create_hook(
             req.description.as_deref(),
             &config,
         )
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     Ok(Json(hook))
 }
 
@@ -118,8 +112,7 @@ async fn get_hook(
     let hook = state
         .hook_repo
         .find_hook_by_id(hook_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::NotFound("Hook not found".into()))?;
     require_ws_role(
         &state,
@@ -141,8 +134,7 @@ async fn delete_hook(
     let hook = state
         .hook_repo
         .find_hook_by_id(hook_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::NotFound("Hook not found".into()))?;
     require_ws_role(
         &state,
@@ -151,11 +143,7 @@ async fn delete_hook(
         &WorkspaceRole::Admin,
     )
     .await?;
-    state
-        .hook_repo
-        .delete_hook(hook_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+    state.hook_repo.delete_hook(hook_id).await?;
     Ok(Json(serde_json::json!({ "status": "deleted" })))
 }
 
@@ -165,11 +153,7 @@ async fn list_reminders(
     Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
     require_ws_role(&state, ws_id, auth.user_id, &WorkspaceRole::Member).await?;
-    let reminders = state
-        .hook_repo
-        .list_reminders(ws_id, auth.user_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+    let reminders = state.hook_repo.list_reminders(ws_id, auth.user_id).await?;
     Ok(Json(serde_json::json!({ "data": reminders })))
 }
 
@@ -190,8 +174,7 @@ async fn create_reminder(
             .workspace_service
             .repo
             .get_member(ws_id, req.target_user_id)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?
+            .await?
             .ok_or_else(|| {
                 AppError::Forbidden("Target user is not a member of this workspace".into())
             })?;
@@ -207,8 +190,7 @@ async fn create_reminder(
             content: &req.content,
             remind_at: req.remind_at,
         })
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     Ok(Json(reminder))
 }
 
@@ -229,8 +211,7 @@ async fn incoming_webhook(
     let hook = state
         .hook_repo
         .find_active_incoming_hook_by_token(&token)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::Unauthorized("Invalid webhook token".into()))?;
 
     shared_common::validation::validate_message_content(&payload.text)?;
@@ -245,8 +226,7 @@ async fn incoming_webhook(
     let msg = state
         .message_repo
         .create_message(channel_id, hook.created_by, &payload.text, None)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
 
     let msg_json = serde_json::to_value(&msg).map_err(|e| AppError::Internal(e.to_string()))?;
     if let Err(e) = state
@@ -287,13 +267,11 @@ async fn require_ws_role(
         .workspace_service
         .repo
         .get_member(ws_id, user_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::Forbidden("Not a member of this workspace".into()))?;
     if !member.role.has_at_least(min) {
         return Err(AppError::Forbidden(format!(
-            "Requires at least {:?} role",
-            min
+            "Requires at least {min:?} role"
         )));
     }
     Ok(member)

@@ -357,7 +357,7 @@ pub(crate) async fn handle_client_message(
             }
             let audio_muted = msg
                 .get("audio_muted")
-                .and_then(|v| v.as_bool())
+                .and_then(serde_json::Value::as_bool)
                 .unwrap_or(false);
             cm.publish_huddle(
                 "huddle.mute",
@@ -378,7 +378,7 @@ pub(crate) async fn handle_client_message(
             }
             let camera_on = msg
                 .get("camera_on")
-                .and_then(|v| v.as_bool())
+                .and_then(serde_json::Value::as_bool)
                 .unwrap_or(false);
             cm.publish_huddle(
                 "huddle.camera",
@@ -399,7 +399,7 @@ pub(crate) async fn handle_client_message(
             }
             let sharing = msg
                 .get("sharing")
-                .and_then(|v| v.as_bool())
+                .and_then(serde_json::Value::as_bool)
                 .unwrap_or(false);
             cm.publish_huddle(
                 "huddle.screenshare",
@@ -438,7 +438,10 @@ pub(crate) async fn handle_client_message(
             if !cm.huddle_redis_is_member(huddle_id, user_id).await {
                 return;
             }
-            let raised = msg.get("raised").and_then(|v| v.as_bool()).unwrap_or(false);
+            let raised = msg
+                .get("raised")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false);
             cm.publish_huddle(
                 "huddle.hand",
                 serde_json::json!({

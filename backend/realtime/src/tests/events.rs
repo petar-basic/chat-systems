@@ -192,7 +192,10 @@ async fn message_pinned_broadcasts_to_channel_subscriber(pool: PgPool) {
         frame.get("type").and_then(|t| t.as_str()),
         Some("message.pinned")
     );
-    assert_eq!(frame.get("pinned").and_then(|p| p.as_bool()), Some(true));
+    assert_eq!(
+        frame.get("pinned").and_then(serde_json::Value::as_bool),
+        Some(true)
+    );
 }
 
 #[sqlx::test(migrations = "../migrations")]
@@ -404,7 +407,10 @@ async fn typing_indicator_broadcasts_to_channel_subscriber(pool: PgPool) {
         frame.get("type").and_then(|t| t.as_str()),
         Some("typing.indicator")
     );
-    assert_eq!(frame.get("is_typing").and_then(|t| t.as_bool()), Some(true));
+    assert_eq!(
+        frame.get("is_typing").and_then(serde_json::Value::as_bool),
+        Some(true)
+    );
     assert_eq!(
         frame.get("channel_id").and_then(|c| c.as_str()),
         Some(channel.to_string().as_str())

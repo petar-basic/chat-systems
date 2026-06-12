@@ -9,7 +9,6 @@ import { api } from '@/lib/api';
 import { wsClient } from '@/lib/ws';
 import { usePresenceStore } from '@/stores/presence';
 import { requestNotificationPermission } from '@/lib/notifications';
-import { setBadgeCount, onDeepLink } from '@/lib/electron';
 import { logger } from '@/lib/logger';
 import { toast } from '@/shared/components/Toast';
 import { ErrorLabels, ROUTES, QUERY_KEYS } from '@/shared/constants';
@@ -136,15 +135,12 @@ export function useWorkspaceController() {
   useDocumentTitle(currentWorkspace ? `Chat Systems - ${currentWorkspace.name}` : 'Chat Systems');
 
   useEffect(() => {
-    setBadgeCount(totalUnread);
+    if (totalUnread > 0) {
+      navigator.setAppBadge?.(totalUnread).catch(() => {});
+    } else {
+      navigator.clearAppBadge?.().catch(() => {});
+    }
   }, [totalUnread]);
-
-  useEffect(() => {
-    onDeepLink((url) => {
-      const path = url.replace(/^chatsystems:\/\//, '/');
-      navigate(path.startsWith('/') ? path : `/${path}`);
-    });
-  }, [navigate]);
 
   const { populateUsers } = useUserCache();
   useEffect(() => {
@@ -344,7 +340,8 @@ export function useWorkspaceController() {
   const handleSelectChannel = useCallback(
     (ch: Channel) => {
       setMobileNavOpen(false);
-      const wsId = workspaceId || currentWorkspace!.id;
+      const wsId = workspaceId || currentWorkspace?.id;
+      if (!wsId) return;
       navigate(ROUTES.channel(wsId, ch.id));
       const cached = queryClient.getQueryData<InfiniteData<MessagesResponse>>(QUERY_KEYS.messages(ch.id));
       const lastPage = cached?.pages[cached.pages.length - 1];
@@ -362,7 +359,9 @@ export function useWorkspaceController() {
   const handleOpenDm = useCallback(
     (userId: string) => {
       setMobileNavOpen(false);
-      navigate(ROUTES.dm(workspaceId || currentWorkspace!.id, userId));
+      const wsId = workspaceId || currentWorkspace?.id;
+      if (!wsId) return;
+      navigate(ROUTES.dm(wsId, userId));
     },
     [workspaceId, currentWorkspace, navigate],
   );
@@ -370,7 +369,8 @@ export function useWorkspaceController() {
   const handleNavigateToMessage = useCallback(
     (channelId: string, messageId: string, withThread = false) => {
       panel.close();
-      const wsId = workspaceId || currentWorkspace!.id;
+      const wsId = workspaceId || currentWorkspace?.id;
+      if (!wsId) return;
       const base = ROUTES.message(wsId, channelId, messageId);
       navigate(withThread ? `${base}?thread=1` : base);
     },

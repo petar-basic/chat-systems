@@ -29,7 +29,7 @@ export default defineConfig([
   {
     // The logger is the one place allowed to touch the console; config files run
     // in Node and may log build diagnostics.
-    files: ['src/lib/logger.ts', '*.config.ts', '*.config.js', 'electron/**'],
+    files: ['src/lib/logger.ts', '*.config.ts', '*.config.js'],
     rules: {
       'no-console': 'off',
     },

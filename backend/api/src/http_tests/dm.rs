@@ -170,7 +170,7 @@ async fn list_messages_happy_path(pool: PgPool) {
         "messages should be under data array: {body:?}"
     );
     assert_eq!(
-        body["data"].as_array().map(|a| a.len()),
+        body["data"].as_array().map(std::vec::Vec::len),
         Some(1),
         "the one seeded message should be returned: {body:?}"
     );

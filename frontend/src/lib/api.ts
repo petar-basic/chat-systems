@@ -28,7 +28,6 @@ export class ApiClient {
 
   onSessionExpired: (() => void) | null = null;
   onTokensChanged: ((access: string | null, refresh: string | null) => void) | null = null;
-  refreshHandler: (() => Promise<RefreshData | null>) | null = null;
 
   constructor(instanceUrl?: string) {
     if (!instanceUrl || instanceUrl === window.location.origin) {
@@ -114,11 +113,6 @@ export class ApiClient {
   }
 
   private async performRefresh(): Promise<RefreshData | null> {
-    if (this.refreshHandler) {
-      const data = await this.refreshHandler().catch(() => null);
-      if (data?.access_token) this.setTokens(data.access_token, null);
-      return data;
-    }
     try {
       const res = await fetch(`${this.baseUrl}/auth/refresh`, {
         method: 'POST',

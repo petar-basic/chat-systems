@@ -157,7 +157,10 @@ async fn dispatch_hook(
             Ok(r) => {
                 let status = r.status();
                 let status_code = status.as_u16() as i32;
-                let resp_body = r.text().await.unwrap_or_default();
+                let resp_body = r.text().await.unwrap_or_else(|e| {
+                    warn!("failed to read webhook response body: {e}");
+                    String::new()
+                });
                 last_status = Some(status_code);
                 last_body = Some(truncate_body(&resp_body));
 
@@ -267,8 +270,10 @@ pub async fn start_reminder_checker(redis_url: &str, hook_repo: Arc<HookRepo>) {
                 }
             });
 
-            let json = serde_json::to_string(&notif_event).unwrap_or_default();
-            let _: Result<(), _> = conn.publish("events:notification", &json).await;
+            let json = notif_event.to_string();
+            if let Err(e) = conn.publish::<_, _, ()>("events:notification", &json).await {
+                warn!("failed to publish reminder notification: {e}");
+            }
 
             if let Err(e) = hook_repo.mark_reminder_delivered(reminder.id).await {
                 warn!("Failed to mark reminder delivered: {}", e);

@@ -5,7 +5,7 @@ use axum::routing::{delete, get, patch, post};
 use axum::{middleware, Json, Router};
 use uuid::Uuid;
 
-use shared_common::errors::{AppError, AppResult};
+use shared_common::errors::AppResult;
 
 use crate::middleware::{admin_middleware, auth_middleware, AuthUser, RevocationStore};
 use crate::state::AppState;
@@ -46,23 +46,19 @@ struct PaginationQuery {
 async fn stats(State(state): State<Arc<AppState>>) -> AppResult<Json<serde_json::Value>> {
     let user_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users")
         .fetch_one(&state.pool)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
 
     let workspace_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM workspaces")
         .fetch_one(&state.pool)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
 
     let message_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM messages")
         .fetch_one(&state.pool)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
 
     let file_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM files")
         .fetch_one(&state.pool)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
 
     Ok(Json(serde_json::json!({
         "users": user_count.0,
@@ -86,8 +82,8 @@ async fn list_users(
     State(state): State<Arc<AppState>>,
     Query(params): Query<PaginationQuery>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let limit = params.limit.unwrap_or(50);
-    let offset = params.offset.unwrap_or(0);
+    let limit = params.limit.unwrap_or(50).clamp(1, 200);
+    let offset = params.offset.unwrap_or(0).max(0);
 
     let rows: Vec<AdminUserRow> = sqlx::query_as(
         "SELECT id, email, display_name, status::text AS status, is_instance_admin, created_at \
@@ -96,8 +92,7 @@ async fn list_users(
     .bind(limit)
     .bind(offset)
     .fetch_all(&state.pool)
-    .await
-    .map_err(|e| AppError::Database(e.to_string()))?;
+    .await?;
 
     let users: Vec<serde_json::Value> = rows
         .into_iter()
@@ -124,8 +119,7 @@ async fn suspend_user(
     sqlx::query("UPDATE users SET status = 'suspended', updated_at = NOW() WHERE id = $1")
         .bind(user_id)
         .execute(&state.pool)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
 
     if let Err(e) = state
         .auth_service
@@ -167,8 +161,7 @@ async fn activate_user(
     sqlx::query("UPDATE users SET status = 'active', updated_at = NOW() WHERE id = $1")
         .bind(user_id)
         .execute(&state.pool)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
 
     RevocationStore(state.redis.clone()).restore(user_id).await;
 
@@ -199,8 +192,7 @@ async fn update_instance_role(
         .bind(body.is_instance_admin)
         .bind(user_id)
         .execute(&state.pool)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     audit(
         &state,
         auth.user_id,
@@ -219,8 +211,8 @@ async fn list_workspaces(
     State(state): State<Arc<AppState>>,
     Query(params): Query<PaginationQuery>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let limit = params.limit.unwrap_or(50);
-    let offset = params.offset.unwrap_or(0);
+    let limit = params.limit.unwrap_or(50).clamp(1, 200);
+    let offset = params.offset.unwrap_or(0).max(0);
 
     let rows: Vec<(Uuid, String, String, Uuid, bool, chrono::DateTime<chrono::Utc>)> =
         sqlx::query_as(
@@ -229,8 +221,7 @@ async fn list_workspaces(
         .bind(limit)
         .bind(offset)
         .fetch_all(&state.pool)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
 
     let workspaces: Vec<serde_json::Value> = rows
         .into_iter()
@@ -256,18 +247,13 @@ async fn delete_workspace(
 ) -> AppResult<Json<serde_json::Value>> {
     // Soft-delete (reversible via restore) instead of an irreversible cascade,
     // and write the audit row in the same transaction so it can't silently drop.
-    let mut tx = state
-        .pool
-        .begin()
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+    let mut tx = state.pool.begin().await?;
     sqlx::query(
         "UPDATE workspaces SET is_active = false, deleted_at = NOW(), updated_at = NOW() WHERE id = $1",
     )
     .bind(ws_id)
     .execute(&mut *tx)
-    .await
-    .map_err(|e| AppError::Database(e.to_string()))?;
+    .await?;
     sqlx::query(
         "INSERT INTO audit_log (user_id, action, resource_type, resource_id, details) VALUES ($1, $2, $3, $4, $5)",
     )
@@ -277,11 +263,8 @@ async fn delete_workspace(
     .bind(ws_id)
     .bind(serde_json::json!({ "soft": true }))
     .execute(&mut *tx)
-    .await
-    .map_err(|e| AppError::Database(e.to_string()))?;
-    tx.commit()
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+    .await?;
+    tx.commit().await?;
 
     let _ = state
         .publisher

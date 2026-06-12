@@ -1,7 +1,7 @@
 # Frontend — Chat Systems
 
-The web client and Electron desktop wrapper. React 19 + TypeScript, built with
-Vite, styled with TailwindCSS, state via Zustand + TanStack Query, rich text via
+The web client — an installable PWA. React 19 + TypeScript, built with Vite,
+styled with TailwindCSS, state via Zustand + TanStack Query, rich text via
 TipTap. See [../docs/frontend.md](../docs/frontend.md) for architecture.
 
 ## Prerequisites
@@ -25,9 +25,6 @@ TipTap. See [../docs/frontend.md](../docs/frontend.md) for architecture.
 | `npm run test:e2e`      | Playwright E2E against `E2E_BASE_URL` (default http://localhost:8080) |
 | `npm run format`        | Prettier write over `src/` + `e2e/`                               |
 | `npm run format:check`  | Prettier check (CI)                                               |
-| `npm run electron:dev`  | Vite + Electron together (waits on the dev server, then `electron .`) |
-| `npm run electron:build`| Build the SPA in `electron` mode + package installers via electron-builder |
-| `npm run electron:pack` | Same as above but unpacked (`--dir`, no installer)                |
 
 ## Develop
 
@@ -46,22 +43,12 @@ The Docker image (`frontend/Dockerfile`) builds this and serves `dist/` with
 unprivileged nginx on port 8080, reverse-proxying `/api` and `/ws` to the backend
 services. It is built by the `frontend` compose profile.
 
-## Desktop (Electron)
+## Install as an app (PWA)
 
-The desktop client (`electron/main.cjs`) wraps the same SPA. The `electron` Vite
-mode emits relative asset paths (`base: './'`) and injects a strict CSP. Hardening
-in the main process: `shell.openExternal` is gated to an `http`/`https` allowlist,
-and a `will-navigate` guard keeps in-app navigation same-origin.
-
-```bash
-npm run electron:dev      # live-reload desktop app against the Vite dev server
-npm run electron:build    # installers into release/ for the current OS only
-```
-
-`electron:build` runs `electron-builder` (config in `package.json` under `build`).
-A macOS `.dmg` can only be produced on macOS; use the repo's release workflow to
-build macOS/Windows/Linux installers at once. Targets: macOS `dmg`/`zip`, Windows
-`nsis`/`portable`, Linux `AppImage`/`deb`. Deep-link scheme: `chatsystems://`.
+`public/manifest.webmanifest` + the icons under `public/icons/` make the app
+installable from any Chromium browser (address-bar install icon) or Safari
+(*File → Add to Dock*). Installed windows get the unread-count badge on the app
+icon via the Badging API; nothing extra to build or sign.
 
 ## Notes
 

@@ -38,11 +38,7 @@ async fn active_huddles(
 ) -> AppResult<Json<serde_json::Value>> {
     require_workspace_member(&state, ws_id, auth.user_id).await?;
 
-    let sessions = state
-        .huddle_repo
-        .list_open_channel_sessions(ws_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+    let sessions = state.huddle_repo.list_open_channel_sessions(ws_id).await?;
 
     let mut conn = state.redis.clone();
     let mut active = Vec::new();
@@ -118,8 +114,7 @@ async fn start_huddle(
             state
                 .huddle_repo
                 .start_session(huddle_id, ws_id, Some(channel_id), None, auth.user_id)
-                .await
-                .map_err(|e| AppError::Database(e.to_string()))?;
+                .await?;
 
             if let Ok(msg) = state
                 .message_repo
@@ -161,8 +156,7 @@ async fn start_huddle(
             state
                 .huddle_repo
                 .start_session(huddle_id, ws_id, None, Some(partner_id), auth.user_id)
-                .await
-                .map_err(|e| AppError::Database(e.to_string()))?;
+                .await?;
             let _ = state
                 .publisher
                 .publish(
@@ -195,16 +189,14 @@ async fn require_channel_access(
         .workspace_service
         .repo
         .find_channel_by_id(channel_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::NotFound("Channel not found".into()))?;
 
     state
         .workspace_service
         .repo
         .get_member(channel.workspace_id, user_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::Forbidden("Not a member of this workspace".into()))?;
 
     if channel.channel_type == ChannelType::Private || channel.channel_type == ChannelType::GroupDm
@@ -213,8 +205,7 @@ async fn require_channel_access(
             .workspace_service
             .repo
             .get_channel_member(channel_id, user_id)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?
+            .await?
             .ok_or_else(|| AppError::Forbidden("Not a member of this channel".into()))?;
     }
 
@@ -283,7 +274,7 @@ fn split_urls(raw: &str) -> Vec<String> {
 
 fn turn_credential(secret: &str, username: &str) -> AppResult<String> {
     let mut mac = HmacSha1::new_from_slice(secret.as_bytes())
-        .map_err(|e| AppError::Internal(format!("TURN HMAC init failed: {}", e)))?;
+        .map_err(|e| AppError::Internal(format!("TURN HMAC init failed: {e}")))?;
     mac.update(username.as_bytes());
     let digest = mac.finalize().into_bytes();
     Ok(base64::engine::general_purpose::STANDARD.encode(digest))

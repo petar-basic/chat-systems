@@ -66,8 +66,8 @@ impl IntoResponse for AppError {
     }
 }
 
-impl AppError {
-    pub fn from_db(e: impl std::fmt::Display) -> Self {
+impl From<sqlx::Error> for AppError {
+    fn from(e: sqlx::Error) -> Self {
         AppError::Database(e.to_string())
     }
 }

@@ -67,7 +67,7 @@ async fn upload_file(
     while let Some(field) = multipart
         .next_field()
         .await
-        .map_err(|e| AppError::BadRequest(format!("Invalid multipart: {}", e)))?
+        .map_err(|e| AppError::BadRequest(format!("Invalid multipart: {e}")))?
     {
         let raw_filename = field.file_name().unwrap_or("unnamed").to_string();
         let filename = sanitize_filename(&raw_filename);
@@ -78,7 +78,7 @@ async fn upload_file(
         let data = field
             .bytes()
             .await
-            .map_err(|e| AppError::BadRequest(format!("Failed to read file data: {}", e)))?;
+            .map_err(|e| AppError::BadRequest(format!("Failed to read file data: {e}")))?;
 
         if data.len() > MAX_FILE_SIZE {
             return Err(AppError::BadRequest(format!(
@@ -107,8 +107,7 @@ async fn upload_file(
                 mime_type: &content_type,
                 size_bytes: size,
             })
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+            .await?;
 
         let url = state.file_storage.public_url(&storage_key);
 
@@ -132,8 +131,7 @@ async fn download_file(
     let record = state
         .file_repo
         .find_by_storage_key(&key)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::NotFound("File not found".into()))?;
 
     require_file_access(&state, &record, auth.user_id).await?;
@@ -147,7 +145,7 @@ async fn download_file(
         .header(header::X_CONTENT_TYPE_OPTIONS, "nosniff")
         .header(header::CONTENT_DISPOSITION, disposition)
         .body(Body::from(body))
-        .map_err(|e| AppError::Internal(format!("Response build failed: {}", e)))?;
+        .map_err(|e| AppError::Internal(format!("Response build failed: {e}")))?;
 
     Ok(response)
 }
@@ -160,8 +158,7 @@ async fn get_file_meta(
     let record = state
         .file_repo
         .find_by_id(file_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::NotFound("File not found".into()))?;
 
     require_file_access(&state, &record, auth.user_id).await?;
@@ -184,16 +181,17 @@ async fn list_files(
     let limit = params
         .get("limit")
         .and_then(|v| v.parse().ok())
-        .unwrap_or(50i64);
+        .unwrap_or(50i64)
+        .clamp(1, 200);
     let offset = params
         .get("offset")
         .and_then(|v| v.parse().ok())
-        .unwrap_or(0i64);
+        .unwrap_or(0i64)
+        .max(0);
     let files = state
         .file_repo
         .list_by_workspace_for_user(ws_id, auth.user_id, limit, offset)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     Ok(Json(serde_json::json!({ "data": files })))
 }
 
@@ -205,8 +203,7 @@ async fn delete_file(
     let record = state
         .file_repo
         .find_by_id(file_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::NotFound("File not found".into()))?;
 
     require_workspace_member(&state, record.workspace_id, auth.user_id).await?;
@@ -217,11 +214,7 @@ async fn delete_file(
 
     let _ = state.file_storage.delete(&record.storage_key).await;
 
-    state
-        .file_repo
-        .delete(file_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+    state.file_repo.delete(file_id).await?;
 
     Ok(Json(serde_json::json!({ "status": "deleted" })))
 }
@@ -235,8 +228,7 @@ async fn require_workspace_member(
         .workspace_service
         .repo
         .get_member(workspace_id, user_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::Forbidden("Not a member of this workspace".into()))?;
     Ok(())
 }
@@ -249,12 +241,7 @@ async fn require_file_access(
     require_workspace_member(state, record.workspace_id, user_id).await?;
 
     if let Some(message_id) = record.message_id {
-        if let Some(channel_id) = state
-            .file_repo
-            .channel_id_for_message(message_id)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?
-        {
+        if let Some(channel_id) = state.file_repo.channel_id_for_message(message_id).await? {
             require_channel_membership(state, channel_id, user_id).await?;
         }
     }
@@ -271,8 +258,7 @@ async fn require_channel_membership(
         .workspace_service
         .repo
         .find_channel_by_id(channel_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::NotFound("Channel not found".into()))?;
 
     if channel.channel_type == ChannelType::Private || channel.channel_type == ChannelType::GroupDm
@@ -281,8 +267,7 @@ async fn require_channel_membership(
             .workspace_service
             .repo
             .get_channel_member(channel_id, user_id)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?
+            .await?
             .ok_or_else(|| AppError::Forbidden("Not a member of this channel".into()))?;
     }
 

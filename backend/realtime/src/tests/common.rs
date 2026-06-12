@@ -179,6 +179,14 @@ pub async fn get_status(app: &Router, uri: &str) -> StatusCode {
 }
 
 pub async fn ws_upgrade_status(app: &Router, token: Option<&str>) -> StatusCode {
+    ws_upgrade_status_with_origin(app, token, Some("http://localhost")).await
+}
+
+pub async fn ws_upgrade_status_with_origin(
+    app: &Router,
+    token: Option<&str>,
+    origin: Option<&str>,
+) -> StatusCode {
     let mut builder = Request::builder()
         .method("GET")
         .uri("/ws")
@@ -186,6 +194,9 @@ pub async fn ws_upgrade_status(app: &Router, token: Option<&str>) -> StatusCode 
         .header(header::UPGRADE, "websocket")
         .header("sec-websocket-version", "13")
         .header("sec-websocket-key", "dGhlIHNhbXBsZSBub25jZQ==");
+    if let Some(o) = origin {
+        builder = builder.header(header::ORIGIN, o);
+    }
     if let Some(t) = token {
         builder = builder.header(header::COOKIE, format!("access_token={t}"));
     }

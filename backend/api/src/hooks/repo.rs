@@ -34,11 +34,11 @@ impl HookRepo {
         config: &serde_json::Value,
     ) -> sqlx::Result<Hook> {
         sqlx::query_as::<_, Hook>(
-            r#"
+            r"
             INSERT INTO hooks (workspace_id, created_by, hook_type, name, description, config)
             VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING *
-            "#,
+            ",
         )
         .bind(workspace_id)
         .bind(created_by)
@@ -104,11 +104,11 @@ impl HookRepo {
         response_body: Option<&str>,
     ) -> sqlx::Result<HookExecution> {
         sqlx::query_as::<_, HookExecution>(
-            r#"
+            r"
             INSERT INTO hook_executions (hook_id, event_type, payload, response_status, response_body)
             VALUES ($1, $2, $3, $4, $5)
             RETURNING *
-            "#,
+            ",
         )
         .bind(hook_id)
         .bind(event_type)
@@ -121,11 +121,11 @@ impl HookRepo {
 
     pub async fn create_reminder(&self, reminder: NewReminder<'_>) -> sqlx::Result<Reminder> {
         sqlx::query_as::<_, Reminder>(
-            r#"
+            r"
             INSERT INTO reminders (workspace_id, created_by, target_user_id, channel_id, message_id, content, remind_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING *
-            "#,
+            ",
         )
         .bind(reminder.workspace_id)
         .bind(reminder.created_by)

@@ -72,7 +72,7 @@ async fn main() -> anyhow::Result<()> {
     let port = config.port;
 
     let db = sqlx::postgres::PgPoolOptions::new()
-        .max_connections(5)
+        .max_connections(config.pg_pool_max)
         .connect(&config.database_url)
         .await?;
     info!("Connected to Postgres");
@@ -169,9 +169,9 @@ async fn render_metrics(State(handle): State<PrometheusHandle>) -> impl IntoResp
 
 fn protocol_token(headers: &axum::http::HeaderMap) -> Option<String> {
     let raw = headers.get(SEC_WEBSOCKET_PROTOCOL)?.to_str().ok()?;
-    let parts: Vec<&str> = raw.split(',').map(|p| p.trim()).collect();
+    let parts: Vec<&str> = raw.split(',').map(str::trim).collect();
     let idx = parts.iter().position(|&p| p == "bearer")?;
-    parts.get(idx + 1).map(|s| s.to_string())
+    parts.get(idx + 1).map(std::string::ToString::to_string)
 }
 
 fn cookie_token(headers: &axum::http::HeaderMap) -> Option<String> {
@@ -182,7 +182,7 @@ fn cookie_token(headers: &axum::http::HeaderMap) -> Option<String> {
             s.split(';').find_map(|part| {
                 part.trim()
                     .strip_prefix("access_token=")
-                    .map(|v| v.to_string())
+                    .map(std::string::ToString::to_string)
             })
         })
 }
@@ -218,17 +218,17 @@ fn origin_allowed(headers: &axum::http::HeaderMap, allowed: &str) -> bool {
         .get(axum::http::header::ORIGIN)
         .and_then(|v| v.to_str().ok())
     else {
-        return true;
+        return false;
     };
     allowed
         .split(',')
-        .map(|s| s.trim())
+        .map(str::trim)
         .any(|a| a == "*" || a == origin)
 }
 
 async fn ws_upgrade(
     State(state): State<AppState>,
-    ws: WebSocketUpgrade,
+    ws: Option<WebSocketUpgrade>,
     headers: axum::http::HeaderMap,
 ) -> Result<Response, AppError> {
     if !origin_allowed(&headers, &state.cors_origins) {
@@ -238,6 +238,7 @@ async fn ws_upgrade(
     if state.cm.is_revoked(user_id).await {
         return Err(AppError::Unauthorized("Session revoked".into()));
     }
+    let ws = ws.ok_or_else(|| AppError::BadRequest("Expected a WebSocket upgrade".into()))?;
     let cm = state.cm.clone();
     Ok(ws
         .protocols(["bearer"])

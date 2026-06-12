@@ -264,7 +264,7 @@ impl ConnectionManager {
 
     pub async fn is_revoked(&self, user_id: Uuid) -> bool {
         let mut conn = self.redis.clone();
-        let res: redis::RedisResult<bool> = conn.exists(format!("revoked:{}", user_id)).await;
+        let res: redis::RedisResult<bool> = conn.exists(format!("revoked:{user_id}")).await;
         res.unwrap_or(false)
     }
 
@@ -313,7 +313,7 @@ impl ConnectionManager {
         let mut conn = self.redis.clone();
         let key = self.presence_key(&user_id);
         let _: redis::RedisResult<()> = conn.del(&key).await;
-        match Self::scan_keys(&mut conn, &format!("presence:{}:*", user_id)).await {
+        match Self::scan_keys(&mut conn, &format!("presence:{user_id}:*")).await {
             Ok(keys) => keys.is_empty(),
             Err(e) => {
                 warn!("presence_clear scan redis error user={}: {}", user_id, e);
@@ -429,7 +429,7 @@ impl ConnectionManager {
     }
 
     fn huddle_members_key(huddle_id: &Uuid) -> String {
-        format!("huddle:{}:members", huddle_id)
+        format!("huddle:{huddle_id}:members")
     }
 
     pub async fn huddle_redis_join(&self, huddle_id: Uuid, user_id: Uuid) {

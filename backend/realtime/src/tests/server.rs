@@ -17,6 +17,43 @@ async fn readyz_ok_when_db_and_redis_live(pool: PgPool) {
     assert_eq!(get_status(&app, "/readyz").await, StatusCode::OK);
 }
 
+#[sqlx::test(migrations = "../migrations")]
+async fn ws_upgrade_rejects_missing_origin(pool: PgPool) {
+    let app = app(manager(pool.clone()).await);
+    let user = seed_user(&pool).await;
+    let token = mint_token(user, "access");
+    let status = ws_upgrade_status_with_origin(&app, Some(&token), None).await;
+    assert_eq!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "an upgrade without an Origin header must be rejected"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn ws_upgrade_rejects_disallowed_origin(pool: PgPool) {
+    let app = app(manager(pool.clone()).await);
+    let user = seed_user(&pool).await;
+    let token = mint_token(user, "access");
+    let status =
+        ws_upgrade_status_with_origin(&app, Some(&token), Some("https://evil.example")).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn ws_upgrade_allowed_origin_and_token_passes_auth_gates(pool: PgPool) {
+    let app = app(manager(pool.clone()).await);
+    let user = seed_user(&pool).await;
+    let token = mint_token(user, "access");
+    let status = ws_upgrade_status(&app, Some(&token)).await;
+    assert_eq!(
+        status,
+        StatusCode::BAD_REQUEST,
+        "with a valid origin and token the request must clear the auth gates and fail only on \
+         the missing hyper upgrade extension (oneshot has no real socket)"
+    );
+}
+
 #[test]
 fn ws_auth_rejects_missing_cookie() {
     assert!(authenticate_ws(&HeaderMap::new(), JWT_SECRET).is_err());

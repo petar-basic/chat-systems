@@ -51,6 +51,7 @@ pub fn test_config() -> AppConfig {
         turn_urls: String::new(),
         stun_urls: "stun:stun.l.google.com:19302".into(),
         turn_ttl_secs: 43200,
+        pg_pool_max: 5,
     }
 }
 

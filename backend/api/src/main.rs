@@ -69,7 +69,7 @@ async fn main() -> anyhow::Result<()> {
     let redis_url = config.redis_url.clone();
 
     let pool = PgPoolOptions::new()
-        .max_connections(20)
+        .max_connections(config.pg_pool_max)
         .connect(&config.database_url)
         .await?;
     info!("Connected to database");

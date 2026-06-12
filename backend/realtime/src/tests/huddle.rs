@@ -195,7 +195,10 @@ async fn huddle_camera_broadcasts_to_huddle_subscribers(pool: PgPool) {
         frame.get("type").and_then(|t| t.as_str()),
         Some("huddle.camera")
     );
-    assert_eq!(frame.get("camera_on").and_then(|v| v.as_bool()), Some(true));
+    assert_eq!(
+        frame.get("camera_on").and_then(serde_json::Value::as_bool),
+        Some(true)
+    );
 }
 
 #[sqlx::test(migrations = "../migrations")]

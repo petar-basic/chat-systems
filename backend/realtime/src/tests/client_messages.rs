@@ -220,7 +220,9 @@ async fn typing_start_member_publishes(pool: PgPool) {
         Some(user_str.as_str())
     );
     assert_eq!(
-        payload.get("is_typing").and_then(|v| v.as_bool()),
+        payload
+            .get("is_typing")
+            .and_then(serde_json::Value::as_bool),
         Some(true)
     );
 }
@@ -269,7 +271,7 @@ async fn typing_stop_member_publishes_false(pool: PgPool) {
     assert_eq!(
         env.get("payload")
             .and_then(|p| p.get("is_typing"))
-            .and_then(|v| v.as_bool()),
+            .and_then(serde_json::Value::as_bool),
         Some(false)
     );
 }

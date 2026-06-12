@@ -72,8 +72,7 @@ async fn verify_invite(
         .auth_service
         .repo()
         .find_by_id(claims.sub)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::NotFound("Invite is no longer valid".into()))?;
 
     let workspace_id = claims
@@ -84,8 +83,7 @@ async fn verify_invite(
         .workspace_service
         .repo
         .find_workspace_by_id(workspace_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::NotFound("Workspace no longer exists".into()))?;
 
     Ok(Json(serde_json::json!({
@@ -114,30 +112,18 @@ async fn complete_registration(
             .and_then(|r| serde_json::from_value(serde_json::Value::String(r.to_string())).ok())
             .unwrap_or(WorkspaceRole::Member);
 
-        let mut tx = state
-            .workspace_service
-            .repo
-            .begin()
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+        let mut tx = state.workspace_service.repo.begin().await?;
 
-        WorkspaceRepo::add_member_tx(&mut tx, workspace_id, claims.sub, &role)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+        WorkspaceRepo::add_member_tx(&mut tx, workspace_id, claims.sub, &role).await?;
 
-        let channels = WorkspaceRepo::list_default_channels_tx(&mut tx, workspace_id)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+        let channels = WorkspaceRepo::list_default_channels_tx(&mut tx, workspace_id).await?;
 
         for ch in channels {
             WorkspaceRepo::add_channel_member_tx(&mut tx, ch.id, claims.sub, &ChannelRole::Member)
-                .await
-                .map_err(|e| AppError::Database(e.to_string()))?;
+                .await?;
         }
 
-        tx.commit()
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+        tx.commit().await?;
     }
 
     let secure = state.config.public_url.starts_with("https://");
@@ -211,8 +197,7 @@ async fn get_me(State(state): State<Arc<AppState>>, auth: AuthUser) -> AppResult
         .auth_service
         .repo()
         .find_by_id(auth.user_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::NotFound("User not found".into()))?;
     Ok(Json(user.into()))
 }
@@ -232,8 +217,7 @@ async fn update_me(
             req.bio.as_deref(),
             req.timezone.as_deref(),
         )
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     Ok(Json(user.into()))
 }
 
@@ -254,7 +238,7 @@ fn bearer_token(headers: &HeaderMap) -> Option<String> {
         .get(AUTHORIZATION)
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "))
-        .map(|s| s.to_string())
+        .map(std::string::ToString::to_string)
 }
 
 fn set_auth_cookies(jar: CookieJar, tokens: &AuthTokens, secure: bool) -> CookieJar {

@@ -24,11 +24,11 @@ impl WorkspaceRepo {
         owner_id: Uuid,
     ) -> sqlx::Result<Workspace> {
         sqlx::query_as::<_, Workspace>(
-            r#"
+            r"
             INSERT INTO workspaces (name, slug, description, owner_id)
             VALUES ($1, $2, $3, $4)
             RETURNING *
-            "#,
+            ",
         )
         .bind(name)
         .bind(slug)
@@ -47,12 +47,12 @@ impl WorkspaceRepo {
 
     pub async fn list_user_workspaces(&self, user_id: Uuid) -> sqlx::Result<Vec<Workspace>> {
         sqlx::query_as::<_, Workspace>(
-            r#"
+            r"
             SELECT w.* FROM workspaces w
             JOIN workspace_members wm ON wm.workspace_id = w.id
             WHERE wm.user_id = $1 AND w.is_active = true
             ORDER BY w.created_at DESC
-            "#,
+            ",
         )
         .bind(user_id)
         .fetch_all(&self.pool)
@@ -99,13 +99,13 @@ impl WorkspaceRepo {
             .await
         } else {
             sqlx::query_as::<_, Workspace>(
-                r#"
+                r"
                 SELECT w.* FROM workspaces w
                 JOIN workspace_members wm ON wm.workspace_id = w.id
                 WHERE wm.user_id = $1 AND w.is_active = false
                   AND wm.role IN ('admin', 'owner')
                 ORDER BY w.deleted_at DESC
-                "#,
+                ",
             )
             .bind(user_id)
             .fetch_all(&self.pool)
@@ -121,7 +121,7 @@ impl WorkspaceRepo {
         icon_url: Option<&str>,
     ) -> sqlx::Result<Workspace> {
         sqlx::query_as::<_, Workspace>(
-            r#"
+            r"
             UPDATE workspaces
             SET name = COALESCE($2, name),
                 description = COALESCE($3, description),
@@ -129,7 +129,7 @@ impl WorkspaceRepo {
                 updated_at = NOW()
             WHERE id = $1
             RETURNING *
-            "#,
+            ",
         )
         .bind(id)
         .bind(name)
@@ -146,12 +146,12 @@ impl WorkspaceRepo {
         role: &WorkspaceRole,
     ) -> sqlx::Result<WorkspaceMember> {
         sqlx::query_as::<_, WorkspaceMember>(
-            r#"
+            r"
             INSERT INTO workspace_members (workspace_id, user_id, role)
             VALUES ($1, $2, $3)
             ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = $3
             RETURNING *
-            "#,
+            ",
         )
         .bind(workspace_id)
         .bind(user_id)
@@ -179,14 +179,14 @@ impl WorkspaceRepo {
         workspace_id: Uuid,
     ) -> sqlx::Result<Vec<MemberWithUser>> {
         sqlx::query_as::<_, MemberWithUser>(
-            r#"
+            r"
             SELECT wm.workspace_id, wm.user_id, wm.role, wm.joined_at,
                    u.email, u.display_name, u.avatar_url
             FROM workspace_members wm
             JOIN users u ON u.id = wm.user_id
             WHERE wm.workspace_id = $1
             ORDER BY wm.joined_at
-            "#,
+            ",
         )
         .bind(workspace_id)
         .fetch_all(&self.pool)
@@ -227,11 +227,11 @@ impl WorkspaceRepo {
         token: &str,
     ) -> sqlx::Result<WorkspaceInvite> {
         sqlx::query_as::<_, WorkspaceInvite>(
-            r#"
+            r"
             INSERT INTO workspace_invites (workspace_id, created_by, email, role, token)
             VALUES ($1, $2, $3, $4, $5)
             RETURNING *
-            "#,
+            ",
         )
         .bind(workspace_id)
         .bind(created_by)
@@ -261,13 +261,13 @@ impl WorkspaceRepo {
         id: Uuid,
     ) -> sqlx::Result<Option<WorkspaceInvite>> {
         sqlx::query_as::<_, WorkspaceInvite>(
-            r#"
+            r"
             UPDATE workspace_invites
             SET use_count = use_count + 1
             WHERE id = $1
               AND (max_uses IS NULL OR use_count < max_uses)
             RETURNING *
-            "#,
+            ",
         )
         .bind(id)
         .fetch_optional(&mut **tx)
@@ -301,11 +301,11 @@ impl WorkspaceRepo {
         is_default: bool,
     ) -> sqlx::Result<Channel> {
         sqlx::query_as::<_, Channel>(
-            r#"
+            r"
             INSERT INTO channels (workspace_id, name, channel_type, description, created_by, is_default)
             VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING *
-            "#,
+            ",
         )
         .bind(workspace_id)
         .bind(name)
@@ -327,11 +327,11 @@ impl WorkspaceRepo {
         is_default: bool,
     ) -> sqlx::Result<Channel> {
         sqlx::query_as::<_, Channel>(
-            r#"
+            r"
             INSERT INTO channels (workspace_id, name, channel_type, description, created_by, is_default)
             VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING *
-            "#,
+            ",
         )
         .bind(workspace_id)
         .bind(name)
@@ -370,7 +370,7 @@ impl WorkspaceRepo {
         description: Option<&str>,
     ) -> sqlx::Result<Channel> {
         sqlx::query_as::<_, Channel>(
-            r#"
+            r"
             UPDATE channels
             SET name = COALESCE($2, name),
                 topic = COALESCE($3, topic),
@@ -378,7 +378,7 @@ impl WorkspaceRepo {
                 updated_at = NOW()
             WHERE id = $1
             RETURNING *
-            "#,
+            ",
         )
         .bind(id)
         .bind(name)
@@ -403,12 +403,12 @@ impl WorkspaceRepo {
         role: &ChannelRole,
     ) -> sqlx::Result<ChannelMember> {
         sqlx::query_as::<_, ChannelMember>(
-            r#"
+            r"
             INSERT INTO channel_members (channel_id, user_id, role)
             VALUES ($1, $2, $3)
             ON CONFLICT (channel_id, user_id) DO NOTHING
             RETURNING *
-            "#,
+            ",
         )
         .bind(channel_id)
         .bind(user_id)
@@ -424,12 +424,12 @@ impl WorkspaceRepo {
         role: &ChannelRole,
     ) -> sqlx::Result<Option<ChannelMember>> {
         sqlx::query_as::<_, ChannelMember>(
-            r#"
+            r"
             INSERT INTO channel_members (channel_id, user_id, role)
             VALUES ($1, $2, $3)
             ON CONFLICT (channel_id, user_id) DO NOTHING
             RETURNING *
-            "#,
+            ",
         )
         .bind(channel_id)
         .bind(user_id)
@@ -476,12 +476,12 @@ impl WorkspaceRepo {
         user_id: Uuid,
     ) -> sqlx::Result<Vec<Channel>> {
         sqlx::query_as::<_, Channel>(
-            r#"
+            r"
             SELECT c.* FROM channels c
             JOIN channel_members cm ON cm.channel_id = c.id
             WHERE c.workspace_id = $1 AND cm.user_id = $2 AND c.is_archived = false
             ORDER BY c.is_default DESC, c.name
-            "#,
+            ",
         )
         .bind(workspace_id)
         .bind(user_id)
@@ -510,11 +510,11 @@ impl WorkspaceRepo {
         user_id: Uuid,
     ) -> sqlx::Result<Vec<Uuid>> {
         let rows: Vec<(Uuid,)> = sqlx::query_as(
-            r#"
+            r"
             SELECT c.id FROM channels c
             JOIN channel_members cm ON cm.channel_id = c.id
             WHERE c.workspace_id = $1 AND cm.user_id = $2 AND cm.muted = true
-            "#,
+            ",
         )
         .bind(workspace_id)
         .bind(user_id)
@@ -529,7 +529,7 @@ impl WorkspaceRepo {
         user_id: Uuid,
     ) -> sqlx::Result<Vec<Uuid>> {
         let rows: Vec<(Uuid,)> = sqlx::query_as(
-            r#"
+            r"
             SELECT c.id
             FROM channels c
             JOIN channel_members cm ON cm.channel_id = c.id
@@ -541,7 +541,7 @@ impl WorkspaceRepo {
                   AND m.user_id <> $2
                   AND (cm.last_read_at IS NULL OR m.created_at > cm.last_read_at)
               )
-            "#,
+            ",
         )
         .bind(workspace_id)
         .bind(user_id)

@@ -39,7 +39,7 @@ impl LocalStorage {
     pub fn new(base_path: &str, public_url: &str) -> AppResult<Self> {
         let path = PathBuf::from(base_path);
         std::fs::create_dir_all(&path)
-            .map_err(|e| AppError::Internal(format!("Failed to create storage dir: {}", e)))?;
+            .map_err(|e| AppError::Internal(format!("Failed to create storage dir: {e}")))?;
         info!("Local storage initialized: path={}", path.display());
         Ok(Self {
             base_path: path,
@@ -61,12 +61,12 @@ impl LocalStorage {
         let canonical_base = self
             .base_path
             .canonicalize()
-            .map_err(|e| AppError::Internal(format!("Failed to resolve storage dir: {}", e)))?;
+            .map_err(|e| AppError::Internal(format!("Failed to resolve storage dir: {e}")))?;
 
         if parent.exists() {
             let canonical_parent = parent
                 .canonicalize()
-                .map_err(|e| AppError::Internal(format!("Failed to resolve path: {}", e)))?;
+                .map_err(|e| AppError::Internal(format!("Failed to resolve path: {e}")))?;
             if !canonical_parent.starts_with(&canonical_base) {
                 return Err(AppError::BadRequest("invalid path".into()));
             }
@@ -85,11 +85,11 @@ impl FileStorage for LocalStorage {
         if let Some(parent) = path.parent() {
             tokio::fs::create_dir_all(parent)
                 .await
-                .map_err(|e| AppError::Internal(format!("mkdir failed: {}", e)))?;
+                .map_err(|e| AppError::Internal(format!("mkdir failed: {e}")))?;
         }
         tokio::fs::write(&path, &body)
             .await
-            .map_err(|e| AppError::Internal(format!("File write failed: {}", e)))?;
+            .map_err(|e| AppError::Internal(format!("File write failed: {e}")))?;
         Ok(())
     }
 
@@ -97,7 +97,7 @@ impl FileStorage for LocalStorage {
         let path = self.key_path(key)?;
         let body = tokio::fs::read(&path)
             .await
-            .map_err(|e| AppError::NotFound(format!("File not found: {}", e)))?;
+            .map_err(|e| AppError::NotFound(format!("File not found: {e}")))?;
         let content_type = mime_guess::from_path(&path)
             .first_or_octet_stream()
             .to_string();
@@ -108,7 +108,7 @@ impl FileStorage for LocalStorage {
         let path = self.key_path(key)?;
         tokio::fs::remove_file(&path)
             .await
-            .map_err(|e| AppError::Internal(format!("File delete failed: {}", e)))?;
+            .map_err(|e| AppError::Internal(format!("File delete failed: {e}")))?;
         Ok(())
     }
 
@@ -163,7 +163,7 @@ impl FileStorage for S3Storage {
             .content_type(content_type)
             .send()
             .await
-            .map_err(|e| AppError::Internal(format!("S3 upload failed: {}", e)))?;
+            .map_err(|e| AppError::Internal(format!("S3 upload failed: {e}")))?;
         Ok(())
     }
 
@@ -175,7 +175,7 @@ impl FileStorage for S3Storage {
             .key(key)
             .send()
             .await
-            .map_err(|e| AppError::Internal(format!("S3 download failed: {}", e)))?;
+            .map_err(|e| AppError::Internal(format!("S3 download failed: {e}")))?;
 
         let content_type = resp
             .content_type()
@@ -185,7 +185,7 @@ impl FileStorage for S3Storage {
             .body
             .collect()
             .await
-            .map_err(|e| AppError::Internal(format!("S3 body read failed: {}", e)))?
+            .map_err(|e| AppError::Internal(format!("S3 body read failed: {e}")))?
             .into_bytes()
             .to_vec();
 
@@ -199,7 +199,7 @@ impl FileStorage for S3Storage {
             .key(key)
             .send()
             .await
-            .map_err(|e| AppError::Internal(format!("S3 delete failed: {}", e)))?;
+            .map_err(|e| AppError::Internal(format!("S3 delete failed: {e}")))?;
         Ok(())
     }
 

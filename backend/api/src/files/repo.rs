@@ -24,11 +24,11 @@ impl FileRepo {
 
     pub async fn create(&self, file: NewFile<'_>) -> sqlx::Result<FileRecord> {
         sqlx::query_as::<_, FileRecord>(
-            r#"
+            r"
             INSERT INTO files (user_id, workspace_id, message_id, filename, storage_key, mime_type, size_bytes)
             VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING *
-            "#,
+            ",
         )
         .bind(file.user_id)
         .bind(file.workspace_id)
@@ -81,14 +81,14 @@ impl FileRepo {
         user_id: Uuid,
     ) -> sqlx::Result<()> {
         sqlx::query(
-            r#"
+            r"
             UPDATE files
             SET message_id = $1
             WHERE storage_key = ANY($2)
               AND workspace_id = $3
               AND user_id = $4
               AND message_id IS NULL
-            "#,
+            ",
         )
         .bind(message_id)
         .bind(storage_keys)
