@@ -18,16 +18,16 @@ license = "MIT"
 tokio = { version = "1", features = ["full"] }
 
 # Web framework
-axum = { version = "0.7", features = ["ws", "multipart"] }
-axum-extra = { version = "0.9", features = ["typed-header", "cookie"] }
-tower = { version = "0.4" }
-tower-http = { version = "0.5", features = ["cors", "compression-gzip", "trace", "limit", "timeout", "request-id"] }
+axum = { version = "0.8", features = ["ws", "multipart"] }
+axum-extra = { version = "0.12", features = ["typed-header", "cookie"] }
+tower = { version = "0.5" }
+tower-http = { version = "0.6", features = ["cors", "compression-gzip", "trace", "limit", "timeout", "request-id"] }
 
 # Database
-sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "chrono", "json", "migrate"] }
+sqlx = { version = "0.9", features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "chrono", "json", "migrate"] }
 
 # Redis
-redis = { version = "0.27", features = ["tokio-comp", "connection-manager"] }
+redis = { version = "1.2", features = ["tokio-comp", "connection-manager"] }
 
 # S3 / MinIO
 aws-sdk-s3 = { version = "1", default-features = false, features = ["sigv4a", "http-1x", "default-https-client", "rt-tokio"] }
@@ -39,9 +39,9 @@ jsonwebtoken = { version = "10", default-features = false, features = ["use_pem"
 argon2 = "0.5"
 
 # Crypto (webhook signing + TURN REST credentials)
-hmac = "0.12"
-sha1 = "0.10"
-sha2 = "0.10"
+hmac = "0.13"
+sha1 = "0.11"
+sha2 = "0.11"
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
@@ -52,7 +52,7 @@ toml = "0.8"
 uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 time = { version = "0.3", features = ["serde"] }
-rand = "0.8"
+rand = "0.10"
 mime_guess = "2"
 base64 = "0.22"
 url = "2"
@@ -72,14 +72,14 @@ lettre = { version = "0.11", default-features = false, features = ["tokio1-rustl
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
 # Error handling
-thiserror = "1"
+thiserror = "2"
 anyhow = "1"
 
 # Async traits
 async-trait = "0.1"
 
 # Concurrency
-dashmap = "5"
+dashmap = "6"
 futures-util = "0.3"
 
 # Internal shared crates
