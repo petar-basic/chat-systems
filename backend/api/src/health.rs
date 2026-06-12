@@ -23,7 +23,7 @@ async fn readyz(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     if let Err(e) = sqlx::query("SELECT 1").execute(&state.pool).await {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
-            format!("database unavailable: {}", e),
+            format!("database unavailable: {e}"),
         );
     }
 
@@ -32,7 +32,7 @@ async fn readyz(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     if let Err(e) = ping {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
-            format!("redis unavailable: {}", e),
+            format!("redis unavailable: {e}"),
         );
     }
 

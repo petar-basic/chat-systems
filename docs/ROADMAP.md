@@ -72,9 +72,10 @@ Component tests (RTL) for the composer / channel list / login flow, and a handfu
 Playwright journeys (auth, workspace switch, thread, DM, file, mention) beyond the
 current send/receive smoke test.
 
-### Distribution
-Code-sign the desktop builds (Apple Developer ID, Windows Authenticode) to drop the
-unsigned-app warnings.
+### Web Push notifications
+The PWA shows notifications only while a window is open. Closed-app delivery needs a
+service worker + Push API subscription with VAPID keys and a backend sender — the
+natural next step now that the client ships as a PWA.
 
 ## Calls at scale
 

@@ -41,6 +41,8 @@ pub struct AppConfig {
     pub turn_urls: String,
     pub stun_urls: String,
     pub turn_ttl_secs: i64,
+
+    pub pg_pool_max: u32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -90,6 +92,7 @@ impl AppConfig {
             turn_urls: env_or("TURN_URLS", ""),
             stun_urls: env_or("STUN_URLS", "stun:stun.l.google.com:19302"),
             turn_ttl_secs: parse_env("TURN_TTL_SECS", 43200),
+            pg_pool_max: parse_env("PG_POOL_MAX", 20),
         };
         if config.jwt_secret == "dev-secret-change-me-in-production" || config.jwt_secret.len() < 32
         {
@@ -174,7 +177,9 @@ mod tests {
 
     #[test]
     fn from_env_applies_defaults_and_parses_set_values() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = ENV_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
 
         let saved = vec![
             set_saved("JWT_SECRET", STRONG_SECRET),
@@ -202,7 +207,9 @@ mod tests {
 
     #[test]
     fn from_env_panics_on_weak_jwt_secret() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = ENV_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
 
         let saved = vec![
             set_saved("JWT_SECRET", "short"),

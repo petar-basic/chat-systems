@@ -7,6 +7,7 @@ pub struct RealtimeConfig {
     pub jwt_secret: String,
     pub port: u16,
     pub cors_origins: String,
+    pub pg_pool_max: u32,
 }
 
 impl RealtimeConfig {
@@ -20,6 +21,7 @@ impl RealtimeConfig {
             jwt_secret: env_or("JWT_SECRET", "dev-secret-change-me-in-production"),
             port: parse_env("PORT", 3004),
             cors_origins: env_or("CORS_ORIGINS", "http://localhost:3001"),
+            pg_pool_max: parse_env("PG_POOL_MAX", 5),
         };
         if config.jwt_secret == "dev-secret-change-me-in-production" || config.jwt_secret.len() < 32
         {
@@ -87,7 +89,9 @@ mod tests {
 
     #[test]
     fn from_env_applies_defaults_and_parses_set_values() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = ENV_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
 
         let saved = vec![
             set_saved("JWT_SECRET", STRONG_SECRET),
@@ -111,7 +115,9 @@ mod tests {
 
     #[test]
     fn from_env_panics_on_weak_jwt_secret() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = ENV_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
 
         let saved = vec![
             set_saved("JWT_SECRET", "short"),

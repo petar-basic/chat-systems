@@ -54,7 +54,7 @@ pub async fn auth_middleware(request: Request, next: Next) -> Result<Response, A
                 .get(AUTHORIZATION)
                 .and_then(|v| v.to_str().ok())
                 .and_then(|v| v.strip_prefix("Bearer "))
-                .map(|s| s.to_string())
+                .map(std::string::ToString::to_string)
         })
         .ok_or_else(|| AppError::Unauthorized("Missing authentication".into()))?;
 
@@ -142,7 +142,7 @@ fn extract_cookie_token(headers: &axum::http::HeaderMap) -> Option<String> {
             s.split(';').find_map(|part| {
                 part.trim()
                     .strip_prefix("access_token=")
-                    .map(|v| v.to_string())
+                    .map(std::string::ToString::to_string)
             })
         })
 }

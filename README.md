@@ -27,8 +27,8 @@ integration-test suite and a real CI pipeline.
 - **Role-based access** — Instance Admin, Workspace Owner/Admin, Channel Admin, Member, Guest
 - **Invite-only onboarding** — email invites, password reset, no open sign-up
 - **Webhooks** — incoming (Slack-compatible `{"text":...}` → channel) and outgoing (SSRF-hardened, HMAC-signed)
-- **Notifications** — in-app + native desktop, with mention highlighting and a favicon badge
-- **Desktop app** — Electron build with native notifications, dock badge, and `chatsystems://` deep links
+- **Notifications** — in-app + desktop, with mention highlighting and favicon/app-icon badges
+- **Installable PWA** — standalone window, app-icon unread badge, desktop notifications
 
 ## Architecture at a glance
 
@@ -63,42 +63,17 @@ Open **http://localhost:8080** and log in with your `ADMIN_EMAIL` / `ADMIN_PASSW
 Full setup — local development, production deployment with HTTPS and backups, and
 the contribution workflow — lives in **[docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)**.
 
-## Desktop app
+## Install as an app (PWA)
 
-The desktop client is an Electron wrapper around the same web app. It connects to
-whichever server you point it at — on first launch it asks for your instance URL
-(e.g. `https://chat.yourcompany.com`), so one build works for every self-hoster.
+The web app is an installable PWA — no separate desktop build, no installers, no
+unsigned-binary warnings, and it updates the moment you deploy:
 
-**Download & install.** Grab the installer for your OS from the
-[Releases](https://github.com/petar-basic/chat-systems/releases) page:
-
-| OS      | File          |
-|---------|---------------|
-| macOS   | `.dmg`        |
-| Windows | `.exe` (NSIS) |
-| Linux   | `.AppImage` or `.deb` |
-
-**Opening an unsigned build.** The published builds are *not* code-signed (no Apple
-Developer ID or Windows Authenticode cert), so the OS shows a one-time warning you
-can dismiss:
-
-- **macOS** — right-click the app → **Open** → **Open**, or clear the quarantine flag:
-  `xattr -dr com.apple.quarantine "/Applications/Chat Systems.app"`
-- **Windows** — on the SmartScreen "Windows protected your PC" prompt, click
-  **More info** → **Run anyway**.
-- **Linux** — make the AppImage executable: `chmod +x "Chat Systems-*.AppImage"`.
-
-**Cutting a release (maintainers).** Bump `version` in `frontend/package.json`, then
-push a matching tag — `.github/workflows/release.yml` builds the macOS, Windows, and
-Linux installers on their respective runners and uploads them to a GitHub Release:
-
-```bash
-git tag v1.0.0 && git push origin v1.0.0
-```
-
-**Building locally.** `cd frontend && npm run electron:build` produces installers for
-the current OS only (into `frontend/release/`). A macOS `.dmg` can only be built on
-macOS; use the release workflow to produce all three at once.
+- **Chrome / Edge** — open your instance, then click the install icon in the address
+  bar (or menu → *Install app*). You get a standalone window, dock/taskbar icon, and
+  an unread-count badge on the app icon.
+- **Safari (macOS)** — *File → Add to Dock*.
+- **iOS / Android** — *Share → Add to Home Screen* (the UI is desktop-first; mobile
+  layout is not a goal yet).
 
 ## Documentation
 
@@ -120,7 +95,8 @@ Honest about the edges, since this is a reference codebase:
 - **Huddles use a WebRTC mesh**, which is great up to ~6–8 participants; large all-hands
   calls would need an SFU.
 - **No SSO/2FA yet** — email + password only.
-- **Desktop builds are unsigned** (no Apple Developer ID / Windows Authenticode cert).
+- **Notifications arrive only while the app is open** (an installed PWA counts as
+  open while its window runs). Web Push for closed-app delivery is planned.
 
 The full prioritized list lives in **[docs/ROADMAP.md](docs/ROADMAP.md)**.
 

@@ -62,8 +62,7 @@ async fn list_conversations(
     let convs = state
         .dm_repo
         .list_conversations(ws_id, auth.user_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     Ok(Json(serde_json::json!({ "data": convs })))
 }
 
@@ -80,14 +79,13 @@ async fn list_messages(
         .get("limit")
         .and_then(|v| v.parse::<i64>().ok())
         .unwrap_or(50)
-        .min(200);
+        .clamp(1, 200);
     let before = params.get("before").and_then(|v| v.parse().ok());
 
     let messages = state
         .dm_repo
         .list_messages(ws_id, auth.user_id, partner_id, limit, before)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
 
     let next_cursor = if messages.len() as i64 == limit {
         messages.last().map(|m| m.created_at.to_rfc3339())
@@ -99,8 +97,7 @@ async fn list_messages(
     let reactions = state
         .dm_repo
         .list_reactions_for_messages(&message_ids)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     let mut reactions_map: std::collections::HashMap<Uuid, Vec<_>> =
         std::collections::HashMap::new();
     for reaction in reactions {
@@ -149,8 +146,7 @@ async fn send_message(
         Err(ref e) if is_unique_violation(e) => state
             .dm_repo
             .get_by_id(id)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?
+            .await?
             .ok_or_else(|| AppError::Internal("DM ID conflict".into()))?,
         Err(e) => return Err(AppError::Database(e.to_string())),
     };
@@ -173,8 +169,7 @@ async fn edit_message(
     let existing = state
         .dm_repo
         .get_by_id(msg_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
     if existing.from_user_id != auth.user_id {
         return Err(AppError::Forbidden(
@@ -182,11 +177,7 @@ async fn edit_message(
         ));
     }
 
-    let msg = state
-        .dm_repo
-        .update(msg_id, &req.content)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+    let msg = state.dm_repo.update(msg_id, &req.content).await?;
 
     let msg_json = serde_json::to_value(&msg).map_err(|e| AppError::Internal(e.to_string()))?;
     let _ = state.publisher.publish("dm.updated", msg_json).await;
@@ -204,8 +195,7 @@ async fn delete_message(
     let existing = state
         .dm_repo
         .get_by_id(msg_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
     if existing.from_user_id != auth.user_id {
         return Err(AppError::Forbidden(
@@ -213,11 +203,7 @@ async fn delete_message(
         ));
     }
 
-    let msg = state
-        .dm_repo
-        .soft_delete(msg_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+    let msg = state.dm_repo.soft_delete(msg_id).await?;
 
     let msg_json = serde_json::to_value(&msg).map_err(|e| AppError::Internal(e.to_string()))?;
     let _ = state.publisher.publish("dm.deleted", msg_json).await;
@@ -235,15 +221,13 @@ async fn add_reaction(
     let dm = state
         .dm_repo
         .get_by_id(msg_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
 
     let reaction = state
         .dm_repo
         .add_reaction(msg_id, auth.user_id, &req.emoji)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
 
     let payload = serde_json::json!({
         "message_id": msg_id,
@@ -266,15 +250,13 @@ async fn remove_reaction(
     let dm = state
         .dm_repo
         .get_by_id(msg_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
 
     state
         .dm_repo
         .remove_reaction(msg_id, auth.user_id, &emoji)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
 
     let payload = serde_json::json!({
         "message_id": msg_id,
@@ -301,8 +283,7 @@ async fn mark_read(
     state
         .dm_repo
         .mark_read(auth.user_id, ws_id, partner_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     Ok(Json(serde_json::json!({ "status": "ok" })))
 }
 

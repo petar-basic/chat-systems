@@ -96,7 +96,6 @@ backend/
   migrations/ SQL migrations (run automatically on api start)
 frontend/
   src/        React SPA (features/, components/, hooks/, stores/, lib/, shared/)
-  electron/   desktop wrapper (main + preload)
   e2e/        Playwright end-to-end tests
 docker/       Caddyfile, MinIO init, Postgres + MinIO backup scripts
 docs/         this folder

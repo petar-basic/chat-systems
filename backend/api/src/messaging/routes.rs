@@ -51,20 +51,18 @@ async fn list_messages(
         .get("limit")
         .and_then(|v| v.parse::<i64>().ok())
         .unwrap_or(50)
-        .min(200);
+        .clamp(1, 200);
     let cursor = params.get("cursor").and_then(|v| v.parse().ok());
     let messages = state
         .message_repo
         .list_channel_messages(ch_id, limit, cursor)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
 
     let message_ids: Vec<Uuid> = messages.iter().map(|m| m.id).collect();
     let reactions = state
         .message_repo
         .list_reactions_for_messages(&message_ids)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
 
     let mut reactions_map: std::collections::HashMap<Uuid, Vec<_>> =
         std::collections::HashMap::new();
@@ -113,8 +111,7 @@ async fn send_message(
             Err(ref e) if is_unique_violation(e) => state
                 .message_repo
                 .find_by_id(id)
-                .await
-                .map_err(|e| AppError::Database(e.to_string()))?
+                .await?
                 .ok_or_else(|| AppError::Internal("Message ID conflict".into()))?,
             Err(e) => return Err(AppError::Database(e.to_string())),
         }
@@ -122,8 +119,7 @@ async fn send_message(
         state
             .message_repo
             .create_message(ch_id, auth.user_id, &req.content, req.thread_parent_id)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?
+            .await?
     };
 
     link_attachments(
@@ -157,8 +153,7 @@ async fn update_message(
     let existing = state
         .message_repo
         .find_by_id(msg_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
 
     if existing.user_id != auth.user_id {
@@ -170,8 +165,7 @@ async fn update_message(
     let msg = state
         .message_repo
         .update_message(msg_id, &req.content)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
 
     let msg_json = serde_json::to_value(&msg).map_err(|e| AppError::Internal(e.to_string()))?;
     let _ = state.publisher.publish_message_updated(&msg_json).await;
@@ -187,16 +181,14 @@ async fn delete_message(
     let existing = state
         .message_repo
         .find_by_id(msg_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
 
     if existing.user_id != auth.user_id {
         let can_mod = state
             .message_repo
             .can_moderate_channel(existing.channel_id, auth.user_id)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+            .await?;
         if !can_mod {
             return Err(AppError::Forbidden(
                 "Can only delete your own messages".into(),
@@ -204,11 +196,7 @@ async fn delete_message(
         }
     }
 
-    state
-        .message_repo
-        .soft_delete_message(msg_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+    state.message_repo.soft_delete_message(msg_id).await?;
 
     let _ = state
         .publisher
@@ -226,26 +214,20 @@ async fn pin_message(
     let existing = state
         .message_repo
         .find_by_id(msg_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
 
     let can_mod = state
         .message_repo
         .can_moderate_channel(existing.channel_id, auth.user_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     if !can_mod {
         return Err(AppError::Forbidden(
             "Requires channel or workspace admin".into(),
         ));
     }
 
-    let msg = state
-        .message_repo
-        .set_pinned(msg_id, true)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+    let msg = state.message_repo.set_pinned(msg_id, true).await?;
 
     let _ = state
         .publisher
@@ -263,26 +245,20 @@ async fn unpin_message(
     let existing = state
         .message_repo
         .find_by_id(msg_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
 
     let can_mod = state
         .message_repo
         .can_moderate_channel(existing.channel_id, auth.user_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     if !can_mod {
         return Err(AppError::Forbidden(
             "Requires channel or workspace admin".into(),
         ));
     }
 
-    let msg = state
-        .message_repo
-        .set_pinned(msg_id, false)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+    let msg = state.message_repo.set_pinned(msg_id, false).await?;
 
     let _ = state
         .publisher
@@ -298,11 +274,7 @@ async fn list_pins(
     Path(ch_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
     require_channel_access(&state, ch_id, auth.user_id).await?;
-    let pins = state
-        .message_repo
-        .list_pinned(ch_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+    let pins = state.message_repo.list_pinned(ch_id).await?;
     Ok(Json(serde_json::json!({ "data": pins })))
 }
 
@@ -315,8 +287,7 @@ async fn list_thread(
     let channel_id = state
         .message_repo
         .find_by_id(msg_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?
         .channel_id;
     require_channel_access(&state, channel_id, auth.user_id).await?;
@@ -324,7 +295,7 @@ async fn list_thread(
         .get("limit")
         .and_then(|v| v.parse::<i64>().ok())
         .unwrap_or(50)
-        .min(200);
+        .clamp(1, 200);
     let offset = params
         .get("offset")
         .and_then(|v| v.parse::<i64>().ok())
@@ -333,8 +304,7 @@ async fn list_thread(
     let messages = state
         .message_repo
         .list_thread_messages(msg_id, limit, offset)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     Ok(Json(serde_json::json!({ "data": messages })))
 }
 
@@ -349,8 +319,7 @@ async fn reply_to_thread(
     let parent = state
         .message_repo
         .find_by_id(msg_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::NotFound("Parent message not found".into()))?;
 
     let channel = require_channel_access(&state, parent.channel_id, auth.user_id).await?;
@@ -358,8 +327,7 @@ async fn reply_to_thread(
     let msg = state
         .message_repo
         .create_message(parent.channel_id, auth.user_id, &req.content, Some(msg_id))
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
 
     link_attachments(
         &state,
@@ -389,16 +357,11 @@ async fn list_reactions(
     let channel_id = state
         .message_repo
         .find_by_id(msg_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?
         .channel_id;
     require_channel_access(&state, channel_id, auth.user_id).await?;
-    let reactions = state
-        .message_repo
-        .list_reactions(msg_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+    let reactions = state.message_repo.list_reactions(msg_id).await?;
     Ok(Json(serde_json::json!({ "data": reactions })))
 }
 
@@ -411,8 +374,7 @@ async fn add_reaction(
     let msg = state
         .message_repo
         .find_by_id(msg_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
 
     require_channel_access(&state, msg.channel_id, auth.user_id).await?;
@@ -420,8 +382,7 @@ async fn add_reaction(
     let reaction = state
         .message_repo
         .add_reaction(msg_id, auth.user_id, &req.emoji)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
 
     let reaction_json =
         serde_json::to_value(&reaction).map_err(|e| AppError::Internal(e.to_string()))?;
@@ -441,8 +402,7 @@ async fn remove_reaction(
     let msg = state
         .message_repo
         .find_by_id(msg_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
 
     require_channel_access(&state, msg.channel_id, auth.user_id).await?;
@@ -450,8 +410,7 @@ async fn remove_reaction(
     state
         .message_repo
         .remove_reaction(msg_id, auth.user_id, &emoji)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
 
     let _ = state
         .publisher
@@ -471,8 +430,7 @@ async fn mark_read(
     state
         .message_repo
         .mark_read(ch_id, auth.user_id, req.message_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     Ok(Json(serde_json::json!({ "status": "read" })))
 }
 
@@ -498,7 +456,7 @@ async fn search_messages(
         require_channel_access(&state, ch_id, auth.user_id).await?;
     }
 
-    let limit = params.limit.unwrap_or(20).min(100);
+    let limit = params.limit.unwrap_or(20).clamp(1, 100);
     let offset = params.offset.unwrap_or(0).max(0);
 
     let messages = state
@@ -512,8 +470,7 @@ async fn search_messages(
             limit,
             offset,
         })
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
 
     Ok(Json(serde_json::json!({ "data": messages })))
 }
@@ -527,16 +484,14 @@ async fn require_channel_access(
         .workspace_service
         .repo
         .find_channel_by_id(ch_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::NotFound("Channel not found".into()))?;
 
     state
         .workspace_service
         .repo
         .get_member(channel.workspace_id, user_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::Forbidden("Not a member of this workspace".into()))?;
 
     if channel.channel_type == ChannelType::Private || channel.channel_type == ChannelType::GroupDm
@@ -545,8 +500,7 @@ async fn require_channel_access(
             .workspace_service
             .repo
             .get_channel_member(ch_id, user_id)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?
+            .await?
             .ok_or_else(|| AppError::Forbidden("Not a member of this channel".into()))?;
     }
 

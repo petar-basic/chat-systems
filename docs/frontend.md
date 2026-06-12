@@ -30,7 +30,7 @@ reconciles them into the Query cache.
 - **`hooks/queries/*`** wrap every endpoint with Query/Mutation hooks and optimistic updates.
 - **`lib/`** is the infrastructure layer: `api` (fetch client with single-flight 401 refresh),
   `ws` (reconnecting WebSocket with backoff + re-subscribe + reconnect backfill), `instances`
-  (multi-instance manager), `messageCache` (cache helpers), `electron` (desktop bridge),
+  (multi-instance manager), `messageCache` (cache helpers),
   `wsQuerySync`/`globalEventBus`/`serverEvents` (typed WS → cache reducer).
 
 ### Cross-cutting decisions
@@ -48,10 +48,10 @@ reconciles them into the Query cache.
   late-confirmed realtime messages still render correctly.
 - **Code-split by route** — pages are `React.lazy()`, so login/reset/add-instance don't pull
   in the heavy editor/messaging chunk.
-- **Desktop** — the same SPA runs in an Electron shell (`electron/`) that adds native
-  notifications, a dock badge, `chatsystems://` deep links via a context-isolated preload, and
-  encrypted at-rest refresh-token storage (`safeStorage`). The renderer uses `HashRouter` in
-  Electron (`BrowserRouter` on the web).
+- **Installable PWA** — `public/manifest.webmanifest` + icons make the SPA installable
+  (standalone window); unread counts go to the app icon via the Badging API
+  (`navigator.setAppBadge`) and to the favicon, and desktop notifications use the
+  Notification API.
 
 ## Authentication Model
 
@@ -65,14 +65,13 @@ is persisted depends on origin:
 |---------|-------------|---------------|---------|
 | Same-origin web | in memory | server cookie (`/api/auth`) | cookie (`credentials: 'include'`) |
 | Cross-origin web | in memory | `localStorage` (`chat_tokens`, per-URL) | `Authorization: Bearer` header + WS `bearer` subprotocol |
-| Electron desktop | in memory | encrypted on disk via `safeStorage` (main process `auth.json`) | `Authorization: Bearer` header + WS `bearer` subprotocol |
 
 **Consequences for the frontend:**
 - All `fetch` calls use `credentials: 'include'`; cross-origin/desktop also attach `Authorization: Bearer <access>`
 - `WebSocketClient` resolves a valid token (`api.getValidToken()`) and opens the socket with `['bearer', token]` as the WS subprotocol; if no token is available it connects without one (relying on the cookie)
-- On 401, `ApiClient` refreshes once (single-flight) then retries; same-origin refresh is a cookie-only `POST /auth/refresh`, cross-origin sends the stored refresh token as a bearer header, and Electron delegates refresh to the main process (`auth:refresh`). If refresh fails, `onSessionExpired` removes the instance.
+- On 401, `ApiClient` refreshes once (single-flight) then retries; same-origin refresh is a cookie-only `POST /auth/refresh`, cross-origin sends the stored refresh token as a bearer header. If refresh fails, `onSessionExpired` removes the instance.
 - The backend requires `CORS_ORIGINS` (comma-separated allowed origins) and validates the WS upgrade `Origin` against it; wildcard `*` is not allowed when credentials are enabled
-- `localStorage` (`chat_instances`) stores only `{ url, wsUrl?, user }` per instance — no tokens for same-origin/Electron; cross-origin tokens live in the separate `chat_tokens` map
+- `localStorage` (`chat_instances`) stores only `{ url, wsUrl?, user }` per instance — no tokens for same-origin; cross-origin tokens live in the separate `chat_tokens` map
 
 ---
 
@@ -279,7 +278,7 @@ Key methods:
 ### `useInstanceStore`
 Manages all connected instances and the active one. `{ url, wsUrl?, user }` per instance is
 persisted to `localStorage` (`chat_instances`). For cross-origin instances, tokens are kept in a
-separate `chat_tokens` map; same-origin uses cookies and Electron uses encrypted main-process
+separate `chat_tokens` map; same-origin uses cookies
 storage (see Authentication Model).
 
 | State | Description |
@@ -297,7 +296,7 @@ Key methods:
 | `removeInstance(url)` | POST `/auth/logout`, disconnect WS, clear stored tokens, remove from store + localStorage |
 | `setActiveInstance(url)` | Switch active instance |
 | `updateInstanceUser(url, user)` | Replace the cached user for an instance |
-| `restoreInstances()` | Re-hydrate instances; refresh the session (same-origin GET `/users/me`, cross-origin/Electron token refresh); a failed refresh removes the stale instance, then reconnect WS |
+| `restoreInstances()` | Re-hydrate instances; refresh the session (same-origin GET `/users/me`, cross-origin token refresh); a failed refresh removes the stale instance, then reconnect WS |
 
 ---
 
@@ -323,7 +322,7 @@ All hooks accept an optional `instanceUrl` to target a specific connected instan
 | `useCompleteRegistration()` | POST `/auth/complete-registration` | Same flow as login; adds a validated instance |
 | `useLogout(instanceUrl?)` | POST `/auth/logout` | Removes the instance (or all), clears query cache |
 
-Token refresh is **not** a hook — `ApiClient` refreshes automatically on 401 / near-expiry via `POST /auth/refresh` (cookie same-origin, bearer cross-origin, IPC in Electron).
+Token refresh is **not** a hook — `ApiClient` refreshes automatically on 401 / near-expiry via `POST /auth/refresh` (cookie same-origin, bearer cross-origin).
 
 ### Workspaces
 | Hook | Call | Description |
@@ -399,7 +398,7 @@ the cookie. The client decodes the access token's `exp` and refreshes ~10s befor
 - Same-origin: routes through `/api` (Vite proxy)
 - Cross-origin: routes to `{instanceUrl}/api`
 - Methods: `get<T>`, `post<T>`, `patch<T>`, `delete<T>`, `upload<T>` (multipart)
-- On 401: single-flight refresh once, then retry; refresh delegates to `refreshHandler` in Electron, otherwise `POST /auth/refresh`; if refresh fails, fires `onSessionExpired`
+- On 401: single-flight refresh once, then retry via `POST /auth/refresh`; if refresh fails, fires `onSessionExpired`
 - `onTokensChanged` lets the store persist rotated tokens (cross-origin `chat_tokens`)
 - Singleton `api` for default instance; `instanceManager.get(url).api` for others
 
@@ -501,6 +500,6 @@ typing, and `notification` events are handled separately — by `usePresenceStor
 | Thread messages | React Query | API |
 | DM conversations / messages | React Query | API + WS `dm.*` events |
 | Instance config (url + wsUrl? + user) | Zustand + localStorage (`chat_instances`) | Login response `{ user }` |
-| Auth tokens | Access in memory (`ApiClient`); refresh in cookie (same-origin) / `chat_tokens` localStorage (cross-origin) / encrypted disk (Electron) | `/auth/login`, `/auth/refresh` |
+| Auth tokens | Access in memory (`ApiClient`); refresh in cookie (same-origin) / `chat_tokens` localStorage (cross-origin) | `/auth/login`, `/auth/refresh` |
 | Current user | Zustand (from instance) | Login response |
 | User display cache | Zustand | Populated from members list |

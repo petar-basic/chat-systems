@@ -351,7 +351,7 @@ async fn active_huddles_lists_only_live_channel_huddles(pool: PgPool) {
     .await;
     assert_eq!(s1, StatusCode::OK, "{empty:?}");
     assert_eq!(
-        empty["data"].as_array().map(|a| a.len()),
+        empty["data"].as_array().map(std::vec::Vec::len),
         Some(0),
         "a session with no live members must not be listed: {empty:?}"
     );

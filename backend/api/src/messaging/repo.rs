@@ -32,11 +32,11 @@ impl MessageRepo {
         let mut tx = self.pool.begin().await?;
 
         let msg = sqlx::query_as::<_, Message>(
-            r#"
+            r"
             INSERT INTO messages (channel_id, user_id, content, thread_parent_id)
             VALUES ($1, $2, $3, $4)
             RETURNING *
-            "#,
+            ",
         )
         .bind(channel_id)
         .bind(user_id)
@@ -68,11 +68,11 @@ impl MessageRepo {
         let mut tx = self.pool.begin().await?;
 
         let msg = sqlx::query_as::<_, Message>(
-            r#"
+            r"
             INSERT INTO messages (id, channel_id, user_id, content, thread_parent_id)
             VALUES ($1, $2, $3, $4, $5)
             RETURNING *
-            "#,
+            ",
         )
         .bind(id)
         .bind(channel_id)
@@ -102,11 +102,11 @@ impl MessageRepo {
         metadata: serde_json::Value,
     ) -> sqlx::Result<Message> {
         sqlx::query_as::<_, Message>(
-            r#"
+            r"
             INSERT INTO messages (channel_id, user_id, content, metadata)
             VALUES ($1, $2, $3, $4)
             RETURNING *
-            "#,
+            ",
         )
         .bind(channel_id)
         .bind(user_id)
@@ -131,7 +131,7 @@ impl MessageRepo {
     ) -> sqlx::Result<Vec<Message>> {
         if let Some(cursor) = before {
             sqlx::query_as::<_, Message>(
-                r#"
+                r"
                 SELECT * FROM messages
                 WHERE channel_id = $1
                   AND deleted_at IS NULL
@@ -139,7 +139,7 @@ impl MessageRepo {
                   AND created_at < (SELECT created_at FROM messages WHERE id = $3)
                 ORDER BY created_at DESC
                 LIMIT $2
-                "#,
+                ",
             )
             .bind(channel_id)
             .bind(limit)
@@ -148,14 +148,14 @@ impl MessageRepo {
             .await
         } else {
             sqlx::query_as::<_, Message>(
-                r#"
+                r"
                 SELECT * FROM messages
                 WHERE channel_id = $1
                   AND deleted_at IS NULL
                   AND thread_parent_id IS NULL
                 ORDER BY created_at DESC
                 LIMIT $2
-                "#,
+                ",
             )
             .bind(channel_id)
             .bind(limit)
@@ -171,12 +171,12 @@ impl MessageRepo {
         offset: i64,
     ) -> sqlx::Result<Vec<Message>> {
         sqlx::query_as::<_, Message>(
-            r#"
+            r"
             SELECT * FROM messages
             WHERE thread_parent_id = $1 AND deleted_at IS NULL
             ORDER BY created_at ASC
             LIMIT $2 OFFSET $3
-            "#,
+            ",
         )
         .bind(parent_id)
         .bind(limit)
@@ -187,11 +187,11 @@ impl MessageRepo {
 
     pub async fn update_message(&self, id: Uuid, content: &str) -> sqlx::Result<Message> {
         sqlx::query_as::<_, Message>(
-            r#"
+            r"
             UPDATE messages SET content = $2, updated_at = NOW()
             WHERE id = $1
             RETURNING *
-            "#,
+            ",
         )
         .bind(id)
         .bind(content)
@@ -233,11 +233,11 @@ impl MessageRepo {
         emoji: &str,
     ) -> sqlx::Result<Reaction> {
         sqlx::query_as::<_, Reaction>(
-            r#"
+            r"
             INSERT INTO reactions (message_id, user_id, emoji)
             VALUES ($1, $2, $3)
             RETURNING *
-            "#,
+            ",
         )
         .bind(message_id)
         .bind(user_id)
@@ -287,7 +287,7 @@ impl MessageRepo {
 
     pub async fn search(&self, params: MessageSearch<'_>) -> sqlx::Result<Vec<Message>> {
         sqlx::query_as::<_, Message>(
-            r#"
+            r"
             SELECT m.* FROM messages m
             JOIN channels c ON c.id = m.channel_id
             WHERE m.content_search @@ plainto_tsquery('english', $1)
@@ -304,7 +304,7 @@ impl MessageRepo {
               AND ($5::uuid IS NULL OR m.user_id = $5)
             ORDER BY ts_rank(m.content_search, plainto_tsquery('english', $1)) DESC
             LIMIT $6 OFFSET $7
-            "#,
+            ",
         )
         .bind(params.query)
         .bind(params.workspace_id)
@@ -334,13 +334,13 @@ impl MessageRepo {
         user_id: Uuid,
     ) -> sqlx::Result<bool> {
         let row: (bool,) = sqlx::query_as(
-            r#"
+            r"
             SELECT EXISTS(
                 SELECT 1 FROM workspace_members wm
                 JOIN channels c ON c.workspace_id = wm.workspace_id
                 WHERE c.id = $1 AND wm.user_id = $2 AND wm.role IN ('admin', 'owner')
             )
-            "#,
+            ",
         )
         .bind(channel_id)
         .bind(user_id)
@@ -369,11 +369,11 @@ impl MessageRepo {
         message_id: Uuid,
     ) -> sqlx::Result<()> {
         sqlx::query(
-            r#"
+            r"
             UPDATE channel_members
             SET last_read_at = NOW(), last_read_msg = $3
             WHERE channel_id = $1 AND user_id = $2
-            "#,
+            ",
         )
         .bind(channel_id)
         .bind(user_id)
@@ -393,7 +393,7 @@ mod tests {
         let user_id = Uuid::new_v4();
         sqlx::query("INSERT INTO users (id, email, status) VALUES ($1, $2, 'active')")
             .bind(user_id)
-            .bind(format!("u-{}@test.local", user_id))
+            .bind(format!("u-{user_id}@test.local"))
             .execute(pool)
             .await
             .expect("insert user");
@@ -402,7 +402,7 @@ mod tests {
         sqlx::query("INSERT INTO workspaces (id, name, slug, owner_id) VALUES ($1, $2, $3, $4)")
             .bind(workspace_id)
             .bind("Test WS")
-            .bind(format!("ws-{}", workspace_id))
+            .bind(format!("ws-{workspace_id}"))
             .bind(user_id)
             .execute(pool)
             .await
@@ -524,7 +524,7 @@ mod tests {
             .bind(id)
             .bind(channel_id)
             .bind(user_id)
-            .bind(format!("msg {}", i))
+            .bind(format!("msg {i}"))
             .bind(base + chrono::Duration::seconds(i))
             .execute(&seed_pool)
             .await

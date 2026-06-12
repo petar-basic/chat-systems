@@ -247,7 +247,7 @@ pub(crate) async fn handle_event(
                     "type": "typing.indicator",
                     "channel_id": ch_id,
                     "user_id": user_id,
-                    "is_typing": payload.get("is_typing").and_then(|v| v.as_bool()).unwrap_or(false),
+                    "is_typing": payload.get("is_typing").and_then(serde_json::Value::as_bool).unwrap_or(false),
                 });
                 cm.broadcast_to_channel(ch_id, &ws_msg.to_string()).await;
             }

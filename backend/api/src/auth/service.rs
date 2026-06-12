@@ -58,13 +58,13 @@ impl AuthService {
         let argon2 = Argon2::default();
         let hash = argon2
             .hash_password(password.as_bytes(), &salt)
-            .map_err(|e| AppError::Internal(format!("Password hashing failed: {}", e)))?;
+            .map_err(|e| AppError::Internal(format!("Password hashing failed: {e}")))?;
         Ok(hash.to_string())
     }
 
     pub fn verify_password(password: &str, hash: &str) -> AppResult<bool> {
         let parsed_hash = PasswordHash::new(hash)
-            .map_err(|e| AppError::Internal(format!("Invalid password hash: {}", e)))?;
+            .map_err(|e| AppError::Internal(format!("Invalid password hash: {e}")))?;
         Ok(Argon2::default()
             .verify_password(password.as_bytes(), &parsed_hash)
             .is_ok())
@@ -76,8 +76,7 @@ impl AuthService {
         let user = self
             .repo
             .find_by_email(email)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?
+            .await?
             .ok_or_else(|| AppError::Unauthorized("Invalid email or password".into()))?;
 
         if user.status != UserStatus::Active {
@@ -110,8 +109,7 @@ impl AuthService {
         let user = self
             .repo
             .find_by_id(user_id)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?
+            .await?
             .ok_or_else(|| AppError::NotFound("User not found".into()))?;
 
         if user.status != UserStatus::Pending {
@@ -122,8 +120,7 @@ impl AuthService {
         let user = self
             .repo
             .activate(user_id, &password_hash, display_name)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+            .await?;
 
         self.generate_tokens(&user).await
     }
@@ -142,8 +139,7 @@ impl AuthService {
         let uid = self
             .repo
             .find_refresh_token(&jti.to_string())
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?
+            .await?
             .ok_or_else(|| {
                 AppError::Unauthorized("Refresh token has been revoked or expired".into())
             })?;
@@ -155,8 +151,7 @@ impl AuthService {
         let user = self
             .repo
             .find_by_id(claims.sub)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?
+            .await?
             .ok_or_else(|| AppError::Unauthorized("User not found".into()))?;
 
         if user.status != UserStatus::Active {
@@ -184,7 +179,7 @@ impl AuthService {
             &access_claims,
             &EncodingKey::from_secret(self.config.jwt_secret.as_bytes()),
         )
-        .map_err(|e| AppError::Internal(format!("Token generation failed: {}", e)))?;
+        .map_err(|e| AppError::Internal(format!("Token generation failed: {e}")))?;
 
         let refresh_claims = Claims {
             sub: user.id,
@@ -202,22 +197,13 @@ impl AuthService {
             &refresh_claims,
             &EncodingKey::from_secret(self.config.jwt_secret.as_bytes()),
         )
-        .map_err(|e| AppError::Internal(format!("Token generation failed: {}", e)))?;
+        .map_err(|e| AppError::Internal(format!("Token generation failed: {e}")))?;
 
-        let mut tx = self
-            .repo
-            .begin()
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
-        UserRepo::delete_refresh_token_tx(&mut tx, &jti.to_string())
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+        let mut tx = self.repo.begin().await?;
+        UserRepo::delete_refresh_token_tx(&mut tx, &jti.to_string()).await?;
         UserRepo::store_refresh_token_tx(&mut tx, user.id, &new_jti.to_string(), refresh_exp)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
-        tx.commit()
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+            .await?;
+        tx.commit().await?;
 
         Ok(AuthTokens {
             access_token,
@@ -239,11 +225,7 @@ impl AuthService {
     pub async fn forgot_password(&self, email: &str) -> AppResult<()> {
         validation::validate_email(email)?;
 
-        let user = self
-            .repo
-            .find_by_email(email)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+        let user = self.repo.find_by_email(email).await?;
 
         if let Some(user) = user {
             match self.generate_reset_token(user.id).await {
@@ -273,11 +255,7 @@ impl AuthService {
         let jti = claims
             .jti
             .ok_or_else(|| AppError::Unauthorized("Invalid or expired token".into()))?;
-        let consumed = self
-            .repo
-            .consume_reset_jti(jti, claims.sub)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+        let consumed = self.repo.consume_reset_jti(jti, claims.sub).await?;
         if !consumed {
             return Err(AppError::Unauthorized(
                 "reset link already used or expired".into(),
@@ -287,8 +265,7 @@ impl AuthService {
         let password_hash = Self::hash_password(new_password)?;
         self.repo
             .update_password(claims.sub, &password_hash)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+            .await?;
 
         let _ = self.repo.delete_user_refresh_tokens(claims.sub).await;
 
@@ -304,8 +281,7 @@ impl AuthService {
         let user = self
             .repo
             .find_by_id(user_id)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?
+            .await?
             .ok_or_else(|| AppError::NotFound("User not found".into()))?;
 
         let password_hash = user
@@ -322,10 +298,7 @@ impl AuthService {
         validation::validate_password(new_password)?;
 
         let new_hash = Self::hash_password(new_password)?;
-        self.repo
-            .update_password(user_id, &new_hash)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+        self.repo.update_password(user_id, &new_hash).await?;
 
         let _ = self.repo.delete_user_refresh_tokens(user_id).await;
 
@@ -333,21 +306,13 @@ impl AuthService {
     }
 
     pub async fn provision_user(&self, email: &str) -> AppResult<UserPublic> {
-        let user = self
-            .repo
-            .find_by_email(email)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+        let user = self.repo.find_by_email(email).await?;
 
         if let Some(user) = user {
             return Ok(user.into());
         }
 
-        let user = self
-            .repo
-            .create(email, None, None, false)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+        let user = self.repo.create(email, None, None, false).await?;
 
         Ok(user.into())
     }
@@ -375,7 +340,7 @@ impl AuthService {
             &access_claims,
             &EncodingKey::from_secret(self.config.jwt_secret.as_bytes()),
         )
-        .map_err(|e| AppError::Internal(format!("Token generation failed: {}", e)))?;
+        .map_err(|e| AppError::Internal(format!("Token generation failed: {e}")))?;
 
         let refresh_claims = Claims {
             sub: user.id,
@@ -394,12 +359,11 @@ impl AuthService {
             &refresh_claims,
             &EncodingKey::from_secret(self.config.jwt_secret.as_bytes()),
         )
-        .map_err(|e| AppError::Internal(format!("Token generation failed: {}", e)))?;
+        .map_err(|e| AppError::Internal(format!("Token generation failed: {e}")))?;
 
         self.repo
             .store_refresh_token(user.id, &jti.to_string(), refresh_exp)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+            .await?;
 
         Ok(AuthTokens {
             access_token,
@@ -440,12 +404,9 @@ impl AuthService {
             &claims,
             &EncodingKey::from_secret(self.config.jwt_secret.as_bytes()),
         )
-        .map_err(|e| AppError::Internal(format!("Reset token generation failed: {}", e)))?;
+        .map_err(|e| AppError::Internal(format!("Reset token generation failed: {e}")))?;
 
-        self.repo
-            .store_reset_jti(jti, user_id, exp)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+        self.repo.store_reset_jti(jti, user_id, exp).await?;
 
         Ok(token)
     }
@@ -475,7 +436,7 @@ impl AuthService {
             &claims,
             &EncodingKey::from_secret(self.config.jwt_secret.as_bytes()),
         )
-        .map_err(|e| AppError::Internal(format!("Registration token generation failed: {}", e)))
+        .map_err(|e| AppError::Internal(format!("Registration token generation failed: {e}")))
     }
 
     pub fn verify_registration_token(&self, token: &str) -> AppResult<Claims> {
@@ -500,11 +461,7 @@ impl AuthService {
             _ => return Ok(()),
         };
 
-        let existing = self
-            .repo
-            .find_by_email(&email)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+        let existing = self.repo.find_by_email(&email).await?;
 
         if existing.is_some() {
             info!("Instance admin already exists: {}", email);
@@ -514,20 +471,15 @@ impl AuthService {
         let hash = Self::hash_password(&password)?;
         self.repo
             .create(&email, Some(&hash), Some("Admin"), true)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+            .await?;
 
         let user = self
             .repo
             .find_by_email(&email)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?
+            .await?
             .ok_or_else(|| AppError::Internal("Admin user not found after creation".into()))?;
 
-        self.repo
-            .activate(user.id, &hash, "Admin")
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+        self.repo.activate(user.id, &hash, "Admin").await?;
 
         info!("Instance admin bootstrapped: {}", email);
         Ok(())
@@ -535,8 +487,7 @@ impl AuthService {
 
     async fn send_reset_email(&self, to_email: &str, reset_url: &str) -> AppResult<()> {
         let body = format!(
-            "You requested a password reset.\n\nClick the link below to reset your password:\n{}\n\nThis link expires in 1 hour.",
-            reset_url
+            "You requested a password reset.\n\nClick the link below to reset your password:\n{reset_url}\n\nThis link expires in 1 hour."
         );
 
         self.send_email(to_email, "Reset your password", &body)
@@ -576,20 +527,20 @@ impl AuthService {
         let email = Message::builder()
             .from(
                 from.parse()
-                    .map_err(|e| AppError::Internal(format!("Invalid from address: {}", e)))?,
+                    .map_err(|e| AppError::Internal(format!("Invalid from address: {e}")))?,
             )
             .to(to
                 .parse()
-                .map_err(|e| AppError::Internal(format!("Invalid to address: {}", e)))?)
+                .map_err(|e| AppError::Internal(format!("Invalid to address: {e}")))?)
             .subject(subject)
             .header(ContentType::TEXT_PLAIN)
             .body(body.to_string())
-            .map_err(|e| AppError::Internal(format!("Failed to build email: {}", e)))?;
+            .map_err(|e| AppError::Internal(format!("Failed to build email: {e}")))?;
 
         mailer
             .send(email)
             .await
-            .map_err(|e| AppError::Internal(format!("Failed to send email: {}", e)))?;
+            .map_err(|e| AppError::Internal(format!("Failed to send email: {e}")))?;
 
         info!("Email sent to {}: {}", to, subject);
         Ok(())
@@ -636,6 +587,7 @@ mod tests {
             turn_urls: String::new(),
             stun_urls: String::new(),
             turn_ttl_secs: 43200,
+            pg_pool_max: 5,
         }
     }
 
@@ -892,10 +844,7 @@ mod tests {
         );
         match replay {
             Err(AppError::Unauthorized(_)) => {}
-            other => panic!(
-                "expected Unauthorized on reset-token replay, got {:?}",
-                other
-            ),
+            other => panic!("expected Unauthorized on reset-token replay, got {other:?}"),
         }
         let after_replay = service
             .repo()
@@ -953,10 +902,7 @@ mod tests {
         );
         match refused {
             Err(AppError::Unauthorized(_)) => {}
-            other => panic!(
-                "expected Unauthorized for reset-token at refresh, got {:?}",
-                other
-            ),
+            other => panic!("expected Unauthorized for reset-token at refresh, got {other:?}"),
         }
     }
 
@@ -968,8 +914,7 @@ mod tests {
         let missing = service.forgot_password("ghost@test.local").await;
         assert!(
             missing.is_ok(),
-            "forgot_password for an unknown email must return Ok(()) to avoid enumeration, got {:?}",
-            missing
+            "forgot_password for an unknown email must return Ok(()) to avoid enumeration, got {missing:?}"
         );
         let tokens_for_missing: i64 =
             sqlx::query_scalar("SELECT COUNT(*) FROM password_reset_tokens")
@@ -998,8 +943,7 @@ mod tests {
             Ok(()) => {}
             Err(AppError::Internal(_)) => {}
             other => panic!(
-                "forgot_password for an existing user must not reveal existence via error kind, got {:?}",
-                other
+                "forgot_password for an existing user must not reveal existence via error kind, got {other:?}"
             ),
         }
         assert!(
@@ -1160,7 +1104,7 @@ mod tests {
         );
         match access_rejected {
             Err(AppError::Unauthorized(_)) => {}
-            other => panic!("expected Unauthorized for access token, got {:?}", other),
+            other => panic!("expected Unauthorized for access token, got {other:?}"),
         }
 
         let reset_token = service
@@ -1174,7 +1118,7 @@ mod tests {
         );
         match reset_rejected {
             Err(AppError::Unauthorized(_)) => {}
-            other => panic!("expected Unauthorized for reset token, got {:?}", other),
+            other => panic!("expected Unauthorized for reset token, got {other:?}"),
         }
     }
 
@@ -1239,7 +1183,7 @@ mod tests {
         );
         match already {
             Err(AppError::BadRequest(_)) => {}
-            other => panic!("expected BadRequest on re-completion, got {:?}", other),
+            other => panic!("expected BadRequest on re-completion, got {other:?}"),
         }
         let unchanged = service
             .repo()

@@ -21,13 +21,13 @@ pub async fn enforce(
     window_secs: u64,
 ) -> AppResult<()> {
     let script = redis::Script::new(
-        r#"
+        r"
         local count = redis.call('INCR', KEYS[1])
         if count == 1 then
             redis.call('EXPIRE', KEYS[1], tonumber(ARGV[1]))
         end
         return count
-        "#,
+        ",
     );
 
     let count: u64 = match script.key(key).arg(window_secs).invoke_async(conn).await {

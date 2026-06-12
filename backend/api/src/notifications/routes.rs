@@ -55,16 +55,17 @@ async fn list_notifications(
     let limit = params
         .get("limit")
         .and_then(|v| v.parse().ok())
-        .unwrap_or(50i64);
+        .unwrap_or(50i64)
+        .clamp(1, 200);
     let offset = params
         .get("offset")
         .and_then(|v| v.parse().ok())
-        .unwrap_or(0i64);
+        .unwrap_or(0i64)
+        .max(0);
     let notifications = state
         .notification_repo
         .list_for_user(auth.user_id, ws_id, limit, offset)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     Ok(Json(serde_json::json!({ "data": notifications })))
 }
 
@@ -76,8 +77,7 @@ async fn mark_read(
     let count = state
         .notification_repo
         .mark_read(&req.notification_ids, auth.user_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     Ok(Json(serde_json::json!({ "updated": count })))
 }
 
@@ -90,8 +90,7 @@ async fn mark_all_read(
     let count = state
         .notification_repo
         .mark_all_read(auth.user_id, ws_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     Ok(Json(serde_json::json!({ "updated": count })))
 }
 
@@ -104,8 +103,7 @@ async fn mark_channel_read(
     let count = state
         .notification_repo
         .mark_channel_read(auth.user_id, ws_id, ch_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     Ok(Json(serde_json::json!({ "updated": count })))
 }
 
@@ -118,8 +116,7 @@ async fn unread_count(
     let count = state
         .notification_repo
         .unread_count(auth.user_id, ws_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     Ok(Json(serde_json::json!({ "unread_count": count })))
 }
 
@@ -127,11 +124,7 @@ async fn get_dnd(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
 ) -> AppResult<Json<serde_json::Value>> {
-    let dnd_until = state
-        .notification_repo
-        .get_dnd(auth.user_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+    let dnd_until = state.notification_repo.get_dnd(auth.user_id).await?;
     Ok(Json(serde_json::json!({ "dnd_until": dnd_until })))
 }
 
@@ -143,7 +136,6 @@ async fn set_dnd(
     state
         .notification_repo
         .set_dnd(auth.user_id, req.dnd_until)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
     Ok(Json(serde_json::json!({ "dnd_until": req.dnd_until })))
 }

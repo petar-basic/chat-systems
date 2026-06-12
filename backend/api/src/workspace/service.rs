@@ -36,20 +36,13 @@ impl WorkspaceService {
     ) -> AppResult<Workspace> {
         let slug = slug_from_name(name);
 
-        let mut tx = self
-            .repo
-            .begin()
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+        let mut tx = self.repo.begin().await?;
 
         let workspace =
-            WorkspaceRepo::create_workspace_tx(&mut tx, name, &slug, description, owner_id)
-                .await
-                .map_err(|e| AppError::Database(e.to_string()))?;
+            WorkspaceRepo::create_workspace_tx(&mut tx, name, &slug, description, owner_id).await?;
 
         WorkspaceRepo::add_member_tx(&mut tx, workspace.id, owner_id, &WorkspaceRole::Owner)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+            .await?;
 
         let channel = WorkspaceRepo::create_channel_tx(
             &mut tx,
@@ -60,16 +53,12 @@ impl WorkspaceService {
             owner_id,
             true,
         )
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
 
         WorkspaceRepo::add_channel_member_tx(&mut tx, channel.id, owner_id, &ChannelRole::Admin)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+            .await?;
 
-        tx.commit()
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+        tx.commit().await?;
 
         info!("Workspace created: {} ({})", workspace.name, workspace.id);
         Ok(workspace)
@@ -100,19 +89,14 @@ impl WorkspaceService {
         let invite = self
             .repo
             .create_invite(workspace_id, created_by, email, &role, &token)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+            .await?;
 
         if let (Some(email_addr), Some(user)) = (email, provisioned.as_ref()) {
-            let workspace = self
-                .repo
-                .find_workspace_by_id(workspace_id)
-                .await
-                .map_err(|e| AppError::Database(e.to_string()))?;
+            let workspace = self.repo.find_workspace_by_id(workspace_id).await?;
             if let Some(ws) = workspace {
                 let role_str = serde_json::to_value(&role)
                     .ok()
-                    .and_then(|v| v.as_str().map(|s| s.to_string()))
+                    .and_then(|v| v.as_str().map(std::string::ToString::to_string))
                     .unwrap_or_else(|| "member".to_string());
 
                 let reg_token = auth_service.generate_registration_token(
@@ -138,8 +122,7 @@ impl WorkspaceService {
         let invite = self
             .repo
             .find_invite_by_token(token)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?
+            .await?
             .ok_or_else(|| AppError::NotFound("Invite not found or expired".into()))?;
 
         if let Some(expires) = invite.expires_at {
@@ -148,15 +131,10 @@ impl WorkspaceService {
             }
         }
 
-        let mut tx = self
-            .repo
-            .begin()
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+        let mut tx = self.repo.begin().await?;
 
         if WorkspaceRepo::claim_invite_use_tx(&mut tx, invite.id)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?
+            .await?
             .is_none()
         {
             return Err(AppError::BadRequest("Invite has reached max uses".into()));
@@ -164,22 +142,17 @@ impl WorkspaceService {
 
         let member =
             WorkspaceRepo::add_member_tx(&mut tx, invite.workspace_id, user_id, &invite.role)
-                .await
-                .map_err(|e| AppError::Database(e.to_string()))?;
+                .await?;
 
-        let channels = WorkspaceRepo::list_default_channels_tx(&mut tx, invite.workspace_id)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+        let channels =
+            WorkspaceRepo::list_default_channels_tx(&mut tx, invite.workspace_id).await?;
 
         for ch in channels {
             WorkspaceRepo::add_channel_member_tx(&mut tx, ch.id, user_id, &ChannelRole::Member)
-                .await
-                .map_err(|e| AppError::Database(e.to_string()))?;
+                .await?;
         }
 
-        tx.commit()
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+        tx.commit().await?;
 
         info!(
             "User {} accepted invite to workspace {}",
@@ -245,6 +218,7 @@ mod tests {
             turn_urls: String::new(),
             stun_urls: String::new(),
             turn_ttl_secs: 43200,
+            pg_pool_max: 5,
         }
     }
 
@@ -335,11 +309,11 @@ mod tests {
 
         let token = "single-use-token-abc123";
         let invite_id = sqlx::query_scalar::<_, Uuid>(
-            r#"
+            r"
             INSERT INTO workspace_invites (workspace_id, created_by, role, token, max_uses)
             VALUES ($1, $2, 'member', $3, 1)
             RETURNING id
-            "#,
+            ",
         )
         .bind(workspace.id)
         .bind(owner_id)

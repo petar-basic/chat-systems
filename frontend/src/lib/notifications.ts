@@ -1,5 +1,3 @@
-import { isElectron, showNativeNotification } from './electron';
-
 let permissionGranted = false;
 let audioCtx: AudioContext | null = null;
 
@@ -48,11 +46,6 @@ export async function requestNotificationPermission(): Promise<boolean> {
 
 export function showNotification(title: string, body: string, onClick?: () => void) {
   if (document.hasFocus()) return;
-
-  if (isElectron) {
-    showNativeNotification(title, body);
-    return;
-  }
 
   if (!permissionGranted || !('Notification' in window)) return;
   if (Notification.permission !== 'granted') return;

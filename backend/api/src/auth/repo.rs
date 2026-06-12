@@ -21,11 +21,11 @@ impl UserRepo {
         is_instance_admin: bool,
     ) -> sqlx::Result<User> {
         sqlx::query_as::<_, User>(
-            r#"
+            r"
             INSERT INTO users (email, password_hash, display_name, is_instance_admin)
             VALUES ($1, $2, $3, $4)
             RETURNING *
-            "#,
+            ",
         )
         .bind(email)
         .bind(password_hash)
@@ -56,12 +56,12 @@ impl UserRepo {
         display_name: &str,
     ) -> sqlx::Result<User> {
         sqlx::query_as::<_, User>(
-            r#"
+            r"
             UPDATE users
             SET password_hash = $2, display_name = $3, status = 'active', updated_at = NOW()
             WHERE id = $1
             RETURNING *
-            "#,
+            ",
         )
         .bind(id)
         .bind(password_hash)
@@ -79,7 +79,7 @@ impl UserRepo {
         timezone: Option<&str>,
     ) -> sqlx::Result<User> {
         sqlx::query_as::<_, User>(
-            r#"
+            r"
             UPDATE users
             SET display_name = COALESCE($2, display_name),
                 avatar_url = COALESCE($3, avatar_url),
@@ -88,7 +88,7 @@ impl UserRepo {
                 updated_at = NOW()
             WHERE id = $1
             RETURNING *
-            "#,
+            ",
         )
         .bind(id)
         .bind(display_name)

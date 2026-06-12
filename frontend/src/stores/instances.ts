@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { instanceManager } from '../lib/instances';
-import { isElectron, electronAuth } from '../lib/electron';
 import { useWsStatusStore } from './wsStatus';
 import { backfillAfterReconnect } from '../lib/realtimeBackfill';
 import { toast } from '@/shared/components/Toast';
@@ -118,21 +117,7 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
 
         try {
           const normalized = instanceManager.normalize(config.url);
-          if (isElectron && electronAuth) {
-            const auth = electronAuth;
-            clients.api.refreshHandler = () => auth.refresh(normalized);
-            const refreshed = await clients.api.refreshSession().catch(() => null);
-            if (!refreshed) {
-              await auth.clearRefresh(normalized).catch(() => undefined);
-              instanceManager.remove(config.url);
-              continue;
-            }
-            valid.push({
-              url: config.url,
-              ...(config.wsUrl ? { wsUrl: config.wsUrl } : {}),
-              user: refreshed.user as InstanceUser,
-            });
-          } else if (normalized !== window.location.origin) {
+          if (normalized !== window.location.origin) {
             const tokens = loadTokens(normalized);
             if (!tokens) {
               instanceManager.remove(config.url);
@@ -192,12 +177,7 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
         refresh_token: string;
       }>('/auth/login', { email, password });
 
-      if (isElectron && electronAuth) {
-        const auth = electronAuth;
-        await auth.setRefresh(normalized, res.refresh_token);
-        clients.api.refreshHandler = () => auth.refresh(normalized);
-        clients.api.setTokens(res.access_token, null);
-      } else if (normalized !== window.location.origin) {
+      if (normalized !== window.location.origin) {
         clients.api.onTokensChanged = (access, refresh) => saveTokens(normalized, access, refresh);
         clients.api.setTokens(res.access_token, res.refresh_token);
       } else {
@@ -236,11 +216,7 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
       .api.post('/auth/logout', {})
       .catch(() => {});
     instanceManager.remove(normalized);
-    if (isElectron && electronAuth) {
-      void electronAuth.clearRefresh(normalized);
-    } else {
-      saveTokens(normalized, null, null);
-    }
+    saveTokens(normalized, null, null);
     const instances = get().instances.filter((i) => i.url !== normalized);
     saveToStorage(instances);
     set({ instances, activeInstanceUrl: instances[0]?.url ?? null });

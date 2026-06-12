@@ -24,11 +24,11 @@ impl NotificationRepo {
         data: &serde_json::Value,
     ) -> sqlx::Result<Notification> {
         sqlx::query_as::<_, Notification>(
-            r#"
+            r"
             INSERT INTO notifications (user_id, workspace_id, notification_type, title, body, data)
             VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING *
-            "#,
+            ",
         )
         .bind(user_id)
         .bind(workspace_id)
@@ -48,12 +48,12 @@ impl NotificationRepo {
         offset: i64,
     ) -> sqlx::Result<Vec<Notification>> {
         sqlx::query_as::<_, Notification>(
-            r#"
+            r"
             SELECT * FROM notifications
             WHERE user_id = $1 AND workspace_id = $2
             ORDER BY created_at DESC
             LIMIT $3 OFFSET $4
-            "#,
+            ",
         )
         .bind(user_id)
         .bind(workspace_id)

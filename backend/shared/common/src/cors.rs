@@ -4,7 +4,7 @@ use tower_http::cors::{AllowOrigin, CorsLayer};
 pub fn cors_layer(allowed_origins: &str) -> CorsLayer {
     let origins: Vec<HeaderValue> = allowed_origins
         .split(',')
-        .map(|s| s.trim())
+        .map(str::trim)
         .filter(|s| !s.is_empty())
         .filter_map(|s| s.parse::<HeaderValue>().ok())
         .collect();

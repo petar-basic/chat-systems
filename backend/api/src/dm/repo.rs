@@ -19,7 +19,7 @@ impl DmRepo {
         user_id: Uuid,
     ) -> sqlx::Result<Vec<DmConversation>> {
         sqlx::query_as::<_, DmConversation>(
-            r#"
+            r"
             SELECT c.partner_id, c.last_message_at, r.last_read_at
             FROM (
                 SELECT
@@ -34,7 +34,7 @@ impl DmRepo {
             LEFT JOIN dm_reads r
                 ON r.user_id = $2 AND r.workspace_id = $1 AND r.partner_id = c.partner_id
             ORDER BY c.last_message_at DESC
-            "#,
+            ",
         )
         .bind(workspace_id)
         .bind(user_id)
@@ -49,11 +49,11 @@ impl DmRepo {
         emoji: &str,
     ) -> sqlx::Result<DmReaction> {
         sqlx::query_as::<_, DmReaction>(
-            r#"
+            r"
             INSERT INTO dm_reactions (message_id, user_id, emoji)
             VALUES ($1, $2, $3)
             RETURNING *
-            "#,
+            ",
         )
         .bind(message_id)
         .bind(user_id)
@@ -101,12 +101,12 @@ impl DmRepo {
         partner_id: Uuid,
     ) -> sqlx::Result<()> {
         sqlx::query(
-            r#"
+            r"
             INSERT INTO dm_reads (user_id, workspace_id, partner_id, last_read_at)
             VALUES ($1, $2, $3, NOW())
             ON CONFLICT (user_id, workspace_id, partner_id)
             DO UPDATE SET last_read_at = NOW()
-            "#,
+            ",
         )
         .bind(user_id)
         .bind(workspace_id)
@@ -125,7 +125,7 @@ impl DmRepo {
         before: Option<DateTime<Utc>>,
     ) -> sqlx::Result<Vec<DirectMessage>> {
         sqlx::query_as::<_, DirectMessage>(
-            r#"
+            r"
             SELECT * FROM direct_messages
             WHERE workspace_id = $1
                 AND (
@@ -136,7 +136,7 @@ impl DmRepo {
                 AND ($4::timestamptz IS NULL OR created_at < $4)
             ORDER BY created_at DESC
             LIMIT $5
-            "#,
+            ",
         )
         .bind(workspace_id)
         .bind(user_id)
@@ -156,11 +156,11 @@ impl DmRepo {
         content: &str,
     ) -> sqlx::Result<DirectMessage> {
         sqlx::query_as::<_, DirectMessage>(
-            r#"
+            r"
             INSERT INTO direct_messages (id, workspace_id, from_user_id, to_user_id, content)
             VALUES ($1, $2, $3, $4, $5)
             RETURNING *
-            "#,
+            ",
         )
         .bind(id)
         .bind(workspace_id)
@@ -182,12 +182,12 @@ impl DmRepo {
 
     pub async fn update(&self, id: Uuid, content: &str) -> sqlx::Result<DirectMessage> {
         sqlx::query_as::<_, DirectMessage>(
-            r#"
+            r"
             UPDATE direct_messages
             SET content = $2, edited_at = NOW(), updated_at = NOW()
             WHERE id = $1 AND deleted_at IS NULL
             RETURNING *
-            "#,
+            ",
         )
         .bind(id)
         .bind(content)
@@ -197,12 +197,12 @@ impl DmRepo {
 
     pub async fn soft_delete(&self, id: Uuid) -> sqlx::Result<DirectMessage> {
         sqlx::query_as::<_, DirectMessage>(
-            r#"
+            r"
             UPDATE direct_messages
             SET deleted_at = NOW(), updated_at = NOW()
             WHERE id = $1
             RETURNING *
-            "#,
+            ",
         )
         .bind(id)
         .fetch_one(&self.pool)
