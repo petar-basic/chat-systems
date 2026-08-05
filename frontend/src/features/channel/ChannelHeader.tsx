@@ -1,6 +1,10 @@
-import { Hash, Lock, Search, Pin, Users, Menu } from 'lucide-react';
+import { useState } from 'react';
+import { Hash, Lock, Search, Pin, Users, Menu, Settings } from 'lucide-react';
+import { useNavigate } from 'react-router';
 import type { Channel } from '@/stores/workspace';
 import { HuddleBar } from '@/features/huddle';
+import { useChannelModeration } from './hooks/useChannelModeration';
+import ChannelSettingsModal from './ChannelSettingsModal';
 
 interface Props {
   channel: Channel | null;
@@ -23,6 +27,10 @@ export default function ChannelHeader({
   onToggleChannelMembers,
   onOpenNav,
 }: Props) {
+  const navigate = useNavigate();
+  const { canModerate } = useChannelModeration(channel?.id ?? null);
+  const [showSettings, setShowSettings] = useState(false);
+
   return (
     <div className="h-14 px-4 flex items-center gap-2 border-b border-slate-700/50 bg-slate-800/30 shrink-0">
       {onOpenNav && (
@@ -42,13 +50,25 @@ export default function ChannelHeader({
           ) : (
             <Hash className="w-4 h-4 text-slate-400 shrink-0" />
           )}
-          <span className="font-semibold truncate">{channel.name}</span>
+          <span className="font-semibold truncate" data-qa="channel-header-name">
+            {channel.name}
+          </span>
           {channel.topic && (
             <span className="text-sm text-slate-400 ml-2 truncate hidden sm:inline">— {channel.topic}</span>
           )}
 
           <div className="ml-auto flex items-center gap-1">
             <HuddleBar channelId={channel.id} />
+            {canModerate && (
+              <button
+                onClick={() => setShowSettings(true)}
+                aria-label="Channel settings"
+                data-qa="channel-settings-open"
+                className="p-1.5 rounded-lg transition text-slate-400 hover:text-white hover:bg-slate-700/50"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
+            )}
             <button
               onClick={onToggleChannelMembers}
               aria-label="Channel members"
@@ -74,6 +94,15 @@ export default function ChannelHeader({
               <Search className="w-4 h-4" />
             </button>
           </div>
+
+          {showSettings && (
+            <ChannelSettingsModal
+              channel={channel}
+              workspaceId={channel.workspace_id}
+              onClose={() => setShowSettings(false)}
+              onArchived={() => navigate(`/app/${channel.workspace_id}`)}
+            />
+          )}
         </>
       )}
     </div>

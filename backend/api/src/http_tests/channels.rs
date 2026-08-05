@@ -3,6 +3,8 @@ use axum::http::StatusCode;
 use serde_json::json;
 use sqlx::PgPool;
 
+use crate::workspace::models::ChannelRole;
+
 #[sqlx::test(migrations = "../migrations")]
 async fn create_public_channel_succeeds_for_workspace_member(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
@@ -506,13 +508,12 @@ async fn add_channel_member_requires_authentication(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../migrations")]
-async fn add_channel_member_forbidden_for_plain_member(pool: PgPool) {
+async fn add_channel_member_forbidden_for_non_workspace_member(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Add Member Forbidden WS").await;
     let ch_id = seed_channel(&state, ws_id, owner_id, "add-forbidden", false).await;
-    let (member_id, _, member_token) = seed_and_login(&app, &state, "ch-member", false).await;
-    add_ws_member(&state, ws_id, member_id, "member").await;
+    let (_, _, outsider_token) = seed_and_login(&app, &state, "ch-outsider", false).await;
     let (target_id, _) = seed(&state, "ch-target", false).await;
     add_ws_member(&state, ws_id, target_id, "member").await;
 
@@ -520,7 +521,7 @@ async fn add_channel_member_forbidden_for_plain_member(pool: PgPool) {
         &app,
         "POST",
         &format!("/api/channels/{ch_id}/members"),
-        Some(&member_token),
+        Some(&outsider_token),
         Some(json!({ "user_id": target_id })),
     )
     .await;
@@ -628,5 +629,366 @@ async fn remove_other_member_forbidden_for_plain_member(pool: PgPool) {
     )
     .await;
 
+    assert_eq!(status, StatusCode::FORBIDDEN);
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn channel_admin_can_rename_and_archive_their_own_channel(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Channel Admin WS").await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "product", false).await;
+
+    let (manager_id, _, manager_token) = seed_and_login(&app, &state, "ch-manager", false).await;
+    add_ws_member(&state, ws_id, manager_id, "member").await;
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(ch_id, manager_id, &ChannelRole::Admin)
+        .await
+        .expect("precondition: channel admin");
+
+    let (status, body) = send(
+        &app,
+        "PATCH",
+        &format!("/api/channels/{ch_id}"),
+        Some(&manager_token),
+        Some(json!({ "name": "product-renamed", "topic": "roadmap talk" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "channel admin renames: {body:?}");
+    assert_eq!(body["name"], "product-renamed");
+    assert_eq!(body["topic"], "roadmap talk");
+
+    let (status, _) = send(
+        &app,
+        "DELETE",
+        &format!("/api/channels/{ch_id}"),
+        Some(&manager_token),
+        None,
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "channel admin archives their channel"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn plain_member_still_cannot_rename_or_archive_a_channel(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Member Guard WS").await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "product", false).await;
+
+    let (member_id, _, member_token) = seed_and_login(&app, &state, "ch-member", false).await;
+    add_ws_member(&state, ws_id, member_id, "member").await;
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(ch_id, member_id, &ChannelRole::Member)
+        .await
+        .expect("precondition: plain channel member");
+
+    let (status, _) = send(
+        &app,
+        "PATCH",
+        &format!("/api/channels/{ch_id}"),
+        Some(&member_token),
+        Some(json!({ "name": "hijacked" })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "plain member must not rename"
+    );
+
+    let (status, _) = send(
+        &app,
+        "DELETE",
+        &format!("/api/channels/{ch_id}"),
+        Some(&member_token),
+        None,
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "plain member must not archive"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn channel_admin_can_promote_and_demote_channel_members(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "ch-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Promote WS").await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "product", false).await;
+
+    let (member_id, _, member_token) = seed_and_login(&app, &state, "ch-member", false).await;
+    add_ws_member(&state, ws_id, member_id, "member").await;
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(ch_id, member_id, &ChannelRole::Member)
+        .await
+        .expect("precondition: channel member");
+
+    let (status, _) = send(
+        &app,
+        "PATCH",
+        &format!("/api/channels/{ch_id}/members/{owner_id}/role"),
+        Some(&member_token),
+        Some(json!({ "role": "admin" })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "a plain channel member cannot hand out roles"
+    );
+
+    let (status, body) = send(
+        &app,
+        "PATCH",
+        &format!("/api/channels/{ch_id}/members/{member_id}/role"),
+        Some(&owner_token),
+        Some(json!({ "role": "admin" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "promote: {body:?}");
+    assert_eq!(body["role"], "admin");
+
+    let (status, body) = send(
+        &app,
+        "PATCH",
+        &format!("/api/channels/{ch_id}/members/{owner_id}/role"),
+        Some(&member_token),
+        Some(json!({ "role": "member" })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "the promoted admin can demote: {body:?}"
+    );
+    assert_eq!(body["role"], "member");
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn changing_the_role_of_a_non_member_is_not_found(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "ch-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Role NotFound WS").await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "product", false).await;
+    let (outsider_id, _) = seed(&state, "ch-outsider", false).await;
+    add_ws_member(&state, ws_id, outsider_id, "member").await;
+
+    let (status, _) = send(
+        &app,
+        "PATCH",
+        &format!("/api/channels/{ch_id}/members/{outsider_id}/role"),
+        Some(&owner_token),
+        Some(json!({ "role": "admin" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn any_workspace_member_can_add_people_to_a_public_channel(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Public Add WS").await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "open-room", false).await;
+
+    let (actor_id, _, actor_token) = seed_and_login(&app, &state, "ch-actor", false).await;
+    add_ws_member(&state, ws_id, actor_id, "member").await;
+    let (invitee_id, _) = seed(&state, "ch-invitee", false).await;
+    add_ws_member(&state, ws_id, invitee_id, "member").await;
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/members"),
+        Some(&actor_token),
+        Some(json!({ "user_id": invitee_id })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "member adds to public channel: {body:?}"
+    );
+    assert_eq!(body["user_id"], invitee_id.to_string());
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn adding_to_a_private_channel_requires_belonging_to_it(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Private Add WS").await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "secret-room", true).await;
+
+    let (outsider_id, _, outsider_token) = seed_and_login(&app, &state, "ch-outsider", false).await;
+    add_ws_member(&state, ws_id, outsider_id, "member").await;
+    let (invitee_id, _) = seed(&state, "ch-invitee", false).await;
+    add_ws_member(&state, ws_id, invitee_id, "member").await;
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/members"),
+        Some(&outsider_token),
+        Some(json!({ "user_id": invitee_id })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "someone outside a private channel cannot add people to it"
+    );
+
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(ch_id, outsider_id, &ChannelRole::Member)
+        .await
+        .expect("join the private channel");
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/members"),
+        Some(&outsider_token),
+        Some(json!({ "user_id": invitee_id })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "a private-channel member may invite: {body:?}"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn guests_cannot_add_channel_members_and_outsiders_cannot_be_added(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "ch-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Add Guard WS").await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "open-room", false).await;
+
+    let (guest_id, _, guest_token) = seed_and_login(&app, &state, "ch-guest", false).await;
+    add_ws_member(&state, ws_id, guest_id, "guest").await;
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(ch_id, guest_id, &ChannelRole::Member)
+        .await
+        .expect("precondition: guest belongs to the channel");
+    let (invitee_id, _) = seed(&state, "ch-invitee", false).await;
+    add_ws_member(&state, ws_id, invitee_id, "member").await;
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/members"),
+        Some(&guest_token),
+        Some(json!({ "user_id": invitee_id })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "guests cannot add people");
+
+    let (stranger_id, _) = seed(&state, "ch-stranger", false).await;
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/members"),
+        Some(&owner_token),
+        Some(json!({ "user_id": stranger_id })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "someone outside the workspace cannot be added to a channel"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn channel_admin_can_remove_another_member(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Remove By Channel Admin WS").await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "product", false).await;
+
+    let (manager_id, _, manager_token) = seed_and_login(&app, &state, "ch-manager", false).await;
+    add_ws_member(&state, ws_id, manager_id, "member").await;
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(ch_id, manager_id, &ChannelRole::Admin)
+        .await
+        .expect("precondition: channel admin");
+    let (victim_id, _) = seed(&state, "ch-victim", false).await;
+    add_ws_member(&state, ws_id, victim_id, "member").await;
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(ch_id, victim_id, &ChannelRole::Member)
+        .await
+        .expect("precondition: channel member");
+
+    let (status, body) = send(
+        &app,
+        "DELETE",
+        &format!("/api/channels/{ch_id}/members/{victim_id}"),
+        Some(&manager_token),
+        None,
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "channel admin removes a member: {body:?}"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn a_guest_channel_admin_still_cannot_moderate(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Guest Moderate WS").await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "product", false).await;
+
+    let (guest_id, _, guest_token) = seed_and_login(&app, &state, "ch-guest", false).await;
+    add_ws_member(&state, ws_id, guest_id, "guest").await;
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(ch_id, guest_id, &ChannelRole::Admin)
+        .await
+        .expect("precondition: guest carries the channel admin role");
+
+    let (status, _) = send(
+        &app,
+        "PATCH",
+        &format!("/api/channels/{ch_id}"),
+        Some(&guest_token),
+        Some(json!({ "name": "guest-renamed" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+
+    let (status, _) = send(
+        &app,
+        "PATCH",
+        &format!("/api/channels/{ch_id}/members/{owner_id}/role"),
+        Some(&guest_token),
+        Some(json!({ "role": "member" })),
+    )
+    .await;
     assert_eq!(status, StatusCode::FORBIDDEN);
 }

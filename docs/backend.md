@@ -114,7 +114,9 @@ feature — see `dm` below.)
 |--------|----------|
 | Read channels/messages, post, react, thread | Member of the workspace; **Guest** additionally must be a member of that channel (Guests never get implicit access to public channels) |
 | Create a channel | `Member` |
-| Rename/archive a channel, manage channel members, invites, workspace settings | `Admin` |
+| Rename/archive a channel, change a channel member's role, remove someone from a channel | **Channel admin** (`channel_members.role = 'admin'`) or workspace `Admin`; a Guest never moderates, even holding the channel-admin row |
+| Add someone to a channel | `Member` of the workspace, and — for a private channel — a member of that channel; the person being added must already be in the workspace |
+| Manage invites and workspace settings | `Admin` |
 | Change a member's role | `Admin`, and the actor must strictly outrank the target and may not grant a role above their own; the Owner cannot be demoted |
 | Remove a member | `Admin` and strictly outranking the target, or the member removing themselves; the Owner cannot be removed |
 | Soft/hard delete or restore a workspace | `Owner` (or instance admin) |
@@ -166,6 +168,7 @@ feature — see `dm` below.)
 |--------|-------|-------|--------|
 | GET | `/channels/:ch_id/members` | — | `{ data: ChannelMember[] }` |
 | POST | `/channels/:ch_id/members` | `{ user_id }` | `ChannelMember` |
+| PATCH | `/channels/:ch_id/members/:user_id/role` | `{ role: "member" \| "admin" }` | `ChannelMember` — channel moderators only |
 | DELETE | `/channels/:ch_id/members/:user_id` | — | `{ status: "removed" }` |
 
 ---
