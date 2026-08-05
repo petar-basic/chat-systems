@@ -18,6 +18,7 @@ export interface Channel {
   workspace_id: string;
   name: string;
   topic: string | null;
+  description: string | null;
   channel_type: string;
   is_default: boolean;
   muted?: boolean;

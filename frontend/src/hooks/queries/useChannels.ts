@@ -124,6 +124,41 @@ export const useChannelMembers = (channelId: string | null) => {
   });
 };
 
+export const useUpdateChannelMemberRole = (channelId: string) => {
+  const queryClient = useQueryClient();
+  const apiClient = useCurrentApi();
+  return useMutation({
+    mutationFn: async ({ userId, role }: { userId: string; role: 'member' | 'admin' }) =>
+      apiClient.patch<ChannelMember>(`/channels/${channelId}/members/${userId}/role`, { role }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.channelMembers(channelId) });
+    },
+  });
+};
+
+export const useUpdateChannel = (workspaceId: string, channelId: string) => {
+  const queryClient = useQueryClient();
+  const apiClient = useCurrentApi();
+  return useMutation({
+    mutationFn: async (patch: { name?: string; topic?: string; description?: string }) =>
+      apiClient.patch<Channel>(`/channels/${channelId}`, patch),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceChannels(workspaceId) });
+    },
+  });
+};
+
+export const useArchiveChannel = (workspaceId: string) => {
+  const queryClient = useQueryClient();
+  const apiClient = useCurrentApi();
+  return useMutation({
+    mutationFn: async (channelId: string) => apiClient.delete(`/channels/${channelId}`),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceChannels(workspaceId) });
+    },
+  });
+};
+
 export const useChannelPins = (channelId: string | null) => {
   const apiClient = useCurrentApi();
   return useQuery({

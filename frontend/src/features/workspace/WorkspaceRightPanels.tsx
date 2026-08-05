@@ -77,6 +77,7 @@ export default function WorkspaceRightPanels({
       <ChannelMembersPanel
         channelId={currentChannel.id}
         channelName={currentChannel.name}
+        channelType={currentChannel.channel_type}
         onClose={onClose}
       />
     );

@@ -166,6 +166,11 @@ pub struct UpdateMemberRoleRequest {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct UpdateChannelMemberRoleRequest {
+    pub role: ChannelRole,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct CreateChannelRequest {
     pub name: String,
     pub channel_type: Option<ChannelType>,
