@@ -89,6 +89,22 @@ pub fn validate_message_content(content: &str) -> AppResult<()> {
     Ok(())
 }
 
+pub fn validate_avatar_url(url: &str) -> AppResult<()> {
+    if url.len() > 500 {
+        return Err(AppError::Validation(
+            "Avatar URL must be at most 500 characters".into(),
+        ));
+    }
+    let is_absolute = url.starts_with("http://") || url.starts_with("https://");
+    let is_site_relative = url.starts_with('/') && !url.starts_with("//");
+    if !is_absolute && !is_site_relative {
+        return Err(AppError::Validation(
+            "Avatar URL must be an http(s) or site-relative URL".into(),
+        ));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -168,5 +184,28 @@ mod tests {
         assert!(validate_message_content(&max).is_ok());
         let over = "x".repeat(4001);
         assert_validation_err(validate_message_content(&over));
+    }
+
+    #[test]
+    fn validate_avatar_url_accepts_http_and_site_relative() {
+        assert!(validate_avatar_url("https://cdn.example.com/a.png").is_ok());
+        assert!(validate_avatar_url("http://localhost:8080/api/files/download/ws/a.png").is_ok());
+        assert!(validate_avatar_url("/api/files/download/ws/id/a.png").is_ok());
+    }
+
+    #[test]
+    fn validate_avatar_url_rejects_other_schemes() {
+        assert_validation_err(validate_avatar_url("javascript:alert(1)"));
+        assert_validation_err(validate_avatar_url(
+            "data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=",
+        ));
+        assert_validation_err(validate_avatar_url("//evil.example.com/a.png"));
+        assert_validation_err(validate_avatar_url("a.png"));
+    }
+
+    #[test]
+    fn validate_avatar_url_rejects_over_limit() {
+        let over = format!("https://example.com/{}", "a".repeat(500));
+        assert_validation_err(validate_avatar_url(&over));
     }
 }

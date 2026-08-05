@@ -2,10 +2,13 @@ import { useState, useRef, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCurrentUser } from '../hooks/queries/useAuth';
 import { useInstanceStore } from '../stores/instances';
+import { useWorkspaceStore } from '../stores/workspace';
 import { instanceManager } from '../lib/instances';
 import { api } from '../lib/api';
 import { X, Save, Camera, User } from 'lucide-react';
 import { Modal } from '@/shared/components/Modal/Modal';
+import { Avatar } from '@/shared/components/Avatar/Avatar';
+import { displayNameOf } from '@/lib/userHelpers';
 import { QUERY_KEYS } from '@/shared/constants';
 
 interface Props {
@@ -29,6 +32,9 @@ function useActiveApi() {
 export default function UserProfilePanel({ onClose }: Props) {
   const queryClient = useQueryClient();
   const activeApi = useActiveApi();
+  const activeInstanceUrl = useInstanceStore((s) => s.activeInstanceUrl);
+  const updateInstanceUser = useInstanceStore((s) => s.updateInstanceUser);
+  const currentWorkspace = useWorkspaceStore((s) => s.currentWorkspace);
   const { data: user } = useCurrentUser();
   const [displayName, setDisplayName] = useState(user?.display_name || '');
   const [bio, setBio] = useState('');
@@ -63,17 +69,19 @@ export default function UserProfilePanel({ onClose }: Props) {
       const updated = await activeApi.patch<UserProfile>('/users/me', {
         display_name: displayName.trim(),
         bio: bio.trim() || null,
-        avatar_url: avatarUrl.trim() || null,
+        avatar_url: avatarUrl.trim(),
       });
 
-      queryClient.setQueryData(QUERY_KEYS.currentUser(), (old: typeof user) => {
-        if (!old) return old;
-        return {
-          ...old,
+      if (user && activeInstanceUrl) {
+        updateInstanceUser(activeInstanceUrl, {
+          ...user,
           display_name: updated.display_name,
           avatar_url: updated.avatar_url,
-        };
-      });
+        });
+      }
+      if (currentWorkspace) {
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceMembers(currentWorkspace.id) });
+      }
 
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -88,27 +96,24 @@ export default function UserProfilePanel({ onClose }: Props) {
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!currentWorkspace) {
+      setError('Open a workspace before uploading an avatar');
+      return;
+    }
 
     setUploading(true);
+    setError(null);
     try {
       const formData = new FormData();
       formData.append('file', file);
 
-      const { useInstanceStore } = await import('../stores/instances');
-      const activeUrl = useInstanceStore.getState().activeInstanceUrl;
-      const baseUrl = activeUrl && activeUrl !== window.location.origin ? `${activeUrl}/api` : '/api';
-      const res = await fetch(`${baseUrl}/files/upload/avatars`, {
-        method: 'POST',
-        credentials: 'include',
-        body: formData,
-      });
-
-      if (res.ok) {
-        const uploaded = await res.json();
-        setAvatarUrl(uploaded.url);
-      } else {
-        setError('Failed to upload avatar');
-      }
+      const uploaded = await activeApi.upload<{ url: string }[]>(
+        `/files/upload/${currentWorkspace.id}`,
+        formData,
+      );
+      const url = uploaded[0]?.url;
+      if (url) setAvatarUrl(url);
+      else setError('Failed to upload avatar');
     } catch {
       setError('Failed to upload avatar');
     } finally {
@@ -116,10 +121,6 @@ export default function UserProfilePanel({ onClose }: Props) {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
-
-  const initials = displayName
-    ? displayName.charAt(0).toUpperCase()
-    : user?.email?.charAt(0).toUpperCase() || '?';
 
   return (
     <Modal
@@ -141,17 +142,18 @@ export default function UserProfilePanel({ onClose }: Props) {
       <form onSubmit={handleSave} className="p-6 space-y-5">
         <div className="flex items-center gap-4">
           <div className="relative">
-            {avatarUrl ? (
-              <img src={avatarUrl} alt="Avatar" className="w-16 h-16 rounded-full object-cover" />
-            ) : (
-              <div className="w-16 h-16 rounded-full bg-purple-600 flex items-center justify-center text-2xl font-bold text-white">
-                {initials}
-              </div>
-            )}
+            <Avatar
+              userId={user?.id ?? ''}
+              name={displayNameOf(displayName || user?.email)}
+              avatarUrl={avatarUrl || null}
+              size="xl"
+            />
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
+              aria-label="Upload a new photo"
+              data-qa="profile-avatar-upload"
               className="absolute -bottom-1 -right-1 w-7 h-7 bg-slate-700 hover:bg-slate-600 border-2 border-slate-800 rounded-full flex items-center justify-center transition cursor-pointer"
             >
               {uploading ? (
@@ -173,6 +175,16 @@ export default function UserProfilePanel({ onClose }: Props) {
               {user?.display_name || 'No name set'}
             </div>
             <div className="text-xs text-slate-400 truncate">{user?.email}</div>
+            {avatarUrl && (
+              <button
+                type="button"
+                onClick={() => setAvatarUrl('')}
+                data-qa="profile-avatar-remove"
+                className="mt-1 text-xs text-slate-400 hover:text-red-400 transition cursor-pointer"
+              >
+                Remove photo
+              </button>
+            )}
           </div>
         </div>
 

@@ -21,19 +21,19 @@ export function avatarColorFor(userId: string): string {
   return AVATAR_COLORS[index];
 }
 
+export function initialOf(name: string | null | undefined): string {
+  const trimmed = name?.trim();
+  return trimmed ? trimmed.charAt(0).toUpperCase() : '?';
+}
+
 export function getUserDisplay(userId: string, members: WorkspaceMember[]) {
   const member = members.find((m) => m.user_id === userId);
   const displayName = member?.display_name || userId.slice(0, 8);
   const email = member?.email || '';
-  const initials = displayName.charAt(0).toUpperCase();
-  const colorIndex = userId.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0) % AVATAR_COLORS.length;
-  const avatarColor = AVATAR_COLORS[colorIndex];
 
   return {
     member,
     displayName,
     email,
-    initials,
-    avatarColor,
   };
 }

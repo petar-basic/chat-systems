@@ -5,6 +5,7 @@ import { useWorkspaceStore } from '../stores/workspace';
 import type { Message } from '../stores/workspace';
 import { X, Search } from 'lucide-react';
 import { displayNameOf } from '@/lib/userHelpers';
+import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
 
 interface Props {
@@ -31,7 +32,8 @@ function SearchResult({
       className="w-full text-left px-3 py-2.5 hover:bg-slate-700/30 rounded-lg transition disabled:cursor-default"
       disabled={!onNavigate}
     >
-      <div className="flex items-baseline gap-2 mb-0.5">
+      <div className="flex items-center gap-2 mb-0.5">
+        <Avatar userId={message.user_id} name={displayName} avatarUrl={sender?.avatar_url} size="xs" />
         <span className="text-sm font-semibold text-slate-200">{displayName}</span>
         <span className="text-xs text-slate-400">
           {new Date(message.created_at).toLocaleDateString()}{' '}

@@ -214,6 +214,12 @@ async fn update_me(
     auth: AuthUser,
     Json(req): Json<UpdateProfileRequest>,
 ) -> AppResult<Json<UserPublic>> {
+    if let Some(name) = &req.display_name {
+        shared_common::validation::validate_display_name(name)?;
+    }
+    if let Some(avatar_url) = req.avatar_url.as_deref().filter(|url| !url.is_empty()) {
+        shared_common::validation::validate_avatar_url(avatar_url)?;
+    }
     let user = state
         .auth_service
         .repo()

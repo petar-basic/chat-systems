@@ -4,7 +4,7 @@ import MessageItem from './MessageItem';
 import type { Message, WorkspaceMember, Channel } from '@/stores/workspace';
 import { useMessages } from '@/hooks/queries/useMessages';
 import { useUserCache } from '@/stores/users';
-import { avatarColorFor, displayNameOf } from '@/lib/userHelpers';
+import { displayNameOf } from '@/lib/userHelpers';
 import { useMessageActions } from './hooks/useMessageActions';
 import { isGrouped, isNewDay, formatDaySeparator } from './messageGrouping';
 import { QueryState } from '@/shared/components/QueryState/QueryState';
@@ -118,7 +118,7 @@ export default function MessageList({
                   channels={channels}
                   currentUserId={actions.currentUserId}
                   senderName={displayNameOf(sender?.display_name)}
-                  avatarColor={avatarColorFor(msg.user_id)}
+                  senderAvatarUrl={sender?.avatar_url}
                   isHighlighted={msg.id === highlightMessageId}
                   onThreadOpen={onThreadOpen}
                   onToggleReaction={actions.toggleReaction}

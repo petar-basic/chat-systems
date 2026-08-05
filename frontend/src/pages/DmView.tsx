@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useUserCache } from '../stores/users';
 import { usePresenceStore } from '../stores/presence';
-import { Circle, ArrowLeft, Pencil, Trash2, SmilePlus, Menu } from 'lucide-react';
+import { ArrowLeft, Pencil, Trash2, SmilePlus, Menu } from 'lucide-react';
 import {
   useDirectMessages,
   useSendDirectMessage,
@@ -12,8 +12,10 @@ import {
 } from '../hooks/queries/useDm';
 import { MessageInput, EmojiPicker } from '@/features/messaging';
 import RichTextDisplay from '../components/RichTextDisplay';
+import PresenceDot from '../components/PresenceDot';
 import type { DirectMessage } from '../hooks/queries/useDm';
-import { displayNameOf, avatarColorFor } from '@/lib/userHelpers';
+import { displayNameOf } from '@/lib/userHelpers';
+import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { ConnectionBanner } from '@/shared/components/ConnectionBanner/ConnectionBanner';
 import { QueryState } from '@/shared/components/QueryState/QueryState';
 import { HuddleStartButton } from '@/features/huddle';
@@ -39,8 +41,6 @@ export default function DmView({
   const { getUser } = useUserCache();
   const partner = getUser(partnerId);
   const status = usePresenceStore((s) => s.getStatus(partnerId));
-  const dotColor =
-    status === 'online' ? 'text-green-500' : status === 'away' ? 'text-amber-500' : 'text-slate-600';
   const partnerName = displayNameOf(partner?.display_name);
 
   const { data, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } =
@@ -105,7 +105,10 @@ export default function DmView({
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
-        <Circle className={`w-2.5 h-2.5 fill-current ${dotColor} shrink-0`} />
+        <div className="relative shrink-0">
+          <Avatar userId={partnerId} name={partnerName} avatarUrl={partner?.avatar_url} size="sm" />
+          <PresenceDot userId={partnerId} className="absolute -bottom-0.5 -right-0.5 ring-2 ring-slate-900" />
+        </div>
         <span className="font-semibold text-white">{partnerName}</span>
         {status === 'online' && <span className="text-xs text-slate-400">Active now</span>}
         <div className="ml-auto">
@@ -245,11 +248,12 @@ function DmMessage({
           </span>
         </div>
       ) : (
-        <div
-          className={`w-8 h-8 rounded-full ${avatarColorFor(msg.from_user_id)} flex items-center justify-center text-sm font-bold shrink-0 mt-0.5`}
-        >
-          {senderName.charAt(0).toUpperCase()}
-        </div>
+        <Avatar
+          userId={msg.from_user_id}
+          name={senderName}
+          avatarUrl={sender?.avatar_url}
+          className="mt-0.5"
+        />
       )}
       <div className="flex-1 min-w-0">
         {!grouped && (
