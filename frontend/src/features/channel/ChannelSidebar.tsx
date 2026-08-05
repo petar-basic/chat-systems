@@ -15,6 +15,7 @@ import {
   Bell,
   BellOff,
   Compass,
+  Plug,
 } from 'lucide-react';
 import { useWorkspaceStore, type Channel, type Workspace, type WorkspaceMember } from '@/stores/workspace';
 import type { DmConversation } from '@/hooks/queries/useDm';
@@ -45,6 +46,7 @@ interface Props {
   onOpenDm: (userId: string) => void;
   onOpenMembers: () => void;
   onOpenSettings: () => void;
+  onOpenIntegrations: () => void;
   onOpenProfile: () => void;
   onOpenNotifications: () => void;
   onLogout: () => void;
@@ -140,6 +142,7 @@ export default function ChannelSidebar({
   onOpenDm,
   onOpenMembers,
   onOpenSettings,
+  onOpenIntegrations,
   onOpenProfile,
   onOpenNotifications,
   onLogout,
@@ -150,6 +153,7 @@ export default function ChannelSidebar({
   const { instances, activeInstanceUrl } = useInstanceStore();
   const currentInstance = instances.find((i) => i.url === activeInstanceUrl);
   const isInstanceAdmin = currentInstance?.user.is_instance_admin ?? false;
+  const isWorkspaceAdmin = currentUserRole === 'admin' || currentUserRole === 'owner';
 
   const [wsDropdownOpen, setWsDropdownOpen] = useState(false);
   const [showNewChannel, setShowNewChannel] = useState(false);
@@ -267,6 +271,18 @@ export default function ChannelSidebar({
               >
                 <Settings className="w-4 h-4" /> Settings
               </button>
+              {isWorkspaceAdmin && (
+                <button
+                  className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
+                  data-qa="open-integrations"
+                  onClick={() => {
+                    onOpenIntegrations();
+                    setWsDropdownOpen(false);
+                  }}
+                >
+                  <Plug className="w-4 h-4" /> Integrations
+                </button>
+              )}
               {isInstanceAdmin && (
                 <button
                   className="w-full px-4 py-2 text-left text-sm text-purple-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer border-t border-slate-700"

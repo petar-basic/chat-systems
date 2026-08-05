@@ -52,6 +52,7 @@ export default function WorkspacePage() {
           onOpenDm={c.handleOpenDm}
           onOpenMembers={() => panel.toggle('members')}
           onOpenSettings={() => panel.toggle('settings')}
+          onOpenIntegrations={() => panel.toggle('integrations')}
           onOpenProfile={() => c.setShowProfile(true)}
           onOpenNotifications={() => panel.toggle('notifications')}
           onLogout={() => c.logout.mutate()}

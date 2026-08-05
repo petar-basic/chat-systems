@@ -9,6 +9,7 @@ export type RightPanel =
   | { kind: 'search' }
   | { kind: 'pins' }
   | { kind: 'channelMembers' }
+  | { kind: 'integrations' }
   | { kind: 'notifications' }
   | null;
 
