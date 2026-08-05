@@ -438,6 +438,22 @@ impl WorkspaceRepo {
         .await
     }
 
+    pub async fn update_channel_member_role(
+        &self,
+        channel_id: Uuid,
+        user_id: Uuid,
+        role: &ChannelRole,
+    ) -> sqlx::Result<ChannelMember> {
+        sqlx::query_as::<_, ChannelMember>(
+            "UPDATE channel_members SET role = $3 WHERE channel_id = $1 AND user_id = $2 RETURNING *",
+        )
+        .bind(channel_id)
+        .bind(user_id)
+        .bind(role)
+        .fetch_one(&self.pool)
+        .await
+    }
+
     pub async fn get_channel_member(
         &self,
         channel_id: Uuid,
