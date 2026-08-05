@@ -1,9 +1,11 @@
 import { test, expect, type Page } from '@playwright/test';
-import {authHeaders, login, SHOTS } from './helpers';
-
+import { authHeaders, login, SHOTS } from './helpers';
 
 async function openMembersPanel(page: Page) {
-  await page.getByRole('button', { name: /Dev Team/ }).first().click();
+  await page
+    .getByRole('button', { name: /Dev Team/ })
+    .first()
+    .click();
   await page.getByRole('button', { name: 'Members', exact: true }).click();
   await expect(page.getByText(/\d+ members?/)).toBeVisible({ timeout: 10_000 });
 }
@@ -28,20 +30,35 @@ test('H. owner can change a member role and remove a member from the panel', asy
   await page.screenshot({ path: `${SHOTS}/H2-workspace-members.png`, fullPage: true });
 
   const auth = await authHeaders(request, 'admin@dev.local');
-  const ws = (await (await request.get('http://localhost:3000/api/workspaces', { headers: auth })).json()).data[0];
+  const ws = (await (await request.get('http://localhost:3000/api/workspaces', { headers: auth })).json())
+    .data[0];
   await expect
-    .poll(async () => {
-      const members = (await (await request.get(`http://localhost:3000/api/workspaces/${ws.id}/members`, { headers: auth })).json()).data;
-      return members.find((m: { email: string }) => m.email === 'alice@dev.local').role;
-    }, { timeout: 10_000 })
+    .poll(
+      async () => {
+        const members = (
+          await (
+            await request.get(`http://localhost:3000/api/workspaces/${ws.id}/members`, { headers: auth })
+          ).json()
+        ).data;
+        return members.find((m: { email: string }) => m.email === 'alice@dev.local').role;
+      },
+      { timeout: 10_000 },
+    )
     .toBe('member');
 
   await roleSelect.selectOption('admin');
   await expect
-    .poll(async () => {
-      const members = (await (await request.get(`http://localhost:3000/api/workspaces/${ws.id}/members`, { headers: auth })).json()).data;
-      return members.find((m: { email: string }) => m.email === 'alice@dev.local').role;
-    }, { timeout: 10_000 })
+    .poll(
+      async () => {
+        const members = (
+          await (
+            await request.get(`http://localhost:3000/api/workspaces/${ws.id}/members`, { headers: auth })
+          ).json()
+        ).data;
+        return members.find((m: { email: string }) => m.email === 'alice@dev.local').role;
+      },
+      { timeout: 10_000 },
+    )
     .toBe('admin');
 
   await expect(page.getByLabel('Role for Admin')).toHaveCount(0);
@@ -58,14 +75,26 @@ test('H2. a plain member sees no role controls', async ({ page }) => {
 
 test('I. notification badge + mark-all-read while viewing another channel', async ({ page, request }) => {
   const auth = await authHeaders(request, 'admin@dev.local');
-  const ws = (await (await request.get('http://localhost:3000/api/workspaces', { headers: auth })).json()).data[0];
-  const chans = (await (await request.get(`http://localhost:3000/api/workspaces/${ws.id}/channels`, { headers: auth })).json()).data;
+  const ws = (await (await request.get('http://localhost:3000/api/workspaces', { headers: auth })).json())
+    .data[0];
+  const chans = (
+    await (
+      await request.get(`http://localhost:3000/api/workspaces/${ws.id}/channels`, { headers: auth })
+    ).json()
+  ).data;
   const general = chans.find((c: { name: string }) => c.name === 'general').id;
-  const members = (await (await request.get(`http://localhost:3000/api/workspaces/${ws.id}/members`, { headers: auth })).json()).data;
+  const members = (
+    await (
+      await request.get(`http://localhost:3000/api/workspaces/${ws.id}/members`, { headers: auth })
+    ).json()
+  ).data;
   const bobId = members.find((m: { email: string }) => m.email === 'bob@dev.local').user_id;
 
   await login(page, 'bob@dev.local');
-  await page.getByRole('button', { name: /^random$/ }).first().click();
+  await page
+    .getByRole('button', { name: /^random$/ })
+    .first()
+    .click();
   await page.waitForTimeout(1000);
 
   await request.post(`http://localhost:3000/api/channels/${general}/messages`, {

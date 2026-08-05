@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process';
 import { test, expect, type Page, type BrowserContext } from '@playwright/test';
-import {API, authHeaders, login, send, SHOTS } from './helpers';
+import { API, authHeaders, login, send, SHOTS } from './helpers';
 
 const stamp = process.env.E2E_STAMP || 'run2';
 
@@ -79,9 +79,11 @@ test('D. file upload is delivered to the other user', async () => {
     mimeType: 'text/plain',
     buffer: Buffer.from(`hello attachment ${stamp}`),
   });
-  await expect(admin.locator('[data-qa="attachment-file"], [data-qa="attachment-image"]').last()).toBeVisible({
-    timeout: 20_000,
-  });
+  await expect(admin.locator('[data-qa="attachment-file"], [data-qa="attachment-image"]').last()).toBeVisible(
+    {
+      timeout: 20_000,
+    },
+  );
   await expect(bob.locator('[data-qa="attachment-file"], [data-qa="attachment-image"]').last()).toBeVisible({
     timeout: 20_000,
   });
@@ -92,7 +94,11 @@ test('D. file upload is delivered to the other user', async () => {
 
 test('E. invite → email → registration lands the new user inside the workspace', async () => {
   const email = `newhire-${stamp}@dev.local`;
-  await admin.getByRole('button', { name: /Members|Channel members/i }).first().click().catch(() => {});
+  await admin
+    .getByRole('button', { name: /Members|Channel members/i })
+    .first()
+    .click()
+    .catch(() => {});
   const api = admin.request;
   const auth = await authHeaders(api, 'admin@dev.local');
   const ws = (await (await api.get(`${API}/workspaces`, { headers: auth })).json()).data[0];
@@ -102,7 +108,9 @@ test('E. invite → email → registration lands the new user inside the workspa
   });
   expect(inv.status()).toBe(200);
 
-  const mail = await api.get('http://localhost:8025/api/v2/search?kind=to&query=' + encodeURIComponent(email));
+  const mail = await api.get(
+    'http://localhost:8025/api/v2/search?kind=to&query=' + encodeURIComponent(email),
+  );
   const items = (await mail.json()).items;
   expect(items.length).toBeGreaterThan(0);
   const body: string = items[0].Content.Body.replace(/=\r\n/g, '').replace(/=3D/g, '=');
@@ -118,7 +126,10 @@ test('E. invite → email → registration lands the new user inside the workspa
   const pw = newbie.locator('input[type="password"]');
   await pw.first().fill('newhirepass123');
   if ((await pw.count()) > 1) await pw.nth(1).fill('newhirepass123');
-  await newbie.getByRole('button', { name: /Create account|Complete|Register|Join/i }).first().click();
+  await newbie
+    .getByRole('button', { name: /Create account|Complete|Register|Join/i })
+    .first()
+    .click();
   await expect(newbie.locator('[data-qa="message-list"]')).toBeVisible({ timeout: 20_000 });
   await newbie.screenshot({ path: `${SHOTS}/E2-newbie-inside.png` });
 
@@ -142,7 +153,8 @@ test('F. guest is scoped to the channels they were added to', async () => {
   const api = diana.request;
   const gauth = await authHeaders(api, 'diana@dev.local');
   const ws = (await (await api.get(`${API}/workspaces`, { headers: gauth })).json()).data[0];
-  const chans = (await (await api.get(`${API}/workspaces/${ws.id}/channels`, { headers: gauth })).json()).data;
+  const chans = (await (await api.get(`${API}/workspaces/${ws.id}/channels`, { headers: gauth })).json())
+    .data;
   expect(chans.some((c: { name: string }) => c.name === 'random')).toBe(false);
   const created = await api.post(`${API}/workspaces/${ws.id}/channels`, {
     headers: gauth,

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { UserX, UserCheck, ArrowLeft, RefreshCw } from 'lucide-react';
 import { useInstanceStore } from '../stores/instances';
 import { instanceManager } from '../lib/instances';

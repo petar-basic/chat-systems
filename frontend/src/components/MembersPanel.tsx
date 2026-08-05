@@ -146,7 +146,8 @@ export default function MembersPanel({ workspaceId, onClose }: Props) {
       setManageError(null);
       refreshMembers();
     },
-    onError: (err: unknown) => setManageError((err as { message?: string })?.message || 'Failed to change role'),
+    onError: (err: unknown) =>
+      setManageError((err as { message?: string })?.message || 'Failed to change role'),
   });
 
   const removeMember = useMutation({

@@ -592,7 +592,11 @@ async fn guests_cannot_create_channels_or_reach_public_ones(pool: PgPool) {
         Some(json!({ "name": "guest-room" })),
     )
     .await;
-    assert_eq!(status, StatusCode::FORBIDDEN, "guest create channel: {body:?}");
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "guest create channel: {body:?}"
+    );
 
     let (status, body) = send(
         &app,
@@ -602,7 +606,11 @@ async fn guests_cannot_create_channels_or_reach_public_ones(pool: PgPool) {
         None,
     )
     .await;
-    assert_eq!(status, StatusCode::FORBIDDEN, "guest reads public: {body:?}");
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "guest reads public: {body:?}"
+    );
 
     let (status, body) = send(
         &app,
@@ -622,7 +630,11 @@ async fn guests_cannot_create_channels_or_reach_public_ones(pool: PgPool) {
         Some(json!({ "user_id": guest_id })),
     )
     .await;
-    assert_eq!(status, StatusCode::OK, "re-adding an existing member: {body:?}");
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "re-adding an existing member: {body:?}"
+    );
 
     let (status, body) = send(
         &app,
@@ -632,5 +644,9 @@ async fn guests_cannot_create_channels_or_reach_public_ones(pool: PgPool) {
         None,
     )
     .await;
-    assert_eq!(status, StatusCode::OK, "guest reads joined channel: {body:?}");
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "guest reads joined channel: {body:?}"
+    );
 }

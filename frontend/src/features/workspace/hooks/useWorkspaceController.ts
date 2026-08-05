@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { useCurrentUser, useLogout } from '@/hooks/queries/useAuth';
 import { useWorkspaceStore, type Message, type Channel, type WorkspaceRole } from '@/stores/workspace';

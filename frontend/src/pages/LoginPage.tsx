@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router';
 import { useAddInstance, useCurrentUser } from '../hooks/queries/useAuth';
 import { LogIn, MessageSquare } from 'lucide-react';
 

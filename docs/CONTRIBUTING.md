@@ -8,7 +8,7 @@ codebase holds itself to. For the *why* behind the design, see
 
 - **Docker** + Docker Compose v2 (the only hard requirement for running the stack)
 - **Rust** stable (with `rustfmt` + `clippy`) — for host-run backend development
-- **Node** 20+ — for host-run frontend development
+- **Node** 22.22+ — for host-run frontend development (required by React Router 8)
 
 ## Configuration
 

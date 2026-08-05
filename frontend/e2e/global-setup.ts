@@ -4,7 +4,7 @@ export default function clearLoginThrottle() {
   if (process.env.E2E_SKIP_THROTTLE_RESET) return;
   try {
     execSync(
-      "docker compose exec -T redis sh -c \"redis-cli --scan --pattern 'rate_limit:login*' | xargs -r redis-cli del\"",
+      'docker compose exec -T redis sh -c "redis-cli --scan --pattern \'rate_limit:login*\' | xargs -r redis-cli del"',
       { cwd: new URL('../..', import.meta.url).pathname, stdio: 'ignore' },
     );
   } catch {

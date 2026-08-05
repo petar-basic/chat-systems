@@ -5,8 +5,13 @@ const stamp = process.env.E2E_STAMP || 'x1';
 
 test('J. hostile payloads are rendered inert', async ({ page, request }) => {
   const auth = await authHeaders(request, 'admin@dev.local');
-  const ws = (await (await request.get('http://localhost:3000/api/workspaces', { headers: auth })).json()).data[0];
-  const chans = (await (await request.get(`http://localhost:3000/api/workspaces/${ws.id}/channels`, { headers: auth })).json()).data;
+  const ws = (await (await request.get('http://localhost:3000/api/workspaces', { headers: auth })).json())
+    .data[0];
+  const chans = (
+    await (
+      await request.get(`http://localhost:3000/api/workspaces/${ws.id}/channels`, { headers: auth })
+    ).json()
+  ).data;
   const general = chans.find((c: { name: string }) => c.name === 'general').id;
 
   const payloads = [
@@ -43,8 +48,13 @@ test('J. hostile payloads are rendered inert', async ({ page, request }) => {
 
 test('K. write rate limit protects the API', async ({ request }) => {
   const auth = await authHeaders(request, 'charlie@dev.local');
-  const ws = (await (await request.get('http://localhost:3000/api/workspaces', { headers: auth })).json()).data[0];
-  const chans = (await (await request.get(`http://localhost:3000/api/workspaces/${ws.id}/channels`, { headers: auth })).json()).data;
+  const ws = (await (await request.get('http://localhost:3000/api/workspaces', { headers: auth })).json())
+    .data[0];
+  const chans = (
+    await (
+      await request.get(`http://localhost:3000/api/workspaces/${ws.id}/channels`, { headers: auth })
+    ).json()
+  ).data;
   const general = chans.find((c: { name: string }) => c.name === 'general').id;
 
   let limited = 0;
