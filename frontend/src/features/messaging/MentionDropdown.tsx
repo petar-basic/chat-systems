@@ -1,10 +1,11 @@
 import { forwardRef, useImperativeHandle, useState } from 'react';
-import { AtSign, Hash } from 'lucide-react';
+import { AtSign, Hash, Megaphone } from 'lucide-react';
 
 export interface MentionItem {
   id: string;
   label: string;
-  type: 'user' | 'channel';
+  type: 'user' | 'channel' | 'broadcast';
+  hint?: string;
 }
 
 interface Props {
@@ -54,7 +55,7 @@ export const MentionDropdown = forwardRef<MentionDropdownHandle, Props>(({ items
   }
 
   return (
-    <div className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden w-52">
+    <div className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden w-64">
       {items.map((item, i) => (
         <button
           key={`${item.type}-${item.id}`}
@@ -69,10 +70,13 @@ export const MentionDropdown = forwardRef<MentionDropdownHandle, Props>(({ items
         >
           {item.type === 'channel' ? (
             <Hash className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          ) : item.type === 'broadcast' ? (
+            <Megaphone className="w-3.5 h-3.5 text-amber-400 shrink-0" />
           ) : (
             <AtSign className="w-3.5 h-3.5 text-slate-400 shrink-0" />
           )}
           <span className="truncate">{item.label}</span>
+          {item.hint && <span className="ml-auto text-[10px] text-slate-500 shrink-0">{item.hint}</span>}
         </button>
       ))}
     </div>

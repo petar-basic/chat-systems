@@ -10,6 +10,7 @@ mod messaging;
 mod metrics;
 mod middleware;
 mod notifications;
+mod presence;
 mod rate_limit;
 mod state;
 mod workspace;

@@ -213,7 +213,11 @@ export default function ChannelSidebar({
           <span className="truncate">{ch.name || 'Channel'}</span>
           {muted && <BellOff className="w-3 h-3 text-slate-600 ml-auto shrink-0" />}
           {!muted && mentionChannels.has(ch.id) && (
-            <span className="ml-auto w-5 h-5 bg-red-500 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold text-white">
+            <span
+              data-qa="channel-mention-badge"
+              data-channel-id={ch.id}
+              className="ml-auto w-5 h-5 bg-red-500 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold text-white"
+            >
               @
             </span>
           )}

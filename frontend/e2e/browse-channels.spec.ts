@@ -1,10 +1,5 @@
 import { test, expect, type APIRequestContext } from '@playwright/test';
-import { API, PASSWORD, login } from './helpers';
-
-async function signIn(ctx: APIRequestContext, email: string) {
-  const res = await ctx.post(`${API}/auth/login`, { data: { email, password: PASSWORD } });
-  expect(res.status(), `login for ${email}`).toBe(200);
-}
+import { API, login, userContext } from './helpers';
 
 async function firstWorkspace(ctx: APIRequestContext) {
   return (await (await ctx.get(`${API}/workspaces`)).json()).data[0];
@@ -18,14 +13,9 @@ async function createChannel(ctx: APIRequestContext, workspaceId: string, name: 
   return (await res.json()).id as string;
 }
 
-test('a member can find a public channel they are not in and join it from the browser', async ({
-  page,
-  playwright,
-}) => {
-  const admin = await playwright.request.newContext();
-  const alice = await playwright.request.newContext();
-  await signIn(admin, 'admin@dev.local');
-  await signIn(alice, 'alice@dev.local');
+test('a member can find a public channel they are not in and join it from the browser', async ({ page }) => {
+  const { ctx: admin } = await userContext('admin@dev.local');
+  const { ctx: alice } = await userContext('alice@dev.local');
 
   const workspace = await firstWorkspace(alice);
   const stamp = Date.now();
@@ -69,11 +59,9 @@ test('a member can find a public channel they are not in and join it from the br
   }
 });
 
-test('leaving from the browser drops the channel out of the sidebar', async ({ page, playwright }) => {
-  const admin = await playwright.request.newContext();
-  const alice = await playwright.request.newContext();
-  await signIn(admin, 'admin@dev.local');
-  await signIn(alice, 'alice@dev.local');
+test('leaving from the browser drops the channel out of the sidebar', async ({ page }) => {
+  const { ctx: admin } = await userContext('admin@dev.local');
+  const { ctx: alice } = await userContext('alice@dev.local');
 
   const workspace = await firstWorkspace(alice);
   const name = `browse-leave-${Date.now()}`;
@@ -101,11 +89,9 @@ test('leaving from the browser drops the channel out of the sidebar', async ({ p
   }
 });
 
-test('the API keeps private channels out of browse and refuses joining them', async ({ playwright }) => {
-  const admin = await playwright.request.newContext();
-  const alice = await playwright.request.newContext();
-  await signIn(admin, 'admin@dev.local');
-  await signIn(alice, 'alice@dev.local');
+test('the API keeps private channels out of browse and refuses joining them', async () => {
+  const { ctx: admin } = await userContext('admin@dev.local');
+  const { ctx: alice } = await userContext('alice@dev.local');
 
   const workspace = await firstWorkspace(alice);
   const privateId = await createChannel(admin, workspace.id, `browse-private-${Date.now()}`, 'private');

@@ -315,6 +315,15 @@ impl MessageRepo {
         .await
     }
 
+    pub async fn list_channel_member_ids(&self, channel_id: Uuid) -> sqlx::Result<Vec<Uuid>> {
+        let rows: Vec<(Uuid,)> =
+            sqlx::query_as("SELECT user_id FROM channel_members WHERE channel_id = $1")
+                .bind(channel_id)
+                .fetch_all(&self.pool)
+                .await?;
+        Ok(rows.into_iter().map(|r| r.0).collect())
+    }
+
     pub async fn is_channel_admin(&self, channel_id: Uuid, user_id: Uuid) -> sqlx::Result<bool> {
         let row: (bool,) = sqlx::query_as(
             "SELECT EXISTS(SELECT 1 FROM channel_members WHERE channel_id = $1 AND user_id = $2 AND role = 'admin')",

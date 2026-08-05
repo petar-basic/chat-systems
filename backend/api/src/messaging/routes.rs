@@ -131,7 +131,7 @@ async fn send_message(
     )
     .await;
 
-    let mentioned_ids = extract_mentioned_user_ids(&req.content);
+    let mentioned_ids = expand_mentions(&state, ch_id, auth.user_id, &req.content).await;
 
     let msg_json = serde_json::to_value(&msg).map_err(|e| AppError::Internal(e.to_string()))?;
     let _ = state
@@ -338,7 +338,8 @@ async fn reply_to_thread(
     )
     .await;
 
-    let mentioned_ids = extract_mentioned_user_ids(&req.content);
+    let mentioned_ids =
+        expand_mentions(&state, parent.channel_id, auth.user_id, &req.content).await;
 
     let msg_json = serde_json::to_value(&msg).map_err(|e| AppError::Internal(e.to_string()))?;
     let _ = state
@@ -549,6 +550,115 @@ fn extract_file_keys(content: &str) -> Vec<String> {
     keys
 }
 
+#[derive(Debug, Default, PartialEq)]
+struct BroadcastMentions {
+    channel: bool,
+    here: bool,
+}
+
+impl BroadcastMentions {
+    fn any(&self) -> bool {
+        self.channel || self.here
+    }
+}
+
+fn extract_broadcast_mentions(content: &str) -> BroadcastMentions {
+    let mut found = BroadcastMentions::default();
+    for target in mention_targets(content) {
+        match target.as_str() {
+            "channel" | "everyone" => found.channel = true,
+            "here" => found.here = true,
+            _ => {}
+        }
+    }
+    for word in ["channel", "everyone", "here"] {
+        if !contains_bare_mention(content, word) {
+            continue;
+        }
+        if word == "here" {
+            found.here = true;
+        } else {
+            found.channel = true;
+        }
+    }
+    found
+}
+
+fn contains_bare_mention(content: &str, word: &str) -> bool {
+    let needle = format!("@{word}");
+    let mut from = 0;
+    while let Some(offset) = content[from..].find(&needle) {
+        let start = from + offset;
+        let before_ok = start == 0
+            || matches!(
+                content[..start].chars().next_back(),
+                Some(' ') | Some('\n') | Some('(')
+            );
+        let after = content[start + needle.len()..].chars().next();
+        let after_ok = !matches!(after, Some(c) if c.is_alphanumeric() || c == '_');
+        if before_ok && after_ok {
+            return true;
+        }
+        from = start + needle.len();
+    }
+    false
+}
+
+pub(crate) async fn expand_mentions(
+    state: &AppState,
+    channel_id: Uuid,
+    author_id: Uuid,
+    content: &str,
+) -> Vec<Uuid> {
+    let mut mentioned: Vec<Uuid> = extract_mentioned_user_ids(content);
+    let broadcast = extract_broadcast_mentions(content);
+
+    if broadcast.any() {
+        let members = state
+            .message_repo
+            .list_channel_member_ids(channel_id)
+            .await
+            .unwrap_or_default();
+
+        let online = if broadcast.here && !broadcast.channel {
+            let mut conn = state.redis.clone();
+            Some(crate::presence::online_user_ids(&mut conn).await)
+        } else {
+            None
+        };
+
+        for member in members {
+            let reachable = online.as_ref().is_none_or(|set| set.contains(&member));
+            if reachable {
+                mentioned.push(member);
+            }
+        }
+    }
+
+    mentioned.retain(|id| *id != author_id);
+    mentioned.sort();
+    mentioned.dedup();
+    mentioned
+}
+
+fn mention_targets(content: &str) -> Vec<String> {
+    let mut targets = Vec::new();
+    let mut remaining = content;
+    while let Some(at_pos) = remaining.find("@[") {
+        remaining = &remaining[at_pos + 2..];
+        let Some(label_end) = remaining.find("](") else {
+            break;
+        };
+        remaining = &remaining[label_end + 2..];
+        let Some(id_end) = remaining.find(')') else {
+            break;
+        };
+        targets.push(remaining[..id_end].trim().to_string());
+        remaining = &remaining[id_end + 1..];
+    }
+    targets
+}
+
 fn extract_mentioned_user_ids(content: &str) -> Vec<Uuid> {
     let mut ids = Vec::new();
     let mut remaining = content;
@@ -572,4 +682,49 @@ fn extract_mentioned_user_ids(content: &str) -> Vec<Uuid> {
 
 fn is_unique_violation(e: &sqlx::Error) -> bool {
     matches!(e, sqlx::Error::Database(dbe) if dbe.code().as_deref() == Some("23505"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn broadcast_mentions_are_recognised_by_their_target() {
+        let channel = extract_broadcast_mentions("heads up @[channel](channel)");
+        assert_eq!(
+            channel,
+            BroadcastMentions {
+                channel: true,
+                here: false
+            }
+        );
+
+        let everyone = extract_broadcast_mentions("@[everyone](everyone) ship it");
+        assert!(everyone.channel, "@everyone reaches the whole channel");
+
+        let here = extract_broadcast_mentions("@[here](here) quick question");
+        assert_eq!(
+            here,
+            BroadcastMentions {
+                channel: false,
+                here: true
+            }
+        );
+    }
+
+    #[test]
+    fn a_typed_broadcast_counts_even_without_picking_it_from_the_dropdown() {
+        assert!(extract_broadcast_mentions("@channel standup in 5").channel);
+        assert!(extract_broadcast_mentions("ping @here please").here);
+        assert!(extract_broadcast_mentions("(@everyone)").channel);
+    }
+
+    #[test]
+    fn lookalikes_and_user_mentions_are_not_broadcasts() {
+        let user = format!("@[Alice]({})", Uuid::new_v4());
+        assert!(!extract_broadcast_mentions(&user).any());
+        assert!(!extract_broadcast_mentions("email me at here@example.com").any());
+        assert!(!extract_broadcast_mentions("we have many @channels").any());
+        assert!(!extract_broadcast_mentions("mail@hereafter.io").any());
+    }
 }

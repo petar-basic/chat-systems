@@ -14,6 +14,7 @@ import { Paperclip, Send, SmilePlus } from 'lucide-react';
 import { MENTION_SUGGESTION_LIMIT, DRAFT_SAVE_DEBOUNCE_MS } from '@/shared/constants';
 import { useDraftStore } from '@/stores/drafts';
 import { flattenMentions } from '@/lib/mentions';
+import { buildMentionItems } from './mentionItems';
 
 const MentionNode = Mention.extend({
   addStorage() {
@@ -71,11 +72,8 @@ export default function MessageInput({
   cancelRef.current = onCancel;
 
   const mentionItems = useMemo<MentionItem[]>(
-    () => [
-      ...members.map((m) => ({ id: m.user_id, label: m.display_name || m.email, type: 'user' as const })),
-      ...channels.map((c) => ({ id: c.id, label: c.name, type: 'channel' as const })),
-    ],
-    [members, channels],
+    () => buildMentionItems(members, channels, isDm),
+    [members, channels, isDm],
   );
   const mentionItemsRef = useRef<MentionItem[]>(mentionItems);
   useEffect(() => {

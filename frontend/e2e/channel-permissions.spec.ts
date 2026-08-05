@@ -1,16 +1,10 @@
 import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
-import { API, PASSWORD, login } from './helpers';
+import { API, login, userContext } from './helpers';
 
 async function openChannel(page: Page, workspaceId: string, channelId: string, name: string) {
   await page.goto(`/app/${workspaceId}/${channelId}`);
   await expect(page.locator('[data-qa="channel-header-name"]')).toHaveText(name);
   await expect(page).toHaveURL(new RegExp(`/app/${workspaceId}/${channelId}$`));
-}
-
-async function signIn(ctx: APIRequestContext, email: string) {
-  const res = await ctx.post(`${API}/auth/login`, { data: { email, password: PASSWORD } });
-  expect(res.status(), `login for ${email}`).toBe(200);
-  return (await res.json()).user.id as string;
 }
 
 async function sharedWorkspace(ctx: APIRequestContext) {
@@ -25,11 +19,9 @@ async function createChannel(ctx: APIRequestContext, workspaceId: string, name: 
   return (await res.json()).id as string;
 }
 
-test('a channel admin can rename their channel while a plain member cannot', async ({ page, playwright }) => {
-  const admin = await playwright.request.newContext();
-  const bob = await playwright.request.newContext();
-  await signIn(admin, 'admin@dev.local');
-  const bobId = await signIn(bob, 'bob@dev.local');
+test('a channel admin can rename their channel while a plain member cannot', async ({ page }) => {
+  const { ctx: admin } = await userContext('admin@dev.local');
+  const { ctx: bob, userId: bobId } = await userContext('bob@dev.local');
 
   const workspace = await sharedWorkspace(bob);
   const stamp = Date.now();
@@ -75,14 +67,9 @@ test('a channel admin can rename their channel while a plain member cannot', asy
   }
 });
 
-test('channel roles can be handed out and taken back from the members panel', async ({
-  page,
-  playwright,
-}) => {
-  const admin = await playwright.request.newContext();
-  const bob = await playwright.request.newContext();
-  await signIn(admin, 'admin@dev.local');
-  const bobId = await signIn(bob, 'bob@dev.local');
+test('channel roles can be handed out and taken back from the members panel', async ({ page }) => {
+  const { ctx: admin } = await userContext('admin@dev.local');
+  const { ctx: bob, userId: bobId } = await userContext('bob@dev.local');
 
   const workspace = await sharedWorkspace(bob);
   const channelName = `roles-${Date.now()}`;
@@ -93,8 +80,10 @@ test('channel roles can be handed out and taken back from the members panel', as
 
     await login(page, 'admin@dev.local');
     await openChannel(page, workspace.id, channelId, channelName);
-    await page.getByRole('button', { name: 'Channel members' }).click();
-    await expect(page.locator('[data-qa="channel-members-panel"]')).toBeVisible();
+    await expect(async () => {
+      await page.getByRole('button', { name: 'Channel members' }).click();
+      await expect(page.locator('[data-qa="channel-members-panel"]')).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 15_000 });
 
     const bobRow = page.locator(`[data-qa="channel-member-row"][data-user-id="${bobId}"]`);
     await expect(bobRow.locator('[data-qa="channel-member-role"]')).toHaveText('Member');
@@ -114,13 +103,10 @@ test('channel roles can be handed out and taken back from the members panel', as
   }
 });
 
-test('a plain member can add people to a public channel but not to a private one', async ({ playwright }) => {
-  const admin = await playwright.request.newContext();
-  const bob = await playwright.request.newContext();
-  const charlie = await playwright.request.newContext();
-  await signIn(admin, 'admin@dev.local');
-  await signIn(bob, 'bob@dev.local');
-  const charlieId = await signIn(charlie, 'charlie@dev.local');
+test('a plain member can add people to a public channel but not to a private one', async () => {
+  const { ctx: admin } = await userContext('admin@dev.local');
+  const { ctx: bob } = await userContext('bob@dev.local');
+  const { ctx: charlie, userId: charlieId } = await userContext('charlie@dev.local');
 
   const workspace = await sharedWorkspace(bob);
   const stamp = Date.now();

@@ -1,4 +1,6 @@
 use super::common::*;
+use crate::messaging::routes::expand_mentions;
+use crate::workspace::models::ChannelRole;
 use axum::http::StatusCode;
 use serde_json::json;
 use sqlx::PgPool;
@@ -691,4 +693,126 @@ async fn mark_read_no_token_unauthorized(pool: PgPool) {
     )
     .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
+}
+
+async fn mark_online(state: &crate::state::AppState, user_id: uuid::Uuid) {
+    let mut conn = state.redis.clone();
+    let _: redis::RedisResult<()> = redis::cmd("SET")
+        .arg(format!("presence:{user_id}:test-node"))
+        .arg("online")
+        .arg("EX")
+        .arg(30)
+        .query_async(&mut conn)
+        .await;
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn channel_broadcast_notifies_every_member_except_the_author(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (author_id, _, _) = seed_and_login(&app, &state, "mention-author", false).await;
+    let ws_id = seed_workspace(&state, author_id, "Broadcast WS").await;
+    let ch_id = seed_channel(&state, ws_id, author_id, "general", false).await;
+
+    let (first, _) = seed(&state, "mention-first", false).await;
+    let (second, _) = seed(&state, "mention-second", false).await;
+    for member in [first, second] {
+        add_ws_member(&state, ws_id, member, "member").await;
+        state
+            .workspace_service
+            .repo
+            .add_channel_member(ch_id, member, &ChannelRole::Member)
+            .await
+            .expect("add channel member");
+    }
+
+    let mentioned = expand_mentions(
+        &state,
+        ch_id,
+        author_id,
+        "@[channel](channel) deploying now",
+    )
+    .await;
+
+    let mut expected = vec![first, second];
+    expected.sort();
+    assert_eq!(
+        mentioned, expected,
+        "every other channel member is notified, the author is not"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn here_only_reaches_members_with_a_live_connection(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (author_id, _, _) = seed_and_login(&app, &state, "mention-author", false).await;
+    let ws_id = seed_workspace(&state, author_id, "Here WS").await;
+    let ch_id = seed_channel(&state, ws_id, author_id, "general", false).await;
+
+    let (online_member, _) = seed(&state, "mention-online", false).await;
+    let (offline_member, _) = seed(&state, "mention-offline", false).await;
+    for member in [online_member, offline_member] {
+        add_ws_member(&state, ws_id, member, "member").await;
+        state
+            .workspace_service
+            .repo
+            .add_channel_member(ch_id, member, &ChannelRole::Member)
+            .await
+            .expect("add channel member");
+    }
+    mark_online(&state, online_member).await;
+
+    let mentioned = expand_mentions(&state, ch_id, author_id, "@[here](here) anyone around?").await;
+
+    assert_eq!(
+        mentioned,
+        vec![online_member],
+        "@here skips members who are not connected"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn a_named_mention_alongside_a_broadcast_is_not_delivered_twice(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (author_id, _, _) = seed_and_login(&app, &state, "mention-author", false).await;
+    let ws_id = seed_workspace(&state, author_id, "Dedupe WS").await;
+    let ch_id = seed_channel(&state, ws_id, author_id, "general", false).await;
+
+    let (member_id, _) = seed(&state, "mention-member", false).await;
+    add_ws_member(&state, ws_id, member_id, "member").await;
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(ch_id, member_id, &ChannelRole::Member)
+        .await
+        .expect("add channel member");
+
+    let content = format!("@[Member]({member_id}) and @[channel](channel)");
+    let mentioned = expand_mentions(&state, ch_id, author_id, &content).await;
+
+    assert_eq!(mentioned, vec![member_id]);
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn a_message_without_a_broadcast_only_notifies_the_named_user(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (author_id, _, _) = seed_and_login(&app, &state, "mention-author", false).await;
+    let ws_id = seed_workspace(&state, author_id, "Named WS").await;
+    let ch_id = seed_channel(&state, ws_id, author_id, "general", false).await;
+
+    let (named, _) = seed(&state, "mention-named", false).await;
+    let (bystander, _) = seed(&state, "mention-bystander", false).await;
+    for member in [named, bystander] {
+        add_ws_member(&state, ws_id, member, "member").await;
+        state
+            .workspace_service
+            .repo
+            .add_channel_member(ch_id, member, &ChannelRole::Member)
+            .await
+            .expect("add channel member");
+    }
+
+    let content = format!("just you @[Named]({named})");
+    let mentioned = expand_mentions(&state, ch_id, author_id, &content).await;
+
+    assert_eq!(mentioned, vec![named], "bystanders stay unnotified");
 }
