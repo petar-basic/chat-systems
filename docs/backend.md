@@ -218,6 +218,15 @@ Sends and manages messages, threads, reactions, pins, read tracking, and search.
 | GET | `/messages/:msg_id/thread` | Query: `limit=50, offset=0` | `{ data: Message[] }` |
 | POST | `/messages/:msg_id/thread` | `{ content }` | `Message` |
 
+**Mentions.** Sending a channel message or thread reply expands the mentions in its body
+into the `mentioned_user_ids` carried by `message.created`, which the notifications
+consumer turns into per-user notifications (still subject to that user's channel mute and
+DND). A mention is either a picked token (`@[Label](uuid)`) or one of the broadcasts —
+`@channel` / `@everyone` (every channel member) and `@here` (channel members with a live
+`presence:*` key in Redis). Broadcasts count whether the author picked them from the
+composer (`@[channel](channel)`) or simply typed the word; the author is never notified of
+their own message, and a named user inside a broadcast is notified once, not twice.
+
 **Reactions:**
 
 | Method | Route | Input | Output |

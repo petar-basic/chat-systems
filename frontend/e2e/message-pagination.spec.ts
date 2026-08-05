@@ -1,21 +1,13 @@
-import { test, expect, type APIRequestContext } from '@playwright/test';
-import { API, PASSWORD, login } from './helpers';
+import { test, expect } from '@playwright/test';
+import { API, login, userContext } from './helpers';
 
 const TOTAL = 55;
 const PAGE_SIZE = 50;
 
-async function signIn(ctx: APIRequestContext, email: string) {
-  const res = await ctx.post(`${API}/auth/login`, { data: { email, password: PASSWORD } });
-  expect(res.status(), `login for ${email}`).toBe(200);
-}
-
-test('scrolling up loads older messages without repeating any', async ({ page, playwright }) => {
-  const admin = await playwright.request.newContext();
-  const alice = await playwright.request.newContext();
-  const bob = await playwright.request.newContext();
-  await signIn(admin, 'admin@dev.local');
-  await signIn(alice, 'alice@dev.local');
-  await signIn(bob, 'bob@dev.local');
+test('scrolling up loads older messages without repeating any', async ({ page }) => {
+  const { ctx: admin } = await userContext('admin@dev.local');
+  const { ctx: alice } = await userContext('alice@dev.local');
+  const { ctx: bob } = await userContext('bob@dev.local');
   const authors = [admin, alice, bob];
 
   const workspace = (await (await admin.get(`${API}/workspaces`)).json()).data[0];

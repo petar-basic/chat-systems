@@ -1,15 +1,10 @@
 import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
-import { API, PASSWORD, login } from './helpers';
+import { API, login, userContext } from './helpers';
 
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
   'base64',
 );
-
-async function signIn(ctx: APIRequestContext, email: string) {
-  const res = await ctx.post(`${API}/auth/login`, { data: { email, password: PASSWORD } });
-  expect(res.status(), `login for ${email}`).toBe(200);
-}
 
 async function generalChannel(ctx: APIRequestContext) {
   const workspace = (await (await ctx.get(`${API}/workspaces`)).json()).data[0];
@@ -22,11 +17,9 @@ async function openChannel(page: Page, workspaceId: string, channelId: string) {
   await expect(page.locator('[data-qa="message-list"]')).toBeVisible();
 }
 
-test('an uploaded avatar replaces the initials fallback across the app', async ({ page, playwright }) => {
-  const alice = await playwright.request.newContext();
-  const admin = await playwright.request.newContext();
-  await signIn(alice, 'alice@dev.local');
-  await signIn(admin, 'admin@dev.local');
+test('an uploaded avatar replaces the initials fallback across the app', async ({ page }) => {
+  const { ctx: alice } = await userContext('alice@dev.local');
+  const { ctx: admin } = await userContext('admin@dev.local');
 
   const { workspace, general } = await generalChannel(alice);
 
@@ -72,9 +65,8 @@ test('an uploaded avatar replaces the initials fallback across the app', async (
   }
 });
 
-test('a broken avatar url degrades to initials instead of a broken image', async ({ page, playwright }) => {
-  const alice = await playwright.request.newContext();
-  await signIn(alice, 'alice@dev.local');
+test('a broken avatar url degrades to initials instead of a broken image', async ({ page }) => {
+  const { ctx: alice } = await userContext('alice@dev.local');
   const { workspace, general } = await generalChannel(alice);
 
   const saved = await alice.patch(`${API}/users/me`, {
@@ -93,9 +85,8 @@ test('a broken avatar url degrades to initials instead of a broken image', async
   }
 });
 
-test('the API rejects an avatar url with a hostile scheme', async ({ playwright }) => {
-  const alice = await playwright.request.newContext();
-  await signIn(alice, 'alice@dev.local');
+test('the API rejects an avatar url with a hostile scheme', async () => {
+  const { ctx: alice } = await userContext('alice@dev.local');
 
   const rejected = await alice.patch(`${API}/users/me`, {
     data: { avatar_url: 'javascript:alert(1)' },
