@@ -3,10 +3,11 @@ import { api } from '../lib/api';
 import type { WorkspaceMember } from '../stores/workspace';
 import { useWorkspaceStore } from '../stores/workspace';
 import { getUserDisplay } from '../lib/userHelpers';
-import { X, UserPlus, Crown, Shield, User, Mail } from 'lucide-react';
+import { X, UserPlus, UserMinus, Crown, Shield, User, Mail } from 'lucide-react';
 import PresenceDot from './PresenceDot';
 import { useWorkspaceMembers } from '../hooks/queries/useWorkspaces';
-import { useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { instanceManager } from '../lib/instances';
 import { QUERY_KEYS } from '@/shared/constants';
 
 interface Props {
@@ -14,8 +15,32 @@ interface Props {
   onClose: () => void;
 }
 
-function MemberRow({ member }: { member: WorkspaceMember }) {
+const ROLE_LEVEL: Record<string, number> = { guest: 10, member: 20, channel_admin: 30, admin: 40, owner: 50 };
+const ASSIGNABLE_ROLES = ['guest', 'member', 'admin', 'owner'] as const;
+
+function MemberRow({
+  member,
+  actorRole,
+  isSelf,
+  onChangeRole,
+  onRemove,
+  busy,
+}: {
+  member: WorkspaceMember;
+  actorRole: string | null;
+  isSelf: boolean;
+  onChangeRole: (userId: string, role: string) => void;
+  onRemove: (userId: string) => void;
+  busy: boolean;
+}) {
   const { displayName, email } = getUserDisplay(member.user_id, [member]);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+
+  const actorLevel = actorRole ? (ROLE_LEVEL[actorRole] ?? 0) : 0;
+  const targetLevel = ROLE_LEVEL[member.role] ?? 0;
+  const canManage =
+    !isSelf && actorLevel >= ROLE_LEVEL.admin && actorLevel > targetLevel && member.role !== 'owner';
+  const grantable = ASSIGNABLE_ROLES.filter((r) => ROLE_LEVEL[r] <= actorLevel);
 
   const roleIcon = () => {
     switch (member.role) {
@@ -44,11 +69,60 @@ function MemberRow({ member }: { member: WorkspaceMember }) {
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium text-slate-200 truncate">{displayName}</div>
         {email && <div className="text-xs text-slate-400 truncate">{email}</div>}
+        {confirmRemove && (
+          <div className="mt-1 flex items-center gap-2 text-xs">
+            <span className="text-red-400">Remove from workspace?</span>
+            <button
+              onClick={() => {
+                onRemove(member.user_id);
+                setConfirmRemove(false);
+              }}
+              data-qa="member-remove-confirm"
+              className="px-2 py-0.5 bg-red-600 hover:bg-red-500 text-white rounded transition cursor-pointer"
+            >
+              Remove
+            </button>
+            <button
+              onClick={() => setConfirmRemove(false)}
+              className="text-slate-400 hover:text-white transition cursor-pointer"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
       </div>
-      <div className="flex items-center gap-1.5 text-xs text-slate-400">
-        {roleIcon()}
-        <span>{roleName}</span>
-      </div>
+      {canManage ? (
+        <div className="flex items-center gap-1.5 shrink-0">
+          <select
+            value={member.role}
+            disabled={busy}
+            onChange={(e) => onChangeRole(member.user_id, e.target.value)}
+            aria-label={`Role for ${displayName}`}
+            data-qa="member-role-select"
+            className="bg-slate-700/50 border border-slate-600 rounded-md px-1.5 py-1 text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50 cursor-pointer"
+          >
+            {grantable.map((r) => (
+              <option key={r} value={r}>
+                {r.charAt(0).toUpperCase() + r.slice(1)}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={() => setConfirmRemove(true)}
+            disabled={busy}
+            aria-label={`Remove ${displayName}`}
+            data-qa="member-remove"
+            className="p-1 text-slate-400 hover:text-red-400 transition cursor-pointer disabled:opacity-50"
+          >
+            <UserMinus className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-1.5 text-xs text-slate-400">
+          {roleIcon()}
+          <span>{roleName}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -56,7 +130,35 @@ function MemberRow({ member }: { member: WorkspaceMember }) {
 export default function MembersPanel({ workspaceId, onClose }: Props) {
   const queryClient = useQueryClient();
   const instanceUrl = useWorkspaceStore((s) => s.currentWorkspace?.instanceUrl);
+  const actorRole = useWorkspaceStore((s) => s.currentUserRole);
+  const currentUserId = useWorkspaceStore((s) => s.currentUserId);
   const { data: members = [], isLoading: loading } = useWorkspaceMembers(workspaceId, instanceUrl);
+  const [manageError, setManageError] = useState<string | null>(null);
+
+  const apiClient = instanceUrl ? instanceManager.get(instanceUrl).api : api;
+  const refreshMembers = () =>
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceMembers(workspaceId) });
+
+  const changeRole = useMutation({
+    mutationFn: ({ userId, role }: { userId: string; role: string }) =>
+      apiClient.patch(`/workspaces/${workspaceId}/members/${userId}/role`, { role }),
+    onSuccess: () => {
+      setManageError(null);
+      refreshMembers();
+    },
+    onError: (err: unknown) =>
+      setManageError((err as { message?: string })?.message || 'Failed to change role'),
+  });
+
+  const removeMember = useMutation({
+    mutationFn: (userId: string) => apiClient.delete(`/workspaces/${workspaceId}/members/${userId}`),
+    onSuccess: () => {
+      setManageError(null);
+      refreshMembers();
+    },
+    onError: (err: unknown) =>
+      setManageError((err as { message?: string })?.message || 'Failed to remove member'),
+  });
 
   const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -173,8 +275,17 @@ export default function MembersPanel({ workspaceId, onClose }: Props) {
                 {members.length} member{members.length !== 1 ? 's' : ''}
               </span>
             </div>
+            {manageError && <div className="px-4 pb-1 text-xs text-red-400">{manageError}</div>}
             {members.map((m) => (
-              <MemberRow key={m.user_id} member={m} />
+              <MemberRow
+                key={m.user_id}
+                member={m}
+                actorRole={actorRole}
+                isSelf={m.user_id === currentUserId}
+                busy={changeRole.isPending || removeMember.isPending}
+                onChangeRole={(userId, role) => changeRole.mutate({ userId, role })}
+                onRemove={(userId) => removeMember.mutate(userId)}
+              />
             ))}
           </>
         )}

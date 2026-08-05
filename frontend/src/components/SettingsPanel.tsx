@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { X, Save, Trash2, AlertTriangle, RotateCcw } from 'lucide-react';
 import { useRestoreWorkspace } from '../hooks/queries/useWorkspaces';
 import { useQueryClient } from '@tanstack/react-query';

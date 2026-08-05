@@ -38,7 +38,9 @@ export const useSendThreadReply = (parentMessageId: string, channelId: string) =
       });
     },
     onSuccess: (newMessage) => {
-      queryClient.setQueryData<Message[]>(['threads', parentMessageId], (old = []) => [...old, newMessage]);
+      queryClient.setQueryData<Message[]>(QUERY_KEYS.thread(parentMessageId), (old = []) =>
+        old.some((m) => m.id === newMessage.id) ? old : [...old, newMessage],
+      );
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.messages(channelId) });
     },
   });

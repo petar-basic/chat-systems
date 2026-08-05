@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { ServerCrash, LogIn } from 'lucide-react';
 import { useInstanceStore } from '../stores/instances';
 

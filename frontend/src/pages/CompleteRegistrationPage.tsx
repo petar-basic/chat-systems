@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { useCompleteRegistration, useCurrentUser } from '../hooks/queries/useAuth';
 import { api } from '../lib/api';
 import { UserPlus, MessageSquare } from 'lucide-react';

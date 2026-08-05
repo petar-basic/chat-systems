@@ -497,3 +497,156 @@ async fn revoke_invite_admin_only(pool: PgPool) {
 fn uuid_suffix() -> String {
     uuid::Uuid::new_v4().simple().to_string()
 }
+
+#[sqlx::test(migrations = "../migrations")]
+async fn workspace_admin_cannot_outrank_owner_or_itself(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "esc-owner", false).await;
+    let (admin_id, _, admin_token) = seed_and_login(&app, &state, "esc-admin", false).await;
+    let (member_id, _, _) = seed_and_login(&app, &state, "esc-member", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Escalation WS").await;
+    add_ws_member(&state, ws_id, admin_id, "admin").await;
+    add_ws_member(&state, ws_id, member_id, "member").await;
+
+    let (status, body) = send(
+        &app,
+        "PATCH",
+        &format!("/api/workspaces/{ws_id}/members/{admin_id}/role"),
+        Some(&admin_token),
+        Some(json!({ "role": "owner" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "self promotion: {body:?}");
+
+    let (status, body) = send(
+        &app,
+        "PATCH",
+        &format!("/api/workspaces/{ws_id}/members/{owner_id}/role"),
+        Some(&admin_token),
+        Some(json!({ "role": "member" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "owner demotion: {body:?}");
+
+    let (status, body) = send(
+        &app,
+        "PATCH",
+        &format!("/api/workspaces/{ws_id}/members/{member_id}/role"),
+        Some(&admin_token),
+        Some(json!({ "role": "owner" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "granting owner: {body:?}");
+
+    let (status, body) = send(
+        &app,
+        "DELETE",
+        &format!("/api/workspaces/{ws_id}/members/{owner_id}"),
+        Some(&admin_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "removing owner: {body:?}");
+
+    let (status, body) = send(
+        &app,
+        "PATCH",
+        &format!("/api/workspaces/{ws_id}/members/{member_id}/role"),
+        Some(&admin_token),
+        Some(json!({ "role": "admin" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "admin promoting a member: {body:?}");
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn deleting_a_workspace_is_owner_only(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "del-owner", false).await;
+    let (admin_id, _, admin_token) = seed_and_login(&app, &state, "del-admin", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Delete WS").await;
+    add_ws_member(&state, ws_id, admin_id, "admin").await;
+
+    let path = format!("/api/workspaces/{ws_id}");
+    let (status, body) = send(&app, "DELETE", &path, Some(&admin_token), None).await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "admin delete: {body:?}");
+
+    let (status, body) = send(&app, "DELETE", &path, Some(&owner_token), None).await;
+    assert_eq!(status, StatusCode::OK, "owner delete: {body:?}");
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn guests_cannot_create_channels_or_reach_public_ones(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "guest-owner", false).await;
+    let (guest_id, _, guest_token) = seed_and_login(&app, &state, "guest-user", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Guest WS").await;
+    add_ws_member(&state, ws_id, guest_id, "guest").await;
+    let public_ch = seed_channel(&state, ws_id, owner_id, "public-room", false).await;
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/channels"),
+        Some(&guest_token),
+        Some(json!({ "name": "guest-room" })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "guest create channel: {body:?}"
+    );
+
+    let (status, body) = send(
+        &app,
+        "GET",
+        &format!("/api/channels/{public_ch}/messages"),
+        Some(&guest_token),
+        None,
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "guest reads public: {body:?}"
+    );
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{public_ch}/members"),
+        Some(&owner_token),
+        Some(json!({ "user_id": guest_id })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "adding guest to channel: {body:?}");
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{public_ch}/members"),
+        Some(&owner_token),
+        Some(json!({ "user_id": guest_id })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "re-adding an existing member: {body:?}"
+    );
+
+    let (status, body) = send(
+        &app,
+        "GET",
+        &format!("/api/channels/{public_ch}/messages"),
+        Some(&guest_token),
+        None,
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "guest reads joined channel: {body:?}"
+    );
+}

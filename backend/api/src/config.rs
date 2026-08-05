@@ -43,6 +43,10 @@ pub struct AppConfig {
     pub turn_ttl_secs: i64,
 
     pub pg_pool_max: u32,
+
+    pub login_attempts_per_email: u64,
+    pub login_attempts_per_ip: u64,
+    pub login_attempts_window_secs: u64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -93,6 +97,9 @@ impl AppConfig {
             stun_urls: env_or("STUN_URLS", "stun:stun.l.google.com:19302"),
             turn_ttl_secs: parse_env("TURN_TTL_SECS", 43200),
             pg_pool_max: parse_env("PG_POOL_MAX", 20),
+            login_attempts_per_email: parse_env("LOGIN_ATTEMPTS_PER_EMAIL", 10),
+            login_attempts_per_ip: parse_env("LOGIN_ATTEMPTS_PER_IP", 30),
+            login_attempts_window_secs: parse_env("LOGIN_ATTEMPTS_WINDOW_SECS", 900),
         };
         if config.jwt_secret == "dev-secret-change-me-in-production" || config.jwt_secret.len() < 32
         {

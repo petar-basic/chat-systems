@@ -109,10 +109,16 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - 🟠 **Edge:** create with an empty/whitespace name → validation error.
 
 ### 3.2 🟢 Members: list / change role / remove
-- **Reach:** Members panel.
-- **Steps:** change a member's role (Member↔Admin), remove a member.
-- **Expected:** UI updates live; removed member loses access.
-- 🔴 **Edge — privilege:** as a plain Member, try to change roles / remove members → blocked (403). As Admin, you cannot elevate someone above your own level or remove the Owner.
+- **Reach:** workspace dropdown → Members.
+- **Steps:** as Owner/Admin, change a member's role from the row dropdown, then remove a member (Remove → confirm).
+- **Expected:** UI updates live; removed member loses access. Rows you may not manage (yourself, the Owner, anyone at or above your level) show a read-only role label instead of controls.
+- 🔴 **Edge — privilege:** as a plain Member or Guest there are no role controls at all, and the API rejects the calls (403). As Admin you cannot promote yourself or anyone to Owner, demote the Owner, or remove the Owner.
+- 🔴 **Edge — deleting the workspace:** `DELETE /api/workspaces/<id>` is Owner-only (or instance admin); a workspace Admin gets 403.
+
+### 3.2b 🔴 Guest scope
+- **Reach:** log in as a Guest (`diana@dev.local` in the seed).
+- **Expected:** the Guest sees only the channels they were explicitly added to — public channels are **not** implicitly readable (`GET /api/channels/<public_id>/messages` → 403) — and `POST /api/workspaces/<ws>/channels` → 403.
+- 🟢 **Sanity:** after an Admin adds the Guest to a channel, reading/posting there works.
 
 ### 3.3 🟢 Invites: create (email + shareable link), accept, revoke
 - **Steps:** create an email invite (§1.2) AND a no-email "shareable link" invite with `max_uses`. Accept the link as an already-registered user. Then **revoke** an outstanding invite.

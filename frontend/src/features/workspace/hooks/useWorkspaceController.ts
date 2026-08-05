@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { useCurrentUser, useLogout } from '@/hooks/queries/useAuth';
 import { useWorkspaceStore, type Message, type Channel, type WorkspaceRole } from '@/stores/workspace';
@@ -299,6 +299,7 @@ export function useWorkspaceController() {
     async (content: string) => {
       if (!currentChannel || !user) return;
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+      isTypingRef.current = false;
       getWs().send({ type: 'typing.stop', channel_id: currentChannel.id });
       const id = crypto.randomUUID();
       sendMessageMutation.mutate({ content, id });
@@ -313,12 +314,15 @@ export function useWorkspaceController() {
       try {
         const formData = new FormData();
         formData.append('file', file);
-        const uploaded = await getApiForInstance(currentWorkspace.instanceUrl).upload<{
-          filename: string;
-          url: string;
-        }>(`/files/upload/${currentWorkspace.id}`, formData);
-        const id = crypto.randomUUID();
-        sendMessageMutation.mutate({ content: `[file: ${uploaded.filename}](${uploaded.url})`, id });
+        const uploaded = await getApiForInstance(currentWorkspace.instanceUrl).upload<
+          { filename: string; url: string }[]
+        >(`/files/upload/${currentWorkspace.id}`, formData);
+        for (const f of uploaded) {
+          sendMessageMutation.mutate({
+            content: `[file: ${f.filename}](${f.url})`,
+            id: crypto.randomUUID(),
+          });
+        }
       } catch (err) {
         logger.error('WorkspacePage', 'handleFileUpload', err);
         toast.error(ErrorLabels.UploadFailed);

@@ -1,5 +1,5 @@
 import { useRef, useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
 import { Modal } from '@/shared/components/Modal/Modal';

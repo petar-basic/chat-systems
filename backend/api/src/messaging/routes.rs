@@ -10,7 +10,7 @@ use shared_common::errors::{AppError, AppResult};
 use super::models::*;
 use crate::middleware::{auth_middleware, AuthUser};
 use crate::state::AppState;
-use crate::workspace::models::{Channel, ChannelType};
+use crate::workspace::models::{Channel, ChannelType, WorkspaceRole};
 
 pub fn router(state: Arc<AppState>) -> Router {
     let routes = Router::new()
@@ -487,14 +487,16 @@ async fn require_channel_access(
         .await?
         .ok_or_else(|| AppError::NotFound("Channel not found".into()))?;
 
-    state
+    let member = state
         .workspace_service
         .repo
         .get_member(channel.workspace_id, user_id)
         .await?
         .ok_or_else(|| AppError::Forbidden("Not a member of this workspace".into()))?;
 
-    if channel.channel_type == ChannelType::Private || channel.channel_type == ChannelType::GroupDm
+    if member.role == WorkspaceRole::Guest
+        || channel.channel_type == ChannelType::Private
+        || channel.channel_type == ChannelType::GroupDm
     {
         state
             .workspace_service

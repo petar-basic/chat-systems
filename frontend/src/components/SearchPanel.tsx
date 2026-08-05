@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { api } from '../lib/api';
 import { useUserCache } from '../stores/users';
+import { useWorkspaceStore } from '../stores/workspace';
 import type { Message } from '../stores/workspace';
 import { X, Search } from 'lucide-react';
 import { displayNameOf } from '@/lib/userHelpers';
@@ -48,6 +49,8 @@ export default function SearchPanel({ onClose, onNavigateToMessage }: Props) {
   const [results, setResults] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const workspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -55,23 +58,31 @@ export default function SearchPanel({ onClose, onNavigateToMessage }: Props) {
     inputRef.current?.focus();
   }, []);
 
-  const doSearch = useCallback(async (q: string) => {
-    if (!q.trim()) {
-      setResults([]);
-      setSearched(false);
-      return;
-    }
-    setLoading(true);
-    setSearched(true);
-    try {
-      const res = await api.get<{ data: Message[] }>(`/search?q=${encodeURIComponent(q.trim())}&limit=20`);
-      setResults(res.data);
-    } catch {
-      setResults([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const doSearch = useCallback(
+    async (q: string) => {
+      if (!q.trim() || !workspaceId) {
+        setResults([]);
+        setSearched(false);
+        setError(null);
+        return;
+      }
+      setLoading(true);
+      setSearched(true);
+      setError(null);
+      try {
+        const res = await api.get<{ data: Message[] }>(
+          `/search?q=${encodeURIComponent(q.trim())}&workspace_id=${workspaceId}&limit=20`,
+        );
+        setResults(res.data);
+      } catch (err: unknown) {
+        setResults([]);
+        setError((err as { message?: string })?.message || 'Search failed');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [workspaceId],
+  );
 
   const handleChange = (value: string) => {
     setQuery(value);
@@ -122,6 +133,10 @@ export default function SearchPanel({ onClose, onNavigateToMessage }: Props) {
         {loading ? (
           <div className="flex justify-center py-8">
             <div className="w-5 h-5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+          </div>
+        ) : error ? (
+          <div className="text-center py-8 text-red-400 text-sm" data-qa="search-error">
+            {error}
           </div>
         ) : searched && results.length === 0 ? (
           <div className="text-center py-8 text-slate-400 text-sm">

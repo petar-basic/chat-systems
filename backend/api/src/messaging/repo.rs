@@ -208,13 +208,11 @@ impl MessageRepo {
     }
 
     pub async fn set_pinned(&self, id: Uuid, pinned: bool) -> sqlx::Result<Message> {
-        sqlx::query_as::<_, Message>(
-            "UPDATE messages SET is_pinned = $2, updated_at = NOW() WHERE id = $1 RETURNING *",
-        )
-        .bind(id)
-        .bind(pinned)
-        .fetch_one(&self.pool)
-        .await
+        sqlx::query_as::<_, Message>("UPDATE messages SET is_pinned = $2 WHERE id = $1 RETURNING *")
+            .bind(id)
+            .bind(pinned)
+            .fetch_one(&self.pool)
+            .await
     }
 
     pub async fn list_pinned(&self, channel_id: Uuid) -> sqlx::Result<Vec<Message>> {

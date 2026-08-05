@@ -50,9 +50,16 @@ async fn login(
     Json(req): Json<LoginRequest>,
 ) -> AppResult<(CookieJar, Json<AuthSession>)> {
     let key = format!("rate_limit:login:{}", req.email.to_lowercase());
-    check_rate_limit(&state, &key, 10, 900).await?;
+    let window = state.config.login_attempts_window_secs;
+    check_rate_limit(&state, &key, state.config.login_attempts_per_email, window).await?;
     if let Some(ip) = client_ip(&headers) {
-        check_rate_limit(&state, &format!("rate_limit:login_ip:{ip}"), 30, 900).await?;
+        check_rate_limit(
+            &state,
+            &format!("rate_limit:login_ip:{ip}"),
+            state.config.login_attempts_per_ip,
+            window,
+        )
+        .await?;
     }
 
     let tokens = state.auth_service.login(&req.email, &req.password).await?;
