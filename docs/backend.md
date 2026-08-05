@@ -114,6 +114,7 @@ feature — see `dm` below.)
 |--------|----------|
 | Read channels/messages, post, react, thread | Member of the workspace; **Guest** additionally must be a member of that channel (Guests never get implicit access to public channels) |
 | Create a channel | `Member` |
+| Browse public channels and self-join one | `Member` — Guests are refused, and private/archived channels are never listed or joinable |
 | Rename/archive a channel, manage channel members, invites, workspace settings | `Admin` |
 | Change a member's role | `Admin`, and the actor must strictly outrank the target and may not grant a role above their own; the Owner cannot be demoted |
 | Remove a member | `Admin` and strictly outranking the target, or the member removing themselves; the Owner cannot be removed |
@@ -154,6 +155,7 @@ feature — see `dm` below.)
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/channels` | — | `{ data: Channel[] }` (each augmented with `muted`) |
 | GET | `/workspaces/:ws_id/channels/unread` | — | `{ channel_ids: string[] }` |
+| GET | `/workspaces/:ws_id/channels/browse` | — | `{ data: BrowsableChannel[] }` — every public, unarchived channel with `member_count` and `is_member` (Members and up; Guests are refused) |
 | POST | `/workspaces/:ws_id/channels` | `{ name, channel_type?, description?, is_default? }` | `Channel` |
 | GET | `/channels/:ch_id` | — | `Channel` |
 | PATCH | `/channels/:ch_id` | `{ name?, topic?, description? }` | `Channel` |
@@ -166,6 +168,7 @@ feature — see `dm` below.)
 |--------|-------|-------|--------|
 | GET | `/channels/:ch_id/members` | — | `{ data: ChannelMember[] }` |
 | POST | `/channels/:ch_id/members` | `{ user_id }` | `ChannelMember` |
+| POST | `/channels/:ch_id/join` | — | `ChannelMember` — self-join, public and unarchived channels only; idempotent |
 | DELETE | `/channels/:ch_id/members/:user_id` | — | `{ status: "removed" }` |
 
 ---

@@ -115,6 +115,20 @@ pub struct Channel {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct BrowsableChannel {
+    pub id: Uuid,
+    pub workspace_id: Uuid,
+    pub name: Option<String>,
+    pub channel_type: ChannelType,
+    pub topic: Option<String>,
+    pub description: Option<String>,
+    pub is_default: bool,
+    pub created_at: DateTime<Utc>,
+    pub member_count: i64,
+    pub is_member: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct ChannelMember {
     pub channel_id: Uuid,
     pub user_id: Uuid,
