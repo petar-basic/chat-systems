@@ -3,6 +3,7 @@ import type { Message } from '../stores/workspace';
 import { useUserCache } from '../stores/users';
 import { useChannelPins } from '../hooks/queries/useChannels';
 import RichTextDisplay from './RichTextDisplay';
+import { Avatar } from '@/shared/components/Avatar/Avatar';
 
 interface Props {
   channelId: string;
@@ -20,7 +21,8 @@ function PinnedMessageRow({ message, onNavigate }: { message: Message; onNavigat
       onClick={() => onNavigate?.(message.id)}
       className="w-full text-left px-4 py-3 border-b border-slate-700/50 hover:bg-slate-700/20 transition cursor-pointer"
     >
-      <div className="flex items-baseline gap-2 mb-1">
+      <div className="flex items-center gap-2 mb-1">
+        <Avatar userId={message.user_id} name={displayName} avatarUrl={sender?.avatar_url} size="xs" />
         <span className="text-sm font-semibold text-slate-200">{displayName}</span>
         <span className="text-xs text-slate-400">
           {new Date(message.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}

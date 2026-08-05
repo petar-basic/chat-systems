@@ -82,7 +82,11 @@ impl UserRepo {
             r"
             UPDATE users
             SET display_name = COALESCE($2, display_name),
-                avatar_url = COALESCE($3, avatar_url),
+                avatar_url = CASE
+                    WHEN $3::text IS NULL THEN avatar_url
+                    WHEN $3 = '' THEN NULL
+                    ELSE $3
+                END,
                 bio = COALESCE($4, bio),
                 timezone = COALESCE($5, timezone),
                 updated_at = NOW()
