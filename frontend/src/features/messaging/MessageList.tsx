@@ -2,7 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef } from 'react';
 import { MessageSquare } from 'lucide-react';
 import MessageItem from './MessageItem';
 import type { Message, WorkspaceMember, Channel } from '@/stores/workspace';
-import { useMessages } from '@/hooks/queries/useMessages';
+import { useMessages, messagesOldestFirst } from '@/hooks/queries/useMessages';
 import { useUserCache } from '@/stores/users';
 import { displayNameOf } from '@/lib/userHelpers';
 import { useMessageActions } from './hooks/useMessageActions';
@@ -39,7 +39,7 @@ export default function MessageList({
     scrolledToRef.current = undefined;
   }, [highlightMessageId, channelId]);
 
-  const messages = useMemo(() => data?.pages.flatMap((page) => page.data) ?? [], [data]);
+  const messages = useMemo(() => messagesOldestFirst(data), [data]);
 
   useEffect(() => {
     if (!highlightMessageId || !data) return;
