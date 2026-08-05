@@ -58,6 +58,7 @@ export default function WorkspacePage() {
           onOpenMembers={() => panel.toggle('members')}
           onOpenSettings={() => panel.toggle('settings')}
           onOpenIntegrations={() => panel.toggle('integrations')}
+          onOpenScheduled={() => panel.toggle('scheduled')}
           onOpenProfile={() => c.setShowProfile(true)}
           onOpenNotifications={() => panel.toggle('notifications')}
           onLogout={() => c.logout.mutate()}
@@ -175,6 +176,7 @@ export default function WorkspacePage() {
         currentChannel={currentChannel}
         workspaceMembers={c.workspaceMembers}
         channels={c.channels}
+        conversations={c.conversations}
         onClose={panel.close}
         onNavigateToMessage={c.handleNavigateToMessage}
       />

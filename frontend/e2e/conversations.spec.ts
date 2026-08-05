@@ -194,3 +194,103 @@ test('a time in the past is refused before it reaches the server', async ({ page
     await bob.dispose();
   }
 });
+
+test('the scheduled panel lists a queued message and cancels it', async ({ page }) => {
+  const { ctx: admin } = await userContext('admin@dev.local');
+  const { ctx: bob } = await userContext('bob@dev.local');
+
+  const workspace = (await (await bob.get(`${API}/workspaces`)).json()).data[0];
+  const stamp = Date.now();
+  const created = await admin.post(`${API}/workspaces/${workspace.id}/channels`, {
+    data: { name: `panel-${stamp}`, channel_type: 'public' },
+  });
+  const channelId = (await created.json()).id as string;
+
+  const queued = await admin.post(`${API}/workspaces/${workspace.id}/scheduled-messages`, {
+    data: {
+      channel_id: channelId,
+      content: `panel-queued-${stamp}`,
+      send_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+    },
+  });
+  const scheduledId = (await queued.json()).id as string;
+
+  try {
+    await login(page, 'admin@dev.local');
+    await page.goto(`/app/${workspace.id}/${channelId}`);
+
+    await page.getByRole('button', { name: workspace.name }).first().click();
+    await page.locator('[data-qa="open-scheduled"]').click();
+    await expect(page.locator('[data-qa="scheduled-panel"]')).toBeVisible();
+
+    const row = page.locator(`[data-qa="scheduled-row"][data-scheduled-id="${scheduledId}"]`);
+    await expect(row.locator('[data-qa="scheduled-content"]')).toHaveText(`panel-queued-${stamp}`);
+    await expect(row.locator('[data-qa="scheduled-target"]')).toContainText(`#panel-${stamp}`);
+
+    await row.locator('[data-qa="scheduled-cancel"]').click();
+    await expect(row).toHaveCount(0);
+
+    const pending = await (await admin.get(`${API}/workspaces/${workspace.id}/scheduled-messages`)).json();
+    expect(pending.data.some((m: { id: string }) => m.id === scheduledId)).toBe(false);
+  } finally {
+    await admin.delete(`${API}/channels/${channelId}`);
+    await admin.dispose();
+    await bob.dispose();
+  }
+});
+
+test('a queued message can be moved to a new time from the panel', async ({ page }) => {
+  const { ctx: admin } = await userContext('admin@dev.local');
+  const { ctx: bob } = await userContext('bob@dev.local');
+
+  const workspace = (await (await bob.get(`${API}/workspaces`)).json()).data[0];
+  const stamp = Date.now();
+  const created = await admin.post(`${API}/workspaces/${workspace.id}/channels`, {
+    data: { name: `move-${stamp}`, channel_type: 'public' },
+  });
+  const channelId = (await created.json()).id as string;
+
+  const queued = await admin.post(`${API}/workspaces/${workspace.id}/scheduled-messages`, {
+    data: {
+      channel_id: channelId,
+      content: `move-me-${stamp}`,
+      send_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    },
+  });
+  const scheduledId = (await queued.json()).id as string;
+
+  const target = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);
+  target.setSeconds(0, 0);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const inputValue = `${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}T${pad(
+    target.getHours(),
+  )}:${pad(target.getMinutes())}`;
+
+  try {
+    await login(page, 'admin@dev.local');
+    await page.goto(`/app/${workspace.id}/${channelId}`);
+    await page.getByRole('button', { name: workspace.name }).first().click();
+    await page.locator('[data-qa="open-scheduled"]').click();
+
+    const row = page.locator(`[data-qa="scheduled-row"][data-scheduled-id="${scheduledId}"]`);
+    await row.locator('[data-qa="scheduled-reschedule"]').click();
+    await row.locator('[data-qa="scheduled-reschedule-input"]').fill('2020-01-01T09:00');
+    await row.locator('[data-qa="scheduled-reschedule-submit"]').click();
+    await expect(row.locator('[data-qa="scheduled-reschedule-error"]')).toContainText('already passed');
+
+    await row.locator('[data-qa="scheduled-reschedule-input"]').fill(inputValue);
+    await row.locator('[data-qa="scheduled-reschedule-submit"]').click();
+
+    await expect(row.locator('[data-qa="scheduled-reschedule-input"]')).toHaveCount(0);
+
+    const pending = await (await admin.get(`${API}/workspaces/${workspace.id}/scheduled-messages`)).json();
+    const moved = pending.data.find((m: { id: string }) => m.id === scheduledId);
+    expect(new Date(moved.send_at).getTime()).toBe(target.getTime());
+
+    await admin.delete(`${API}/scheduled-messages/${scheduledId}`);
+  } finally {
+    await admin.delete(`${API}/channels/${channelId}`);
+    await admin.dispose();
+    await bob.dispose();
+  }
+});

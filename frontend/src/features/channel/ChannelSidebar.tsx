@@ -17,6 +17,7 @@ import {
   Compass,
   Plug,
   Check,
+  Clock,
 } from 'lucide-react';
 import { useWorkspaceStore, type Channel, type Workspace, type WorkspaceMember } from '@/stores/workspace';
 import type { Conversation } from '@/hooks/queries/useConversations';
@@ -52,6 +53,7 @@ interface Props {
   onOpenMembers: () => void;
   onOpenSettings: () => void;
   onOpenIntegrations: () => void;
+  onOpenScheduled: () => void;
   onOpenProfile: () => void;
   onOpenNotifications: () => void;
   onLogout: () => void;
@@ -169,6 +171,7 @@ export default function ChannelSidebar({
   onOpenMembers,
   onOpenSettings,
   onOpenIntegrations,
+  onOpenScheduled,
   onOpenProfile,
   onOpenNotifications,
   onLogout,
@@ -308,6 +311,16 @@ export default function ChannelSidebar({
                 }}
               >
                 <Settings className="w-4 h-4" /> Settings
+              </button>
+              <button
+                className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
+                data-qa="open-scheduled"
+                onClick={() => {
+                  onOpenScheduled();
+                  setWsDropdownOpen(false);
+                }}
+              >
+                <Clock className="w-4 h-4" /> Scheduled
               </button>
               {isWorkspaceAdmin && (
                 <button

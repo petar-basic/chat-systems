@@ -1,4 +1,5 @@
 import type { Channel, WorkspaceMember, Workspace } from '@/stores/workspace';
+import type { Conversation } from '@/hooks/queries/useConversations';
 import type { RightPanel } from './hooks/useRightPanel';
 import MembersPanel from '@/components/MembersPanel';
 import SettingsPanel from '@/components/SettingsPanel';
@@ -8,6 +9,7 @@ import PinnedMessagesPanel from '@/components/PinnedMessagesPanel';
 import ChannelMembersPanel from '@/components/ChannelMembersPanel';
 import NotificationsPanel from '@/components/NotificationsPanel';
 import IntegrationsPanel from '@/components/IntegrationsPanel';
+import ScheduledMessagesPanel from '@/components/ScheduledMessagesPanel';
 
 interface Props {
   panel: RightPanel;
@@ -15,6 +17,7 @@ interface Props {
   currentChannel: Channel | null;
   workspaceMembers: WorkspaceMember[];
   channels: Channel[];
+  conversations: Conversation[];
   onClose: () => void;
   onNavigateToMessage: (channelId: string, messageId: string, withThread?: boolean) => void;
 }
@@ -25,6 +28,7 @@ export default function WorkspaceRightPanels({
   currentChannel,
   workspaceMembers,
   channels,
+  conversations,
   onClose,
   onNavigateToMessage,
 }: Props) {
@@ -97,6 +101,17 @@ export default function WorkspaceRightPanels({
         workspaceId={currentWorkspace.id}
         instanceUrl={currentWorkspace.instanceUrl}
         channels={channels}
+        onClose={onClose}
+      />
+    );
+  }
+  if (panel.kind === 'scheduled' && currentWorkspace) {
+    return (
+      <ScheduledMessagesPanel
+        workspaceId={currentWorkspace.id}
+        instanceUrl={currentWorkspace.instanceUrl}
+        channels={channels}
+        conversations={conversations}
         onClose={onClose}
       />
     );
