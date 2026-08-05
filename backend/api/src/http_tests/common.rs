@@ -52,6 +52,9 @@ pub fn test_config() -> AppConfig {
         stun_urls: "stun:stun.l.google.com:19302".into(),
         turn_ttl_secs: 43200,
         pg_pool_max: 5,
+        login_attempts_per_email: 10,
+        login_attempts_per_ip: 30,
+        login_attempts_window_secs: 900,
     }
 }
 

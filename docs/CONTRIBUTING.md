@@ -144,6 +144,15 @@ cd frontend && npx playwright install --with-deps
 E2E_PASSWORD=<admin password> E2E_BASE_URL=http://localhost:8080 npm run test:e2e
 ```
 
+The E2E suite drives two logged-in browser contexts against the running stack and
+covers the realtime paths (messages, threads, reactions, typing, mentions and
+notifications, DMs, unread state), the role matrix, the invite → registration flow,
+gateway-restart reconnect/backfill, and hostile-payload rendering. It restarts the
+`realtime` container in one test, so run it against a local stack, not a shared one.
+A global setup clears Redis login-throttle keys before each run
+(`E2E_SKIP_THROTTLE_RESET=1` disables that; raise `LOGIN_ATTEMPTS_PER_IP` instead
+when the stack is not reachable via `docker compose`).
+
 Backend integration tests provision a real Postgres per test via `#[sqlx::test]`, run
 migrations, and drive the full Axum stack — including the authorization matrix
 (member-ok / non-member-forbidden / no-token / not-found) for every endpoint.

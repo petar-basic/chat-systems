@@ -125,7 +125,7 @@ async fn delete_workspace(
     Query(params): Query<DeleteWorkspaceRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
     if !auth.is_instance_admin {
-        require_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
+        require_role(&state, ws_id, auth.user_id, &WorkspaceRole::Owner).await?;
     }
     let hard = params.hard.unwrap_or(false);
     if hard {
@@ -159,7 +159,7 @@ async fn restore_workspace(
     Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<Workspace>> {
     if !auth.is_instance_admin {
-        require_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
+        require_role(&state, ws_id, auth.user_id, &WorkspaceRole::Owner).await?;
     }
     let workspace = state
         .workspace_service
@@ -202,7 +202,25 @@ async fn update_member_role(
     Path((ws_id, user_id)): Path<(Uuid, Uuid)>,
     Json(req): Json<UpdateMemberRoleRequest>,
 ) -> AppResult<Json<WorkspaceMember>> {
-    require_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
+    let actor = require_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
+    let target = require_member(&state, ws_id, user_id).await?;
+
+    if !outranks(&actor.role, &target.role) {
+        return Err(AppError::Forbidden(
+            "Cannot change the role of a member at or above your own level".into(),
+        ));
+    }
+    if !actor.role.has_at_least(&req.role) {
+        return Err(AppError::Forbidden(
+            "Cannot grant a role above your own level".into(),
+        ));
+    }
+    if target.role == WorkspaceRole::Owner && req.role != WorkspaceRole::Owner {
+        return Err(AppError::Forbidden(
+            "The workspace owner cannot be demoted".into(),
+        ));
+    }
+
     let member = state
         .workspace_service
         .repo
@@ -216,7 +234,20 @@ async fn remove_member(
     auth: AuthUser,
     Path((ws_id, user_id)): Path<(Uuid, Uuid)>,
 ) -> AppResult<Json<serde_json::Value>> {
-    require_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
+    let target = require_member(&state, ws_id, user_id).await?;
+    if target.role == WorkspaceRole::Owner {
+        return Err(AppError::Forbidden(
+            "The workspace owner cannot be removed".into(),
+        ));
+    }
+    if auth.user_id != user_id {
+        let actor = require_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
+        if !outranks(&actor.role, &target.role) {
+            return Err(AppError::Forbidden(
+                "Cannot remove a member at or above your own level".into(),
+            ));
+        }
+    }
     state
         .workspace_service
         .repo
@@ -357,7 +388,7 @@ async fn create_channel(
     Json(req): Json<CreateChannelRequest>,
 ) -> AppResult<Json<Channel>> {
     validation::validate_channel_name(&req.name)?;
-    require_member(&state, ws_id, auth.user_id).await?;
+    require_role(&state, ws_id, auth.user_id, &WorkspaceRole::Member).await?;
     let channel_type = req.channel_type.unwrap_or(ChannelType::Public);
     let channel = state
         .workspace_service
@@ -539,6 +570,10 @@ async fn require_member(
         .get_member(workspace_id, user_id)
         .await?
         .ok_or_else(|| AppError::Forbidden("Not a member of this workspace".into()))
+}
+
+fn outranks(actor: &WorkspaceRole, target: &WorkspaceRole) -> bool {
+    actor.level() > target.level()
 }
 
 async fn require_role(

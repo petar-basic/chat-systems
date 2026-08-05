@@ -22,6 +22,7 @@ import {
   type AppNotification,
   type NotificationKind,
 } from '../hooks/queries/useNotifications';
+import { flattenMentions } from '@/lib/mentions';
 import { useNotificationPrefs } from '@/stores/notificationPrefs';
 import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
 import { QueryState } from '@/shared/components/QueryState/QueryState';
@@ -129,7 +130,7 @@ function NotificationRow({
             {formatRelativeTime(notification.created_at)}
           </span>
         </div>
-        <p className="text-xs text-slate-400 line-clamp-2">{notification.body}</p>
+        <p className="text-xs text-slate-400 line-clamp-2">{flattenMentions(notification.body)}</p>
       </div>
       {!notification.is_read && <div className="mt-1.5 w-2 h-2 rounded-full bg-purple-500 shrink-0" />}
     </button>

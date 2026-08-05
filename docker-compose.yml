@@ -150,6 +150,11 @@ services:
       # public https domain (the prod override does this from $DOMAIN).
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080,http://localhost:3001}
+      # Login throttling. Raise the IP budget when many users share one egress IP
+      # (corporate NAT/VPN) or when an E2E suite logs in repeatedly from one host.
+      LOGIN_ATTEMPTS_PER_EMAIL: ${LOGIN_ATTEMPTS_PER_EMAIL:-10}
+      LOGIN_ATTEMPTS_PER_IP: ${LOGIN_ATTEMPTS_PER_IP:-30}
+      LOGIN_ATTEMPTS_WINDOW_SECS: ${LOGIN_ATTEMPTS_WINDOW_SECS:-900}
       STORAGE_BACKEND: ${STORAGE_BACKEND:-local}
       LOCAL_STORAGE_PATH: /data/files
       S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}

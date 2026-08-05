@@ -209,7 +209,7 @@ impl MessageRepo {
 
     pub async fn set_pinned(&self, id: Uuid, pinned: bool) -> sqlx::Result<Message> {
         sqlx::query_as::<_, Message>(
-            "UPDATE messages SET is_pinned = $2, updated_at = NOW() WHERE id = $1 RETURNING *",
+            "UPDATE messages SET is_pinned = $2 WHERE id = $1 RETURNING *",
         )
         .bind(id)
         .bind(pinned)

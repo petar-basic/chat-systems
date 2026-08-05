@@ -406,7 +406,7 @@ impl WorkspaceRepo {
             r"
             INSERT INTO channel_members (channel_id, user_id, role)
             VALUES ($1, $2, $3)
-            ON CONFLICT (channel_id, user_id) DO NOTHING
+            ON CONFLICT (channel_id, user_id) DO UPDATE SET channel_id = EXCLUDED.channel_id
             RETURNING *
             ",
         )

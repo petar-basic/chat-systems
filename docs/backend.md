@@ -108,6 +108,17 @@ Handles user identity — login, registration, JWT, and profile.
 Manages workspaces, members, invites, and channels. (Direct messages are their own
 feature — see `dm` below.)
 
+**Role model** (`Guest` 10 < `Member` 20 < `Admin` 40 < `Owner` 50):
+
+| Action | Required |
+|--------|----------|
+| Read channels/messages, post, react, thread | Member of the workspace; **Guest** additionally must be a member of that channel (Guests never get implicit access to public channels) |
+| Create a channel | `Member` |
+| Rename/archive a channel, manage channel members, invites, workspace settings | `Admin` |
+| Change a member's role | `Admin`, and the actor must strictly outrank the target and may not grant a role above their own; the Owner cannot be demoted |
+| Remove a member | `Admin` and strictly outranking the target, or the member removing themselves; the Owner cannot be removed |
+| Soft/hard delete or restore a workspace | `Owner` (or instance admin) |
+
 **Workspaces:**
 
 | Method | Route | Input | Output |
