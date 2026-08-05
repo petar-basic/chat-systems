@@ -7,6 +7,7 @@ import SearchPanel from '@/components/SearchPanel';
 import PinnedMessagesPanel from '@/components/PinnedMessagesPanel';
 import ChannelMembersPanel from '@/components/ChannelMembersPanel';
 import NotificationsPanel from '@/components/NotificationsPanel';
+import IntegrationsPanel from '@/components/IntegrationsPanel';
 
 interface Props {
   panel: RightPanel;
@@ -86,6 +87,16 @@ export default function WorkspaceRightPanels({
         workspaceId={currentWorkspace.id}
         onClose={onClose}
         onNavigate={(chId, msgId, withThread) => onNavigateToMessage(chId, msgId, withThread)}
+      />
+    );
+  }
+  if (panel.kind === 'integrations' && currentWorkspace) {
+    return (
+      <IntegrationsPanel
+        workspaceId={currentWorkspace.id}
+        instanceUrl={currentWorkspace.instanceUrl}
+        channels={channels}
+        onClose={onClose}
       />
     );
   }

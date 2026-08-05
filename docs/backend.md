@@ -268,13 +268,18 @@ Incoming/outgoing webhooks, bots, slash commands, and reminders. Background task
 | GET | `/workspaces/:ws_id/hooks` | — | `{ data: Hook[] }` |
 | POST | `/workspaces/:ws_id/hooks` | `{ hook_type, name, description?, config? }` | `Hook` |
 | GET | `/hooks/:hook_id` | — | `Hook` |
+| POST | `/hooks/:hook_id/reveal` | — | `{ hook_id, hook_type, config, incoming_url }` — config unredacted, written to `audit_log` |
+| POST | `/hooks/:hook_id/rotate` | — | same shape, after minting a fresh `token` (incoming) or `secret` (outgoing); the previous value stops working immediately |
 | DELETE | `/hooks/:hook_id` | — | `{ status: "deleted" }` |
 | POST | `/hooks/incoming/:token` | `{ text }` | `{ status: "ok", message_id }` |
 
 Hook types: `incoming_webhook`, `outgoing_webhook`, `bot`, `slash_command`, `scheduled`
 
 `GET`/`POST`/`DELETE` on `/hooks` and `/workspaces/:ws_id/hooks` require a workspace
-admin session; secrets in `config` (`token`, `secret`, …) are redacted on read.
+admin session; secrets in `config` (`token`, `secret`, …) are redacted on read — `reveal`
+is the only way back to the plaintext value, and it leaves an audit trail. Creating an
+`outgoing_webhook` requires an http(s) `config.url` and mints `config.secret` when omitted
+(the delivery path still runs the full SSRF check per request).
 Creating an `incoming_webhook` requires `config.channel_id`, and the server mints a
 `config.token`. **`POST /hooks/incoming/:token` is authenticated by that URL token,
 not a session** (Slack-compatible `{ "text": ... }`); it posts to the bound channel

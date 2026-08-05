@@ -66,6 +66,42 @@ impl HookRepo {
         .await
     }
 
+    pub async fn update_hook_config(
+        &self,
+        id: Uuid,
+        config: &serde_json::Value,
+    ) -> sqlx::Result<Hook> {
+        sqlx::query_as::<_, Hook>(
+            "UPDATE hooks SET config = $2, updated_at = NOW() WHERE id = $1 RETURNING *",
+        )
+        .bind(id)
+        .bind(config)
+        .fetch_one(&self.pool)
+        .await
+    }
+
+    pub async fn record_audit(
+        &self,
+        workspace_id: Uuid,
+        user_id: Uuid,
+        action: &str,
+        hook_id: Uuid,
+    ) -> sqlx::Result<()> {
+        sqlx::query(
+            r"
+            INSERT INTO audit_log (workspace_id, user_id, action, resource_type, resource_id)
+            VALUES ($1, $2, $3, 'hook', $4)
+            ",
+        )
+        .bind(workspace_id)
+        .bind(user_id)
+        .bind(action)
+        .bind(hook_id)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
     pub async fn delete_hook(&self, id: Uuid) -> sqlx::Result<()> {
         sqlx::query("DELETE FROM hooks WHERE id = $1")
             .bind(id)
