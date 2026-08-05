@@ -20,7 +20,8 @@ import {
 } from 'lucide-react';
 import { useHuddleStore, type ActiveHuddle } from '@/stores/huddle';
 import { useUserCache } from '@/stores/users';
-import { displayNameOf, avatarColorFor } from '@/lib/userHelpers';
+import { displayNameOf } from '@/lib/userHelpers';
+import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { useWorkspaceMembers } from '@/hooks/queries/useWorkspaces';
 import { useInviteToHuddle } from '@/hooks/queries/useHuddle';
 import { useSpeaking } from '../hooks/useSpeaking';
@@ -258,7 +259,8 @@ function VideoTile({
   large,
 }: TileProps) {
   const { getUser } = useUserCache();
-  const name = displayNameOf(getUser(userId)?.display_name);
+  const participant = getUser(userId);
+  const name = displayNameOf(participant?.display_name);
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
 
@@ -338,11 +340,12 @@ function VideoTile({
       {!isSelf && <audio ref={audioRef} autoPlay />}
       {!hasVideo && (
         <div className="absolute inset-0 flex items-center justify-center">
-          <div
-            className={`${large ? 'w-16 h-16 text-2xl' : 'w-10 h-10 text-sm'} rounded-full ${avatarColorFor(userId)} flex items-center justify-center font-bold`}
-          >
-            {name.charAt(0).toUpperCase()}
-          </div>
+          <Avatar
+            userId={userId}
+            name={name}
+            avatarUrl={participant?.avatar_url}
+            size={large ? 'xl' : 'lg'}
+          />
         </div>
       )}
 
@@ -481,11 +484,12 @@ function InvitePicker({ active }: { active: ActiveHuddle }) {
               }}
               className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-sm text-slate-200 hover:bg-slate-700 transition"
             >
-              <span
-                className={`w-6 h-6 rounded-full ${avatarColorFor(m.user_id)} flex items-center justify-center text-xs font-bold shrink-0`}
-              >
-                {displayNameOf(m.display_name).charAt(0).toUpperCase()}
-              </span>
+              <Avatar
+                userId={m.user_id}
+                name={displayNameOf(m.display_name)}
+                avatarUrl={m.avatar_url}
+                size="xs"
+              />
               <span className="truncate">{displayNameOf(m.display_name)}</span>
             </button>
           ))}

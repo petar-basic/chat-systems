@@ -5,6 +5,7 @@ import { useWorkspaceStore } from '../stores/workspace';
 import { getUserDisplay } from '../lib/userHelpers';
 import { X, UserPlus, UserMinus, Crown, Shield, User, Mail } from 'lucide-react';
 import PresenceDot from './PresenceDot';
+import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { useWorkspaceMembers } from '../hooks/queries/useWorkspaces';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { instanceManager } from '../lib/instances';
@@ -58,9 +59,7 @@ function MemberRow({
   return (
     <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-700/30 rounded-lg">
       <div className="relative">
-        <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-sm font-bold shrink-0">
-          {displayName.charAt(0).toUpperCase()}
-        </div>
+        <Avatar userId={member.user_id} name={displayName} avatarUrl={member.avatar_url} />
         <PresenceDot
           userId={member.user_id}
           className="absolute -bottom-0.5 -right-0.5 ring-2 ring-slate-800"

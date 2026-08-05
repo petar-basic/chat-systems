@@ -11,7 +11,6 @@ import {
   Users,
   Settings,
   LogOut,
-  Circle,
   ShieldCheck,
   Bell,
   BellOff,
@@ -20,11 +19,12 @@ import {
 import { useWorkspaceStore, type Channel, type Workspace, type WorkspaceMember } from '@/stores/workspace';
 import type { DmConversation } from '@/hooks/queries/useDm';
 import { useUserCache } from '@/stores/users';
-import { usePresenceStore } from '@/stores/presence';
 import { useInstanceStore } from '@/stores/instances';
 import { useUnreadNotificationCount } from '@/hooks/queries/useNotifications';
 import { displayNameOf } from '@/lib/userHelpers';
 import BrowseChannelsModal from './BrowseChannelsModal';
+import { Avatar } from '@/shared/components/Avatar/Avatar';
+import PresenceDot from '@/components/PresenceDot';
 
 interface Props {
   currentWorkspace: Workspace | null;
@@ -35,7 +35,7 @@ interface Props {
   mutedChannels: Set<string>;
   workspaceMembers: WorkspaceMember[];
   currentUserId: string | undefined;
-  user: { display_name: string; email: string } | null;
+  user: { id: string; display_name: string; email: string; avatar_url: string | null } | null;
   dmConversations: DmConversation[];
   currentDmPartnerId: string | null;
   unreadDmPartners: Set<string>;
@@ -50,9 +50,24 @@ interface Props {
   onLogout: () => void;
 }
 
-function usePresenceDot(userId: string) {
-  const status = usePresenceStore((s) => s.getStatus(userId));
-  return status === 'online' ? 'text-green-500' : status === 'away' ? 'text-amber-500' : 'text-slate-600';
+function UserAvatarWithPresence({
+  userId,
+  name,
+  avatarUrl,
+}: {
+  userId: string;
+  name: string;
+  avatarUrl: string | null | undefined;
+}) {
+  return (
+    <div className="relative shrink-0">
+      <Avatar userId={userId} name={name} avatarUrl={avatarUrl} size="xs" />
+      <PresenceDot
+        userId={userId}
+        className="absolute -bottom-0.5 -right-0.5 w-2 h-2 ring-2 ring-slate-800"
+      />
+    </div>
+  );
 }
 
 function DmConversationButton({
@@ -68,7 +83,6 @@ function DmConversationButton({
 }) {
   const { getUser } = useUserCache();
   const partner = getUser(conv.partner_id);
-  const dotColor = usePresenceDot(conv.partner_id);
   const name = displayNameOf(partner?.display_name);
 
   return (
@@ -82,7 +96,7 @@ function DmConversationButton({
             : 'text-slate-400 hover:bg-slate-700/30 hover:text-slate-200'
       }`}
     >
-      <Circle className={`w-2.5 h-2.5 fill-current ${dotColor} shrink-0`} />
+      <UserAvatarWithPresence userId={conv.partner_id} name={name} avatarUrl={partner?.avatar_url} />
       <span className="truncate">{name}</span>
       {isUnread && !isActive && <span className="ml-auto w-2 h-2 bg-purple-400 rounded-full shrink-0" />}
     </button>
@@ -92,7 +106,6 @@ function DmConversationButton({
 function SidebarUser({ userId, onOpenDm }: { userId: string; onOpenDm: (id: string) => void }) {
   const { getUser } = useUserCache();
   const cached = getUser(userId);
-  const dotColor = usePresenceDot(userId);
 
   const name = displayNameOf(cached?.display_name);
 
@@ -102,7 +115,7 @@ function SidebarUser({ userId, onOpenDm }: { userId: string; onOpenDm: (id: stri
       className="w-full px-3 py-1 flex items-center gap-2 text-sm text-slate-400 hover:bg-slate-700/30 hover:text-slate-200 transition cursor-pointer"
       title={`Message ${name}`}
     >
-      <Circle className={`w-2.5 h-2.5 fill-current ${dotColor} shrink-0`} />
+      <UserAvatarWithPresence userId={userId} name={name} avatarUrl={cached?.avatar_url} />
       <span className="truncate">{name}</span>
     </button>
   );
@@ -332,10 +345,16 @@ export default function ChannelSidebar({
         <div className="px-3 py-3 border-t border-slate-700/50 flex items-center gap-2">
           <button
             onClick={onOpenProfile}
-            className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-sm font-bold shrink-0 hover:ring-2 hover:ring-purple-400 transition cursor-pointer"
+            aria-label="Edit profile"
+            data-qa="sidebar-profile-avatar"
+            className="rounded-full shrink-0 hover:ring-2 hover:ring-purple-400 transition cursor-pointer"
             title="Edit profile"
           >
-            {user?.display_name?.charAt(0).toUpperCase() || '?'}
+            <Avatar
+              userId={user?.id ?? ''}
+              name={displayNameOf(user?.display_name)}
+              avatarUrl={user?.avatar_url}
+            />
           </button>
           <button
             onClick={onOpenProfile}
@@ -393,9 +412,7 @@ export default function ChannelSidebar({
                     }}
                     className="w-full px-3 py-2 flex items-center gap-3 rounded-lg hover:bg-slate-700/50 text-left transition"
                   >
-                    <div className="w-8 h-8 rounded-full bg-slate-600 flex items-center justify-center text-sm font-bold shrink-0">
-                      {(m.display_name || m.email).charAt(0).toUpperCase()}
-                    </div>
+                    <Avatar userId={m.user_id} name={m.display_name || m.email} avatarUrl={m.avatar_url} />
                     <div className="min-w-0">
                       <div className="text-sm font-medium truncate">
                         {m.display_name || m.email}

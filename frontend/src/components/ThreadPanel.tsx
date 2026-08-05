@@ -2,7 +2,8 @@ import { useEffect, useRef } from 'react';
 import { X, MessageSquare } from 'lucide-react';
 import { useUserCache } from '@/stores/users';
 import type { Message, WorkspaceMember, Channel } from '@/stores/workspace';
-import { avatarColorFor, displayNameOf } from '@/lib/userHelpers';
+import { displayNameOf } from '@/lib/userHelpers';
+import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { useThreadMessages, useSendThreadReply } from '@/hooks/queries/useThreads';
 import RichTextDisplay from './RichTextDisplay';
 import { MessageInput } from '@/features/messaging';
@@ -16,15 +17,18 @@ interface Props {
 
 function ThreadMessage({ message }: { message: Message }) {
   const { getUser } = useUserCache();
-  const displayName = displayNameOf(getUser(message.user_id)?.display_name);
+  const sender = getUser(message.user_id);
+  const displayName = displayNameOf(sender?.display_name);
 
   return (
     <div className="flex items-start gap-2.5 py-1.5">
-      <div
-        className={`w-7 h-7 rounded-full ${avatarColorFor(message.user_id)} flex items-center justify-center text-xs font-bold shrink-0 mt-0.5`}
-      >
-        {displayName.charAt(0).toUpperCase()}
-      </div>
+      <Avatar
+        userId={message.user_id}
+        name={displayName}
+        avatarUrl={sender?.avatar_url}
+        size="sm"
+        className="mt-0.5"
+      />
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2">
           <span className="text-sm font-semibold text-slate-200">{displayName}</span>
@@ -52,7 +56,8 @@ export default function ThreadPanel({ parentMessage, members, channels, onClose 
   };
 
   const { getUser } = useUserCache();
-  const parentName = displayNameOf(getUser(parentMessage.user_id)?.display_name);
+  const parentSender = getUser(parentMessage.user_id);
+  const parentName = displayNameOf(parentSender?.display_name);
 
   return (
     <div
@@ -75,11 +80,7 @@ export default function ThreadPanel({ parentMessage, members, channels, onClose 
 
       <div className="px-4 py-3 border-b border-slate-700/30">
         <div className="flex items-start gap-2.5">
-          <div
-            className={`w-8 h-8 rounded-full ${avatarColorFor(parentMessage.user_id)} flex items-center justify-center text-sm font-bold shrink-0`}
-          >
-            {parentName.charAt(0).toUpperCase()}
-          </div>
+          <Avatar userId={parentMessage.user_id} name={parentName} avatarUrl={parentSender?.avatar_url} />
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-2">
               <span className="text-sm font-semibold text-slate-200">{parentName}</span>

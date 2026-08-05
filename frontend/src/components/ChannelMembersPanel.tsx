@@ -6,6 +6,7 @@ import { instanceManager } from '../lib/instances';
 import { useUserCache } from '../stores/users';
 import { useWorkspaceStore } from '../stores/workspace';
 import { useChannelMembers } from '../hooks/queries/useChannels';
+import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { QUERY_KEYS } from '@/shared/constants';
 
 interface ChannelMember {
@@ -22,35 +23,14 @@ interface Props {
   onClose: () => void;
 }
 
-const AVATAR_COLORS = [
-  'bg-purple-600',
-  'bg-blue-600',
-  'bg-green-600',
-  'bg-amber-600',
-  'bg-pink-600',
-  'bg-teal-600',
-  'bg-indigo-600',
-  'bg-rose-600',
-];
-
-function getColorIndex(userId: string) {
-  return userId.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0) % AVATAR_COLORS.length;
-}
-
 function MemberRow({ member, onRemove }: { member: ChannelMember; onRemove: (userId: string) => void }) {
   const { getUser } = useUserCache();
   const info = getUser(member.user_id);
   const displayName = info?.display_name || member.user_id.slice(0, 8);
-  const initials = displayName.charAt(0).toUpperCase();
-  const avatarColor = AVATAR_COLORS[getColorIndex(member.user_id)];
 
   return (
     <div className="flex items-center gap-3 px-4 py-2 hover:bg-slate-700/30">
-      <div
-        className={`w-8 h-8 rounded-full ${avatarColor} flex items-center justify-center text-sm font-bold shrink-0`}
-      >
-        {initials}
-      </div>
+      <Avatar userId={member.user_id} name={displayName} avatarUrl={info?.avatar_url} />
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium truncate">{displayName}</div>
         <div className="text-xs text-slate-400">{member.role}</div>
@@ -70,19 +50,13 @@ function AddableUserRow({ userId, onAdd }: { userId: string; onAdd: (id: string)
   const { getUser } = useUserCache();
   const info = getUser(userId);
   const displayName = info?.display_name || userId.slice(0, 8);
-  const initials = displayName.charAt(0).toUpperCase();
-  const avatarColor = AVATAR_COLORS[getColorIndex(userId)];
 
   return (
     <button
       onClick={() => onAdd(userId)}
       className="w-full flex items-center gap-3 px-4 py-2 hover:bg-slate-700/30 cursor-pointer text-left"
     >
-      <div
-        className={`w-7 h-7 rounded-full ${avatarColor} flex items-center justify-center text-xs font-bold shrink-0`}
-      >
-        {initials}
-      </div>
+      <Avatar userId={userId} name={displayName} avatarUrl={info?.avatar_url} size="sm" />
       <span className="text-sm truncate">{displayName}</span>
       <UserPlus className="w-3.5 h-3.5 text-slate-400 ml-auto shrink-0" />
     </button>

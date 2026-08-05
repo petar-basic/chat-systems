@@ -70,6 +70,51 @@ async fn update_me_updates_profile(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../migrations")]
+async fn update_me_sets_clears_and_rejects_avatar_urls(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (_id, _email, token) = seed_and_login(&app, &state, "avatar", false).await;
+
+    let (status, body) = send(
+        &app,
+        "PATCH",
+        "/api/users/me",
+        Some(&token),
+        Some(json!({ "avatar_url": "/api/files/download/ws/id/me.png" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "setting an avatar: {body:?}");
+    assert_eq!(body["avatar_url"], "/api/files/download/ws/id/me.png");
+
+    let (status, body) = send(
+        &app,
+        "PATCH",
+        "/api/users/me",
+        Some(&token),
+        Some(json!({ "avatar_url": "javascript:alert(1)" })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "hostile scheme: {body:?}"
+    );
+
+    let (_status, me) = send(&app, "GET", "/api/users/me", Some(&token), None).await;
+    assert_eq!(me["avatar_url"], "/api/files/download/ws/id/me.png");
+
+    let (status, body) = send(
+        &app,
+        "PATCH",
+        "/api/users/me",
+        Some(&token),
+        Some(json!({ "avatar_url": "" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "clearing an avatar: {body:?}");
+    assert!(body["avatar_url"].is_null(), "avatar should be cleared");
+}
+
+#[sqlx::test(migrations = "../migrations")]
 async fn refresh_without_cookie_is_unauthorized(pool: PgPool) {
     let (app, _state) = app_and_state(pool).await;
 

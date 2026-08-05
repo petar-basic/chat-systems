@@ -2,6 +2,7 @@ import { memo, useState, useRef } from 'react';
 import { Pencil, Trash2, MessageSquare, SmilePlus, Pin, Link2 } from 'lucide-react';
 import type { Message, WorkspaceMember, Channel } from '@/stores/workspace';
 import RichTextDisplay from '@/components/RichTextDisplay';
+import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { HuddleSystemMessage } from '@/features/huddle/components/HuddleSystemMessage';
 import EmojiPicker from './EmojiPicker';
 import MessageInput from './MessageInput';
@@ -16,7 +17,7 @@ interface MessageItemProps {
   message: Message;
   currentUserId: string;
   senderName: string;
-  avatarColor: string;
+  senderAvatarUrl?: string | null;
   isHighlighted?: boolean;
   grouped?: boolean;
   members?: WorkspaceMember[];
@@ -48,7 +49,7 @@ function MessageItem({
   message,
   currentUserId,
   senderName,
-  avatarColor,
+  senderAvatarUrl,
   isHighlighted,
   grouped,
   members,
@@ -79,7 +80,6 @@ function MessageItem({
       />
     );
   }
-  const initials = senderName.charAt(0).toUpperCase();
   const time = new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   const handleEditSave = async (content: string) => {
@@ -123,11 +123,7 @@ function MessageItem({
           </span>
         </div>
       ) : (
-        <div
-          className={`w-8 h-8 rounded-full ${avatarColor} flex items-center justify-center text-sm font-bold shrink-0 mt-0.5`}
-        >
-          {initials}
-        </div>
+        <Avatar userId={message.user_id} name={senderName} avatarUrl={senderAvatarUrl} className="mt-0.5" />
       )}
       <div className="flex-1 min-w-0">
         {!grouped && (
