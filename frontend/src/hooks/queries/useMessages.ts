@@ -12,6 +12,17 @@ export interface MessagesResponse {
 
 export type MessagesInfiniteData = InfiniteData<MessagesResponse>;
 
+export function messagesOldestFirst(data: MessagesInfiniteData | undefined): Message[] {
+  if (!data) return [];
+  return [...data.pages].reverse().flatMap((page) => page.data);
+}
+
+export function olderMessagesCursor(page: MessagesResponse): string | undefined {
+  if (page.data.length < MESSAGES_PAGE_SIZE) return undefined;
+  const oldest = page.data[page.data.length - 1];
+  return oldest?.id;
+}
+
 export const useMessages = (channelId: string | null) => {
   const apiClient = useCurrentApi();
 
@@ -24,10 +35,7 @@ export const useMessages = (channelId: string | null) => {
       if (pageParam) params.set('cursor', pageParam);
       return apiClient.get<MessagesResponse>(`/channels/${channelId}/messages?${params.toString()}`);
     },
-    getNextPageParam: (lastPage) => {
-      if (lastPage.data.length < MESSAGES_PAGE_SIZE) return undefined;
-      return lastPage.data[0]?.id;
-    },
+    getNextPageParam: olderMessagesCursor,
     initialPageParam: undefined as string | undefined,
     enabled: !!channelId,
     staleTime: 0,

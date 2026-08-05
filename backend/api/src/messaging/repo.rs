@@ -136,8 +136,8 @@ impl MessageRepo {
                 WHERE channel_id = $1
                   AND deleted_at IS NULL
                   AND thread_parent_id IS NULL
-                  AND created_at < (SELECT created_at FROM messages WHERE id = $3)
-                ORDER BY created_at DESC
+                  AND (created_at, id) < (SELECT created_at, id FROM messages WHERE id = $3)
+                ORDER BY created_at DESC, id DESC
                 LIMIT $2
                 ",
             )
@@ -153,7 +153,7 @@ impl MessageRepo {
                 WHERE channel_id = $1
                   AND deleted_at IS NULL
                   AND thread_parent_id IS NULL
-                ORDER BY created_at DESC
+                ORDER BY created_at DESC, id DESC
                 LIMIT $2
                 ",
             )
@@ -583,6 +583,56 @@ mod tests {
         assert_eq!(
             seen, expected,
             "pagination must cover every row exactly once"
+        );
+    }
+
+    #[sqlx::test(migrations = "../migrations")]
+    async fn cursor_pagination_survives_identical_timestamps(pool: PgPool) {
+        let (user_id, channel_id) = seed_channel(&pool).await;
+        let seed_pool = pool.clone();
+        let repo = MessageRepo::new(pool);
+
+        let stamp = chrono::Utc::now() - chrono::Duration::minutes(5);
+        let mut ids = Vec::new();
+        for i in 0..4i64 {
+            let id = Uuid::new_v4();
+            sqlx::query(
+                "INSERT INTO messages (id, channel_id, user_id, content, created_at) VALUES ($1, $2, $3, $4, $5)",
+            )
+            .bind(id)
+            .bind(channel_id)
+            .bind(user_id)
+            .bind(format!("same-instant {i}"))
+            .bind(stamp)
+            .execute(&seed_pool)
+            .await
+            .expect("insert message");
+            ids.push(id);
+        }
+
+        let page1 = repo
+            .list_channel_messages(channel_id, 2, None)
+            .await
+            .expect("page1");
+        let page2 = repo
+            .list_channel_messages(channel_id, 2, Some(page1[1].id))
+            .await
+            .expect("page2");
+
+        for m in &page2 {
+            assert!(
+                !page1.iter().any(|p| p.id == m.id),
+                "rows sharing a created_at must not repeat across pages"
+            );
+        }
+
+        let mut seen: Vec<Uuid> = page1.iter().chain(page2.iter()).map(|m| m.id).collect();
+        seen.sort();
+        let mut expected = ids.clone();
+        expected.sort();
+        assert_eq!(
+            seen, expected,
+            "every row must be paged exactly once even when created_at ties"
         );
     }
 }
