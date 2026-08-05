@@ -4,7 +4,7 @@ import { globalEventBus } from './globalEventBus';
 import { upsertMessage, patchMessageById, newestFirst } from './messageCache';
 import { showNotification, playNotificationSound } from './notifications';
 import type { Message } from '@/stores/workspace';
-import type { DmConversation, DmInfiniteData } from '@/hooks/queries/useDm';
+import type { Conversation, ConversationInfiniteData } from '@/hooks/queries/useConversations';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useInstanceStore } from '@/stores/instances';
 import { useUserCache } from '@/stores/users';
@@ -181,65 +181,68 @@ export const useWebSocketQuerySync = () => {
     );
 
     unsubs.push(
-      globalEventBus.on('dm.new', (event) => {
-        const msg = event.message;
-        if (!msg?.workspace_id || !msg.from_user_id || !msg.to_user_id) return;
+      globalEventBus.on('conversation.message.created', (event) => {
+        const { currentUserId, currentConversationId, markConversationUnread } = useWorkspaceStore.getState();
+        const isIncoming = event.user_id !== currentUserId;
 
-        const { currentUserId, currentDmPartnerId, markDmUnread } = useWorkspaceStore.getState();
-        const isIncoming = msg.from_user_id !== currentUserId;
-        const partnerId = isIncoming ? msg.from_user_id : msg.to_user_id;
-
-        queryClient.setQueryData<DmInfiniteData>(QUERY_KEYS.dmMessages(msg.workspace_id, partnerId), (old) =>
-          upsertMessage(old, { ...msg, pending: false }, 'firstPage', newestFirst),
+        queryClient.setQueryData<ConversationInfiniteData>(
+          QUERY_KEYS.conversationMessages(event.conversation_id),
+          (old) => upsertMessage(old, { ...event, pending: false }, 'firstPage', newestFirst),
         );
 
-        queryClient.setQueryData<DmConversation[]>(QUERY_KEYS.dmConversations(msg.workspace_id), (old) => {
+        queryClient.setQueryData<Conversation[]>(QUERY_KEYS.conversations(event.workspace_id), (old) => {
           if (!old) return old;
-          const previous = old.find((c) => c.partner_id === partnerId);
-          const without = old.filter((c) => c.partner_id !== partnerId);
-          const lastReadAt = isIncoming ? (previous?.last_read_at ?? null) : msg.created_at;
+          const previous = old.find((c) => c.id === event.conversation_id);
+          if (!previous) return old;
+          const without = old.filter((c) => c.id !== event.conversation_id);
           return [
-            { partner_id: partnerId, last_message_at: msg.created_at, last_read_at: lastReadAt },
+            {
+              ...previous,
+              last_message_at: event.created_at,
+              last_read_at: isIncoming ? previous.last_read_at : event.created_at,
+            },
             ...without,
           ];
         });
 
-        if (isIncoming && currentDmPartnerId !== partnerId) {
-          markDmUnread(partnerId);
+        if (isIncoming && currentConversationId !== event.conversation_id) {
+          markConversationUnread(event.conversation_id);
           if (!document.hasFocus()) playNotificationSound();
-          const sender = useUserCache.getState().getUser(partnerId)?.display_name || 'New message';
-          showNotification(sender, msg.content);
+          const sender = useUserCache.getState().getUser(event.user_id)?.display_name || 'New message';
+          showNotification(sender, event.content);
         }
       }),
 
-      globalEventBus.on('dm.updated', (event) => {
-        const msg = event.message;
-        if (!msg?.workspace_id) return;
-        const { currentUserId } = useWorkspaceStore.getState();
-        const partnerId = msg.from_user_id === currentUserId ? msg.to_user_id : msg.from_user_id;
-        queryClient.setQueryData<DmInfiniteData>(QUERY_KEYS.dmMessages(msg.workspace_id, partnerId), (old) =>
-          patchMessageById(old, msg.id, (m) => ({ ...m, content: msg.content, edited_at: msg.edited_at })),
+      globalEventBus.on('conversation.created', (event) => {
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.conversations(event.workspace_id) });
+      }),
+
+      globalEventBus.on('conversation.message.updated', (event) => {
+        queryClient.setQueryData<ConversationInfiniteData>(
+          QUERY_KEYS.conversationMessages(event.conversation_id),
+          (old) =>
+            patchMessageById(old, event.id, (m) => ({
+              ...m,
+              content: event.content,
+              edited_at: event.edited_at,
+            })),
         );
       }),
 
-      globalEventBus.on('dm.deleted', (event) => {
-        const msg = event.message;
-        if (!msg?.workspace_id) return;
-        const { currentUserId } = useWorkspaceStore.getState();
-        const partnerId = msg.from_user_id === currentUserId ? msg.to_user_id : msg.from_user_id;
-        queryClient.setQueryData<DmInfiniteData>(QUERY_KEYS.dmMessages(msg.workspace_id, partnerId), (old) =>
-          patchMessageById(old, msg.id, (m) => ({
-            ...m,
-            deleted_at: msg.deleted_at ?? new Date().toISOString(),
-          })),
+      globalEventBus.on('conversation.message.deleted', (event) => {
+        queryClient.setQueryData<ConversationInfiniteData>(
+          QUERY_KEYS.conversationMessages(event.conversation_id),
+          (old) =>
+            patchMessageById(old, event.id, (m) => ({
+              ...m,
+              deleted_at: event.deleted_at ?? new Date().toISOString(),
+            })),
         );
       }),
 
-      globalEventBus.on('dm.reaction.added', (event) => {
-        const { currentUserId } = useWorkspaceStore.getState();
-        const partnerId = event.from_user_id === currentUserId ? event.to_user_id : event.from_user_id;
-        queryClient.setQueryData<DmInfiniteData>(
-          QUERY_KEYS.dmMessages(event.workspace_id, partnerId),
+      globalEventBus.on('conversation.reaction.added', (event) => {
+        queryClient.setQueryData<ConversationInfiniteData>(
+          QUERY_KEYS.conversationMessages(event.conversation_id),
           (old) =>
             patchMessageById(old, event.message_id, (m) => {
               const reactions = m.reactions ?? [];
@@ -257,11 +260,9 @@ export const useWebSocketQuerySync = () => {
         );
       }),
 
-      globalEventBus.on('dm.reaction.removed', (event) => {
-        const { currentUserId } = useWorkspaceStore.getState();
-        const partnerId = event.from_user_id === currentUserId ? event.to_user_id : event.from_user_id;
-        queryClient.setQueryData<DmInfiniteData>(
-          QUERY_KEYS.dmMessages(event.workspace_id, partnerId),
+      globalEventBus.on('conversation.reaction.removed', (event) => {
+        queryClient.setQueryData<ConversationInfiniteData>(
+          QUERY_KEYS.conversationMessages(event.conversation_id),
           (old) =>
             patchMessageById(old, event.message_id, (m) => ({
               ...m,

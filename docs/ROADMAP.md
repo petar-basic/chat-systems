@@ -49,9 +49,6 @@ Per-workspace retention with a nightly purge over messages/files/audit_log;
 
 ## Features (Slack parity gaps)
 
-- **Group DMs (3–9).** The DM schema is hard-wired to pairs (`LEAST/GREATEST`).
-  Generalize to a `conversations` + `conversation_participants` model that subsumes
-  1:1; pragmatic stopgap is an unnamed private channel.
 - **Slack import / export.** A CLI that ingests a Slack export ZIP (users→accounts
   by email, channels, per-day message JSON with `thread_ts`→`thread_parent_id`,
   files→MinIO) and a GDPR-style export the other way.
@@ -60,8 +57,6 @@ Per-workspace retention with a nightly purge over messages/files/audit_log;
 - **`@channel` / `@here` / `@everyone` + user groups.** Special mention types in the
   parser, fanned out to channel members.
 - **Custom emoji.** `workspace_emojis` table + MinIO upload, registered in the picker.
-- **Scheduled send.** A `scheduled_messages` table; the existing reminder checker is
-  ~80% of the needed infrastructure.
 - **Bots / slash commands.** `HookType::Bot` / `SlashCommand` are defined but unused;
   incoming webhooks already ship (`POST /api/hooks/incoming/:token`).
 

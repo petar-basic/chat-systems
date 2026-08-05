@@ -1,7 +1,7 @@
 mod admin;
 mod auth;
 mod config;
-mod dm;
+mod conversations;
 mod files;
 mod health;
 mod hooks;
@@ -12,6 +12,7 @@ mod middleware;
 mod notifications;
 mod presence;
 mod rate_limit;
+mod scheduled;
 mod state;
 mod workspace;
 
@@ -38,7 +39,7 @@ use tracing_subscriber::EnvFilter;
 use crate::auth::repo::UserRepo;
 use crate::auth::service::AuthService;
 use crate::config::AppConfig;
-use crate::dm::repo::DmRepo;
+use crate::conversations::repo::ConversationRepo;
 use crate::files::repo::FileRepo;
 use crate::files::storage::create_storage;
 use crate::hooks::repo::HookRepo;
@@ -119,6 +120,19 @@ async fn main() -> anyhow::Result<()> {
     }
 
     {
+        let dispatcher_state = state.clone();
+        tokio::spawn(async move {
+            supervise("scheduled_dispatcher", || {
+                let dispatcher_state = dispatcher_state.clone();
+                async move {
+                    scheduled::executor::start_dispatcher(dispatcher_state).await;
+                }
+            })
+            .await;
+        });
+    }
+
+    {
         let redis_url = redis_url.clone();
         let notif_repo = notif_repo_bg.clone();
         tokio::spawn(async move {
@@ -174,7 +188,8 @@ pub(crate) async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Resu
     let file_repo = FileRepo::new(pool.clone());
     let hook_repo = HookRepo::new(pool.clone());
     let notification_repo = NotificationRepo::new(pool.clone());
-    let dm_repo = DmRepo::new(pool.clone());
+    let conversation_repo = ConversationRepo::new(pool.clone());
+    let scheduled_repo = scheduled::repo::ScheduledRepo::new(pool.clone());
     let huddle_repo = HuddleRepo::new(pool.clone());
 
     Ok(Arc::new(AppState {
@@ -189,7 +204,8 @@ pub(crate) async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Resu
         file_storage,
         hook_repo,
         notification_repo,
-        dm_repo,
+        conversation_repo,
+        scheduled_repo,
         huddle_repo,
     }))
 }
@@ -207,7 +223,8 @@ pub(crate) fn build_app(state: Arc<AppState>) -> Router {
         .merge(hooks::routes::router(state.clone()))
         .merge(notifications::routes::router(state.clone()))
         .merge(admin::routes::router(state.clone()))
-        .merge(dm::routes::router(state.clone()))
+        .merge(conversations::routes::router(state.clone()))
+        .merge(scheduled::routes::router(state.clone()))
         .merge(huddle::routes::router(state.clone()));
 
     Router::new()

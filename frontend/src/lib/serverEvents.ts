@@ -1,5 +1,5 @@
 import type { Message, Reaction } from '@/stores/workspace';
-import type { DirectMessage } from '@/hooks/queries/useDm';
+import type { ConversationMessage } from '@/hooks/queries/useConversations';
 
 export type PresenceValue = 'online' | 'away' | 'offline';
 
@@ -22,23 +22,34 @@ export type AppServerEvent =
   | { type: 'message.pinned'; message_id: string; channel_id: string; pinned: boolean }
   | { type: 'reaction.added'; message_id: string; reaction: ReactionEvent }
   | { type: 'reaction.removed'; message_id: string; channel_id: string; user_id: string; emoji: string }
-  | { type: 'dm.new'; message: DirectMessage }
-  | { type: 'dm.updated'; message: DirectMessage }
-  | { type: 'dm.deleted'; message: DirectMessage }
-  | {
-      type: 'dm.reaction.added';
-      message_id: string;
+  | { type: 'conversation.created'; id: string; workspace_id: string; participant_ids: string[] }
+  | (ConversationMessage & {
+      type: 'conversation.message.created';
       workspace_id: string;
-      from_user_id: string;
-      to_user_id: string;
+      participant_ids: string[];
+    })
+  | (ConversationMessage & {
+      type: 'conversation.message.updated';
+      workspace_id: string;
+      participant_ids: string[];
+    })
+  | (ConversationMessage & {
+      type: 'conversation.message.deleted';
+      workspace_id: string;
+      participant_ids: string[];
+    })
+  | {
+      type: 'conversation.reaction.added';
+      message_id: string;
+      conversation_id: string;
+      workspace_id: string;
       reaction: Reaction;
     }
   | {
-      type: 'dm.reaction.removed';
+      type: 'conversation.reaction.removed';
       message_id: string;
+      conversation_id: string;
       workspace_id: string;
-      from_user_id: string;
-      to_user_id: string;
       user_id: string;
       emoji: string;
     }
