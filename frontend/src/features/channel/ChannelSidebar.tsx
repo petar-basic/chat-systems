@@ -15,14 +15,16 @@ import {
   ShieldCheck,
   Bell,
   BellOff,
+  Compass,
 } from 'lucide-react';
-import type { Channel, Workspace, WorkspaceMember } from '@/stores/workspace';
+import { useWorkspaceStore, type Channel, type Workspace, type WorkspaceMember } from '@/stores/workspace';
 import type { DmConversation } from '@/hooks/queries/useDm';
 import { useUserCache } from '@/stores/users';
 import { usePresenceStore } from '@/stores/presence';
 import { useInstanceStore } from '@/stores/instances';
 import { useUnreadNotificationCount } from '@/hooks/queries/useNotifications';
 import { displayNameOf } from '@/lib/userHelpers';
+import BrowseChannelsModal from './BrowseChannelsModal';
 
 interface Props {
   currentWorkspace: Workspace | null;
@@ -130,6 +132,7 @@ export default function ChannelSidebar({
   onLogout,
 }: Props) {
   const { data: unreadNotifCount = 0 } = useUnreadNotificationCount(currentWorkspace?.id ?? null);
+  const currentUserRole = useWorkspaceStore((s) => s.currentUserRole);
   const navigate = useNavigate();
   const { instances, activeInstanceUrl } = useInstanceStore();
   const currentInstance = instances.find((i) => i.url === activeInstanceUrl);
@@ -140,6 +143,7 @@ export default function ChannelSidebar({
   const [newChannelName, setNewChannelName] = useState('');
   const [showDmPicker, setShowDmPicker] = useState(false);
   const [dmSearch, setDmSearch] = useState('');
+  const [showBrowseChannels, setShowBrowseChannels] = useState(false);
 
   const closeDmPicker = () => {
     setShowDmPicker(false);
@@ -274,6 +278,16 @@ export default function ChannelSidebar({
             </button>
           </div>
           {channels.map((ch) => channelButton(ch, channelIcon(ch)))}
+          {currentUserRole !== 'guest' && (
+            <button
+              onClick={() => setShowBrowseChannels(true)}
+              data-qa="browse-channels-open"
+              className="w-full px-3 py-1.5 flex items-center gap-2 text-sm text-slate-400 hover:bg-slate-700/30 hover:text-slate-200 transition cursor-pointer"
+            >
+              <Compass className="w-4 h-4 shrink-0" />
+              <span className="truncate">Browse channels</span>
+            </button>
+          )}
 
           <div className="px-3 mt-4 mb-1 flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
@@ -431,6 +445,16 @@ export default function ChannelSidebar({
             </div>
           </form>
         </Modal>
+      )}
+
+      {showBrowseChannels && currentWorkspace && (
+        <BrowseChannelsModal
+          workspaceId={currentWorkspace.id}
+          instanceUrl={currentWorkspace.instanceUrl}
+          currentUserId={currentUserId}
+          onClose={() => setShowBrowseChannels(false)}
+          onOpenChannel={(channelId) => navigate(`/app/${currentWorkspace.id}/${channelId}`)}
+        />
       )}
     </>
   );

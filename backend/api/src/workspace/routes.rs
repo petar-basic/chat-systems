@@ -36,6 +36,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/invites/:token/accept", post(accept_invite))
         .route("/workspaces/:ws_id/channels", get(list_channels))
         .route("/workspaces/:ws_id/channels/unread", get(unread_channels))
+        .route("/workspaces/:ws_id/channels/browse", get(browse_channels))
         .route("/workspaces/:ws_id/channels", post(create_channel))
         .route("/channels/:ch_id", get(get_channel))
         .route("/channels/:ch_id", patch(update_channel))
@@ -46,6 +47,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         )
         .route("/channels/:ch_id/members", get(list_channel_members))
         .route("/channels/:ch_id/members", post(add_channel_member))
+        .route("/channels/:ch_id/join", post(join_channel))
         .route(
             "/channels/:ch_id/members/:user_id",
             delete(remove_channel_member),
@@ -460,6 +462,56 @@ async fn update_channel(
         )
         .await?;
     Ok(Json(updated))
+}
+
+async fn browse_channels(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(ws_id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    require_role(&state, ws_id, auth.user_id, &WorkspaceRole::Member).await?;
+    let channels = state
+        .workspace_service
+        .repo
+        .list_browsable_channels(ws_id, auth.user_id)
+        .await?;
+    Ok(Json(serde_json::json!({ "data": channels })))
+}
+
+async fn join_channel(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(ch_id): Path<Uuid>,
+) -> AppResult<Json<ChannelMember>> {
+    let channel = state
+        .workspace_service
+        .repo
+        .find_channel_by_id(ch_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Channel not found".into()))?;
+    require_role(
+        &state,
+        channel.workspace_id,
+        auth.user_id,
+        &WorkspaceRole::Member,
+    )
+    .await?;
+    if channel.channel_type != ChannelType::Public {
+        return Err(AppError::Forbidden(
+            "Only public channels can be joined directly".into(),
+        ));
+    }
+    if channel.is_archived {
+        return Err(AppError::Forbidden(
+            "This channel is archived and cannot be joined".into(),
+        ));
+    }
+    let member = state
+        .workspace_service
+        .repo
+        .add_channel_member(ch_id, auth.user_id, &ChannelRole::Member)
+        .await?;
+    Ok(Json(member))
 }
 
 async fn archive_channel(
