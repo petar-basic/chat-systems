@@ -633,6 +633,227 @@ async fn remove_other_member_forbidden_for_plain_member(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../migrations")]
+async fn browse_lists_public_channels_with_membership_and_counts(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Browse WS").await;
+    let joined = seed_channel(&state, ws_id, owner_id, "joined-room", false).await;
+    let open = seed_channel(&state, ws_id, owner_id, "open-room", false).await;
+    seed_channel(&state, ws_id, owner_id, "secret-room", true).await;
+
+    let (browser_id, _, browser_token) = seed_and_login(&app, &state, "ch-browser", false).await;
+    add_ws_member(&state, ws_id, browser_id, "member").await;
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(joined, browser_id, &ChannelRole::Member)
+        .await
+        .expect("precondition: join one channel");
+
+    let (status, body) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws_id}/channels/browse"),
+        Some(&browser_token),
+        None,
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK, "browse: {body:?}");
+    let channels = body["data"].as_array().expect("data array");
+    let names: Vec<&str> = channels
+        .iter()
+        .map(|c| c["name"].as_str().unwrap_or_default())
+        .collect();
+    assert!(
+        !names.contains(&"secret-room"),
+        "private channels must stay hidden: {names:?}"
+    );
+
+    let joined_row = channels
+        .iter()
+        .find(|c| c["id"].as_str() == Some(&joined.to_string()))
+        .expect("joined channel listed");
+    assert_eq!(joined_row["is_member"], true);
+    assert_eq!(joined_row["member_count"], 2);
+
+    let open_row = channels
+        .iter()
+        .find(|c| c["id"].as_str() == Some(&open.to_string()))
+        .expect("unjoined public channel listed");
+    assert_eq!(open_row["is_member"], false);
+    assert_eq!(open_row["member_count"], 1);
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn browse_is_forbidden_for_non_members_and_guests(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Browse Guard WS").await;
+    seed_channel(&state, ws_id, owner_id, "open-room", false).await;
+
+    let (_, _, outsider_token) = seed_and_login(&app, &state, "ch-outsider", false).await;
+    let (status, _) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws_id}/channels/browse"),
+        Some(&outsider_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "outsider must not browse");
+
+    let (guest_id, _, guest_token) = seed_and_login(&app, &state, "ch-guest", false).await;
+    add_ws_member(&state, ws_id, guest_id, "guest").await;
+    let (status, _) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws_id}/channels/browse"),
+        Some(&guest_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "guest must not browse");
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn member_can_join_a_public_channel_and_repeat_joins_are_idempotent(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Join WS").await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "open-room", false).await;
+    let (joiner_id, _, joiner_token) = seed_and_login(&app, &state, "ch-joiner", false).await;
+    add_ws_member(&state, ws_id, joiner_id, "member").await;
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/join"),
+        Some(&joiner_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "join: {body:?}");
+    assert_eq!(body["user_id"], joiner_id.to_string());
+    assert_eq!(body["role"], "member");
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/join"),
+        Some(&joiner_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "joining twice should be a no-op");
+
+    let (status, listing) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws_id}/channels"),
+        Some(&joiner_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let ids: Vec<&str> = listing["data"]
+        .as_array()
+        .expect("channels array")
+        .iter()
+        .map(|c| c["id"].as_str().unwrap_or_default())
+        .collect();
+    assert!(
+        ids.contains(&ch_id.to_string().as_str()),
+        "joined channel should appear in the sidebar listing: {ids:?}"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn join_rejects_private_channels_guests_and_outsiders(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Join Guard WS").await;
+    let private = seed_channel(&state, ws_id, owner_id, "secret-room", true).await;
+    let public = seed_channel(&state, ws_id, owner_id, "open-room", false).await;
+
+    let (member_id, _, member_token) = seed_and_login(&app, &state, "ch-member", false).await;
+    add_ws_member(&state, ws_id, member_id, "member").await;
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{private}/join"),
+        Some(&member_token),
+        None,
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "private channels are invite-only"
+    );
+
+    let (guest_id, _, guest_token) = seed_and_login(&app, &state, "ch-guest", false).await;
+    add_ws_member(&state, ws_id, guest_id, "guest").await;
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{public}/join"),
+        Some(&guest_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "guests cannot self-join");
+
+    let (_, _, outsider_token) = seed_and_login(&app, &state, "ch-outsider", false).await;
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{public}/join"),
+        Some(&outsider_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "outsiders cannot self-join");
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{public}/join"),
+        None,
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn join_rejects_archived_channels(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Join Archived WS").await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "old-room", false).await;
+    state
+        .workspace_service
+        .repo
+        .archive_channel(ch_id)
+        .await
+        .expect("precondition: archive");
+
+    let (joiner_id, _, joiner_token) = seed_and_login(&app, &state, "ch-joiner", false).await;
+    add_ws_member(&state, ws_id, joiner_id, "member").await;
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/join"),
+        Some(&joiner_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+}
+
+#[sqlx::test(migrations = "../migrations")]
 async fn channel_admin_can_rename_and_archive_their_own_channel(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;

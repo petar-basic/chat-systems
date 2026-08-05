@@ -18,6 +18,19 @@ interface ChannelMembersResponse {
   data: ChannelMember[];
 }
 
+export interface BrowsableChannel {
+  id: string;
+  workspace_id: string;
+  name: string | null;
+  channel_type: string;
+  topic: string | null;
+  description: string | null;
+  is_default: boolean;
+  created_at: string;
+  member_count: number;
+  is_member: boolean;
+}
+
 interface PinnedMessagesResponse {
   data: Message[];
 }
@@ -51,6 +64,48 @@ export const useSetChannelMuted = (workspaceId: string, instanceUrl?: string) =>
       queryClient.setQueryData<Channel[]>(QUERY_KEYS.workspaceChannels(workspaceId), (old) =>
         old?.map((c) => (c.id === channelId ? { ...c, muted } : c)),
       );
+    },
+  });
+};
+
+export const useBrowsableChannels = (workspaceId: string | null, instanceUrl?: string) => {
+  return useQuery({
+    queryKey: QUERY_KEYS.channelsBrowse(workspaceId ?? ''),
+    queryFn: async () => {
+      const response = await getApiForInstance(instanceUrl).get<{ data: BrowsableChannel[] }>(
+        `/workspaces/${workspaceId}/channels/browse`,
+      );
+      return response.data;
+    },
+    enabled: !!workspaceId,
+    staleTime: 1000 * 30,
+  });
+};
+
+export const useJoinChannel = (workspaceId: string, instanceUrl?: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (channelId: string) =>
+      getApiForInstance(instanceUrl).post(`/channels/${channelId}/join`, {}),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceChannels(workspaceId) }),
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.channelsBrowse(workspaceId) }),
+      ]);
+    },
+  });
+};
+
+export const useLeaveChannel = (workspaceId: string, userId: string, instanceUrl?: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (channelId: string) =>
+      getApiForInstance(instanceUrl).delete(`/channels/${channelId}/members/${userId}`),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceChannels(workspaceId) }),
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.channelsBrowse(workspaceId) }),
+      ]);
     },
   });
 };

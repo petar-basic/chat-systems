@@ -114,6 +114,7 @@ feature — see `dm` below.)
 |--------|----------|
 | Read channels/messages, post, react, thread | Member of the workspace; **Guest** additionally must be a member of that channel (Guests never get implicit access to public channels) |
 | Create a channel | `Member` |
+| Browse public channels and self-join one | `Member` — Guests are refused, and private/archived channels are never listed or joinable |
 | Rename/archive a channel, change a channel member's role, remove someone from a channel | **Channel admin** (`channel_members.role = 'admin'`) or workspace `Admin`; a Guest never moderates, even holding the channel-admin row |
 | Add someone to a channel | `Member` of the workspace, and — for a private channel — a member of that channel; the person being added must already be in the workspace |
 | Manage invites and workspace settings | `Admin` |
@@ -156,6 +157,7 @@ feature — see `dm` below.)
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/channels` | — | `{ data: Channel[] }` (each augmented with `muted`) |
 | GET | `/workspaces/:ws_id/channels/unread` | — | `{ channel_ids: string[] }` |
+| GET | `/workspaces/:ws_id/channels/browse` | — | `{ data: BrowsableChannel[] }` — every public, unarchived channel with `member_count` and `is_member` (Members and up; Guests are refused) |
 | POST | `/workspaces/:ws_id/channels` | `{ name, channel_type?, description?, is_default? }` | `Channel` |
 | GET | `/channels/:ch_id` | — | `Channel` |
 | PATCH | `/channels/:ch_id` | `{ name?, topic?, description? }` | `Channel` |
@@ -168,6 +170,7 @@ feature — see `dm` below.)
 |--------|-------|-------|--------|
 | GET | `/channels/:ch_id/members` | — | `{ data: ChannelMember[] }` |
 | POST | `/channels/:ch_id/members` | `{ user_id }` | `ChannelMember` |
+| POST | `/channels/:ch_id/join` | — | `ChannelMember` — self-join, public and unarchived channels only; idempotent |
 | PATCH | `/channels/:ch_id/members/:user_id/role` | `{ role: "member" \| "admin" }` | `ChannelMember` — channel moderators only |
 | DELETE | `/channels/:ch_id/members/:user_id` | — | `{ status: "removed" }` |
 

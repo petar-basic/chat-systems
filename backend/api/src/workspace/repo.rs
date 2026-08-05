@@ -505,6 +505,38 @@ impl WorkspaceRepo {
         .await
     }
 
+    pub async fn list_browsable_channels(
+        &self,
+        workspace_id: Uuid,
+        user_id: Uuid,
+    ) -> sqlx::Result<Vec<BrowsableChannel>> {
+        sqlx::query_as::<_, BrowsableChannel>(
+            r"
+            SELECT c.id,
+                   c.workspace_id,
+                   c.name,
+                   c.channel_type,
+                   c.topic,
+                   c.description,
+                   c.is_default,
+                   c.created_at,
+                   COUNT(cm.user_id) AS member_count,
+                   COALESCE(BOOL_OR(cm.user_id = $2), false) AS is_member
+            FROM channels c
+            LEFT JOIN channel_members cm ON cm.channel_id = c.id
+            WHERE c.workspace_id = $1
+              AND c.channel_type = 'public'
+              AND c.is_archived = false
+            GROUP BY c.id
+            ORDER BY c.name
+            ",
+        )
+        .bind(workspace_id)
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await
+    }
+
     pub async fn set_channel_muted(
         &self,
         channel_id: Uuid,

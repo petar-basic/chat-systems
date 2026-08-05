@@ -11,6 +11,7 @@ export default defineConfig({
   reporter: 'list',
   use: {
     baseURL: process.env.E2E_BASE_URL || 'http://localhost:8080',
+    testIdAttribute: 'data-qa',
     trace: 'on-first-retry',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
