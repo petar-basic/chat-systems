@@ -713,3 +713,259 @@ async fn create_reminder_missing_required_field_is_unprocessable(pool: PgPool) {
     .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
 }
+
+#[sqlx::test(migrations = "../migrations")]
+async fn reveal_returns_the_full_incoming_url_that_list_redacts(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Reveal WS").await;
+    let ch = seed_channel(&state, ws, owner_id, "alerts", false).await;
+
+    let (_, created) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws}/hooks"),
+        Some(&token),
+        Some(json!({
+            "hook_type": "incoming_webhook",
+            "name": "CI",
+            "config": { "channel_id": ch }
+        })),
+    )
+    .await;
+    let hook_id = created["id"].as_str().expect("hook id").to_string();
+    let minted = created["config"]["token"]
+        .as_str()
+        .expect("token")
+        .to_string();
+
+    let (_, listed) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws}/hooks"),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_eq!(
+        listed["data"][0]["config"]["token"], "***",
+        "listing must keep the token hidden: {listed:?}"
+    );
+
+    let (status, revealed) = send(
+        &app,
+        "POST",
+        &format!("/api/hooks/{hook_id}/reveal"),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "reveal: {revealed:?}");
+    assert_eq!(revealed["config"]["token"], minted);
+    assert_eq!(
+        revealed["incoming_url"],
+        format!("http://localhost/api/hooks/incoming/{minted}"),
+        "reveal returns a ready-to-paste URL: {revealed:?}"
+    );
+
+    let audited: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM audit_log WHERE action = 'hook.reveal' AND resource_id = $1",
+    )
+    .bind(uuid::Uuid::parse_str(&hook_id).expect("uuid"))
+    .fetch_one(&state.pool)
+    .await
+    .expect("count audit rows");
+    assert_eq!(audited.0, 1, "revealing a secret must be audited");
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn rotate_replaces_the_incoming_token_and_retires_the_old_one(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Rotate WS").await;
+    let ch = seed_channel(&state, ws, owner_id, "alerts", false).await;
+
+    let (_, created) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws}/hooks"),
+        Some(&token),
+        Some(json!({
+            "hook_type": "incoming_webhook",
+            "name": "CI",
+            "config": { "channel_id": ch }
+        })),
+    )
+    .await;
+    let hook_id = created["id"].as_str().expect("hook id").to_string();
+    let old_token = created["config"]["token"]
+        .as_str()
+        .expect("token")
+        .to_string();
+
+    let (status, rotated) = send(
+        &app,
+        "POST",
+        &format!("/api/hooks/{hook_id}/rotate"),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "rotate: {rotated:?}");
+    let new_token = rotated["config"]["token"].as_str().expect("new token");
+    assert_ne!(new_token, old_token, "rotation must mint a fresh token");
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/hooks/incoming/{old_token}"),
+        None,
+        Some(json!({ "text": "posted with the retired token" })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "the old token must stop working"
+    );
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/hooks/incoming/{new_token}"),
+        None,
+        Some(json!({ "text": "posted with the fresh token" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "the new token must work");
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn reveal_and_rotate_are_workspace_admin_only(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Hook Guard WS").await;
+    let ch = seed_channel(&state, ws, owner_id, "alerts", false).await;
+
+    let (_, created) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws}/hooks"),
+        Some(&token),
+        Some(json!({
+            "hook_type": "incoming_webhook",
+            "name": "CI",
+            "config": { "channel_id": ch }
+        })),
+    )
+    .await;
+    let hook_id = created["id"].as_str().expect("hook id").to_string();
+
+    let (member_id, _, member_token) = seed_and_login(&app, &state, "hook-member", false).await;
+    add_ws_member(&state, ws, member_id, "member").await;
+
+    for route in ["reveal", "rotate"] {
+        let (status, _) = send(
+            &app,
+            "POST",
+            &format!("/api/hooks/{hook_id}/{route}"),
+            Some(&member_token),
+            None,
+        )
+        .await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "member cannot {route}");
+
+        let (status, _) = send(
+            &app,
+            "POST",
+            &format!("/api/hooks/{hook_id}/{route}"),
+            None,
+            None,
+        )
+        .await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED, "anon cannot {route}");
+    }
+
+    let unknown = uuid::Uuid::new_v4();
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/hooks/{unknown}/reveal"),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn outgoing_webhook_gets_a_generated_secret_and_a_validated_url(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Outgoing WS").await;
+
+    let (status, created) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws}/hooks"),
+        Some(&token),
+        Some(json!({
+            "hook_type": "outgoing_webhook",
+            "name": "Deploy bot",
+            "config": { "url": "https://example.com/hooks/chat" }
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "create outgoing hook: {created:?}");
+    let secret = created["config"]["secret"]
+        .as_str()
+        .expect("a secret is minted for signing");
+    assert!(!secret.is_empty());
+
+    let hook_id = created["id"].as_str().expect("hook id").to_string();
+    let (_, rotated) = send(
+        &app,
+        "POST",
+        &format!("/api/hooks/{hook_id}/rotate"),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_ne!(
+        rotated["config"]["secret"].as_str().expect("new secret"),
+        secret,
+        "rotation must replace the signing secret"
+    );
+    assert!(
+        rotated["incoming_url"].is_null(),
+        "an outgoing hook has no incoming URL: {rotated:?}"
+    );
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws}/hooks"),
+        Some(&token),
+        Some(json!({
+            "hook_type": "outgoing_webhook",
+            "name": "Internal",
+            "config": { "url": "ftp://example.com/steal" }
+        })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "only http(s) targets are accepted: {body:?}"
+    );
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws}/hooks"),
+        Some(&token),
+        Some(json!({ "hook_type": "outgoing_webhook", "name": "No URL" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "url is required");
+}

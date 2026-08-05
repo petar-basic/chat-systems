@@ -20,6 +20,8 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/workspaces/:ws_id/hooks", post(create_hook))
         .route("/hooks/:hook_id", get(get_hook))
         .route("/hooks/:hook_id", delete(delete_hook))
+        .route("/hooks/:hook_id/reveal", post(reveal_hook))
+        .route("/hooks/:hook_id/rotate", post(rotate_hook))
         .route("/workspaces/:ws_id/reminders", get(list_reminders))
         .route("/workspaces/:ws_id/reminders", post(create_reminder))
         .layer(middleware::from_fn(auth_middleware));
@@ -90,6 +92,28 @@ async fn create_hook(
         }
     }
 
+    if req.hook_type == HookType::OutgoingWebhook {
+        let url = config
+            .get("url")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| {
+                AppError::Validation("outgoing_webhook requires a url in config".into())
+            })?
+            .to_string();
+        let parsed = reqwest::Url::parse(&url)
+            .map_err(|e| AppError::Validation(format!("Invalid webhook URL: {e}")))?;
+        if !matches!(parsed.scheme(), "http" | "https") {
+            return Err(AppError::Validation(
+                "Webhook URL must be http or https".into(),
+            ));
+        }
+        if let Some(obj) = config.as_object_mut() {
+            if !obj.contains_key("secret") {
+                obj.insert("secret".to_string(), serde_json::json!(generate_token()));
+            }
+        }
+    }
+
     let hook = state
         .hook_repo
         .create_hook(
@@ -124,6 +148,74 @@ async fn get_hook(
     let mut value = serde_json::to_value(&hook).map_err(|e| AppError::Internal(e.to_string()))?;
     redact_secrets(value.get_mut("config"));
     Ok(Json(value))
+}
+
+fn secrets_response(state: &AppState, hook: &Hook) -> serde_json::Value {
+    let incoming_url = hook
+        .config
+        .get("token")
+        .and_then(|v| v.as_str())
+        .map(|token| format!("{}/api/hooks/incoming/{}", state.config.public_url, token));
+    serde_json::json!({
+        "hook_id": hook.id,
+        "hook_type": hook.hook_type,
+        "config": hook.config,
+        "incoming_url": incoming_url,
+    })
+}
+
+async fn require_hook_admin(state: &AppState, hook_id: Uuid, user_id: Uuid) -> AppResult<Hook> {
+    let hook = state
+        .hook_repo
+        .find_hook_by_id(hook_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Hook not found".into()))?;
+    require_ws_role(state, hook.workspace_id, user_id, &WorkspaceRole::Admin).await?;
+    Ok(hook)
+}
+
+async fn reveal_hook(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(hook_id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    let hook = require_hook_admin(&state, hook_id, auth.user_id).await?;
+    state
+        .hook_repo
+        .record_audit(hook.workspace_id, auth.user_id, "hook.reveal", hook.id)
+        .await?;
+    Ok(Json(secrets_response(&state, &hook)))
+}
+
+async fn rotate_hook(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(hook_id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    let hook = require_hook_admin(&state, hook_id, auth.user_id).await?;
+
+    let rotated_key = match hook.hook_type {
+        HookType::IncomingWebhook => "token",
+        HookType::OutgoingWebhook => "secret",
+        _ => {
+            return Err(AppError::BadRequest(
+                "Only incoming and outgoing webhooks carry a rotatable credential".into(),
+            ))
+        }
+    };
+
+    let mut config = hook.config.clone();
+    let obj = config
+        .as_object_mut()
+        .ok_or_else(|| AppError::Internal("hook config is not an object".into()))?;
+    obj.insert(rotated_key.to_string(), serde_json::json!(generate_token()));
+
+    let updated = state.hook_repo.update_hook_config(hook.id, &config).await?;
+    state
+        .hook_repo
+        .record_audit(hook.workspace_id, auth.user_id, "hook.rotate", hook.id)
+        .await?;
+    Ok(Json(secrets_response(&state, &updated)))
 }
 
 async fn delete_hook(
