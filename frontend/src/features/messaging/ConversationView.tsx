@@ -1,19 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
-import { useUserCache } from '../stores/users';
-import { usePresenceStore } from '../stores/presence';
+import { useUserCache } from '@/stores/users';
+import { usePresenceStore } from '@/stores/presence';
 import { ArrowLeft, Pencil, Trash2, SmilePlus, Menu } from 'lucide-react';
 import {
-  useDirectMessages,
-  useSendDirectMessage,
-  useEditDirectMessage,
-  useDeleteDirectMessage,
-  useReactToDm,
-  useRemoveDmReaction,
-} from '../hooks/queries/useDm';
+  useConversationMessages,
+  useSendConversationMessage,
+  useEditConversationMessage,
+  useDeleteConversationMessage,
+  useReactToConversationMessage,
+  useRemoveConversationReaction,
+} from '@/hooks/queries/useConversations';
 import { MessageInput, EmojiPicker } from '@/features/messaging';
-import RichTextDisplay from '../components/RichTextDisplay';
-import PresenceDot from '../components/PresenceDot';
-import type { DirectMessage } from '../hooks/queries/useDm';
+import RichTextDisplay from '@/components/RichTextDisplay';
+import PresenceDot from '@/components/PresenceDot';
+import type { ConversationMessage } from '@/hooks/queries/useConversations';
 import { displayNameOf } from '@/lib/userHelpers';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { ConnectionBanner } from '@/shared/components/ConnectionBanner/ConnectionBanner';
@@ -24,33 +24,39 @@ import { EmptyLabels, MESSAGE_GROUP_WINDOW_MS } from '@/shared/constants';
 interface Props {
   workspaceId: string;
   instanceUrl: string;
-  partnerId: string;
+  conversationId: string;
+  title: string;
+  participantIds: string[];
+  kind: 'direct' | 'group';
   currentUserId: string;
   onClose: () => void;
   onOpenNav?: () => void;
 }
 
-export default function DmView({
+export default function ConversationView({
   workspaceId,
   instanceUrl,
-  partnerId,
+  conversationId,
+  title,
+  participantIds,
+  kind,
   currentUserId,
   onClose,
   onOpenNav,
 }: Props) {
+  const partnerId = participantIds.find((id) => id !== currentUserId) ?? currentUserId;
   const { getUser } = useUserCache();
   const partner = getUser(partnerId);
   const status = usePresenceStore((s) => s.getStatus(partnerId));
-  const partnerName = displayNameOf(partner?.display_name);
 
   const { data, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useDirectMessages(workspaceId, partnerId, instanceUrl);
+    useConversationMessages(conversationId, instanceUrl);
 
-  const sendMutation = useSendDirectMessage(workspaceId, partnerId, currentUserId, instanceUrl);
-  const editMutation = useEditDirectMessage(workspaceId, partnerId, instanceUrl);
-  const deleteMutation = useDeleteDirectMessage(workspaceId, partnerId, instanceUrl);
-  const reactMutation = useReactToDm(workspaceId, partnerId, currentUserId, instanceUrl);
-  const removeReactionMutation = useRemoveDmReaction(workspaceId, partnerId, currentUserId, instanceUrl);
+  const sendMutation = useSendConversationMessage(workspaceId, conversationId, currentUserId, instanceUrl);
+  const editMutation = useEditConversationMessage(conversationId, instanceUrl);
+  const deleteMutation = useDeleteConversationMessage(conversationId, instanceUrl);
+  const reactMutation = useReactToConversationMessage(conversationId, currentUserId, instanceUrl);
+  const removeReactionMutation = useRemoveConversationReaction(conversationId, currentUserId, instanceUrl);
 
   const toggleReaction = (messageId: string, emoji: string, hasOwn: boolean) => {
     if (hasOwn) removeReactionMutation.mutate({ messageId, emoji });
@@ -105,20 +111,47 @@ export default function DmView({
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
-        <div className="relative shrink-0">
-          <Avatar userId={partnerId} name={partnerName} avatarUrl={partner?.avatar_url} size="sm" />
-          <PresenceDot userId={partnerId} className="absolute -bottom-0.5 -right-0.5 ring-2 ring-slate-900" />
-        </div>
-        <span className="font-semibold text-white">{partnerName}</span>
-        {status === 'online' && <span className="text-xs text-slate-400">Active now</span>}
-        <div className="ml-auto">
-          <HuddleStartButton
-            workspaceId={workspaceId}
-            instanceUrl={instanceUrl}
-            partnerId={partnerId}
-            currentUserId={currentUserId}
-          />
-        </div>
+        {kind === 'direct' ? (
+          <div className="relative shrink-0">
+            <Avatar userId={partnerId} name={title} avatarUrl={partner?.avatar_url} size="sm" />
+            <PresenceDot
+              userId={partnerId}
+              className="absolute -bottom-0.5 -right-0.5 ring-2 ring-slate-900"
+            />
+          </div>
+        ) : (
+          <div className="flex -space-x-2 shrink-0" data-qa="conversation-participants">
+            {participantIds.slice(0, 3).map((id) => (
+              <Avatar
+                key={id}
+                userId={id}
+                name={displayNameOf(getUser(id)?.display_name)}
+                avatarUrl={getUser(id)?.avatar_url}
+                size="xs"
+                className="ring-2 ring-slate-900"
+              />
+            ))}
+          </div>
+        )}
+        <span className="font-semibold text-white truncate" data-qa="conversation-title">
+          {title}
+        </span>
+        {kind === 'group' && (
+          <span className="text-xs text-slate-400 shrink-0">{participantIds.length} people</span>
+        )}
+        {kind === 'direct' && status === 'online' && (
+          <span className="text-xs text-slate-400">Active now</span>
+        )}
+        {kind === 'direct' && (
+          <div className="ml-auto">
+            <HuddleStartButton
+              workspaceId={workspaceId}
+              instanceUrl={instanceUrl}
+              partnerId={partnerId}
+              currentUserId={currentUserId}
+            />
+          </div>
+        )}
       </div>
 
       <QueryState
@@ -126,7 +159,7 @@ export default function DmView({
         isError={isError}
         isEmpty={messageCount === 0}
         onRetry={() => void refetch()}
-        empty={<p className="text-sm">{EmptyLabels.DmBeginning(partnerName)}</p>}
+        empty={<p className="text-sm">{EmptyLabels.DmBeginning(title)}</p>}
       >
         <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col" onScroll={handleScroll}>
           {isFetchingNextPage && (
@@ -137,16 +170,16 @@ export default function DmView({
             const grouped =
               !!prev &&
               !prev.deleted_at &&
-              prev.from_user_id === msg.from_user_id &&
+              prev.user_id === msg.user_id &&
               new Date(msg.created_at).toDateString() === new Date(prev.created_at).toDateString() &&
               new Date(msg.created_at).getTime() - new Date(prev.created_at).getTime() <
                 MESSAGE_GROUP_WINDOW_MS;
             return (
-              <DmMessage
+              <ConversationMessageRow
                 key={msg.id}
                 msg={msg}
                 grouped={grouped}
-                isOwn={msg.from_user_id === currentUserId}
+                isOwn={msg.user_id === currentUserId}
                 currentUserId={currentUserId}
                 onEdit={(content) => editMutation.mutateAsync({ messageId: msg.id, content })}
                 onDelete={() => deleteMutation.mutateAsync({ messageId: msg.id })}
@@ -159,18 +192,21 @@ export default function DmView({
       </QueryState>
 
       <MessageInput
-        key={`dm:${partnerId}`}
-        channelName={partnerName}
-        draftKey={`dm:${partnerId}`}
+        key={`conversation:${conversationId}`}
+        channelName={title}
+        draftKey={`conversation:${conversationId}`}
         isDm
         onSend={handleSend}
+        scheduleTarget={{ conversationId }}
+        workspaceId={workspaceId}
+        instanceUrl={instanceUrl}
       />
     </div>
   );
 }
 
-interface DmMessageProps {
-  msg: DirectMessage;
+interface ConversationMessageProps {
+  msg: ConversationMessage;
   grouped?: boolean;
   isOwn: boolean;
   currentUserId: string;
@@ -179,7 +215,7 @@ interface DmMessageProps {
   onToggleReaction: (emoji: string, hasOwn: boolean) => void;
 }
 
-function DmMessage({
+function ConversationMessageRow({
   msg,
   grouped,
   isOwn,
@@ -187,9 +223,9 @@ function DmMessage({
   onEdit,
   onDelete,
   onToggleReaction,
-}: DmMessageProps) {
+}: ConversationMessageProps) {
   const { getUser } = useUserCache();
-  const sender = getUser(msg.from_user_id);
+  const sender = getUser(msg.user_id);
   const senderName = displayNameOf(sender?.display_name);
 
   const [editing, setEditing] = useState(false);
@@ -224,7 +260,10 @@ function DmMessage({
 
   if (msg.deleted_at) {
     return (
-      <div className="flex items-start gap-3 py-1.5 px-2 rounded-lg opacity-50" data-qa="dm-deleted">
+      <div
+        className="flex items-start gap-3 py-1.5 px-2 rounded-lg opacity-50"
+        data-qa="conversation-message-deleted"
+      >
         <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center shrink-0 mt-0.5">
           <Trash2 className="w-3.5 h-3.5 text-slate-400" />
         </div>
@@ -237,7 +276,7 @@ function DmMessage({
 
   return (
     <div
-      data-qa="dm-message"
+      data-qa="conversation-message"
       tabIndex={0}
       className={`group relative flex items-start gap-3 px-2 rounded-lg transition-colors hover:bg-slate-800/50 ${grouped ? 'py-0.5' : 'py-1.5'} ${msg.pending ? 'opacity-50' : ''}`}
     >
@@ -248,12 +287,7 @@ function DmMessage({
           </span>
         </div>
       ) : (
-        <Avatar
-          userId={msg.from_user_id}
-          name={senderName}
-          avatarUrl={sender?.avatar_url}
-          className="mt-0.5"
-        />
+        <Avatar userId={msg.user_id} name={senderName} avatarUrl={sender?.avatar_url} className="mt-0.5" />
       )}
       <div className="flex-1 min-w-0">
         {!grouped && (

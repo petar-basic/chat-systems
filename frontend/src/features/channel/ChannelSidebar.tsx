@@ -16,9 +16,12 @@ import {
   BellOff,
   Compass,
   Plug,
+  Check,
+  Clock,
 } from 'lucide-react';
 import { useWorkspaceStore, type Channel, type Workspace, type WorkspaceMember } from '@/stores/workspace';
-import type { DmConversation } from '@/hooks/queries/useDm';
+import type { Conversation } from '@/hooks/queries/useConversations';
+import { conversationTitle } from '@/lib/conversationHelpers';
 import { useUserCache } from '@/stores/users';
 import { useInstanceStore } from '@/stores/instances';
 import { useUnreadNotificationCount } from '@/hooks/queries/useNotifications';
@@ -26,6 +29,8 @@ import { displayNameOf } from '@/lib/userHelpers';
 import BrowseChannelsModal from './BrowseChannelsModal';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import PresenceDot from '@/components/PresenceDot';
+
+const MAX_GROUP_OTHERS = 8;
 
 interface Props {
   currentWorkspace: Workspace | null;
@@ -37,16 +42,18 @@ interface Props {
   workspaceMembers: WorkspaceMember[];
   currentUserId: string | undefined;
   user: { id: string; display_name: string; email: string; avatar_url: string | null } | null;
-  dmConversations: DmConversation[];
-  currentDmPartnerId: string | null;
-  unreadDmPartners: Set<string>;
+  conversations: Conversation[];
+  currentConversationId: string | null;
+  unreadConversations: Set<string>;
   onSelectChannel: (ch: Channel) => void;
   onCreateChannel: (name: string) => Promise<void>;
   onToggleMute: (channelId: string, muted: boolean) => void;
-  onOpenDm: (userId: string) => void;
+  onOpenConversation: (conversationId: string) => void;
+  onOpenWith: (participantIds: string[]) => Promise<void>;
   onOpenMembers: () => void;
   onOpenSettings: () => void;
   onOpenIntegrations: () => void;
+  onOpenScheduled: () => void;
   onOpenProfile: () => void;
   onOpenNotifications: () => void;
   onLogout: () => void;
@@ -72,24 +79,29 @@ function UserAvatarWithPresence({
   );
 }
 
-function DmConversationButton({
-  conv,
+function ConversationButton({
+  conversation,
+  currentUserId,
   isActive,
   isUnread,
   onSelect,
 }: {
-  conv: DmConversation;
+  conversation: Conversation;
+  currentUserId: string | undefined;
   isActive: boolean;
   isUnread: boolean;
-  onSelect: (partnerId: string) => void;
+  onSelect: (conversationId: string) => void;
 }) {
   const { getUser } = useUserCache();
-  const partner = getUser(conv.partner_id);
-  const name = displayNameOf(partner?.display_name);
+  const title = conversationTitle(conversation, currentUserId, (id) => getUser(id)?.display_name);
+  const others = conversation.participant_ids.filter((id) => id !== currentUserId);
+  const partnerId = others[0] ?? currentUserId ?? '';
 
   return (
     <button
-      onClick={() => onSelect(conv.partner_id)}
+      onClick={() => onSelect(conversation.id)}
+      data-qa="conversation-row"
+      data-conversation-id={conversation.id}
       className={`w-full px-3 py-1.5 flex items-center gap-2 text-sm transition cursor-pointer ${
         isActive
           ? 'bg-purple-600/20 text-white'
@@ -98,8 +110,23 @@ function DmConversationButton({
             : 'text-slate-400 hover:bg-slate-700/30 hover:text-slate-200'
       }`}
     >
-      <UserAvatarWithPresence userId={conv.partner_id} name={name} avatarUrl={partner?.avatar_url} />
-      <span className="truncate">{name}</span>
+      {conversation.kind === 'group' ? (
+        <span className="relative shrink-0 flex -space-x-2">
+          {others.slice(0, 2).map((id) => (
+            <Avatar
+              key={id}
+              userId={id}
+              name={displayNameOf(getUser(id)?.display_name)}
+              avatarUrl={getUser(id)?.avatar_url}
+              size="xs"
+              className="ring-2 ring-slate-800"
+            />
+          ))}
+        </span>
+      ) : (
+        <UserAvatarWithPresence userId={partnerId} name={title} avatarUrl={getUser(partnerId)?.avatar_url} />
+      )}
+      <span className="truncate">{title}</span>
       {isUnread && !isActive && <span className="ml-auto w-2 h-2 bg-purple-400 rounded-full shrink-0" />}
     </button>
   );
@@ -133,16 +160,18 @@ export default function ChannelSidebar({
   workspaceMembers,
   currentUserId,
   user,
-  dmConversations,
-  currentDmPartnerId,
-  unreadDmPartners,
+  conversations,
+  currentConversationId,
+  unreadConversations,
   onSelectChannel,
   onCreateChannel,
   onToggleMute,
-  onOpenDm,
+  onOpenConversation,
+  onOpenWith,
   onOpenMembers,
   onOpenSettings,
   onOpenIntegrations,
+  onOpenScheduled,
   onOpenProfile,
   onOpenNotifications,
   onLogout,
@@ -162,10 +191,22 @@ export default function ChannelSidebar({
   const [dmSearch, setDmSearch] = useState('');
   const [showBrowseChannels, setShowBrowseChannels] = useState(false);
 
+  const [selectedPeople, setSelectedPeople] = useState<string[]>([]);
+
   const closeDmPicker = () => {
     setShowDmPicker(false);
     setDmSearch('');
+    setSelectedPeople([]);
   };
+
+  const togglePerson = (userId: string) =>
+    setSelectedPeople((picked) =>
+      picked.includes(userId)
+        ? picked.filter((id) => id !== userId)
+        : picked.length >= MAX_GROUP_OTHERS
+          ? picked
+          : [...picked, userId],
+    );
 
   const dmQuery = dmSearch.trim().toLowerCase();
   const dmCandidates = workspaceMembers.filter((m) =>
@@ -271,6 +312,16 @@ export default function ChannelSidebar({
               >
                 <Settings className="w-4 h-4" /> Settings
               </button>
+              <button
+                className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
+                data-qa="open-scheduled"
+                onClick={() => {
+                  onOpenScheduled();
+                  setWsDropdownOpen(false);
+                }}
+              >
+                <Clock className="w-4 h-4" /> Scheduled
+              </button>
               {isWorkspaceAdmin && (
                 <button
                   className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
@@ -334,16 +385,17 @@ export default function ChannelSidebar({
               <Plus className="w-4 h-4" />
             </button>
           </div>
-          {dmConversations.length === 0 ? (
+          {conversations.length === 0 ? (
             <div className="px-3 py-1.5 text-xs text-slate-400">No conversations yet</div>
           ) : (
-            dmConversations.map((conv) => (
-              <DmConversationButton
-                key={conv.partner_id}
-                conv={conv}
-                isActive={currentDmPartnerId === conv.partner_id}
-                isUnread={unreadDmPartners.has(conv.partner_id)}
-                onSelect={onOpenDm}
+            conversations.map((conv) => (
+              <ConversationButton
+                key={conv.id}
+                conversation={conv}
+                currentUserId={currentUserId}
+                isActive={currentConversationId === conv.id}
+                isUnread={unreadConversations.has(conv.id)}
+                onSelect={onOpenConversation}
               />
             ))
           )}
@@ -356,7 +408,7 @@ export default function ChannelSidebar({
               {workspaceMembers
                 .filter((m) => m.user_id !== currentUserId)
                 .map((m) => (
-                  <SidebarUser key={m.user_id} userId={m.user_id} onOpenDm={onOpenDm} />
+                  <SidebarUser key={m.user_id} userId={m.user_id} onOpenDm={(id) => void onOpenWith([id])} />
                 ))}
             </>
           )}
@@ -408,47 +460,73 @@ export default function ChannelSidebar({
 
       {showDmPicker && (
         <Modal title="New Message" onClose={closeDmPicker} dataQa="new-dm-modal">
-          <h2 className="text-lg font-bold mb-4">New Message</h2>
+          <h2 className="text-lg font-bold mb-1">New message</h2>
+          <p className="text-xs text-slate-400 mb-3">
+            Pick one person for a direct message, or up to eight for a group.
+          </p>
           <input
             type="text"
             value={dmSearch}
             onChange={(e) => setDmSearch(e.target.value)}
             placeholder="Search people…"
             aria-label="Search people"
+            data-qa="new-dm-search"
             className="w-full px-3 py-2 mb-3 bg-slate-700/50 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
           <div className="flex flex-col gap-1 max-h-64 overflow-y-auto">
             {dmCandidates.length === 0 ? (
               <div className="px-3 py-4 text-sm text-slate-400 text-center">No people found</div>
             ) : (
-              dmCandidates.map((m) => {
-                const isSelf = m.user_id === currentUserId;
-                return (
-                  <button
-                    key={m.user_id}
-                    onClick={() => {
-                      closeDmPicker();
-                      onOpenDm(m.user_id);
-                    }}
-                    className="w-full px-3 py-2 flex items-center gap-3 rounded-lg hover:bg-slate-700/50 text-left transition"
-                  >
-                    <Avatar userId={m.user_id} name={m.display_name || m.email} avatarUrl={m.avatar_url} />
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium truncate">
-                        {m.display_name || m.email}
-                        {isSelf && <span className="text-slate-400 font-normal"> (you)</span>}
+              dmCandidates
+                .filter((m) => m.user_id !== currentUserId)
+                .map((m) => {
+                  const picked = selectedPeople.includes(m.user_id);
+                  return (
+                    <button
+                      key={m.user_id}
+                      onClick={() => togglePerson(m.user_id)}
+                      aria-pressed={picked}
+                      data-qa="new-dm-candidate"
+                      data-user-id={m.user_id}
+                      className={`w-full px-3 py-2 flex items-center gap-3 rounded-lg text-left transition ${
+                        picked ? 'bg-purple-600/20 text-white' : 'hover:bg-slate-700/50'
+                      }`}
+                    >
+                      <Avatar userId={m.user_id} name={m.display_name || m.email} avatarUrl={m.avatar_url} />
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium truncate">{m.display_name || m.email}</div>
+                        <div className="text-xs text-slate-400 truncate">{m.email}</div>
                       </div>
-                      <div className="text-xs text-slate-400 truncate">{m.email}</div>
-                    </div>
-                  </button>
-                );
-              })
+                      {picked && <Check className="w-4 h-4 text-purple-300 ml-auto shrink-0" />}
+                    </button>
+                  );
+                })
             )}
           </div>
-          <div className="mt-4 flex justify-end">
-            <button onClick={closeDmPicker} className="px-4 py-2 text-slate-400 hover:text-white transition">
-              Cancel
-            </button>
+          <div className="mt-4 flex items-center justify-between gap-2">
+            <span className="text-xs text-slate-400" data-qa="new-dm-selected-count">
+              {selectedPeople.length === 0 ? 'Nobody picked yet' : `${selectedPeople.length} selected`}
+            </span>
+            <div className="flex gap-2">
+              <button
+                onClick={closeDmPicker}
+                className="px-4 py-2 text-slate-400 hover:text-white transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const people = selectedPeople;
+                  closeDmPicker();
+                  void onOpenWith(people);
+                }}
+                disabled={selectedPeople.length === 0}
+                data-qa="new-dm-start"
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/50 text-white text-sm font-medium rounded-lg transition cursor-pointer disabled:cursor-not-allowed"
+              >
+                {selectedPeople.length > 1 ? 'Start group' : 'Start chat'}
+              </button>
+            </div>
           </div>
         </Modal>
       )}

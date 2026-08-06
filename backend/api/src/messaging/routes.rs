@@ -476,7 +476,7 @@ async fn search_messages(
     Ok(Json(serde_json::json!({ "data": messages })))
 }
 
-async fn require_channel_access(
+pub(crate) async fn require_channel_access(
     state: &AppState,
     ch_id: Uuid,
     user_id: Uuid,

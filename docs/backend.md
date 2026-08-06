@@ -176,14 +176,53 @@ feature — see `dm` below.)
 
 ---
 
-### dm
+### conversations
 
-Per-pair direct messages, scoped to a workspace (no channel row — DMs are rows in their own
-`direct_messages` table with `workspace_id` / `from_user_id` / `to_user_id`). Every route
-requires both the caller and the partner to be members of the workspace.
+Direct and group messages share one model: a `direct` conversation is the two-person case of
+the same rows that back a group, so read state, reactions and fan-out have a single shape.
+Every route requires the caller to be a participant; creating one requires every invitee to be
+a workspace member, and a conversation holds at most nine people.
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
+| GET | `/workspaces/:ws_id/conversations` | — | `{ data: ConversationSummary[] }` — newest first, with `participant_ids` and the caller's `last_read_at` |
+| POST | `/workspaces/:ws_id/conversations` | `{ participant_ids }` | `Conversation` — one other person returns the existing `direct` thread if there is one; more create a `group` |
+| GET | `/conversations/:conv_id/messages` | Query: `limit=50, before?` (message id) | `{ data: ConversationMessage[], next_cursor }` |
+| POST | `/conversations/:conv_id/messages` | `{ content, id? }` | `ConversationMessage` — `id` makes the send idempotent |
+| POST | `/conversations/:conv_id/read` | — | `{ status: "ok" }` |
+| PATCH | `/conversations/messages/:msg_id` | `{ content }` | `ConversationMessage` — author only |
+| DELETE | `/conversations/messages/:msg_id` | — | `{ status: "deleted" }` — author only |
+| POST | `/conversations/messages/:msg_id/reactions` | `{ emoji }` | `ConversationReaction` |
+| DELETE | `/conversations/messages/:msg_id/reactions/:emoji` | — | `{ status: "ok" }` |
+
+Mutations publish to `events:conversation` (`conversation.created`, `conversation.message.created`
+/`.updated`/`.deleted`, `conversation.reaction.added`/`.removed`); every payload carries
+`participant_ids`, and the realtime gateway pushes to exactly those users.
+
+---
+
+### scheduled
+
+Messages queued for later delivery, aimed at exactly one channel **or** one conversation. The
+author must be able to post to the target at scheduling time, and the send window is capped at
+120 days out.
+
+| Method | Route | Input | Output |
+|--------|-------|-------|--------|
+| GET | `/workspaces/:ws_id/scheduled-messages` | — | `{ data: ScheduledMessage[] }` — the caller's pending queue |
+| POST | `/workspaces/:ws_id/scheduled-messages` | `{ channel_id? \| conversation_id?, content, send_at }` | `ScheduledMessage` |
+| PATCH | `/scheduled-messages/:id` | `{ send_at }` | `ScheduledMessage` — author only, pending only |
+| DELETE | `/scheduled-messages/:id` | — | `{ status: "canceled" }` — author only, pending only |
+
+A background dispatcher ticks every 15s and claims due rows with
+`UPDATE … WHERE id IN (SELECT … FOR UPDATE SKIP LOCKED) RETURNING *`, so several api replicas
+can run it without delivering a message twice. Delivery reuses the normal send path — channel
+messages expand mentions and publish `message.created`, conversation messages publish
+`conversation.message.created` — and a failure is recorded on the row instead of retried.
+
+---
+
+----|-------|-------|--------|
 | GET | `/workspaces/:ws_id/dm` | — | `{ data: DmConversation[] }` |
 | GET | `/workspaces/:ws_id/dm/:user_id` | Query: `limit=50, before?` | `{ data: DirectMessage[], next_cursor }` |
 | POST | `/workspaces/:ws_id/dm/:user_id` | `{ content, id? }` | `DirectMessage` |

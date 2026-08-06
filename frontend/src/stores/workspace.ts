@@ -74,14 +74,14 @@ interface WorkspaceState {
   unreadChannels: Set<string>;
   mentionChannels: Set<string>;
   mutedChannels: Set<string>;
-  currentDmPartnerId: string | null;
-  unreadDmPartners: Set<string>;
+  currentConversationId: string | null;
+  unreadConversations: Set<string>;
   currentUserId: string | null;
   activeHuddleChannels: Map<string, { huddleId: string; initiatorId: string }>;
 
   selectWorkspace: (ws: Workspace) => Promise<void>;
   selectChannel: (ch: Channel) => void;
-  selectDmPartner: (userId: string | null) => void;
+  selectConversation: (conversationId: string | null) => void;
   setCurrentUserRole: (role: WorkspaceRole | null) => void;
   setCurrentUserId: (id: string | null) => void;
   setChannelHuddle: (channelId: string, info: { huddleId: string; initiatorId: string }) => void;
@@ -90,9 +90,9 @@ interface WorkspaceState {
     entries: Array<{ channelId: string; huddleId: string; initiatorId: string }>,
   ) => void;
   markChannelRead: (channelId: string) => void;
-  markDmRead: (partnerId: string) => void;
-  markDmUnread: (partnerId: string) => void;
-  hydrateUnreadDms: (partnerIds: string[]) => void;
+  markConversationRead: (conversationId: string) => void;
+  markConversationUnread: (conversationId: string) => void;
+  hydrateUnreadConversations: (conversationIds: string[]) => void;
   hydrateUnreadChannels: (channelIds: string[]) => void;
   hydrateMutedChannels: (channelIds: string[]) => void;
   setChannelMuted: (channelId: string, muted: boolean) => void;
@@ -110,26 +110,26 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   unreadChannels: new Set<string>(),
   mentionChannels: new Set<string>(),
   mutedChannels: new Set<string>(),
-  currentDmPartnerId: null,
-  unreadDmPartners: new Set<string>(),
+  currentConversationId: null,
+  unreadConversations: new Set<string>(),
   currentUserId: null,
   activeHuddleChannels: new Map<string, { huddleId: string; initiatorId: string }>(),
 
   selectWorkspace: async (ws) => {
-    set({ currentWorkspace: ws, currentChannel: null, currentUserRole: null, currentDmPartnerId: null });
+    set({ currentWorkspace: ws, currentChannel: null, currentUserRole: null, currentConversationId: null });
     getWsClient(ws).subscribe(ws.id);
 
     useInstanceStore.getState().setActiveInstance(ws.instanceUrl);
   },
 
   selectChannel: (ch) => {
-    set({ currentChannel: ch, currentDmPartnerId: null });
+    set({ currentChannel: ch, currentConversationId: null });
     const ws = get().currentWorkspace;
     getWsClient(ws).joinChannel(ch.id);
   },
 
-  selectDmPartner: (userId) => {
-    set({ currentDmPartnerId: userId, currentChannel: null });
+  selectConversation: (conversationId) => {
+    set({ currentConversationId: conversationId, currentChannel: null });
   },
 
   setCurrentUserRole: (role) => set({ currentUserRole: role }),
@@ -170,29 +170,32 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     });
   },
 
-  markDmRead: (partnerId) => {
+  markConversationRead: (conversationId) => {
     set((s) => {
-      const next = new Set(s.unreadDmPartners);
-      next.delete(partnerId);
-      return { unreadDmPartners: next };
+      const next = new Set(s.unreadConversations);
+      next.delete(conversationId);
+      return { unreadConversations: next };
     });
   },
 
-  markDmUnread: (partnerId) => {
+  markConversationUnread: (conversationId) => {
     set((s) => {
-      const next = new Set(s.unreadDmPartners);
-      next.add(partnerId);
-      return { unreadDmPartners: next };
+      const next = new Set(s.unreadConversations);
+      next.add(conversationId);
+      return { unreadConversations: next };
     });
   },
 
-  hydrateUnreadDms: (partnerIds) => {
+  hydrateUnreadConversations: (conversationIds) => {
     set((s) => {
-      const next = new Set(partnerIds);
-      if (next.size === s.unreadDmPartners.size && [...next].every((id) => s.unreadDmPartners.has(id))) {
+      const next = new Set(conversationIds);
+      if (
+        next.size === s.unreadConversations.size &&
+        [...next].every((id) => s.unreadConversations.has(id))
+      ) {
         return s;
       }
-      return { unreadDmPartners: next };
+      return { unreadConversations: next };
     });
   },
 

@@ -24,7 +24,11 @@ import {
   useCreateWorkspace,
   useCreateChannel,
 } from '@/hooks/queries/useWorkspaces';
-import { useDmConversations, useMarkDmRead } from '@/hooks/queries/useDm';
+import {
+  useConversations,
+  useMarkConversationRead,
+  useOpenConversation,
+} from '@/hooks/queries/useConversations';
 import { useUnreadChannelIds, useSetChannelMuted } from '@/hooks/queries/useChannels';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { useSendMessage } from '@/hooks/queries/useMessages';
@@ -44,12 +48,12 @@ export function useWorkspaceController() {
     workspaceId,
     channelId: urlChannelId,
     messageId: urlMessageId,
-    dmUserId,
+    conversationId: routeConversationId,
   } = useParams<{
     workspaceId?: string;
     channelId?: string;
     messageId?: string;
-    dmUserId?: string;
+    conversationId?: string;
   }>();
   const [searchParams] = useSearchParams();
   const { activeInstanceUrl } = useInstanceStore();
@@ -71,39 +75,40 @@ export function useWorkspaceController() {
     unreadChannels,
     mentionChannels,
     mutedChannels,
-    currentDmPartnerId,
-    unreadDmPartners,
+    currentConversationId,
+    unreadConversations,
     selectWorkspace,
     selectChannel,
-    selectDmPartner,
+    selectConversation,
     setCurrentUserRole,
     setCurrentUserId,
     markChannelRead,
-    markDmRead,
-    hydrateUnreadDms,
+    markConversationRead,
+    hydrateUnreadConversations,
     hydrateUnreadChannels,
     hydrateMutedChannels,
   } = useWorkspaceStore();
 
   const currentWorkspaceId = currentWorkspace?.id;
 
-  const { data: dmConversations = [] } = useDmConversations(
+  const { data: conversations = [] } = useConversations(
     workspaceId || currentWorkspace?.id || null,
     currentWsInstanceUrl,
   );
-  const { mutate: markDmReadServer } = useMarkDmRead(
+  const openConversation = useOpenConversation(workspaceId ?? '', currentWsInstanceUrl);
+  const { mutate: markConversationReadServer } = useMarkConversationRead(
     workspaceId || currentWorkspace?.id || '',
     currentWsInstanceUrl,
   );
 
   useEffect(() => {
-    const unread = dmConversations
+    const unread = conversations
       .filter(
-        (c) => c.partner_id !== currentDmPartnerId && (!c.last_read_at || c.last_message_at > c.last_read_at),
+        (c) => c.id !== currentConversationId && (!c.last_read_at || c.last_message_at > c.last_read_at),
       )
-      .map((c) => c.partner_id);
-    hydrateUnreadDms(unread);
-  }, [dmConversations, currentDmPartnerId, hydrateUnreadDms]);
+      .map((c) => c.id);
+    hydrateUnreadConversations(unread);
+  }, [conversations, currentConversationId, hydrateUnreadConversations]);
 
   const { data: unreadChannelIds } = useUnreadChannelIds(
     workspaceId || currentWorkspace?.id || null,
@@ -183,7 +188,7 @@ export function useWorkspaceController() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const panel = useRightPanel(currentChannel?.id, currentDmPartnerId);
+  const panel = useRightPanel(currentChannel?.id, currentConversationId);
 
   const sendMessageMutation = useSendMessage(currentChannel?.id ?? '', user?.id ?? '');
 
@@ -208,7 +213,7 @@ export function useWorkspaceController() {
 
   useEffect(() => {
     if (!currentWorkspaceId || channels.length === 0) return;
-    if (dmUserId) return;
+    if (routeConversationId) return;
     if (urlChannelId) {
       const target = channels.find((c) => c.id === urlChannelId);
       if (target && currentChannel?.id !== urlChannelId) {
@@ -223,7 +228,7 @@ export function useWorkspaceController() {
       navigate(`/app/${currentWorkspaceId}/${general.id}`, { replace: true });
     }
   }, [
-    dmUserId,
+    routeConversationId,
     urlChannelId,
     channels,
     currentWorkspaceId,
@@ -235,13 +240,19 @@ export function useWorkspaceController() {
   ]);
 
   useEffect(() => {
-    if (!dmUserId) return;
-    if (currentDmPartnerId !== dmUserId) {
-      selectDmPartner(dmUserId);
+    if (!routeConversationId) return;
+    if (currentConversationId !== routeConversationId) {
+      selectConversation(routeConversationId);
     }
-    markDmRead(dmUserId);
-    markDmReadServer(dmUserId);
-  }, [dmUserId, currentDmPartnerId, selectDmPartner, markDmRead, markDmReadServer]);
+    markConversationRead(routeConversationId);
+    markConversationReadServer(routeConversationId);
+  }, [
+    routeConversationId,
+    currentConversationId,
+    selectConversation,
+    markConversationRead,
+    markConversationReadServer,
+  ]);
 
   const threadOpenedRef = useRef(false);
   useEffect(() => {
@@ -360,14 +371,24 @@ export function useWorkspaceController() {
     [workspaceId, currentWorkspace, navigate, queryClient],
   );
 
-  const handleOpenDm = useCallback(
-    (userId: string) => {
+  const handleOpenConversation = useCallback(
+    (conversationId: string) => {
       setMobileNavOpen(false);
       const wsId = workspaceId || currentWorkspace?.id;
       if (!wsId) return;
-      navigate(ROUTES.dm(wsId, userId));
+      navigate(ROUTES.conversation(wsId, conversationId));
     },
     [workspaceId, currentWorkspace, navigate],
+  );
+
+  const handleOpenWith = useCallback(
+    async (participantIds: string[]) => {
+      const wsId = workspaceId || currentWorkspace?.id;
+      if (!wsId || participantIds.length === 0) return;
+      const conversation = await openConversation.mutateAsync(participantIds);
+      handleOpenConversation(conversation.id);
+    },
+    [workspaceId, currentWorkspace, openConversation, handleOpenConversation],
   );
 
   const handleNavigateToMessage = useCallback(
@@ -406,14 +427,14 @@ export function useWorkspaceController() {
     deletedWorkspaces,
     channels,
     workspaceMembers,
-    dmConversations,
+    conversations,
     currentWorkspace,
     currentChannel,
     unreadChannels,
     mentionChannels,
     mutedChannels,
-    currentDmPartnerId,
-    unreadDmPartners,
+    currentConversationId,
+    unreadConversations,
     restoreWorkspace,
     setChannelMuted,
     uploading,
@@ -433,7 +454,8 @@ export function useWorkspaceController() {
     handleFileUpload,
     handleSelectWorkspace,
     handleSelectChannel,
-    handleOpenDm,
+    handleOpenConversation,
+    handleOpenWith,
     handleNavigateToMessage,
     handleCreateWorkspace,
     handleCreateChannel,

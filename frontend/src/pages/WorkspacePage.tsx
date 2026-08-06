@@ -1,11 +1,13 @@
 import { Hash } from 'lucide-react';
 import { ROUTES, EmptyLabels } from '@/shared/constants';
+import { useUserCache } from '@/stores/users';
+import { conversationTitle } from '@/lib/conversationHelpers';
 import { ConnectionBanner } from '@/shared/components/ConnectionBanner/ConnectionBanner';
 import { QuickSwitcher } from '@/features/navigation';
 import { WorkspaceSidebar, WorkspaceRightPanels, useWorkspaceController } from '@/features/workspace';
 import { ChannelSidebar, ChannelHeader } from '@/features/channel';
 import { MessageList, MessageInput } from '@/features/messaging';
-import DmView from './DmView';
+import ConversationView from '@/features/messaging/ConversationView';
 import AddInstancePanel from '../components/AddInstancePanel';
 import UserProfilePanel from '../components/UserProfilePanel';
 import TypingIndicator from '../components/TypingIndicator';
@@ -14,6 +16,8 @@ import { useActiveHuddlesSync } from '@/features/huddle';
 export default function WorkspacePage() {
   const c = useWorkspaceController();
   const { panel, currentWorkspace, currentChannel, user } = c;
+  const { getUser } = useUserCache();
+  const activeConversation = c.conversations.find((conv) => conv.id === c.currentConversationId);
 
   useActiveHuddlesSync(currentWorkspace?.id, currentWorkspace?.instanceUrl);
 
@@ -44,15 +48,17 @@ export default function WorkspacePage() {
           workspaceMembers={c.workspaceMembers}
           currentUserId={user?.id}
           user={user || null}
-          dmConversations={c.dmConversations}
-          currentDmPartnerId={c.currentDmPartnerId}
-          unreadDmPartners={c.unreadDmPartners}
+          conversations={c.conversations}
+          currentConversationId={c.currentConversationId}
+          unreadConversations={c.unreadConversations}
           onSelectChannel={c.handleSelectChannel}
           onCreateChannel={c.handleCreateChannel}
-          onOpenDm={c.handleOpenDm}
+          onOpenConversation={c.handleOpenConversation}
+          onOpenWith={c.handleOpenWith}
           onOpenMembers={() => panel.toggle('members')}
           onOpenSettings={() => panel.toggle('settings')}
           onOpenIntegrations={() => panel.toggle('integrations')}
+          onOpenScheduled={() => panel.toggle('scheduled')}
           onOpenProfile={() => c.setShowProfile(true)}
           onOpenNotifications={() => panel.toggle('notifications')}
           onLogout={() => c.logout.mutate()}
@@ -69,11 +75,14 @@ export default function WorkspacePage() {
 
       {c.showAddInstance && <AddInstancePanel onClose={() => c.setShowAddInstance(false)} />}
 
-      {c.currentDmPartnerId && currentWorkspace && user ? (
-        <DmView
+      {activeConversation && currentWorkspace && user ? (
+        <ConversationView
           workspaceId={currentWorkspace.id}
           instanceUrl={currentWorkspace.instanceUrl}
-          partnerId={c.currentDmPartnerId}
+          conversationId={activeConversation.id}
+          title={conversationTitle(activeConversation, user.id, (id) => getUser(id)?.display_name)}
+          participantIds={activeConversation.participant_ids}
+          kind={activeConversation.kind}
           currentUserId={user.id}
           onClose={() => c.navigate(ROUTES.workspace(currentWorkspace.id))}
           onOpenNav={() => c.setMobileNavOpen(true)}
@@ -131,6 +140,9 @@ export default function WorkspacePage() {
           {currentChannel && (
             <MessageInput
               key={currentChannel.id}
+              workspaceId={currentWorkspace?.id}
+              instanceUrl={currentWorkspace?.instanceUrl}
+              scheduleTarget={{ channelId: currentChannel.id }}
               channelName={currentChannel.name}
               draftKey={currentChannel.id}
               members={c.workspaceMembers}
@@ -164,6 +176,7 @@ export default function WorkspacePage() {
         currentChannel={currentChannel}
         workspaceMembers={c.workspaceMembers}
         channels={c.channels}
+        conversations={c.conversations}
         onClose={panel.close}
         onNavigateToMessage={c.handleNavigateToMessage}
       />
@@ -176,7 +189,7 @@ export default function WorkspacePage() {
           members={c.workspaceMembers}
           currentUserId={user?.id}
           onSelectChannel={c.handleSelectChannel}
-          onSelectDm={c.handleOpenDm}
+          onSelectDm={(userId) => void c.handleOpenWith([userId])}
           onClose={() => c.setQuickSwitcherOpen(false)}
         />
       )}

@@ -418,52 +418,62 @@ async fn typing_indicator_broadcasts_to_channel_subscriber(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../migrations")]
-async fn dm_created_delivers_dm_new_to_both_parties(pool: PgPool) {
+async fn a_conversation_message_reaches_every_participant_and_nobody_else(pool: PgPool) {
     let cm = manager(pool).await;
-    let from = Uuid::new_v4();
-    let to = Uuid::new_v4();
+    let author = Uuid::new_v4();
+    let second = Uuid::new_v4();
+    let third = Uuid::new_v4();
     let bystander = Uuid::new_v4();
 
-    let (_from_conn, mut from_rx) = fake_conn(&cm, from);
-    let (_to_conn, mut to_rx) = fake_conn(&cm, to);
+    let (_author_conn, mut author_rx) = fake_conn(&cm, author);
+    let (_second_conn, mut second_rx) = fake_conn(&cm, second);
+    let (_third_conn, mut third_rx) = fake_conn(&cm, third);
     let (_by_conn, mut by_rx) = fake_conn(&cm, bystander);
 
     let payload = json!({
-        "from_user_id": from.to_string(),
-        "to_user_id": to.to_string(),
+        "id": Uuid::new_v4().to_string(),
+        "conversation_id": Uuid::new_v4().to_string(),
+        "user_id": author.to_string(),
         "content": "hi there",
+        "participant_ids": [author.to_string(), second.to_string(), third.to_string()],
     });
-    crate::event_consumer::handle_event("dm.created", &payload, &cm).await;
+    crate::event_consumer::handle_event("conversation.message.created", &payload, &cm).await;
 
-    let from_frame = next_json(&mut from_rx).expect("sender should get dm.new");
+    let author_frame = next_json(&mut author_rx).expect("the author sees their own message");
     assert_eq!(
-        from_frame.get("type").and_then(|t| t.as_str()),
-        Some("dm.new")
+        author_frame.get("type").and_then(|t| t.as_str()),
+        Some("conversation.message.created")
     );
     assert_eq!(
-        from_frame
-            .get("message")
-            .and_then(|m| m.get("content"))
-            .and_then(|c| c.as_str()),
+        author_frame.get("content").and_then(|c| c.as_str()),
         Some("hi there")
     );
 
-    assert_eq!(next_type(&mut to_rx).as_deref(), Some("dm.new"));
-
-    assert!(next_json(&mut by_rx).is_none());
+    assert_eq!(
+        next_type(&mut second_rx).as_deref(),
+        Some("conversation.message.created")
+    );
+    assert_eq!(
+        next_type(&mut third_rx).as_deref(),
+        Some("conversation.message.created")
+    );
+    assert!(
+        next_json(&mut by_rx).is_none(),
+        "someone outside the conversation hears nothing"
+    );
 }
 
 #[sqlx::test(migrations = "../migrations")]
-async fn dm_created_with_missing_to_user_is_a_noop(pool: PgPool) {
+async fn a_conversation_event_without_participants_is_a_noop(pool: PgPool) {
     let cm = manager(pool).await;
-    let from = Uuid::new_v4();
+    let user = Uuid::new_v4();
 
-    let (_from_conn, mut from_rx) = fake_conn(&cm, from);
+    let (_conn, mut rx) = fake_conn(&cm, user);
 
-    let payload = json!({ "from_user_id": from.to_string(), "content": "x" });
-    crate::event_consumer::handle_event("dm.created", &payload, &cm).await;
+    let payload = json!({ "conversation_id": Uuid::new_v4().to_string(), "content": "x" });
+    crate::event_consumer::handle_event("conversation.message.created", &payload, &cm).await;
 
-    assert!(next_json(&mut from_rx).is_none());
+    assert!(next_json(&mut rx).is_none());
 }
 
 #[sqlx::test(migrations = "../migrations")]

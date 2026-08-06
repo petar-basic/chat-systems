@@ -33,7 +33,7 @@ pub async fn start_event_consumer(
         "events:reaction",
         "events:notification",
         "events:workspace",
-        "events:dm",
+        "events:conversation",
         "events:presence",
         "events:typing",
         "events:huddle",
@@ -252,69 +252,30 @@ pub(crate) async fn handle_event(
                 cm.broadcast_to_channel(ch_id, &ws_msg.to_string()).await;
             }
         }
-        "dm.created" => {
-            let from_user_id = payload
-                .get("from_user_id")
-                .and_then(|v| v.as_str())
-                .and_then(|v| v.parse::<uuid::Uuid>().ok());
-            let to_user_id = payload
-                .get("to_user_id")
-                .and_then(|v| v.as_str())
-                .and_then(|v| v.parse::<uuid::Uuid>().ok());
+        "conversation.created"
+        | "conversation.message.created"
+        | "conversation.message.updated"
+        | "conversation.message.deleted"
+        | "conversation.reaction.added"
+        | "conversation.reaction.removed" => {
+            let participants: Vec<uuid::Uuid> = payload
+                .get("participant_ids")
+                .and_then(|v| v.as_array())
+                .map(|ids| {
+                    ids.iter()
+                        .filter_map(|v| v.as_str())
+                        .filter_map(|v| v.parse::<uuid::Uuid>().ok())
+                        .collect()
+                })
+                .unwrap_or_default();
 
-            if let (Some(from_id), Some(to_id)) = (from_user_id, to_user_id) {
-                let ws_event = serde_json::json!({
-                    "type": "dm.new",
-                    "message": payload,
-                });
-                let msg = ws_event.to_string();
-                cm.send_to_user(from_id, &msg).await;
-                cm.send_to_user(to_id, &msg).await;
+            let mut ws_event = payload.clone();
+            if let Some(obj) = ws_event.as_object_mut() {
+                obj.insert("type".to_string(), serde_json::json!(event_type));
             }
-        }
-        "dm.updated" | "dm.deleted" => {
-            let from_user_id = payload
-                .get("from_user_id")
-                .and_then(|v| v.as_str())
-                .and_then(|v| v.parse::<uuid::Uuid>().ok());
-            let to_user_id = payload
-                .get("to_user_id")
-                .and_then(|v| v.as_str())
-                .and_then(|v| v.parse::<uuid::Uuid>().ok());
-
-            if let (Some(from_id), Some(to_id)) = (from_user_id, to_user_id) {
-                let ws_type = if event_type == "dm.updated" {
-                    "dm.updated"
-                } else {
-                    "dm.deleted"
-                };
-                let ws_event = serde_json::json!({
-                    "type": ws_type,
-                    "message": payload,
-                });
-                let msg = ws_event.to_string();
-                cm.send_to_user(from_id, &msg).await;
-                cm.send_to_user(to_id, &msg).await;
-            }
-        }
-        "dm.reaction.added" | "dm.reaction.removed" => {
-            let from_user_id = payload
-                .get("from_user_id")
-                .and_then(|v| v.as_str())
-                .and_then(|v| v.parse::<uuid::Uuid>().ok());
-            let to_user_id = payload
-                .get("to_user_id")
-                .and_then(|v| v.as_str())
-                .and_then(|v| v.parse::<uuid::Uuid>().ok());
-
-            if let (Some(from_id), Some(to_id)) = (from_user_id, to_user_id) {
-                let mut ws_event = payload.clone();
-                if let Some(obj) = ws_event.as_object_mut() {
-                    obj.insert("type".to_string(), serde_json::json!(event_type));
-                }
-                let msg = ws_event.to_string();
-                cm.send_to_user(from_id, &msg).await;
-                cm.send_to_user(to_id, &msg).await;
+            let msg = ws_event.to_string();
+            for participant in participants {
+                cm.send_to_user(participant, &msg).await;
             }
         }
         "huddle.member_joined"

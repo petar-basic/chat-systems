@@ -89,7 +89,7 @@ function AppContent() {
             }
           />
           <Route
-            path="/app/:workspaceId/dm/:dmUserId"
+            path="/app/:workspaceId/c/:conversationId"
             element={
               <ProtectedRoute>
                 <WorkspacePage />

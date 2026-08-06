@@ -20,14 +20,16 @@ export const QUERY_KEYS = {
   messages: (channelId: string) => ['messages', channelId] as const,
   thread: (parentId: string) => ['threads', parentId] as const,
 
-  dm: () => ['dm'] as const,
-  dmConversations: (workspaceId: string) => ['dm', 'conversations', workspaceId] as const,
-  dmMessages: (workspaceId: string, partnerId: string) => ['dm', 'messages', workspaceId, partnerId] as const,
-
   notificationsAll: () => ['notifications'] as const,
   notifications: (workspaceId: string) => ['notifications', workspaceId] as const,
   notificationUnreadCount: (workspaceId: string) => ['notifications', workspaceId, 'unread-count'] as const,
   notificationDnd: () => ['notifications', 'dnd'] as const,
+
+  conversationsAll: () => ['conversations'] as const,
+  conversations: (workspaceId: string) => ['conversations', workspaceId] as const,
+  conversationMessages: (conversationId: string) => ['conversations', 'messages', conversationId] as const,
+
+  scheduledMessages: (workspaceId: string) => ['scheduled-messages', workspaceId] as const,
 
   search: (query: string) => ['search', query] as const,
 
