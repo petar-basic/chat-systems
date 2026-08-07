@@ -167,6 +167,18 @@ migrations, and drive the full Axum stack — including the authorization matrix
 - **Frontend:** `npm audit --audit-level=high`, `prettier --check`, `eslint`,
   `tsc -b`, `vite build`, `vitest`.
 
+Both jobs are **path-filtered**: a `changes` job resolves which trees the PR touched,
+and each language job runs only when its tree changed. A docs-only PR runs neither.
+Editing `ci.yml` itself re-runs both, so a broken filter cannot silently disable the
+checks it selects.
+
+**`All checks` is the only job that should be a required status check.** It always runs,
+treats skipped jobs as passing, and fails if any job failed or was cancelled. Requiring
+`Backend (Rust)` or `Frontend (Node)` directly blocks every docs-only PR forever: a
+skipped job reports no status at all, so the check stays pending rather than green.
+Adding a new job — the E2E suite, say — needs no change to branch protection, only an
+entry in the gate's `needs`.
+
 [`.github/dependabot.yml`](../.github/dependabot.yml) opens weekly grouped update
 PRs for cargo (`/backend`), npm (`/frontend`), and github-actions.
 

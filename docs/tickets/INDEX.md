@@ -1,0 +1,152 @@
+# Ticket index
+
+One file per ticket, numbered in **execution order**. `CS-001` is the first thing to
+build, `CS-039` the last. The number *is* the schedule — when two tickets touch the
+same file, the lower number lands first and the higher one is written against the
+result.
+
+Waves are groupings, not gates: you can start the next ticket in a wave before the
+previous one merges, but you should not start a wave before the wave above it is done,
+because later waves assume the primitives the earlier ones introduce.
+
+## Why this order
+
+1. **Wave 0 first, always.** It installs the safety net (E2E in CI) and the three
+   structures that half the remaining tickets depend on: a single authorization
+   module, a single session-revocation path, and a worker process that is separate
+   from the API. Every access-control fix in Wave 1 lands inside those structures.
+   Doing Wave 1 first means writing each fix twice.
+2. **Access control before abuse limits.** A rate limit on an endpoint that leaks
+   data is a slower leak. Close the holes, then bound the traffic.
+3. **Governance after access control.** An audit log is only meaningful once the
+   thing it audits is actually enforced.
+4. **Performance after correctness.** `CS-024` (drop the per-message editor) must
+   precede `CS-025` (virtualization) — virtualizing a list of editor instances
+   optimizes the wrong layer.
+5. **Durable delivery after the worker split.** `CS-028` reworks the same pub/sub
+   layer `CS-004` moves. Doing it first means doing it twice.
+6. **Compliance before parity features.** Retention, export and SSO are what a
+   security review asks for; custom emoji is not.
+
+## Conventions every ticket assumes
+
+Read [CONTRIBUTING.md](../CONTRIBUTING.md#coding-standards) once; it is not repeated
+per ticket.
+
+- **Zero comments.** A comment that feels necessary is a signal to rename or split.
+- **Backend layering.** `routes` parse + authorize + delegate · `service` for
+  multi-step logic · **all SQL in `repo`** · `publisher`/`consumer`/`executor` for
+  Redis work. A feature never calls another feature's repo.
+- **No `unwrap`/`expect`/`panic` outside startup config validation.**
+- **Parameterized SQL only.** Every handler returns `AppResult<Json<T>>` and converts
+  `None` to `AppError::NotFound`.
+- **Frontend:** strict TS, feature-modular, logic in hooks, TanStack Query for server
+  state and Zustand for UI state, query keys only via the `QUERY_KEYS` factory.
+- **Every ticket ships tests.** Backend changes get `#[sqlx::test]` coverage in
+  `http_tests` including the authorization matrix (member-ok / non-member-forbidden /
+  no-token / not-found). Security tickets get a regression test that fails on `main`.
+
+## Tickets
+
+### Wave 0 — Safety net and structural groundwork
+
+| # | Ticket | Area |
+|---|---|---|
+| [CS-001](CS-001-e2e-in-ci.md) | Run the Playwright suite in CI | infra |
+| [CS-002](CS-002-central-authz-module.md) | Central authorization module | backend/api |
+| [CS-003](CS-003-revocation-primitive.md) | Session revocation and live-disconnect primitive | backend/api · realtime |
+| [CS-004](CS-004-split-worker-binary.md) | Split background workers into `chat-worker` | backend · infra |
+| [CS-005](CS-005-compile-time-sql.md) | Decide on compile-time-checked sqlx queries | backend |
+
+### Wave 1 — Access control
+
+| # | Ticket | Area |
+|---|---|---|
+| [CS-006](CS-006-invite-lifecycle.md) | Invite lifecycle: expiry, max uses, email binding | backend/api |
+| [CS-007](CS-007-membership-revocation.md) | Propagate membership removal to live sockets | backend/api · realtime |
+| [CS-008](CS-008-revoke-on-password-change.md) | Revoke access tokens on password reset/change | backend/api |
+| [CS-009](CS-009-conversation-attachment-access.md) | Attachment access control for conversations | backend/api |
+| [CS-010](CS-010-guest-search-scoping.md) | Guest scoping in message search | backend/api |
+
+### Wave 2 — Abuse and resource limits
+
+| # | Ticket | Area |
+|---|---|---|
+| [CS-011](CS-011-streaming-upload.md) | Streaming upload with an enforced size cap | backend/api |
+| [CS-012](CS-012-write-rate-limit-coverage.md) | Write rate limit on every mutating router | backend/api |
+| [CS-013](CS-013-fail-closed-rate-limit.md) | Fail-closed rate limiting on auth paths | backend/api |
+| [CS-014](CS-014-ws-inbound-rate-limit.md) | WebSocket inbound message rate limiting | realtime |
+| [CS-015](CS-015-incoming-hook-ip-limit.md) | Per-IP limit for incoming webhooks | backend/api |
+
+### Wave 3 — Authentication hardening
+
+| # | Ticket | Area |
+|---|---|---|
+| [CS-016](CS-016-uniform-login-failure.md) | Uniform login failure and constant-time path | backend/api |
+| [CS-017](CS-017-auth-transport-defaults.md) | Password policy and mail transport defaults | backend/api |
+
+### Wave 4 — Governance
+
+| # | Ticket | Area |
+|---|---|---|
+| [CS-018](CS-018-audit-log-coverage.md) | Audit log coverage | backend/api |
+| [CS-019](CS-019-scope-outgoing-webhooks.md) | Scope outgoing webhooks per channel | backend/api · frontend |
+| [CS-020](CS-020-file-moderation.md) | File moderation and attachment lifecycle | backend/api |
+
+### Wave 5 — Correctness
+
+| # | Ticket | Area |
+|---|---|---|
+| [CS-021](CS-021-scheduled-reauthorize.md) | Re-authorize scheduled messages at delivery | backend/api |
+| [CS-022](CS-022-scoped-idempotency-id.md) | Scope client-supplied message id to its conversation | backend/api |
+| [CS-023](CS-023-validation-gaps.md) | Close remaining input validation gaps | backend/api |
+
+### Wave 6 — Performance
+
+| # | Ticket | Area |
+|---|---|---|
+| [CS-024](CS-024-static-message-renderer.md) | Replace the per-message editor with a static renderer | frontend |
+| [CS-025](CS-025-virtualize-message-list.md) | Virtualize the message list | frontend |
+| [CS-026](CS-026-unread-counts.md) | Unread counts without per-channel subqueries | backend/api · frontend |
+| [CS-027](CS-027-presence-without-scan.md) | Presence without a Redis keyspace scan | realtime |
+
+### Wave 7 — Reliability
+
+| # | Ticket | Area |
+|---|---|---|
+| [CS-028](CS-028-durable-delivery.md) | Durable realtime delivery (Redis Streams) | realtime · frontend |
+
+### Wave 8 — Compliance
+
+| # | Ticket | Area |
+|---|---|---|
+| [CS-029](CS-029-message-edit-history.md) | Message edit history | backend/api · frontend |
+| [CS-030](CS-030-retention-policies.md) | Retention policies and token cleanup | backend |
+| [CS-031](CS-031-data-export.md) | Workspace and user data export | backend |
+| [CS-032](CS-032-sso-and-2fa.md) | SSO (OIDC) and 2FA | backend/api · frontend |
+| [CS-033](CS-033-scim-deprovisioning.md) | SCIM deprovisioning | backend/api |
+
+### Wave 9 — Product parity
+
+| # | Ticket | Area |
+|---|---|---|
+| [CS-034](CS-034-search-language.md) | Configurable full-text search language | backend |
+| [CS-035](CS-035-web-push.md) | Web Push for closed-app delivery | backend/api · frontend |
+| [CS-036](CS-036-slack-import-export.md) | Slack import / export CLI | backend |
+| [CS-037](CS-037-huddle-sfu.md) | SFU for large huddles | backend · frontend |
+| [CS-038](CS-038-mobile-client.md) | Mobile client | frontend |
+| [CS-039](CS-039-remaining-parity.md) | Custom emoji, user groups, bots and slash commands | backend/api · frontend |
+
+## Conflict map
+
+Tickets that touch the same files, and the order that avoids rework:
+
+| File | Tickets, in order |
+|---|---|
+| `backend/api/src/main.rs` | CS-004 → CS-012 → CS-030 |
+| authorization helpers | CS-002 → CS-009 → CS-010 → CS-020 |
+| `backend/api/src/auth/service.rs` | CS-003 → CS-008 → CS-016 → CS-017 → CS-032 |
+| realtime event consumer | CS-003 → CS-007 → CS-014 → CS-027 → CS-028 |
+| `frontend/src/features/messaging/` | CS-024 → CS-025 → CS-029 |
+| every `repo.rs` | CS-005 (if adopted) → everything else |
+| `messages` table schema | CS-029 → CS-030 → CS-034 |

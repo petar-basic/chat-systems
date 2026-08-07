@@ -5,9 +5,38 @@ on:
     branches: [main]
   pull_request:
 
+# Supersede in-flight runs on a PR branch; never cancel a run on main.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # A change to the workflow itself re-verifies both sides — otherwise a
+      # broken filter could disable the checks it is supposed to select.
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - '.github/workflows/ci.yml'
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/ci.yml'
+
   backend:
     name: Backend (Rust)
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -77,6 +106,8 @@ jobs:
 
   frontend:
     name: Frontend (Node)
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -111,3 +142,17 @@ jobs:
 
       - name: Test
         run: npm run test
+
+  # The only job that should be a required status check. It always runs, so it
+  # always reports — a required check on a conditional job never reports at all
+  # on a PR that skips it, and blocks the merge forever. Skipped counts as
+  # passing here; a real failure or a cancellation still blocks.
+  gate:
+    name: All checks
+    needs: [changes, backend, frontend]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check job results
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1
