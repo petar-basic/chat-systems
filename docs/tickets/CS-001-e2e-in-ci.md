@@ -26,7 +26,22 @@ has to be running before the first of those tickets merges.
 
 Add an `e2e` job to `ci.yml` that boots the real stack, seeds it, and runs Playwright.
 
-1. New job `e2e`, `needs: [backend, frontend]` so it only burns minutes on a green tree.
+1. **New job `e2e`, wired into the path-filtered structure already in `ci.yml`.** It must
+   run only on a green tree *and* only when something it exercises changed, which means
+   `needs` alone is not enough — a `needs` on a skipped job skips the dependent too:
+   ```yaml
+   e2e:
+     needs: [changes, backend, frontend]
+     if: >-
+       !cancelled()
+       && needs.backend.result != 'failure'
+       && needs.frontend.result != 'failure'
+       && needs.changes.outputs.e2e == 'true'
+   ```
+   Add an `e2e` filter to the `changes` job covering `backend/**`, `frontend/**`,
+   `docker/**`, `docker-compose*.yml` and `seed.sh` — the compose topology and the seed
+   script are inputs to this job even though they are inputs to neither language job.
+   Add `e2e` to the `ci` aggregator's `needs` so a failure still blocks the merge.
 2. Bring the stack up with the repo's own compose files rather than a bespoke service
    matrix — the specs assume the real topology (nginx in front of `api` and `realtime`),
    and one spec restarts the `realtime` container:
