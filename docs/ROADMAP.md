@@ -10,7 +10,10 @@ what it changed lives in the git history and in the docs it touched. Read
 [the index](./tickets/INDEX.md) for the dependency map and the conflict table; this page
 is the summary and the reasoning behind the sequence.
 
-**Wave 0 is shipped. Next up: [CS-006](./tickets/CS-006-invite-lifecycle.md).**
+**Wave 0 is shipped**, with one open tail:
+[CS-005a](./tickets/CS-005a-workspace-role-not-populated.md), a product bug the new E2E
+job found on its first run. Next planned ticket:
+[CS-006](./tickets/CS-006-invite-lifecycle.md).
 
 ## How the order was chosen
 
@@ -40,6 +43,17 @@ the real stack with `docker compose --profile frontend`, seeds it, and uploads t
 report, screenshots and container logs on failure. Two specs were unrunnable on a
 runner — one hard-coded an absolute laptop path, another a MailHog URL — and were fixed
 in the same change.
+
+Turning it on immediately paid for itself. Three specs had rotted against the group-DM
+rework: the DM picker became multi-select and nothing clicked "Start chat", the
+`dm-message` hook was renamed to `conversation-message`, and a constant run stamp made
+every message collide with the previous run's — which is also why the suite could not be
+re-run against the same database. All three are fixed.
+
+It also surfaced a real product bug, [CS-005a](./tickets/CS-005a-workspace-role-not-populated.md):
+role-gated controls disappear when the workspace role is not populated. The specs that
+catch it are correct as written, so the `e2e` job runs but **does not block merges** until
+that ticket closes.
 
 ### [CS-002] Central authorization module
 `require_workspace_member` had three separate implementations, `require_channel_access`

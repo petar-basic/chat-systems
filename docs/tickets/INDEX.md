@@ -5,8 +5,12 @@ when two tickets touch the same file, the lower number lands first and the highe
 is written against the result.
 
 A ticket's file is deleted when it ships; the record of what it did lives in the git
-history and in the docs it changed. **Wave 0 (CS-001 – CS-005) is done** — the next
-ticket is [CS-006](CS-006-invite-lifecycle.md).
+history and in the docs it changed. A bug found mid-wave gets a suffixed number
+(`CS-005a`) so it lands where it belongs in the order without renumbering everything
+below it.
+
+**Wave 0 (CS-001 – CS-005) is done**, with [CS-005a](CS-005a-workspace-role-not-populated.md)
+left open behind it. Next planned ticket: [CS-006](CS-006-invite-lifecycle.md).
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
@@ -61,6 +65,13 @@ per ticket.
 | CS-003 | Session revocation and live-disconnect primitive | [`backend/api/src/sessions.rs`](../../backend/api/src/sessions.rs) |
 | CS-004 | Split background workers into `chat-worker` | [`backend/api/src/bin/chat-worker.rs`](../../backend/api/src/bin/chat-worker.rs) |
 | CS-005 | Decide on compile-time-checked sqlx queries | decision in [CONTRIBUTING.md](../CONTRIBUTING.md#backend-rust) |
+
+**Open tail:** turning the suite on immediately found a product bug, so CS-001 could not
+meet its own acceptance — the `e2e` job runs but does not block.
+
+| # | Ticket | Area |
+|---|---|---|
+| [CS-005a](CS-005a-workspace-role-not-populated.md) | Role-gated UI disappears when the workspace role is not populated | frontend |
 
 ### Wave 1 — Access control
 
