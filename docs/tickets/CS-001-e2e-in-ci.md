@@ -41,7 +41,9 @@ Add an `e2e` job to `ci.yml` that boots the real stack, seeds it, and runs Playw
    Add an `e2e` filter to the `changes` job covering `backend/**`, `frontend/**`,
    `docker/**`, `docker-compose*.yml` and `seed.sh` — the compose topology and the seed
    script are inputs to this job even though they are inputs to neither language job.
-   Add `e2e` to the `ci` aggregator's `needs` so a failure still blocks the merge.
+   Add `e2e` to the `gate` job's `needs` so a failure still blocks the merge. Do **not**
+   add it to the ruleset as a required status check — the gate is the required check and
+   already covers it.
 2. Bring the stack up with the repo's own compose files rather than a bespoke service
    matrix — the specs assume the real topology (nginx in front of `api` and `realtime`),
    and one spec restarts the `realtime` container:

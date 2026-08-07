@@ -143,11 +143,12 @@ jobs:
       - name: Test
         run: npm run test
 
-  # Single stable status for branch protection. Skipped jobs are not failures,
-  # so a docs-only PR passes without running the language jobs — but a real
-  # failure or a cancelled job still blocks the merge.
-  ci:
-    name: CI
+  # The only job that should be a required status check. It always runs, so it
+  # always reports — a required check on a conditional job never reports at all
+  # on a PR that skips it, and blocks the merge forever. Skipped counts as
+  # passing here; a real failure or a cancellation still blocks.
+  gate:
+    name: All checks
     needs: [changes, backend, frontend]
     if: always()
     runs-on: ubuntu-latest
