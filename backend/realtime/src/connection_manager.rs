@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use axum::extract::ws::Message;
+use axum::extract::ws::{CloseFrame, Message};
 use dashmap::DashMap;
 use redis::AsyncCommands;
 use sqlx::PgPool;
@@ -14,11 +14,32 @@ pub const PRESENCE_TTL_SECS: u64 = 60;
 
 pub const HUDDLE_TTL_SECS: i64 = 120;
 
+pub const SESSION_REVOKED_CLOSE_CODE: u16 = 4001;
+
+/// Mirrors the API's `RevocationRecord`: a revocation invalidates every token
+/// issued before it, minus one optionally spared session.
+#[derive(Debug, serde::Deserialize)]
+pub struct RevocationRecord {
+    pub at: i64,
+    #[serde(default)]
+    pub except_jti: Option<Uuid>,
+}
+
+impl RevocationRecord {
+    pub fn covers(&self, claims: &crate::Claims) -> bool {
+        if claims.iat > self.at {
+            return false;
+        }
+        !matches!((self.except_jti, claims.jti), (Some(except), Some(jti)) if except == jti)
+    }
+}
+
 pub type WsSender = mpsc::Sender<Message>;
 
 #[derive(Debug)]
 pub struct Connection {
     pub user_id: Uuid,
+    pub token_jti: Option<Uuid>,
     pub sender: WsSender,
     pub subscribed_workspaces: HashSet<Uuid>,
     pub subscribed_channels: HashSet<Uuid>,
@@ -103,11 +124,18 @@ impl ConnectionManager {
         }
     }
 
-    pub fn add_connection(&self, conn_id: Uuid, user_id: Uuid, sender: WsSender) -> bool {
+    pub fn add_connection(
+        &self,
+        conn_id: Uuid,
+        user_id: Uuid,
+        token_jti: Option<Uuid>,
+        sender: WsSender,
+    ) -> bool {
         self.connections.insert(
             conn_id,
             Connection {
                 user_id,
+                token_jti,
                 sender,
                 subscribed_workspaces: HashSet::new(),
                 subscribed_channels: HashSet::new(),
@@ -250,22 +278,49 @@ impl ConnectionManager {
         self.connections.len()
     }
 
-    pub fn disconnect_user(&self, user_id: Uuid) {
+    pub fn disconnect_user(&self, user_id: Uuid, reason: &str) {
+        self.disconnect_user_except(user_id, None, reason);
+    }
+
+    /// A revoked session must not linger until its token deadline. The close
+    /// frame carries a code the client uses to stop reconnecting instead of
+    /// looping against a socket it can no longer open.
+    pub fn disconnect_user_except(&self, user_id: Uuid, except_jti: Option<Uuid>, reason: &str) {
         let conn_ids: Vec<Uuid> = match self.user_connections.get(&user_id) {
             Some(conns) => conns.iter().copied().collect(),
             None => return,
         };
         for conn_id in conn_ids {
             if let Some(conn) = self.connections.get(&conn_id) {
-                let _ = conn.sender.try_send(Message::Close(None));
+                if except_jti.is_some() && conn.token_jti == except_jti {
+                    continue;
+                }
+                let frame = CloseFrame {
+                    code: SESSION_REVOKED_CLOSE_CODE,
+                    reason: reason.to_string().into(),
+                };
+                let _ = conn.sender.try_send(Message::Close(Some(frame)));
             }
         }
     }
 
-    pub async fn is_revoked(&self, user_id: Uuid) -> bool {
+    pub async fn is_revoked(&self, claims: &crate::Claims) -> bool {
         let mut conn = self.redis.clone();
-        let res: redis::RedisResult<bool> = conn.exists(format!("revoked:{user_id}")).await;
-        res.unwrap_or(false)
+        let raw: redis::RedisResult<Option<String>> =
+            conn.get(format!("revoked:{}", claims.sub)).await;
+        let payload = match raw {
+            Ok(Some(payload)) => payload,
+            Ok(None) => return false,
+            Err(e) => {
+                warn!("revocation lookup failed for user {}: {}", claims.sub, e);
+                return false;
+            }
+        };
+        let record: RevocationRecord = match serde_json::from_str(&payload) {
+            Ok(record) => record,
+            Err(_) => return true,
+        };
+        record.covers(claims)
     }
 
     fn presence_key(&self, user_id: &Uuid) -> String {

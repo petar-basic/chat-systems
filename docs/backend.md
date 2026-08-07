@@ -1,7 +1,26 @@
 # Backend
 
-Two binaries: **`chat-api`** (port 3000) and **`chat-realtime`** (port 3004), sharing
-a Postgres database, a Redis instance, and the crates under `shared/`.
+Three processes over one codebase, sharing a Postgres database, a Redis instance and
+the crates under `shared/`:
+
+| Process | Port | Role | Replicas |
+|---|---|---|---|
+| **`chat-api`** | 3000 | Stateless REST API. Owns the migrations, applied at startup. | scale freely |
+| **`chat-worker`** | 3005 | Background consumers: outgoing webhooks, reminders, notifications, huddle history, scheduled messages. Serves only `/livez`, `/readyz`, `/metrics`. | **exactly one** |
+| **`chat-realtime`** | 3004 | WebSocket gateway. | scale freely |
+
+`chat-api` and `chat-worker` are two binaries over the same library crate
+(`backend/api`), so they share `AppState`, config and every repo.
+
+**Why the worker is separate, and why it is single-replica.** The consumers are driven
+by Redis pub/sub, which delivers a copy to *every* subscriber. Running them inside the
+API meant a second API replica produced a second notification row, a second outgoing
+webhook POST and a second reminder — so the API tier could not actually be replicated
+despite being stateless. Moving them into one process fixes that; keeping that process
+at one replica is the cheap correct answer until the transport becomes Redis Streams
+with consumer groups. Two safety nets sit underneath it anyway: a partial unique index
+makes a duplicate mention notification impossible, and reminders are claimed with
+`FOR UPDATE SKIP LOCKED` the way scheduled messages already were.
 
 ## Architecture & Rationale
 
@@ -406,7 +425,7 @@ Live voice/video rooms (Slack-style huddles) over mesh WebRTC. Live membership a
 
 Single WebSocket endpoint. Validates the JWT on the upgrade handshake, re-checks channel/workspace membership against the DB on every subscribe/join, then relays Redis pub/sub events to connected clients. The socket is also closed when the access token's `exp` passes, so a long-lived connection can't outlive its token.
 
-The upgrade additionally checks the `Origin` against the configured CORS origins and rejects users carrying a revocation flag (e.g. just-suspended); suspending a user also closes their live sockets. Alongside `/ws`, the gateway serves `/livez`, `/readyz` (DB + Redis + event-consumer liveness — it reports unhealthy if the consumer has stalled), and `/metrics` (Prometheus: connection count, consumer heartbeat age, events, backpressure drops). Presence is workspace-scoped: a client only sees the online roster and status changes for workspaces it shares. See [RUNBOOK.md](RUNBOOK.md) for ops.
+The upgrade additionally checks the `Origin` against the configured CORS origins and rejects a token covered by a revocation record. A revocation stores the moment it happened rather than a boolean, so it invalidates every token issued up to that point while leaving a later sign-in working, and it can spare one named session (`except_jti`) — which is what lets "log out my other devices" keep the device you are typing on. `session.revoked` closes the matching live sockets with close code `4001` and a reason; suspending a user closes all of theirs. Alongside `/ws`, the gateway serves `/livez`, `/readyz` (DB + Redis + event-consumer liveness — it reports unhealthy if the consumer has stalled), and `/metrics` (Prometheus: connection count, consumer heartbeat age, events, backpressure drops). Presence is workspace-scoped: a client only sees the online roster and status changes for workspaces it shares. See [RUNBOOK.md](RUNBOOK.md) for ops.
 
 **Connection:** `wss://<host>/ws` — the browser sends the `access_token` `HttpOnly` cookie on the upgrade automatically (no token in the URL).
 

@@ -12,9 +12,9 @@ use uuid::Uuid;
 use shared_common::errors::{AppError, AppResult};
 
 use super::models::{IceServer, IceServersResponse, InviteRequest, StartHuddleRequest};
+use crate::authz;
 use crate::middleware::{auth_middleware, AuthUser};
 use crate::state::AppState;
-use crate::workspace::models::{Channel, ChannelType};
 
 type HmacSha1 = Hmac<Sha1>;
 
@@ -36,7 +36,7 @@ async fn active_huddles(
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    require_workspace_member(&state, ws_id, auth.user_id).await?;
+    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
 
     let sessions = state.huddle_repo.list_open_channel_sessions(ws_id).await?;
 
@@ -63,7 +63,7 @@ async fn invite_to_huddle(
     Path((ws_id, huddle_id)): Path<(Uuid, Uuid)>,
     Json(req): Json<InviteRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    require_workspace_member(&state, ws_id, auth.user_id).await?;
+    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
 
     for invitee in req.user_ids {
         if invitee == auth.user_id {
@@ -99,13 +99,15 @@ async fn start_huddle(
     Path(ws_id): Path<Uuid>,
     Json(req): Json<StartHuddleRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    require_workspace_member(&state, ws_id, auth.user_id).await?;
+    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
 
     let huddle_id = Uuid::new_v4();
 
     match (req.channel_id, req.dm_partner_id) {
         (Some(channel_id), None) => {
-            let channel = require_channel_access(&state, channel_id, auth.user_id).await?;
+            let channel = authz::require_channel_access(&state, channel_id, auth.user_id)
+                .await?
+                .channel;
             if channel.workspace_id != ws_id {
                 return Err(AppError::BadRequest(
                     "Channel does not belong to workspace".into(),
@@ -152,7 +154,7 @@ async fn start_huddle(
                 .await;
         }
         (None, Some(partner_id)) => {
-            require_workspace_member(&state, ws_id, partner_id).await?;
+            authz::require_workspace_member(&state, ws_id, partner_id).await?;
             state
                 .huddle_repo
                 .start_session(huddle_id, ws_id, None, Some(partner_id), auth.user_id)
@@ -180,59 +182,12 @@ async fn start_huddle(
     Ok(Json(serde_json::json!({ "huddle_id": huddle_id })))
 }
 
-async fn require_channel_access(
-    state: &AppState,
-    channel_id: Uuid,
-    user_id: Uuid,
-) -> AppResult<Channel> {
-    let channel = state
-        .workspace_service
-        .repo
-        .find_channel_by_id(channel_id)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Channel not found".into()))?;
-
-    state
-        .workspace_service
-        .repo
-        .get_member(channel.workspace_id, user_id)
-        .await?
-        .ok_or_else(|| AppError::Forbidden("Not a member of this workspace".into()))?;
-
-    if channel.channel_type == ChannelType::Private || channel.channel_type == ChannelType::GroupDm
-    {
-        state
-            .workspace_service
-            .repo
-            .get_channel_member(channel_id, user_id)
-            .await?
-            .ok_or_else(|| AppError::Forbidden("Not a member of this channel".into()))?;
-    }
-
-    Ok(channel)
-}
-
-async fn require_workspace_member(
-    state: &AppState,
-    workspace_id: Uuid,
-    user_id: Uuid,
-) -> AppResult<()> {
-    let is_member = state
-        .workspace_service
-        .is_workspace_member(workspace_id, user_id)
-        .await?;
-    if !is_member {
-        return Err(AppError::Forbidden("Not a workspace member".into()));
-    }
-    Ok(())
-}
-
 async fn ice_servers(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<IceServersResponse>> {
-    require_workspace_member(&state, ws_id, auth.user_id).await?;
+    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
 
     let cfg = &state.config;
     let mut servers = Vec::new();

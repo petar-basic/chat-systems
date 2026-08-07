@@ -154,6 +154,19 @@ impl UserRepo {
         Ok(())
     }
 
+    pub async fn delete_user_refresh_tokens_except(
+        &self,
+        user_id: Uuid,
+        token_hash: &str,
+    ) -> sqlx::Result<()> {
+        sqlx::query("DELETE FROM refresh_tokens WHERE user_id = $1 AND token_hash <> $2")
+            .bind(user_id)
+            .bind(token_hash)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
     pub async fn begin(&self) -> sqlx::Result<sqlx::Transaction<'_, sqlx::Postgres>> {
         self.pool.begin().await
     }

@@ -22,11 +22,12 @@ impl NotificationRepo {
         title: &str,
         body: Option<&str>,
         data: &serde_json::Value,
-    ) -> sqlx::Result<Notification> {
+    ) -> sqlx::Result<Option<Notification>> {
         sqlx::query_as::<_, Notification>(
             r"
             INSERT INTO notifications (user_id, workspace_id, notification_type, title, body, data)
             VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT DO NOTHING
             RETURNING *
             ",
         )
@@ -36,7 +37,7 @@ impl NotificationRepo {
         .bind(title)
         .bind(body)
         .bind(data)
-        .fetch_one(&self.pool)
+        .fetch_optional(&self.pool)
         .await
     }
 
@@ -198,7 +199,8 @@ mod tests {
                 &data,
             )
             .await
-            .expect("create should persist the notification");
+            .expect("create should persist the notification")
+            .expect("a first insert must not be deduplicated away");
 
         assert_eq!(created.user_id, user_id);
         assert_eq!(created.workspace_id, workspace_id);

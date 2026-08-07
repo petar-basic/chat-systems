@@ -32,12 +32,16 @@ integration-test suite and a real CI pipeline.
 
 ## Architecture at a glance
 
-Two Rust binaries plus a React SPA. The API is stateless; the realtime gateway fans
-messages out across nodes via Redis pub/sub — so both tiers scale horizontally.
+Three Rust binaries plus a React SPA. The API is stateless and the realtime gateway
+fans messages out across nodes via Redis pub/sub, so both scale horizontally. Redis
+pub/sub delivers to every subscriber, so the background consumers live in their own
+single-replica process rather than inside each API replica — otherwise a second replica
+would send every webhook and every notification twice.
 
 | Component         | Technology                                                        |
 |-------------------|------------------------------------------------------------------|
 | **chat-api**      | Rust (Axum) — stateless REST API                                 |
+| **chat-worker**   | Rust — background consumers (webhooks, reminders, notifications, scheduled messages) |
 | **chat-realtime** | Rust (Axum) — WebSocket gateway                                  |
 | **Frontend**      | React 19, Vite, React Router, TailwindCSS, Zustand, TanStack Query |
 | **Edge (prod)**   | Caddy — automatic HTTPS + reverse proxy                          |

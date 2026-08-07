@@ -2,7 +2,7 @@
 
 **Wave:** 2 — Abuse and resource limits
 **Area:** backend/api
-**Blocked by:** CS-004 (touches `main.rs` router assembly)
+**Blocked by:** ~~CS-004~~ ✅ shipped as `chat-worker`
 **Blocks:** —
 **Audit finding:** S11 (MEDIUM)
 

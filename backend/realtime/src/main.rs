@@ -49,12 +49,16 @@ fn default_token_type() -> String {
     "access".to_string()
 }
 
-#[derive(Debug, serde::Deserialize)]
-struct Claims {
-    sub: uuid::Uuid,
-    exp: i64,
+#[derive(Debug, Clone, serde::Deserialize)]
+pub(crate) struct Claims {
+    pub sub: uuid::Uuid,
+    pub exp: i64,
+    #[serde(default)]
+    pub iat: i64,
+    #[serde(default)]
+    pub jti: Option<uuid::Uuid>,
     #[serde(default = "default_token_type")]
-    token_type: String,
+    pub token_type: String,
 }
 
 #[tokio::main]
@@ -190,7 +194,7 @@ fn cookie_token(headers: &axum::http::HeaderMap) -> Option<String> {
 pub(crate) fn authenticate_ws(
     headers: &axum::http::HeaderMap,
     jwt_secret: &str,
-) -> Result<(uuid::Uuid, i64), AppError> {
+) -> Result<Claims, AppError> {
     let token = protocol_token(headers)
         .or_else(|| cookie_token(headers))
         .ok_or_else(|| AppError::Unauthorized("Missing access token".into()))?;
@@ -210,7 +214,7 @@ pub(crate) fn authenticate_ws(
         return Err(AppError::Unauthorized("Invalid token type".into()));
     }
 
-    Ok((token_data.claims.sub, token_data.claims.exp))
+    Ok(token_data.claims)
 }
 
 fn origin_allowed(headers: &axum::http::HeaderMap, allowed: &str) -> bool {
@@ -234,15 +238,15 @@ async fn ws_upgrade(
     if !origin_allowed(&headers, &state.cors_origins) {
         return Err(AppError::Unauthorized("Origin not allowed".into()));
     }
-    let (user_id, exp) = authenticate_ws(&headers, &state.jwt_secret)?;
-    if state.cm.is_revoked(user_id).await {
+    let claims = authenticate_ws(&headers, &state.jwt_secret)?;
+    if state.cm.is_revoked(&claims).await {
         return Err(AppError::Unauthorized("Session revoked".into()));
     }
     let ws = ws.ok_or_else(|| AppError::BadRequest("Expected a WebSocket upgrade".into()))?;
     let cm = state.cm.clone();
     Ok(ws
         .protocols(["bearer"])
-        .on_upgrade(move |socket| ws_handler::handle_ws(socket, user_id, exp, cm)))
+        .on_upgrade(move |socket| ws_handler::handle_ws(socket, claims, cm)))
 }
 
 async fn livez() -> impl IntoResponse {

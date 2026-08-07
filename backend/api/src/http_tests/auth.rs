@@ -467,3 +467,138 @@ async fn refresh_with_cookie_returns_new_access_token(pool: PgPool) {
         "refresh must return a non-empty access_token, got {body:?}"
     );
 }
+
+#[sqlx::test(migrations = "../migrations")]
+async fn revoke_all_rejects_every_outstanding_access_token(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (user_id, email) = seed(&state, "revoke-all", false).await;
+
+    let first = login(&app, &email, PASSWORD).await;
+    let second = login(&app, &email, PASSWORD).await;
+
+    for token in [&first, &second] {
+        let (status, _b) = send(&app, "GET", "/api/workspaces", Some(token), None).await;
+        assert_eq!(status, StatusCode::OK, "both sessions start valid");
+    }
+
+    crate::sessions::revoke(&state, user_id, crate::sessions::SessionScope::All, "test")
+        .await
+        .expect("revoke");
+
+    for token in [&first, &second] {
+        let (status, _b) = send(&app, "GET", "/api/workspaces", Some(token), None).await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED, "every session is cut off");
+    }
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn revoke_all_except_spares_the_named_session(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (user_id, email) = seed(&state, "revoke-except", false).await;
+
+    let survivor = login(&app, &email, PASSWORD).await;
+    let doomed = login(&app, &email, PASSWORD).await;
+
+    let survivor_jti = access_token_jti(&survivor);
+
+    crate::sessions::revoke(
+        &state,
+        user_id,
+        crate::sessions::SessionScope::AllExcept(survivor_jti),
+        "password changed",
+    )
+    .await
+    .expect("revoke");
+
+    let (kept, _b) = send(&app, "GET", "/api/workspaces", Some(&survivor), None).await;
+    assert_eq!(
+        kept,
+        StatusCode::OK,
+        "the session that initiated the change keeps working"
+    );
+
+    let (cut, _b) = send(&app, "GET", "/api/workspaces", Some(&doomed), None).await;
+    assert_eq!(cut, StatusCode::UNAUTHORIZED, "every other session is cut");
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn revoke_all_leaves_the_refresh_token_of_the_spared_session(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (user_id, email) = seed(&state, "revoke-refresh", false).await;
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        "/api/auth/login",
+        None,
+        Some(serde_json::json!({ "email": email, "password": PASSWORD })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "login: {body:?}");
+    let refresh = body["refresh_token"]
+        .as_str()
+        .expect("refresh_token")
+        .to_string();
+    let access = body["access_token"]
+        .as_str()
+        .expect("access_token")
+        .to_string();
+
+    crate::sessions::revoke(
+        &state,
+        user_id,
+        crate::sessions::SessionScope::AllExcept(access_token_jti(&access)),
+        "password changed",
+    )
+    .await
+    .expect("revoke");
+
+    let (status, body) = send(&app, "POST", "/api/auth/refresh", Some(&refresh), None).await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "the spared session can still rotate its refresh token: {body:?}"
+    );
+}
+
+fn access_token_jti(token: &str) -> Uuid {
+    use base64::Engine;
+    let payload = token.split('.').nth(1).expect("jwt has a payload segment");
+    let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(payload)
+        .expect("payload is base64url");
+    let claims: serde_json::Value = serde_json::from_slice(&bytes).expect("payload is json");
+    claims["jti"]
+        .as_str()
+        .expect("access tokens carry a jti")
+        .parse()
+        .expect("jti is a uuid")
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn a_legacy_revocation_record_still_locks_the_session_out(pool: PgPool) {
+    use redis::AsyncCommands;
+
+    let (app, state) = app_and_state(pool).await;
+    let (user_id, email) = seed(&state, "legacy-revocation", false).await;
+    let token = login(&app, &email, PASSWORD).await;
+
+    // What an older build wrote: the bare value `1`, not a JSON record.
+    let mut redis = state.redis.clone();
+    let _: () = redis
+        .set_ex(format!("revoked:{user_id}"), 1, 60)
+        .await
+        .expect("write legacy revocation record");
+
+    let (status, _b) = send(&app, "GET", "/api/workspaces", Some(&token), None).await;
+    assert_eq!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "an unparseable revocation record must fail closed, not grant access"
+    );
+
+    let _: () = redis
+        .del(format!("revoked:{user_id}"))
+        .await
+        .expect("clear revocation");
+}

@@ -17,6 +17,7 @@ jobs:
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
+      e2e: ${{ steps.filter.outputs.e2e }}
     steps:
       - uses: actions/checkout@v4
 
@@ -32,6 +33,17 @@ jobs:
             frontend:
               - 'frontend/**'
               - '.github/workflows/ci.yml'
+            # The E2E job drives the whole stack, so the compose topology and
+            # the seed script are inputs to it even though neither language job
+            # depends on them.
+            e2e:
+              - 'backend/**'
+              - 'frontend/**'
+              - 'docker/**'
+              - 'docker-compose*.yml'
+              - 'seed.sh'
+              - '.github/workflows/ci.yml'
+              - '.github/scripts/**'
 
   backend:
     name: Backend (Rust)
@@ -96,13 +108,20 @@ jobs:
       - name: cargo test
         run: cargo test --workspace
 
-      - name: Install cargo-audit
+      - name: Install cargo tooling
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-audit
+          tool: cargo-audit,sqlx-cli
 
       - name: cargo audit
         run: cargo audit
+
+      # Compile-time-checked queries resolve against the committed .sqlx cache
+      # when no database is reachable — which is exactly the case in the image
+      # build. A query added without regenerating the cache breaks the Docker
+      # build, so catch it here instead.
+      - name: sqlx offline cache is current
+        run: cargo sqlx prepare --check --workspace -- --all-targets
 
   frontend:
     name: Frontend (Node)
@@ -143,13 +162,100 @@ jobs:
       - name: Test
         run: npm run test
 
+  # Drives the real topology (nginx in front of api/worker/realtime) rather than
+  # a bespoke service matrix, because the specs assume it — one of them restarts
+  # the realtime container mid-test.
+  e2e:
+    name: E2E (Playwright)
+    needs: [changes, backend, frontend]
+    if: >-
+      !cancelled()
+      && needs.backend.result != 'failure'
+      && needs.frontend.result != 'failure'
+      && needs.changes.outputs.e2e == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Generate CI secrets
+        run: ./.github/scripts/ci-env.sh
+
+      - name: Start the stack
+        run: docker compose --profile frontend up -d --build
+
+      - name: Wait for readiness
+        run: |
+          for target in "api:3000" "worker:3005" "realtime:3004"; do
+            name="${target%%:*}"
+            port="${target##*:}"
+            for i in $(seq 1 60); do
+              if docker compose exec -T "$name" curl -fsS "http://127.0.0.1:${port}/readyz" >/dev/null 2>&1; then
+                echo "$name ready"
+                break
+              fi
+              if [ "$i" = "60" ]; then
+                echo "$name never became ready"
+                exit 1
+              fi
+              sleep 2
+            done
+          done
+          for i in $(seq 1 60); do
+            curl -fsS http://localhost:8080/ >/dev/null 2>&1 && break
+            [ "$i" = "60" ] && { echo "frontend never served"; exit 1; }
+            sleep 2
+          done
+
+      - name: Seed demo data
+        run: ./seed.sh
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E suite
+        working-directory: frontend
+        env:
+          E2E_BASE_URL: http://localhost:8080
+          E2E_SHOTS: ${{ runner.temp }}/shots
+        run: E2E_PASSWORD="$ADMIN_PASSWORD" npm run test:e2e
+
+      - name: Collect container logs
+        if: failure()
+        run: docker compose logs --no-color > "${{ runner.temp }}/compose-logs.txt"
+
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-failure
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+            ${{ runner.temp }}/shots/
+            ${{ runner.temp }}/compose-logs.txt
+          if-no-files-found: ignore
+          retention-days: 7
+
   # The only job that should be a required status check. It always runs, so it
   # always reports — a required check on a conditional job never reports at all
   # on a PR that skips it, and blocks the merge forever. Skipped counts as
   # passing here; a real failure or a cancellation still blocks.
   gate:
     name: All checks
-    needs: [changes, backend, frontend]
+    needs: [changes, backend, frontend, e2e]
     if: always()
     runs-on: ubuntu-latest
     steps:

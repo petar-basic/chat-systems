@@ -1,8 +1,8 @@
 # =============================================================================
 # Chat Systems — Backend Dockerfile
 # =============================================================================
-# Builds two binaries: chat-api (monolith) and chat-realtime (WS gateway).
-# Use ARG SERVICE to select which binary to run.
+# Builds three binaries: chat-api (HTTP), chat-worker (background consumers)
+# and chat-realtime (WS gateway). Use ARG SERVICE to select which one to run.
 #
 # Build:  docker build -t chatsys-backend .
 # Run:    docker run -e SERVICE=chat-api chatsys-backend
@@ -14,6 +14,10 @@ FROM rust:1.93-bookworm AS builder
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
+
+# No database reachable during an image build: compile-time-checked queries must
+# resolve against the committed .sqlx cache instead of a live connection.
+ENV SQLX_OFFLINE=true
 
 # Copy workspace manifests first for dependency caching
 COPY Cargo.toml Cargo.lock ./
@@ -60,6 +64,7 @@ WORKDIR /app
 
 # Copy binaries (readable + executable by appuser)
 COPY --from=builder --chown=appuser:appuser /app/target/release/chat-api      ./chat-api
+COPY --from=builder --chown=appuser:appuser /app/target/release/chat-worker    ./chat-worker
 COPY --from=builder --chown=appuser:appuser /app/target/release/chat-realtime  ./chat-realtime
 
 # Copy migrations (used by chat-api at startup)

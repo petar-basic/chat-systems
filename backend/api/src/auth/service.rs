@@ -169,7 +169,7 @@ impl AuthService {
             is_instance_admin: user.is_instance_admin,
             iat: now.timestamp(),
             exp: access_exp.timestamp(),
-            jti: None,
+            jti: Some(new_jti),
             token_type: "access".to_string(),
             workspace_id: None,
             invite_role: None,
@@ -329,7 +329,7 @@ impl AuthService {
             is_instance_admin: user.is_instance_admin,
             iat: now.timestamp(),
             exp: access_exp.timestamp(),
-            jti: None,
+            jti: Some(jti),
             token_type: "access".to_string(),
             workspace_id: None,
             invite_role: None,
@@ -650,6 +650,9 @@ mod tests {
         let access_exp = now + Duration::seconds(config.access_token_expiry);
         let refresh_exp = now + Duration::seconds(config.refresh_token_expiry);
         let secret = EncodingKey::from_secret(config.jwt_secret.as_bytes());
+        // One session, one jti: `sessions::revoke` identifies the session to spare
+        // by the access token's jti, and must be able to spare its refresh token too.
+        let jti = Uuid::new_v4();
 
         let access_claims = Claims {
             sub: user.id,
@@ -657,7 +660,7 @@ mod tests {
             is_instance_admin: user.is_instance_admin,
             iat: now.timestamp(),
             exp: access_exp.timestamp(),
-            jti: None,
+            jti: Some(jti),
             token_type: "access".to_string(),
             workspace_id: None,
             invite_role: None,
@@ -670,7 +673,7 @@ mod tests {
             is_instance_admin: user.is_instance_admin,
             iat: now.timestamp(),
             exp: refresh_exp.timestamp(),
-            jti: Some(Uuid::new_v4()),
+            jti: Some(jti),
             token_type: "refresh".to_string(),
             workspace_id: None,
             invite_role: None,
@@ -682,7 +685,11 @@ mod tests {
             access.token_type, "access",
             "access token must be stamped \"access\""
         );
-        assert!(access.jti.is_none(), "access tokens must not carry a jti");
+        assert_eq!(
+            access.jti,
+            Some(jti),
+            "access tokens must carry the session jti"
+        );
         assert_eq!(access.sub, user.id);
 
         let refresh = decode_claims(&refresh_token);
@@ -690,7 +697,10 @@ mod tests {
             refresh.token_type, "refresh",
             "refresh token must be stamped \"refresh\""
         );
-        assert!(refresh.jti.is_some(), "refresh tokens must carry a jti");
+        assert_eq!(
+            refresh.jti, access.jti,
+            "both halves of one session share a jti"
+        );
         assert_eq!(refresh.sub, user.id);
     }
 

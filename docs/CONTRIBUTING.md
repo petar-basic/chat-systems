@@ -54,8 +54,10 @@ SMTP_HOST=localhost
 JWT_SECRET=${JWT_SECRET}
 EOF
 
-# 3. Backend (two terminals)
-cd backend && cargo run -p chat-api
+# 3. Backend (three terminals; chat-worker is optional unless you are working on
+#    webhooks, reminders, notifications or scheduled messages)
+cd backend && cargo run --bin chat-api
+cd backend && cargo run --bin chat-worker
 cd backend && cargo run -p chat-realtime
 
 # 4. Frontend — Vite on :3001, proxies /api → :3000 and /ws → :3004
@@ -90,7 +92,8 @@ Postgres dumps land in the `pg_backups` volume and the mirrored upload bucket in
 
 ```
 backend/
-  api/        chat-api binary — stateless REST API (feature modules under src/)
+  api/        library + two binaries — chat-api (stateless REST API) and
+              chat-worker (background consumers); feature modules under src/
   realtime/   chat-realtime binary — WebSocket gateway
   shared/     shared crates (common errors/CORS/validation, event envelopes)
   migrations/ SQL migrations (run automatically on api start)
@@ -112,6 +115,22 @@ docs/         this folder
 - **No `unwrap` / `expect` / `panic` in request paths** — return `AppError`. Startup
   config validation is the only place that fails fast.
 - **Parameterized SQL only** (sqlx bind params) — never string-built queries.
+- **Permission checks come from `authz`.** `backend/api/src/authz.rs` holds the only
+  definition of each predicate (`require_workspace_member`, `require_workspace_role`,
+  `require_channel_access`, `require_channel_moderator`,
+  `require_conversation_participant`). Never re-derive one in a feature module or in
+  SQL — the rules drifted that way before and it cost real access-control bugs. A
+  query that needs to reproduce channel visibility asks `ChannelAccess`, it does not
+  restate the rule.
+- **Sessions end through `sessions::revoke`.** Deleting refresh tokens, marking access
+  tokens invalid and closing live sockets belong together; the three steps have drifted
+  apart before.
+- **New queries use `sqlx::query_as!` / `query!`.** Decided 2026-08-07: the macros are
+  the standard for new code, existing runtime queries convert opportunistically when
+  their method is touched for another reason, and there is no big-bang rewrite. Run
+  `cargo sqlx prepare --workspace -- --all-targets` and commit `.sqlx/` — image builds
+  set `SQLX_OFFLINE=true` and have no database, so a macro without a cache entry breaks
+  the Docker build. CI enforces this with `cargo sqlx prepare --check`.
 - Formatted with `cargo fmt`; lints clean under `cargo clippy --workspace --all-targets -- -D warnings`.
 
 ### Frontend (TypeScript / React)
@@ -172,12 +191,17 @@ and each language job runs only when its tree changed. A docs-only PR runs neith
 Editing `ci.yml` itself re-runs both, so a broken filter cannot silently disable the
 checks it selects.
 
+- **E2E:** boots the real stack with `docker compose --profile frontend`, seeds it,
+  and runs the Playwright suite. Runs when anything the stack is built from changes —
+  `backend/**`, `frontend/**`, `docker/**`, `docker-compose*.yml`, `seed.sh` — and
+  uploads the report, screenshots and container logs on failure.
+
 **`All checks` is the only job that should be a required status check.** It always runs,
 treats skipped jobs as passing, and fails if any job failed or was cancelled. Requiring
-`Backend (Rust)` or `Frontend (Node)` directly blocks every docs-only PR forever: a
-skipped job reports no status at all, so the check stays pending rather than green.
-Adding a new job — the E2E suite, say — needs no change to branch protection, only an
-entry in the gate's `needs`.
+`Backend (Rust)`, `Frontend (Node)` or `E2E (Playwright)` directly blocks every
+docs-only PR forever: a skipped job reports no status at all, so the check stays pending
+rather than green. Adding a new job needs no change to branch protection, only an entry
+in the gate's `needs`.
 
 [`.github/dependabot.yml`](../.github/dependabot.yml) opens weekly grouped update
 PRs for cargo (`/backend`), npm (`/frontend`), and github-actions.

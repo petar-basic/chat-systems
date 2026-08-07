@@ -8,9 +8,9 @@ use uuid::Uuid;
 use shared_common::errors::{AppError, AppResult};
 
 use super::models::*;
+use crate::authz;
 use crate::middleware::{auth_middleware, AuthUser};
 use crate::state::AppState;
-use crate::workspace::models::{Channel, ChannelType, WorkspaceRole};
 
 pub fn router(state: Arc<AppState>) -> Router {
     let routes = Router::new()
@@ -46,7 +46,7 @@ async fn list_messages(
     Path(ch_id): Path<Uuid>,
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> AppResult<Json<serde_json::Value>> {
-    require_channel_access(&state, ch_id, auth.user_id).await?;
+    authz::require_channel_access(&state, ch_id, auth.user_id).await?;
     let limit = params
         .get("limit")
         .and_then(|v| v.parse::<i64>().ok())
@@ -99,7 +99,9 @@ async fn send_message(
 ) -> AppResult<Json<Message>> {
     shared_common::validation::validate_message_content(&req.content)?;
 
-    let channel = require_channel_access(&state, ch_id, auth.user_id).await?;
+    let channel = authz::require_channel_access(&state, ch_id, auth.user_id)
+        .await?
+        .channel;
 
     let msg = if let Some(id) = req.id {
         match state
@@ -273,7 +275,7 @@ async fn list_pins(
     auth: AuthUser,
     Path(ch_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    require_channel_access(&state, ch_id, auth.user_id).await?;
+    authz::require_channel_access(&state, ch_id, auth.user_id).await?;
     let pins = state.message_repo.list_pinned(ch_id).await?;
     Ok(Json(serde_json::json!({ "data": pins })))
 }
@@ -290,7 +292,7 @@ async fn list_thread(
         .await?
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?
         .channel_id;
-    require_channel_access(&state, channel_id, auth.user_id).await?;
+    authz::require_channel_access(&state, channel_id, auth.user_id).await?;
     let limit = params
         .get("limit")
         .and_then(|v| v.parse::<i64>().ok())
@@ -322,7 +324,9 @@ async fn reply_to_thread(
         .await?
         .ok_or_else(|| AppError::NotFound("Parent message not found".into()))?;
 
-    let channel = require_channel_access(&state, parent.channel_id, auth.user_id).await?;
+    let channel = authz::require_channel_access(&state, parent.channel_id, auth.user_id)
+        .await?
+        .channel;
 
     let msg = state
         .message_repo
@@ -361,7 +365,7 @@ async fn list_reactions(
         .await?
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?
         .channel_id;
-    require_channel_access(&state, channel_id, auth.user_id).await?;
+    authz::require_channel_access(&state, channel_id, auth.user_id).await?;
     let reactions = state.message_repo.list_reactions(msg_id).await?;
     Ok(Json(serde_json::json!({ "data": reactions })))
 }
@@ -378,7 +382,7 @@ async fn add_reaction(
         .await?
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
 
-    require_channel_access(&state, msg.channel_id, auth.user_id).await?;
+    authz::require_channel_access(&state, msg.channel_id, auth.user_id).await?;
 
     let reaction = state
         .message_repo
@@ -406,7 +410,7 @@ async fn remove_reaction(
         .await?
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
 
-    require_channel_access(&state, msg.channel_id, auth.user_id).await?;
+    authz::require_channel_access(&state, msg.channel_id, auth.user_id).await?;
 
     state
         .message_repo
@@ -427,7 +431,7 @@ async fn mark_read(
     Path(ch_id): Path<Uuid>,
     Json(req): Json<MarkReadRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    require_channel_access(&state, ch_id, auth.user_id).await?;
+    authz::require_channel_access(&state, ch_id, auth.user_id).await?;
     state
         .message_repo
         .mark_read(ch_id, auth.user_id, req.message_id)
@@ -454,7 +458,7 @@ async fn search_messages(
     }
 
     if let Some(ch_id) = params.channel_id {
-        require_channel_access(&state, ch_id, auth.user_id).await?;
+        authz::require_channel_access(&state, ch_id, auth.user_id).await?;
     }
 
     let limit = params.limit.unwrap_or(20).clamp(1, 100);
@@ -474,40 +478,6 @@ async fn search_messages(
         .await?;
 
     Ok(Json(serde_json::json!({ "data": messages })))
-}
-
-pub(crate) async fn require_channel_access(
-    state: &AppState,
-    ch_id: Uuid,
-    user_id: Uuid,
-) -> AppResult<Channel> {
-    let channel = state
-        .workspace_service
-        .repo
-        .find_channel_by_id(ch_id)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Channel not found".into()))?;
-
-    let member = state
-        .workspace_service
-        .repo
-        .get_member(channel.workspace_id, user_id)
-        .await?
-        .ok_or_else(|| AppError::Forbidden("Not a member of this workspace".into()))?;
-
-    if member.role == WorkspaceRole::Guest
-        || channel.channel_type == ChannelType::Private
-        || channel.channel_type == ChannelType::GroupDm
-    {
-        state
-            .workspace_service
-            .repo
-            .get_channel_member(ch_id, user_id)
-            .await?
-            .ok_or_else(|| AppError::Forbidden("Not a member of this channel".into()))?;
-    }
-
-    Ok(channel)
 }
 
 async fn link_attachments(

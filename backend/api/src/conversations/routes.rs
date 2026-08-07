@@ -9,6 +9,7 @@ use shared_common::errors::{AppError, AppResult};
 use shared_common::validation;
 
 use super::models::*;
+use crate::authz;
 use crate::middleware::{auth_middleware, AuthUser};
 use crate::state::AppState;
 
@@ -38,43 +39,6 @@ pub fn router(state: Arc<AppState>) -> Router {
         .with_state(state)
 }
 
-async fn require_workspace_member(
-    state: &AppState,
-    workspace_id: Uuid,
-    user_id: Uuid,
-) -> AppResult<()> {
-    let is_member = state
-        .workspace_service
-        .is_workspace_member(workspace_id, user_id)
-        .await?;
-    if !is_member {
-        return Err(AppError::Forbidden("Not a workspace member".into()));
-    }
-    Ok(())
-}
-
-async fn require_participant(
-    state: &AppState,
-    conversation_id: Uuid,
-    user_id: Uuid,
-) -> AppResult<Conversation> {
-    let conversation = state
-        .conversation_repo
-        .find_by_id(conversation_id)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Conversation not found".into()))?;
-    if !state
-        .conversation_repo
-        .is_participant(conversation_id, user_id)
-        .await?
-    {
-        return Err(AppError::Forbidden(
-            "Not a participant in this conversation".into(),
-        ));
-    }
-    Ok(conversation)
-}
-
 async fn publish_conversation_event(
     state: &AppState,
     event: &str,
@@ -100,7 +64,7 @@ async fn list_conversations(
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    require_workspace_member(&state, ws_id, auth.user_id).await?;
+    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
     let conversations = state
         .conversation_repo
         .list_for_user(ws_id, auth.user_id)
@@ -114,7 +78,7 @@ async fn create_conversation(
     Path(ws_id): Path<Uuid>,
     Json(req): Json<CreateConversationRequest>,
 ) -> AppResult<Json<Conversation>> {
-    require_workspace_member(&state, ws_id, auth.user_id).await?;
+    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
 
     let mut participants: Vec<Uuid> = req
         .participant_ids
@@ -135,7 +99,7 @@ async fn create_conversation(
         )));
     }
     for participant in &participants {
-        require_workspace_member(&state, ws_id, *participant).await?;
+        authz::require_workspace_member(&state, ws_id, *participant).await?;
     }
 
     if participants.len() == 1 {
@@ -180,7 +144,7 @@ async fn list_messages(
     Path(conv_id): Path<Uuid>,
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> AppResult<Json<serde_json::Value>> {
-    require_participant(&state, conv_id, auth.user_id).await?;
+    authz::require_conversation_participant(&state, conv_id, auth.user_id).await?;
 
     let limit = params
         .get("limit")
@@ -240,7 +204,8 @@ async fn send_message(
     Path(conv_id): Path<Uuid>,
     Json(req): Json<SendConversationMessageRequest>,
 ) -> AppResult<Json<ConversationMessage>> {
-    let conversation = require_participant(&state, conv_id, auth.user_id).await?;
+    let conversation =
+        authz::require_conversation_participant(&state, conv_id, auth.user_id).await?;
     validation::validate_message_content(&req.content)?;
 
     let id = req.id.unwrap_or_else(Uuid::new_v4);
@@ -282,7 +247,9 @@ async fn edit_message(
         .find_message(msg_id)
         .await?
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
-    let conversation = require_participant(&state, existing.conversation_id, auth.user_id).await?;
+    let conversation =
+        authz::require_conversation_participant(&state, existing.conversation_id, auth.user_id)
+            .await?;
 
     if existing.user_id != auth.user_id {
         return Err(AppError::Forbidden(
@@ -317,7 +284,9 @@ async fn delete_message(
         .find_message(msg_id)
         .await?
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
-    let conversation = require_participant(&state, existing.conversation_id, auth.user_id).await?;
+    let conversation =
+        authz::require_conversation_participant(&state, existing.conversation_id, auth.user_id)
+            .await?;
 
     if existing.user_id != auth.user_id {
         return Err(AppError::Forbidden(
@@ -350,7 +319,9 @@ async fn add_reaction(
         .find_message(msg_id)
         .await?
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
-    let conversation = require_participant(&state, existing.conversation_id, auth.user_id).await?;
+    let conversation =
+        authz::require_conversation_participant(&state, existing.conversation_id, auth.user_id)
+            .await?;
 
     let reaction = state
         .conversation_repo
@@ -379,7 +350,9 @@ async fn remove_reaction(
         .find_message(msg_id)
         .await?
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
-    let conversation = require_participant(&state, existing.conversation_id, auth.user_id).await?;
+    let conversation =
+        authz::require_conversation_participant(&state, existing.conversation_id, auth.user_id)
+            .await?;
 
     state
         .conversation_repo
@@ -403,7 +376,7 @@ async fn mark_read(
     auth: AuthUser,
     Path(conv_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    require_participant(&state, conv_id, auth.user_id).await?;
+    authz::require_conversation_participant(&state, conv_id, auth.user_id).await?;
     state
         .conversation_repo
         .mark_read(conv_id, auth.user_id)

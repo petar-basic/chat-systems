@@ -2,7 +2,7 @@
 
 **Wave:** 8 — Compliance
 **Area:** backend
-**Blocked by:** CS-004 (the job runs in the worker), CS-018, CS-020, CS-029
+**Blocked by:** ~~CS-004~~ ✅ shipped as `chat-worker`, CS-018, CS-020, CS-029
 **Blocks:** CS-031
 **Roadmap:** existing item, expanded
 

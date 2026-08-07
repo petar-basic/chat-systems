@@ -12,9 +12,9 @@ use shared_common::errors::{AppError, AppResult};
 
 use super::models::{FileRecord, FileUploadResponse};
 use super::repo::NewFile;
+use crate::authz;
 use crate::middleware::{auth_middleware, AuthUser};
 use crate::state::AppState;
-use crate::workspace::models::ChannelType;
 
 const MAX_FILE_SIZE: usize = 100 * 1024 * 1024;
 
@@ -60,7 +60,7 @@ async fn upload_file(
     Path(ws_id): Path<Uuid>,
     mut multipart: Multipart,
 ) -> AppResult<Json<Vec<FileUploadResponse>>> {
-    require_workspace_member(&state, ws_id, auth.user_id).await?;
+    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
 
     let mut responses = Vec::new();
 
@@ -176,7 +176,7 @@ async fn list_files(
     Path(ws_id): Path<Uuid>,
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> AppResult<Json<serde_json::Value>> {
-    require_workspace_member(&state, ws_id, auth.user_id).await?;
+    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
 
     let limit = params
         .get("limit")
@@ -206,7 +206,7 @@ async fn delete_file(
         .await?
         .ok_or_else(|| AppError::NotFound("File not found".into()))?;
 
-    require_workspace_member(&state, record.workspace_id, auth.user_id).await?;
+    authz::require_workspace_member(&state, record.workspace_id, auth.user_id).await?;
 
     if record.user_id != auth.user_id {
         return Err(AppError::Forbidden("Can only delete your own files".into()));
@@ -219,26 +219,12 @@ async fn delete_file(
     Ok(Json(serde_json::json!({ "status": "deleted" })))
 }
 
-async fn require_workspace_member(
-    state: &AppState,
-    workspace_id: Uuid,
-    user_id: Uuid,
-) -> AppResult<()> {
-    state
-        .workspace_service
-        .repo
-        .get_member(workspace_id, user_id)
-        .await?
-        .ok_or_else(|| AppError::Forbidden("Not a member of this workspace".into()))?;
-    Ok(())
-}
-
 async fn require_file_access(
     state: &AppState,
     record: &FileRecord,
     user_id: Uuid,
 ) -> AppResult<()> {
-    require_workspace_member(state, record.workspace_id, user_id).await?;
+    authz::require_workspace_member(state, record.workspace_id, user_id).await?;
 
     if let Some(message_id) = record.message_id {
         if let Some(channel_id) = state.file_repo.channel_id_for_message(message_id).await? {
@@ -254,22 +240,6 @@ async fn require_channel_membership(
     channel_id: Uuid,
     user_id: Uuid,
 ) -> AppResult<()> {
-    let channel = state
-        .workspace_service
-        .repo
-        .find_channel_by_id(channel_id)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Channel not found".into()))?;
-
-    if channel.channel_type == ChannelType::Private || channel.channel_type == ChannelType::GroupDm
-    {
-        state
-            .workspace_service
-            .repo
-            .get_channel_member(channel_id, user_id)
-            .await?
-            .ok_or_else(|| AppError::Forbidden("Not a member of this channel".into()))?;
-    }
-
+    authz::require_channel_access(state, channel_id, user_id).await?;
     Ok(())
 }

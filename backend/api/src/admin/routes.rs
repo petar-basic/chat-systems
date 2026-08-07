@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use shared_common::errors::AppResult;
 
-use crate::middleware::{admin_middleware, auth_middleware, AuthUser, RevocationStore};
+use crate::middleware::{admin_middleware, auth_middleware, AuthUser};
 use crate::state::AppState;
 
 pub fn router(state: Arc<AppState>) -> Router {
@@ -121,21 +121,14 @@ async fn suspend_user(
         .execute(&state.pool)
         .await?;
 
-    if let Err(e) = state
-        .auth_service
-        .repo()
-        .delete_user_refresh_tokens(user_id)
-        .await
-    {
-        tracing::warn!(
-            "failed to delete refresh tokens for user {}: {}",
-            user_id,
-            e
-        );
-    }
-    RevocationStore(state.redis.clone())
-        .revoke(user_id, state.config.access_token_expiry.max(0) as u64)
-        .await;
+    crate::sessions::revoke(
+        &state,
+        user_id,
+        crate::sessions::SessionScope::All,
+        "account suspended",
+    )
+    .await?;
+
     let _ = state
         .publisher
         .publish("user.suspended", serde_json::json!({ "user_id": user_id }))
@@ -163,7 +156,7 @@ async fn activate_user(
         .execute(&state.pool)
         .await?;
 
-    RevocationStore(state.redis.clone()).restore(user_id).await;
+    crate::sessions::restore(&state, user_id).await;
 
     audit(
         &state,

@@ -1,9 +1,12 @@
 # Ticket index
 
-One file per ticket, numbered in **execution order**. `CS-001` is the first thing to
-build, `CS-039` the last. The number *is* the schedule — when two tickets touch the
-same file, the lower number lands first and the higher one is written against the
-result.
+One file per ticket, numbered in **execution order**. The number *is* the schedule —
+when two tickets touch the same file, the lower number lands first and the higher one
+is written against the result.
+
+A ticket's file is deleted when it ships; the record of what it did lives in the git
+history and in the docs it changed. **Wave 0 (CS-001 – CS-005) is done** — the next
+ticket is [CS-006](CS-006-invite-lifecycle.md).
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
@@ -11,11 +14,12 @@ because later waves assume the primitives the earlier ones introduce.
 
 ## Why this order
 
-1. **Wave 0 first, always.** It installs the safety net (E2E in CI) and the three
-   structures that half the remaining tickets depend on: a single authorization
-   module, a single session-revocation path, and a worker process that is separate
-   from the API. Every access-control fix in Wave 1 lands inside those structures.
-   Doing Wave 1 first means writing each fix twice.
+1. **Wave 0 first, always.** ✅ Shipped. It installed the safety net (E2E in CI) and
+   the three structures half the remaining tickets depend on: `authz` as the single
+   home for permission predicates, `sessions::revoke` as the single way a session
+   ends, and `chat-worker` as a process separate from the API. Every access-control
+   fix in Wave 1 lands inside those structures; doing Wave 1 first meant writing each
+   fix twice.
 2. **Access control before abuse limits.** A rate limit on an endpoint that leaks
    data is a slower leak. Close the holes, then bound the traffic.
 3. **Governance after access control.** An audit log is only meaningful once the
@@ -48,15 +52,15 @@ per ticket.
 
 ## Tickets
 
-### Wave 0 — Safety net and structural groundwork
+### Wave 0 — Safety net and structural groundwork ✅ done
 
-| # | Ticket | Area |
+| # | Ticket | Landed as |
 |---|---|---|
-| [CS-001](CS-001-e2e-in-ci.md) | Run the Playwright suite in CI | infra |
-| [CS-002](CS-002-central-authz-module.md) | Central authorization module | backend/api |
-| [CS-003](CS-003-revocation-primitive.md) | Session revocation and live-disconnect primitive | backend/api · realtime |
-| [CS-004](CS-004-split-worker-binary.md) | Split background workers into `chat-worker` | backend · infra |
-| [CS-005](CS-005-compile-time-sql.md) | Decide on compile-time-checked sqlx queries | backend |
+| CS-001 | Run the Playwright suite in CI | `e2e` job in [`ci.yml`](../../.github/workflows/ci.yml) |
+| CS-002 | Central authorization module | [`backend/api/src/authz.rs`](../../backend/api/src/authz.rs) |
+| CS-003 | Session revocation and live-disconnect primitive | [`backend/api/src/sessions.rs`](../../backend/api/src/sessions.rs) |
+| CS-004 | Split background workers into `chat-worker` | [`backend/api/src/bin/chat-worker.rs`](../../backend/api/src/bin/chat-worker.rs) |
+| CS-005 | Decide on compile-time-checked sqlx queries | decision in [CONTRIBUTING.md](../CONTRIBUTING.md#backend-rust) |
 
 ### Wave 1 — Access control
 
@@ -143,10 +147,10 @@ Tickets that touch the same files, and the order that avoids rework:
 
 | File | Tickets, in order |
 |---|---|
-| `backend/api/src/main.rs` | CS-004 → CS-012 → CS-030 |
-| authorization helpers | CS-002 → CS-009 → CS-010 → CS-020 |
-| `backend/api/src/auth/service.rs` | CS-003 → CS-008 → CS-016 → CS-017 → CS-032 |
-| realtime event consumer | CS-003 → CS-007 → CS-014 → CS-027 → CS-028 |
+| `backend/api/src/lib.rs` router wiring | CS-012 → CS-030 |
+| `backend/api/src/authz.rs` | CS-009 → CS-010 → CS-020 |
+| `backend/api/src/sessions.rs` | CS-008 → CS-033 |
+| `backend/api/src/auth/service.rs` | CS-008 → CS-016 → CS-017 → CS-032 |
+| realtime event consumer | CS-007 → CS-014 → CS-027 → CS-028 |
 | `frontend/src/features/messaging/` | CS-024 → CS-025 → CS-029 |
-| every `repo.rs` | CS-005 (if adopted) → everything else |
 | `messages` table schema | CS-029 → CS-030 → CS-034 |

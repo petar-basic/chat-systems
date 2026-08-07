@@ -4,12 +4,15 @@
 # Usage:
 #   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 #
-# This disables api, realtime, and frontend so you can run them locally on
-# the host (cargo run -p chat-api, cargo run -p chat-realtime, npm run dev).
+# This disables api, worker, realtime, and frontend so you can run them locally
+# on the host (cargo run --bin chat-api, cargo run --bin chat-worker,
+# cargo run -p chat-realtime, npm run dev).
 # =============================================================================
 
 services:
   api:
+    profiles: ["disabled"]
+  worker:
     profiles: ["disabled"]
   realtime:
     profiles: ["disabled"]

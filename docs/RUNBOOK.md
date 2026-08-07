@@ -11,6 +11,21 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml \
 
 ---
 
+## Processes
+
+| Container | What it does | Safe to scale? |
+|---|---|---|
+| `api` | REST API; applies migrations at startup | yes |
+| `worker` | Background consumers: outgoing webhooks, reminders, notifications, huddle history, scheduled messages | **no — keep at one replica** |
+| `realtime` | WebSocket gateway | yes |
+
+Running two `worker` replicas duplicates every side effect they produce: two
+notification rows per mention, two POSTs per outgoing webhook, two reminder
+deliveries. The compose files pin `replicas: 1`; leave it there. If `worker` is down,
+nothing is lost permanently — messages still send and read — but webhooks, reminders,
+scheduled messages and notification rows stop until it returns. Its `/readyz` is
+wired to the autoheal sidecar like the others.
+
 ## What gets backed up
 
 | Data | Where it lives | Backed up by | Backup volume |

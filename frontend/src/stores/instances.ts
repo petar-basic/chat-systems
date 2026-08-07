@@ -113,6 +113,10 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
         clients.ws.onStatusChange = (status) => {
           useWsStatusStore.getState().setStatus(config.url, status);
         };
+        clients.ws.onSessionRevoked = () => {
+          toast.error(ErrorLabels.SessionRevoked);
+          get().removeInstance(config.url);
+        };
         clients.ws.addReconnectListener(backfillAfterReconnect);
 
         try {
@@ -167,6 +171,10 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
       };
       clients.ws.onStatusChange = (status) => {
         useWsStatusStore.getState().setStatus(normalized, status);
+      };
+      clients.ws.onSessionRevoked = () => {
+        toast.error(ErrorLabels.SessionRevoked);
+        get().removeInstance(normalized);
       };
       clients.ws.addReconnectListener(backfillAfterReconnect);
 

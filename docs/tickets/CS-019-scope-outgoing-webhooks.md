@@ -2,7 +2,7 @@
 
 **Wave:** 4 — Governance
 **Area:** backend/api · frontend
-**Blocked by:** CS-004 (the consumer moves to the worker), CS-018 (audit the change)
+**Blocked by:** ~~CS-004~~ ✅ shipped as `chat-worker`, CS-018 (audit the change)
 **Blocks:** —
 **Audit finding:** S8 (MEDIUM)
 

@@ -2,7 +2,7 @@
 
 **Wave:** 5 — Correctness
 **Area:** backend/api
-**Blocked by:** CS-002, CS-004
+**Blocked by:** ~~CS-002~~ ✅ shipped as `authz.rs`, ~~CS-004~~ ✅ shipped as `chat-worker`
 **Blocks:** —
 **Audit finding:** Q3 (authorization at time of use)
 
