@@ -35,6 +35,7 @@ pub struct Claims {
 pub struct AuthUser {
     pub user_id: Uuid,
     pub is_instance_admin: bool,
+    pub jti: Option<Uuid>,
 }
 
 pub async fn auth_middleware(request: Request, next: Next) -> Result<Response, AppError> {
@@ -70,7 +71,7 @@ pub async fn auth_middleware(request: Request, next: Next) -> Result<Response, A
     }
 
     if let Some(revocation) = parts.extensions.get::<RevocationStore>() {
-        if revocation.is_revoked(token_data.claims.sub).await {
+        if revocation.is_revoked(&token_data.claims).await {
             return Err(AppError::Unauthorized("Session revoked".into()));
         }
     }
@@ -78,6 +79,7 @@ pub async fn auth_middleware(request: Request, next: Next) -> Result<Response, A
     let auth_user = AuthUser {
         user_id: token_data.claims.sub,
         is_instance_admin: token_data.claims.is_instance_admin,
+        jti: token_data.claims.jti,
     };
 
     parts.extensions.insert(auth_user);
@@ -103,6 +105,30 @@ pub async fn admin_middleware(request: Request, next: Next) -> Result<Response, 
 #[derive(Debug, Clone)]
 pub struct JwtSecret(pub String);
 
+/// A revocation cuts off every token issued up to the moment it happened.
+/// Storing that moment rather than a boolean is what lets a user sign in again
+/// right after their own sessions are revoked — a flat "this user is blocked"
+/// flag would also reject the token they just obtained with their new password.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RevocationRecord {
+    pub at: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub except_jti: Option<Uuid>,
+}
+
+impl RevocationRecord {
+    pub fn covers(&self, claims: &Claims) -> bool {
+        // `iat` has second granularity, so a token minted in the same second as
+        // the revocation is indistinguishable from one minted just before it.
+        // Cover it: a survivor that should have died is worse than a re-login
+        // that has to be retried a second later.
+        if claims.iat > self.at {
+            return false;
+        }
+        !matches!((self.except_jti, claims.jti), (Some(except), Some(jti)) if except == jti)
+    }
+}
+
 #[derive(Clone)]
 pub struct RevocationStore(pub redis::aio::ConnectionManager);
 
@@ -111,9 +137,16 @@ impl RevocationStore {
         format!("revoked:{user_id}")
     }
 
-    pub async fn revoke(&self, user_id: Uuid, ttl_secs: u64) {
+    pub async fn revoke(&self, user_id: Uuid, record: &RevocationRecord, ttl_secs: u64) {
+        let payload = match serde_json::to_string(record) {
+            Ok(payload) => payload,
+            Err(e) => {
+                tracing::warn!("failed to encode revocation for user {}: {}", user_id, e);
+                return;
+            }
+        };
         let mut conn = self.0.clone();
-        let res: redis::RedisResult<()> = conn.set_ex(Self::key(user_id), 1, ttl_secs).await;
+        let res: redis::RedisResult<()> = conn.set_ex(Self::key(user_id), payload, ttl_secs).await;
         if let Err(e) = res {
             tracing::warn!("failed to revoke sessions for user {}: {}", user_id, e);
         }
@@ -127,10 +160,24 @@ impl RevocationStore {
         }
     }
 
-    pub async fn is_revoked(&self, user_id: Uuid) -> bool {
+    pub async fn is_revoked(&self, claims: &Claims) -> bool {
         let mut conn = self.0.clone();
-        let res: redis::RedisResult<bool> = conn.exists(Self::key(user_id)).await;
-        res.unwrap_or(false)
+        let raw: redis::RedisResult<Option<String>> = conn.get(Self::key(claims.sub)).await;
+        let payload = match raw {
+            Ok(Some(payload)) => payload,
+            Ok(None) => return false,
+            Err(e) => {
+                tracing::warn!("revocation lookup failed for user {}: {}", claims.sub, e);
+                return false;
+            }
+        };
+        match serde_json::from_str::<RevocationRecord>(&payload) {
+            Ok(record) => record.covers(claims),
+            // A record written by an older build is the bare value `1`. Treat
+            // anything unparseable as still revoked: the key only exists because
+            // somebody revoked this user, and it expires on its own.
+            Err(_) => true,
+        }
     }
 }
 
@@ -160,5 +207,63 @@ where
             .get::<AuthUser>()
             .cloned()
             .ok_or_else(|| AppError::Unauthorized("Not authenticated".into()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn claims(iat: i64, jti: Option<Uuid>) -> Claims {
+        Claims {
+            sub: Uuid::new_v4(),
+            email: "user@test.local".into(),
+            is_instance_admin: false,
+            iat,
+            exp: iat + 3600,
+            jti,
+            token_type: "access".into(),
+            workspace_id: None,
+            invite_role: None,
+        }
+    }
+
+    #[test]
+    fn revokes_tokens_issued_before_the_revocation() {
+        let record = RevocationRecord {
+            at: 1_000,
+            except_jti: None,
+        };
+        assert!(record.covers(&claims(999, None)));
+    }
+
+    #[test]
+    fn leaves_tokens_issued_after_the_revocation_alone() {
+        let record = RevocationRecord {
+            at: 1_000,
+            except_jti: None,
+        };
+        assert!(!record.covers(&claims(1_001, None)));
+    }
+
+    #[test]
+    fn covers_the_revocation_second_itself() {
+        let record = RevocationRecord {
+            at: 1_000,
+            except_jti: None,
+        };
+        assert!(record.covers(&claims(1_000, None)));
+    }
+
+    #[test]
+    fn spares_the_excepted_session() {
+        let survivor = Uuid::new_v4();
+        let record = RevocationRecord {
+            at: 1_000,
+            except_jti: Some(survivor),
+        };
+        assert!(!record.covers(&claims(999, Some(survivor))));
+        assert!(record.covers(&claims(999, Some(Uuid::new_v4()))));
+        assert!(record.covers(&claims(999, None)));
     }
 }

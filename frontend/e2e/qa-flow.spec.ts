@@ -6,7 +6,7 @@ let ctxB: BrowserContext;
 let admin: Page;
 let bob: Page;
 
-const stamp = process.env.E2E_STAMP || 'run';
+const stamp = process.env.E2E_STAMP || `run-${Date.now()}`;
 
 async function openChannel(page: Page, name: string) {
   await page
@@ -53,8 +53,8 @@ test('2. typing indicator reaches the other user (before any send)', async () =>
 test('3. channel message is delivered live in both directions', async () => {
   const fromAdmin = `A→B ${stamp} hello from admin`;
   await send(admin, fromAdmin);
-  await expect(admin.getByText(fromAdmin)).toBeVisible();
-  await expect(bob.getByText(fromAdmin)).toBeVisible({ timeout: 10_000 });
+  await expect(admin.getByText(fromAdmin).first()).toBeVisible();
+  await expect(bob.getByText(fromAdmin).first()).toBeVisible({ timeout: 10_000 });
 
   const fromBob = `B→A ${stamp} hello from bob`;
   await send(bob, fromBob);
@@ -201,14 +201,20 @@ test('9. direct message is delivered live', async () => {
   await admin.getByTitle('New direct message').click();
   await admin.getByLabel('Search people').fill('Bob');
   await admin.locator('[data-qa="new-dm-modal"]').getByText('Bob Smith').first().click();
+  await admin.locator('[data-qa="new-dm-start"]').click();
+  await expect(admin.locator('[data-qa="new-dm-modal"]')).toBeHidden();
   const dmText = `dm ${stamp} secret hello`;
   await send(admin, dmText);
-  await expect(admin.locator('[data-qa="dm-message"]').last()).toContainText(dmText, { timeout: 10_000 });
+  await expect(admin.locator('[data-qa="conversation-message"]').last()).toContainText(dmText, {
+    timeout: 10_000,
+  });
   await admin.screenshot({ path: `${SHOTS}/09-dm-admin.png` });
 
   await bob.screenshot({ path: `${SHOTS}/09-dm-bob-sidebar-before-open.png` });
   await bob.getByTitle('Message Admin').first().click();
-  await expect(bob.locator('[data-qa="dm-message"]').last()).toContainText(dmText, { timeout: 10_000 });
+  await expect(bob.locator('[data-qa="conversation-message"]').last()).toContainText(dmText, {
+    timeout: 10_000,
+  });
   await bob.screenshot({ path: `${SHOTS}/09-dm-bob.png` });
 });
 

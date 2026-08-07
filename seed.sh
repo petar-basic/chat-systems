@@ -17,8 +17,8 @@
 set -euo pipefail
 
 API="http://localhost:3000/api"
-ADMIN_EMAIL="${ADMIN_EMAIL:-admin@dev.local}"
-ADMIN_PASSWORD="${ADMIN_PASSWORD:?ADMIN_PASSWORD must be set (the value from your .env)}"
+export ADMIN_EMAIL="${ADMIN_EMAIL:-admin@dev.local}"
+export ADMIN_PASSWORD="${ADMIN_PASSWORD:?ADMIN_PASSWORD must be set (the value from your .env)}"
 PSQL="docker compose exec -T postgres psql -U chat -d chatsystems -t -A"
 
 RED='\033[0;31m'

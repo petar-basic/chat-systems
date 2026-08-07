@@ -2,7 +2,7 @@
 
 **Wave:** 1 — Access control
 **Area:** backend/api
-**Blocked by:** CS-003
+**Blocked by:** ~~CS-003~~ ✅ shipped as `sessions.rs`
 **Blocks:** —
 **Audit finding:** S4 (HIGH)
 
@@ -26,7 +26,7 @@ where revocation has to work, and it is the one place it is not called.
 
 ## Approach
 
-Both functions call the primitive from CS-003. The only design question is which sessions
+Both functions call `sessions::revoke`. The only design question is which sessions
 survive.
 
 1. **`reset_password` → `SessionScope::All`.** The user is coming through a mailed link
@@ -35,10 +35,8 @@ survive.
 2. **`change_password` → `SessionScope::AllExcept(current_jti)`.** The user is
    authenticated and mid-session; logging them out of the tab they just used to change
    their password is the behaviour that makes people avoid changing passwords. Everything
-   else dies. This requires the access-token `jti` from CS-003, threaded from
-   `auth_middleware` into the handler.
-   - Plumb it as a field on `AuthUser` rather than a second extractor, so every handler
-     that already takes `AuthUser` can reach it without a signature change.
+   else dies. `AuthUser` already carries the access token's `jti`, so the handler has
+   the survivor id without a signature change.
 3. **Keep the existing refresh-token deletion** — `sessions::revoke` performs it, so the
    direct `delete_user_refresh_tokens` calls in both functions are removed rather than
    duplicated.

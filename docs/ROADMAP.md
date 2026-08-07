@@ -4,10 +4,16 @@ What isn't done yet, why, and in what order it should be built. This is a living
 document — it's here so the sharp questions have honest, specific answers instead of
 hand-waving.
 
-Every item below is a ticket in [`docs/tickets/`](./tickets/INDEX.md), numbered in
-execution order. The number is the schedule: `CS-001` is the first thing to build,
-`CS-039` the last. Read [the index](./tickets/INDEX.md) for the dependency map and the
-conflict table; this page is the summary and the reasoning behind the sequence.
+Every open item below is a ticket in [`docs/tickets/`](./tickets/INDEX.md), numbered in
+execution order — the number is the schedule. A ticket's file is deleted when it ships;
+what it changed lives in the git history and in the docs it touched. Read
+[the index](./tickets/INDEX.md) for the dependency map and the conflict table; this page
+is the summary and the reasoning behind the sequence.
+
+**Wave 0 is shipped**, with one open tail:
+[CS-005a](./tickets/CS-005a-workspace-role-not-populated.md), a product bug the new E2E
+job found on its first run. Next planned ticket:
+[CS-006](./tickets/CS-006-invite-lifecycle.md).
 
 ## How the order was chosen
 
@@ -26,37 +32,60 @@ conflict table; this page is the summary and the reasoning behind the sequence.
 
 ---
 
-## Wave 0 — Safety net and structural groundwork
+## Wave 0 — Safety net and structural groundwork ✅ shipped
 
-### [CS-001](./tickets/CS-001-e2e-in-ci.md) — Run the Playwright suite in CI
-**Today:** 12 E2E specs exist and CI never runs them. A suite that does not run rots, and
-the waves below rewrite exactly the paths it covers.
+Wave 0 is done. It is kept here because the rest of the roadmap is written against
+the structures it introduced.
 
-### [CS-002](./tickets/CS-002-central-authz-module.md) — Central authorization module
-**Today:** `require_workspace_member` is implemented three times, `require_channel_access`
-twice, and the role gate twice. The rules are correct but copied; across 95 routes nothing
-enforces that a handler calls the right one. Two of the access-control bugs below are
-instances of exactly that.
+### [CS-001] Playwright suite runs in CI
+The 12 E2E specs existed and CI never ran them. They now run in an `e2e` job that boots
+the real stack with `docker compose --profile frontend`, seeds it, and uploads the
+report, screenshots and container logs on failure. Two specs were unrunnable on a
+runner — one hard-coded an absolute laptop path, another a MailHog URL — and were fixed
+in the same change.
 
-### [CS-003](./tickets/CS-003-revocation-primitive.md) — Session revocation primitive
-**Today:** `RevocationStore` and `disconnect_user` exist and are wired to a single caller,
-instance-admin suspension. Every other "this access must stop now" case needs the same
-operation.
+Turning it on immediately paid for itself. Three specs had rotted against the group-DM
+rework: the DM picker became multi-select and nothing clicked "Start chat", the
+`dm-message` hook was renamed to `conversation-message`, and a constant run stamp made
+every message collide with the previous run's — which is also why the suite could not be
+re-run against the same database. All three are fixed.
 
-### [CS-004](./tickets/CS-004-split-worker-binary.md) — Split background workers out
-**Today:** every `chat-api` process spawns the hook, reminder, notification and huddle
-consumers, all driven by Redis pub/sub, which delivers to every subscriber. A second API
-replica therefore produces duplicate notifications, duplicate webhook deliveries and
-duplicate reminders. The scheduled dispatcher gets this right with `FOR UPDATE SKIP
-LOCKED`; the others were not retrofitted. **The API tier is not actually replicable
-today**, which means no HA and no zero-downtime deploys.
+It also surfaced a real product bug, [CS-005a](./tickets/CS-005a-workspace-role-not-populated.md):
+role-gated controls disappear when the workspace role is not populated. The specs that
+catch it are correct as written, so the `e2e` job runs but **does not block merges** until
+that ticket closes.
 
-### [CS-005](./tickets/CS-005-compile-time-sql.md) — Decide on compile-time-checked SQL
-**Today:** 139 runtime `sqlx::query()` calls and zero `query!` macros; roughly half use
-`SELECT *`. Schema drift is caught by the integration suite, not by the compiler. A
-decision ticket — adopt for new code, or reject and eliminate `SELECT *` instead.
+### [CS-002] Central authorization module
+`require_workspace_member` had three separate implementations, `require_channel_access`
+two, and the role gate two more. All of it now lives in
+[`backend/api/src/authz.rs`](../backend/api/src/authz.rs), and `ChannelAccess` carries
+the decision so a caller can ask about visibility instead of restating the rule in SQL.
 
----
+Consolidating surfaced a real drift: the huddle copy of `require_channel_access` had no
+guest clause, so a guest could start a huddle in a public channel they were not a member
+of. The merged predicate is the strict one.
+
+### [CS-003] Session revocation primitive
+`sessions::revoke` is now the only way a session ends: refresh tokens deleted, access
+tokens marked invalid, live sockets closed with a reason. A revocation stores the moment
+it happened rather than a boolean — a flat flag would have blocked the user from signing
+back in with their new password, which is what `CS-008` is about to need. `SessionScope`
+supports sparing one named session so "log out my other devices" keeps the device you
+are typing on.
+
+### [CS-004] Background workers split out
+Every `chat-api` process used to spawn four Redis pub/sub consumers, so a second API
+replica meant duplicate notifications, duplicate webhook deliveries and duplicate
+reminders — the API tier could not be replicated despite being stateless. They now run
+in `chat-worker`, one replica by contract. Two safety nets underneath: a partial unique
+index makes a duplicate mention notification impossible, and reminders are claimed with
+`FOR UPDATE SKIP LOCKED` the way scheduled messages already were.
+
+### [CS-005] Compile-time-checked queries — decided
+Adopt `sqlx::query_as!` for new code, convert existing runtime queries opportunistically,
+no big-bang rewrite. `SQLX_OFFLINE=true` in the image build and
+`cargo sqlx prepare --check` in CI are the guardrails. Rationale and the contributor
+rule are in [CONTRIBUTING.md](./CONTRIBUTING.md#backend-rust).
 
 ## Wave 1 — Access control
 

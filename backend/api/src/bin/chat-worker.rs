@@ -1,0 +1,136 @@
+use std::net::SocketAddr;
+use std::sync::Arc;
+
+use axum::Router;
+use tracing::info;
+
+use chat_api::config::AppConfig;
+use chat_api::state::AppState;
+use chat_api::{
+    build_state, connect_pool, health, hooks, huddle, init_tracing, metrics, notifications,
+    scheduled, shutdown_signal, supervise,
+};
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    dotenvy::dotenv().ok();
+
+    init_tracing();
+
+    let metrics_handle = metrics::install_recorder()?;
+    ::metrics::counter!("chat_worker_starts_total").increment(1);
+
+    let config = AppConfig::from_env();
+    let port = worker_port();
+    let redis_url = config.redis_url.clone();
+
+    let pool = connect_pool(&config).await?;
+    let state = build_state(pool, config).await?;
+
+    info!("chat-worker starting background consumers (single replica by contract)");
+
+    spawn_consumers(&state, &redis_url);
+
+    let app = Router::new()
+        .merge(health::router(state.clone()))
+        .merge(metrics::router(metrics_handle));
+
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
+    info!("chat-worker listening on {}", addr);
+
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await?;
+
+    Ok(())
+}
+
+/// Defaults to 3005 rather than the shared `PORT` default of 3000 so the
+/// documented three-terminal dev workflow does not collide with chat-api.
+fn worker_port() -> u16 {
+    std::env::var("WORKER_PORT")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .or_else(|| std::env::var("PORT").ok().and_then(|v| v.parse().ok()))
+        .unwrap_or(3005)
+}
+
+fn spawn_consumers(state: &Arc<AppState>, redis_url: &str) {
+    let hook_repo = Arc::new(state.hook_repo.clone());
+    let notif_repo = Arc::new(state.notification_repo.clone());
+    let huddle_repo = Arc::new(state.huddle_repo.clone());
+
+    {
+        let redis_url = redis_url.to_string();
+        let hook_repo = hook_repo.clone();
+        tokio::spawn(async move {
+            supervise("hook_consumer", || {
+                let redis_url = redis_url.clone();
+                let hook_repo = hook_repo.clone();
+                async move {
+                    hooks::executor::start_hook_consumer(&redis_url, hook_repo).await;
+                }
+            })
+            .await;
+        });
+    }
+
+    {
+        let redis_url = redis_url.to_string();
+        let hook_repo = hook_repo.clone();
+        tokio::spawn(async move {
+            supervise("reminder_checker", || {
+                let redis_url = redis_url.clone();
+                let hook_repo = hook_repo.clone();
+                async move {
+                    hooks::executor::start_reminder_checker(&redis_url, hook_repo).await;
+                }
+            })
+            .await;
+        });
+    }
+
+    {
+        let dispatcher_state = state.clone();
+        tokio::spawn(async move {
+            supervise("scheduled_dispatcher", || {
+                let dispatcher_state = dispatcher_state.clone();
+                async move {
+                    scheduled::executor::start_dispatcher(dispatcher_state).await;
+                }
+            })
+            .await;
+        });
+    }
+
+    {
+        let redis_url = redis_url.to_string();
+        let notif_repo = notif_repo.clone();
+        tokio::spawn(async move {
+            supervise("notification_consumer", || {
+                let redis_url = redis_url.clone();
+                let notif_repo = notif_repo.clone();
+                async move {
+                    notifications::consumer::start_consumer(&redis_url, notif_repo).await;
+                }
+            })
+            .await;
+        });
+    }
+
+    {
+        let redis_url = redis_url.to_string();
+        let huddle_repo = huddle_repo.clone();
+        tokio::spawn(async move {
+            supervise("huddle_consumer", || {
+                let redis_url = redis_url.clone();
+                let huddle_repo = huddle_repo.clone();
+                async move {
+                    huddle::consumer::start_consumer(&redis_url, huddle_repo).await;
+                }
+            })
+            .await;
+        });
+    }
+}

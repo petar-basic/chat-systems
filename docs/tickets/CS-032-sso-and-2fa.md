@@ -2,7 +2,7 @@
 
 **Wave:** 8 — Compliance
 **Area:** backend/api · frontend
-**Blocked by:** CS-003 (session model), CS-016, CS-017
+**Blocked by:** ~~CS-003~~ ✅ shipped as `sessions.rs`, CS-016, CS-017
 **Blocks:** CS-033
 **Roadmap:** existing item, expanded
 

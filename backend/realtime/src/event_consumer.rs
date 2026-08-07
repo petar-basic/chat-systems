@@ -39,6 +39,7 @@ pub async fn start_event_consumer(
         "events:huddle",
         "events:huddle-signal",
         "events:user",
+        "events:session",
     ];
     for ch in &channels {
         if let Err(e) = pubsub.subscribe(ch).await {
@@ -333,8 +334,26 @@ pub(crate) async fn handle_event(
                 .and_then(|v| v.as_str())
                 .and_then(|v| v.parse::<uuid::Uuid>().ok())
             {
-                cm.disconnect_user(uid);
+                cm.disconnect_user(uid, "account suspended");
             }
+        }
+        "session.revoked" => {
+            let Some(uid) = payload
+                .get("user_id")
+                .and_then(|v| v.as_str())
+                .and_then(|v| v.parse::<uuid::Uuid>().ok())
+            else {
+                return;
+            };
+            let except = payload
+                .get("except_jti")
+                .and_then(|v| v.as_str())
+                .and_then(|v| v.parse::<uuid::Uuid>().ok());
+            let reason = payload
+                .get("reason")
+                .and_then(|v| v.as_str())
+                .unwrap_or("session revoked");
+            cm.disconnect_user_except(uid, except, reason);
         }
         _ => {
             tracing::debug!("Unhandled event type: {}", event_type);

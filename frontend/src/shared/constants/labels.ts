@@ -7,6 +7,7 @@ export const ErrorLabels = {
   UploadFailed: 'File upload failed',
   RestoreFailed: "Couldn't restore the workspace",
   SessionExpired: 'Your session expired. Please sign in again.',
+  SessionRevoked: 'This session was ended. Please sign in again.',
   NotFound: "We couldn't find that.",
 } as const;
 

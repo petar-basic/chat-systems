@@ -63,8 +63,7 @@ async fn require_target_access(
                     "Channel does not belong to this workspace".into(),
                 ));
             }
-            crate::messaging::routes::require_channel_access(state, channel_id, auth.user_id)
-                .await?;
+            crate::authz::require_channel_access(state, channel_id, auth.user_id).await?;
             Ok(())
         }
         (None, Some(conversation_id)) => {

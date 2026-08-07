@@ -9,6 +9,7 @@ use shared_common::errors::{AppError, AppResult};
 use shared_common::validation;
 
 use super::models::*;
+use crate::authz;
 use crate::middleware::{auth_middleware, AuthUser};
 use crate::state::AppState;
 
@@ -91,7 +92,7 @@ async fn get_workspace(
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<Workspace>> {
-    require_member(&state, ws_id, auth.user_id).await?;
+    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
     let workspace = state
         .workspace_service
         .repo
@@ -110,7 +111,7 @@ async fn update_workspace(
     if let Some(name) = &req.name {
         validation::validate_workspace_name(name)?;
     }
-    require_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
+    authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
     let workspace = state
         .workspace_service
         .repo
@@ -131,7 +132,7 @@ async fn delete_workspace(
     Query(params): Query<DeleteWorkspaceRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
     if !auth.is_instance_admin {
-        require_role(&state, ws_id, auth.user_id, &WorkspaceRole::Owner).await?;
+        authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Owner).await?;
     }
     let hard = params.hard.unwrap_or(false);
     if hard {
@@ -165,7 +166,7 @@ async fn restore_workspace(
     Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<Workspace>> {
     if !auth.is_instance_admin {
-        require_role(&state, ws_id, auth.user_id, &WorkspaceRole::Owner).await?;
+        authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Owner).await?;
     }
     let workspace = state
         .workspace_service
@@ -193,7 +194,7 @@ async fn list_members(
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    require_member(&state, ws_id, auth.user_id).await?;
+    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
     let members = state
         .workspace_service
         .repo
@@ -208,10 +209,11 @@ async fn update_member_role(
     Path((ws_id, user_id)): Path<(Uuid, Uuid)>,
     Json(req): Json<UpdateMemberRoleRequest>,
 ) -> AppResult<Json<WorkspaceMember>> {
-    let actor = require_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
-    let target = require_member(&state, ws_id, user_id).await?;
+    let actor =
+        authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
+    let target = authz::require_workspace_member(&state, ws_id, user_id).await?;
 
-    if !outranks(&actor.role, &target.role) {
+    if !authz::outranks(&actor.role, &target.role) {
         return Err(AppError::Forbidden(
             "Cannot change the role of a member at or above your own level".into(),
         ));
@@ -240,15 +242,17 @@ async fn remove_member(
     auth: AuthUser,
     Path((ws_id, user_id)): Path<(Uuid, Uuid)>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let target = require_member(&state, ws_id, user_id).await?;
+    let target = authz::require_workspace_member(&state, ws_id, user_id).await?;
     if target.role == WorkspaceRole::Owner {
         return Err(AppError::Forbidden(
             "The workspace owner cannot be removed".into(),
         ));
     }
     if auth.user_id != user_id {
-        let actor = require_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
-        if !outranks(&actor.role, &target.role) {
+        let actor =
+            authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin)
+                .await?;
+        if !authz::outranks(&actor.role, &target.role) {
             return Err(AppError::Forbidden(
                 "Cannot remove a member at or above your own level".into(),
             ));
@@ -267,7 +271,7 @@ async fn list_invites(
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    require_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
+    authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
     let invites = state.workspace_service.repo.list_invites(ws_id).await?;
     Ok(Json(serde_json::json!({ "data": invites })))
 }
@@ -278,7 +282,7 @@ async fn create_invite(
     Path(ws_id): Path<Uuid>,
     Json(req): Json<CreateInviteRequest>,
 ) -> AppResult<Json<WorkspaceInvite>> {
-    require_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
+    authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
     let invite = state
         .workspace_service
         .create_invite(
@@ -309,7 +313,7 @@ async fn revoke_invite(
     auth: AuthUser,
     Path((ws_id, invite_id)): Path<(Uuid, Uuid)>,
 ) -> AppResult<Json<serde_json::Value>> {
-    require_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
+    authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
     let invite = state
         .workspace_service
         .repo
@@ -332,7 +336,7 @@ async fn list_channels(
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    require_member(&state, ws_id, auth.user_id).await?;
+    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
     let channels = state
         .workspace_service
         .repo
@@ -378,7 +382,7 @@ async fn unread_channels(
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    require_member(&state, ws_id, auth.user_id).await?;
+    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
     let channel_ids = state
         .workspace_service
         .repo
@@ -394,7 +398,7 @@ async fn create_channel(
     Json(req): Json<CreateChannelRequest>,
 ) -> AppResult<Json<Channel>> {
     validation::validate_channel_name(&req.name)?;
-    require_role(&state, ws_id, auth.user_id, &WorkspaceRole::Member).await?;
+    authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Member).await?;
     let channel_type = req.channel_type.unwrap_or(ChannelType::Public);
     let channel = state
         .workspace_service
@@ -429,7 +433,7 @@ async fn get_channel(
         .find_channel_by_id(ch_id)
         .await?
         .ok_or_else(|| AppError::NotFound("Channel not found".into()))?;
-    require_member(&state, channel.workspace_id, auth.user_id).await?;
+    authz::require_workspace_member(&state, channel.workspace_id, auth.user_id).await?;
     Ok(Json(channel))
 }
 
@@ -442,8 +446,8 @@ async fn update_channel(
     if let Some(name) = &req.name {
         validation::validate_channel_name(name)?;
     }
-    let channel = find_channel(&state, ch_id).await?;
-    require_channel_moderator(&state, &channel, auth.user_id).await?;
+    let channel = authz::find_channel(&state, ch_id).await?;
+    authz::require_channel_moderator(&state, &channel, auth.user_id).await?;
     let updated = state
         .workspace_service
         .repo
@@ -462,7 +466,7 @@ async fn browse_channels(
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    require_role(&state, ws_id, auth.user_id, &WorkspaceRole::Member).await?;
+    authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Member).await?;
     let channels = state
         .workspace_service
         .repo
@@ -476,8 +480,8 @@ async fn join_channel(
     auth: AuthUser,
     Path(ch_id): Path<Uuid>,
 ) -> AppResult<Json<ChannelMember>> {
-    let channel = find_channel(&state, ch_id).await?;
-    require_role(
+    let channel = authz::find_channel(&state, ch_id).await?;
+    authz::require_workspace_role(
         &state,
         channel.workspace_id,
         auth.user_id,
@@ -507,8 +511,8 @@ async fn archive_channel(
     auth: AuthUser,
     Path(ch_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let channel = find_channel(&state, ch_id).await?;
-    require_channel_moderator(&state, &channel, auth.user_id).await?;
+    let channel = authz::find_channel(&state, ch_id).await?;
+    authz::require_channel_moderator(&state, &channel, auth.user_id).await?;
     state.workspace_service.repo.archive_channel(ch_id).await?;
     Ok(Json(serde_json::json!({ "status": "archived" })))
 }
@@ -524,7 +528,7 @@ async fn list_channel_members(
         .find_channel_by_id(ch_id)
         .await?
         .ok_or_else(|| AppError::NotFound("Channel not found".into()))?;
-    require_member(&state, channel.workspace_id, auth.user_id).await?;
+    authz::require_workspace_member(&state, channel.workspace_id, auth.user_id).await?;
     let members = state
         .workspace_service
         .repo
@@ -539,15 +543,15 @@ async fn add_channel_member(
     Path(ch_id): Path<Uuid>,
     Json(req): Json<AddChannelMemberRequest>,
 ) -> AppResult<Json<ChannelMember>> {
-    let channel = find_channel(&state, ch_id).await?;
-    require_role(
+    let channel = authz::find_channel(&state, ch_id).await?;
+    authz::require_workspace_role(
         &state,
         channel.workspace_id,
         auth.user_id,
         &WorkspaceRole::Member,
     )
     .await?;
-    if !can_moderate_channel(&state, &channel, auth.user_id).await
+    if !authz::can_moderate_channel(&state, &channel, auth.user_id).await
         && channel.channel_type != ChannelType::Public
     {
         state
@@ -559,7 +563,7 @@ async fn add_channel_member(
                 AppError::Forbidden("Only members of this channel can add people to it".into())
             })?;
     }
-    require_member(&state, channel.workspace_id, req.user_id).await?;
+    authz::require_workspace_member(&state, channel.workspace_id, req.user_id).await?;
     let member = state
         .workspace_service
         .repo
@@ -574,8 +578,8 @@ async fn update_channel_member_role(
     Path((ch_id, user_id)): Path<(Uuid, Uuid)>,
     Json(req): Json<UpdateChannelMemberRoleRequest>,
 ) -> AppResult<Json<ChannelMember>> {
-    let channel = find_channel(&state, ch_id).await?;
-    require_channel_moderator(&state, &channel, auth.user_id).await?;
+    let channel = authz::find_channel(&state, ch_id).await?;
+    authz::require_channel_moderator(&state, &channel, auth.user_id).await?;
     state
         .workspace_service
         .repo
@@ -596,8 +600,8 @@ async fn remove_channel_member(
     Path((ch_id, user_id)): Path<(Uuid, Uuid)>,
 ) -> AppResult<Json<serde_json::Value>> {
     if auth.user_id != user_id {
-        let channel = find_channel(&state, ch_id).await?;
-        require_channel_moderator(&state, &channel, auth.user_id).await?;
+        let channel = authz::find_channel(&state, ch_id).await?;
+        authz::require_channel_moderator(&state, &channel, auth.user_id).await?;
     }
     state
         .workspace_service
@@ -605,84 +609,4 @@ async fn remove_channel_member(
         .remove_channel_member(ch_id, user_id)
         .await?;
     Ok(Json(serde_json::json!({ "status": "removed" })))
-}
-
-async fn require_member(
-    state: &AppState,
-    workspace_id: Uuid,
-    user_id: Uuid,
-) -> AppResult<WorkspaceMember> {
-    state
-        .workspace_service
-        .repo
-        .get_member(workspace_id, user_id)
-        .await?
-        .ok_or_else(|| AppError::Forbidden("Not a member of this workspace".into()))
-}
-
-fn outranks(actor: &WorkspaceRole, target: &WorkspaceRole) -> bool {
-    actor.level() > target.level()
-}
-
-async fn require_role(
-    state: &AppState,
-    workspace_id: Uuid,
-    user_id: Uuid,
-    minimum: &WorkspaceRole,
-) -> AppResult<WorkspaceMember> {
-    let member = require_member(state, workspace_id, user_id).await?;
-    if !member.role.has_at_least(minimum) {
-        return Err(AppError::Forbidden(format!(
-            "Requires at least {minimum:?} role"
-        )));
-    }
-    Ok(member)
-}
-
-async fn can_moderate_channel(state: &AppState, channel: &Channel, user_id: Uuid) -> bool {
-    let member = match state
-        .workspace_service
-        .repo
-        .get_member(channel.workspace_id, user_id)
-        .await
-    {
-        Ok(Some(member)) => member,
-        _ => return false,
-    };
-    if member.role.has_at_least(&WorkspaceRole::Admin) {
-        return true;
-    }
-    if !member.role.has_at_least(&WorkspaceRole::Member) {
-        return false;
-    }
-    matches!(
-        state
-            .workspace_service
-            .repo
-            .get_channel_member(channel.id, user_id)
-            .await,
-        Ok(Some(channel_member)) if channel_member.role == ChannelRole::Admin
-    )
-}
-
-async fn require_channel_moderator(
-    state: &AppState,
-    channel: &Channel,
-    user_id: Uuid,
-) -> AppResult<()> {
-    if can_moderate_channel(state, channel, user_id).await {
-        return Ok(());
-    }
-    Err(AppError::Forbidden(
-        "Requires channel admin or workspace admin".into(),
-    ))
-}
-
-async fn find_channel(state: &AppState, ch_id: Uuid) -> AppResult<Channel> {
-    state
-        .workspace_service
-        .repo
-        .find_channel_by_id(ch_id)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Channel not found".into()))
 }

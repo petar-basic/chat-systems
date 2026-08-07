@@ -1,8 +1,12 @@
 import { execSync } from 'node:child_process';
-import { test, expect, type Page, type BrowserContext } from '@playwright/test';
-import { API, authHeaders, login, send, SHOTS } from './helpers';
 
-const stamp = process.env.E2E_STAMP || 'run2';
+// The compose project lives two levels up from frontend/e2e. Resolving it from
+// the module URL keeps the suite runnable on a CI runner, not just one laptop.
+const REPO_ROOT = new URL('../..', import.meta.url).pathname;
+import { test, expect, type Page, type BrowserContext } from '@playwright/test';
+import { API, authHeaders, login, MAILHOG, send, SHOTS } from './helpers';
+
+const stamp = process.env.E2E_STAMP || `run2-${Date.now()}`;
 
 let ctxA: BrowserContext;
 let ctxB: BrowserContext;
@@ -28,7 +32,7 @@ test.afterAll(async () => {
 test('A. realtime gateway restart: banner shows, socket reconnects, missed messages backfill', async () => {
   test.setTimeout(120_000);
 
-  execSync('docker compose stop realtime', { cwd: '/Users/petarbasic/projects/chat-systems' });
+  execSync('docker compose stop realtime', { cwd: REPO_ROOT });
   await expect(bob.locator('[data-qa="connection-banner"]')).toBeVisible({ timeout: 30_000 });
   await bob.screenshot({ path: `${SHOTS}/A1-offline-banner.png` });
 
@@ -36,7 +40,7 @@ test('A. realtime gateway restart: banner shows, socket reconnects, missed messa
   await send(admin, missed);
   await expect(admin.getByText(missed)).toBeVisible();
 
-  execSync('docker compose start realtime', { cwd: '/Users/petarbasic/projects/chat-systems' });
+  execSync('docker compose start realtime', { cwd: REPO_ROOT });
   await expect(bob.locator('[data-qa="connection-banner"]')).toHaveCount(0, { timeout: 60_000 });
   await expect(bob.getByText(missed)).toBeVisible({ timeout: 60_000 });
   await bob.screenshot({ path: `${SHOTS}/A2-after-reconnect-backfill.png` });
@@ -108,9 +112,7 @@ test('E. invite → email → registration lands the new user inside the workspa
   });
   expect(inv.status()).toBe(200);
 
-  const mail = await api.get(
-    'http://localhost:8025/api/v2/search?kind=to&query=' + encodeURIComponent(email),
-  );
+  const mail = await api.get(`${MAILHOG}/api/v2/search?kind=to&query=` + encodeURIComponent(email));
   const items = (await mail.json()).items;
   expect(items.length).toBeGreaterThan(0);
   const body: string = items[0].Content.Body.replace(/=\r\n/g, '').replace(/=3D/g, '=');

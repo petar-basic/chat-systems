@@ -10,6 +10,7 @@ use shared_common::errors::{AppError, AppResult};
 
 use super::models::*;
 use super::repo::NewReminder;
+use crate::authz;
 use crate::middleware::{auth_middleware, AuthUser};
 use crate::state::AppState;
 use crate::workspace::models::WorkspaceRole;
@@ -48,7 +49,7 @@ async fn list_hooks(
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    require_ws_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
+    authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
     let hooks = state.hook_repo.list_hooks(ws_id).await?;
     let mut data = serde_json::to_value(&hooks).map_err(|e| AppError::Internal(e.to_string()))?;
     if let Some(arr) = data.as_array_mut() {
@@ -65,7 +66,7 @@ async fn create_hook(
     Path(ws_id): Path<Uuid>,
     Json(req): Json<CreateHookRequest>,
 ) -> AppResult<Json<Hook>> {
-    require_ws_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
+    authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
     let mut config = req.config.unwrap_or(serde_json::json!({}));
 
     if req.hook_type == HookType::IncomingWebhook {
@@ -138,7 +139,7 @@ async fn get_hook(
         .find_hook_by_id(hook_id)
         .await?
         .ok_or_else(|| AppError::NotFound("Hook not found".into()))?;
-    require_ws_role(
+    authz::require_workspace_role(
         &state,
         hook.workspace_id,
         auth.user_id,
@@ -170,7 +171,7 @@ async fn require_hook_admin(state: &AppState, hook_id: Uuid, user_id: Uuid) -> A
         .find_hook_by_id(hook_id)
         .await?
         .ok_or_else(|| AppError::NotFound("Hook not found".into()))?;
-    require_ws_role(state, hook.workspace_id, user_id, &WorkspaceRole::Admin).await?;
+    authz::require_workspace_role(state, hook.workspace_id, user_id, &WorkspaceRole::Admin).await?;
     Ok(hook)
 }
 
@@ -228,7 +229,7 @@ async fn delete_hook(
         .find_hook_by_id(hook_id)
         .await?
         .ok_or_else(|| AppError::NotFound("Hook not found".into()))?;
-    require_ws_role(
+    authz::require_workspace_role(
         &state,
         hook.workspace_id,
         auth.user_id,
@@ -244,7 +245,7 @@ async fn list_reminders(
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    require_ws_role(&state, ws_id, auth.user_id, &WorkspaceRole::Member).await?;
+    authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Member).await?;
     let reminders = state.hook_repo.list_reminders(ws_id, auth.user_id).await?;
     Ok(Json(serde_json::json!({ "data": reminders })))
 }
@@ -255,7 +256,8 @@ async fn create_reminder(
     Path(ws_id): Path<Uuid>,
     Json(req): Json<CreateReminderRequest>,
 ) -> AppResult<Json<Reminder>> {
-    let member = require_ws_role(&state, ws_id, auth.user_id, &WorkspaceRole::Member).await?;
+    let member =
+        authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Member).await?;
     if req.target_user_id != auth.user_id {
         if !member.role.has_at_least(&WorkspaceRole::Admin) {
             return Err(AppError::Forbidden(
@@ -347,26 +349,6 @@ async fn incoming_webhook(
     Ok(Json(
         serde_json::json!({ "status": "ok", "message_id": msg.id }),
     ))
-}
-
-async fn require_ws_role(
-    state: &AppState,
-    ws_id: Uuid,
-    user_id: Uuid,
-    min: &WorkspaceRole,
-) -> AppResult<crate::workspace::models::WorkspaceMember> {
-    let member = state
-        .workspace_service
-        .repo
-        .get_member(ws_id, user_id)
-        .await?
-        .ok_or_else(|| AppError::Forbidden("Not a member of this workspace".into()))?;
-    if !member.role.has_at_least(min) {
-        return Err(AppError::Forbidden(format!(
-            "Requires at least {min:?} role"
-        )));
-    }
-    Ok(member)
 }
 
 fn redact_secrets(value: Option<&mut serde_json::Value>) {

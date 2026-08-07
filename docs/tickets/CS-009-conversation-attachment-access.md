@@ -2,7 +2,7 @@
 
 **Wave:** 1 — Access control
 **Area:** backend/api
-**Blocked by:** CS-002
+**Blocked by:** ~~CS-002~~ ✅ shipped as `authz.rs`
 **Blocks:** CS-020
 **Audit finding:** S3 (HIGH)
 

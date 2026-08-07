@@ -18,10 +18,11 @@ async fn seed_notification(
             &NotificationType::Mention,
             "You were mentioned",
             Some("hello"),
-            &json!({ "message_id": "m1" }),
+            &json!({ "message_id": uuid::Uuid::new_v4() }),
         )
         .await
         .expect("seed notification")
+        .expect("each seeded notification carries a distinct message_id")
         .id
 }
 

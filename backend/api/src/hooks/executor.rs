@@ -250,10 +250,10 @@ pub async fn start_reminder_checker(redis_url: &str, hook_repo: Arc<HookRepo>) {
     loop {
         tokio::time::sleep(std::time::Duration::from_secs(30)).await;
 
-        let reminders = match hook_repo.get_due_reminders().await {
+        let reminders = match hook_repo.claim_due_reminders().await {
             Ok(r) => r,
             Err(e) => {
-                warn!("Failed to get due reminders: {}", e);
+                warn!("Failed to claim due reminders: {}", e);
                 continue;
             }
         };
@@ -271,12 +271,13 @@ pub async fn start_reminder_checker(redis_url: &str, hook_repo: Arc<HookRepo>) {
             });
 
             let json = notif_event.to_string();
+            // The claim already marked it delivered; put it back if it never went
+            // out, so a claim followed by a failure is a retry rather than a loss.
             if let Err(e) = conn.publish::<_, _, ()>("events:notification", &json).await {
                 warn!("failed to publish reminder notification: {e}");
-            }
-
-            if let Err(e) = hook_repo.mark_reminder_delivered(reminder.id).await {
-                warn!("Failed to mark reminder delivered: {}", e);
+                if let Err(e) = hook_repo.release_reminder(reminder.id).await {
+                    warn!("failed to release undelivered reminder: {e}");
+                }
             }
         }
     }

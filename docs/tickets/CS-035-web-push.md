@@ -2,7 +2,7 @@
 
 **Wave:** 9 — Product parity
 **Area:** backend/api · frontend
-**Blocked by:** CS-004 (the sender runs in the worker), CS-026 (badge counts)
+**Blocked by:** ~~CS-004~~ ✅ shipped as `chat-worker`, CS-026 (badge counts)
 **Blocks:** CS-038
 **Roadmap:** existing item
 

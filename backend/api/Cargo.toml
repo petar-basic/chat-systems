@@ -6,6 +6,21 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 
+# The crate is a library so both binaries can share it: chat-api serves HTTP,
+# chat-worker runs the Redis consumers and scheduled dispatchers. Running the
+# consumers inside every API replica duplicates every side effect they produce.
+[lib]
+name = "chat_api"
+path = "src/lib.rs"
+
+[[bin]]
+name = "chat-api"
+path = "src/main.rs"
+
+[[bin]]
+name = "chat-worker"
+path = "src/bin/chat-worker.rs"
+
 [dependencies]
 shared-common = { path = "../shared/common" }
 shared-events = { path = "../shared/events" }

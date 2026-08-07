@@ -27,11 +27,13 @@ export class WebSocketClient {
     return () => this.reconnectListeners.delete(listener);
   }
 
+  private static readonly SESSION_REVOKED_CLOSE_CODE = 4001;
   private static readonly RECONNECT_BASE_MS = 1000;
   private static readonly RECONNECT_FACTOR = 2;
   private static readonly RECONNECT_CAP_MS = 30000;
 
   onStatusChange: ((status: WsConnectionStatus) => void) | null = null;
+  onSessionRevoked: ((reason: string) => void) | null = null;
 
   constructor(instanceUrl?: string, wsUrl?: string, getToken?: () => Promise<string | null>) {
     this.instanceUrl = instanceUrl;
@@ -104,8 +106,15 @@ export class WebSocketClient {
       }
     };
 
-    this.ws.onclose = () => {
+    this.ws.onclose = (evt) => {
       this.onStatusChange?.('disconnected');
+      // The gateway closes with SESSION_REVOKED when the session is no longer
+      // valid. Reconnecting would loop against a handshake that can only fail.
+      if (evt.code === WebSocketClient.SESSION_REVOKED_CLOSE_CODE) {
+        logger.warn('WebSocketClient', 'session revoked', evt.reason);
+        this.onSessionRevoked?.(evt.reason);
+        return;
+      }
       this.scheduleReconnect();
     };
 

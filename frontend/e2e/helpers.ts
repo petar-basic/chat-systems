@@ -1,8 +1,9 @@
 import { expect, request as playwrightRequest, type APIRequestContext, type Page } from '@playwright/test';
 
-export const API = 'http://localhost:3000/api';
+export const API = process.env.E2E_API_URL || 'http://localhost:3000/api';
 export const PASSWORD = process.env.E2E_PASSWORD || 'admin123456';
 export const SHOTS = process.env.E2E_SHOTS || '/tmp/shots';
+export const MAILHOG = process.env.E2E_MAILHOG_URL || 'http://localhost:8025';
 
 interface Session {
   token: string;

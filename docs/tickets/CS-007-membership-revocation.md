@@ -2,7 +2,7 @@
 
 **Wave:** 1 — Access control
 **Area:** backend/api · realtime
-**Blocked by:** CS-003 (event plumbing), CS-002 (authz helpers)
+**Blocked by:** ~~CS-003~~ ✅ shipped as `sessions.rs`, ~~CS-002~~ ✅ shipped as `authz.rs`
 **Blocks:** CS-033
 **Audit finding:** S2 (HIGH), S5 (MEDIUM-HIGH)
 
@@ -69,7 +69,7 @@ Removal becomes an event, and the gateway acts on it.
    reuse the existing per-connection `leave_channel`.
 4. **Do not use `sessions::revoke` here.** Removing somebody from one channel must not
    log them out of the instance. That is why this ticket needs its own events rather than
-   reusing CS-003's. It does depend on CS-003 for the close-frame and client-reconnect
+   reusing `sessions::revoke`. It does rely on the close-frame and client-reconnect
    behaviour introduced there.
 5. **Frontend.** `wsQuerySync` handles `channel.access_revoked` by invalidating the
    channel list, removing the channel's cached messages, and navigating away if it is the

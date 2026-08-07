@@ -44,7 +44,7 @@ pub fn app(cm: Arc<ConnectionManager>) -> Router {
 pub fn fake_conn(cm: &ConnectionManager, user_id: Uuid) -> (Uuid, mpsc::Receiver<Message>) {
     let conn_id = Uuid::new_v4();
     let (tx, rx) = mpsc::channel::<Message>(256);
-    cm.add_connection(conn_id, user_id, tx);
+    cm.add_connection(conn_id, user_id, None, tx);
     (conn_id, rx)
 }
 

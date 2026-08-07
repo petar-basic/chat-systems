@@ -2,7 +2,7 @@
 
 **Wave:** 7 — Reliability
 **Area:** realtime · frontend
-**Blocked by:** CS-004 (same transport layer), CS-014, CS-027
+**Blocked by:** ~~CS-004~~ ✅ shipped as `chat-worker`, CS-014, CS-027
 **Blocks:** —
 **Roadmap:** existing item, unchanged in substance
 

@@ -2,7 +2,7 @@
 
 **Wave:** 8 — Compliance
 **Area:** backend/api
-**Blocked by:** CS-032 (identity linkage), CS-003 (revocation), CS-007 (membership removal)
+**Blocked by:** CS-032 (identity linkage), ~~CS-003~~ ✅ shipped as `sessions.rs`, CS-007 (membership removal)
 **Blocks:** —
 
 ## Problem

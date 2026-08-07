@@ -47,14 +47,16 @@ impl Drop for ConnGuard {
     }
 }
 
-pub async fn handle_ws(socket: WebSocket, user_id: Uuid, exp: i64, cm: Arc<ConnectionManager>) {
+pub async fn handle_ws(socket: WebSocket, claims: crate::Claims, cm: Arc<ConnectionManager>) {
+    let user_id = claims.sub;
+    let exp = claims.exp;
     let conn_id = Uuid::new_v4();
     let (sink, mut receiver) = socket.split();
 
     let (tx, rx) = mpsc::channel::<Message>(WRITER_CHANNEL_CAP);
     let writer = spawn_writer(sink, rx);
 
-    let first_local = cm.add_connection(conn_id, user_id, tx.clone());
+    let first_local = cm.add_connection(conn_id, user_id, claims.jti, tx.clone());
 
     let mut guard = ConnGuard {
         conn_id,

@@ -188,16 +188,27 @@ impl HookRepo {
         .await
     }
 
-    pub async fn get_due_reminders(&self) -> sqlx::Result<Vec<Reminder>> {
+    pub async fn claim_due_reminders(&self) -> sqlx::Result<Vec<Reminder>> {
         sqlx::query_as::<_, Reminder>(
-            "SELECT * FROM reminders WHERE remind_at <= NOW() AND is_delivered = false ORDER BY remind_at",
+            r"
+            UPDATE reminders
+            SET is_delivered = true
+            WHERE id IN (
+                SELECT id FROM reminders
+                WHERE remind_at <= NOW() AND is_delivered = false
+                ORDER BY remind_at
+                FOR UPDATE SKIP LOCKED
+                LIMIT 100
+            )
+            RETURNING *
+            ",
         )
         .fetch_all(&self.pool)
         .await
     }
 
-    pub async fn mark_reminder_delivered(&self, id: Uuid) -> sqlx::Result<()> {
-        sqlx::query("UPDATE reminders SET is_delivered = true WHERE id = $1")
+    pub async fn release_reminder(&self, id: Uuid) -> sqlx::Result<()> {
+        sqlx::query("UPDATE reminders SET is_delivered = false WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
             .await?;

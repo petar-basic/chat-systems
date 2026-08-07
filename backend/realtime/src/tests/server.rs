@@ -88,18 +88,18 @@ fn ws_auth_rejects_non_access_token_type() {
 fn ws_auth_accepts_genuine_access_token() {
     let user = Uuid::new_v4();
     let token = mint_token(user, "access");
-    let (sub, _exp) = authenticate_ws(&cookie_header(&token), JWT_SECRET)
+    let claims = authenticate_ws(&cookie_header(&token), JWT_SECRET)
         .expect("access token should be accepted");
-    assert_eq!(sub, user);
+    assert_eq!(claims.sub, user);
 }
 
 #[test]
 fn ws_auth_accepts_subprotocol_token() {
     let user = Uuid::new_v4();
     let token = mint_token(user, "access");
-    let (sub, _exp) = authenticate_ws(&protocol_header(&token), JWT_SECRET)
+    let claims = authenticate_ws(&protocol_header(&token), JWT_SECRET)
         .expect("subprotocol access token should be accepted");
-    assert_eq!(sub, user);
+    assert_eq!(claims.sub, user);
 }
 
 #[test]

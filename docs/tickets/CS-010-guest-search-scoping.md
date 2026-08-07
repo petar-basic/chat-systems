@@ -2,7 +2,7 @@
 
 **Wave:** 1 — Access control
 **Area:** backend/api
-**Blocked by:** CS-002
+**Blocked by:** ~~CS-002~~ ✅ shipped as `authz.rs`
 **Blocks:** —
 **Audit finding:** S7 (MEDIUM)
 
@@ -34,7 +34,7 @@ A guest — an external contractor or client account — can therefore read the 
 every public channel through `/api/search` that the same account is refused through
 `/channels/:id/messages`. Same data, two answers, depending on which endpoint you ask.
 
-This is the second instance of the pattern CS-002 addresses: a rule expressed once in
+This is the drift `authz` was built to stop: a rule expressed once in
 Rust and once again in SQL, and the copies drifted.
 
 ## Approach

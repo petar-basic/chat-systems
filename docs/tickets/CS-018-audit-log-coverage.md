@@ -2,7 +2,7 @@
 
 **Wave:** 4 — Governance
 **Area:** backend/api
-**Blocked by:** CS-002 (one place to hook), CS-004 (worker actions need it too)
+**Blocked by:** ~~CS-002~~ ✅ shipped as `authz.rs`, ~~CS-004~~ ✅ shipped as `chat-worker`
 **Blocks:** CS-031
 **Audit finding:** compliance (HIGH for a 70-person org)
 
