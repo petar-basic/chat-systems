@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { authHeaders, login, SHOTS } from './helpers';
 
-const stamp = process.env.E2E_STAMP || 'x1';
+const stamp = process.env.E2E_STAMP || `x1-${Date.now()}`;
 
 test('J. hostile payloads are rendered inert', async ({ page, request }) => {
   const auth = await authHeaders(request, 'admin@dev.local');

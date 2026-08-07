@@ -6,7 +6,7 @@ const REPO_ROOT = new URL('../..', import.meta.url).pathname;
 import { test, expect, type Page, type BrowserContext } from '@playwright/test';
 import { API, authHeaders, login, MAILHOG, send, SHOTS } from './helpers';
 
-const stamp = process.env.E2E_STAMP || 'run2';
+const stamp = process.env.E2E_STAMP || `run2-${Date.now()}`;
 
 let ctxA: BrowserContext;
 let ctxB: BrowserContext;
