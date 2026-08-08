@@ -816,3 +816,68 @@ async fn a_message_without_a_broadcast_only_notifies_the_named_user(pool: PgPool
 
     assert_eq!(mentioned, vec![named], "bystanders stay unnotified");
 }
+
+#[sqlx::test(migrations = "../migrations")]
+async fn search_holds_guests_to_the_channels_they_belong_to(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) =
+        seed_and_login(&app, &state, "search-guest-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Guest Search WS").await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "public-room", false).await;
+
+    let (guest_id, _, guest_token) = seed_and_login(&app, &state, "search-guest", false).await;
+    add_ws_member(&state, ws_id, guest_id, "guest").await;
+    let (member_id, _, member_token) = seed_and_login(&app, &state, "search-member", false).await;
+    add_ws_member(&state, ws_id, member_id, "member").await;
+
+    let needle = format!("pineapple{}", uuid::Uuid::new_v4().simple());
+    let (status, msg) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/messages"),
+        Some(&owner_token),
+        Some(json!({ "content": needle.clone() })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "seed message: {msg:?}");
+
+    let uri = format!("/api/search?workspace_id={ws_id}&q={needle}");
+
+    let (status, body) = send(&app, "GET", &uri, Some(&member_token), None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        body["data"].as_array().map(Vec::len),
+        Some(1),
+        "a plain member finds public-channel messages without joining: {body:?}"
+    );
+
+    let (status, body) = send(&app, "GET", &uri, Some(&guest_token), None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        body["data"].as_array().map(Vec::len),
+        Some(0),
+        "search must not be the one door that opens public channels to a guest: {body:?}"
+    );
+
+    let (status, _b) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/members"),
+        Some(&owner_token),
+        Some(json!({ "user_id": guest_id })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "owner adds the guest to the channel"
+    );
+
+    let (status, body) = send(&app, "GET", &uri, Some(&guest_token), None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        body["data"].as_array().map(Vec::len),
+        Some(1),
+        "once a member of the channel the guest finds it: {body:?}"
+    );
+}

@@ -189,6 +189,33 @@ impl ConnectionManager {
         }
     }
 
+    /// Membership is checked when a connection subscribes, so a socket that is
+    /// already subscribed keeps receiving until it closes. Removal has to reach
+    /// in and drop the subscription.
+    pub fn leave_channel_for_user(&self, user_id: Uuid, channel_id: Uuid) {
+        let conn_ids: Vec<Uuid> = match self.user_connections.get(&user_id) {
+            Some(conns) => conns.iter().copied().collect(),
+            None => return,
+        };
+        for conn_id in conn_ids {
+            if let Some(mut conn) = self.connections.get_mut(&conn_id) {
+                conn.subscribed_channels.remove(&channel_id);
+            }
+        }
+    }
+
+    pub fn leave_workspace_for_user(&self, user_id: Uuid, workspace_id: Uuid) {
+        let conn_ids: Vec<Uuid> = match self.user_connections.get(&user_id) {
+            Some(conns) => conns.iter().copied().collect(),
+            None => return,
+        };
+        for conn_id in conn_ids {
+            if let Some(mut conn) = self.connections.get_mut(&conn_id) {
+                conn.subscribed_workspaces.remove(&workspace_id);
+            }
+        }
+    }
+
     pub fn leave_huddle(&self, conn_id: &Uuid, huddle_id: Uuid) {
         if let Some(mut conn) = self.connections.get_mut(conn_id) {
             conn.subscribed_huddles.remove(&huddle_id);

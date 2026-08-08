@@ -6,6 +6,7 @@ use uuid::Uuid;
 pub struct FileRecord {
     pub id: Uuid,
     pub message_id: Option<Uuid>,
+    pub conversation_message_id: Option<Uuid>,
     pub user_id: Uuid,
     pub workspace_id: Uuid,
     pub filename: String,

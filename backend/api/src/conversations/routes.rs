@@ -223,6 +223,15 @@ async fn send_message(
         Err(e) => return Err(AppError::Database(e.to_string())),
     };
 
+    crate::files::service::link_to_conversation_message(
+        &state,
+        &req.content,
+        message.id,
+        conversation.workspace_id,
+        auth.user_id,
+    )
+    .await;
+
     publish_conversation_event(
         &state,
         "conversation.message.created",
@@ -261,6 +270,15 @@ async fn edit_message(
         .conversation_repo
         .update_message(msg_id, &req.content)
         .await?;
+
+    crate::files::service::link_to_conversation_message(
+        &state,
+        &req.content,
+        message.id,
+        conversation.workspace_id,
+        auth.user_id,
+    )
+    .await;
 
     publish_conversation_event(
         &state,

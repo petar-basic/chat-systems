@@ -185,10 +185,21 @@ async fn reset_password(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ResetPasswordRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    state
+    let user_id = state
         .auth_service
         .reset_password(&req.token, &req.password)
         .await?;
+
+    // A reset is how somebody recovers a compromised account. Leaving the
+    // attacker's still-unexpired access token alive would defeat the point.
+    crate::sessions::revoke(
+        &state,
+        user_id,
+        crate::sessions::SessionScope::All,
+        "password reset",
+    )
+    .await?;
+
     Ok(Json(serde_json::json!({ "status": "reset" })))
 }
 
@@ -243,6 +254,15 @@ async fn change_password(
         .auth_service
         .change_password(auth.user_id, &req.current_password, &req.new_password)
         .await?;
+
+    // Every other device is signed out; the one doing the change is not, or
+    // people learn to avoid changing their password.
+    let scope = match auth.jti {
+        Some(jti) => crate::sessions::SessionScope::AllExcept(jti),
+        None => crate::sessions::SessionScope::All,
+    };
+    crate::sessions::revoke(&state, auth.user_id, scope, "password changed").await?;
+
     Ok(Json(serde_json::json!({ "status": "password_changed" })))
 }
 

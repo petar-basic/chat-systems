@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { api } from '../lib/api';
 import type { WorkspaceMember } from '../stores/workspace';
 import { useWorkspaceStore } from '../stores/workspace';
+import { useCurrentWorkspaceRole } from '@/features/workspace/hooks/useCurrentWorkspaceRole';
 import { getUserDisplay } from '../lib/userHelpers';
 import { X, UserPlus, UserMinus, Crown, Shield, User, Mail } from 'lucide-react';
 import PresenceDot from './PresenceDot';
@@ -129,7 +130,7 @@ function MemberRow({
 export default function MembersPanel({ workspaceId, onClose }: Props) {
   const queryClient = useQueryClient();
   const instanceUrl = useWorkspaceStore((s) => s.currentWorkspace?.instanceUrl);
-  const actorRole = useWorkspaceStore((s) => s.currentUserRole);
+  const { role: actorRole } = useCurrentWorkspaceRole();
   const currentUserId = useWorkspaceStore((s) => s.currentUserId);
   const { data: members = [], isLoading: loading } = useWorkspaceMembers(workspaceId, instanceUrl);
   const [manageError, setManageError] = useState<string | null>(null);

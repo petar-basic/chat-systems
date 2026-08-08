@@ -392,7 +392,7 @@ async fn create_invite_admin_only(pool: PgPool) {
     add_ws_member(&state, ws_id, member_id, "member").await;
 
     let path = format!("/api/workspaces/{ws_id}/invites");
-    let body = json!({ "role": "member" });
+    let body = json!({ "role": "member", "max_uses": 5 });
 
     let (status, _) = send(&app, "POST", &path, None, Some(body.clone())).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
@@ -443,7 +443,7 @@ async fn accept_invite_bogus_token_is_404_and_valid_token_joins(pool: PgPool) {
         "POST",
         &format!("/api/workspaces/{ws_id}/invites"),
         Some(&owner_token),
-        Some(json!({ "role": "member" })),
+        Some(json!({ "role": "member", "max_uses": 5 })),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "create invite: {invite:?}");
@@ -474,7 +474,7 @@ async fn revoke_invite_admin_only(pool: PgPool) {
         "POST",
         &format!("/api/workspaces/{ws_id}/invites"),
         Some(&owner_token),
-        Some(json!({ "role": "member" })),
+        Some(json!({ "role": "member", "max_uses": 5 })),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "create invite: {invite:?}");
@@ -523,7 +523,7 @@ async fn workspace_admin_cannot_outrank_owner_or_itself(pool: PgPool) {
         "PATCH",
         &format!("/api/workspaces/{ws_id}/members/{owner_id}/role"),
         Some(&admin_token),
-        Some(json!({ "role": "member" })),
+        Some(json!({ "role": "member", "max_uses": 5 })),
     )
     .await;
     assert_eq!(status, StatusCode::FORBIDDEN, "owner demotion: {body:?}");
@@ -649,4 +649,181 @@ async fn guests_cannot_create_channels_or_reach_public_ones(pool: PgPool) {
         StatusCode::OK,
         "guest reads joined channel: {body:?}"
     );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn link_invite_requires_an_explicit_use_limit(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "inv-cap-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Invite Cap WS").await;
+    let path = format!("/api/workspaces/{ws_id}/invites");
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        &path,
+        Some(&owner_token),
+        Some(json!({ "role": "member" })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "a link invite with no max_uses must be refused: {body:?}"
+    );
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        &path,
+        Some(&owner_token),
+        Some(json!({ "role": "member", "max_uses": 1000 })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "over the cap: {body:?}"
+    );
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        &path,
+        Some(&owner_token),
+        Some(json!({ "role": "member", "max_uses": 5, "expires_in_hours": 1000 })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "over the max lifetime: {body:?}"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn every_new_invite_carries_an_expiry_and_a_use_limit(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "inv-bounded-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Invite Bounded WS").await;
+
+    let (status, invite) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/invites"),
+        Some(&owner_token),
+        Some(json!({ "role": "member", "max_uses": 3 })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "create invite: {invite:?}");
+    assert_eq!(invite["max_uses"], 3);
+    assert!(
+        invite["expires_at"].is_string(),
+        "an invite without an expiry is a permanent key: {invite:?}"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn an_email_invite_only_works_for_the_address_it_was_issued_to(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "inv-bind-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Invite Bind WS").await;
+
+    let invited_email = unique_email("inv-bind-invited");
+    let (status, invite) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/invites"),
+        Some(&owner_token),
+        Some(json!({ "role": "member", "email": invited_email })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "create invite: {invite:?}");
+    assert_eq!(invite["max_uses"], 1, "an email invite is for one person");
+    let token = invite["token"].as_str().expect("invite token").to_string();
+
+    let (_, _, wrong_token) = seed_and_login(&app, &state, "inv-bind-wrong", false).await;
+    let (status, body) = send(
+        &app,
+        "POST",
+        &format!("/api/invites/{token}/accept"),
+        Some(&wrong_token),
+        None,
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "a forwarded invite must not let a different account in: {body:?}"
+    );
+
+    let hash = crate::auth::service::AuthService::hash_password(PASSWORD).expect("hash");
+    state
+        .auth_service
+        .repo()
+        .activate(
+            state
+                .auth_service
+                .repo()
+                .find_by_email(&invited_email)
+                .await
+                .expect("find invited")
+                .expect("invited user was provisioned")
+                .id,
+            &hash,
+            "Invited",
+        )
+        .await
+        .expect("activate invited");
+    let invited_token = login(&app, &invited_email, PASSWORD).await;
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        &format!("/api/invites/{token}/accept"),
+        Some(&invited_token),
+        None,
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "the invited address joins: {body:?}"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn an_expired_invite_is_refused(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "inv-exp-owner", false).await;
+    let (_, _, joiner_token) = seed_and_login(&app, &state, "inv-exp-joiner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Invite Expiry WS").await;
+
+    let (_, invite) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/invites"),
+        Some(&owner_token),
+        Some(json!({ "role": "member", "max_uses": 5 })),
+    )
+    .await;
+    let token = invite["token"].as_str().expect("invite token").to_string();
+
+    sqlx::query(
+        "UPDATE workspace_invites SET expires_at = NOW() - INTERVAL '1 hour' WHERE token = $1",
+    )
+    .bind(&token)
+    .execute(&state.pool)
+    .await
+    .expect("expire the invite");
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        &format!("/api/invites/{token}/accept"),
+        Some(&joiner_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "expired invite: {body:?}");
 }

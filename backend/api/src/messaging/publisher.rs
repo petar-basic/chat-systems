@@ -127,6 +127,35 @@ impl EventPublisher {
         .await
     }
 
+    pub async fn publish_workspace_member_removed(
+        &self,
+        workspace_id: Uuid,
+        user_id: Uuid,
+    ) -> AppResult<()> {
+        self.publish(
+            "workspace.member_removed",
+            serde_json::json!({ "workspace_id": workspace_id, "user_id": user_id }),
+        )
+        .await
+    }
+
+    pub async fn publish_channel_member_removed(
+        &self,
+        channel_id: Uuid,
+        workspace_id: Uuid,
+        user_id: Uuid,
+    ) -> AppResult<()> {
+        self.publish(
+            "channel.member_removed",
+            serde_json::json!({
+                "channel_id": channel_id,
+                "workspace_id": workspace_id,
+                "user_id": user_id,
+            }),
+        )
+        .await
+    }
+
     pub async fn publish_message_pinned(
         &self,
         message_id: Uuid,

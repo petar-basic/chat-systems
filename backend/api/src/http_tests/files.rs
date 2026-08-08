@@ -1,8 +1,10 @@
 use super::common::*;
 use axum::body::Body;
 use axum::http::{header, Request, StatusCode};
+use serde_json::json;
 use sqlx::PgPool;
 use tower::ServiceExt;
+use uuid::Uuid;
 
 fn multipart(boundary: &str, filename: &str, ctype: &str, data: &[u8]) -> Vec<u8> {
     let mut b = Vec::new();
@@ -493,5 +495,152 @@ async fn private_channel_attachment_is_gated_to_channel_members(pool: PgPool) {
         member_dl,
         StatusCode::FORBIDDEN,
         "workspace member outside the private channel must be denied"
+    );
+}
+
+async fn upload_one(app: &axum::Router, token: &str, ws_id: Uuid, name: &str) -> String {
+    let boundary = "X-BOUNDARY";
+    let body = format!(
+        "--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{name}\"\r\nContent-Type: text/plain\r\n\r\nhello\r\n--{boundary}--\r\n"
+    );
+    let request = axum::http::Request::builder()
+        .method("POST")
+        .uri(format!("/api/files/upload/{ws_id}"))
+        .header(axum::http::header::AUTHORIZATION, format!("Bearer {token}"))
+        .header(
+            axum::http::header::CONTENT_TYPE,
+            format!("multipart/form-data; boundary={boundary}"),
+        )
+        .body(axum::body::Body::from(body))
+        .unwrap();
+    let response = tower::ServiceExt::oneshot(app.clone(), request)
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK, "upload should succeed");
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    value[0]["url"]
+        .as_str()
+        .expect("upload response carries a url")
+        .split("/api/files/download/")
+        .nth(1)
+        .expect("url contains a storage key")
+        .to_string()
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn a_dm_attachment_is_readable_by_participants_and_nobody_else(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (alice_id, _, alice) = seed_and_login(&app, &state, "dm-file-alice", false).await;
+    let ws_id = seed_workspace(&state, alice_id, "DM Files WS").await;
+    let (bob_id, _, bob) = seed_and_login(&app, &state, "dm-file-bob", false).await;
+    add_ws_member(&state, ws_id, bob_id, "member").await;
+    let (_carol_id, _, carol) = {
+        let (id, _, token) = seed_and_login(&app, &state, "dm-file-carol", false).await;
+        add_ws_member(&state, ws_id, id, "member").await;
+        (id, (), token)
+    };
+
+    let key = upload_one(&app, &alice, ws_id, "secret.txt").await;
+
+    let (status, conv) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/conversations"),
+        Some(&alice),
+        Some(json!({ "participant_ids": [bob_id] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "create conversation: {conv:?}");
+    let conv_id = conv["id"].as_str().expect("conversation id");
+
+    let (status, msg) = send(
+        &app,
+        "POST",
+        &format!("/api/conversations/{conv_id}/messages"),
+        Some(&alice),
+        Some(json!({ "content": format!("here it is /api/files/download/{key}") })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "send dm: {msg:?}");
+
+    let download = format!("/api/files/download/{key}");
+    let (status, _b) = send(&app, "GET", &download, Some(&bob), None).await;
+    assert_eq!(status, StatusCode::OK, "the other participant can read it");
+
+    let (status, _b) = send(&app, "GET", &download, Some(&carol), None).await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "a workspace member who is not in the conversation must not read it"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn an_unposted_upload_belongs_to_whoever_uploaded_it(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (alice_id, _, alice) = seed_and_login(&app, &state, "draft-alice", false).await;
+    let ws_id = seed_workspace(&state, alice_id, "Draft Files WS").await;
+    let (bob_id, _, bob) = seed_and_login(&app, &state, "draft-bob", false).await;
+    add_ws_member(&state, ws_id, bob_id, "member").await;
+
+    let key = upload_one(&app, &alice, ws_id, "draft.txt").await;
+    let download = format!("/api/files/download/{key}");
+
+    let (status, _b) = send(&app, "GET", &download, Some(&alice), None).await;
+    assert_eq!(status, StatusCode::OK, "the uploader can read their draft");
+
+    let (status, _b) = send(&app, "GET", &download, Some(&bob), None).await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "an upload nobody posted is not workspace-readable"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn an_avatar_stays_readable_to_the_workspace(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (alice_id, _, alice) = seed_and_login(&app, &state, "avatar-alice", false).await;
+    let ws_id = seed_workspace(&state, alice_id, "Avatar WS").await;
+    let (bob_id, _, bob) = seed_and_login(&app, &state, "avatar-bob", false).await;
+    add_ws_member(&state, ws_id, bob_id, "member").await;
+    let (_, _, outsider) = seed_and_login(&app, &state, "avatar-outsider", false).await;
+
+    let key = upload_one(&app, &alice, ws_id, "face.png").await;
+    let download = format!("/api/files/download/{key}");
+
+    // Before it is anybody's avatar it is just a draft.
+    let (status, _b) = send(&app, "GET", &download, Some(&bob), None).await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "an unposted upload stays private"
+    );
+
+    let (status, body) = send(
+        &app,
+        "PATCH",
+        "/api/users/me",
+        Some(&alice),
+        Some(json!({ "avatar_url": download.clone() })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "set avatar: {body:?}");
+
+    let (status, _b) = send(&app, "GET", &download, Some(&bob), None).await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "an avatar has to render for everyone who can see the person"
+    );
+
+    let (status, _b) = send(&app, "GET", &download, Some(&outsider), None).await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "but not for somebody outside the workspace"
     );
 }

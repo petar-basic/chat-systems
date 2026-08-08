@@ -73,7 +73,7 @@ impl FileRepo {
         .await
     }
 
-    pub async fn link_to_message(
+    pub async fn link_to_channel_message(
         &self,
         storage_keys: &[String],
         message_id: Uuid,
@@ -88,6 +88,34 @@ impl FileRepo {
               AND workspace_id = $3
               AND user_id = $4
               AND message_id IS NULL
+              AND conversation_message_id IS NULL
+            ",
+        )
+        .bind(message_id)
+        .bind(storage_keys)
+        .bind(workspace_id)
+        .bind(user_id)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn link_to_conversation_message(
+        &self,
+        storage_keys: &[String],
+        message_id: Uuid,
+        workspace_id: Uuid,
+        user_id: Uuid,
+    ) -> sqlx::Result<()> {
+        sqlx::query(
+            r"
+            UPDATE files
+            SET conversation_message_id = $1
+            WHERE storage_key = ANY($2)
+              AND workspace_id = $3
+              AND user_id = $4
+              AND message_id IS NULL
+              AND conversation_message_id IS NULL
             ",
         )
         .bind(message_id)
@@ -104,6 +132,33 @@ impl FileRepo {
             .bind(message_id)
             .fetch_optional(&self.pool)
             .await
+    }
+
+    pub async fn conversation_id_for_message(
+        &self,
+        message_id: Uuid,
+    ) -> sqlx::Result<Option<Uuid>> {
+        sqlx::query_scalar("SELECT conversation_id FROM conversation_messages WHERE id = $1")
+            .bind(message_id)
+            .fetch_optional(&self.pool)
+            .await
+    }
+
+    /// Avatars are uploaded like any other file and never posted to a message,
+    /// so they land in the "nothing owns it" bucket. They are meant to be seen.
+    pub async fn is_avatar(&self, storage_key: &str) -> sqlx::Result<bool> {
+        sqlx::query_scalar(
+            r"
+            SELECT EXISTS(
+              SELECT 1 FROM users
+              WHERE avatar_url IS NOT NULL
+                AND position($1 in avatar_url) > 0
+            )
+            ",
+        )
+        .bind(storage_key)
+        .fetch_one(&self.pool)
+        .await
     }
 
     pub async fn delete(&self, id: Uuid) -> sqlx::Result<Option<FileRecord>> {

@@ -74,6 +74,15 @@ async fn deliver_to_channel(
     )
     .await;
 
+    crate::files::service::link_to_channel_message(
+        state,
+        &scheduled.content,
+        message.id,
+        scheduled.workspace_id,
+        scheduled.user_id,
+    )
+    .await;
+
     let payload = serde_json::to_value(&message).map_err(|e| e.to_string())?;
     let _ = state
         .publisher
@@ -98,6 +107,15 @@ async fn deliver_to_conversation(
         )
         .await
         .map_err(|e| e.to_string())?;
+
+    crate::files::service::link_to_conversation_message(
+        state,
+        &scheduled.content,
+        message.id,
+        scheduled.workspace_id,
+        scheduled.user_id,
+    )
+    .await;
 
     let participants = state
         .conversation_repo

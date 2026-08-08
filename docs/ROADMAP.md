@@ -10,10 +10,8 @@ what it changed lives in the git history and in the docs it touched. Read
 [the index](./tickets/INDEX.md) for the dependency map and the conflict table; this page
 is the summary and the reasoning behind the sequence.
 
-**Wave 0 is shipped**, with one open tail:
-[CS-005a](./tickets/CS-005a-workspace-role-not-populated.md), a product bug the new E2E
-job found on its first run. Next planned ticket:
-[CS-006](./tickets/CS-006-invite-lifecycle.md).
+**Waves 0 and 1 are shipped.** Next ticket:
+[CS-011](./tickets/CS-011-streaming-upload.md).
 
 ## How the order was chosen
 
@@ -50,10 +48,17 @@ rework: the DM picker became multi-select and nothing clicked "Start chat", the
 every message collide with the previous run's — which is also why the suite could not be
 re-run against the same database. All three are fixed.
 
-It also surfaced a real product bug, [CS-005a](./tickets/CS-005a-workspace-role-not-populated.md):
-role-gated controls disappear when the workspace role is not populated. The specs that
-catch it are correct as written, so the `e2e` job runs but **does not block merges** until
-that ticket closes.
+It also surfaced two real product bugs, both fixed. **CS-005a:** role-gated controls
+disappeared when the workspace role was not populated — a channel admin could not open
+channel settings, a workspace admin could not reach Integrations. The role was copied
+into a Zustand store by effects, so its correctness depended on effect scheduling; it is
+now derived from live query data on every render
+([`useCurrentWorkspaceRole.ts`](../frontend/src/features/workspace/hooks/useCurrentWorkspaceRole.ts)),
+and `wsQuerySync` computes it from the query cache instead of reading a mirror. The
+second: the scheduled-message reschedule form closed on submit without awaiting the
+mutation, so a failed save looked like a successful one.
+
+The suite is green end to end and the `e2e` job blocks merges.
 
 ### [CS-002] Central authorization module
 `require_workspace_member` had three separate implementations, `require_channel_access`
@@ -87,38 +92,45 @@ no big-bang rewrite. `SQLX_OFFLINE=true` in the image build and
 `cargo sqlx prepare --check` in CI are the guardrails. Rationale and the contributor
 rule are in [CONTRIBUTING.md](./CONTRIBUTING.md#backend-rust).
 
-## Wave 1 — Access control
+## Wave 1 — Access control ✅ shipped
 
-### [CS-006](./tickets/CS-006-invite-lifecycle.md) — Invite lifecycle
-**Today:** `create_invite` sets neither `max_uses` nor `expires_at`, `claim_invite_use_tx`
-treats `NULL` as unlimited, and `accept_invite` never compares the invite's email to the
-accepting account. Every invite ever issued is an unlimited, non-expiring, transferable
-key to the workspace at whatever role it carries.
+### [CS-006] Invite lifecycle
+Every invite ever issued was unlimited, never expired, and was not bound to the address
+it was mailed to — one forwarded link was a permanent door at whatever role it carried.
+Invites are now bounded by construction: an email invite is single-use, seven days, and
+refuses any other account; a link invite must say how many people it is for (capped at
+100) and cannot outlive a week. **The migration expires every outstanding invite** — there
+is no way to tell a legitimate one from a leaked one, so admins re-send.
 
-### [CS-007](./tickets/CS-007-membership-revocation.md) — Membership removal reaches the socket
-**Today:** the gateway checks channel membership only at `channel.join`; removal publishes
-no event. Somebody removed from a private channel keeps reading it until their socket
-closes — bounded by the access-token deadline, one hour by default. Separately,
-`remove_member` deletes only the `workspace_members` row, so `channel_members` survives and
-re-adding a person silently restores every private channel they were ever in.
+### [CS-007] Membership removal reaches the socket
+The gateway checked channel membership only at subscribe time, so removing somebody from
+a private channel did not stop delivery until their token expired. Removal now publishes
+`channel.member_removed` / `workspace.member_removed`; the gateway drops the subscription
+and tells the client, which closes the view and forgets what it cached. Workspace removal
+also deletes the `channel_members` rows in the same transaction — returning to a workspace
+grants nothing back, which is deliberate: re-entry to a private channel should be somebody's
+decision, not a leftover row.
 
-### [CS-008](./tickets/CS-008-revoke-on-password-change.md) — Revoke on password change
-**Today:** reset and change delete refresh tokens but never revoke access tokens or close
-sockets. After a user resets a compromised password, the attacker keeps read and write
-access for up to an hour.
+### [CS-008] Revoke on password reset and change
+Both flows deleted refresh tokens and left access tokens alive, so recovering a
+compromised account left the attacker an hour of access. Both now go through
+`sessions::revoke`: a reset ends every session, a change ends every session **except the
+one making the change**.
 
-### [CS-009](./tickets/CS-009-conversation-attachment-access.md) — DM attachment access control
-**Today:** `link_attachments` is called only from the messaging feature, so files posted in
-DMs keep `message_id = NULL` forever — and `require_file_access` with a null owner requires
-only workspace membership. The unguessable storage key is the only thing protecting every
-DM attachment in the instance.
+### [CS-009] Attachment access control for conversations
+`link_attachments` only ever ran for channel messages, so every file sent in a DM kept a
+null owner — and a null owner meant `require_file_access` asked for nothing but workspace
+membership. Files now carry a `conversation_message_id`, linking moved into
+`files::service` so both features share one implementation, and an unowned upload is
+readable only by whoever uploaded it. The migration attributes existing DM attachments by
+finding their storage key in the message that posted it, so participants keep the files
+they already had.
 
-### [CS-010](./tickets/CS-010-guest-search-scoping.md) — Guest scoping in search
-**Today:** `require_channel_access` restricts guests to channels they explicitly belong to;
-the search query re-derives visibility in SQL and drops that clause. A guest reads via
-`/api/search` what they are refused via `/channels/:id/messages`.
-
----
+### [CS-010] Guest scoping in search
+`require_channel_access` holds guests to explicit channel membership; the search query
+re-derived visibility in SQL and dropped that clause, so a guest could read via
+`/api/search` what they were refused via `/channels/:id/messages`. The rule is now passed
+down from `authz` instead of restated.
 
 ## Wave 2 — Abuse and resource limits
 

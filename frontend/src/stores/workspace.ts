@@ -70,7 +70,6 @@ export interface WorkspaceMember {
 interface WorkspaceState {
   currentWorkspace: Workspace | null;
   currentChannel: Channel | null;
-  currentUserRole: WorkspaceRole | null;
   unreadChannels: Set<string>;
   mentionChannels: Set<string>;
   mutedChannels: Set<string>;
@@ -82,7 +81,6 @@ interface WorkspaceState {
   selectWorkspace: (ws: Workspace) => Promise<void>;
   selectChannel: (ch: Channel) => void;
   selectConversation: (conversationId: string | null) => void;
-  setCurrentUserRole: (role: WorkspaceRole | null) => void;
   setCurrentUserId: (id: string | null) => void;
   setChannelHuddle: (channelId: string, info: { huddleId: string; initiatorId: string }) => void;
   clearChannelHuddle: (channelId: string) => void;
@@ -106,7 +104,6 @@ function getWsClient(ws: Workspace | null) {
 export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   currentWorkspace: null,
   currentChannel: null,
-  currentUserRole: null,
   unreadChannels: new Set<string>(),
   mentionChannels: new Set<string>(),
   mutedChannels: new Set<string>(),
@@ -116,7 +113,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   activeHuddleChannels: new Map<string, { huddleId: string; initiatorId: string }>(),
 
   selectWorkspace: async (ws) => {
-    set({ currentWorkspace: ws, currentChannel: null, currentUserRole: null, currentConversationId: null });
+    set({ currentWorkspace: ws, currentChannel: null, currentConversationId: null });
     getWsClient(ws).subscribe(ws.id);
 
     useInstanceStore.getState().setActiveInstance(ws.instanceUrl);
@@ -131,8 +128,6 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   selectConversation: (conversationId) => {
     set({ currentConversationId: conversationId, currentChannel: null });
   },
-
-  setCurrentUserRole: (role) => set({ currentUserRole: role }),
 
   setCurrentUserId: (id) => set({ currentUserId: id }),
 

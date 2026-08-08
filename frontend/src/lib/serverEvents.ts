@@ -16,6 +16,8 @@ export type AppServerEvent =
   | { type: 'channel.updated'; channel_id: string }
   | { type: 'channel.member_added'; channel_id: string }
   | { type: 'channel.member_removed'; channel_id: string }
+  | { type: 'channel.access_revoked'; channel_id: string; workspace_id: string | null }
+  | { type: 'workspace.access_revoked'; workspace_id: string }
   | { type: 'message.new'; message: Message }
   | { type: 'message.updated'; message: Message }
   | { type: 'message.deleted'; message_id: string; channel_id: string }
