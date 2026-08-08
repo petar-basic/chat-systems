@@ -11,6 +11,7 @@ pub struct MessageSearch<'a> {
     pub query: &'a str,
     pub workspace_id: Uuid,
     pub requester_id: Uuid,
+    pub requester_is_guest: bool,
     pub channel_id: Option<Uuid>,
     pub author_id: Option<Uuid>,
     pub limit: i64,
@@ -292,11 +293,14 @@ impl MessageRepo {
               AND c.workspace_id = $2
               AND m.deleted_at IS NULL
               AND (
-                c.channel_type = 'public'
-                OR EXISTS (
+                EXISTS (
                   SELECT 1 FROM channel_members cm
                   WHERE cm.channel_id = c.id AND cm.user_id = $3
                 )
+                -- Guests are held to explicit membership everywhere else
+                -- (`authz::require_channel_access`); search must not be the one
+                -- door that opens every public channel to them.
+                OR (NOT $8 AND c.channel_type = 'public')
               )
               AND ($4::uuid IS NULL OR m.channel_id = $4)
               AND ($5::uuid IS NULL OR m.user_id = $5)
@@ -311,6 +315,7 @@ impl MessageRepo {
         .bind(params.author_id)
         .bind(params.limit)
         .bind(params.offset)
+        .bind(params.requester_is_guest)
         .fetch_all(&self.pool)
         .await
     }

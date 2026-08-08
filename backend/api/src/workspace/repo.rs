@@ -1,7 +1,18 @@
+use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
 use super::models::*;
+
+pub struct NewInvite<'a> {
+    pub workspace_id: Uuid,
+    pub created_by: Uuid,
+    pub email: Option<&'a str>,
+    pub role: &'a WorkspaceRole,
+    pub token: &'a str,
+    pub max_uses: i32,
+    pub expires_at: DateTime<Utc>,
+}
 
 pub struct WorkspaceRepo {
     pool: PgPool,
@@ -209,35 +220,58 @@ impl WorkspaceRepo {
         .await
     }
 
-    pub async fn remove_member(&self, workspace_id: Uuid, user_id: Uuid) -> sqlx::Result<()> {
-        sqlx::query("DELETE FROM workspace_members WHERE workspace_id = $1 AND user_id = $2")
-            .bind(workspace_id)
-            .bind(user_id)
-            .execute(&self.pool)
-            .await?;
-        Ok(())
-    }
-
-    pub async fn create_invite(
+    /// Removal also drops the channel memberships. Leaving them behind meant the
+    /// realtime gateway — which only checks `channel_members` — kept delivering,
+    /// and re-adding the person silently restored every private channel they had
+    /// ever been in.
+    pub async fn remove_member(
         &self,
         workspace_id: Uuid,
-        created_by: Uuid,
-        email: Option<&str>,
-        role: &WorkspaceRole,
-        token: &str,
-    ) -> sqlx::Result<WorkspaceInvite> {
-        sqlx::query_as::<_, WorkspaceInvite>(
+        user_id: Uuid,
+    ) -> sqlx::Result<Vec<Uuid>> {
+        let mut tx = self.pool.begin().await?;
+
+        let channel_ids: Vec<Uuid> = sqlx::query_scalar(
             r"
-            INSERT INTO workspace_invites (workspace_id, created_by, email, role, token)
-            VALUES ($1, $2, $3, $4, $5)
-            RETURNING *
+            DELETE FROM channel_members cm
+             USING channels c
+             WHERE cm.channel_id = c.id
+               AND c.workspace_id = $1
+               AND cm.user_id = $2
+            RETURNING cm.channel_id
             ",
         )
         .bind(workspace_id)
-        .bind(created_by)
-        .bind(email)
-        .bind(role)
-        .bind(token)
+        .bind(user_id)
+        .fetch_all(&mut *tx)
+        .await?;
+
+        sqlx::query("DELETE FROM workspace_members WHERE workspace_id = $1 AND user_id = $2")
+            .bind(workspace_id)
+            .bind(user_id)
+            .execute(&mut *tx)
+            .await?;
+
+        tx.commit().await?;
+        Ok(channel_ids)
+    }
+
+    pub async fn create_invite(&self, invite: NewInvite<'_>) -> sqlx::Result<WorkspaceInvite> {
+        sqlx::query_as::<_, WorkspaceInvite>(
+            r"
+            INSERT INTO workspace_invites
+                (workspace_id, created_by, email, role, token, max_uses, expires_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING *
+            ",
+        )
+        .bind(invite.workspace_id)
+        .bind(invite.created_by)
+        .bind(invite.email)
+        .bind(invite.role)
+        .bind(invite.token)
+        .bind(invite.max_uses)
+        .bind(invite.expires_at)
         .fetch_one(&self.pool)
         .await
     }

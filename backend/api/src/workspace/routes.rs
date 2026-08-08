@@ -258,11 +258,23 @@ async fn remove_member(
             ));
         }
     }
-    state
+    let dropped_channels = state
         .workspace_service
         .repo
         .remove_member(ws_id, user_id)
         .await?;
+
+    for channel_id in dropped_channels {
+        let _ = state
+            .publisher
+            .publish_channel_member_removed(channel_id, ws_id, user_id)
+            .await;
+    }
+    let _ = state
+        .publisher
+        .publish_workspace_member_removed(ws_id, user_id)
+        .await;
+
     Ok(Json(serde_json::json!({ "status": "removed" })))
 }
 
@@ -283,6 +295,7 @@ async fn create_invite(
     Json(req): Json<CreateInviteRequest>,
 ) -> AppResult<Json<WorkspaceInvite>> {
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
+    let lifetime = InviteLifetime::resolve(&req)?;
     let invite = state
         .workspace_service
         .create_invite(
@@ -290,6 +303,7 @@ async fn create_invite(
             auth.user_id,
             req.email.as_deref(),
             req.role,
+            lifetime,
             &state.auth_service,
         )
         .await?;
@@ -301,9 +315,15 @@ async fn accept_invite(
     auth: AuthUser,
     Path(token): Path<String>,
 ) -> AppResult<Json<WorkspaceMember>> {
+    let user = state
+        .auth_service
+        .repo()
+        .find_by_id(auth.user_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("User not found".into()))?;
     let member = state
         .workspace_service
-        .accept_invite(&token, auth.user_id)
+        .accept_invite(&token, auth.user_id, &user.email)
         .await?;
     Ok(Json(member))
 }
@@ -603,10 +623,15 @@ async fn remove_channel_member(
         let channel = authz::find_channel(&state, ch_id).await?;
         authz::require_channel_moderator(&state, &channel, auth.user_id).await?;
     }
+    let channel = authz::find_channel(&state, ch_id).await?;
     state
         .workspace_service
         .repo
         .remove_channel_member(ch_id, user_id)
         .await?;
+    let _ = state
+        .publisher
+        .publish_channel_member_removed(ch_id, channel.workspace_id, user_id)
+        .await;
     Ok(Json(serde_json::json!({ "status": "removed" })))
 }

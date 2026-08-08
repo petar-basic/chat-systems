@@ -26,6 +26,18 @@ nothing is lost permanently — messages still send and read — but webhooks, r
 scheduled messages and notification rows stop until it returns. Its `/readyz` is
 wired to the autoheal sidecar like the others.
 
+## Upgrade note: Wave 1 expires every outstanding invite
+
+The `20240305000016_invite_lifecycle` migration backfills an expiry onto every invite that
+had none, which retires every outstanding invite link. Invites were previously unlimited
+and eternal, and there is no way to tell a legitimate outstanding link from a leaked one.
+Tell admins to re-send before you deploy, or expect a short window of "my invite link
+stopped working".
+
+`20240305000017_conversation_attachments` attributes existing DM attachments to the
+message that posted them. Anything it cannot attribute becomes readable only by its
+uploader — that is the intended fail-closed default, not data loss; the file is untouched.
+
 ## What gets backed up
 
 | Data | Where it lives | Backed up by | Backup volume |

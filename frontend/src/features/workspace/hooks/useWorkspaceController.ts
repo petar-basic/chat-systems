@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { useCurrentUser, useLogout } from '@/hooks/queries/useAuth';
-import { useWorkspaceStore, type Message, type Channel, type WorkspaceRole } from '@/stores/workspace';
+import { useWorkspaceStore, type Message, type Channel } from '@/stores/workspace';
 import { useUserCache } from '@/stores/users';
 import { instanceManager } from '@/lib/instances';
 import { api } from '@/lib/api';
@@ -58,12 +58,16 @@ export function useWorkspaceController() {
   const [searchParams] = useSearchParams();
   const { activeInstanceUrl } = useInstanceStore();
 
+  const storeWorkspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id);
   const { data: workspaces = [] } = useWorkspaces();
   const { data: deletedWorkspaces = [] } = useDeletedWorkspaces();
   const currentWsInstanceUrl =
     workspaces.find((w) => w.id === workspaceId)?.instanceUrl ?? activeInstanceUrl ?? undefined;
   const { data: channels = [] } = useWorkspaceChannels(workspaceId || null, currentWsInstanceUrl);
-  const { data: workspaceMembers = [] } = useWorkspaceMembers(workspaceId || null, currentWsInstanceUrl);
+  const { data: workspaceMembers = [] } = useWorkspaceMembers(
+    workspaceId || storeWorkspaceId || null,
+    currentWsInstanceUrl,
+  );
 
   const createWorkspaceMutation = useCreateWorkspace();
   const createChannelMutation = useCreateChannel();
@@ -80,7 +84,6 @@ export function useWorkspaceController() {
     selectWorkspace,
     selectChannel,
     selectConversation,
-    setCurrentUserRole,
     setCurrentUserId,
     markChannelRead,
     markConversationRead,
@@ -160,12 +163,6 @@ export function useWorkspaceController() {
       );
     }
   }, [workspaceMembers, populateUsers]);
-
-  useEffect(() => {
-    if (!user || workspaceMembers.length === 0) return;
-    const mine = workspaceMembers.find((m) => m.user_id === user.id);
-    setCurrentUserRole(mine ? (mine.role as WorkspaceRole) : null);
-  }, [workspaceMembers, user, setCurrentUserRole]);
 
   useEffect(() => {
     setCurrentUserId(user?.id ?? null);

@@ -243,7 +243,7 @@ impl AuthService {
         Ok(())
     }
 
-    pub async fn reset_password(&self, token: &str, new_password: &str) -> AppResult<()> {
+    pub async fn reset_password(&self, token: &str, new_password: &str) -> AppResult<Uuid> {
         validation::validate_password(new_password)?;
 
         let claims = self.verify_token(token)?;
@@ -267,9 +267,7 @@ impl AuthService {
             .update_password(claims.sub, &password_hash)
             .await?;
 
-        let _ = self.repo.delete_user_refresh_tokens(claims.sub).await;
-
-        Ok(())
+        Ok(claims.sub)
     }
 
     pub async fn change_password(
@@ -299,8 +297,6 @@ impl AuthService {
 
         let new_hash = Self::hash_password(new_password)?;
         self.repo.update_password(user_id, &new_hash).await?;
-
-        let _ = self.repo.delete_user_refresh_tokens(user_id).await;
 
         Ok(())
     }
@@ -382,6 +378,11 @@ impl AuthService {
         .map_err(|_| AppError::Unauthorized("Invalid or expired token".into()))?;
 
         Ok(token_data.claims)
+    }
+
+    #[cfg(test)]
+    pub async fn issue_reset_token_for_test(&self, user_id: Uuid) -> AppResult<String> {
+        self.generate_reset_token(user_id).await
     }
 
     async fn generate_reset_token(&self, user_id: Uuid) -> AppResult<String> {
@@ -839,16 +840,8 @@ mod tests {
                 .expect("count reset jti after");
         assert_eq!(jti_after, 0, "reset jti must be consumed (single-use)");
 
-        let refresh_count_after: i64 =
-            sqlx::query_scalar("SELECT COUNT(*) FROM refresh_tokens WHERE user_id = $1")
-                .bind(user.id)
-                .fetch_one(&db)
-                .await
-                .expect("count refresh after");
-        assert_eq!(
-            refresh_count_after, 0,
-            "all refresh tokens must be revoked after a password reset"
-        );
+        // Ending the sessions is `sessions::revoke`'s job, driven from the route.
+        // `http_tests::auth::a_password_reset_ends_every_existing_session` covers it.
 
         let replay = service.reset_password(&reset_token, "anotherpw456").await;
         assert!(

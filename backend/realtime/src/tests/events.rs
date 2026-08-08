@@ -490,3 +490,63 @@ async fn unknown_event_type_is_ignored(pool: PgPool) {
 
     assert!(next_json(&mut rx).is_none());
 }
+
+#[sqlx::test]
+async fn channel_member_removed_stops_delivery_to_that_user(pool: PgPool) {
+    let cm = manager(pool).await;
+    let removed = Uuid::new_v4();
+    let staying = Uuid::new_v4();
+    let channel_id = Uuid::new_v4();
+
+    let (removed_conn, mut removed_rx) = fake_conn(&cm, removed);
+    let (staying_conn, mut staying_rx) = fake_conn(&cm, staying);
+    cm.join_channel(&removed_conn, channel_id);
+    cm.join_channel(&staying_conn, channel_id);
+
+    let payload = serde_json::json!({
+        "channel_id": channel_id,
+        "workspace_id": Uuid::new_v4(),
+        "user_id": removed,
+    });
+    crate::event_consumer::handle_event("channel.member_removed", &payload, &cm).await;
+
+    let notice = drain_types(&mut removed_rx);
+    assert!(
+        notice.contains(&"channel.access_revoked".to_string()),
+        "the removed user is told, so the client can close the view: {notice:?}"
+    );
+
+    let message = serde_json::json!({ "channel_id": channel_id, "id": Uuid::new_v4() });
+    crate::event_consumer::handle_event("message.created", &message, &cm).await;
+
+    assert!(
+        drain_types(&mut removed_rx).is_empty(),
+        "a removed member must stop receiving before their socket closes"
+    );
+    assert_eq!(
+        drain_types(&mut staying_rx),
+        vec!["message.new".to_string()],
+        "everyone else keeps receiving"
+    );
+}
+
+#[sqlx::test]
+async fn workspace_member_removed_unsubscribes_that_user(pool: PgPool) {
+    let cm = manager(pool).await;
+    let removed = Uuid::new_v4();
+    let workspace_id = Uuid::new_v4();
+
+    let (conn, mut rx) = fake_conn(&cm, removed);
+    cm.subscribe_workspace(&conn, workspace_id);
+
+    let payload = serde_json::json!({ "workspace_id": workspace_id, "user_id": removed });
+    crate::event_consumer::handle_event("workspace.member_removed", &payload, &cm).await;
+    let _ = drain_types(&mut rx);
+
+    cm.broadcast_to_workspace(workspace_id, "{\"type\":\"workspace.updated\"}")
+        .await;
+    assert!(
+        drain_types(&mut rx).is_empty(),
+        "a removed member must stop receiving workspace traffic"
+    );
+}

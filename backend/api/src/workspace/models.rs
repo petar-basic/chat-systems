@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use shared_common::errors::{AppError, AppResult};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
@@ -158,6 +159,50 @@ pub struct UpdateWorkspaceRequest {
 pub struct CreateInviteRequest {
     pub email: Option<String>,
     pub role: Option<WorkspaceRole>,
+    pub expires_in_hours: Option<i64>,
+    pub max_uses: Option<i32>,
+}
+
+/// Every invite is bounded. A link invite has to say how many people it is for;
+/// there is no way to tell a legitimate outstanding link from a leaked one, so
+/// "unlimited and forever" is not offered.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct InviteLifetime {
+    pub max_uses: i32,
+    pub expires_in_hours: i64,
+}
+
+impl InviteLifetime {
+    pub const MAX_HOURS: i64 = 168;
+    pub const MAX_LINK_USES: i32 = 100;
+
+    pub fn resolve(req: &CreateInviteRequest) -> AppResult<Self> {
+        let expires_in_hours = req.expires_in_hours.unwrap_or(Self::MAX_HOURS);
+        if !(1..=Self::MAX_HOURS).contains(&expires_in_hours) {
+            return Err(AppError::Validation(format!(
+                "An invite lasts between 1 and {} hours",
+                Self::MAX_HOURS
+            )));
+        }
+
+        let max_uses = match req.email {
+            Some(_) => req.max_uses.unwrap_or(1),
+            None => req.max_uses.ok_or_else(|| {
+                AppError::Validation("A link invite must say how many people it is for".into())
+            })?,
+        };
+        if !(1..=Self::MAX_LINK_USES).contains(&max_uses) {
+            return Err(AppError::Validation(format!(
+                "An invite is good for between 1 and {} uses",
+                Self::MAX_LINK_USES
+            )));
+        }
+
+        Ok(Self {
+            max_uses,
+            expires_in_hours,
+        })
+    }
 }
 
 #[derive(Debug, Deserialize)]

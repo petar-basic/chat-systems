@@ -3,7 +3,7 @@ import { useQueryClient, type InfiniteData, type QueryClient } from '@tanstack/r
 import { globalEventBus } from './globalEventBus';
 import { upsertMessage, patchMessageById, newestFirst } from './messageCache';
 import { showNotification, playNotificationSound } from './notifications';
-import type { Message } from '@/stores/workspace';
+import type { Message, WorkspaceMember } from '@/stores/workspace';
 import type { Conversation, ConversationInfiniteData } from '@/hooks/queries/useConversations';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useInstanceStore } from '@/stores/instances';
@@ -46,13 +46,37 @@ export const useWebSocketQuerySync = () => {
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.deletedWorkspaces() });
         const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
         if (currentWorkspace && currentWorkspace.id === event.workspace_id) {
-          const { currentUserRole } = useWorkspaceStore.getState();
-          const isWorkspaceAdmin = currentUserRole === 'admin' || currentUserRole === 'owner';
           const instances = useInstanceStore.getState().instances;
-          const isInstanceAdmin = instances.some(
-            (i) => i.url === currentWorkspace.instanceUrl && i.user.is_instance_admin,
+          const instance = instances.find((i) => i.url === currentWorkspace.instanceUrl);
+          const members = queryClient.getQueryData<WorkspaceMember[]>(
+            QUERY_KEYS.workspaceMembers(currentWorkspace.id),
           );
+          const role = members?.find((m) => m.user_id === instance?.user.id)?.role;
+          const isWorkspaceAdmin = role === 'admin' || role === 'owner';
+          const isInstanceAdmin = instance?.user.is_instance_admin ?? false;
           if (isWorkspaceAdmin || isInstanceAdmin) return;
+          useWorkspaceStore.setState({ currentWorkspace: null, currentChannel: null });
+          window.history.pushState({}, '', '/app');
+        }
+      }),
+      // The gateway drops the subscription server-side; the client has to stop
+      // showing a channel it can no longer read, and forget what it cached.
+      globalEventBus.on('channel.access_revoked', (event) => {
+        queryClient.removeQueries({ queryKey: QUERY_KEYS.messages(event.channel_id) });
+        queryClient.removeQueries({ queryKey: QUERY_KEYS.channelMembers(event.channel_id) });
+        if (event.workspace_id) {
+          queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceChannels(event.workspace_id) });
+        }
+        const { currentChannel } = useWorkspaceStore.getState();
+        if (currentChannel?.id === event.channel_id) {
+          useWorkspaceStore.setState({ currentChannel: null });
+          window.history.pushState({}, '', '/app');
+        }
+      }),
+      globalEventBus.on('workspace.access_revoked', (event) => {
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaces() });
+        const { currentWorkspace } = useWorkspaceStore.getState();
+        if (currentWorkspace?.id === event.workspace_id) {
           useWorkspaceStore.setState({ currentWorkspace: null, currentChannel: null });
           window.history.pushState({}, '', '/app');
         }

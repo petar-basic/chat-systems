@@ -9,8 +9,8 @@ history and in the docs it changed. A bug found mid-wave gets a suffixed number
 (`CS-005a`) so it lands where it belongs in the order without renumbering everything
 below it.
 
-**Wave 0 (CS-001 – CS-005) is done**, with [CS-005a](CS-005a-workspace-role-not-populated.md)
-left open behind it. Next planned ticket: [CS-006](CS-006-invite-lifecycle.md).
+**Waves 0 and 1 are done.** The E2E suite is green and the `e2e` job blocks merges.
+Next ticket: [CS-011](CS-011-streaming-upload.md).
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
@@ -66,22 +66,17 @@ per ticket.
 | CS-004 | Split background workers into `chat-worker` | [`backend/api/src/bin/chat-worker.rs`](../../backend/api/src/bin/chat-worker.rs) |
 | CS-005 | Decide on compile-time-checked sqlx queries | decision in [CONTRIBUTING.md](../CONTRIBUTING.md#backend-rust) |
 
-**Open tail:** turning the suite on immediately found a product bug, so CS-001 could not
-meet its own acceptance — the `e2e` job runs but does not block.
+| CS-005a | Role-gated UI disappears when the workspace role is not populated | [`useCurrentWorkspaceRole.ts`](../../frontend/src/features/workspace/hooks/useCurrentWorkspaceRole.ts) |
 
-| # | Ticket | Area |
+### Wave 1 — Access control ✅ done
+
+| # | Ticket | Landed as |
 |---|---|---|
-| [CS-005a](CS-005a-workspace-role-not-populated.md) | Role-gated UI disappears when the workspace role is not populated | frontend |
-
-### Wave 1 — Access control
-
-| # | Ticket | Area |
-|---|---|---|
-| [CS-006](CS-006-invite-lifecycle.md) | Invite lifecycle: expiry, max uses, email binding | backend/api |
-| [CS-007](CS-007-membership-revocation.md) | Propagate membership removal to live sockets | backend/api · realtime |
-| [CS-008](CS-008-revoke-on-password-change.md) | Revoke access tokens on password reset/change | backend/api |
-| [CS-009](CS-009-conversation-attachment-access.md) | Attachment access control for conversations | backend/api |
-| [CS-010](CS-010-guest-search-scoping.md) | Guest scoping in message search | backend/api |
+| CS-006 | Invite lifecycle: expiry, max uses, email binding | `InviteLifetime` + migration `…16` |
+| CS-007 | Propagate membership removal to live sockets | `channel.member_removed` / `workspace.member_removed` |
+| CS-008 | Revoke access tokens on password reset/change | `sessions::revoke` from the auth routes |
+| CS-009 | Attachment access control for conversations | [`files/service.rs`](../../backend/api/src/files/service.rs) + migration `…17` |
+| CS-010 | Guest scoping in message search | `requester_is_guest` in `MessageSearch` |
 
 ### Wave 2 — Abuse and resource limits
 

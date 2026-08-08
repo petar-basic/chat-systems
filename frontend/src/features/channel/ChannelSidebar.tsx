@@ -19,10 +19,11 @@ import {
   Check,
   Clock,
 } from 'lucide-react';
-import { useWorkspaceStore, type Channel, type Workspace, type WorkspaceMember } from '@/stores/workspace';
+import type { Channel, Workspace, WorkspaceMember } from '@/stores/workspace';
 import type { Conversation } from '@/hooks/queries/useConversations';
 import { conversationTitle } from '@/lib/conversationHelpers';
 import { useUserCache } from '@/stores/users';
+import { useCurrentWorkspaceRole } from '@/features/workspace/hooks/useCurrentWorkspaceRole';
 import { useInstanceStore } from '@/stores/instances';
 import { useUnreadNotificationCount } from '@/hooks/queries/useNotifications';
 import { displayNameOf } from '@/lib/userHelpers';
@@ -177,7 +178,7 @@ export default function ChannelSidebar({
   onLogout,
 }: Props) {
   const { data: unreadNotifCount = 0 } = useUnreadNotificationCount(currentWorkspace?.id ?? null);
-  const currentUserRole = useWorkspaceStore((s) => s.currentUserRole);
+  const { role: currentUserRole } = useCurrentWorkspaceRole();
   const navigate = useNavigate();
   const { instances, activeInstanceUrl } = useInstanceStore();
   const currentInstance = instances.find((i) => i.url === activeInstanceUrl);

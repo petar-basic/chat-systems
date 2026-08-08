@@ -70,6 +70,7 @@ impl WorkspaceService {
         created_by: Uuid,
         email: Option<&str>,
         role: Option<WorkspaceRole>,
+        lifetime: InviteLifetime,
         auth_service: &AuthService,
     ) -> AppResult<WorkspaceInvite> {
         let role = role.unwrap_or(WorkspaceRole::Member);
@@ -88,7 +89,15 @@ impl WorkspaceService {
 
         let invite = self
             .repo
-            .create_invite(workspace_id, created_by, email, &role, &token)
+            .create_invite(crate::workspace::repo::NewInvite {
+                workspace_id,
+                created_by,
+                email,
+                role: &role,
+                token: &token,
+                max_uses: lifetime.max_uses,
+                expires_at: chrono::Utc::now() + chrono::Duration::hours(lifetime.expires_in_hours),
+            })
             .await?;
 
         if let (Some(email_addr), Some(user)) = (email, provisioned.as_ref()) {
@@ -118,16 +127,30 @@ impl WorkspaceService {
         Ok(invite)
     }
 
-    pub async fn accept_invite(&self, token: &str, user_id: Uuid) -> AppResult<WorkspaceMember> {
+    pub async fn accept_invite(
+        &self,
+        token: &str,
+        user_id: Uuid,
+        user_email: &str,
+    ) -> AppResult<WorkspaceMember> {
         let invite = self
             .repo
             .find_invite_by_token(token)
             .await?
             .ok_or_else(|| AppError::NotFound("Invite not found or expired".into()))?;
 
-        if let Some(expires) = invite.expires_at {
-            if expires < chrono::Utc::now() {
-                return Err(AppError::BadRequest("Invite has expired".into()));
+        // A row that escaped the expiry default is treated as expired, not as
+        // eternal: fail closed on the one field that bounds this invite.
+        match invite.expires_at {
+            Some(expires) if expires >= chrono::Utc::now() => {}
+            _ => return Err(AppError::BadRequest("Invite has expired".into())),
+        }
+
+        if let Some(invited) = invite.email.as_deref() {
+            if !invited.eq_ignore_ascii_case(user_email) {
+                return Err(AppError::Forbidden(
+                    "This invite was issued to a different address".into(),
+                ));
             }
         }
 
@@ -313,8 +336,8 @@ mod tests {
         let token = "single-use-token-abc123";
         let invite_id = sqlx::query_scalar::<_, Uuid>(
             r"
-            INSERT INTO workspace_invites (workspace_id, created_by, role, token, max_uses)
-            VALUES ($1, $2, 'member', $3, 1)
+            INSERT INTO workspace_invites (workspace_id, created_by, role, token, max_uses, expires_at)
+            VALUES ($1, $2, 'member', $3, 1, NOW() + INTERVAL '1 day')
             RETURNING id
             ",
         )
@@ -326,7 +349,7 @@ mod tests {
         .expect("insert single-use invite");
 
         let member = service
-            .accept_invite(token, first_user)
+            .accept_invite(token, first_user, "first@test.local")
             .await
             .expect("first accept_invite should succeed");
         assert_eq!(member.user_id, first_user);
@@ -343,7 +366,9 @@ mod tests {
             "first user must be persisted as a workspace member"
         );
 
-        let second = service.accept_invite(token, second_user).await;
+        let second = service
+            .accept_invite(token, second_user, "second@test.local")
+            .await;
         match second {
             Err(AppError::BadRequest(msg)) => {
                 assert!(

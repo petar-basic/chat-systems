@@ -32,10 +32,11 @@ function ScheduledRow({
   target: string;
   busy: boolean;
   onCancel: () => void;
-  onReschedule: (sendAt: Date) => void;
+  onReschedule: (sendAt: Date) => Promise<void>;
 }) {
   const [editingTime, setEditingTime] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [earliest, setEarliest] = useState('');
 
   const sendAt = new Date(scheduled.send_at);
@@ -119,7 +120,7 @@ function ScheduledRow({
               Cancel
             </button>
             <button
-              onClick={() => {
+              onClick={async () => {
                 const at = new Date(editingTime);
                 if (!editingTime || Number.isNaN(at.getTime())) {
                   setError('Pick a date and time first');
@@ -129,9 +130,18 @@ function ScheduledRow({
                   setError('That time has already passed');
                   return;
                 }
-                onReschedule(at);
-                setEditingTime(null);
+                setError(null);
+                setSaving(true);
+                try {
+                  await onReschedule(at);
+                  setEditingTime(null);
+                } catch (err) {
+                  setError((err as { message?: string })?.message || 'Failed to move that message');
+                } finally {
+                  setSaving(false);
+                }
               }}
+              disabled={saving}
               data-qa="scheduled-reschedule-submit"
               className="px-3 py-1 text-xs bg-purple-600 hover:bg-purple-500 text-white rounded transition cursor-pointer"
             >
@@ -211,12 +221,9 @@ export default function ScheduledMessagesPanel({
                 setError(null);
                 cancelScheduled.mutate(message.id, { onError: failWith('Failed to cancel') });
               }}
-              onReschedule={(sendAt) => {
+              onReschedule={async (sendAt) => {
                 setError(null);
-                reschedule.mutate(
-                  { id: message.id, sendAt },
-                  { onError: failWith('Failed to move that message') },
-                );
+                await reschedule.mutateAsync({ id: message.id, sendAt });
               }}
             />
           ))

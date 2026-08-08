@@ -602,3 +602,77 @@ async fn a_legacy_revocation_record_still_locks_the_session_out(pool: PgPool) {
         .await
         .expect("clear revocation");
 }
+
+#[sqlx::test(migrations = "../migrations")]
+async fn a_password_reset_ends_every_existing_session(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (user_id, email) = seed(&state, "reset-revokes", false).await;
+
+    let stolen = login(&app, &email, PASSWORD).await;
+    let (status, _b) = send(&app, "GET", "/api/workspaces", Some(&stolen), None).await;
+    assert_eq!(status, StatusCode::OK, "the session starts valid");
+
+    let reset_token = state
+        .auth_service
+        .issue_reset_token_for_test(user_id)
+        .await
+        .expect("issue reset token");
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        "/api/auth/reset-password",
+        None,
+        Some(json!({ "token": reset_token, "password": "a-brand-new-password" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "reset: {body:?}");
+
+    let (status, _b) = send(&app, "GET", "/api/workspaces", Some(&stolen), None).await;
+    assert_eq!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "recovering the account must evict whoever else was holding a session"
+    );
+
+    let refresh_left: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM refresh_tokens WHERE user_id = $1")
+            .bind(user_id)
+            .fetch_one(&state.pool)
+            .await
+            .expect("count refresh tokens");
+    assert_eq!(refresh_left, 0, "refresh tokens must be gone too");
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn changing_the_password_keeps_the_session_that_did_it(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (_user_id, email) = seed(&state, "change-keeps-self", false).await;
+
+    let mine = login(&app, &email, PASSWORD).await;
+    let other_device = login(&app, &email, PASSWORD).await;
+
+    let (status, body) = send(
+        &app,
+        "PATCH",
+        "/api/users/me/password",
+        Some(&mine),
+        Some(json!({ "current_password": PASSWORD, "new_password": "a-brand-new-password" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "change password: {body:?}");
+
+    let (status, _b) = send(&app, "GET", "/api/workspaces", Some(&mine), None).await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "the tab that changed the password stays signed in"
+    );
+
+    let (status, _b) = send(&app, "GET", "/api/workspaces", Some(&other_device), None).await;
+    assert_eq!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "every other device is out"
+    );
+}

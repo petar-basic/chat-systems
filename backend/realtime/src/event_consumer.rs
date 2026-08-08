@@ -40,6 +40,7 @@ pub async fn start_event_consumer(
         "events:huddle-signal",
         "events:user",
         "events:session",
+        "events:channel",
     ];
     for ch in &channels {
         if let Err(e) = pubsub.subscribe(ch).await {
@@ -327,6 +328,45 @@ pub(crate) async fn handle_event(
                     cm.send_to_user(partner, &msg).await;
                 }
             }
+        }
+        "channel.member_removed" => {
+            let Some(uid) = payload
+                .get("user_id")
+                .and_then(|v| v.as_str())
+                .and_then(|v| v.parse::<uuid::Uuid>().ok())
+            else {
+                return;
+            };
+            let Some(ch_id) = channel_id else { return };
+            cm.leave_channel_for_user(uid, ch_id);
+            let notice = serde_json::json!({
+                "type": "channel.access_revoked",
+                "channel_id": ch_id,
+                "workspace_id": payload.get("workspace_id"),
+            });
+            cm.send_to_user(uid, &notice.to_string()).await;
+        }
+        "workspace.member_removed" => {
+            let Some(uid) = payload
+                .get("user_id")
+                .and_then(|v| v.as_str())
+                .and_then(|v| v.parse::<uuid::Uuid>().ok())
+            else {
+                return;
+            };
+            let Some(ws_id) = payload
+                .get("workspace_id")
+                .and_then(|v| v.as_str())
+                .and_then(|v| v.parse::<uuid::Uuid>().ok())
+            else {
+                return;
+            };
+            cm.leave_workspace_for_user(uid, ws_id);
+            let notice = serde_json::json!({
+                "type": "workspace.access_revoked",
+                "workspace_id": ws_id,
+            });
+            cm.send_to_user(uid, &notice.to_string()).await;
         }
         "user.suspended" => {
             if let Some(uid) = payload

@@ -224,22 +224,30 @@ async fn require_file_access(
     record: &FileRecord,
     user_id: Uuid,
 ) -> AppResult<()> {
-    authz::require_workspace_member(state, record.workspace_id, user_id).await?;
-
     if let Some(message_id) = record.message_id {
         if let Some(channel_id) = state.file_repo.channel_id_for_message(message_id).await? {
-            require_channel_membership(state, channel_id, user_id).await?;
+            authz::require_channel_access(state, channel_id, user_id).await?;
+            return Ok(());
         }
     }
 
-    Ok(())
-}
+    if let Some(message_id) = record.conversation_message_id {
+        if let Some(conversation_id) = state
+            .file_repo
+            .conversation_id_for_message(message_id)
+            .await?
+        {
+            authz::require_conversation_participant(state, conversation_id, user_id).await?;
+            return Ok(());
+        }
+    }
 
-async fn require_channel_membership(
-    state: &AppState,
-    channel_id: Uuid,
-    user_id: Uuid,
-) -> AppResult<()> {
-    authz::require_channel_access(state, channel_id, user_id).await?;
-    Ok(())
+    // Nothing owns it: a draft nobody posted, or an avatar. A draft belongs to
+    // whoever wrote it — workspace membership alone is not a reason to read
+    // somebody else's file. An avatar is the exception: it exists to be shown.
+    if record.user_id == user_id || state.file_repo.is_avatar(&record.storage_key).await? {
+        authz::require_workspace_member(state, record.workspace_id, user_id).await?;
+        return Ok(());
+    }
+    Err(AppError::Forbidden("Not allowed to read this file".into()))
 }

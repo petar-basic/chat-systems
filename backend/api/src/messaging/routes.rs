@@ -11,6 +11,7 @@ use super::models::*;
 use crate::authz;
 use crate::middleware::{auth_middleware, AuthUser};
 use crate::state::AppState;
+use crate::workspace::models::WorkspaceRole;
 
 pub fn router(state: Arc<AppState>) -> Router {
     let routes = Router::new()
@@ -124,7 +125,7 @@ async fn send_message(
             .await?
     };
 
-    link_attachments(
+    crate::files::service::link_to_channel_message(
         &state,
         &req.content,
         msg.id,
@@ -333,7 +334,7 @@ async fn reply_to_thread(
         .create_message(parent.channel_id, auth.user_id, &req.content, Some(msg_id))
         .await?;
 
-    link_attachments(
+    crate::files::service::link_to_channel_message(
         &state,
         &req.content,
         msg.id,
@@ -449,13 +450,7 @@ async fn search_messages(
         return Err(AppError::Validation("Search query is required".into()));
     }
 
-    let is_member = state
-        .workspace_service
-        .is_workspace_member(params.workspace_id, auth.user_id)
-        .await?;
-    if !is_member {
-        return Err(AppError::Forbidden("Not a member of this workspace".into()));
-    }
+    let member = authz::require_workspace_member(&state, params.workspace_id, auth.user_id).await?;
 
     if let Some(ch_id) = params.channel_id {
         authz::require_channel_access(&state, ch_id, auth.user_id).await?;
@@ -470,6 +465,7 @@ async fn search_messages(
             query: &query,
             workspace_id: params.workspace_id,
             requester_id: auth.user_id,
+            requester_is_guest: member.role == WorkspaceRole::Guest,
             channel_id: params.channel_id,
             author_id: params.user_id,
             limit,
@@ -478,46 +474,6 @@ async fn search_messages(
         .await?;
 
     Ok(Json(serde_json::json!({ "data": messages })))
-}
-
-async fn link_attachments(
-    state: &AppState,
-    content: &str,
-    message_id: Uuid,
-    workspace_id: Uuid,
-    user_id: Uuid,
-) {
-    let keys = extract_file_keys(content);
-    if keys.is_empty() {
-        return;
-    }
-    if let Err(e) = state
-        .file_repo
-        .link_to_message(&keys, message_id, workspace_id, user_id)
-        .await
-    {
-        tracing::warn!(
-            "failed to link attachments to message {}: {}",
-            message_id,
-            e
-        );
-    }
-}
-
-fn extract_file_keys(content: &str) -> Vec<String> {
-    const MARKER: &str = "/api/files/download/";
-    let mut keys = Vec::new();
-    let mut rest = content;
-    while let Some(pos) = rest.find(MARKER) {
-        rest = &rest[pos + MARKER.len()..];
-        let end = rest.find([')', ']', ' ', '"', '\n']).unwrap_or(rest.len());
-        let key = &rest[..end];
-        if !key.is_empty() {
-            keys.push(key.to_string());
-        }
-        rest = &rest[end..];
-    }
-    keys
 }
 
 #[derive(Debug, Default, PartialEq)]
