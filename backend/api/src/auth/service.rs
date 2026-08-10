@@ -14,7 +14,7 @@ use shared_common::validation;
 
 use super::models::{AuthTokens, User, UserPublic, UserStatus};
 use super::repo::UserRepo;
-use crate::config::AppConfig;
+use crate::config::{AppConfig, SmtpTlsMode};
 use crate::middleware::Claims;
 
 pub struct AuthService {
@@ -23,20 +23,36 @@ pub struct AuthService {
     mailer: Option<AsyncSmtpTransport<Tokio1Executor>>,
 }
 
+/// Verified against when no account exists, so "unknown address" costs the same
+/// as "wrong password". Without it the fast path is a timing oracle that hands
+/// over the instance's address book.
+///
+/// Computed once per process: Argon2 is deliberately expensive, and hashing it
+/// per `AuthService` starved the runtime everywhere the service is constructed
+/// more than once.
+static ABSENT_USER_HASH: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+
+fn absent_user_hash() -> &'static str {
+    ABSENT_USER_HASH.get_or_init(|| {
+        AuthService::hash_password("no-such-account-placeholder")
+            .unwrap_or_else(|_| String::from("$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$aGFzaA"))
+    })
+}
+
 fn build_mailer(config: &AppConfig) -> Option<AsyncSmtpTransport<Tokio1Executor>> {
     let creds = Credentials::new(config.smtp_user.clone(), config.smtp_password.clone());
-    if config.smtp_use_tls {
-        AsyncSmtpTransport::<Tokio1Executor>::relay(&config.smtp_host)
-            .ok()
-            .map(|b| b.port(config.smtp_port).credentials(creds).build())
-    } else {
-        Some(
-            AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(&config.smtp_host)
-                .port(config.smtp_port)
-                .credentials(creds)
-                .build(),
-        )
-    }
+    let builder = match config.smtp_tls_mode {
+        SmtpTlsMode::Implicit => {
+            AsyncSmtpTransport::<Tokio1Executor>::relay(&config.smtp_host).ok()
+        }
+        SmtpTlsMode::Starttls => {
+            AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&config.smtp_host).ok()
+        }
+        SmtpTlsMode::None => Some(AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(
+            &config.smtp_host,
+        )),
+    };
+    builder.map(|b| b.port(config.smtp_port).credentials(creds).build())
 }
 
 impl AuthService {
@@ -73,27 +89,34 @@ impl AuthService {
     pub async fn login(&self, email: &str, password: &str) -> AppResult<AuthTokens> {
         validation::validate_email(email)?;
 
-        let user = self
-            .repo
-            .find_by_email(email)
-            .await?
-            .ok_or_else(|| AppError::Unauthorized("Invalid email or password".into()))?;
+        let user = self.repo.find_by_email(email).await?;
 
-        if user.status != UserStatus::Active {
-            return Err(AppError::Unauthorized(
-                "Account is not active. Please complete registration first.".into(),
-            ));
-        }
-
-        let password_hash = user
-            .password_hash
+        // Always pay for a verification, whatever went wrong. Returning early on
+        // an unknown address made "does this person work here" answerable with a
+        // stopwatch.
+        let hash = user
             .as_ref()
-            .ok_or_else(|| AppError::Unauthorized("Account requires password setup".into()))?;
+            .and_then(|u| u.password_hash.clone())
+            .unwrap_or_else(|| absent_user_hash().to_string());
+        let password_matches = Self::verify_password(password, &hash).unwrap_or(false);
 
-        if !Self::verify_password(password, password_hash)? {
+        let reason = match &user {
+            None => Some("no such account"),
+            Some(u) if u.status != UserStatus::Active => Some("account is not active"),
+            Some(u) if u.password_hash.is_none() => Some("account has no password set"),
+            _ if !password_matches => Some("wrong password"),
+            _ => None,
+        };
+
+        if let Some(reason) = reason {
+            // The caller gets one answer for every failure; the operator still
+            // gets the real one.
+            info!(email = %email, reason, "login rejected");
             return Err(AppError::Unauthorized("Invalid email or password".into()));
         }
 
+        let user =
+            user.ok_or_else(|| AppError::Unauthorized("Invalid email or password".into()))?;
         self.generate_tokens(&user).await
     }
 
@@ -103,7 +126,6 @@ impl AuthService {
         password: &str,
         display_name: &str,
     ) -> AppResult<AuthTokens> {
-        validation::validate_password(password)?;
         validation::validate_display_name(display_name)?;
 
         let user = self
@@ -112,9 +134,14 @@ impl AuthService {
             .await?
             .ok_or_else(|| AppError::NotFound("User not found".into()))?;
 
+        // State of the account first: telling somebody their password is weak
+        // when the real answer is "this invite was already used" sends them
+        // round in circles.
         if user.status != UserStatus::Pending {
             return Err(AppError::BadRequest("Account is already activated".into()));
         }
+
+        validation::validate_password(password)?;
 
         let password_hash = Self::hash_password(password)?;
         let user = self
@@ -244,8 +271,6 @@ impl AuthService {
     }
 
     pub async fn reset_password(&self, token: &str, new_password: &str) -> AppResult<Uuid> {
-        validation::validate_password(new_password)?;
-
         let claims = self.verify_token(token)?;
 
         if claims.token_type != "reset" {
@@ -261,6 +286,8 @@ impl AuthService {
                 "reset link already used or expired".into(),
             ));
         }
+
+        validation::validate_password(new_password)?;
 
         let password_hash = Self::hash_password(new_password)?;
         self.repo
@@ -573,6 +600,7 @@ mod tests {
             smtp_from_address: "noreply@test.local".to_string(),
             smtp_from_name: "Test".to_string(),
             smtp_use_tls: false,
+            smtp_tls_mode: crate::config::SmtpTlsMode::None,
             public_url: "http://localhost:3000".to_string(),
             instance_name: "Test".to_string(),
             instance_icon_url: None,

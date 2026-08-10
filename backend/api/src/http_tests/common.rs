@@ -33,6 +33,7 @@ pub fn test_config() -> AppConfig {
         smtp_from_address: "noreply@test.local".into(),
         smtp_from_name: "Test".into(),
         smtp_use_tls: false,
+        smtp_tls_mode: crate::config::SmtpTlsMode::None,
         public_url: "http://localhost".into(),
         instance_name: "Test".into(),
         instance_icon_url: None,

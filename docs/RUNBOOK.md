@@ -38,6 +38,14 @@ stopped working".
 message that posted them. Anything it cannot attribute becomes readable only by its
 uploader — that is the intended fail-closed default, not data loss; the file is untouched.
 
+## Mail transport
+
+SMTP transport security is `SMTP_TLS_MODE` (`starttls` / `implicit` / `none`). With it
+unset, a local catcher gets `none` and any other host gets `starttls`. The API **refuses
+to start** when the mode is `none`, the host is remote, and SMTP credentials are set —
+that combination puts the relay password on the wire in clear. An open internal relay with
+no credentials still starts, with a warning.
+
 ## Rate limits and upload size
 
 Writes are limited per user, per class of action: messages 120/min, reactions 240/min,

@@ -22,6 +22,7 @@ pub struct AppConfig {
     pub smtp_from_address: String,
     pub smtp_from_name: String,
     pub smtp_use_tls: bool,
+    pub smtp_tls_mode: SmtpTlsMode,
 
     pub public_url: String,
     pub instance_name: String,
@@ -51,6 +52,20 @@ pub struct AppConfig {
     pub trusted_proxies: String,
 
     pub max_upload_bytes: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SmtpTlsMode {
+    /// TLS from the first byte (usually port 465).
+    Implicit,
+    /// Plain connection upgraded with STARTTLS (usually port 587).
+    Starttls,
+    /// No transport security. Only sane for a local catcher like MailHog.
+    None,
+}
+
+pub fn is_local_smtp_host(host: &str) -> bool {
+    matches!(host, "localhost" | "127.0.0.1" | "::1" | "mailhog" | "")
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -85,6 +100,7 @@ impl AppConfig {
             smtp_from_address: env_or("SMTP_FROM_ADDRESS", "noreply@chatsystems.local"),
             smtp_from_name: env_or("SMTP_FROM_NAME", "Chat Systems"),
             smtp_use_tls: parse_env("SMTP_USE_TLS", false),
+            smtp_tls_mode: SmtpTlsMode::None,
             public_url: env_or("PUBLIC_URL", "http://localhost:3000"),
             instance_name: env_or("INSTANCE_NAME", "Chat Systems"),
             instance_icon_url: std::env::var("INSTANCE_ICON_URL").ok(),
@@ -113,6 +129,27 @@ impl AppConfig {
             // Keep `client_max_body_size` in docker/nginx.conf in step with this.
             max_upload_bytes: parse_env("MAX_UPLOAD_BYTES", 100 * 1024 * 1024),
         };
+        let mut config = config;
+        config.smtp_tls_mode = resolve_smtp_tls_mode(&config.smtp_host);
+
+        // Cleartext to a remote relay is a misconfiguration, not a preference —
+        // but only credentials actually leak, so that is what we refuse to start
+        // on. An open internal relay keeps working, with a warning.
+        let sends_credentials = !config.smtp_user.is_empty() || !config.smtp_password.is_empty();
+        if config.smtp_tls_mode == SmtpTlsMode::None && !is_local_smtp_host(&config.smtp_host) {
+            assert!(
+                !sends_credentials,
+                "SMTP has no transport security but SMTP_USER/SMTP_PASSWORD are set, so they \
+                 would be sent in cleartext to {}. Set SMTP_TLS_MODE=starttls (port 587) or \
+                 implicit (port 465).",
+                config.smtp_host
+            );
+            tracing::warn!(
+                "SMTP to {} has no transport security. Set SMTP_TLS_MODE=starttls in production.",
+                config.smtp_host
+            );
+        }
+
         if config.jwt_secret == "dev-secret-change-me-in-production" || config.jwt_secret.len() < 32
         {
             panic!(
@@ -139,6 +176,30 @@ impl AppConfig {
             config.port, config.storage_backend
         );
         config
+    }
+}
+
+/// `SMTP_TLS_MODE` wins; `SMTP_USE_TLS` is still honoured so existing `.env`
+/// files keep working. With neither set, a local catcher gets plaintext and
+/// anything else gets STARTTLS — safe by default, without breaking MailHog.
+fn resolve_smtp_tls_mode(host: &str) -> SmtpTlsMode {
+    if let Ok(raw) = std::env::var("SMTP_TLS_MODE") {
+        return match raw.trim().to_lowercase().as_str() {
+            "implicit" => SmtpTlsMode::Implicit,
+            "none" => SmtpTlsMode::None,
+            _ => SmtpTlsMode::Starttls,
+        };
+    }
+    if let Ok(raw) = std::env::var("SMTP_USE_TLS") {
+        return match raw.trim().parse::<bool>() {
+            Ok(true) => SmtpTlsMode::Implicit,
+            _ => SmtpTlsMode::None,
+        };
+    }
+    if is_local_smtp_host(host) {
+        SmtpTlsMode::None
+    } else {
+        SmtpTlsMode::Starttls
     }
 }
 
