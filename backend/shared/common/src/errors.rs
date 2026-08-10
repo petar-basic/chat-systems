@@ -1,4 +1,4 @@
-use axum::http::StatusCode;
+use axum::http::{header, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use serde_json::json;
@@ -31,8 +31,14 @@ pub enum AppError {
     #[error("Database: {0}")]
     Database(String),
 
-    #[error("Too many requests: {0}")]
-    TooManyRequests(String),
+    #[error("Too many requests: {message}")]
+    TooManyRequests {
+        message: String,
+        retry_after_secs: u64,
+    },
+
+    #[error("Service unavailable: {0}")]
+    ServiceUnavailable(String),
 }
 
 impl IntoResponse for AppError {
@@ -58,11 +64,27 @@ impl IntoResponse for AppError {
                     "internal server error".to_string(),
                 )
             }
-            AppError::TooManyRequests(msg) => (StatusCode::TOO_MANY_REQUESTS, msg.clone()),
+            AppError::TooManyRequests { message, .. } => {
+                (StatusCode::TOO_MANY_REQUESTS, message.clone())
+            }
+            AppError::ServiceUnavailable(msg) => (StatusCode::SERVICE_UNAVAILABLE, msg.clone()),
         };
 
         let body = json!({ "error": message });
-        (status, Json(body)).into_response()
+        let mut response = (status, Json(body)).into_response();
+
+        // Without this the client has no way to back off other than guessing,
+        // and a retry storm is exactly what the limit is there to prevent.
+        if let AppError::TooManyRequests {
+            retry_after_secs, ..
+        } = &self
+        {
+            if let Ok(value) = HeaderValue::from_str(&retry_after_secs.to_string()) {
+                response.headers_mut().insert(header::RETRY_AFTER, value);
+            }
+        }
+
+        response
     }
 }
 

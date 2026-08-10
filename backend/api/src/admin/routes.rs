@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use shared_common::errors::AppResult;
 
-use crate::middleware::{admin_middleware, auth_middleware, AuthUser};
+use crate::middleware::{admin_middleware, AuthUser};
 use crate::state::AppState;
 
 pub fn router(state: Arc<AppState>) -> Router {
@@ -23,10 +23,9 @@ pub fn router(state: Arc<AppState>) -> Router {
         )
         .route("/admin/workspaces", get(list_workspaces))
         .route("/admin/workspaces/:ws_id", delete(delete_workspace))
-        .layer(middleware::from_fn(admin_middleware))
-        .layer(middleware::from_fn(auth_middleware));
+        .layer(middleware::from_fn(admin_middleware));
 
-    Router::new().merge(routes).with_state(state)
+    crate::protected(state, routes)
 }
 
 async fn health() -> Json<serde_json::Value> {

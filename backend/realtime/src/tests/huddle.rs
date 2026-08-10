@@ -8,6 +8,10 @@ use uuid::Uuid;
 
 use super::common::*;
 
+fn inbound() -> crate::ws_handler::InboundState {
+    crate::ws_handler::InboundState::new()
+}
+
 async fn collect_on(channel: &'static str, huddle_id: Uuid, window: Duration) -> Vec<Value> {
     let url = std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".into());
     let client = redis::Client::open(url).expect("redis client");
@@ -82,7 +86,7 @@ async fn huddle_offer_routes_to_signal_channel_not_lifecycle(pool: PgPool) {
         "sdp": { "type": "offer", "sdp": "v=0" },
     })
     .to_string();
-    crate::ws_handler::handle_client_message(&offer, &conn_a, a, &cm).await;
+    crate::ws_handler::handle_client_message(&offer, &conn_a, a, &cm, &mut inbound()).await;
 
     let on_signal = signal.await.expect("signal task");
     let on_lifecycle = lifecycle.await.expect("lifecycle task");
@@ -131,7 +135,7 @@ async fn huddle_member_joined_routes_to_lifecycle_channel(pool: PgPool) {
         "dm_partner_id": b,
     })
     .to_string();
-    crate::ws_handler::handle_client_message(&join, &conn_a, a, &cm).await;
+    crate::ws_handler::handle_client_message(&join, &conn_a, a, &cm, &mut inbound()).await;
 
     let on_lifecycle = lifecycle.await.expect("lifecycle task");
     let on_signal = signal.await.expect("signal task");
@@ -254,7 +258,7 @@ async fn huddle_join_member_returns_snapshot_with_self(pool: PgPool) {
         "dm_partner_id": b,
     })
     .to_string();
-    crate::ws_handler::handle_client_message(&text, &conn_id, a, &cm).await;
+    crate::ws_handler::handle_client_message(&text, &conn_id, a, &cm, &mut inbound()).await;
 
     let frames = drain_json(&mut rx);
     let snapshot = frames
@@ -292,7 +296,7 @@ async fn huddle_join_non_member_denied_no_snapshot(pool: PgPool) {
         "dm_partner_id": owner,
     })
     .to_string();
-    crate::ws_handler::handle_client_message(&text, &conn_id, outsider, &cm).await;
+    crate::ws_handler::handle_client_message(&text, &conn_id, outsider, &cm, &mut inbound()).await;
 
     let frames = drain_json(&mut rx);
     assert!(

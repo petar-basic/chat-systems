@@ -10,6 +10,7 @@ pub mod huddle;
 pub mod messaging;
 pub mod metrics;
 pub mod middleware;
+pub mod net;
 pub mod notifications;
 pub mod presence;
 pub mod rate_limit;
@@ -131,11 +132,24 @@ pub fn build_app(state: Arc<AppState>) -> Router {
         .layer(Extension(JwtSecret(jwt_secret)))
         .layer(shared_common::cors::cors_layer(&cors_origins))
         .layer(CompressionLayer::new())
-        .layer(DefaultBodyLimit::max(100 * 1024 * 1024))
+        .layer(DefaultBodyLimit::max(1024 * 1024))
         .layer(TimeoutLayer::new(Duration::from_secs(30)))
         .layer(TraceLayer::new_for_http())
         .layer(PropagateRequestIdLayer::x_request_id())
         .layer(SetRequestIdLayer::x_request_id(MakeRequestUuid))
+}
+
+/// Authentication and the write rate limit belong together: a limit you have to
+/// remember to add is a limit that will be missing on the next feature. Every
+/// feature router goes through here.
+pub fn protected(state: Arc<AppState>, routes: Router<Arc<AppState>>) -> Router {
+    routes
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            rate_limit::write_rate_limit,
+        ))
+        .layer(axum::middleware::from_fn(middleware::auth_middleware))
+        .with_state(state)
 }
 
 pub async fn supervise<F, Fut>(name: &str, consumer: F)

@@ -644,3 +644,38 @@ async fn an_avatar_stays_readable_to_the_workspace(pool: PgPool) {
         "but not for somebody outside the workspace"
     );
 }
+
+#[sqlx::test(migrations = "../migrations")]
+async fn an_upload_over_the_cap_is_refused_and_leaves_nothing_behind(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (alice_id, _, alice) = seed_and_login(&app, &state, "cap-alice", false).await;
+    let ws_id = seed_workspace(&state, alice_id, "Upload Cap WS").await;
+
+    // `test_config` caps uploads at 4 KiB so this stays a unit-sized test.
+    let oversized = vec![b'x'; (state.config.max_upload_bytes as usize) + 1];
+    let boundary = "X-CAP-BOUNDARY";
+    let body = multipart(boundary, "big.bin", "application/octet-stream", &oversized);
+    let request = Request::builder()
+        .method("POST")
+        .uri(format!("/api/files/upload/{ws_id}"))
+        .header(header::AUTHORIZATION, format!("Bearer {alice}"))
+        .header(
+            header::CONTENT_TYPE,
+            format!("multipart/form-data; boundary={boundary}"),
+        )
+        .body(Body::from(body))
+        .unwrap();
+    let response = app.clone().oneshot(request).await.unwrap();
+    assert_eq!(
+        response.status(),
+        StatusCode::BAD_REQUEST,
+        "a file over the cap must be refused"
+    );
+
+    let rows: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM files WHERE workspace_id = $1")
+        .bind(ws_id)
+        .fetch_one(&state.pool)
+        .await
+        .expect("count files");
+    assert_eq!(rows, 0, "a refused upload must not leave a row behind");
+}

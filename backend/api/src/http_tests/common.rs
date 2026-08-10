@@ -55,6 +55,8 @@ pub fn test_config() -> AppConfig {
         login_attempts_per_email: 10,
         login_attempts_per_ip: 30,
         login_attempts_window_secs: 900,
+        trusted_proxies: "127.0.0.0/8".into(),
+        max_upload_bytes: 4096,
     }
 }
 

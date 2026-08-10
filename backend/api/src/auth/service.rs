@@ -589,6 +589,8 @@ mod tests {
             stun_urls: String::new(),
             turn_ttl_secs: 43200,
             pg_pool_max: 5,
+            trusted_proxies: "127.0.0.0/8".into(),
+            max_upload_bytes: 100 * 1024 * 1024,
             login_attempts_per_email: 10,
             login_attempts_per_ip: 30,
             login_attempts_window_secs: 900,
