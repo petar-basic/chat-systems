@@ -2,14 +2,14 @@ use std::sync::Arc;
 
 use axum::extract::{Path, Query, State};
 use axum::routing::{delete, get, patch, post};
-use axum::{middleware, Json, Router};
+use axum::{Json, Router};
 use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
 
 use super::models::*;
 use crate::authz;
-use crate::middleware::{auth_middleware, AuthUser};
+use crate::middleware::AuthUser;
 use crate::state::AppState;
 use crate::workspace::models::WorkspaceRole;
 
@@ -31,14 +31,9 @@ pub fn router(state: Arc<AppState>) -> Router {
             "/messages/:msg_id/reactions/:emoji",
             delete(remove_reaction),
         )
-        .route("/search", get(search_messages))
-        .layer(middleware::from_fn_with_state(
-            state.clone(),
-            crate::rate_limit::write_rate_limit,
-        ))
-        .layer(middleware::from_fn(auth_middleware));
+        .route("/search", get(search_messages));
 
-    Router::new().merge(routes).with_state(state)
+    crate::protected(state, routes)
 }
 
 async fn list_messages(

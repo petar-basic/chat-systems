@@ -6,6 +6,10 @@ use uuid::Uuid;
 
 use super::common::*;
 
+fn inbound() -> crate::ws_handler::InboundState {
+    crate::ws_handler::InboundState::new()
+}
+
 async fn await_typing_for_channel(channel_id: Uuid) -> Option<serde_json::Value> {
     let url = std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".into());
     let client = redis::Client::open(url).expect("redis client");
@@ -54,7 +58,7 @@ async fn subscribe_member_workspace_sends_presence_batch(pool: PgPool) {
     let (conn_id, mut rx) = fake_conn(&cm, user);
 
     let text = serde_json::json!({ "type": "subscribe", "workspace_id": ws }).to_string();
-    crate::ws_handler::handle_client_message(&text, &conn_id, user, &cm).await;
+    crate::ws_handler::handle_client_message(&text, &conn_id, user, &cm, &mut inbound()).await;
 
     let frames = drain_json(&mut rx);
     let batch = frames
@@ -86,7 +90,7 @@ async fn subscribe_non_member_workspace_denied(pool: PgPool) {
     let (conn_id, mut rx) = fake_conn(&cm, outsider);
 
     let text = serde_json::json!({ "type": "subscribe", "workspace_id": ws }).to_string();
-    crate::ws_handler::handle_client_message(&text, &conn_id, outsider, &cm).await;
+    crate::ws_handler::handle_client_message(&text, &conn_id, outsider, &cm, &mut inbound()).await;
 
     let frames = drain_json(&mut rx);
     assert!(
@@ -107,7 +111,7 @@ async fn subscribe_member_then_workspace_broadcast_reaches_conn(pool: PgPool) {
     let (conn_id, mut rx) = fake_conn(&cm, user);
 
     let text = serde_json::json!({ "type": "subscribe", "workspace_id": ws }).to_string();
-    crate::ws_handler::handle_client_message(&text, &conn_id, user, &cm).await;
+    crate::ws_handler::handle_client_message(&text, &conn_id, user, &cm, &mut inbound()).await;
     let _ = drain_json(&mut rx);
 
     cm.broadcast_to_workspace(ws, r#"{"type":"workspace.ping"}"#)
@@ -130,7 +134,7 @@ async fn channel_join_member_then_broadcast_reaches_conn(pool: PgPool) {
     let (conn_id, mut rx) = fake_conn(&cm, user);
 
     let text = serde_json::json!({ "type": "channel.join", "channel_id": ch }).to_string();
-    crate::ws_handler::handle_client_message(&text, &conn_id, user, &cm).await;
+    crate::ws_handler::handle_client_message(&text, &conn_id, user, &cm, &mut inbound()).await;
 
     cm.broadcast_to_channel(ch, r#"{"type":"message.new"}"#)
         .await;
@@ -157,7 +161,7 @@ async fn channel_join_non_member_denied_no_broadcast(pool: PgPool) {
     let (conn_id, mut rx) = fake_conn(&cm, outsider);
 
     let text = serde_json::json!({ "type": "channel.join", "channel_id": ch }).to_string();
-    crate::ws_handler::handle_client_message(&text, &conn_id, outsider, &cm).await;
+    crate::ws_handler::handle_client_message(&text, &conn_id, outsider, &cm, &mut inbound()).await;
 
     cm.broadcast_to_channel(ch, r#"{"type":"message.new"}"#)
         .await;
@@ -177,10 +181,10 @@ async fn channel_leave_stops_broadcasts(pool: PgPool) {
     let (conn_id, mut rx) = fake_conn(&cm, user);
 
     let join = serde_json::json!({ "type": "channel.join", "channel_id": ch }).to_string();
-    crate::ws_handler::handle_client_message(&join, &conn_id, user, &cm).await;
+    crate::ws_handler::handle_client_message(&join, &conn_id, user, &cm, &mut inbound()).await;
 
     let leave = serde_json::json!({ "type": "channel.leave", "channel_id": ch }).to_string();
-    crate::ws_handler::handle_client_message(&leave, &conn_id, user, &cm).await;
+    crate::ws_handler::handle_client_message(&leave, &conn_id, user, &cm, &mut inbound()).await;
 
     cm.broadcast_to_channel(ch, r#"{"type":"message.new"}"#)
         .await;
@@ -202,7 +206,7 @@ async fn typing_start_member_publishes(pool: PgPool) {
     settle().await;
 
     let text = serde_json::json!({ "type": "typing.start", "channel_id": ch }).to_string();
-    crate::ws_handler::handle_client_message(&text, &conn_id, user, &cm).await;
+    crate::ws_handler::handle_client_message(&text, &conn_id, user, &cm, &mut inbound()).await;
 
     let env = listener
         .await
@@ -243,7 +247,7 @@ async fn typing_start_non_member_denied_no_publish(pool: PgPool) {
     settle().await;
 
     let text = serde_json::json!({ "type": "typing.start", "channel_id": ch }).to_string();
-    crate::ws_handler::handle_client_message(&text, &conn_id, outsider, &cm).await;
+    crate::ws_handler::handle_client_message(&text, &conn_id, outsider, &cm, &mut inbound()).await;
 
     let env = listener.await.expect("listener task");
     assert!(
@@ -262,7 +266,7 @@ async fn typing_stop_member_publishes_false(pool: PgPool) {
     settle().await;
 
     let text = serde_json::json!({ "type": "typing.stop", "channel_id": ch }).to_string();
-    crate::ws_handler::handle_client_message(&text, &conn_id, user, &cm).await;
+    crate::ws_handler::handle_client_message(&text, &conn_id, user, &cm, &mut inbound()).await;
 
     let env = listener
         .await
@@ -282,7 +286,14 @@ async fn ping_replies_pong(pool: PgPool) {
     let user = seed_user(cm.db()).await;
     let (conn_id, mut rx) = fake_conn(&cm, user);
 
-    crate::ws_handler::handle_client_message(r#"{"type":"ping"}"#, &conn_id, user, &cm).await;
+    crate::ws_handler::handle_client_message(
+        r#"{"type":"ping"}"#,
+        &conn_id,
+        user,
+        &cm,
+        &mut inbound(),
+    )
+    .await;
 
     let frame = next_json(&mut rx).expect("ping should enqueue a frame");
     assert_eq!(frame.get("type").and_then(|v| v.as_str()), Some("pong"));
@@ -294,14 +305,68 @@ async fn invalid_json_is_ignored(pool: PgPool) {
     let user = seed_user(cm.db()).await;
     let (conn_id, mut rx) = fake_conn(&cm, user);
 
-    crate::ws_handler::handle_client_message("{not json", &conn_id, user, &cm).await;
-    crate::ws_handler::handle_client_message(r#"{"type":"totally.unknown"}"#, &conn_id, user, &cm)
+    crate::ws_handler::handle_client_message("{not json", &conn_id, user, &cm, &mut inbound())
         .await;
-    crate::ws_handler::handle_client_message(r#"{"foo":"bar"}"#, &conn_id, user, &cm).await;
+    crate::ws_handler::handle_client_message(
+        r#"{"type":"totally.unknown"}"#,
+        &conn_id,
+        user,
+        &cm,
+        &mut inbound(),
+    )
+    .await;
+    crate::ws_handler::handle_client_message(
+        r#"{"foo":"bar"}"#,
+        &conn_id,
+        user,
+        &cm,
+        &mut inbound(),
+    )
+    .await;
 
     let frames = drain_json(&mut rx);
     assert!(
         frames.is_empty(),
         "malformed/unknown messages must enqueue nothing, got: {frames:?}"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn repeated_typing_for_the_same_channel_is_coalesced(pool: PgPool) {
+    let cm = manager(pool).await;
+    let (user, _ws, ch) = seed_member_in_channel(cm.db()).await;
+    let (conn_id, _rx) = fake_conn(&cm, user);
+    let mut state = inbound();
+
+    let text = serde_json::json!({ "type": "typing.start", "channel_id": ch }).to_string();
+
+    let listener = tokio::spawn(await_typing_for_channel(ch));
+    settle().await;
+    crate::ws_handler::handle_client_message(&text, &conn_id, user, &cm, &mut state).await;
+    listener
+        .await
+        .expect("listener task")
+        .expect("the first typing.start publishes");
+
+    // A client re-sends typing.start every few keystrokes. Republishing each one
+    // costs a membership lookup and a fan-out for no change in what anyone sees.
+    let listener = tokio::spawn(await_typing_for_channel(ch));
+    settle().await;
+    crate::ws_handler::handle_client_message(&text, &conn_id, user, &cm, &mut state).await;
+    assert!(
+        listener.await.expect("listener task").is_none(),
+        "a repeat inside the coalesce window must not reach Redis"
+    );
+
+    // Stopping clears the window, so the next start is a real signal again.
+    let stop = serde_json::json!({ "type": "typing.stop", "channel_id": ch }).to_string();
+    crate::ws_handler::handle_client_message(&stop, &conn_id, user, &cm, &mut state).await;
+
+    let listener = tokio::spawn(await_typing_for_channel(ch));
+    settle().await;
+    crate::ws_handler::handle_client_message(&text, &conn_id, user, &cm, &mut state).await;
+    assert!(
+        listener.await.expect("listener task").is_some(),
+        "typing again after a stop publishes"
     );
 }

@@ -47,6 +47,10 @@ pub struct AppConfig {
     pub login_attempts_per_email: u64,
     pub login_attempts_per_ip: u64,
     pub login_attempts_window_secs: u64,
+
+    pub trusted_proxies: String,
+
+    pub max_upload_bytes: u64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -100,6 +104,14 @@ impl AppConfig {
             login_attempts_per_email: parse_env("LOGIN_ATTEMPTS_PER_EMAIL", 10),
             login_attempts_per_ip: parse_env("LOGIN_ATTEMPTS_PER_IP", 30),
             login_attempts_window_secs: parse_env("LOGIN_ATTEMPTS_WINDOW_SECS", 900),
+            // The docker bridge ranges plus loopback: where our own nginx and a
+            // host-run dev proxy actually sit.
+            trusted_proxies: env_or(
+                "TRUSTED_PROXIES",
+                "127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16",
+            ),
+            // Keep `client_max_body_size` in docker/nginx.conf in step with this.
+            max_upload_bytes: parse_env("MAX_UPLOAD_BYTES", 100 * 1024 * 1024),
         };
         if config.jwt_secret == "dev-secret-change-me-in-production" || config.jwt_secret.len() < 32
         {

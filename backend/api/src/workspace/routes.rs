@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::extract::{Path, Query, State};
 use axum::routing::{delete, get, patch, post};
-use axum::{middleware, Json, Router};
+use axum::{Json, Router};
 use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
@@ -10,7 +10,7 @@ use shared_common::validation;
 
 use super::models::*;
 use crate::authz;
-use crate::middleware::{auth_middleware, AuthUser};
+use crate::middleware::AuthUser;
 use crate::state::AppState;
 
 pub fn router(state: Arc<AppState>) -> Router {
@@ -56,10 +56,9 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route(
             "/channels/:ch_id/members/:user_id",
             delete(remove_channel_member),
-        )
-        .layer(middleware::from_fn(auth_middleware));
+        );
 
-    Router::new().merge(routes).with_state(state)
+    crate::protected(state, routes)
 }
 
 async fn list_workspaces(

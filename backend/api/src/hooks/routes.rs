@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::extract::{Path, State};
 use axum::routing::{delete, get, post};
-use axum::{middleware, Json, Router};
+use axum::{Json, Router};
 use rand::RngCore;
 use uuid::Uuid;
 
@@ -11,7 +11,7 @@ use shared_common::errors::{AppError, AppResult};
 use super::models::*;
 use super::repo::NewReminder;
 use crate::authz;
-use crate::middleware::{auth_middleware, AuthUser};
+use crate::middleware::AuthUser;
 use crate::state::AppState;
 use crate::workspace::models::WorkspaceRole;
 
@@ -24,17 +24,15 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/hooks/:hook_id/reveal", post(reveal_hook))
         .route("/hooks/:hook_id/rotate", post(rotate_hook))
         .route("/workspaces/:ws_id/reminders", get(list_reminders))
-        .route("/workspaces/:ws_id/reminders", post(create_reminder))
-        .layer(middleware::from_fn(auth_middleware));
+        .route("/workspaces/:ws_id/reminders", post(create_reminder));
 
     // The incoming webhook is authenticated by its URL token, not a session, so
     // it must NOT sit behind auth_middleware.
     let public = Router::new().route("/hooks/incoming/:token", post(incoming_webhook));
 
     Router::new()
-        .merge(protected)
-        .merge(public)
-        .with_state(state)
+        .merge(crate::protected(state.clone(), protected))
+        .merge(public.with_state(state))
 }
 
 fn generate_token() -> String {
@@ -291,14 +289,36 @@ async fn create_reminder(
 async fn incoming_webhook(
     State(state): State<Arc<AppState>>,
     Path(token): Path<String>,
+    peer: Option<axum::extract::ConnectInfo<std::net::SocketAddr>>,
+    headers: axum::http::HeaderMap,
     Json(payload): Json<IncomingWebhookPayload>,
 ) -> AppResult<Json<serde_json::Value>> {
     let mut conn = state.redis.clone();
+
+    // Bound the source before the database is touched. Keying only on the token
+    // means a caller who varies the token gets a fresh bucket every request, and
+    // each one still costs a lookup.
+    if let Some(ip) = crate::net::client_ip(
+        &headers,
+        peer.map(|p| p.0),
+        &crate::net::parse_trusted_proxies(&state.config.trusted_proxies),
+    ) {
+        crate::rate_limit::enforce(
+            &mut conn,
+            &format!("rate_limit:hook_ip:{ip}"),
+            120,
+            60,
+            crate::rate_limit::LimiterFailure::Open,
+        )
+        .await?;
+    }
+
     crate::rate_limit::enforce(
         &mut conn,
         &format!("rate_limit:hook_incoming:{token}"),
         60,
         60,
+        crate::rate_limit::LimiterFailure::Open,
     )
     .await?;
 

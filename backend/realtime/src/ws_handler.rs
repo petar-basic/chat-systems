@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use axum::extract::ws::{Message, WebSocket};
+use axum::extract::ws::{CloseFrame, Message, WebSocket};
 use futures_util::stream::{SplitSink, StreamExt};
 use futures_util::SinkExt;
 use tokio::sync::mpsc;
@@ -13,6 +13,66 @@ use crate::connection_manager::{ConnectionManager, WRITER_CHANNEL_CAP};
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(30);
 const PONG_TIMEOUT: Duration = Duration::from_secs(90);
+
+/// Inbound frames are cheap for the client and not for us: every subscribe,
+/// join and typing frame costs a database round trip. Bound them per socket.
+const INBOUND_PER_SEC: f32 = 20.0;
+const INBOUND_BURST: f32 = 40.0;
+const TYPING_COALESCE: Duration = Duration::from_secs(3);
+const INBOUND_FLOOD_CLOSE_CODE: u16 = 4002;
+
+pub(crate) struct InboundState {
+    tokens: f32,
+    last_refill: Instant,
+    last_typing: std::collections::HashMap<Uuid, Instant>,
+}
+
+impl InboundState {
+    pub(crate) fn new() -> Self {
+        Self {
+            tokens: INBOUND_BURST,
+            last_refill: Instant::now(),
+            last_typing: std::collections::HashMap::new(),
+        }
+    }
+
+    fn allow(&mut self) -> bool {
+        let now = Instant::now();
+        self.tokens = (self.tokens
+            + now.duration_since(self.last_refill).as_secs_f32() * INBOUND_PER_SEC)
+            .min(INBOUND_BURST);
+        self.last_refill = now;
+        if self.tokens < 1.0 {
+            return false;
+        }
+        self.tokens -= 1.0;
+        true
+    }
+
+    /// A client that keeps typing re-sends `typing.start` every few keystrokes.
+    /// Republishing each one costs a membership lookup and a fan-out for no
+    /// change in what anyone sees.
+    fn should_publish_typing(&mut self, channel_id: Uuid) -> bool {
+        let now = Instant::now();
+        match self.last_typing.get(&channel_id) {
+            Some(last) if now.duration_since(*last) < TYPING_COALESCE => false,
+            _ => {
+                self.last_typing.insert(channel_id, now);
+                true
+            }
+        }
+    }
+
+    fn forget_typing(&mut self, channel_id: Uuid) {
+        self.last_typing.remove(&channel_id);
+    }
+}
+
+impl Default for InboundState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 fn spawn_writer(
     mut sink: SplitSink<WebSocket, Message>,
@@ -82,6 +142,7 @@ pub async fn handle_ws(socket: WebSocket, claims: crate::Claims, cm: Arc<Connect
     heartbeat.tick().await;
 
     let mut last_pong = Instant::now();
+    let mut inbound = InboundState::new();
     let token_deadline = exp_to_deadline(exp);
 
     loop {
@@ -90,7 +151,19 @@ pub async fn handle_ws(socket: WebSocket, claims: crate::Claims, cm: Arc<Connect
                 match maybe_msg {
                     Some(Ok(Message::Text(text))) => {
                         last_pong = Instant::now();
-                        handle_client_message(&text, &conn_id, user_id, &cm).await;
+                        if !inbound.allow() {
+                            metrics::counter!("realtime_inbound_dropped_total").increment(1);
+                            warn!(
+                                "WS inbound flood, closing connection user={} conn={}",
+                                user_id, conn_id
+                            );
+                            let _ = tx.try_send(Message::Close(Some(CloseFrame {
+                                code: INBOUND_FLOOD_CLOSE_CODE,
+                                reason: "too many messages".into(),
+                            })));
+                            break;
+                        }
+                        handle_client_message(&text, &conn_id, user_id, &cm, &mut inbound).await;
                     }
                     Some(Ok(Message::Pong(_))) => {
                         last_pong = Instant::now();
@@ -180,6 +253,7 @@ pub(crate) async fn handle_client_message(
     conn_id: &Uuid,
     user_id: Uuid,
     cm: &Arc<ConnectionManager>,
+    inbound: &mut InboundState,
 ) {
     let msg: serde_json::Value = match serde_json::from_str(text) {
         Ok(v) => v,
@@ -236,6 +310,7 @@ pub(crate) async fn handle_client_message(
         "channel.leave" => {
             if let Some(ch_id) = msg.get("channel_id").and_then(|v| v.as_str()) {
                 if let Ok(ch_id) = ch_id.parse::<Uuid>() {
+                    inbound.forget_typing(ch_id);
                     cm.leave_channel(conn_id, ch_id);
                     info!("User {} left channel {}", user_id, ch_id);
                 }
@@ -244,6 +319,9 @@ pub(crate) async fn handle_client_message(
         "typing.start" => {
             if let Some(ch_id) = msg.get("channel_id").and_then(|v| v.as_str()) {
                 if let Ok(ch_id) = ch_id.parse::<Uuid>() {
+                    if !inbound.should_publish_typing(ch_id) {
+                        return;
+                    }
                     if !cm.is_channel_member(ch_id, user_id).await {
                         warn!(
                             "Denied typing.start: user {} is not a member of channel {}",
@@ -258,6 +336,7 @@ pub(crate) async fn handle_client_message(
         "typing.stop" => {
             if let Some(ch_id) = msg.get("channel_id").and_then(|v| v.as_str()) {
                 if let Ok(ch_id) = ch_id.parse::<Uuid>() {
+                    inbound.forget_typing(ch_id);
                     if !cm.is_channel_member(ch_id, user_id).await {
                         warn!(
                             "Denied typing.stop: user {} is not a member of channel {}",

@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
 use axum::body::Body;
-use axum::extract::{Multipart, Path, Query, State};
+use axum::extract::{DefaultBodyLimit, Multipart, Path, Query, State};
 use axum::http::header;
 use axum::response::Response;
 use axum::routing::{delete, get, post};
-use axum::{middleware, Json, Router};
+use axum::{Json, Router};
 use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
@@ -13,10 +13,8 @@ use shared_common::errors::{AppError, AppResult};
 use super::models::{FileRecord, FileUploadResponse};
 use super::repo::NewFile;
 use crate::authz;
-use crate::middleware::{auth_middleware, AuthUser};
+use crate::middleware::AuthUser;
 use crate::state::AppState;
-
-const MAX_FILE_SIZE: usize = 100 * 1024 * 1024;
 
 fn sanitize_filename(name: &str) -> String {
     let basename = name.rsplit(['/', '\\']).next().unwrap_or("");
@@ -40,18 +38,18 @@ fn sanitize_filename(name: &str) -> String {
 }
 
 pub fn router(state: Arc<AppState>) -> Router {
-    Router::new()
-        .route("/files/upload/:ws_id", post(upload_file))
+    let routes = Router::new()
+        .route(
+            "/files/upload/:ws_id",
+            // The generous body limit belongs here and nowhere else.
+            post(upload_file).layer(DefaultBodyLimit::disable()),
+        )
         .route("/files/download/*key", get(download_file))
         .route("/files/:file_id", get(get_file_meta))
         .route("/files/:file_id", delete(delete_file))
-        .route("/files/workspace/:ws_id", get(list_files))
-        .layer(middleware::from_fn_with_state(
-            state.clone(),
-            crate::rate_limit::write_rate_limit,
-        ))
-        .layer(middleware::from_fn(auth_middleware))
-        .with_state(state)
+        .route("/files/workspace/:ws_id", get(list_files));
+
+    crate::protected(state, routes)
 }
 
 async fn upload_file(
@@ -64,7 +62,7 @@ async fn upload_file(
 
     let mut responses = Vec::new();
 
-    while let Some(field) = multipart
+    while let Some(mut field) = multipart
         .next_field()
         .await
         .map_err(|e| AppError::BadRequest(format!("Invalid multipart: {e}")))?
@@ -75,26 +73,51 @@ async fn upload_file(
             .content_type()
             .unwrap_or("application/octet-stream")
             .to_string();
-        let data = field
-            .bytes()
-            .await
-            .map_err(|e| AppError::BadRequest(format!("Failed to read file data: {e}")))?;
+        let storage_key = format!("{}/{}/{}", ws_id, Uuid::new_v4(), filename);
+        let max_bytes = state.config.max_upload_bytes;
 
-        if data.len() > MAX_FILE_SIZE {
-            return Err(AppError::BadRequest(format!(
-                "File too large: {} bytes (max {} bytes)",
-                data.len(),
-                MAX_FILE_SIZE
-            )));
+        // Stream to storage while counting. Reading the field into memory first
+        // and checking the size afterwards meant the check never rejected
+        // anything the router had already accepted, and a handful of concurrent
+        // uploads could take the process out on memory alone.
+        let mut sink = state
+            .file_storage
+            .begin_upload(&storage_key, &content_type)
+            .await?;
+        let mut written: u64 = 0;
+        loop {
+            let chunk = match field.chunk().await {
+                Ok(Some(chunk)) => chunk,
+                Ok(None) => break,
+                Err(e) => {
+                    let _ = sink.abort().await;
+                    return Err(AppError::BadRequest(format!(
+                        "Failed to read file data: {e}"
+                    )));
+                }
+            };
+
+            written += chunk.len() as u64;
+            if written > max_bytes {
+                let _ = sink.abort().await;
+                return Err(AppError::BadRequest(format!(
+                    "File too large (max {max_bytes} bytes)"
+                )));
+            }
+
+            if let Err(e) = sink.write_chunk(chunk).await {
+                let _ = sink.abort().await;
+                return Err(e);
+            }
         }
 
-        let size = data.len() as i64;
-        let storage_key = format!("{}/{}/{}", ws_id, Uuid::new_v4(), filename);
-
-        state
-            .file_storage
-            .upload(&storage_key, data.to_vec(), &content_type)
-            .await?;
+        let size = match sink.finish().await {
+            Ok(size) => size as i64,
+            Err(e) => {
+                let _ = state.file_storage.delete(&storage_key).await;
+                return Err(e);
+            }
+        };
 
         let record = state
             .file_repo

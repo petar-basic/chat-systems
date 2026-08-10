@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::extract::{Path, Query, State};
 use axum::routing::{delete, get, patch, post};
-use axum::{middleware, Json, Router};
+use axum::{Json, Router};
 use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
@@ -10,13 +10,13 @@ use shared_common::validation;
 
 use super::models::*;
 use crate::authz;
-use crate::middleware::{auth_middleware, AuthUser};
+use crate::middleware::AuthUser;
 use crate::state::AppState;
 
 pub const MAX_GROUP_PARTICIPANTS: usize = 9;
 
 pub fn router(state: Arc<AppState>) -> Router {
-    Router::new()
+    let routes = Router::new()
         .route("/workspaces/:ws_id/conversations", get(list_conversations))
         .route(
             "/workspaces/:ws_id/conversations",
@@ -34,9 +34,9 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route(
             "/conversations/messages/:msg_id/reactions/:emoji",
             delete(remove_reaction),
-        )
-        .layer(middleware::from_fn(auth_middleware))
-        .with_state(state)
+        );
+
+    crate::protected(state, routes)
 }
 
 async fn publish_conversation_event(

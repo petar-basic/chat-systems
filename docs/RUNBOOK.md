@@ -38,6 +38,19 @@ stopped working".
 message that posted them. Anything it cannot attribute becomes readable only by its
 uploader — that is the intended fail-closed default, not data loss; the file is untouched.
 
+## Rate limits and upload size
+
+Writes are limited per user, per class of action: messages 120/min, reactions 240/min,
+invites 20/hour, workspaces 5/hour, channels 30/hour, everything else 120/min. Auth paths
+(`/auth/login`, `/auth/forgot-password`) **fail closed** — if Redis is unreachable they
+return 503 rather than verifying a password, so a Redis outage cannot silently remove
+brute-force protection. Watch `rate_limit_backend_failures_total{policy="closed"}`: a
+non-zero rate means logins are failing for infrastructure reasons, not credentials.
+
+`MAX_UPLOAD_BYTES` (default 100 MiB) caps uploads and is enforced while streaming, so an
+oversized file never lands in memory. `client_max_body_size` in `docker/nginx.conf` must
+move with it — nginx rejects first, and a mismatch surfaces as a bare 413.
+
 ## What gets backed up
 
 | Data | Where it lives | Backed up by | Backup volume |

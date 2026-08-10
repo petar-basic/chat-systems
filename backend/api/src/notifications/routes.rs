@@ -2,14 +2,14 @@ use std::sync::Arc;
 
 use axum::extract::{Path, Query, State};
 use axum::routing::{get, post};
-use axum::{middleware, Json, Router};
+use axum::{Json, Router};
 use uuid::Uuid;
 
 use shared_common::errors::AppResult;
 
 use super::models::*;
 use crate::authz;
-use crate::middleware::{auth_middleware, AuthUser};
+use crate::middleware::AuthUser;
 use crate::state::AppState;
 
 pub fn router(state: Arc<AppState>) -> Router {
@@ -28,10 +28,9 @@ pub fn router(state: Arc<AppState>) -> Router {
             "/workspaces/:ws_id/notifications/unread-count",
             get(unread_count),
         )
-        .route("/notifications/dnd", get(get_dnd).patch(set_dnd))
-        .layer(middleware::from_fn(auth_middleware));
+        .route("/notifications/dnd", get(get_dnd).patch(set_dnd));
 
-    Router::new().merge(routes).with_state(state)
+    crate::protected(state, routes)
 }
 
 async fn list_notifications(

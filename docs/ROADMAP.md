@@ -10,8 +10,8 @@ what it changed lives in the git history and in the docs it touched. Read
 [the index](./tickets/INDEX.md) for the dependency map and the conflict table; this page
 is the summary and the reasoning behind the sequence.
 
-**Waves 0 and 1 are shipped.** Next ticket:
-[CS-011](./tickets/CS-011-streaming-upload.md).
+**Waves 0, 1 and 2 are shipped.** Next ticket:
+[CS-016](./tickets/CS-016-uniform-login-failure.md).
 
 ## How the order was chosen
 
@@ -132,31 +132,47 @@ re-derived visibility in SQL and dropped that clause, so a guest could read via
 `/api/search` what they were refused via `/channels/:id/messages`. The rule is now passed
 down from `authz` instead of restated.
 
-## Wave 2 — Abuse and resource limits
+## Wave 2 — Abuse and resource limits ✅ shipped
 
-### [CS-011](./tickets/CS-011-streaming-upload.md) — Streaming upload with an enforced cap
-**Today:** the whole multipart field is read into memory before the size check, so the check
-never rejects anything the 100 MiB router limit accepted. The production API container is
-capped at 512 MB.
+### [CS-011] Streaming upload with an enforced cap
+The whole multipart field was read into memory and *then* compared against the limit, so
+the check never rejected anything the router had already accepted — and the production API
+container is capped at 512 MB. Uploads now stream through an `UploadSink`: the local
+backend writes straight to disk, S3 assembles the object from 8 MiB parts, and the byte
+count is enforced as it goes. A refused or failed upload removes what it had already
+written and leaves no row behind. The 100 MiB body limit now applies only to the upload
+route; everything else is capped at 1 MiB, so a 100 MiB JSON body can no longer be posted
+to `/api/auth/login`. `MAX_UPLOAD_BYTES` makes the cap configurable.
 
-### [CS-012](./tickets/CS-012-write-rate-limit-coverage.md) — Rate limit every mutating router
-**Today:** the write limiter is attached to `messaging` and `files` only. Sending direct
-messages, creating invites, channels and workspaces are unlimited. Per-router opt-in is the
-bug.
+### [CS-012] Rate limit on every mutating route
+The write limiter was attached to two of ten routers, so direct messages, invites,
+channels and workspaces were unlimited. Authentication and the limiter are now applied
+together by `crate::protected`, so a new feature cannot be wired up without one. The
+budget follows the action rather than one global number: messages 120/min, reactions
+240/min, invites 20/hour, workspaces 5/hour, channels 30/hour.
 
-### [CS-013](./tickets/CS-013-fail-closed-rate-limit.md) — Fail closed on auth paths
-**Today:** the limiter allows the request when Redis errors. Correct for message sending,
-wrong for login — a Redis outage silently removes brute-force protection.
+### [CS-013] Fail closed where it matters
+The limiter swallowed Redis errors and allowed the request. That is right for sending a
+message and wrong for `/auth/login`, where it was the only thing between an attacker and
+unlimited guesses — a Redis outage silently removed brute-force protection. The policy is
+now a property of the call site, auth paths return 503 rather than verifying the password,
+and `rate_limit_backend_failures_total` makes the outage visible. `429` responses carry
+`Retry-After`.
 
-### [CS-014](./tickets/CS-014-ws-inbound-rate-limit.md) — WebSocket inbound limits
-**Today:** the socket message loop has no throughput limit and most arms hit the database.
-One client can saturate the connection pool with `typing.start`.
+### [CS-014] Bounded WebSocket input
+The socket loop had no throughput limit and most arms hit the database, so one client
+could saturate the connection pool with `typing.start`. Frames are now drawn from a
+per-connection token bucket, repeated typing for the same channel is coalesced instead of
+republished, and frame size is capped. No membership caching — a cache in an
+authorization path is what CS-005a was.
 
-### [CS-015](./tickets/CS-015-incoming-hook-ip-limit.md) — Per-IP limit for incoming webhooks
-**Today:** the only unauthenticated mutating endpoint keys its limiter on the URL token, so
-varying the token gives a fresh bucket per request — each of which still queries Postgres.
-
----
+### [CS-015] Per-IP limit for incoming webhooks
+The only unauthenticated mutating endpoint keyed its limit on the token from the URL, so
+varying the token bought a fresh bucket per request and each one still cost a database
+lookup. It is now bounded per source address before the database is touched. That address
+is only taken from `X-Forwarded-For` when the request actually arrived from one of our own
+proxies (`TRUSTED_PROXIES`) — previously the header was believed unconditionally, so a
+caller could set it themselves and defeat the limit.
 
 ## Wave 3 — Authentication hardening
 

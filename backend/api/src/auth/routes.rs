@@ -4,12 +4,12 @@ use axum::extract::{Path, State};
 use axum::http::header::AUTHORIZATION;
 use axum::http::HeaderMap;
 use axum::routing::{get, patch, post};
-use axum::{middleware, Json, Router};
+use axum::{Json, Router};
 use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
 use shared_common::errors::{AppError, AppResult};
 
 use super::models::*;
-use crate::middleware::{auth_middleware, AuthUser};
+use crate::middleware::AuthUser;
 use crate::state::AppState;
 use crate::workspace::models::{ChannelRole, WorkspaceRole};
 use crate::workspace::repo::WorkspaceRepo;
@@ -18,8 +18,7 @@ pub fn router(state: Arc<AppState>) -> Router {
     let protected = Router::new()
         .route("/users/me", get(get_me))
         .route("/users/me", patch(update_me))
-        .route("/users/me/password", patch(change_password))
-        .layer(middleware::from_fn(auth_middleware));
+        .route("/users/me/password", patch(change_password));
 
     let public = Router::new()
         .route("/auth/login", post(login))
@@ -38,21 +37,25 @@ pub fn router(state: Arc<AppState>) -> Router {
         );
 
     Router::new()
-        .merge(public)
-        .merge(protected)
-        .with_state(state)
+        .merge(public.with_state(state.clone()))
+        .merge(crate::protected(state, protected))
 }
 
 async fn login(
     State(state): State<Arc<AppState>>,
     jar: CookieJar,
+    peer: Option<axum::extract::ConnectInfo<std::net::SocketAddr>>,
     headers: HeaderMap,
     Json(req): Json<LoginRequest>,
 ) -> AppResult<(CookieJar, Json<AuthSession>)> {
     let key = format!("rate_limit:login:{}", req.email.to_lowercase());
     let window = state.config.login_attempts_window_secs;
     check_rate_limit(&state, &key, state.config.login_attempts_per_email, window).await?;
-    if let Some(ip) = client_ip(&headers) {
+    if let Some(ip) = crate::net::client_ip(
+        &headers,
+        peer.map(|p| p.0),
+        &crate::net::parse_trusted_proxies(&state.config.trusted_proxies),
+    ) {
         check_rate_limit(
             &state,
             &format!("rate_limit:login_ip:{ip}"),
@@ -319,21 +322,14 @@ async fn check_rate_limit(
     window_secs: u64,
 ) -> AppResult<()> {
     let mut conn = state.redis.clone();
-    crate::rate_limit::enforce(&mut conn, key, max_attempts, window_secs).await
-}
-
-fn client_ip(headers: &HeaderMap) -> Option<String> {
-    headers
-        .get("x-forwarded-for")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|s| s.split(',').next())
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .or_else(|| {
-            headers
-                .get("x-real-ip")
-                .and_then(|v| v.to_str().ok())
-                .map(|s| s.trim().to_string())
-                .filter(|s| !s.is_empty())
-        })
+    // Fail closed: a Redis outage must not silently remove brute-force
+    // protection from the one endpoint that guards passwords.
+    crate::rate_limit::enforce(
+        &mut conn,
+        key,
+        max_attempts,
+        window_secs,
+        crate::rate_limit::LimiterFailure::Closed,
+    )
+    .await
 }

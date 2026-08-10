@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::extract::{Path, State};
 use axum::routing::{delete, get, patch};
-use axum::{middleware, Json, Router};
+use axum::{Json, Router};
 use chrono::{DateTime, Duration, Utc};
 use uuid::Uuid;
 
@@ -11,21 +11,21 @@ use shared_common::validation;
 
 use super::models::*;
 use super::repo::NewScheduledMessage;
-use crate::middleware::{auth_middleware, AuthUser};
+use crate::middleware::AuthUser;
 use crate::state::AppState;
 
 const MAX_SCHEDULE_AHEAD_DAYS: i64 = 120;
 
 pub fn router(state: Arc<AppState>) -> Router {
-    Router::new()
+    let routes = Router::new()
         .route(
             "/workspaces/:ws_id/scheduled-messages",
             get(list_scheduled).post(create_scheduled),
         )
         .route("/scheduled-messages/:id", patch(reschedule))
-        .route("/scheduled-messages/:id", delete(cancel_scheduled))
-        .layer(middleware::from_fn(auth_middleware))
-        .with_state(state)
+        .route("/scheduled-messages/:id", delete(cancel_scheduled));
+
+    crate::protected(state, routes)
 }
 
 fn validate_send_at(send_at: DateTime<Utc>) -> AppResult<()> {

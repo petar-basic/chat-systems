@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::extract::{Path, State};
 use axum::routing::{get, post};
-use axum::{middleware, Json, Router};
+use axum::{Json, Router};
 use base64::Engine;
 use hmac::{Hmac, Mac};
 use redis::AsyncCommands;
@@ -13,22 +13,22 @@ use shared_common::errors::{AppError, AppResult};
 
 use super::models::{IceServer, IceServersResponse, InviteRequest, StartHuddleRequest};
 use crate::authz;
-use crate::middleware::{auth_middleware, AuthUser};
+use crate::middleware::AuthUser;
 use crate::state::AppState;
 
 type HmacSha1 = Hmac<Sha1>;
 
 pub fn router(state: Arc<AppState>) -> Router {
-    Router::new()
+    let routes = Router::new()
         .route("/workspaces/:ws_id/ice-servers", get(ice_servers))
         .route("/workspaces/:ws_id/active-huddles", get(active_huddles))
         .route("/workspaces/:ws_id/huddles", post(start_huddle))
         .route(
             "/workspaces/:ws_id/huddles/:huddle_id/invite",
             post(invite_to_huddle),
-        )
-        .layer(middleware::from_fn(auth_middleware))
-        .with_state(state)
+        );
+
+    crate::protected(state, routes)
 }
 
 async fn active_huddles(

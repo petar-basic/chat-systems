@@ -245,6 +245,10 @@ async fn ws_upgrade(
     let ws = ws.ok_or_else(|| AppError::BadRequest("Expected a WebSocket upgrade".into()))?;
     let cm = state.cm.clone();
     Ok(ws
+        // A single frame should never need to be this big; anything larger is
+        // an attempt to make the gateway buffer.
+        .max_message_size(64 * 1024)
+        .max_frame_size(64 * 1024)
         .protocols(["bearer"])
         .on_upgrade(move |socket| ws_handler::handle_ws(socket, claims, cm)))
 }
