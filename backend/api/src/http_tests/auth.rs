@@ -676,3 +676,51 @@ async fn changing_the_password_keeps_the_session_that_did_it(pool: PgPool) {
         "every other device is out"
     );
 }
+
+#[sqlx::test(migrations = "../migrations")]
+async fn every_login_failure_looks_the_same(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+
+    let (active_id, active_email) = seed(&state, "uniform-active", false).await;
+    let pending_email = unique_email("uniform-pending");
+    state
+        .auth_service
+        .repo()
+        .create(&pending_email, None, None, false)
+        .await
+        .expect("provision a pending user");
+    sqlx::query("UPDATE users SET status = 'suspended' WHERE id = $1")
+        .bind(active_id)
+        .execute(&state.pool)
+        .await
+        .expect("suspend");
+
+    let attempts = [
+        ("unknown address", unique_email("uniform-nobody")),
+        ("suspended account", active_email),
+        ("invited but not registered", pending_email),
+    ];
+
+    let mut seen: Vec<(axum::http::StatusCode, serde_json::Value)> = Vec::new();
+    for (label, email) in attempts {
+        let (status, body) = send(
+            &app,
+            "POST",
+            "/api/auth/login",
+            None,
+            Some(json!({ "email": email, "password": "whatever-goes-here" })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED, "{label}");
+        seen.push((status, body));
+    }
+
+    let first = &seen[0];
+    for (status, body) in &seen[1..] {
+        assert_eq!(
+            (status, body),
+            (&first.0, &first.1),
+            "every failure must be indistinguishable, or the login form is an address book"
+        );
+    }
+}

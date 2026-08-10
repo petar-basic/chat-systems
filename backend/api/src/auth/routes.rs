@@ -78,23 +78,23 @@ async fn verify_invite(
 ) -> AppResult<Json<serde_json::Value>> {
     let claims = state.auth_service.verify_registration_token(&token)?;
 
+    let invalid = || AppError::Unauthorized("Invalid or expired invite".into());
+
     let user = state
         .auth_service
         .repo()
         .find_by_id(claims.sub)
         .await?
-        .ok_or_else(|| AppError::NotFound("Invite is no longer valid".into()))?;
+        .ok_or_else(invalid)?;
 
-    let workspace_id = claims
-        .workspace_id
-        .ok_or_else(|| AppError::BadRequest("Invalid or expired invite".into()))?;
+    let workspace_id = claims.workspace_id.ok_or_else(invalid)?;
 
     let workspace = state
         .workspace_service
         .repo
         .find_workspace_by_id(workspace_id)
         .await?
-        .ok_or_else(|| AppError::NotFound("Workspace no longer exists".into()))?;
+        .ok_or_else(invalid)?;
 
     Ok(Json(serde_json::json!({
         "email": user.email,

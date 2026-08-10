@@ -9,8 +9,8 @@ history and in the docs it changed. A bug found mid-wave gets a suffixed number
 (`CS-005a`) so it lands where it belongs in the order without renumbering everything
 below it.
 
-**Waves 0, 1 and 2 are done.** The E2E suite is green and the `e2e` job blocks merges.
-Next ticket: [CS-016](CS-016-uniform-login-failure.md).
+**Waves 0 through 3 are done.** The E2E suite is green and the `e2e` job blocks merges.
+Next ticket: [CS-018](CS-018-audit-log-coverage.md).
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
@@ -88,12 +88,12 @@ per ticket.
 | CS-014 | WebSocket inbound message rate limiting | `InboundState` in `ws_handler.rs` |
 | CS-015 | Per-IP limit for incoming webhooks | [`net.rs`](../../backend/api/src/net.rs) |
 
-### Wave 3 — Authentication hardening
+### Wave 3 — Authentication hardening ✅ done
 
-| # | Ticket | Area |
+| # | Ticket | Landed as |
 |---|---|---|
-| [CS-016](CS-016-uniform-login-failure.md) | Uniform login failure and constant-time path | backend/api |
-| [CS-017](CS-017-auth-transport-defaults.md) | Password policy and mail transport defaults | backend/api |
+| CS-016 | Uniform login failure and constant-time path | one answer for every failure + a dummy verify |
+| CS-017 | Mail transport defaults (password policy dropped by decision) | `SmtpTlsMode` |
 
 ### Wave 4 — Governance
 

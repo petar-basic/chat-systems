@@ -91,8 +91,11 @@ export default function LoginPage() {
           </button>
         </form>
 
+        {/* Shown to everyone, so it cannot say whether any given address has an
+            account — but it still tells an invited user what to do next. */}
         <p className="text-center text-slate-400 text-sm mt-6">
-          Invite-only platform. Contact your admin for access.
+          Invite-only platform. If you were invited but have not set a password yet, use the link in your
+          invite email, or ask an admin to send it again.
         </p>
       </div>
     </div>

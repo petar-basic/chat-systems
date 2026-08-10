@@ -226,6 +226,7 @@ mod tests {
             smtp_from_address: "noreply@test.local".to_string(),
             smtp_from_name: "Test".to_string(),
             smtp_use_tls: false,
+            smtp_tls_mode: crate::config::SmtpTlsMode::None,
             public_url: "http://localhost:3000".to_string(),
             instance_name: "Test".to_string(),
             instance_icon_url: None,

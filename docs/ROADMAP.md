@@ -10,8 +10,8 @@ what it changed lives in the git history and in the docs it touched. Read
 [the index](./tickets/INDEX.md) for the dependency map and the conflict table; this page
 is the summary and the reasoning behind the sequence.
 
-**Waves 0, 1 and 2 are shipped.** Next ticket:
-[CS-016](./tickets/CS-016-uniform-login-failure.md).
+**Waves 0 through 3 are shipped.** Next ticket:
+[CS-018](./tickets/CS-018-audit-log-coverage.md).
 
 ## How the order was chosen
 
@@ -174,18 +174,22 @@ is only taken from `X-Forwarded-For` when the request actually arrived from one 
 proxies (`TRUSTED_PROXIES`) — previously the header was believed unconditionally, so a
 caller could set it themselves and defeat the limit.
 
-## Wave 3 — Authentication hardening
+## Wave 3 — Authentication hardening ✅ shipped
 
-### [CS-016](./tickets/CS-016-uniform-login-failure.md) — Uniform login failure
-**Today:** a pending account gets a distinct error message, and an unknown address returns
-without running Argon2. Account enumeration by message and by timing.
+### [CS-016] One answer for every login failure
+An unknown address, a suspended account, an invited-but-unregistered account and a wrong
+password each produced a different response — and the unknown-address path returned
+without running Argon2 at all, so the instance's address book was recoverable with a
+stopwatch. Every failure now returns the same status and body, and every attempt pays for
+one verification against a placeholder hash when no real one exists. The real reason still
+goes to the log. The login page carries a hint about unused invites that is shown to
+everyone, so it tells an invited user what to do without telling anyone else whether an
+account exists. Invalid and expired invite tokens are likewise indistinguishable.
 
-### [CS-017](./tickets/CS-017-auth-transport-defaults.md) — Password policy and mail transport
-**Today:** password validation is length only (8–128); `SMTP_USE_TLS` defaults to false and
-the false branch uses `builder_dangerous`, sending credentials in cleartext to whatever
-host is configured.
-
----
+### [CS-017] Mail transport defaults
+SMTP gained `SMTP_TLS_MODE` (`starttls` / `implicit` / `none`), defaulting to STARTTLS for
+remote hosts and plaintext only for a local catcher. Sending credentials in clear to a
+remote relay now aborts startup; an open internal relay still works, with a warning.
 
 ## Wave 4 — Governance
 
@@ -314,6 +318,13 @@ identity.
 ---
 
 ## What is deliberately not on this list
+
+- **A password policy beyond length.** `CS-017` originally proposed a 12-character
+  minimum, a breach-list check and rejecting passwords containing the user's own name.
+  Decided against on 2026-08-08: the project does not want to police what people choose,
+  and the minimum stays at 8. The trade-off is explicit — until SSO lands (`CS-032`) the
+  password is the entire authentication story, and nothing constrains it. Revisit if an
+  instance is ever run for an organisation that needs to pass a security review.
 
 - **Partitioning `messages` / `audit_log`.** Right at a scale this instance is nowhere
   near. Revisit when a metric says so, not before.
