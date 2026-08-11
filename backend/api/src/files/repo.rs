@@ -167,4 +167,59 @@ impl FileRepo {
             .fetch_optional(&self.pool)
             .await
     }
+
+    /// Deleting the rows and getting the storage keys back has to be one
+    /// statement: a read followed by a delete can hand the same key to two
+    /// concurrent callers, and the second one deletes an object the first has
+    /// already replaced.
+    pub async fn delete_for_channel_message(
+        &self,
+        message_id: Uuid,
+    ) -> sqlx::Result<Vec<FileRecord>> {
+        sqlx::query_as::<_, FileRecord>("DELETE FROM files WHERE message_id = $1 RETURNING *")
+            .bind(message_id)
+            .fetch_all(&self.pool)
+            .await
+    }
+
+    pub async fn delete_for_conversation_message(
+        &self,
+        message_id: Uuid,
+    ) -> sqlx::Result<Vec<FileRecord>> {
+        sqlx::query_as::<_, FileRecord>(
+            "DELETE FROM files WHERE conversation_message_id = $1 RETURNING *",
+        )
+        .bind(message_id)
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn delete_unlinked_from_channel_message(
+        &self,
+        message_id: Uuid,
+        kept_keys: &[String],
+    ) -> sqlx::Result<Vec<FileRecord>> {
+        sqlx::query_as::<_, FileRecord>(
+            "DELETE FROM files WHERE message_id = $1 AND NOT (storage_key = ANY($2)) RETURNING *",
+        )
+        .bind(message_id)
+        .bind(kept_keys)
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn delete_unlinked_from_conversation_message(
+        &self,
+        message_id: Uuid,
+        kept_keys: &[String],
+    ) -> sqlx::Result<Vec<FileRecord>> {
+        sqlx::query_as::<_, FileRecord>(
+            "DELETE FROM files WHERE conversation_message_id = $1 \
+             AND NOT (storage_key = ANY($2)) RETURNING *",
+        )
+        .bind(message_id)
+        .bind(kept_keys)
+        .fetch_all(&self.pool)
+        .await
+    }
 }

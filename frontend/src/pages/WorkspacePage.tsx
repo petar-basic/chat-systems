@@ -58,6 +58,7 @@ export default function WorkspacePage() {
           onOpenMembers={() => panel.toggle('members')}
           onOpenSettings={() => panel.toggle('settings')}
           onOpenIntegrations={() => panel.toggle('integrations')}
+          onOpenAuditLog={() => panel.toggle('auditLog')}
           onOpenScheduled={() => panel.toggle('scheduled')}
           onOpenProfile={() => c.setShowProfile(true)}
           onOpenNotifications={() => panel.toggle('notifications')}

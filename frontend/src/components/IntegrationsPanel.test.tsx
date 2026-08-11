@@ -154,9 +154,45 @@ describe('IntegrationsPanel', () => {
     fireEvent.change(screen.getByLabelText('Outgoing webhook URL'), {
       target: { value: 'https://example.com/hooks/chat' },
     });
+    fireEvent.click(screen.getByTestId('outgoing-hook-channel-ch-1'));
     fireEvent.click(screen.getByTestId('outgoing-hook-create'));
 
     expect(await screen.findByText('Requires at least Admin role')).toBeInTheDocument();
     expect(screen.getByLabelText('Outgoing webhook name')).toHaveValue('Deploy bot');
+  });
+
+  it('will not create an outgoing webhook until it is scoped to a channel', async () => {
+    renderPanel();
+
+    fireEvent.change(screen.getByLabelText('Outgoing webhook name'), { target: { value: 'Deploy bot' } });
+    fireEvent.change(screen.getByLabelText('Outgoing webhook URL'), {
+      target: { value: 'https://example.com/hooks/chat' },
+    });
+    expect(screen.getByTestId('outgoing-hook-create')).toBeDisabled();
+
+    fireEvent.click(screen.getByTestId('outgoing-hook-channel-ch-2'));
+    fireEvent.click(screen.getByTestId('outgoing-hook-create'));
+
+    await waitFor(() =>
+      expect(createMutate).toHaveBeenCalledWith({
+        hook_type: 'outgoing_webhook',
+        name: 'Deploy bot',
+        config: { url: 'https://example.com/hooks/chat', channel_ids: ['ch-2'] },
+      }),
+    );
+  });
+
+  it('says which channels an outgoing webhook forwards', () => {
+    hooks = [
+      hook({
+        id: 'hook-2',
+        hook_type: 'outgoing_webhook',
+        name: 'Deploy bot',
+        config: { url: 'https://example.com/hooks/chat', channel_ids: ['ch-1', 'ch-2'] },
+      }),
+    ];
+    renderPanel();
+
+    expect(screen.getByTestId('hook-scope')).toHaveTextContent('#alerts, #secret');
   });
 });

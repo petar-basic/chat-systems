@@ -57,6 +57,7 @@ function CopyField({ label, value }: { label: string; value: string }) {
 function HookRow({
   hook,
   channelName,
+  scope,
   secrets,
   busy,
   onReveal,
@@ -65,6 +66,7 @@ function HookRow({
 }: {
   hook: Hook;
   channelName: string | null;
+  scope?: string;
   secrets: HookSecrets | null;
   busy: boolean;
   onReveal: () => void;
@@ -83,6 +85,16 @@ function HookRow({
           <div className="text-xs text-slate-400 truncate" data-qa="hook-target">
             {target}
           </div>
+          {scope && (
+            <div className="text-xs text-amber-400/80 truncate" data-qa="hook-scope">
+              Forwards {scope}
+            </div>
+          )}
+          {!hook.is_active && (
+            <div className="text-xs text-red-400" data-qa="hook-inactive">
+              Disabled — re-create it with the channels it may read
+            </div>
+          )}
         </div>
         <button
           onClick={onReveal}
@@ -163,6 +175,7 @@ export default function IntegrationsPanel({ workspaceId, instanceUrl, channels, 
   const [incomingChannel, setIncomingChannel] = useState('');
   const [outgoingName, setOutgoingName] = useState('');
   const [outgoingUrl, setOutgoingUrl] = useState('');
+  const [outgoingChannels, setOutgoingChannels] = useState<string[]>([]);
 
   const postable = channels.filter((c) => c.channel_type === 'public' || c.channel_type === 'private');
   const incoming = hooks.filter((h) => h.hook_type === 'incoming_webhook');
@@ -195,20 +208,32 @@ export default function IntegrationsPanel({ workspaceId, instanceUrl, channels, 
 
   const handleCreateOutgoing = async (e: FormEvent) => {
     e.preventDefault();
-    if (!outgoingName.trim() || !outgoingUrl.trim()) return;
+    if (!outgoingName.trim() || !outgoingUrl.trim() || outgoingChannels.length === 0) return;
     setError(null);
     try {
       const hook = await createHook.mutateAsync({
         hook_type: 'outgoing_webhook',
         name: outgoingName.trim(),
-        config: { url: outgoingUrl.trim() },
+        config: { url: outgoingUrl.trim(), channel_ids: outgoingChannels },
       });
       remember(await revealHook.mutateAsync(hook.id));
       setOutgoingName('');
       setOutgoingUrl('');
+      setOutgoingChannels([]);
     } catch (err: unknown) {
       failWith('Failed to create the webhook')(err);
     }
+  };
+
+  const toggleOutgoingChannel = (channelId: string) =>
+    setOutgoingChannels((prev) =>
+      prev.includes(channelId) ? prev.filter((id) => id !== channelId) : [...prev, channelId],
+    );
+
+  const scopeLabel = (hook: Hook) => {
+    const ids = Array.isArray(hook.config.channel_ids) ? (hook.config.channel_ids as string[]) : [];
+    if (ids.length === 0) return undefined;
+    return ids.map((id) => `#${channels.find((c) => c.id === id)?.name ?? 'unknown'}`).join(', ');
   };
 
   const handleReveal = async (hookId: string) => {
@@ -331,7 +356,8 @@ export default function IntegrationsPanel({ workspaceId, instanceUrl, channels, 
           Outgoing webhooks
         </div>
         <p className="px-4 -mt-1 pb-2 text-xs text-slate-400">
-          Every new channel message is POSTed to your URL, signed with the secret below.
+          Messages in the channels you pick are POSTed to your URL, signed with the secret below. Everyone in
+          those channels can see that the integration is attached.
         </p>
 
         {outgoing.map((hook) => (
@@ -339,6 +365,7 @@ export default function IntegrationsPanel({ workspaceId, instanceUrl, channels, 
             key={hook.id}
             hook={hook}
             channelName={null}
+            scope={scopeLabel(hook)}
             secrets={secretsByHook[hook.id] ?? null}
             busy={busy}
             onReveal={() => void handleReveal(hook.id)}
@@ -366,9 +393,32 @@ export default function IntegrationsPanel({ workspaceId, instanceUrl, channels, 
             data-qa="outgoing-hook-url"
             className={inputClass}
           />
+          <div
+            className="max-h-40 overflow-y-auto rounded-lg border border-slate-600 bg-slate-700/50 divide-y divide-slate-600/50"
+            data-qa="outgoing-hook-channels"
+          >
+            {postable.length === 0 && (
+              <div className="px-3 py-2 text-xs text-slate-400">No channels to forward.</div>
+            )}
+            {postable.map((c) => (
+              <label
+                key={c.id}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-white cursor-pointer hover:bg-slate-700"
+              >
+                <input
+                  type="checkbox"
+                  checked={outgoingChannels.includes(c.id)}
+                  onChange={() => toggleOutgoingChannel(c.id)}
+                  data-qa={`outgoing-hook-channel-${c.id}`}
+                  className="accent-purple-500"
+                />
+                #{c.name}
+              </label>
+            ))}
+          </div>
           <button
             type="submit"
-            disabled={busy || !outgoingName.trim() || !outgoingUrl.trim()}
+            disabled={busy || !outgoingName.trim() || !outgoingUrl.trim() || outgoingChannels.length === 0}
             data-qa="outgoing-hook-create"
             className="w-full px-3 py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/50 text-white text-sm font-medium rounded-lg transition cursor-pointer disabled:cursor-not-allowed"
           >

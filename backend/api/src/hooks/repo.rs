@@ -80,28 +80,6 @@ impl HookRepo {
         .await
     }
 
-    pub async fn record_audit(
-        &self,
-        workspace_id: Uuid,
-        user_id: Uuid,
-        action: &str,
-        hook_id: Uuid,
-    ) -> sqlx::Result<()> {
-        sqlx::query(
-            r"
-            INSERT INTO audit_log (workspace_id, user_id, action, resource_type, resource_id)
-            VALUES ($1, $2, $3, 'hook', $4)
-            ",
-        )
-        .bind(workspace_id)
-        .bind(user_id)
-        .bind(action)
-        .bind(hook_id)
-        .execute(&self.pool)
-        .await?;
-        Ok(())
-    }
-
     pub async fn delete_hook(&self, id: Uuid) -> sqlx::Result<()> {
         sqlx::query("DELETE FROM hooks WHERE id = $1")
             .bind(id)
@@ -122,9 +100,38 @@ impl HookRepo {
         .await
     }
 
-    pub async fn list_active_outgoing_hooks(&self, workspace_id: Uuid) -> sqlx::Result<Vec<Hook>> {
+    /// Scoped by the channel the message was posted in. A workspace-wide
+    /// outgoing webhook is a copy of every private conversation in the
+    /// workspace being posted to a third-party URL.
+    pub async fn list_active_outgoing_hooks_for_channel(
+        &self,
+        workspace_id: Uuid,
+        channel_id: Uuid,
+    ) -> sqlx::Result<Vec<Hook>> {
         sqlx::query_as::<_, Hook>(
-            "SELECT * FROM hooks WHERE workspace_id = $1 AND hook_type = 'outgoing_webhook' AND is_active = true",
+            "SELECT * FROM hooks \
+              WHERE workspace_id = $1 \
+                AND hook_type = 'outgoing_webhook' \
+                AND is_active = true \
+                AND config->'channel_ids' ? $2::text",
+        )
+        .bind(workspace_id)
+        .bind(channel_id.to_string())
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn channel_ids_with_outgoing_hooks(
+        &self,
+        workspace_id: Uuid,
+    ) -> sqlx::Result<Vec<String>> {
+        sqlx::query_scalar(
+            "SELECT DISTINCT jsonb_array_elements_text(config->'channel_ids') \
+               FROM hooks \
+              WHERE workspace_id = $1 \
+                AND hook_type = 'outgoing_webhook' \
+                AND is_active = true \
+                AND jsonb_typeof(config->'channel_ids') = 'array'",
         )
         .bind(workspace_id)
         .fetch_all(&self.pool)

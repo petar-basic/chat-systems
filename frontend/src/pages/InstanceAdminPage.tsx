@@ -4,6 +4,7 @@ import { UserX, UserCheck, ArrowLeft, RefreshCw } from 'lucide-react';
 import { useInstanceStore } from '../stores/instances';
 import { instanceManager } from '../lib/instances';
 import { useCurrentUser } from '../hooks/queries/useAuth';
+import AuditLogTable, { type AuditEntry } from '../features/workspace/components/AuditLogTable';
 
 interface AdminUser {
   id: string;
@@ -14,11 +15,16 @@ interface AdminUser {
   created_at: string;
 }
 
+type AdminTab = 'users' | 'audit';
+
 export default function InstanceAdminPage() {
   const navigate = useNavigate();
   const { data: currentUser } = useCurrentUser();
   const { instances, activeInstanceUrl } = useInstanceStore();
+  const [tab, setTab] = useState<AdminTab>('users');
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [entries, setEntries] = useState<AuditEntry[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -48,13 +54,40 @@ export default function InstanceAdminPage() {
     }
   }, [activeInstanceUrl]);
 
+  const fetchAudit = useCallback(async () => {
+    if (!activeInstanceUrl) return;
+    setAuditLoading(true);
+    setError(null);
+    try {
+      const apiClient = instanceManager.get(activeInstanceUrl).api;
+      const res = await apiClient.get<{ data: AuditEntry[] }>('/admin/audit-log?limit=200');
+      setEntries(res.data);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to load the audit log');
+    } finally {
+      setAuditLoading(false);
+    }
+  }, [activeInstanceUrl]);
+
+  const refresh = useCallback(() => {
+    if (tab === 'audit') {
+      fetchAudit();
+      return;
+    }
+    fetchUsers();
+  }, [fetchAudit, fetchUsers, tab]);
+
   useEffect(() => {
     if (!currentUser?.is_instance_admin) {
       navigate('/app', { replace: true });
       return;
     }
+    if (tab === 'audit') {
+      fetchAudit();
+      return;
+    }
     fetchUsers();
-  }, [activeInstanceUrl, currentUser, fetchUsers, navigate]);
+  }, [activeInstanceUrl, currentUser, fetchAudit, fetchUsers, navigate, tab]);
 
   const handleRoleChange = async (user: AdminUser, isAdmin: boolean) => {
     if (!activeInstanceUrl) return;
@@ -108,12 +141,26 @@ export default function InstanceAdminPage() {
           <h1 className="text-lg font-bold">Instance Admin</h1>
           {instance && <p className="text-xs text-slate-400">{instanceLabel(instance.url)}</p>}
         </div>
+        <div className="flex items-center gap-1 bg-slate-800 rounded-lg p-1">
+          {(['users', 'audit'] as const).map((value) => (
+            <button
+              key={value}
+              data-qa={`admin-tab-${value}`}
+              onClick={() => setTab(value)}
+              className={`px-3 py-1.5 text-sm rounded-md transition cursor-pointer ${
+                tab === value ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              {value === 'users' ? 'Users' : 'Audit log'}
+            </button>
+          ))}
+        </div>
         <button
-          onClick={fetchUsers}
-          disabled={loading}
+          onClick={refresh}
+          disabled={loading || auditLoading}
           className="flex items-center gap-2 px-3 py-2 text-sm text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition cursor-pointer disabled:opacity-50"
         >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-4 h-4 ${loading || auditLoading ? 'animate-spin' : ''}`} />
           Refresh
         </button>
       </div>
@@ -125,7 +172,11 @@ export default function InstanceAdminPage() {
           </div>
         )}
 
-        {loading ? (
+        {tab === 'audit' ? (
+          <div className="max-w-5xl mx-auto">
+            <AuditLogTable entries={entries} loading={auditLoading} showWorkspace />
+          </div>
+        ) : loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="w-8 h-8 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
           </div>

@@ -16,6 +16,7 @@ import {
   BellOff,
   Compass,
   Plug,
+  ScrollText,
   Check,
   Clock,
 } from 'lucide-react';
@@ -54,6 +55,7 @@ interface Props {
   onOpenMembers: () => void;
   onOpenSettings: () => void;
   onOpenIntegrations: () => void;
+  onOpenAuditLog: () => void;
   onOpenScheduled: () => void;
   onOpenProfile: () => void;
   onOpenNotifications: () => void;
@@ -172,6 +174,7 @@ export default function ChannelSidebar({
   onOpenMembers,
   onOpenSettings,
   onOpenIntegrations,
+  onOpenAuditLog,
   onOpenScheduled,
   onOpenProfile,
   onOpenNotifications,
@@ -333,6 +336,18 @@ export default function ChannelSidebar({
                   }}
                 >
                   <Plug className="w-4 h-4" /> Integrations
+                </button>
+              )}
+              {isWorkspaceAdmin && (
+                <button
+                  className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
+                  data-qa="open-audit-log"
+                  onClick={() => {
+                    onOpenAuditLog();
+                    setWsDropdownOpen(false);
+                  }}
+                >
+                  <ScrollText className="w-4 h-4" /> Audit log
                 </button>
               )}
               {isInstanceAdmin && (

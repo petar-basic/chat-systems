@@ -34,6 +34,9 @@ export const QUERY_KEYS = {
   search: (query: string) => ['search', query] as const,
 
   hooks: (workspaceId: string) => ['hooks', workspaceId] as const,
+  hookedChannels: (workspaceId: string) => ['hooks', workspaceId, 'channels'] as const,
+
+  auditLog: (workspaceId: string) => ['audit-log', workspaceId] as const,
 
   huddlesActive: () => ['huddles', 'active'] as const,
   workspaceActiveHuddles: (workspaceId: string) => ['huddles', 'active', workspaceId] as const,

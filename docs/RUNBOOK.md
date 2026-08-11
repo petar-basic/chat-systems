@@ -38,6 +38,38 @@ stopped working".
 message that posted them. Anything it cannot attribute becomes readable only by its
 uploader — that is the intended fail-closed default, not data loss; the file is untouched.
 
+## Upgrade note: Wave 4 deactivates every outgoing webhook
+
+`20240305000019_scope_outgoing_hooks` turns off every existing outgoing webhook. They now
+require an explicit `channel_ids` allow-list, and an old hook carries no record of which
+channels it was ever meant to see. Re-create them from **Integrations** with the channels
+they may read; the alternative was leaving them running against every channel in the
+workspace, which is the leak the change closes. Incoming webhooks are unaffected.
+
+Two more changes ship with it and need no action:
+
+- `20240305000018_audit_trail` drops the `audit_log` foreign keys to `workspaces` and
+  `users`. The trail is append-only history and has to outlive what it describes — with
+  the reference in place, a hard workspace delete either fails on it or takes the record
+  of the deletion with it.
+- Attachments now follow their message. Deleting a message, or editing it to drop the
+  link, **hard-deletes the stored object immediately**. There is no grace period and no
+  purge job to run; restoring one means restoring from backup.
+
+## Audit log
+
+`GET /api/workspaces/:ws_id/audit-log` (workspace admin) and `GET /api/admin/audit-log`
+(instance admin), both keyset-paginated on `(created_at, id)` via `before`/`before_id` and
+filterable by `action`, `user_id`, `since` and `until`. The UI is under the workspace menu
+and as a tab in the instance admin page.
+
+`ip_address` is resolved with the same `TRUSTED_PROXIES` rules as the rate limit. Behind a
+proxy that is not listed there, the column records the proxy's address rather than the
+caller's — if the trail shows one repeated address, that is the setting to check.
+
+The table has no retention policy yet (`CS-030`). On a busy instance it is the table that
+grows without bound; watch it.
+
 ## Mail transport
 
 SMTP transport security is `SMTP_TLS_MODE` (`starttls` / `implicit` / `none`). With it

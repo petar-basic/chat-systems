@@ -10,8 +10,8 @@ what it changed lives in the git history and in the docs it touched. Read
 [the index](./tickets/INDEX.md) for the dependency map and the conflict table; this page
 is the summary and the reasoning behind the sequence.
 
-**Waves 0 through 3 are shipped.** Next ticket:
-[CS-018](./tickets/CS-018-audit-log-coverage.md).
+**Waves 0 through 4 are shipped.** Next ticket:
+[CS-021](./tickets/CS-021-scheduled-reauthorize.md).
 
 ## How the order was chosen
 
@@ -191,23 +191,60 @@ SMTP gained `SMTP_TLS_MODE` (`starttls` / `implicit` / `none`), defaulting to ST
 remote hosts and plaintext only for a local catcher. Sending credentials in clear to a
 remote relay now aborts startup; an open internal relay still works, with a warning.
 
-## Wave 4 — Governance
+## Wave 4 — Governance ✅ shipped
 
-### [CS-018](./tickets/CS-018-audit-log-coverage.md) — Audit log coverage
-**Today:** the table has every column an audit trail needs and is written from three call
-sites — suspend, activate, hook reveal. Nothing records message or channel deletion, member
-removal, role changes, invites, file access or login. `ip_address` is never populated, and
-there is no way to read the log.
+### [CS-018] Audit log coverage
+The trail was written from three ad-hoc call sites and could not be read at all. There is
+now one writer — `audit::record` with a typed `AuditAction` — reached from every
+destructive action: message and channel deletion, channel and workspace membership and
+role changes, invites, integrations (create, delete, reveal, rotate), file deletion,
+workspace create/delete/restore, and suspend/activate/instance-role. `ip_address` is
+populated through the same trusted-proxy rules the rate limit uses, so a caller cannot
+write a chosen address into the trail. A write that fails logs and returns; the action has
+already happened, and a hiccup on the trail must not turn a successful deletion into a 500
+the caller will retry.
 
-### [CS-019](./tickets/CS-019-scope-outgoing-webhooks.md) — Scope outgoing webhooks
-**Today:** an outgoing webhook fires on every `message.created` in the workspace with no
-channel filter, so one hook created by any workspace admin streams every private channel to
-an external URL, invisibly to the people in them. The transport itself — SSRF validation,
-no redirects, HMAC, bounded retries — is sound; the scope is not.
+Reading it: `GET /api/workspaces/:ws_id/audit-log` for workspace admins and
+`GET /api/admin/audit-log` for instance admins, both keyset-paginated on `(created_at, id)`
+and filterable by action, actor and time. The UI is a panel in the workspace menu and a tab
+in the instance admin page.
 
-### [CS-020](./tickets/CS-020-file-moderation.md) — File moderation and lifecycle
-**Today:** only the uploader can delete a file, so an admin cannot remove a leaked
-credential or an inappropriate image. Deleting a message leaves its attachment readable.
+Login events are deliberately absent — the decision was to record actions that destroy or
+grant, not every successful sign-in, which would bury them.
+
+The `audit_log` foreign keys to `workspaces` and `users` are dropped in migration `…18`:
+the trail is append-only history, and with the reference in place a hard workspace delete
+would either fail on it or take the record of the deletion down with it.
+
+### [CS-019] Scope outgoing webhooks
+An outgoing webhook fired on every `message.created` in the workspace, so one hook created
+by any workspace admin streamed every private channel to an external URL, invisibly to the
+people in them. `config.channel_ids` is now mandatory and validated against the workspace;
+delivery matches on it (`config->'channel_ids' ? $2`). Attaching one to a private channel
+requires membership *and* moderator rights there — otherwise an admin outside the channel
+could read it through a webhook pointed at themselves. The delivered payload is enumerated
+rather than filtered: `id`, `channel_id`, `workspace_id`, `user_id`, `content`,
+`created_at`, and nothing the message model grows next.
+
+Every channel with an attached webhook shows an "Integration" badge in its header, readable
+by every member, not just admins — the point is that people can see it before they type.
+
+**Breaking:** migration `…19` deactivates every existing outgoing webhook. They carry no
+record of which channels they were meant to see, and a silent no-op would look like a
+working integration that quietly stopped delivering. Re-create them with a scope.
+
+### [CS-020] File moderation and lifecycle
+The uploader was the only person who could delete a file, so an admin could not take down a
+leaked credential. A workspace admin and the moderators of the channel a file was posted in
+can now delete it, and a non-owner deletion is audited with the uploader's id.
+
+Attachments now follow their message: deleting a channel or conversation message deletes
+its attachments, and an edit that drops the link to an attachment deletes that attachment.
+Both delete the stored object immediately rather than marking a row — an attachment whose
+message is gone is unreachable through the UI but still downloadable by storage key, so
+leaving it behind meant "deleted" only ever meant "hidden". The rows and keys come back
+from a single `DELETE … RETURNING`, because a read followed by a delete can hand the same
+key to two concurrent callers.
 
 ---
 

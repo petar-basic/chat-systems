@@ -37,6 +37,24 @@ export const useHooks = (workspaceId: string | null, instanceUrl?: string) => {
   });
 };
 
+/**
+ * Which channels forward their traffic off the instance. Readable by every member,
+ * not just admins: the point is that people can see it before they type.
+ */
+export const useHookedChannels = (workspaceId: string | null, instanceUrl?: string) => {
+  return useQuery({
+    queryKey: QUERY_KEYS.hookedChannels(workspaceId ?? ''),
+    queryFn: async () => {
+      const res = await getApiForInstance(instanceUrl).get<{ channel_ids: string[] }>(
+        `/workspaces/${workspaceId}/hooks/channels`,
+      );
+      return new Set(res.channel_ids);
+    },
+    enabled: !!workspaceId,
+    staleTime: 1000 * 60,
+  });
+};
+
 export const useCreateHook = (workspaceId: string, instanceUrl?: string) => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -44,6 +62,7 @@ export const useCreateHook = (workspaceId: string, instanceUrl?: string) => {
       getApiForInstance(instanceUrl).post<Hook>(`/workspaces/${workspaceId}/hooks`, body),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.hooks(workspaceId) });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.hookedChannels(workspaceId) });
     },
   });
 };
@@ -54,6 +73,7 @@ export const useDeleteHook = (workspaceId: string, instanceUrl?: string) => {
     mutationFn: async (hookId: string) => getApiForInstance(instanceUrl).delete(`/hooks/${hookId}`),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.hooks(workspaceId) });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.hookedChannels(workspaceId) });
     },
   });
 };

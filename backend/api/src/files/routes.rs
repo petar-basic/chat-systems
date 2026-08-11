@@ -12,9 +12,11 @@ use shared_common::errors::{AppError, AppResult};
 
 use super::models::{FileRecord, FileUploadResponse};
 use super::repo::NewFile;
+use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
 use crate::middleware::AuthUser;
 use crate::state::AppState;
+use crate::workspace::models::WorkspaceRole;
 
 fn sanitize_filename(name: &str) -> String {
     let basename = name.rsplit(['/', '\\']).next().unwrap_or("");
@@ -221,6 +223,7 @@ async fn list_files(
 async fn delete_file(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
+    ip: ClientIp,
     Path(file_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
     let record = state
@@ -229,17 +232,56 @@ async fn delete_file(
         .await?
         .ok_or_else(|| AppError::NotFound("File not found".into()))?;
 
-    authz::require_workspace_member(&state, record.workspace_id, auth.user_id).await?;
-
-    if record.user_id != auth.user_id {
-        return Err(AppError::Forbidden("Can only delete your own files".into()));
+    let member = authz::require_workspace_member(&state, record.workspace_id, auth.user_id).await?;
+    let moderated = record.user_id != auth.user_id;
+    if moderated {
+        require_file_moderator(&state, &record, auth.user_id, &member).await?;
     }
 
     let _ = state.file_storage.delete(&record.storage_key).await;
 
     state.file_repo.delete(file_id).await?;
 
+    audit::record(
+        &state,
+        AuditEntry::new(AuditAction::FileDeleted, auth.user_id)
+            .workspace(record.workspace_id)
+            .resource(file_id)
+            .ip(&ip)
+            .details(serde_json::json!({
+                "filename": record.filename,
+                "uploader_id": record.user_id,
+                "moderated": moderated,
+            })),
+    )
+    .await;
+
     Ok(Json(serde_json::json!({ "status": "deleted" })))
+}
+
+/// Somebody else's file. A workspace admin answers for everything posted in the
+/// workspace, and a channel moderator for everything posted in their channel —
+/// so both can take a file down without waiting for the uploader.
+async fn require_file_moderator(
+    state: &AppState,
+    record: &FileRecord,
+    user_id: Uuid,
+    member: &crate::workspace::models::WorkspaceMember,
+) -> AppResult<()> {
+    if member.role.has_at_least(&WorkspaceRole::Admin) {
+        return Ok(());
+    }
+
+    if let Some(message_id) = record.message_id {
+        if let Some(channel_id) = state.file_repo.channel_id_for_message(message_id).await? {
+            let channel = authz::find_channel(state, channel_id).await?;
+            return authz::require_channel_moderator(state, &channel, user_id).await;
+        }
+    }
+
+    Err(AppError::Forbidden(
+        "Requires the uploader, a channel admin or a workspace admin".into(),
+    ))
 }
 
 async fn require_file_access(

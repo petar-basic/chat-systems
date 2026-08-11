@@ -279,6 +279,12 @@ async fn edit_message(
         auth.user_id,
     )
     .await;
+    crate::files::service::release_unlinked_from_conversation_message(
+        &state,
+        &req.content,
+        message.id,
+    )
+    .await;
 
     publish_conversation_event(
         &state,
@@ -313,6 +319,7 @@ async fn delete_message(
     }
 
     let message = state.conversation_repo.soft_delete_message(msg_id).await?;
+    crate::files::service::delete_for_conversation_message(&state, msg_id).await;
 
     publish_conversation_event(
         &state,

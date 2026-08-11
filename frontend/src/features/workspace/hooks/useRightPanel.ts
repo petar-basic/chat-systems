@@ -10,6 +10,7 @@ export type RightPanel =
   | { kind: 'pins' }
   | { kind: 'channelMembers' }
   | { kind: 'integrations' }
+  | { kind: 'auditLog' }
   | { kind: 'scheduled' }
   | { kind: 'notifications' }
   | null;
