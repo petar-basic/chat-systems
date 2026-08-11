@@ -234,6 +234,12 @@ async fn update_me(
     if let Some(avatar_url) = req.avatar_url.as_deref().filter(|url| !url.is_empty()) {
         shared_common::validation::validate_avatar_url(avatar_url)?;
     }
+    if let Some(bio) = &req.bio {
+        shared_common::validation::validate_bio(bio)?;
+    }
+    if let Some(timezone) = &req.timezone {
+        shared_common::validation::validate_timezone(timezone)?;
+    }
     let user = state
         .auth_service
         .repo()

@@ -56,6 +56,26 @@ Two more changes ship with it and need no action:
   link, **hard-deletes the stored object immediately**. There is no grace period and no
   purge job to run; restoring one means restoring from backup.
 
+## Upgrade note: Wave 5 changes the DM send contract
+
+`POST /api/conversations/:id/messages` and `POST /api/channels/:id/messages` no longer
+accept `id`. The server owns the message id; a sender that wants an idempotent retry passes
+`client_message_id` instead, unique within the conversation or channel. An old client that
+still sends `id` is not rejected — the field is ignored, so its retries stop being
+idempotent and a double-send stores two rows. Ship the frontend and the API together.
+
+`20240305000020_client_message_id` adds the column to both tables with a partial unique
+index. Existing rows keep `client_message_id NULL`, which the index excludes; nothing is
+backfilled and nothing breaks.
+
+Scheduled messages are now re-authorized at delivery. A message whose author has since lost
+access to the destination is not delivered: the row records a reason
+(`not_authorized`, `channel_archived`, `workspace_unavailable`), the author gets a
+notification, and the row stays visible in their scheduled list rather than disappearing.
+Expect a small burst of these on the first tick after upgrading if people have been removed
+from channels while messages were queued. Removal now also cancels pending messages for
+that scope, so the burst is one-off.
+
 ## Audit log
 
 `GET /api/workspaces/:ws_id/audit-log` (workspace admin) and `GET /api/admin/audit-log`

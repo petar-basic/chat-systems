@@ -7,6 +7,7 @@ pub struct Message {
     pub id: Uuid,
     pub channel_id: Uuid,
     pub user_id: Uuid,
+    pub client_message_id: Option<Uuid>,
     pub content: String,
     pub metadata: serde_json::Value,
     pub thread_parent_id: Option<Uuid>,
@@ -30,7 +31,9 @@ pub struct Reaction {
 pub struct SendMessageRequest {
     pub content: String,
     pub thread_parent_id: Option<Uuid>,
-    pub id: Option<Uuid>,
+    /// The sender's own id for this send, used only to make a retry idempotent.
+    /// It is not the message id — the server owns that.
+    pub client_message_id: Option<Uuid>,
 }
 
 #[derive(Debug, Deserialize)]

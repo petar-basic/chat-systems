@@ -27,6 +27,7 @@ export interface ConversationMessage {
   id: string;
   conversation_id: string;
   user_id: string;
+  client_message_id?: string | null;
   content: string;
   edited_at: string | null;
   deleted_at: string | null;
@@ -98,7 +99,9 @@ export const useSendConversationMessage = (
     mutationFn: async ({ content, id }: { content: string; id: string }) =>
       getApiForInstance(instanceUrl).post<ConversationMessage>(`/conversations/${conversationId}/messages`, {
         content,
-        id,
+        // The server owns the message id; this one only makes a retry of the
+        // same send idempotent, and is scoped to this conversation.
+        client_message_id: id,
       }),
     onMutate: async ({ content, id }) => {
       await queryClient.cancelQueries({ queryKey: key });
@@ -106,6 +109,7 @@ export const useSendConversationMessage = (
         id,
         conversation_id: conversationId,
         user_id: authorId,
+        client_message_id: id,
         content,
         edited_at: null,
         deleted_at: null,
@@ -123,7 +127,13 @@ export const useSendConversationMessage = (
       queryClient.setQueryData<ConversationInfiniteData>(key, (old) => removeMessageById(old, id));
       toast.error(ErrorLabels.SendFailed);
     },
-    onSuccess: () => {
+    onSuccess: (message, { id }) => {
+      // The optimistic row was keyed on the client id, the stored row is keyed
+      // on the server's. Swapping them here is what stops the websocket echo
+      // from arriving as a second copy of the same message.
+      queryClient.setQueryData<ConversationInfiniteData>(key, (old) =>
+        upsertMessage(removeMessageById(old, id), { ...message, pending: false }, 'firstPage', newestFirst),
+      );
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.conversations(workspaceId) });
     },
   });

@@ -440,11 +440,15 @@ async fn message_ids_are_idempotent_across_retries(pool: PgPool) {
             "POST",
             &format!("/api/conversations/{conv_id}/messages"),
             Some(&owner_token),
-            Some(json!({ "content": "sent twice", "id": client_id })),
+            Some(json!({ "content": "sent twice", "client_message_id": client_id })),
         )
         .await;
         assert_eq!(status, StatusCode::OK, "retry is accepted: {body:?}");
-        assert_eq!(body["id"], client_id.to_string());
+        assert_eq!(
+            body["client_message_id"],
+            client_id.to_string(),
+            "the retry is matched on the sender's key, not on the message id"
+        );
     }
 
     let (_, listing) = send(
@@ -460,4 +464,198 @@ async fn message_ids_are_idempotent_across_retries(pool: PgPool) {
         1,
         "a retried send stores one message"
     );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn a_client_id_from_another_conversation_never_returns_its_message(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (alice_id, _, alice) = seed_and_login(&app, &state, "idem-alice", false).await;
+    let ws_id = seed_workspace(&state, alice_id, "Idempotency WS").await;
+    let (bob_id, _, bob) = seed_and_login(&app, &state, "idem-bob", false).await;
+    let (carol_id, _, carol) = seed_and_login(&app, &state, "idem-carol", false).await;
+    add_ws_member(&state, ws_id, bob_id, "member").await;
+    add_ws_member(&state, ws_id, carol_id, "member").await;
+
+    let (_, first) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/conversations"),
+        Some(&alice),
+        Some(json!({ "participant_ids": [bob_id] })),
+    )
+    .await;
+    let conv_a = first["id"].as_str().expect("id").to_string();
+
+    let (_, second) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/conversations"),
+        Some(&bob),
+        Some(json!({ "participant_ids": [carol_id] })),
+    )
+    .await;
+    let conv_b = second["id"].as_str().expect("id").to_string();
+
+    let shared_id = Uuid::new_v4();
+    let (status, sent) = send(
+        &app,
+        "POST",
+        &format!("/api/conversations/{conv_a}/messages"),
+        Some(&alice),
+        Some(json!({ "content": "a private thing", "client_message_id": shared_id })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{sent:?}");
+    assert_ne!(
+        sent["id"].as_str(),
+        Some(shared_id.to_string().as_str()),
+        "the server owns the message id, not the client"
+    );
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        &format!("/api/conversations/{conv_b}/messages"),
+        Some(&carol),
+        Some(json!({ "content": "unrelated", "client_message_id": shared_id })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "the same client id in another conversation is not a conflict at all: {body:?}"
+    );
+    assert_eq!(
+        body["content"], "unrelated",
+        "and it certainly does not hand back the other conversation's message"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn resending_with_the_same_client_id_is_idempotent(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (alice_id, _, alice) = seed_and_login(&app, &state, "idem-alice", false).await;
+    let ws_id = seed_workspace(&state, alice_id, "Idempotency WS").await;
+    let (bob_id, _) = seed(&state, "idem-bob", false).await;
+    add_ws_member(&state, ws_id, bob_id, "member").await;
+
+    let (_, conv) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/conversations"),
+        Some(&alice),
+        Some(json!({ "participant_ids": [bob_id] })),
+    )
+    .await;
+    let conv_id = conv["id"].as_str().expect("id").to_string();
+
+    let client_id = Uuid::new_v4();
+    let body = json!({ "content": "sent once", "client_message_id": client_id });
+
+    let (first_status, first) = send(
+        &app,
+        "POST",
+        &format!("/api/conversations/{conv_id}/messages"),
+        Some(&alice),
+        Some(body.clone()),
+    )
+    .await;
+    assert_eq!(first_status, StatusCode::OK);
+
+    let (retry_status, retry) = send(
+        &app,
+        "POST",
+        &format!("/api/conversations/{conv_id}/messages"),
+        Some(&alice),
+        Some(body),
+    )
+    .await;
+    assert_eq!(retry_status, StatusCode::OK, "a retry is not an error");
+    assert_eq!(retry["id"], first["id"], "and returns the original message");
+
+    let stored: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM conversation_messages WHERE conversation_id::text = $1",
+    )
+    .bind(&conv_id)
+    .fetch_one(&state.pool)
+    .await
+    .expect("count");
+    assert_eq!(stored, 1, "one row, not two");
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn a_nil_or_non_random_client_id_is_refused(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (alice_id, _, alice) = seed_and_login(&app, &state, "idem-alice", false).await;
+    let ws_id = seed_workspace(&state, alice_id, "Idempotency WS").await;
+    let (bob_id, _) = seed(&state, "idem-bob", false).await;
+    add_ws_member(&state, ws_id, bob_id, "member").await;
+
+    let (_, conv) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/conversations"),
+        Some(&alice),
+        Some(json!({ "participant_ids": [bob_id] })),
+    )
+    .await;
+    let conv_id = conv["id"].as_str().expect("id").to_string();
+
+    for bad in [
+        "00000000-0000-0000-0000-000000000000",
+        "00000000-0000-1000-8000-000000000000",
+    ] {
+        let (status, _) = send(
+            &app,
+            "POST",
+            &format!("/api/conversations/{conv_id}/messages"),
+            Some(&alice),
+            Some(json!({ "content": "hello", "client_message_id": bad })),
+        )
+        .await;
+        assert_eq!(
+            status,
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "a client that picks {bad} will collide with itself"
+        );
+    }
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn an_over_long_conversation_reaction_is_a_400_not_a_500(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (alice_id, _, alice) = seed_and_login(&app, &state, "emoji-alice", false).await;
+    let ws_id = seed_workspace(&state, alice_id, "Emoji WS").await;
+    let (bob_id, _) = seed(&state, "emoji-bob", false).await;
+    add_ws_member(&state, ws_id, bob_id, "member").await;
+
+    let (_, conv) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/conversations"),
+        Some(&alice),
+        Some(json!({ "participant_ids": [bob_id] })),
+    )
+    .await;
+    let conv_id = conv["id"].as_str().expect("id").to_string();
+
+    let (_, msg) = send(
+        &app,
+        "POST",
+        &format!("/api/conversations/{conv_id}/messages"),
+        Some(&alice),
+        Some(json!({ "content": "react to me" })),
+    )
+    .await;
+    let msg_id = msg["id"].as_str().expect("id").to_string();
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/conversations/messages/{msg_id}/reactions"),
+        Some(&alice),
+        Some(json!({ "emoji": "x".repeat(60) })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
 }

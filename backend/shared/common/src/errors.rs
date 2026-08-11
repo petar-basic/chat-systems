@@ -94,6 +94,14 @@ impl From<sqlx::Error> for AppError {
     }
 }
 
+/// A unique constraint a user can trip by sending the same thing twice is a 409,
+/// not a 500 — and never a raw database string on the wire. Lives here so every
+/// feature reaches for the same predicate.
+#[must_use]
+pub fn is_unique_violation(e: &sqlx::Error) -> bool {
+    matches!(e, sqlx::Error::Database(dbe) if dbe.code().as_deref() == Some("23505"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

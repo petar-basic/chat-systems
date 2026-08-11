@@ -82,6 +82,9 @@ async fn create_workspace(
     Json(req): Json<CreateWorkspaceRequest>,
 ) -> AppResult<Json<Workspace>> {
     validation::validate_workspace_name(&req.name)?;
+    if let Some(description) = &req.description {
+        validation::validate_description(description)?;
+    }
     let workspace = state
         .workspace_service
         .create_workspace(&req.name, req.description.as_deref(), auth.user_id)
@@ -123,6 +126,12 @@ async fn update_workspace(
 ) -> AppResult<Json<Workspace>> {
     if let Some(name) = &req.name {
         validation::validate_workspace_name(name)?;
+    }
+    if let Some(description) = &req.description {
+        validation::validate_description(description)?;
+    }
+    if let Some(icon_url) = &req.icon_url {
+        validation::validate_icon_url(icon_url)?;
     }
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
     let workspace = state
@@ -321,6 +330,17 @@ async fn remove_member(
         .remove_member(ws_id, user_id)
         .await?;
 
+    if let Err(e) = state
+        .scheduled_repo
+        .cancel_pending_for_workspace(ws_id, user_id)
+        .await
+    {
+        tracing::warn!(
+            "failed to cancel scheduled messages of a removed member: {}",
+            e
+        );
+    }
+
     for channel_id in dropped_channels {
         let _ = state
             .publisher
@@ -363,6 +383,9 @@ async fn create_invite(
     Json(req): Json<CreateInviteRequest>,
 ) -> AppResult<Json<WorkspaceInvite>> {
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
+    if let Some(email) = &req.email {
+        validation::validate_email(email)?;
+    }
     let lifetime = InviteLifetime::resolve(&req)?;
     let invite = state
         .workspace_service
@@ -514,6 +537,9 @@ async fn create_channel(
     Json(req): Json<CreateChannelRequest>,
 ) -> AppResult<Json<Channel>> {
     validation::validate_channel_name(&req.name)?;
+    if let Some(description) = &req.description {
+        validation::validate_description(description)?;
+    }
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Member).await?;
     let channel_type = req.channel_type.unwrap_or(ChannelType::Public);
     let channel = state
@@ -575,6 +601,12 @@ async fn update_channel(
 ) -> AppResult<Json<Channel>> {
     if let Some(name) = &req.name {
         validation::validate_channel_name(name)?;
+    }
+    if let Some(topic) = &req.topic {
+        validation::validate_channel_topic(topic)?;
+    }
+    if let Some(description) = &req.description {
+        validation::validate_description(description)?;
     }
     let channel = authz::find_channel(&state, ch_id).await?;
     authz::require_channel_moderator(&state, &channel, auth.user_id).await?;
@@ -790,6 +822,18 @@ async fn remove_channel_member(
         .repo
         .remove_channel_member(ch_id, user_id)
         .await?;
+
+    if let Err(e) = state
+        .scheduled_repo
+        .cancel_pending_for_channel(ch_id, user_id)
+        .await
+    {
+        tracing::warn!(
+            "failed to cancel scheduled messages for a left channel: {}",
+            e
+        );
+    }
+
     let _ = state
         .publisher
         .publish_channel_member_removed(ch_id, channel.workspace_id, user_id)

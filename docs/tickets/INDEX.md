@@ -9,8 +9,8 @@ history and in the docs it changed. A bug found mid-wave gets a suffixed number
 (`CS-005a`) so it lands where it belongs in the order without renumbering everything
 below it.
 
-**Waves 0 through 4 are done.** The E2E suite is green and the `e2e` job blocks merges.
-Next ticket: [CS-021](CS-021-scheduled-reauthorize.md).
+**Waves 0 through 5 are done.** The E2E suite is green and the `e2e` job blocks merges.
+Next ticket: [CS-024](CS-024-static-message-renderer.md).
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
@@ -103,13 +103,13 @@ per ticket.
 | CS-019 | Scope outgoing webhooks per channel | `config.channel_ids` + migration `…19` |
 | CS-020 | File moderation and attachment lifecycle | `delete_for_*_message` in [`files/service.rs`](../../backend/api/src/files/service.rs) |
 
-### Wave 5 — Correctness
+### Wave 5 — Correctness ✅ done
 
-| # | Ticket | Area |
+| # | Ticket | Landed as |
 |---|---|---|
-| [CS-021](CS-021-scheduled-reauthorize.md) | Re-authorize scheduled messages at delivery | backend/api |
-| [CS-022](CS-022-scoped-idempotency-id.md) | Scope client-supplied message id to its conversation | backend/api |
-| [CS-023](CS-023-validation-gaps.md) | Close remaining input validation gaps | backend/api |
+| CS-021 | Re-authorize scheduled messages at delivery | `DeliveryFailure` in [`scheduled/executor.rs`](../../backend/api/src/scheduled/executor.rs) |
+| CS-022 | Scope client-supplied message id to its conversation | `client_message_id` + migration `…20` |
+| CS-023 | Close remaining input validation gaps | [`validation.rs`](../../backend/shared/common/src/validation.rs) + `is_unique_violation` |
 
 ### Wave 6 — Performance
 

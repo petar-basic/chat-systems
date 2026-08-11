@@ -208,18 +208,35 @@ async fn send_message(
         authz::require_conversation_participant(&state, conv_id, auth.user_id).await?;
     validation::validate_message_content(&req.content)?;
 
-    let id = req.id.unwrap_or_else(Uuid::new_v4);
+    if let Some(client_id) = req.client_message_id {
+        validation::validate_client_message_id(client_id)?;
+    }
+
     let message = match state
         .conversation_repo
-        .create_message(id, conv_id, auth.user_id, &req.content)
+        .create_message(
+            Uuid::new_v4(),
+            conv_id,
+            auth.user_id,
+            &req.content,
+            req.client_message_id,
+        )
         .await
     {
         Ok(msg) => msg,
-        Err(ref e) if is_unique_violation(e) => state
-            .conversation_repo
-            .find_message(id)
-            .await?
-            .ok_or_else(|| AppError::Internal("Message ID conflict".into()))?,
+        // The only unique key a client controls is `(conversation_id,
+        // client_message_id)`, so a violation means this exact send already
+        // landed — in this conversation, by definition of the index.
+        Err(ref e) if shared_common::errors::is_unique_violation(e) => {
+            let client_id = req
+                .client_message_id
+                .ok_or_else(|| AppError::Database(e.to_string()))?;
+            state
+                .conversation_repo
+                .find_by_client_id(conv_id, client_id)
+                .await?
+                .ok_or_else(|| AppError::Conflict("Message id already in use".into()))?
+        }
         Err(e) => return Err(AppError::Database(e.to_string())),
     };
 
@@ -339,6 +356,7 @@ async fn add_reaction(
     Path(msg_id): Path<Uuid>,
     Json(req): Json<AddConversationReactionRequest>,
 ) -> AppResult<Json<ConversationReaction>> {
+    validation::validate_reaction_emoji(&req.emoji)?;
     let existing = state
         .conversation_repo
         .find_message(msg_id)
@@ -351,7 +369,14 @@ async fn add_reaction(
     let reaction = state
         .conversation_repo
         .add_reaction(msg_id, auth.user_id, &req.emoji)
-        .await?;
+        .await
+        .map_err(|e| {
+            if shared_common::errors::is_unique_violation(&e) {
+                AppError::Conflict("You already reacted with this emoji".into())
+            } else {
+                AppError::Database(e.to_string())
+            }
+        })?;
 
     publish_conversation_event(
         &state,
@@ -407,8 +432,4 @@ async fn mark_read(
         .mark_read(conv_id, auth.user_id)
         .await?;
     Ok(Json(serde_json::json!({ "status": "ok" })))
-}
-
-fn is_unique_violation(e: &sqlx::Error) -> bool {
-    matches!(e, sqlx::Error::Database(dbe) if dbe.code().as_deref() == Some("23505"))
 }

@@ -58,9 +58,9 @@ impl MessageRepo {
         Ok(msg)
     }
 
-    pub async fn create_message_with_id(
+    pub async fn create_message_with_client_id(
         &self,
-        id: Uuid,
+        client_message_id: Uuid,
         channel_id: Uuid,
         user_id: Uuid,
         content: &str,
@@ -70,12 +70,12 @@ impl MessageRepo {
 
         let msg = sqlx::query_as::<_, Message>(
             r"
-            INSERT INTO messages (id, channel_id, user_id, content, thread_parent_id)
+            INSERT INTO messages (client_message_id, channel_id, user_id, content, thread_parent_id)
             VALUES ($1, $2, $3, $4, $5)
             RETURNING *
             ",
         )
-        .bind(id)
+        .bind(client_message_id)
         .bind(channel_id)
         .bind(user_id)
         .bind(content)
@@ -93,6 +93,22 @@ impl MessageRepo {
         tx.commit().await?;
 
         Ok(msg)
+    }
+
+    /// The retry half of idempotent sending, scoped to the channel by the index
+    /// it reads. A client id only ever names a row in the channel it was used in.
+    pub async fn find_by_client_id(
+        &self,
+        channel_id: Uuid,
+        client_message_id: Uuid,
+    ) -> sqlx::Result<Option<Message>> {
+        sqlx::query_as::<_, Message>(
+            "SELECT * FROM messages WHERE channel_id = $1 AND client_message_id = $2",
+        )
+        .bind(channel_id)
+        .bind(client_message_id)
+        .fetch_optional(&self.pool)
+        .await
     }
 
     pub async fn create_system_message(

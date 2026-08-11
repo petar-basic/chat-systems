@@ -1,5 +1,6 @@
 mod common;
 mod smoke;
+mod validation;
 
 mod admin;
 mod audit;
