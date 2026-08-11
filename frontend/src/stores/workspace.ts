@@ -42,6 +42,7 @@ export interface Message {
   id: string;
   channel_id: string;
   user_id: string;
+  client_message_id?: string | null;
   content: string;
   created_at: string;
   updated_at: string;

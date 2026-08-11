@@ -100,18 +100,28 @@ async fn send_message(
         .await?
         .channel;
 
-    let msg = if let Some(id) = req.id {
+    let msg = if let Some(client_id) = req.client_message_id {
+        shared_common::validation::validate_client_message_id(client_id)?;
         match state
             .message_repo
-            .create_message_with_id(id, ch_id, auth.user_id, &req.content, req.thread_parent_id)
+            .create_message_with_client_id(
+                client_id,
+                ch_id,
+                auth.user_id,
+                &req.content,
+                req.thread_parent_id,
+            )
             .await
         {
             Ok(msg) => msg,
-            Err(ref e) if is_unique_violation(e) => state
+            // The only unique key a client controls is `(channel_id,
+            // client_message_id)`, so a violation means this exact send already
+            // landed — in this channel, by definition of the index.
+            Err(ref e) if shared_common::errors::is_unique_violation(e) => state
                 .message_repo
-                .find_by_id(id)
+                .find_by_client_id(ch_id, client_id)
                 .await?
-                .ok_or_else(|| AppError::Internal("Message ID conflict".into()))?,
+                .ok_or_else(|| AppError::Conflict("Message id already in use".into()))?,
             Err(e) => return Err(AppError::Database(e.to_string())),
         }
     } else {
@@ -402,6 +412,7 @@ async fn add_reaction(
     Path(msg_id): Path<Uuid>,
     Json(req): Json<AddReactionRequest>,
 ) -> AppResult<Json<Reaction>> {
+    shared_common::validation::validate_reaction_emoji(&req.emoji)?;
     let msg = state
         .message_repo
         .find_by_id(msg_id)
@@ -413,7 +424,14 @@ async fn add_reaction(
     let reaction = state
         .message_repo
         .add_reaction(msg_id, auth.user_id, &req.emoji)
-        .await?;
+        .await
+        .map_err(|e| {
+            if shared_common::errors::is_unique_violation(&e) {
+                AppError::Conflict("You already reacted with this emoji".into())
+            } else {
+                AppError::Database(e.to_string())
+            }
+        })?;
 
     let reaction_json =
         serde_json::to_value(&reaction).map_err(|e| AppError::Internal(e.to_string()))?;
@@ -629,10 +647,6 @@ fn extract_mentioned_user_ids(content: &str) -> Vec<Uuid> {
         remaining = &remaining[id_end + 1..];
     }
     ids
-}
-
-fn is_unique_violation(e: &sqlx::Error) -> bool {
-    matches!(e, sqlx::Error::Database(dbe) if dbe.code().as_deref() == Some("23505"))
 }
 
 #[cfg(test)]

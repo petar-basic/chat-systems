@@ -2,7 +2,7 @@ import { useInfiniteQuery, useMutation, useQueryClient, type InfiniteData } from
 import type { Message, Reaction } from '@/stores/workspace';
 import { useCurrentApi } from '@/shared/hooks/useCurrentApi';
 import { QUERY_KEYS, MESSAGES_PAGE_SIZE, ErrorLabels } from '@/shared/constants';
-import { upsertMessage, patchMessageById, newestFirst } from '@/lib/messageCache';
+import { upsertMessage, patchMessageById, newestFirst, removeMessageById } from '@/lib/messageCache';
 import { toast } from '@/shared/components/Toast';
 import { logger } from '@/lib/logger';
 
@@ -53,7 +53,12 @@ export const useSendMessage = (channelId: string, userId: string) => {
 
   return useMutation({
     mutationFn: async ({ content, id }: { content: string; id: string }) => {
-      return apiClient.post<Message>(`/channels/${channelId}/messages`, { content, id });
+      // The server owns the message id; this one only makes a retry of the same
+      // send idempotent, and is scoped to this channel.
+      return apiClient.post<Message>(`/channels/${channelId}/messages`, {
+        content,
+        client_message_id: id,
+      });
     },
     onMutate: async ({ content, id }) => {
       await queryClient.cancelQueries({ queryKey: key });
@@ -61,6 +66,7 @@ export const useSendMessage = (channelId: string, userId: string) => {
         id,
         channel_id: channelId,
         user_id: userId,
+        client_message_id: id,
         content,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -82,9 +88,17 @@ export const useSendMessage = (channelId: string, userId: string) => {
       );
       toast.error(ErrorLabels.SendFailed);
     },
-    onSuccess: (_data, { id }) => {
+    onSuccess: (message, { id }) => {
+      // The optimistic row was keyed on the client id, the stored row is keyed
+      // on the server's. Swapping them here is what stops the websocket echo
+      // from arriving as a second copy of the same message.
       queryClient.setQueryData<MessagesInfiniteData>(key, (old) =>
-        patchMessageById(old, id, (m) => ({ ...m, failed: false })),
+        upsertMessage(
+          removeMessageById(old, id),
+          { ...message, pending: false, failed: false },
+          'lastPage',
+          newestFirst,
+        ),
       );
     },
   });

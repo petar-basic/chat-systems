@@ -78,13 +78,13 @@ fn spawn_consumers(state: &Arc<AppState>, redis_url: &str) {
 
     {
         let redis_url = redis_url.to_string();
-        let hook_repo = hook_repo.clone();
+        let reminder_state = state.clone();
         tokio::spawn(async move {
             supervise("reminder_checker", || {
                 let redis_url = redis_url.clone();
-                let hook_repo = hook_repo.clone();
+                let reminder_state = reminder_state.clone();
                 async move {
-                    hooks::executor::start_reminder_checker(&redis_url, hook_repo).await;
+                    hooks::executor::start_reminder_checker(&redis_url, reminder_state).await;
                 }
             })
             .await;

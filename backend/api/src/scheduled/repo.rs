@@ -56,7 +56,8 @@ impl ScheduledRepo {
         sqlx::query_as::<_, ScheduledMessage>(
             r"
             SELECT * FROM scheduled_messages
-            WHERE workspace_id = $1 AND user_id = $2 AND sent_at IS NULL AND canceled_at IS NULL
+            WHERE workspace_id = $1 AND user_id = $2 AND canceled_at IS NULL
+              AND (sent_at IS NULL OR failure IS NOT NULL)
             ORDER BY send_at
             ",
         )
@@ -107,6 +108,43 @@ impl ScheduledRepo {
         )
         .fetch_all(&self.pool)
         .await
+    }
+
+    /// Losing access to a channel should not leave a message queued for it. The
+    /// delivery-time check is the backstop; this is so the author is told now
+    /// rather than at send time, when they may have forgotten writing it.
+    pub async fn cancel_pending_for_channel(
+        &self,
+        channel_id: Uuid,
+        user_id: Uuid,
+    ) -> sqlx::Result<u64> {
+        let result = sqlx::query(
+            "UPDATE scheduled_messages SET canceled_at = NOW() \
+              WHERE channel_id = $1 AND user_id = $2 \
+                AND sent_at IS NULL AND canceled_at IS NULL",
+        )
+        .bind(channel_id)
+        .bind(user_id)
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected())
+    }
+
+    pub async fn cancel_pending_for_workspace(
+        &self,
+        workspace_id: Uuid,
+        user_id: Uuid,
+    ) -> sqlx::Result<u64> {
+        let result = sqlx::query(
+            "UPDATE scheduled_messages SET canceled_at = NOW() \
+              WHERE workspace_id = $1 AND user_id = $2 \
+                AND sent_at IS NULL AND canceled_at IS NULL",
+        )
+        .bind(workspace_id)
+        .bind(user_id)
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected())
     }
 
     pub async fn record_failure(&self, id: Uuid, failure: &str) -> sqlx::Result<()> {

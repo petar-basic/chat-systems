@@ -125,6 +125,18 @@ docs/         this folder
 - **Sessions end through `sessions::revoke`.** Deleting refresh tokens, marking access
   tokens invalid and closing live sockets belong together; the three steps have drifted
   apart before.
+- **Every `String` in a request DTO has a validator.** `shared_common::validation` is the
+  only place a limit is written down, and a handler calls it before any repo call. A
+  column that happens to be wide enough is not validation — it produces a 500 where the
+  answer is 400. Deliberate exceptions (login and forgot-password, where an early
+  rejection would be an oracle) are listed in the roadmap, not left implicit.
+- **A unique violation a user can trigger is a 409.** Use
+  `shared_common::errors::is_unique_violation`; never let a raw database string reach the
+  wire as a 500.
+- **Effects re-check at the moment of the effect.** Anything detached from the request
+  that produced it — the scheduled dispatcher, the reminder checker — re-runs the same
+  `authz` predicate the interactive handler runs. Authorization granted days ago is not
+  authorization now.
 - **Destructive actions are recorded through `audit::record`.** Anything that deletes,
   removes, grants or reveals takes a `ClientIp` extractor and writes one `AuditEntry`
   with a typed `AuditAction`. Adding a variant to the enum is part of the change, not a

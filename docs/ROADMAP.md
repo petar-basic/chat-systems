@@ -10,8 +10,8 @@ what it changed lives in the git history and in the docs it touched. Read
 [the index](./tickets/INDEX.md) for the dependency map and the conflict table; this page
 is the summary and the reasoning behind the sequence.
 
-**Waves 0 through 4 are shipped.** Next ticket:
-[CS-021](./tickets/CS-021-scheduled-reauthorize.md).
+**Waves 0 through 5 are shipped.** Next ticket:
+[CS-024](./tickets/CS-024-static-message-renderer.md).
 
 ## How the order was chosen
 
@@ -248,19 +248,89 @@ key to two concurrent callers.
 
 ---
 
-## Wave 5 — Correctness
+## Wave 5 — Correctness ✅ shipped
 
-### [CS-021](./tickets/CS-021-scheduled-reauthorize.md) — Re-authorize at delivery
-**Today:** the scheduled dispatcher posts without checking the author still has access.
-After CS-007, this is the one path that still writes on behalf of a removed user.
+### [CS-021] Re-authorize scheduled messages at delivery
+The dispatcher inserted the message with no check that the author could still post there.
+Authorization had happened when the message was scheduled, possibly days earlier; after
+CS-007 made removal actually cut access, this was the one remaining path that wrote on
+behalf of a removed user.
 
-### [CS-022](./tickets/CS-022-scoped-idempotency-id.md) — Scope the client-supplied message id
-**Today:** the DM send path accepts a client-chosen id and, on a unique violation, returns
-whatever message holds that id — without checking it belongs to the conversation.
+`deliver` now runs the same predicates the interactive handlers run —
+`authz::require_channel_access` and `authz::require_conversation_participant` — plus the
+two states a permission check cannot see: an archived channel and a soft-deleted
+workspace. Using the same helpers is the point: a future change to visibility rules
+applies to scheduled delivery for free.
 
-### [CS-023](./tickets/CS-023-validation-gaps.md) — Remaining validation gaps
-**Today:** reaction emoji, reminder content, channel topic and description reach the
-database unvalidated. Over-length input surfaces as 500 rather than 400.
+Failure is terminal by construction — the claim already marked the row sent, and retrying
+a permission the author does not have never succeeds. The reason is a stable slug
+(`not_authorized`, `channel_archived`, `workspace_unavailable`, `internal_error`) rather
+than a formatted database string, because it reaches the author's client. The author gets
+a notification, and the failed row stays in their scheduled list instead of vanishing —
+a message that silently evaporates is worse than one that fails loudly.
+
+Removal cancels proactively as well: leaving a channel cancels what was queued for that
+channel, leaving a workspace cancels everything queued in it. Delivery-time checking stays
+as the backstop; this is so the author is told now rather than at send time, when they may
+have forgotten writing it.
+
+Reminders are the same class and got the same treatment: a reminder whose target has lost
+access to the channel it names is dropped, not delivered without the link. It would
+otherwise leak the channel's existence and, with a message link, a route into a
+conversation they can no longer read.
+
+### [CS-022] Scope the client-supplied message id
+Conversation `send_message` let the client choose the primary key and used a unique
+violation as the idempotency signal — then looked the row up by primary key alone, with no
+check that it belonged to this conversation or that the caller could see it. A caller who
+supplied an id that already existed elsewhere got that message's full row back.
+
+**Decision: `client_message_id`, not a scoped lookup.** The ticket allowed either. The
+scoped lookup closes the hole but leaves the client owning a global primary key, which is
+a collision waiting for the day ids become predictable or land in a URL. The server now
+generates the id and the sender's key lives in `client_message_id`, unique per
+`(conversation_id, client_message_id)` — scoped by construction, so the same client id in
+two conversations is not a conflict at all rather than a conflict we have to answer
+carefully. It also has to be a v4 UUID: nil and non-random values are refused.
+
+The frontend keeps its optimistic id as the client key and swaps the row for the server's
+on success, which is what stops the websocket echo arriving as a second copy.
+
+**The ticket was wrong about the blast radius.** It stated the channel `send_message` path
+does not accept a client id, so it was unaffected. It does, with the same
+`find_by_id`-after-unique-violation branch — and worse consequences: the caller only has to
+be a member of the channel they are posting to in order to be handed a message from a
+private channel they cannot read. Both paths now carry `client_message_id`, unique per
+`(channel_id, client_message_id)` and `(conversation_id, client_message_id)`.
+
+Reactions were checked in the same pass and needed no change — `UNIQUE (message_id,
+user_id, emoji)` was already correctly scoped.
+
+### [CS-023] Close remaining input validation gaps
+Reaction emoji, reminder content and channel topic/description reached the database with no
+length check, so an over-long value produced a 500 where the answer is 400 — and a 500 on
+user-supplied input is a monitoring false positive that trains people to ignore alerts.
+
+The survey covered every `String` field of every request DTO, and **every one of them now
+has an explicit validator** rather than relying on the column to complain:
+
+| Field | Rule |
+|---|---|
+| reaction emoji (HTTP, both paths) | 1–8 chars, no control characters — the rule the WebSocket path already enforced |
+| reminder content | 4000, matching messages |
+| channel topic | 500 · channel/workspace description | 4000 |
+| workspace `icon_url` | same rule as avatars (http(s) or site-relative) |
+| user `bio` | 500 · user `timezone` | IANA-shaped, 1–50 |
+| hook `name` | 1–100 · hook `description` | 4000 |
+| invite `email` on `create_invite` | validated, as it already was on the provisioning path |
+
+Deliberately unvalidated: `LoginRequest.email`/`password` and `ForgotPasswordRequest.email`
+are lookups whose whole design is one indistinguishable answer, so an early 400 would be
+an oracle. Tokens are verified rather than validated.
+
+`is_unique_violation` moved from a private helper in `conversations/routes.rs` to
+`shared_common::errors`, and duplicate reactions now return 409 instead of a raw database
+error — the new test found that one: it was a live 500.
 
 ---
 

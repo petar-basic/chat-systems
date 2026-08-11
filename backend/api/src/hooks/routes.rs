@@ -71,6 +71,10 @@ async fn create_hook(
     Json(req): Json<CreateHookRequest>,
 ) -> AppResult<Json<Hook>> {
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
+    shared_common::validation::validate_hook_name(&req.name)?;
+    if let Some(description) = &req.description {
+        shared_common::validation::validate_description(description)?;
+    }
     let mut config = req.config.unwrap_or(serde_json::json!({}));
 
     if req.hook_type == HookType::IncomingWebhook {
@@ -372,6 +376,7 @@ async fn create_reminder(
     Path(ws_id): Path<Uuid>,
     Json(req): Json<CreateReminderRequest>,
 ) -> AppResult<Json<Reminder>> {
+    shared_common::validation::validate_reminder_content(&req.content)?;
     let member =
         authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Member).await?;
     if req.target_user_id != auth.user_id {

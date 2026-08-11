@@ -35,6 +35,7 @@ pub struct ConversationMessage {
     pub id: Uuid,
     pub conversation_id: Uuid,
     pub user_id: Uuid,
+    pub client_message_id: Option<Uuid>,
     pub content: String,
     pub edited_at: Option<DateTime<Utc>>,
     pub deleted_at: Option<DateTime<Utc>>,
@@ -59,7 +60,9 @@ pub struct CreateConversationRequest {
 #[derive(Debug, Deserialize)]
 pub struct SendConversationMessageRequest {
     pub content: String,
-    pub id: Option<Uuid>,
+    /// The sender's own id for this send, used only to make a retry idempotent.
+    /// It is not the message id — the server owns that.
+    pub client_message_id: Option<Uuid>,
 }
 
 #[derive(Debug, Deserialize)]

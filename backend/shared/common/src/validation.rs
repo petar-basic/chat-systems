@@ -105,6 +105,115 @@ pub fn validate_avatar_url(url: &str) -> AppResult<()> {
     Ok(())
 }
 
+/// Matches the rule the realtime gateway already enforces on the WebSocket path.
+/// Two paths reach the same column; one limit.
+pub fn validate_reaction_emoji(emoji: &str) -> AppResult<()> {
+    if emoji.is_empty() {
+        return Err(AppError::Validation("Reaction cannot be empty".into()));
+    }
+    if emoji.chars().count() > 8 {
+        return Err(AppError::Validation(
+            "Reaction must be at most 8 characters".into(),
+        ));
+    }
+    if emoji.chars().any(char::is_control) {
+        return Err(AppError::Validation(
+            "Reaction cannot contain control characters".into(),
+        ));
+    }
+    Ok(())
+}
+
+pub fn validate_reminder_content(content: &str) -> AppResult<()> {
+    if content.trim().is_empty() {
+        return Err(AppError::Validation(
+            "Reminder content cannot be empty".into(),
+        ));
+    }
+    if content.len() > 4000 {
+        return Err(AppError::Validation(
+            "Reminder content must be at most 4000 characters".into(),
+        ));
+    }
+    Ok(())
+}
+
+pub fn validate_channel_topic(topic: &str) -> AppResult<()> {
+    if topic.len() > 500 {
+        return Err(AppError::Validation(
+            "Channel topic must be at most 500 characters".into(),
+        ));
+    }
+    Ok(())
+}
+
+pub fn validate_description(description: &str) -> AppResult<()> {
+    if description.len() > 4000 {
+        return Err(AppError::Validation(
+            "Description must be at most 4000 characters".into(),
+        ));
+    }
+    Ok(())
+}
+
+pub fn validate_hook_name(name: &str) -> AppResult<()> {
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        return Err(AppError::Validation(
+            "Integration name cannot be empty".into(),
+        ));
+    }
+    if trimmed.len() > 100 {
+        return Err(AppError::Validation(
+            "Integration name must be at most 100 characters".into(),
+        ));
+    }
+    Ok(())
+}
+
+pub fn validate_bio(bio: &str) -> AppResult<()> {
+    if bio.len() > 500 {
+        return Err(AppError::Validation(
+            "Bio must be at most 500 characters".into(),
+        ));
+    }
+    Ok(())
+}
+
+/// An IANA name, not free text — it is fed to a date formatter, and the column
+/// is 50 characters wide.
+pub fn validate_timezone(timezone: &str) -> AppResult<()> {
+    if timezone.is_empty() || timezone.len() > 50 {
+        return Err(AppError::Validation(
+            "Timezone must be between 1 and 50 characters".into(),
+        ));
+    }
+    if !timezone
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '/' | '_' | '-' | '+'))
+    {
+        return Err(AppError::Validation(
+            "Timezone must be an IANA name, e.g. Europe/Belgrade".into(),
+        ));
+    }
+    Ok(())
+}
+
+pub fn validate_icon_url(url: &str) -> AppResult<()> {
+    validate_avatar_url(url)
+}
+
+/// The sender picks this one, so it has to be a real random id. A nil or
+/// non-random value is a client that will collide with itself.
+pub fn validate_client_message_id(id: uuid::Uuid) -> AppResult<()> {
+    if id.is_nil() || id.get_version_num() != 4 {
+        return Err(AppError::Validation(
+            "client_message_id must be a version 4 UUID".into(),
+        ));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -184,6 +293,67 @@ mod tests {
         assert!(validate_message_content(&max).is_ok());
         let over = "x".repeat(4001);
         assert_validation_err(validate_message_content(&over));
+    }
+
+    #[test]
+    fn validate_reaction_emoji_matches_the_websocket_rule() {
+        assert!(validate_reaction_emoji("\u{1F680}").is_ok());
+        assert!(validate_reaction_emoji(&"a".repeat(8)).is_ok());
+        assert_validation_err(validate_reaction_emoji(&"a".repeat(9)));
+        assert_validation_err(validate_reaction_emoji(""));
+        assert_validation_err(validate_reaction_emoji("a\u{0007}"));
+    }
+
+    #[test]
+    fn validate_reminder_content_matches_the_message_limit() {
+        assert!(validate_reminder_content(&"x".repeat(4000)).is_ok());
+        assert_validation_err(validate_reminder_content(&"x".repeat(4001)));
+        assert_validation_err(validate_reminder_content("   "));
+    }
+
+    #[test]
+    fn validate_channel_topic_stops_at_the_column_width() {
+        assert!(validate_channel_topic("").is_ok());
+        assert!(validate_channel_topic(&"x".repeat(500)).is_ok());
+        assert_validation_err(validate_channel_topic(&"x".repeat(501)));
+    }
+
+    #[test]
+    fn validate_description_stops_at_the_message_limit() {
+        assert!(validate_description(&"x".repeat(4000)).is_ok());
+        assert_validation_err(validate_description(&"x".repeat(4001)));
+    }
+
+    #[test]
+    fn validate_hook_name_rejects_blank_and_over_long() {
+        assert!(validate_hook_name("Deploy bot").is_ok());
+        assert_validation_err(validate_hook_name("   "));
+        assert_validation_err(validate_hook_name(&"x".repeat(101)));
+    }
+
+    #[test]
+    fn validate_bio_stops_at_five_hundred() {
+        assert!(validate_bio(&"x".repeat(500)).is_ok());
+        assert_validation_err(validate_bio(&"x".repeat(501)));
+    }
+
+    #[test]
+    fn validate_timezone_accepts_iana_names_only() {
+        assert!(validate_timezone("Europe/Belgrade").is_ok());
+        assert!(validate_timezone("UTC").is_ok());
+        assert!(validate_timezone("Etc/GMT+2").is_ok());
+        assert_validation_err(validate_timezone(""));
+        assert_validation_err(validate_timezone("Europe/Belgrade; DROP"));
+        assert_validation_err(validate_timezone(&"a".repeat(51)));
+    }
+
+    #[test]
+    fn validate_client_message_id_requires_a_random_uuid() {
+        assert!(validate_client_message_id(uuid::Uuid::new_v4()).is_ok());
+        assert_validation_err(validate_client_message_id(uuid::Uuid::nil()));
+        assert_validation_err(validate_client_message_id(
+            uuid::Uuid::parse_str("00000000-0000-1000-8000-000000000000").unwrap(),
+        ));
     }
 
     #[test]

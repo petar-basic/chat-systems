@@ -138,13 +138,14 @@ impl ConversationRepo {
         conversation_id: Uuid,
         user_id: Uuid,
         content: &str,
+        client_message_id: Option<Uuid>,
     ) -> sqlx::Result<ConversationMessage> {
         let mut tx = self.pool.begin().await?;
 
         let message = sqlx::query_as::<_, ConversationMessage>(
             r"
-            INSERT INTO conversation_messages (id, conversation_id, user_id, content)
-            VALUES ($1, $2, $3, $4)
+            INSERT INTO conversation_messages (id, conversation_id, user_id, content, client_message_id)
+            VALUES ($1, $2, $3, $4, $5)
             RETURNING *
             ",
         )
@@ -152,6 +153,7 @@ impl ConversationRepo {
         .bind(conversation_id)
         .bind(user_id)
         .bind(content)
+        .bind(client_message_id)
         .fetch_one(&mut *tx)
         .await?;
 
@@ -170,6 +172,23 @@ impl ConversationRepo {
             "SELECT * FROM conversation_messages WHERE id = $1",
         )
         .bind(id)
+        .fetch_optional(&self.pool)
+        .await
+    }
+
+    /// The retry half of idempotent sending. Scoped by construction: a client id
+    /// only ever names a row inside the conversation it was used in.
+    pub async fn find_by_client_id(
+        &self,
+        conversation_id: Uuid,
+        client_message_id: Uuid,
+    ) -> sqlx::Result<Option<ConversationMessage>> {
+        sqlx::query_as::<_, ConversationMessage>(
+            "SELECT * FROM conversation_messages \
+              WHERE conversation_id = $1 AND client_message_id = $2",
+        )
+        .bind(conversation_id)
+        .bind(client_message_id)
         .fetch_optional(&self.pool)
         .await
     }

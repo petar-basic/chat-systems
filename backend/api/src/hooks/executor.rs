@@ -7,7 +7,7 @@ use redis::AsyncCommands;
 use sha2::Sha256;
 use tracing::{info, warn};
 
-use super::models::Hook;
+use super::models::{Hook, Reminder};
 use super::repo::HookRepo;
 use super::ssrf;
 
@@ -267,7 +267,20 @@ fn truncate_body(body: &str) -> String {
     format!("{}…[truncated]", &body[..end])
 }
 
-pub async fn start_reminder_checker(redis_url: &str, hook_repo: Arc<HookRepo>) {
+/// A reminder names a channel, and the target may have lost access to it since
+/// it was written. Delivering it anyway leaks the channel's existence and, with
+/// a message link, a route into a conversation they can no longer read.
+pub async fn reminder_is_deliverable(state: &crate::state::AppState, reminder: &Reminder) -> bool {
+    let Some(channel_id) = reminder.channel_id else {
+        return true;
+    };
+    crate::authz::require_channel_access(state, channel_id, reminder.target_user_id)
+        .await
+        .is_ok()
+}
+
+pub async fn start_reminder_checker(redis_url: &str, state: Arc<crate::state::AppState>) {
+    let hook_repo = &state.hook_repo;
     let client = match redis::Client::open(redis_url) {
         Ok(c) => c,
         Err(e) => {
@@ -298,6 +311,14 @@ pub async fn start_reminder_checker(redis_url: &str, hook_repo: Arc<HookRepo>) {
         };
 
         for reminder in reminders {
+            if !reminder_is_deliverable(&state, &reminder).await {
+                warn!(
+                    reminder_id = %reminder.id,
+                    "reminder dropped: the target no longer has access to the channel"
+                );
+                continue;
+            }
+
             let notif_event = serde_json::json!({
                 "event_type": "notification.push",
                 "payload": {
