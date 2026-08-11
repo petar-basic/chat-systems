@@ -201,6 +201,7 @@ async fn list_hooks_redacts_secrets(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Hooks WS").await;
+    let ch = seed_channel(&state, ws, owner_id, "deploys", false).await;
 
     let (status, _) = send(
         &app,
@@ -210,7 +211,12 @@ async fn list_hooks_redacts_secrets(pool: PgPool) {
         Some(json!({
             "hook_type": "outgoing_webhook",
             "name": "out-hook",
-            "config": { "url": "https://example.test/out", "secret": "s3cr3t", "token": "abc123" }
+            "config": {
+                "url": "https://example.test/out",
+                "channel_ids": [ch],
+                "secret": "s3cr3t",
+                "token": "abc123"
+            }
         })),
     )
     .await;
@@ -769,7 +775,7 @@ async fn reveal_returns_the_full_incoming_url_that_list_redacts(pool: PgPool) {
     );
 
     let audited: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM audit_log WHERE action = 'hook.reveal' AND resource_id = $1",
+        "SELECT COUNT(*) FROM audit_log WHERE action = 'hook.revealed' AND resource_id = $1",
     )
     .bind(uuid::Uuid::parse_str(&hook_id).expect("uuid"))
     .fetch_one(&state.pool)
@@ -903,6 +909,7 @@ async fn outgoing_webhook_gets_a_generated_secret_and_a_validated_url(pool: PgPo
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Outgoing WS").await;
+    let ch = seed_channel(&state, ws, owner_id, "deploys", false).await;
 
     let (status, created) = send(
         &app,
@@ -912,7 +919,7 @@ async fn outgoing_webhook_gets_a_generated_secret_and_a_validated_url(pool: PgPo
         Some(json!({
             "hook_type": "outgoing_webhook",
             "name": "Deploy bot",
-            "config": { "url": "https://example.com/hooks/chat" }
+            "config": { "url": "https://example.com/hooks/chat", "channel_ids": [ch] }
         })),
     )
     .await;
@@ -949,7 +956,7 @@ async fn outgoing_webhook_gets_a_generated_secret_and_a_validated_url(pool: PgPo
         Some(json!({
             "hook_type": "outgoing_webhook",
             "name": "Internal",
-            "config": { "url": "ftp://example.com/steal" }
+            "config": { "url": "ftp://example.com/steal", "channel_ids": [ch] }
         })),
     )
     .await;
@@ -968,4 +975,183 @@ async fn outgoing_webhook_gets_a_generated_secret_and_a_validated_url(pool: PgPo
     )
     .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "url is required");
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn outgoing_webhook_requires_a_channel_scope(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Scope WS").await;
+
+    for config in [
+        json!({ "url": "https://example.com/out" }),
+        json!({ "url": "https://example.com/out", "channel_ids": [] }),
+        json!({ "url": "https://example.com/out", "channel_ids": ["not-a-uuid"] }),
+    ] {
+        let (status, body) = send(
+            &app,
+            "POST",
+            &format!("/api/workspaces/{ws}/hooks"),
+            Some(&token),
+            Some(json!({
+                "hook_type": "outgoing_webhook",
+                "name": "Unscoped",
+                "config": config
+            })),
+        )
+        .await;
+        assert_eq!(
+            status,
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "an outgoing webhook must name the channels it may read: {body:?}"
+        );
+    }
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn outgoing_webhook_cannot_be_scoped_to_a_foreign_channel(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Scope WS").await;
+    let other_ws = seed_workspace(&state, owner_id, "Other WS").await;
+    let foreign = seed_channel(&state, other_ws, owner_id, "elsewhere", false).await;
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws}/hooks"),
+        Some(&token),
+        Some(json!({
+            "hook_type": "outgoing_webhook",
+            "name": "Cross tenant",
+            "config": { "url": "https://example.com/out", "channel_ids": [foreign] }
+        })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "a hook must not reach into another workspace: {body:?}"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn attaching_a_hook_to_a_private_channel_needs_membership(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _) = seed(&state, "hook-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Private WS").await;
+    let secret_channel = seed_channel(&state, ws, owner_id, "leadership", true).await;
+
+    let (admin_id, admin_email) = seed(&state, "hook-admin", false).await;
+    add_ws_member(&state, ws, admin_id, "admin").await;
+    let admin_token = login(&app, &admin_email, PASSWORD).await;
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws}/hooks"),
+        Some(&admin_token),
+        Some(json!({
+            "hook_type": "outgoing_webhook",
+            "name": "Eavesdropper",
+            "config": { "url": "https://example.com/out", "channel_ids": [secret_channel] }
+        })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "an admin outside a private channel must not forward it off the instance: {body:?}"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn hooked_channels_are_listed_for_every_member(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Indicator WS").await;
+    let hooked = seed_channel(&state, ws, owner_id, "deploys", false).await;
+    let quiet = seed_channel(&state, ws, owner_id, "random", false).await;
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws}/hooks"),
+        Some(&token),
+        Some(json!({
+            "hook_type": "outgoing_webhook",
+            "name": "Deploy bot",
+            "config": { "url": "https://example.com/out", "channel_ids": [hooked] }
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (member_id, member_email) = seed(&state, "hook-member", false).await;
+    add_ws_member(&state, ws, member_id, "member").await;
+    let member_token = login(&app, &member_email, PASSWORD).await;
+
+    let (status, body) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws}/hooks/channels"),
+        Some(&member_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    let ids: Vec<&str> = body["channel_ids"]
+        .as_array()
+        .expect("channel_ids array")
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert!(
+        ids.contains(&hooked.to_string().as_str()),
+        "a member has to be able to see that the channel is forwarded: {body:?}"
+    );
+    assert!(
+        !ids.contains(&quiet.to_string().as_str()),
+        "an unhooked channel must not be flagged: {body:?}"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn outgoing_hooks_only_match_their_own_channel(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Match WS").await;
+    let hooked = seed_channel(&state, ws, owner_id, "deploys", false).await;
+    let quiet = seed_channel(&state, ws, owner_id, "random", false).await;
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws}/hooks"),
+        Some(&token),
+        Some(json!({
+            "hook_type": "outgoing_webhook",
+            "name": "Deploy bot",
+            "config": { "url": "https://example.com/out", "channel_ids": [hooked] }
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let matched = state
+        .hook_repo
+        .list_active_outgoing_hooks_for_channel(ws, hooked)
+        .await
+        .expect("lookup");
+    assert_eq!(matched.len(), 1, "the scoped channel fires the hook");
+
+    let unmatched = state
+        .hook_repo
+        .list_active_outgoing_hooks_for_channel(ws, quiet)
+        .await
+        .expect("lookup");
+    assert!(
+        unmatched.is_empty(),
+        "a channel outside the scope must never reach the webhook"
+    );
 }

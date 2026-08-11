@@ -679,3 +679,177 @@ async fn an_upload_over_the_cap_is_refused_and_leaves_nothing_behind(pool: PgPoo
         .expect("count files");
     assert_eq!(rows, 0, "a refused upload must not leave a row behind");
 }
+
+#[sqlx::test(migrations = "../migrations")]
+async fn a_channel_moderator_can_take_down_somebody_elses_file(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "mod-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Moderation WS").await;
+    let ch = seed_channel(&state, ws_id, owner_id, "general", false).await;
+
+    let (poster_id, poster_email) = seed(&state, "mod-poster", false).await;
+    add_ws_member(&state, ws_id, poster_id, "member").await;
+    let poster = login(&app, &poster_email, PASSWORD).await;
+
+    let (status, uploaded) =
+        upload_request(&app, ws_id, Some(&poster), "bad.txt", "text/plain", b"bad").await;
+    assert_eq!(status, StatusCode::OK, "upload: {uploaded:?}");
+    let file_id = uploaded[0]["id"].as_str().expect("file id").to_string();
+    let url = uploaded[0]["url"].as_str().expect("url").to_string();
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch}/messages"),
+        Some(&poster),
+        Some(json!({ "content": format!("here [bad]({url})") })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (bystander_id, bystander_email) = seed(&state, "mod-bystander", false).await;
+    add_ws_member(&state, ws_id, bystander_id, "member").await;
+    let bystander = login(&app, &bystander_email, PASSWORD).await;
+    let (status, _) = send(
+        &app,
+        "DELETE",
+        &format!("/api/files/{file_id}"),
+        Some(&bystander),
+        None,
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "a plain member does not moderate files"
+    );
+
+    let (status, body) = send(
+        &app,
+        "DELETE",
+        &format!("/api/files/{file_id}"),
+        Some(&owner),
+        None,
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "workspace admin moderates: {body:?}"
+    );
+
+    let audited: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM audit_log WHERE action = 'file.deleted' AND resource_id = $1",
+    )
+    .bind(uuid::Uuid::parse_str(&file_id).expect("uuid"))
+    .fetch_one(&state.pool)
+    .await
+    .expect("count");
+    assert_eq!(audited.0, 1, "taking down somebody's file is audited");
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn deleting_a_message_takes_its_attachment_with_it(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "cascade-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Cascade WS").await;
+    let ch = seed_channel(&state, ws_id, owner_id, "general", false).await;
+
+    let (status, uploaded) =
+        upload_request(&app, ws_id, Some(&owner), "doc.txt", "text/plain", b"doc").await;
+    assert_eq!(status, StatusCode::OK, "upload: {uploaded:?}");
+    let url = uploaded[0]["url"].as_str().expect("url").to_string();
+    let key = storage_key_from_url(&url);
+
+    let (_, msg) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch}/messages"),
+        Some(&owner),
+        Some(json!({ "content": format!("see [doc]({url})") })),
+    )
+    .await;
+    let msg_id = msg["id"].as_str().expect("message id").to_string();
+
+    let (status, _) = send(
+        &app,
+        "DELETE",
+        &format!("/api/messages/{msg_id}"),
+        Some(&owner),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let rows: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM files WHERE storage_key = $1")
+        .bind(&key)
+        .fetch_one(&state.pool)
+        .await
+        .expect("count");
+    assert_eq!(rows, 0, "the attachment goes with the message");
+
+    let (status, _) = send(
+        &app,
+        "GET",
+        &format!("/api/files/download/{key}"),
+        Some(&owner),
+        None,
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "a deleted attachment must not stay downloadable by key"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn editing_a_message_releases_the_attachment_it_drops(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "release-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Release WS").await;
+    let ch = seed_channel(&state, ws_id, owner_id, "general", false).await;
+
+    let (_, kept) =
+        upload_request(&app, ws_id, Some(&owner), "keep.txt", "text/plain", b"keep").await;
+    let (_, dropped) =
+        upload_request(&app, ws_id, Some(&owner), "drop.txt", "text/plain", b"drop").await;
+    let kept_url = kept[0]["url"].as_str().expect("url").to_string();
+    let dropped_url = dropped[0]["url"].as_str().expect("url").to_string();
+    let dropped_key = storage_key_from_url(&dropped_url);
+    let kept_key = storage_key_from_url(&kept_url);
+
+    let (_, msg) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch}/messages"),
+        Some(&owner),
+        Some(json!({ "content": format!("[a]({kept_url}) [b]({dropped_url})") })),
+    )
+    .await;
+    let msg_id = msg["id"].as_str().expect("message id").to_string();
+
+    let (status, body) = send(
+        &app,
+        "PATCH",
+        &format!("/api/messages/{msg_id}"),
+        Some(&owner),
+        Some(json!({ "content": format!("[a]({kept_url})") })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "edit: {body:?}");
+
+    let dropped_rows: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM files WHERE storage_key = $1")
+        .bind(&dropped_key)
+        .fetch_one(&state.pool)
+        .await
+        .expect("count");
+    assert_eq!(dropped_rows, 0, "an unlinked attachment is released");
+
+    let kept_rows: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM files WHERE storage_key = $1")
+        .bind(&kept_key)
+        .fetch_one(&state.pool)
+        .await
+        .expect("count");
+    assert_eq!(kept_rows, 1, "the attachment still referenced stays");
+}

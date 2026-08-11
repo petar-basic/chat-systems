@@ -9,6 +9,7 @@ use shared_common::errors::{AppError, AppResult};
 use shared_common::validation;
 
 use super::models::*;
+use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
 use crate::middleware::AuthUser;
 use crate::state::AppState;
@@ -22,6 +23,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/workspaces/:ws_id", patch(update_workspace))
         .route("/workspaces/:ws_id", delete(delete_workspace))
         .route("/workspaces/:ws_id/restore", post(restore_workspace))
+        .route("/workspaces/:ws_id/audit-log", get(list_audit_log))
         .route("/workspaces/:ws_id/members", get(list_members))
         .route(
             "/workspaces/:ws_id/members/:user_id/role",
@@ -76,6 +78,7 @@ async fn list_workspaces(
 async fn create_workspace(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
+    ip: ClientIp,
     Json(req): Json<CreateWorkspaceRequest>,
 ) -> AppResult<Json<Workspace>> {
     validation::validate_workspace_name(&req.name)?;
@@ -83,6 +86,17 @@ async fn create_workspace(
         .workspace_service
         .create_workspace(&req.name, req.description.as_deref(), auth.user_id)
         .await?;
+
+    audit::record(
+        &state,
+        AuditEntry::new(AuditAction::WorkspaceCreated, auth.user_id)
+            .workspace(workspace.id)
+            .resource(workspace.id)
+            .ip(&ip)
+            .details(serde_json::json!({ "name": workspace.name })),
+    )
+    .await;
+
     Ok(Json(workspace))
 }
 
@@ -127,6 +141,7 @@ async fn update_workspace(
 async fn delete_workspace(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
+    ip: ClientIp,
     Path(ws_id): Path<Uuid>,
     Query(params): Query<DeleteWorkspaceRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
@@ -134,6 +149,12 @@ async fn delete_workspace(
         authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Owner).await?;
     }
     let hard = params.hard.unwrap_or(false);
+    let entry = AuditEntry::new(AuditAction::WorkspaceDeleted, auth.user_id)
+        .workspace(ws_id)
+        .resource(ws_id)
+        .ip(&ip)
+        .details(serde_json::json!({ "hard": hard }));
+
     if hard {
         state
             .workspace_service
@@ -144,6 +165,7 @@ async fn delete_workspace(
             .publisher
             .publish_workspace_deleted(ws_id, "hard")
             .await;
+        audit::record(&state, entry).await;
         Ok(Json(serde_json::json!({ "status": "hard_deleted" })))
     } else {
         state
@@ -155,6 +177,7 @@ async fn delete_workspace(
             .publisher
             .publish_workspace_deleted(ws_id, "soft")
             .await;
+        audit::record(&state, entry).await;
         Ok(Json(serde_json::json!({ "status": "soft_deleted" })))
     }
 }
@@ -162,6 +185,7 @@ async fn delete_workspace(
 async fn restore_workspace(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
+    ip: ClientIp,
     Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<Workspace>> {
     if !auth.is_instance_admin {
@@ -173,7 +197,28 @@ async fn restore_workspace(
         .restore_workspace(ws_id)
         .await?;
     let _ = state.publisher.publish_workspace_restored(ws_id).await;
+
+    audit::record(
+        &state,
+        AuditEntry::new(AuditAction::WorkspaceRestored, auth.user_id)
+            .workspace(ws_id)
+            .resource(ws_id)
+            .ip(&ip),
+    )
+    .await;
+
     Ok(Json(workspace))
+}
+
+async fn list_audit_log(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(ws_id): Path<Uuid>,
+    Query(query): Query<audit::AuditQuery>,
+) -> AppResult<Json<serde_json::Value>> {
+    authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
+    let entries = audit::list(&state, Some(ws_id), &query).await?;
+    Ok(Json(serde_json::json!({ "data": entries })))
 }
 
 async fn list_deleted_workspaces(
@@ -205,6 +250,7 @@ async fn list_members(
 async fn update_member_role(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
+    ip: ClientIp,
     Path((ws_id, user_id)): Path<(Uuid, Uuid)>,
     Json(req): Json<UpdateMemberRoleRequest>,
 ) -> AppResult<Json<WorkspaceMember>> {
@@ -233,12 +279,24 @@ async fn update_member_role(
         .repo
         .update_member_role(ws_id, user_id, &req.role)
         .await?;
+
+    audit::record(
+        &state,
+        AuditEntry::new(AuditAction::WorkspaceRoleChanged, auth.user_id)
+            .workspace(ws_id)
+            .resource(user_id)
+            .ip(&ip)
+            .details(serde_json::json!({ "from": target.role, "to": req.role })),
+    )
+    .await;
+
     Ok(Json(member))
 }
 
 async fn remove_member(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
+    ip: ClientIp,
     Path((ws_id, user_id)): Path<(Uuid, Uuid)>,
 ) -> AppResult<Json<serde_json::Value>> {
     let target = authz::require_workspace_member(&state, ws_id, user_id).await?;
@@ -274,6 +332,16 @@ async fn remove_member(
         .publish_workspace_member_removed(ws_id, user_id)
         .await;
 
+    audit::record(
+        &state,
+        AuditEntry::new(AuditAction::WorkspaceMemberRemoved, auth.user_id)
+            .workspace(ws_id)
+            .resource(user_id)
+            .ip(&ip)
+            .details(serde_json::json!({ "self_service": auth.user_id == user_id })),
+    )
+    .await;
+
     Ok(Json(serde_json::json!({ "status": "removed" })))
 }
 
@@ -290,6 +358,7 @@ async fn list_invites(
 async fn create_invite(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
+    ip: ClientIp,
     Path(ws_id): Path<Uuid>,
     Json(req): Json<CreateInviteRequest>,
 ) -> AppResult<Json<WorkspaceInvite>> {
@@ -306,6 +375,21 @@ async fn create_invite(
             &state.auth_service,
         )
         .await?;
+
+    audit::record(
+        &state,
+        AuditEntry::new(AuditAction::InviteCreated, auth.user_id)
+            .workspace(ws_id)
+            .resource(invite.id)
+            .ip(&ip)
+            .details(serde_json::json!({
+                "email": invite.email,
+                "role": invite.role,
+                "expires_at": invite.expires_at,
+            })),
+    )
+    .await;
+
     Ok(Json(invite))
 }
 
@@ -330,6 +414,7 @@ async fn accept_invite(
 async fn revoke_invite(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
+    ip: ClientIp,
     Path((ws_id, invite_id)): Path<(Uuid, Uuid)>,
 ) -> AppResult<Json<serde_json::Value>> {
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
@@ -347,6 +432,17 @@ async fn revoke_invite(
         .repo
         .delete_invite(invite_id)
         .await?;
+
+    audit::record(
+        &state,
+        AuditEntry::new(AuditAction::InviteRevoked, auth.user_id)
+            .workspace(ws_id)
+            .resource(invite_id)
+            .ip(&ip)
+            .details(serde_json::json!({ "email": invite.email })),
+    )
+    .await;
+
     Ok(Json(serde_json::json!({ "status": "revoked" })))
 }
 
@@ -413,6 +509,7 @@ async fn unread_channels(
 async fn create_channel(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
+    ip: ClientIp,
     Path(ws_id): Path<Uuid>,
     Json(req): Json<CreateChannelRequest>,
 ) -> AppResult<Json<Channel>> {
@@ -438,6 +535,19 @@ async fn create_channel(
         .add_channel_member(channel.id, auth.user_id, &ChannelRole::Admin)
         .await;
 
+    audit::record(
+        &state,
+        AuditEntry::new(AuditAction::ChannelCreated, auth.user_id)
+            .workspace(ws_id)
+            .resource(channel.id)
+            .ip(&ip)
+            .details(serde_json::json!({
+                "name": channel.name,
+                "channel_type": channel_type,
+            })),
+    )
+    .await;
+
     Ok(Json(channel))
 }
 
@@ -459,6 +569,7 @@ async fn get_channel(
 async fn update_channel(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
+    ip: ClientIp,
     Path(ch_id): Path<Uuid>,
     Json(req): Json<UpdateChannelRequest>,
 ) -> AppResult<Json<Channel>> {
@@ -477,6 +588,17 @@ async fn update_channel(
             req.description.as_deref(),
         )
         .await?;
+
+    audit::record(
+        &state,
+        AuditEntry::new(AuditAction::ChannelUpdated, auth.user_id)
+            .workspace(channel.workspace_id)
+            .resource(ch_id)
+            .ip(&ip)
+            .details(serde_json::json!({ "from": channel.name, "to": updated.name })),
+    )
+    .await;
+
     Ok(Json(updated))
 }
 
@@ -528,11 +650,23 @@ async fn join_channel(
 async fn archive_channel(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
+    ip: ClientIp,
     Path(ch_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
     let channel = authz::find_channel(&state, ch_id).await?;
     authz::require_channel_moderator(&state, &channel, auth.user_id).await?;
     state.workspace_service.repo.archive_channel(ch_id).await?;
+
+    audit::record(
+        &state,
+        AuditEntry::new(AuditAction::ChannelArchived, auth.user_id)
+            .workspace(channel.workspace_id)
+            .resource(ch_id)
+            .ip(&ip)
+            .details(serde_json::json!({ "name": channel.name })),
+    )
+    .await;
+
     Ok(Json(serde_json::json!({ "status": "archived" })))
 }
 
@@ -559,6 +693,7 @@ async fn list_channel_members(
 async fn add_channel_member(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
+    ip: ClientIp,
     Path(ch_id): Path<Uuid>,
     Json(req): Json<AddChannelMemberRequest>,
 ) -> AppResult<Json<ChannelMember>> {
@@ -588,18 +723,30 @@ async fn add_channel_member(
         .repo
         .add_channel_member(ch_id, req.user_id, &ChannelRole::Member)
         .await?;
+
+    audit::record(
+        &state,
+        AuditEntry::new(AuditAction::ChannelMemberAdded, auth.user_id)
+            .workspace(channel.workspace_id)
+            .resource(ch_id)
+            .ip(&ip)
+            .details(serde_json::json!({ "user_id": req.user_id })),
+    )
+    .await;
+
     Ok(Json(member))
 }
 
 async fn update_channel_member_role(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
+    ip: ClientIp,
     Path((ch_id, user_id)): Path<(Uuid, Uuid)>,
     Json(req): Json<UpdateChannelMemberRoleRequest>,
 ) -> AppResult<Json<ChannelMember>> {
     let channel = authz::find_channel(&state, ch_id).await?;
     authz::require_channel_moderator(&state, &channel, auth.user_id).await?;
-    state
+    let target = state
         .workspace_service
         .repo
         .get_channel_member(ch_id, user_id)
@@ -610,19 +757,34 @@ async fn update_channel_member_role(
         .repo
         .update_channel_member_role(ch_id, user_id, &req.role)
         .await?;
+
+    audit::record(
+        &state,
+        AuditEntry::new(AuditAction::ChannelRoleChanged, auth.user_id)
+            .workspace(channel.workspace_id)
+            .resource(ch_id)
+            .ip(&ip)
+            .details(serde_json::json!({
+                "user_id": user_id,
+                "from": target.role,
+                "to": req.role,
+            })),
+    )
+    .await;
+
     Ok(Json(member))
 }
 
 async fn remove_channel_member(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
+    ip: ClientIp,
     Path((ch_id, user_id)): Path<(Uuid, Uuid)>,
 ) -> AppResult<Json<serde_json::Value>> {
+    let channel = authz::find_channel(&state, ch_id).await?;
     if auth.user_id != user_id {
-        let channel = authz::find_channel(&state, ch_id).await?;
         authz::require_channel_moderator(&state, &channel, auth.user_id).await?;
     }
-    let channel = authz::find_channel(&state, ch_id).await?;
     state
         .workspace_service
         .repo
@@ -632,5 +794,19 @@ async fn remove_channel_member(
         .publisher
         .publish_channel_member_removed(ch_id, channel.workspace_id, user_id)
         .await;
+
+    audit::record(
+        &state,
+        AuditEntry::new(AuditAction::ChannelMemberRemoved, auth.user_id)
+            .workspace(channel.workspace_id)
+            .resource(ch_id)
+            .ip(&ip)
+            .details(serde_json::json!({
+                "user_id": user_id,
+                "self_service": auth.user_id == user_id,
+            })),
+    )
+    .await;
+
     Ok(Json(serde_json::json!({ "status": "removed" })))
 }

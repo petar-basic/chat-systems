@@ -124,3 +124,62 @@ test('the Integrations menu and the hook API stay closed to non-admins', async (
     await bob.dispose();
   }
 });
+
+test('an outgoing webhook is scoped to named channels and the channel says so', async ({
+  page,
+  playwright,
+}) => {
+  const admin = await playwright.request.newContext();
+  const bob = await playwright.request.newContext();
+  await signIn(admin, 'admin@dev.local');
+  await signIn(bob, 'bob@dev.local');
+
+  const workspace = await sharedWorkspace(bob);
+  const stamp = Date.now();
+  const hooked = await admin.post(`${API}/workspaces/${workspace.id}/channels`, {
+    data: { name: `forwarded-${stamp}`, channel_type: 'public' },
+  });
+  const hookedId = (await hooked.json()).id as string;
+  const quiet = await admin.post(`${API}/workspaces/${workspace.id}/channels`, {
+    data: { name: `quiet-${stamp}`, channel_type: 'public' },
+  });
+  const quietId = (await quiet.json()).id as string;
+  let hookId: string | null = null;
+
+  try {
+    const unscoped = await admin.post(`${API}/workspaces/${workspace.id}/hooks`, {
+      data: {
+        hook_type: 'outgoing_webhook',
+        name: `Unscoped ${stamp}`,
+        config: { url: 'https://example.com/out' },
+      },
+    });
+    expect(unscoped.status(), 'an outgoing webhook must name its channels').toBe(422);
+
+    await login(page, 'admin@dev.local');
+    await page.goto(`/app/${workspace.id}/${hookedId}`);
+    await openIntegrations(page, workspace.name);
+
+    await page.locator('[data-qa="outgoing-hook-name"]').fill(`Deploy ${stamp}`);
+    await page.locator('[data-qa="outgoing-hook-url"]').fill('https://example.com/hooks/chat');
+    await page.locator(`[data-qa="outgoing-hook-channel-${hookedId}"]`).check();
+    await page.locator('[data-qa="outgoing-hook-create"]').click();
+
+    const row = page.locator('[data-qa="hook-row"]').filter({ hasText: `Deploy ${stamp}` });
+    await expect(row.locator('[data-qa="hook-scope"]')).toHaveText(`Forwards #forwarded-${stamp}`);
+    hookId = await row.getAttribute('data-hook-id');
+
+    await page.goto(`/app/${workspace.id}/${hookedId}`);
+    await expect(page.locator('[data-qa="channel-integration-indicator"]')).toBeVisible();
+
+    await page.goto(`/app/${workspace.id}/${quietId}`);
+    await expect(page.locator('[data-qa="channel-header-name"]')).toHaveText(`quiet-${stamp}`);
+    await expect(page.locator('[data-qa="channel-integration-indicator"]')).toHaveCount(0);
+  } finally {
+    if (hookId) await admin.delete(`${API}/hooks/${hookId}`);
+    await admin.delete(`${API}/channels/${hookedId}`);
+    await admin.delete(`${API}/channels/${quietId}`);
+    await admin.dispose();
+    await bob.dispose();
+  }
+});

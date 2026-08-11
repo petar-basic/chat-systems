@@ -2,6 +2,7 @@ mod common;
 mod smoke;
 
 mod admin;
+mod audit;
 mod auth;
 mod channels;
 mod conversations;

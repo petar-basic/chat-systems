@@ -9,8 +9,8 @@ history and in the docs it changed. A bug found mid-wave gets a suffixed number
 (`CS-005a`) so it lands where it belongs in the order without renumbering everything
 below it.
 
-**Waves 0 through 3 are done.** The E2E suite is green and the `e2e` job blocks merges.
-Next ticket: [CS-018](CS-018-audit-log-coverage.md).
+**Waves 0 through 4 are done.** The E2E suite is green and the `e2e` job blocks merges.
+Next ticket: [CS-021](CS-021-scheduled-reauthorize.md).
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
@@ -95,13 +95,13 @@ per ticket.
 | CS-016 | Uniform login failure and constant-time path | one answer for every failure + a dummy verify |
 | CS-017 | Mail transport defaults (password policy dropped by decision) | `SmtpTlsMode` |
 
-### Wave 4 — Governance
+### Wave 4 — Governance ✅ done
 
-| # | Ticket | Area |
+| # | Ticket | Landed as |
 |---|---|---|
-| [CS-018](CS-018-audit-log-coverage.md) | Audit log coverage | backend/api |
-| [CS-019](CS-019-scope-outgoing-webhooks.md) | Scope outgoing webhooks per channel | backend/api · frontend |
-| [CS-020](CS-020-file-moderation.md) | File moderation and attachment lifecycle | backend/api |
+| CS-018 | Audit log coverage | [`audit.rs`](../../backend/api/src/audit.rs) + migration `…18` |
+| CS-019 | Scope outgoing webhooks per channel | `config.channel_ids` + migration `…19` |
+| CS-020 | File moderation and attachment lifecycle | `delete_for_*_message` in [`files/service.rs`](../../backend/api/src/files/service.rs) |
 
 ### Wave 5 — Correctness
 
@@ -154,7 +154,7 @@ Tickets that touch the same files, and the order that avoids rework:
 | File | Tickets, in order |
 |---|---|
 | `backend/api/src/lib.rs` router wiring | CS-012 → CS-030 |
-| `backend/api/src/authz.rs` | CS-009 → CS-010 → CS-020 |
+| `backend/api/src/authz.rs` | CS-009 → CS-010 → CS-020 ✅ |
 | `backend/api/src/sessions.rs` | CS-008 → CS-033 |
 | `backend/api/src/auth/service.rs` | CS-008 → CS-016 → CS-017 → CS-032 |
 | realtime event consumer | CS-007 → CS-014 → CS-027 → CS-028 |

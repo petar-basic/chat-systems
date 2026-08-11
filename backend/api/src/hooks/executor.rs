@@ -89,7 +89,19 @@ pub async fn start_hook_consumer(redis_url: &str, hook_repo: Arc<HookRepo>) {
 
         let Some(ws_id) = workspace_id else { continue };
 
-        let hooks = match hook_repo.list_active_outgoing_hooks(ws_id).await {
+        let channel_id = event_payload
+            .get("channel_id")
+            .and_then(|v| v.as_str())
+            .and_then(|v| v.parse::<uuid::Uuid>().ok());
+
+        let Some(channel_id) = channel_id else {
+            continue;
+        };
+
+        let hooks = match hook_repo
+            .list_active_outgoing_hooks_for_channel(ws_id, channel_id)
+            .await
+        {
             Ok(h) => h,
             Err(e) => {
                 warn!(workspace_id = %ws_id, "Hook consumer: failed to list hooks: {}", e);
@@ -97,12 +109,39 @@ pub async fn start_hook_consumer(redis_url: &str, hook_repo: Arc<HookRepo>) {
             }
         };
 
+        if hooks.is_empty() {
+            continue;
+        }
+
+        let delivered = outbound_payload(&event_payload);
+
         for hook in hooks {
-            dispatch_hook(&http, &hook_repo, &hook, &event_type, &event_payload).await;
+            dispatch_hook(&http, &hook_repo, &hook, &event_type, &delivered).await;
         }
     }
 
     warn!("Hook consumer: event stream ended, exiting for restart");
+}
+
+/// The event that fans out internally is not the event a third party gets. It
+/// carries `mentioned_user_ids` and whatever the message model grows next, and a
+/// webhook is an endpoint outside the trust boundary — so the outbound shape is
+/// enumerated, not filtered.
+fn outbound_payload(event_payload: &serde_json::Value) -> serde_json::Value {
+    let mut out = serde_json::Map::new();
+    for field in [
+        "id",
+        "channel_id",
+        "workspace_id",
+        "user_id",
+        "content",
+        "created_at",
+    ] {
+        if let Some(value) = event_payload.get(field) {
+            out.insert(field.to_string(), value.clone());
+        }
+    }
+    serde_json::Value::Object(out)
 }
 
 async fn dispatch_hook(

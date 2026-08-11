@@ -67,6 +67,85 @@ pub async fn link_to_conversation_message(
     }
 }
 
+/// Deleting the message deletes what was attached to it. An attachment whose
+/// message is gone is unreachable through the UI but still downloadable by
+/// storage key, so leaving it behind means "deleted" only ever meant "hidden".
+pub async fn delete_for_channel_message(state: &AppState, message_id: Uuid) {
+    match state.file_repo.delete_for_channel_message(message_id).await {
+        Ok(records) => purge_objects(state, &records).await,
+        Err(e) => tracing::warn!(
+            "failed to drop attachments of message {}: {}",
+            message_id,
+            e
+        ),
+    }
+}
+
+pub async fn delete_for_conversation_message(state: &AppState, message_id: Uuid) {
+    match state
+        .file_repo
+        .delete_for_conversation_message(message_id)
+        .await
+    {
+        Ok(records) => purge_objects(state, &records).await,
+        Err(e) => tracing::warn!(
+            "failed to drop attachments of conversation message {}: {}",
+            message_id,
+            e
+        ),
+    }
+}
+
+/// An edit that removes the link to an attachment removes the attachment. The
+/// alternative leaves a file nobody can find but anybody with the key can read.
+pub async fn release_unlinked_from_channel_message(
+    state: &AppState,
+    content: &str,
+    message_id: Uuid,
+) {
+    let kept = extract_file_keys(content);
+    match state
+        .file_repo
+        .delete_unlinked_from_channel_message(message_id, &kept)
+        .await
+    {
+        Ok(records) => purge_objects(state, &records).await,
+        Err(e) => tracing::warn!(
+            "failed to release attachments of message {}: {}",
+            message_id,
+            e
+        ),
+    }
+}
+
+pub async fn release_unlinked_from_conversation_message(
+    state: &AppState,
+    content: &str,
+    message_id: Uuid,
+) {
+    let kept = extract_file_keys(content);
+    match state
+        .file_repo
+        .delete_unlinked_from_conversation_message(message_id, &kept)
+        .await
+    {
+        Ok(records) => purge_objects(state, &records).await,
+        Err(e) => tracing::warn!(
+            "failed to release attachments of conversation message {}: {}",
+            message_id,
+            e
+        ),
+    }
+}
+
+async fn purge_objects(state: &AppState, records: &[crate::files::models::FileRecord]) {
+    for record in records {
+        if let Err(e) = state.file_storage.delete(&record.storage_key).await {
+            tracing::warn!("orphaned object {}: {}", record.storage_key, e);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

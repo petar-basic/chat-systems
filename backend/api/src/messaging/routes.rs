@@ -8,6 +8,7 @@ use uuid::Uuid;
 use shared_common::errors::{AppError, AppResult};
 
 use super::models::*;
+use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
 use crate::middleware::AuthUser;
 use crate::state::AppState;
@@ -165,6 +166,18 @@ async fn update_message(
         .update_message(msg_id, &req.content)
         .await?;
 
+    let channel = authz::find_channel(&state, msg.channel_id).await?;
+    crate::files::service::link_to_channel_message(
+        &state,
+        &req.content,
+        msg.id,
+        channel.workspace_id,
+        auth.user_id,
+    )
+    .await;
+    crate::files::service::release_unlinked_from_channel_message(&state, &req.content, msg.id)
+        .await;
+
     let msg_json = serde_json::to_value(&msg).map_err(|e| AppError::Internal(e.to_string()))?;
     let _ = state.publisher.publish_message_updated(&msg_json).await;
 
@@ -174,6 +187,7 @@ async fn update_message(
 async fn delete_message(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
+    ip: ClientIp,
     Path(msg_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
     let existing = state
@@ -194,12 +208,28 @@ async fn delete_message(
         }
     }
 
+    let channel = authz::find_channel(&state, existing.channel_id).await?;
     state.message_repo.soft_delete_message(msg_id).await?;
+    crate::files::service::delete_for_channel_message(&state, msg_id).await;
 
     let _ = state
         .publisher
         .publish_message_deleted(msg_id, existing.channel_id)
         .await;
+
+    audit::record(
+        &state,
+        AuditEntry::new(AuditAction::MessageDeleted, auth.user_id)
+            .workspace(channel.workspace_id)
+            .resource(msg_id)
+            .ip(&ip)
+            .details(serde_json::json!({
+                "channel_id": existing.channel_id,
+                "author_id": existing.user_id,
+                "moderated": existing.user_id != auth.user_id,
+            })),
+    )
+    .await;
 
     Ok(Json(serde_json::json!({ "status": "deleted" })))
 }

@@ -7,6 +7,7 @@ use uuid::Uuid;
 
 use shared_common::errors::AppResult;
 
+use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::middleware::{admin_middleware, AuthUser};
 use crate::state::AppState;
 
@@ -14,6 +15,7 @@ pub fn router(state: Arc<AppState>) -> Router {
     let routes = Router::new()
         .route("/admin/health", get(health))
         .route("/admin/stats", get(stats))
+        .route("/admin/audit-log", get(list_audit_log))
         .route("/admin/users", get(list_users))
         .route("/admin/users/:user_id/suspend", post(suspend_user))
         .route("/admin/users/:user_id/activate", post(activate_user))
@@ -110,9 +112,18 @@ async fn list_users(
     Ok(Json(serde_json::json!({ "data": users })))
 }
 
+async fn list_audit_log(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<audit::AuditQuery>,
+) -> AppResult<Json<serde_json::Value>> {
+    let entries = audit::list(&state, query.workspace_id, &query).await?;
+    Ok(Json(serde_json::json!({ "data": entries })))
+}
+
 async fn suspend_user(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
+    ip: ClientIp,
     Path(user_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
     sqlx::query("UPDATE users SET status = 'suspended', updated_at = NOW() WHERE id = $1")
@@ -133,13 +144,11 @@ async fn suspend_user(
         .publish("user.suspended", serde_json::json!({ "user_id": user_id }))
         .await;
 
-    audit(
+    audit::record(
         &state,
-        auth.user_id,
-        "user.suspend",
-        "user",
-        user_id,
-        serde_json::json!({}),
+        AuditEntry::new(AuditAction::UserSuspended, auth.user_id)
+            .resource(user_id)
+            .ip(&ip),
     )
     .await;
     Ok(Json(serde_json::json!({ "status": "suspended" })))
@@ -148,6 +157,7 @@ async fn suspend_user(
 async fn activate_user(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
+    ip: ClientIp,
     Path(user_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
     sqlx::query("UPDATE users SET status = 'active', updated_at = NOW() WHERE id = $1")
@@ -157,13 +167,11 @@ async fn activate_user(
 
     crate::sessions::restore(&state, user_id).await;
 
-    audit(
+    audit::record(
         &state,
-        auth.user_id,
-        "user.activate",
-        "user",
-        user_id,
-        serde_json::json!({}),
+        AuditEntry::new(AuditAction::UserActivated, auth.user_id)
+            .resource(user_id)
+            .ip(&ip),
     )
     .await;
     Ok(Json(serde_json::json!({ "status": "activated" })))
@@ -177,6 +185,7 @@ struct UpdateInstanceRoleRequest {
 async fn update_instance_role(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
+    ip: ClientIp,
     Path(user_id): Path<Uuid>,
     Json(body): Json<UpdateInstanceRoleRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
@@ -185,13 +194,12 @@ async fn update_instance_role(
         .bind(user_id)
         .execute(&state.pool)
         .await?;
-    audit(
+    audit::record(
         &state,
-        auth.user_id,
-        "user.update_role",
-        "user",
-        user_id,
-        serde_json::json!({ "is_instance_admin": body.is_instance_admin }),
+        AuditEntry::new(AuditAction::InstanceRoleChanged, auth.user_id)
+            .resource(user_id)
+            .ip(&ip)
+            .details(serde_json::json!({ "is_instance_admin": body.is_instance_admin })),
     )
     .await;
     Ok(Json(
@@ -235,57 +243,31 @@ async fn list_workspaces(
 async fn delete_workspace(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
+    ip: ClientIp,
     Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    // Soft-delete (reversible via restore) instead of an irreversible cascade,
-    // and write the audit row in the same transaction so it can't silently drop.
-    let mut tx = state.pool.begin().await?;
+    // Soft-delete (reversible via restore) instead of an irreversible cascade.
     sqlx::query(
         "UPDATE workspaces SET is_active = false, deleted_at = NOW(), updated_at = NOW() WHERE id = $1",
     )
     .bind(ws_id)
-    .execute(&mut *tx)
+    .execute(&state.pool)
     .await?;
-    sqlx::query(
-        "INSERT INTO audit_log (user_id, action, resource_type, resource_id, details) VALUES ($1, $2, $3, $4, $5)",
-    )
-    .bind(auth.user_id)
-    .bind("workspace.delete")
-    .bind("workspace")
-    .bind(ws_id)
-    .bind(serde_json::json!({ "soft": true }))
-    .execute(&mut *tx)
-    .await?;
-    tx.commit().await?;
 
     let _ = state
         .publisher
         .publish_workspace_deleted(ws_id, "soft")
         .await;
 
-    Ok(Json(serde_json::json!({ "status": "deleted" })))
-}
-
-async fn audit(
-    state: &AppState,
-    actor_id: Uuid,
-    action: &str,
-    resource_type: &str,
-    resource_id: Uuid,
-    details: serde_json::Value,
-) {
-    let result = sqlx::query(
-        "INSERT INTO audit_log (user_id, action, resource_type, resource_id, details) VALUES ($1, $2, $3, $4, $5)",
+    audit::record(
+        &state,
+        AuditEntry::new(AuditAction::WorkspaceDeleted, auth.user_id)
+            .workspace(ws_id)
+            .resource(ws_id)
+            .ip(&ip)
+            .details(serde_json::json!({ "hard": false })),
     )
-    .bind(actor_id)
-    .bind(action)
-    .bind(resource_type)
-    .bind(resource_id)
-    .bind(details)
-    .execute(&state.pool)
     .await;
 
-    if let Err(e) = result {
-        tracing::warn!("Failed to write audit log: {}", e);
-    }
+    Ok(Json(serde_json::json!({ "status": "deleted" })))
 }

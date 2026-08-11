@@ -125,6 +125,13 @@ docs/         this folder
 - **Sessions end through `sessions::revoke`.** Deleting refresh tokens, marking access
   tokens invalid and closing live sockets belong together; the three steps have drifted
   apart before.
+- **Destructive actions are recorded through `audit::record`.** Anything that deletes,
+  removes, grants or reveals takes a `ClientIp` extractor and writes one `AuditEntry`
+  with a typed `AuditAction`. Adding a variant to the enum is part of the change, not a
+  follow-up — the read side filters on `action`, so a free-string call site is an entry
+  nobody will ever find. `record` never returns an error to the handler: the action has
+  already happened, and failing the request on the trail turns an audit problem into an
+  availability one.
 - **New queries use `sqlx::query_as!` / `query!`.** Decided 2026-08-07: the macros are
   the standard for new code, existing runtime queries convert opportunistically when
   their method is touched for another reason, and there is no big-bang rewrite. Run

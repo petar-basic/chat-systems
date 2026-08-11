@@ -9,6 +9,7 @@ import PinnedMessagesPanel from '@/components/PinnedMessagesPanel';
 import ChannelMembersPanel from '@/components/ChannelMembersPanel';
 import NotificationsPanel from '@/components/NotificationsPanel';
 import IntegrationsPanel from '@/components/IntegrationsPanel';
+import AuditLogPanel from '@/components/AuditLogPanel';
 import ScheduledMessagesPanel from '@/components/ScheduledMessagesPanel';
 
 interface Props {
@@ -101,6 +102,15 @@ export default function WorkspaceRightPanels({
         workspaceId={currentWorkspace.id}
         instanceUrl={currentWorkspace.instanceUrl}
         channels={channels}
+        onClose={onClose}
+      />
+    );
+  }
+  if (panel.kind === 'auditLog' && currentWorkspace) {
+    return (
+      <AuditLogPanel
+        workspaceId={currentWorkspace.id}
+        instanceUrl={currentWorkspace.instanceUrl}
         onClose={onClose}
       />
     );
