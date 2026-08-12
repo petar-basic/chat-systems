@@ -13,7 +13,9 @@ async function openChannel(page: Page, name: string) {
     .getByRole('button', { name: new RegExp(`^${name}$`) })
     .first()
     .click();
-  await expect(page.locator('[data-qa="message-list"]')).toBeVisible();
+  // The header, not the message list: a channel with no messages renders the
+  // empty state instead, and "the channel is open" is the thing being waited on.
+  await expect(page.locator('[data-qa="channel-header-name"]')).toHaveText(name);
 }
 
 test.describe.configure({ mode: 'serial' });
@@ -186,7 +188,7 @@ test('8. unread indicator appears on a channel the user is not viewing', async (
     data: { user_id: bobId },
   });
   await bob.reload();
-  await expect(bob.locator('[data-qa="message-list"]')).toBeVisible({ timeout: 20_000 });
+  await expect(bob.locator('[data-qa="channel-header-name"]')).toBeVisible({ timeout: 20_000 });
   await openChannel(bob, 'random');
   const unreadText = `unread-probe ${stamp}`;
   await send(admin, unreadText);

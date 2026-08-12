@@ -42,6 +42,8 @@ export default function WorkspacePage() {
           channels={c.channels}
           currentChannel={currentChannel}
           unreadChannels={c.unreadChannels}
+          unreadCounts={c.unreadCounts}
+          mentionCounts={c.mentionCounts}
           mentionChannels={c.mentionChannels}
           mutedChannels={c.mutedChannels}
           onToggleMute={(channelId, muted) => c.setChannelMuted({ channelId, muted })}

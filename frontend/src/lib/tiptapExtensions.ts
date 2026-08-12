@@ -24,17 +24,3 @@ export function createEditorExtensions() {
     EmojiSuggestion,
   ];
 }
-
-export function createDisplayExtensions() {
-  return [
-    StarterKit.configure({ heading: false, link: false, underline: false }),
-    Underline,
-    Link.configure({
-      openOnClick: true,
-      autolink: true,
-      protocols: LINK_PROTOCOLS,
-      HTMLAttributes: LINK_ATTRS,
-    }),
-    Markdown.configure({ html: false }),
-  ];
-}

@@ -51,7 +51,6 @@ pub struct ConnectionManager {
     user_connections: DashMap<Uuid, HashSet<Uuid>>,
     db: PgPool,
     redis: redis::aio::ConnectionManager,
-    node_id: Uuid,
 }
 
 impl std::fmt::Debug for ConnectionManager {
@@ -70,7 +69,6 @@ impl ConnectionManager {
             user_connections: DashMap::new(),
             db,
             redis,
-            node_id: Uuid::new_v4(),
         }
     }
 
@@ -350,103 +348,119 @@ impl ConnectionManager {
         record.covers(claims)
     }
 
-    fn presence_key(&self, user_id: &Uuid) -> String {
-        format!("presence:{}:{}", user_id, self.node_id)
+    fn presence_key(workspace_id: &Uuid) -> String {
+        format!("presence:ws:{workspace_id}")
     }
 
-    async fn scan_keys(
-        conn: &mut redis::aio::ConnectionManager,
-        pattern: &str,
-    ) -> redis::RedisResult<Vec<String>> {
-        let mut keys = Vec::new();
-        let mut cursor: u64 = 0;
-        loop {
-            let (next, batch): (u64, Vec<String>) = redis::cmd("SCAN")
-                .arg(cursor)
-                .arg("MATCH")
-                .arg(pattern)
-                .arg("COUNT")
-                .arg(100)
-                .query_async(conn)
-                .await?;
-            keys.extend(batch);
-            cursor = next;
-            if cursor == 0 {
-                break;
-            }
+    fn now_secs() -> i64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0)
+    }
+
+    /// One sorted set per workspace, scored by the moment the entry goes stale.
+    /// Reading presence used to mean scanning the whole Redis keyspace — which
+    /// also holds rate-limit keys, revocation flags and huddle membership, so the
+    /// cost grew with traffic that has nothing to do with presence, on a path
+    /// that runs for every `subscribe` frame.
+    ///
+    /// A node that dies leaves entries behind; they expire by score and are
+    /// trimmed on the next read, so there is no sweeper to run and nothing stays
+    /// online forever.
+    pub async fn presence_set_online(&self, user_id: Uuid, workspace_ids: &[Uuid]) {
+        if workspace_ids.is_empty() {
+            return;
         }
-        Ok(keys)
-    }
-
-    pub async fn presence_set_online(&self, user_id: Uuid) {
         let mut conn = self.redis.clone();
-        let key = self.presence_key(&user_id);
-        let res: redis::RedisResult<()> = conn.set_ex(&key, "online", PRESENCE_TTL_SECS).await;
-        if let Err(e) = res {
+        let expires_at = Self::now_secs() + PRESENCE_TTL_SECS as i64;
+
+        let mut pipe = redis::pipe();
+        for workspace_id in workspace_ids {
+            pipe.zadd(
+                Self::presence_key(workspace_id),
+                user_id.to_string(),
+                expires_at,
+            )
+            .ignore();
+        }
+        if let Err(e) = pipe.query_async::<()>(&mut conn).await {
             warn!("presence_set_online redis error user={}: {}", user_id, e);
         }
     }
 
-    pub async fn presence_refresh(&self, user_id: Uuid) {
-        self.presence_set_online(user_id).await;
+    pub async fn presence_refresh(&self, user_id: Uuid, workspace_ids: &[Uuid]) {
+        self.presence_set_online(user_id, workspace_ids).await;
     }
 
-    pub async fn presence_clear(&self, user_id: Uuid) -> bool {
-        let mut conn = self.redis.clone();
-        let key = self.presence_key(&user_id);
-        let _: redis::RedisResult<()> = conn.del(&key).await;
-        match Self::scan_keys(&mut conn, &format!("presence:{user_id}:*")).await {
-            Ok(keys) => keys.is_empty(),
-            Err(e) => {
-                warn!("presence_clear scan redis error user={}: {}", user_id, e);
-                false
-            }
+    /// Returns whether the user is now offline everywhere. With a sorted set the
+    /// last writer wins and the score is the latest heartbeat, so a user with a
+    /// live connection on another node keeps a future score and stays online —
+    /// which is the behaviour the per-node keys were approximating.
+    pub async fn presence_clear(&self, user_id: Uuid, workspace_ids: &[Uuid]) -> bool {
+        if workspace_ids.is_empty() {
+            return true;
         }
-    }
-
-    pub async fn get_online_users(&self) -> Vec<Uuid> {
         let mut conn = self.redis.clone();
-        let keys = match Self::scan_keys(&mut conn, "presence:*").await {
-            Ok(k) => k,
-            Err(e) => {
-                warn!("get_online_users SCAN redis error: {}", e);
-                return Vec::new();
-            }
-        };
-        let mut set = HashSet::new();
-        for key in keys {
-            if let Some(rest) = key.strip_prefix("presence:") {
-                if let Some(uid_str) = rest.split(':').next() {
-                    if let Ok(uid) = uid_str.parse::<Uuid>() {
-                        set.insert(uid);
-                    }
-                }
-            }
+        let mut pipe = redis::pipe();
+        for workspace_id in workspace_ids {
+            pipe.zrem(Self::presence_key(workspace_id), user_id.to_string())
+                .ignore();
         }
-        set.into_iter().collect()
+        if let Err(e) = pipe.query_async::<()>(&mut conn).await {
+            warn!("presence_clear redis error user={}: {}", user_id, e);
+            return false;
+        }
+        true
     }
 
     pub async fn online_users_in_workspace(&self, workspace_id: Uuid) -> Vec<Uuid> {
-        let online = self.get_online_users().await;
-        if online.is_empty() {
-            return Vec::new();
-        }
-        let result = sqlx::query_scalar::<_, Uuid>(
-            "SELECT user_id FROM workspace_members WHERE workspace_id = $1 AND user_id = ANY($2)",
-        )
-        .bind(workspace_id)
-        .bind(&online)
-        .fetch_all(&self.db)
-        .await;
-        match result {
-            Ok(users) => users,
+        let started = std::time::Instant::now();
+        let mut conn = self.redis.clone();
+        let key = Self::presence_key(&workspace_id);
+        let now = Self::now_secs();
+
+        let mut pipe = redis::pipe();
+        pipe.cmd("ZREMRANGEBYSCORE")
+            .arg(&key)
+            .arg("-inf")
+            .arg(now)
+            .ignore();
+        pipe.cmd("ZRANGEBYSCORE").arg(&key).arg(now).arg("+inf");
+
+        let result: redis::RedisResult<(Vec<String>,)> = pipe.query_async(&mut conn).await;
+        let users = match result {
+            Ok((raw,)) => raw
+                .into_iter()
+                .filter_map(|id| id.parse::<Uuid>().ok())
+                .collect(),
             Err(e) => {
                 warn!(
-                    "online_users_in_workspace DB error workspace={}: {}",
+                    "online_users_in_workspace redis error workspace={}: {}",
                     workspace_id, e
                 );
                 Vec::new()
             }
+        };
+
+        metrics::histogram!("realtime_presence_query_duration_seconds")
+            .record(started.elapsed().as_secs_f64());
+        users
+    }
+
+    /// Losing membership should take the user out of that workspace's presence
+    /// immediately rather than at the end of the TTL, when anyone still looking
+    /// would see a ghost.
+    pub async fn presence_leave_workspace(&self, user_id: Uuid, workspace_id: Uuid) {
+        let mut conn = self.redis.clone();
+        let res: redis::RedisResult<()> = conn
+            .zrem(Self::presence_key(&workspace_id), user_id.to_string())
+            .await;
+        if let Err(e) = res {
+            warn!(
+                "presence_leave_workspace redis error user={} workspace={}: {}",
+                user_id, workspace_id, e
+            );
         }
     }
 

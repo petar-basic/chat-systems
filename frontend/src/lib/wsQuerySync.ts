@@ -134,13 +134,18 @@ export const useWebSocketQuerySync = () => {
           upsertMessage(cache, { ...message, pending: false }, 'lastPage', newestFirst),
         );
 
-        const { currentChannel, mutedChannels } = useWorkspaceStore.getState();
+        const { currentChannel, mutedChannels, bumpChannelUnread, currentUserId } =
+          useWorkspaceStore.getState();
         if (currentChannel?.id !== message.channel_id && !mutedChannels.has(message.channel_id)) {
           useWorkspaceStore.setState((s) => {
             const nextUnread = new Set(s.unreadChannels);
             nextUnread.add(message.channel_id);
             return { unreadChannels: nextUnread };
           });
+          // The delta is +1 by construction, so the badge moves without a round
+          // trip back to the channel list.
+          const mentionedIds = (event.mentioned_user_ids ?? []) as string[];
+          bumpChannelUnread(message.channel_id, mentionedIds.includes(currentUserId ?? ''));
         }
       }),
 

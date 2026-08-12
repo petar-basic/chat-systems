@@ -1,12 +1,14 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MessageSquare } from 'lucide-react';
 import MessageItem from './MessageItem';
+import VirtualMessageList from './VirtualMessageList';
+import { buildMessageRows, type MessageRow } from './messageRows';
 import type { Message, WorkspaceMember, Channel } from '@/stores/workspace';
 import { useMessages, messagesOldestFirst } from '@/hooks/queries/useMessages';
 import { useUserCache } from '@/stores/users';
 import { displayNameOf } from '@/lib/userHelpers';
 import { useMessageActions } from './hooks/useMessageActions';
-import { isGrouped, isNewDay, formatDaySeparator } from './messageGrouping';
+import { formatDaySeparator } from './messageGrouping';
 import { QueryState } from '@/shared/components/QueryState/QueryState';
 import { EmptyLabels } from '@/shared/constants';
 
@@ -19,6 +21,16 @@ interface Props {
   onTargetMessageFound?: (msg: Message) => void;
 }
 
+export function DaySeparator({ at }: { at: string }) {
+  return (
+    <div className="flex items-center gap-3 px-2 py-2" data-qa="day-separator">
+      <div className="flex-1 h-px bg-slate-700/60" />
+      <span className="text-xs font-medium text-slate-400">{formatDaySeparator(at)}</span>
+      <div className="flex-1 h-px bg-slate-700/60" />
+    </div>
+  );
+}
+
 export default function MessageList({
   channelId,
   members,
@@ -27,35 +39,31 @@ export default function MessageList({
   highlightMessageId,
   onTargetMessageFound,
 }: Props) {
-  const containerRef = useRef<HTMLDivElement>(null);
   const { data, isLoading, isError, refetch, isFetchingNextPage, hasNextPage, fetchNextPage } =
     useMessages(channelId);
-  const scrolledToRef = useRef<string | undefined>(undefined);
-
   const { getUser } = useUserCache();
   const actions = useMessageActions(channelId);
 
-  useEffect(() => {
-    scrolledToRef.current = undefined;
-  }, [highlightMessageId, channelId]);
+  // Reset during render rather than in an effect, the way `useRightPanel` does:
+  // a new permalink target should be pending before the first paint, not after.
+  const targetKey = `${channelId}:${highlightMessageId ?? ''}`;
+  const [scrollTarget, setScrollTarget] = useState<string | undefined>(highlightMessageId);
+  const [lastTargetKey, setLastTargetKey] = useState(targetKey);
+  if (targetKey !== lastTargetKey) {
+    setLastTargetKey(targetKey);
+    setScrollTarget(highlightMessageId);
+  }
 
   const messages = useMemo(() => messagesOldestFirst(data), [data]);
+  const rows = useMemo(() => buildMessageRows(messages), [messages]);
 
+  // A permalink can point at a message older than anything loaded, so keep
+  // pulling pages until it turns up; `scrollToKey` does the rest once it does.
   useEffect(() => {
     if (!highlightMessageId || !data) return;
     const found = messages.find((m) => m.id === highlightMessageId);
-    if (found) {
-      onTargetMessageFound?.(found);
-      if (scrolledToRef.current !== highlightMessageId) {
-        scrolledToRef.current = highlightMessageId;
-        requestAnimationFrame(() => {
-          const el = containerRef.current?.querySelector(`[data-message-id="${highlightMessageId}"]`);
-          el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        });
-      }
-    } else if (hasNextPage && !isFetchingNextPage) {
-      fetchNextPage();
-    }
+    if (found) onTargetMessageFound?.(found);
+    else if (hasNextPage && !isFetchingNextPage) fetchNextPage();
   }, [
     messages,
     highlightMessageId,
@@ -66,11 +74,32 @@ export default function MessageList({
     onTargetMessageFound,
   ]);
 
-  const handleScroll = useCallback(() => {
-    if (!containerRef.current || isFetchingNextPage || !hasNextPage) return;
-    const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
-    if (scrollHeight + scrollTop - clientHeight < 100) fetchNextPage();
-  }, [isFetchingNextPage, hasNextPage, fetchNextPage]);
+  const renderRow = useCallback(
+    (row: MessageRow<Message>) => {
+      if (row.kind === 'day') return <DaySeparator at={row.at} />;
+      const sender = getUser(row.message.user_id);
+      return (
+        <MessageItem
+          message={row.message}
+          grouped={row.grouped}
+          members={members}
+          channels={channels}
+          currentUserId={actions.currentUserId}
+          senderName={displayNameOf(sender?.display_name)}
+          senderAvatarUrl={sender?.avatar_url}
+          isHighlighted={row.message.id === highlightMessageId}
+          onThreadOpen={onThreadOpen}
+          onToggleReaction={actions.toggleReaction}
+          onTogglePin={actions.togglePin}
+          onEdit={actions.editMessage}
+          onDelete={actions.deleteMessage}
+          onRetry={actions.retryMessage}
+          onCopyLink={actions.copyLink}
+        />
+      );
+    },
+    [actions, channels, getUser, highlightMessageId, members, onThreadOpen],
+  );
 
   return (
     <QueryState
@@ -86,58 +115,17 @@ export default function MessageList({
         </>
       }
     >
-      <div
-        ref={containerRef}
-        data-qa="message-list"
-        role="log"
-        aria-live="polite"
-        className="flex-1 overflow-y-auto px-4 py-4 flex flex-col-reverse"
-        onScroll={handleScroll}
-      >
-        <div className="space-y-0.5">
-          {messages.map((msg, i) => {
-            const prev = messages[i - 1];
-            const sender = getUser(msg.user_id);
-            const newDay = isNewDay(prev, msg);
-            const grouped = !newDay && isGrouped(prev, msg);
-            return (
-              <Fragment key={msg.id}>
-                {newDay && (
-                  <div className="flex items-center gap-3 px-2 py-2" data-qa="day-separator">
-                    <div className="flex-1 h-px bg-slate-700/60" />
-                    <span className="text-xs font-medium text-slate-400">
-                      {formatDaySeparator(msg.created_at)}
-                    </span>
-                    <div className="flex-1 h-px bg-slate-700/60" />
-                  </div>
-                )}
-                <MessageItem
-                  message={msg}
-                  grouped={grouped}
-                  members={members}
-                  channels={channels}
-                  currentUserId={actions.currentUserId}
-                  senderName={displayNameOf(sender?.display_name)}
-                  senderAvatarUrl={sender?.avatar_url}
-                  isHighlighted={msg.id === highlightMessageId}
-                  onThreadOpen={onThreadOpen}
-                  onToggleReaction={actions.toggleReaction}
-                  onTogglePin={actions.togglePin}
-                  onEdit={actions.editMessage}
-                  onDelete={actions.deleteMessage}
-                  onRetry={actions.retryMessage}
-                  onCopyLink={actions.copyLink}
-                />
-              </Fragment>
-            );
-          })}
-        </div>
-        {isFetchingNextPage && (
-          <div className="flex justify-center py-2">
-            <div className="w-4 h-4 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
-          </div>
-        )}
-      </div>
+      <VirtualMessageList
+        rows={rows}
+        renderRow={renderRow}
+        hasOlder={!!hasNextPage}
+        isLoadingOlder={isFetchingNextPage}
+        onLoadOlder={fetchNextPage}
+        scrollToKey={scrollTarget}
+        onScrollToKeyHandled={() => setScrollTarget(undefined)}
+        qa="message-list"
+        ariaLabel="Messages"
+      />
     </QueryState>
   );
 }

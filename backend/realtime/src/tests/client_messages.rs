@@ -53,7 +53,7 @@ async fn subscribe_member_workspace_sends_presence_batch(pool: PgPool) {
     let ws = seed_workspace(cm.db(), user).await;
     add_ws_member(cm.db(), ws, user).await;
 
-    cm.presence_set_online(user).await;
+    cm.presence_set_online(user, &[ws]).await;
 
     let (conn_id, mut rx) = fake_conn(&cm, user);
 

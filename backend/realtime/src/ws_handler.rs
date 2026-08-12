@@ -126,7 +126,12 @@ pub async fn handle_ws(socket: WebSocket, claims: crate::Claims, cm: Arc<Connect
 
     info!("WS connected: user={}, conn={}", user_id, conn_id);
 
-    cm.presence_set_online(user_id).await;
+    // Resolved once per connection instead of on every heartbeat: the set of
+    // workspaces a user belongs to changes far more slowly than the 30-second
+    // refresh, and `workspace.member_removed` corrects it when it does.
+    let presence_workspaces = cm.user_workspace_ids(user_id).await;
+
+    cm.presence_set_online(user_id, &presence_workspaces).await;
     if first_local {
         cm.publish_presence(user_id, "online").await;
     }
@@ -200,13 +205,13 @@ pub async fn handle_ws(socket: WebSocket, claims: crate::Claims, cm: Arc<Connect
                     );
                     break;
                 }
-                cm.presence_refresh(user_id).await;
+                cm.presence_refresh(user_id, &presence_workspaces).await;
                 cm.huddle_redis_refresh_conn(&conn_id, user_id).await;
             }
         }
     }
 
-    cleanup(&cm, &conn_id, user_id).await;
+    cleanup(&cm, &conn_id, user_id, &presence_workspaces).await;
     guard.cleaned = true;
     drop(tx);
     writer.abort();
@@ -214,7 +219,12 @@ pub async fn handle_ws(socket: WebSocket, claims: crate::Claims, cm: Arc<Connect
     info!("WS disconnected: user={}, conn={}", user_id, conn_id);
 }
 
-async fn cleanup(cm: &Arc<ConnectionManager>, conn_id: &Uuid, user_id: Uuid) {
+async fn cleanup(
+    cm: &Arc<ConnectionManager>,
+    conn_id: &Uuid,
+    user_id: Uuid,
+    presence_workspaces: &[Uuid],
+) {
     let huddles = cm.huddle_ids_for_conn(conn_id);
     let removed = cm.remove_connection(conn_id);
 
@@ -231,7 +241,7 @@ async fn cleanup(cm: &Arc<ConnectionManager>, conn_id: &Uuid, user_id: Uuid) {
 
     if let Some((uid, was_last)) = removed {
         if was_last {
-            let fully_offline = cm.presence_clear(uid).await;
+            let fully_offline = cm.presence_clear(uid, presence_workspaces).await;
             if fully_offline {
                 cm.publish_presence(uid, "offline").await;
             }

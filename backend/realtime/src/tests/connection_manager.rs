@@ -201,19 +201,21 @@ async fn connection_count_reflects_active_connections(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../migrations")]
-async fn presence_set_online_then_get_online_users_contains_user(pool: PgPool) {
+async fn presence_set_online_puts_the_user_in_their_workspace_roster(pool: PgPool) {
     let cm = manager(pool).await;
     let user = seed_user(cm.db()).await;
+    let ws = seed_workspace(cm.db(), user).await;
+    add_ws_member(cm.db(), ws, user).await;
 
     assert!(
-        !cm.get_online_users().await.contains(&user),
+        !cm.online_users_in_workspace(ws).await.contains(&user),
         "freshly-seeded user should not be online yet"
     );
 
-    cm.presence_set_online(user).await;
+    cm.presence_set_online(user, &[ws]).await;
     assert!(
-        cm.get_online_users().await.contains(&user),
-        "user marked online must appear in get_online_users"
+        cm.online_users_in_workspace(ws).await.contains(&user),
+        "user marked online must appear in the workspace roster"
     );
 }
 
@@ -225,8 +227,11 @@ async fn online_users_in_workspace_excludes_non_members(pool: PgPool) {
     let ws = seed_workspace(cm.db(), member).await;
     add_ws_member(cm.db(), ws, member).await;
 
-    cm.presence_set_online(member).await;
-    cm.presence_set_online(stranger).await;
+    cm.presence_set_online(member, &[ws]).await;
+    // The stranger is online somewhere, just not here: they belong to no
+    // workspace, so they land in no roster.
+    cm.presence_set_online(stranger, &cm.user_workspace_ids(stranger).await)
+        .await;
 
     let online = cm.online_users_in_workspace(ws).await;
     assert!(online.contains(&member), "workspace member must be listed");
@@ -240,21 +245,96 @@ async fn online_users_in_workspace_excludes_non_members(pool: PgPool) {
 async fn presence_clear_reports_offline_and_removes_user(pool: PgPool) {
     let cm = manager(pool).await;
     let user = seed_user(cm.db()).await;
+    let ws = seed_workspace(cm.db(), user).await;
+    add_ws_member(cm.db(), ws, user).await;
 
-    cm.presence_set_online(user).await;
+    cm.presence_set_online(user, &[ws]).await;
     assert!(
-        cm.get_online_users().await.contains(&user),
+        cm.online_users_in_workspace(ws).await.contains(&user),
         "user must be online after presence_set_online"
     );
 
-    let now_offline = cm.presence_clear(user).await;
+    let now_offline = cm.presence_clear(user, &[ws]).await;
     assert!(
         now_offline,
-        "presence_clear must report true when no presence key remains for the user"
+        "presence_clear must report true when the entry is gone"
     );
 
     assert!(
-        !cm.get_online_users().await.contains(&user),
+        !cm.online_users_in_workspace(ws).await.contains(&user),
         "user must not appear online after presence_clear"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn a_stale_entry_is_trimmed_on_read_without_a_sweeper(pool: PgPool) {
+    let cm = manager(pool).await;
+    let user = seed_user(cm.db()).await;
+    let ws = seed_workspace(cm.db(), user).await;
+    add_ws_member(cm.db(), ws, user).await;
+
+    // A node that died mid-heartbeat leaves an entry whose expiry is in the past.
+    let mut conn = cm.redis();
+    let key = format!("presence:ws:{ws}");
+    let stale = chrono::Utc::now().timestamp() - 10;
+    let _: () = redis::cmd("ZADD")
+        .arg(&key)
+        .arg(stale)
+        .arg(user.to_string())
+        .query_async(&mut conn)
+        .await
+        .expect("seed a stale entry");
+
+    assert!(
+        !cm.online_users_in_workspace(ws).await.contains(&user),
+        "an expired entry must not read as online"
+    );
+
+    let remaining: i64 = redis::cmd("ZCARD")
+        .arg(&key)
+        .query_async(&mut conn)
+        .await
+        .expect("count");
+    assert_eq!(
+        remaining, 0,
+        "reading presence trims what expired, so a dead node needs no sweeper"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn a_second_node_keeps_the_user_online_until_the_last_heartbeat_expires(pool: PgPool) {
+    let cm = manager(pool).await;
+    let user = seed_user(cm.db()).await;
+    let ws = seed_workspace(cm.db(), user).await;
+    add_ws_member(cm.db(), ws, user).await;
+
+    // Two nodes, one user: the score is the latest heartbeat either of them
+    // wrote, so the user is online until both have stopped.
+    cm.presence_set_online(user, &[ws]).await;
+    cm.presence_set_online(user, &[ws]).await;
+
+    assert!(cm.online_users_in_workspace(ws).await.contains(&user));
+
+    cm.presence_clear(user, &[ws]).await;
+    assert!(
+        !cm.online_users_in_workspace(ws).await.contains(&user),
+        "clearing the last connection takes the user offline"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn losing_membership_drops_the_user_out_of_that_roster(pool: PgPool) {
+    let cm = manager(pool).await;
+    let user = seed_user(cm.db()).await;
+    let ws = seed_workspace(cm.db(), user).await;
+    add_ws_member(cm.db(), ws, user).await;
+
+    cm.presence_set_online(user, &[ws]).await;
+    assert!(cm.online_users_in_workspace(ws).await.contains(&user));
+
+    cm.presence_leave_workspace(user, ws).await;
+    assert!(
+        !cm.online_users_in_workspace(ws).await.contains(&user),
+        "a removed member must leave presence now, not at the end of the TTL"
     );
 }

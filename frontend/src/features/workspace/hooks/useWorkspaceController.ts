@@ -29,7 +29,7 @@ import {
   useMarkConversationRead,
   useOpenConversation,
 } from '@/hooks/queries/useConversations';
-import { useUnreadChannelIds, useSetChannelMuted } from '@/hooks/queries/useChannels';
+import { useUnreadChannels, useSetChannelMuted } from '@/hooks/queries/useChannels';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { useSendMessage } from '@/hooks/queries/useMessages';
 import { useInstanceStore } from '@/stores/instances';
@@ -78,6 +78,8 @@ export function useWorkspaceController() {
     currentChannel,
     unreadChannels,
     mentionChannels,
+    unreadCounts,
+    mentionCounts,
     mutedChannels,
     currentConversationId,
     unreadConversations,
@@ -89,6 +91,7 @@ export function useWorkspaceController() {
     markConversationRead,
     hydrateUnreadConversations,
     hydrateUnreadChannels,
+    hydrateUnreadCounts,
     hydrateMutedChannels,
   } = useWorkspaceStore();
 
@@ -113,13 +116,15 @@ export function useWorkspaceController() {
     hydrateUnreadConversations(unread);
   }, [conversations, currentConversationId, hydrateUnreadConversations]);
 
-  const { data: unreadChannelIds } = useUnreadChannelIds(
+  const { data: unread } = useUnreadChannels(
     workspaceId || currentWorkspace?.id || null,
     currentWsInstanceUrl,
   );
   useEffect(() => {
-    if (unreadChannelIds && unreadChannelIds.length) hydrateUnreadChannels(unreadChannelIds);
-  }, [unreadChannelIds, hydrateUnreadChannels]);
+    if (!unread) return;
+    if (unread.channel_ids.length) hydrateUnreadChannels(unread.channel_ids);
+    hydrateUnreadCounts(unread.counts ?? []);
+  }, [unread, hydrateUnreadChannels, hydrateUnreadCounts]);
 
   useEffect(() => {
     hydrateMutedChannels(channels.filter((c) => c.muted).map((c) => c.id));
@@ -429,6 +434,8 @@ export function useWorkspaceController() {
     currentChannel,
     unreadChannels,
     mentionChannels,
+    unreadCounts,
+    mentionCounts,
     mutedChannels,
     currentConversationId,
     unreadConversations,

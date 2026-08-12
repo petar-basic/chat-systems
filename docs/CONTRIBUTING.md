@@ -150,11 +150,24 @@ docs/         this folder
   `cargo sqlx prepare --workspace -- --all-targets` and commit `.sqlx/` — image builds
   set `SQLX_OFFLINE=true` and have no database, so a macro without a cache entry breaks
   the Docker build. CI enforces this with `cargo sqlx prepare --check`.
+- **Export `DATABASE_URL` when running `cargo test --workspace`.** `#[sqlx::test]` resolves
+  it through `dotenvy`, which races when several test binaries start at once — the realtime
+  crate then fails every test with `DATABASE_URL must be set` while passing on its own. CI
+  exports it explicitly and so should you:
+  `DATABASE_URL=postgres://chat:devpassword@localhost:5433/chatsystems cargo test --workspace`.
 - Formatted with `cargo fmt`; lints clean under `cargo clippy --workspace --all-targets -- -D warnings`.
 
 ### Frontend (TypeScript / React)
 
 - **Strict TypeScript** — no `any`, no `@ts-ignore`, no `eslint-disable`. `tsc -b` clean.
+- **No editor instance for read-only content.** Messages render through
+  `MessageContent`, which walks a parsed tree into elements. TipTap belongs in the composer
+  and the inline edit form, where something is actually being edited — one instance at a
+  time. A `useEditor` call anywhere else is a performance bug (CS-024 measured it at 601× on
+  a 500-message channel).
+- **No `dangerouslySetInnerHTML` on message content, ever.** The renderer maps parsed nodes
+  to elements directly, so the XSS posture is a property of the code rather than of a
+  sanitiser's configuration.
 - **Feature-modular** under `src/features/*` with barrels; smart logic lives in hooks,
   views stay thin (e.g. `useWorkspaceController` + `WorkspacePage`).
 - **State split**: TanStack Query for server state, Zustand for UI state; WebSocket events

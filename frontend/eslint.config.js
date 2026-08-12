@@ -34,4 +34,12 @@ export default defineConfig([
       'no-console': 'off',
     },
   },
+  {
+    // Benchmarks define throwaway components to measure against; they are never
+    // part of a bundle, so fast refresh has nothing to say about them.
+    files: ['**/*.bench.tsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ]);

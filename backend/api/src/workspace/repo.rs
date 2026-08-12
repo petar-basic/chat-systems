@@ -605,6 +605,9 @@ impl WorkspaceRepo {
         Ok(rows.into_iter().map(|r| r.0).collect())
     }
 
+    /// Reads the denormalised counter rather than asking, once per channel,
+    /// whether any message is newer than the read mark. The old shape grew with
+    /// message volume; this one is bounded by how many channels the user is in.
     pub async fn unread_channel_ids(
         &self,
         workspace_id: Uuid,
@@ -616,13 +619,7 @@ impl WorkspaceRepo {
             FROM channels c
             JOIN channel_members cm ON cm.channel_id = c.id
             WHERE c.workspace_id = $1 AND cm.user_id = $2 AND c.is_archived = false
-              AND EXISTS (
-                SELECT 1 FROM messages m
-                WHERE m.channel_id = c.id
-                  AND m.deleted_at IS NULL
-                  AND m.user_id <> $2
-                  AND (cm.last_read_at IS NULL OR m.created_at > cm.last_read_at)
-              )
+              AND cm.unread_count > 0
             ",
         )
         .bind(workspace_id)

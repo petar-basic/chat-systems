@@ -9,8 +9,8 @@ history and in the docs it changed. A bug found mid-wave gets a suffixed number
 (`CS-005a`) so it lands where it belongs in the order without renumbering everything
 below it.
 
-**Waves 0 through 5 are done.** The E2E suite is green and the `e2e` job blocks merges.
-Next ticket: [CS-024](CS-024-static-message-renderer.md).
+**Waves 0 through 6 are done.** The E2E suite is green and the `e2e` job blocks merges.
+Next ticket: [CS-028](CS-028-durable-delivery.md).
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
@@ -111,14 +111,14 @@ per ticket.
 | CS-022 | Scope client-supplied message id to its conversation | `client_message_id` + migration `…20` |
 | CS-023 | Close remaining input validation gaps | [`validation.rs`](../../backend/shared/common/src/validation.rs) + `is_unique_violation` |
 
-### Wave 6 — Performance
+### Wave 6 — Performance ✅ done
 
-| # | Ticket | Area |
+| # | Ticket | Landed as |
 |---|---|---|
-| [CS-024](CS-024-static-message-renderer.md) | Replace the per-message editor with a static renderer | frontend |
-| [CS-025](CS-025-virtualize-message-list.md) | Virtualize the message list | frontend |
-| [CS-026](CS-026-unread-counts.md) | Unread counts without per-channel subqueries | backend/api · frontend |
-| [CS-027](CS-027-presence-without-scan.md) | Presence without a Redis keyspace scan | realtime |
+| CS-024 | Replace the per-message editor with a static renderer | [`messageMarkdown.ts`](../../frontend/src/lib/messageMarkdown.ts) + `MessageContent` |
+| CS-025 | Virtualize the message list | [`VirtualMessageList.tsx`](../../frontend/src/features/messaging/VirtualMessageList.tsx) |
+| CS-026 | Unread counts without per-channel subqueries | `channel_members` counters + migration `…21` |
+| CS-027 | Presence without a Redis keyspace scan | `presence:ws:{id}` sorted set |
 
 ### Wave 7 — Reliability
 
@@ -158,5 +158,5 @@ Tickets that touch the same files, and the order that avoids rework:
 | `backend/api/src/sessions.rs` | CS-008 → CS-033 |
 | `backend/api/src/auth/service.rs` | CS-008 → CS-016 → CS-017 → CS-032 |
 | realtime event consumer | CS-007 → CS-014 → CS-027 → CS-028 |
-| `frontend/src/features/messaging/` | CS-024 → CS-025 → CS-029 |
+| `frontend/src/features/messaging/` | CS-024 ✅ → CS-025 ✅ → CS-029 |
 | `messages` table schema | CS-029 → CS-030 → CS-034 |

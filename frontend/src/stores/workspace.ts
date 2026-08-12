@@ -73,6 +73,9 @@ interface WorkspaceState {
   currentChannel: Channel | null;
   unreadChannels: Set<string>;
   mentionChannels: Set<string>;
+  /** How many, not just whether — the server now keeps an exact counter. */
+  unreadCounts: Record<string, number>;
+  mentionCounts: Record<string, number>;
   mutedChannels: Set<string>;
   currentConversationId: string | null;
   unreadConversations: Set<string>;
@@ -93,6 +96,10 @@ interface WorkspaceState {
   markConversationUnread: (conversationId: string) => void;
   hydrateUnreadConversations: (conversationIds: string[]) => void;
   hydrateUnreadChannels: (channelIds: string[]) => void;
+  bumpChannelUnread: (channelId: string, isMention: boolean) => void;
+  hydrateUnreadCounts: (
+    counts: Array<{ channel_id: string; unread_count: number; mention_count: number }>,
+  ) => void;
   hydrateMutedChannels: (channelIds: string[]) => void;
   setChannelMuted: (channelId: string, muted: boolean) => void;
 }
@@ -107,6 +114,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   currentChannel: null,
   unreadChannels: new Set<string>(),
   mentionChannels: new Set<string>(),
+  unreadCounts: {},
+  mentionCounts: {},
   mutedChannels: new Set<string>(),
   currentConversationId: null,
   unreadConversations: new Set<string>(),
@@ -162,7 +171,32 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       nextUnread.delete(channelId);
       const nextMention = new Set(s.mentionChannels);
       nextMention.delete(channelId);
-      return { unreadChannels: nextUnread, mentionChannels: nextMention };
+      const unreadCounts = { ...s.unreadCounts };
+      const mentionCounts = { ...s.mentionCounts };
+      delete unreadCounts[channelId];
+      delete mentionCounts[channelId];
+      return { unreadChannels: nextUnread, mentionChannels: nextMention, unreadCounts, mentionCounts };
+    });
+  },
+
+  bumpChannelUnread: (channelId, isMention) => {
+    set((s) => ({
+      unreadCounts: { ...s.unreadCounts, [channelId]: (s.unreadCounts[channelId] ?? 0) + 1 },
+      mentionCounts: isMention
+        ? { ...s.mentionCounts, [channelId]: (s.mentionCounts[channelId] ?? 0) + 1 }
+        : s.mentionCounts,
+    }));
+  },
+
+  hydrateUnreadCounts: (counts) => {
+    set(() => {
+      const unreadCounts: Record<string, number> = {};
+      const mentionCounts: Record<string, number> = {};
+      for (const row of counts) {
+        if (row.unread_count > 0) unreadCounts[row.channel_id] = row.unread_count;
+        if (row.mention_count > 0) mentionCounts[row.channel_id] = row.mention_count;
+      }
+      return { unreadCounts, mentionCounts };
     });
   },
 

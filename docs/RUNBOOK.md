@@ -76,6 +76,37 @@ Expect a small burst of these on the first tick after upgrading if people have b
 from channels while messages were queued. Removal now also cancels pending messages for
 that scope, so the burst is one-off.
 
+## Upgrade note: Wave 6 backfills unread counters
+
+`20240305000021_unread_counters` adds `unread_count`, `mention_count` and
+`last_read_message_id` to `channel_members` and backfills the first from the message table.
+On an instance with a large `messages` table this is the slow statement in the migration —
+it is a single pass, but budget for it and do not run it during peak.
+
+`mention_count` is **not** backfilled: reconstructing who was mentioned in historical
+messages would mean re-parsing every message body. It starts at zero and is correct from the
+first message after the upgrade. Expect mention badges to be missing for pre-upgrade
+messages until people read those channels.
+
+A reconciler runs in `chat-worker` every six hours over channels active in the last day and
+logs `Unread reconciler corrected drifted unread counters` with a count when it finds drift.
+A non-zero number there is worth reading — it means something wrote a message without going
+through `create_message`, or a restore reset the read state.
+
+## Upgrade note: Wave 6 changes the presence key layout
+
+Presence moved from `presence:{user_id}:{node_id}` (one key per user per node, 60s TTL) to
+one sorted set per workspace, `presence:ws:{workspace_id}`, scored by expiry. The old keys
+are **not** migrated: they expire on their own within a minute, and during a rolling deploy
+users on old nodes are simply absent from the new roster until they reconnect. Presence is
+recomputed from live connections, so nothing is lost permanently.
+
+There is no sweeper to run. Expired entries are trimmed on read, so a node that dies takes
+its users offline within the TTL by itself.
+
+`realtime_presence_query_duration_seconds` is a new histogram. If it grows with anything
+other than workspace size, something is wrong.
+
 ## Audit log
 
 `GET /api/workspaces/:ws_id/audit-log` (workspace admin) and `GET /api/admin/audit-log`
