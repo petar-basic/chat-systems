@@ -18,6 +18,35 @@ pub struct MessageSearch<'a> {
     pub offset: i64,
 }
 
+/// One statement for every member of the channel, in the transaction that wrote
+/// the message. A per-member round trip here would be an N+1 on the hottest path
+/// in the product; the index on `channel_members(channel_id)` covers this.
+///
+/// Muting is deliberately not consulted: it decides whether a notification is
+/// delivered, not whether a message is unread. Letting it change the counter
+/// would make the badge disagree with the message list.
+async fn bump_unread(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    channel_id: Uuid,
+    author_id: Uuid,
+    mentioned: &[Uuid],
+) -> sqlx::Result<()> {
+    sqlx::query(
+        r"
+        UPDATE channel_members
+           SET unread_count = unread_count + 1,
+               mention_count = mention_count + CASE WHEN user_id = ANY($3) THEN 1 ELSE 0 END
+         WHERE channel_id = $1 AND user_id <> $2
+        ",
+    )
+    .bind(channel_id)
+    .bind(author_id)
+    .bind(mentioned)
+    .execute(&mut **tx)
+    .await?;
+    Ok(())
+}
+
 impl MessageRepo {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
@@ -29,6 +58,7 @@ impl MessageRepo {
         user_id: Uuid,
         content: &str,
         thread_parent_id: Option<Uuid>,
+        mentioned: &[Uuid],
     ) -> sqlx::Result<Message> {
         let mut tx = self.pool.begin().await?;
 
@@ -53,6 +83,8 @@ impl MessageRepo {
                 .await?;
         }
 
+        bump_unread(&mut tx, channel_id, user_id, mentioned).await?;
+
         tx.commit().await?;
 
         Ok(msg)
@@ -65,6 +97,7 @@ impl MessageRepo {
         user_id: Uuid,
         content: &str,
         thread_parent_id: Option<Uuid>,
+        mentioned: &[Uuid],
     ) -> sqlx::Result<Message> {
         let mut tx = self.pool.begin().await?;
 
@@ -89,6 +122,8 @@ impl MessageRepo {
                 .execute(&mut *tx)
                 .await?;
         }
+
+        bump_unread(&mut tx, channel_id, user_id, mentioned).await?;
 
         tx.commit().await?;
 
@@ -399,7 +434,11 @@ impl MessageRepo {
         sqlx::query(
             r"
             UPDATE channel_members
-            SET last_read_at = NOW(), last_read_msg = $3
+            SET last_read_at = NOW(),
+                last_read_msg = $3,
+                last_read_message_id = $3,
+                unread_count = 0,
+                mention_count = 0
             WHERE channel_id = $1 AND user_id = $2
             ",
         )
@@ -409,6 +448,91 @@ impl MessageRepo {
         .execute(&self.pool)
         .await?;
         Ok(())
+    }
+
+    /// Deleting a message removes it from the count of everyone who had not read
+    /// past it yet. Anyone who had already read it never counted it, so their
+    /// badge must not go down.
+    pub async fn drop_unread_for_message(
+        &self,
+        channel_id: Uuid,
+        message_id: Uuid,
+        author_id: Uuid,
+    ) -> sqlx::Result<()> {
+        sqlx::query(
+            r"
+            UPDATE channel_members cm
+               SET unread_count = GREATEST(cm.unread_count - 1, 0)
+              FROM messages m
+             WHERE m.id = $2
+               AND cm.channel_id = $1
+               AND cm.user_id <> $3
+               AND (cm.last_read_at IS NULL OR m.created_at > cm.last_read_at)
+            ",
+        )
+        .bind(channel_id)
+        .bind(message_id)
+        .bind(author_id)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn unread_counts(
+        &self,
+        workspace_id: Uuid,
+        user_id: Uuid,
+    ) -> sqlx::Result<Vec<(Uuid, i32, i32)>> {
+        sqlx::query_as(
+            r"
+            SELECT cm.channel_id, cm.unread_count, cm.mention_count
+              FROM channel_members cm
+              JOIN channels c ON c.id = cm.channel_id
+             WHERE c.workspace_id = $1 AND cm.user_id = $2 AND c.is_archived = false
+            ",
+        )
+        .bind(workspace_id)
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    /// Recomputes what the counters should be and reports the rows that were
+    /// wrong. A denormalised counter drifts — a failed transaction, a manual fix,
+    /// a restore — and a badge nobody can explain is a bug report nobody can
+    /// action. This turns that class into a log line and a number.
+    pub async fn reconcile_unread_counts(&self, since_hours: i64) -> sqlx::Result<u64> {
+        let result = sqlx::query(
+            r"
+            WITH truth AS (
+                SELECT cm.channel_id,
+                       cm.user_id,
+                       COUNT(m.id) FILTER (
+                           WHERE m.deleted_at IS NULL
+                             AND m.user_id <> cm.user_id
+                             AND (cm.last_read_at IS NULL OR m.created_at > cm.last_read_at)
+                       )::int AS total
+                  FROM channel_members cm
+                  JOIN channels c ON c.id = cm.channel_id
+                  LEFT JOIN messages m ON m.channel_id = cm.channel_id
+                 WHERE c.id IN (
+                       SELECT DISTINCT channel_id FROM messages
+                        WHERE created_at > NOW() - ($1 || ' hours')::interval
+                 )
+                 GROUP BY cm.channel_id, cm.user_id
+            )
+            UPDATE channel_members cm
+               SET unread_count = truth.total
+              FROM truth
+             WHERE truth.channel_id = cm.channel_id
+               AND truth.user_id = cm.user_id
+               AND cm.unread_count <> truth.total
+            ",
+        )
+        .bind(since_hours.to_string())
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected())
     }
 }
 
@@ -466,7 +590,7 @@ mod tests {
         let repo = MessageRepo::new(pool);
 
         let parent = repo
-            .create_message(channel_id, user_id, "parent message", None)
+            .create_message(channel_id, user_id, "parent message", None, &[])
             .await
             .expect("create parent");
         assert_eq!(parent.reply_count, 0, "fresh parent must have 0 replies");
@@ -476,7 +600,7 @@ mod tests {
         );
 
         let reply = repo
-            .create_message(channel_id, user_id, "a reply", Some(parent.id))
+            .create_message(channel_id, user_id, "a reply", Some(parent.id), &[])
             .await
             .expect("create reply");
         assert_eq!(
@@ -502,7 +626,7 @@ mod tests {
         let repo = MessageRepo::new(pool);
 
         let msg = repo
-            .create_message(channel_id, user_id, "doomed message", None)
+            .create_message(channel_id, user_id, "doomed message", None, &[])
             .await
             .expect("create message");
 

@@ -521,12 +521,30 @@ async fn unread_channels(
     Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
     authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
-    let channel_ids = state
-        .workspace_service
-        .repo
-        .unread_channel_ids(ws_id, auth.user_id)
+    let counts = state
+        .message_repo
+        .unread_counts(ws_id, auth.user_id)
         .await?;
-    Ok(Json(serde_json::json!({ "channel_ids": channel_ids })))
+
+    let channel_ids: Vec<Uuid> = counts
+        .iter()
+        .filter(|(_, unread, _)| *unread > 0)
+        .map(|(id, _, _)| *id)
+        .collect();
+    let counts: Vec<serde_json::Value> = counts
+        .into_iter()
+        .map(|(channel_id, unread, mentions)| {
+            serde_json::json!({
+                "channel_id": channel_id,
+                "unread_count": unread,
+                "mention_count": mentions,
+            })
+        })
+        .collect();
+
+    Ok(Json(
+        serde_json::json!({ "channel_ids": channel_ids, "counts": counts }),
+    ))
 }
 
 async fn create_channel(

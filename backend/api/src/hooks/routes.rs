@@ -462,7 +462,7 @@ async fn incoming_webhook(
 
     let msg = state
         .message_repo
-        .create_message(channel_id, hook.created_by, &payload.text, None)
+        .create_message(channel_id, hook.created_by, &payload.text, None, &[])
         .await?;
 
     let msg_json = serde_json::to_value(&msg).map_err(|e| AppError::Internal(e.to_string()))?;

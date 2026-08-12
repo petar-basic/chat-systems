@@ -3,6 +3,8 @@ use axum::http::StatusCode;
 use serde_json::json;
 use sqlx::PgPool;
 
+use uuid::Uuid;
+
 use crate::workspace::models::ChannelRole;
 
 #[sqlx::test(migrations = "../migrations")]
@@ -1212,4 +1214,341 @@ async fn a_guest_channel_admin_still_cannot_moderate(pool: PgPool) {
     )
     .await;
     assert_eq!(status, StatusCode::FORBIDDEN);
+}
+
+async fn counters(state: &crate::state::AppState, channel_id: Uuid, user_id: Uuid) -> (i32, i32) {
+    sqlx::query_as(
+        "SELECT unread_count, mention_count FROM channel_members \
+          WHERE channel_id = $1 AND user_id = $2",
+    )
+    .bind(channel_id)
+    .bind(user_id)
+    .fetch_one(&state.pool)
+    .await
+    .expect("counters")
+}
+
+/// The definition the denormalised counter replaced. Kept as a test-only helper
+/// so the two can be proven equivalent before the subquery is trusted to be gone.
+async fn unread_by_subquery(
+    state: &crate::state::AppState,
+    channel_id: Uuid,
+    user_id: Uuid,
+) -> i64 {
+    sqlx::query_scalar(
+        r"
+        SELECT COUNT(*)
+          FROM messages m
+          JOIN channel_members cm
+            ON cm.channel_id = m.channel_id AND cm.user_id = $2
+         WHERE m.channel_id = $1
+           AND m.deleted_at IS NULL
+           AND m.user_id <> $2
+           AND (cm.last_read_at IS NULL OR m.created_at > cm.last_read_at)
+        ",
+    )
+    .bind(channel_id)
+    .bind(user_id)
+    .fetch_one(&state.pool)
+    .await
+    .expect("subquery count")
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn sending_counts_for_everyone_but_the_author(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (author_id, _, author) = seed_and_login(&app, &state, "unread-author", false).await;
+    let ws = seed_workspace(&state, author_id, "Unread WS").await;
+    let ch = seed_channel(&state, ws, author_id, "general", false).await;
+
+    let (reader_id, _) = seed(&state, "unread-reader", false).await;
+    add_ws_member(&state, ws, reader_id, "member").await;
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(ch, reader_id, &ChannelRole::Member)
+        .await
+        .expect("join");
+
+    for i in 0..3 {
+        let (status, _) = send(
+            &app,
+            "POST",
+            &format!("/api/channels/{ch}/messages"),
+            Some(&author),
+            Some(json!({ "content": format!("message {i}") })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+    }
+
+    assert_eq!(counters(&state, ch, reader_id).await.0, 3);
+    assert_eq!(
+        counters(&state, ch, author_id).await.0,
+        0,
+        "your own message is not unread for you"
+    );
+    assert_eq!(
+        unread_by_subquery(&state, ch, reader_id).await,
+        3,
+        "the denormalised counter agrees with the definition it replaced"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn a_mention_counts_separately_from_the_unread_total(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (author_id, _, author) = seed_and_login(&app, &state, "unread-author", false).await;
+    let ws = seed_workspace(&state, author_id, "Unread WS").await;
+    let ch = seed_channel(&state, ws, author_id, "general", false).await;
+
+    let (reader_id, _) = seed(&state, "unread-reader", false).await;
+    add_ws_member(&state, ws, reader_id, "member").await;
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(ch, reader_id, &ChannelRole::Member)
+        .await
+        .expect("join");
+
+    for content in ["plain one", "plain two"] {
+        send(
+            &app,
+            "POST",
+            &format!("/api/channels/{ch}/messages"),
+            Some(&author),
+            Some(json!({ "content": content })),
+        )
+        .await;
+    }
+    send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch}/messages"),
+        Some(&author),
+        Some(json!({ "content": format!("hey @[Reader]({reader_id})") })),
+    )
+    .await;
+
+    let (unread, mentions) = counters(&state, ch, reader_id).await;
+    assert_eq!(unread, 3, "every message counts as unread");
+    assert_eq!(mentions, 1, "only the mention counts as a mention");
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn marking_read_clears_both_counters(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (author_id, _, author) = seed_and_login(&app, &state, "unread-author", false).await;
+    let ws = seed_workspace(&state, author_id, "Unread WS").await;
+    let ch = seed_channel(&state, ws, author_id, "general", false).await;
+
+    let (reader_id, reader_email) = seed(&state, "unread-reader", false).await;
+    add_ws_member(&state, ws, reader_id, "member").await;
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(ch, reader_id, &ChannelRole::Member)
+        .await
+        .expect("join");
+    let reader = login(&app, &reader_email, PASSWORD).await;
+
+    let (_, msg) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch}/messages"),
+        Some(&author),
+        Some(json!({ "content": format!("hey @[Reader]({reader_id})") })),
+    )
+    .await;
+    let msg_id = msg["id"].as_str().expect("id");
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch}/read"),
+        Some(&reader),
+        Some(json!({ "message_id": msg_id })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(counters(&state, ch, reader_id).await, (0, 0));
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn deleting_an_unread_message_takes_it_off_the_count(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (author_id, _, author) = seed_and_login(&app, &state, "unread-author", false).await;
+    let ws = seed_workspace(&state, author_id, "Unread WS").await;
+    let ch = seed_channel(&state, ws, author_id, "general", false).await;
+
+    let (reader_id, _) = seed(&state, "unread-reader", false).await;
+    add_ws_member(&state, ws, reader_id, "member").await;
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(ch, reader_id, &ChannelRole::Member)
+        .await
+        .expect("join");
+
+    let (_, msg) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch}/messages"),
+        Some(&author),
+        Some(json!({ "content": "regrettable" })),
+    )
+    .await;
+    let msg_id = msg["id"].as_str().expect("id");
+    assert_eq!(counters(&state, ch, reader_id).await.0, 1);
+
+    let (status, _) = send(
+        &app,
+        "DELETE",
+        &format!("/api/messages/{msg_id}"),
+        Some(&author),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    assert_eq!(
+        counters(&state, ch, reader_id).await.0,
+        0,
+        "a deleted message stops being unread"
+    );
+    assert_eq!(unread_by_subquery(&state, ch, reader_id).await, 0);
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn muting_a_channel_does_not_change_its_unread_count(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (author_id, _, author) = seed_and_login(&app, &state, "unread-author", false).await;
+    let ws = seed_workspace(&state, author_id, "Unread WS").await;
+    let ch = seed_channel(&state, ws, author_id, "general", false).await;
+
+    let (reader_id, reader_email) = seed(&state, "unread-reader", false).await;
+    add_ws_member(&state, ws, reader_id, "member").await;
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(ch, reader_id, &ChannelRole::Member)
+        .await
+        .expect("join");
+    let reader = login(&app, &reader_email, PASSWORD).await;
+
+    let (status, _) = send(
+        &app,
+        "PATCH",
+        &format!("/api/channels/{ch}/notifications"),
+        Some(&reader),
+        Some(json!({ "muted": true })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch}/messages"),
+        Some(&author),
+        Some(json!({ "content": "still unread" })),
+    )
+    .await;
+
+    assert_eq!(
+        counters(&state, ch, reader_id).await.0,
+        1,
+        "muting decides whether you are notified, not whether you have read it"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn the_reconciler_corrects_a_drifted_counter(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (author_id, _, author) = seed_and_login(&app, &state, "unread-author", false).await;
+    let ws = seed_workspace(&state, author_id, "Unread WS").await;
+    let ch = seed_channel(&state, ws, author_id, "general", false).await;
+
+    let (reader_id, _) = seed(&state, "unread-reader", false).await;
+    add_ws_member(&state, ws, reader_id, "member").await;
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(ch, reader_id, &ChannelRole::Member)
+        .await
+        .expect("join");
+
+    send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch}/messages"),
+        Some(&author),
+        Some(json!({ "content": "one" })),
+    )
+    .await;
+
+    sqlx::query(
+        "UPDATE channel_members SET unread_count = 99 WHERE channel_id = $1 AND user_id = $2",
+    )
+    .bind(ch)
+    .bind(reader_id)
+    .execute(&state.pool)
+    .await
+    .expect("induce drift");
+
+    let corrected = state
+        .message_repo
+        .reconcile_unread_counts(24)
+        .await
+        .expect("reconcile");
+    assert_eq!(
+        corrected, 1,
+        "the drifted row is reported, not silently fixed"
+    );
+    assert_eq!(counters(&state, ch, reader_id).await.0, 1);
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn the_unread_endpoint_reports_counts(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (author_id, _, author) = seed_and_login(&app, &state, "unread-author", false).await;
+    let ws = seed_workspace(&state, author_id, "Unread WS").await;
+    let ch = seed_channel(&state, ws, author_id, "general", false).await;
+
+    let (reader_id, reader_email) = seed(&state, "unread-reader", false).await;
+    add_ws_member(&state, ws, reader_id, "member").await;
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(ch, reader_id, &ChannelRole::Member)
+        .await
+        .expect("join");
+    let reader = login(&app, &reader_email, PASSWORD).await;
+
+    send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch}/messages"),
+        Some(&author),
+        Some(json!({ "content": format!("hi @[Reader]({reader_id})") })),
+    )
+    .await;
+
+    let (status, body) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws}/channels/unread"),
+        Some(&reader),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    let row = body["counts"]
+        .as_array()
+        .expect("counts array")
+        .iter()
+        .find(|c| c["channel_id"] == ch.to_string())
+        .expect("the channel is listed");
+    assert_eq!(row["unread_count"], 1);
+    assert_eq!(row["mention_count"], 1);
 }

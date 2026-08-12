@@ -40,14 +40,21 @@ function useCurrentApi() {
   return instanceUrl ? instanceManager.get(instanceUrl).api : api;
 }
 
-export const useUnreadChannelIds = (workspaceId: string | null, instanceUrl?: string) => {
+export interface ChannelUnreadCount {
+  channel_id: string;
+  unread_count: number;
+  mention_count: number;
+}
+
+export const useUnreadChannels = (workspaceId: string | null, instanceUrl?: string) => {
   return useQuery({
     queryKey: QUERY_KEYS.channelsUnread(workspaceId ?? ''),
     queryFn: async () => {
-      const res = await getApiForInstance(instanceUrl).get<{ channel_ids: string[] }>(
-        `/workspaces/${workspaceId}/channels/unread`,
-      );
-      return res.channel_ids;
+      const res = await getApiForInstance(instanceUrl).get<{
+        channel_ids: string[];
+        counts: ChannelUnreadCount[];
+      }>(`/workspaces/${workspaceId}/channels/unread`);
+      return res;
     },
     enabled: !!workspaceId && !!instanceUrl,
     staleTime: 1000 * 30,

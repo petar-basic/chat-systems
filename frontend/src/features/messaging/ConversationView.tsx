@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useUserCache } from '@/stores/users';
 import { usePresenceStore } from '@/stores/presence';
 import { ArrowLeft, Pencil, Trash2, SmilePlus, Menu } from 'lucide-react';
@@ -19,7 +19,10 @@ import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { ConnectionBanner } from '@/shared/components/ConnectionBanner/ConnectionBanner';
 import { QueryState } from '@/shared/components/QueryState/QueryState';
 import { HuddleStartButton } from '@/features/huddle';
-import { EmptyLabels, MESSAGE_GROUP_WINDOW_MS } from '@/shared/constants';
+import { EmptyLabels } from '@/shared/constants';
+import VirtualMessageList from './VirtualMessageList';
+import { DaySeparator } from './MessageList';
+import { buildMessageRows, type MessageRow } from './messageRows';
 
 interface Props {
   workspaceId: string;
@@ -58,38 +61,40 @@ export default function ConversationView({
   const reactMutation = useReactToConversationMessage(conversationId, currentUserId, instanceUrl);
   const removeReactionMutation = useRemoveConversationReaction(conversationId, currentUserId, instanceUrl);
 
-  const toggleReaction = (messageId: string, emoji: string, hasOwn: boolean) => {
-    if (hasOwn) removeReactionMutation.mutate({ messageId, emoji });
-    else reactMutation.mutate({ messageId, emoji });
-  };
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const [hasScrolledUp, setHasScrolledUp] = useState(false);
-
-  const messages = data?.pages.flatMap((p) => p.data) ?? [];
-  const displayMessages = [...messages].reverse();
-
-  useEffect(() => {
-    if (!hasScrolledUp) {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages.length, hasScrolledUp]);
-
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const el = e.currentTarget;
-    const atTop = el.scrollTop < 100;
-    if (atTop && hasNextPage && !isFetchingNextPage) {
-      fetchNextPage();
-    }
-    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
-    setHasScrolledUp(!atBottom);
-  };
+  const toggleReaction = useCallback(
+    (messageId: string, emoji: string, hasOwn: boolean) => {
+      if (hasOwn) removeReactionMutation.mutate({ messageId, emoji });
+      else reactMutation.mutate({ messageId, emoji });
+    },
+    [reactMutation, removeReactionMutation],
+  );
+  const displayMessages = useMemo(() => [...(data?.pages.flatMap((p) => p.data) ?? [])].reverse(), [data]);
+  const rows = useMemo(() => buildMessageRows(displayMessages), [displayMessages]);
 
   const handleSend = async (content: string) => {
     sendMutation.mutate({ content, id: crypto.randomUUID() });
-    setHasScrolledUp(false);
   };
 
   const messageCount = displayMessages.length;
+
+  const renderRow = useCallback(
+    (row: MessageRow<ConversationMessage>) => {
+      if (row.kind === 'day') return <DaySeparator at={row.at} />;
+      const msg = row.message;
+      return (
+        <ConversationMessageRow
+          msg={msg}
+          grouped={row.grouped}
+          isOwn={msg.user_id === currentUserId}
+          currentUserId={currentUserId}
+          onEdit={(content) => editMutation.mutateAsync({ messageId: msg.id, content })}
+          onDelete={() => deleteMutation.mutateAsync({ messageId: msg.id })}
+          onToggleReaction={(emoji, hasOwn) => toggleReaction(msg.id, emoji, hasOwn)}
+        />
+      );
+    },
+    [currentUserId, deleteMutation, editMutation, toggleReaction],
+  );
 
   return (
     <div role="main" aria-label="Direct message" className="flex-1 flex flex-col min-w-0">
@@ -161,34 +166,15 @@ export default function ConversationView({
         onRetry={() => void refetch()}
         empty={<p className="text-sm">{EmptyLabels.DmBeginning(title)}</p>}
       >
-        <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col" onScroll={handleScroll}>
-          {isFetchingNextPage && (
-            <div className="text-center text-xs text-slate-400 py-2">Loading older messages...</div>
-          )}
-          {displayMessages.map((msg, i) => {
-            const prev = displayMessages[i - 1];
-            const grouped =
-              !!prev &&
-              !prev.deleted_at &&
-              prev.user_id === msg.user_id &&
-              new Date(msg.created_at).toDateString() === new Date(prev.created_at).toDateString() &&
-              new Date(msg.created_at).getTime() - new Date(prev.created_at).getTime() <
-                MESSAGE_GROUP_WINDOW_MS;
-            return (
-              <ConversationMessageRow
-                key={msg.id}
-                msg={msg}
-                grouped={grouped}
-                isOwn={msg.user_id === currentUserId}
-                currentUserId={currentUserId}
-                onEdit={(content) => editMutation.mutateAsync({ messageId: msg.id, content })}
-                onDelete={() => deleteMutation.mutateAsync({ messageId: msg.id })}
-                onToggleReaction={(emoji, hasOwn) => toggleReaction(msg.id, emoji, hasOwn)}
-              />
-            );
-          })}
-          <div ref={bottomRef} />
-        </div>
+        <VirtualMessageList
+          rows={rows}
+          renderRow={renderRow}
+          hasOlder={!!hasNextPage}
+          isLoadingOlder={isFetchingNextPage}
+          onLoadOlder={fetchNextPage}
+          qa="conversation-message-list"
+          ariaLabel="Direct messages"
+        />
       </QueryState>
 
       <MessageInput

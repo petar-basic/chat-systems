@@ -7,8 +7,8 @@ use tracing::info;
 use chat_api::config::AppConfig;
 use chat_api::state::AppState;
 use chat_api::{
-    build_state, connect_pool, health, hooks, huddle, init_tracing, metrics, notifications,
-    scheduled, shutdown_signal, supervise,
+    build_state, connect_pool, health, hooks, huddle, init_tracing, messaging, metrics,
+    notifications, scheduled, shutdown_signal, supervise,
 };
 
 #[tokio::main]
@@ -85,6 +85,19 @@ fn spawn_consumers(state: &Arc<AppState>, redis_url: &str) {
                 let reminder_state = reminder_state.clone();
                 async move {
                     hooks::executor::start_reminder_checker(&redis_url, reminder_state).await;
+                }
+            })
+            .await;
+        });
+    }
+
+    {
+        let reconciler_state = state.clone();
+        tokio::spawn(async move {
+            supervise("unread_reconciler", || {
+                let reconciler_state = reconciler_state.clone();
+                async move {
+                    messaging::reconcile::start_unread_reconciler(reconciler_state).await;
                 }
             })
             .await;

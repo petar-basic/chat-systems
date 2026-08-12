@@ -40,6 +40,8 @@ interface Props {
   currentChannel: Channel | null;
   unreadChannels: Set<string>;
   mentionChannels: Set<string>;
+  unreadCounts: Record<string, number>;
+  mentionCounts: Record<string, number>;
   mutedChannels: Set<string>;
   workspaceMembers: WorkspaceMember[];
   currentUserId: string | undefined;
@@ -60,6 +62,11 @@ interface Props {
   onOpenProfile: () => void;
   onOpenNotifications: () => void;
   onLogout: () => void;
+}
+
+/** Slack stops at 99+, and so does the space in the sidebar. */
+function formatBadge(count: number): string {
+  return count > 99 ? '99+' : String(count);
 }
 
 function UserAvatarWithPresence({
@@ -159,6 +166,8 @@ export default function ChannelSidebar({
   currentChannel,
   unreadChannels,
   mentionChannels,
+  unreadCounts,
+  mentionCounts,
   mutedChannels,
   workspaceMembers,
   currentUserId,
@@ -257,14 +266,28 @@ export default function ChannelSidebar({
           {icon}
           <span className="truncate">{ch.name || 'Channel'}</span>
           {muted && <BellOff className="w-3 h-3 text-slate-600 ml-auto shrink-0" />}
-          {!muted && mentionChannels.has(ch.id) && (
+          {!muted && mentionChannels.has(ch.id) ? (
             <span
+              aria-hidden="true"
               data-qa="channel-mention-badge"
               data-channel-id={ch.id}
-              className="ml-auto w-5 h-5 bg-red-500 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold text-white"
+              className="ml-auto min-w-5 h-5 px-1 bg-red-500 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold text-white"
             >
-              @
+              {mentionCounts[ch.id] ? formatBadge(mentionCounts[ch.id]) : '@'}
             </span>
+          ) : (
+            !muted &&
+            unread &&
+            !!unreadCounts[ch.id] && (
+              <span
+                aria-hidden="true"
+                data-qa="channel-unread-badge"
+                data-channel-id={ch.id}
+                className="ml-auto min-w-5 h-5 px-1 bg-slate-600 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold text-white"
+              >
+                {formatBadge(unreadCounts[ch.id])}
+              </span>
+            )
           )}
         </button>
         <button

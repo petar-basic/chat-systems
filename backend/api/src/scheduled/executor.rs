@@ -158,12 +158,6 @@ async fn deliver_to_channel(
 ) -> Result<(), DeliveryFailure> {
     authorize_channel(state, scheduled, channel_id).await?;
 
-    let message = state
-        .message_repo
-        .create_message(channel_id, scheduled.user_id, &scheduled.content, None)
-        .await
-        .map_err(internal)?;
-
     let mentioned = crate::messaging::routes::expand_mentions(
         state,
         channel_id,
@@ -171,6 +165,18 @@ async fn deliver_to_channel(
         &scheduled.content,
     )
     .await;
+
+    let message = state
+        .message_repo
+        .create_message(
+            channel_id,
+            scheduled.user_id,
+            &scheduled.content,
+            None,
+            &mentioned,
+        )
+        .await
+        .map_err(internal)?;
 
     crate::files::service::link_to_channel_message(
         state,

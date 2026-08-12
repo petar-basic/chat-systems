@@ -1,4 +1,4 @@
-import type { MentionRef } from './mentionHighlightExtension';
+import type { MentionRef } from './mentionHighlight';
 
 const MENTION_TOKEN = /@\[([^\]]+)\]\(([^)]+)\)/g;
 

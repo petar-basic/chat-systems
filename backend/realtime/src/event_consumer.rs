@@ -109,9 +109,16 @@ pub(crate) async fn handle_event(
     match event_type {
         "message.created" => {
             if let Some(ch_id) = channel_id {
+                // Hoisted out of the payload so the badge delta is part of the
+                // client contract rather than something riding along inside the
+                // message body.
                 let ws_msg = serde_json::json!({
                     "type": "message.new",
                     "message": payload,
+                    "mentioned_user_ids": payload
+                        .get("mentioned_user_ids")
+                        .cloned()
+                        .unwrap_or_else(|| serde_json::json!([])),
                 });
                 cm.broadcast_to_channel(ch_id, &ws_msg.to_string()).await;
             }
@@ -362,6 +369,7 @@ pub(crate) async fn handle_event(
                 return;
             };
             cm.leave_workspace_for_user(uid, ws_id);
+            cm.presence_leave_workspace(uid, ws_id).await;
             let notice = serde_json::json!({
                 "type": "workspace.access_revoked",
                 "workspace_id": ws_id,

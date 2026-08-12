@@ -10,8 +10,8 @@ what it changed lives in the git history and in the docs it touched. Read
 [the index](./tickets/INDEX.md) for the dependency map and the conflict table; this page
 is the summary and the reasoning behind the sequence.
 
-**Waves 0 through 5 are shipped.** Next ticket:
-[CS-024](./tickets/CS-024-static-message-renderer.md).
+**Waves 0 through 6 are shipped.** Next ticket:
+[CS-028](./tickets/CS-028-durable-delivery.md).
 
 ## How the order was chosen
 
@@ -334,23 +334,114 @@ error — the new test found that one: it was a live 500.
 
 ---
 
-## Wave 6 — Performance
+## Wave 6 — Performance ✅ shipped
 
-### [CS-024](./tickets/CS-024-static-message-renderer.md) — Static message renderer
-**Today:** `RichTextDisplay` calls `useEditor` **per message**, so every rendered message
-mounts a full TipTap/ProseMirror instance to display text that is never edited. This is the
-dominant cost in the message list, and the reason virtualization alone is not the fix.
+### [CS-024] Static message renderer
+`RichTextDisplay` called `useEditor` **per message**, so every rendered message mounted a
+full TipTap instance — a ProseMirror state, view, plugin stack, schema and contenteditable
+subtree — to display text nobody edits. Messages now render from a parsed tree instead;
+TipTap stays where it belongs, in the composer and the inline edit form.
 
-### [CS-025](./tickets/CS-025-virtualize-message-list.md) — Virtualize the message list
-**Today:** `MessageList` renders every loaded message. Worth doing once each row is cheap.
+**Measured, not asserted** (`MessageContent.bench.tsx`, `npx vitest bench`):
 
-### [CS-026](./tickets/CS-026-unread-counts.md) — Unread counts without subqueries
-**Today:** the channel-list query runs an `EXISTS` subquery per channel, and cannot show a
-count at all.
+| Loaded messages | Editor per message | Static tree | |
+|---|---|---|---|
+| 100 | 512 ms | 9.5 ms | **54× faster** |
+| 500 | 27.4 s | 45.5 ms | **601× faster** |
 
-### [CS-027](./tickets/CS-027-presence-without-scan.md) — Presence without a keyspace scan
-**Today:** `get_online_users` runs `SCAN` over the entire Redis keyspace and is called on
-every WebSocket subscribe. Cost grows with unrelated traffic.
+The old path degraded superlinearly — five times the messages cost fifty times the mount —
+which is why the list fell over rather than merely slowing down.
+
+The parser is `markdown-it` built from the **`zero` preset** and opened up to exactly the
+constructs the composer can serialise, rather than the default preset with the rest turned
+off: a parser that cannot represent headings, tables, images, raw HTML or reference links
+has no surface there to get wrong. The token stream maps to React elements directly — no
+`dangerouslySetInnerHTML` anywhere on this path — so the XSS posture holds by construction
+instead of by getting a sanitiser's configuration right. The link allowlist (`http`,
+`https`, `mailto`, `rel="noopener noreferrer nofollow"`) is ported deliberately, and a
+rejected protocol renders as plain text with no anchor at all rather than an anchor with a
+defused href.
+
+Two things the ticket got wrong, found by testing against the real serialiser rather than
+against the ticket's list:
+
+- **Underline never reaches storage.** tiptap-markdown drops the mark (`"underline" mark is
+  only available in html mode`), so there was nothing to port. The stylesheet rule for `u`
+  is now dead and left in place only because the composer still offers the button.
+- `![alt](url)` degrades to a link, not an image — there is no image node in either the old
+  or the new path, so the behaviour is unchanged.
+
+`createDisplayExtensions` and the ProseMirror mention-decoration plugin are deleted. Mention
+highlighting is a pure function over text now (`lib/mentionHighlight.ts`), with the same
+rules: longest label first, a boundary check on the left so an email address is not a
+mention, no overlapping matches, broadcast words styled as self-mentions.
+
+### [CS-025] Virtualize the message list
+Channels and conversations now share one windowed list. Both had the same structure and the
+same scroll behaviours to get right, and the conversation view had grown its own fourth copy
+of the grouping rule — that is now one structural helper both use.
+
+The old list leaned on `flex-col-reverse`, which gives bottom-anchoring for free but cannot
+be windowed. Anchoring is explicit instead, and the three behaviours that break in naive
+implementations are tests rather than hopes: an older page must not move the viewport, a new
+message must stick to the bottom only when the reader is already there, and a new message
+while scrolled up must offer a jump instead of yanking the view. The "jump to latest"
+affordance the ticket assumed already existed did not, so it is new.
+
+Grouping is pre-computed into a flat row list before the virtualizer sees it: grouping
+depends on the *previous* message, which is usually not mounted once the list is windowed.
+
+**Accepted trade-off:** find-in-page and text selection no longer reach messages outside the
+window. The decision was to virtualize unconditionally rather than above a threshold, so
+there is one code path and one behaviour; "copy link to message" is the practical substitute
+and still works.
+
+A message after a deleted one now shows its header again in channels, matching what
+conversations already did — a tombstone breaks the visual run either way.
+
+### [CS-026] Unread counts without subqueries
+The channel list ran an `EXISTS` subquery per channel, so the cost grew with message volume
+rather than channel count, and it could only answer "any", never "how many".
+`channel_members` now carries `unread_count`, `mention_count` and `last_read_message_id`,
+maintained in the same transaction as the insert — one statement for the whole channel, not
+an N+1 on the hottest path in the product.
+
+Mentions are counted separately because a mention badge and an unread badge are different
+things in the UI, and deriving one from the other needs exactly the subquery this removes.
+Muting deliberately does not touch the counters: it decides whether you are notified, not
+whether you have read something, and letting it change the count would make the badge
+disagree with the message list. The sidebar shows a number now, capped at `99+`.
+
+The socket carries the delta — `message.new` gained `mentioned_user_ids` as a top-level
+field — so the badge moves without a round trip back to the channel list.
+
+A denormalised counter drifts: a half-committed transaction, a manual fix, a restore. A
+reconciler in `chat-worker` recomputes recently-active channels every six hours and **logs
+the number it corrected**, which turns "my badge is wrong and nobody knows why" from a bug
+report into a metric. One test induces drift and asserts it is corrected; another proves the
+new counter equals the old subquery over the same data, so the two definitions were shown
+equivalent before the subquery was deleted.
+
+### [CS-027] Presence without a keyspace scan
+`get_online_users` walked the **entire Redis keyspace** in `COUNT 100` batches, and ran on
+every `subscribe` frame — every WebSocket connection. The same Redis holds rate-limit keys,
+revocation flags and huddle membership, so the cost grew with traffic that has nothing to do
+with presence. After a deploy, 70 users reconnecting meant hundreds of full keyspace scans
+in a few seconds.
+
+Presence is now a sorted set per workspace scored by expiry: `ZADD presence:ws:{id}`,
+read with one `ZRANGEBYSCORE` bounded by the workspace's member count. Stale entries are
+trimmed with `ZREMRANGEBYSCORE` on read, so a node that dies self-heals without a sweeper.
+`SCAN` is gone from the realtime crate entirely, along with `scan_keys` and
+`get_online_users`, so it cannot come back by accident.
+
+`node_id` is deleted with it. It existed to disambiguate two nodes holding the same user;
+with a sorted set the score is the latest heartbeat from any node, which is the semantics
+the per-node keys were approximating. The workspace list is resolved once per connection
+instead of on every heartbeat, and `workspace.member_removed` drops the user from that
+roster immediately rather than leaving a ghost until the TTL expires.
+`realtime_presence_query_duration_seconds` is exported so the improvement is visible and a
+regression is not silent.
 
 ---
 

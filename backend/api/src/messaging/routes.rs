@@ -100,6 +100,10 @@ async fn send_message(
         .await?
         .channel;
 
+    // The mention set has to exist before the insert: the unread and mention
+    // counters are bumped inside the same transaction that writes the message.
+    let mentioned_ids = expand_mentions(&state, ch_id, auth.user_id, &req.content).await;
+
     let msg = if let Some(client_id) = req.client_message_id {
         shared_common::validation::validate_client_message_id(client_id)?;
         match state
@@ -110,6 +114,7 @@ async fn send_message(
                 auth.user_id,
                 &req.content,
                 req.thread_parent_id,
+                &mentioned_ids,
             )
             .await
         {
@@ -127,7 +132,13 @@ async fn send_message(
     } else {
         state
             .message_repo
-            .create_message(ch_id, auth.user_id, &req.content, req.thread_parent_id)
+            .create_message(
+                ch_id,
+                auth.user_id,
+                &req.content,
+                req.thread_parent_id,
+                &mentioned_ids,
+            )
             .await?
     };
 
@@ -139,8 +150,6 @@ async fn send_message(
         auth.user_id,
     )
     .await;
-
-    let mentioned_ids = expand_mentions(&state, ch_id, auth.user_id, &req.content).await;
 
     let msg_json = serde_json::to_value(&msg).map_err(|e| AppError::Internal(e.to_string()))?;
     let _ = state
@@ -219,6 +228,16 @@ async fn delete_message(
     }
 
     let channel = authz::find_channel(&state, existing.channel_id).await?;
+    if let Err(e) = state
+        .message_repo
+        .drop_unread_for_message(existing.channel_id, msg_id, existing.user_id)
+        .await
+    {
+        tracing::warn!(
+            "failed to adjust unread counts for a deleted message: {}",
+            e
+        );
+    }
     state.message_repo.soft_delete_message(msg_id).await?;
     crate::files::service::delete_for_channel_message(&state, msg_id).await;
 
@@ -364,9 +383,18 @@ async fn reply_to_thread(
         .await?
         .channel;
 
+    let mentioned_ids =
+        expand_mentions(&state, parent.channel_id, auth.user_id, &req.content).await;
+
     let msg = state
         .message_repo
-        .create_message(parent.channel_id, auth.user_id, &req.content, Some(msg_id))
+        .create_message(
+            parent.channel_id,
+            auth.user_id,
+            &req.content,
+            Some(msg_id),
+            &mentioned_ids,
+        )
         .await?;
 
     crate::files::service::link_to_channel_message(
@@ -377,9 +405,6 @@ async fn reply_to_thread(
         auth.user_id,
     )
     .await;
-
-    let mentioned_ids =
-        expand_mentions(&state, parent.channel_id, auth.user_id, &req.content).await;
 
     let msg_json = serde_json::to_value(&msg).map_err(|e| AppError::Internal(e.to_string()))?;
     let _ = state
