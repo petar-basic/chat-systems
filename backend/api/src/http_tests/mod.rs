@@ -1,6 +1,12 @@
 mod common;
+mod edit_history;
+mod export;
+mod oidc;
+mod retention;
+mod scim;
 mod smoke;
 mod streams;
+mod totp;
 mod validation;
 
 mod admin;

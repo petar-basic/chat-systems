@@ -17,6 +17,7 @@ use crate::state::AppState;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AuditAction {
     MessageDeleted,
+    MessageHistoryRead,
     ChannelCreated,
     ChannelArchived,
     ChannelUpdated,
@@ -35,9 +36,23 @@ pub enum AuditAction {
     HookRevealed,
     HookRotated,
     FileDeleted,
+    UserProvisioned,
     UserSuspended,
     UserActivated,
     InstanceRoleChanged,
+    ExportRequested,
+    ExportCompleted,
+    UserDataErased,
+    SsoLinked,
+    TotpEnrolled,
+    TotpDisabled,
+    TotpFailed,
+    TotpRecoveryUsed,
+    ScimTokenCreated,
+    ScimTokenRevoked,
+    ScimTokenRotated,
+    RetentionChanged,
+    RetentionPurge,
 }
 
 impl AuditAction {
@@ -45,6 +60,7 @@ impl AuditAction {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::MessageDeleted => "message.deleted",
+            Self::MessageHistoryRead => "message.history_read",
             Self::ChannelCreated => "channel.created",
             Self::ChannelArchived => "channel.archived",
             Self::ChannelUpdated => "channel.updated",
@@ -63,15 +79,29 @@ impl AuditAction {
             Self::HookRevealed => "hook.revealed",
             Self::HookRotated => "hook.rotated",
             Self::FileDeleted => "file.deleted",
+            Self::UserProvisioned => "user.provisioned",
             Self::UserSuspended => "user.suspended",
             Self::UserActivated => "user.activated",
             Self::InstanceRoleChanged => "user.instance_role_changed",
+            Self::ExportRequested => "export.requested",
+            Self::ExportCompleted => "export.completed",
+            Self::UserDataErased => "user.data_erased",
+            Self::SsoLinked => "sso.linked",
+            Self::TotpEnrolled => "totp.enrolled",
+            Self::TotpDisabled => "totp.disabled",
+            Self::TotpFailed => "totp.failed",
+            Self::TotpRecoveryUsed => "totp.recovery_used",
+            Self::ScimTokenCreated => "scim.token_created",
+            Self::ScimTokenRevoked => "scim.token_revoked",
+            Self::ScimTokenRotated => "scim.token_rotated",
+            Self::RetentionChanged => "retention.changed",
+            Self::RetentionPurge => "retention.purge",
         }
     }
 
     fn resource_type(self) -> &'static str {
         match self {
-            Self::MessageDeleted => "message",
+            Self::MessageDeleted | Self::MessageHistoryRead => "message",
             Self::ChannelCreated
             | Self::ChannelArchived
             | Self::ChannelUpdated
@@ -88,7 +118,19 @@ impl AuditAction {
                 "hook"
             }
             Self::FileDeleted => "file",
-            Self::UserSuspended | Self::UserActivated | Self::InstanceRoleChanged => "user",
+            Self::UserProvisioned
+            | Self::UserSuspended
+            | Self::UserActivated
+            | Self::InstanceRoleChanged
+            | Self::UserDataErased
+            | Self::SsoLinked
+            | Self::TotpEnrolled
+            | Self::TotpDisabled
+            | Self::TotpFailed
+            | Self::TotpRecoveryUsed => "user",
+            Self::ScimTokenCreated | Self::ScimTokenRevoked | Self::ScimTokenRotated => "scim",
+            Self::RetentionChanged | Self::RetentionPurge => "retention",
+            Self::ExportRequested | Self::ExportCompleted => "export",
         }
     }
 }
@@ -118,7 +160,7 @@ impl FromRequestParts<Arc<AppState>> for ClientIp {
 
 pub struct AuditEntry {
     action: AuditAction,
-    actor_id: Uuid,
+    actor_id: Option<Uuid>,
     workspace_id: Option<Uuid>,
     resource_id: Option<Uuid>,
     ip: Option<String>,
@@ -130,7 +172,22 @@ impl AuditEntry {
     pub fn new(action: AuditAction, actor_id: Uuid) -> Self {
         Self {
             action,
-            actor_id,
+            actor_id: Some(actor_id),
+            workspace_id: None,
+            resource_id: None,
+            ip: None,
+            details: serde_json::json!({}),
+        }
+    }
+
+    /// For callers that are not people. A provisioning system acting through a
+    /// token has no user row to point at, and borrowing one would name somebody
+    /// who did not do it.
+    #[must_use]
+    pub fn machine(action: AuditAction) -> Self {
+        Self {
+            action,
+            actor_id: None,
             workspace_id: None,
             resource_id: None,
             ip: None,

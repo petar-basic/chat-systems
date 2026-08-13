@@ -44,6 +44,15 @@ pub struct ConversationMessage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ConversationMessageEdit {
+    pub id: Uuid,
+    pub message_id: Uuid,
+    pub previous_content: String,
+    pub edited_by: Uuid,
+    pub edited_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct ConversationReaction {
     pub id: Uuid,
     pub message_id: Uuid,

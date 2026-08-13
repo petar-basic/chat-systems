@@ -38,6 +38,8 @@ export const QUERY_KEYS = {
 
   auditLog: (workspaceId: string) => ['audit-log', workspaceId] as const,
 
+  editHistory: (messageId: string) => ['edit-history', messageId] as const,
+
   huddlesActive: () => ['huddles', 'active'] as const,
   workspaceActiveHuddles: (workspaceId: string) => ['huddles', 'active', workspaceId] as const,
 } as const;

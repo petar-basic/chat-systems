@@ -58,11 +58,22 @@ pub fn test_config() -> AppConfig {
         login_attempts_window_secs: 900,
         trusted_proxies: "127.0.0.0/8".into(),
         max_upload_bytes: 4096,
+        retention_dry_run: false,
+        require_admin_totp: false,
+        oidc_issuer: String::new(),
+        oidc_client_id: String::new(),
+        oidc_client_secret: String::new(),
+        oidc_provisioning: "invite_only".into(),
+        oidc_allowed_domains: String::new(),
     }
 }
 
 pub async fn app_and_state(pool: sqlx::PgPool) -> (Router, Arc<AppState>) {
-    let state = build_state(pool, test_config()).await.expect("build_state");
+    app_and_state_with(pool, test_config()).await
+}
+
+pub async fn app_and_state_with(pool: sqlx::PgPool, config: AppConfig) -> (Router, Arc<AppState>) {
+    let state = build_state(pool, config).await.expect("build_state");
     let app = build_app(state.clone());
     (app, state)
 }

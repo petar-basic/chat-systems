@@ -31,13 +31,15 @@ export const useAddInstance = () => {
       email,
       password,
       wsUrl,
+      totpCode,
     }: {
       url: string;
       email: string;
       password: string;
       wsUrl?: string;
+      totpCode?: string;
     }) => {
-      await addInstance(url, email, password, wsUrl);
+      await addInstance(url, email, password, wsUrl, totpCode);
     },
   });
 };

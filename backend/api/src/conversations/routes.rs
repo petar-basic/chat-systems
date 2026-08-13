@@ -9,9 +9,11 @@ use shared_common::errors::{AppError, AppResult};
 use shared_common::validation;
 
 use super::models::*;
+use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
 use crate::middleware::AuthUser;
 use crate::state::AppState;
+use crate::workspace::models::WorkspaceRole;
 
 pub const MAX_GROUP_PARTICIPANTS: usize = 9;
 
@@ -26,6 +28,10 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/conversations/:conv_id/messages", post(send_message))
         .route("/conversations/:conv_id/read", post(mark_read))
         .route("/conversations/messages/:msg_id", patch(edit_message))
+        .route(
+            "/conversations/messages/:msg_id/history",
+            get(message_history),
+        )
         .route("/conversations/messages/:msg_id", delete(delete_message))
         .route(
             "/conversations/messages/:msg_id/reactions",
@@ -288,7 +294,7 @@ async fn edit_message(
 
     let message = state
         .conversation_repo
-        .update_message(msg_id, &req.content)
+        .update_message(msg_id, &req.content, auth.user_id)
         .await?;
 
     crate::files::service::link_to_conversation_message(
@@ -316,6 +322,48 @@ async fn edit_message(
     .await;
 
     Ok(Json(message))
+}
+
+/// Prior versions are not part of the conversation for everyone who can read
+/// it: showing every earlier draft to every participant is a different product.
+/// The author sees their own, and a workspace admin sees anyone's — which is an
+/// audited act, not a quiet one.
+async fn message_history(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    ip: ClientIp,
+    Path(msg_id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    let message = state
+        .conversation_repo
+        .find_message(msg_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
+    let conversation =
+        authz::require_conversation_participant(&state, message.conversation_id, auth.user_id)
+            .await?;
+
+    if message.user_id != auth.user_id {
+        authz::require_workspace_role(
+            &state,
+            conversation.workspace_id,
+            auth.user_id,
+            &WorkspaceRole::Admin,
+        )
+        .await?;
+        audit::record(
+            &state,
+            AuditEntry::new(AuditAction::MessageHistoryRead, auth.user_id)
+                .workspace(conversation.workspace_id)
+                .resource(msg_id)
+                .ip(&ip)
+                .details(serde_json::json!({ "author_id": message.user_id })),
+        )
+        .await;
+    }
+
+    let edits = state.conversation_repo.list_edits(msg_id).await?;
+    Ok(Json(serde_json::json!({ "data": edits })))
 }
 
 async fn delete_message(

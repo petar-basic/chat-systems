@@ -10,6 +10,7 @@ import { Modal } from '@/shared/components/Modal/Modal';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { displayNameOf } from '@/lib/userHelpers';
 import { QUERY_KEYS } from '@/shared/constants';
+import TwoFactorPanel from './TwoFactorPanel';
 
 interface Props {
   onClose: () => void;
@@ -266,6 +267,8 @@ export default function UserProfilePanel({ onClose }: Props) {
           </button>
         </div>
       </form>
+
+      <TwoFactorPanel />
     </Modal>
   );
 }

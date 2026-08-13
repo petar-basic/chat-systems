@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { X, ServerCrash, LogIn } from 'lucide-react';
 import { useInstanceStore } from '../stores/instances';
+import { isTotpRequired } from '@/lib/errors';
 
 interface Props {
   onClose: () => void;
@@ -13,15 +14,23 @@ export default function AddInstancePanel({ onClose }: Props) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [totpCode, setTotpCode] = useState('');
+  const [needsTotp, setNeedsTotp] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     clearError();
     try {
-      await addInstance(url.trim(), email.trim(), password, wsUrl.trim() || undefined);
+      await addInstance(
+        url.trim(),
+        email.trim(),
+        password,
+        wsUrl.trim() || undefined,
+        totpCode.trim() || undefined,
+      );
       onClose();
-    } catch {
-      return;
+    } catch (err) {
+      if (isTotpRequired(err)) setNeedsTotp(true);
     }
   };
 
@@ -45,9 +54,28 @@ export default function AddInstancePanel({ onClose }: Props) {
             Connect to another Chat Systems server using its URL and your credentials.
           </p>
 
-          {error && (
+          {error && error !== 'totp_required' && (
             <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-3 py-2 rounded-lg text-sm">
               {error}
+            </div>
+          )}
+
+          {needsTotp && (
+            <div>
+              <label htmlFor="instance-totp" className="block text-sm font-medium text-slate-300 mb-1.5">
+                Authentication code
+              </label>
+              <input
+                id="instance-totp"
+                type="text"
+                inputMode="text"
+                autoComplete="one-time-code"
+                value={totpCode}
+                onChange={(e) => setTotpCode(e.target.value.trim())}
+                className="w-full px-3 py-2.5 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm tracking-widest focus:outline-none focus:ring-2 focus:ring-purple-500"
+                placeholder="123456"
+                required
+              />
             </div>
           )}
 

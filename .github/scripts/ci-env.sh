@@ -29,6 +29,15 @@ CORS_ORIGINS=http://localhost:8080
 LOGIN_ATTEMPTS_PER_EMAIL=1000
 LOGIN_ATTEMPTS_PER_IP=1000
 LOGIN_ATTEMPTS_WINDOW_SECS=900
+# The SSO suite drives a real provider (the `oidc` service), so the flow it
+# exercises is the redirect and the code exchange rather than a stub. The issuer
+# is the compose service name because the same string has to resolve from inside
+# the network and from the browser.
+OIDC_ISSUER=http://oidc:8090/chat
+OIDC_CLIENT_ID=chat-systems
+OIDC_CLIENT_SECRET=dev-secret
+OIDC_PROVISIONING=domain_allowlist
+OIDC_ALLOWED_DOMAINS=dev.local
 ENV
 
 # The E2E job needs the admin password to drive the suite; hand it back through

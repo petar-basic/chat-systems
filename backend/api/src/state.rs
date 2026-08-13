@@ -25,5 +25,9 @@ pub struct AppState {
     pub notification_repo: NotificationRepo,
     pub conversation_repo: ConversationRepo,
     pub scheduled_repo: ScheduledRepo,
+    pub retention_repo: crate::retention::repo::RetentionRepo,
+    pub export_repo: crate::export::repo::ExportRepo,
+    pub totp_repo: crate::auth::totp_repo::TotpRepo,
+    pub scim_repo: crate::scim::repo::ScimRepo,
     pub huddle_repo: HuddleRepo,
 }

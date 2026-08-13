@@ -104,6 +104,48 @@ services:
       - "127.0.0.1:1025:1025"
       - "127.0.0.1:8025:8025"
 
+  # A real OIDC provider for dev and the E2E suite: the redirect, the cookie and
+  # the code exchange are exactly where SSO integrations break, and none of that
+  # is exercised by stubbing the token endpoint in-process.
+  oidc:
+    image: ghcr.io/navikt/mock-oauth2-server:2.1.10
+    restart: unless-stopped
+    environment:
+      # Issued URLs have to be reachable under the same name from the browser
+      # and from the API container, so the host port is mapped straight through.
+      SERVER_PORT: "8090"
+      # `code` is a parameter of the token request; `scope` is not, so a mapping
+      # keyed on it never matches and the id token comes back without a subject.
+      JSON_CONFIG: >-
+        {
+          "interactiveLogin": false,
+          "tokenCallbacks": [
+            {
+              "issuerId": "chat",
+              "tokenExpiry": 3600,
+              "requestMappings": [
+                {
+                  "requestParam": "code",
+                  "match": "*",
+                  "claims": {
+                    "sub": "sso-user-1",
+                    "aud": ["chat-systems"],
+                    "email": "sso@dev.local",
+                    "email_verified": true,
+                    "name": "SSO User"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+    # The same host name has to work from inside the compose network and from the
+    # browser, or the issuer in the discovery document will not match the one
+    # configured and the client rejects the token. Chromium is pointed at this
+    # port with --host-resolver-rules in the SSO spec.
+    ports:
+      - "127.0.0.1:8090:8090"
+
   coturn:
     image: coturn/coturn:4.6-alpine
     profiles: ["turn"]
@@ -138,6 +180,13 @@ services:
       DATABASE_URL: postgres://chat:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set (see .env.example)}@postgres:5432/chatsystems
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set (see .env.example)}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_PROVISIONING: ${OIDC_PROVISIONING:-invite_only}
+      OIDC_ALLOWED_DOMAINS: ${OIDC_ALLOWED_DOMAINS:-}
+      REQUIRE_ADMIN_TOTP: ${REQUIRE_ADMIN_TOTP:-false}
+      RETENTION_DRY_RUN: ${RETENTION_DRY_RUN:-false}
       SMTP_HOST: mailhog
       SMTP_PORT: "1025"
       SMTP_FROM_ADDRESS: noreply@dev.local

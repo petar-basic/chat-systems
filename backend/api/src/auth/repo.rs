@@ -35,6 +35,22 @@ impl UserRepo {
         .await
     }
 
+    /// Created active and with no password: the identity provider is the
+    /// credential, and an SSO account that also has a password has a second door
+    /// nobody is watching.
+    pub async fn create_sso_user(&self, email: &str) -> sqlx::Result<User> {
+        sqlx::query_as::<_, User>(
+            r"
+            INSERT INTO users (email, display_name, status)
+            VALUES ($1, split_part($1, '@', 1), 'active')
+            RETURNING *
+            ",
+        )
+        .bind(email)
+        .fetch_one(&self.pool)
+        .await
+    }
+
     pub async fn find_by_id(&self, id: Uuid) -> sqlx::Result<Option<User>> {
         sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1")
             .bind(id)

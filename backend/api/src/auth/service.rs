@@ -120,6 +120,39 @@ impl AuthService {
         self.generate_tokens(&user).await
     }
 
+    /// The password is verified here and the tokens are *not* minted: whether a
+    /// second factor stands between the two is the caller's business, because
+    /// only the route knows the TOTP state.
+    pub async fn verify_password_only(&self, email: &str, password: &str) -> AppResult<User> {
+        validation::validate_email(email)?;
+
+        let user = self.repo.find_by_email(email).await?;
+        let hash = user
+            .as_ref()
+            .and_then(|u| u.password_hash.clone())
+            .unwrap_or_else(|| absent_user_hash().to_string());
+        let password_matches = Self::verify_password(password, &hash).unwrap_or(false);
+
+        let reason = match &user {
+            None => Some("no such account"),
+            Some(u) if u.status != UserStatus::Active => Some("account is not active"),
+            Some(u) if u.password_hash.is_none() => Some("account has no password set"),
+            _ if !password_matches => Some("wrong password"),
+            _ => None,
+        };
+
+        if let Some(reason) = reason {
+            info!(email = %email, reason, "login rejected");
+            return Err(AppError::Unauthorized("Invalid email or password".into()));
+        }
+
+        user.ok_or_else(|| AppError::Unauthorized("Invalid email or password".into()))
+    }
+
+    pub async fn tokens_for(&self, user: &User) -> AppResult<AuthTokens> {
+        self.generate_tokens(user).await
+    }
+
     pub async fn complete_registration(
         &self,
         user_id: Uuid,
@@ -619,6 +652,13 @@ mod tests {
             pg_pool_max: 5,
             trusted_proxies: "127.0.0.0/8".into(),
             max_upload_bytes: 100 * 1024 * 1024,
+            retention_dry_run: false,
+            require_admin_totp: false,
+            oidc_issuer: String::new(),
+            oidc_client_id: String::new(),
+            oidc_client_secret: String::new(),
+            oidc_provisioning: "invite_only".into(),
+            oidc_allowed_domains: String::new(),
             login_attempts_per_email: 10,
             login_attempts_per_ip: 30,
             login_attempts_window_secs: 900,

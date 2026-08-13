@@ -324,33 +324,7 @@ async fn remove_member(
             ));
         }
     }
-    let dropped_channels = state
-        .workspace_service
-        .repo
-        .remove_member(ws_id, user_id)
-        .await?;
-
-    if let Err(e) = state
-        .scheduled_repo
-        .cancel_pending_for_workspace(ws_id, user_id)
-        .await
-    {
-        tracing::warn!(
-            "failed to cancel scheduled messages of a removed member: {}",
-            e
-        );
-    }
-
-    for channel_id in dropped_channels {
-        let _ = state
-            .publisher
-            .publish_channel_member_removed(channel_id, ws_id, user_id)
-            .await;
-    }
-    let _ = state
-        .publisher
-        .publish_workspace_member_removed(ws_id, user_id)
-        .await;
+    crate::workspace::membership::detach(&state, ws_id, user_id).await?;
 
     audit::record(
         &state,

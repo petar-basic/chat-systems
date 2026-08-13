@@ -9,8 +9,8 @@ history and in the docs it changed. A bug found mid-wave gets a suffixed number
 (`CS-005a`) so it lands where it belongs in the order without renumbering everything
 below it.
 
-**Waves 0 through 7 are done.** The E2E suite is green and the `e2e` job blocks merges.
-Next ticket: [CS-029](CS-029-message-edit-history.md).
+**Waves 0 through 8 are done.** The E2E suite is green and the `e2e` job blocks merges.
+Next ticket: [CS-034](CS-034-search-language.md).
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
@@ -126,15 +126,10 @@ per ticket.
 |---|---|---|
 | CS-028 | Durable realtime delivery (Redis Streams) | `stream:ws:{id}` + [`replay.rs`](../../backend/realtime/src/replay.rs) + `StreamGroup` |
 
-### Wave 8 — Compliance
+### Wave 8 — Compliance ✅ done
 
-| # | Ticket | Area |
-|---|---|---|
-| [CS-029](CS-029-message-edit-history.md) | Message edit history | backend/api · frontend |
-| [CS-030](CS-030-retention-policies.md) | Retention policies and token cleanup | backend |
-| [CS-031](CS-031-data-export.md) | Workspace and user data export | backend |
-| [CS-032](CS-032-sso-and-2fa.md) | SSO (OIDC) and 2FA | backend/api · frontend |
-| [CS-033](CS-033-scim-deprovisioning.md) | SCIM deprovisioning | backend/api |
+CS-029 edit history · CS-030 retention · CS-031 export and erasure · CS-032 SSO and TOTP ·
+CS-033 SCIM deprovisioning. See [ROADMAP.md](../ROADMAP.md#wave-8--compliance--shipped).
 
 ### Wave 9 — Product parity
 
@@ -153,10 +148,10 @@ Tickets that touch the same files, and the order that avoids rework:
 
 | File | Tickets, in order |
 |---|---|
-| `backend/api/src/lib.rs` router wiring | CS-012 → CS-030 |
+| `backend/api/src/lib.rs` router wiring | CS-012 ✅ → CS-030 ✅ |
 | `backend/api/src/authz.rs` | CS-009 → CS-010 → CS-020 ✅ |
-| `backend/api/src/sessions.rs` | CS-008 → CS-033 |
-| `backend/api/src/auth/service.rs` | CS-008 → CS-016 → CS-017 → CS-032 |
+| `backend/api/src/sessions.rs` | CS-008 ✅ → CS-033 ✅ |
+| `backend/api/src/auth/service.rs` | CS-008 ✅ → CS-016 ✅ → CS-017 ✅ → CS-032 ✅ |
 | realtime event consumer | CS-007 ✅ → CS-014 ✅ → CS-027 ✅ → CS-028 ✅ |
-| `frontend/src/features/messaging/` | CS-024 ✅ → CS-025 ✅ → CS-029 |
-| `messages` table schema | CS-029 → CS-030 → CS-034 |
+| `frontend/src/features/messaging/` | CS-024 ✅ → CS-025 ✅ → CS-029 ✅ |
+| `messages` table schema | CS-029 ✅ → CS-030 ✅ → CS-034 |

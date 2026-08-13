@@ -3,6 +3,10 @@ use uuid::Uuid;
 
 use super::models::*;
 
+/// A message edited in a loop would otherwise accumulate versions without
+/// bound. Fifty is far past what anyone reads and far below what hurts.
+pub const MAX_STORED_EDITS: i64 = 50;
+
 pub struct MessageRepo {
     pool: PgPool,
 }
@@ -237,8 +241,48 @@ impl MessageRepo {
         .await
     }
 
-    pub async fn update_message(&self, id: Uuid, content: &str) -> sqlx::Result<Message> {
-        sqlx::query_as::<_, Message>(
+    /// Keeps the pre-image in the same transaction as the update. An edit that
+    /// loses its history is worse than a rejected edit, so if the insert fails
+    /// the edit fails with it.
+    pub async fn update_message(
+        &self,
+        id: Uuid,
+        content: &str,
+        edited_by: Uuid,
+    ) -> sqlx::Result<Message> {
+        let mut tx = self.pool.begin().await?;
+
+        sqlx::query(
+            r"
+            INSERT INTO message_edits (message_id, previous_content, edited_by)
+            SELECT id, content, $2 FROM messages WHERE id = $1
+            ",
+        )
+        .bind(id)
+        .bind(edited_by)
+        .execute(&mut *tx)
+        .await?;
+
+        // An edit loop on a long message would otherwise accumulate without
+        // bound; retention (CS-030) removes the rest when the message goes.
+        sqlx::query(
+            r"
+            DELETE FROM message_edits
+             WHERE message_id = $1
+               AND id NOT IN (
+                   SELECT id FROM message_edits
+                    WHERE message_id = $1
+                    ORDER BY edited_at DESC, id DESC
+                    LIMIT $2
+               )
+            ",
+        )
+        .bind(id)
+        .bind(MAX_STORED_EDITS)
+        .execute(&mut *tx)
+        .await?;
+
+        let message = sqlx::query_as::<_, Message>(
             r"
             UPDATE messages SET content = $2, updated_at = NOW()
             WHERE id = $1
@@ -247,7 +291,19 @@ impl MessageRepo {
         )
         .bind(id)
         .bind(content)
-        .fetch_one(&self.pool)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        tx.commit().await?;
+        Ok(message)
+    }
+
+    pub async fn list_edits(&self, message_id: Uuid) -> sqlx::Result<Vec<MessageEdit>> {
+        sqlx::query_as::<_, MessageEdit>(
+            "SELECT * FROM message_edits WHERE message_id = $1 ORDER BY edited_at DESC, id DESC",
+        )
+        .bind(message_id)
+        .fetch_all(&self.pool)
         .await
     }
 
