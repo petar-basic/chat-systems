@@ -9,11 +9,7 @@ async function scimToken(admin: APIRequestContext) {
   return (await res.json()).token as string;
 }
 
-async function inviteAndRegister(
-  admin: APIRequestContext,
-  request: APIRequestContext,
-  email: string,
-) {
+async function inviteAndRegister(admin: APIRequestContext, request: APIRequestContext, email: string) {
   const workspaces = await (await admin.get(`${API}/workspaces`)).json();
   const workspaceId = workspaces.data[0].id as string;
 
@@ -46,9 +42,7 @@ async function inviteAndRegister(
  * leave nothing behind. Everything below the endpoint already existed — this asserts
  * the composition, which is the part that silently degrades if a step is dropped.
  */
-test('deprovisioning through SCIM ends the session and the memberships', async ({
-  playwright,
-}) => {
+test('deprovisioning through SCIM ends the session and the memberships', async ({ playwright }) => {
   const admin = await playwright.request.newContext({
     extraHTTPHeaders: await authHeaders(await playwright.request.newContext(), 'admin@dev.local'),
   });

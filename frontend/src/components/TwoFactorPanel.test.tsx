@@ -82,8 +82,6 @@ describe('TwoFactorPanel', () => {
     fireEvent.change(screen.getByTestId('totp-disable-code'), { target: { value: '654321' } });
     fireEvent.click(screen.getByTestId('totp-disable-confirm'));
 
-    await waitFor(() =>
-      expect(post).toHaveBeenCalledWith('/auth/totp/disable', { code: '654321' }),
-    );
+    await waitFor(() => expect(post).toHaveBeenCalledWith('/auth/totp/disable', { code: '654321' }));
   });
 });

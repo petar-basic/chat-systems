@@ -121,8 +121,8 @@ export default function TwoFactorPanel() {
       {enrolment && (
         <div className="space-y-3">
           <p className="text-xs text-slate-400">
-            Add this to your authenticator app, then enter the code it shows. Nothing changes until
-            you do — an enrolment you never finished cannot lock you out.
+            Add this to your authenticator app, then enter the code it shows. Nothing changes until you do —
+            an enrolment you never finished cannot lock you out.
           </p>
           <div className="flex items-center gap-2">
             <code className="flex-1 px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-200 break-all">
@@ -170,8 +170,8 @@ export default function TwoFactorPanel() {
       {recoveryCodes && (
         <div className="mt-3 space-y-2" data-qa="totp-recovery-codes">
           <p className="text-xs text-amber-300">
-            Save these somewhere safe. They are shown once, and each one works once — they are the
-            way back in if you lose the phone.
+            Save these somewhere safe. They are shown once, and each one works once — they are the way back in
+            if you lose the phone.
           </p>
           <div className="grid grid-cols-2 gap-2">
             {recoveryCodes.map((recoveryCode) => (

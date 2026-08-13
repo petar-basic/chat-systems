@@ -1,8 +1,8 @@
 use openidconnect::core::{CoreAuthenticationFlow, CoreClient, CoreProviderMetadata};
-use openidconnect::reqwest::async_http_client;
 use openidconnect::{
-    AuthorizationCode, ClientId, ClientSecret, CsrfToken, IssuerUrl, Nonce, OAuth2TokenResponse,
-    PkceCodeChallenge, PkceCodeVerifier, RedirectUrl, Scope, TokenResponse,
+    AuthorizationCode, ClientId, ClientSecret, CsrfToken, EndpointMaybeSet, EndpointNotSet,
+    EndpointSet, IssuerUrl, Nonce, OAuth2TokenResponse, PkceCodeChallenge, PkceCodeVerifier,
+    RedirectUrl, Scope, TokenResponse,
 };
 use serde::{Deserialize, Serialize};
 
@@ -82,30 +82,59 @@ pub struct VerifiedIdentity {
     pub email: String,
 }
 
-async fn client(settings: &OidcSettings) -> AppResult<CoreClient> {
+/// What discovery leaves us with: an authorization endpoint the metadata always
+/// carries, and a token endpoint it only usually does.
+type DiscoveredClient = CoreClient<
+    EndpointSet,
+    EndpointNotSet,
+    EndpointNotSet,
+    EndpointNotSet,
+    EndpointMaybeSet,
+    EndpointMaybeSet,
+>;
+
+/// Redirects are refused rather than followed. These requests are made by the
+/// server to a URL that ultimately comes from configuration, and a client that
+/// chases redirects turns a misconfigured issuer into a request forgery against
+/// whatever else this host can reach.
+fn http_client() -> AppResult<openidconnect::reqwest::Client> {
+    openidconnect::reqwest::ClientBuilder::new()
+        .redirect(openidconnect::reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|e| AppError::Internal(format!("Could not build the OIDC HTTP client: {e}")))
+}
+
+async fn client(
+    settings: &OidcSettings,
+) -> AppResult<(DiscoveredClient, openidconnect::reqwest::Client)> {
     let issuer = IssuerUrl::new(settings.issuer.clone())
         .map_err(|e| AppError::Internal(format!("Invalid OIDC issuer: {e}")))?;
+
+    let http = http_client()?;
 
     // Endpoints come from the provider's own document rather than being
     // hard-coded, which is what lets the same configuration work against Google,
     // Entra and Okta without a per-provider branch.
-    let metadata = CoreProviderMetadata::discover_async(issuer, async_http_client)
+    let metadata = CoreProviderMetadata::discover_async(issuer, &http)
         .await
         .map_err(|e| AppError::Internal(format!("OIDC discovery failed: {e}")))?;
 
     let redirect = RedirectUrl::new(settings.redirect_url.clone())
         .map_err(|e| AppError::Internal(format!("Invalid OIDC redirect URL: {e}")))?;
 
-    Ok(CoreClient::from_provider_metadata(
-        metadata,
-        ClientId::new(settings.client_id.clone()),
-        Some(ClientSecret::new(settings.client_secret.clone())),
-    )
-    .set_redirect_uri(redirect))
+    Ok((
+        CoreClient::from_provider_metadata(
+            metadata,
+            ClientId::new(settings.client_id.clone()),
+            Some(ClientSecret::new(settings.client_secret.clone())),
+        )
+        .set_redirect_uri(redirect),
+        http,
+    ))
 }
 
 pub async fn start(settings: &OidcSettings) -> AppResult<(String, PendingLogin)> {
-    let client = client(settings).await?;
+    let (client, _http) = client(settings).await?;
     let (challenge, verifier) = PkceCodeChallenge::new_random_sha256();
 
     let (url, csrf, nonce) = client
@@ -134,12 +163,13 @@ pub async fn exchange(
     pending: &PendingLogin,
     code: &str,
 ) -> AppResult<VerifiedIdentity> {
-    let client = client(settings).await?;
+    let (client, http) = client(settings).await?;
 
     let tokens = client
         .exchange_code(AuthorizationCode::new(code.to_string()))
+        .map_err(|e| AppError::Internal(format!("Provider has no token endpoint: {e}")))?
         .set_pkce_verifier(PkceCodeVerifier::new(pending.pkce_verifier.clone()))
-        .request_async(async_http_client)
+        .request_async(&http)
         .await
         .map_err(|e| AppError::Unauthorized(format!("OIDC code exchange failed: {e}")))?;
 
