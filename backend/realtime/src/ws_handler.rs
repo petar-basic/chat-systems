@@ -7,6 +7,8 @@ use futures_util::SinkExt;
 use tokio::sync::mpsc;
 use tokio::time::interval;
 use tracing::{info, warn};
+
+use crate::connection_manager::Audience;
 use uuid::Uuid;
 
 use crate::connection_manager::{ConnectionManager, WRITER_CHANNEL_CAP};
@@ -289,6 +291,34 @@ pub(crate) async fn handle_client_message(
                     cm.subscribe_workspace(conn_id, ws_id);
                     info!("User {} subscribed to workspace {}", user_id, ws_id);
 
+                    // The client sends back the last position it processed, so
+                    // a socket that dropped for thirty seconds gets the gap
+                    // rather than a refetch of whatever happens to be open.
+                    let resume = msg.get("last_event_id").and_then(|v| v.as_str());
+                    let sync = match resume {
+                        Some(last_id) if !last_id.is_empty() => {
+                            crate::replay::replay_workspace(cm, *conn_id, ws_id, last_id).await
+                        }
+                        _ => crate::replay::Replay::Caught {
+                            events: 0,
+                            last_id: crate::replay::current_tail(cm, ws_id).await,
+                        },
+                    };
+
+                    let frame = match &sync {
+                        crate::replay::Replay::RefetchRequired => serde_json::json!({
+                            "type": "sync.refetch_required",
+                            "workspace_id": ws_id,
+                        }),
+                        crate::replay::Replay::Caught { events, last_id } => serde_json::json!({
+                            "type": "sync.complete",
+                            "workspace_id": ws_id,
+                            "replayed": events,
+                            "last_event_id": last_id,
+                        }),
+                    };
+                    cm.send_to_conn(*conn_id, &frame.to_string());
+
                     let online = cm.online_users_in_workspace(ws_id).await;
                     let batch = serde_json::json!({
                         "type": "presence.batch",
@@ -296,7 +326,8 @@ pub(crate) async fn handle_client_message(
                             serde_json::json!({ "user_id": u, "status": "online" })
                         }).collect::<Vec<_>>(),
                     });
-                    cm.send_to_user(user_id, &batch.to_string()).await;
+                    cm.send_to_user(Audience::Everyone, user_id, &batch.to_string())
+                        .await;
 
                     cm.publish_presence(user_id, "online").await;
                 }
@@ -393,7 +424,8 @@ pub(crate) async fn handle_client_message(
                 "huddle_id": huddle_id,
                 "user_ids": members,
             });
-            cm.send_to_user(user_id, &snapshot.to_string()).await;
+            cm.send_to_user(Audience::Everyone, user_id, &snapshot.to_string())
+                .await;
             info!("User {} joined huddle {}", user_id, huddle_id);
         }
         "huddle.leave" => {
@@ -544,8 +576,12 @@ pub(crate) async fn handle_client_message(
             .await;
         }
         "ping" => {
-            cm.send_to_user(user_id, &serde_json::json!({"type":"pong"}).to_string())
-                .await;
+            cm.send_to_user(
+                Audience::Everyone,
+                user_id,
+                &serde_json::json!({"type":"pong"}).to_string(),
+            )
+            .await;
         }
         _ => {
             warn!("Unknown client message type: {}", msg_type);

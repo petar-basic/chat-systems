@@ -12,6 +12,10 @@ pub const WRITER_CHANNEL_CAP: usize = 256;
 
 pub const PRESENCE_TTL_SECS: u64 = 60;
 
+/// Distinct from the revocation code so the client can tell "you are too slow"
+/// from "you may not connect" and reconnect immediately in the first case.
+pub const BACKPRESSURE_CLOSE_CODE: u16 = 4003;
+
 pub const HUDDLE_TTL_SECS: i64 = 120;
 
 pub const SESSION_REVOKED_CLOSE_CODE: u16 = 4001;
@@ -44,6 +48,23 @@ pub struct Connection {
     pub subscribed_workspaces: HashSet<Uuid>,
     pub subscribed_channels: HashSet<Uuid>,
     pub subscribed_huddles: HashSet<Uuid>,
+}
+
+/// Who a delivery is for. `Everyone` is the live path; `Connection` is a replay
+/// being handed to the one client that asked for it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Audience {
+    Everyone,
+    Connection(Uuid),
+}
+
+impl Audience {
+    fn includes(self, conn_id: &Uuid) -> bool {
+        match self {
+            Self::Everyone => true,
+            Self::Connection(only) => only == *conn_id,
+        }
+    }
 }
 
 pub struct ConnectionManager {
@@ -243,6 +264,13 @@ impl ConnectionManager {
                     conn_id, conn.user_id
                 );
                 metrics::counter!("realtime_backpressure_drops_total").increment(1);
+                // Tell it why. Dropped silently, the client waits up to a
+                // heartbeat to notice and then refetches everything; told to go
+                // away, it reconnects at once and replays from its last id.
+                let _ = conn.sender.try_send(Message::Close(Some(CloseFrame {
+                    code: BACKPRESSURE_CLOSE_CODE,
+                    reason: "too far behind".into(),
+                })));
                 Some(conn.user_id)
             }
             Err(mpsc::error::TrySendError::Closed(_)) => Some(conn.user_id),
@@ -253,10 +281,21 @@ impl ConnectionManager {
     where
         F: Fn(&Connection) -> bool,
     {
+        self.fan_out_to(Audience::Everyone, message, predicate);
+    }
+
+    /// Replay reuses this, restricted to one connection, so a replayed event
+    /// goes through the *same* visibility predicate as the live one. Giving
+    /// replay its own routing is where a naive implementation leaks a private
+    /// channel into somebody's backlog.
+    fn fan_out_to<F>(&self, audience: Audience, message: &str, predicate: F)
+    where
+        F: Fn(&Connection) -> bool,
+    {
         let targets: Vec<Uuid> = self
             .connections
             .iter()
-            .filter(|c| predicate(c.value()))
+            .filter(|c| audience.includes(c.key()) && predicate(c.value()))
             .map(|c| *c.key())
             .collect();
 
@@ -271,31 +310,50 @@ impl ConnectionManager {
         self.remove_connection(conn_id);
     }
 
-    pub async fn broadcast_to_channel(&self, channel_id: Uuid, message: &str) {
-        self.fan_out(message, |c| c.subscribed_channels.contains(&channel_id));
+    pub async fn broadcast_to_channel(&self, audience: Audience, channel_id: Uuid, message: &str) {
+        self.fan_out_to(audience, message, |c| {
+            c.subscribed_channels.contains(&channel_id)
+        });
     }
 
-    pub async fn broadcast_to_workspace(&self, workspace_id: Uuid, message: &str) {
-        self.fan_out(message, |c| c.subscribed_workspaces.contains(&workspace_id));
+    pub async fn broadcast_to_workspace(
+        &self,
+        audience: Audience,
+        workspace_id: Uuid,
+        message: &str,
+    ) {
+        self.fan_out_to(audience, message, |c| {
+            c.subscribed_workspaces.contains(&workspace_id)
+        });
     }
 
-    pub async fn broadcast_to_huddle(&self, huddle_id: Uuid, message: &str) {
-        self.fan_out(message, |c| c.subscribed_huddles.contains(&huddle_id));
+    pub async fn broadcast_to_huddle(&self, audience: Audience, huddle_id: Uuid, message: &str) {
+        self.fan_out_to(audience, message, |c| {
+            c.subscribed_huddles.contains(&huddle_id)
+        });
     }
 
-    pub async fn broadcast_to_all(&self, message: &str) {
-        self.fan_out(message, |_| true);
+    pub async fn broadcast_to_all(&self, audience: Audience, message: &str) {
+        self.fan_out_to(audience, message, |_| true);
     }
 
-    pub async fn send_to_user(&self, user_id: Uuid, message: &str) {
+    pub async fn send_to_user(&self, audience: Audience, user_id: Uuid, message: &str) {
         let conn_ids: Vec<Uuid> = match self.user_connections.get(&user_id) {
             Some(conns) => conns.iter().copied().collect(),
             None => return,
         };
-        for conn_id in conn_ids {
+        for conn_id in conn_ids.into_iter().filter(|id| audience.includes(id)) {
             if let Some(uid) = self.enqueue(&conn_id, message) {
                 self.drop_dead_connection(&conn_id, uid);
             }
+        }
+    }
+
+    /// One frame to one socket, without going through a visibility predicate:
+    /// used for answers to that client's own request, never for fan-out.
+    pub fn send_to_conn(&self, conn_id: Uuid, message: &str) {
+        if let Some(user_id) = self.enqueue(&conn_id, message) {
+            self.drop_dead_connection(&conn_id, user_id);
         }
     }
 

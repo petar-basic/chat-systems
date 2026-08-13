@@ -56,7 +56,10 @@ async fn publish_conversation_event(
         obj.insert("workspace_id".into(), serde_json::json!(workspace_id));
         obj.insert("participant_ids".into(), serde_json::json!(participants));
     }
-    let _ = state.publisher.publish(event, payload).await;
+    let _ = state
+        .publisher
+        .publish_scoped(event, workspace_id, payload)
+        .await;
 }
 
 async fn list_conversations(

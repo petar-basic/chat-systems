@@ -107,6 +107,34 @@ its users offline within the TTL by itself.
 `realtime_presence_query_duration_seconds` is a new histogram. If it grows with anything
 other than workspace size, something is wrong.
 
+## Upgrade note: Wave 7 adds a replay log in Redis
+
+Durable events (messages, reactions, conversations, workspace membership) are now written
+to a Redis Stream per workspace, `stream:ws:{workspace_id}`, in addition to being published
+live. **Budget Redis memory for it:** each stream is capped at 10,000 entries and trimmed to
+one hour by a worker task, so the steady state is roughly "an hour of a workspace's events",
+a few MB for an active workspace. `stream:index` is the set of live stream keys; the worker
+reads it instead of scanning.
+
+The gateway is backwards compatible with an old client — one that sends no `last_event_id`
+simply gets no replay, exactly as before — but an old **gateway** with a new client is not
+useful, so deploy realtime before or with the frontend.
+
+**Worker replicas are no longer limited to one.** The notification and hook consumers read
+through `XREADGROUP` with acknowledgement, so events are distributed across replicas and an
+unacknowledged event is redelivered rather than lost with the process holding it. You can
+scale `chat-worker` now. The scheduled dispatcher and reminder checker still claim their
+rows in the database, which was already safe for multiple replicas.
+
+Delivery to the worker is at-least-once as a result. Outgoing webhooks claim a
+`(hook_id, event_id)` row before dispatching (migration `…22`), so a redelivery does not
+call the same endpoint twice. If you see `Hook consumer: already dispatched, skipping
+redelivery` in the logs, that is the guard doing its job, not an error.
+
+**Nothing to migrate.** The streams start empty; there is no backfill and no dual-run
+period. Rolling back means clients stop sending positions and delivery returns to
+at-most-once — the streams are then trimmed away by age on their own.
+
 ## Audit log
 
 `GET /api/workspaces/:ws_id/audit-log` (workspace admin) and `GET /api/admin/audit-log`

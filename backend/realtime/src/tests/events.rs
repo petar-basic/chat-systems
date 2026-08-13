@@ -1,4 +1,5 @@
 use super::common::*;
+use crate::connection_manager::Audience;
 use serde_json::json;
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -543,8 +544,12 @@ async fn workspace_member_removed_unsubscribes_that_user(pool: PgPool) {
     crate::event_consumer::handle_event("workspace.member_removed", &payload, &cm).await;
     let _ = drain_types(&mut rx);
 
-    cm.broadcast_to_workspace(workspace_id, "{\"type\":\"workspace.updated\"}")
-        .await;
+    cm.broadcast_to_workspace(
+        Audience::Everyone,
+        workspace_id,
+        "{\"type\":\"workspace.updated\"}",
+    )
+    .await;
     assert!(
         drain_types(&mut rx).is_empty(),
         "a removed member must stop receiving workspace traffic"

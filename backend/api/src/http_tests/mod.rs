@@ -1,5 +1,6 @@
 mod common;
 mod smoke;
+mod streams;
 mod validation;
 
 mod admin;

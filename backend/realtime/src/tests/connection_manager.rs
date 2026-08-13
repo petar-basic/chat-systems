@@ -1,4 +1,5 @@
 use super::common::*;
+use crate::connection_manager::Audience;
 
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -54,7 +55,8 @@ async fn broadcast_to_channel_reaches_only_subscribed_conns(pool: PgPool) {
     })
     .to_string();
 
-    cm.broadcast_to_channel(channel_id, &frame).await;
+    cm.broadcast_to_channel(Audience::Everyone, channel_id, &frame)
+        .await;
 
     let got = next_json(&mut rx_joined).expect("subscribed conn should receive the broadcast");
     assert_eq!(got["type"], "message.created");
@@ -83,7 +85,8 @@ async fn broadcast_to_workspace_reaches_only_subscribed_conns(pool: PgPool) {
     })
     .to_string();
 
-    cm.broadcast_to_workspace(workspace_id, &frame).await;
+    cm.broadcast_to_workspace(Audience::Everyone, workspace_id, &frame)
+        .await;
 
     let got = next_json(&mut rx_subbed).expect("workspace subscriber should receive the broadcast");
     assert_eq!(got["type"], "channel.created");
@@ -110,7 +113,7 @@ async fn send_to_user_reaches_that_users_connection(pool: PgPool) {
     })
     .to_string();
 
-    cm.send_to_user(user, &frame).await;
+    cm.send_to_user(Audience::Everyone, user, &frame).await;
 
     let got = next_json(&mut rx_user).expect("target user's conn should receive the message");
     assert_eq!(got["type"], "dm.created");
@@ -126,7 +129,8 @@ async fn send_to_user_reaches_that_users_connection(pool: PgPool) {
 async fn send_to_user_with_no_connections_is_noop(pool: PgPool) {
     let cm = manager(pool).await;
     let absent = seed_user(cm.db()).await;
-    cm.send_to_user(absent, "{\"type\":\"noop\"}").await;
+    cm.send_to_user(Audience::Everyone, absent, "{\"type\":\"noop\"}")
+        .await;
 }
 
 #[sqlx::test(migrations = "../migrations")]
@@ -138,13 +142,13 @@ async fn leave_channel_stops_delivery(pool: PgPool) {
     let (conn, mut rx) = fake_conn(&cm, user);
     cm.join_channel(&conn, channel_id);
 
-    cm.broadcast_to_channel(channel_id, "{\"type\":\"first\"}")
+    cm.broadcast_to_channel(Audience::Everyone, channel_id, "{\"type\":\"first\"}")
         .await;
     let first = next_json(&mut rx).expect("joined conn receives first frame");
     assert_eq!(first["type"], "first");
 
     cm.leave_channel(&conn, channel_id);
-    cm.broadcast_to_channel(channel_id, "{\"type\":\"second\"}")
+    cm.broadcast_to_channel(Audience::Everyone, channel_id, "{\"type\":\"second\"}")
         .await;
     assert!(
         next_json(&mut rx).is_none(),
@@ -167,8 +171,12 @@ async fn remove_connection_drops_the_connection(pool: PgPool) {
     assert_eq!(removed_user, user);
     assert!(was_last, "the only connection was the user's last");
 
-    cm.broadcast_to_channel(channel_id, "{\"type\":\"after-remove\"}")
-        .await;
+    cm.broadcast_to_channel(
+        Audience::Everyone,
+        channel_id,
+        "{\"type\":\"after-remove\"}",
+    )
+    .await;
     assert!(
         next_json(&mut rx).is_none(),
         "removed connection must not receive broadcasts"

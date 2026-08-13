@@ -19,6 +19,8 @@ export type AppServerEvent =
   | { type: 'channel.access_revoked'; channel_id: string; workspace_id: string | null }
   | { type: 'workspace.access_revoked'; workspace_id: string }
   | { type: 'message.new'; message: Message; mentioned_user_ids?: string[] }
+  | { type: 'sync.complete'; workspace_id: string; replayed: number; last_event_id: string | null }
+  | { type: 'sync.refetch_required'; workspace_id: string }
   | { type: 'message.updated'; message: Message }
   | { type: 'message.deleted'; message_id: string; channel_id: string }
   | { type: 'message.pinned'; message_id: string; channel_id: string; pinned: boolean }

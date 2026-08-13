@@ -105,6 +105,19 @@ fn spawn_consumers(state: &Arc<AppState>, redis_url: &str) {
     }
 
     {
+        let trimmer_state = state.clone();
+        tokio::spawn(async move {
+            supervise("stream_trimmer", || {
+                let trimmer_state = trimmer_state.clone();
+                async move {
+                    messaging::stream_trim::start_stream_trimmer(trimmer_state).await;
+                }
+            })
+            .await;
+        });
+    }
+
+    {
         let dispatcher_state = state.clone();
         tokio::spawn(async move {
             supervise("scheduled_dispatcher", || {
@@ -126,6 +139,21 @@ fn spawn_consumers(state: &Arc<AppState>, redis_url: &str) {
                 let notif_repo = notif_repo.clone();
                 async move {
                     notifications::consumer::start_consumer(&redis_url, notif_repo).await;
+                }
+            })
+            .await;
+        });
+    }
+
+    {
+        let redis_url = redis_url.to_string();
+        let notif_repo = notif_repo.clone();
+        tokio::spawn(async move {
+            supervise("call_notification_consumer", || {
+                let redis_url = redis_url.clone();
+                let notif_repo = notif_repo.clone();
+                async move {
+                    notifications::consumer::start_call_consumer(&redis_url, notif_repo).await;
                 }
             })
             .await;

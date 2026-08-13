@@ -138,6 +138,50 @@ impl HookRepo {
         .await
     }
 
+    /// Reserves this (hook, event) pair. Returns false when somebody already
+    /// has it, which is how a redelivery is told apart from a first delivery.
+    pub async fn claim_execution(&self, hook_id: Uuid, event_id: Uuid) -> sqlx::Result<bool> {
+        let claimed = sqlx::query(
+            r"
+            INSERT INTO hook_executions (hook_id, event_id, event_type)
+            VALUES ($1, $2, 'pending')
+            ON CONFLICT DO NOTHING
+            ",
+        )
+        .bind(hook_id)
+        .bind(event_id)
+        .execute(&self.pool)
+        .await?;
+        Ok(claimed.rows_affected() == 1)
+    }
+
+    pub async fn record_execution_result(
+        &self,
+        hook_id: Uuid,
+        event_id: Uuid,
+        event_type: &str,
+        payload: &serde_json::Value,
+        response_status: Option<i32>,
+        response_body: Option<&str>,
+    ) -> sqlx::Result<()> {
+        sqlx::query(
+            r"
+            UPDATE hook_executions
+               SET event_type = $3, payload = $4, response_status = $5, response_body = $6
+             WHERE hook_id = $1 AND event_id = $2
+            ",
+        )
+        .bind(hook_id)
+        .bind(event_id)
+        .bind(event_type)
+        .bind(payload)
+        .bind(response_status)
+        .bind(response_body)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
     pub async fn log_execution(
         &self,
         hook_id: Uuid,

@@ -5,6 +5,8 @@ use std::time::Duration;
 use futures_util::StreamExt;
 use tracing::{info, warn};
 
+use crate::connection_manager::Audience;
+
 use crate::connection_manager::ConnectionManager;
 
 pub async fn start_event_consumer(
@@ -78,8 +80,19 @@ pub async fn start_event_consumer(
                     .and_then(|v| v.as_str())
                     .unwrap_or("");
                 let event_payload = event.get("payload").cloned().unwrap_or_default();
+                let stream_id = event
+                    .get("stream_id")
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string);
 
-                handle_event(event_type, &event_payload, &cm).await;
+                handle_event_for(
+                    Audience::Everyone,
+                    event_type,
+                    &event_payload,
+                    &cm,
+                    stream_id.as_deref(),
+                )
+                .await;
             }
             _ = tokio::time::sleep(Duration::from_secs(15)) => {
                 heartbeat.store(crate::now_unix(), Ordering::Relaxed);
@@ -88,11 +101,36 @@ pub async fn start_event_consumer(
     }
 }
 
+#[cfg(test)]
 pub(crate) async fn handle_event(
     event_type: &str,
     payload: &serde_json::Value,
     cm: &Arc<ConnectionManager>,
 ) {
+    handle_event_for(Audience::Everyone, event_type, payload, cm, None).await;
+}
+
+/// The live path and the replay path are the same function. Replay only narrows
+/// the audience to one connection — every visibility rule below still applies,
+/// which is what stops a backlog from carrying channels the client cannot see.
+pub(crate) async fn handle_event_for(
+    audience: Audience,
+    event_type: &str,
+    payload: &serde_json::Value,
+    cm: &Arc<ConnectionManager>,
+    stream_id: Option<&str>,
+) {
+    // Every frame carries the position it occupies in the workspace log, live or
+    // replayed, because that is what the client sends back to resume.
+    let framed = |mut value: serde_json::Value| -> String {
+        if let Some(id) = stream_id {
+            if let Some(obj) = value.as_object_mut() {
+                obj.insert("stream_id".into(), serde_json::json!(id));
+            }
+        }
+        value.to_string()
+    };
+
     let channel_id = payload
         .get("channel_id")
         .and_then(|v| v.as_str())
@@ -120,7 +158,8 @@ pub(crate) async fn handle_event(
                         .cloned()
                         .unwrap_or_else(|| serde_json::json!([])),
                 });
-                cm.broadcast_to_channel(ch_id, &ws_msg.to_string()).await;
+                cm.broadcast_to_channel(audience, ch_id, &framed(ws_msg))
+                    .await;
             }
         }
         "message.updated" => {
@@ -129,7 +168,8 @@ pub(crate) async fn handle_event(
                     "type": "message.updated",
                     "message": payload,
                 });
-                cm.broadcast_to_channel(ch_id, &ws_msg.to_string()).await;
+                cm.broadcast_to_channel(audience, ch_id, &framed(ws_msg))
+                    .await;
             }
         }
         "message.deleted" => {
@@ -139,7 +179,8 @@ pub(crate) async fn handle_event(
                     "message_id": payload.get("message_id"),
                     "channel_id": ch_id,
                 });
-                cm.broadcast_to_channel(ch_id, &ws_msg.to_string()).await;
+                cm.broadcast_to_channel(audience, ch_id, &framed(ws_msg))
+                    .await;
             }
         }
         "message.pinned" => {
@@ -150,7 +191,8 @@ pub(crate) async fn handle_event(
                     "channel_id": ch_id,
                     "pinned": payload.get("pinned"),
                 });
-                cm.broadcast_to_channel(ch_id, &ws_msg.to_string()).await;
+                cm.broadcast_to_channel(audience, ch_id, &framed(ws_msg))
+                    .await;
             }
         }
         "reaction.added" => {
@@ -160,7 +202,8 @@ pub(crate) async fn handle_event(
                     "message_id": payload.get("message_id"),
                     "reaction": payload,
                 });
-                cm.broadcast_to_channel(ch_id, &ws_msg.to_string()).await;
+                cm.broadcast_to_channel(audience, ch_id, &framed(ws_msg))
+                    .await;
             }
         }
         "reaction.removed" => {
@@ -172,7 +215,8 @@ pub(crate) async fn handle_event(
                     "user_id": payload.get("user_id"),
                     "emoji": payload.get("emoji"),
                 });
-                cm.broadcast_to_channel(ch_id, &ws_msg.to_string()).await;
+                cm.broadcast_to_channel(audience, ch_id, &framed(ws_msg))
+                    .await;
             }
         }
         "workspace.deleted" => {
@@ -187,7 +231,8 @@ pub(crate) async fn handle_event(
                     "workspace_id": ws_id,
                     "delete_type": payload.get("delete_type"),
                 });
-                cm.broadcast_to_workspace(ws_id, &ws_msg.to_string()).await;
+                cm.broadcast_to_workspace(audience, ws_id, &framed(ws_msg))
+                    .await;
             }
         }
         "workspace.restored" => {
@@ -201,7 +246,7 @@ pub(crate) async fn handle_event(
                     "type": "workspace.restored",
                     "workspace_id": ws_id,
                 });
-                cm.broadcast_to_all(&ws_msg.to_string()).await;
+                cm.broadcast_to_all(audience, &framed(ws_msg)).await;
             }
         }
         "notification.push" => {
@@ -220,7 +265,7 @@ pub(crate) async fn handle_event(
                     "body": payload.get("body"),
                     "priority": payload.get("priority"),
                 });
-                cm.send_to_user(uid, &ws_msg.to_string()).await;
+                cm.send_to_user(audience, uid, &framed(ws_msg)).await;
             }
         }
         "presence.changed" => {
@@ -246,7 +291,7 @@ pub(crate) async fn handle_event(
                     "user_id": subject_id,
                     "status": status,
                 });
-                cm.send_to_workspace_members(subject_id, &workspace_ids, &ws_msg.to_string());
+                cm.send_to_workspace_members(subject_id, &workspace_ids, &framed(ws_msg));
             }
         }
         "typing.indicator" => {
@@ -258,7 +303,8 @@ pub(crate) async fn handle_event(
                     "user_id": user_id,
                     "is_typing": payload.get("is_typing").and_then(serde_json::Value::as_bool).unwrap_or(false),
                 });
-                cm.broadcast_to_channel(ch_id, &ws_msg.to_string()).await;
+                cm.broadcast_to_channel(audience, ch_id, &framed(ws_msg))
+                    .await;
             }
         }
         "conversation.created"
@@ -284,7 +330,7 @@ pub(crate) async fn handle_event(
             }
             let msg = ws_event.to_string();
             for participant in participants {
-                cm.send_to_user(participant, &msg).await;
+                cm.send_to_user(audience, participant, &msg).await;
             }
         }
         "huddle.member_joined"
@@ -299,7 +345,7 @@ pub(crate) async fn handle_event(
                 if let Some(obj) = ws_msg.as_object_mut() {
                     obj.insert("type".to_string(), serde_json::json!(event_type));
                 }
-                cm.broadcast_to_huddle(hid, &ws_msg.to_string()).await;
+                cm.broadcast_to_huddle(audience, hid, &framed(ws_msg)).await;
             }
         }
         "huddle.offer" | "huddle.answer" | "huddle.ice" | "huddle.ring" => {
@@ -308,7 +354,7 @@ pub(crate) async fn handle_event(
                 if let Some(obj) = ws_msg.as_object_mut() {
                     obj.insert("type".to_string(), serde_json::json!(event_type));
                 }
-                cm.send_to_user(to_id, &ws_msg.to_string()).await;
+                cm.send_to_user(audience, to_id, &framed(ws_msg)).await;
             }
         }
         "huddle.started" | "huddle.ended" => {
@@ -318,21 +364,21 @@ pub(crate) async fn handle_event(
             }
             let msg = ws_msg.to_string();
             if let Some(ch_id) = channel_id {
-                cm.broadcast_to_channel(ch_id, &msg).await;
+                cm.broadcast_to_channel(audience, ch_id, &msg).await;
             } else {
                 let initiator = payload
                     .get("initiator_id")
                     .and_then(|v| v.as_str())
                     .and_then(|v| v.parse::<uuid::Uuid>().ok());
                 if let Some(init) = initiator {
-                    cm.send_to_user(init, &msg).await;
+                    cm.send_to_user(audience, init, &msg).await;
                 }
                 if let Some(partner) = payload
                     .get("dm_partner_id")
                     .and_then(|v| v.as_str())
                     .and_then(|v| v.parse::<uuid::Uuid>().ok())
                 {
-                    cm.send_to_user(partner, &msg).await;
+                    cm.send_to_user(audience, partner, &msg).await;
                 }
             }
         }
@@ -351,7 +397,7 @@ pub(crate) async fn handle_event(
                 "channel_id": ch_id,
                 "workspace_id": payload.get("workspace_id"),
             });
-            cm.send_to_user(uid, &notice.to_string()).await;
+            cm.send_to_user(audience, uid, &notice.to_string()).await;
         }
         "workspace.member_removed" => {
             let Some(uid) = payload
@@ -374,7 +420,7 @@ pub(crate) async fn handle_event(
                 "type": "workspace.access_revoked",
                 "workspace_id": ws_id,
             });
-            cm.send_to_user(uid, &notice.to_string()).await;
+            cm.send_to_user(audience, uid, &notice.to_string()).await;
         }
         "user.suspended" => {
             if let Some(uid) = payload
