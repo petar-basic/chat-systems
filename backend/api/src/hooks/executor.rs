@@ -1,7 +1,6 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use futures_util::StreamExt;
 use hmac::{Hmac, Mac};
 use redis::AsyncCommands;
 use sha2::Sha256;
@@ -10,6 +9,7 @@ use tracing::{info, warn};
 use super::models::{Hook, Reminder};
 use super::repo::HookRepo;
 use super::ssrf;
+use crate::messaging::stream_group::StreamGroup;
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -21,26 +21,9 @@ const HOOK_BODY_MAX_BYTES: usize = 4096;
 const SIGNATURE_HEADER: &str = "X-ChatSystems-Signature";
 
 pub async fn start_hook_consumer(redis_url: &str, hook_repo: Arc<HookRepo>) {
-    let client = match redis::Client::open(redis_url) {
-        Ok(c) => c,
-        Err(e) => {
-            warn!("Hook consumer: failed to connect Redis: {}", e);
-            return;
-        }
-    };
-
-    let mut pubsub = match client.get_async_pubsub().await {
-        Ok(ps) => ps,
-        Err(e) => {
-            warn!("Hook consumer: failed to get pubsub: {}", e);
-            return;
-        }
-    };
-
-    if let Err(e) = pubsub.subscribe("events:message").await {
-        warn!("Hook consumer: failed to subscribe: {}", e);
+    let Some(mut group) = StreamGroup::connect(redis_url, "hooks").await else {
         return;
-    }
+    };
 
     let http = match reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
@@ -55,72 +38,86 @@ pub async fn start_hook_consumer(redis_url: &str, hook_repo: Arc<HookRepo>) {
     };
 
     info!("Hook consumer started");
-    let mut stream = pubsub.into_on_message();
 
-    while let Some(msg) = stream.next().await {
-        let payload: String = match msg.get_payload() {
-            Ok(p) => p,
-            Err(_) => continue,
-        };
-
-        let event: serde_json::Value = match serde_json::from_str(&payload) {
-            Ok(v) => v,
-            Err(_) => continue,
-        };
-
-        let event_type = event
-            .get("event_type")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string();
-        if event_type != "message.created" {
-            continue;
-        }
-
-        let event_payload = match event.get("payload") {
-            Some(p) => p.clone(),
-            None => continue,
-        };
-
-        let workspace_id = event_payload
-            .get("workspace_id")
-            .and_then(|v| v.as_str())
-            .and_then(|v| v.parse::<uuid::Uuid>().ok());
-
-        let Some(ws_id) = workspace_id else { continue };
-
-        let channel_id = event_payload
-            .get("channel_id")
-            .and_then(|v| v.as_str())
-            .and_then(|v| v.parse::<uuid::Uuid>().ok());
-
-        let Some(channel_id) = channel_id else {
-            continue;
-        };
-
-        let hooks = match hook_repo
-            .list_active_outgoing_hooks_for_channel(ws_id, channel_id)
-            .await
-        {
-            Ok(h) => h,
-            Err(e) => {
-                warn!(workspace_id = %ws_id, "Hook consumer: failed to list hooks: {}", e);
-                continue;
-            }
-        };
-
-        if hooks.is_empty() {
-            continue;
-        }
-
-        let delivered = outbound_payload(&event_payload);
-
-        for hook in hooks {
-            dispatch_hook(&http, &hook_repo, &hook, &event_type, &delivered).await;
+    loop {
+        for delivery in group.next_batch().await {
+            dispatch_delivery(&http, &hook_repo, &delivery).await;
+            group.ack(&delivery.key, &delivery.id).await;
         }
     }
+}
 
-    warn!("Hook consumer: event stream ended, exiting for restart");
+async fn dispatch_delivery(
+    http: &reqwest::Client,
+    hook_repo: &HookRepo,
+    delivery: &crate::messaging::stream_group::Delivery,
+) {
+    let event_type = delivery.event.event_type.as_str();
+    if event_type != "message.created" {
+        return;
+    }
+    let event_payload = &delivery.event.payload;
+
+    let Some(ws_id) = event_payload
+        .get("workspace_id")
+        .and_then(|v| v.as_str())
+        .and_then(|v| v.parse::<uuid::Uuid>().ok())
+    else {
+        return;
+    };
+
+    let Some(channel_id) = event_payload
+        .get("channel_id")
+        .and_then(|v| v.as_str())
+        .and_then(|v| v.parse::<uuid::Uuid>().ok())
+    else {
+        return;
+    };
+
+    let hooks = match hook_repo
+        .list_active_outgoing_hooks_for_channel(ws_id, channel_id)
+        .await
+    {
+        Ok(h) => h,
+        Err(e) => {
+            warn!(workspace_id = %ws_id, "Hook consumer: failed to list hooks: {}", e);
+            return;
+        }
+    };
+
+    if hooks.is_empty() {
+        return;
+    }
+
+    let delivered = outbound_payload(event_payload);
+
+    for hook in hooks {
+        // Consumer groups redeliver anything that was not acknowledged, so the
+        // same event can arrive twice after a worker dies mid-dispatch. Claiming
+        // the pair first means the second arrival calls nobody: a webhook is an
+        // outward side effect and firing it twice is not a retry, it is a bug in
+        // somebody else's system.
+        match hook_repo.claim_execution(hook.id, delivery.event.id).await {
+            Ok(true) => {}
+            Ok(false) => {
+                info!(hook_id = %hook.id, "Hook consumer: already dispatched, skipping redelivery");
+                continue;
+            }
+            Err(e) => {
+                warn!(hook_id = %hook.id, "Hook consumer: failed to claim execution: {}", e);
+                continue;
+            }
+        }
+        dispatch_hook(
+            http,
+            hook_repo,
+            &hook,
+            event_type,
+            &delivered,
+            delivery.event.id,
+        )
+        .await;
+    }
 }
 
 /// The event that fans out internally is not the event a third party gets. It
@@ -150,6 +147,7 @@ async fn dispatch_hook(
     hook: &Hook,
     event_type: &str,
     event_payload: &serde_json::Value,
+    event_id: uuid::Uuid,
 ) {
     let Some(url_str) = hook.config.get("url").and_then(|v| v.as_str()) else {
         warn!(hook_id = %hook.id, "Hook skipped: config.url missing or not a string");
@@ -223,8 +221,9 @@ async fn dispatch_hook(
     }
 
     if let Err(e) = hook_repo
-        .log_execution(
+        .record_execution_result(
             hook.id,
+            event_id,
             event_type,
             event_payload,
             last_status,

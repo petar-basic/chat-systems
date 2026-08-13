@@ -243,7 +243,11 @@ async fn deliver_to_conversation(
     }
     let _ = state
         .publisher
-        .publish("conversation.message.created", payload)
+        .publish_scoped(
+            "conversation.message.created",
+            scheduled.workspace_id,
+            payload,
+        )
         .await;
 
     Ok(())

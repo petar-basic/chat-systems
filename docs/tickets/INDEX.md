@@ -9,8 +9,8 @@ history and in the docs it changed. A bug found mid-wave gets a suffixed number
 (`CS-005a`) so it lands where it belongs in the order without renumbering everything
 below it.
 
-**Waves 0 through 6 are done.** The E2E suite is green and the `e2e` job blocks merges.
-Next ticket: [CS-028](CS-028-durable-delivery.md).
+**Waves 0 through 7 are done.** The E2E suite is green and the `e2e` job blocks merges.
+Next ticket: [CS-029](CS-029-message-edit-history.md).
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
@@ -120,11 +120,11 @@ per ticket.
 | CS-026 | Unread counts without per-channel subqueries | `channel_members` counters + migration `…21` |
 | CS-027 | Presence without a Redis keyspace scan | `presence:ws:{id}` sorted set |
 
-### Wave 7 — Reliability
+### Wave 7 — Reliability ✅ done
 
-| # | Ticket | Area |
+| # | Ticket | Landed as |
 |---|---|---|
-| [CS-028](CS-028-durable-delivery.md) | Durable realtime delivery (Redis Streams) | realtime · frontend |
+| CS-028 | Durable realtime delivery (Redis Streams) | `stream:ws:{id}` + [`replay.rs`](../../backend/realtime/src/replay.rs) + `StreamGroup` |
 
 ### Wave 8 — Compliance
 
@@ -157,6 +157,6 @@ Tickets that touch the same files, and the order that avoids rework:
 | `backend/api/src/authz.rs` | CS-009 → CS-010 → CS-020 ✅ |
 | `backend/api/src/sessions.rs` | CS-008 → CS-033 |
 | `backend/api/src/auth/service.rs` | CS-008 → CS-016 → CS-017 → CS-032 |
-| realtime event consumer | CS-007 → CS-014 → CS-027 → CS-028 |
+| realtime event consumer | CS-007 ✅ → CS-014 ✅ → CS-027 ✅ → CS-028 ✅ |
 | `frontend/src/features/messaging/` | CS-024 ✅ → CS-025 ✅ → CS-029 |
 | `messages` table schema | CS-029 → CS-030 → CS-034 |

@@ -10,8 +10,8 @@ what it changed lives in the git history and in the docs it touched. Read
 [the index](./tickets/INDEX.md) for the dependency map and the conflict table; this page
 is the summary and the reasoning behind the sequence.
 
-**Waves 0 through 6 are shipped.** Next ticket:
-[CS-028](./tickets/CS-028-durable-delivery.md).
+**Waves 0 through 7 are shipped.** Next ticket:
+[CS-029](./tickets/CS-029-message-edit-history.md).
 
 ## How the order was chosen
 
@@ -445,17 +445,76 @@ regression is not silent.
 
 ---
 
-## Wave 7 — Reliability
+## Wave 7 — Reliability ✅ shipped
 
-### [CS-028](./tickets/CS-028-durable-delivery.md) — Durable realtime delivery
-**Today:** events fan out over Redis pub/sub with no backlog. A disconnected client recovers
-by refetching open views (`frontend/src/lib/realtimeBackfill.ts`), so nothing is
-permanently lost, but delivery over the socket is at-most-once and there is no gap replay.
-Backpressure drops a slow client without a close frame, so it waits for the next heartbeat.
+### [CS-028] Durable realtime delivery
+Events fanned out over pub/sub, which has no backlog: a client that was disconnected when
+an event was published never received it. Nothing was permanently lost — the database is
+the source of truth and reconnect refetched open views — but delivery over the socket was
+at-most-once, and a view that was not open was not refetched, so unread state could sit
+stale until something else triggered a fetch.
 
-**Plan:** a Redis Stream per workspace, client-tracked stream ids, `XRANGE` replay on
-reconnect before joining the live tail, consumer groups for the worker. Replayed events
-must go through the same subscription filter as live ones.
+Durable events now go to a Redis Stream per workspace, `stream:ws:{id}`, capped at 10k
+entries and trimmed to an hour by a worker task. Every frame carries the position it
+occupies; the client remembers the newest position it has processed and sends it back on
+`subscribe`, and the gateway replays the gap with `XRANGE`. Past the window — a position
+older than the log, or more than 1000 events behind — it answers `sync.refetch_required`
+and the client falls back to the refetch it already had.
+
+**Which events are durable, and which deliberately are not.** Messages, reactions,
+conversations and workspace membership go to the log. Typing, presence and WebRTC
+signalling stay on pub/sub: replaying a typing indicator from five minutes ago is not
+recovery, and a late ICE candidate is worse than none. Keeping two transports is the point
+rather than an omission — each carries the traffic it suits.
+
+**A deviation from the ticket, stated rather than buried.** It called for the gateway to
+read the live tail from the stream with `XREAD BLOCK` and join it to the replay. The stream
+is the log here and pub/sub remains the live tail. The seam between "replay the gap" and
+"join the tail" is the part of that design most likely to drop or duplicate an event, and
+it has to be right per connection; with the log written alongside the live path, the replay
+simply overlaps the tail and the client discards what it has already applied — which it has
+to do anyway, because delivery is at-least-once by design. The cost is one extra Redis
+write per durable event.
+
+**The client discards what it has already applied.** At-least-once delivery is only safe
+if duplicates are actually dropped, so `wsQuerySync` was audited handler by handler. Most
+reconcile by id and would not have noticed a repeat — but two **increment**: a thread's
+`reply_count` and the unread badge. Both would have double-counted at the seam where the
+replay overlaps the live tail. The suppression sits in `dispatch`, where an event at or
+behind the position already processed is dropped once, rather than in every handler that
+would otherwise have to defend itself.
+
+**Replay uses the live path's visibility rules, not its own.** `handle_event_for` takes an
+`Audience` — everyone, or one connection — and every predicate below it is unchanged. This
+is the part where a naive implementation leaks a private channel into somebody's backlog,
+so there is a test that puts a message the client cannot see in the middle of the gap and
+asserts it does not come out.
+
+**Two ordering bugs found by the end-to-end test**, both worth recording because neither
+shows up in a unit test:
+
+- A client that had never received an event had no position to resume from, so it silently
+  fell back to at-most-once. The gateway now hands out the current tail at subscribe time.
+- The client re-subscribed *before* re-declaring its channels on reconnect, so the replay
+  ran against an empty subscription set and correctly delivered nothing. Channel joins now
+  go first.
+
+**Backpressure now says why.** A slow client is still dropped, but with a close frame
+(`4003`) instead of in silence, so it reconnects immediately and replays from its position
+rather than waiting up to a heartbeat and then refetching everything.
+
+**Consumer groups for the worker.** The notification and hook consumers read the same
+streams through `XREADGROUP` with acknowledgement, which removes the single-replica
+constraint CS-004 accepted as a temporary answer — that is the payoff that makes the
+transport change worth doing. Delivery becomes at-least-once, so a redelivery after a
+worker dies mid-dispatch could call somebody's webhook twice; the (hook, event) pair is
+claimed before the request goes out and migration `…22` is the unique index that makes the
+claim mean something. Acknowledgement is structured so it cannot be skipped: the per-event
+work sits in an async block, where `continue` does not compile.
+
+Groups are created from the start of a stream rather than its tail. Creating at the tail
+looks tidier but silently skips everything published between a stream appearing and the
+worker noticing it.
 
 ---
 

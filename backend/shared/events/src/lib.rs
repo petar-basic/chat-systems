@@ -12,6 +12,10 @@ pub struct Event {
     pub event_type: String,
     pub payload: serde_json::Value,
     pub timestamp: chrono::DateTime<chrono::Utc>,
+    /// The position this event occupies in its workspace's replay log. Absent
+    /// for events that are not replayable — typing, presence, signalling.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stream_id: Option<String>,
 }
 
 impl Event {
@@ -21,6 +25,7 @@ impl Event {
             event_type: event_type.to_string(),
             payload,
             timestamp: chrono::Utc::now(),
+            stream_id: None,
         }
     }
 }

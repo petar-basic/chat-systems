@@ -1,3 +1,4 @@
+use crate::connection_manager::Audience;
 use std::time::Duration;
 
 use futures_util::StreamExt;
@@ -114,7 +115,7 @@ async fn subscribe_member_then_workspace_broadcast_reaches_conn(pool: PgPool) {
     crate::ws_handler::handle_client_message(&text, &conn_id, user, &cm, &mut inbound()).await;
     let _ = drain_json(&mut rx);
 
-    cm.broadcast_to_workspace(ws, r#"{"type":"workspace.ping"}"#)
+    cm.broadcast_to_workspace(Audience::Everyone, ws, r#"{"type":"workspace.ping"}"#)
         .await;
 
     let frames = drain_json(&mut rx);
@@ -136,7 +137,7 @@ async fn channel_join_member_then_broadcast_reaches_conn(pool: PgPool) {
     let text = serde_json::json!({ "type": "channel.join", "channel_id": ch }).to_string();
     crate::ws_handler::handle_client_message(&text, &conn_id, user, &cm, &mut inbound()).await;
 
-    cm.broadcast_to_channel(ch, r#"{"type":"message.new"}"#)
+    cm.broadcast_to_channel(Audience::Everyone, ch, r#"{"type":"message.new"}"#)
         .await;
 
     let frames = drain_json(&mut rx);
@@ -163,7 +164,7 @@ async fn channel_join_non_member_denied_no_broadcast(pool: PgPool) {
     let text = serde_json::json!({ "type": "channel.join", "channel_id": ch }).to_string();
     crate::ws_handler::handle_client_message(&text, &conn_id, outsider, &cm, &mut inbound()).await;
 
-    cm.broadcast_to_channel(ch, r#"{"type":"message.new"}"#)
+    cm.broadcast_to_channel(Audience::Everyone, ch, r#"{"type":"message.new"}"#)
         .await;
 
     let frames = drain_json(&mut rx);
@@ -186,7 +187,7 @@ async fn channel_leave_stops_broadcasts(pool: PgPool) {
     let leave = serde_json::json!({ "type": "channel.leave", "channel_id": ch }).to_string();
     crate::ws_handler::handle_client_message(&leave, &conn_id, user, &cm, &mut inbound()).await;
 
-    cm.broadcast_to_channel(ch, r#"{"type":"message.new"}"#)
+    cm.broadcast_to_channel(Audience::Everyone, ch, r#"{"type":"message.new"}"#)
         .await;
 
     let frames = drain_json(&mut rx);

@@ -137,6 +137,15 @@ docs/         this folder
   that produced it — the scheduled dispatcher, the reminder checker — re-runs the same
   `authz` predicate the interactive handler runs. Authorization granted days ago is not
   authorization now.
+- **Realtime delivery is at-least-once.** Anything reading the event log has to tolerate
+  seeing an event twice: replay overlaps the live tail on purpose, and consumer groups
+  redeliver what was not acknowledged. Handlers upsert by id; anything with an outward side
+  effect (a webhook call, an email) claims a row first. Acknowledge in a way that cannot be
+  skipped — the worker consumers put the per-event work in an async block precisely so that
+  `continue` does not compile.
+- **Replay must reuse the live path's routing.** New event types go through
+  `handle_event_for`, which takes an `Audience`; never add a second delivery path for
+  replayed events. That is where a backlog starts carrying channels the client cannot see.
 - **Destructive actions are recorded through `audit::record`.** Anything that deletes,
   removes, grants or reveals takes a `ClientIp` extractor and writes one `AuditEntry`
   with a typed `AuditAction`. Adding a variant to the enum is part of the change, not a

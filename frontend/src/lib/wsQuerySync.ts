@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { useQueryClient, type InfiniteData, type QueryClient } from '@tanstack/react-query';
 import { globalEventBus } from './globalEventBus';
+import { logger } from './logger';
+import { backfillAfterReconnect } from './realtimeBackfill';
 import { upsertMessage, patchMessageById, newestFirst } from './messageCache';
 import { showNotification, playNotificationSound } from './notifications';
 import type { Message, WorkspaceMember } from '@/stores/workspace';
@@ -107,6 +109,19 @@ export const useWebSocketQuerySync = () => {
       }),
       globalEventBus.on('channel.member_removed', (event) => {
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.channelMembers(event.channel_id) });
+      }),
+    );
+
+    unsubs.push(
+      globalEventBus.on('sync.refetch_required', (event) => {
+        // The gap was longer than the replay log goes back. Refetching is the
+        // honest answer — the alternative is a client quietly missing events it
+        // will never be told about.
+        logger.info('wsQuerySync', 'sync.refetch_required', event.workspace_id);
+        backfillAfterReconnect();
+      }),
+      globalEventBus.on('sync.complete', (event) => {
+        logger.info('wsQuerySync', 'sync.complete', `replayed ${event.replayed} events`);
       }),
     );
 

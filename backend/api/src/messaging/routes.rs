@@ -198,7 +198,10 @@ async fn update_message(
         .await;
 
     let msg_json = serde_json::to_value(&msg).map_err(|e| AppError::Internal(e.to_string()))?;
-    let _ = state.publisher.publish_message_updated(&msg_json).await;
+    let _ = state
+        .publisher
+        .publish_message_updated(&msg_json, channel.workspace_id)
+        .await;
 
     Ok(Json(msg))
 }
@@ -243,7 +246,7 @@ async fn delete_message(
 
     let _ = state
         .publisher
-        .publish_message_deleted(msg_id, existing.channel_id)
+        .publish_message_deleted(msg_id, existing.channel_id, channel.workspace_id)
         .await;
 
     audit::record(
@@ -284,11 +287,12 @@ async fn pin_message(
         ));
     }
 
+    let channel = authz::find_channel(&state, existing.channel_id).await?;
     let msg = state.message_repo.set_pinned(msg_id, true).await?;
 
     let _ = state
         .publisher
-        .publish_message_pinned(msg_id, msg.channel_id, true)
+        .publish_message_pinned(msg_id, msg.channel_id, channel.workspace_id, true)
         .await;
 
     Ok(Json(serde_json::json!({ "status": "pinned" })))
@@ -315,11 +319,12 @@ async fn unpin_message(
         ));
     }
 
+    let channel = authz::find_channel(&state, existing.channel_id).await?;
     let msg = state.message_repo.set_pinned(msg_id, false).await?;
 
     let _ = state
         .publisher
-        .publish_message_pinned(msg_id, msg.channel_id, false)
+        .publish_message_pinned(msg_id, msg.channel_id, channel.workspace_id, false)
         .await;
 
     Ok(Json(serde_json::json!({ "status": "unpinned" })))
@@ -444,7 +449,7 @@ async fn add_reaction(
         .await?
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
 
-    authz::require_channel_access(&state, msg.channel_id, auth.user_id).await?;
+    let access = authz::require_channel_access(&state, msg.channel_id, auth.user_id).await?;
 
     let reaction = state
         .message_repo
@@ -462,7 +467,7 @@ async fn add_reaction(
         serde_json::to_value(&reaction).map_err(|e| AppError::Internal(e.to_string()))?;
     let _ = state
         .publisher
-        .publish_reaction_added(&reaction_json, msg.channel_id)
+        .publish_reaction_added(&reaction_json, msg.channel_id, access.channel.workspace_id)
         .await;
 
     Ok(Json(reaction))
@@ -479,7 +484,7 @@ async fn remove_reaction(
         .await?
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
 
-    authz::require_channel_access(&state, msg.channel_id, auth.user_id).await?;
+    let access = authz::require_channel_access(&state, msg.channel_id, auth.user_id).await?;
 
     state
         .message_repo
@@ -488,7 +493,13 @@ async fn remove_reaction(
 
     let _ = state
         .publisher
-        .publish_reaction_removed(msg_id, msg.channel_id, auth.user_id, &emoji)
+        .publish_reaction_removed(
+            msg_id,
+            msg.channel_id,
+            access.channel.workspace_id,
+            auth.user_id,
+            &emoji,
+        )
         .await;
 
     Ok(Json(serde_json::json!({ "status": "removed" })))

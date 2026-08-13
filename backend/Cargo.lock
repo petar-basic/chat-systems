@@ -848,6 +848,7 @@ dependencies = [
  "serde",
  "serde_json",
  "shared-common",
+ "shared-events",
  "sqlx",
  "tokio",
  "tower 0.4.13",

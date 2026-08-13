@@ -1,6 +1,7 @@
 mod config;
 mod connection_manager;
 mod event_consumer;
+mod replay;
 mod ws_handler;
 
 #[cfg(test)]

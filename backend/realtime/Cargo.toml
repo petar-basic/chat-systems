@@ -12,6 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 shared-common = { path = "../shared/common" }
+shared-events = { path = "../shared/events" }
 
 tokio = { workspace = true }
 axum = { workspace = true }
