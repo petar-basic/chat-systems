@@ -6,6 +6,8 @@ import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { HuddleSystemMessage } from '@/features/huddle/components/HuddleSystemMessage';
 import EmojiPicker from './EmojiPicker';
 import MessageInput from './MessageInput';
+import EditHistoryPanel from './EditHistoryPanel';
+import { useCurrentWorkspaceRole } from '@/features/workspace/hooks/useCurrentWorkspaceRole';
 
 interface ReactionGroup {
   emoji: string;
@@ -70,6 +72,11 @@ function MessageItem({
   const reactionGroups = groupReactions(message, currentUserId);
   const isOwn = currentUserId === message.user_id;
   const isEdited = message.updated_at !== message.created_at;
+  const [showHistory, setShowHistory] = useState(false);
+  // The marker becomes a control only for people entitled to what is behind it;
+  // for everyone else it stays the plain marker it has always been.
+  const { role } = useCurrentWorkspaceRole();
+  const canSeeHistory = message.user_id === currentUserId || role === 'admin' || role === 'owner';
 
   if (message.metadata?.kind === 'huddle_started' && message.metadata.huddle_id && !message.deleted_at) {
     return (
@@ -131,7 +138,20 @@ function MessageItem({
             <span className="text-sm font-semibold text-slate-200">{senderName}</span>
             <span className="text-xs text-slate-400">{time}</span>
             {message.pending && <span className="text-xs text-slate-400 italic">Sending…</span>}
-            {isEdited && !message.pending && <span className="text-xs text-slate-400 italic">(edited)</span>}
+            {isEdited &&
+              !message.pending &&
+              (canSeeHistory ? (
+                <button
+                  onClick={() => setShowHistory((open) => !open)}
+                  data-qa="edited-marker"
+                  aria-expanded={showHistory}
+                  className="text-xs text-slate-400 italic underline decoration-dotted hover:text-slate-200 transition cursor-pointer"
+                >
+                  (edited)
+                </button>
+              ) : (
+                <span className="text-xs text-slate-400 italic">(edited)</span>
+              ))}
             {message.is_pinned && (
               <span className="text-xs text-amber-400 flex items-center gap-0.5">
                 <Pin className="w-3 h-3" /> pinned
@@ -152,6 +172,15 @@ function MessageItem({
           />
         ) : (
           <RichTextDisplay content={message.content} />
+        )}
+
+        {showHistory && (
+          <EditHistoryPanel
+            messageId={message.id}
+            scope="channel"
+            currentContent={message.content}
+            onClose={() => setShowHistory(false)}
+          />
         )}
 
         {message.failed && (

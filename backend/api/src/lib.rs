@@ -4,6 +4,7 @@ pub mod auth;
 pub mod authz;
 pub mod config;
 pub mod conversations;
+pub mod export;
 pub mod files;
 pub mod health;
 pub mod hooks;
@@ -15,7 +16,9 @@ pub mod net;
 pub mod notifications;
 pub mod presence;
 pub mod rate_limit;
+pub mod retention;
 pub mod scheduled;
+pub mod scim;
 pub mod sessions;
 pub mod state;
 pub mod workspace;
@@ -88,6 +91,10 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
     let notification_repo = NotificationRepo::new(pool.clone());
     let conversation_repo = ConversationRepo::new(pool.clone());
     let scheduled_repo = scheduled::repo::ScheduledRepo::new(pool.clone());
+    let retention_repo = retention::repo::RetentionRepo::new(pool.clone());
+    let export_repo = export::repo::ExportRepo::new(pool.clone());
+    let totp_repo = auth::totp_repo::TotpRepo::new(pool.clone());
+    let scim_repo = crate::scim::repo::ScimRepo::new(pool.clone());
     let huddle_repo = HuddleRepo::new(pool.clone());
 
     Ok(Arc::new(AppState {
@@ -104,6 +111,10 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
         notification_repo,
         conversation_repo,
         scheduled_repo,
+        retention_repo,
+        export_repo,
+        totp_repo,
+        scim_repo,
         huddle_repo,
     }))
 }
@@ -123,7 +134,12 @@ pub fn build_app(state: Arc<AppState>) -> Router {
         .merge(admin::routes::router(state.clone()))
         .merge(conversations::routes::router(state.clone()))
         .merge(scheduled::routes::router(state.clone()))
-        .merge(huddle::routes::router(state.clone()));
+        .merge(huddle::routes::router(state.clone()))
+        .merge(retention::routes::router(state.clone()))
+        .merge(export::routes::router(state.clone()))
+        .merge(auth::totp_routes::router(state.clone()))
+        .merge(auth::oidc_routes::router(state.clone()))
+        .merge(scim::routes::router(state.clone()));
 
     Router::new()
         .nest("/api", api)

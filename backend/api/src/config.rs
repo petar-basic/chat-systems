@@ -52,6 +52,19 @@ pub struct AppConfig {
     pub trusted_proxies: String,
 
     pub max_upload_bytes: u64,
+
+    /// Retention deletes irreversibly, so the switch defaults to reporting only.
+    pub retention_dry_run: bool,
+
+    /// Turning this on locks out every instance admin who has not enrolled, so
+    /// it is opt-in — recommended for production, off by default.
+    pub require_admin_totp: bool,
+
+    pub oidc_issuer: String,
+    pub oidc_client_id: String,
+    pub oidc_client_secret: String,
+    pub oidc_provisioning: String,
+    pub oidc_allowed_domains: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -128,6 +141,13 @@ impl AppConfig {
             ),
             // Keep `client_max_body_size` in docker/nginx.conf in step with this.
             max_upload_bytes: parse_env("MAX_UPLOAD_BYTES", 100 * 1024 * 1024),
+            retention_dry_run: parse_env("RETENTION_DRY_RUN", false),
+            require_admin_totp: parse_env("REQUIRE_ADMIN_TOTP", false),
+            oidc_issuer: env_or("OIDC_ISSUER", ""),
+            oidc_client_id: env_or("OIDC_CLIENT_ID", ""),
+            oidc_client_secret: env_or("OIDC_CLIENT_SECRET", ""),
+            oidc_provisioning: env_or("OIDC_PROVISIONING", "invite_only"),
+            oidc_allowed_domains: env_or("OIDC_ALLOWED_DOMAINS", ""),
         };
         let mut config = config;
         config.smtp_tls_mode = resolve_smtp_tls_mode(&config.smtp_host);

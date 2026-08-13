@@ -22,6 +22,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/channels/:ch_id/read", post(mark_read))
         .route("/messages/:msg_id", patch(update_message))
         .route("/messages/:msg_id", delete(delete_message))
+        .route("/messages/:msg_id/history", get(message_history))
         .route("/messages/:msg_id/pin", post(pin_message))
         .route("/messages/:msg_id/pin", delete(unpin_message))
         .route("/messages/:msg_id/thread", get(list_thread))
@@ -182,7 +183,7 @@ async fn update_message(
 
     let msg = state
         .message_repo
-        .update_message(msg_id, &req.content)
+        .update_message(msg_id, &req.content, auth.user_id)
         .await?;
 
     let channel = authz::find_channel(&state, msg.channel_id).await?;
@@ -204,6 +205,46 @@ async fn update_message(
         .await;
 
     Ok(Json(msg))
+}
+
+/// The author sees their own prior versions; a workspace admin sees anyone's,
+/// and that read is audited. Everyone else gets the "edited" marker and nothing
+/// behind it — showing every earlier draft to every reader is a different
+/// product from the one people think they are using.
+async fn message_history(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    ip: ClientIp,
+    Path(msg_id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    let message = state
+        .message_repo
+        .find_by_id(msg_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
+    let access = authz::require_channel_access(&state, message.channel_id, auth.user_id).await?;
+
+    if message.user_id != auth.user_id {
+        authz::require_workspace_role(
+            &state,
+            access.channel.workspace_id,
+            auth.user_id,
+            &WorkspaceRole::Admin,
+        )
+        .await?;
+        audit::record(
+            &state,
+            AuditEntry::new(AuditAction::MessageHistoryRead, auth.user_id)
+                .workspace(access.channel.workspace_id)
+                .resource(msg_id)
+                .ip(&ip)
+                .details(serde_json::json!({ "author_id": message.user_id })),
+        )
+        .await;
+    }
+
+    let edits = state.message_repo.list_edits(msg_id).await?;
+    Ok(Json(serde_json::json!({ "data": edits })))
 }
 
 async fn delete_message(

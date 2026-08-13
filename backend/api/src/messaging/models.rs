@@ -19,6 +19,15 @@ pub struct Message {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct MessageEdit {
+    pub id: Uuid,
+    pub message_id: Uuid,
+    pub previous_content: String,
+    pub edited_by: Uuid,
+    pub edited_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Reaction {
     pub id: Uuid,
     pub message_id: Uuid,

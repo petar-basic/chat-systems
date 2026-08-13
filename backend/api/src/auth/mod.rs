@@ -1,4 +1,9 @@
 pub mod models;
+pub mod oidc;
+pub mod oidc_routes;
 pub mod repo;
 pub mod routes;
 pub mod service;
+pub mod totp;
+pub mod totp_repo;
+pub mod totp_routes;

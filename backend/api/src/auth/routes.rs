@@ -9,6 +9,7 @@ use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
 use shared_common::errors::{AppError, AppResult};
 
 use super::models::*;
+use crate::audit::{self, AuditAction, AuditEntry};
 use crate::middleware::AuthUser;
 use crate::state::AppState;
 use crate::workspace::models::{ChannelRole, WorkspaceRole};
@@ -65,11 +66,89 @@ async fn login(
         .await?;
     }
 
-    let tokens = state.auth_service.login(&req.email, &req.password).await?;
+    let user = state
+        .auth_service
+        .verify_password_only(&req.email, &req.password)
+        .await?;
+
+    // The password is only the first half now. Tokens are minted after the
+    // second factor, never before — a step-up that hands out a session first has
+    // not stepped anything up.
+    let enrolment = state.totp_repo.find(user.id).await?;
+    let requires_totp = enrolment.as_ref().is_some_and(|e| e.is_active());
+
+    if state.config.require_admin_totp && user.is_instance_admin && !requires_totp {
+        return Err(AppError::Forbidden(
+            "This instance requires admins to enrol a second factor before signing in".into(),
+        ));
+    }
+
+    if requires_totp {
+        let Some(code) = req.totp_code.as_deref().filter(|c| !c.is_empty()) else {
+            // A distinct answer on purpose: the password was right, and the
+            // client needs to know to ask for the code rather than for it again.
+            return Err(AppError::Conflict("totp_required".into()));
+        };
+
+        let enrolment = enrolment.expect("checked above");
+        let secret = crate::auth::totp::decrypt_secret(
+            &state.config.jwt_secret,
+            &enrolment.secret_encrypted,
+            &enrolment.nonce,
+        )?;
+
+        let accepted = if crate::auth::totp::verify(
+            &secret,
+            &user.email,
+            &state.config.instance_name,
+            code,
+        )? {
+            // A correct code is only accepted once: without claiming the step,
+            // the same six digits work for the rest of their window.
+            let step = crate::auth::totp::current_step(chrono::Utc::now().timestamp());
+            state.totp_repo.claim_step(user.id, step).await?
+        } else {
+            consume_recovery_code(&state, user.id, code).await?
+        };
+
+        if !accepted {
+            audit::record(
+                &state,
+                AuditEntry::new(AuditAction::TotpFailed, user.id)
+                    .resource(user.id)
+                    .details(serde_json::json!({ "stage": "login" })),
+            )
+            .await;
+            return Err(AppError::Unauthorized("That code did not match".into()));
+        }
+    }
+
+    let tokens = state.auth_service.tokens_for(&user).await?;
     let secure = state.config.public_url.starts_with("https://");
     let jar = set_auth_cookies(jar, &tokens, secure);
 
     Ok((jar, Json(tokens.into())))
+}
+
+/// A recovery code stands in for the authenticator exactly once.
+async fn consume_recovery_code(
+    state: &AppState,
+    user_id: uuid::Uuid,
+    candidate: &str,
+) -> AppResult<bool> {
+    for (id, hash) in state.totp_repo.unused_recovery_hashes(user_id).await? {
+        if crate::auth::service::AuthService::verify_password(candidate, &hash).unwrap_or(false)
+            && state.totp_repo.consume_recovery_code(id).await?
+        {
+            audit::record(
+                state,
+                AuditEntry::new(AuditAction::TotpRecoveryUsed, user_id).resource(user_id),
+            )
+            .await;
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 async fn verify_invite(
@@ -210,6 +289,12 @@ async fn instance_info(state: Arc<AppState>) -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "name": state.config.instance_name,
         "icon_url": state.config.instance_icon_url,
+        "sso_enabled": super::oidc_routes::settings_from(&state.config).is_configured()
+            && super::oidc::Provisioning::parse(
+                &state.config.oidc_provisioning,
+                &state.config.oidc_allowed_domains,
+            )
+            .may_sign_in(),
     }))
 }
 
@@ -283,7 +368,7 @@ fn bearer_token(headers: &HeaderMap) -> Option<String> {
         .map(std::string::ToString::to_string)
 }
 
-fn set_auth_cookies(jar: CookieJar, tokens: &AuthTokens, secure: bool) -> CookieJar {
+pub(crate) fn set_auth_cookies(jar: CookieJar, tokens: &AuthTokens, secure: bool) -> CookieJar {
     let access = Cookie::build(("access_token", tokens.access_token.clone()))
         .http_only(true)
         .same_site(SameSite::Lax)

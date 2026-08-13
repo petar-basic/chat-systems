@@ -135,6 +135,59 @@ redelivery` in the logs, that is the guard doing its job, not an error.
 period. Rolling back means clients stop sending positions and delivery returns to
 at-most-once — the streams are then trimmed away by age on their own.
 
+## Upgrade note: Wave 8 turns on cleanup, SSO, TOTP and SCIM
+
+**Retention starts deleting things you never configured — but only cleanup.** Expired
+refresh tokens, consumed password-reset tokens, expired invites and `hook_executions` older
+than 30 days are purged unconditionally on every pass. None of that is anybody's data.
+Messages, files, notifications and audit rows are only touched where a workspace owner has
+set a policy; a workspace with no `retention_policies` row keeps everything forever.
+
+Set `RETENTION_DRY_RUN=true` for the first run on a real instance. It logs and counts what
+each pass *would* delete and deletes nothing. Deletion is irreversible, and a misread policy
+is visible in those numbers before it is visible in a support ticket. The metric is
+`retention_rows_deleted_total{table}`; a purge is also written to the audit log.
+
+**SSO is off until `OIDC_ISSUER` is set.** Endpoints are read from the provider's
+`.well-known/openid-configuration`, so the settings are the issuer, the client id and the
+secret. The redirect URI to register with the provider is
+`<PUBLIC_URL>/api/auth/oidc/callback`. `OIDC_PROVISIONING` defaults to `invite_only`:
+existing accounts may sign in through the provider, but nobody new is created. Set it to
+`domain_allowlist` with `OIDC_ALLOWED_DOMAINS` if the provider is allowed to create
+accounts, or `disabled` to turn the door off without removing the configuration.
+
+Signing in through the provider **removes the password** from a non-admin account. That is
+deliberate — an SSO account with a working password has a second way in that nobody is
+watching — but it means people cannot fall back to a password if the provider is down.
+Instance admins keep theirs on purpose: that is the break-glass account.
+
+**`REQUIRE_ADMIN_TOTP=true` will lock out an admin who has not enrolled.** Turn it on only
+after every instance admin has a factor set up (Profile → Two-factor authentication).
+Enrolment is two steps and nothing is enforced until a code confirms it, so a half-finished
+setup cannot lock anybody out. Recovery codes are shown once; the count remaining is
+visible in the same panel.
+
+**SCIM needs a token minted here first.** `POST /api/admin/scim/tokens` (instance admin)
+returns it once — there is nowhere to read it again. Point the provider at
+`<PUBLIC_URL>/api/scim/v2` with that token as a bearer credential. Rotation is
+`POST /api/admin/scim/tokens/:id/rotate`, which issues the replacement and revokes the old
+one in the same call.
+
+Be aware of what deprovisioning does, because it is not reversible from the provider's side:
+`active: false` (and `DELETE`, which means the same thing) suspends the account, ends every
+session, and **removes every workspace and channel membership**. Setting `active: true`
+again restores the account and *no* memberships — the person needs a fresh invite. That is
+the CS-007 behaviour on purpose; an identity provider must not be able to hand somebody back
+their old private channels by flipping a flag.
+
+**Exports are single-use links.** A workspace export is the whole workspace in one file, so
+the download token works once and expires. If somebody says the link is dead, the answer is
+a new export, not a longer expiry.
+
+**Nothing to migrate by hand.** Migrations `…23` through `…26` add the edit-history,
+retention, export, TOTP and SCIM tables and one column on `oauth_accounts`. They are
+additive; rolling back the binaries leaves the tables unused.
+
 ## Audit log
 
 `GET /api/workspaces/:ws_id/audit-log` (workspace admin) and `GET /api/admin/audit-log`

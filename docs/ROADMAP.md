@@ -518,28 +518,95 @@ worker noticing it.
 
 ---
 
-## Wave 8 — Compliance
+## Wave 8 — Compliance ✅ shipped
 
-### [CS-029](./tickets/CS-029-message-edit-history.md) — Message edit history
-**Today:** `update_message` mutates in place; only `updated_at` changes. The UI asserts that
-an edit happened and cannot say what changed.
+### [CS-029] Message edit history
+`update_message` mutated in place, so an edited message could only say *that* it changed.
+Editing now writes the pre-image to `message_edits` (channels) or
+`conversation_message_edits` (DMs) inside the same transaction as the update, capped at the
+50 most recent versions per message.
 
-### [CS-030](./tickets/CS-030-retention-policies.md) — Retention and cleanup
-**Today:** nothing is ever deleted. Consumed `password_reset_tokens`, expired refresh
-tokens, hook execution payloads and soft-deleted rows accumulate for the life of the
-instance. Partition `messages` / `audit_log` only once metrics show the need.
+Two tables of the same shape rather than one with two nullable foreign keys: a nullable
+pair is a constraint you have to remember to write in every query, and the DM side has
+different visibility rules anyway. The author sees their own history; a workspace admin sees
+anyone's and **that read is itself audited** — history is the record of what somebody tried
+to take back, and reading it silently is the thing the audit trail exists to prevent.
 
-### [CS-031](./tickets/CS-031-data-export.md) — Workspace and user export
-**Today:** no export path exists. `pg_dump` is a backup, not something you hand to a
-regulator or a departing employee.
+### [CS-030] Retention and cleanup
+`retention_policies` is per workspace, and `NULL` means keep forever for messages and files
+— an empty policy row is not a deletion order. Only an owner may change one, and the change
+is audited with before and after.
 
-### [CS-032](./tickets/CS-032-sso-and-2fa.md) — SSO (OIDC) and 2FA
-**Today:** email and password only, with no second factor even for the instance admin. The
-`user_identities` table exists and is unused.
+**What runs unconditionally**, because it is cleanup rather than policy: expired refresh
+tokens, consumed reset tokens, expired invites and `hook_executions` older than 30 days.
+Nothing there is anybody's data. `audit_days` defaults to 730 against `notification_days`'s
+90 — the trail has to outlive the thing it describes.
 
-### [CS-033](./tickets/CS-033-scim-deprovisioning.md) — SCIM deprovisioning
-**Today:** removing someone from the identity provider does nothing here. Small ticket, but
-only because CS-003 and CS-007 build the primitives it composes.
+Purging is batched at 500 rows so a first run on a large instance does not hold a
+transaction open for minutes, and files delete the object before the row: the reverse
+orphans bytes in the bucket with nothing left pointing at them. `RETENTION_DRY_RUN` reports
+what would go without deleting it — deletion is irreversible and the first run is where a
+misread policy shows up.
+
+### [CS-031] Export and erasure
+Workspace export is owner-only, user export is self-or-instance-admin, and both produce a
+tar of JSONL plus a manifest. Written by hand rather than by pulling in a tar crate: the
+format is a header and 512-byte blocks, and the dependency would have been more surface than
+code.
+
+A workspace export **declares every file it references** even when the download is not
+included, so "0 conversations" is a statement about the data rather than an artifact of the
+exporter. The download link is a single-use token with an expiry, not a path — an export is
+the entire workspace in one file, and a URL that keeps working is a permanent leak.
+
+Erasure anonymizes by default and hard-deletes only when asked. Deleting a user's rows
+outright takes their messages out of everybody else's threads, which is a different decision
+from "this person is gone" and not one an API should make silently.
+
+### [CS-032] SSO (OIDC) and TOTP
+**The ticket named a `user_identities` table that does not exist** — the schema has
+`oauth_accounts`, which is what the linkage uses; it gained an `email` column. Endpoints come
+from the provider's discovery document, so Google, Entra and Okta work from the same three
+settings rather than a per-provider branch. PKCE throughout; the verifier lives in Redis
+under an opaque handle and the cookie only names it.
+
+Three refusals worth stating: an **unverified** email is never linked (anyone who can make
+their provider assert somebody else's address would otherwise inherit that account);
+provisioning defaults to **invite-only**, because SSO changes how you prove who you are, not
+who is allowed in; and an SSO account's password is nulled, with the instance admin as the
+deliberate exception — a break-glass local admin has to survive a provider outage.
+
+**TOTP replay was a real gap in the ticket.** Checking the six digits alone accepts the same
+code for its full thirty seconds, which is exactly long enough for somebody reading over a
+shoulder. `user_totp.last_used_step` is claimed atomically, so a code works once. Secrets are
+encrypted with a key derived from the instance's JWT secret — a database dump full of TOTP
+secrets is the same failure as one full of passwords. Recovery codes are hashed like
+passwords and shown once. `REQUIRE_ADMIN_TOTP` makes the factor mandatory for instance
+admins and defaults to **off**: turning it on locks out any admin who has not enrolled.
+
+The flow is tested end to end against a real provider — `mock-oauth2-server` in
+docker-compose. The redirect, the cookie and the code exchange are exactly where SSO
+integrations break, and none of that is exercised by stubbing the token endpoint in-process.
+
+### [CS-033] SCIM deprovisioning
+`/api/scim/v2/Users` behind its own bearer token, outside `auth_middleware` entirely: the
+caller is a machine, not a session. Tokens are revealed once, rotatable, and stored as a
+digest.
+
+Deactivation is the composed operation the ticket asked for and nothing new: suspend,
+`sessions::revoke(All)`, then membership removal through the CS-007 path so `channel_members`
+cascades and live subscriptions drop. Doing only the first leaves somebody connected; doing
+only the first two leaves their private-channel access waiting for the next reactivation.
+
+`DELETE` is deactivation. An identity provider retrying a delete must not be able to take a
+workspace's history with it — erasure is CS-031's job and stays an administrator's choice.
+**Reactivation restores the account and no memberships**, which is not an omission: CS-007
+made removal destructive precisely so that coming back needs a fresh invite.
+
+Both PATCH shapes are read — `{path: "active", value: false}` and Entra's pathless
+`{value: {"active": false}}` — because supporting one of them means deprovisioning silently
+does nothing for half the market. Audit entries for machine callers carry no `user_id`;
+borrowing one would name somebody who did not do it.
 
 ---
 

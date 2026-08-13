@@ -36,6 +36,7 @@ tower-http = { workspace = true }
 
 # Database
 sqlx = { workspace = true }
+totp-rs = { workspace = true }
 
 # Redis
 redis = { workspace = true }
@@ -55,6 +56,8 @@ async-trait = { workspace = true }
 hmac = { workspace = true }
 sha1 = { workspace = true }
 sha2 = { workspace = true }
+chacha20poly1305 = { workspace = true }
+openidconnect = { workspace = true }
 base64 = { workspace = true }
 
 # Serialization

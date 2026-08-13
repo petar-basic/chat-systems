@@ -80,12 +80,61 @@ interface InstancesState {
   error: string | null;
 
   restoreInstances: () => Promise<void>;
-  addInstance: (url: string, email: string, password: string, wsUrl?: string) => Promise<void>;
+  addInstance: (
+    url: string,
+    email: string,
+    password: string,
+    wsUrl?: string,
+    totpCode?: string,
+  ) => Promise<void>;
   addValidatedInstance: (config: InstanceConfig) => void;
   removeInstance: (url: string) => void;
   setActiveInstance: (url: string) => void;
   updateInstanceUser: (url: string, user: InstanceUser) => void;
   clearError: () => void;
+}
+
+/**
+ * The identity provider redirects back to this origin with session cookies and
+ * nothing in local storage, so a browser that has never signed in here has no
+ * instance to show. Asking the server who we are turns that cookie into the
+ * same instance entry a password login would have produced.
+ */
+async function adoptSsoSession(
+  existing: InstanceConfig[],
+  store: InstancesState,
+): Promise<InstanceConfig | null> {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('sso') !== '1') return null;
+
+  params.delete('sso');
+  const query = params.toString();
+  window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}`);
+
+  const origin = instanceManager.normalize(window.location.origin);
+  if (existing.some((i) => instanceManager.normalize(i.url) === origin)) return null;
+
+  const clients = instanceManager.get(origin);
+  try {
+    const user = await clients.api.get<InstanceUser>('/users/me');
+    clients.api.onSessionExpired = () => {
+      toast.error(ErrorLabels.SessionExpired);
+      store.removeInstance(origin);
+    };
+    clients.ws.onStatusChange = (status) => {
+      useWsStatusStore.getState().setStatus(origin, status);
+    };
+    clients.ws.onSessionRevoked = () => {
+      toast.error(ErrorLabels.SessionRevoked);
+      store.removeInstance(origin);
+    };
+    clients.ws.addReconnectListener(backfillAfterReconnect);
+    clients.ws.connect();
+    return { url: origin, user };
+  } catch {
+    instanceManager.remove(origin);
+    return null;
+  }
 }
 
 export const useInstanceStore = create<InstancesState>((set, get) => ({
@@ -150,13 +199,16 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
         }
       }
 
+      const adopted = await adoptSsoSession(valid, get());
+      if (adopted) valid.push(adopted);
+
       saveToStorage(valid);
       set({ instances: valid, activeInstanceUrl: valid[0]?.url ?? null, hydrated: true });
     })();
     return restorePromise;
   },
 
-  addInstance: async (url, email, password, wsUrl?) => {
+  addInstance: async (url, email, password, wsUrl?, totpCode?) => {
     set({ loading: true, error: null });
     const normalized = instanceManager.normalize(url);
     const normalizedWsUrl = wsUrl?.trim() || undefined;
@@ -183,7 +235,11 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
         expires_in: number;
         access_token: string;
         refresh_token: string;
-      }>('/auth/login', { email, password });
+      }>('/auth/login', {
+        email,
+        password,
+        ...(totpCode ? { totp_code: totpCode } : {}),
+      });
 
       if (normalized !== window.location.origin) {
         clients.api.onTokensChanged = (access, refresh) => saveTokens(normalized, access, refresh);

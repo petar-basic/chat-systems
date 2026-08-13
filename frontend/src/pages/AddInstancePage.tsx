@@ -1,7 +1,10 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router';
-import { ServerCrash, LogIn } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { KeyRound, ServerCrash, LogIn } from 'lucide-react';
 import { useInstanceStore } from '../stores/instances';
+import { instanceManager } from '../lib/instances';
+import { isTotpRequired } from '@/lib/errors';
 
 export default function AddInstancePage() {
   const navigate = useNavigate();
@@ -12,6 +15,19 @@ export default function AddInstancePage() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [totpCode, setTotpCode] = useState('');
+  const [needsTotp, setNeedsTotp] = useState(false);
+
+  const { data: instance } = useQuery({
+    queryKey: ['instance-info'],
+    queryFn: () =>
+      instanceManager
+        .get(window.location.origin)
+        .api.get<{ name: string; sso_enabled: boolean }>('/instance/info'),
+    staleTime: Infinity,
+  });
+
+  const sameOrigin = url.trim().replace(/\/$/, '') === window.location.origin;
 
   useEffect(() => {
     if (hydrated && instances.length > 0 && !url && !email && !password) {
@@ -23,10 +39,19 @@ export default function AddInstancePage() {
     e.preventDefault();
     clearError();
     try {
-      await addInstance(url.trim(), email.trim(), password, wsUrl.trim() || undefined);
+      await addInstance(
+        url.trim(),
+        email.trim(),
+        password,
+        wsUrl.trim() || undefined,
+        totpCode.trim() || undefined,
+      );
       navigate('/app', { replace: true });
-    } catch {
-      return;
+    } catch (e) {
+      // A password that was right but incomplete is not a failed sign-in, so the
+      // form asks for the code instead of showing an error for something the
+      // person did correctly.
+      if (isTotpRequired(e)) setNeedsTotp(true);
     }
   };
 
@@ -53,9 +78,15 @@ export default function AddInstancePage() {
           onSubmit={handleSubmit}
           className="bg-slate-800/50 backdrop-blur-xl border border-slate-700 rounded-2xl p-8 shadow-2xl"
         >
-          {error && (
+          {error && error !== 'totp_required' && (
             <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg mb-6 text-sm">
               {error}
+            </div>
+          )}
+
+          {needsTotp && (
+            <div className="bg-purple-500/10 border border-purple-500/30 text-purple-200 px-4 py-3 rounded-lg mb-6 text-sm">
+              Enter the six-digit code from your authenticator app, or one of your recovery codes.
             </div>
           )}
 
@@ -132,6 +163,27 @@ export default function AddInstancePage() {
             />
           </div>
 
+          {needsTotp && (
+            <div className="mb-6">
+              <label htmlFor="totp" className="block text-sm font-medium text-slate-300 mb-2">
+                Authentication code
+              </label>
+              <input
+                id="totp"
+                type="text"
+                inputMode="text"
+                autoComplete="one-time-code"
+                autoFocus
+                value={totpCode}
+                onChange={(e) => setTotpCode(e.target.value.trim())}
+                data-qa="login-totp"
+                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition tracking-widest"
+                placeholder="123456"
+                required
+              />
+            </div>
+          )}
+
           <button
             type="submit"
             disabled={loading}
@@ -146,6 +198,24 @@ export default function AddInstancePage() {
               </>
             )}
           </button>
+
+          {instance?.sso_enabled && sameOrigin && (
+            <>
+              <div className="flex items-center gap-3 my-6">
+                <div className="h-px flex-1 bg-slate-700" />
+                <span className="text-xs uppercase tracking-wide text-slate-500">or</span>
+                <div className="h-px flex-1 bg-slate-700" />
+              </div>
+              <a
+                href={`${window.location.origin}/api/auth/oidc/start`}
+                data-qa="sso-start"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-lg transition"
+              >
+                <KeyRound className="w-4 h-4" />
+                Sign in with SSO
+              </a>
+            </>
+          )}
         </form>
 
         {!isFirstInstance && (

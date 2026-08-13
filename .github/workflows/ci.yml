@@ -213,6 +213,11 @@ jobs:
             [ "$i" = "60" ] && { echo "frontend never served"; exit 1; }
             sleep 2
           done
+          for i in $(seq 1 60); do
+            curl -fsS http://localhost:8090/chat/.well-known/openid-configuration >/dev/null 2>&1 && break
+            [ "$i" = "60" ] && { echo "the mock identity provider never came up"; exit 1; }
+            sleep 2
+          done
 
       - name: Seed demo data
         run: ./seed.sh

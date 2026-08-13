@@ -7,8 +7,8 @@ use tracing::info;
 use chat_api::config::AppConfig;
 use chat_api::state::AppState;
 use chat_api::{
-    build_state, connect_pool, health, hooks, huddle, init_tracing, messaging, metrics,
-    notifications, scheduled, shutdown_signal, supervise,
+    build_state, connect_pool, export, health, hooks, huddle, init_tracing, messaging, metrics,
+    notifications, retention, scheduled, shutdown_signal, supervise,
 };
 
 #[tokio::main]
@@ -111,6 +111,32 @@ fn spawn_consumers(state: &Arc<AppState>, redis_url: &str) {
                 let trimmer_state = trimmer_state.clone();
                 async move {
                     messaging::stream_trim::start_stream_trimmer(trimmer_state).await;
+                }
+            })
+            .await;
+        });
+    }
+
+    {
+        let export_state = state.clone();
+        tokio::spawn(async move {
+            supervise("export_worker", || {
+                let export_state = export_state.clone();
+                async move {
+                    export::job::start_export_worker(export_state).await;
+                }
+            })
+            .await;
+        });
+    }
+
+    {
+        let retention_state = state.clone();
+        tokio::spawn(async move {
+            supervise("retention_job", || {
+                let retention_state = retention_state.clone();
+                async move {
+                    retention::job::start_retention_job(retention_state).await;
                 }
             })
             .await;

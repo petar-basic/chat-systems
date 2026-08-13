@@ -167,6 +167,16 @@ impl ConversationRepo {
         Ok(message)
     }
 
+    pub async fn list_edits(&self, message_id: Uuid) -> sqlx::Result<Vec<ConversationMessageEdit>> {
+        sqlx::query_as::<_, ConversationMessageEdit>(
+            "SELECT * FROM conversation_message_edits \
+              WHERE message_id = $1 ORDER BY edited_at DESC, id DESC",
+        )
+        .bind(message_id)
+        .fetch_all(&self.pool)
+        .await
+    }
+
     pub async fn find_message(&self, id: Uuid) -> sqlx::Result<Option<ConversationMessage>> {
         sqlx::query_as::<_, ConversationMessage>(
             "SELECT * FROM conversation_messages WHERE id = $1",
@@ -234,8 +244,39 @@ impl ConversationRepo {
         &self,
         id: Uuid,
         content: &str,
+        edited_by: Uuid,
     ) -> sqlx::Result<ConversationMessage> {
-        sqlx::query_as::<_, ConversationMessage>(
+        let mut tx = self.pool.begin().await?;
+
+        sqlx::query(
+            r"
+            INSERT INTO conversation_message_edits (message_id, previous_content, edited_by)
+            SELECT id, content, $2 FROM conversation_messages WHERE id = $1
+            ",
+        )
+        .bind(id)
+        .bind(edited_by)
+        .execute(&mut *tx)
+        .await?;
+
+        sqlx::query(
+            r"
+            DELETE FROM conversation_message_edits
+             WHERE message_id = $1
+               AND id NOT IN (
+                   SELECT id FROM conversation_message_edits
+                    WHERE message_id = $1
+                    ORDER BY edited_at DESC, id DESC
+                    LIMIT $2
+               )
+            ",
+        )
+        .bind(id)
+        .bind(crate::messaging::repo::MAX_STORED_EDITS)
+        .execute(&mut *tx)
+        .await?;
+
+        let message = sqlx::query_as::<_, ConversationMessage>(
             r"
             UPDATE conversation_messages
             SET content = $2, edited_at = NOW(), updated_at = NOW()
@@ -245,8 +286,11 @@ impl ConversationRepo {
         )
         .bind(id)
         .bind(content)
-        .fetch_one(&self.pool)
-        .await
+        .fetch_one(&mut *tx)
+        .await?;
+
+        tx.commit().await?;
+        Ok(message)
     }
 
     pub async fn soft_delete_message(&self, id: Uuid) -> sqlx::Result<ConversationMessage> {

@@ -86,6 +86,9 @@ impl From<AuthTokens> for AuthSession {
 pub struct LoginRequest {
     pub email: String,
     pub password: String,
+    /// A TOTP code or a recovery code; absent on the first attempt, which is how
+    /// the client discovers a second factor is required.
+    pub totp_code: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

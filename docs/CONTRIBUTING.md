@@ -164,6 +164,9 @@ docs/         this folder
   crate then fails every test with `DATABASE_URL must be set` while passing on its own. CI
   exports it explicitly and so should you:
   `DATABASE_URL=postgres://chat:devpassword@localhost:5433/chatsystems cargo test --workspace`.
+- **`#[sqlx::test(migrations = "../migrations")]`, always.** A bare `#[sqlx::test]` gets an
+  empty database and every test in the file fails with `relation "users" does not exist` —
+  which reads like a broken fixture rather than a missing attribute.
 - Formatted with `cargo fmt`; lints clean under `cargo clippy --workspace --all-targets -- -D warnings`.
 
 ### Frontend (TypeScript / React)
