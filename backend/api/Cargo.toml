@@ -93,6 +93,7 @@ futures-util = { workspace = true }
 
 # Environment variables
 dotenvy = "0.15"
+web-push = { workspace = true }
 
 [dev-dependencies]
 # `#[tokio::test]` (macros) + a real runtime for async tests.

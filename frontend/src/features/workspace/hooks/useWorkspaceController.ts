@@ -4,6 +4,8 @@ import { useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { useCurrentUser, useLogout } from '@/hooks/queries/useAuth';
 import { useWorkspaceStore, type Message, type Channel } from '@/stores/workspace';
 import { useUserCache } from '@/stores/users';
+import { useCustomEmojiStore } from '@/stores/customEmoji';
+import { useCustomEmoji } from '@/hooks/queries/useCustomEmoji';
 import { instanceManager } from '@/lib/instances';
 import { api } from '@/lib/api';
 import { wsClient } from '@/lib/ws';
@@ -156,6 +158,7 @@ export function useWorkspaceController() {
   }, [totalUnread]);
 
   const { populateUsers } = useUserCache();
+  const populateCustomEmoji = useCustomEmojiStore((s) => s.populate);
   useEffect(() => {
     if (workspaceMembers.length > 0) {
       populateUsers(
@@ -168,6 +171,11 @@ export function useWorkspaceController() {
       );
     }
   }, [workspaceMembers, populateUsers]);
+
+  const { data: customEmoji } = useCustomEmoji(workspaceId, currentWsInstanceUrl);
+  useEffect(() => {
+    populateCustomEmoji(customEmoji ?? []);
+  }, [customEmoji, populateCustomEmoji]);
 
   useEffect(() => {
     setCurrentUserId(user?.id ?? null);

@@ -11,6 +11,7 @@ import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { displayNameOf } from '@/lib/userHelpers';
 import { QUERY_KEYS } from '@/shared/constants';
 import TwoFactorPanel from './TwoFactorPanel';
+import PushNotificationsPanel from './PushNotificationsPanel';
 
 interface Props {
   onClose: () => void;
@@ -268,6 +269,7 @@ export default function UserProfilePanel({ onClose }: Props) {
         </div>
       </form>
 
+      <PushNotificationsPanel />
       <TwoFactorPanel />
     </Modal>
   );

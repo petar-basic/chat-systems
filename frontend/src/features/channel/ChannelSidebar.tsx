@@ -19,6 +19,7 @@ import {
   ScrollText,
   Check,
   Clock,
+  Smile,
 } from 'lucide-react';
 import type { Channel, Workspace, WorkspaceMember } from '@/stores/workspace';
 import type { Conversation } from '@/hooks/queries/useConversations';
@@ -57,6 +58,7 @@ interface Props {
   onOpenMembers: () => void;
   onOpenSettings: () => void;
   onOpenIntegrations: () => void;
+  onOpenCustomEmoji: () => void;
   onOpenAuditLog: () => void;
   onOpenScheduled: () => void;
   onOpenProfile: () => void;
@@ -183,6 +185,7 @@ export default function ChannelSidebar({
   onOpenMembers,
   onOpenSettings,
   onOpenIntegrations,
+  onOpenCustomEmoji,
   onOpenAuditLog,
   onOpenScheduled,
   onOpenProfile,
@@ -361,6 +364,16 @@ export default function ChannelSidebar({
                   <Plug className="w-4 h-4" /> Integrations
                 </button>
               )}
+              <button
+                className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
+                data-qa="open-custom-emoji"
+                onClick={() => {
+                  onOpenCustomEmoji();
+                  setWsDropdownOpen(false);
+                }}
+              >
+                <Smile className="w-4 h-4" /> Custom emoji
+              </button>
               {isWorkspaceAdmin && (
                 <button
                   className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"

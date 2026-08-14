@@ -11,44 +11,64 @@ import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
 interface Props {
   onClose: () => void;
   onNavigateToMessage?: (channelId: string, messageId: string) => void;
+  onNavigateToConversation?: (conversationId: string) => void;
 }
 
-function SearchResult({
-  message,
-  onNavigate,
+interface ConversationHit {
+  id: string;
+  conversation_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+}
+
+function Hit({
+  userId,
+  content,
+  createdAt,
+  onClick,
+  qa,
 }: {
-  message: Message;
-  onNavigate?: (channelId: string, messageId: string) => void;
+  userId: string;
+  content: string;
+  createdAt: string;
+  onClick?: () => void;
+  qa: string;
 }) {
   const { getUser } = useUserCache();
-  const sender = getUser(message.user_id);
+  const sender = getUser(userId);
   const displayName = displayNameOf(sender?.display_name);
 
   return (
     <button
       type="button"
-      onClick={() => onNavigate?.(message.channel_id, message.id)}
-      data-qa="search-result"
+      onClick={onClick}
+      data-qa={qa}
       className="w-full text-left px-3 py-2.5 hover:bg-slate-700/30 rounded-lg transition disabled:cursor-default"
-      disabled={!onNavigate}
+      disabled={!onClick}
     >
       <div className="flex items-center gap-2 mb-0.5">
-        <Avatar userId={message.user_id} name={displayName} avatarUrl={sender?.avatar_url} size="xs" />
+        <Avatar userId={userId} name={displayName} avatarUrl={sender?.avatar_url} size="xs" />
         <span className="text-sm font-semibold text-slate-200">{displayName}</span>
         <span className="text-xs text-slate-400">
-          {new Date(message.created_at).toLocaleDateString()}{' '}
-          {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          {new Date(createdAt).toLocaleDateString()}{' '}
+          {new Date(createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </span>
       </div>
-      <p className="text-sm text-slate-400 line-clamp-2">{message.content}</p>
+      <p className="text-sm text-slate-400 line-clamp-2">{content}</p>
     </button>
   );
 }
 
-export default function SearchPanel({ onClose, onNavigateToMessage }: Props) {
+export default function SearchPanel({
+  onClose,
+  onNavigateToMessage,
+  onNavigateToConversation,
+}: Props) {
   useEscapeToClose(onClose);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Message[]>([]);
+  const [conversationResults, setConversationResults] = useState<ConversationHit[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,6 +84,7 @@ export default function SearchPanel({ onClose, onNavigateToMessage }: Props) {
     async (q: string) => {
       if (!q.trim() || !workspaceId) {
         setResults([]);
+        setConversationResults([]);
         setSearched(false);
         setError(null);
         return;
@@ -72,12 +93,14 @@ export default function SearchPanel({ onClose, onNavigateToMessage }: Props) {
       setSearched(true);
       setError(null);
       try {
-        const res = await api.get<{ data: Message[] }>(
+        const res = await api.get<{ data: Message[]; conversations: ConversationHit[] }>(
           `/search?q=${encodeURIComponent(q.trim())}&workspace_id=${workspaceId}&limit=20`,
         );
         setResults(res.data);
+        setConversationResults(res.conversations ?? []);
       } catch (err: unknown) {
         setResults([]);
+        setConversationResults([]);
         setError((err as { message?: string })?.message || 'Search failed');
       } finally {
         setLoading(false);
@@ -121,6 +144,7 @@ export default function SearchPanel({ onClose, onNavigateToMessage }: Props) {
               onClick={() => {
                 setQuery('');
                 setResults([]);
+                setConversationResults([]);
                 setSearched(false);
               }}
               className="text-slate-400 hover:text-slate-300 transition cursor-pointer"
@@ -140,15 +164,56 @@ export default function SearchPanel({ onClose, onNavigateToMessage }: Props) {
           <div className="text-center py-8 text-red-400 text-sm" data-qa="search-error">
             {error}
           </div>
-        ) : searched && results.length === 0 ? (
+        ) : searched && results.length === 0 && conversationResults.length === 0 ? (
           <div className="text-center py-8 text-slate-400 text-sm">
             No messages found for &ldquo;{query}&rdquo;
           </div>
-        ) : results.length > 0 ? (
-          <div className="space-y-1">
-            {results.map((msg) => (
-              <SearchResult key={msg.id} message={msg} onNavigate={onNavigateToMessage} />
-            ))}
+        ) : results.length > 0 || conversationResults.length > 0 ? (
+          <div className="space-y-4">
+            {results.length > 0 && (
+              <div className="space-y-1">
+                {conversationResults.length > 0 && (
+                  <h4 className="px-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Channels
+                  </h4>
+                )}
+                {results.map((msg) => (
+                  <Hit
+                    key={msg.id}
+                    qa="search-result"
+                    userId={msg.user_id}
+                    content={msg.content}
+                    createdAt={msg.created_at}
+                    onClick={
+                      onNavigateToMessage
+                        ? () => onNavigateToMessage(msg.channel_id, msg.id)
+                        : undefined
+                    }
+                  />
+                ))}
+              </div>
+            )}
+            {conversationResults.length > 0 && (
+              <div className="space-y-1">
+                <h4 className="px-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Direct messages
+                </h4>
+                {conversationResults.map((hit) => (
+                  <Hit
+                    key={hit.id}
+                    qa="search-result-conversation"
+                    userId={hit.user_id}
+                    content={hit.content}
+                    createdAt={hit.created_at}
+                    onClick={
+                      onNavigateToConversation
+                        ? () => onNavigateToConversation(hit.conversation_id)
+                        : undefined
+                    }
+                  />
+                ))}
+              </div>
+            )}
           </div>
         ) : (
           <div className="text-center py-8 text-slate-400 text-sm">

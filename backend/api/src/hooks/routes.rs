@@ -460,9 +460,14 @@ async fn incoming_webhook(
         .and_then(|s| s.parse::<Uuid>().ok())
         .ok_or_else(|| AppError::Internal("hook is missing a channel_id".into()))?;
 
+    let bot = serde_json::json!({
+        "hook_id": hook.id,
+        "name": payload.username.as_deref().unwrap_or(&hook.name),
+        "icon_url": payload.icon_url,
+    });
     let msg = state
         .message_repo
-        .create_message(channel_id, hook.created_by, &payload.text, None, &[])
+        .create_bot_message(channel_id, hook.created_by, &payload.text, &bot)
         .await?;
 
     let msg_json = serde_json::to_value(&msg).map_err(|e| AppError::Internal(e.to_string()))?;

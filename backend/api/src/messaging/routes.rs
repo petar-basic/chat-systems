@@ -579,21 +579,45 @@ async fn search_messages(
     let limit = params.limit.unwrap_or(20).clamp(1, 100);
     let offset = params.offset.unwrap_or(0).max(0);
 
-    let messages = state
-        .message_repo
-        .search(crate::messaging::repo::MessageSearch {
-            query: &query,
-            workspace_id: params.workspace_id,
-            requester_id: auth.user_id,
-            requester_is_guest: member.role == WorkspaceRole::Guest,
-            channel_id: params.channel_id,
-            author_id: params.user_id,
-            limit,
-            offset,
-        })
-        .await?;
+    // Asking for one channel is asking about channels, whatever the scope says.
+    let scope = match params.channel_id {
+        Some(_) => SearchScope::Channels,
+        None => params.scope.unwrap_or(SearchScope::All),
+    };
 
-    Ok(Json(serde_json::json!({ "data": messages })))
+    let messages = if scope.includes_channels() {
+        state
+            .message_repo
+            .search(crate::messaging::repo::MessageSearch {
+                query: &query,
+                workspace_id: params.workspace_id,
+                requester_id: auth.user_id,
+                requester_is_guest: member.role == WorkspaceRole::Guest,
+                channel_id: params.channel_id,
+                author_id: params.user_id,
+                limit,
+                offset,
+            })
+            .await?
+    } else {
+        Vec::new()
+    };
+
+    // A guest is scoped to what they were explicitly added to; that rule has no
+    // conversation equivalent, and participation already enforces it.
+    let conversations = if scope.includes_conversations() {
+        state
+            .conversation_repo
+            .search(&query, params.workspace_id, auth.user_id, limit, offset)
+            .await?
+    } else {
+        Vec::new()
+    };
+
+    Ok(Json(serde_json::json!({
+        "data": messages,
+        "conversations": conversations,
+    })))
 }
 
 #[derive(Debug, Default, PartialEq)]

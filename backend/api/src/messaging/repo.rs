@@ -94,6 +94,41 @@ impl MessageRepo {
         Ok(msg)
     }
 
+    /// A hook posts as itself, not as whoever created it. The identity rides in
+    /// `metadata` rather than in a `users` row: a bot account would either have
+    /// to join every workspace member list to render, or fail to resolve and
+    /// show as nobody. The `user_id` still points at the creator, which is what
+    /// keeps the audit trail and the foreign key honest.
+    pub async fn create_bot_message(
+        &self,
+        channel_id: Uuid,
+        posted_by: Uuid,
+        content: &str,
+        bot: &serde_json::Value,
+    ) -> sqlx::Result<Message> {
+        let mut tx = self.pool.begin().await?;
+
+        let msg = sqlx::query_as::<_, Message>(
+            r"
+            INSERT INTO messages (channel_id, user_id, content, metadata)
+            VALUES ($1, $2, $3, jsonb_build_object('bot', $4::jsonb))
+            RETURNING *
+            ",
+        )
+        .bind(channel_id)
+        .bind(posted_by)
+        .bind(content)
+        .bind(bot)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        bump_unread(&mut tx, channel_id, posted_by, &[]).await?;
+
+        tx.commit().await?;
+
+        Ok(msg)
+    }
+
     pub async fn create_message_with_client_id(
         &self,
         client_message_id: Uuid,
@@ -396,7 +431,10 @@ impl MessageRepo {
             r"
             SELECT m.* FROM messages m
             JOIN channels c ON c.id = m.channel_id
-            WHERE m.content_search @@ plainto_tsquery('english', $1)
+            WHERE (
+                m.search_vector @@ plainto_tsquery(search_text_config(), search_normalize($1))
+                OR search_normalize($1) <% search_normalize(m.content)
+              )
               AND c.workspace_id = $2
               AND m.deleted_at IS NULL
               AND (
@@ -411,7 +449,16 @@ impl MessageRepo {
               )
               AND ($4::uuid IS NULL OR m.channel_id = $4)
               AND ($5::uuid IS NULL OR m.user_id = $5)
-            ORDER BY ts_rank(m.content_search, plainto_tsquery('english', $1)) DESC
+            -- Both signals, not one: the vector answers what was asked for and
+            -- the trigram answers what was meant. `<%` rather than `%` because
+            -- the query is a fragment and the message is a sentence -- whole
+            -- string similarity between the two is near zero however good the
+            -- match is. Ranking keeps every fuzzy hit below every exact one
+            -- instead of interleaving them by score.
+            ORDER BY
+              ts_rank(m.search_vector, plainto_tsquery(search_text_config(), search_normalize($1))) DESC,
+              word_similarity(search_normalize($1), search_normalize(m.content)) DESC,
+              m.created_at DESC
             LIMIT $6 OFFSET $7
             ",
         )
