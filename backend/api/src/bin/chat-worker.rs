@@ -31,6 +31,13 @@ async fn main() -> anyhow::Result<()> {
 
     spawn_consumers(&state, &redis_url);
 
+    {
+        let backfill_state = state.clone();
+        tokio::spawn(async move {
+            chat_api::search::backfill(&backfill_state).await;
+        });
+    }
+
     let app = Router::new()
         .merge(health::router(state.clone()))
         .merge(metrics::router(metrics_handle));
@@ -159,12 +166,15 @@ fn spawn_consumers(state: &Arc<AppState>, redis_url: &str) {
     {
         let redis_url = redis_url.to_string();
         let notif_repo = notif_repo.clone();
+        let push = Arc::new(state.push_sender.clone());
         tokio::spawn(async move {
             supervise("notification_consumer", || {
                 let redis_url = redis_url.clone();
                 let notif_repo = notif_repo.clone();
+                let push_sender = push.clone();
                 async move {
-                    notifications::consumer::start_consumer(&redis_url, notif_repo).await;
+                    notifications::consumer::start_consumer(&redis_url, notif_repo, push_sender)
+                        .await;
                 }
             })
             .await;

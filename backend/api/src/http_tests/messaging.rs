@@ -881,3 +881,220 @@ async fn search_holds_guests_to_the_channels_they_belong_to(pool: PgPool) {
         "once a member of the channel the guest finds it: {body:?}"
     );
 }
+
+/// The reason this ticket exists: `to_tsvector('english', …)` neither stems
+/// Serbian correctly nor folds diacritics, so a team writing in it could not
+/// find its own messages.
+#[sqlx::test(migrations = "../migrations")]
+async fn diacritics_match_in_both_directions(pool: PgPool) {
+    let (app, _state, _owner, token, ws_id, ch_id) = setup_channel(pool).await;
+    create_message(&app, &token, ch_id, "sastanak u četvrtak").await;
+    create_message(&app, &token, ch_id, "deployment on cetvrtak too").await;
+
+    for query in ["četvrtak", "cetvrtak", "CETVRTAK"] {
+        let (status, body) = send(
+            &app,
+            "GET",
+            &format!("/api/search?q={}&workspace_id={ws_id}", urlencode(query)),
+            Some(&token),
+            None,
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body:?}");
+        let hits = body["data"].as_array().expect("data array").len();
+        assert_eq!(hits, 2, "'{query}' should reach both spellings: {body:?}");
+    }
+}
+
+/// What people actually type into a chat search is half a word, which
+/// `to_tsvector` cannot answer at all.
+#[sqlx::test(migrations = "../migrations")]
+async fn a_substring_and_a_near_miss_still_find_the_message(pool: PgPool) {
+    let (app, _state, _owner, token, ws_id, ch_id) = setup_channel(pool).await;
+    create_message(&app, &token, ch_id, "the deployment pipeline is red").await;
+
+    for query in ["deploym", "deploymnet"] {
+        let (status, body) = send(
+            &app,
+            "GET",
+            &format!("/api/search?q={query}&workspace_id={ws_id}"),
+            Some(&token),
+            None,
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body:?}");
+        assert_eq!(
+            body["data"].as_array().expect("data array").len(),
+            1,
+            "'{query}' should still find it: {body:?}"
+        );
+    }
+}
+
+/// A fuzzy hit is useful but must never outrank the message that actually
+/// contains the word.
+#[sqlx::test(migrations = "../migrations")]
+async fn an_exact_match_outranks_a_fuzzy_one(pool: PgPool) {
+    let (app, _state, _owner, token, ws_id, ch_id) = setup_channel(pool).await;
+    create_message(&app, &token, ch_id, "something about deploymen and more").await;
+    let exact = create_message(&app, &token, ch_id, "deployment").await;
+
+    let (status, body) = send(
+        &app,
+        "GET",
+        &format!("/api/search?q=deployment&workspace_id={ws_id}"),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    let hits = body["data"].as_array().expect("data array");
+    assert!(hits.len() >= 2, "both should match: {body:?}");
+    assert_eq!(
+        hits[0]["id"].as_str().expect("id"),
+        exact.to_string(),
+        "the message containing the word comes first"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn a_dm_is_searchable_by_its_participants_and_nobody_else(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "dm-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "DM search").await;
+    let (partner_id, _, partner_token) = seed_and_login(&app, &state, "dm-partner", false).await;
+    add_ws_member(&state, ws_id, partner_id, "member").await;
+    let (outsider_id, _, outsider_token) = seed_and_login(&app, &state, "dm-outsider", false).await;
+    add_ws_member(&state, ws_id, outsider_id, "member").await;
+
+    let (status, conversation) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/conversations"),
+        Some(&owner_token),
+        Some(json!({ "participant_ids": [partner_id] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{conversation:?}");
+    let conversation_id = conversation["id"].as_str().expect("conversation id");
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/conversations/{conversation_id}/messages"),
+        Some(&owner_token),
+        Some(json!({ "content": "the séance is at six" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    for token in [&owner_token, &partner_token] {
+        let (status, body) = send(
+            &app,
+            "GET",
+            &format!("/api/search?q=seance&workspace_id={ws_id}"),
+            Some(token),
+            None,
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body:?}");
+        assert_eq!(
+            body["conversations"]
+                .as_array()
+                .expect("conversations")
+                .len(),
+            1,
+            "a participant finds their own DM: {body:?}"
+        );
+    }
+
+    let (status, body) = send(
+        &app,
+        "GET",
+        &format!("/api/search?q=seance&workspace_id={ws_id}"),
+        Some(&outsider_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert!(
+        body["conversations"]
+            .as_array()
+            .expect("conversations")
+            .is_empty(),
+        "a DM belongs to the people in it: {body:?}"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn scope_decides_which_half_of_the_search_runs(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "scope-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Scope").await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "scoped", false).await;
+    let (partner_id, _, _) = seed_and_login(&app, &state, "scope-partner", false).await;
+    add_ws_member(&state, ws_id, partner_id, "member").await;
+
+    create_message(&app, &owner_token, ch_id, "shared word here").await;
+    let (_, conversation) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/conversations"),
+        Some(&owner_token),
+        Some(json!({ "participant_ids": [partner_id] })),
+    )
+    .await;
+    let conversation_id = conversation["id"].as_str().expect("conversation id");
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/conversations/{conversation_id}/messages"),
+        Some(&owner_token),
+        Some(json!({ "content": "shared word there" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let cases = [
+        ("", 1, 1),
+        ("&scope=channels", 1, 0),
+        ("&scope=conversations", 0, 1),
+        ("&scope=all", 1, 1),
+    ];
+    for (suffix, channels, conversations) in cases {
+        let (status, body) = send(
+            &app,
+            "GET",
+            &format!("/api/search?q=shared&workspace_id={ws_id}{suffix}"),
+            Some(&owner_token),
+            None,
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body:?}");
+        assert_eq!(
+            body["data"].as_array().expect("data").len(),
+            channels,
+            "channels for scope '{suffix}': {body:?}"
+        );
+        assert_eq!(
+            body["conversations"]
+                .as_array()
+                .expect("conversations")
+                .len(),
+            conversations,
+            "conversations for scope '{suffix}': {body:?}"
+        );
+    }
+}
+
+fn urlencode(value: &str) -> String {
+    value
+        .bytes()
+        .map(|b| match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                (b as char).to_string()
+            }
+            _ => format!("%{b:02X}"),
+        })
+        .collect()
+}

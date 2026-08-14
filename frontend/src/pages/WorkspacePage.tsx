@@ -60,6 +60,7 @@ export default function WorkspacePage() {
           onOpenMembers={() => panel.toggle('members')}
           onOpenSettings={() => panel.toggle('settings')}
           onOpenIntegrations={() => panel.toggle('integrations')}
+          onOpenCustomEmoji={() => panel.toggle('customEmoji')}
           onOpenAuditLog={() => panel.toggle('auditLog')}
           onOpenScheduled={() => panel.toggle('scheduled')}
           onOpenProfile={() => c.setShowProfile(true)}
@@ -182,6 +183,7 @@ export default function WorkspacePage() {
         conversations={c.conversations}
         onClose={panel.close}
         onNavigateToMessage={c.handleNavigateToMessage}
+        onOpenConversation={c.handleOpenConversation}
       />
 
       {c.showProfile && <UserProfilePanel onClose={() => c.setShowProfile(false)} />}

@@ -48,6 +48,8 @@ pub enum AuditAction {
     TotpDisabled,
     TotpFailed,
     TotpRecoveryUsed,
+    EmojiCreated,
+    EmojiDeleted,
     ScimTokenCreated,
     ScimTokenRevoked,
     ScimTokenRotated,
@@ -91,6 +93,8 @@ impl AuditAction {
             Self::TotpDisabled => "totp.disabled",
             Self::TotpFailed => "totp.failed",
             Self::TotpRecoveryUsed => "totp.recovery_used",
+            Self::EmojiCreated => "emoji.created",
+            Self::EmojiDeleted => "emoji.deleted",
             Self::ScimTokenCreated => "scim.token_created",
             Self::ScimTokenRevoked => "scim.token_revoked",
             Self::ScimTokenRotated => "scim.token_rotated",
@@ -118,6 +122,7 @@ impl AuditAction {
                 "hook"
             }
             Self::FileDeleted => "file",
+            Self::EmojiCreated | Self::EmojiDeleted => "emoji",
             Self::UserProvisioned
             | Self::UserSuspended
             | Self::UserActivated

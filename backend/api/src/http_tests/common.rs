@@ -65,6 +65,9 @@ pub fn test_config() -> AppConfig {
         oidc_client_secret: String::new(),
         oidc_provisioning: "invite_only".into(),
         oidc_allowed_domains: String::new(),
+        vapid_public_key: String::new(),
+        vapid_private_key: String::new(),
+        vapid_subject: "mailto:test@test.local".into(),
     }
 }
 

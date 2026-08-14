@@ -131,10 +131,24 @@ async fn once_enrolled_the_password_alone_is_not_enough(pool: PgPool) {
     );
 }
 
+/// Waits out the tail of a step when there is not enough of it left for two
+/// requests. Without this the test is a coin flip: crossing the boundary between
+/// confirming and replaying means the second call claims a newer step, which is
+/// the guard working rather than failing.
+async fn wait_for_a_fresh_step() {
+    let seconds_into_step = chrono::Utc::now().timestamp() % 30;
+    let remaining = 30 - seconds_into_step;
+    if remaining < 5 {
+        tokio::time::sleep(std::time::Duration::from_secs(remaining as u64 + 1)).await;
+    }
+}
+
 #[sqlx::test(migrations = "../migrations")]
 async fn a_code_works_once_and_not_twice(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, email, token) = seed_and_login(&app, &state, "totp-user", false).await;
+
+    wait_for_a_fresh_step().await;
 
     let (_, body) = send(&app, "POST", "/api/auth/totp/enrol", Some(&token), None).await;
     let secret = body["secret"].as_str().expect("secret").to_string();

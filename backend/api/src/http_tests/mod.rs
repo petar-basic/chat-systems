@@ -1,7 +1,9 @@
 mod common;
 mod edit_history;
+mod emoji;
 mod export;
 mod oidc;
+mod push;
 mod retention;
 mod scim;
 mod smoke;

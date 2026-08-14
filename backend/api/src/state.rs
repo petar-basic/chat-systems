@@ -29,5 +29,8 @@ pub struct AppState {
     pub export_repo: crate::export::repo::ExportRepo,
     pub totp_repo: crate::auth::totp_repo::TotpRepo,
     pub scim_repo: crate::scim::repo::ScimRepo,
+    pub push_repo: crate::push::repo::PushRepo,
+    pub push_sender: crate::push::sender::PushSender,
+    pub emoji_repo: crate::emoji::repo::EmojiRepo,
     pub huddle_repo: HuddleRepo,
 }
