@@ -186,6 +186,10 @@ services:
       OIDC_PROVISIONING: ${OIDC_PROVISIONING:-invite_only}
       OIDC_ALLOWED_DOMAINS: ${OIDC_ALLOWED_DOMAINS:-}
       REQUIRE_ADMIN_TOTP: ${REQUIRE_ADMIN_TOTP:-false}
+      WEBHOOK_ALLOW_PRIVATE_TARGETS: ${WEBHOOK_ALLOW_PRIVATE_TARGETS:-false}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@localhost}
       RETENTION_DRY_RUN: ${RETENTION_DRY_RUN:-false}
       SMTP_HOST: mailhog
       SMTP_PORT: "1025"
@@ -260,6 +264,10 @@ services:
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set (see .env.example)}
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
+      # The worker is what sends the pushes, so it needs the pair too.
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@localhost}
       STORAGE_BACKEND: ${STORAGE_BACKEND:-local}
       LOCAL_STORAGE_PATH: /data/files
       S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}

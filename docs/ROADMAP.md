@@ -577,8 +577,11 @@ who is allowed in; and an SSO account's password is nulled, with the instance ad
 deliberate exception — a break-glass local admin has to survive a provider outage.
 
 **TOTP replay was a real gap in the ticket.** Checking the six digits alone accepts the same
-code for its full thirty seconds, which is exactly long enough for somebody reading over a
-shoulder. `user_totp.last_used_step` is claimed atomically, so a code works once. Secrets are
+code for its full validity, which is exactly long enough for somebody reading over a
+shoulder. `user_totp.last_used_step` is claimed atomically, so a code works once — and the
+claimed step is the one the *code* belongs to rather than the one the request arrived in,
+because a step either side is allowed for clock drift and claiming the request's step would
+hand the same digits back to a replay as soon as the clock ticked over. Secrets are
 encrypted with a key derived from the instance's JWT secret — a database dump full of TOTP
 secrets is the same failure as one full of passwords. Recovery codes are hashed like
 passwords and shown once. `REQUIRE_ADMIN_TOTP` makes the factor mandatory for instance
@@ -610,16 +613,112 @@ borrowing one would name somebody who did not do it.
 
 ---
 
-## Wave 9 — Product parity
+## Wave 9 — Product parity (partly shipped)
 
-### [CS-034](./tickets/CS-034-search-language.md) — Search language and DM search
-**Today:** `content_search` is a `GENERATED ALWAYS ... STORED` column pinned to
-`to_tsvector('english', …)`, so the language is a schema decision, not a setting. Wrong
-stemming and no diacritic folding for non-English teams. DMs are not searchable at all.
+Three of six shipped. `CS-036`, `CS-037` and `CS-038` are still ahead and keep their
+tickets.
 
-### [CS-035](./tickets/CS-035-web-push.md) — Web Push
-**Today:** notifications arrive only while a window is open. Closed-app delivery needs a
-service worker, VAPID keys and a sender in the worker.
+### [CS-034] Search language and DM search ✅ shipped
+`content_search` was `GENERATED ALWAYS AS (to_tsvector('english', content)) STORED`, so the
+language was a schema decision. For a team writing Serbian that is wrong in both directions:
+English stemming mangles the words, and `četvrtak` and `cetvrtak` were different tokens.
+
+The stored vector is now `simple` over `unaccent`, which does no stemming and no stop-word
+removal — never actively wrong for a mixed-language instance, unlike a language guess. A
+trigram index over the same normalized expression answers the half `to_tsvector` cannot:
+substrings and near misses, which is what people actually type into a chat search. Both
+signals rank in one expression, so a fuzzy hit always sits below every exact one.
+
+**`SEARCH_TEXT_CONFIG` from the ticket is deliberately absent.** A setting that has to agree
+with the contents of a stored column is a setting that will eventually disagree with it.
+Instead there is a SQL function, `search_text_config()`, called both by the trigger that
+writes the vector and by the query that reads it — they cannot drift. Changing the language
+is a migration that replaces the function and rebuilds, which is exactly what the ticket
+asked the behaviour to be.
+
+**The migration never rewrites the table.** Replacing a generated column takes ACCESS
+EXCLUSIVE for the whole rewrite, which on a large instance is minutes of downtime. Instead:
+a nullable column (a catalog change), a trigger, and `CREATE INDEX CONCURRENTLY`. Each
+concurrent build is alone in its own migration file because Postgres wraps a multi-statement
+string in an implicit transaction and refuses to build concurrently inside one — `--
+no-transaction` alone is not enough.
+
+The backfill is not in a migration either: a migration runs as one transaction, so a loop
+inside it cannot commit between batches, and a single `UPDATE` over every row would hold its
+locks and its snapshot for the whole run. The worker does it in committed batches. While it
+runs, old messages are still found through the trigram index, so search degrades to
+substring matching rather than going blank.
+
+DMs are searchable for the first time, scoped by participation. Channels and conversations
+come back as two lists rather than one merged list — different resources, different
+visibility rules, and the guest rule from CS-010 applies to only one of them.
+
+### [CS-035] Web Push ✅ shipped
+**The ticket said to add handlers to the existing service worker. There was no service
+worker** — the manifest and icons were there, nothing else. `public/sw.js` is new, and it
+does push and `notificationclick` and nothing else: no fetch handler, no caching, because an
+app shell served from a cache is an app running a version the server has already replaced.
+
+nginx was serving every `.js` with `Cache-Control: immutable` for a year, which would have
+made a fix to the worker something nobody receives. It now has its own `no-cache` location.
+
+Sending happens in the worker, on the same path that writes the notification row, and is
+suppressed three ways: a muted channel, do-not-disturb, and — the one that matters for
+whether people keep notifications on — a live socket for that workspace. Somebody looking at
+the message does not need it on their phone as well. Payloads carry a truncated preview
+rather than the message: encrypted or not, it passes through a third-party push service.
+`410 Gone` is the only reliable signal a subscription is dead, so that is what prunes it.
+
+Delivery is tested against a real HTTP server that records what reached it, rather than
+against a mock of our own sender.
+
+### [CS-039] Custom emoji, user groups, bots and slash commands ✅ shipped
+Four independent gaps, shipped in the order the ticket set out.
+
+**Bot identity.** Incoming webhook messages appeared as sent by the admin who created the
+hook. They now carry the hook's own name and icon. **The ticket implies a bot `users` row;
+this uses `messages.metadata`** — a bot account would either have to join every workspace
+member list to render, or fail to resolve and show as nobody, and the column exists for
+exactly this. `user_id` still points at the creator, which keeps the foreign key and the
+audit trail honest. Slack-compatible `username` and `icon_url` overrides come along free.
+
+**Custom emoji.** Per workspace, because a shortcode is shared vocabulary: two workspaces on
+one instance can each have their own `:shipit:`. Names that would shadow a standard shortcode
+are refused at upload — the renderer resolves the standard set first, so such an emoji would
+upload cleanly and then never appear. Size and type limits are enforced because an emoji is
+not a file share.
+
+**User groups.** `@backend` resolves to its members, and the fan-out is the intersection of
+the group and the channel. Notifying a member who is not in the channel would tell them a
+private channel exists and hand them a preview of a message they cannot open. A group mention
+carries `group:<uuid>` inside the existing `@[label](target)` form, so the user-mention parser
+needed no changes at all. The handle is not editable after creation: messages carry the id
+but people read the handle, and renaming would silently rewrite the record of who was asked.
+
+**Slash commands.** Synchronous, through the same SSRF-validated, HMAC-signed transport the
+outgoing hooks use, with a three-second timeout and **no retries** — unlike an event, a
+command has somebody waiting for it, and a second attempt would do whatever it does twice.
+Registered commands are scoped to channels exactly as outgoing hooks are, for the same
+reason: invoking one sends what somebody typed to a third-party URL.
+
+**The new realtime delivery mode the ticket called for was not needed.** Synchronous dispatch
+means the ephemeral answer comes back in the same HTTP response; nothing is persisted and
+nothing new had to be added to the gateway. An unknown command is a 404 and the client sends
+what was typed as an ordinary message, so a typo is visible instead of disappearing into an
+error.
+
+Built-ins are `/dnd`, `/topic`, `/invite` and `/shrug`, through the same registry.
+**`/away` is not shipped**: presence here is derived from whether the gateway holds a socket
+(CS-027), so there is no flag for a command to set, and adding one would mean a second,
+manual presence state nothing else reads.
+
+**A new operator setting, `WEBHOOK_ALLOW_PRIVATE_TARGETS`, default off.** Outbound calls
+refuse private, loopback and link-local addresses so that a workspace admin cannot point one
+at a cloud metadata endpoint. A self-hosted instance whose CI is on the same private network
+has nowhere else to point it, so the operator — not the admin — can allow it, with the cost
+stated where it is documented.
+
+### Still ahead in this wave
 
 ### [CS-036](./tickets/CS-036-slack-import-export.md) — Slack import
 **Today:** no import. A migrating company either abandons its history or keeps paying Slack
@@ -632,12 +731,9 @@ column exists and is unused. Keep the mesh for small calls; switch above a thres
 ### [CS-038](./tickets/CS-038-mobile-client.md) — Mobile client
 **Today:** desktop-first, mobile layout explicitly not a goal. The largest adoption risk on
 this page: a chat tool that cannot reach people on a phone gets replaced in practice by
-whatever can.
-
-### [CS-039](./tickets/CS-039-remaining-parity.md) — Custom emoji, user groups, bots, slash commands
-**Today:** `HookType::Bot` and `HookType::SlashCommand` are defined and unused; incoming
-webhook messages are attributed to the admin who created the hook rather than to a bot
-identity.
+whatever can. **Decided 2026-08-13: Option A, the responsive PWA.** Web Push shipped with
+CS-035, which was the half that made a PWA worth installing; React Native stays a follow-up
+for if push reliability or call ringing turns out to be the actual blocker.
 
 ---
 

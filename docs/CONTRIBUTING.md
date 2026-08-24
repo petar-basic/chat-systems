@@ -164,6 +164,11 @@ docs/         this folder
   crate then fails every test with `DATABASE_URL must be set` while passing on its own. CI
   exports it explicitly and so should you:
   `DATABASE_URL=postgres://chat:devpassword@localhost:5433/chatsystems cargo test --workspace`.
+- **One statement per `-- no-transaction` migration.** Postgres wraps a multi-statement
+  string in an implicit transaction, so `CREATE INDEX CONCURRENTLY` fails with *cannot run
+  inside a transaction block* even in a migration marked `-- no-transaction`. A batched
+  backfill cannot live in a migration either — there is nowhere to commit between batches;
+  put it in the worker (see `search::backfill`).
 - **`#[sqlx::test(migrations = "../migrations")]`, always.** A bare `#[sqlx::test]` gets an
   empty database and every test in the file fails with `relation "users" does not exist` —
   which reads like a broken fixture rather than a missing attribute.
@@ -185,6 +190,12 @@ docs/         this folder
 - **State split**: TanStack Query for server state, Zustand for UI state; WebSocket events
   reconcile into the Query cache via `wsQuerySync`.
 - **Query keys always go through the `QUERY_KEYS` factory** — never hand-built arrays.
+- **No server state inside `MessageContent`.** It renders once per message, and a `useQuery`
+  there also makes every test of it need a `QueryClient` to render text. Workspace-wide data
+  the renderer needs — custom emoji, your own group ids — is populated into a Zustand store
+  by `useWorkspaceController`, the way `useUserCache` already works.
+- **Typecheck with `tsc -b`, not `tsc --noEmit`.** The bare form picks up a different
+  project in this repo and passes while CI fails.
 - Formatted with Prettier; lints clean under ESLint (which includes `react-hooks` rules).
 
 ### Both

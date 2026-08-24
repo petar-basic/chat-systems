@@ -32,10 +32,17 @@ export interface Reaction {
   created_at: string;
 }
 
+export interface BotIdentity {
+  hook_id: string;
+  name: string;
+  icon_url?: string | null;
+}
+
 export interface MessageMetadata {
   kind?: string;
   huddle_id?: string;
   initiator_id?: string;
+  bot?: BotIdentity;
 }
 
 export interface Message {

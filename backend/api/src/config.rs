@@ -60,6 +60,12 @@ pub struct AppConfig {
     /// it is opt-in — recommended for production, off by default.
     pub require_admin_totp: bool,
 
+    pub webhook_allow_private_targets: bool,
+
+    pub vapid_public_key: String,
+    pub vapid_private_key: String,
+    pub vapid_subject: String,
+
     pub oidc_issuer: String,
     pub oidc_client_id: String,
     pub oidc_client_secret: String,
@@ -148,6 +154,10 @@ impl AppConfig {
             oidc_client_secret: env_or("OIDC_CLIENT_SECRET", ""),
             oidc_provisioning: env_or("OIDC_PROVISIONING", "invite_only"),
             oidc_allowed_domains: env_or("OIDC_ALLOWED_DOMAINS", ""),
+            webhook_allow_private_targets: parse_env("WEBHOOK_ALLOW_PRIVATE_TARGETS", false),
+            vapid_public_key: env_or("VAPID_PUBLIC_KEY", ""),
+            vapid_private_key: env_or("VAPID_PRIVATE_KEY", ""),
+            vapid_subject: env_or("VAPID_SUBJECT", "mailto:admin@localhost"),
         };
         let mut config = config;
         config.smtp_tls_mode = resolve_smtp_tls_mode(&config.smtp_host);

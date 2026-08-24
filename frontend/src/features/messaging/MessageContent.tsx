@@ -2,7 +2,11 @@ import { memo, useMemo, type ReactNode } from 'react';
 import { parseMessage, type MessageNode } from '@/lib/messageMarkdown';
 import { highlightMentions, type MentionRef } from '@/lib/mentionHighlight';
 import { parseMentions, flattenMentions } from '@/lib/mentions';
+import { splitCustomEmoji } from '@/lib/customEmoji';
 import { useCurrentUser } from '@/hooks/queries/useAuth';
+import type { CustomEmoji } from '@/hooks/queries/useCustomEmoji';
+import { useCustomEmojiStore } from '@/stores/customEmoji';
+import { useUserGroupStore } from '@/stores/userGroups';
 
 interface Props {
   content: string;
@@ -12,14 +16,35 @@ interface Props {
 interface RenderContext {
   selfId: string | undefined;
   mentions: MentionRef[];
+  emoji: Map<string, CustomEmoji>;
+  selfGroupIds: Set<string>;
+}
+
+function renderPlain(text: string, ctx: RenderContext, key: string): ReactNode {
+  const spans = splitCustomEmoji(text, ctx.emoji);
+  if (spans.length === 1 && spans[0].emoji === null) return spans[0].text;
+  return spans.map((span, i) =>
+    span.emoji === null ? (
+      <span key={`${key}-e${i}`}>{span.text}</span>
+    ) : (
+      <img
+        key={`${key}-e${i}`}
+        src={span.emoji.url}
+        alt={span.text}
+        title={span.text}
+        data-qa="custom-emoji"
+        className="inline-block w-5 h-5 align-text-bottom"
+      />
+    ),
+  );
 }
 
 function renderText(text: string, ctx: RenderContext, key: string): ReactNode {
-  const spans = highlightMentions(text, ctx.selfId, ctx.mentions);
-  if (spans.length === 1 && spans[0].mention === null) return spans[0].text;
+  const spans = highlightMentions(text, ctx.selfId, ctx.mentions, ctx.selfGroupIds);
+  if (spans.length === 1 && spans[0].mention === null) return renderPlain(spans[0].text, ctx, key);
   return spans.map((span, i) =>
     span.mention === null ? (
-      <span key={`${key}-${i}`}>{span.text}</span>
+      <span key={`${key}-${i}`}>{renderPlain(span.text, ctx, `${key}-${i}`)}</span>
     ) : (
       <span key={`${key}-${i}`} className={`mention mention-${span.mention}`}>
         {span.text}
@@ -92,10 +117,16 @@ function MessageContent({ content, className }: Props) {
   const { data: user } = useCurrentUser();
   const selfId = user?.id;
 
+  const emoji = useCustomEmojiStore((s) => s.byName);
+  const selfGroupIds = useUserGroupStore((s) => s.selfGroupIds);
+
   const nodes = useMemo(() => parseMessage(flattenMentions(content)), [content]);
   const mentions = useMemo(() => parseMentions(content), [content]);
 
-  const rendered = useMemo(() => renderNodes(nodes, { selfId, mentions }, 'n'), [nodes, selfId, mentions]);
+  const rendered = useMemo(
+    () => renderNodes(nodes, { selfId, mentions, emoji, selfGroupIds }, 'n'),
+    [nodes, selfId, mentions, emoji, selfGroupIds],
+  );
 
   return <div className={`tiptap-content${className ? ` ${className}` : ''}`}>{rendered}</div>;
 }

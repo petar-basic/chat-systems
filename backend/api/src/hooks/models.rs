@@ -63,6 +63,11 @@ pub struct CreateHookRequest {
 #[derive(Debug, Deserialize)]
 pub struct IncomingWebhookPayload {
     pub text: String,
+    /// Slack-compatible overrides. A CI hook that posts as "CI" and a release
+    /// hook that posts as "Releases" are the same integration mechanism with
+    /// different faces, and callers already send these fields.
+    pub username: Option<String>,
+    pub icon_url: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

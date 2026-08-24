@@ -2,10 +2,13 @@ pub mod admin;
 pub mod audit;
 pub mod auth;
 pub mod authz;
+pub mod commands;
 pub mod config;
 pub mod conversations;
+pub mod emoji;
 pub mod export;
 pub mod files;
+pub mod groups;
 pub mod health;
 pub mod hooks;
 pub mod huddle;
@@ -15,10 +18,12 @@ pub mod middleware;
 pub mod net;
 pub mod notifications;
 pub mod presence;
+pub mod push;
 pub mod rate_limit;
 pub mod retention;
 pub mod scheduled;
 pub mod scim;
+pub mod search;
 pub mod sessions;
 pub mod state;
 pub mod workspace;
@@ -95,6 +100,17 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
     let export_repo = export::repo::ExportRepo::new(pool.clone());
     let totp_repo = auth::totp_repo::TotpRepo::new(pool.clone());
     let scim_repo = crate::scim::repo::ScimRepo::new(pool.clone());
+    let push_repo = crate::push::repo::PushRepo::new(pool.clone());
+    let emoji_repo = crate::emoji::repo::EmojiRepo::new(pool.clone());
+    let group_repo = crate::groups::repo::GroupRepo::new(pool.clone());
+    let push_sender = crate::push::sender::PushSender::new(
+        push_repo.clone(),
+        crate::push::sender::VapidKeys {
+            public_key: config.vapid_public_key.clone(),
+            private_key: config.vapid_private_key.clone(),
+            subject: config.vapid_subject.clone(),
+        },
+    );
     let huddle_repo = HuddleRepo::new(pool.clone());
 
     Ok(Arc::new(AppState {
@@ -115,6 +131,10 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
         export_repo,
         totp_repo,
         scim_repo,
+        push_repo,
+        push_sender,
+        emoji_repo,
+        group_repo,
         huddle_repo,
     }))
 }
@@ -139,7 +159,11 @@ pub fn build_app(state: Arc<AppState>) -> Router {
         .merge(export::routes::router(state.clone()))
         .merge(auth::totp_routes::router(state.clone()))
         .merge(auth::oidc_routes::router(state.clone()))
-        .merge(scim::routes::router(state.clone()));
+        .merge(scim::routes::router(state.clone()))
+        .merge(push::routes::router(state.clone()))
+        .merge(emoji::routes::router(state.clone()))
+        .merge(groups::routes::router(state.clone()))
+        .merge(commands::routes::router(state.clone()));
 
     Router::new()
         .nest("/api", api)

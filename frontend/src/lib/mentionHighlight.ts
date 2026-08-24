@@ -28,6 +28,7 @@ export function highlightMentions(
   text: string,
   selfId: string | undefined,
   mentions: MentionRef[],
+  selfGroupIds?: Set<string>,
 ): MentionSpan[] {
   if (!text.includes('@')) return [{ text, mention: null }];
 
@@ -45,7 +46,11 @@ export function highlightMentions(
     let idx = text.indexOf(needle);
     while (idx !== -1) {
       if (isStartBoundary(idx === 0 ? '' : text[idx - 1])) {
-        claim(idx, needle.length, selfId !== undefined && mention.id === selfId ? 'self' : 'other');
+        // A mention of a group you are in is a mention of you: the whole point
+        // of `@backend` is that the people in it read it as addressed to them.
+        const isSelf =
+          (selfId !== undefined && mention.id === selfId) || selfGroupIds?.has(mention.id) === true;
+        claim(idx, needle.length, isSelf ? 'self' : 'other');
       }
       idx = text.indexOf(needle, idx + needle.length);
     }

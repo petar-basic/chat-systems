@@ -9,8 +9,9 @@ history and in the docs it changed. A bug found mid-wave gets a suffixed number
 (`CS-005a`) so it lands where it belongs in the order without renumbering everything
 below it.
 
-**Waves 0 through 8 are done.** The E2E suite is green and the `e2e` job blocks merges.
-Next ticket: [CS-034](CS-034-search-language.md).
+**Waves 0 through 8 are done, and half of Wave 9.** The E2E suite is green and the `e2e`
+job blocks merges. Next ticket: [CS-038](CS-038-mobile-client.md) — the responsive pass now
+that Web Push has landed.
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
@@ -131,16 +132,16 @@ per ticket.
 CS-029 edit history · CS-030 retention · CS-031 export and erasure · CS-032 SSO and TOTP ·
 CS-033 SCIM deprovisioning. See [ROADMAP.md](../ROADMAP.md#wave-8--compliance--shipped).
 
-### Wave 9 — Product parity
+### Wave 9 — Product parity (partly done)
+
+CS-034 search, CS-035 web push and CS-039 emoji/groups/bots/commands are shipped — see
+[ROADMAP.md](../ROADMAP.md#wave-9--product-parity-partly-shipped). What is left:
 
 | # | Ticket | Area |
 |---|---|---|
-| [CS-034](CS-034-search-language.md) | Configurable full-text search language | backend |
-| [CS-035](CS-035-web-push.md) | Web Push for closed-app delivery | backend/api · frontend |
 | [CS-036](CS-036-slack-import-export.md) | Slack import / export CLI | backend |
 | [CS-037](CS-037-huddle-sfu.md) | SFU for large huddles | backend · frontend |
 | [CS-038](CS-038-mobile-client.md) | Mobile client | frontend |
-| [CS-039](CS-039-remaining-parity.md) | Custom emoji, user groups, bots and slash commands | backend/api · frontend |
 
 ## Conflict map
 
@@ -154,4 +155,4 @@ Tickets that touch the same files, and the order that avoids rework:
 | `backend/api/src/auth/service.rs` | CS-008 ✅ → CS-016 ✅ → CS-017 ✅ → CS-032 ✅ |
 | realtime event consumer | CS-007 ✅ → CS-014 ✅ → CS-027 ✅ → CS-028 ✅ |
 | `frontend/src/features/messaging/` | CS-024 ✅ → CS-025 ✅ → CS-029 ✅ |
-| `messages` table schema | CS-029 ✅ → CS-030 ✅ → CS-034 |
+| `messages` table schema | CS-029 ✅ → CS-030 ✅ → CS-034 ✅ |

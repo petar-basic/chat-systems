@@ -203,6 +203,48 @@ impl ConversationRepo {
         .await
     }
 
+    /// Scoped by participation rather than by workspace: a DM belongs to the
+    /// people in it, and there is no channel membership to fall back on. The
+    /// workspace filter is still applied so a search in one workspace does not
+    /// return conversations from another the person also belongs to.
+    pub async fn search(
+        &self,
+        query: &str,
+        workspace_id: Uuid,
+        requester_id: Uuid,
+        limit: i64,
+        offset: i64,
+    ) -> sqlx::Result<Vec<ConversationMessage>> {
+        sqlx::query_as::<_, ConversationMessage>(
+            r"
+            SELECT m.* FROM conversation_messages m
+            JOIN conversations c ON c.id = m.conversation_id
+            WHERE (
+                m.search_vector @@ plainto_tsquery(search_text_config(), search_normalize($1))
+                OR search_normalize($1) <% search_normalize(m.content)
+              )
+              AND c.workspace_id = $2
+              AND m.deleted_at IS NULL
+              AND EXISTS (
+                SELECT 1 FROM conversation_participants p
+                WHERE p.conversation_id = c.id AND p.user_id = $3
+              )
+            ORDER BY
+              ts_rank(m.search_vector, plainto_tsquery(search_text_config(), search_normalize($1))) DESC,
+              word_similarity(search_normalize($1), search_normalize(m.content)) DESC,
+              m.created_at DESC
+            LIMIT $4 OFFSET $5
+            ",
+        )
+        .bind(query)
+        .bind(workspace_id)
+        .bind(requester_id)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await
+    }
+
     pub async fn list_messages(
         &self,
         conversation_id: Uuid,

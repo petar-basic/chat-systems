@@ -9,6 +9,9 @@ import PinnedMessagesPanel from '@/components/PinnedMessagesPanel';
 import ChannelMembersPanel from '@/components/ChannelMembersPanel';
 import NotificationsPanel from '@/components/NotificationsPanel';
 import IntegrationsPanel from '@/components/IntegrationsPanel';
+import CustomEmojiPanel from '@/components/CustomEmojiPanel';
+import UserGroupsPanel from '@/components/UserGroupsPanel';
+import { useCurrentWorkspaceRole } from './hooks/useCurrentWorkspaceRole';
 import AuditLogPanel from '@/components/AuditLogPanel';
 import ScheduledMessagesPanel from '@/components/ScheduledMessagesPanel';
 
@@ -21,6 +24,7 @@ interface Props {
   conversations: Conversation[];
   onClose: () => void;
   onNavigateToMessage: (channelId: string, messageId: string, withThread?: boolean) => void;
+  onOpenConversation: (conversationId: string) => void;
 }
 
 export default function WorkspaceRightPanels({
@@ -32,7 +36,10 @@ export default function WorkspaceRightPanels({
   conversations,
   onClose,
   onNavigateToMessage,
+  onOpenConversation,
 }: Props) {
+  const { role } = useCurrentWorkspaceRole();
+
   if (!panel) return null;
 
   if (panel.kind === 'members' && currentWorkspace) {
@@ -65,6 +72,7 @@ export default function WorkspaceRightPanels({
       <SearchPanel
         onClose={onClose}
         onNavigateToMessage={(chId, msgId) => onNavigateToMessage(chId, msgId)}
+        onNavigateToConversation={onOpenConversation}
       />
     );
   }
@@ -102,6 +110,26 @@ export default function WorkspaceRightPanels({
         workspaceId={currentWorkspace.id}
         instanceUrl={currentWorkspace.instanceUrl}
         channels={channels}
+        onClose={onClose}
+      />
+    );
+  }
+  if (panel.kind === 'customEmoji' && currentWorkspace) {
+    return (
+      <CustomEmojiPanel
+        workspaceId={currentWorkspace.id}
+        instanceUrl={currentWorkspace.instanceUrl}
+        onClose={onClose}
+      />
+    );
+  }
+  if (panel.kind === 'userGroups' && currentWorkspace) {
+    return (
+      <UserGroupsPanel
+        workspaceId={currentWorkspace.id}
+        instanceUrl={currentWorkspace.instanceUrl}
+        members={workspaceMembers}
+        isAdmin={role === 'admin' || role === 'owner'}
         onClose={onClose}
       />
     );

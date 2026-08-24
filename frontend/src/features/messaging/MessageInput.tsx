@@ -20,6 +20,8 @@ import { SCHEDULE_PRESETS, formatScheduleHint, toLocalInputValue } from './sched
 import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
 import { buildMentionItems } from './mentionItems';
+import { useUserGroups } from '@/hooks/queries/useUserGroups';
+import { useWorkspaceStore } from '@/stores/workspace';
 
 const MentionNode = Mention.extend({
   addStorage() {
@@ -82,9 +84,11 @@ export default function MessageInput({
   const cancelRef = useRef(onCancel);
   cancelRef.current = onCancel;
 
+  const workspace = useWorkspaceStore((s) => s.currentWorkspace);
+  const { data: groups } = useUserGroups(workspace?.id, workspace?.instanceUrl);
   const mentionItems = useMemo<MentionItem[]>(
-    () => buildMentionItems(members, channels, isDm),
-    [members, channels, isDm],
+    () => buildMentionItems(members, channels, isDm, groups ?? []),
+    [members, channels, isDm, groups],
   );
   const mentionItemsRef = useRef<MentionItem[]>(mentionItems);
   useEffect(() => {

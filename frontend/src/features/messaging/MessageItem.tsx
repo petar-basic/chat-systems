@@ -136,6 +136,14 @@ function MessageItem({
         {!grouped && (
           <div className="flex items-baseline gap-2">
             <span className="text-sm font-semibold text-slate-200">{senderName}</span>
+            {message.metadata?.bot && (
+              <span
+                data-qa="bot-tag"
+                className="px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-slate-700 text-slate-300 rounded"
+              >
+                Bot
+              </span>
+            )}
             <span className="text-xs text-slate-400">{time}</span>
             {message.pending && <span className="text-xs text-slate-400 italic">Sending…</span>}
             {isEdited &&

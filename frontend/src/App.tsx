@@ -11,6 +11,7 @@ import { NotificationStream } from '@/features/notifications';
 import { HuddleController } from '@/features/huddle';
 import { logger } from '@/lib/logger';
 import { isSessionExpired } from '@/lib/errors';
+import { registerWorker } from '@/lib/push';
 
 const Router = BrowserRouter;
 
@@ -45,6 +46,9 @@ function AppContent() {
 
   useEffect(() => {
     void restoreInstances();
+    // Registering is not subscribing and shows no prompt: the worker has to be
+    // in place before anybody clicks the button, or the first click fails.
+    void registerWorker();
   }, [restoreInstances]);
 
   useEffect(() => {

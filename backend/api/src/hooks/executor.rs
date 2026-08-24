@@ -18,7 +18,7 @@ const HOOK_MAX_ATTEMPTS: u32 = 3;
 const HOOK_BACKOFF_BASE: Duration = Duration::from_millis(500);
 const HOOK_BACKOFF_CAP: Duration = Duration::from_secs(5);
 const HOOK_BODY_MAX_BYTES: usize = 4096;
-const SIGNATURE_HEADER: &str = "X-ChatSystems-Signature";
+pub(crate) const SIGNATURE_HEADER: &str = "X-ChatSystems-Signature";
 
 pub async fn start_hook_consumer(redis_url: &str, hook_repo: Arc<HookRepo>) {
     let Some(mut group) = StreamGroup::connect(redis_url, "hooks").await else {
@@ -235,7 +235,7 @@ async fn dispatch_hook(
     }
 }
 
-fn sign_body(secret: &str, body: &[u8]) -> String {
+pub(crate) fn sign_body(secret: &str, body: &[u8]) -> String {
     let mut mac =
         HmacSha256::new_from_slice(secret.as_bytes()).expect("HMAC accepts any key length");
     mac.update(body);

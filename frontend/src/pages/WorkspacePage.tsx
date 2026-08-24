@@ -60,6 +60,8 @@ export default function WorkspacePage() {
           onOpenMembers={() => panel.toggle('members')}
           onOpenSettings={() => panel.toggle('settings')}
           onOpenIntegrations={() => panel.toggle('integrations')}
+          onOpenCustomEmoji={() => panel.toggle('customEmoji')}
+          onOpenUserGroups={() => panel.toggle('userGroups')}
           onOpenAuditLog={() => panel.toggle('auditLog')}
           onOpenScheduled={() => panel.toggle('scheduled')}
           onOpenProfile={() => c.setShowProfile(true)}
@@ -140,6 +142,23 @@ export default function WorkspacePage() {
             <TypingIndicator channelId={currentChannel.id} currentUserId={user.id} />
           )}
 
+          {c.ephemeral && (
+            <div
+              data-qa="command-response"
+              className="mx-4 mb-2 px-3 py-2 rounded-lg bg-slate-800/80 border border-slate-700 text-sm text-slate-300 flex items-start gap-2"
+            >
+              <span className="flex-1 whitespace-pre-wrap">{c.ephemeral}</span>
+              <button
+                type="button"
+                onClick={c.dismissEphemeral}
+                aria-label="Dismiss"
+                className="text-slate-500 hover:text-white transition cursor-pointer"
+              >
+                ×
+              </button>
+            </div>
+          )}
+
           {currentChannel && (
             <MessageInput
               key={currentChannel.id}
@@ -182,6 +201,7 @@ export default function WorkspacePage() {
         conversations={c.conversations}
         onClose={panel.close}
         onNavigateToMessage={c.handleNavigateToMessage}
+        onOpenConversation={c.handleOpenConversation}
       />
 
       {c.showProfile && <UserProfilePanel onClose={() => c.setShowProfile(false)} />}

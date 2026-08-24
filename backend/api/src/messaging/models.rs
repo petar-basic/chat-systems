@@ -68,4 +68,26 @@ pub struct SearchQuery {
     pub user_id: Option<Uuid>,
     pub limit: Option<i64>,
     pub offset: Option<i64>,
+    pub scope: Option<SearchScope>,
+}
+
+/// Channels and conversations are different resources with different visibility
+/// rules, so they are returned as two lists rather than merged into one. A
+/// caller that filters by channel is asking about channels and gets nothing else.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SearchScope {
+    Channels,
+    Conversations,
+    All,
+}
+
+impl SearchScope {
+    pub fn includes_channels(self) -> bool {
+        matches!(self, Self::Channels | Self::All)
+    }
+
+    pub fn includes_conversations(self) -> bool {
+        matches!(self, Self::Conversations | Self::All)
+    }
 }

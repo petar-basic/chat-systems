@@ -85,8 +85,8 @@ export default function MessageList({
           members={members}
           channels={channels}
           currentUserId={actions.currentUserId}
-          senderName={displayNameOf(sender?.display_name)}
-          senderAvatarUrl={sender?.avatar_url}
+          senderName={row.message.metadata?.bot?.name ?? displayNameOf(sender?.display_name)}
+          senderAvatarUrl={row.message.metadata?.bot?.icon_url ?? sender?.avatar_url}
           isHighlighted={row.message.id === highlightMessageId}
           onThreadOpen={onThreadOpen}
           onToggleReaction={actions.toggleReaction}

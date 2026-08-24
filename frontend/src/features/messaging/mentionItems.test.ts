@@ -35,3 +35,27 @@ describe('buildMentionItems', () => {
     expect(broadcasts.map((i) => i.id)).toEqual(['channel', 'here', 'everyone']);
   });
 });
+
+describe('group mentions', () => {
+  const groups = [
+    {
+      id: 'g1',
+      handle: 'backend',
+      name: 'Backend',
+      description: null,
+      member_count: 3,
+      is_member: true,
+    },
+  ];
+
+  it('offers a group with the prefix that keeps it out of the user id space', () => {
+    const items = buildMentionItems([], [], false, groups);
+    const group = items.find((i) => i.type === 'group');
+    expect(group).toMatchObject({ id: 'group:g1', label: 'backend', hint: '3 people' });
+  });
+
+  it('offers no group in a DM, where there is no channel to fan out through', () => {
+    const items = buildMentionItems([], [], true, groups);
+    expect(items.some((i) => i.type === 'group')).toBe(false);
+  });
+});

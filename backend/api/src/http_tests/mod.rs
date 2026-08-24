@@ -1,7 +1,10 @@
 mod common;
 mod edit_history;
+mod emoji;
 mod export;
+mod groups;
 mod oidc;
+mod push;
 mod retention;
 mod scim;
 mod smoke;
@@ -13,6 +16,7 @@ mod admin;
 mod audit;
 mod auth;
 mod channels;
+mod commands;
 mod conversations;
 mod files;
 mod hooks;
