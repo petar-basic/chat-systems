@@ -70,8 +70,46 @@ pub fn current_step(at: i64) -> i64 {
 }
 
 pub fn verify(secret: &str, email: &str, issuer: &str, code: &str) -> AppResult<bool> {
+    Ok(matching_step(secret, email, issuer, code, chrono::Utc::now().timestamp())?.is_some())
+}
+
+fn codes_match(a: &str, b: &str) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    a.bytes()
+        .zip(b.bytes())
+        .fold(0u8, |acc, (x, y)| acc | (x ^ y))
+        == 0
+}
+
+/// The step the code itself belongs to, not the step the request arrived in.
+/// Skew means one code stays valid across three steps, so claiming the request's
+/// step would let the same digits through again as soon as the clock ticked over
+/// — the replay guard has to pin the code to where it came from.
+pub fn matching_step(
+    secret: &str,
+    email: &str,
+    issuer: &str,
+    code: &str,
+    at: i64,
+) -> AppResult<Option<i64>> {
     let totp = totp(secret, email, issuer)?;
-    Ok(totp.check_current(code).unwrap_or(false))
+    let current = current_step(at);
+    for step in [
+        current,
+        current - i64::from(SKEW),
+        current + i64::from(SKEW),
+    ] {
+        if step < 0 {
+            continue;
+        }
+        let generated = totp.generate(step as u64 * STEP_SECS);
+        if codes_match(&generated, code) {
+            return Ok(Some(step));
+        }
+    }
+    Ok(None)
 }
 
 pub fn generate_recovery_codes() -> Vec<String> {
@@ -126,6 +164,50 @@ mod tests {
         let unique: std::collections::HashSet<&String> = codes.iter().collect();
         assert_eq!(unique.len(), codes.len());
         assert!(codes.iter().all(|c| c.len() == 11 && c.contains('-')));
+    }
+
+    #[test]
+    fn a_code_is_pinned_to_the_step_that_produced_it() {
+        let secret = generate_secret();
+        let at = 1_700_000_000i64;
+        let step = current_step(at);
+        let code = TOTP::new(
+            Algorithm::SHA1,
+            DIGITS,
+            SKEW,
+            STEP_SECS,
+            Secret::Encoded(secret.clone()).to_bytes().expect("bytes"),
+            Some("Chat Systems".into()),
+            "user@test.local".into(),
+        )
+        .expect("totp")
+        .generate(at as u64);
+
+        for offset in [0, 30, -30] {
+            assert_eq!(
+                matching_step(
+                    &secret,
+                    "user@test.local",
+                    "Chat Systems",
+                    &code,
+                    at + offset
+                )
+                .expect("match"),
+                Some(step),
+                "the same code reports its own step whichever neighbouring step asks"
+            );
+        }
+
+        assert_eq!(
+            matching_step(&secret, "user@test.local", "Chat Systems", &code, at + 90)
+                .expect("match"),
+            None,
+            "outside the skew window the code is simply wrong"
+        );
+        assert_eq!(
+            matching_step(&secret, "user@test.local", "Chat Systems", "000000", at).expect("match"),
+            None,
+        );
     }
 
     #[test]

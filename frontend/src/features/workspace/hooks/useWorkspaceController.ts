@@ -184,9 +184,7 @@ export function useWorkspaceController() {
 
   const { data: userGroups } = useUserGroups(workspaceId, currentWsInstanceUrl);
   useEffect(() => {
-    populateSelfGroups(
-      (userGroups ?? []).filter((g) => g.is_member).map((g) => `group:${g.id}`),
-    );
+    populateSelfGroups((userGroups ?? []).filter((g) => g.is_member).map((g) => `group:${g.id}`));
   }, [userGroups, populateSelfGroups]);
 
   useEffect(() => {

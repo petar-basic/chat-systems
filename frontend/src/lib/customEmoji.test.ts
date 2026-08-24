@@ -39,8 +39,6 @@ describe('splitCustomEmoji', () => {
 
   /// A ratio like 1:30:00 is not a shortcode, and neither is a URL scheme.
   it('does not eat colons that are not shortcodes', () => {
-    expect(splitCustomEmoji('at 1:30:00 sharp', byName)).toEqual([
-      { text: 'at 1:30:00 sharp', emoji: null },
-    ]);
+    expect(splitCustomEmoji('at 1:30:00 sharp', byName)).toEqual([{ text: 'at 1:30:00 sharp', emoji: null }]);
   });
 });

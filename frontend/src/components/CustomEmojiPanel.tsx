@@ -23,8 +23,7 @@ export default function CustomEmojiPanel({ workspaceId, instanceUrl, onClose }: 
   const fileRef = useRef<HTMLInputElement>(null);
 
   const client = instanceUrl ? instanceManager.get(instanceUrl).api : api;
-  const refresh = () =>
-    queryClient.invalidateQueries({ queryKey: customEmojiKey(workspaceId) });
+  const refresh = () => queryClient.invalidateQueries({ queryKey: customEmojiKey(workspaceId) });
 
   const handleUpload = async (e: FormEvent) => {
     e.preventDefault();
@@ -38,12 +37,15 @@ export default function CustomEmojiPanel({ workspaceId, instanceUrl, onClose }: 
       form.append('image', file);
       // Multipart, so this goes through fetch rather than the JSON client.
       const token = await client.getValidToken();
-      const res = await fetch(`${instanceUrl ?? window.location.origin}/api/workspaces/${workspaceId}/emojis`, {
-        method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        credentials: 'include',
-        body: form,
-      });
+      const res = await fetch(
+        `${instanceUrl ?? window.location.origin}/api/workspaces/${workspaceId}/emojis`,
+        {
+          method: 'POST',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          credentials: 'include',
+          body: form,
+        },
+      );
       if (!res.ok) {
         const body = await res.json().catch(() => ({ error: res.statusText }));
         throw new Error(body.error || res.statusText);

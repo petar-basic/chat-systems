@@ -60,11 +60,7 @@ function Hit({
   );
 }
 
-export default function SearchPanel({
-  onClose,
-  onNavigateToMessage,
-  onNavigateToConversation,
-}: Props) {
+export default function SearchPanel({ onClose, onNavigateToMessage, onNavigateToConversation }: Props) {
   useEscapeToClose(onClose);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Message[]>([]);
@@ -185,9 +181,7 @@ export default function SearchPanel({
                     content={msg.content}
                     createdAt={msg.created_at}
                     onClick={
-                      onNavigateToMessage
-                        ? () => onNavigateToMessage(msg.channel_id, msg.id)
-                        : undefined
+                      onNavigateToMessage ? () => onNavigateToMessage(msg.channel_id, msg.id) : undefined
                     }
                   />
                 ))}

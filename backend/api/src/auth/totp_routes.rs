@@ -97,7 +97,14 @@ async fn confirm(
         &enrolment.secret_encrypted,
         &enrolment.nonce,
     )?;
-    if !totp::verify(&secret, &user.email, &state.config.instance_name, &req.code)? {
+    let Some(step) = totp::matching_step(
+        &secret,
+        &user.email,
+        &state.config.instance_name,
+        &req.code,
+        chrono::Utc::now().timestamp(),
+    )?
+    else {
         audit::record(
             &state,
             AuditEntry::new(AuditAction::TotpFailed, auth.user_id)
@@ -107,9 +114,8 @@ async fn confirm(
         )
         .await;
         return Err(AppError::Unauthorized("That code did not match".into()));
-    }
+    };
 
-    let step = totp::current_step(chrono::Utc::now().timestamp());
     state.totp_repo.confirm(auth.user_id, step).await?;
 
     // Shown once. They are the way back in when the phone is gone, so they are

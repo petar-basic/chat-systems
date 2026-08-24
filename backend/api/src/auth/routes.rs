@@ -97,15 +97,18 @@ async fn login(
             &enrolment.nonce,
         )?;
 
-        let accepted = if crate::auth::totp::verify(
+        let matched = crate::auth::totp::matching_step(
             &secret,
             &user.email,
             &state.config.instance_name,
             code,
-        )? {
-            // A correct code is only accepted once: without claiming the step,
-            // the same six digits work for the rest of their window.
-            let step = crate::auth::totp::current_step(chrono::Utc::now().timestamp());
+            chrono::Utc::now().timestamp(),
+        )?;
+
+        let accepted = if let Some(step) = matched {
+            // A correct code is only accepted once: claiming the step the code
+            // came from stops the same six digits working again, whether the
+            // replay lands in that step or the next one.
             state.totp_repo.claim_step(user.id, step).await?
         } else {
             consume_recovery_code(&state, user.id, code).await?

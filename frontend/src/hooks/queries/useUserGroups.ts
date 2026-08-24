@@ -57,9 +57,7 @@ export function useSetGroupMember(workspaceId: string, instanceUrl?: string) {
         ? clientFor(instanceUrl).post(`/workspaces/${workspaceId}/groups/${groupId}/members`, {
             user_id: userId,
           })
-        : clientFor(instanceUrl).delete(
-            `/workspaces/${workspaceId}/groups/${groupId}/members/${userId}`,
-          ),
+        : clientFor(instanceUrl).delete(`/workspaces/${workspaceId}/groups/${groupId}/members/${userId}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: userGroupsKey(workspaceId) }),
   });
 }

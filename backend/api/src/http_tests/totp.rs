@@ -131,24 +131,10 @@ async fn once_enrolled_the_password_alone_is_not_enough(pool: PgPool) {
     );
 }
 
-/// Waits out the tail of a step when there is not enough of it left for two
-/// requests. Without this the test is a coin flip: crossing the boundary between
-/// confirming and replaying means the second call claims a newer step, which is
-/// the guard working rather than failing.
-async fn wait_for_a_fresh_step() {
-    let seconds_into_step = chrono::Utc::now().timestamp() % 30;
-    let remaining = 30 - seconds_into_step;
-    if remaining < 5 {
-        tokio::time::sleep(std::time::Duration::from_secs(remaining as u64 + 1)).await;
-    }
-}
-
 #[sqlx::test(migrations = "../migrations")]
 async fn a_code_works_once_and_not_twice(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, email, token) = seed_and_login(&app, &state, "totp-user", false).await;
-
-    wait_for_a_fresh_step().await;
 
     let (_, body) = send(&app, "POST", "/api/auth/totp/enrol", Some(&token), None).await;
     let secret = body["secret"].as_str().expect("secret").to_string();
@@ -163,7 +149,9 @@ async fn a_code_works_once_and_not_twice(pool: PgPool) {
     .await;
     assert_eq!(status, StatusCode::OK);
 
-    // The same code, inside the same window: correct digits, already spent.
+    // The same code again: correct digits, already spent. The guard pins a code
+    // to the step that produced it, so this holds whether the replay lands in
+    // that step or in the next one.
     let (status, _) = send(
         &app,
         "POST",
@@ -176,6 +164,44 @@ async fn a_code_works_once_and_not_twice(pool: PgPool) {
         status,
         StatusCode::UNAUTHORIZED,
         "a replayed code must not work while it is still valid"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn a_code_stays_spent_after_the_clock_ticks_over(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (_id, email, token) = seed_and_login(&app, &state, "totp-user", false).await;
+
+    let (_, body) = send(&app, "POST", "/api/auth/totp/enrol", Some(&token), None).await;
+    let secret = body["secret"].as_str().expect("secret").to_string();
+    let code = code_for(&state, &secret, &email);
+    let (status, _) = send(
+        &app,
+        "POST",
+        "/api/auth/totp/confirm",
+        Some(&token),
+        Some(json!({ "code": code.clone() })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    // Skew keeps the digits valid into the next step. That is exactly the window
+    // a shoulder-surfer would use, so wait it out and try the replay there.
+    let into_step = chrono::Utc::now().timestamp() % 30;
+    tokio::time::sleep(std::time::Duration::from_secs((30 - into_step) as u64 + 1)).await;
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        "/api/auth/login",
+        None,
+        Some(json!({ "email": email, "password": PASSWORD, "totp_code": code })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "a spent code must stay spent for the rest of its skew window"
     );
 }
 

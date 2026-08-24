@@ -19,13 +19,7 @@ interface Props {
   onClose: () => void;
 }
 
-export default function UserGroupsPanel({
-  workspaceId,
-  instanceUrl,
-  members,
-  isAdmin,
-  onClose,
-}: Props) {
+export default function UserGroupsPanel({ workspaceId, instanceUrl, members, isAdmin, onClose }: Props) {
   const { data: groups, isLoading } = useUserGroups(workspaceId, instanceUrl);
   const createGroup = useCreateGroup(workspaceId, instanceUrl);
   const deleteGroup = useDeleteGroup(workspaceId, instanceUrl);

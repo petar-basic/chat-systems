@@ -95,9 +95,7 @@ describe('MessageContent', () => {
     const { useUserGroupStore } = await import('@/stores/userGroups');
     useUserGroupStore.getState().populate(['group:g1']);
 
-    const { container } = render(
-      <MessageContent content="@[backend](group:g1) and @[frontend](group:g2)" />,
-    );
+    const { container } = render(<MessageContent content="@[backend](group:g1) and @[frontend](group:g2)" />);
 
     expect(container.querySelector('.mention-self')).toHaveTextContent('@backend');
     expect(container.querySelector('.mention-other')).toHaveTextContent('@frontend');

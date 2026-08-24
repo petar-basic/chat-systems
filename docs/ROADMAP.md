@@ -577,8 +577,11 @@ who is allowed in; and an SSO account's password is nulled, with the instance ad
 deliberate exception — a break-glass local admin has to survive a provider outage.
 
 **TOTP replay was a real gap in the ticket.** Checking the six digits alone accepts the same
-code for its full thirty seconds, which is exactly long enough for somebody reading over a
-shoulder. `user_totp.last_used_step` is claimed atomically, so a code works once. Secrets are
+code for its full validity, which is exactly long enough for somebody reading over a
+shoulder. `user_totp.last_used_step` is claimed atomically, so a code works once — and the
+claimed step is the one the *code* belongs to rather than the one the request arrived in,
+because a step either side is allowed for clock drift and claiming the request's step would
+hand the same digits back to a replay as soon as the clock ticked over. Secrets are
 encrypted with a key derived from the instance's JWT secret — a database dump full of TOTP
 secrets is the same failure as one full of passwords. Recovery codes are hashed like
 passwords and shown once. `REQUIRE_ADMIN_TOTP` makes the factor mandatory for instance
