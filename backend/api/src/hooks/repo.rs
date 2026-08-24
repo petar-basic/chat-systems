@@ -121,6 +121,39 @@ impl HookRepo {
         .await
     }
 
+    /// One registered command per name per workspace: `/deploy` has to mean one
+    /// thing, or invoking it is a coin flip.
+    pub async fn find_slash_command(
+        &self,
+        workspace_id: Uuid,
+        command: &str,
+    ) -> sqlx::Result<Option<Hook>> {
+        sqlx::query_as::<_, Hook>(
+            "SELECT * FROM hooks \
+              WHERE workspace_id = $1 \
+                AND hook_type = 'slash_command' \
+                AND is_active = true \
+                AND config->>'command' = $2",
+        )
+        .bind(workspace_id)
+        .bind(command)
+        .fetch_optional(&self.pool)
+        .await
+    }
+
+    pub async fn list_slash_commands(&self, workspace_id: Uuid) -> sqlx::Result<Vec<Hook>> {
+        sqlx::query_as::<_, Hook>(
+            "SELECT * FROM hooks \
+              WHERE workspace_id = $1 \
+                AND hook_type = 'slash_command' \
+                AND is_active = true \
+              ORDER BY config->>'command'",
+        )
+        .bind(workspace_id)
+        .fetch_all(&self.pool)
+        .await
+    }
+
     pub async fn channel_ids_with_outgoing_hooks(
         &self,
         workspace_id: Uuid,

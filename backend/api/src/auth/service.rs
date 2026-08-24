@@ -659,6 +659,7 @@ mod tests {
             oidc_client_secret: String::new(),
             oidc_provisioning: "invite_only".into(),
             oidc_allowed_domains: String::new(),
+            webhook_allow_private_targets: true,
             vapid_public_key: String::new(),
             vapid_private_key: String::new(),
             vapid_subject: "mailto:test@test.local".into(),

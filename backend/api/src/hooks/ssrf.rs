@@ -2,7 +2,18 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use shared_common::errors::{AppError, AppResult};
 
+/// Strict by default. A workspace admin picks the URL, so without this an
+/// instance hands them a request-forgery primitive against everything the server
+/// can reach -- cloud metadata endpoints first among them.
 pub async fn validate_outbound_url(url: &str) -> AppResult<reqwest::Url> {
+    validate_outbound_url_with(url, false).await
+}
+
+/// The operator's escape hatch, not the admin's: a self-hosted instance whose CI
+/// lives on the same private network has nowhere else to point a webhook. It is
+/// off unless `WEBHOOK_ALLOW_PRIVATE_TARGETS` is set, and turning it on means
+/// trusting whoever can create a hook with the server's network position.
+pub async fn validate_outbound_url_with(url: &str, allow_private: bool) -> AppResult<reqwest::Url> {
     let parsed = reqwest::Url::parse(url)
         .map_err(|e| AppError::BadRequest(format!("invalid webhook url: {e}")))?;
 
@@ -18,6 +29,10 @@ pub async fn validate_outbound_url(url: &str) -> AppResult<reqwest::Url> {
     let host = parsed
         .host_str()
         .ok_or_else(|| AppError::BadRequest("webhook url has no host".into()))?;
+
+    if allow_private {
+        return Ok(parsed);
+    }
 
     if let Ok(ip) = host.parse::<IpAddr>() {
         if !is_public_ip(&ip) {

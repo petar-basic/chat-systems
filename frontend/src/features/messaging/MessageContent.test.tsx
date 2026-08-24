@@ -88,4 +88,20 @@ describe('MessageContent', () => {
     const root = renderContent('write to ana@[Ana](user-ana)');
     expect(root.querySelector('.mention')).toBeNull();
   });
+
+  /// A mention of a group you are in is a mention of you — that is the whole
+  /// point of `@backend`.
+  it('highlights a mention of your own group like your own name', async () => {
+    const { useUserGroupStore } = await import('@/stores/userGroups');
+    useUserGroupStore.getState().populate(['group:g1']);
+
+    const { container } = render(
+      <MessageContent content="@[backend](group:g1) and @[frontend](group:g2)" />,
+    );
+
+    expect(container.querySelector('.mention-self')).toHaveTextContent('@backend');
+    expect(container.querySelector('.mention-other')).toHaveTextContent('@frontend');
+
+    useUserGroupStore.getState().populate([]);
+  });
 });

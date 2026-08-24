@@ -2,11 +2,13 @@ pub mod admin;
 pub mod audit;
 pub mod auth;
 pub mod authz;
+pub mod commands;
 pub mod config;
 pub mod conversations;
 pub mod emoji;
 pub mod export;
 pub mod files;
+pub mod groups;
 pub mod health;
 pub mod hooks;
 pub mod huddle;
@@ -100,6 +102,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
     let scim_repo = crate::scim::repo::ScimRepo::new(pool.clone());
     let push_repo = crate::push::repo::PushRepo::new(pool.clone());
     let emoji_repo = crate::emoji::repo::EmojiRepo::new(pool.clone());
+    let group_repo = crate::groups::repo::GroupRepo::new(pool.clone());
     let push_sender = crate::push::sender::PushSender::new(
         push_repo.clone(),
         crate::push::sender::VapidKeys {
@@ -131,6 +134,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
         push_repo,
         push_sender,
         emoji_repo,
+        group_repo,
         huddle_repo,
     }))
 }
@@ -157,7 +161,9 @@ pub fn build_app(state: Arc<AppState>) -> Router {
         .merge(auth::oidc_routes::router(state.clone()))
         .merge(scim::routes::router(state.clone()))
         .merge(push::routes::router(state.clone()))
-        .merge(emoji::routes::router(state.clone()));
+        .merge(emoji::routes::router(state.clone()))
+        .merge(groups::routes::router(state.clone()))
+        .merge(commands::routes::router(state.clone()));
 
     Router::new()
         .nest("/api", api)

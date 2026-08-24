@@ -119,6 +119,55 @@ async fn create_hook(
         }
     }
 
+    if req.hook_type == HookType::SlashCommand {
+        let command = crate::commands::validate_command_name(
+            config
+                .get("command")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| {
+                    AppError::Validation("slash_command requires a command in config".into())
+                })?,
+        )?;
+
+        let url = config
+            .get("url")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| AppError::Validation("slash_command requires a url in config".into()))?
+            .to_string();
+        let parsed = reqwest::Url::parse(&url)
+            .map_err(|e| AppError::Validation(format!("Invalid command URL: {e}")))?;
+        if !matches!(parsed.scheme(), "http" | "https") {
+            return Err(AppError::Validation(
+                "Command URL must be http or https".into(),
+            ));
+        }
+
+        // Scoped like an outgoing webhook, because it is one: invoking it sends
+        // what somebody typed to a third-party URL.
+        let channel_ids = parse_channel_ids(&config)?;
+        for channel_id in &channel_ids {
+            require_attachable_channel(&state, ws_id, *channel_id, auth.user_id).await?;
+        }
+
+        if state
+            .hook_repo
+            .find_slash_command(ws_id, &command)
+            .await?
+            .is_some()
+        {
+            return Err(AppError::Conflict(format!(
+                "/{command} is already registered in this workspace"
+            )));
+        }
+
+        if let Some(obj) = config.as_object_mut() {
+            obj.insert("command".to_string(), serde_json::json!(command));
+            if !obj.contains_key("secret") {
+                obj.insert("secret".to_string(), serde_json::json!(generate_token()));
+            }
+        }
+    }
+
     let hook = state
         .hook_repo
         .create_hook(

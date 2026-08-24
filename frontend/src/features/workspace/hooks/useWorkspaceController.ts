@@ -6,6 +6,10 @@ import { useWorkspaceStore, type Message, type Channel } from '@/stores/workspac
 import { useUserCache } from '@/stores/users';
 import { useCustomEmojiStore } from '@/stores/customEmoji';
 import { useCustomEmoji } from '@/hooks/queries/useCustomEmoji';
+import { useUserGroupStore } from '@/stores/userGroups';
+import { useUserGroups } from '@/hooks/queries/useUserGroups';
+import { parseCommand, runCommand } from '@/lib/slashCommands';
+import { toUserMessage } from '@/lib/errors';
 import { instanceManager } from '@/lib/instances';
 import { api } from '@/lib/api';
 import { wsClient } from '@/lib/ws';
@@ -159,6 +163,7 @@ export function useWorkspaceController() {
 
   const { populateUsers } = useUserCache();
   const populateCustomEmoji = useCustomEmojiStore((s) => s.populate);
+  const populateSelfGroups = useUserGroupStore((s) => s.populate);
   useEffect(() => {
     if (workspaceMembers.length > 0) {
       populateUsers(
@@ -176,6 +181,13 @@ export function useWorkspaceController() {
   useEffect(() => {
     populateCustomEmoji(customEmoji ?? []);
   }, [customEmoji, populateCustomEmoji]);
+
+  const { data: userGroups } = useUserGroups(workspaceId, currentWsInstanceUrl);
+  useEffect(() => {
+    populateSelfGroups(
+      (userGroups ?? []).filter((g) => g.is_member).map((g) => `group:${g.id}`),
+    );
+  }, [userGroups, populateSelfGroups]);
 
   useEffect(() => {
     setCurrentUserId(user?.id ?? null);
@@ -316,16 +328,34 @@ export function useWorkspaceController() {
     }, 3000);
   }, [currentChannel, getWs]);
 
+  const [ephemeral, setEphemeral] = useState<string | null>(null);
+
   const handleSend = useCallback(
     async (content: string) => {
       if (!currentChannel || !user) return;
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
       isTypingRef.current = false;
       getWs().send({ type: 'typing.stop', channel_id: currentChannel.id });
+
+      if (parseCommand(content)) {
+        try {
+          const result = await runCommand(currentChannel.id, content, currentWsInstanceUrl);
+          // An unknown command falls through to being sent as text; anything
+          // else has already done its work on the server.
+          if (result) {
+            setEphemeral(result.response_type === 'ephemeral' ? result.text : null);
+            return;
+          }
+        } catch (e) {
+          setEphemeral(toUserMessage(e));
+          return;
+        }
+      }
+
       const id = crypto.randomUUID();
       sendMessageMutation.mutate({ content, id });
     },
-    [currentChannel, user, getWs, sendMessageMutation],
+    [currentChannel, user, getWs, sendMessageMutation, currentWsInstanceUrl],
   );
 
   const handleFileUpload = useCallback(
@@ -430,6 +460,8 @@ export function useWorkspaceController() {
   );
 
   return {
+    ephemeral,
+    dismissEphemeral: () => setEphemeral(null),
     user,
     logout,
     navigate,

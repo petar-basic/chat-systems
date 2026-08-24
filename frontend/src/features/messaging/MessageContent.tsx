@@ -6,6 +6,7 @@ import { splitCustomEmoji } from '@/lib/customEmoji';
 import { useCurrentUser } from '@/hooks/queries/useAuth';
 import type { CustomEmoji } from '@/hooks/queries/useCustomEmoji';
 import { useCustomEmojiStore } from '@/stores/customEmoji';
+import { useUserGroupStore } from '@/stores/userGroups';
 
 interface Props {
   content: string;
@@ -16,6 +17,7 @@ interface RenderContext {
   selfId: string | undefined;
   mentions: MentionRef[];
   emoji: Map<string, CustomEmoji>;
+  selfGroupIds: Set<string>;
 }
 
 function renderPlain(text: string, ctx: RenderContext, key: string): ReactNode {
@@ -38,7 +40,7 @@ function renderPlain(text: string, ctx: RenderContext, key: string): ReactNode {
 }
 
 function renderText(text: string, ctx: RenderContext, key: string): ReactNode {
-  const spans = highlightMentions(text, ctx.selfId, ctx.mentions);
+  const spans = highlightMentions(text, ctx.selfId, ctx.mentions, ctx.selfGroupIds);
   if (spans.length === 1 && spans[0].mention === null) return renderPlain(spans[0].text, ctx, key);
   return spans.map((span, i) =>
     span.mention === null ? (
@@ -116,13 +118,14 @@ function MessageContent({ content, className }: Props) {
   const selfId = user?.id;
 
   const emoji = useCustomEmojiStore((s) => s.byName);
+  const selfGroupIds = useUserGroupStore((s) => s.selfGroupIds);
 
   const nodes = useMemo(() => parseMessage(flattenMentions(content)), [content]);
   const mentions = useMemo(() => parseMentions(content), [content]);
 
   const rendered = useMemo(
-    () => renderNodes(nodes, { selfId, mentions, emoji }, 'n'),
-    [nodes, selfId, mentions, emoji],
+    () => renderNodes(nodes, { selfId, mentions, emoji, selfGroupIds }, 'n'),
+    [nodes, selfId, mentions, emoji, selfGroupIds],
   );
 
   return <div className={`tiptap-content${className ? ` ${className}` : ''}`}>{rendered}</div>;

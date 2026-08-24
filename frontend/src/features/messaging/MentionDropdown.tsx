@@ -1,10 +1,10 @@
 import { forwardRef, useImperativeHandle, useState } from 'react';
-import { AtSign, Hash, Megaphone } from 'lucide-react';
+import { AtSign, Hash, Megaphone, Users } from 'lucide-react';
 
 export interface MentionItem {
   id: string;
   label: string;
-  type: 'user' | 'channel' | 'broadcast';
+  type: 'user' | 'channel' | 'broadcast' | 'group';
   hint?: string;
 }
 
@@ -72,6 +72,8 @@ export const MentionDropdown = forwardRef<MentionDropdownHandle, Props>(({ items
             <Hash className="w-3.5 h-3.5 text-slate-400 shrink-0" />
           ) : item.type === 'broadcast' ? (
             <Megaphone className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+          ) : item.type === 'group' ? (
+            <Users className="w-3.5 h-3.5 text-purple-400 shrink-0" />
           ) : (
             <AtSign className="w-3.5 h-3.5 text-slate-400 shrink-0" />
           )}

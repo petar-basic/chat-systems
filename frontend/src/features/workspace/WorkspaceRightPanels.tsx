@@ -10,6 +10,8 @@ import ChannelMembersPanel from '@/components/ChannelMembersPanel';
 import NotificationsPanel from '@/components/NotificationsPanel';
 import IntegrationsPanel from '@/components/IntegrationsPanel';
 import CustomEmojiPanel from '@/components/CustomEmojiPanel';
+import UserGroupsPanel from '@/components/UserGroupsPanel';
+import { useCurrentWorkspaceRole } from './hooks/useCurrentWorkspaceRole';
 import AuditLogPanel from '@/components/AuditLogPanel';
 import ScheduledMessagesPanel from '@/components/ScheduledMessagesPanel';
 
@@ -36,6 +38,8 @@ export default function WorkspaceRightPanels({
   onNavigateToMessage,
   onOpenConversation,
 }: Props) {
+  const { role } = useCurrentWorkspaceRole();
+
   if (!panel) return null;
 
   if (panel.kind === 'members' && currentWorkspace) {
@@ -115,6 +119,17 @@ export default function WorkspaceRightPanels({
       <CustomEmojiPanel
         workspaceId={currentWorkspace.id}
         instanceUrl={currentWorkspace.instanceUrl}
+        onClose={onClose}
+      />
+    );
+  }
+  if (panel.kind === 'userGroups' && currentWorkspace) {
+    return (
+      <UserGroupsPanel
+        workspaceId={currentWorkspace.id}
+        instanceUrl={currentWorkspace.instanceUrl}
+        members={workspaceMembers}
+        isAdmin={role === 'admin' || role === 'owner'}
         onClose={onClose}
       />
     );

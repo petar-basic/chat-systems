@@ -11,6 +11,7 @@ export type RightPanel =
   | { kind: 'channelMembers' }
   | { kind: 'integrations' }
   | { kind: 'customEmoji' }
+  | { kind: 'userGroups' }
   | { kind: 'auditLog' }
   | { kind: 'scheduled' }
   | { kind: 'notifications' }

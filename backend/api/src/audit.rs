@@ -48,6 +48,12 @@ pub enum AuditAction {
     TotpDisabled,
     TotpFailed,
     TotpRecoveryUsed,
+    CommandInvoked,
+    GroupCreated,
+    GroupUpdated,
+    GroupDeleted,
+    GroupMemberAdded,
+    GroupMemberRemoved,
     EmojiCreated,
     EmojiDeleted,
     ScimTokenCreated,
@@ -93,6 +99,12 @@ impl AuditAction {
             Self::TotpDisabled => "totp.disabled",
             Self::TotpFailed => "totp.failed",
             Self::TotpRecoveryUsed => "totp.recovery_used",
+            Self::CommandInvoked => "command.invoked",
+            Self::GroupCreated => "group.created",
+            Self::GroupUpdated => "group.updated",
+            Self::GroupDeleted => "group.deleted",
+            Self::GroupMemberAdded => "group.member_added",
+            Self::GroupMemberRemoved => "group.member_removed",
             Self::EmojiCreated => "emoji.created",
             Self::EmojiDeleted => "emoji.deleted",
             Self::ScimTokenCreated => "scim.token_created",
@@ -118,11 +130,18 @@ impl AuditAction {
             | Self::WorkspaceMemberRemoved
             | Self::WorkspaceRoleChanged => "workspace",
             Self::InviteCreated | Self::InviteRevoked => "invite",
-            Self::HookCreated | Self::HookDeleted | Self::HookRevealed | Self::HookRotated => {
-                "hook"
-            }
+            Self::HookCreated
+            | Self::HookDeleted
+            | Self::HookRevealed
+            | Self::HookRotated
+            | Self::CommandInvoked => "hook",
             Self::FileDeleted => "file",
             Self::EmojiCreated | Self::EmojiDeleted => "emoji",
+            Self::GroupCreated
+            | Self::GroupUpdated
+            | Self::GroupDeleted
+            | Self::GroupMemberAdded
+            | Self::GroupMemberRemoved => "group",
             Self::UserProvisioned
             | Self::UserSuspended
             | Self::UserActivated

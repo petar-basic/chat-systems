@@ -682,6 +682,7 @@ pub(crate) async fn expand_mentions(
 ) -> Vec<Uuid> {
     let mut mentioned: Vec<Uuid> = extract_mentioned_user_ids(content);
     let broadcast = extract_broadcast_mentions(content);
+    let groups = extract_group_mentions(content);
 
     if broadcast.any() {
         let members = state
@@ -701,6 +702,40 @@ pub(crate) async fn expand_mentions(
             let reachable = online.as_ref().is_none_or(|set| set.contains(&member));
             if reachable {
                 mentioned.push(member);
+            }
+        }
+    }
+
+    // A group is a shorthand for people, and it reaches them the same way
+    // `@channel` does: through the channel. Notifying a member who is not in the
+    // channel would tell them a private channel exists and hand them a preview
+    // of a message they cannot open.
+    if !groups.is_empty() {
+        if let Some(workspace_id) = state
+            .workspace_service
+            .repo
+            .find_channel_by_id(channel_id)
+            .await
+            .ok()
+            .flatten()
+            .map(|c| c.workspace_id)
+        {
+            let in_group = state
+                .group_repo
+                .member_ids_for_groups(workspace_id, &groups)
+                .await
+                .unwrap_or_default();
+
+            if !in_group.is_empty() {
+                let in_channel: std::collections::HashSet<Uuid> = state
+                    .message_repo
+                    .list_channel_member_ids(channel_id)
+                    .await
+                    .unwrap_or_default()
+                    .into_iter()
+                    .collect();
+
+                mentioned.extend(in_group.into_iter().filter(|id| in_channel.contains(id)));
             }
         }
     }
@@ -727,6 +762,23 @@ fn mention_targets(content: &str) -> Vec<String> {
         remaining = &remaining[id_end + 1..];
     }
     targets
+}
+
+/// Group mentions carry `group:<uuid>` where a user mention carries a bare
+/// uuid, so the two parse out of the same `@[label](target)` form without either
+/// one having to know about the other.
+fn extract_group_mentions(content: &str) -> Vec<Uuid> {
+    let mut ids: Vec<Uuid> = mention_targets(content)
+        .into_iter()
+        .filter_map(|target| {
+            target
+                .strip_prefix("group:")
+                .and_then(|id| Uuid::parse_str(id).ok())
+        })
+        .collect();
+    ids.sort();
+    ids.dedup();
+    ids
 }
 
 fn extract_mentioned_user_ids(content: &str) -> Vec<Uuid> {

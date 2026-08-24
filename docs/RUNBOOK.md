@@ -188,6 +188,64 @@ a new export, not a longer expiry.
 retention, export, TOTP and SCIM tables and one column on `oauth_accounts`. They are
 additive; rolling back the binaries leaves the tables unused.
 
+## Upgrade note: Wave 9 rebuilds the search index and adds push
+
+**The search migration does not lock the table, but the backfill takes a while.** Migrations
+27 to 32 add a `search_vector` column, a trigger, and four indexes built `CONCURRENTLY`;
+none of that holds an exclusive lock, so the instance keeps serving throughout. What they do
+*not* do is fill in existing rows — the worker does that in committed batches of 5,000 with
+a short pause between them, starting at boot and stopping when there is nothing left.
+
+Watch `search_backfill_rows_total` or the `search backfill: N rows in messages` log line.
+Until it finishes, older messages are found through the trigram index only, which means
+substring matches work and exact word ranking is incomplete. On a few hundred thousand
+messages this is minutes; the pause is deliberate, so that a backfill cannot saturate the
+pool of an instance that is serving traffic.
+
+If a concurrent index build is interrupted it leaves an `INVALID` index behind, which
+Postgres will not use. Find them with:
+
+```sql
+SELECT indexrelid::regclass FROM pg_index WHERE NOT indisvalid;
+```
+
+Drop and recreate any that show up; nothing else needs doing.
+
+**Search language is a migration, not a setting.** `search_text_config()` returns `simple`,
+which does no stemming and folds diacritics through `unaccent`. Both the trigger that writes
+the vector and the query that reads it call that one function, so they cannot disagree. To
+stem for a single-language instance, write a migration that replaces the function and
+rebuilds the vectors — there is no environment variable, on purpose.
+
+**Web Push is off until you generate VAPID keys.** One pair per instance:
+
+```
+npx web-push generate-vapid-keys
+```
+
+Set `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` (a `mailto:` the push
+service can use to reach you). **Rotating the pair silently invalidates every existing
+subscription** — every browser has to be re-registered, and nobody is told — so treat it as
+permanent. Both `api` and `worker` need the values: the API stores subscriptions, the worker
+sends.
+
+Nothing is pushed to somebody who has a live socket for that workspace, is inside their
+do-not-disturb window, or has muted the channel. Subscriptions are pruned when the push
+service answers `410 Gone`, which is the only reliable signal one is dead.
+
+The service worker is served from `/sw.js` with `Cache-Control: no-cache`. Keep that: a
+service worker cached for a year is a bug fix nobody receives.
+
+**Slash commands call out synchronously, with a three-second timeout and no retries.** A
+command that needs longer should acknowledge and post back through an incoming webhook.
+Outbound targets are still refused if they resolve to a private, loopback or link-local
+address. If your CI is on the same private network and you accept that anyone who can create
+a hook then has the server's network position, set
+`WEBHOOK_ALLOW_PRIVATE_TARGETS=true`.
+
+**Nothing to migrate by hand.** Migrations 27 to 35 are additive apart from dropping the old
+`content_search` column, which is a catalog change rather than a rewrite.
+
 ## Audit log
 
 `GET /api/workspaces/:ws_id/audit-log` (workspace admin) and `GET /api/admin/audit-log`

@@ -17,10 +17,18 @@ function toBase64Url(buffer: ArrayBuffer | null): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-function fromBase64Url(value: string): Uint8Array {
+/**
+ * Returns the buffer rather than the view: `applicationServerKey` wants a
+ * `BufferSource`, and a `Uint8Array` over a possibly-shared buffer is not one as
+ * far as the DOM types are concerned.
+ */
+function fromBase64Url(value: string): ArrayBuffer {
   const padded = value.replace(/-/g, '+').replace(/_/g, '/');
   const binary = atob(padded.padEnd(padded.length + ((4 - (padded.length % 4)) % 4), '='));
-  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  const buffer = new ArrayBuffer(binary.length);
+  const bytes = new Uint8Array(buffer);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return buffer;
 }
 
 export function pushSupported(): boolean {
