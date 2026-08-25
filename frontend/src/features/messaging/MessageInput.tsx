@@ -80,9 +80,11 @@ export default function MessageInput({
   const emojiBtnRef = useRef<HTMLButtonElement>(null);
   const [showEmoji, setShowEmoji] = useState(false);
   const editingRef = useRef(editing);
-  editingRef.current = editing;
   const cancelRef = useRef(onCancel);
-  cancelRef.current = onCancel;
+  useEffect(() => {
+    editingRef.current = editing;
+    cancelRef.current = onCancel;
+  });
 
   const workspace = useWorkspaceStore((s) => s.currentWorkspace);
   const { data: groups } = useUserGroups(workspace?.id, workspace?.instanceUrl);
@@ -90,6 +92,9 @@ export default function MessageInput({
     () => buildMentionItems(members, channels, isDm, groups ?? []),
     [members, channels, isDm, groups],
   );
+  // The editor is built once, but the people it can mention change with the
+  // channel, so the suggestion callback reads the current list through a ref.
+  // The compiler cannot see that tiptap only calls this while somebody types.
   const mentionItemsRef = useRef<MentionItem[]>(mentionItems);
   useEffect(() => {
     mentionItemsRef.current = mentionItems;
@@ -118,22 +123,18 @@ export default function MessageInput({
           return {
             Enter: () => {
               const mention = mentionSuggestionPluginKey.getState(this.editor.state) as
-                | { active?: boolean }
-                | undefined;
+                { active?: boolean } | undefined;
               const emoji = emojiSuggestionPluginKey.getState(this.editor.state) as
-                | { active?: boolean }
-                | undefined;
+                { active?: boolean } | undefined;
               if (mention?.active || emoji?.active) return false;
               sendRef.current();
               return true;
             },
             Escape: () => {
               const mention = mentionSuggestionPluginKey.getState(this.editor.state) as
-                | { active?: boolean }
-                | undefined;
+                { active?: boolean } | undefined;
               const emoji = emojiSuggestionPluginKey.getState(this.editor.state) as
-                | { active?: boolean }
-                | undefined;
+                { active?: boolean } | undefined;
               if (mention?.active || emoji?.active) return false;
               if (editingRef.current && cancelRef.current) {
                 cancelRef.current();
@@ -174,6 +175,9 @@ export default function MessageInput({
 
   const [showSchedule, setShowSchedule] = useState(false);
   const [customSendAt, setCustomSendAt] = useState('');
+  // Stamped when the menu opens: reading the clock during render makes the
+  // component impure, and a minute from *now* is only meaningful at that moment.
+  const [earliestSendAt, setEarliestSendAt] = useState('');
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const scheduleMenuRef = useRef<HTMLDivElement>(null);
   useOnClickOutside(scheduleMenuRef, () => setShowSchedule(false), showSchedule);
@@ -308,7 +312,10 @@ export default function MessageInput({
                 <div className="relative">
                   <button
                     type="button"
-                    onClick={() => setShowSchedule((open) => !open)}
+                    onClick={() => {
+                      setEarliestSendAt(toLocalInputValue(new Date(Date.now() + 60_000)));
+                      setShowSchedule((open) => !open);
+                    }}
                     disabled={isEmpty}
                     aria-label="Schedule message"
                     aria-expanded={showSchedule}
@@ -350,7 +357,7 @@ export default function MessageInput({
                           id={`schedule-custom-${draftKey ?? 'composer'}`}
                           type="datetime-local"
                           value={customSendAt}
-                          min={toLocalInputValue(new Date(Date.now() + 60_000))}
+                          min={earliestSendAt}
                           onChange={(e) => {
                             setCustomSendAt(e.target.value);
                             setScheduleError(null);

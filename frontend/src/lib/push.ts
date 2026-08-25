@@ -50,7 +50,7 @@ export async function currentState(): Promise<PushState> {
     return { supported: false, enabled: false, permission: 'denied', subscribed: false };
   }
 
-  let enabled = false;
+  let enabled: boolean;
   try {
     const key = await api.get<{ public_key: string; enabled: boolean }>('/push/key');
     enabled = key.enabled;

@@ -14,8 +14,10 @@ export default function EmojiPicker({ anchorRef, onSelect, onClose }: Props) {
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const onSelectRef = useRef(onSelect);
   const onCloseRef = useRef(onClose);
-  onSelectRef.current = onSelect;
-  onCloseRef.current = onClose;
+  useEffect(() => {
+    onSelectRef.current = onSelect;
+    onCloseRef.current = onClose;
+  });
   useEscapeToClose(onClose);
 
   useEffect(() => {

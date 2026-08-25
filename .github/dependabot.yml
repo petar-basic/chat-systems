@@ -19,6 +19,13 @@ updates:
       npm-dependencies:
         patterns:
           - "*"
+    ignore:
+      # TypeScript 7 is out, but typescript-eslint still peer-requires <6.1.0,
+      # so a major bump here makes `npm ci` unresolvable. Drop this entry once
+      # typescript-eslint ships support.
+      - dependency-name: typescript
+        update-types:
+          - version-update:semver-major
 
   - package-ecosystem: github-actions
     directory: /

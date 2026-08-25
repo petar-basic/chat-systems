@@ -294,10 +294,11 @@ export function useWorkspaceController() {
     [searchParams, panel],
   );
 
-  const getWs = useCallback(() => {
-    if (currentWorkspace?.instanceUrl) return instanceManager.get(currentWorkspace.instanceUrl).ws;
-    return wsClient;
-  }, [currentWorkspace?.instanceUrl]);
+  const wsInstanceUrl = currentWorkspace?.instanceUrl;
+  const getWs = useCallback(
+    () => (wsInstanceUrl ? instanceManager.get(wsInstanceUrl).ws : wsClient),
+    [wsInstanceUrl],
+  );
 
   useEffect(() => {
     if (!currentWorkspaceId || channels.length === 0) return;
