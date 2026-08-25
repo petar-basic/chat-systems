@@ -5,6 +5,8 @@ interface UserInfo {
   email: string;
   display_name: string;
   avatar_url: string | null;
+  status_emoji?: string | null;
+  status_text?: string | null;
 }
 
 interface UserCacheState {

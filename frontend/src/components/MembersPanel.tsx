@@ -67,8 +67,21 @@ function MemberRow({
         />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-slate-200 truncate">{displayName}</div>
-        {email && <div className="text-xs text-slate-400 truncate">{email}</div>}
+        <div className="text-sm font-medium text-slate-200 truncate">
+          {displayName}
+          {member.status_emoji && (
+            <span className="ml-1.5" data-qa="member-status-emoji" title={member.status_text ?? undefined}>
+              {member.status_emoji}
+            </span>
+          )}
+        </div>
+        {member.status_text ? (
+          <div className="text-xs text-slate-400 truncate" data-qa="member-status-text">
+            {member.status_text}
+          </div>
+        ) : (
+          email && <div className="text-xs text-slate-400 truncate">{email}</div>
+        )}
         {confirmRemove && (
           <div className="mt-1 flex items-center gap-2 text-xs">
             <span className="text-red-400">Remove from workspace?</span>

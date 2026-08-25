@@ -119,6 +119,8 @@ Handles user identity — login, registration, JWT, and profile.
 | GET | `/users/me` | JWT | `UserPublic` |
 | PATCH | `/users/me` | `{ display_name?, avatar_url?, bio?, timezone? }` | `UserPublic` |
 | PATCH | `/users/me/password` | `{ current_password, new_password }` | `{ status: "password_changed" }` |
+| PUT | `/users/me/status` | `{ emoji?, text?, expires_at? }` | `UserPublic` — a custom status; needs an emoji or some text, and an expiry in the future. An expired status stops being returned by every read; the row itself is only overwritten the next time the person sets one |
+| DELETE | `/users/me/status` | — | `UserPublic` |
 
 ---
 
@@ -193,6 +195,14 @@ feature — see `dm` below.)
 | PATCH | `/channels/:ch_id/members/:user_id/role` | `{ role: "member" \| "admin" }` | `ChannelMember` — channel moderators only |
 | DELETE | `/channels/:ch_id/members/:user_id` | — | `{ status: "removed" }` |
 
+**Channel bookmarks** (the link bar under the channel header):
+
+| Method | Route | Input | Output |
+|--------|-------|-------|--------|
+| GET | `/channels/:ch_id/bookmarks` | — | `{ data: ChannelBookmark[] }` — any channel member |
+| POST | `/channels/:ch_id/bookmarks` | `{ label, url, emoji? }` | `ChannelBookmark` — channel moderators only; the URL must be `http(s)` |
+| DELETE | `/channels/:ch_id/bookmarks/:bookmark_id` | — | `{ status: "deleted" }` — channel moderators only |
+
 ---
 
 ### conversations
@@ -207,7 +217,8 @@ a workspace member, and a conversation holds at most nine people.
 | GET | `/workspaces/:ws_id/conversations` | — | `{ data: ConversationSummary[] }` — newest first, with `participant_ids` and the caller's `last_read_at` |
 | POST | `/workspaces/:ws_id/conversations` | `{ participant_ids }` | `Conversation` — one other person returns the existing `direct` thread if there is one; more create a `group` |
 | GET | `/conversations/:conv_id/messages` | Query: `limit=50, before?` (message id) | `{ data: ConversationMessage[], next_cursor }` |
-| POST | `/conversations/:conv_id/messages` | `{ content, id? }` | `ConversationMessage` — `id` makes the send idempotent |
+| POST | `/conversations/:conv_id/messages` | `{ content, id?, thread_parent_id? }` | `ConversationMessage` — `id` makes the send idempotent; `thread_parent_id` makes it a threaded reply, which is kept out of the main feed. Threads are one level deep: replying to a reply joins the same thread |
+| GET | `/conversations/messages/:msg_id/thread` | Query: `limit=50, offset=0` | `{ data: ConversationMessage[] }` — oldest first, participants only |
 | POST | `/conversations/:conv_id/read` | — | `{ status: "ok" }` |
 | PATCH | `/conversations/messages/:msg_id` | `{ content }` | `ConversationMessage` — author only |
 | DELETE | `/conversations/messages/:msg_id` | — | `{ status: "deleted" }` — author only |
@@ -345,6 +356,12 @@ Incoming/outgoing webhooks, bots, slash commands, and reminders. Background task
 
 Hook types: `incoming_webhook`, `outgoing_webhook`, `bot`, `slash_command`, `scheduled`
 
+Built-in commands run before any registered one and never leave the instance: `/dnd`,
+`/topic`, `/invite`, `/shrug` and `/remind`. `/remind` understands `me in 30m to ship`,
+`me at 15:00 to call back` and `me tomorrow at 9am standup`; clock times are resolved in the
+caller's own timezone and a time already past means tomorrow. Reminding somebody else needs
+workspace admin, the same rule `POST /workspaces/:ws_id/reminders` applies.
+
 `GET`/`POST`/`DELETE` on `/hooks` and `/workspaces/:ws_id/hooks` require a workspace
 admin session; secrets in `config` (`token`, `secret`, …) are redacted on read — `reveal`
 is the only way back to the plaintext value, and it leaves an audit trail. Creating an
@@ -361,6 +378,7 @@ as the hook's creator and is rate-limited per token.
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/reminders` | — | `{ data: Reminder[] }` |
 | POST | `/workspaces/:ws_id/reminders` | `{ target_user_id, content, remind_at, channel_id?, message_id? }` | `Reminder` |
+| DELETE | `/workspaces/:ws_id/reminders/:reminder_id` | — | `{ status: "deleted" }` — only the person the reminder is for |
 
 ---
 
@@ -379,6 +397,21 @@ In-app notifications for mentions, DMs, replies, reactions, calls, reminders, an
 | PATCH | `/notifications/dnd` | `{ dnd_until: timestamp \| null }` | `{ dnd_until: timestamp \| null }` |
 
 All workspace-scoped routes require workspace membership.
+
+---
+
+### saved
+
+One person's own list of kept messages. A row points at exactly one channel message or one
+conversation message, and saving is idempotent: saving something twice returns the row that
+already exists rather than a second one. Reading a message is what entitles you to save it —
+the same channel and conversation checks the message routes use.
+
+| Method | Route | Input | Output |
+|--------|-------|-------|--------|
+| GET | `/workspaces/:ws_id/saved` | — | `{ data: SavedMessageDetail[] }` — newest first, joined with the message so the panel renders in one round trip |
+| POST | `/workspaces/:ws_id/saved` | `{ message_id? \| conversation_message_id?, note? }` | `SavedMessage` — exactly one target |
+| DELETE | `/saved/:id` | — | `{ status: "removed" }` — owner only |
 
 ---
 

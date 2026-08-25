@@ -192,7 +192,11 @@ impl WorkspaceRepo {
         sqlx::query_as::<_, MemberWithUser>(
             r"
             SELECT wm.workspace_id, wm.user_id, wm.role, wm.joined_at,
-                   u.email, u.display_name, u.avatar_url
+                   u.email, u.display_name, u.avatar_url,
+                   CASE WHEN u.status_expires_at IS NULL OR u.status_expires_at > NOW()
+                        THEN u.status_emoji END AS status_emoji,
+                   CASE WHEN u.status_expires_at IS NULL OR u.status_expires_at > NOW()
+                        THEN u.status_text END AS status_text
             FROM workspace_members wm
             JOIN users u ON u.id = wm.user_id
             WHERE wm.workspace_id = $1
@@ -486,6 +490,58 @@ impl WorkspaceRepo {
         .bind(role)
         .fetch_one(&self.pool)
         .await
+    }
+
+    pub async fn list_channel_bookmarks(
+        &self,
+        channel_id: Uuid,
+    ) -> sqlx::Result<Vec<ChannelBookmark>> {
+        sqlx::query_as::<_, ChannelBookmark>(
+            "SELECT * FROM channel_bookmarks WHERE channel_id = $1 ORDER BY position, created_at",
+        )
+        .bind(channel_id)
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn create_channel_bookmark(
+        &self,
+        channel_id: Uuid,
+        created_by: Uuid,
+        label: &str,
+        url: &str,
+        emoji: Option<&str>,
+    ) -> sqlx::Result<ChannelBookmark> {
+        sqlx::query_as::<_, ChannelBookmark>(
+            r"
+            INSERT INTO channel_bookmarks (channel_id, created_by, label, url, emoji, position)
+            VALUES ($1, $2, $3, $4, $5,
+                    COALESCE((SELECT MAX(position) + 1 FROM channel_bookmarks WHERE channel_id = $1), 0))
+            RETURNING *
+            ",
+        )
+        .bind(channel_id)
+        .bind(created_by)
+        .bind(label)
+        .bind(url)
+        .bind(emoji)
+        .fetch_one(&self.pool)
+        .await
+    }
+
+    pub async fn find_channel_bookmark(&self, id: Uuid) -> sqlx::Result<Option<ChannelBookmark>> {
+        sqlx::query_as::<_, ChannelBookmark>("SELECT * FROM channel_bookmarks WHERE id = $1")
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await
+    }
+
+    pub async fn delete_channel_bookmark(&self, id: Uuid) -> sqlx::Result<()> {
+        sqlx::query("DELETE FROM channel_bookmarks WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
     }
 
     pub async fn get_channel_member(

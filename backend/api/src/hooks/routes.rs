@@ -29,7 +29,11 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/hooks/:hook_id/reveal", post(reveal_hook))
         .route("/hooks/:hook_id/rotate", post(rotate_hook))
         .route("/workspaces/:ws_id/reminders", get(list_reminders))
-        .route("/workspaces/:ws_id/reminders", post(create_reminder));
+        .route("/workspaces/:ws_id/reminders", post(create_reminder))
+        .route(
+            "/workspaces/:ws_id/reminders/:reminder_id",
+            delete(delete_reminder),
+        );
 
     // The incoming webhook is authenticated by its URL token, not a session, so
     // it must NOT sit behind auth_middleware.
@@ -456,6 +460,26 @@ async fn create_reminder(
         })
         .await?;
     Ok(Json(reminder))
+}
+
+async fn delete_reminder(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path((ws_id, reminder_id)): Path<(Uuid, Uuid)>,
+) -> AppResult<Json<serde_json::Value>> {
+    authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Member).await?;
+
+    let reminder = state
+        .hook_repo
+        .find_reminder(reminder_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Reminder not found".into()))?;
+    if reminder.workspace_id != ws_id || reminder.target_user_id != auth.user_id {
+        return Err(AppError::NotFound("Reminder not found".into()));
+    }
+
+    state.hook_repo.delete_reminder(reminder_id).await?;
+    Ok(Json(serde_json::json!({ "status": "deleted" })))
 }
 
 async fn incoming_webhook(

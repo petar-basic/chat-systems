@@ -1552,3 +1552,151 @@ async fn the_unread_endpoint_reports_counts(pool: PgPool) {
     assert_eq!(row["unread_count"], 1);
     assert_eq!(row["mention_count"], 1);
 }
+
+#[sqlx::test(migrations = "../migrations")]
+async fn a_moderator_puts_a_bookmark_on_the_channel(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "bm-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Bookmarks WS").await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "general", false).await;
+
+    let (member_id, _, member_token) = seed_and_login(&app, &state, "bm-member", false).await;
+    add_ws_member(&state, ws_id, member_id, "member").await;
+
+    let (status, created) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/bookmarks"),
+        Some(&owner_token),
+        Some(json!({ "label": "Runbook", "url": "https://example.test/runbook", "emoji": "📕" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{created:?}");
+    let bookmark_id = created["id"].as_str().expect("id").to_string();
+
+    let (status, listing) = send(
+        &app,
+        "GET",
+        &format!("/api/channels/{ch_id}/bookmarks"),
+        Some(&member_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "a member reads the bar");
+    assert_eq!(listing["data"].as_array().expect("array").len(), 1);
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/bookmarks"),
+        Some(&member_token),
+        Some(json!({ "label": "Mine", "url": "https://example.test/mine" })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "the bar is shared, so pinning to it is a moderator's job"
+    );
+
+    let (status, _) = send(
+        &app,
+        "DELETE",
+        &format!("/api/channels/{ch_id}/bookmarks/{bookmark_id}"),
+        Some(&member_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+
+    let (status, _) = send(
+        &app,
+        "DELETE",
+        &format!("/api/channels/{ch_id}/bookmarks/{bookmark_id}"),
+        Some(&owner_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (_, listing) = send(
+        &app,
+        "GET",
+        &format!("/api/channels/{ch_id}/bookmarks"),
+        Some(&owner_token),
+        None,
+    )
+    .await;
+    assert!(listing["data"].as_array().expect("array").is_empty());
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn a_bookmark_has_to_be_a_link_somebody_can_safely_click(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "bm-scheme", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Bookmarks WS").await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "general", false).await;
+
+    for url in [
+        "javascript:alert(1)",
+        "data:text/html,<script>alert(1)</script>",
+        "/etc/passwd",
+    ] {
+        let (status, _) = send(
+            &app,
+            "POST",
+            &format!("/api/channels/{ch_id}/bookmarks"),
+            Some(&owner_token),
+            Some(json!({ "label": "Nope", "url": url })),
+        )
+        .await;
+        assert_eq!(
+            status,
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "{url} must be refused"
+        );
+    }
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/bookmarks"),
+        Some(&owner_token),
+        Some(json!({ "label": "   ", "url": "https://example.test" })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "a bookmark needs a label"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn bookmarks_stay_inside_the_channel_that_owns_them(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "bm-scope", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Bookmarks WS").await;
+    let first = seed_channel(&state, ws_id, owner_id, "general", false).await;
+    let second = seed_channel(&state, ws_id, owner_id, "random", false).await;
+
+    let (_, created) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{first}/bookmarks"),
+        Some(&owner_token),
+        Some(json!({ "label": "Runbook", "url": "https://example.test/runbook" })),
+    )
+    .await;
+    let bookmark_id = created["id"].as_str().expect("id").to_string();
+
+    let (status, _) = send(
+        &app,
+        "DELETE",
+        &format!("/api/channels/{second}/bookmarks/{bookmark_id}"),
+        Some(&owner_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}

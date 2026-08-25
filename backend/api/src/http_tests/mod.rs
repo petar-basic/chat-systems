@@ -23,5 +23,6 @@ mod hooks;
 mod huddle;
 mod messaging;
 mod notifications;
+mod saved;
 mod scheduled;
 mod workspace;

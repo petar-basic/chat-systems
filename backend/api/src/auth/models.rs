@@ -12,6 +12,9 @@ pub struct User {
     pub bio: Option<String>,
     pub timezone: String,
     pub status: UserStatus,
+    pub status_emoji: Option<String>,
+    pub status_text: Option<String>,
+    pub status_expires_at: Option<DateTime<Utc>>,
     pub is_instance_admin: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -35,12 +38,22 @@ pub struct UserPublic {
     pub bio: Option<String>,
     pub timezone: String,
     pub status: UserStatus,
+    pub status_emoji: Option<String>,
+    pub status_text: Option<String>,
+    pub status_expires_at: Option<DateTime<Utc>>,
     pub is_instance_admin: bool,
     pub created_at: DateTime<Utc>,
 }
 
+/// An expired status is nobody's business. The row is cleaned up lazily by the
+/// worker, so the read side has to be the one that stops showing it.
+fn live_status(u: &User) -> bool {
+    u.status_expires_at.is_none_or(|at| at > Utc::now())
+}
+
 impl From<User> for UserPublic {
     fn from(u: User) -> Self {
+        let live = live_status(&u);
         Self {
             id: u.id,
             email: u.email,
@@ -49,6 +62,9 @@ impl From<User> for UserPublic {
             bio: u.bio,
             timezone: u.timezone,
             status: u.status,
+            status_emoji: live.then_some(u.status_emoji).flatten(),
+            status_text: live.then_some(u.status_text).flatten(),
+            status_expires_at: live.then_some(u.status_expires_at).flatten(),
             is_instance_admin: u.is_instance_admin,
             created_at: u.created_at,
         }
@@ -107,6 +123,13 @@ pub struct ForgotPasswordRequest {
 pub struct ResetPasswordRequest {
     pub token: String,
     pub password: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SetStatusRequest {
+    pub emoji: Option<String>,
+    pub text: Option<String>,
+    pub expires_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Deserialize)]

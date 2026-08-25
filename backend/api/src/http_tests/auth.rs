@@ -724,3 +724,142 @@ async fn every_login_failure_looks_the_same(pool: PgPool) {
         );
     }
 }
+
+#[sqlx::test(migrations = "../migrations")]
+async fn a_status_shows_up_next_to_you_and_can_be_cleared(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "status-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Status WS").await;
+
+    let (status, me) = send(
+        &app,
+        "PUT",
+        "/api/users/me/status",
+        Some(&owner_token),
+        Some(json!({ "emoji": "🍕", "text": "at lunch" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{me:?}");
+    assert_eq!(me["status_emoji"], "🍕");
+    assert_eq!(me["status_text"], "at lunch");
+
+    let (_, members) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws_id}/members"),
+        Some(&owner_token),
+        None,
+    )
+    .await;
+    let member = members["data"]
+        .as_array()
+        .expect("array")
+        .iter()
+        .find(|m| m["user_id"] == owner_id.to_string())
+        .expect("the owner is a member");
+    assert_eq!(
+        member["status_text"], "at lunch",
+        "the sidebar can render it"
+    );
+
+    let (status, cleared) = send(
+        &app,
+        "DELETE",
+        "/api/users/me/status",
+        Some(&owner_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(cleared["status_emoji"].is_null());
+    assert!(cleared["status_text"].is_null());
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn an_expired_status_stops_being_shown(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "status-expiry", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Status WS").await;
+
+    let (status, _) = send(
+        &app,
+        "PUT",
+        "/api/users/me/status",
+        Some(&owner_token),
+        Some(json!({
+            "emoji": "🏝️",
+            "text": "on holiday",
+            "expires_at": (chrono::Utc::now() + chrono::Duration::hours(1)).to_rfc3339(),
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    sqlx::query("UPDATE users SET status_expires_at = NOW() - interval '1 minute' WHERE id = $1")
+        .bind(owner_id)
+        .execute(&state.pool)
+        .await
+        .expect("expire the status");
+
+    let (_, me) = send(&app, "GET", "/api/users/me", Some(&owner_token), None).await;
+    assert!(me["status_text"].is_null(), "{me:?}");
+
+    let (_, members) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws_id}/members"),
+        Some(&owner_token),
+        None,
+    )
+    .await;
+    let member = members["data"]
+        .as_array()
+        .expect("array")
+        .iter()
+        .find(|m| m["user_id"] == owner_id.to_string())
+        .expect("the owner is a member");
+    assert!(member["status_text"].is_null(), "and nor does the sidebar");
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn a_status_has_to_say_something(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (_owner_id, _, owner_token) = seed_and_login(&app, &state, "status-empty", false).await;
+
+    let (status, _) = send(
+        &app,
+        "PUT",
+        "/api/users/me/status",
+        Some(&owner_token),
+        Some(json!({ "text": "   " })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+
+    let (status, _) = send(
+        &app,
+        "PUT",
+        "/api/users/me/status",
+        Some(&owner_token),
+        Some(json!({ "text": "x".repeat(200) })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+
+    let (status, _) = send(
+        &app,
+        "PUT",
+        "/api/users/me/status",
+        Some(&owner_token),
+        Some(json!({
+            "text": "back soon",
+            "expires_at": (chrono::Utc::now() - chrono::Duration::hours(1)).to_rfc3339(),
+        })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "an expiry in the past"
+    );
+}

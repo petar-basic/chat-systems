@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useUserCache } from '@/stores/users';
 import { usePresenceStore } from '@/stores/presence';
-import { ArrowLeft, Pencil, Trash2, SmilePlus, Menu } from 'lucide-react';
+import { ArrowLeft, Pencil, Trash2, SmilePlus, Menu, MessageSquare, Bookmark, Forward } from 'lucide-react';
 import {
   useConversationMessages,
   useSendConversationMessage,
@@ -34,6 +34,9 @@ interface Props {
   currentUserId: string;
   onClose: () => void;
   onOpenNav?: () => void;
+  onOpenThread: (message: ConversationMessage) => void;
+  onSave: (message: ConversationMessage) => void;
+  onForward: (message: ConversationMessage) => void;
 }
 
 export default function ConversationView({
@@ -46,6 +49,9 @@ export default function ConversationView({
   currentUserId,
   onClose,
   onOpenNav,
+  onOpenThread,
+  onSave,
+  onForward,
 }: Props) {
   const partnerId = participantIds.find((id) => id !== currentUserId) ?? currentUserId;
   const { getUser } = useUserCache();
@@ -90,10 +96,13 @@ export default function ConversationView({
           onEdit={(content) => editMutation.mutateAsync({ messageId: msg.id, content })}
           onDelete={() => deleteMutation.mutateAsync({ messageId: msg.id })}
           onToggleReaction={(emoji, hasOwn) => toggleReaction(msg.id, emoji, hasOwn)}
+          onOpenThread={() => onOpenThread(msg)}
+          onSave={() => onSave(msg)}
+          onForward={() => onForward(msg)}
         />
       );
     },
-    [currentUserId, deleteMutation, editMutation, toggleReaction],
+    [currentUserId, deleteMutation, editMutation, onForward, onOpenThread, onSave, toggleReaction],
   );
 
   return (
@@ -199,6 +208,9 @@ interface ConversationMessageProps {
   onEdit: (content: string) => Promise<unknown>;
   onDelete: () => Promise<unknown>;
   onToggleReaction: (emoji: string, hasOwn: boolean) => void;
+  onOpenThread: () => void;
+  onSave: () => void;
+  onForward: () => void;
 }
 
 function ConversationMessageRow({
@@ -209,6 +221,9 @@ function ConversationMessageRow({
   onEdit,
   onDelete,
   onToggleReaction,
+  onOpenThread,
+  onSave,
+  onForward,
 }: ConversationMessageProps) {
   const { getUser } = useUserCache();
   const sender = getUser(msg.user_id);
@@ -279,6 +294,11 @@ function ConversationMessageRow({
         {!grouped && (
           <div className="flex items-baseline gap-2">
             <span className="text-sm font-semibold text-slate-200">{senderName}</span>
+            {sender?.status_emoji && (
+              <span data-qa="message-status-emoji" title={sender.status_text ?? undefined}>
+                {sender.status_emoji}
+              </span>
+            )}
             <span className="text-xs text-slate-400">{time}</span>
             {msg.edited_at && <span className="text-xs text-slate-400 italic">(edited)</span>}
             {msg.pending && <span className="text-xs text-slate-400 italic">Sending…</span>}
@@ -296,6 +316,17 @@ function ConversationMessageRow({
           />
         ) : (
           <RichTextDisplay content={msg.content} />
+        )}
+
+        {msg.reply_count > 0 && (
+          <button
+            onClick={onOpenThread}
+            data-qa="dm-thread-open"
+            className="mt-1 inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded text-xs text-purple-300 hover:bg-slate-700/50 transition cursor-pointer"
+          >
+            <MessageSquare className="w-3 h-3" />
+            {msg.reply_count} {msg.reply_count === 1 ? 'reply' : 'replies'}
+          </button>
         )}
 
         {reactionGroups.length > 0 && (
@@ -363,6 +394,30 @@ function ConversationMessageRow({
               />
             )}
           </div>
+          <button
+            onClick={onOpenThread}
+            aria-label="Reply in thread"
+            data-qa="dm-action-thread"
+            className="p-1 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition"
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={onSave}
+            aria-label="Save message"
+            data-qa="dm-action-save"
+            className="p-1 text-slate-400 hover:text-purple-300 hover:bg-slate-700 rounded transition"
+          >
+            <Bookmark className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={onForward}
+            aria-label="Forward message"
+            data-qa="dm-action-forward"
+            className="p-1 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition"
+          >
+            <Forward className="w-3.5 h-3.5" />
+          </button>
           {isOwn && (
             <button
               onClick={() => setEditing(true)}

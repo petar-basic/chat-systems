@@ -17,6 +17,8 @@ interface Props {
   members?: WorkspaceMember[];
   channels?: Channel[];
   onThreadOpen: (msg: Message) => void;
+  onSave?: (msg: Message) => void;
+  onForward?: (msg: Message) => void;
   highlightMessageId?: string;
   onTargetMessageFound?: (msg: Message) => void;
 }
@@ -36,6 +38,8 @@ export default function MessageList({
   members,
   channels,
   onThreadOpen,
+  onSave,
+  onForward,
   highlightMessageId,
   onTargetMessageFound,
 }: Props) {
@@ -86,6 +90,8 @@ export default function MessageList({
           channels={channels}
           currentUserId={actions.currentUserId}
           senderName={row.message.metadata?.bot?.name ?? displayNameOf(sender?.display_name)}
+          senderStatusEmoji={row.message.metadata?.bot ? null : sender?.status_emoji}
+          senderStatusText={row.message.metadata?.bot ? null : sender?.status_text}
           senderAvatarUrl={row.message.metadata?.bot?.icon_url ?? sender?.avatar_url}
           isHighlighted={row.message.id === highlightMessageId}
           onThreadOpen={onThreadOpen}
@@ -95,10 +101,12 @@ export default function MessageList({
           onDelete={actions.deleteMessage}
           onRetry={actions.retryMessage}
           onCopyLink={actions.copyLink}
+          onSave={onSave}
+          onForward={onForward}
         />
       );
     },
-    [actions, channels, getUser, highlightMessageId, members, onThreadOpen],
+    [actions, channels, getUser, highlightMessageId, members, onForward, onSave, onThreadOpen],
   );
 
   return (

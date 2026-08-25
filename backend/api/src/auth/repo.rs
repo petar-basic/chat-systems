@@ -86,6 +86,32 @@ impl UserRepo {
         .await
     }
 
+    pub async fn set_status(
+        &self,
+        id: Uuid,
+        emoji: Option<&str>,
+        text: Option<&str>,
+        expires_at: Option<chrono::DateTime<chrono::Utc>>,
+    ) -> sqlx::Result<User> {
+        sqlx::query_as::<_, User>(
+            r"
+            UPDATE users
+            SET status_emoji = $2,
+                status_text = $3,
+                status_expires_at = $4,
+                updated_at = NOW()
+            WHERE id = $1
+            RETURNING *
+            ",
+        )
+        .bind(id)
+        .bind(emoji)
+        .bind(text)
+        .bind(expires_at)
+        .fetch_one(&self.pool)
+        .await
+    }
+
     pub async fn update_profile(
         &self,
         id: Uuid,

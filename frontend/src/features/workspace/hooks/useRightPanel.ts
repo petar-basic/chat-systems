@@ -1,11 +1,13 @@
 import { useCallback, useState } from 'react';
 import type { Message } from '@/stores/workspace';
+import type { ConversationMessage } from '@/hooks/queries/useConversations';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
 
 export type RightPanel =
   | { kind: 'members' }
   | { kind: 'settings' }
   | { kind: 'thread'; message: Message }
+  | { kind: 'conversationThread'; conversationId: string; message: ConversationMessage }
   | { kind: 'search' }
   | { kind: 'pins' }
   | { kind: 'channelMembers' }
@@ -14,6 +16,8 @@ export type RightPanel =
   | { kind: 'userGroups' }
   | { kind: 'auditLog' }
   | { kind: 'scheduled' }
+  | { kind: 'saved' }
+  | { kind: 'reminders' }
   | { kind: 'notifications' }
   | null;
 
@@ -29,13 +33,18 @@ export function useRightPanel(currentChannelId?: string, currentDmPartnerId?: st
     setActive(null);
   }
 
-  const toggle = useCallback((kind: Exclude<PanelKind, 'thread'>) => {
+  const toggle = useCallback((kind: Exclude<PanelKind, 'thread' | 'conversationThread'>) => {
     setActive((p) => (p?.kind === kind ? null : { kind }));
   }, []);
   const openThread = useCallback((message: Message) => setActive({ kind: 'thread', message }), []);
+  const openConversationThread = useCallback(
+    (conversationId: string, message: ConversationMessage) =>
+      setActive({ kind: 'conversationThread', conversationId, message }),
+    [],
+  );
   const close = useCallback(() => setActive(null), []);
 
   useEscapeToClose(close, !!active);
 
-  return { active, toggle, openThread, close };
+  return { active, toggle, openThread, openConversationThread, close };
 }

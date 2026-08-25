@@ -5,9 +5,10 @@ import { conversationTitle } from '@/lib/conversationHelpers';
 import { ConnectionBanner } from '@/shared/components/ConnectionBanner/ConnectionBanner';
 import { QuickSwitcher } from '@/features/navigation';
 import { WorkspaceSidebar, WorkspaceRightPanels, useWorkspaceController } from '@/features/workspace';
-import { ChannelSidebar, ChannelHeader } from '@/features/channel';
+import { ChannelSidebar, ChannelHeader, ChannelBookmarksBar } from '@/features/channel';
 import { MessageList, MessageInput } from '@/features/messaging';
 import ConversationView from '@/features/messaging/ConversationView';
+import ForwardMessageModal from '@/features/messaging/ForwardMessageModal';
 import AddInstancePanel from '../components/AddInstancePanel';
 import UserProfilePanel from '../components/UserProfilePanel';
 import TypingIndicator from '../components/TypingIndicator';
@@ -64,6 +65,8 @@ export default function WorkspacePage() {
           onOpenUserGroups={() => panel.toggle('userGroups')}
           onOpenAuditLog={() => panel.toggle('auditLog')}
           onOpenScheduled={() => panel.toggle('scheduled')}
+          onOpenSaved={() => panel.toggle('saved')}
+          onOpenReminders={() => panel.toggle('reminders')}
           onOpenProfile={() => c.setShowProfile(true)}
           onOpenNotifications={() => panel.toggle('notifications')}
           onLogout={() => c.logout.mutate()}
@@ -91,6 +94,9 @@ export default function WorkspacePage() {
           currentUserId={user.id}
           onClose={() => c.navigate(ROUTES.workspace(currentWorkspace.id))}
           onOpenNav={() => c.setMobileNavOpen(true)}
+          onOpenThread={(message) => panel.openConversationThread(activeConversation.id, message)}
+          onSave={c.handleSaveConversationMessage}
+          onForward={c.handleForwardConversationMessage}
         />
       ) : (
         <main className="flex-1 flex flex-col min-w-0" aria-label="Conversation">
@@ -128,11 +134,17 @@ export default function WorkspacePage() {
           />
 
           {currentChannel && (
+            <ChannelBookmarksBar channelId={currentChannel.id} instanceUrl={currentWorkspace?.instanceUrl} />
+          )}
+
+          {currentChannel && (
             <MessageList
               channelId={currentChannel.id}
               members={c.workspaceMembers}
               channels={c.channels}
               onThreadOpen={panel.openThread}
+              onSave={c.handleSaveMessage}
+              onForward={c.handleForwardMessage}
               highlightMessageId={c.urlMessageId}
               onTargetMessageFound={c.handleTargetMessageFound}
             />
@@ -200,9 +212,21 @@ export default function WorkspacePage() {
         channels={c.channels}
         conversations={c.conversations}
         onClose={panel.close}
+        currentUserId={user?.id}
         onNavigateToMessage={c.handleNavigateToMessage}
         onOpenConversation={c.handleOpenConversation}
       />
+
+      {c.forwarding && currentWorkspace && user && (
+        <ForwardMessageModal
+          source={c.forwarding}
+          channels={c.channels}
+          conversations={c.conversations}
+          currentUserId={user.id}
+          instanceUrl={currentWorkspace.instanceUrl}
+          onClose={c.dismissForward}
+        />
+      )}
 
       {c.showProfile && <UserProfilePanel onClose={() => c.setShowProfile(false)} />}
 

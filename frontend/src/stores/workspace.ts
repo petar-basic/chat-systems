@@ -73,6 +73,8 @@ export interface WorkspaceMember {
   email: string;
   display_name: string | null;
   avatar_url: string | null;
+  status_emoji?: string | null;
+  status_text?: string | null;
 }
 
 interface WorkspaceState {

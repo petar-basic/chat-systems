@@ -1,5 +1,6 @@
 export const QUERY_KEYS = {
   currentUser: () => ['auth', 'currentUser'] as const,
+  myStatus: (instanceUrl: string) => ['auth', 'status', instanceUrl] as const,
 
   workspaces: () => ['workspaces'] as const,
   workspacesList: (instanceUrls: string) => ['workspaces', instanceUrls] as const,
@@ -28,8 +29,13 @@ export const QUERY_KEYS = {
   conversationsAll: () => ['conversations'] as const,
   conversations: (workspaceId: string) => ['conversations', workspaceId] as const,
   conversationMessages: (conversationId: string) => ['conversations', 'messages', conversationId] as const,
+  conversationThread: (parentId: string) => ['conversations', 'thread', parentId] as const,
 
   scheduledMessages: (workspaceId: string) => ['scheduled-messages', workspaceId] as const,
+
+  saved: (workspaceId: string) => ['saved', workspaceId] as const,
+  reminders: (workspaceId: string) => ['reminders', workspaceId] as const,
+  channelBookmarks: (channelId: string) => ['channels', channelId, 'bookmarks'] as const,
 
   search: (query: string) => ['search', query] as const,
 

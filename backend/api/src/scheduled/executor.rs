@@ -213,6 +213,7 @@ async fn deliver_to_conversation(
             scheduled.user_id,
             &scheduled.content,
             None,
+            None,
         )
         .await
         .map_err(internal)?;
