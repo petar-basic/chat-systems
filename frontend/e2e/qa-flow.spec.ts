@@ -205,6 +205,9 @@ test('9. direct message is delivered live', async () => {
   await admin.locator('[data-qa="new-dm-modal"]').getByText('Bob Smith').first().click();
   await admin.locator('[data-qa="new-dm-start"]').click();
   await expect(admin.locator('[data-qa="new-dm-modal"]')).toBeHidden();
+  // The composer is shared scenery: type before the conversation view has
+  // replaced the channel view and the message goes to the channel instead.
+  await expect(admin.locator('[data-qa="conversation-title"]')).toContainText('Bob Smith');
   const dmText = `dm ${stamp} secret hello`;
   await send(admin, dmText);
   await expect(admin.locator('[data-qa="conversation-message"]').last()).toContainText(dmText, {
