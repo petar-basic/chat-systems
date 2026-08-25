@@ -687,7 +687,7 @@ mod tests {
         (user_id, channel_id)
     }
 
-    #[sqlx::test(migrations = "../migrations")]
+    #[test_macros::db_test(migrations = "../migrations")]
     async fn create_reply_increments_parent_reply_count(pool: PgPool) {
         let (user_id, channel_id) = seed_channel(&pool).await;
         let repo = MessageRepo::new(pool);
@@ -723,7 +723,7 @@ mod tests {
         );
     }
 
-    #[sqlx::test(migrations = "../migrations")]
+    #[test_macros::db_test(migrations = "../migrations")]
     async fn soft_delete_filters_message(pool: PgPool) {
         let (user_id, channel_id) = seed_channel(&pool).await;
         let repo = MessageRepo::new(pool);
@@ -763,7 +763,7 @@ mod tests {
         );
     }
 
-    #[sqlx::test(migrations = "../migrations")]
+    #[test_macros::db_test(migrations = "../migrations")]
     async fn cursor_pagination_orders_newest_first_without_overlap(pool: PgPool) {
         let (user_id, channel_id) = seed_channel(&pool).await;
         let seed_pool = pool.clone();
@@ -843,7 +843,7 @@ mod tests {
         );
     }
 
-    #[sqlx::test(migrations = "../migrations")]
+    #[test_macros::db_test(migrations = "../migrations")]
     async fn cursor_pagination_survives_identical_timestamps(pool: PgPool) {
         let (user_id, channel_id) = seed_channel(&pool).await;
         let seed_pool = pool.clone();

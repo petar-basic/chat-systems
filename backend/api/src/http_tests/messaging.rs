@@ -51,7 +51,7 @@ async fn create_message(
     uuid::Uuid::parse_str(body["id"].as_str().expect("message id")).expect("valid uuid")
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn send_message_member_succeeds(pool: PgPool) {
     let (app, _state, _owner, token, _ws, ch_id) = setup_channel(pool).await;
     let (status, body) = send(
@@ -69,7 +69,7 @@ async fn send_message_member_succeeds(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn send_message_non_member_forbidden(pool: PgPool) {
     let (app, state, _owner, _token, _ws, ch_id) = setup_channel(pool).await;
     let (_outsider_id, _email, outsider_token) =
@@ -85,7 +85,7 @@ async fn send_message_non_member_forbidden(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn send_message_no_token_unauthorized(pool: PgPool) {
     let (app, _state, _owner, _token, _ws, ch_id) = setup_channel(pool).await;
     let (status, _body) = send(
@@ -99,7 +99,7 @@ async fn send_message_no_token_unauthorized(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn send_message_empty_content_unprocessable(pool: PgPool) {
     let (app, _state, _owner, token, _ws, ch_id) = setup_channel(pool).await;
     let (status, _body) = send(
@@ -113,7 +113,7 @@ async fn send_message_empty_content_unprocessable(pool: PgPool) {
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn send_message_unknown_channel_not_found(pool: PgPool) {
     let (app, _state, _owner, token, _ws, _ch_id) = setup_channel(pool).await;
     let ghost = uuid::Uuid::new_v4();
@@ -128,7 +128,7 @@ async fn send_message_unknown_channel_not_found(pool: PgPool) {
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn list_messages_member_succeeds(pool: PgPool) {
     let (app, _state, _owner, token, _ws, ch_id) = setup_channel(pool).await;
     create_message(&app, &token, ch_id, "first").await;
@@ -145,7 +145,7 @@ async fn list_messages_member_succeeds(pool: PgPool) {
     assert!(body["data"].is_array(), "expected data array: {body:?}");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn list_messages_non_member_forbidden(pool: PgPool) {
     let (app, state, _owner, _token, _ws, ch_id) = setup_channel(pool).await;
     let (_outsider, _email, outsider_token) = seed_and_login(&app, &state, "outsider", false).await;
@@ -160,7 +160,7 @@ async fn list_messages_non_member_forbidden(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn list_messages_no_token_unauthorized(pool: PgPool) {
     let (app, _state, _owner, _token, _ws, ch_id) = setup_channel(pool).await;
     let (status, _body) = send(
@@ -174,7 +174,7 @@ async fn list_messages_no_token_unauthorized(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn update_message_author_succeeds(pool: PgPool) {
     let (app, _state, _owner, token, _ws, ch_id) = setup_channel(pool).await;
     let msg_id = create_message(&app, &token, ch_id, "original").await;
@@ -189,7 +189,7 @@ async fn update_message_author_succeeds(pool: PgPool) {
     assert_eq!(status, StatusCode::OK, "{body:?}");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn update_message_non_author_forbidden(pool: PgPool) {
     let (app, state, _owner, token, ws_id, ch_id) = setup_channel(pool).await;
     let msg_id = create_message(&app, &token, ch_id, "owner's message").await;
@@ -206,7 +206,7 @@ async fn update_message_non_author_forbidden(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn update_message_no_token_unauthorized(pool: PgPool) {
     let (app, _state, _owner, token, _ws, ch_id) = setup_channel(pool).await;
     let msg_id = create_message(&app, &token, ch_id, "original").await;
@@ -221,7 +221,7 @@ async fn update_message_no_token_unauthorized(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn update_message_unknown_not_found(pool: PgPool) {
     let (app, _state, _owner, token, _ws, _ch_id) = setup_channel(pool).await;
     let ghost = uuid::Uuid::new_v4();
@@ -236,7 +236,7 @@ async fn update_message_unknown_not_found(pool: PgPool) {
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn delete_message_author_succeeds(pool: PgPool) {
     let (app, _state, _owner, token, _ws, ch_id) = setup_channel(pool).await;
     let msg_id = create_message(&app, &token, ch_id, "delete me").await;
@@ -251,7 +251,7 @@ async fn delete_message_author_succeeds(pool: PgPool) {
     assert_eq!(status, StatusCode::OK);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn delete_message_admin_succeeds(pool: PgPool) {
     let (app, state, _owner, token, ws_id, ch_id) = setup_channel(pool).await;
     let msg_id = create_message(&app, &token, ch_id, "owner's message").await;
@@ -268,7 +268,7 @@ async fn delete_message_admin_succeeds(pool: PgPool) {
     assert_eq!(status, StatusCode::OK);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn delete_message_non_author_member_forbidden(pool: PgPool) {
     let (app, state, _owner, token, ws_id, ch_id) = setup_channel(pool).await;
     let msg_id = create_message(&app, &token, ch_id, "owner's message").await;
@@ -285,7 +285,7 @@ async fn delete_message_non_author_member_forbidden(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn delete_message_no_token_unauthorized(pool: PgPool) {
     let (app, _state, _owner, token, _ws, ch_id) = setup_channel(pool).await;
     let msg_id = create_message(&app, &token, ch_id, "delete me").await;
@@ -300,7 +300,7 @@ async fn delete_message_no_token_unauthorized(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn thread_reply_and_list_succeeds(pool: PgPool) {
     let (app, _state, _owner, token, _ws, ch_id) = setup_channel(pool).await;
     let parent = create_message(&app, &token, ch_id, "parent message").await;
@@ -328,7 +328,7 @@ async fn thread_reply_and_list_succeeds(pool: PgPool) {
     assert!(list_body["data"].is_array());
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn thread_reply_non_member_forbidden(pool: PgPool) {
     let (app, state, _owner, token, _ws, ch_id) = setup_channel(pool).await;
     let parent = create_message(&app, &token, ch_id, "parent").await;
@@ -344,7 +344,7 @@ async fn thread_reply_non_member_forbidden(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn thread_reply_no_token_unauthorized(pool: PgPool) {
     let (app, _state, _owner, token, _ws, ch_id) = setup_channel(pool).await;
     let parent = create_message(&app, &token, ch_id, "parent").await;
@@ -359,7 +359,7 @@ async fn thread_reply_no_token_unauthorized(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn thread_list_unknown_parent_not_found(pool: PgPool) {
     let (app, _state, _owner, token, _ws, _ch_id) = setup_channel(pool).await;
     let ghost = uuid::Uuid::new_v4();
@@ -374,7 +374,7 @@ async fn thread_list_unknown_parent_not_found(pool: PgPool) {
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn reaction_add_list_remove_succeeds(pool: PgPool) {
     let (app, _state, _owner, token, _ws, ch_id) = setup_channel(pool).await;
     let msg_id = create_message(&app, &token, ch_id, "react to me").await;
@@ -413,7 +413,7 @@ async fn reaction_add_list_remove_succeeds(pool: PgPool) {
     assert_eq!(rm_status, StatusCode::OK);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn reaction_add_non_member_forbidden(pool: PgPool) {
     let (app, state, _owner, token, _ws, ch_id) = setup_channel(pool).await;
     let msg_id = create_message(&app, &token, ch_id, "react to me").await;
@@ -429,7 +429,7 @@ async fn reaction_add_non_member_forbidden(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn reaction_list_no_token_unauthorized(pool: PgPool) {
     let (app, _state, _owner, token, _ws, ch_id) = setup_channel(pool).await;
     let msg_id = create_message(&app, &token, ch_id, "react to me").await;
@@ -444,7 +444,7 @@ async fn reaction_list_no_token_unauthorized(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn reaction_add_unknown_message_not_found(pool: PgPool) {
     let (app, _state, _owner, token, _ws, _ch_id) = setup_channel(pool).await;
     let ghost = uuid::Uuid::new_v4();
@@ -459,7 +459,7 @@ async fn reaction_add_unknown_message_not_found(pool: PgPool) {
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn pin_unpin_and_list_succeeds(pool: PgPool) {
     let (app, _state, _owner, token, _ws, ch_id) = setup_channel(pool).await;
     let msg_id = create_message(&app, &token, ch_id, "pin me").await;
@@ -496,7 +496,7 @@ async fn pin_unpin_and_list_succeeds(pool: PgPool) {
     assert_eq!(unpin_status, StatusCode::OK);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn pin_message_non_moderator_forbidden(pool: PgPool) {
     let (app, state, _owner, token, ws_id, ch_id) = setup_channel(pool).await;
     let msg_id = create_message(&app, &token, ch_id, "pin me").await;
@@ -513,7 +513,7 @@ async fn pin_message_non_moderator_forbidden(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn pin_message_no_token_unauthorized(pool: PgPool) {
     let (app, _state, _owner, token, _ws, ch_id) = setup_channel(pool).await;
     let msg_id = create_message(&app, &token, ch_id, "pin me").await;
@@ -528,7 +528,7 @@ async fn pin_message_no_token_unauthorized(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn list_pins_non_member_forbidden(pool: PgPool) {
     let (app, state, _owner, _token, _ws, ch_id) = setup_channel(pool).await;
     let (_outsider, _email, outsider_token) = seed_and_login(&app, &state, "outsider", false).await;
@@ -543,7 +543,7 @@ async fn list_pins_non_member_forbidden(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn search_member_succeeds(pool: PgPool) {
     let (app, _state, _owner, token, ws_id, ch_id) = setup_channel(pool).await;
     create_message(&app, &token, ch_id, "needle in the haystack").await;
@@ -559,7 +559,7 @@ async fn search_member_succeeds(pool: PgPool) {
     assert!(body["data"].is_array(), "expected data array: {body:?}");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn search_excludes_private_channels_for_non_channel_member(pool: PgPool) {
     let (app, state, owner_id, owner_token, ws_id, _ch_id) = setup_channel(pool).await;
     let private_ch = seed_channel(
@@ -606,7 +606,7 @@ async fn search_excludes_private_channels_for_non_channel_member(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn search_non_member_forbidden(pool: PgPool) {
     let (app, state, _owner, _token, ws_id, _ch_id) = setup_channel(pool).await;
     let (_outsider, _email, outsider_token) = seed_and_login(&app, &state, "outsider", false).await;
@@ -621,7 +621,7 @@ async fn search_non_member_forbidden(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn search_no_token_unauthorized(pool: PgPool) {
     let (app, _state, _owner, _token, ws_id, _ch_id) = setup_channel(pool).await;
     let (status, _body) = send(
@@ -635,7 +635,7 @@ async fn search_no_token_unauthorized(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn search_empty_query_unprocessable(pool: PgPool) {
     let (app, _state, _owner, token, ws_id, _ch_id) = setup_channel(pool).await;
     let (status, _body) = send(
@@ -649,7 +649,7 @@ async fn search_empty_query_unprocessable(pool: PgPool) {
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn mark_read_member_succeeds(pool: PgPool) {
     let (app, _state, _owner, token, _ws, ch_id) = setup_channel(pool).await;
     let msg_id = create_message(&app, &token, ch_id, "read me").await;
@@ -664,7 +664,7 @@ async fn mark_read_member_succeeds(pool: PgPool) {
     assert_eq!(status, StatusCode::OK);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn mark_read_non_member_forbidden(pool: PgPool) {
     let (app, state, _owner, token, _ws, ch_id) = setup_channel(pool).await;
     let msg_id = create_message(&app, &token, ch_id, "read me").await;
@@ -680,7 +680,7 @@ async fn mark_read_non_member_forbidden(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn mark_read_no_token_unauthorized(pool: PgPool) {
     let (app, _state, _owner, token, _ws, ch_id) = setup_channel(pool).await;
     let msg_id = create_message(&app, &token, ch_id, "read me").await;
@@ -706,7 +706,7 @@ async fn mark_online(state: &crate::state::AppState, user_id: uuid::Uuid) {
         .await;
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn channel_broadcast_notifies_every_member_except_the_author(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (author_id, _, _) = seed_and_login(&app, &state, "mention-author", false).await;
@@ -741,7 +741,7 @@ async fn channel_broadcast_notifies_every_member_except_the_author(pool: PgPool)
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn here_only_reaches_members_with_a_live_connection(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (author_id, _, _) = seed_and_login(&app, &state, "mention-author", false).await;
@@ -770,7 +770,7 @@ async fn here_only_reaches_members_with_a_live_connection(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_named_mention_alongside_a_broadcast_is_not_delivered_twice(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (author_id, _, _) = seed_and_login(&app, &state, "mention-author", false).await;
@@ -792,7 +792,7 @@ async fn a_named_mention_alongside_a_broadcast_is_not_delivered_twice(pool: PgPo
     assert_eq!(mentioned, vec![member_id]);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_message_without_a_broadcast_only_notifies_the_named_user(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (author_id, _, _) = seed_and_login(&app, &state, "mention-author", false).await;
@@ -817,7 +817,7 @@ async fn a_message_without_a_broadcast_only_notifies_the_named_user(pool: PgPool
     assert_eq!(mentioned, vec![named], "bystanders stay unnotified");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn search_holds_guests_to_the_channels_they_belong_to(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) =
@@ -885,7 +885,7 @@ async fn search_holds_guests_to_the_channels_they_belong_to(pool: PgPool) {
 /// The reason this ticket exists: `to_tsvector('english', …)` neither stems
 /// Serbian correctly nor folds diacritics, so a team writing in it could not
 /// find its own messages.
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn diacritics_match_in_both_directions(pool: PgPool) {
     let (app, _state, _owner, token, ws_id, ch_id) = setup_channel(pool).await;
     create_message(&app, &token, ch_id, "sastanak u četvrtak").await;
@@ -908,7 +908,7 @@ async fn diacritics_match_in_both_directions(pool: PgPool) {
 
 /// What people actually type into a chat search is half a word, which
 /// `to_tsvector` cannot answer at all.
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_substring_and_a_near_miss_still_find_the_message(pool: PgPool) {
     let (app, _state, _owner, token, ws_id, ch_id) = setup_channel(pool).await;
     create_message(&app, &token, ch_id, "the deployment pipeline is red").await;
@@ -933,7 +933,7 @@ async fn a_substring_and_a_near_miss_still_find_the_message(pool: PgPool) {
 
 /// A fuzzy hit is useful but must never outrank the message that actually
 /// contains the word.
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn an_exact_match_outranks_a_fuzzy_one(pool: PgPool) {
     let (app, _state, _owner, token, ws_id, ch_id) = setup_channel(pool).await;
     create_message(&app, &token, ch_id, "something about deploymen and more").await;
@@ -957,7 +957,7 @@ async fn an_exact_match_outranks_a_fuzzy_one(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_dm_is_searchable_by_its_participants_and_nobody_else(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "dm-owner", false).await;
@@ -1026,7 +1026,7 @@ async fn a_dm_is_searchable_by_its_participants_and_nobody_else(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn scope_decides_which_half_of_the_search_runs(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "scope-owner", false).await;

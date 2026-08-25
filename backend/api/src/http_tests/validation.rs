@@ -4,7 +4,7 @@ use sqlx::PgPool;
 
 use super::common::*;
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn an_over_long_channel_reaction_is_a_400_not_a_500(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "val-owner", false).await;
@@ -36,7 +36,7 @@ async fn an_over_long_channel_reaction_is_a_400_not_a_500(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_reaction_the_websocket_would_accept_is_accepted_here_too(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "val-owner", false).await;
@@ -64,7 +64,7 @@ async fn a_reaction_the_websocket_would_accept_is_accepted_here_too(pool: PgPool
     assert_eq!(status, StatusCode::OK, "the two paths must agree");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_duplicate_reaction_is_a_conflict_not_a_database_error(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "val-owner", false).await;
@@ -107,7 +107,7 @@ async fn a_duplicate_reaction_is_a_conflict_not_a_database_error(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn over_long_reminder_content_is_refused(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "val-owner", false).await;
@@ -128,7 +128,7 @@ async fn over_long_reminder_content_is_refused(pool: PgPool) {
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn over_long_channel_topic_and_description_are_refused(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "val-owner", false).await;
@@ -156,7 +156,7 @@ async fn over_long_channel_topic_and_description_are_refused(pool: PgPool) {
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "description");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_profile_bio_and_timezone_are_bounded(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, _, token) = seed_and_login(&app, &state, "val-owner", false).await;
@@ -192,7 +192,7 @@ async fn a_profile_bio_and_timezone_are_bounded(pool: PgPool) {
     assert_eq!(status, StatusCode::OK, "a real IANA name is accepted");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn workspace_and_hook_free_text_is_bounded(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "val-owner", false).await;
@@ -239,7 +239,7 @@ async fn workspace_and_hook_free_text_is_bounded(pool: PgPool) {
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "invite email");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_channel_client_id_never_reaches_into_another_channel(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner) = seed_and_login(&app, &state, "idem-owner", false).await;
@@ -286,7 +286,7 @@ async fn a_channel_client_id_never_reaches_into_another_channel(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn resending_a_channel_message_with_the_same_client_id_is_idempotent(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner) = seed_and_login(&app, &state, "idem-owner", false).await;

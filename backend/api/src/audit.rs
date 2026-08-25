@@ -165,7 +165,6 @@ impl AuditAction {
 #[derive(Debug, Clone, Default)]
 pub struct ClientIp(pub Option<String>);
 
-#[axum::async_trait]
 impl FromRequestParts<Arc<AppState>> for ClientIp {
     type Rejection = std::convert::Infallible;
 

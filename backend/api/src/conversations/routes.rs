@@ -19,27 +19,27 @@ pub const MAX_GROUP_PARTICIPANTS: usize = 9;
 
 pub fn router(state: Arc<AppState>) -> Router {
     let routes = Router::new()
-        .route("/workspaces/:ws_id/conversations", get(list_conversations))
+        .route("/workspaces/{ws_id}/conversations", get(list_conversations))
         .route(
-            "/workspaces/:ws_id/conversations",
+            "/workspaces/{ws_id}/conversations",
             post(create_conversation),
         )
-        .route("/conversations/:conv_id/messages", get(list_messages))
-        .route("/conversations/:conv_id/messages", post(send_message))
-        .route("/conversations/:conv_id/read", post(mark_read))
-        .route("/conversations/messages/:msg_id/thread", get(list_thread))
-        .route("/conversations/messages/:msg_id", patch(edit_message))
+        .route("/conversations/{conv_id}/messages", get(list_messages))
+        .route("/conversations/{conv_id}/messages", post(send_message))
+        .route("/conversations/{conv_id}/read", post(mark_read))
+        .route("/conversations/messages/{msg_id}/thread", get(list_thread))
+        .route("/conversations/messages/{msg_id}", patch(edit_message))
         .route(
-            "/conversations/messages/:msg_id/history",
+            "/conversations/messages/{msg_id}/history",
             get(message_history),
         )
-        .route("/conversations/messages/:msg_id", delete(delete_message))
+        .route("/conversations/messages/{msg_id}", delete(delete_message))
         .route(
-            "/conversations/messages/:msg_id/reactions",
+            "/conversations/messages/{msg_id}/reactions",
             post(add_reaction),
         )
         .route(
-            "/conversations/messages/:msg_id/reactions/:emoji",
+            "/conversations/messages/{msg_id}/reactions/{emoji}",
             delete(remove_reaction),
         );
 

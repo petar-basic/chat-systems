@@ -50,7 +50,7 @@ async fn set_policy(
         .expect("set policy");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn only_the_older_side_of_the_boundary_is_removed(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "ret-owner", false).await;
@@ -74,7 +74,7 @@ async fn only_the_older_side_of_the_boundary_is_removed(pool: PgPool) {
     assert!(survivors.contains(&recent), "inside the boundary stays");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn keeping_forever_is_the_default_and_deletes_nothing(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "ret-owner", false).await;
@@ -99,7 +99,7 @@ async fn keeping_forever_is_the_default_and_deletes_nothing(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn dry_run_reports_without_deleting(pool: PgPool) {
     let config = AppConfig {
         retention_dry_run: true,
@@ -125,7 +125,7 @@ async fn dry_run_reports_without_deleting(pool: PgPool) {
     assert_eq!(still_there, 1, "and removes none of it");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn expired_tokens_are_cleaned_without_any_policy(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (user_id, _, _) = seed_and_login(&app, &state, "ret-user", false).await;
@@ -168,7 +168,7 @@ async fn expired_tokens_are_cleaned_without_any_policy(pool: PgPool) {
     assert_eq!(refresh, 0);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn the_audit_trail_outlives_the_messages_it_describes(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "ret-owner", false).await;
@@ -210,7 +210,7 @@ async fn the_audit_trail_outlives_the_messages_it_describes(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn the_policy_is_owner_only_and_the_change_is_audited(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner) = seed_and_login(&app, &state, "ret-owner", false).await;

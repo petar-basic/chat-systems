@@ -4,7 +4,7 @@ use axum::extract::{Path, State};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use base64::Engine;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use redis::AsyncCommands;
 use sha1::Sha1;
 use uuid::Uuid;
@@ -20,11 +20,11 @@ type HmacSha1 = Hmac<Sha1>;
 
 pub fn router(state: Arc<AppState>) -> Router {
     let routes = Router::new()
-        .route("/workspaces/:ws_id/ice-servers", get(ice_servers))
-        .route("/workspaces/:ws_id/active-huddles", get(active_huddles))
-        .route("/workspaces/:ws_id/huddles", post(start_huddle))
+        .route("/workspaces/{ws_id}/ice-servers", get(ice_servers))
+        .route("/workspaces/{ws_id}/active-huddles", get(active_huddles))
+        .route("/workspaces/{ws_id}/huddles", post(start_huddle))
         .route(
-            "/workspaces/:ws_id/huddles/:huddle_id/invite",
+            "/workspaces/{ws_id}/huddles/{huddle_id}/invite",
             post(invite_to_huddle),
         );
 

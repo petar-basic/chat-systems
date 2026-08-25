@@ -21,7 +21,7 @@ async fn create_group(
     .await
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_group_is_created_by_an_admin_and_seen_by_everyone(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "grp-owner", false).await;
@@ -60,7 +60,7 @@ async fn a_group_is_created_by_an_admin_and_seen_by_everyone(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn membership_is_workspace_membership_first(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "grp-owner", false).await;
@@ -128,7 +128,7 @@ async fn membership_is_workspace_membership_first(pool: PgPool) {
 
 /// The decision that makes group mentions safe: the group is a shorthand for
 /// people, and it reaches them through the channel like `@channel` does.
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn mentioning_a_group_notifies_only_the_members_who_are_in_the_channel(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "grp-owner", false).await;
@@ -201,7 +201,7 @@ async fn mentioning_a_group_notifies_only_the_members_who_are_in_the_channel(poo
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_group_from_another_workspace_never_resolves(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "grp-owner", false).await;

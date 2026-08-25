@@ -55,7 +55,7 @@ fn has_event(events: &[Value], event_type: &str) -> bool {
         .any(|e| e.get("event_type").and_then(|t| t.as_str()) == Some(event_type))
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn huddle_offer_routes_to_signal_channel_not_lifecycle(pool: PgPool) {
     let cm = manager(pool).await;
     let a = seed_user(cm.db()).await;
@@ -104,7 +104,7 @@ async fn huddle_offer_routes_to_signal_channel_not_lifecycle(pool: PgPool) {
     cm.huddle_redis_leave(huddle, b).await;
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn huddle_member_joined_routes_to_lifecycle_channel(pool: PgPool) {
     let cm = manager(pool).await;
     let a = seed_user(cm.db()).await;
@@ -152,7 +152,7 @@ async fn huddle_member_joined_routes_to_lifecycle_channel(pool: PgPool) {
     cm.huddle_redis_leave(huddle, a).await;
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn huddle_member_joined_broadcasts_to_huddle_subscribers(pool: PgPool) {
     let cm = manager(pool).await;
     let member = Uuid::new_v4();
@@ -178,7 +178,7 @@ async fn huddle_member_joined_broadcasts_to_huddle_subscribers(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn huddle_camera_broadcasts_to_huddle_subscribers(pool: PgPool) {
     let cm = manager(pool).await;
     let member = Uuid::new_v4();
@@ -205,7 +205,7 @@ async fn huddle_camera_broadcasts_to_huddle_subscribers(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn huddle_offer_relayed_only_to_target(pool: PgPool) {
     let cm = manager(pool).await;
     let from = Uuid::new_v4();
@@ -239,7 +239,7 @@ async fn huddle_offer_relayed_only_to_target(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn huddle_join_member_returns_snapshot_with_self(pool: PgPool) {
     let cm = manager(pool).await;
     let a = seed_user(cm.db()).await;
@@ -278,7 +278,7 @@ async fn huddle_join_member_returns_snapshot_with_self(pool: PgPool) {
     cm.huddle_redis_leave(huddle, a).await;
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn huddle_join_non_member_denied_no_snapshot(pool: PgPool) {
     let cm = manager(pool).await;
     let owner = seed_user(cm.db()).await;

@@ -15,6 +15,7 @@ use super::service;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::auth::models::{User, UserStatus};
 use crate::middleware::AuthUser;
+use crate::middleware::PeerAddr;
 use crate::state::AppState;
 
 const USER_SCHEMA: &str = "urn:ietf:params:scim:schemas:core:2.0:User";
@@ -27,15 +28,15 @@ pub fn router(state: Arc<AppState>) -> Router {
     // session.
     let scim = Router::new()
         .route("/scim/v2/Users", get(list_users).post(create_user))
-        .route("/scim/v2/Users/:id", get(get_user))
-        .route("/scim/v2/Users/:id", patch(patch_user))
-        .route("/scim/v2/Users/:id", delete(delete_user))
+        .route("/scim/v2/Users/{id}", get(get_user))
+        .route("/scim/v2/Users/{id}", patch(patch_user))
+        .route("/scim/v2/Users/{id}", delete(delete_user))
         .with_state(state.clone());
 
     let tokens = Router::new()
         .route("/admin/scim/tokens", get(list_tokens).post(create_token))
-        .route("/admin/scim/tokens/:id", delete(revoke_token))
-        .route("/admin/scim/tokens/:id/rotate", post(rotate_token))
+        .route("/admin/scim/tokens/{id}", delete(revoke_token))
+        .route("/admin/scim/tokens/{id}/rotate", post(rotate_token))
         .layer(axum::middleware::from_fn(
             crate::middleware::admin_middleware,
         ));
@@ -202,10 +203,10 @@ fn username_filter(filter: &str) -> Result<String, ScimError> {
 async fn list_users(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
-    peer: Option<axum::extract::ConnectInfo<std::net::SocketAddr>>,
+    PeerAddr(peer): PeerAddr,
     Query(query): Query<ListQuery>,
 ) -> ScimResult<Json<serde_json::Value>> {
-    authenticate(&state, &headers, peer.map(|p| p.0)).await?;
+    authenticate(&state, &headers, peer).await?;
 
     let start_index = query.start_index.unwrap_or(1).max(1);
     let count = query.count.unwrap_or(100).clamp(1, 200);
@@ -255,10 +256,10 @@ async fn list_users(
 async fn get_user(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
-    peer: Option<axum::extract::ConnectInfo<std::net::SocketAddr>>,
+    PeerAddr(peer): PeerAddr,
     Path(id): Path<Uuid>,
 ) -> ScimResult<Json<serde_json::Value>> {
-    authenticate(&state, &headers, peer.map(|p| p.0)).await?;
+    authenticate(&state, &headers, peer).await?;
     let user = load(&state, id).await?;
     Ok(Json(user_resource(&user, &state.config.public_url)))
 }
@@ -285,11 +286,11 @@ struct CreateUser {
 async fn create_user(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
-    peer: Option<axum::extract::ConnectInfo<std::net::SocketAddr>>,
+    PeerAddr(peer): PeerAddr,
     ip: ClientIp,
     Json(body): Json<CreateUser>,
 ) -> ScimResult<Response> {
-    let token = authenticate(&state, &headers, peer.map(|p| p.0)).await?;
+    let token = authenticate(&state, &headers, peer).await?;
 
     let user = service::provision(
         &state,
@@ -356,12 +357,12 @@ fn as_bool(value: &serde_json::Value) -> Option<bool> {
 async fn patch_user(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
-    peer: Option<axum::extract::ConnectInfo<std::net::SocketAddr>>,
+    PeerAddr(peer): PeerAddr,
     ip: ClientIp,
     Path(id): Path<Uuid>,
     Json(body): Json<PatchOp>,
 ) -> ScimResult<Json<serde_json::Value>> {
-    let token = authenticate(&state, &headers, peer.map(|p| p.0)).await?;
+    let token = authenticate(&state, &headers, peer).await?;
     let user = load(&state, id).await?;
 
     for (path, value) in changes(&body) {
@@ -396,11 +397,11 @@ async fn patch_user(
 async fn delete_user(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
-    peer: Option<axum::extract::ConnectInfo<std::net::SocketAddr>>,
+    PeerAddr(peer): PeerAddr,
     ip: ClientIp,
     Path(id): Path<Uuid>,
 ) -> ScimResult<StatusCode> {
-    let token = authenticate(&state, &headers, peer.map(|p| p.0)).await?;
+    let token = authenticate(&state, &headers, peer).await?;
     let user = load(&state, id).await?;
     service::deactivate(&state, user.id, token.id, &ip).await?;
     Ok(StatusCode::NO_CONTENT)
@@ -408,9 +409,9 @@ async fn delete_user(
 
 fn generate_token() -> String {
     use base64::Engine;
-    use rand::RngCore;
+    use rand::RngExt;
     let mut bytes = [0u8; 24];
-    rand::rngs::OsRng.fill_bytes(&mut bytes);
+    rand::rng().fill(&mut bytes[..]);
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
 }
 

@@ -83,10 +83,19 @@ in `main.rs`.
 ### Testing
 
 Integration tests live in `api/src/http_tests/` and `realtime/src/tests/`. Each
-`#[sqlx::test]` provisions a fresh Postgres, runs migrations, and drives the full Axum
-router via `tower::oneshot` — real middleware, real auth, real JSON — asserting the
-authorization matrix per endpoint. Realtime tests use real Redis + Postgres and assert
+`#[test_macros::db_test]` gives its test a database nobody else is touching and drives the
+full Axum router via `tower::oneshot` — real middleware, real auth, real JSON — asserting
+the authorization matrix per endpoint. Realtime tests use real Redis + Postgres and assert
 the right frames reach the right subscribers.
+
+**Where the databases come from.** Running all 36 migrations per test cost about 0.4s and
+there are several hundred tests. The first test in a process builds a *template* database
+instead — migrations once, behind an advisory lock so parallel test binaries do not race —
+and every test after it clones the template with `CREATE DATABASE ... TEMPLATE`, which costs
+about 0.1s. The template is named after a fingerprint of the migration versions and
+checksums, so editing or adding a migration builds a new one rather than testing yesterday's
+schema. A test that panics leaves its database behind; the next run drops anything older
+than an hour.
 
 ---
 

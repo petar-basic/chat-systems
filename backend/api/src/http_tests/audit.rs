@@ -4,7 +4,7 @@ use sqlx::PgPool;
 
 use super::common::*;
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn deleting_a_message_lands_in_the_workspace_trail(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "audit-owner", false).await;
@@ -51,7 +51,7 @@ async fn deleting_a_message_lands_in_the_workspace_trail(pool: PgPool) {
     assert_eq!(entry["details"]["channel_id"], ch.to_string());
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_moderated_deletion_names_the_moderator_and_the_author(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "audit-owner", false).await;
@@ -96,7 +96,7 @@ async fn a_moderated_deletion_names_the_moderator_and_the_author(pool: PgPool) {
     assert_eq!(entry["details"]["moderated"], true);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn the_trail_records_the_originating_address(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "audit-owner", false).await;
@@ -128,7 +128,7 @@ async fn the_trail_records_the_originating_address(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn only_workspace_admins_can_read_the_trail(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _) = seed(&state, "audit-owner", false).await;
@@ -171,7 +171,7 @@ async fn only_workspace_admins_can_read_the_trail(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn the_workspace_trail_never_shows_another_workspace(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "audit-owner", false).await;
@@ -206,7 +206,7 @@ async fn the_workspace_trail_never_shows_another_workspace(pool: PgPool) {
     assert!(!leaked, "entries must not cross workspaces: {body:?}");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn instance_admins_read_across_workspaces(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "audit-owner", false).await;
@@ -254,7 +254,7 @@ async fn instance_admins_read_across_workspaces(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn the_trail_survives_a_hard_workspace_delete(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "audit-owner", false).await;
@@ -283,7 +283,7 @@ async fn the_trail_survives_a_hard_workspace_delete(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn role_changes_record_both_ends(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "audit-owner", false).await;
@@ -316,7 +316,7 @@ async fn role_changes_record_both_ends(pool: PgPool) {
     assert_eq!(entry["details"]["to"], "admin");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn the_trail_pages_backwards_without_skipping_or_repeating(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "audit-owner", false).await;

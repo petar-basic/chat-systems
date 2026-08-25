@@ -3,7 +3,7 @@ use std::sync::Arc;
 use axum::extract::{Path, State};
 use axum::routing::{delete, get, post};
 use axum::{Json, Router};
-use rand::RngCore;
+use rand::RngExt;
 use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
@@ -13,31 +13,32 @@ use super::repo::NewReminder;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
 use crate::middleware::AuthUser;
+use crate::middleware::PeerAddr;
 use crate::state::AppState;
 use crate::workspace::models::{ChannelType, WorkspaceRole};
 
 pub fn router(state: Arc<AppState>) -> Router {
     let protected = Router::new()
         .route(
-            "/workspaces/:ws_id/hooks/channels",
+            "/workspaces/{ws_id}/hooks/channels",
             get(list_hooked_channels),
         )
-        .route("/workspaces/:ws_id/hooks", get(list_hooks))
-        .route("/workspaces/:ws_id/hooks", post(create_hook))
-        .route("/hooks/:hook_id", get(get_hook))
-        .route("/hooks/:hook_id", delete(delete_hook))
-        .route("/hooks/:hook_id/reveal", post(reveal_hook))
-        .route("/hooks/:hook_id/rotate", post(rotate_hook))
-        .route("/workspaces/:ws_id/reminders", get(list_reminders))
-        .route("/workspaces/:ws_id/reminders", post(create_reminder))
+        .route("/workspaces/{ws_id}/hooks", get(list_hooks))
+        .route("/workspaces/{ws_id}/hooks", post(create_hook))
+        .route("/hooks/{hook_id}", get(get_hook))
+        .route("/hooks/{hook_id}", delete(delete_hook))
+        .route("/hooks/{hook_id}/reveal", post(reveal_hook))
+        .route("/hooks/{hook_id}/rotate", post(rotate_hook))
+        .route("/workspaces/{ws_id}/reminders", get(list_reminders))
+        .route("/workspaces/{ws_id}/reminders", post(create_reminder))
         .route(
-            "/workspaces/:ws_id/reminders/:reminder_id",
+            "/workspaces/{ws_id}/reminders/{reminder_id}",
             delete(delete_reminder),
         );
 
     // The incoming webhook is authenticated by its URL token, not a session, so
     // it must NOT sit behind auth_middleware.
-    let public = Router::new().route("/hooks/incoming/:token", post(incoming_webhook));
+    let public = Router::new().route("/hooks/incoming/{token}", post(incoming_webhook));
 
     Router::new()
         .merge(crate::protected(state.clone(), protected))
@@ -47,7 +48,7 @@ pub fn router(state: Arc<AppState>) -> Router {
 fn generate_token() -> String {
     use base64::Engine;
     let mut bytes = [0u8; 24];
-    rand::rngs::OsRng.fill_bytes(&mut bytes);
+    rand::rng().fill(&mut bytes[..]);
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
 }
 
@@ -485,7 +486,7 @@ async fn delete_reminder(
 async fn incoming_webhook(
     State(state): State<Arc<AppState>>,
     Path(token): Path<String>,
-    peer: Option<axum::extract::ConnectInfo<std::net::SocketAddr>>,
+    PeerAddr(peer): PeerAddr,
     headers: axum::http::HeaderMap,
     Json(payload): Json<IncomingWebhookPayload>,
 ) -> AppResult<Json<serde_json::Value>> {
@@ -496,7 +497,7 @@ async fn incoming_webhook(
     // each one still costs a lookup.
     if let Some(ip) = crate::net::client_ip(
         &headers,
-        peer.map(|p| p.0),
+        peer,
         &crate::net::parse_trusted_proxies(&state.config.trusted_proxies),
     ) {
         crate::rate_limit::enforce(

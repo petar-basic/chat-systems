@@ -178,7 +178,10 @@ pub fn build_app(state: Arc<AppState>) -> Router {
         .layer(shared_common::cors::cors_layer(&cors_origins))
         .layer(CompressionLayer::new())
         .layer(DefaultBodyLimit::max(1024 * 1024))
-        .layer(TimeoutLayer::new(Duration::from_secs(30)))
+        .layer(TimeoutLayer::with_status_code(
+            axum::http::StatusCode::REQUEST_TIMEOUT,
+            Duration::from_secs(30),
+        ))
         .layer(TraceLayer::new_for_http())
         .layer(PropagateRequestIdLayer::x_request_id())
         .layer(SetRequestIdLayer::x_request_id(MakeRequestUuid))

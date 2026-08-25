@@ -15,7 +15,7 @@ fn drain_types(rx: &mut tokio::sync::mpsc::Receiver<axum::extract::ws::Message>)
         .collect()
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn message_created_delivers_message_new_to_channel_subscriber(pool: PgPool) {
     let cm = manager(pool).await;
     let user = Uuid::new_v4();
@@ -47,7 +47,7 @@ async fn message_created_delivers_message_new_to_channel_subscriber(pool: PgPool
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn message_created_mentioned_user_in_channel_gets_message_new_not_notification(pool: PgPool) {
     let cm = manager(pool).await;
     let sender = Uuid::new_v4();
@@ -70,7 +70,7 @@ async fn message_created_mentioned_user_in_channel_gets_message_new_not_notifica
     assert_eq!(types, vec!["message.new".to_string()]);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn message_created_does_not_notify_sender_even_if_mentioned(pool: PgPool) {
     let cm = manager(pool).await;
     let sender = Uuid::new_v4();
@@ -90,7 +90,7 @@ async fn message_created_does_not_notify_sender_even_if_mentioned(pool: PgPool) 
     assert!(next_json(&mut sender_rx).is_none());
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn message_created_with_unparseable_channel_id_is_a_noop(pool: PgPool) {
     let cm = manager(pool).await;
     let user = Uuid::new_v4();
@@ -109,7 +109,7 @@ async fn message_created_with_unparseable_channel_id_is_a_noop(pool: PgPool) {
     assert!(next_json(&mut rx).is_none());
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn message_updated_broadcasts_to_channel_subscriber(pool: PgPool) {
     let cm = manager(pool).await;
     let user = Uuid::new_v4();
@@ -128,7 +128,7 @@ async fn message_updated_broadcasts_to_channel_subscriber(pool: PgPool) {
     assert_eq!(next_type(&mut rx).as_deref(), Some("message.updated"));
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn message_updated_not_delivered_to_non_subscriber(pool: PgPool) {
     let cm = manager(pool).await;
     let user = Uuid::new_v4();
@@ -145,7 +145,7 @@ async fn message_updated_not_delivered_to_non_subscriber(pool: PgPool) {
     assert!(next_json(&mut rx).is_none());
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn message_deleted_broadcasts_to_channel_subscriber(pool: PgPool) {
     let cm = manager(pool).await;
     let user = Uuid::new_v4();
@@ -172,7 +172,7 @@ async fn message_deleted_broadcasts_to_channel_subscriber(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn message_pinned_broadcasts_to_channel_subscriber(pool: PgPool) {
     let cm = manager(pool).await;
     let user = Uuid::new_v4();
@@ -199,7 +199,7 @@ async fn message_pinned_broadcasts_to_channel_subscriber(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn reaction_added_broadcasts_to_channel_subscriber(pool: PgPool) {
     let cm = manager(pool).await;
     let user = Uuid::new_v4();
@@ -231,7 +231,7 @@ async fn reaction_added_broadcasts_to_channel_subscriber(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn reaction_removed_broadcasts_to_channel_subscriber(pool: PgPool) {
     let cm = manager(pool).await;
     let user = Uuid::new_v4();
@@ -256,7 +256,7 @@ async fn reaction_removed_broadcasts_to_channel_subscriber(pool: PgPool) {
     assert_eq!(frame.get("emoji").and_then(|e| e.as_str()), Some("heart"));
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn workspace_deleted_broadcasts_to_workspace_subscriber(pool: PgPool) {
     let cm = manager(pool).await;
     let user = Uuid::new_v4();
@@ -282,7 +282,7 @@ async fn workspace_deleted_broadcasts_to_workspace_subscriber(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn workspace_deleted_not_delivered_to_other_workspace(pool: PgPool) {
     let cm = manager(pool).await;
     let user = Uuid::new_v4();
@@ -296,7 +296,7 @@ async fn workspace_deleted_not_delivered_to_other_workspace(pool: PgPool) {
     assert!(next_json(&mut rx).is_none());
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn workspace_restored_broadcasts_to_all_connections(pool: PgPool) {
     let cm = manager(pool).await;
     let workspace = Uuid::new_v4();
@@ -311,7 +311,7 @@ async fn workspace_restored_broadcasts_to_all_connections(pool: PgPool) {
     assert_eq!(next_type(&mut rx2).as_deref(), Some("workspace.restored"));
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn notification_push_delivers_to_target_user(pool: PgPool) {
     let cm = manager(pool).await;
     let target = Uuid::new_v4();
@@ -346,7 +346,7 @@ async fn notification_push_delivers_to_target_user(pool: PgPool) {
     assert!(next_json(&mut other_rx).is_none());
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn presence_changed_fans_out_to_workspace_subscribers_only(pool: PgPool) {
     let cm = manager(pool).await;
     let subject = Uuid::new_v4();
@@ -386,7 +386,7 @@ async fn presence_changed_fans_out_to_workspace_subscribers_only(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn typing_indicator_broadcasts_to_channel_subscriber(pool: PgPool) {
     let cm = manager(pool).await;
     let typer = Uuid::new_v4();
@@ -418,7 +418,7 @@ async fn typing_indicator_broadcasts_to_channel_subscriber(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_conversation_message_reaches_every_participant_and_nobody_else(pool: PgPool) {
     let cm = manager(pool).await;
     let author = Uuid::new_v4();
@@ -464,7 +464,7 @@ async fn a_conversation_message_reaches_every_participant_and_nobody_else(pool: 
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_conversation_event_without_participants_is_a_noop(pool: PgPool) {
     let cm = manager(pool).await;
     let user = Uuid::new_v4();
@@ -477,7 +477,7 @@ async fn a_conversation_event_without_participants_is_a_noop(pool: PgPool) {
     assert!(next_json(&mut rx).is_none());
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn unknown_event_type_is_ignored(pool: PgPool) {
     let cm = manager(pool).await;
     let user = Uuid::new_v4();
@@ -492,7 +492,7 @@ async fn unknown_event_type_is_ignored(pool: PgPool) {
     assert!(next_json(&mut rx).is_none());
 }
 
-#[sqlx::test]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn channel_member_removed_stops_delivery_to_that_user(pool: PgPool) {
     let cm = manager(pool).await;
     let removed = Uuid::new_v4();
@@ -531,7 +531,7 @@ async fn channel_member_removed_stops_delivery_to_that_user(pool: PgPool) {
     );
 }
 
-#[sqlx::test]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn workspace_member_removed_unsubscribes_that_user(pool: PgPool) {
     let cm = manager(pool).await;
     let removed = Uuid::new_v4();

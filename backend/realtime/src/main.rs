@@ -13,6 +13,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::extract::ws::WebSocketUpgrade;
+use axum::extract::FromRequest;
 use axum::extract::State;
 use axum::http::header::{COOKIE, SEC_WEBSOCKET_PROTOCOL};
 use axum::http::StatusCode;
@@ -231,10 +232,14 @@ fn origin_allowed(headers: &axum::http::HeaderMap, allowed: &str) -> bool {
         .any(|a| a == "*" || a == origin)
 }
 
+/// The upgrade is extracted by hand, after the checks. Taking it as an argument
+/// would let axum reject a request that fails its own upgrade rules before the
+/// origin and the token are looked at, turning an unauthorised attempt into a
+/// 426 that says the handshake was the problem.
 async fn ws_upgrade(
     State(state): State<AppState>,
-    ws: Option<WebSocketUpgrade>,
     headers: axum::http::HeaderMap,
+    request: axum::extract::Request,
 ) -> Result<Response, AppError> {
     if !origin_allowed(&headers, &state.cors_origins) {
         return Err(AppError::Unauthorized("Origin not allowed".into()));
@@ -243,7 +248,9 @@ async fn ws_upgrade(
     if state.cm.is_revoked(&claims).await {
         return Err(AppError::Unauthorized("Session revoked".into()));
     }
-    let ws = ws.ok_or_else(|| AppError::BadRequest("Expected a WebSocket upgrade".into()))?;
+    let ws = WebSocketUpgrade::from_request(request, &state)
+        .await
+        .map_err(|_| AppError::BadRequest("Expected a WebSocket upgrade".into()))?;
     let cm = state.cm.clone();
     Ok(ws
         // A single frame should never need to be this big; anything larger is

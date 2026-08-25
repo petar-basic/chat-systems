@@ -23,12 +23,14 @@ ENV SQLX_OFFLINE=true
 COPY Cargo.toml Cargo.lock ./
 COPY shared/common/Cargo.toml     shared/common/Cargo.toml
 COPY shared/events/Cargo.toml     shared/events/Cargo.toml
+COPY test-macros/Cargo.toml        test-macros/Cargo.toml
 COPY api/Cargo.toml                api/Cargo.toml
 COPY realtime/Cargo.toml           realtime/Cargo.toml
 
 # Create dummy source files for dependency caching
 RUN mkdir -p shared/common/src     && echo "" > shared/common/src/lib.rs \
  && mkdir -p shared/events/src     && echo "" > shared/events/src/lib.rs \
+ && mkdir -p test-macros/src        && echo "" > test-macros/src/lib.rs \
  && mkdir -p api/src               && echo "fn main() {}" > api/src/main.rs \
  && mkdir -p realtime/src          && echo "fn main() {}" > realtime/src/main.rs
 
@@ -36,6 +38,7 @@ RUN cargo build --release 2>/dev/null || true
 
 # Copy real source code
 COPY shared/ shared/
+COPY test-macros/ test-macros/
 COPY api/ api/
 COPY realtime/ realtime/
 COPY migrations/ migrations/

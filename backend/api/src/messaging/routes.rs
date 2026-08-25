@@ -16,21 +16,21 @@ use crate::workspace::models::WorkspaceRole;
 
 pub fn router(state: Arc<AppState>) -> Router {
     let routes = Router::new()
-        .route("/channels/:ch_id/messages", get(list_messages))
-        .route("/channels/:ch_id/messages", post(send_message))
-        .route("/channels/:ch_id/pins", get(list_pins))
-        .route("/channels/:ch_id/read", post(mark_read))
-        .route("/messages/:msg_id", patch(update_message))
-        .route("/messages/:msg_id", delete(delete_message))
-        .route("/messages/:msg_id/history", get(message_history))
-        .route("/messages/:msg_id/pin", post(pin_message))
-        .route("/messages/:msg_id/pin", delete(unpin_message))
-        .route("/messages/:msg_id/thread", get(list_thread))
-        .route("/messages/:msg_id/thread", post(reply_to_thread))
-        .route("/messages/:msg_id/reactions", get(list_reactions))
-        .route("/messages/:msg_id/reactions", post(add_reaction))
+        .route("/channels/{ch_id}/messages", get(list_messages))
+        .route("/channels/{ch_id}/messages", post(send_message))
+        .route("/channels/{ch_id}/pins", get(list_pins))
+        .route("/channels/{ch_id}/read", post(mark_read))
+        .route("/messages/{msg_id}", patch(update_message))
+        .route("/messages/{msg_id}", delete(delete_message))
+        .route("/messages/{msg_id}/history", get(message_history))
+        .route("/messages/{msg_id}/pin", post(pin_message))
+        .route("/messages/{msg_id}/pin", delete(unpin_message))
+        .route("/messages/{msg_id}/thread", get(list_thread))
+        .route("/messages/{msg_id}/thread", post(reply_to_thread))
+        .route("/messages/{msg_id}/reactions", get(list_reactions))
+        .route("/messages/{msg_id}/reactions", post(add_reaction))
         .route(
-            "/messages/:msg_id/reactions/:emoji",
+            "/messages/{msg_id}/reactions/{emoji}",
             delete(remove_reaction),
         )
         .route("/search", get(search_messages));

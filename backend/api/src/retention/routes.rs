@@ -16,8 +16,8 @@ use crate::workspace::models::WorkspaceRole;
 
 pub fn router(state: Arc<AppState>) -> Router {
     let routes = Router::new()
-        .route("/workspaces/:ws_id/retention", get(get_policy))
-        .route("/workspaces/:ws_id/retention", patch(update_policy));
+        .route("/workspaces/{ws_id}/retention", get(get_policy))
+        .route("/workspaces/{ws_id}/retention", patch(update_policy));
 
     crate::protected(state, routes)
 }

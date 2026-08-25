@@ -40,7 +40,7 @@ async fn seed_trio(
     )
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_second_direct_conversation_reuses_the_first(pool: PgPool) {
     let (app, _state, ws_id, _owner_id, owner_token, second_id, second_token, _t, _tt) =
         seed_trio(pool).await;
@@ -82,7 +82,7 @@ async fn a_second_direct_conversation_reuses_the_first(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_group_conversation_carries_every_participant(pool: PgPool) {
     let (app, _state, ws_id, owner_id, owner_token, second_id, second_token, third_id, _tt) =
         seed_trio(pool).await;
@@ -126,7 +126,7 @@ async fn a_group_conversation_carries_every_participant(pool: PgPool) {
     }
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn conversations_reject_outsiders_and_oversized_groups(pool: PgPool) {
     let (app, state, ws_id, _owner_id, owner_token, second_id, _st, _third, _tt) =
         seed_trio(pool).await;
@@ -187,7 +187,7 @@ async fn conversations_reject_outsiders_and_oversized_groups(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn messages_are_visible_to_participants_only(pool: PgPool) {
     let (app, state, ws_id, _owner_id, owner_token, second_id, second_token, _third, third_token) =
         seed_trio(pool).await;
@@ -261,7 +261,7 @@ async fn messages_are_visible_to_participants_only(pool: PgPool) {
     let _ = state;
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn sending_bumps_the_conversation_and_read_state_clears_it(pool: PgPool) {
     let (app, _state, ws_id, _owner_id, owner_token, second_id, second_token, _t, _tt) =
         seed_trio(pool).await;
@@ -319,7 +319,7 @@ async fn sending_bumps_the_conversation_and_read_state_clears_it(pool: PgPool) {
     assert!(!after["data"][0]["last_read_at"].is_null());
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn edit_delete_and_reactions_follow_authorship(pool: PgPool) {
     let (app, _state, ws_id, _owner_id, owner_token, second_id, second_token, _t, _tt) =
         seed_trio(pool).await;
@@ -418,7 +418,7 @@ async fn edit_delete_and_reactions_follow_authorship(pool: PgPool) {
     assert_eq!(status, StatusCode::OK);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn message_ids_are_idempotent_across_retries(pool: PgPool) {
     let (app, _state, ws_id, _owner_id, owner_token, second_id, _st, _t, _tt) =
         seed_trio(pool).await;
@@ -466,7 +466,7 @@ async fn message_ids_are_idempotent_across_retries(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_client_id_from_another_conversation_never_returns_its_message(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (alice_id, _, alice) = seed_and_login(&app, &state, "idem-alice", false).await;
@@ -531,7 +531,7 @@ async fn a_client_id_from_another_conversation_never_returns_its_message(pool: P
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn resending_with_the_same_client_id_is_idempotent(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (alice_id, _, alice) = seed_and_login(&app, &state, "idem-alice", false).await;
@@ -583,7 +583,7 @@ async fn resending_with_the_same_client_id_is_idempotent(pool: PgPool) {
     assert_eq!(stored, 1, "one row, not two");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_nil_or_non_random_client_id_is_refused(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (alice_id, _, alice) = seed_and_login(&app, &state, "idem-alice", false).await;
@@ -621,7 +621,7 @@ async fn a_nil_or_non_random_client_id_is_refused(pool: PgPool) {
     }
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn an_over_long_conversation_reaction_is_a_400_not_a_500(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (alice_id, _, alice) = seed_and_login(&app, &state, "emoji-alice", false).await;
@@ -660,7 +660,7 @@ async fn an_over_long_conversation_reaction_is_a_400_not_a_500(pool: PgPool) {
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_dm_reply_hangs_off_its_parent_and_stays_out_of_the_feed(pool: PgPool) {
     let (app, _state, ws_id, _owner_id, owner_token, second_id, second_token, _t, _tt) =
         seed_trio(pool).await;
@@ -727,7 +727,7 @@ async fn a_dm_reply_hangs_off_its_parent_and_stays_out_of_the_feed(pool: PgPool)
     assert_eq!(messages[0]["reply_count"], 1);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_dm_thread_is_one_level_deep(pool: PgPool) {
     let (app, _state, ws_id, _owner_id, owner_token, second_id, _second_token, _t, _tt) =
         seed_trio(pool).await;
@@ -776,7 +776,7 @@ async fn a_dm_thread_is_one_level_deep(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_thread_belongs_to_its_own_conversation(pool: PgPool) {
     let (
         app,

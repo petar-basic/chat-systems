@@ -37,3 +37,6 @@ dotenvy = "0.15"
 [dev-dependencies]
 # `ServiceExt::oneshot` for driving the realtime router in integration tests.
 tower = { workspace = true, features = ["util"] }
+# `#[db_test]` clones a migrated template into a database per test.
+test-macros = { path = "../test-macros" }
+shared-common = { path = "../shared/common", features = ["testing"] }

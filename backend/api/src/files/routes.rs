@@ -42,14 +42,14 @@ fn sanitize_filename(name: &str) -> String {
 pub fn router(state: Arc<AppState>) -> Router {
     let routes = Router::new()
         .route(
-            "/files/upload/:ws_id",
+            "/files/upload/{ws_id}",
             // The generous body limit belongs here and nowhere else.
             post(upload_file).layer(DefaultBodyLimit::disable()),
         )
-        .route("/files/download/*key", get(download_file))
-        .route("/files/:file_id", get(get_file_meta))
-        .route("/files/:file_id", delete(delete_file))
-        .route("/files/workspace/:ws_id", get(list_files));
+        .route("/files/download/{*key}", get(download_file))
+        .route("/files/{file_id}", get(get_file_meta))
+        .route("/files/{file_id}", delete(delete_file))
+        .route("/files/workspace/{ws_id}", get(list_files));
 
     crate::protected(state, routes)
 }

@@ -1,5 +1,8 @@
 use std::time::{Duration, Instant};
 
+use redis::streams::{StreamReadOptions, StreamReadReply};
+use redis::AsyncCommands;
+
 use tracing::warn;
 
 use shared_events::Event;
@@ -7,14 +10,14 @@ use shared_events::Event;
 const BLOCK_MS: usize = 2_000;
 const BATCH: usize = 100;
 const REFRESH_STREAMS_EVERY: Duration = Duration::from_secs(30);
+/// How long past the block a reply is still expected, before the connection is
+/// treated as broken.
+const RESPONSE_HEADROOM: Duration = Duration::from_secs(5);
 
 /// The set of workspace streams that exist. Publishers add to it, so the worker
 /// can read every stream without scanning the keyspace and without being told
 /// which workspaces exist.
 pub const STREAM_INDEX_KEY: &str = "stream:index";
-
-/// What `XREADGROUP` returns: per stream key, a list of `(id, flat field pairs)`.
-type StreamBatches = Vec<(String, Vec<(String, Vec<String>)>)>;
 
 pub struct Delivery {
     pub key: String,
@@ -42,7 +45,15 @@ impl StreamGroup {
         let client = redis::Client::open(redis_url)
             .inspect_err(|e| warn!("{group} consumer: failed to open Redis: {e}"))
             .ok()?;
-        let conn = redis::aio::ConnectionManager::new(client)
+        // redis 1.x gives a connection manager a 500ms response timeout by
+        // default, which is shorter than the blocking read below. A read that
+        // times out on the client still counts as delivered on the server: the
+        // entries land in this consumer's pending list and `>` never offers
+        // them again, so events go missing without an error anywhere.
+        let config = redis::aio::ConnectionManagerConfig::new().set_response_timeout(Some(
+            Duration::from_millis(BLOCK_MS as u64) + RESPONSE_HEADROOM,
+        ));
+        let conn = redis::aio::ConnectionManager::new_with_config(client, config)
             .await
             .inspect_err(|e| warn!("{group} consumer: failed to connect Redis: {e}"))
             .ok()?;
@@ -81,10 +92,18 @@ impl StreamGroup {
             }
         };
 
-        for key in &keys {
-            if self.streams.contains(key) {
-                continue;
-            }
+        let fresh: Vec<String> = keys
+            .iter()
+            .filter(|key| !self.streams.contains(key))
+            .cloned()
+            .collect();
+        self.create_groups(&fresh).await;
+
+        self.streams = keys;
+    }
+
+    async fn create_groups(&mut self, keys: &[String]) {
+        for key in keys {
             // From the beginning of the stream, not from its tail. A group is
             // only created the first time it meets a stream, and creating it at
             // the tail would silently skip everything published between the
@@ -100,12 +119,9 @@ impl StreamGroup {
             if let Err(e) = created {
                 if !e.to_string().contains("BUSYGROUP") {
                     warn!("{}: failed to create group on {}: {}", self.group, key, e);
-                    continue;
                 }
             }
         }
-
-        self.streams = keys;
     }
 
     pub async fn next_batch(&mut self) -> Vec<Delivery> {
@@ -115,24 +131,16 @@ impl StreamGroup {
             return Vec::new();
         }
 
-        let mut cmd = redis::cmd("XREADGROUP");
-        cmd.arg("GROUP")
-            .arg(&self.group)
-            .arg(&self.consumer)
-            .arg("COUNT")
-            .arg(BATCH)
-            .arg("BLOCK")
-            .arg(BLOCK_MS)
-            .arg("STREAMS");
-        for key in &self.streams {
-            cmd.arg(key);
-        }
-        for _ in &self.streams {
-            cmd.arg(">");
-        }
+        let options = StreamReadOptions::default()
+            .group(&self.group, &self.consumer)
+            .count(BATCH)
+            .block(BLOCK_MS);
+        let cursors = vec![">"; self.streams.len()];
 
-        let response: redis::RedisResult<Option<StreamBatches>> =
-            cmd.query_async(&mut self.conn).await;
+        let response: redis::RedisResult<Option<StreamReadReply>> = self
+            .conn
+            .xread_options(&self.streams, &cursors, &options)
+            .await;
 
         let batches = match response {
             Ok(Some(batches)) => batches,
@@ -148,21 +156,18 @@ impl StreamGroup {
         };
 
         let mut out = Vec::new();
-        for (key, entries) in batches {
-            for (id, fields) in entries {
-                let body = fields
-                    .chunks(2)
-                    .find(|pair| pair.first().map(String::as_str) == Some("event"))
-                    .and_then(|pair| pair.get(1));
-                match body.and_then(|b| serde_json::from_str::<Event>(b).ok()) {
+        for stream in batches.keys {
+            for entry in stream.ids {
+                let body: Option<String> = entry.get("event");
+                match body.and_then(|b| serde_json::from_str::<Event>(&b).ok()) {
                     Some(event) => out.push(Delivery {
-                        key: key.clone(),
-                        id,
+                        key: stream.key.clone(),
+                        id: entry.id,
                         event,
                     }),
                     // Acknowledge what cannot be parsed, or it comes back for
                     // ever as a pending entry nobody can process.
-                    None => self.ack(&key, &id).await,
+                    None => self.ack(&stream.key, &entry.id).await,
                 }
             }
         }

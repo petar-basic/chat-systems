@@ -12,6 +12,7 @@ use shared_common::errors::{AppError, AppResult};
 use super::models::*;
 use crate::audit::{self, AuditAction, AuditEntry};
 use crate::middleware::AuthUser;
+use crate::middleware::PeerAddr;
 use crate::state::AppState;
 use crate::workspace::models::{ChannelRole, WorkspaceRole};
 use crate::workspace::repo::WorkspaceRepo;
@@ -26,7 +27,7 @@ pub fn router(state: Arc<AppState>) -> Router {
 
     let public = Router::new()
         .route("/auth/login", post(login))
-        .route("/auth/invites/:token/verify", get(verify_invite))
+        .route("/auth/invites/{token}/verify", get(verify_invite))
         .route("/auth/complete-registration", post(complete_registration))
         .route("/auth/refresh", post(refresh))
         .route("/auth/logout", post(logout))
@@ -48,7 +49,7 @@ pub fn router(state: Arc<AppState>) -> Router {
 async fn login(
     State(state): State<Arc<AppState>>,
     jar: CookieJar,
-    peer: Option<axum::extract::ConnectInfo<std::net::SocketAddr>>,
+    PeerAddr(peer): PeerAddr,
     headers: HeaderMap,
     Json(req): Json<LoginRequest>,
 ) -> AppResult<(CookieJar, Json<AuthSession>)> {
@@ -57,7 +58,7 @@ async fn login(
     check_rate_limit(&state, &key, state.config.login_attempts_per_email, window).await?;
     if let Some(ip) = crate::net::client_ip(
         &headers,
-        peer.map(|p| p.0),
+        peer,
         &crate::net::parse_trusted_proxies(&state.config.trusted_proxies),
     ) {
         check_rate_limit(

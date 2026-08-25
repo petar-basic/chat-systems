@@ -26,7 +26,7 @@ async fn seed_notification(
         .id
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn list_notifications_returns_seeded_rows(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (uid, _email, token) = seed_and_login(&app, &state, "notif-list", false).await;
@@ -55,7 +55,7 @@ async fn list_notifications_returns_seeded_rows(pool: PgPool) {
     assert!(ids.contains(&n2.to_string().as_str()));
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn list_notifications_without_token_is_401(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (uid, _email, _token) = seed_and_login(&app, &state, "notif-list-noauth", false).await;
@@ -73,7 +73,7 @@ async fn list_notifications_without_token_is_401(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED, "no token must be 401");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn list_notifications_non_member_forbidden(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner, _e1, _t1) = seed_and_login(&app, &state, "notif-owner", false).await;
@@ -98,7 +98,7 @@ async fn list_notifications_non_member_forbidden(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn unread_count_reflects_seeded_unread(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (uid, _email, token) = seed_and_login(&app, &state, "notif-count", false).await;
@@ -128,7 +128,7 @@ async fn unread_count_reflects_seeded_unread(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn unread_count_without_token_is_401(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (uid, _email, _token) = seed_and_login(&app, &state, "notif-count-noauth", false).await;
@@ -146,7 +146,7 @@ async fn unread_count_without_token_is_401(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED, "no token must be 401");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn mark_read_clears_specified_notifications(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (uid, _email, token) = seed_and_login(&app, &state, "notif-mark", false).await;
@@ -189,7 +189,7 @@ async fn mark_read_clears_specified_notifications(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn mark_read_with_empty_ids_is_ok(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (uid, _email, token) = seed_and_login(&app, &state, "notif-mark-empty", false).await;
@@ -225,7 +225,7 @@ async fn mark_read_with_empty_ids_is_ok(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn mark_read_without_token_is_401(pool: PgPool) {
     let (app, _state) = app_and_state(pool).await;
     let (status, _body) = send(
@@ -239,7 +239,7 @@ async fn mark_read_without_token_is_401(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED, "no token must be 401");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn mark_read_missing_field_is_422(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_uid, _email, token) = seed_and_login(&app, &state, "notif-mark-bad", false).await;
@@ -259,7 +259,7 @@ async fn mark_read_missing_field_is_422(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn mark_read_cannot_affect_other_users_notification(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner, _e1, owner_token) = seed_and_login(&app, &state, "notif-victim", false).await;
@@ -298,7 +298,7 @@ async fn mark_read_cannot_affect_other_users_notification(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn mark_all_read_clears_unread_count(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (uid, _email, token) = seed_and_login(&app, &state, "notif-markall", false).await;
@@ -331,7 +331,7 @@ async fn mark_all_read_clears_unread_count(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn mark_all_read_is_scoped_to_workspace(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (uid, _email, token) = seed_and_login(&app, &state, "notif-markall-scope", false).await;
@@ -370,7 +370,7 @@ async fn mark_all_read_is_scoped_to_workspace(pool: PgPool) {
     assert_eq!(count_b["unread_count"].as_i64(), Some(1), "WS B untouched");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn mark_all_read_without_token_is_401(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (uid, _email, _token) = seed_and_login(&app, &state, "notif-markall-noauth", false).await;

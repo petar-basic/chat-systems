@@ -22,11 +22,11 @@ const ALLOWED_TYPES: &[&str] = &["image/png", "image/gif", "image/webp", "image/
 pub fn router(state: Arc<AppState>) -> Router {
     let routes = Router::new()
         .route(
-            "/workspaces/:ws_id/emojis",
+            "/workspaces/{ws_id}/emojis",
             get(list_emojis).post(upload_emoji),
         )
         .route(
-            "/workspaces/:ws_id/emojis/:emoji_id",
+            "/workspaces/{ws_id}/emojis/{emoji_id}",
             axum::routing::delete(delete_emoji),
         );
 

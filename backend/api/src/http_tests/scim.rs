@@ -39,7 +39,7 @@ async fn membership_counts(state: &AppState, user_id: Uuid) -> (i64, i64) {
 
 /// The whole point of the ticket: one call from the identity provider has to
 /// leave nothing behind — no session, no workspace, no private channel.
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn deactivating_ends_the_sessions_and_the_memberships(pool: sqlx::PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_admin_id, _, admin) = seed_and_login(&app, &state, "scim-admin", true).await;
@@ -104,7 +104,7 @@ async fn deactivating_ends_the_sessions_and_the_memberships(pool: sqlx::PgPool) 
 
 /// An identity provider retrying a delete must not be able to take a workspace's
 /// history with it. Erasure is CS-031's job and stays an administrator's choice.
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn delete_deactivates_and_destroys_nothing(pool: sqlx::PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_admin_id, _, admin) = seed_and_login(&app, &state, "scim-admin", true).await;
@@ -146,7 +146,7 @@ async fn delete_deactivates_and_destroys_nothing(pool: sqlx::PgPool) {
     assert_eq!(survives, 1);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn coming_back_needs_a_fresh_invite(pool: sqlx::PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_admin_id, _, admin) = seed_and_login(&app, &state, "scim-admin", true).await;
@@ -199,7 +199,7 @@ async fn coming_back_needs_a_fresh_invite(pool: sqlx::PgPool) {
     assert!(!refreshed.is_empty(), "they can sign in again");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_wrong_or_revoked_token_gets_nowhere(pool: sqlx::PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_admin_id, _, admin) = seed_and_login(&app, &state, "scim-admin", true).await;
@@ -254,7 +254,7 @@ async fn a_wrong_or_revoked_token_gets_nowhere(pool: sqlx::PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED, "revocation takes effect");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn rotation_replaces_the_credential_without_a_gap(pool: sqlx::PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_admin_id, _, admin) = seed_and_login(&app, &state, "scim-admin", true).await;
@@ -289,7 +289,7 @@ async fn rotation_replaces_the_credential_without_a_gap(pool: sqlx::PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn provisioning_creates_an_account_with_no_password(pool: sqlx::PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_admin_id, _, admin) = seed_and_login(&app, &state, "scim-admin", true).await;
@@ -342,7 +342,7 @@ async fn provisioning_creates_an_account_with_no_password(pool: sqlx::PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn the_lookup_a_provider_makes_before_every_sync(pool: sqlx::PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_admin_id, _, admin) = seed_and_login(&app, &state, "scim-admin", true).await;
@@ -391,7 +391,7 @@ async fn the_lookup_a_provider_makes_before_every_sync(pool: sqlx::PgPool) {
     assert_eq!(body["scimType"], json!("invalidFilter"));
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn only_an_instance_admin_may_mint_a_token(pool: sqlx::PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, _, ordinary) = seed_and_login(&app, &state, "scim-nobody", false).await;

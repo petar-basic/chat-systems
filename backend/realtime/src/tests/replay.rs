@@ -47,7 +47,7 @@ fn types(rx: &mut tokio::sync::mpsc::Receiver<axum::extract::ws::Message>) -> Ve
         .collect()
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_gap_is_replayed_in_order_to_the_client_that_missed_it(pool: PgPool) {
     let cm = manager(pool).await;
     let workspace = Uuid::new_v4();
@@ -100,7 +100,7 @@ async fn a_gap_is_replayed_in_order_to_the_client_that_missed_it(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_replay_never_carries_a_channel_the_client_is_not_in(pool: PgPool) {
     let cm = manager(pool).await;
     let workspace = Uuid::new_v4();
@@ -151,7 +151,7 @@ async fn a_replay_never_carries_a_channel_the_client_is_not_in(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_position_older_than_the_log_asks_the_client_to_refetch(pool: PgPool) {
     let cm = manager(pool).await;
     let workspace = Uuid::new_v4();
@@ -175,7 +175,7 @@ async fn a_position_older_than_the_log_asks_the_client_to_refetch(pool: PgPool) 
     assert_eq!(outcome, Replay::RefetchRequired);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn replaying_an_empty_gap_delivers_nothing(pool: PgPool) {
     let cm = manager(pool).await;
     let workspace = Uuid::new_v4();

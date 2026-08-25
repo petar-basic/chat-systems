@@ -65,7 +65,7 @@ async fn upload(
     )
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn an_emoji_uploads_once_and_lists_with_a_url(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "emoji-owner", false).await;
@@ -95,7 +95,7 @@ async fn an_emoji_uploads_once_and_lists_with_a_url(pool: PgPool) {
     assert_eq!(listed["data"].as_array().expect("data").len(), 1);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn the_same_name_is_free_in_another_workspace(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "emoji-owner", false).await;
@@ -108,7 +108,7 @@ async fn the_same_name_is_free_in_another_workspace(pool: PgPool) {
     assert_eq!(status, StatusCode::OK, "{body:?}");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn an_emoji_is_not_a_file_share(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "emoji-owner", false).await;
@@ -144,7 +144,7 @@ async fn an_emoji_is_not_a_file_share(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn removing_one_is_the_uploader_or_an_admin(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "emoji-owner", false).await;
@@ -187,7 +187,7 @@ async fn removing_one_is_the_uploader_or_an_admin(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn emojis_belong_to_the_workspace_that_owns_them(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "emoji-owner", false).await;

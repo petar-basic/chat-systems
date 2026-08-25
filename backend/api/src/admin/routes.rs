@@ -17,14 +17,14 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/admin/stats", get(stats))
         .route("/admin/audit-log", get(list_audit_log))
         .route("/admin/users", get(list_users))
-        .route("/admin/users/:user_id/suspend", post(suspend_user))
-        .route("/admin/users/:user_id/activate", post(activate_user))
+        .route("/admin/users/{user_id}/suspend", post(suspend_user))
+        .route("/admin/users/{user_id}/activate", post(activate_user))
         .route(
-            "/admin/users/:user_id/instance-role",
+            "/admin/users/{user_id}/instance-role",
             patch(update_instance_role),
         )
         .route("/admin/workspaces", get(list_workspaces))
-        .route("/admin/workspaces/:ws_id", delete(delete_workspace))
+        .route("/admin/workspaces/{ws_id}", delete(delete_workspace))
         .layer(middleware::from_fn(admin_middleware));
 
     crate::protected(state, routes)

@@ -4,7 +4,7 @@ use crate::connection_manager::Audience;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn is_channel_member_true_for_member_false_for_outsider(pool: PgPool) {
     let cm = manager(pool).await;
     let (user, _ws, ch) = seed_member_in_channel(cm.db()).await;
@@ -21,7 +21,7 @@ async fn is_channel_member_true_for_member_false_for_outsider(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn is_workspace_member_true_for_member_false_for_outsider(pool: PgPool) {
     let cm = manager(pool).await;
     let (user, ws, _ch) = seed_member_in_channel(cm.db()).await;
@@ -38,7 +38,7 @@ async fn is_workspace_member_true_for_member_false_for_outsider(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn broadcast_to_channel_reaches_only_subscribed_conns(pool: PgPool) {
     let cm = manager(pool).await;
     let user = seed_user(cm.db()).await;
@@ -68,7 +68,7 @@ async fn broadcast_to_channel_reaches_only_subscribed_conns(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn broadcast_to_workspace_reaches_only_subscribed_conns(pool: PgPool) {
     let cm = manager(pool).await;
     let user = seed_user(cm.db()).await;
@@ -98,7 +98,7 @@ async fn broadcast_to_workspace_reaches_only_subscribed_conns(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn send_to_user_reaches_that_users_connection(pool: PgPool) {
     let cm = manager(pool).await;
     let user = seed_user(cm.db()).await;
@@ -125,7 +125,7 @@ async fn send_to_user_reaches_that_users_connection(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn send_to_user_with_no_connections_is_noop(pool: PgPool) {
     let cm = manager(pool).await;
     let absent = seed_user(cm.db()).await;
@@ -133,7 +133,7 @@ async fn send_to_user_with_no_connections_is_noop(pool: PgPool) {
         .await;
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn leave_channel_stops_delivery(pool: PgPool) {
     let cm = manager(pool).await;
     let user = seed_user(cm.db()).await;
@@ -156,7 +156,7 @@ async fn leave_channel_stops_delivery(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn remove_connection_drops_the_connection(pool: PgPool) {
     let cm = manager(pool).await;
     let user = seed_user(cm.db()).await;
@@ -194,7 +194,7 @@ async fn remove_connection_drops_the_connection(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn connection_count_reflects_active_connections(pool: PgPool) {
     let cm = manager(pool).await;
     let user = seed_user(cm.db()).await;
@@ -208,7 +208,7 @@ async fn connection_count_reflects_active_connections(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn presence_set_online_puts_the_user_in_their_workspace_roster(pool: PgPool) {
     let cm = manager(pool).await;
     let user = seed_user(cm.db()).await;
@@ -227,7 +227,7 @@ async fn presence_set_online_puts_the_user_in_their_workspace_roster(pool: PgPoo
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn online_users_in_workspace_excludes_non_members(pool: PgPool) {
     let cm = manager(pool).await;
     let member = seed_user(cm.db()).await;
@@ -249,7 +249,7 @@ async fn online_users_in_workspace_excludes_non_members(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn presence_clear_reports_offline_and_removes_user(pool: PgPool) {
     let cm = manager(pool).await;
     let user = seed_user(cm.db()).await;
@@ -274,7 +274,7 @@ async fn presence_clear_reports_offline_and_removes_user(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_stale_entry_is_trimmed_on_read_without_a_sweeper(pool: PgPool) {
     let cm = manager(pool).await;
     let user = seed_user(cm.db()).await;
@@ -309,7 +309,7 @@ async fn a_stale_entry_is_trimmed_on_read_without_a_sweeper(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_second_node_keeps_the_user_online_until_the_last_heartbeat_expires(pool: PgPool) {
     let cm = manager(pool).await;
     let user = seed_user(cm.db()).await;
@@ -330,7 +330,7 @@ async fn a_second_node_keeps_the_user_online_until_the_last_heartbeat_expires(po
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn losing_membership_drops_the_user_out_of_that_roster(pool: PgPool) {
     let cm = manager(pool).await;
     let user = seed_user(cm.db()).await;

@@ -1,3 +1,4 @@
+use argon2::password_hash::rand_core::OsRng;
 use argon2::password_hash::SaltString;
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use chrono::{Duration, Utc};
@@ -5,7 +6,6 @@ use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, TokenData, 
 use lettre::message::header::ContentType;
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
-use rand::rngs::OsRng;
 use tracing::info;
 use uuid::Uuid;
 
@@ -782,7 +782,7 @@ mod tests {
         assert_eq!(refresh.sub, user.id);
     }
 
-    #[sqlx::test(migrations = "../migrations")]
+    #[test_macros::db_test(migrations = "../migrations")]
     async fn refresh_rotation_is_single_use(pool: PgPool) {
         let service = AuthService::new(UserRepo::new(pool), test_config());
 
@@ -825,7 +825,7 @@ mod tests {
         );
     }
 
-    #[sqlx::test(migrations = "../migrations")]
+    #[test_macros::db_test(migrations = "../migrations")]
     async fn reset_password_is_single_use_and_revokes_refresh_tokens(pool: PgPool) {
         let db = pool.clone();
         let service = AuthService::new(UserRepo::new(pool), test_config());
@@ -948,7 +948,7 @@ mod tests {
         );
     }
 
-    #[sqlx::test(migrations = "../migrations")]
+    #[test_macros::db_test(migrations = "../migrations")]
     async fn reset_token_is_rejected_by_refresh_and_tagged_reset(pool: PgPool) {
         let service = AuthService::new(UserRepo::new(pool), test_config());
 
@@ -989,7 +989,7 @@ mod tests {
         }
     }
 
-    #[sqlx::test(migrations = "../migrations")]
+    #[test_macros::db_test(migrations = "../migrations")]
     async fn forgot_password_does_not_leak_email_existence(pool: PgPool) {
         let db = pool.clone();
         let service = AuthService::new(UserRepo::new(pool), test_config());
@@ -1051,7 +1051,7 @@ mod tests {
         );
     }
 
-    #[sqlx::test(migrations = "../migrations")]
+    #[test_macros::db_test(migrations = "../migrations")]
     async fn bootstrap_admin_creates_active_admin_and_is_idempotent(pool: PgPool) {
         let db = pool.clone();
         let mut config = test_config();
@@ -1126,7 +1126,7 @@ mod tests {
         );
     }
 
-    #[sqlx::test(migrations = "../migrations")]
+    #[test_macros::db_test(migrations = "../migrations")]
     async fn registration_token_round_trips_and_rejects_other_token_types(pool: PgPool) {
         let service = AuthService::new(UserRepo::new(pool), test_config());
 
@@ -1205,7 +1205,7 @@ mod tests {
         }
     }
 
-    #[sqlx::test(migrations = "../migrations")]
+    #[test_macros::db_test(migrations = "../migrations")]
     async fn complete_registration_activates_pending_then_rejects_already_active(pool: PgPool) {
         let service = AuthService::new(UserRepo::new(pool), test_config());
 
@@ -1287,7 +1287,7 @@ mod tests {
         );
     }
 
-    #[sqlx::test(migrations = "../migrations")]
+    #[test_macros::db_test(migrations = "../migrations")]
     async fn provision_user_creates_pending_and_is_idempotent(pool: PgPool) {
         let db = pool.clone();
         let service = AuthService::new(UserRepo::new(pool), test_config());
@@ -1338,7 +1338,7 @@ mod tests {
         );
     }
 
-    #[sqlx::test(migrations = "../migrations")]
+    #[test_macros::db_test(migrations = "../migrations")]
     async fn generate_tokens_persists_findable_refresh_token(pool: PgPool) {
         let service = AuthService::new(UserRepo::new(pool), test_config());
 

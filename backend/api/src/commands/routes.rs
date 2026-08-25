@@ -23,8 +23,8 @@ const COMMAND_TIMEOUT: Duration = Duration::from_secs(3);
 
 pub fn router(state: Arc<AppState>) -> Router {
     let routes = Router::new()
-        .route("/channels/:ch_id/commands", post(invoke))
-        .route("/workspaces/:ws_id/commands", get(list_commands));
+        .route("/channels/{ch_id}/commands", post(invoke))
+        .route("/workspaces/{ws_id}/commands", get(list_commands));
 
     crate::protected(state, routes)
 }

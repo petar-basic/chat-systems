@@ -1,5 +1,5 @@
-use rand::distributions::Alphanumeric;
-use rand::Rng;
+use rand::distr::Alphanumeric;
+use rand::RngExt;
 use tracing::info;
 use uuid::Uuid;
 
@@ -75,7 +75,7 @@ impl WorkspaceService {
     ) -> AppResult<WorkspaceInvite> {
         let role = role.unwrap_or(WorkspaceRole::Member);
 
-        let token: String = rand::thread_rng()
+        let token: String = rand::rng()
             .sample_iter(&Alphanumeric)
             .take(32)
             .map(char::from)
@@ -193,7 +193,7 @@ fn slug_from_name(name: &str) -> String {
         .collect();
 
     let slug = slug.trim_matches('-').to_string();
-    let suffix: String = rand::thread_rng()
+    let suffix: String = rand::rng()
         .sample_iter(&Alphanumeric)
         .take(6)
         .map(char::from)
@@ -272,7 +272,7 @@ mod tests {
         .expect("insert user")
     }
 
-    #[sqlx::test(migrations = "../migrations")]
+    #[test_macros::db_test(migrations = "../migrations")]
     async fn create_workspace_seeds_owner_member_and_default_channel(pool: PgPool) {
         let owner_id = insert_user(&pool, "owner@test.local").await;
         let service = WorkspaceService::new(WorkspaceRepo::new(pool), test_config());
@@ -334,7 +334,7 @@ mod tests {
         );
     }
 
-    #[sqlx::test(migrations = "../migrations")]
+    #[test_macros::db_test(migrations = "../migrations")]
     async fn accept_invite_enforces_single_use_and_increments_count(pool: PgPool) {
         let owner_id = insert_user(&pool, "owner2@test.local").await;
         let first_user = insert_user(&pool, "first@test.local").await;

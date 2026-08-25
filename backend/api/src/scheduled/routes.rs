@@ -19,11 +19,11 @@ const MAX_SCHEDULE_AHEAD_DAYS: i64 = 120;
 pub fn router(state: Arc<AppState>) -> Router {
     let routes = Router::new()
         .route(
-            "/workspaces/:ws_id/scheduled-messages",
+            "/workspaces/{ws_id}/scheduled-messages",
             get(list_scheduled).post(create_scheduled),
         )
-        .route("/scheduled-messages/:id", patch(reschedule))
-        .route("/scheduled-messages/:id", delete(cancel_scheduled));
+        .route("/scheduled-messages/{id}", patch(reschedule))
+        .route("/scheduled-messages/{id}", delete(cancel_scheduled));
 
     crate::protected(state, routes)
 }

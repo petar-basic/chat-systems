@@ -10,7 +10,7 @@ fn in_an_hour() -> String {
     (Utc::now() + Duration::hours(1)).to_rfc3339()
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_member_schedules_into_a_channel_they_can_post_to(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "sched-owner", false).await;
@@ -53,7 +53,7 @@ async fn a_member_schedules_into_a_channel_they_can_post_to(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn scheduling_needs_access_to_the_target(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "sched-owner", false).await;
@@ -134,7 +134,7 @@ async fn scheduling_needs_access_to_the_target(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn the_scheduled_time_has_to_be_ahead_and_within_reach(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "sched-owner", false).await;
@@ -167,7 +167,7 @@ async fn the_scheduled_time_has_to_be_ahead_and_within_reach(pool: PgPool) {
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "empty content");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn only_the_author_reschedules_or_cancels(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "sched-owner", false).await;
@@ -266,7 +266,7 @@ async fn only_the_author_reschedules_or_cancels(pool: PgPool) {
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn the_dispatcher_delivers_due_messages_exactly_once(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "sched-owner", false).await;
@@ -382,7 +382,7 @@ async fn channel_message_count(state: &crate::state::AppState, ch_id: Uuid) -> i
         .expect("count messages")
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_message_from_someone_removed_from_the_channel_is_not_delivered(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "sched-owner", false).await;
@@ -431,7 +431,7 @@ async fn a_message_from_someone_removed_from_the_channel_is_not_delivered(pool: 
     assert_eq!(recorded.as_deref(), Some("not_authorized"));
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_message_from_someone_removed_from_the_workspace_is_not_delivered(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "sched-owner", false).await;
@@ -458,7 +458,7 @@ async fn a_message_from_someone_removed_from_the_workspace_is_not_delivered(pool
     assert_eq!(channel_message_count(&state, ch_id).await, 0);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_message_to_an_archived_channel_is_not_delivered(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "sched-owner", false).await;
@@ -482,7 +482,7 @@ async fn a_message_to_an_archived_channel_is_not_delivered(pool: PgPool) {
     assert_eq!(channel_message_count(&state, ch_id).await, 0);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_message_into_a_deleted_workspace_is_not_delivered(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "sched-owner", false).await;
@@ -506,7 +506,7 @@ async fn a_message_into_a_deleted_workspace_is_not_delivered(pool: PgPool) {
     assert_eq!(channel_message_count(&state, ch_id).await, 0);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_dm_from_a_removed_participant_is_not_delivered(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "sched-owner", false).await;
@@ -550,7 +550,7 @@ async fn a_dm_from_a_removed_participant_is_not_delivered(pool: PgPool) {
     assert_eq!(delivered, 0);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_refused_delivery_tells_the_author(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "sched-owner", false).await;
@@ -580,7 +580,7 @@ async fn a_refused_delivery_tells_the_author(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_failed_message_stays_visible_to_its_author(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "sched-owner", false).await;
@@ -614,7 +614,7 @@ async fn a_failed_message_stays_visible_to_its_author(pool: PgPool) {
     assert_eq!(listed["failure"], "channel_archived");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn removal_cancels_pending_messages_for_that_scope(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "sched-owner", false).await;
@@ -692,7 +692,7 @@ async fn removal_cancels_pending_messages_for_that_scope(pool: PgPool) {
     let _ = author_token;
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_reminder_is_dropped_when_its_target_lost_the_channel(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "rem-owner", false).await;

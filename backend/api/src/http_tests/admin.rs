@@ -3,7 +3,7 @@ use axum::http::StatusCode;
 use serde_json::json;
 use sqlx::PgPool;
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn stats_as_admin_returns_200(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, _email, token) = seed_and_login(&app, &state, "admin-stats", true).await;
@@ -13,14 +13,14 @@ async fn stats_as_admin_returns_200(pool: PgPool) {
     assert!(body["users"].is_number(), "stats body: {body:?}");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn stats_without_token_returns_401(pool: PgPool) {
     let (app, _state) = app_and_state(pool).await;
     let (status, _body) = send(&app, "GET", "/api/admin/stats", None, None).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn stats_as_non_admin_returns_403(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, _email, token) = seed_and_login(&app, &state, "stats-nonadmin", false).await;
@@ -29,7 +29,7 @@ async fn stats_as_non_admin_returns_403(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn health_as_admin_returns_200(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, _email, token) = seed_and_login(&app, &state, "admin-health", true).await;
@@ -38,7 +38,7 @@ async fn health_as_admin_returns_200(pool: PgPool) {
     assert_eq!(status, StatusCode::OK, "health: {body:?}");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn health_as_non_admin_returns_403(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, _email, token) = seed_and_login(&app, &state, "health-nonadmin", false).await;
@@ -47,7 +47,7 @@ async fn health_as_non_admin_returns_403(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn list_users_as_admin_returns_200(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, _email, token) = seed_and_login(&app, &state, "admin-listusers", true).await;
@@ -59,7 +59,7 @@ async fn list_users_as_admin_returns_200(pool: PgPool) {
     assert!(body["data"].is_array(), "list_users body: {body:?}");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn list_users_paginated_returns_200(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, _email, token) = seed_and_login(&app, &state, "admin-listpage", true).await;
@@ -79,14 +79,14 @@ async fn list_users_paginated_returns_200(pool: PgPool) {
     assert_eq!(data.len(), 1, "limit=1 should yield one row: {body:?}");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn list_users_without_token_returns_401(pool: PgPool) {
     let (app, _state) = app_and_state(pool).await;
     let (status, _body) = send(&app, "GET", "/api/admin/users", None, None).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn list_users_as_non_admin_returns_403(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, _email, token) = seed_and_login(&app, &state, "listusers-nonadmin", false).await;
@@ -95,7 +95,7 @@ async fn list_users_as_non_admin_returns_403(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn suspend_user_as_admin_returns_200(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_admin_id, _email, token) = seed_and_login(&app, &state, "admin-suspend", true).await;
@@ -106,7 +106,7 @@ async fn suspend_user_as_admin_returns_200(pool: PgPool) {
     assert_eq!(status, StatusCode::OK, "suspend: {body:?}");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn activate_user_as_admin_returns_200(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_admin_id, _email, token) = seed_and_login(&app, &state, "admin-activate", true).await;
@@ -121,7 +121,7 @@ async fn activate_user_as_admin_returns_200(pool: PgPool) {
     assert_eq!(status, StatusCode::OK, "activate: {body:?}");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn suspended_user_live_access_token_is_revoked(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_admin_id, _email, admin_token) = seed_and_login(&app, &state, "admin-revoke", true).await;
@@ -150,7 +150,7 @@ async fn suspended_user_live_access_token_is_revoked(pool: PgPool) {
     assert_eq!(after, StatusCode::OK, "reactivated user regains access");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn suspend_user_without_token_returns_401(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (target_id, _target_email) = seed(&state, "suspend-noauth", false).await;
@@ -160,7 +160,7 @@ async fn suspend_user_without_token_returns_401(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn suspend_user_as_non_admin_returns_403(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, _email, token) = seed_and_login(&app, &state, "suspend-nonadmin", false).await;
@@ -171,7 +171,7 @@ async fn suspend_user_as_non_admin_returns_403(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn activate_user_as_non_admin_returns_403(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, _email, token) = seed_and_login(&app, &state, "activate-nonadmin", false).await;
@@ -182,7 +182,7 @@ async fn activate_user_as_non_admin_returns_403(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn update_instance_role_as_admin_returns_200(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_admin_id, _email, token) = seed_and_login(&app, &state, "admin-role", true).await;
@@ -201,7 +201,7 @@ async fn update_instance_role_as_admin_returns_200(pool: PgPool) {
     assert_eq!(body["is_instance_admin"], true, "role body: {body:?}");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn update_instance_role_bad_body_returns_422(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_admin_id, _email, token) = seed_and_login(&app, &state, "admin-rolebad", true).await;
@@ -212,7 +212,7 @@ async fn update_instance_role_bad_body_returns_422(pool: PgPool) {
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn update_instance_role_without_token_returns_401(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (target_id, _target_email) = seed(&state, "role-noauth", false).await;
@@ -229,7 +229,7 @@ async fn update_instance_role_without_token_returns_401(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn update_instance_role_as_non_admin_returns_403(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, _email, token) = seed_and_login(&app, &state, "role-nonadmin", false).await;
@@ -247,7 +247,7 @@ async fn update_instance_role_as_non_admin_returns_403(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn list_workspaces_as_admin_returns_200(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (admin_id, _email, token) = seed_and_login(&app, &state, "admin-listws", true).await;
@@ -258,14 +258,14 @@ async fn list_workspaces_as_admin_returns_200(pool: PgPool) {
     assert!(body["data"].is_array(), "list_workspaces body: {body:?}");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn list_workspaces_without_token_returns_401(pool: PgPool) {
     let (app, _state) = app_and_state(pool).await;
     let (status, _body) = send(&app, "GET", "/api/admin/workspaces", None, None).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn list_workspaces_as_non_admin_returns_403(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, _email, token) = seed_and_login(&app, &state, "listws-nonadmin", false).await;
@@ -274,7 +274,7 @@ async fn list_workspaces_as_non_admin_returns_403(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn delete_workspace_as_admin_returns_200(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (admin_id, _email, token) = seed_and_login(&app, &state, "admin-delws", true).await;
@@ -285,7 +285,7 @@ async fn delete_workspace_as_admin_returns_200(pool: PgPool) {
     assert_eq!(status, StatusCode::OK, "delete_workspace: {body:?}");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn delete_workspace_without_token_returns_401(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _email) = seed(&state, "delws-owner", false).await;
@@ -296,7 +296,7 @@ async fn delete_workspace_without_token_returns_401(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn delete_workspace_as_non_admin_returns_403(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _email, token) = seed_and_login(&app, &state, "delws-nonadmin", false).await;

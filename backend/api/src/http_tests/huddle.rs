@@ -3,7 +3,7 @@ use axum::http::StatusCode;
 use serde_json::json;
 use sqlx::PgPool;
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn ice_servers_returns_stun_for_member(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (user_id, _, token) = seed_and_login(&app, &state, "huddle-ice", false).await;
@@ -40,7 +40,7 @@ async fn ice_servers_returns_stun_for_member(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn ice_servers_forbidden_for_non_member(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "huddle-owner", false).await;
@@ -64,7 +64,7 @@ async fn ice_servers_forbidden_for_non_member(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn start_huddle_happy_path(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (initiator_id, _, token) = seed_and_login(&app, &state, "huddle-init", false).await;
@@ -92,7 +92,7 @@ async fn start_huddle_happy_path(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn start_huddle_partner_not_member_forbidden(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (initiator_id, _, token) = seed_and_login(&app, &state, "huddle-init", false).await;
@@ -115,7 +115,7 @@ async fn start_huddle_partner_not_member_forbidden(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn start_huddle_channel_happy_path(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "huddle-owner", false).await;
@@ -135,7 +135,7 @@ async fn start_huddle_channel_happy_path(pool: PgPool) {
     assert!(body["huddle_id"].is_string(), "carries huddle_id: {body:?}");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn start_channel_huddle_posts_system_message(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "huddle-owner", false).await;
@@ -174,7 +174,7 @@ async fn start_channel_huddle_posts_system_message(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn start_huddle_channel_non_member_forbidden(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "huddle-owner", false).await;
@@ -195,7 +195,7 @@ async fn start_huddle_channel_non_member_forbidden(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN, "non-member cannot start");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn start_huddle_rejects_ambiguous_or_missing_scope(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "huddle-owner", false).await;
@@ -220,7 +220,7 @@ async fn start_huddle_rejects_ambiguous_or_missing_scope(pool: PgPool) {
     assert_eq!(both, StatusCode::BAD_REQUEST, "ambiguous scope must 400");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn invite_to_huddle_member_ok(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "huddle-owner", false).await;
@@ -241,7 +241,7 @@ async fn invite_to_huddle_member_ok(pool: PgPool) {
     assert_eq!(status, StatusCode::OK, "invite should succeed: {body:?}");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn invite_to_huddle_non_member_forbidden(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "huddle-owner", false).await;
@@ -263,7 +263,7 @@ async fn invite_to_huddle_non_member_forbidden(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN, "non-member cannot invite");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn huddle_history_lifecycle_tracks_participants_and_ends(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "huddle-owner", false).await;
@@ -322,7 +322,7 @@ async fn huddle_history_lifecycle_tracks_participants_and_ends(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn active_huddles_lists_only_live_channel_huddles(pool: PgPool) {
     use redis::AsyncCommands;
 

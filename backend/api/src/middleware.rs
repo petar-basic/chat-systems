@@ -14,6 +14,28 @@ fn default_token_type() -> String {
     "access".to_string()
 }
 
+/// The peer address, when the server was started with `into_make_service_with_connect_info`.
+/// Behind a proxy it is the proxy's address, which is why the rate limiters that
+/// use it also key on something the caller controls.
+#[derive(Debug, Clone, Copy)]
+pub struct PeerAddr(pub Option<std::net::SocketAddr>);
+
+impl<S> FromRequestParts<S> for PeerAddr
+where
+    S: Send + Sync,
+{
+    type Rejection = std::convert::Infallible;
+
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        Ok(Self(
+            parts
+                .extensions
+                .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
+                .map(|info| info.0),
+        ))
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Claims {
     pub sub: Uuid,
@@ -194,7 +216,6 @@ fn extract_cookie_token(headers: &axum::http::HeaderMap) -> Option<String> {
         })
 }
 
-#[axum::async_trait]
 impl<S> FromRequestParts<S> for AuthUser
 where
     S: Send + Sync,

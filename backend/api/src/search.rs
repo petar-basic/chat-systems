@@ -19,7 +19,11 @@ pub async fn backfill(state: &AppState) {
                 "UPDATE {table} SET search_vector = search_vector_of(content) \
                  WHERE id IN (SELECT id FROM {table} WHERE search_vector IS NULL LIMIT $1)"
             );
-            let result = sqlx::query(&sql).bind(BATCH).execute(&state.pool).await;
+            // The table name is one of two literals a line above, not input.
+            let result = sqlx::query(sqlx::AssertSqlSafe(sql))
+                .bind(BATCH)
+                .execute(&state.pool)
+                .await;
 
             let affected = match result {
                 Ok(done) => done.rows_affected() as i64,
