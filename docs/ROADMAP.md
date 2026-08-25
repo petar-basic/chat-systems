@@ -615,7 +615,7 @@ borrowing one would name somebody who did not do it.
 
 ## Wave 9 — Product parity (partly shipped)
 
-Three of six shipped. `CS-036`, `CS-037` and `CS-038` are still ahead and keep their
+Four of seven shipped. `CS-036`, `CS-037` and `CS-038` are still ahead and keep their
 tickets.
 
 ### [CS-034] Search language and DM search ✅ shipped
@@ -717,6 +717,32 @@ refuse private, loopback and link-local addresses so that a workspace admin cann
 at a cloud metadata endpoint. A self-hosted instance whose CI is on the same private network
 has nowhere else to point it, so the operator — not the admin — can allow it, with the cost
 stated where it is documented.
+
+### [CS-040] The small Slack gaps ✅ shipped
+Six things a team notices in the first week, closed together because each is small and they
+share the same surfaces: **threads inside DMs**, **saved items**, **channel bookmarks**,
+**message forwarding**, **a status you set yourself**, and **reminders with a panel and
+`/remind`**. They came out of [#33](https://github.com/petar-basic/chat-systems/issues/33),
+where answering honestly meant writing down what was missing — and the list was short enough
+to build instead of document.
+
+**Threads in DMs reuse the channel rule, not a new one.** `thread_parent_id` on
+`conversation_messages`, one level deep, and the feed index became partial on
+`thread_parent_id IS NULL` so a reply cannot be paged into the conversation. The realtime
+handler had to learn the same distinction: without it a reply arrived in the feed *and* the
+thread, which is the one place it would have been visibly wrong.
+
+**Forwarding needed no server at all.** A forward is an ordinary message quoting another one.
+Adding a table and an id would have bought a "forwarded from" chip and a second delete path
+to get wrong.
+
+**`/remind` finally uses the `timezone` column**, which had been stored since the first
+migration and read by nothing. `at 15:00` means 15:00 where the person is; Postgres already
+ships the IANA database, so no new dependency. A time already past means tomorrow.
+
+**A custom status is not presence.** Presence stays derived from whether the gateway holds a
+socket, so `/away` is still not shipped; the status is the manual thing, and an expired one
+stops being returned by every read path rather than waiting for a cleanup job.
 
 ### Still ahead in this wave
 

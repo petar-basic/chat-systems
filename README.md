@@ -20,9 +20,11 @@ integration-test suite and a real CI pipeline.
 ## Features
 
 - **Real-time messaging** — channels, threads, pins, reactions, editing with history, full-text search
-- **Direct messages** — 1:1 and group conversations (up to nine) with reactions and read state
+- **Direct messages** — 1:1 and group conversations (up to nine) with threads, reactions and read state
 - **Mentions** — `@person`, `@group`, `@channel` / `@here` / `@everyone`, with custom emoji
 - **Scheduled send** — queue a message for a channel or conversation and send it later
+- **Reminders** — `/remind me in 30m to ship`, `at 15:00`, `tomorrow at 9am`, read in your own timezone
+- **Keeping things** — saved items, channel bookmarks, message forwarding, and a status you set yourself
 - **Huddles** — WebRTC voice/video with screen sharing (mesh, small groups)
 - **Presence & typing** — live, multi-tab and multi-node aware
 - **File sharing** — uploads served through the authenticated API (local disk or S3/MinIO)
@@ -37,11 +39,13 @@ integration-test suite and a real CI pipeline.
 
 ## Coming from Slack
 
-Most of the daily surface is here: public and private channels, threads, DMs and group DMs
-(up to nine people), reactions, pins, editing with history, search across channels and DMs,
-file sharing, `@person` / `@group` / `@channel` / `@here` mentions, custom emoji, scheduled
-send, huddles with screen sharing, slash commands, incoming and outgoing webhooks, SSO
-(OIDC), TOTP, SCIM deprovisioning, retention policies and GDPR-style export.
+Most of the daily surface is here: public and private channels, threads in channels and in
+DMs, DMs and group DMs (up to nine people), reactions, pins, saved items, channel bookmarks,
+message forwarding, a status you set yourself, editing with history, search across channels
+and DMs, file sharing, `@person` / `@group` / `@channel` / `@here` mentions, custom emoji,
+scheduled send, reminders with `/remind`, huddles with screen sharing, slash commands,
+incoming and outgoing webhooks, SSO (OIDC), TOTP, SCIM deprovisioning, retention policies
+and GDPR-style export.
 
 What a team moving from Slack should expect to be missing or different:
 
@@ -50,10 +54,7 @@ What a team moving from Slack should expect to be missing or different:
 | **No mobile app.** The UI is desktop-first; on a phone it is usable but not designed for it. The PWA installs and receives push. | Responsive layout is the next planned work ([CS-038](docs/tickets/CS-038-mobile-client.md)) |
 | **No Slack import.** History does not come with you. | Planned ([CS-036](docs/tickets/CS-036-slack-import-export.md)) |
 | **Huddles are peer-to-peer mesh** — comfortable to six or eight people, not a 30-person all-hands. No recording. | SFU planned ([CS-037](docs/tickets/CS-037-huddle-sfu.md)); recording deliberately out of scope |
-| **No threads inside DMs.** Threads are a channel feature. | Not planned yet |
-| **No message forwarding, saved items, or channel bookmarks.** | Not planned yet |
-| **No manually set status.** Presence is derived from whether you hold a connection: online, away, offline. There is no "In a meeting 🍕". | Deliberate — a second, manual state nothing else reads |
-| **Reminders have no UI.** The API and delivery exist; there is no `/remind`. | Not planned yet |
+| **Presence is derived, not declared.** Online / away / offline follows whether you hold a connection; there is no manual "away". A custom status ("In a meeting 🍕") is the separate thing, and that you do set yourself. | Deliberate |
 | **Search covers message text**, not file names or file contents. | Not planned yet |
 | **No app directory, workflow builder, or shared channels across organisations.** | Not planned |
 
