@@ -134,7 +134,8 @@ CS-033 SCIM deprovisioning. See [ROADMAP.md](../ROADMAP.md#wave-8--compliance--s
 
 ### Wave 9 — Product parity (partly done)
 
-CS-034 search, CS-035 web push and CS-039 emoji/groups/bots/commands are shipped — see
+CS-034 search, CS-035 web push, CS-039 emoji/groups/bots/commands and CS-040 the small Slack
+gaps (DM threads, saved items, bookmarks, forwarding, status, reminders) are shipped — see
 [ROADMAP.md](../ROADMAP.md#wave-9--product-parity-partly-shipped). What is left:
 
 | # | Ticket | Area |
