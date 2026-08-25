@@ -52,7 +52,19 @@ export async function login(page: Page, email: string) {
   await page.goto('/');
   await page.locator('#email').fill(email);
   await page.locator('#password').fill(PASSWORD);
+
+  // Wait on the sign-in response, not just on the composer appearing. A 429 from
+  // the login limiter or a 502 from a stale proxy used to spend the full 20s
+  // timeout on every test in the run; this turns a broken environment into one
+  // failure that says what happened.
+  const response = page.waitForResponse(
+    (r) => r.url().includes('/api/auth/login') && r.request().method() === 'POST',
+    { timeout: 20_000 },
+  );
   await page.getByRole('button', { name: 'Connect' }).click();
+  const signIn = await response;
+  expect(signIn.status(), `sign-in for ${email} returned ${signIn.status()}`).toBe(200);
+
   await expect(page.locator('.ProseMirror[contenteditable="true"]').last()).toBeVisible({ timeout: 20_000 });
 }
 
