@@ -5,19 +5,19 @@ use uuid::Uuid;
 
 use crate::authenticate_ws;
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn livez_ok(pool: PgPool) {
     let app = app(manager(pool).await);
     assert_eq!(get_status(&app, "/livez").await, StatusCode::OK);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn readyz_ok_when_db_and_redis_live(pool: PgPool) {
     let app = app(manager(pool).await);
     assert_eq!(get_status(&app, "/readyz").await, StatusCode::OK);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn ws_upgrade_rejects_missing_origin(pool: PgPool) {
     let app = app(manager(pool.clone()).await);
     let user = seed_user(&pool).await;
@@ -30,7 +30,7 @@ async fn ws_upgrade_rejects_missing_origin(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn ws_upgrade_rejects_disallowed_origin(pool: PgPool) {
     let app = app(manager(pool.clone()).await);
     let user = seed_user(&pool).await;
@@ -40,7 +40,7 @@ async fn ws_upgrade_rejects_disallowed_origin(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn ws_upgrade_allowed_origin_and_token_passes_auth_gates(pool: PgPool) {
     let app = app(manager(pool.clone()).await);
     let user = seed_user(&pool).await;

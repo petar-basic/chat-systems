@@ -182,7 +182,7 @@ mod tests {
         row.0
     }
 
-    #[sqlx::test(migrations = "../migrations")]
+    #[test_macros::db_test(migrations = "../migrations")]
     async fn create_persists_list_counts_and_mark_read_clears_unread(pool: PgPool) {
         let user_id = insert_user(&pool, "notif-user@test.local").await;
         let workspace_id = insert_workspace(&pool, user_id, "notif-ws").await;
@@ -258,7 +258,7 @@ mod tests {
         assert!(is_read.0, "mark_read must persist is_read = true");
     }
 
-    #[sqlx::test(migrations = "../migrations")]
+    #[test_macros::db_test(migrations = "../migrations")]
     async fn mark_channel_read_clears_only_that_channels_notifications(pool: PgPool) {
         let user_id = insert_user(&pool, "chan-notif-user@test.local").await;
         let workspace_id = insert_workspace(&pool, user_id, "chan-notif-ws").await;

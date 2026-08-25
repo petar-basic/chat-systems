@@ -2,6 +2,7 @@
 members = [
     "shared/common",
     "shared/events",
+    "test-macros",
     "api",
     "realtime",
 ]
@@ -10,7 +11,7 @@ resolver = "2"
 [workspace.package]
 version = "1.0.0"
 edition = "2021"
-rust-version = "1.93"
+rust-version = "1.94"
 license = "MIT"
 repository = "https://github.com/petar-basic/chat-systems"
 
@@ -19,16 +20,16 @@ repository = "https://github.com/petar-basic/chat-systems"
 tokio = { version = "1", features = ["full"] }
 
 # Web framework
-axum = { version = "0.7", features = ["ws", "multipart"] }
-axum-extra = { version = "0.9", features = ["typed-header", "cookie"] }
-tower = { version = "0.4" }
-tower-http = { version = "0.5", features = ["cors", "compression-gzip", "trace", "limit", "timeout", "request-id"] }
+axum = { version = "0.8", features = ["ws", "multipart"] }
+axum-extra = { version = "0.12", features = ["typed-header", "cookie"] }
+tower = { version = "0.5" }
+tower-http = { version = "0.6", features = ["cors", "compression-gzip", "trace", "limit", "timeout", "request-id"] }
 
 # Database
-sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "chrono", "json", "migrate"] }
+sqlx = { version = "0.9", features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "chrono", "json", "migrate"] }
 
 # Redis
-redis = { version = "0.27", features = ["tokio-comp", "connection-manager"] }
+redis = { version = "1.6", features = ["tokio-comp", "connection-manager"] }
 
 # S3 / MinIO
 aws-sdk-s3 = { version = "1", default-features = false, features = ["sigv4a", "http-1x", "default-https-client", "rt-tokio"] }
@@ -36,15 +37,15 @@ aws-config = "1"
 
 # Auth — aws_lc_rs provider (reuses the aws-lc-rs already built for rustls) keeps the
 # pure-Rust `rsa` crate (RUSTSEC-2023-0071) out of the tree; we only use HS256.
-jsonwebtoken = { version = "10", default-features = false, features = ["use_pem", "aws_lc_rs"] }
+jsonwebtoken = { version = "11", default-features = false, features = ["use_pem", "aws_lc_rs"] }
 argon2 = "0.5"
 
 # Crypto (webhook signing + TURN REST credentials)
-hmac = "0.12"
-sha1 = "0.10"
-sha2 = "0.10"
-totp-rs = { version = "5", features = ["gen_secret", "otpauth"] }
-chacha20poly1305 = "0.10"
+hmac = "0.13"
+sha1 = "0.11"
+sha2 = "0.11"
+totp-rs = { version = "6", features = ["gen_secret", "otpauth"] }
+chacha20poly1305 = "0.11"
 web-push = { version = "0.11", default-features = false }
 openidconnect = { version = "4", default-features = false, features = ["reqwest", "rustls-tls"] }
 
@@ -57,9 +58,9 @@ toml = "0.8"
 uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 time = { version = "0.3", features = ["serde"] }
-rand = "0.8"
+rand = "0.10"
 mime_guess = "2"
-base64 = "0.22"
+base64 = "0.23"
 url = "2"
 
 # Logging

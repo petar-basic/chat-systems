@@ -15,9 +15,9 @@ use crate::state::AppState;
 
 pub fn router(state: Arc<AppState>) -> Router {
     let routes = Router::new()
-        .route("/workspaces/:ws_id/saved", get(list_saved))
-        .route("/workspaces/:ws_id/saved", post(save_message))
-        .route("/saved/:id", delete(unsave_message));
+        .route("/workspaces/{ws_id}/saved", get(list_saved))
+        .route("/workspaces/{ws_id}/saved", post(save_message))
+        .route("/saved/{id}", delete(unsave_message));
 
     crate::protected(state, routes)
 }

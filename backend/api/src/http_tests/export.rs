@@ -31,7 +31,7 @@ async fn manifest_of(state: &crate::state::AppState, id: Uuid) -> serde_json::Va
         .expect("manifest")
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_workspace_export_counts_what_it_wrote(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner) = seed_and_login(&app, &state, "exp-owner", false).await;
@@ -83,7 +83,7 @@ async fn a_workspace_export_counts_what_it_wrote(pool: PgPool) {
     assert_eq!(digest.len(), 64, "and carries a checksum for it");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn private_conversations_stay_out_unless_asked_for(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner) = seed_and_login(&app, &state, "exp-owner", false).await;
@@ -144,7 +144,7 @@ async fn private_conversations_stay_out_unless_asked_for(pool: PgPool) {
     assert_eq!(opted_in, 1, "and opting in is itself on the record");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_user_export_contains_only_that_persons_authorship(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner) = seed_and_login(&app, &state, "exp-owner", false).await;
@@ -186,7 +186,7 @@ async fn a_user_export_contains_only_that_persons_authorship(pool: PgPool) {
     assert_eq!(manifest["files"]["messages.jsonl"]["rows"], 1);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn exports_are_owner_only_and_downloads_work_once(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner) = seed_and_login(&app, &state, "exp-owner", false).await;
@@ -257,7 +257,7 @@ async fn exports_are_owner_only_and_downloads_work_once(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn anonymising_keeps_the_conversation_readable(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _owner) = seed_and_login(&app, &state, "exp-owner", false).await;
@@ -312,7 +312,7 @@ async fn anonymising_keeps_the_conversation_readable(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn hard_delete_removes_the_messages(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "exp-owner", false).await;

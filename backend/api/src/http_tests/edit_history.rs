@@ -30,7 +30,7 @@ async fn edit(app: &axum::Router, token: &str, msg_id: &str, content: &str) {
     assert_eq!(status, StatusCode::OK, "{body:?}");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn every_edit_leaves_the_text_it_replaced(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "edit-owner", false).await;
@@ -74,7 +74,7 @@ async fn every_edit_leaves_the_text_it_replaced(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn history_is_for_the_author_and_workspace_admins_only(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner) = seed_and_login(&app, &state, "edit-owner", false).await;
@@ -137,7 +137,7 @@ async fn history_is_for_the_author_and_workspace_admins_only(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn an_admin_reading_somebody_elses_history_is_audited(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner) = seed_and_login(&app, &state, "edit-owner", false).await;
@@ -182,7 +182,7 @@ async fn an_admin_reading_somebody_elses_history_is_audited(pool: PgPool) {
     assert_eq!(after_admin, 1, "an admin reading somebody else's is");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn stored_versions_are_capped(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "edit-owner", false).await;
@@ -217,7 +217,7 @@ async fn stored_versions_are_capped(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn conversation_messages_keep_history_too(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (alice_id, _, alice) = seed_and_login(&app, &state, "edit-alice", false).await;

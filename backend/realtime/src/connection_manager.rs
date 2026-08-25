@@ -256,7 +256,10 @@ impl ConnectionManager {
 
     fn enqueue(&self, conn_id: &Uuid, message: &str) -> Option<Uuid> {
         let conn = self.connections.get(conn_id)?;
-        match conn.sender.try_send(Message::Text(message.to_string())) {
+        match conn
+            .sender
+            .try_send(Message::Text(message.to_string().into()))
+        {
             Ok(()) => None,
             Err(mpsc::error::TrySendError::Full(_)) => {
                 warn!(

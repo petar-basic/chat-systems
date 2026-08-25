@@ -143,7 +143,7 @@ pub async fn handle_ws(socket: WebSocket, claims: crate::Claims, cm: Arc<Connect
         "user_id": user_id,
         "connection_id": conn_id,
     });
-    let _ = tx.try_send(Message::Text(hello.to_string()));
+    let _ = tx.try_send(Message::Text(hello.to_string().into()));
 
     let mut heartbeat = interval(HEARTBEAT_INTERVAL);
     heartbeat.tick().await;
@@ -170,7 +170,7 @@ pub async fn handle_ws(socket: WebSocket, claims: crate::Claims, cm: Arc<Connect
                             })));
                             break;
                         }
-                        handle_client_message(&text, &conn_id, user_id, &cm, &mut inbound).await;
+                        handle_client_message(text.as_str(), &conn_id, user_id, &cm, &mut inbound).await;
                     }
                     Some(Ok(Message::Pong(_))) => {
                         last_pong = Instant::now();
@@ -200,7 +200,7 @@ pub async fn handle_ws(socket: WebSocket, claims: crate::Claims, cm: Arc<Connect
                     );
                     break;
                 }
-                if tx.try_send(Message::Ping(Vec::new())).is_err() {
+                if tx.try_send(Message::Ping(Default::default())).is_err() {
                     warn!(
                         "WS writer channel closed/full on heartbeat, closing conn={}",
                         conn_id

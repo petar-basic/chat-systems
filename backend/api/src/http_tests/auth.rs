@@ -14,7 +14,7 @@ use crate::middleware::Claims;
 
 const TEST_JWT_SECRET: &str = "integration-test-secret-key-0123456789-abcdef";
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn instance_info_is_public(pool: PgPool) {
     let (app, _state) = app_and_state(pool).await;
 
@@ -23,7 +23,7 @@ async fn instance_info_is_public(pool: PgPool) {
     assert_eq!(body["name"], "Test");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn update_me_requires_auth(pool: PgPool) {
     let (app, _state) = app_and_state(pool).await;
 
@@ -38,7 +38,7 @@ async fn update_me_requires_auth(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn update_me_updates_profile(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, _email, token) = seed_and_login(&app, &state, "profile", false).await;
@@ -69,7 +69,7 @@ async fn update_me_updates_profile(pool: PgPool) {
     assert_eq!(me["display_name"], "Updated Name");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn update_me_sets_clears_and_rejects_avatar_urls(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, _email, token) = seed_and_login(&app, &state, "avatar", false).await;
@@ -114,7 +114,7 @@ async fn update_me_sets_clears_and_rejects_avatar_urls(pool: PgPool) {
     assert!(body["avatar_url"].is_null(), "avatar should be cleared");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn refresh_without_cookie_is_unauthorized(pool: PgPool) {
     let (app, _state) = app_and_state(pool).await;
 
@@ -122,7 +122,7 @@ async fn refresh_without_cookie_is_unauthorized(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn logout_is_ok_and_idempotent(pool: PgPool) {
     let (app, _state) = app_and_state(pool).await;
 
@@ -134,7 +134,7 @@ async fn logout_is_ok_and_idempotent(pool: PgPool) {
     assert_eq!(status, StatusCode::OK);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn forgot_password_does_not_leak_account_existence(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, email) = seed(&state, "forgot", false).await;
@@ -162,7 +162,7 @@ async fn forgot_password_does_not_leak_account_existence(pool: PgPool) {
     assert_eq!(body["status"], "sent");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn reset_password_rejects_bogus_token(pool: PgPool) {
     let (app, _state) = app_and_state(pool).await;
 
@@ -180,7 +180,7 @@ async fn reset_password_rejects_bogus_token(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn complete_registration_rejects_bogus_token(pool: PgPool) {
     let (app, _state) = app_and_state(pool).await;
 
@@ -199,7 +199,7 @@ async fn complete_registration_rejects_bogus_token(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn complete_registration_activates_account_and_allows_login(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
 
@@ -277,7 +277,7 @@ async fn complete_registration_activates_account_and_allows_login(pool: PgPool) 
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn reset_password_changes_password_and_is_single_use(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (user_id, email) = seed(&state, "reset-happy", false).await;
@@ -427,7 +427,7 @@ fn extract_refresh_cookie(resp: &axum::response::Response) -> Option<String> {
         })
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn refresh_with_cookie_returns_new_access_token(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, email) = seed(&state, "refresh-cookie", false).await;
@@ -468,7 +468,7 @@ async fn refresh_with_cookie_returns_new_access_token(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn revoke_all_rejects_every_outstanding_access_token(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (user_id, email) = seed(&state, "revoke-all", false).await;
@@ -491,7 +491,7 @@ async fn revoke_all_rejects_every_outstanding_access_token(pool: PgPool) {
     }
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn revoke_all_except_spares_the_named_session(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (user_id, email) = seed(&state, "revoke-except", false).await;
@@ -521,7 +521,7 @@ async fn revoke_all_except_spares_the_named_session(pool: PgPool) {
     assert_eq!(cut, StatusCode::UNAUTHORIZED, "every other session is cut");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn revoke_all_leaves_the_refresh_token_of_the_spared_session(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (user_id, email) = seed(&state, "revoke-refresh", false).await;
@@ -575,7 +575,7 @@ fn access_token_jti(token: &str) -> Uuid {
         .expect("jti is a uuid")
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_legacy_revocation_record_still_locks_the_session_out(pool: PgPool) {
     use redis::AsyncCommands;
 
@@ -603,7 +603,7 @@ async fn a_legacy_revocation_record_still_locks_the_session_out(pool: PgPool) {
         .expect("clear revocation");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_password_reset_ends_every_existing_session(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (user_id, email) = seed(&state, "reset-revokes", false).await;
@@ -644,7 +644,7 @@ async fn a_password_reset_ends_every_existing_session(pool: PgPool) {
     assert_eq!(refresh_left, 0, "refresh tokens must be gone too");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn changing_the_password_keeps_the_session_that_did_it(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_user_id, email) = seed(&state, "change-keeps-self", false).await;
@@ -677,7 +677,7 @@ async fn changing_the_password_keeps_the_session_that_did_it(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn every_login_failure_looks_the_same(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
 
@@ -725,7 +725,7 @@ async fn every_login_failure_looks_the_same(pool: PgPool) {
     }
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_status_shows_up_next_to_you_and_can_be_cleared(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "status-owner", false).await;
@@ -775,7 +775,7 @@ async fn a_status_shows_up_next_to_you_and_can_be_cleared(pool: PgPool) {
     assert!(cleared["status_text"].is_null());
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn an_expired_status_stops_being_shown(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "status-expiry", false).await;
@@ -821,7 +821,7 @@ async fn an_expired_status_stops_being_shown(pool: PgPool) {
     assert!(member["status_text"].is_null(), "and nor does the sidebar");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_status_has_to_say_something(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_owner_id, _, owner_token) = seed_and_login(&app, &state, "status-empty", false).await;

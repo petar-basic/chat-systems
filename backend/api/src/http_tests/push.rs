@@ -68,7 +68,7 @@ async fn subscribe(state: &AppState, user_id: Uuid, endpoint: &str) {
         .expect("store a subscription");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_browser_registers_once_however_often_it_re_subscribes(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, _email, token) = seed_and_login(&app, &state, "push", false).await;
@@ -115,7 +115,7 @@ async fn a_browser_registers_once_however_often_it_re_subscribes(pool: PgPool) {
     assert_eq!(listed["data"].as_array().expect("data").len(), 1);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_subscription_needs_a_real_endpoint_and_a_session(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, _email, token) = seed_and_login(&app, &state, "push", false).await;
@@ -155,7 +155,7 @@ async fn a_subscription_needs_a_real_endpoint_and_a_session(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn unsubscribing_only_removes_your_own_device(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (mine, _, my_token) = seed_and_login(&app, &state, "push-mine", false).await;
@@ -205,7 +205,7 @@ async fn unsubscribing_only_removes_your_own_device(pool: PgPool) {
         .is_empty());
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_mention_reaches_every_registered_device(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (author, _, author_token) = seed_and_login(&app, &state, "push-author", false).await;
@@ -247,7 +247,7 @@ async fn a_mention_reaches_every_registered_device(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn nothing_is_pushed_under_dnd_a_mute_or_a_live_socket(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (author, _, _) = seed_and_login(&app, &state, "push-author", false).await;
@@ -371,7 +371,7 @@ async fn nothing_is_pushed_under_dnd_a_mute_or_a_live_socket(pool: PgPool) {
 
 /// `410 Gone` is the only reliable signal that a subscription is dead, and a
 /// dead subscription that is never pruned is a request per notification forever.
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_subscription_the_service_calls_gone_is_dropped(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_author, _, _) = seed_and_login(&app, &state, "push-author", false).await;

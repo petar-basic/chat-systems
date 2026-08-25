@@ -17,19 +17,19 @@ use crate::workspace::models::WorkspaceRole;
 pub fn router(state: Arc<AppState>) -> Router {
     let routes = Router::new()
         .route(
-            "/workspaces/:ws_id/groups",
+            "/workspaces/{ws_id}/groups",
             get(list_groups).post(create_group),
         )
         .route(
-            "/workspaces/:ws_id/groups/:group_id",
+            "/workspaces/{ws_id}/groups/{group_id}",
             patch(update_group).delete(delete_group),
         )
         .route(
-            "/workspaces/:ws_id/groups/:group_id/members",
+            "/workspaces/{ws_id}/groups/{group_id}/members",
             get(list_members).post(add_member),
         )
         .route(
-            "/workspaces/:ws_id/groups/:group_id/members/:user_id",
+            "/workspaces/{ws_id}/groups/{group_id}/members/{user_id}",
             axum::routing::delete(remove_member),
         );
 

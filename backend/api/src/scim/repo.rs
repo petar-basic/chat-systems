@@ -22,7 +22,7 @@ pub struct ScimToken {
 pub fn hash_token(token: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(token.as_bytes());
-    format!("{:x}", hasher.finalize())
+    to_hex(&hasher.finalize())
 }
 
 #[derive(Clone)]
@@ -88,4 +88,15 @@ impl ScimRepo {
             .execute(&self.pool)
             .await;
     }
+}
+
+/// digest 0.11 returns a plain byte array, which has no hex formatting of its own.
+fn to_hex(bytes: &[u8]) -> String {
+    bytes
+        .iter()
+        .fold(String::with_capacity(bytes.len() * 2), |mut out, byte| {
+            use std::fmt::Write;
+            let _ = write!(out, "{byte:02x}");
+            out
+        })
 }

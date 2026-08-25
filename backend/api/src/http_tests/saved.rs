@@ -4,7 +4,7 @@ use sqlx::PgPool;
 
 use super::common::*;
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn saving_a_channel_message_puts_it_in_your_own_list(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "saved-owner", false).await;
@@ -68,7 +68,7 @@ async fn saving_a_channel_message_puts_it_in_your_own_list(pool: PgPool) {
     assert!(listing["data"].as_array().expect("array").is_empty());
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn saving_the_same_message_twice_is_the_same_row(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "saved-twice", false).await;
@@ -115,7 +115,7 @@ async fn saving_the_same_message_twice_is_the_same_row(pool: PgPool) {
     assert_eq!(listing["data"].as_array().expect("array").len(), 1);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn you_cannot_save_a_message_you_cannot_read(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "saved-owner", false).await;
@@ -147,7 +147,7 @@ async fn you_cannot_save_a_message_you_cannot_read(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_saved_dm_is_visible_only_to_the_person_who_saved_it(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "saved-dm-owner", false).await;
@@ -212,7 +212,7 @@ async fn a_saved_dm_is_visible_only_to_the_person_who_saved_it(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn saving_needs_exactly_one_target(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "saved-target", false).await;

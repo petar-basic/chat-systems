@@ -253,6 +253,22 @@ a new export, not a longer expiry.
 retention, export, TOTP and SCIM tables and one column on `oauth_accounts`. They are
 additive; rolling back the binaries leaves the tables unused.
 
+## Upgrade note: the dependency refresh changes no data, but rebuild everything
+
+**Nothing to migrate, but the whole backend has to be rebuilt.** The Rust dependency set
+moved forward across several majors — axum 0.8, sqlx 0.9, redis 1.x among them — and sqlx 0.9
+needs rustc 1.94 or newer. `docker compose build api worker realtime` handles it; a partial
+rebuild that leaves one service on the old image is fine on the wire, since nothing about the
+HTTP or WebSocket protocol changed.
+
+**One behavioural fix worth knowing about.** redis 1.x gives a connection manager a 500 ms
+response timeout by default, which is shorter than the two-second blocking read the worker
+uses to pull from the event streams. A read that times out on the client still counts as
+delivered on the server, so those events landed in the consumer's pending list and were never
+offered again — webhooks and notifications would have gone quietly missing under the new
+client. The stream reader now sets its own response timeout past the block. If you are
+running a build from between these releases, this is the symptom to look for.
+
 ## Upgrade note: Wave 9 rebuilds the search index and adds push
 
 **The search migration does not lock the table, but the backfill takes a while.** Migrations

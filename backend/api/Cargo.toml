@@ -98,8 +98,10 @@ web-push = { workspace = true }
 [dev-dependencies]
 # `#[tokio::test]` (macros) + a real runtime for async tests.
 tokio = { workspace = true }
-# `#[sqlx::test]` spins up a fresh DB + runs migrations per test.
+# `#[db_test]` clones a migrated template into a database per test.
 sqlx = { workspace = true }
+test-macros = { path = "../test-macros" }
+shared-common = { path = "../shared/common", features = ["testing"] }
 # Decoding/asserting JWT claims directly in tests.
 jsonwebtoken = { workspace = true }
 uuid = { workspace = true }

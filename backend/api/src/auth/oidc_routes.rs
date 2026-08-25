@@ -5,7 +5,7 @@ use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::get;
 use axum::Router;
 use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
-use rand::RngCore;
+use rand::RngExt;
 use redis::AsyncCommands;
 use serde::Deserialize;
 
@@ -41,7 +41,7 @@ pub fn settings_from(config: &crate::config::AppConfig) -> OidcSettings {
 fn handle() -> String {
     use base64::Engine;
     let mut bytes = [0u8; 24];
-    rand::rngs::OsRng.fill_bytes(&mut bytes);
+    rand::rng().fill(&mut bytes[..]);
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
 }
 

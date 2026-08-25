@@ -65,7 +65,7 @@ fn storage_key_from_url(url: &str) -> String {
     url[idx..].to_string()
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn upload_as_member_returns_file_id(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _email, token) = seed_and_login(&app, &state, "owner", false).await;
@@ -87,7 +87,7 @@ async fn upload_as_member_returns_file_id(pool: PgPool) {
     assert!(first["url"].is_string(), "url present: {body:?}");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn upload_without_token_is_unauthorized(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _email, _token) = seed_and_login(&app, &state, "owner", false).await;
@@ -99,7 +99,7 @@ async fn upload_without_token_is_unauthorized(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn upload_to_workspace_not_member_is_forbidden(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _oemail, _otoken) = seed_and_login(&app, &state, "owner", false).await;
@@ -120,7 +120,7 @@ async fn upload_to_workspace_not_member_is_forbidden(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn download_by_storage_key_as_member(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _email, token) = seed_and_login(&app, &state, "owner", false).await;
@@ -143,7 +143,7 @@ async fn download_by_storage_key_as_member(pool: PgPool) {
     assert_eq!(dl_status, StatusCode::OK, "download key={key}");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn download_without_token_is_unauthorized(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _email, token) = seed_and_login(&app, &state, "owner", false).await;
@@ -166,7 +166,7 @@ async fn download_without_token_is_unauthorized(pool: PgPool) {
     assert_eq!(dl_status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn download_cross_tenant_is_forbidden(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _oemail, owner_token) = seed_and_login(&app, &state, "owner", false).await;
@@ -191,7 +191,7 @@ async fn download_cross_tenant_is_forbidden(pool: PgPool) {
     assert_eq!(dl_status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn get_file_meta_as_member(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _email, token) = seed_and_login(&app, &state, "owner", false).await;
@@ -214,7 +214,7 @@ async fn get_file_meta_as_member(pool: PgPool) {
     assert!(meta["file"].is_object(), "file object present: {meta:?}");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn get_file_meta_without_token_is_unauthorized(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _email, token) = seed_and_login(&app, &state, "owner", false).await;
@@ -230,7 +230,7 @@ async fn get_file_meta_without_token_is_unauthorized(pool: PgPool) {
     assert_eq!(meta_status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn get_file_meta_cross_tenant_is_forbidden(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _oemail, owner_token) = seed_and_login(&app, &state, "owner", false).await;
@@ -261,7 +261,7 @@ async fn get_file_meta_cross_tenant_is_forbidden(pool: PgPool) {
     assert_eq!(meta_status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn get_file_meta_missing_is_not_found(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_owner_id, _email, token) = seed_and_login(&app, &state, "owner", false).await;
@@ -278,7 +278,7 @@ async fn get_file_meta_missing_is_not_found(pool: PgPool) {
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn list_workspace_files_as_member(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _email, token) = seed_and_login(&app, &state, "owner", false).await;
@@ -301,7 +301,7 @@ async fn list_workspace_files_as_member(pool: PgPool) {
     assert_eq!(data.len(), 1, "one uploaded file listed: {body:?}");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn list_workspace_files_without_token_is_unauthorized(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _email, _token) = seed_and_login(&app, &state, "owner", false).await;
@@ -318,7 +318,7 @@ async fn list_workspace_files_without_token_is_unauthorized(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn list_workspace_files_cross_tenant_is_forbidden(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _oemail, _otoken) = seed_and_login(&app, &state, "owner", false).await;
@@ -337,7 +337,7 @@ async fn list_workspace_files_cross_tenant_is_forbidden(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn delete_own_file_succeeds(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _email, token) = seed_and_login(&app, &state, "owner", false).await;
@@ -369,7 +369,7 @@ async fn delete_own_file_succeeds(pool: PgPool) {
     assert_eq!(after_status, StatusCode::NOT_FOUND);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn delete_someone_elses_file_is_forbidden(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _email, owner_token) = seed_and_login(&app, &state, "owner", false).await;
@@ -401,7 +401,7 @@ async fn delete_someone_elses_file_is_forbidden(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn delete_without_token_is_unauthorized(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _email, token) = seed_and_login(&app, &state, "owner", false).await;
@@ -416,7 +416,7 @@ async fn delete_without_token_is_unauthorized(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn delete_missing_file_is_not_found(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_owner_id, _email, token) = seed_and_login(&app, &state, "owner", false).await;
@@ -433,7 +433,7 @@ async fn delete_missing_file_is_not_found(pool: PgPool) {
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn private_channel_attachment_is_gated_to_channel_members(pool: PgPool) {
     use crate::workspace::models::ChannelRole;
 
@@ -530,7 +530,7 @@ async fn upload_one(app: &axum::Router, token: &str, ws_id: Uuid, name: &str) ->
         .to_string()
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_dm_attachment_is_readable_by_participants_and_nobody_else(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (alice_id, _, alice) = seed_and_login(&app, &state, "dm-file-alice", false).await;
@@ -578,7 +578,7 @@ async fn a_dm_attachment_is_readable_by_participants_and_nobody_else(pool: PgPoo
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn an_unposted_upload_belongs_to_whoever_uploaded_it(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (alice_id, _, alice) = seed_and_login(&app, &state, "draft-alice", false).await;
@@ -600,7 +600,7 @@ async fn an_unposted_upload_belongs_to_whoever_uploaded_it(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn an_avatar_stays_readable_to_the_workspace(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (alice_id, _, alice) = seed_and_login(&app, &state, "avatar-alice", false).await;
@@ -645,7 +645,7 @@ async fn an_avatar_stays_readable_to_the_workspace(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn an_upload_over_the_cap_is_refused_and_leaves_nothing_behind(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (alice_id, _, alice) = seed_and_login(&app, &state, "cap-alice", false).await;
@@ -680,7 +680,7 @@ async fn an_upload_over_the_cap_is_refused_and_leaves_nothing_behind(pool: PgPoo
     assert_eq!(rows, 0, "a refused upload must not leave a row behind");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_channel_moderator_can_take_down_somebody_elses_file(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner) = seed_and_login(&app, &state, "mod-owner", false).await;
@@ -748,7 +748,7 @@ async fn a_channel_moderator_can_take_down_somebody_elses_file(pool: PgPool) {
     assert_eq!(audited.0, 1, "taking down somebody's file is audited");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn deleting_a_message_takes_its_attachment_with_it(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner) = seed_and_login(&app, &state, "cascade-owner", false).await;
@@ -803,7 +803,7 @@ async fn deleting_a_message_takes_its_attachment_with_it(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn editing_a_message_releases_the_attachment_it_drops(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner) = seed_and_login(&app, &state, "release-owner", false).await;

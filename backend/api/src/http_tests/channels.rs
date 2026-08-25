@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::workspace::models::ChannelRole;
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn create_public_channel_succeeds_for_workspace_member(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -29,7 +29,7 @@ async fn create_public_channel_succeeds_for_workspace_member(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn create_private_channel_succeeds_for_workspace_member(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -51,7 +51,7 @@ async fn create_private_channel_succeeds_for_workspace_member(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn create_channel_defaults_to_public_when_type_omitted(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -73,7 +73,7 @@ async fn create_channel_defaults_to_public_when_type_omitted(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn create_channel_with_empty_name_is_rejected(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -91,7 +91,7 @@ async fn create_channel_with_empty_name_is_rejected(pool: PgPool) {
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn create_channel_requires_authentication(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -109,7 +109,7 @@ async fn create_channel_requires_authentication(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn create_channel_forbidden_for_non_workspace_member(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -128,7 +128,7 @@ async fn create_channel_forbidden_for_non_workspace_member(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn list_channels_succeeds_for_workspace_member(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -162,7 +162,7 @@ async fn list_channels_succeeds_for_workspace_member(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn list_channels_requires_authentication(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -180,7 +180,7 @@ async fn list_channels_requires_authentication(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn list_channels_forbidden_for_non_workspace_member(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -199,7 +199,7 @@ async fn list_channels_forbidden_for_non_workspace_member(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn get_channel_succeeds_for_workspace_member(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -219,7 +219,7 @@ async fn get_channel_succeeds_for_workspace_member(pool: PgPool) {
     assert_eq!(body["id"].as_str(), Some(ch_id.to_string().as_str()));
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn get_channel_requires_authentication(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -231,7 +231,7 @@ async fn get_channel_requires_authentication(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn get_unknown_channel_returns_not_found(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_, _, token) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -249,7 +249,7 @@ async fn get_unknown_channel_returns_not_found(pool: PgPool) {
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn get_private_channel_forbidden_for_non_workspace_member(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -269,7 +269,7 @@ async fn get_private_channel_forbidden_for_non_workspace_member(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn update_channel_succeeds_for_workspace_admin(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -288,7 +288,7 @@ async fn update_channel_succeeds_for_workspace_admin(pool: PgPool) {
     assert_eq!(status, StatusCode::OK, "update channel: {body:?}");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn update_channel_with_empty_name_is_rejected(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -307,7 +307,7 @@ async fn update_channel_with_empty_name_is_rejected(pool: PgPool) {
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn update_channel_requires_authentication(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -326,7 +326,7 @@ async fn update_channel_requires_authentication(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn update_channel_forbidden_for_plain_member(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -347,7 +347,7 @@ async fn update_channel_forbidden_for_plain_member(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn archive_channel_succeeds_for_workspace_admin(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -366,7 +366,7 @@ async fn archive_channel_succeeds_for_workspace_admin(pool: PgPool) {
     assert_eq!(status, StatusCode::OK, "archive channel: {body:?}");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn archive_channel_requires_authentication(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -385,7 +385,7 @@ async fn archive_channel_requires_authentication(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn archive_channel_forbidden_for_plain_member(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -406,7 +406,7 @@ async fn archive_channel_forbidden_for_plain_member(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn list_channel_members_succeeds_for_workspace_member(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -429,7 +429,7 @@ async fn list_channel_members_succeeds_for_workspace_member(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn list_channel_members_requires_authentication(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -448,7 +448,7 @@ async fn list_channel_members_requires_authentication(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn list_channel_members_forbidden_for_non_workspace_member(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -468,7 +468,7 @@ async fn list_channel_members_forbidden_for_non_workspace_member(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn add_channel_member_succeeds_for_workspace_admin(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -489,7 +489,7 @@ async fn add_channel_member_succeeds_for_workspace_admin(pool: PgPool) {
     assert_eq!(status, StatusCode::OK, "add channel member: {body:?}");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn add_channel_member_requires_authentication(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -509,7 +509,7 @@ async fn add_channel_member_requires_authentication(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn add_channel_member_forbidden_for_non_workspace_member(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -531,7 +531,7 @@ async fn add_channel_member_forbidden_for_non_workspace_member(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn remove_channel_member_succeeds_for_workspace_admin(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -561,7 +561,7 @@ async fn remove_channel_member_succeeds_for_workspace_admin(pool: PgPool) {
     assert_eq!(status, StatusCode::OK, "admin removes member: {body:?}");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn remove_self_from_channel_succeeds(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -591,7 +591,7 @@ async fn remove_self_from_channel_succeeds(pool: PgPool) {
     assert_eq!(status, StatusCode::OK, "self-removal: {body:?}");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn remove_channel_member_requires_authentication(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -611,7 +611,7 @@ async fn remove_channel_member_requires_authentication(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn remove_other_member_forbidden_for_plain_member(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -634,7 +634,7 @@ async fn remove_other_member_forbidden_for_plain_member(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn browse_lists_public_channels_with_membership_and_counts(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -687,7 +687,7 @@ async fn browse_lists_public_channels_with_membership_and_counts(pool: PgPool) {
     assert_eq!(open_row["member_count"], 1);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn browse_is_forbidden_for_non_members_and_guests(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -718,7 +718,7 @@ async fn browse_is_forbidden_for_non_members_and_guests(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN, "guest must not browse");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn member_can_join_a_public_channel_and_repeat_joins_are_idempotent(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -770,7 +770,7 @@ async fn member_can_join_a_public_channel_and_repeat_joins_are_idempotent(pool: 
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn join_rejects_private_channels_guests_and_outsiders(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -828,7 +828,7 @@ async fn join_rejects_private_channels_guests_and_outsiders(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn join_rejects_archived_channels(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -855,7 +855,7 @@ async fn join_rejects_archived_channels(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn channel_admin_can_rename_and_archive_their_own_channel(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -898,7 +898,7 @@ async fn channel_admin_can_rename_and_archive_their_own_channel(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn plain_member_still_cannot_rename_or_archive_a_channel(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -943,7 +943,7 @@ async fn plain_member_still_cannot_rename_or_archive_a_channel(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn channel_admin_can_promote_and_demote_channel_members(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -1000,7 +1000,7 @@ async fn channel_admin_can_promote_and_demote_channel_members(pool: PgPool) {
     assert_eq!(body["role"], "member");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn changing_the_role_of_a_non_member_is_not_found(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -1020,7 +1020,7 @@ async fn changing_the_role_of_a_non_member_is_not_found(pool: PgPool) {
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn any_workspace_member_can_add_people_to_a_public_channel(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -1048,7 +1048,7 @@ async fn any_workspace_member_can_add_people_to_a_public_channel(pool: PgPool) {
     assert_eq!(body["user_id"], invitee_id.to_string());
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn adding_to_a_private_channel_requires_belonging_to_it(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -1096,7 +1096,7 @@ async fn adding_to_a_private_channel_requires_belonging_to_it(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn guests_cannot_add_channel_members_and_outsiders_cannot_be_added(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -1140,7 +1140,7 @@ async fn guests_cannot_add_channel_members_and_outsiders_cannot_be_added(pool: P
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn channel_admin_can_remove_another_member(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -1179,7 +1179,7 @@ async fn channel_admin_can_remove_another_member(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_guest_channel_admin_still_cannot_moderate(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "ch-owner", false).await;
@@ -1254,7 +1254,7 @@ async fn unread_by_subquery(
     .expect("subquery count")
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn sending_counts_for_everyone_but_the_author(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (author_id, _, author) = seed_and_login(&app, &state, "unread-author", false).await;
@@ -1295,7 +1295,7 @@ async fn sending_counts_for_everyone_but_the_author(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_mention_counts_separately_from_the_unread_total(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (author_id, _, author) = seed_and_login(&app, &state, "unread-author", false).await;
@@ -1335,7 +1335,7 @@ async fn a_mention_counts_separately_from_the_unread_total(pool: PgPool) {
     assert_eq!(mentions, 1, "only the mention counts as a mention");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn marking_read_clears_both_counters(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (author_id, _, author) = seed_and_login(&app, &state, "unread-author", false).await;
@@ -1374,7 +1374,7 @@ async fn marking_read_clears_both_counters(pool: PgPool) {
     assert_eq!(counters(&state, ch, reader_id).await, (0, 0));
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn deleting_an_unread_message_takes_it_off_the_count(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (author_id, _, author) = seed_and_login(&app, &state, "unread-author", false).await;
@@ -1419,7 +1419,7 @@ async fn deleting_an_unread_message_takes_it_off_the_count(pool: PgPool) {
     assert_eq!(unread_by_subquery(&state, ch, reader_id).await, 0);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn muting_a_channel_does_not_change_its_unread_count(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (author_id, _, author) = seed_and_login(&app, &state, "unread-author", false).await;
@@ -1462,7 +1462,7 @@ async fn muting_a_channel_does_not_change_its_unread_count(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn the_reconciler_corrects_a_drifted_counter(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (author_id, _, author) = seed_and_login(&app, &state, "unread-author", false).await;
@@ -1508,7 +1508,7 @@ async fn the_reconciler_corrects_a_drifted_counter(pool: PgPool) {
     assert_eq!(counters(&state, ch, reader_id).await.0, 1);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn the_unread_endpoint_reports_counts(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (author_id, _, author) = seed_and_login(&app, &state, "unread-author", false).await;
@@ -1553,7 +1553,7 @@ async fn the_unread_endpoint_reports_counts(pool: PgPool) {
     assert_eq!(row["mention_count"], 1);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_moderator_puts_a_bookmark_on_the_channel(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "bm-owner", false).await;
@@ -1630,7 +1630,7 @@ async fn a_moderator_puts_a_bookmark_on_the_channel(pool: PgPool) {
     assert!(listing["data"].as_array().expect("array").is_empty());
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_bookmark_has_to_be_a_link_somebody_can_safely_click(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "bm-scheme", false).await;
@@ -1672,7 +1672,7 @@ async fn a_bookmark_has_to_be_a_link_somebody_can_safely_click(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn bookmarks_stay_inside_the_channel_that_owns_them(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "bm-scope", false).await;

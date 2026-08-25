@@ -47,7 +47,7 @@ async fn await_typing_for_channel(channel_id: Uuid) -> Option<serde_json::Value>
     }
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn subscribe_member_workspace_sends_presence_batch(pool: PgPool) {
     let cm = manager(pool).await;
     let user = seed_user(cm.db()).await;
@@ -81,7 +81,7 @@ async fn subscribe_member_workspace_sends_presence_batch(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn subscribe_non_member_workspace_denied(pool: PgPool) {
     let cm = manager(pool).await;
     let owner = seed_user(cm.db()).await;
@@ -102,7 +102,7 @@ async fn subscribe_non_member_workspace_denied(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn subscribe_member_then_workspace_broadcast_reaches_conn(pool: PgPool) {
     let cm = manager(pool).await;
     let user = seed_user(cm.db()).await;
@@ -127,7 +127,7 @@ async fn subscribe_member_then_workspace_broadcast_reaches_conn(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn channel_join_member_then_broadcast_reaches_conn(pool: PgPool) {
     let cm = manager(pool).await;
     let (user, _ws, ch) = seed_member_in_channel(cm.db()).await;
@@ -149,7 +149,7 @@ async fn channel_join_member_then_broadcast_reaches_conn(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn channel_join_non_member_denied_no_broadcast(pool: PgPool) {
     let cm = manager(pool).await;
     let creator = seed_user(cm.db()).await;
@@ -174,7 +174,7 @@ async fn channel_join_non_member_denied_no_broadcast(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn channel_leave_stops_broadcasts(pool: PgPool) {
     let cm = manager(pool).await;
     let (user, _ws, ch) = seed_member_in_channel(cm.db()).await;
@@ -197,7 +197,7 @@ async fn channel_leave_stops_broadcasts(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn typing_start_member_publishes(pool: PgPool) {
     let cm = manager(pool).await;
     let (user, _ws, ch) = seed_member_in_channel(cm.db()).await;
@@ -232,7 +232,7 @@ async fn typing_start_member_publishes(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn typing_start_non_member_denied_no_publish(pool: PgPool) {
     let cm = manager(pool).await;
     let creator = seed_user(cm.db()).await;
@@ -257,7 +257,7 @@ async fn typing_start_non_member_denied_no_publish(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn typing_stop_member_publishes_false(pool: PgPool) {
     let cm = manager(pool).await;
     let (user, _ws, ch) = seed_member_in_channel(cm.db()).await;
@@ -281,7 +281,7 @@ async fn typing_stop_member_publishes_false(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn ping_replies_pong(pool: PgPool) {
     let cm = manager(pool).await;
     let user = seed_user(cm.db()).await;
@@ -300,7 +300,7 @@ async fn ping_replies_pong(pool: PgPool) {
     assert_eq!(frame.get("type").and_then(|v| v.as_str()), Some("pong"));
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn invalid_json_is_ignored(pool: PgPool) {
     let cm = manager(pool).await;
     let user = seed_user(cm.db()).await;
@@ -332,7 +332,7 @@ async fn invalid_json_is_ignored(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn repeated_typing_for_the_same_channel_is_coalesced(pool: PgPool) {
     let cm = manager(pool).await;
     let (user, _ws, ch) = seed_member_in_channel(cm.db()).await;

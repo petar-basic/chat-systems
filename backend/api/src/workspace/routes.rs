@@ -19,50 +19,53 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/workspaces", get(list_workspaces))
         .route("/workspaces", post(create_workspace))
         .route("/workspaces/deleted", get(list_deleted_workspaces))
-        .route("/workspaces/:ws_id", get(get_workspace))
-        .route("/workspaces/:ws_id", patch(update_workspace))
-        .route("/workspaces/:ws_id", delete(delete_workspace))
-        .route("/workspaces/:ws_id/restore", post(restore_workspace))
-        .route("/workspaces/:ws_id/audit-log", get(list_audit_log))
-        .route("/workspaces/:ws_id/members", get(list_members))
+        .route("/workspaces/{ws_id}", get(get_workspace))
+        .route("/workspaces/{ws_id}", patch(update_workspace))
+        .route("/workspaces/{ws_id}", delete(delete_workspace))
+        .route("/workspaces/{ws_id}/restore", post(restore_workspace))
+        .route("/workspaces/{ws_id}/audit-log", get(list_audit_log))
+        .route("/workspaces/{ws_id}/members", get(list_members))
         .route(
-            "/workspaces/:ws_id/members/:user_id/role",
+            "/workspaces/{ws_id}/members/{user_id}/role",
             patch(update_member_role),
         )
-        .route("/workspaces/:ws_id/members/:user_id", delete(remove_member))
-        .route("/workspaces/:ws_id/invites", get(list_invites))
-        .route("/workspaces/:ws_id/invites", post(create_invite))
         .route(
-            "/workspaces/:ws_id/invites/:invite_id",
+            "/workspaces/{ws_id}/members/{user_id}",
+            delete(remove_member),
+        )
+        .route("/workspaces/{ws_id}/invites", get(list_invites))
+        .route("/workspaces/{ws_id}/invites", post(create_invite))
+        .route(
+            "/workspaces/{ws_id}/invites/{invite_id}",
             delete(revoke_invite),
         )
-        .route("/invites/:token/accept", post(accept_invite))
-        .route("/workspaces/:ws_id/channels", get(list_channels))
-        .route("/workspaces/:ws_id/channels/unread", get(unread_channels))
-        .route("/workspaces/:ws_id/channels/browse", get(browse_channels))
-        .route("/workspaces/:ws_id/channels", post(create_channel))
-        .route("/channels/:ch_id", get(get_channel))
-        .route("/channels/:ch_id", patch(update_channel))
-        .route("/channels/:ch_id", delete(archive_channel))
+        .route("/invites/{token}/accept", post(accept_invite))
+        .route("/workspaces/{ws_id}/channels", get(list_channels))
+        .route("/workspaces/{ws_id}/channels/unread", get(unread_channels))
+        .route("/workspaces/{ws_id}/channels/browse", get(browse_channels))
+        .route("/workspaces/{ws_id}/channels", post(create_channel))
+        .route("/channels/{ch_id}", get(get_channel))
+        .route("/channels/{ch_id}", patch(update_channel))
+        .route("/channels/{ch_id}", delete(archive_channel))
         .route(
-            "/channels/:ch_id/notifications",
+            "/channels/{ch_id}/notifications",
             patch(set_channel_notifications),
         )
-        .route("/channels/:ch_id/members", get(list_channel_members))
-        .route("/channels/:ch_id/members", post(add_channel_member))
-        .route("/channels/:ch_id/join", post(join_channel))
+        .route("/channels/{ch_id}/members", get(list_channel_members))
+        .route("/channels/{ch_id}/members", post(add_channel_member))
+        .route("/channels/{ch_id}/join", post(join_channel))
         .route(
-            "/channels/:ch_id/members/:user_id/role",
+            "/channels/{ch_id}/members/{user_id}/role",
             patch(update_channel_member_role),
         )
         .route(
-            "/channels/:ch_id/members/:user_id",
+            "/channels/{ch_id}/members/{user_id}",
             delete(remove_channel_member),
         )
-        .route("/channels/:ch_id/bookmarks", get(list_channel_bookmarks))
-        .route("/channels/:ch_id/bookmarks", post(create_channel_bookmark))
+        .route("/channels/{ch_id}/bookmarks", get(list_channel_bookmarks))
+        .route("/channels/{ch_id}/bookmarks", post(create_channel_bookmark))
         .route(
-            "/channels/:ch_id/bookmarks/:bookmark_id",
+            "/channels/{ch_id}/bookmarks/{bookmark_id}",
             delete(delete_channel_bookmark),
         );
 

@@ -33,14 +33,14 @@ fn configured() -> AppConfig {
     }
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn starting_sso_on_an_instance_without_it_is_a_clear_no(pool: sqlx::PgPool) {
     let (app, _state) = app_and_state(pool).await;
     let (status, _) = send(&app, "GET", "/api/auth/oidc/start", None, None).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn sso_can_be_configured_and_still_switched_off(pool: sqlx::PgPool) {
     let config = AppConfig {
         oidc_provisioning: "disabled".into(),
@@ -53,7 +53,7 @@ async fn sso_can_be_configured_and_still_switched_off(pool: sqlx::PgPool) {
 
 /// The callback is the half an attacker can reach directly, so arriving without
 /// the handle this server issued has to fail before any code is exchanged.
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_callback_that_did_not_start_here_is_refused(pool: sqlx::PgPool) {
     let (app, _state) = app_and_state_with(pool, configured()).await;
     let (status, _) = send(
@@ -67,7 +67,7 @@ async fn a_callback_that_did_not_start_here_is_refused(pool: sqlx::PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_provider_error_never_becomes_a_session(pool: sqlx::PgPool) {
     let (app, _state) = app_and_state_with(pool, configured()).await;
     let (status, _) = send(
@@ -81,7 +81,7 @@ async fn a_provider_error_never_becomes_a_session(pool: sqlx::PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn signing_in_links_the_existing_account_and_closes_the_password_door(pool: sqlx::PgPool) {
     let (_app, state) = app_and_state(pool).await;
     let (user_id, email) = seed(&state, "sso", false).await;
@@ -120,7 +120,7 @@ async fn signing_in_links_the_existing_account_and_closes_the_password_door(pool
 
 /// A break-glass local admin has to survive: locking the only admin out of an
 /// instance whose provider is down is worse than the shadow-password risk.
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn an_instance_admin_keeps_their_password(pool: sqlx::PgPool) {
     let (_app, state) = app_and_state(pool).await;
     let (_id, email) = seed(&state, "admin", true).await;
@@ -137,7 +137,7 @@ async fn an_instance_admin_keeps_their_password(pool: sqlx::PgPool) {
     assert!(user.password_hash.is_some());
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn invite_only_will_not_create_an_account_for_a_stranger(pool: sqlx::PgPool) {
     let (_app, state) = app_and_state(pool).await;
 
@@ -155,7 +155,7 @@ async fn invite_only_will_not_create_an_account_for_a_stranger(pool: sqlx::PgPoo
     ));
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn the_allowlist_provisions_an_active_account_without_a_password(pool: sqlx::PgPool) {
     let (_app, state) = app_and_state(pool).await;
     let policy = Provisioning::parse("domain_allowlist", "allowed.test");
@@ -176,7 +176,7 @@ async fn the_allowlist_provisions_an_active_account_without_a_password(pool: sql
 
 /// Email at the provider is editable; the subject is not. Following the subject
 /// is what stops a renamed account becoming a second account.
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn the_subject_follows_the_person_when_their_email_changes(pool: sqlx::PgPool) {
     let (_app, state) = app_and_state(pool).await;
     let (user_id, email) = seed(&state, "renamed", false).await;
@@ -208,7 +208,7 @@ async fn the_subject_follows_the_person_when_their_email_changes(pool: sqlx::PgP
     assert_eq!(users, 1);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_suspended_account_cannot_sign_in_around_the_suspension(pool: sqlx::PgPool) {
     let (_app, state) = app_and_state(pool).await;
     let (user_id, email) = seed(&state, "suspended", false).await;

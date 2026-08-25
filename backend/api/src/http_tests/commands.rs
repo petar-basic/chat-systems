@@ -61,7 +61,7 @@ async fn register_command(
     .await
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn an_unknown_command_is_a_404_so_the_client_can_send_it_as_text(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "cmd-owner", false).await;
@@ -83,7 +83,7 @@ async fn an_unknown_command_is_a_404_so_the_client_can_send_it_as_text(pool: PgP
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn dnd_and_topic_are_built_in_and_change_real_state(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "cmd-owner", false).await;
@@ -148,7 +148,7 @@ async fn dnd_and_topic_are_built_in_and_change_real_state(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_registered_command_is_called_and_its_answer_comes_back(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "cmd-owner", false).await;
@@ -189,7 +189,7 @@ async fn a_registered_command_is_called_and_its_answer_comes_back(pool: PgPool) 
 
 /// The scoping from CS-019 applies here for the same reason it applies there:
 /// invoking a command sends what somebody typed to a third-party URL.
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_command_is_refused_in_a_channel_it_was_not_enabled_for(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "cmd-owner", false).await;
@@ -214,7 +214,7 @@ async fn a_command_is_refused_in_a_channel_it_was_not_enabled_for(pool: PgPool) 
     assert_eq!(hits.load(Ordering::SeqCst), 0, "nothing left the instance");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_command_name_is_claimed_once_and_never_shadows_a_built_in(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "cmd-owner", false).await;
@@ -240,7 +240,7 @@ async fn a_command_name_is_claimed_once_and_never_shadows_a_built_in(pool: PgPoo
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn the_registry_lists_what_can_be_typed(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "cmd-owner", false).await;
@@ -275,7 +275,7 @@ async fn the_registry_lists_what_can_be_typed(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_command_cannot_be_run_from_outside_the_channel(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "cmd-owner", false).await;
@@ -307,7 +307,7 @@ async fn a_command_cannot_be_run_from_outside_the_channel(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn remind_creates_a_reminder_the_worker_will_deliver(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "cmd-remind", false).await;
@@ -340,7 +340,7 @@ async fn remind_creates_a_reminder_the_worker_will_deliver(pool: PgPool) {
     assert_eq!(reminders[0]["channel_id"], ch_id.to_string());
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn remind_reads_a_clock_time_in_the_users_own_timezone(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "cmd-remind-tz", false).await;
@@ -393,7 +393,7 @@ async fn remind_reads_a_clock_time_in_the_users_own_timezone(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn remind_rejects_a_time_it_cannot_read(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "cmd-remind-bad", false).await;
@@ -424,7 +424,7 @@ async fn remind_rejects_a_time_it_cannot_read(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn only_an_admin_reminds_somebody_else(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "cmd-remind-owner", false).await;
@@ -472,7 +472,7 @@ async fn only_an_admin_reminds_somebody_else(pool: PgPool) {
     assert_eq!(listing["data"].as_array().expect("array").len(), 1);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_reminder_can_be_cancelled_only_by_the_person_it_is_for(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "rem-owner", false).await;

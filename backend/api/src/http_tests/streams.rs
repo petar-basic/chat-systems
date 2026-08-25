@@ -13,7 +13,7 @@ async fn stream_len(state: &crate::state::AppState, workspace_id: Uuid) -> i64 {
         .unwrap_or(0)
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_durable_event_lands_in_its_workspace_log(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "stream-owner", false).await;
@@ -38,7 +38,7 @@ async fn a_durable_event_lands_in_its_workspace_log(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn an_ephemeral_event_is_not_written_to_the_log(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "stream-owner", false).await;
@@ -61,7 +61,7 @@ async fn an_ephemeral_event_is_not_written_to_the_log(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn two_worker_replicas_each_see_an_event_once(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "stream-owner", false).await;
@@ -127,8 +127,13 @@ async fn two_worker_replicas_each_see_an_event_once(pool: PgPool) {
                 .is_some_and(|c| c.starts_with("work "))
     };
 
+    // A deadline rather than a fixed number of rounds: the group reads every
+    // workspace stream, so on a busy Redis a round can come back full of another
+    // test's events. What is being asserted is exactly-once delivery, not how
+    // few polls it takes.
     let mut seen: Vec<Uuid> = Vec::new();
-    for _ in 0..12 {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+    while std::time::Instant::now() < deadline {
         for delivery in first.next_batch().await {
             if mine(&delivery) {
                 seen.push(delivery.event.id);

@@ -8,20 +8,17 @@ use crate::config::AppConfig;
 
 /// The code an authenticator would be showing right now for this secret.
 fn code_for(state: &crate::state::AppState, secret: &str, email: &str) -> String {
-    let bytes = totp_rs::Secret::Encoded(secret.to_string())
-        .to_bytes()
-        .expect("secret");
-    let totp = totp_rs::TOTP::new(
-        totp_rs::Algorithm::SHA1,
-        6,
-        1,
-        30,
-        bytes,
-        Some(state.config.instance_name.clone()),
-        email.to_string(),
-    )
-    .expect("totp");
-    totp.generate_current().expect("code")
+    let totp = totp_rs::Builder::new()
+        .with_algorithm(totp_rs::Algorithm::SHA1)
+        .with_digits(6)
+        .with_skew(1)
+        .with_step_duration(30)
+        .with_secret(totp_rs::Secret::try_from_base32(secret).expect("secret"))
+        .with_issuer(Some(state.config.instance_name.clone()))
+        .with_account_name(email.to_string())
+        .build()
+        .expect("totp");
+    totp.generate_current().to_string()
 }
 
 async fn enrol(
@@ -54,7 +51,7 @@ async fn enrol(
     codes
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn enrolment_needs_a_working_code_before_it_counts(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, email, token) = seed_and_login(&app, &state, "totp-user", false).await;
@@ -96,7 +93,7 @@ async fn enrolment_needs_a_working_code_before_it_counts(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn once_enrolled_the_password_alone_is_not_enough(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, email, token) = seed_and_login(&app, &state, "totp-user", false).await;
@@ -131,7 +128,7 @@ async fn once_enrolled_the_password_alone_is_not_enough(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_code_works_once_and_not_twice(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, email, token) = seed_and_login(&app, &state, "totp-user", false).await;
@@ -167,7 +164,7 @@ async fn a_code_works_once_and_not_twice(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_code_stays_spent_after_the_clock_ticks_over(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, email, token) = seed_and_login(&app, &state, "totp-user", false).await;
@@ -205,7 +202,7 @@ async fn a_code_stays_spent_after_the_clock_ticks_over(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_recovery_code_works_once(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, email, token) = seed_and_login(&app, &state, "totp-user", false).await;
@@ -244,7 +241,7 @@ async fn a_recovery_code_works_once(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn removing_the_factor_needs_a_current_code(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, email, token) = seed_and_login(&app, &state, "totp-user", false).await;
@@ -275,7 +272,7 @@ async fn removing_the_factor_needs_a_current_code(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn an_instance_that_requires_it_refuses_an_admin_without_one(pool: PgPool) {
     let config = AppConfig {
         require_admin_totp: true,
@@ -310,7 +307,7 @@ async fn an_instance_that_requires_it_refuses_an_admin_without_one(pool: PgPool)
     assert_eq!(status, StatusCode::OK, "everyone else is unaffected");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn every_second_factor_event_is_audited(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, email, token) = seed_and_login(&app, &state, "totp-user", false).await;

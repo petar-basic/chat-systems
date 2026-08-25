@@ -14,18 +14,18 @@ use crate::state::AppState;
 
 pub fn router(state: Arc<AppState>) -> Router {
     let routes = Router::new()
-        .route("/workspaces/:ws_id/notifications", get(list_notifications))
+        .route("/workspaces/{ws_id}/notifications", get(list_notifications))
         .route("/notifications/read", post(mark_read))
         .route(
-            "/workspaces/:ws_id/notifications/read-all",
+            "/workspaces/{ws_id}/notifications/read-all",
             post(mark_all_read),
         )
         .route(
-            "/workspaces/:ws_id/channels/:ch_id/notifications/read",
+            "/workspaces/{ws_id}/channels/{ch_id}/notifications/read",
             post(mark_channel_read),
         )
         .route(
-            "/workspaces/:ws_id/notifications/unread-count",
+            "/workspaces/{ws_id}/notifications/unread-count",
             get(unread_count),
         )
         .route("/notifications/dnd", get(get_dnd).patch(set_dnd));

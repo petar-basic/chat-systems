@@ -4,7 +4,7 @@ use sqlx::PgPool;
 
 use super::common::*;
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn owner_can_create_hook(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
@@ -32,7 +32,7 @@ async fn owner_can_create_hook(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn incoming_webhook_requires_channel_id(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
@@ -53,7 +53,7 @@ async fn incoming_webhook_requires_channel_id(pool: PgPool) {
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn incoming_webhook_posts_message_to_channel(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
@@ -106,7 +106,7 @@ async fn incoming_webhook_posts_message_to_channel(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn incoming_webhook_invalid_token_rejected(pool: PgPool) {
     let (app, _state) = app_and_state(pool).await;
     let (status, _body) = send(
@@ -120,7 +120,7 @@ async fn incoming_webhook_invalid_token_rejected(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn ws_admin_can_create_hook(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _) = seed(&state, "hook-owner", false).await;
@@ -141,7 +141,7 @@ async fn ws_admin_can_create_hook(pool: PgPool) {
     assert_eq!(status, StatusCode::OK);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn plain_member_cannot_create_hook(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _) = seed(&state, "hook-owner", false).await;
@@ -162,7 +162,7 @@ async fn plain_member_cannot_create_hook(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN, "member lacks Admin role");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn create_hook_without_token_is_unauthorized(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _) = seed(&state, "hook-owner", false).await;
@@ -179,7 +179,7 @@ async fn create_hook_without_token_is_unauthorized(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn create_hook_missing_required_field_is_unprocessable(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
@@ -196,7 +196,7 @@ async fn create_hook_missing_required_field_is_unprocessable(pool: PgPool) {
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn list_hooks_redacts_secrets(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
@@ -242,7 +242,7 @@ async fn list_hooks_redacts_secrets(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn member_cannot_list_hooks(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _) = seed(&state, "hook-owner", false).await;
@@ -263,7 +263,7 @@ async fn member_cannot_list_hooks(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn list_hooks_without_token_is_unauthorized(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _) = seed(&state, "hook-owner", false).await;
@@ -280,7 +280,7 @@ async fn list_hooks_without_token_is_unauthorized(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn get_hook_by_id_redacts_secrets(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
@@ -315,7 +315,7 @@ async fn get_hook_by_id_redacts_secrets(pool: PgPool) {
     assert_eq!(body["config"]["apiKey"], "***", "apiKey redacted");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn get_hook_unknown_id_is_not_found(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
@@ -332,7 +332,7 @@ async fn get_hook_unknown_id_is_not_found(pool: PgPool) {
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn get_hook_by_non_admin_member_is_forbidden(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "hook-owner", false).await;
@@ -364,7 +364,7 @@ async fn get_hook_by_non_admin_member_is_forbidden(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn get_hook_by_outsider_is_forbidden(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "hook-owner", false).await;
@@ -394,7 +394,7 @@ async fn get_hook_by_outsider_is_forbidden(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn owner_can_delete_hook(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
@@ -432,7 +432,7 @@ async fn owner_can_delete_hook(pool: PgPool) {
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn delete_hook_by_member_is_forbidden(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "hook-owner", false).await;
@@ -464,7 +464,7 @@ async fn delete_hook_by_member_is_forbidden(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn delete_hook_unknown_id_is_not_found(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
@@ -481,7 +481,7 @@ async fn delete_hook_unknown_id_is_not_found(pool: PgPool) {
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn delete_hook_without_token_is_unauthorized(pool: PgPool) {
     let (app, _state) = app_and_state(pool).await;
     let missing = uuid::Uuid::new_v4();
@@ -489,7 +489,7 @@ async fn delete_hook_without_token_is_unauthorized(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn member_can_list_reminders(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _) = seed(&state, "rem-owner", false).await;
@@ -514,7 +514,7 @@ async fn member_can_list_reminders(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn list_reminders_by_non_member_is_forbidden(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _) = seed(&state, "rem-owner", false).await;
@@ -533,7 +533,7 @@ async fn list_reminders_by_non_member_is_forbidden(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn list_reminders_without_token_is_unauthorized(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _) = seed(&state, "rem-owner", false).await;
@@ -550,7 +550,7 @@ async fn list_reminders_without_token_is_unauthorized(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn member_can_create_reminder_for_self(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _) = seed(&state, "rem-owner", false).await;
@@ -576,7 +576,7 @@ async fn member_can_create_reminder_for_self(pool: PgPool) {
     assert!(body["id"].is_string(), "reminder id returned: {body:?}");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn member_cannot_create_reminder_for_other_user(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _) = seed(&state, "rem-owner", false).await;
@@ -604,7 +604,7 @@ async fn member_cannot_create_reminder_for_other_user(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn admin_can_create_reminder_for_another_member(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "rem-owner", false).await;
@@ -632,7 +632,7 @@ async fn admin_can_create_reminder_for_another_member(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn admin_cannot_create_reminder_for_non_member_target(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "rem-owner", false).await;
@@ -659,7 +659,7 @@ async fn admin_cannot_create_reminder_for_non_member_target(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn create_reminder_by_non_member_is_forbidden(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _) = seed(&state, "rem-owner", false).await;
@@ -682,7 +682,7 @@ async fn create_reminder_by_non_member_is_forbidden(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn create_reminder_without_token_is_unauthorized(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _) = seed(&state, "rem-owner", false).await;
@@ -703,7 +703,7 @@ async fn create_reminder_without_token_is_unauthorized(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn create_reminder_missing_required_field_is_unprocessable(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "rem-owner", false).await;
@@ -720,7 +720,7 @@ async fn create_reminder_missing_required_field_is_unprocessable(pool: PgPool) {
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn reveal_returns_the_full_incoming_url_that_list_redacts(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
@@ -784,7 +784,7 @@ async fn reveal_returns_the_full_incoming_url_that_list_redacts(pool: PgPool) {
     assert_eq!(audited.0, 1, "revealing a secret must be audited");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn rotate_replaces_the_incoming_token_and_retires_the_old_one(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
@@ -846,7 +846,7 @@ async fn rotate_replaces_the_incoming_token_and_retires_the_old_one(pool: PgPool
     assert_eq!(status, StatusCode::OK, "the new token must work");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn reveal_and_rotate_are_workspace_admin_only(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
@@ -904,7 +904,7 @@ async fn reveal_and_rotate_are_workspace_admin_only(pool: PgPool) {
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn outgoing_webhook_gets_a_generated_secret_and_a_validated_url(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
@@ -977,7 +977,7 @@ async fn outgoing_webhook_gets_a_generated_secret_and_a_validated_url(pool: PgPo
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "url is required");
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn outgoing_webhook_requires_a_channel_scope(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
@@ -1008,7 +1008,7 @@ async fn outgoing_webhook_requires_a_channel_scope(pool: PgPool) {
     }
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn outgoing_webhook_cannot_be_scoped_to_a_foreign_channel(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
@@ -1035,7 +1035,7 @@ async fn outgoing_webhook_cannot_be_scoped_to_a_foreign_channel(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn attaching_a_hook_to_a_private_channel_needs_membership(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _) = seed(&state, "hook-owner", false).await;
@@ -1065,7 +1065,7 @@ async fn attaching_a_hook_to_a_private_channel_needs_membership(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn hooked_channels_are_listed_for_every_member(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
@@ -1116,7 +1116,7 @@ async fn hooked_channels_are_listed_for_every_member(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[test_macros::db_test(migrations = "../migrations")]
 async fn outgoing_hooks_only_match_their_own_channel(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;

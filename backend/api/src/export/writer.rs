@@ -64,7 +64,7 @@ impl ExportArchive {
                     ManifestFile {
                         rows: self.counts.get(name).copied().unwrap_or(0),
                         bytes: bytes.len(),
-                        sha256: format!("{:x}", hasher.finalize()),
+                        sha256: to_hex(&hasher.finalize()),
                     },
                 )
             })
@@ -127,6 +127,17 @@ fn write_octal(field: &mut [u8], value: u64, digits: usize) {
     if len < field.len() {
         field[len] = 0;
     }
+}
+
+/// digest 0.11 returns a plain byte array, which has no hex formatting of its own.
+fn to_hex(bytes: &[u8]) -> String {
+    bytes
+        .iter()
+        .fold(String::with_capacity(bytes.len() * 2), |mut out, byte| {
+            use std::fmt::Write;
+            let _ = write!(out, "{byte:02x}");
+            out
+        })
 }
 
 #[cfg(test)]

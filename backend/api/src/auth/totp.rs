@@ -1,14 +1,15 @@
-use chacha20poly1305::aead::{Aead, KeyInit, OsRng};
-use chacha20poly1305::{AeadCore, ChaCha20Poly1305, Key, Nonce};
+use chacha20poly1305::aead::{Aead, KeyInit};
+use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
+use rand::RngExt;
 use sha2::{Digest, Sha256};
-use totp_rs::{Algorithm, Secret, TOTP};
+use totp_rs::{Algorithm, Builder, Secret, Totp};
 
 use shared_common::errors::{AppError, AppResult};
 
 const STEP_SECS: u64 = 30;
-const DIGITS: usize = 6;
+const DIGITS: u8 = 6;
 /// One step either side, which is the usual allowance for clock drift.
-const SKEW: u8 = 1;
+const SKEW: u16 = 1;
 pub const RECOVERY_CODE_COUNT: usize = 10;
 
 /// The TOTP secret is encrypted with a key derived from the instance's JWT
@@ -20,46 +21,53 @@ fn cipher(jwt_secret: &str) -> ChaCha20Poly1305 {
     hasher.update(b"totp-secret-encryption:");
     hasher.update(jwt_secret.as_bytes());
     let key = hasher.finalize();
-    ChaCha20Poly1305::new(Key::from_slice(&key))
+    ChaCha20Poly1305::new(&Key::try_from(&key[..]).expect("sha256 is a 32-byte key"))
 }
 
 pub fn encrypt_secret(jwt_secret: &str, secret: &str) -> AppResult<(Vec<u8>, Vec<u8>)> {
-    let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
+    // aead 0.6 dropped the nonce helper; twelve random bytes is what it did.
+    let mut nonce_bytes = [0u8; 12];
+    rand::rng().fill(&mut nonce_bytes[..]);
+    let nonce = Nonce::from(nonce_bytes);
     let ciphertext = cipher(jwt_secret)
         .encrypt(&nonce, secret.as_bytes())
         .map_err(|_| AppError::Internal("Failed to protect the TOTP secret".into()))?;
-    Ok((ciphertext, nonce.to_vec()))
+    Ok((ciphertext, nonce_bytes.to_vec()))
 }
 
 pub fn decrypt_secret(jwt_secret: &str, ciphertext: &[u8], nonce: &[u8]) -> AppResult<String> {
     let plaintext = cipher(jwt_secret)
-        .decrypt(Nonce::from_slice(nonce), ciphertext)
+        .decrypt(
+            &Nonce::try_from(nonce).map_err(|_| AppError::Internal("Corrupt TOTP nonce".into()))?,
+            ciphertext,
+        )
         .map_err(|_| AppError::Internal("Failed to read the TOTP secret".into()))?;
     String::from_utf8(plaintext).map_err(|_| AppError::Internal("Corrupt TOTP secret".into()))
 }
 
 pub fn generate_secret() -> String {
-    Secret::generate_secret().to_encoded().to_string()
+    Secret::generate().to_base32()
 }
 
-fn totp(secret: &str, email: &str, issuer: &str) -> AppResult<TOTP> {
-    let bytes = Secret::Encoded(secret.to_string())
-        .to_bytes()
+fn totp(secret: &str, email: &str, issuer: &str) -> AppResult<Totp> {
+    let secret = Secret::try_from_base32(secret)
         .map_err(|_| AppError::Internal("Invalid TOTP secret".into()))?;
-    TOTP::new(
-        Algorithm::SHA1,
-        DIGITS,
-        SKEW,
-        STEP_SECS,
-        bytes,
-        Some(issuer.to_string()),
-        email.to_string(),
-    )
-    .map_err(|e| AppError::Internal(format!("TOTP setup failed: {e}")))
+    Builder::new()
+        .with_algorithm(Algorithm::SHA1)
+        .with_digits(DIGITS)
+        .with_skew(SKEW)
+        .with_step_duration(STEP_SECS)
+        .with_secret(secret)
+        .with_issuer(Some(issuer.to_string()))
+        .with_account_name(email.to_string())
+        .build()
+        .map_err(|e| AppError::Internal(format!("TOTP setup failed: {e}")))
 }
 
 pub fn provisioning_uri(secret: &str, email: &str, issuer: &str) -> AppResult<String> {
-    Ok(totp(secret, email, issuer)?.get_url())
+    totp(secret, email, issuer)?
+        .to_url()
+        .map_err(|e| AppError::Internal(format!("TOTP url failed: {e}")))
 }
 
 /// The step a code belongs to, so a code cannot be replayed while it is still
@@ -104,7 +112,7 @@ pub fn matching_step(
         if step < 0 {
             continue;
         }
-        let generated = totp.generate(step as u64 * STEP_SECS);
+        let generated = totp.generate(step as u64 * STEP_SECS).to_string();
         if codes_match(&generated, code) {
             return Ok(Some(step));
         }
@@ -113,11 +121,10 @@ pub fn matching_step(
 }
 
 pub fn generate_recovery_codes() -> Vec<String> {
-    use rand::RngCore;
     (0..RECOVERY_CODE_COUNT)
         .map(|_| {
             let mut bytes = [0u8; 5];
-            rand::rngs::OsRng.fill_bytes(&mut bytes);
+            rand::rng().fill(&mut bytes[..]);
             let hex: String = bytes.iter().map(|b| format!("{b:02x}")).collect();
             format!("{}-{}", &hex[..5], &hex[5..])
         })
@@ -171,17 +178,18 @@ mod tests {
         let secret = generate_secret();
         let at = 1_700_000_000i64;
         let step = current_step(at);
-        let code = TOTP::new(
-            Algorithm::SHA1,
-            DIGITS,
-            SKEW,
-            STEP_SECS,
-            Secret::Encoded(secret.clone()).to_bytes().expect("bytes"),
-            Some("Chat Systems".into()),
-            "user@test.local".into(),
-        )
-        .expect("totp")
-        .generate(at as u64);
+        let code = Builder::new()
+            .with_algorithm(Algorithm::SHA1)
+            .with_digits(DIGITS)
+            .with_skew(SKEW)
+            .with_step_duration(STEP_SECS)
+            .with_secret(Secret::try_from_base32(&secret).expect("secret"))
+            .with_issuer(Some("Chat Systems"))
+            .with_account_name("user@test.local")
+            .build()
+            .expect("totp")
+            .generate(at as u64)
+            .to_string();
 
         for offset in [0, 30, -30] {
             assert_eq!(

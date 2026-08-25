@@ -1,3 +1,4 @@
+use redis::streams::StreamRangeReply;
 use std::sync::Arc;
 
 use tracing::warn;
@@ -45,7 +46,7 @@ async fn oldest_id(
     conn: &mut redis::aio::ConnectionManager,
     key: &str,
 ) -> redis::RedisResult<Option<String>> {
-    let entries: Vec<(String, Vec<String>)> = redis::cmd("XRANGE")
+    let entries: StreamRangeReply = redis::cmd("XRANGE")
         .arg(key)
         .arg("-")
         .arg("+")
@@ -53,7 +54,7 @@ async fn oldest_id(
         .arg(1)
         .query_async(conn)
         .await?;
-    Ok(entries.into_iter().next().map(|(id, _)| id))
+    Ok(entries.ids.into_iter().next().map(|entry| entry.id))
 }
 
 /// The newest position in a workspace log.
@@ -64,7 +65,7 @@ async fn oldest_id(
 /// falls back to the old at-most-once behaviour.
 pub async fn current_tail(cm: &Arc<ConnectionManager>, workspace_id: Uuid) -> Option<String> {
     let mut conn = cm.redis();
-    let entries: Vec<(String, Vec<String>)> = redis::cmd("XREVRANGE")
+    let entries: StreamRangeReply = redis::cmd("XREVRANGE")
         .arg(workspace_stream(workspace_id))
         .arg("+")
         .arg("-")
@@ -73,7 +74,7 @@ pub async fn current_tail(cm: &Arc<ConnectionManager>, workspace_id: Uuid) -> Op
         .query_async(&mut conn)
         .await
         .ok()?;
-    entries.into_iter().next().map(|(id, _)| id)
+    entries.ids.into_iter().next().map(|entry| entry.id)
 }
 
 /// Hands a reconnecting client the events it missed, through the same fan-out
@@ -99,7 +100,7 @@ pub async fn replay_workspace(
         }
     }
 
-    let entries: Vec<(String, Vec<String>)> = match redis::cmd("XRANGE")
+    let entries: StreamRangeReply = match redis::cmd("XRANGE")
         .arg(&key)
         .arg(format!("({last_event_id}"))
         .arg("+")
@@ -115,21 +116,20 @@ pub async fn replay_workspace(
         }
     };
 
-    if entries.len() > REPLAY_MAX_EVENTS {
+    if entries.ids.len() > REPLAY_MAX_EVENTS {
         return Replay::RefetchRequired;
     }
 
     let mut delivered = 0usize;
     let mut last_id = None;
 
-    for (id, fields) in entries {
-        let body = fields
-            .chunks(2)
-            .find(|pair| pair.first().map(String::as_str) == Some("event"))
-            .and_then(|pair| pair.get(1));
-        let Some(body) = body else { continue };
+    for entry in entries.ids {
+        let id = entry.id.clone();
+        let Some(body) = entry.get::<String>("event") else {
+            continue;
+        };
 
-        let Ok(event) = serde_json::from_str::<shared_events::Event>(body) else {
+        let Ok(event) = serde_json::from_str::<shared_events::Event>(&body) else {
             warn!(workspace_id = %workspace_id, "replay: undecodable entry {}", id);
             continue;
         };

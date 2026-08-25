@@ -6,7 +6,7 @@ use axum::http::header;
 use axum::response::Response;
 use axum::routing::{delete, get, post};
 use axum::{Json, Router};
-use rand::RngCore;
+use rand::RngExt;
 use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
@@ -21,20 +21,20 @@ use crate::workspace::models::WorkspaceRole;
 pub fn generate_download_token() -> String {
     use base64::Engine;
     let mut bytes = [0u8; 32];
-    rand::rngs::OsRng.fill_bytes(&mut bytes);
+    rand::rng().fill(&mut bytes[..]);
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
 }
 
 pub fn router(state: Arc<AppState>) -> Router {
     let protected = Router::new()
-        .route("/workspaces/:ws_id/exports", post(create_workspace_export))
-        .route("/users/:user_id/exports", post(create_user_export))
-        .route("/exports/:id", get(get_export))
-        .route("/admin/users/:user_id/data", delete(erase_user_data));
+        .route("/workspaces/{ws_id}/exports", post(create_workspace_export))
+        .route("/users/{user_id}/exports", post(create_user_export))
+        .route("/exports/{id}", get(get_export))
+        .route("/admin/users/{user_id}/data", delete(erase_user_data));
 
     // The download carries its own single-use credential, so it does not sit
     // behind a session: the recipient of an export is often not the requester.
-    let public = Router::new().route("/exports/download/:token", get(download));
+    let public = Router::new().route("/exports/download/{token}", get(download));
 
     Router::new()
         .merge(crate::protected(state.clone(), protected))
