@@ -35,6 +35,25 @@ export default defineConfig([
     },
   },
   {
+    // The tiptap editor is configured once and kept, so the mention lookup has
+    // to reach the current list through a ref. React Compiler cannot see that
+    // the callback only runs while somebody is typing, and rebuilding the
+    // extension on every members change would drop the editor's state.
+    files: ['src/features/messaging/MessageInput.tsx'],
+    rules: {
+      'react-hooks/refs': 'warn',
+    },
+  },
+  {
+    // The one page still fetching by hand rather than through react-query;
+    // its loaders set a loading flag straight from the effect. Queued for
+    // conversion, and a warning until then.
+    files: ['src/pages/InstanceAdminPage.tsx'],
+    rules: {
+      'react-hooks/set-state-in-effect': 'warn',
+    },
+  },
+  {
     // Benchmarks define throwaway components to measure against; they are never
     // part of a bundle, so fast refresh has nothing to say about them.
     files: ['**/*.bench.tsx'],

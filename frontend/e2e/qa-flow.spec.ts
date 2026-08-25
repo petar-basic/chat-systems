@@ -1,5 +1,5 @@
 import { test, expect, type Page, type BrowserContext } from '@playwright/test';
-import { authHeaders, login, send, SHOTS } from './helpers';
+import { authHeaders, login, send, SHOTS, userContext } from './helpers';
 
 let ctxA: BrowserContext;
 let ctxB: BrowserContext;
@@ -245,9 +245,11 @@ test('11. member cannot reach the instance admin area', async () => {
 test('12. suspending a user kills their live session', async () => {
   const api = admin.request;
   const auth = await authHeaders(api, 'admin@dev.local');
-  const list = (await (await api.get('http://localhost:3000/api/admin/users', { headers: auth })).json())
-    .data;
-  const bobId = list.find((u: { email: string }) => u.email === 'bob@dev.local').id;
+  // Bob's own session is where his id comes from: the admin listing is paged
+  // newest-first, and a long-lived dev database pushes the seeded accounts off
+  // the first page.
+  const { ctx: bobApi, userId: bobId } = await userContext('bob@dev.local');
+  await bobApi.dispose();
 
   await bob.goto('/');
   await expect(bob.locator('[data-qa="message-list"]')).toBeVisible({ timeout: 20_000 });

@@ -79,7 +79,7 @@ export class WebSocketClient {
     }
 
     this.onStatusChange?.('connecting');
-    let token: string | null = null;
+    let token: string | null;
     try {
       token = (await this.getToken?.()) ?? null;
     } catch {
