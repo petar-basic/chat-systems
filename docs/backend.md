@@ -409,6 +409,49 @@ All workspace-scoped routes require workspace membership.
 
 ---
 
+### slack_import
+
+Reads a Slack export into a workspace. There are no routes: an import is long,
+restartable and supervised by whoever is running the migration, so it is the `chat-import`
+binary rather than a request somebody waits on.
+
+```
+chat-import --workspace <uuid|slug> --export <zip-or-directory> [--dry-run] [--no-files] [--slack-token <token>]
+```
+
+**Two passes, because threads are what break single-pass importers.** The first creates
+users, channels and memberships; the second writes messages, so a `thread_ts` resolves
+against a row that already exists. A reply whose parent is missing from the export stays in
+the channel as an ordinary message rather than being dropped, and says so in the report.
+
+**Users are matched by email and by nothing else.** A Slack handle is not an identity.
+Somebody with no matching account is created with no password, so their history is
+attributed to an account only they can claim through the ordinary invite flow; a bot, or an
+account the export carries no address for, is reported rather than guessed at.
+
+**Idempotent by construction.** `messages.slack_ts` carries the Slack timestamp the row came
+from, unique per channel, and `slack_users` / `slack_channels` record what a previous run
+mapped. A re-run finds them and moves on, which is also what makes an interrupted import
+resumable — a 200k-message import will be interrupted.
+
+**`--dry-run` writes nothing**, not even the run record, and reports the same counts the real
+run would produce, including which items would not convert.
+
+**Files are fetched, not linked.** Slack's URLs expire, so the bytes are downloaded during
+the import and stored through `FileStorage`; the message that carries one is written in the
+composer's own attachment form, which is what makes CS-009's access rules apply to it. A file
+that cannot be fetched — no token, an expired URL — is named in the report and the message it
+belonged to is still imported.
+
+| Table | What it holds |
+|---|---|
+| `slack_imports` | One row per run: source, dry-run flag, the report as JSON |
+| `slack_users` | `(workspace, slack user id)` → our user |
+| `slack_channels` | `(workspace, slack channel id)` → our channel |
+| `messages.slack_ts` | The Slack timestamp a message came from; unique per channel |
+
+---
+
 ### saved
 
 One person's own list of kept messages. A row points at exactly one channel message or one

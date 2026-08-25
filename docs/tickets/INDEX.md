@@ -135,12 +135,12 @@ CS-033 SCIM deprovisioning. See [ROADMAP.md](../ROADMAP.md#wave-8--compliance--s
 ### Wave 9 — Product parity (partly done)
 
 CS-034 search, CS-035 web push, CS-039 emoji/groups/bots/commands and CS-040 the small Slack
-gaps (DM threads, saved items, bookmarks, forwarding, status, reminders) are shipped — see
+gaps (DM threads, saved items, bookmarks, forwarding, status, reminders) and CS-036 the Slack
+importer are shipped — see
 [ROADMAP.md](../ROADMAP.md#wave-9--product-parity-partly-shipped). What is left:
 
 | # | Ticket | Area |
 |---|---|---|
-| [CS-036](CS-036-slack-import-export.md) | Slack import / export CLI | backend |
 | [CS-037](CS-037-huddle-sfu.md) | SFU for large huddles | backend · frontend |
 | [CS-038](CS-038-mobile-client.md) | Mobile client | frontend |
 

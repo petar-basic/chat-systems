@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -6,6 +7,15 @@ use super::models::*;
 /// A message edited in a loop would otherwise accumulate versions without
 /// bound. Fifty is far past what anyone reads and far below what hurts.
 pub const MAX_STORED_EDITS: i64 = 50;
+
+pub struct ImportedMessage<'a> {
+    pub channel_id: Uuid,
+    pub user_id: Uuid,
+    pub content: &'a str,
+    pub thread_parent_id: Option<Uuid>,
+    pub slack_ts: &'a str,
+    pub created_at: DateTime<Utc>,
+}
 
 pub struct MessageRepo {
     pool: PgPool,
@@ -99,6 +109,41 @@ impl MessageRepo {
     /// to join every workspace member list to render, or fail to resolve and
     /// show as nobody. The `user_id` still points at the creator, which is what
     /// keeps the audit trail and the foreign key honest.
+    /// A message that already happened somewhere else. Its timestamp, author and
+    /// thread position come from the export, and nothing about it is new: no
+    /// unread counter moves, because nobody is being told about a conversation
+    /// from two years ago.
+    pub async fn insert_imported(&self, message: ImportedMessage<'_>) -> sqlx::Result<Message> {
+        let mut tx = self.pool.begin().await?;
+
+        let msg = sqlx::query_as::<_, Message>(
+            r"
+            INSERT INTO messages (channel_id, user_id, content, thread_parent_id, slack_ts, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $6)
+            RETURNING *
+            ",
+        )
+        .bind(message.channel_id)
+        .bind(message.user_id)
+        .bind(message.content)
+        .bind(message.thread_parent_id)
+        .bind(message.slack_ts)
+        .bind(message.created_at)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        if let Some(parent_id) = message.thread_parent_id {
+            sqlx::query("UPDATE messages SET reply_count = reply_count + 1 WHERE id = $1")
+                .bind(parent_id)
+                .execute(&mut *tx)
+                .await?;
+        }
+
+        tx.commit().await?;
+
+        Ok(msg)
+    }
+
     pub async fn create_bot_message(
         &self,
         channel_id: Uuid,

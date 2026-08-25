@@ -615,8 +615,7 @@ borrowing one would name somebody who did not do it.
 
 ## Wave 9 — Product parity (partly shipped)
 
-Four of seven shipped. `CS-036`, `CS-037` and `CS-038` are still ahead and keep their
-tickets.
+Five of seven shipped. `CS-037` and `CS-038` are still ahead and keep their tickets.
 
 ### [CS-034] Search language and DM search ✅ shipped
 `content_search` was `GENERATED ALWAYS AS (to_tsvector('english', content)) STORED`, so the
@@ -744,11 +743,28 @@ ships the IANA database, so no new dependency. A time already past means tomorro
 socket, so `/away` is still not shipped; the status is the manual thing, and an expired one
 stops being returned by every read path rather than waiting for a cleanup job.
 
-### Still ahead in this wave
+### [CS-036] Slack import ✅ shipped
+A `chat-import` binary rather than an endpoint: an import is long, restartable and
+supervised, and nobody is waiting on the response.
 
-### [CS-036](./tickets/CS-036-slack-import-export.md) — Slack import
-**Today:** no import. A migrating company either abandons its history or keeps paying Slack
-as an archive — and in practice that means the migration fails.
+**Two passes, because threads are what break single-pass importers.** Users, channels and
+memberships first; messages second, so `thread_ts` resolves against a row that exists. A
+reply whose parent is missing from the export stays in the channel and says so in the report,
+rather than disappearing along with the deleted parent.
+
+**Matching is by email and nothing else.** A Slack handle is not an identity — the same one
+belongs to different people in different workspaces, and matching on it would attribute
+somebody's history to a stranger. An unmatched address becomes an account with no password,
+so the history has an owner who can claim it through the invite flow and nobody else can.
+
+**Idempotency is written down, not remembered.** `messages.slack_ts` and the two mapping
+tables are what make a re-run a no-op and an interrupted run resumable. A 200k-message import
+*will* be interrupted; that has to be survivable rather than a reason to start over.
+
+**`--dry-run` writes nothing at all**, including the run record, and reports what a real run
+would do — counts and the list of what will not convert cleanly.
+
+### Still ahead in this wave
 
 ### [CS-037](./tickets/CS-037-huddle-sfu.md) — SFU for large huddles
 **Today:** huddles use a WebRTC mesh, fine to six or eight participants. The `livekit_room`
