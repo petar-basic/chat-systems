@@ -139,13 +139,14 @@ impl ConversationRepo {
         user_id: Uuid,
         content: &str,
         client_message_id: Option<Uuid>,
+        thread_parent_id: Option<Uuid>,
     ) -> sqlx::Result<ConversationMessage> {
         let mut tx = self.pool.begin().await?;
 
         let message = sqlx::query_as::<_, ConversationMessage>(
             r"
-            INSERT INTO conversation_messages (id, conversation_id, user_id, content, client_message_id)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO conversation_messages (id, conversation_id, user_id, content, client_message_id, thread_parent_id)
+            VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING *
             ",
         )
@@ -154,8 +155,18 @@ impl ConversationRepo {
         .bind(user_id)
         .bind(content)
         .bind(client_message_id)
+        .bind(thread_parent_id)
         .fetch_one(&mut *tx)
         .await?;
+
+        if let Some(parent_id) = thread_parent_id {
+            sqlx::query(
+                "UPDATE conversation_messages SET reply_count = reply_count + 1 WHERE id = $1",
+            )
+            .bind(parent_id)
+            .execute(&mut *tx)
+            .await?;
+        }
 
         sqlx::query("UPDATE conversations SET last_message_at = $2 WHERE id = $1")
             .bind(conversation_id)
@@ -256,6 +267,7 @@ impl ConversationRepo {
                 r"
                 SELECT * FROM conversation_messages
                 WHERE conversation_id = $1
+                  AND thread_parent_id IS NULL
                   AND (created_at, id) < (SELECT created_at, id FROM conversation_messages WHERE id = $3)
                 ORDER BY created_at DESC, id DESC
                 LIMIT $2
@@ -271,6 +283,7 @@ impl ConversationRepo {
                 r"
                 SELECT * FROM conversation_messages
                 WHERE conversation_id = $1
+                  AND thread_parent_id IS NULL
                 ORDER BY created_at DESC, id DESC
                 LIMIT $2
                 ",
@@ -280,6 +293,27 @@ impl ConversationRepo {
             .fetch_all(&self.pool)
             .await
         }
+    }
+
+    pub async fn list_thread(
+        &self,
+        parent_id: Uuid,
+        limit: i64,
+        offset: i64,
+    ) -> sqlx::Result<Vec<ConversationMessage>> {
+        sqlx::query_as::<_, ConversationMessage>(
+            r"
+            SELECT * FROM conversation_messages
+            WHERE thread_parent_id = $1
+            ORDER BY created_at ASC, id ASC
+            LIMIT $2 OFFSET $3
+            ",
+        )
+        .bind(parent_id)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await
     }
 
     pub async fn update_message(

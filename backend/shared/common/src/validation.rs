@@ -214,6 +214,66 @@ pub fn validate_client_message_id(id: uuid::Uuid) -> AppResult<()> {
     Ok(())
 }
 
+pub fn validate_bookmark_label(label: &str) -> AppResult<()> {
+    let trimmed = label.trim();
+    if trimmed.is_empty() {
+        return Err(AppError::Validation("Bookmark needs a label".into()));
+    }
+    if trimmed.chars().count() > 80 {
+        return Err(AppError::Validation(
+            "Bookmark label must be at most 80 characters".into(),
+        ));
+    }
+    Ok(())
+}
+
+/// A bookmark is rendered as a link someone else clicks, so `javascript:` and
+/// `data:` are not merely unusual here — they are the attack.
+pub fn validate_bookmark_url(url: &str) -> AppResult<()> {
+    if url.len() > 2000 {
+        return Err(AppError::Validation(
+            "Bookmark URL must be at most 2000 characters".into(),
+        ));
+    }
+    if !(url.starts_with("http://") || url.starts_with("https://")) {
+        return Err(AppError::Validation(
+            "Bookmark URL must start with http:// or https://".into(),
+        ));
+    }
+    if url.chars().any(char::is_control) {
+        return Err(AppError::Validation(
+            "Bookmark URL cannot contain control characters".into(),
+        ));
+    }
+    Ok(())
+}
+
+pub fn validate_status_text(text: &str) -> AppResult<()> {
+    if text.chars().count() > 100 {
+        return Err(AppError::Validation(
+            "Status must be at most 100 characters".into(),
+        ));
+    }
+    if text.chars().any(char::is_control) {
+        return Err(AppError::Validation(
+            "Status cannot contain control characters".into(),
+        ));
+    }
+    Ok(())
+}
+
+pub fn validate_status_emoji(emoji: &str) -> AppResult<()> {
+    if emoji.chars().count() > 16 {
+        return Err(AppError::Validation(
+            "Status emoji must be at most 16 characters".into(),
+        ));
+    }
+    if emoji.chars().any(char::is_control) || emoji.contains(char::is_whitespace) {
+        return Err(AppError::Validation("Status emoji is not an emoji".into()));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -377,5 +437,31 @@ mod tests {
     fn validate_avatar_url_rejects_over_limit() {
         let over = format!("https://example.com/{}", "a".repeat(500));
         assert_validation_err(validate_avatar_url(&over));
+    }
+
+    #[test]
+    fn validate_bookmark_url_only_accepts_a_link_a_reader_can_click() {
+        assert!(validate_bookmark_url("https://example.com/runbook").is_ok());
+        assert!(validate_bookmark_url("http://intranet.local/wiki").is_ok());
+        assert_validation_err(validate_bookmark_url("javascript:alert(1)"));
+        assert_validation_err(validate_bookmark_url("data:text/html,<script></script>"));
+        assert_validation_err(validate_bookmark_url("/etc/passwd"));
+        assert_validation_err(validate_bookmark_url("https://example.com/\u{7}"));
+    }
+
+    #[test]
+    fn validate_bookmark_label_needs_something_to_show() {
+        assert!(validate_bookmark_label("Runbook").is_ok());
+        assert_validation_err(validate_bookmark_label("   "));
+        assert_validation_err(validate_bookmark_label(&"a".repeat(81)));
+    }
+
+    #[test]
+    fn validate_status_is_one_short_line() {
+        assert!(validate_status_text("out for lunch").is_ok());
+        assert!(validate_status_emoji("\u{1F355}").is_ok());
+        assert_validation_err(validate_status_text(&"a".repeat(101)));
+        assert_validation_err(validate_status_text("two\nlines"));
+        assert_validation_err(validate_status_emoji("a b"));
     }
 }

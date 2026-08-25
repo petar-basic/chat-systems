@@ -3,9 +3,10 @@ use std::sync::Arc;
 use axum::extract::{Path, State};
 use axum::http::header::AUTHORIZATION;
 use axum::http::HeaderMap;
-use axum::routing::{get, patch, post};
+use axum::routing::{delete, get, patch, post, put};
 use axum::{Json, Router};
 use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
+use chrono::Utc;
 use shared_common::errors::{AppError, AppResult};
 
 use super::models::*;
@@ -19,7 +20,9 @@ pub fn router(state: Arc<AppState>) -> Router {
     let protected = Router::new()
         .route("/users/me", get(get_me))
         .route("/users/me", patch(update_me))
-        .route("/users/me/password", patch(change_password));
+        .route("/users/me/password", patch(change_password))
+        .route("/users/me/status", put(set_status))
+        .route("/users/me/status", delete(clear_status));
 
     let public = Router::new()
         .route("/auth/login", post(login))
@@ -338,6 +341,57 @@ async fn update_me(
             req.bio.as_deref(),
             req.timezone.as_deref(),
         )
+        .await?;
+    Ok(Json(user.into()))
+}
+
+async fn set_status(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Json(req): Json<SetStatusRequest>,
+) -> AppResult<Json<UserPublic>> {
+    let emoji = req
+        .emoji
+        .as_deref()
+        .map(str::trim)
+        .filter(|e| !e.is_empty());
+    let text = req.text.as_deref().map(str::trim).filter(|t| !t.is_empty());
+
+    if let Some(emoji) = emoji {
+        shared_common::validation::validate_status_emoji(emoji)?;
+    }
+    if let Some(text) = text {
+        shared_common::validation::validate_status_text(text)?;
+    }
+    if emoji.is_none() && text.is_none() {
+        return Err(AppError::Validation(
+            "A status needs an emoji or some text".into(),
+        ));
+    }
+    if let Some(expires_at) = req.expires_at {
+        if expires_at <= Utc::now() {
+            return Err(AppError::Validation(
+                "A status cannot expire in the past".into(),
+            ));
+        }
+    }
+
+    let user = state
+        .auth_service
+        .repo()
+        .set_status(auth.user_id, emoji, text, req.expires_at)
+        .await?;
+    Ok(Json(user.into()))
+}
+
+async fn clear_status(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+) -> AppResult<Json<UserPublic>> {
+    let user = state
+        .auth_service
+        .repo()
+        .set_status(auth.user_id, None, None, None)
         .await?;
     Ok(Json(user.into()))
 }

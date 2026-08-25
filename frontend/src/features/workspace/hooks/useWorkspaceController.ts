@@ -38,6 +38,10 @@ import {
 import { useUnreadChannels, useSetChannelMuted } from '@/hooks/queries/useChannels';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { useSendMessage } from '@/hooks/queries/useMessages';
+import { useSaveMessage } from '@/hooks/queries/useSaved';
+import type { ConversationMessage } from '@/hooks/queries/useConversations';
+import type { ForwardSource } from '@/features/messaging/ForwardMessageModal';
+import { conversationTitle } from '@/lib/conversationHelpers';
 import { useInstanceStore } from '@/stores/instances';
 import { useRightPanel } from './useRightPanel';
 
@@ -161,7 +165,7 @@ export function useWorkspaceController() {
     }
   }, [totalUnread]);
 
-  const { populateUsers } = useUserCache();
+  const { populateUsers, getUser } = useUserCache();
   const populateCustomEmoji = useCustomEmojiStore((s) => s.populate);
   const populateSelfGroups = useUserGroupStore((s) => s.populate);
   useEffect(() => {
@@ -172,6 +176,8 @@ export function useWorkspaceController() {
           email: m.email,
           display_name: m.display_name ?? '',
           avatar_url: m.avatar_url,
+          status_emoji: m.status_emoji,
+          status_text: m.status_text,
         })),
       );
     }
@@ -440,6 +446,66 @@ export function useWorkspaceController() {
     [panel, workspaceId, currentWorkspace, navigate],
   );
 
+  const saveMessage = useSaveMessage(workspaceId ?? '', currentWsInstanceUrl);
+  const [forwarding, setForwarding] = useState<ForwardSource | null>(null);
+
+  const handleSaveMessage = useCallback(
+    (message: Message) => {
+      saveMessage.mutate(
+        { messageId: message.id },
+        {
+          onSuccess: () => toast.success('Saved'),
+          onError: (err) => toast.error(toUserMessage(err)),
+        },
+      );
+    },
+    [saveMessage],
+  );
+
+  const handleSaveConversationMessage = useCallback(
+    (message: ConversationMessage) => {
+      saveMessage.mutate(
+        { conversationMessageId: message.id },
+        {
+          onSuccess: () => toast.success('Saved'),
+          onError: (err) => toast.error(toUserMessage(err)),
+        },
+      );
+    },
+    [saveMessage],
+  );
+
+  const authorNameOf = useCallback(
+    (userId: string) => getUser(userId)?.display_name || 'Somebody',
+    [getUser],
+  );
+
+  const handleForwardMessage = useCallback(
+    (message: Message) => {
+      const channel = channels.find((c) => c.id === message.channel_id);
+      setForwarding({
+        content: message.content,
+        authorName: authorNameOf(message.user_id),
+        origin: channel ? `#${channel.name}` : 'a channel',
+      });
+    },
+    [authorNameOf, channels],
+  );
+
+  const handleForwardConversationMessage = useCallback(
+    (message: ConversationMessage) => {
+      const conversation = conversations.find((c) => c.id === message.conversation_id);
+      setForwarding({
+        content: message.content,
+        authorName: authorNameOf(message.user_id),
+        origin: conversation
+          ? conversationTitle(conversation, user?.id, (id) => getUser(id)?.display_name)
+          : 'a direct message',
+      });
+    },
+    [authorNameOf, conversations, getUser, user],
+  );
+
   const handleCreateWorkspace = useCallback(
     async (name: string, instanceUrl: string) => {
       const newWs = await createWorkspaceMutation.mutateAsync({ name, instanceUrl });
@@ -501,5 +567,11 @@ export function useWorkspaceController() {
     handleNavigateToMessage,
     handleCreateWorkspace,
     handleCreateChannel,
+    handleSaveMessage,
+    handleSaveConversationMessage,
+    handleForwardMessage,
+    handleForwardConversationMessage,
+    forwarding,
+    dismissForward: () => setForwarding(null),
   };
 }

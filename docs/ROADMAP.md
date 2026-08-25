@@ -707,10 +707,10 @@ nothing new had to be added to the gateway. An unknown command is a 404 and the 
 what was typed as an ordinary message, so a typo is visible instead of disappearing into an
 error.
 
-Built-ins are `/dnd`, `/topic`, `/invite` and `/shrug`, through the same registry.
+Built-ins are `/dnd`, `/topic`, `/invite`, `/shrug` and `/remind`, through the same registry.
 **`/away` is not shipped**: presence here is derived from whether the gateway holds a socket
-(CS-027), so there is no flag for a command to set, and adding one would mean a second,
-manual presence state nothing else reads.
+(CS-027), so there is no flag for a command to set. What people want from `/away` — saying
+what they are doing — is a custom status, which is set on the profile and is not presence.
 
 **A new operator setting, `WEBHOOK_ALLOW_PRIVATE_TARGETS`, default off.** Outbound calls
 refuse private, loopback and link-local addresses so that a workspace admin cannot point one

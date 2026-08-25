@@ -33,6 +33,8 @@ export interface ConversationMessage {
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
+  thread_parent_id: string | null;
+  reply_count: number;
   pending?: boolean;
   reactions?: Reaction[];
 }
@@ -115,6 +117,8 @@ export const useSendConversationMessage = (
         deleted_at: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        thread_parent_id: null,
+        reply_count: 0,
         pending: true,
       };
       queryClient.setQueryData<ConversationInfiniteData>(key, (old) =>
@@ -273,5 +277,52 @@ export const useMarkConversationRead = (workspaceId: string, instanceUrl?: strin
       );
     },
     onError: (err) => logger.error('useMarkConversationRead', 'mutationFn', err),
+  });
+};
+
+export const useConversationThread = (parentMessageId: string | null, instanceUrl?: string) => {
+  return useQuery({
+    queryKey: QUERY_KEYS.conversationThread(parentMessageId ?? ''),
+    queryFn: async () => {
+      const res = await getApiForInstance(instanceUrl).get<{ data: ConversationMessage[] }>(
+        `/conversations/messages/${parentMessageId}/thread`,
+      );
+      return res.data;
+    },
+    enabled: !!parentMessageId && !!instanceUrl,
+    staleTime: 1000 * 30,
+  });
+};
+
+export const useSendConversationThreadReply = (
+  conversationId: string,
+  parentMessageId: string,
+  instanceUrl?: string,
+) => {
+  const queryClient = useQueryClient();
+  const threadKey = QUERY_KEYS.conversationThread(parentMessageId);
+
+  return useMutation({
+    mutationFn: async (content: string) =>
+      getApiForInstance(instanceUrl).post<ConversationMessage>(`/conversations/${conversationId}/messages`, {
+        content,
+        client_message_id: crypto.randomUUID(),
+        thread_parent_id: parentMessageId,
+      }),
+    onSuccess: (reply) => {
+      queryClient.setQueryData<ConversationMessage[]>(threadKey, (old = []) =>
+        old.some((m) => m.id === reply.id) ? old : [...old, reply],
+      );
+      // The count under the parent lives in the feed, which never sees the reply.
+      queryClient.setQueryData<ConversationInfiniteData>(
+        QUERY_KEYS.conversationMessages(conversationId),
+        (old) =>
+          patchMessageById(old, parentMessageId, (m) => ({ ...m, reply_count: (m.reply_count ?? 0) + 1 })),
+      );
+    },
+    onError: (err) => {
+      logger.error('useSendConversationThreadReply', 'mutationFn', err);
+      toast.error(ErrorLabels.SendFailed);
+    },
   });
 };

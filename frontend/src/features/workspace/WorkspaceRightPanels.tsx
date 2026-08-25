@@ -14,6 +14,9 @@ import UserGroupsPanel from '@/components/UserGroupsPanel';
 import { useCurrentWorkspaceRole } from './hooks/useCurrentWorkspaceRole';
 import AuditLogPanel from '@/components/AuditLogPanel';
 import ScheduledMessagesPanel from '@/components/ScheduledMessagesPanel';
+import ConversationThreadPanel from '@/components/ConversationThreadPanel';
+import SavedItemsPanel from '@/components/SavedItemsPanel';
+import RemindersPanel from '@/components/RemindersPanel';
 
 interface Props {
   panel: RightPanel;
@@ -22,6 +25,7 @@ interface Props {
   workspaceMembers: WorkspaceMember[];
   channels: Channel[];
   conversations: Conversation[];
+  currentUserId?: string;
   onClose: () => void;
   onNavigateToMessage: (channelId: string, messageId: string, withThread?: boolean) => void;
   onOpenConversation: (conversationId: string) => void;
@@ -34,6 +38,7 @@ export default function WorkspaceRightPanels({
   workspaceMembers,
   channels,
   conversations,
+  currentUserId,
   onClose,
   onNavigateToMessage,
   onOpenConversation,
@@ -63,6 +68,40 @@ export default function WorkspaceRightPanels({
         parentMessage={panel.message}
         members={workspaceMembers}
         channels={channels}
+        onClose={onClose}
+      />
+    );
+  }
+  if (panel.kind === 'conversationThread' && currentWorkspace) {
+    return (
+      <ConversationThreadPanel
+        conversationId={panel.conversationId}
+        parentMessage={panel.message}
+        instanceUrl={currentWorkspace.instanceUrl}
+        onClose={onClose}
+      />
+    );
+  }
+  if (panel.kind === 'saved' && currentWorkspace) {
+    return (
+      <SavedItemsPanel
+        workspaceId={currentWorkspace.id}
+        instanceUrl={currentWorkspace.instanceUrl}
+        channels={channels}
+        conversations={conversations}
+        onClose={onClose}
+        onNavigateToMessage={(chId, msgId) => onNavigateToMessage(chId, msgId)}
+        onOpenConversation={onOpenConversation}
+      />
+    );
+  }
+  if (panel.kind === 'reminders' && currentWorkspace && currentUserId) {
+    return (
+      <RemindersPanel
+        workspaceId={currentWorkspace.id}
+        instanceUrl={currentWorkspace.instanceUrl}
+        channels={channels}
+        currentUserId={currentUserId}
         onClose={onClose}
       />
     );

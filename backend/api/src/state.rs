@@ -8,6 +8,7 @@ use crate::huddle::repo::HuddleRepo;
 use crate::messaging::publisher::EventPublisher;
 use crate::messaging::repo::MessageRepo;
 use crate::notifications::repo::NotificationRepo;
+use crate::saved::repo::SavedRepo;
 use crate::scheduled::repo::ScheduledRepo;
 use crate::workspace::service::WorkspaceService;
 
@@ -24,6 +25,7 @@ pub struct AppState {
     pub hook_repo: HookRepo,
     pub notification_repo: NotificationRepo,
     pub conversation_repo: ConversationRepo,
+    pub saved_repo: SavedRepo,
     pub scheduled_repo: ScheduledRepo,
     pub retention_repo: crate::retention::repo::RetentionRepo,
     pub export_repo: crate::export::repo::ExportRepo,

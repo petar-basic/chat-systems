@@ -27,6 +27,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/conversations/:conv_id/messages", get(list_messages))
         .route("/conversations/:conv_id/messages", post(send_message))
         .route("/conversations/:conv_id/read", post(mark_read))
+        .route("/conversations/messages/:msg_id/thread", get(list_thread))
         .route("/conversations/messages/:msg_id", patch(edit_message))
         .route(
             "/conversations/messages/:msg_id/history",
@@ -221,6 +222,25 @@ async fn send_message(
         validation::validate_client_message_id(client_id)?;
     }
 
+    let thread_parent_id = match req.thread_parent_id {
+        Some(parent_id) => {
+            let parent = state
+                .conversation_repo
+                .find_message(parent_id)
+                .await?
+                .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
+            if parent.conversation_id != conv_id {
+                return Err(AppError::Validation(
+                    "That message is in another conversation".into(),
+                ));
+            }
+            // One level, like channels: a reply to a reply belongs to the same
+            // thread, not to a thread of its own.
+            Some(parent.thread_parent_id.unwrap_or(parent.id))
+        }
+        None => None,
+    };
+
     let message = match state
         .conversation_repo
         .create_message(
@@ -229,6 +249,7 @@ async fn send_message(
             auth.user_id,
             &req.content,
             req.client_message_id,
+            thread_parent_id,
         )
         .await
     {
@@ -470,6 +491,66 @@ async fn remove_reaction(
     .await;
 
     Ok(Json(serde_json::json!({ "status": "ok" })))
+}
+
+async fn list_thread(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(msg_id): Path<Uuid>,
+    Query(params): Query<std::collections::HashMap<String, String>>,
+) -> AppResult<Json<serde_json::Value>> {
+    let parent = state
+        .conversation_repo
+        .find_message(msg_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
+    authz::require_conversation_participant(&state, parent.conversation_id, auth.user_id).await?;
+
+    let limit = params
+        .get("limit")
+        .and_then(|v| v.parse::<i64>().ok())
+        .unwrap_or(50)
+        .clamp(1, 200);
+    let offset = params
+        .get("offset")
+        .and_then(|v| v.parse::<i64>().ok())
+        .unwrap_or(0)
+        .max(0);
+
+    let replies = state
+        .conversation_repo
+        .list_thread(msg_id, limit, offset)
+        .await?;
+
+    let ids: Vec<Uuid> = replies.iter().map(|m| m.id).collect();
+    let reactions = state
+        .conversation_repo
+        .list_reactions_for_messages(&ids)
+        .await?;
+    let mut by_message: std::collections::HashMap<Uuid, Vec<_>> = std::collections::HashMap::new();
+    for reaction in reactions {
+        by_message
+            .entry(reaction.message_id)
+            .or_default()
+            .push(reaction);
+    }
+
+    let data: Vec<serde_json::Value> = replies
+        .into_iter()
+        .map(|msg| {
+            let mut value = serde_json::to_value(&msg).unwrap_or_default();
+            if let Some(obj) = value.as_object_mut() {
+                obj.insert(
+                    "reactions".to_string(),
+                    serde_json::to_value(by_message.get(&msg.id).cloned().unwrap_or_default())
+                        .unwrap_or_default(),
+                );
+            }
+            value
+        })
+        .collect();
+
+    Ok(Json(serde_json::json!({ "data": data })))
 }
 
 async fn mark_read(

@@ -1,5 +1,5 @@
 import { memo, useState, useRef } from 'react';
-import { Pencil, Trash2, MessageSquare, SmilePlus, Pin, Link2 } from 'lucide-react';
+import { Pencil, Trash2, MessageSquare, SmilePlus, Pin, Link2, Bookmark, Forward } from 'lucide-react';
 import type { Message, WorkspaceMember, Channel } from '@/stores/workspace';
 import RichTextDisplay from '@/components/RichTextDisplay';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
@@ -19,6 +19,8 @@ interface MessageItemProps {
   message: Message;
   currentUserId: string;
   senderName: string;
+  senderStatusEmoji?: string | null;
+  senderStatusText?: string | null;
   senderAvatarUrl?: string | null;
   isHighlighted?: boolean;
   grouped?: boolean;
@@ -31,6 +33,8 @@ interface MessageItemProps {
   onDelete: (messageId: string) => Promise<unknown> | void;
   onRetry?: (messageId: string, content: string) => void;
   onCopyLink?: (messageId: string) => void;
+  onSave?: (message: Message) => void;
+  onForward?: (message: Message) => void;
 }
 
 function groupReactions(message: Message, currentUserId: string): ReactionGroup[] {
@@ -51,6 +55,8 @@ function MessageItem({
   message,
   currentUserId,
   senderName,
+  senderStatusEmoji,
+  senderStatusText,
   senderAvatarUrl,
   isHighlighted,
   grouped,
@@ -63,6 +69,8 @@ function MessageItem({
   onDelete,
   onRetry,
   onCopyLink,
+  onSave,
+  onForward,
 }: MessageItemProps) {
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -136,6 +144,11 @@ function MessageItem({
         {!grouped && (
           <div className="flex items-baseline gap-2">
             <span className="text-sm font-semibold text-slate-200">{senderName}</span>
+            {senderStatusEmoji && (
+              <span data-qa="message-status-emoji" title={senderStatusText ?? undefined}>
+                {senderStatusEmoji}
+              </span>
+            )}
             {message.metadata?.bot && (
               <span
                 data-qa="bot-tag"
@@ -313,6 +326,26 @@ function MessageItem({
               className="p-1 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition"
             >
               <Link2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {onSave && (
+            <button
+              onClick={() => onSave(message)}
+              aria-label="Save message"
+              data-qa="message-action-save"
+              className="p-1 text-slate-400 hover:text-purple-300 hover:bg-slate-700 rounded transition"
+            >
+              <Bookmark className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {onForward && (
+            <button
+              onClick={() => onForward(message)}
+              aria-label="Forward message"
+              data-qa="message-action-forward"
+              className="p-1 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition"
+            >
+              <Forward className="w-3.5 h-3.5" />
             </button>
           )}
           {isOwn && (

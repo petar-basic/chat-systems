@@ -58,6 +58,12 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route(
             "/channels/:ch_id/members/:user_id",
             delete(remove_channel_member),
+        )
+        .route("/channels/:ch_id/bookmarks", get(list_channel_bookmarks))
+        .route("/channels/:ch_id/bookmarks", post(create_channel_bookmark))
+        .route(
+            "/channels/:ch_id/bookmarks/:bookmark_id",
+            delete(delete_channel_bookmark),
         );
 
     crate::protected(state, routes)
@@ -845,4 +851,74 @@ async fn remove_channel_member(
     .await;
 
     Ok(Json(serde_json::json!({ "status": "removed" })))
+}
+
+async fn list_channel_bookmarks(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(ch_id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    authz::require_channel_access(&state, ch_id, auth.user_id).await?;
+    let bookmarks = state
+        .workspace_service
+        .repo
+        .list_channel_bookmarks(ch_id)
+        .await?;
+    Ok(Json(serde_json::json!({ "data": bookmarks })))
+}
+
+async fn create_channel_bookmark(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(ch_id): Path<Uuid>,
+    Json(req): Json<CreateChannelBookmarkRequest>,
+) -> AppResult<Json<ChannelBookmark>> {
+    let access = authz::require_channel_access(&state, ch_id, auth.user_id).await?;
+    authz::require_channel_moderator(&state, &access.channel, auth.user_id).await?;
+
+    validation::validate_bookmark_label(&req.label)?;
+    validation::validate_bookmark_url(&req.url)?;
+    let emoji = req
+        .emoji
+        .as_deref()
+        .map(str::trim)
+        .filter(|e| !e.is_empty());
+    if let Some(emoji) = emoji {
+        validation::validate_status_emoji(emoji)?;
+    }
+
+    let bookmark = state
+        .workspace_service
+        .repo
+        .create_channel_bookmark(ch_id, auth.user_id, req.label.trim(), req.url.trim(), emoji)
+        .await?;
+
+    Ok(Json(bookmark))
+}
+
+async fn delete_channel_bookmark(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path((ch_id, bookmark_id)): Path<(Uuid, Uuid)>,
+) -> AppResult<Json<serde_json::Value>> {
+    let access = authz::require_channel_access(&state, ch_id, auth.user_id).await?;
+    authz::require_channel_moderator(&state, &access.channel, auth.user_id).await?;
+
+    let bookmark = state
+        .workspace_service
+        .repo
+        .find_channel_bookmark(bookmark_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Bookmark not found".into()))?;
+    if bookmark.channel_id != ch_id {
+        return Err(AppError::NotFound("Bookmark not found".into()));
+    }
+
+    state
+        .workspace_service
+        .repo
+        .delete_channel_bookmark(bookmark_id)
+        .await?;
+
+    Ok(Json(serde_json::json!({ "status": "deleted" })))
 }

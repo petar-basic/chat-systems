@@ -21,6 +21,7 @@ pub mod presence;
 pub mod push;
 pub mod rate_limit;
 pub mod retention;
+pub mod saved;
 pub mod scheduled;
 pub mod scim;
 pub mod search;
@@ -95,6 +96,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
     let hook_repo = HookRepo::new(pool.clone());
     let notification_repo = NotificationRepo::new(pool.clone());
     let conversation_repo = ConversationRepo::new(pool.clone());
+    let saved_repo = saved::repo::SavedRepo::new(pool.clone());
     let scheduled_repo = scheduled::repo::ScheduledRepo::new(pool.clone());
     let retention_repo = retention::repo::RetentionRepo::new(pool.clone());
     let export_repo = export::repo::ExportRepo::new(pool.clone());
@@ -126,6 +128,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
         hook_repo,
         notification_repo,
         conversation_repo,
+        saved_repo,
         scheduled_repo,
         retention_repo,
         export_repo,
@@ -153,6 +156,7 @@ pub fn build_app(state: Arc<AppState>) -> Router {
         .merge(notifications::routes::router(state.clone()))
         .merge(admin::routes::router(state.clone()))
         .merge(conversations::routes::router(state.clone()))
+        .merge(saved::routes::router(state.clone()))
         .merge(scheduled::routes::router(state.clone()))
         .merge(huddle::routes::router(state.clone()))
         .merge(retention::routes::router(state.clone()))

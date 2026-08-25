@@ -65,6 +65,8 @@ pub struct MemberWithUser {
     pub email: String,
     pub display_name: Option<String>,
     pub avatar_url: Option<String>,
+    pub status_emoji: Option<String>,
+    pub status_text: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
@@ -238,4 +240,23 @@ pub struct AddChannelMemberRequest {
 #[derive(Debug, Deserialize)]
 pub struct SetChannelNotificationsRequest {
     pub muted: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ChannelBookmark {
+    pub id: Uuid,
+    pub channel_id: Uuid,
+    pub created_by: Option<Uuid>,
+    pub label: String,
+    pub url: String,
+    pub emoji: Option<String>,
+    pub position: i32,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateChannelBookmarkRequest {
+    pub label: String,
+    pub url: String,
+    pub emoji: Option<String>,
 }

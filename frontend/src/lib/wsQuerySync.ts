@@ -6,7 +6,11 @@ import { backfillAfterReconnect } from './realtimeBackfill';
 import { upsertMessage, patchMessageById, newestFirst } from './messageCache';
 import { showNotification, playNotificationSound } from './notifications';
 import type { Message, WorkspaceMember } from '@/stores/workspace';
-import type { Conversation, ConversationInfiniteData } from '@/hooks/queries/useConversations';
+import type {
+  Conversation,
+  ConversationInfiniteData,
+  ConversationMessage,
+} from '@/hooks/queries/useConversations';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useInstanceStore } from '@/stores/instances';
 import { useUserCache } from '@/stores/users';
@@ -229,10 +233,28 @@ export const useWebSocketQuerySync = () => {
         const { currentUserId, currentConversationId, markConversationUnread } = useWorkspaceStore.getState();
         const isIncoming = event.user_id !== currentUserId;
 
-        queryClient.setQueryData<ConversationInfiniteData>(
-          QUERY_KEYS.conversationMessages(event.conversation_id),
-          (old) => upsertMessage(old, { ...event, pending: false }, 'firstPage', newestFirst),
-        );
+        // A threaded reply is not part of the feed — the server keeps it out of
+        // the listing too, so putting it in here would be the one place it shows
+        // up twice.
+        if (event.thread_parent_id) {
+          queryClient.setQueryData<ConversationMessage[]>(
+            QUERY_KEYS.conversationThread(event.thread_parent_id),
+            (old = []) => (old.some((m) => m.id === event.id) ? old : [...old, { ...event }]),
+          );
+          queryClient.setQueryData<ConversationInfiniteData>(
+            QUERY_KEYS.conversationMessages(event.conversation_id),
+            (old) =>
+              patchMessageById(old, event.thread_parent_id as string, (m) => ({
+                ...m,
+                reply_count: (m.reply_count ?? 0) + 1,
+              })),
+          );
+        } else {
+          queryClient.setQueryData<ConversationInfiniteData>(
+            QUERY_KEYS.conversationMessages(event.conversation_id),
+            (old) => upsertMessage(old, { ...event, pending: false }, 'firstPage', newestFirst),
+          );
+        }
 
         queryClient.setQueryData<Conversation[]>(QUERY_KEYS.conversations(event.workspace_id), (old) => {
           if (!old) return old;

@@ -659,3 +659,188 @@ async fn an_over_long_conversation_reaction_is_a_400_not_a_500(pool: PgPool) {
     .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
 }
+
+#[sqlx::test(migrations = "../migrations")]
+async fn a_dm_reply_hangs_off_its_parent_and_stays_out_of_the_feed(pool: PgPool) {
+    let (app, _state, ws_id, _owner_id, owner_token, second_id, second_token, _t, _tt) =
+        seed_trio(pool).await;
+
+    let (_, conversation) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/conversations"),
+        Some(&owner_token),
+        Some(json!({ "participant_ids": [second_id] })),
+    )
+    .await;
+    let conv_id = conversation["id"].as_str().expect("id").to_string();
+
+    let (_, parent) = send(
+        &app,
+        "POST",
+        &format!("/api/conversations/{conv_id}/messages"),
+        Some(&owner_token),
+        Some(json!({ "content": "can you look at the deploy?" })),
+    )
+    .await;
+    let parent_id = parent["id"].as_str().expect("id").to_string();
+
+    let (status, reply) = send(
+        &app,
+        "POST",
+        &format!("/api/conversations/{conv_id}/messages"),
+        Some(&second_token),
+        Some(json!({ "content": "on it", "thread_parent_id": parent_id })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{reply:?}");
+    assert_eq!(reply["thread_parent_id"], parent_id);
+
+    let (status, thread) = send(
+        &app,
+        "GET",
+        &format!("/api/conversations/messages/{parent_id}/thread"),
+        Some(&owner_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let replies = thread["data"].as_array().expect("array");
+    assert_eq!(replies.len(), 1, "{thread:?}");
+    assert_eq!(replies[0]["content"], "on it");
+
+    let (_, feed) = send(
+        &app,
+        "GET",
+        &format!("/api/conversations/{conv_id}/messages"),
+        Some(&owner_token),
+        None,
+    )
+    .await;
+    let messages = feed["data"].as_array().expect("array");
+    assert_eq!(
+        messages.len(),
+        1,
+        "a reply belongs to its thread, not the feed: {feed:?}"
+    );
+    assert_eq!(messages[0]["id"], parent_id);
+    assert_eq!(messages[0]["reply_count"], 1);
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn a_dm_thread_is_one_level_deep(pool: PgPool) {
+    let (app, _state, ws_id, _owner_id, owner_token, second_id, _second_token, _t, _tt) =
+        seed_trio(pool).await;
+
+    let (_, conversation) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/conversations"),
+        Some(&owner_token),
+        Some(json!({ "participant_ids": [second_id] })),
+    )
+    .await;
+    let conv_id = conversation["id"].as_str().expect("id").to_string();
+
+    let (_, parent) = send(
+        &app,
+        "POST",
+        &format!("/api/conversations/{conv_id}/messages"),
+        Some(&owner_token),
+        Some(json!({ "content": "root" })),
+    )
+    .await;
+    let parent_id = parent["id"].as_str().expect("id").to_string();
+
+    let (_, reply) = send(
+        &app,
+        "POST",
+        &format!("/api/conversations/{conv_id}/messages"),
+        Some(&owner_token),
+        Some(json!({ "content": "first", "thread_parent_id": parent_id })),
+    )
+    .await;
+    let reply_id = reply["id"].as_str().expect("id").to_string();
+
+    let (_, nested) = send(
+        &app,
+        "POST",
+        &format!("/api/conversations/{conv_id}/messages"),
+        Some(&owner_token),
+        Some(json!({ "content": "second", "thread_parent_id": reply_id })),
+    )
+    .await;
+    assert_eq!(
+        nested["thread_parent_id"], parent_id,
+        "replying to a reply joins the same thread"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn a_thread_belongs_to_its_own_conversation(pool: PgPool) {
+    let (
+        app,
+        _state,
+        ws_id,
+        _owner_id,
+        owner_token,
+        second_id,
+        _second_token,
+        third_id,
+        third_token,
+    ) = seed_trio(pool).await;
+
+    let (_, first) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/conversations"),
+        Some(&owner_token),
+        Some(json!({ "participant_ids": [second_id] })),
+    )
+    .await;
+    let first_id = first["id"].as_str().expect("id").to_string();
+
+    let (_, other) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/conversations"),
+        Some(&owner_token),
+        Some(json!({ "participant_ids": [third_id] })),
+    )
+    .await;
+    let other_id = other["id"].as_str().expect("id").to_string();
+
+    let (_, parent) = send(
+        &app,
+        "POST",
+        &format!("/api/conversations/{first_id}/messages"),
+        Some(&owner_token),
+        Some(json!({ "content": "private" })),
+    )
+    .await;
+    let parent_id = parent["id"].as_str().expect("id").to_string();
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/conversations/{other_id}/messages"),
+        Some(&owner_token),
+        Some(json!({ "content": "wrong room", "thread_parent_id": parent_id })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+
+    let (status, _) = send(
+        &app,
+        "GET",
+        &format!("/api/conversations/messages/{parent_id}/thread"),
+        Some(&third_token),
+        None,
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "a thread is as private as the conversation it is in"
+    );
+}

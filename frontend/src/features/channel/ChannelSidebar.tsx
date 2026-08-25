@@ -20,6 +20,8 @@ import {
   Check,
   Clock,
   Smile,
+  Bookmark,
+  BellRing,
 } from 'lucide-react';
 import type { Channel, Workspace, WorkspaceMember } from '@/stores/workspace';
 import type { Conversation } from '@/hooks/queries/useConversations';
@@ -29,6 +31,7 @@ import { useCurrentWorkspaceRole } from '@/features/workspace/hooks/useCurrentWo
 import { useInstanceStore } from '@/stores/instances';
 import { useUnreadNotificationCount } from '@/hooks/queries/useNotifications';
 import { displayNameOf } from '@/lib/userHelpers';
+import { useMyStatus } from '@/hooks/queries/useStatus';
 import BrowseChannelsModal from './BrowseChannelsModal';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import PresenceDot from '@/components/PresenceDot';
@@ -62,6 +65,8 @@ interface Props {
   onOpenUserGroups: () => void;
   onOpenAuditLog: () => void;
   onOpenScheduled: () => void;
+  onOpenSaved: () => void;
+  onOpenReminders: () => void;
   onOpenProfile: () => void;
   onOpenNotifications: () => void;
   onLogout: () => void;
@@ -155,10 +160,15 @@ function SidebarUser({ userId, onOpenDm }: { userId: string; onOpenDm: (id: stri
     <button
       onClick={() => onOpenDm(userId)}
       className="w-full px-3 py-1 flex items-center gap-2 text-sm text-slate-400 hover:bg-slate-700/30 hover:text-slate-200 transition cursor-pointer"
-      title={`Message ${name}`}
+      title={cached?.status_text ? `Message ${name} — ${cached.status_text}` : `Message ${name}`}
     >
       <UserAvatarWithPresence userId={userId} name={name} avatarUrl={cached?.avatar_url} />
       <span className="truncate">{name}</span>
+      {cached?.status_emoji && (
+        <span className="shrink-0" data-qa="member-status-emoji" title={cached.status_text ?? undefined}>
+          {cached.status_emoji}
+        </span>
+      )}
     </button>
   );
 }
@@ -190,11 +200,14 @@ export default function ChannelSidebar({
   onOpenUserGroups,
   onOpenAuditLog,
   onOpenScheduled,
+  onOpenSaved,
+  onOpenReminders,
   onOpenProfile,
   onOpenNotifications,
   onLogout,
 }: Props) {
   const { data: unreadNotifCount = 0 } = useUnreadNotificationCount(currentWorkspace?.id ?? null);
+  const { data: myStatus } = useMyStatus(currentWorkspace?.instanceUrl);
   const { role: currentUserRole } = useCurrentWorkspaceRole();
   const navigate = useNavigate();
   const { instances, activeInstanceUrl } = useInstanceStore();
@@ -354,6 +367,26 @@ export default function ChannelSidebar({
               >
                 <Clock className="w-4 h-4" /> Scheduled
               </button>
+              <button
+                className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
+                data-qa="open-saved"
+                onClick={() => {
+                  onOpenSaved();
+                  setWsDropdownOpen(false);
+                }}
+              >
+                <Bookmark className="w-4 h-4" /> Saved
+              </button>
+              <button
+                className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
+                data-qa="open-reminders"
+                onClick={() => {
+                  onOpenReminders();
+                  setWsDropdownOpen(false);
+                }}
+              >
+                <BellRing className="w-4 h-4" /> Reminders
+              </button>
               {isWorkspaceAdmin && (
                 <button
                   className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
@@ -497,8 +530,15 @@ export default function ChannelSidebar({
             className="flex-1 min-w-0 text-left hover:bg-slate-700/30 rounded px-1 -mx-1 transition cursor-pointer"
             title="Edit profile"
           >
-            <div className="text-sm font-medium truncate">{user?.display_name}</div>
-            <div className="text-xs text-slate-400 truncate">{user?.email}</div>
+            <div className="text-sm font-medium truncate">
+              {user?.display_name}
+              {myStatus?.status_emoji && (
+                <span className="ml-1.5" data-qa="own-status-emoji">
+                  {myStatus.status_emoji}
+                </span>
+              )}
+            </div>
+            <div className="text-xs text-slate-400 truncate">{myStatus?.status_text || user?.email}</div>
           </button>
           <button
             onClick={onOpenNotifications}

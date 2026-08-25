@@ -10,6 +10,7 @@ import { Modal } from '@/shared/components/Modal/Modal';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { displayNameOf } from '@/lib/userHelpers';
 import { QUERY_KEYS } from '@/shared/constants';
+import StatusEditor from './StatusEditor';
 import TwoFactorPanel from './TwoFactorPanel';
 import PushNotificationsPanel from './PushNotificationsPanel';
 
@@ -203,6 +204,8 @@ export default function UserProfilePanel({ onClose }: Props) {
             required
           />
         </div>
+
+        <StatusEditor instanceUrl={activeInstanceUrl ?? undefined} workspaceId={currentWorkspace?.id} />
 
         <div>
           <label htmlFor="profile-bio" className="block text-sm font-medium text-slate-300 mb-1.5">

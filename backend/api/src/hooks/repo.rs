@@ -272,6 +272,52 @@ impl HookRepo {
         .await
     }
 
+    pub async fn find_reminder(&self, id: Uuid) -> sqlx::Result<Option<Reminder>> {
+        sqlx::query_as::<_, Reminder>("SELECT * FROM reminders WHERE id = $1")
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await
+    }
+
+    pub async fn delete_reminder(&self, id: Uuid) -> sqlx::Result<()> {
+        sqlx::query("DELETE FROM reminders WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    /// "at 15:00" means 15:00 where the person is, and Postgres already carries
+    /// the IANA database that turns that into an instant. A past time means they
+    /// meant tomorrow.
+    pub async fn resolve_local_time(
+        &self,
+        timezone: &str,
+        day_offset: i32,
+        hour: i32,
+        minute: i32,
+    ) -> sqlx::Result<DateTime<Utc>> {
+        sqlx::query_scalar(
+            r"
+            WITH local AS (
+                SELECT date_trunc('day', NOW() AT TIME ZONE $1)
+                       + make_interval(days => $2, hours => $3, mins => $4) AS at
+            )
+            SELECT CASE
+                     WHEN (at AT TIME ZONE $1) <= NOW() THEN (at + interval '1 day') AT TIME ZONE $1
+                     ELSE at AT TIME ZONE $1
+                   END
+            FROM local
+            ",
+        )
+        .bind(timezone)
+        .bind(day_offset)
+        .bind(hour)
+        .bind(minute)
+        .fetch_one(&self.pool)
+        .await
+    }
+
     pub async fn claim_due_reminders(&self) -> sqlx::Result<Vec<Reminder>> {
         sqlx::query_as::<_, Reminder>(
             r"
