@@ -19,16 +19,48 @@ integration-test suite and a real CI pipeline.
 
 ## Features
 
-- **Real-time messaging** — channels, threads, pins, reactions, editing, full-text search
-- **Direct messages** — 1:1 conversations with reactions and read state
+- **Real-time messaging** — channels, threads, pins, reactions, editing with history, full-text search
+- **Direct messages** — 1:1 and group conversations (up to nine) with reactions and read state
+- **Mentions** — `@person`, `@group`, `@channel` / `@here` / `@everyone`, with custom emoji
+- **Scheduled send** — queue a message for a channel or conversation and send it later
+- **Huddles** — WebRTC voice/video with screen sharing (mesh, small groups)
 - **Presence & typing** — live, multi-tab and multi-node aware
 - **File sharing** — uploads served through the authenticated API (local disk or S3/MinIO)
 - **Multi-workspace** — one instance, many teams; the client can connect to several instances
 - **Role-based access** — Instance Admin, Workspace Owner/Admin, Channel Admin, Member, Guest
 - **Invite-only onboarding** — email invites, password reset, no open sign-up
-- **Webhooks** — incoming (Slack-compatible `{"text":...}` → channel) and outgoing (SSRF-hardened, HMAC-signed)
-- **Notifications** — in-app + desktop, with mention highlighting and favicon/app-icon badges
+- **Webhooks, bots and slash commands** — incoming (Slack-compatible `{"text":...}` → channel), outgoing (SSRF-hardened, HMAC-signed), and synchronous `/commands`
+- **Enterprise auth** — SSO (OIDC), TOTP with recovery codes, SCIM deprovisioning
+- **Compliance** — audit log, retention policies, per-user export and erasure
+- **Notifications** — in-app, desktop, and Web Push to a closed app, with mention highlighting and favicon/app-icon badges
 - **Installable PWA** — standalone window, app-icon unread badge, desktop notifications
+
+## Coming from Slack
+
+Most of the daily surface is here: public and private channels, threads, DMs and group DMs
+(up to nine people), reactions, pins, editing with history, search across channels and DMs,
+file sharing, `@person` / `@group` / `@channel` / `@here` mentions, custom emoji, scheduled
+send, huddles with screen sharing, slash commands, incoming and outgoing webhooks, SSO
+(OIDC), TOTP, SCIM deprovisioning, retention policies and GDPR-style export.
+
+What a team moving from Slack should expect to be missing or different:
+
+| Missing / different | Where it stands |
+|---|---|
+| **No mobile app.** The UI is desktop-first; on a phone it is usable but not designed for it. The PWA installs and receives push. | Responsive layout is the next planned work ([CS-038](docs/tickets/CS-038-mobile-client.md)) |
+| **No Slack import.** History does not come with you. | Planned ([CS-036](docs/tickets/CS-036-slack-import-export.md)) |
+| **Huddles are peer-to-peer mesh** — comfortable to six or eight people, not a 30-person all-hands. No recording. | SFU planned ([CS-037](docs/tickets/CS-037-huddle-sfu.md)); recording deliberately out of scope |
+| **No threads inside DMs.** Threads are a channel feature. | Not planned yet |
+| **No message forwarding, saved items, or channel bookmarks.** | Not planned yet |
+| **No manually set status.** Presence is derived from whether you hold a connection: online, away, offline. There is no "In a meeting 🍕". | Deliberate — a second, manual state nothing else reads |
+| **Reminders have no UI.** The API and delivery exist; there is no `/remind`. | Not planned yet |
+| **Search covers message text**, not file names or file contents. | Not planned yet |
+| **No app directory, workflow builder, or shared channels across organisations.** | Not planned |
+
+The trade for all of that: every message, file and audit row stays on hardware you control,
+and the whole thing is one `docker compose` command. See
+[docs/RUNBOOK.md](docs/RUNBOOK.md#what-self-hosting-actually-costs) for what running it
+actually costs in machine and in time.
 
 ## Architecture at a glance
 
