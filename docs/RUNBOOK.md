@@ -372,6 +372,12 @@ docker compose run --rm -e SERVICE=chat-import \
   --workspace <slug-or-uuid> --export /import.zip --dry-run
 ```
 
+**What comes across.** Public channels from `channels.json`, private ones from `groups.json`,
+and direct and group messages from `dms.json` / `mpims.json` — the last two become
+conversations here rather than channels, so a two-person history does not land in everybody's
+channel list. Only some Slack plans export DMs at all; the report names every listing the
+export did not carry.
+
 **Always dry-run first.** It writes nothing and prints the counts the real run would produce,
 plus every item that will not convert and why. Read that list before the real run: it is where
 you find the accounts with no email address, the bots, and the replies whose parent was

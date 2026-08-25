@@ -419,10 +419,18 @@ binary rather than a request somebody waits on.
 chat-import --workspace <uuid|slug> --export <zip-or-directory> [--dry-run] [--no-files] [--slack-token <token>]
 ```
 
+**All four listings, and it says which ones were there.** `channels.json` becomes public
+channels, `groups.json` private ones, and `dms.json` / `mpims.json` become conversations —
+the same split this product makes natively, which keeps a two-person history out of
+everybody's channel list. A listing the export does not carry is named in the report rather
+than assumed empty: an export without private channels and an export whose private channels
+were quietly dropped should not look the same.
+
 **Two passes, because threads are what break single-pass importers.** The first creates
-users, channels and memberships; the second writes messages, so a `thread_ts` resolves
-against a row that already exists. A reply whose parent is missing from the export stays in
-the channel as an ordinary message rather than being dropped, and says so in the report.
+users, channels, conversations and memberships; the second writes messages, so a `thread_ts`
+resolves against a row that already exists. A reply whose parent is missing from the export
+stays in the channel as an ordinary message rather than being dropped, and says so in the
+report.
 
 **Users are matched by email and by nothing else.** A Slack handle is not an identity.
 Somebody with no matching account is created with no password, so their history is
@@ -440,15 +448,22 @@ run would produce, including which items would not convert.
 **Files are fetched, not linked.** Slack's URLs expire, so the bytes are downloaded during
 the import and stored through `FileStorage`; the message that carries one is written in the
 composer's own attachment form, which is what makes CS-009's access rules apply to it. A file
-that cannot be fetched — no token, an expired URL — is named in the report and the message it
-belonged to is still imported.
+that cannot be fetched is named in the report with the reason — deleted in Slack, hosted
+outside it, or no token — and the message it belonged to is still imported.
+
+**What it does not carry over.** Message `attachments` and Block Kit `blocks` (the `text`
+fallback is imported instead), Slack's custom emoji, per-person starred items, edit history,
+and anything an integration posted — a bot has no account here, and inventing one would put a
+stranger in the member list. Each of those is counted in the report rather than passed over
+in silence.
 
 | Table | What it holds |
 |---|---|
 | `slack_imports` | One row per run: source, dry-run flag, the report as JSON |
 | `slack_users` | `(workspace, slack user id)` → our user |
 | `slack_channels` | `(workspace, slack channel id)` → our channel |
-| `messages.slack_ts` | The Slack timestamp a message came from; unique per channel |
+| `slack_conversations` | `(workspace, slack channel id)` → our conversation, for DMs |
+| `messages.slack_ts`, `conversation_messages.slack_ts` | The Slack timestamp a message came from; unique per channel or conversation |
 
 ---
 

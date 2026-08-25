@@ -12,10 +12,21 @@ use crate::messaging::repo::ImportedMessage;
 use crate::state::AppState;
 use crate::workspace::models::{ChannelRole, ChannelType, WorkspaceRole};
 
+use crate::conversations::models::ConversationKind;
+
 use super::files::FileFetcher;
 use super::models::*;
 use super::mrkdwn;
 use super::source::{read_json, ExportSource};
+
+/// Where a Slack conversation landed. Public and private channels are channels;
+/// DMs and group DMs are conversations, which is the same split this product
+/// makes natively.
+#[derive(Debug, Clone, Copy)]
+enum Target {
+    Channel(Uuid),
+    Conversation(Uuid),
+}
 
 /// Users are matched by email, and by nothing else. A Slack handle is not an
 /// identity: two people can carry the same one across workspaces, and matching
@@ -31,6 +42,7 @@ pub struct Import<'a> {
     /// Slack user id → (our user id, the name to render in a mention).
     users: HashMap<String, (Uuid, String)>,
     channels: HashMap<String, Uuid>,
+    conversations: HashMap<String, Uuid>,
     report: ImportReport,
 }
 
@@ -49,6 +61,7 @@ impl<'a> Import<'a> {
             dry_run,
             users: HashMap::new(),
             channels: HashMap::new(),
+            conversations: HashMap::new(),
             report: ImportReport::default(),
         }
     }
@@ -78,8 +91,20 @@ impl<'a> Import<'a> {
 
         self.load_existing_mappings().await?;
         self.import_users(source).await?;
-        let channels = self.import_channels(source).await?;
-        self.import_messages(source, &channels).await?;
+
+        let mut targets = Vec::new();
+        targets.extend(
+            self.import_channels(source, "channels.json", &ChannelType::Public)
+                .await?,
+        );
+        targets.extend(
+            self.import_channels(source, "groups.json", &ChannelType::Private)
+                .await?,
+        );
+        targets.extend(self.import_conversations(source, "dms.json").await?);
+        targets.extend(self.import_conversations(source, "mpims.json").await?);
+
+        self.import_messages(source, &targets).await?;
 
         if let Some(run_id) = run_id {
             let report = serde_json::to_value(&self.report).unwrap_or_default();
@@ -113,6 +138,16 @@ impl<'a> Import<'a> {
             .map_err(|e| AppError::Database(e.to_string()))?;
         for (slack_id, channel_id) in channels {
             self.channels.insert(slack_id, channel_id);
+        }
+
+        let conversations = self
+            .state
+            .slack_import_repo
+            .conversation_mappings(self.workspace_id)
+            .await
+            .map_err(|e| AppError::Database(e.to_string()))?;
+        for (slack_id, conversation_id) in conversations {
+            self.conversations.insert(slack_id, conversation_id);
         }
 
         Ok(())
@@ -212,20 +247,30 @@ impl<'a> Import<'a> {
         Ok(())
     }
 
+    /// `channels.json` is public, `groups.json` is private. A missing file is
+    /// reported rather than assumed: an export without one is normal, and an
+    /// export whose private channels were quietly dropped is not.
     async fn import_channels(
         &mut self,
         source: &mut dyn ExportSource,
-    ) -> AppResult<Vec<SlackChannel>> {
-        let channels: Vec<SlackChannel> = read_json(source, "channels.json")?;
+        listing: &str,
+        channel_type: &ChannelType,
+    ) -> AppResult<Vec<(SlackConversation, Target)>> {
+        let Some(channels) = self.read_listing(source, listing)? else {
+            return Ok(Vec::new());
+        };
+        let mut targets = Vec::new();
 
-        for channel in &channels {
-            if self.channels.contains_key(&channel.id) {
+        for channel in channels {
+            let slack_name = channel.folder().to_string();
+            if let Some(&channel_id) = self.channels.get(&channel.id) {
                 self.report.channels_reused += 1;
-                self.add_channel_members(channel).await?;
+                self.add_channel_members(&channel, channel_id).await?;
+                targets.push((channel, Target::Channel(channel_id)));
                 continue;
             }
 
-            let name = sanitise_channel_name(&channel.name);
+            let name = sanitise_channel_name(&slack_name);
             let existing = self
                 .state
                 .workspace_service
@@ -251,7 +296,7 @@ impl<'a> Import<'a> {
                         .create_channel(
                             self.workspace_id,
                             &name,
-                            &ChannelType::Public,
+                            channel_type,
                             Some(channel.purpose.value.as_str()).filter(|d| !d.is_empty()),
                             self.owner_id,
                             false,
@@ -279,17 +324,100 @@ impl<'a> Import<'a> {
                     .map_err(|e| AppError::Database(e.to_string()))?;
             }
             self.channels.insert(channel.id.clone(), channel_id);
-            self.add_channel_members(channel).await?;
+            self.add_channel_members(&channel, channel_id).await?;
+            targets.push((channel, Target::Channel(channel_id)));
         }
 
-        Ok(channels)
+        Ok(targets)
     }
 
-    async fn add_channel_members(&mut self, channel: &SlackChannel) -> AppResult<()> {
-        let Some(&channel_id) = self.channels.get(&channel.id) else {
-            return Ok(());
+    /// `dms.json` and `mpims.json`. These are conversations here rather than
+    /// channels, which is the same distinction the product already makes, and it
+    /// keeps a two-person history out of everybody's channel list.
+    async fn import_conversations(
+        &mut self,
+        source: &mut dyn ExportSource,
+        listing: &str,
+    ) -> AppResult<Vec<(SlackConversation, Target)>> {
+        let Some(conversations) = self.read_listing(source, listing)? else {
+            return Ok(Vec::new());
         };
+        let mut targets = Vec::new();
 
+        for conversation in conversations {
+            if let Some(&conversation_id) = self.conversations.get(&conversation.id) {
+                self.report.conversations_reused += 1;
+                targets.push((conversation, Target::Conversation(conversation_id)));
+                continue;
+            }
+
+            let participants: Vec<Uuid> = conversation
+                .members
+                .iter()
+                .filter_map(|slack_id| self.users.get(slack_id).map(|(id, _)| *id))
+                .collect();
+            if participants.len() < 2 {
+                // One side of the conversation has no account here, so there is
+                // nobody to open it between.
+                self.report.skip(
+                    format!("conversation {}", conversation.id),
+                    "fewer than two of its members were imported",
+                );
+                continue;
+            }
+
+            self.report.conversations_created += 1;
+            if self.dry_run {
+                self.conversations
+                    .insert(conversation.id.clone(), Uuid::nil());
+                targets.push((conversation, Target::Conversation(Uuid::nil())));
+                continue;
+            }
+
+            let kind = if participants.len() == 2 {
+                ConversationKind::Direct
+            } else {
+                ConversationKind::Group
+            };
+            let created = self
+                .state
+                .conversation_repo
+                .create(self.workspace_id, kind, participants[0], &participants)
+                .await
+                .map_err(|e| AppError::Database(e.to_string()))?;
+
+            self.state
+                .slack_import_repo
+                .map_conversation(self.workspace_id, &conversation.id, created.id)
+                .await
+                .map_err(|e| AppError::Database(e.to_string()))?;
+            self.conversations
+                .insert(conversation.id.clone(), created.id);
+            targets.push((conversation, Target::Conversation(created.id)));
+        }
+
+        Ok(targets)
+    }
+
+    /// An export need not carry every listing — a workspace with no private
+    /// channels has no `groups.json`, and only some plans export DMs at all.
+    fn read_listing(
+        &mut self,
+        source: &mut dyn ExportSource,
+        listing: &str,
+    ) -> AppResult<Option<Vec<SlackConversation>>> {
+        if !source.has(listing) {
+            self.report.skip(listing.to_string(), "not in this export");
+            return Ok(None);
+        }
+        read_json(source, listing).map(Some)
+    }
+
+    async fn add_channel_members(
+        &mut self,
+        channel: &SlackConversation,
+        channel_id: Uuid,
+    ) -> AppResult<()> {
         for slack_user_id in &channel.members {
             let Some(user_id) = self.users.get(slack_user_id).map(|(id, _)| *id) else {
                 continue;
@@ -315,32 +443,22 @@ impl<'a> Import<'a> {
     async fn import_messages(
         &mut self,
         source: &mut dyn ExportSource,
-        channels: &[SlackChannel],
+        targets: &[(SlackConversation, Target)],
     ) -> AppResult<()> {
-        for channel in channels {
-            let Some(&channel_id) = self.channels.get(&channel.id) else {
-                continue;
-            };
+        for (conversation, target) in targets {
+            let mut by_slack_ts = self.already_imported(*target).await?;
 
-            let mut by_slack_ts: HashMap<String, Uuid> = if self.dry_run {
-                HashMap::new()
-            } else {
-                self.state
-                    .slack_import_repo
-                    .imported_message_ids(channel_id)
-                    .await
-                    .map_err(|e| AppError::Database(e.to_string()))?
-                    .into_iter()
-                    .collect()
-            };
-
-            let days = source.channel_days(&channel.name)?;
-            info!(channel = %channel.name, days = days.len(), "importing channel");
+            let days = source.channel_days(conversation.folder())?;
+            info!(
+                conversation = conversation.folder(),
+                days = days.len(),
+                "importing"
+            );
 
             for day in days {
                 let messages: Vec<SlackMessage> = read_json(source, &day)?;
                 for message in messages {
-                    self.import_message(channel_id, &message, &mut by_slack_ts)
+                    self.import_message(*target, &message, &mut by_slack_ts)
                         .await?;
                 }
             }
@@ -349,9 +467,26 @@ impl<'a> Import<'a> {
         Ok(())
     }
 
+    async fn already_imported(&self, target: Target) -> AppResult<HashMap<String, Uuid>> {
+        if self.dry_run {
+            return Ok(HashMap::new());
+        }
+        let rows = match target {
+            Target::Channel(id) => self.state.slack_import_repo.imported_message_ids(id).await,
+            Target::Conversation(id) => {
+                self.state
+                    .slack_import_repo
+                    .imported_conversation_message_ids(id)
+                    .await
+            }
+        };
+        rows.map(|rows| rows.into_iter().collect())
+            .map_err(|e| AppError::Database(e.to_string()))
+    }
+
     async fn import_message(
         &mut self,
-        channel_id: Uuid,
+        target: Target,
         message: &SlackMessage,
         by_slack_ts: &mut HashMap<String, Uuid>,
     ) -> AppResult<()> {
@@ -364,8 +499,15 @@ impl<'a> Import<'a> {
         }
 
         let Some(slack_user_id) = message.user.as_deref() else {
-            self.report
-                .skip(format!("message {}", message.ts), "no author in the export");
+            // An integration posted it. There is no account here to attribute it
+            // to, and inventing one would put a stranger in the member list.
+            let why =
+                if message.bot_id.is_some() || message.subtype.as_deref() == Some("bot_message") {
+                    "posted by an integration, which has no account here"
+                } else {
+                    "no author in the export"
+                };
+            self.report.skip(format!("message {}", message.ts), why);
             return Ok(());
         };
         let Some(user_id) = self.users.get(slack_user_id).map(|(id, _)| *id) else {
@@ -409,40 +551,84 @@ impl<'a> Import<'a> {
             return Ok(());
         }
 
-        let stored = self
-            .state
-            .message_repo
-            .insert_imported(ImportedMessage {
-                channel_id,
+        let stored_id = self
+            .write_message(
+                target,
                 user_id,
-                content: &content,
+                &content,
                 thread_parent_id,
-                slack_ts: &message.ts,
+                &message.ts,
                 created_at,
-            })
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
-        by_slack_ts.insert(message.ts.clone(), stored.id);
+            )
+            .await?;
+        by_slack_ts.insert(message.ts.clone(), stored_id);
 
-        self.import_reactions(stored.id, message).await?;
+        self.import_reactions(target, stored_id, message).await?;
 
         if !message.pinned_to.is_empty() {
-            self.state
-                .message_repo
-                .set_pinned(stored.id, true)
-                .await
-                .map_err(|e| AppError::Database(e.to_string()))?;
-            self.report.pins += 1;
+            if let Target::Channel(_) = target {
+                self.state
+                    .message_repo
+                    .set_pinned(stored_id, true)
+                    .await
+                    .map_err(|e| AppError::Database(e.to_string()))?;
+                self.report.pins += 1;
+            }
         }
 
-        self.import_files(channel_id, user_id, message, created_at)
+        self.import_files(target, user_id, message, created_at)
             .await;
 
         Ok(())
     }
 
+    async fn write_message(
+        &self,
+        target: Target,
+        user_id: Uuid,
+        content: &str,
+        thread_parent_id: Option<Uuid>,
+        slack_ts: &str,
+        created_at: DateTime<Utc>,
+    ) -> AppResult<Uuid> {
+        let id = match target {
+            Target::Channel(channel_id) => {
+                self.state
+                    .message_repo
+                    .insert_imported(ImportedMessage {
+                        channel_id,
+                        user_id,
+                        content,
+                        thread_parent_id,
+                        slack_ts,
+                        created_at,
+                    })
+                    .await
+                    .map_err(|e| AppError::Database(e.to_string()))?
+                    .id
+            }
+            Target::Conversation(conversation_id) => {
+                self.state
+                    .conversation_repo
+                    .insert_imported(
+                        conversation_id,
+                        user_id,
+                        content,
+                        thread_parent_id,
+                        slack_ts,
+                        created_at,
+                    )
+                    .await
+                    .map_err(|e| AppError::Database(e.to_string()))?
+                    .id
+            }
+        };
+        Ok(id)
+    }
+
     async fn import_reactions(
         &mut self,
+        target: Target,
         message_id: Uuid,
         message: &SlackMessage,
     ) -> AppResult<()> {
@@ -452,12 +638,21 @@ impl<'a> Import<'a> {
                 let Some(user_id) = self.users.get(slack_user_id).map(|(id, _)| *id) else {
                     continue;
                 };
-                match self
-                    .state
-                    .message_repo
-                    .add_reaction(message_id, user_id, &emoji)
-                    .await
-                {
+                let added = match target {
+                    Target::Channel(_) => self
+                        .state
+                        .message_repo
+                        .add_reaction(message_id, user_id, &emoji)
+                        .await
+                        .map(|_| ()),
+                    Target::Conversation(_) => self
+                        .state
+                        .conversation_repo
+                        .add_reaction(message_id, user_id, &emoji)
+                        .await
+                        .map(|_| ()),
+                };
+                match added {
                     Ok(_) => self.report.reactions += 1,
                     // The same person reacting twice is the same reaction; a
                     // re-run finds it already there.
@@ -474,15 +669,18 @@ impl<'a> Import<'a> {
     /// the message it belonged to is still worth keeping.
     async fn import_files(
         &mut self,
-        channel_id: Uuid,
+        target: Target,
         user_id: Uuid,
         message: &SlackMessage,
         created_at: DateTime<Utc>,
     ) {
         for file in &message.files {
-            let Some(url) = file.download_url() else {
+            if let Some(why) = file.unavailable() {
                 self.report
-                    .skip(format!("file on {}", message.ts), "no download url");
+                    .skip(format!("file {} on {}", file.filename(), message.ts), why);
+                continue;
+            }
+            let Some(url) = file.download_url() else {
                 continue;
             };
 
@@ -518,20 +716,12 @@ impl<'a> Import<'a> {
             // makes it render and what makes CS-009's access rules apply to it.
             let url = self.state.file_storage.public_url(&storage_key);
             let content = format!("[file: {filename}]({url})");
-            let stored = match self
-                .state
-                .message_repo
-                .insert_imported(ImportedMessage {
-                    channel_id,
-                    user_id,
-                    content: &content,
-                    thread_parent_id: None,
-                    slack_ts: &format!("{}-file-{}", message.ts, self.report.files_imported),
-                    created_at,
-                })
+            let attachment_ts = format!("{}-file-{}", message.ts, self.report.files_imported);
+            let stored_id = match self
+                .write_message(target, user_id, &content, None, &attachment_ts, created_at)
                 .await
             {
-                Ok(stored) => stored,
+                Ok(id) => id,
                 Err(e) => {
                     warn!("import: failed to record attachment {filename}: {e}");
                     continue;
@@ -544,7 +734,7 @@ impl<'a> Import<'a> {
                 .create(NewFile {
                     user_id,
                     workspace_id: self.workspace_id,
-                    message_id: Some(stored.id),
+                    message_id: Some(stored_id),
                     filename: &filename,
                     storage_key: &storage_key,
                     mime_type: &content_type,

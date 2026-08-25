@@ -107,6 +107,51 @@ impl SlackImportRepo {
         Ok(())
     }
 
+    pub async fn conversation_mappings(
+        &self,
+        workspace_id: Uuid,
+    ) -> sqlx::Result<Vec<(String, Uuid)>> {
+        sqlx::query_as(
+            "SELECT slack_channel_id, conversation_id FROM slack_conversations WHERE workspace_id = $1",
+        )
+        .bind(workspace_id)
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn map_conversation(
+        &self,
+        workspace_id: Uuid,
+        slack_channel_id: &str,
+        conversation_id: Uuid,
+    ) -> sqlx::Result<()> {
+        sqlx::query(
+            r"
+            INSERT INTO slack_conversations (workspace_id, slack_channel_id, conversation_id)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (workspace_id, slack_channel_id) DO UPDATE SET conversation_id = $3
+            ",
+        )
+        .bind(workspace_id)
+        .bind(slack_channel_id)
+        .bind(conversation_id)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn imported_conversation_message_ids(
+        &self,
+        conversation_id: Uuid,
+    ) -> sqlx::Result<Vec<(String, Uuid)>> {
+        sqlx::query_as(
+            "SELECT slack_ts, id FROM conversation_messages WHERE conversation_id = $1 AND slack_ts IS NOT NULL",
+        )
+        .bind(conversation_id)
+        .fetch_all(&self.pool)
+        .await
+    }
+
     /// Everything this channel already holds from a previous run, keyed by the
     /// Slack timestamp it came from. One query per channel rather than one per
     /// message: a resumed import of 200k messages should not be 200k lookups.

@@ -11,6 +11,9 @@ use shared_common::errors::{AppError, AppResult};
 pub trait ExportSource {
     fn label(&self) -> &str;
     fn read_bytes(&mut self, path: &str) -> AppResult<Vec<u8>>;
+    /// Whether the export carries this listing at all. `groups.json`, `dms.json`
+    /// and `mpims.json` are absent from plenty of legitimate exports.
+    fn has(&mut self, path: &str) -> bool;
     /// The per-day message files for a channel, in the order Slack wrote them.
     fn channel_days(&mut self, channel_name: &str) -> AppResult<Vec<String>>;
 
@@ -54,6 +57,10 @@ impl ExportSource for DirectorySource {
     fn read_bytes(&mut self, path: &str) -> AppResult<Vec<u8>> {
         fs::read(self.root.join(path))
             .map_err(|e| AppError::BadRequest(format!("cannot read {path}: {e}")))
+    }
+
+    fn has(&mut self, path: &str) -> bool {
+        self.root.join(path).is_file()
     }
 
     fn channel_days(&mut self, channel_name: &str) -> AppResult<Vec<String>> {
@@ -109,6 +116,10 @@ impl ExportSource for ZipSource {
             .read_to_end(&mut bytes)
             .map_err(|e| AppError::BadRequest(format!("cannot read {path} from the zip: {e}")))?;
         Ok(bytes)
+    }
+
+    fn has(&mut self, path: &str) -> bool {
+        self.archive.by_name(path).is_ok()
     }
 
     fn channel_days(&mut self, channel_name: &str) -> AppResult<Vec<String>> {

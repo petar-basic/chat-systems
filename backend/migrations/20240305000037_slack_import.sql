@@ -34,9 +34,24 @@ CREATE TABLE slack_channels (
     PRIMARY KEY (workspace_id, slack_channel_id)
 );
 
--- Slack's `ts` is unique within a channel, so it is the natural idempotency key:
--- a second run finds the row and moves on instead of writing it again.
+-- Direct and group messages are conversations here, not channels, so they need
+-- their own mapping: `dms.json` and `mpims.json` in the export.
+CREATE TABLE slack_conversations (
+    workspace_id     UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    slack_channel_id VARCHAR(64) NOT NULL,
+    conversation_id  UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (workspace_id, slack_channel_id)
+);
+
+-- Slack's `ts` is unique within a conversation, so it is the natural idempotency
+-- key: a second run finds the row and moves on instead of writing it again.
 ALTER TABLE messages ADD COLUMN slack_ts VARCHAR(32);
+ALTER TABLE conversation_messages ADD COLUMN slack_ts VARCHAR(32);
 
 CREATE UNIQUE INDEX idx_messages_slack_ts ON messages(channel_id, slack_ts)
+    WHERE slack_ts IS NOT NULL;
+
+CREATE UNIQUE INDEX idx_conversation_messages_slack_ts
+    ON conversation_messages(conversation_id, slack_ts)
     WHERE slack_ts IS NOT NULL;

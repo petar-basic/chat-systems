@@ -38,10 +38,13 @@ impl SlackUser {
     }
 }
 
+/// `channels.json`, `groups.json`, `mpims.json` and `dms.json` all carry the
+/// same shape; only DMs have no name, and their folder is the conversation id.
 #[derive(Debug, Clone, Deserialize)]
-pub struct SlackChannel {
+pub struct SlackConversation {
     pub id: String,
-    pub name: String,
+    #[serde(default)]
+    pub name: Option<String>,
     #[serde(default)]
     pub is_archived: bool,
     #[serde(default)]
@@ -50,6 +53,14 @@ pub struct SlackChannel {
     pub topic: SlackText,
     #[serde(default)]
     pub purpose: SlackText,
+}
+
+impl SlackConversation {
+    /// The directory its day files are in: the channel name where there is one,
+    /// the conversation id for a DM.
+    pub fn folder(&self) -> &str {
+        self.name.as_deref().unwrap_or(&self.id)
+    }
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -62,6 +73,9 @@ pub struct SlackText {
 pub struct SlackMessage {
     #[serde(default)]
     pub subtype: Option<String>,
+    /// Present on a message an integration posted, where `user` is absent.
+    #[serde(default)]
+    pub bot_id: Option<String>,
     #[serde(default)]
     pub user: Option<String>,
     #[serde(default)]
@@ -115,9 +129,30 @@ pub struct SlackFile {
     pub url_private_download: Option<String>,
     #[serde(default)]
     pub url_private: Option<String>,
+    /// "hosted", "external", "snippet", "post" — an external file's bytes were
+    /// never Slack's to give.
+    #[serde(default)]
+    pub mode: Option<String>,
+    #[serde(default)]
+    pub is_deleted: bool,
+    #[serde(default)]
+    pub is_tombstoned: bool,
 }
 
 impl SlackFile {
+    /// Why there are no bytes to fetch, when there are none.
+    pub fn unavailable(&self) -> Option<&'static str> {
+        if self.is_deleted || self.is_tombstoned {
+            return Some("the file was deleted in Slack");
+        }
+        if self.mode.as_deref() == Some("external") {
+            return Some("the file is hosted outside Slack");
+        }
+        self.download_url()
+            .is_none()
+            .then_some("the export carries no download url")
+    }
+
     pub fn download_url(&self) -> Option<&str> {
         self.url_private_download
             .as_deref()
@@ -139,6 +174,8 @@ pub struct ImportReport {
     pub channels_created: usize,
     pub channels_reused: usize,
     pub memberships: usize,
+    pub conversations_created: usize,
+    pub conversations_reused: usize,
     pub messages_imported: usize,
     pub messages_already_present: usize,
     pub threads_resolved: usize,
@@ -165,12 +202,15 @@ impl ImportReport {
     pub fn summary(&self) -> String {
         format!(
             "users: {} matched, {} created | channels: {} created, {} reused | \
-             memberships: {} | messages: {} imported, {} already present, {} in threads | \
+             conversations: {} created, {} reused | memberships: {} | \
+             messages: {} imported, {} already present, {} in threads | \
              reactions: {} | pins: {} | files: {} | skipped: {}",
             self.users_matched,
             self.users_created,
             self.channels_created,
             self.channels_reused,
+            self.conversations_created,
+            self.conversations_reused,
             self.memberships,
             self.messages_imported,
             self.messages_already_present,

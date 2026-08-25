@@ -12,7 +12,7 @@ use crate::state::AppState;
 use super::files::{FileFetcher, SkipFiles};
 use super::models::ImportReport;
 use super::service::Import;
-use super::source::DirectorySource;
+use super::source::{DirectorySource, ZipSource};
 
 /// Stands in for Slack's file host, so an import can be tested without one.
 struct StubFiles(Vec<u8>);
@@ -34,7 +34,11 @@ struct Fixture {
 impl Fixture {
     fn write() -> Self {
         let root = std::env::temp_dir().join(format!("slack-export-{}", Uuid::new_v4()));
-        std::fs::create_dir_all(root.join("General Chat")).expect("fixture directory");
+        // Slack's own folder names: the channel name for a channel, the
+        // conversation id for a DM.
+        std::fs::create_dir_all(root.join("general-chat")).expect("fixture directory");
+        std::fs::create_dir_all(root.join("incident-2023")).expect("private directory");
+        std::fs::create_dir_all(root.join("D01ANAIVAN")).expect("dm directory");
 
         let users = json!([
             {
@@ -69,7 +73,7 @@ impl Fixture {
         let channels = json!([
             {
                 "id": "C1",
-                "name": "General Chat",
+                "name": "general-chat",
                 "members": ["U1", "U2"],
                 "topic": { "value": "everything else" },
                 "purpose": { "value": "the default channel" }
@@ -80,6 +84,30 @@ impl Fixture {
             serde_json::to_vec_pretty(&channels).expect("channels json"),
         )
         .expect("write channels");
+
+        // Private channels live in their own listing, and an export that has
+        // them and an export that does not are both normal.
+        let groups = json!([
+            {
+                "id": "G1",
+                "name": "incident-2023",
+                "members": ["U1", "U2"],
+                "topic": { "value": "" },
+                "purpose": { "value": "the bad week" }
+            }
+        ]);
+        std::fs::write(
+            root.join("groups.json"),
+            serde_json::to_vec_pretty(&groups).expect("groups json"),
+        )
+        .expect("write groups");
+
+        let dms = json!([{ "id": "D01ANAIVAN", "members": ["U1", "U2"] }]);
+        std::fs::write(
+            root.join("dms.json"),
+            serde_json::to_vec_pretty(&dms).expect("dms json"),
+        )
+        .expect("write dms");
 
         let day = json!([
             {
@@ -120,13 +148,68 @@ impl Fixture {
                 "user": "U3",
                 "text": "from an account with no address",
                 "ts": "1700000400.000100"
+            },
+            {
+                "type": "message",
+                "subtype": "bot_message",
+                "bot_id": "B1",
+                "username": "buildbot",
+                "text": "build 412 passed",
+                "ts": "1700000500.000100"
+            },
+            {
+                "type": "message",
+                "user": "U1",
+                "text": "the screenshot is gone",
+                "ts": "1700000600.000100",
+                "files": [{
+                    "id": "F9",
+                    "name": "screenshot.png",
+                    "mimetype": "image/png",
+                    "mode": "tombstone",
+                    "is_tombstoned": true
+                }]
             }
         ]);
         std::fs::write(
-            root.join("General Chat").join("2023-11-14.json"),
+            root.join("general-chat").join("2023-11-14.json"),
             serde_json::to_vec_pretty(&day).expect("day json"),
         )
         .expect("write day");
+
+        let private_day = json!([
+            {
+                "type": "message",
+                "user": "U2",
+                "text": "postmortem is drafted",
+                "ts": "1700100000.000100"
+            }
+        ]);
+        std::fs::write(
+            root.join("incident-2023").join("2023-11-15.json"),
+            serde_json::to_vec_pretty(&private_day).expect("private day json"),
+        )
+        .expect("write private day");
+
+        let dm_day = json!([
+            {
+                "type": "message",
+                "user": "U1",
+                "text": "can you take the on-call swap?",
+                "ts": "1700200000.000100"
+            },
+            {
+                "type": "message",
+                "user": "U2",
+                "text": "yes",
+                "ts": "1700200100.000100"
+            }
+        ]);
+        std::fs::write(
+            root.join("D01ANAIVAN").join("2023-11-16.json"),
+            serde_json::to_vec_pretty(&dm_day).expect("dm day json"),
+        )
+        .expect("write dm day");
 
         Self { root }
     }
@@ -160,15 +243,43 @@ async fn an_export_arrives_as_channels_messages_threads_reactions_and_pins(pool:
 
     assert_eq!(report.users_matched, 1, "ana already had an account");
     assert_eq!(report.users_created, 1, "ivan did not");
-    assert_eq!(report.channels_created, 1);
     assert_eq!(
-        report.messages_imported, 3,
-        "the join notice is not a message"
+        report.channels_created, 2,
+        "the private channel comes from groups.json"
+    );
+    assert_eq!(report.conversations_created, 1, "the DM is a conversation");
+    assert_eq!(
+        report.messages_imported, 7,
+        "four in the channel, one private, two in the DM — the join notice is not a message"
     );
     assert_eq!(report.threads_resolved, 1);
     assert_eq!(report.reactions, 1);
     assert_eq!(report.pins, 1);
     assert_eq!(report.files_imported, 1);
+
+    let private_type: String = sqlx::query_scalar(
+        "SELECT channel_type::text FROM channels WHERE workspace_id = $1 AND name = 'incident-2023'",
+    )
+    .bind(ws)
+    .fetch_one(&state.pool)
+    .await
+    .expect("the private channel was imported");
+    assert_eq!(private_type, "private", "and stayed private");
+
+    let dm_messages: Vec<String> = sqlx::query_scalar(
+        r"SELECT cm.content FROM conversation_messages cm
+          JOIN conversations c ON c.id = cm.conversation_id
+          WHERE c.workspace_id = $1 ORDER BY cm.created_at",
+    )
+    .bind(ws)
+    .fetch_all(&state.pool)
+    .await
+    .expect("dm messages");
+    assert_eq!(
+        dm_messages,
+        vec!["can you take the on-call swap?", "yes"],
+        "the DM landed as a conversation, not as a channel everybody can see"
+    );
 
     let channel_id: Uuid = sqlx::query_scalar(
         "SELECT id FROM channels WHERE workspace_id = $1 AND name = 'general-chat'",
@@ -243,6 +354,105 @@ async fn an_export_arrives_as_channels_messages_threads_reactions_and_pins(pool:
         report.skipped.iter().any(|s| s.why.contains("a bot")),
         "so is the bot"
     );
+    assert!(
+        report
+            .skipped
+            .iter()
+            .any(|s| s.why.contains("posted by an integration")),
+        "and the message that bot posted, with the reason it has no author: {:?}",
+        report.skipped
+    );
+    assert!(
+        report
+            .skipped
+            .iter()
+            .any(|s| s.what.contains("screenshot.png") && s.why.contains("deleted in Slack")),
+        "a tombstoned file says what happened to it rather than failing to download: {:?}",
+        report.skipped
+    );
+}
+
+/// The documented input is a ZIP, so the ZIP path is what the acceptance test
+/// should exercise; a directory is the convenience.
+fn zip_of(root: &PathBuf) -> PathBuf {
+    let target = root.with_extension("zip");
+    let file = std::fs::File::create(&target).expect("create the zip");
+    let mut writer = zip::ZipWriter::new(file);
+    let options: zip::write::FileOptions<'_, ()> =
+        zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+
+    let mut stack = vec![root.clone()];
+    while let Some(dir) = stack.pop() {
+        for entry in std::fs::read_dir(&dir).expect("read the fixture") {
+            let entry = entry.expect("entry");
+            let path = entry.path();
+            let name = path
+                .strip_prefix(root)
+                .expect("inside the fixture")
+                .to_string_lossy()
+                .to_string();
+            if path.is_dir() {
+                stack.push(path);
+                continue;
+            }
+            writer.start_file(name, options).expect("start the entry");
+            let bytes = std::fs::read(&path).expect("read the entry");
+            std::io::Write::write_all(&mut writer, &bytes).expect("write the entry");
+        }
+    }
+    writer.finish().expect("finish the zip");
+    target
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn the_zip_slack_hands_you_imports_the_same_as_a_directory(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "import-zip", false).await;
+    let ws = seed_workspace(&state, owner_id, "Imported").await;
+
+    let fixture = Fixture::write();
+    let archive = zip_of(&fixture.root);
+
+    let files = StubFiles(b"deploy log body".to_vec());
+    let mut source = ZipSource::open(&archive).expect("open the zip");
+    let report = Import::new(&state, &files, ws, false)
+        .run(&mut source)
+        .await
+        .expect("import runs");
+    let _ = std::fs::remove_file(&archive);
+
+    assert_eq!(report.channels_created, 2);
+    assert_eq!(report.conversations_created, 1);
+    assert_eq!(report.messages_imported, 7);
+    assert_eq!(report.threads_resolved, 1);
+    assert_eq!(report.files_imported, 1);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_export_without_private_channels_or_dms_says_so(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "import-partial", false).await;
+    let ws = seed_workspace(&state, owner_id, "Imported").await;
+
+    let fixture = Fixture::write();
+    for listing in ["groups.json", "dms.json"] {
+        std::fs::remove_file(fixture.root.join(listing)).expect("remove the listing");
+    }
+
+    let report = import(&state, ws, &fixture.root, false).await;
+
+    assert_eq!(report.channels_created, 1, "only the public channel");
+    assert_eq!(report.conversations_created, 0);
+    for listing in ["groups.json", "dms.json", "mpims.json"] {
+        assert!(
+            report
+                .skipped
+                .iter()
+                .any(|s| s.what == listing && s.why.contains("not in this export")),
+            "{listing} is reported as absent rather than assumed empty: {:?}",
+            report.skipped
+        );
+    }
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
@@ -288,6 +498,14 @@ async fn running_it_twice_writes_nothing_the_second_time(pool: PgPool) {
         .await
         .expect("count mappings");
     assert_eq!(users, 2);
+
+    let conversations: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM conversations WHERE workspace_id = $1")
+            .bind(ws)
+            .fetch_one(&state.pool)
+            .await
+            .expect("count conversations");
+    assert_eq!(conversations, 1, "the DM was not opened a second time");
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
@@ -309,12 +527,19 @@ async fn an_interrupted_import_picks_up_where_it_stopped(pool: PgPool) {
         .execute(&state.pool)
         .await
         .expect("drop what the interrupted run had written");
+    sqlx::query(
+        "DELETE FROM conversation_messages WHERE conversation_id IN (SELECT id FROM conversations WHERE workspace_id = $1)",
+    )
+    .bind(ws)
+    .execute(&state.pool)
+    .await
+    .expect("and what it had written in conversations");
 
     let resumed = import(&state, ws, &fixture.root, false).await;
 
     assert_eq!(resumed.users_created, 0, "the mapping is reused");
     assert_eq!(resumed.channels_created, 0);
-    assert_eq!(resumed.messages_imported, 3, "the messages are written now");
+    assert_eq!(resumed.messages_imported, 7, "the messages are written now");
     assert_eq!(resumed.threads_resolved, 1);
 }
 
@@ -327,8 +552,9 @@ async fn a_dry_run_reports_and_writes_nothing(pool: PgPool) {
     let fixture = Fixture::write();
     let report = import(&state, ws, &fixture.root, true).await;
 
-    assert_eq!(report.messages_imported, 3, "it says what it would do");
-    assert_eq!(report.channels_created, 1);
+    assert_eq!(report.messages_imported, 7, "it says what it would do");
+    assert_eq!(report.channels_created, 2);
+    assert_eq!(report.conversations_created, 1);
 
     let imported: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM channels WHERE workspace_id = $1 AND name = 'general-chat'",
@@ -364,7 +590,7 @@ async fn an_unfetchable_file_is_reported_and_the_message_still_lands(pool: PgPoo
 
     assert_eq!(report.files_imported, 0);
     assert_eq!(
-        report.messages_imported, 3,
+        report.messages_imported, 7,
         "the message it hung off is kept"
     );
     assert!(
