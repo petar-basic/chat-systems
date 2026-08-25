@@ -26,6 +26,71 @@ nothing is lost permanently — messages still send and read — but webhooks, r
 scheduled messages and notification rows stop until it returns. Its `/readyz` is
 wired to the autoheal sidecar like the others.
 
+## What self-hosting actually costs
+
+### Footprint
+
+Measured on an idle instance with nobody connected:
+
+| Container | Resident memory |
+|---|---|
+| `api` | ~250 MB |
+| `postgres` | ~165 MB |
+| `redis` | ~13 MB |
+| `frontend` (nginx) | ~13 MB |
+| `worker` | ~5 MB |
+| `realtime` | ~3 MB |
+
+Roughly 450 MB for the core, plus MinIO and Caddy in the production stack — call it
+under 1 GB idle. The per-container limits in `docker-compose.prod.yml` total about 4 GB
+and exist to stop one runaway process taking the host down, not because the stack needs
+that much. Two CPU cores and 4 GB of RAM is a comfortable starting point for a team of a
+few dozen; disk is the part that grows, and it grows with attachments rather than with
+messages.
+
+### On somebody's laptop, or on a server?
+
+A laptop is fine for trying it out with a couple of people on the same network. For a team
+that depends on it, four things break, and none of them is about performance:
+
+- **Sleep.** A closed lid stops the containers. Everyone loses real-time delivery; messages
+  sent meanwhile are still delivered on reconnect, but push notifications stop, because the
+  worker that sends them is asleep too.
+- **A reachable address.** Home connections change IP. Without a stable name, every client
+  has to be reconfigured when the ISP renumbers you. Dynamic DNS solves this; port
+  forwarding for 80 and 443 is then required for Caddy to obtain a certificate at all.
+- **TLS.** Service workers — and therefore Web Push and the installable PWA — need a secure
+  context. `http://192.168.x.x` does not get one, so a laptop deployment without a real
+  certificate loses notifications entirely on top of the sleep problem.
+- **Huddles across networks.** WebRTC needs TURN when both sides are behind NAT. The
+  `coturn` service is there for it, but it has to be reachable on a public address; on a
+  home connection that means forwarding its ports too.
+
+None of this is exotic — a €5/month VPS with a DNS name removes all four at once. The
+honest summary: a laptop is a demo, not a deployment.
+
+### What upkeep looks like
+
+Automated already: migrations run forward at api startup, an `autoheal` sidecar restarts
+anything Docker marks unhealthy, `db-backup` dumps Postgres and verifies each dump with
+`gzip -t` before keeping it, `minio-backup` mirrors uploads, and retention/cleanup jobs run
+in the worker.
+
+What still needs a person:
+
+| Task | How often | Roughly |
+|---|---|---|
+| Apply an upgrade (snapshot, pull, rebuild, check `/readyz`) | per release | 15–30 min |
+| Read the release's upgrade note in this file | per release | 5 min |
+| Confirm backups are current and off-site | monthly | 10 min |
+| Practice a restore onto a scratch host | quarterly | an hour, and worth it |
+| Act on a dependency advisory | as they land | varies |
+
+Budget an hour a month in the steady state, plus the upgrade time for whatever cadence you
+choose to follow. The two things that actually bite people are skipping the off-site backup
+target — the backup volumes sit on the same host as the live data — and never testing a
+restore until they need one.
+
 ## Upgrade note: Wave 1 expires every outstanding invite
 
 The `20240305000016_invite_lifecycle` migration backfills an expiry onto every invite that
