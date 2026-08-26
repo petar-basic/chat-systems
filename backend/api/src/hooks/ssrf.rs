@@ -15,8 +15,8 @@ pub async fn validate_outbound_url(url: &str) -> AppResult<reqwest::Url> {
 /// off unless `WEBHOOK_ALLOW_PRIVATE_TARGETS` is set, and turning it on means
 /// trusting whoever can create a hook with the server's network position.
 pub async fn validate_outbound_url_with(url: &str, allow_private: bool) -> AppResult<reqwest::Url> {
-    let parsed = reqwest::Url::parse(url)
-        .map_err(|e| AppError::BadRequest(format!("not a url: {e}")))?;
+    let parsed =
+        reqwest::Url::parse(url).map_err(|e| AppError::BadRequest(format!("not a url: {e}")))?;
 
     match parsed.scheme() {
         "http" | "https" => {}
@@ -61,8 +61,7 @@ pub async fn validate_outbound_url_with(url: &str, allow_private: bool) -> AppRe
     for addr in resolved {
         if !is_public_ip(&addr.ip()) {
             return Err(AppError::BadRequest(
-                "host resolves to a disallowed (private/loopback/link-local) address"
-                    .into(),
+                "host resolves to a disallowed (private/loopback/link-local) address".into(),
             ));
         }
     }
