@@ -445,11 +445,21 @@ resumable — a 200k-message import will be interrupted.
 **`--dry-run` writes nothing**, not even the run record, and reports the same counts the real
 run would produce, including which items would not convert.
 
+**An attachment becomes its own message.** This product's attachment form is a message whose
+whole body is `[file: name](url)`, so a Slack message carrying both text and a file arrives as
+two: the text, then the attachment. That is what makes it render and what puts it under the
+same access rules as a native upload, at the cost of one extra row.
+
 **Files are fetched, not linked.** Slack's URLs expire, so the bytes are downloaded during
-the import and stored through `FileStorage`; the message that carries one is written in the
+the import and stored through `FileStorage`. Every fetch goes through the same SSRF guard the
+webhook path uses, the token is attached only for Slack's own hosts — an export names those
+URLs, and it is a file that arrives from outside — and the response is read with the size cap
+applied as it streams rather than after it has all arrived; the message that carries one is written in the
 composer's own attachment form, which is what makes CS-009's access rules apply to it. A file
 that cannot be fetched is named in the report with the reason — deleted in Slack, hosted
-outside it, or no token — and the message it belonged to is still imported.
+outside it, no token, or a URL the guard refused — and the message it belonged to is still
+imported. Running the import again with a token picks up the files a tokenless run left
+behind, without duplicating the messages.
 
 **Custom emoji are not in the export.** Slack keeps them behind `emoji.list`, so the import
 reads them with the same token it uses for files (`emoji:read`) — or from an `emoji.json` in

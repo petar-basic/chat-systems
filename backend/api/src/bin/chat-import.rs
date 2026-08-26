@@ -101,7 +101,9 @@ async fn run(args: Args) -> Result<(), String> {
         println!("dry run: nothing will be written");
     }
 
-    let report = Import::new(&state, slack.as_ref(), workspace_id, args.dry_run)
+    let report = Import::open(&state, slack.as_ref(), workspace_id, args.dry_run)
+        .await
+        .map_err(|e| e.to_string())?
         .run(source.as_mut())
         .await
         .map_err(|e| e.to_string())?;

@@ -387,14 +387,19 @@ Then the same command without `--dry-run`. It is safe to run twice — a second 
 the first wrote and skips it — which is also what makes it safe to interrupt. A large import
 will take hours; running it under `tmux` or `nohup` costs nothing and saves the afternoon.
 
-**Custom emoji need the same token.** They are not in the export at all — the import reads
-them from `emoji.list`, which needs `emoji:read` on the token. Without one, imported messages
-keep their `:shortcodes:` as text and the report says the emoji were left behind.
+**Attachments and custom emoji need a token — put it in the environment, not the command.**
+`SLACK_TOKEN=xoxb-…` rather than `--slack-token xoxb-…`: an argument is visible in `ps` to
+every user on the host, and this one is a live credential with `files:read` and `emoji:read`.
 
-**Attachments need a token.** Slack's file URLs are private and expire, so the import fetches
-them with `--slack-token xoxb-…` (or `SLACK_TOKEN` in the environment). Without one, the
-messages still import and every file is named in the report as not fetched. Pass `--no-files`
-to skip them deliberately, which is also the faster way to rehearse an import.
+Slack's file URLs are private and expire, and custom emoji are not in the export at all — the
+import reads them from `emoji.list`. Without a token the messages still import; every file
+and the emoji are named in the report as not fetched, and imported messages keep their
+`:shortcodes:` as text. **Running the import again with a token picks the files up** without
+duplicating anything. `--no-files` skips both deliberately, which is the faster way to
+rehearse an import.
+
+The token only ever goes to Slack's own hosts, and every URL from the export is checked
+against the same guard outgoing webhooks use before anything is fetched.
 
 **What people will see afterwards.** Imported messages keep their original timestamps, so
 they appear in the channel's history where they belong rather than as a wall of new activity —

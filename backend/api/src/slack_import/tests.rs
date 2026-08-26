@@ -43,7 +43,7 @@ impl StubSlack {
 
 #[async_trait]
 impl SlackClient for StubSlack {
-    async fn fetch(&self, _url: &str) -> Result<Vec<u8>, String> {
+    async fn fetch(&self, _url: &str, _max_bytes: usize) -> Result<Vec<u8>, String> {
         Ok(self.body.clone())
     }
 
@@ -252,7 +252,9 @@ impl Drop for Fixture {
 async fn import(state: &Arc<AppState>, ws: Uuid, root: &PathBuf, dry_run: bool) -> ImportReport {
     let slack = StubSlack::new();
     let mut source = DirectorySource::new(root);
-    Import::new(state, &slack, ws, dry_run)
+    Import::open(state, &slack, ws, dry_run)
+        .await
+        .expect("the workspace exists")
         .run(&mut source)
         .await
         .expect("import runs")
@@ -453,7 +455,9 @@ async fn the_zip_slack_hands_you_imports_the_same_as_a_directory(pool: PgPool) {
 
     let slack = StubSlack::new();
     let mut source = ZipSource::open(&archive).expect("open the zip");
-    let report = Import::new(&state, &slack, ws, false)
+    let report = Import::open(&state, &slack, ws, false)
+        .await
+        .expect("the workspace exists")
         .run(&mut source)
         .await
         .expect("import runs");
@@ -559,7 +563,9 @@ async fn custom_emoji_come_from_the_api_because_the_export_has_none(pool: PgPool
         ("tada", "https://emoji.slack.test/tada.png"),
     ]);
     let mut source = DirectorySource::new(&fixture.root);
-    let report = Import::new(&state, &slack, ws, false)
+    let report = Import::open(&state, &slack, ws, false)
+        .await
+        .expect("the workspace exists")
         .run(&mut source)
         .await
         .expect("import runs");
@@ -615,7 +621,9 @@ async fn an_emoji_json_in_the_export_is_used_instead_of_the_api(pool: PgPool) {
     // The client would answer with something else; the export wins.
     let slack = StubSlack::with_emoji(&[("from-the-api", "https://emoji.slack.test/y.png")]);
     let mut source = DirectorySource::new(&fixture.root);
-    Import::new(&state, &slack, ws, false)
+    Import::open(&state, &slack, ws, false)
+        .await
+        .expect("the workspace exists")
         .run(&mut source)
         .await
         .expect("import runs");
@@ -640,7 +648,9 @@ async fn without_a_token_the_run_says_the_emoji_were_left_behind(pool: PgPool) {
     let fixture = Fixture::write();
     let slack = OfflineSlack;
     let mut source = DirectorySource::new(&fixture.root);
-    let report = Import::new(&state, &slack, ws, false)
+    let report = Import::open(&state, &slack, ws, false)
+        .await
+        .expect("the workspace exists")
         .run(&mut source)
         .await
         .expect("import runs");
@@ -654,6 +664,49 @@ async fn without_a_token_the_run_says_the_emoji_were_left_behind(pool: PgPool) {
         "the operator is told, rather than finding out from a message full of :shortcodes:: {:?}",
         report.skipped
     );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_run_with_a_token_picks_up_the_files_the_first_run_could_not(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "import-backfill", false).await;
+    let ws = seed_workspace(&state, owner_id, "Imported").await;
+
+    let fixture = Fixture::write();
+
+    // The first run has no token: the messages land, the attachment does not.
+    let offline = OfflineSlack;
+    let mut source = DirectorySource::new(&fixture.root);
+    let first = Import::open(&state, &offline, ws, false)
+        .await
+        .expect("the workspace exists")
+        .run(&mut source)
+        .await
+        .expect("import runs");
+    assert_eq!(first.files_imported, 0);
+
+    let second = import(&state, ws, &fixture.root, false).await;
+
+    assert_eq!(
+        second.messages_imported, 0,
+        "the messages were already here"
+    );
+    assert_eq!(
+        second.files_imported, 1,
+        "but the attachment was not, and running it again is the documented remedy"
+    );
+
+    let stored: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM files WHERE workspace_id = $1 AND filename = 'deploy.log'",
+    )
+    .bind(ws)
+    .fetch_one(&state.pool)
+    .await
+    .expect("count files");
+    assert_eq!(stored, 1);
+
+    let third = import(&state, ws, &fixture.root, false).await;
+    assert_eq!(third.files_imported, 0, "and a third run adds nothing");
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
@@ -721,7 +774,9 @@ async fn an_interrupted_import_picks_up_where_it_stopped(pool: PgPool) {
     // mapped, no messages are in yet.
     let slack = OfflineSlack;
     let mut source = DirectorySource::new(&fixture.root);
-    let partial = Import::new(&state, &slack, ws, false);
+    let partial = Import::open(&state, &slack, ws, false)
+        .await
+        .expect("the workspace exists");
     partial.run(&mut source).await.expect("first pass");
     sqlx::query("DELETE FROM messages WHERE channel_id IN (SELECT id FROM channels WHERE workspace_id = $1)")
         .bind(ws)
@@ -784,7 +839,9 @@ async fn an_unfetchable_file_is_reported_and_the_message_still_lands(pool: PgPoo
     let fixture = Fixture::write();
     let slack = OfflineSlack;
     let mut source = DirectorySource::new(&fixture.root);
-    let report = Import::new(&state, &slack, ws, false)
+    let report = Import::open(&state, &slack, ws, false)
+        .await
+        .expect("the workspace exists")
         .run(&mut source)
         .await
         .expect("import runs");

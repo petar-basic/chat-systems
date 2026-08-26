@@ -2,9 +2,10 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use shared_common::errors::{AppError, AppResult};
 
-/// Strict by default. A workspace admin picks the URL, so without this an
-/// instance hands them a request-forgery primitive against everything the server
-/// can reach -- cloud metadata endpoints first among them.
+/// Strict by default. Whoever picks the URL — a workspace admin creating a
+/// webhook, or a Slack export naming a file to fetch — would otherwise hold a
+/// request-forgery primitive against everything the server can reach, cloud
+/// metadata endpoints first among them.
 pub async fn validate_outbound_url(url: &str) -> AppResult<reqwest::Url> {
     validate_outbound_url_with(url, false).await
 }
@@ -15,20 +16,20 @@ pub async fn validate_outbound_url(url: &str) -> AppResult<reqwest::Url> {
 /// trusting whoever can create a hook with the server's network position.
 pub async fn validate_outbound_url_with(url: &str, allow_private: bool) -> AppResult<reqwest::Url> {
     let parsed = reqwest::Url::parse(url)
-        .map_err(|e| AppError::BadRequest(format!("invalid webhook url: {e}")))?;
+        .map_err(|e| AppError::BadRequest(format!("not a url: {e}")))?;
 
     match parsed.scheme() {
         "http" | "https" => {}
         other => {
             return Err(AppError::BadRequest(format!(
-                "webhook url scheme must be http or https, got {other}"
+                "url scheme must be http or https, got {other}"
             )));
         }
     }
 
     let host = parsed
         .host_str()
-        .ok_or_else(|| AppError::BadRequest("webhook url has no host".into()))?;
+        .ok_or_else(|| AppError::BadRequest("url has no host".into()))?;
 
     if allow_private {
         return Ok(parsed);
@@ -37,7 +38,7 @@ pub async fn validate_outbound_url_with(url: &str, allow_private: bool) -> AppRe
     if let Ok(ip) = host.parse::<IpAddr>() {
         if !is_public_ip(&ip) {
             return Err(AppError::BadRequest(
-                "webhook url resolves to a disallowed (private/loopback/link-local) address".into(),
+                "url points at a disallowed (private/loopback/link-local) address".into(),
             ));
         }
         return Ok(parsed);
@@ -48,19 +49,19 @@ pub async fn validate_outbound_url_with(url: &str, allow_private: bool) -> AppRe
 
     let mut resolved = tokio::net::lookup_host(&authority)
         .await
-        .map_err(|e| AppError::BadRequest(format!("webhook host resolution failed: {e}")))?
+        .map_err(|e| AppError::BadRequest(format!("host does not resolve: {e}")))?
         .peekable();
 
     if resolved.peek().is_none() {
         return Err(AppError::BadRequest(
-            "webhook host did not resolve to any address".into(),
+            "host did not resolve to any address".into(),
         ));
     }
 
     for addr in resolved {
         if !is_public_ip(&addr.ip()) {
             return Err(AppError::BadRequest(
-                "webhook host resolves to a disallowed (private/loopback/link-local) address"
+                "host resolves to a disallowed (private/loopback/link-local) address"
                     .into(),
             ));
         }
