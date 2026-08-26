@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use axum::http::StatusCode;
 use serde_json::json;
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -342,6 +343,16 @@ async fn an_export_arrives_as_channels_messages_threads_reactions_and_pins(pool:
     .expect("count files");
     assert_eq!(attachment, 1, "the attachment was fetched and stored");
 
+    // An imported account is one nobody can sign into until they claim it
+    // through the invite flow.
+    let imported_status: String = sqlx::query_scalar(
+        "SELECT status::text FROM users WHERE email = 'ivan@dev.local' AND password_hash IS NULL",
+    )
+    .fetch_one(&state.pool)
+    .await
+    .expect("the imported account exists");
+    assert_eq!(imported_status, "pending");
+
     assert!(
         report
             .skipped
@@ -453,6 +464,55 @@ async fn an_export_without_private_channels_or_dms_says_so(pool: PgPool) {
             report.skipped
         );
     }
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_imported_attachment_is_as_private_as_a_native_one(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "import-acl", false).await;
+    let ws = seed_workspace(&state, owner_id, "Imported").await;
+    let (outsider_id, _, outsider_token) =
+        seed_and_login(&app, &state, "import-outsider", false).await;
+
+    let fixture = Fixture::write();
+    import(&state, ws, &fixture.root, false).await;
+
+    let key: String = sqlx::query_scalar(
+        "SELECT storage_key FROM files WHERE workspace_id = $1 AND filename = 'deploy.log'",
+    )
+    .bind(ws)
+    .fetch_one(&state.pool)
+    .await
+    .expect("the imported attachment");
+
+    let (status, _) = send(
+        &app,
+        "GET",
+        &format!("/api/files/download/{key}"),
+        Some(&owner_token),
+        None,
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "a member of the channel can read it"
+    );
+
+    let (status, _) = send(
+        &app,
+        "GET",
+        &format!("/api/files/download/{key}"),
+        Some(&outsider_token),
+        None,
+    )
+    .await;
+    assert_ne!(
+        status,
+        StatusCode::OK,
+        "somebody outside the workspace cannot, exactly as for a native upload"
+    );
+    let _ = outsider_id;
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
