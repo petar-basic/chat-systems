@@ -1,6 +1,7 @@
 import { memo, useState, useRef } from 'react';
 import { Pencil, Trash2, MessageSquare, SmilePlus, Pin, Link2, Bookmark, Forward } from 'lucide-react';
 import type { Message, WorkspaceMember, Channel } from '@/stores/workspace';
+import { ReactionEmoji } from '@/shared/components/ReactionEmoji';
 import RichTextDisplay from '@/components/RichTextDisplay';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { HuddleSystemMessage } from '@/features/huddle/components/HuddleSystemMessage';
@@ -247,7 +248,7 @@ function MessageItem({
                     : 'bg-slate-700/50 border-slate-600/50 text-slate-300 hover:bg-slate-700'
                 }`}
               >
-                <span>{g.emoji}</span>
+                <ReactionEmoji emoji={g.emoji} />
                 <span>{g.count}</span>
               </button>
             ))}

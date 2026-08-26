@@ -451,8 +451,16 @@ composer's own attachment form, which is what makes CS-009's access rules apply 
 that cannot be fetched is named in the report with the reason — deleted in Slack, hosted
 outside it, or no token — and the message it belonged to is still imported.
 
+**Custom emoji are not in the export.** Slack keeps them behind `emoji.list`, so the import
+reads them with the same token it uses for files (`emoji:read`) — or from an `emoji.json` in
+the export, which some tools write, and which wins when it is there. Aliases point at the
+image they alias rather than downloading it twice, and a name our own rules reject (uppercase,
+too long, or one that shadows a standard emoji) is reported instead of being mangled into
+something else. Without a token the run says so, rather than leaving somebody to discover it
+from a message full of `:shortcodes:`.
+
 **What it does not carry over.** Message `attachments` and Block Kit `blocks` (the `text`
-fallback is imported instead), Slack's custom emoji, per-person starred items, edit history,
+fallback is imported instead), per-person starred items, edit history,
 and anything an integration posted — a bot has no account here, and inventing one would put a
 stranger in the member list. Each of those is counted in the report rather than passed over
 in silence.

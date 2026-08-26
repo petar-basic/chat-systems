@@ -182,6 +182,8 @@ pub struct ImportReport {
     pub reactions: usize,
     pub pins: usize,
     pub files_imported: usize,
+    pub emoji_imported: usize,
+    pub emoji_already_present: usize,
     pub skipped: Vec<Skipped>,
 }
 
@@ -204,7 +206,8 @@ impl ImportReport {
             "users: {} matched, {} created | channels: {} created, {} reused | \
              conversations: {} created, {} reused | memberships: {} | \
              messages: {} imported, {} already present, {} in threads | \
-             reactions: {} | pins: {} | files: {} | skipped: {}",
+             reactions: {} | pins: {} | files: {} | emoji: {} imported, {} already present | \
+             skipped: {}",
             self.users_matched,
             self.users_created,
             self.channels_created,
@@ -218,6 +221,8 @@ impl ImportReport {
             self.reactions,
             self.pins,
             self.files_imported,
+            self.emoji_imported,
+            self.emoji_already_present,
             self.skipped.len(),
         )
     }

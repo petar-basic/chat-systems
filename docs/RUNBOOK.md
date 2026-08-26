@@ -387,6 +387,10 @@ Then the same command without `--dry-run`. It is safe to run twice — a second 
 the first wrote and skips it — which is also what makes it safe to interrupt. A large import
 will take hours; running it under `tmux` or `nohup` costs nothing and saves the afternoon.
 
+**Custom emoji need the same token.** They are not in the export at all — the import reads
+them from `emoji.list`, which needs `emoji:read` on the token. Without one, imported messages
+keep their `:shortcodes:` as text and the report says the emoji were left behind.
+
 **Attachments need a token.** Slack's file URLs are private and expire, so the import fetches
 them with `--slack-token xoxb-…` (or `SLACK_TOKEN` in the environment). Without one, the
 messages still import and every file is named in the report as not fetched. Pass `--no-files`

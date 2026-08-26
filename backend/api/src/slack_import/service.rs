@@ -14,7 +14,7 @@ use crate::workspace::models::{ChannelRole, ChannelType, WorkspaceRole};
 
 use crate::conversations::models::ConversationKind;
 
-use super::files::FileFetcher;
+use super::files::SlackClient;
 use super::models::*;
 use super::mrkdwn;
 use super::source::{read_json, ExportSource};
@@ -33,7 +33,7 @@ enum Target {
 /// on it would attribute somebody's history to a stranger.
 pub struct Import<'a> {
     state: &'a Arc<AppState>,
-    files: &'a dyn FileFetcher,
+    slack: &'a dyn SlackClient,
     workspace_id: Uuid,
     /// Imported channels are created by the workspace owner: Slack's creator may
     /// have no account here, and `channels.created_by` has to point at somebody.
@@ -49,13 +49,13 @@ pub struct Import<'a> {
 impl<'a> Import<'a> {
     pub fn new(
         state: &'a Arc<AppState>,
-        files: &'a dyn FileFetcher,
+        slack: &'a dyn SlackClient,
         workspace_id: Uuid,
         dry_run: bool,
     ) -> Self {
         Self {
             state,
-            files,
+            slack,
             workspace_id,
             owner_id: Uuid::nil(),
             dry_run,
@@ -91,6 +91,8 @@ impl<'a> Import<'a> {
 
         self.load_existing_mappings().await?;
         self.import_users(source).await?;
+
+        self.import_custom_emoji(source).await?;
 
         let mut targets = Vec::new();
         targets.extend(
@@ -223,6 +225,136 @@ impl<'a> Import<'a> {
         }
 
         Ok(())
+    }
+
+    /// Custom emoji are not in the export — Slack keeps them behind `emoji.list`.
+    /// An export carrying `emoji.json` (some tools write one) is used when it is
+    /// there, so an import can bring them across without a token.
+    async fn import_custom_emoji(&mut self, source: &mut dyn ExportSource) -> AppResult<()> {
+        let listed = if source.has("emoji.json") {
+            read_json::<HashMap<String, String>>(source, "emoji.json")?
+        } else {
+            match self.slack.custom_emoji().await {
+                Ok(listed) => listed,
+                Err(why) => {
+                    self.report.skip("custom emoji", why);
+                    return Ok(());
+                }
+            }
+        };
+
+        // Direct emoji first: an alias is only meaningful once the image it
+        // points at has somewhere to point.
+        let mut aliases: Vec<(String, String)> = Vec::new();
+        let mut stored: HashMap<String, String> = HashMap::new();
+
+        for (name, url) in &listed {
+            if let Some(target) = url.strip_prefix("alias:") {
+                aliases.push((name.clone(), target.to_string()));
+                continue;
+            }
+            if let Some(key) = self.import_one_emoji(name, url).await? {
+                stored.insert(name.clone(), key);
+            }
+        }
+
+        for (name, target) in aliases {
+            let key = match stored.get(&target) {
+                Some(key) => key.clone(),
+                None => match self.existing_emoji_key(&target).await? {
+                    Some(key) => key,
+                    None => {
+                        self.report.skip(
+                            format!("emoji :{name}:"),
+                            format!("an alias of :{target}:, which was not imported"),
+                        );
+                        continue;
+                    }
+                },
+            };
+            // The alias reuses the image rather than downloading it twice.
+            self.record_emoji(&name, &key).await?;
+        }
+
+        Ok(())
+    }
+
+    async fn import_one_emoji(&mut self, name: &str, url: &str) -> AppResult<Option<String>> {
+        let name = match crate::emoji::routes::validate_name(name) {
+            Ok(name) => name,
+            Err(e) => {
+                self.report.skip(format!("emoji :{name}:"), e.to_string());
+                return Ok(None);
+            }
+        };
+
+        if let Some(key) = self.existing_emoji_key(&name).await? {
+            self.report.emoji_already_present += 1;
+            return Ok(Some(key));
+        }
+
+        if self.dry_run {
+            self.report.emoji_imported += 1;
+            return Ok(None);
+        }
+
+        let bytes = match self.slack.fetch(url).await {
+            Ok(bytes) => bytes,
+            Err(why) => {
+                self.report.skip(format!("emoji :{name}:"), why);
+                return Ok(None);
+            }
+        };
+        if bytes.len() as u64 > crate::emoji::routes::MAX_EMOJI_BYTES {
+            self.report.skip(
+                format!("emoji :{name}:"),
+                format!("{} bytes is over the emoji limit", bytes.len()),
+            );
+            return Ok(None);
+        }
+
+        let content_type = content_type_for(url);
+        let storage_key = format!("emoji/{}/{}", self.workspace_id, Uuid::new_v4());
+        if let Err(e) = self
+            .state
+            .file_storage
+            .upload(&storage_key, bytes, content_type)
+            .await
+        {
+            self.report.skip(format!("emoji :{name}:"), e.to_string());
+            return Ok(None);
+        }
+
+        self.record_emoji(&name, &storage_key).await?;
+        Ok(Some(storage_key))
+    }
+
+    async fn record_emoji(&mut self, name: &str, storage_key: &str) -> AppResult<()> {
+        if self.dry_run {
+            self.report.emoji_imported += 1;
+            return Ok(());
+        }
+        match self
+            .state
+            .emoji_repo
+            .create(self.workspace_id, name, storage_key, self.owner_id)
+            .await
+        {
+            Ok(_) => self.report.emoji_imported += 1,
+            Err(ref e) if is_unique_violation(e) => self.report.emoji_already_present += 1,
+            Err(e) => return Err(AppError::Database(e.to_string())),
+        }
+        Ok(())
+    }
+
+    async fn existing_emoji_key(&self, name: &str) -> AppResult<Option<String>> {
+        Ok(self
+            .state
+            .emoji_repo
+            .find_by_name(self.workspace_id, name)
+            .await
+            .map_err(|e| AppError::Database(e.to_string()))?
+            .map(|emoji| emoji.storage_key))
     }
 
     async fn ensure_workspace_member(&self, user_id: Uuid) -> AppResult<()> {
@@ -684,7 +816,7 @@ impl<'a> Import<'a> {
                 continue;
             };
 
-            let body = match self.files.fetch(url).await {
+            let body = match self.slack.fetch(url).await {
                 Ok(body) => body,
                 Err(e) => {
                     self.report
@@ -748,6 +880,21 @@ impl<'a> Import<'a> {
 
             self.report.files_imported += 1;
         }
+    }
+}
+
+/// Slack serves emoji as images and names the file; the URL is the only hint at
+/// what kind, and png is what the overwhelming majority are.
+fn content_type_for(url: &str) -> &'static str {
+    let path = url.split('?').next().unwrap_or(url).to_lowercase();
+    if path.ends_with(".gif") {
+        "image/gif"
+    } else if path.ends_with(".webp") {
+        "image/webp"
+    } else if path.ends_with(".jpg") || path.ends_with(".jpeg") {
+        "image/jpeg"
+    } else {
+        "image/png"
     }
 }
 

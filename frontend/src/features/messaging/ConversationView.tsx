@@ -11,6 +11,7 @@ import {
   useRemoveConversationReaction,
 } from '@/hooks/queries/useConversations';
 import { MessageInput, EmojiPicker } from '@/features/messaging';
+import { ReactionEmoji } from '@/shared/components/ReactionEmoji';
 import RichTextDisplay from '@/components/RichTextDisplay';
 import PresenceDot from '@/components/PresenceDot';
 import type { ConversationMessage } from '@/hooks/queries/useConversations';
@@ -343,7 +344,7 @@ function ConversationMessageRow({
                     : 'bg-slate-700/50 border-slate-600/50 text-slate-300 hover:bg-slate-700'
                 }`}
               >
-                <span>{g.emoji}</span>
+                <ReactionEmoji emoji={g.emoji} />
                 <span>{g.count}</span>
               </button>
             ))}

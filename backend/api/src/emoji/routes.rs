@@ -16,7 +16,7 @@ use crate::workspace::models::WorkspaceRole;
 
 /// An emoji is a 128px image in a message list, not a file share. The limit is
 /// what keeps somebody from using the picker as free storage.
-const MAX_EMOJI_BYTES: u64 = 256 * 1024;
+pub const MAX_EMOJI_BYTES: u64 = 256 * 1024;
 const ALLOWED_TYPES: &[&str] = &["image/png", "image/gif", "image/webp", "image/jpeg"];
 
 pub fn router(state: Arc<AppState>) -> Router {

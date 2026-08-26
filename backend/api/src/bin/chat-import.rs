@@ -11,7 +11,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use chat_api::config::AppConfig;
-use chat_api::slack_import::files::{FileFetcher, HttpFileFetcher, SkipFiles};
+use chat_api::slack_import::files::{HttpSlackClient, OfflineSlack, SlackClient};
 use chat_api::slack_import::service::Import;
 use chat_api::slack_import::source;
 use chat_api::{build_state, connect_pool, init_tracing};
@@ -91,17 +91,17 @@ async fn run(args: Args) -> Result<(), String> {
     let workspace_id = resolve_workspace(&pool, &args.workspace).await?;
     let mut source = source::open(&args.export).map_err(|e| e.to_string())?;
 
-    let fetcher: Box<dyn FileFetcher> = if args.fetch_files {
-        Box::new(HttpFileFetcher::new(args.slack_token.clone()))
+    let slack: Box<dyn SlackClient> = if args.fetch_files {
+        Box::new(HttpSlackClient::new(args.slack_token.clone()))
     } else {
-        Box::new(SkipFiles)
+        Box::new(OfflineSlack)
     };
 
     if args.dry_run {
         println!("dry run: nothing will be written");
     }
 
-    let report = Import::new(&state, fetcher.as_ref(), workspace_id, args.dry_run)
+    let report = Import::new(&state, slack.as_ref(), workspace_id, args.dry_run)
         .run(source.as_mut())
         .await
         .map_err(|e| e.to_string())?;

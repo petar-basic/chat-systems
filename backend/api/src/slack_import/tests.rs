@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -10,18 +11,44 @@ use uuid::Uuid;
 use crate::http_tests::common::*;
 use crate::state::AppState;
 
-use super::files::{FileFetcher, SkipFiles};
+use super::files::{OfflineSlack, SlackClient};
 use super::models::ImportReport;
 use super::service::Import;
 use super::source::{DirectorySource, ZipSource};
 
-/// Stands in for Slack's file host, so an import can be tested without one.
-struct StubFiles(Vec<u8>);
+/// Stands in for Slack, so an import can be tested without one.
+struct StubSlack {
+    body: Vec<u8>,
+    emoji: HashMap<String, String>,
+}
+
+impl StubSlack {
+    fn new() -> Self {
+        Self {
+            body: b"deploy log body".to_vec(),
+            emoji: HashMap::new(),
+        }
+    }
+
+    fn with_emoji(emoji: &[(&str, &str)]) -> Self {
+        Self {
+            emoji: emoji
+                .iter()
+                .map(|(name, url)| ((*name).to_string(), (*url).to_string()))
+                .collect(),
+            ..Self::new()
+        }
+    }
+}
 
 #[async_trait]
-impl FileFetcher for StubFiles {
+impl SlackClient for StubSlack {
     async fn fetch(&self, _url: &str) -> Result<Vec<u8>, String> {
-        Ok(self.0.clone())
+        Ok(self.body.clone())
+    }
+
+    async fn custom_emoji(&self) -> Result<HashMap<String, String>, String> {
+        Ok(self.emoji.clone())
     }
 }
 
@@ -223,9 +250,9 @@ impl Drop for Fixture {
 }
 
 async fn import(state: &Arc<AppState>, ws: Uuid, root: &PathBuf, dry_run: bool) -> ImportReport {
-    let files = StubFiles(b"deploy log body".to_vec());
+    let slack = StubSlack::new();
     let mut source = DirectorySource::new(root);
-    Import::new(state, &files, ws, dry_run)
+    Import::new(state, &slack, ws, dry_run)
         .run(&mut source)
         .await
         .expect("import runs")
@@ -424,9 +451,9 @@ async fn the_zip_slack_hands_you_imports_the_same_as_a_directory(pool: PgPool) {
     let fixture = Fixture::write();
     let archive = zip_of(&fixture.root);
 
-    let files = StubFiles(b"deploy log body".to_vec());
+    let slack = StubSlack::new();
     let mut source = ZipSource::open(&archive).expect("open the zip");
-    let report = Import::new(&state, &files, ws, false)
+    let report = Import::new(&state, &slack, ws, false)
         .run(&mut source)
         .await
         .expect("import runs");
@@ -516,6 +543,120 @@ async fn an_imported_attachment_is_as_private_as_a_native_one(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn custom_emoji_come_from_the_api_because_the_export_has_none(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "import-emoji", false).await;
+    let ws = seed_workspace(&state, owner_id, "Imported").await;
+
+    let fixture = Fixture::write();
+    let slack = StubSlack::with_emoji(&[
+        ("shipit", "https://emoji.slack.test/shipit/1.png"),
+        ("deployed", "alias:shipit"),
+        ("orphan", "alias:nothing-here"),
+        // Slack allows names ours does not, and one of ours is already taken by
+        // a standard emoji.
+        ("Party Parrot", "https://emoji.slack.test/parrot.gif"),
+        ("tada", "https://emoji.slack.test/tada.png"),
+    ]);
+    let mut source = DirectorySource::new(&fixture.root);
+    let report = Import::new(&state, &slack, ws, false)
+        .run(&mut source)
+        .await
+        .expect("import runs");
+
+    let emoji = state.emoji_repo.list(ws).await.expect("emoji");
+    let names: Vec<&str> = emoji.iter().map(|e| e.name.as_str()).collect();
+    assert_eq!(
+        names,
+        vec!["deployed", "shipit"],
+        "the alias came across, the invalid name and the standard one did not"
+    );
+    assert_eq!(report.emoji_imported, 2);
+
+    let shipit = emoji.iter().find(|e| e.name == "shipit").expect("shipit");
+    let deployed = emoji.iter().find(|e| e.name == "deployed").expect("alias");
+    assert_eq!(
+        shipit.storage_key, deployed.storage_key,
+        "an alias points at the same image rather than downloading it twice"
+    );
+
+    assert!(
+        report
+            .skipped
+            .iter()
+            .any(|s| s.what.contains("orphan") && s.why.contains("was not imported")),
+        "an alias of an emoji nobody exported says so: {:?}",
+        report.skipped
+    );
+    assert!(
+        report
+            .skipped
+            .iter()
+            .any(|s| s.what.contains("Party Parrot")),
+        "and so does a name our rules reject: {:?}",
+        report.skipped
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_emoji_json_in_the_export_is_used_instead_of_the_api(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "import-emoji-file", false).await;
+    let ws = seed_workspace(&state, owner_id, "Imported").await;
+
+    let fixture = Fixture::write();
+    std::fs::write(
+        fixture.root.join("emoji.json"),
+        serde_json::to_vec(&json!({ "from-the-export": "https://emoji.slack.test/x.png" }))
+            .expect("emoji json"),
+    )
+    .expect("write emoji.json");
+
+    // The client would answer with something else; the export wins.
+    let slack = StubSlack::with_emoji(&[("from-the-api", "https://emoji.slack.test/y.png")]);
+    let mut source = DirectorySource::new(&fixture.root);
+    Import::new(&state, &slack, ws, false)
+        .run(&mut source)
+        .await
+        .expect("import runs");
+
+    let names: Vec<String> = state
+        .emoji_repo
+        .list(ws)
+        .await
+        .expect("emoji")
+        .into_iter()
+        .map(|e| e.name)
+        .collect();
+    assert_eq!(names, vec!["from-the-export"]);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn without_a_token_the_run_says_the_emoji_were_left_behind(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "import-emoji-none", false).await;
+    let ws = seed_workspace(&state, owner_id, "Imported").await;
+
+    let fixture = Fixture::write();
+    let slack = OfflineSlack;
+    let mut source = DirectorySource::new(&fixture.root);
+    let report = Import::new(&state, &slack, ws, false)
+        .run(&mut source)
+        .await
+        .expect("import runs");
+
+    assert_eq!(report.emoji_imported, 0);
+    assert!(
+        report
+            .skipped
+            .iter()
+            .any(|s| s.what == "custom emoji" && s.why.contains("not fetched")),
+        "the operator is told, rather than finding out from a message full of :shortcodes:: {:?}",
+        report.skipped
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn running_it_twice_writes_nothing_the_second_time(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "import-twice", false).await;
@@ -578,9 +719,9 @@ async fn an_interrupted_import_picks_up_where_it_stopped(pool: PgPool) {
 
     // Stands in for a run killed after the first pass: users and the channel are
     // mapped, no messages are in yet.
-    let files = SkipFiles;
+    let slack = OfflineSlack;
     let mut source = DirectorySource::new(&fixture.root);
-    let partial = Import::new(&state, &files, ws, false);
+    let partial = Import::new(&state, &slack, ws, false);
     partial.run(&mut source).await.expect("first pass");
     sqlx::query("DELETE FROM messages WHERE channel_id IN (SELECT id FROM channels WHERE workspace_id = $1)")
         .bind(ws)
@@ -641,9 +782,9 @@ async fn an_unfetchable_file_is_reported_and_the_message_still_lands(pool: PgPoo
     let ws = seed_workspace(&state, owner_id, "Imported").await;
 
     let fixture = Fixture::write();
-    let files = SkipFiles;
+    let slack = OfflineSlack;
     let mut source = DirectorySource::new(&fixture.root);
-    let report = Import::new(&state, &files, ws, false)
+    let report = Import::new(&state, &slack, ws, false)
         .run(&mut source)
         .await
         .expect("import runs");
