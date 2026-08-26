@@ -26,6 +26,7 @@ pub mod scheduled;
 pub mod scim;
 pub mod search;
 pub mod sessions;
+pub mod slack_import;
 pub mod state;
 pub mod workspace;
 
@@ -97,6 +98,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
     let notification_repo = NotificationRepo::new(pool.clone());
     let conversation_repo = ConversationRepo::new(pool.clone());
     let saved_repo = saved::repo::SavedRepo::new(pool.clone());
+    let slack_import_repo = slack_import::repo::SlackImportRepo::new(pool.clone());
     let scheduled_repo = scheduled::repo::ScheduledRepo::new(pool.clone());
     let retention_repo = retention::repo::RetentionRepo::new(pool.clone());
     let export_repo = export::repo::ExportRepo::new(pool.clone());
@@ -129,6 +131,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
         notification_repo,
         conversation_repo,
         saved_repo,
+        slack_import_repo,
         scheduled_repo,
         retention_repo,
         export_repo,

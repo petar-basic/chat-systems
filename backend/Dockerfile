@@ -69,6 +69,7 @@ WORKDIR /app
 COPY --from=builder --chown=appuser:appuser /app/target/release/chat-api      ./chat-api
 COPY --from=builder --chown=appuser:appuser /app/target/release/chat-worker    ./chat-worker
 COPY --from=builder --chown=appuser:appuser /app/target/release/chat-realtime  ./chat-realtime
+COPY --from=builder --chown=appuser:appuser /app/target/release/chat-import    ./chat-import
 
 # Copy migrations (used by chat-api at startup)
 COPY --from=builder --chown=appuser:appuser /app/migrations/ ./migrations/
@@ -92,4 +93,6 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --retries=3 \
 
 # Exec form so SIGTERM reaches the binary directly (graceful shutdown).
 # /bin/sh -c is still required to expand ${SERVICE}; `exec` replaces the shell.
-ENTRYPOINT ["/bin/sh", "-c", "exec ./${SERVICE}"]
+# `"$@"` with the `--` placeholder forwards any arguments, which is what lets
+# `docker compose run -e SERVICE=chat-import api --workspace … --export …` work.
+ENTRYPOINT ["/bin/sh", "-c", "exec ./${SERVICE} \"$@\"", "--"]

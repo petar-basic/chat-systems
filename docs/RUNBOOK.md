@@ -362,6 +362,51 @@ non-zero rate means logins are failing for infrastructure reasons, not credentia
 oversized file never lands in memory. `client_max_body_size` in `docker/nginx.conf` must
 move with it — nginx rejects first, and a mismatch surfaces as a bare 413.
 
+## Importing a Slack export
+
+Slack gives you a ZIP. Unpack it or don't — `chat-import` reads either.
+
+```bash
+docker compose run --rm -e SERVICE=chat-import \
+  -v /path/to/slack-export.zip:/import.zip api \
+  --workspace <slug-or-uuid> --export /import.zip --dry-run
+```
+
+**What comes across.** Public channels from `channels.json`, private ones from `groups.json`,
+and direct and group messages from `dms.json` / `mpims.json` — the last two become
+conversations here rather than channels, so a two-person history does not land in everybody's
+channel list. Only some Slack plans export DMs at all; the report names every listing the
+export did not carry.
+
+**Always dry-run first.** It writes nothing and prints the counts the real run would produce,
+plus every item that will not convert and why. Read that list before the real run: it is where
+you find the accounts with no email address, the bots, and the replies whose parent was
+deleted in Slack years ago.
+
+Then the same command without `--dry-run`. It is safe to run twice — a second run finds what
+the first wrote and skips it — which is also what makes it safe to interrupt. A large import
+will take hours; running it under `tmux` or `nohup` costs nothing and saves the afternoon.
+
+**Attachments and custom emoji need a token — put it in the environment, not the command.**
+`SLACK_TOKEN=xoxb-…` rather than `--slack-token xoxb-…`: an argument is visible in `ps` to
+every user on the host, and this one is a live credential with `files:read` and `emoji:read`.
+
+Slack's file URLs are private and expire, and custom emoji are not in the export at all — the
+import reads them from `emoji.list`. Without a token the messages still import; every file
+and the emoji are named in the report as not fetched, and imported messages keep their
+`:shortcodes:` as text. **Running the import again with a token picks the files up** without
+duplicating anything. `--no-files` skips both deliberately, which is the faster way to
+rehearse an import.
+
+The token only ever goes to Slack's own hosts, and every URL from the export is checked
+against the same guard outgoing webhooks use before anything is fetched.
+
+**What people will see afterwards.** Imported messages keep their original timestamps, so
+they appear in the channel's history where they belong rather than as a wall of new activity —
+no unread counters move, and nothing is pushed to anybody's phone. Accounts created by the
+import have no password: those people go through the normal invite flow, and until they do,
+their history is attributed to an account only they can claim.
+
 ## What gets backed up
 
 | Data | Where it lives | Backed up by | Backup volume |

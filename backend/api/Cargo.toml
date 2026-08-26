@@ -21,6 +21,10 @@ path = "src/main.rs"
 name = "chat-worker"
 path = "src/bin/chat-worker.rs"
 
+[[bin]]
+name = "chat-import"
+path = "src/bin/chat-import.rs"
+
 [dependencies]
 shared-common = { path = "../shared/common" }
 shared-events = { path = "../shared/events" }
@@ -84,6 +88,7 @@ lettre = { workspace = true }
 
 # HTTP client (for outgoing webhooks)
 reqwest = { workspace = true }
+zip = { workspace = true }
 
 # Error handling
 anyhow = { workspace = true }

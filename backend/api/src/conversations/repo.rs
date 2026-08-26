@@ -178,6 +178,49 @@ impl ConversationRepo {
         Ok(message)
     }
 
+    /// A direct message that already happened somewhere else. Same shape as the
+    /// channel side: its own timestamp, no read state moved, no client id.
+    pub async fn insert_imported(
+        &self,
+        conversation_id: Uuid,
+        user_id: Uuid,
+        content: &str,
+        thread_parent_id: Option<Uuid>,
+        slack_ts: &str,
+        created_at: chrono::DateTime<chrono::Utc>,
+    ) -> sqlx::Result<ConversationMessage> {
+        let mut tx = self.pool.begin().await?;
+
+        let message = sqlx::query_as::<_, ConversationMessage>(
+            r"
+            INSERT INTO conversation_messages
+                (conversation_id, user_id, content, thread_parent_id, slack_ts, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $6)
+            RETURNING *
+            ",
+        )
+        .bind(conversation_id)
+        .bind(user_id)
+        .bind(content)
+        .bind(thread_parent_id)
+        .bind(slack_ts)
+        .bind(created_at)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        if let Some(parent_id) = thread_parent_id {
+            sqlx::query(
+                "UPDATE conversation_messages SET reply_count = reply_count + 1 WHERE id = $1",
+            )
+            .bind(parent_id)
+            .execute(&mut *tx)
+            .await?;
+        }
+
+        tx.commit().await?;
+        Ok(message)
+    }
+
     pub async fn list_edits(&self, message_id: Uuid) -> sqlx::Result<Vec<ConversationMessageEdit>> {
         sqlx::query_as::<_, ConversationMessageEdit>(
             "SELECT * FROM conversation_message_edits \

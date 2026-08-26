@@ -409,6 +409,82 @@ All workspace-scoped routes require workspace membership.
 
 ---
 
+### slack_import
+
+Reads a Slack export into a workspace. There are no routes: an import is long,
+restartable and supervised by whoever is running the migration, so it is the `chat-import`
+binary rather than a request somebody waits on.
+
+```
+chat-import --workspace <uuid|slug> --export <zip-or-directory> [--dry-run] [--no-files] [--slack-token <token>]
+```
+
+**All four listings, and it says which ones were there.** `channels.json` becomes public
+channels, `groups.json` private ones, and `dms.json` / `mpims.json` become conversations —
+the same split this product makes natively, which keeps a two-person history out of
+everybody's channel list. A listing the export does not carry is named in the report rather
+than assumed empty: an export without private channels and an export whose private channels
+were quietly dropped should not look the same.
+
+**Two passes, because threads are what break single-pass importers.** The first creates
+users, channels, conversations and memberships; the second writes messages, so a `thread_ts`
+resolves against a row that already exists. A reply whose parent is missing from the export
+stays in the channel as an ordinary message rather than being dropped, and says so in the
+report.
+
+**Users are matched by email and by nothing else.** A Slack handle is not an identity.
+Somebody with no matching account is created with no password, so their history is
+attributed to an account only they can claim through the ordinary invite flow; a bot, or an
+account the export carries no address for, is reported rather than guessed at.
+
+**Idempotent by construction.** `messages.slack_ts` carries the Slack timestamp the row came
+from, unique per channel, and `slack_users` / `slack_channels` record what a previous run
+mapped. A re-run finds them and moves on, which is also what makes an interrupted import
+resumable — a 200k-message import will be interrupted.
+
+**`--dry-run` writes nothing**, not even the run record, and reports the same counts the real
+run would produce, including which items would not convert.
+
+**An attachment becomes its own message.** This product's attachment form is a message whose
+whole body is `[file: name](url)`, so a Slack message carrying both text and a file arrives as
+two: the text, then the attachment. That is what makes it render and what puts it under the
+same access rules as a native upload, at the cost of one extra row.
+
+**Files are fetched, not linked.** Slack's URLs expire, so the bytes are downloaded during
+the import and stored through `FileStorage`. Every fetch goes through the same SSRF guard the
+webhook path uses, the token is attached only for Slack's own hosts — an export names those
+URLs, and it is a file that arrives from outside — and the response is read with the size cap
+applied as it streams rather than after it has all arrived; the message that carries one is written in the
+composer's own attachment form, which is what makes CS-009's access rules apply to it. A file
+that cannot be fetched is named in the report with the reason — deleted in Slack, hosted
+outside it, no token, or a URL the guard refused — and the message it belonged to is still
+imported. Running the import again with a token picks up the files a tokenless run left
+behind, without duplicating the messages.
+
+**Custom emoji are not in the export.** Slack keeps them behind `emoji.list`, so the import
+reads them with the same token it uses for files (`emoji:read`) — or from an `emoji.json` in
+the export, which some tools write, and which wins when it is there. Aliases point at the
+image they alias rather than downloading it twice, and a name our own rules reject (uppercase,
+too long, or one that shadows a standard emoji) is reported instead of being mangled into
+something else. Without a token the run says so, rather than leaving somebody to discover it
+from a message full of `:shortcodes:`.
+
+**What it does not carry over.** Message `attachments` and Block Kit `blocks` (the `text`
+fallback is imported instead), per-person starred items, edit history,
+and anything an integration posted — a bot has no account here, and inventing one would put a
+stranger in the member list. Each of those is counted in the report rather than passed over
+in silence.
+
+| Table | What it holds |
+|---|---|
+| `slack_imports` | One row per run: source, dry-run flag, the report as JSON |
+| `slack_users` | `(workspace, slack user id)` → our user |
+| `slack_channels` | `(workspace, slack channel id)` → our channel |
+| `slack_conversations` | `(workspace, slack channel id)` → our conversation, for DMs |
+| `messages.slack_ts`, `conversation_messages.slack_ts` | The Slack timestamp a message came from; unique per channel or conversation |
+
+---
+
 ### saved
 
 One person's own list of kept messages. A row points at exactly one channel message or one

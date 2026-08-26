@@ -171,6 +171,39 @@ impl WorkspaceRepo {
         .await
     }
 
+    pub async fn add_member(
+        &self,
+        workspace_id: Uuid,
+        user_id: Uuid,
+        role: &WorkspaceRole,
+    ) -> sqlx::Result<WorkspaceMember> {
+        sqlx::query_as::<_, WorkspaceMember>(
+            r"
+            INSERT INTO workspace_members (workspace_id, user_id, role)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = workspace_members.role
+            RETURNING *
+            ",
+        )
+        .bind(workspace_id)
+        .bind(user_id)
+        .bind(role)
+        .fetch_one(&self.pool)
+        .await
+    }
+
+    pub async fn find_channel_by_name(
+        &self,
+        workspace_id: Uuid,
+        name: &str,
+    ) -> sqlx::Result<Option<Channel>> {
+        sqlx::query_as::<_, Channel>("SELECT * FROM channels WHERE workspace_id = $1 AND name = $2")
+            .bind(workspace_id)
+            .bind(name)
+            .fetch_optional(&self.pool)
+            .await
+    }
+
     pub async fn get_member(
         &self,
         workspace_id: Uuid,

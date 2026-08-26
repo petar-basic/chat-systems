@@ -53,6 +53,20 @@ impl EmojiRepo {
         .await
     }
 
+    pub async fn find_by_name(
+        &self,
+        workspace_id: Uuid,
+        name: &str,
+    ) -> sqlx::Result<Option<WorkspaceEmoji>> {
+        sqlx::query_as::<_, WorkspaceEmoji>(
+            "SELECT * FROM workspace_emojis WHERE workspace_id = $1 AND name = $2",
+        )
+        .bind(workspace_id)
+        .bind(name)
+        .fetch_optional(&self.pool)
+        .await
+    }
+
     pub async fn find(&self, id: Uuid) -> sqlx::Result<Option<WorkspaceEmoji>> {
         sqlx::query_as::<_, WorkspaceEmoji>("SELECT * FROM workspace_emojis WHERE id = $1")
             .bind(id)
