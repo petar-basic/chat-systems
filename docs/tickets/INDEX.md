@@ -9,9 +9,10 @@ history and in the docs it changed. A bug found mid-wave gets a suffixed number
 (`CS-005a`) so it lands where it belongs in the order without renumbering everything
 below it.
 
-**Waves 0 through 8 are done, and half of Wave 9.** The E2E suite is green and the `e2e`
-job blocks merges. Next ticket: [CS-038](CS-038-mobile-client.md) — the responsive pass now
-that Web Push has landed.
+**Waves 0 through 8 are done, and most of Wave 9.** The E2E suite is green and the `e2e`
+job blocks merges. Next ticket: [CS-041](CS-041-guest-directory-scoping.md) — Wave 10 goes
+before the remaining Wave 9 items, because a guest can be invited today and sees more than
+they should.
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
@@ -144,6 +145,23 @@ importer are shipped — see
 | [CS-037](CS-037-huddle-sfu.md) | SFU for large huddles | backend · frontend |
 | [CS-038](CS-038-mobile-client.md) | Mobile client | frontend |
 
+### Wave 10 — Guest containment and operational readiness
+
+From the adoption review of 2026-08-14, which asked whether a thirty-five person company
+with guest users, guest channels and locked channels could move off Slack onto this. Three
+of these are what stands between a guest being invited and something being exposed; the rest
+are what stands between "it works here" and "it is being relied on".
+
+| # | Ticket | Area | Why it is where it is |
+|---|---|---|---|
+| [CS-041](CS-041-guest-directory-scoping.md) | Scope the member directory for guests | backend/api · frontend | Data exposure, smallest fix, unblocks inviting a guest at all |
+| [CS-042](CS-042-guest-conversation-scope.md) | Restrict who a guest may DM | backend/api | Same predicate as CS-041, applied to writing |
+| [CS-043](CS-043-channel-posting-restrictions.md) | Announcement channels | backend/api · frontend | The missing feature, and it touches `authz` — after the guest rules settle there |
+| [CS-044](CS-044-revocation-fails-closed.md) | Revocation must not fail open | backend/api | Security, independent of the above |
+| [CS-045](CS-045-email-fallback-for-mentions.md) | Email a mention that reached nobody | backend/api | Needs push to exist first, so it can tell "unreachable" from "chose push" |
+| [CS-046](CS-046-huddle-consumers-on-groups.md) | Huddle and call consumers onto groups | backend/api · realtime | Removes the last reason `chat-worker` is one replica |
+| [CS-047](CS-047-prove-it-at-import-scale.md) | Prove it at import scale | backend · ops | Correctness before performance: last, and it decides what else gets a ticket |
+
 ## Conflict map
 
 Tickets that touch the same files, and the order that avoids rework:
@@ -151,9 +169,11 @@ Tickets that touch the same files, and the order that avoids rework:
 | File | Tickets, in order |
 |---|---|
 | `backend/api/src/lib.rs` router wiring | CS-012 ✅ → CS-030 ✅ |
-| `backend/api/src/authz.rs` | CS-009 → CS-010 → CS-020 ✅ |
+| `backend/api/src/authz.rs` | CS-009 ✅ → CS-010 ✅ → CS-020 ✅ → CS-041 → CS-042 → CS-043 |
 | `backend/api/src/sessions.rs` | CS-008 ✅ → CS-033 ✅ |
 | `backend/api/src/auth/service.rs` | CS-008 ✅ → CS-016 ✅ → CS-017 ✅ → CS-032 ✅ |
-| realtime event consumer | CS-007 ✅ → CS-014 ✅ → CS-027 ✅ → CS-028 ✅ |
+| realtime event consumer | CS-007 ✅ → CS-014 ✅ → CS-027 ✅ → CS-028 ✅ → CS-046 |
+| `workspace/repo.rs` member queries | CS-041 → CS-042 |
+| notification worker path | CS-028 ✅ → CS-035 ✅ → CS-045 → CS-046 |
 | `frontend/src/features/messaging/` | CS-024 ✅ → CS-025 ✅ → CS-029 ✅ |
 | `messages` table schema | CS-029 ✅ → CS-030 ✅ → CS-034 ✅ |
