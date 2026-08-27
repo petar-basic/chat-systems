@@ -780,6 +780,56 @@ for if push reliability or call ringing turns out to be the actual blocker.
 
 ---
 
+## Wave 10 — Guest containment and operational readiness
+
+Written on 2026-08-14 out of an adoption review: could a thirty-five person company with
+guest users, guest channels and locked channels move off Slack onto this instance? The
+answer was yes to the architecture and no to the current state, for reasons that are all
+small and none of which are structural. This wave is that list, in the order it should be
+worked.
+
+### [CS-041](./tickets/CS-041-guest-directory-scoping.md) — Scope the member directory
+**Today:** `list_members` requires only workspace membership and returns every member's
+email. A guest invited into one channel receives the company's full staff directory with
+addresses. Every other guest rule in the product is tight; this is the door still open.
+
+### [CS-042](./tickets/CS-042-guest-conversation-scope.md) — Restrict who a guest may DM
+**Today:** `create_conversation` checks workspace membership and nothing else, so a guest
+can open a private channel to anyone in the company. Once CS-041 stops them discovering the
+directory, this is the way back to it.
+
+### [CS-043](./tickets/CS-043-channel-posting-restrictions.md) — Announcement channels
+**Today:** anyone who can reach a channel can post in it. `channels.settings` is a `JSONB`
+column that no route has ever read or written. An announcements channel, a release feed, or
+a channel shared with guests where only staff should speak, do not exist as concepts. The
+only missing *feature* in this wave rather than a leak.
+
+### [CS-044](./tickets/CS-044-revocation-fails-closed.md) — Revocation must not fail open
+**Today:** a Redis error during the revocation lookup is treated as "not revoked", and the
+default access token lives an hour. So during a Redis incident, suspending somebody or
+deprovisioning them through SCIM quietly does not take effect — and nothing alerts on it,
+which is the worse half. CS-033's headline guarantee depends on this path.
+
+### [CS-045](./tickets/CS-045-email-fallback-for-mentions.md) — Email a mention that reached nobody
+**Today:** email is used for invitations and password resets, and for nothing else. Somebody
+mentioned while offline, who never granted push permission, finds out when they next open
+the app. Every team arriving from Slack reads that as messages being lost.
+
+### [CS-046](./tickets/CS-046-huddle-consumers-on-groups.md) — Huddle and call consumers onto groups
+**Today:** CS-028 moved the notification and hook consumers onto consumer groups; the huddle
+and call consumers stayed on plain pub/sub, which delivers to every subscriber. A second
+`chat-worker` replica double-records huddle history and rings twice, so the worker stays at
+one — a single point of failure for calls that fails in the quietest possible way.
+
+### [CS-047](./tickets/CS-047-prove-it-at-import-scale.md) — Prove it at import scale
+**Today:** the largest dataset this has ever run against is about 2,200 messages. A company
+migrating off Slack arrives with two or three orders of magnitude more on the first day.
+The search plan is right and the ranked pagination is unmeasured; the import, the backfill
+and the restore procedure have all only been exercised small. Nothing here is predicted to
+be broken — it is unknown, and the migration is where it would be discovered.
+
+---
+
 ## What is deliberately not on this list
 
 - **A password policy beyond length.** `CS-017` originally proposed a 12-character
