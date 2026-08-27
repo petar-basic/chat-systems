@@ -10,8 +10,9 @@ what it changed lives in the git history and in the docs it touched. Read
 [the index](./tickets/INDEX.md) for the dependency map and the conflict table; this page
 is the summary and the reasoning behind the sequence.
 
-**Waves 0 through 7 are shipped.** Next ticket:
-[CS-029](./tickets/CS-029-message-edit-history.md).
+**Waves 0 through 8 are shipped, and half of Wave 9.** Next ticket:
+[CS-038](./tickets/CS-038-mobile-client.md) — the responsive pass, now that Web Push has
+landed.
 
 ## How the order was chosen
 

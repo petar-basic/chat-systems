@@ -191,8 +191,34 @@ jobs:
       - name: Generate CI secrets
         run: ./.github/scripts/ci-env.sh
 
+      - uses: docker/setup-buildx-action@v3
+
+      # api, worker and realtime are the same image under three tags, so the
+      # workspace is compiled once here rather than three times by compose.
+      # Layer caching is the point: without it every run recompiles the whole
+      # release build, which was 71% of this job.
+      - name: Build the backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          load: true
+          tags: chat-api:latest,chat-worker:latest,chat-realtime:latest
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
+
+      - name: Build the frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          load: true
+          tags: chat-frontend:latest
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,scope=frontend,mode=max
+
+      # No --build: the images above are already in the daemon under the tags
+      # compose expects, and compose only builds what it cannot find.
       - name: Start the stack
-        run: docker compose --profile frontend up -d --build
+        run: docker compose --profile frontend up -d
 
       - name: Wait for readiness
         run: |
