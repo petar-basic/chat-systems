@@ -97,7 +97,7 @@ async fn send_message(
 ) -> AppResult<Json<Message>> {
     shared_common::validation::validate_message_content(&req.content)?;
 
-    let channel = authz::require_channel_access(&state, ch_id, auth.user_id)
+    let channel = authz::require_channel_post(&state, ch_id, auth.user_id)
         .await?
         .channel;
 
@@ -425,7 +425,7 @@ async fn reply_to_thread(
         .await?
         .ok_or_else(|| AppError::NotFound("Parent message not found".into()))?;
 
-    let channel = authz::require_channel_access(&state, parent.channel_id, auth.user_id)
+    let channel = authz::require_channel_post(&state, parent.channel_id, auth.user_id)
         .await?
         .channel;
 

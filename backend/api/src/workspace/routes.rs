@@ -256,12 +256,25 @@ async fn list_members(
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
-    let members = state
-        .workspace_service
-        .repo
-        .list_members_with_users(ws_id)
-        .await?;
+    let member = authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
+
+    // A guest is somebody from outside who was let into a room. Handing them the
+    // company's directory, with addresses, is the one door the rest of the guest
+    // rules leave open.
+    let members = if member.role == WorkspaceRole::Guest {
+        state
+            .workspace_service
+            .repo
+            .list_members_visible_to_guest(ws_id, auth.user_id)
+            .await?
+    } else {
+        state
+            .workspace_service
+            .repo
+            .list_members_with_users(ws_id)
+            .await?
+    };
+
     Ok(Json(serde_json::json!({ "data": members })))
 }
 
@@ -611,7 +624,7 @@ async fn update_channel(
     }
     let channel = authz::find_channel(&state, ch_id).await?;
     authz::require_channel_moderator(&state, &channel, auth.user_id).await?;
-    let updated = state
+    let mut updated = state
         .workspace_service
         .repo
         .update_channel(
@@ -621,6 +634,34 @@ async fn update_channel(
             req.description.as_deref(),
         )
         .await?;
+
+    if let Some(requested) = &req.post_policy {
+        let policy = authz::PostPolicy::parse(requested)?;
+        let before = channel
+            .settings
+            .get("post_policy")
+            .and_then(|v| v.as_str())
+            .unwrap_or("everyone")
+            .to_string();
+
+        updated = state
+            .workspace_service
+            .repo
+            .set_channel_post_policy(ch_id, policy.as_str())
+            .await?;
+
+        // "Who silenced this channel" is exactly the question an audit log is
+        // for, so it is recorded separately from the rename.
+        audit::record(
+            &state,
+            AuditEntry::new(AuditAction::ChannelPostPolicyChanged, auth.user_id)
+                .workspace(channel.workspace_id)
+                .resource(ch_id)
+                .ip(&ip)
+                .details(serde_json::json!({ "from": before, "to": policy.as_str() })),
+        )
+        .await;
+    }
 
     audit::record(
         &state,

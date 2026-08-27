@@ -1700,3 +1700,220 @@ async fn bookmarks_stay_inside_the_channel_that_owns_them(pool: PgPool) {
     .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
+
+async fn set_post_policy(app: &axum::Router, token: &str, ch_id: Uuid, policy: &str) -> StatusCode {
+    let (status, _) = send(
+        app,
+        "PATCH",
+        &format!("/api/channels/{ch_id}"),
+        Some(token),
+        Some(json!({ "post_policy": policy })),
+    )
+    .await;
+    status
+}
+
+/// The writers are the part that gets missed: the composer, thread replies,
+/// scheduled sends and slash commands are four different files, and each of
+/// them is a way into a channel that is supposed to be read-only.
+#[sqlx::test(migrations = "../migrations")]
+async fn an_announcement_channel_refuses_every_way_a_member_could_post(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "ann-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Announcements").await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "releases", false).await;
+
+    let (member_id, _, member_token) = seed_and_login(&app, &state, "ann-member", false).await;
+    add_ws_member(&state, ws_id, member_id, "member").await;
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(ch_id, member_id, &ChannelRole::Member)
+        .await
+        .expect("add the member to the channel");
+
+    let (status, parent) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/messages"),
+        Some(&member_token),
+        Some(json!({ "content": "before the lock" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{parent:?}");
+    let parent_id = parent["id"].as_str().expect("message id").to_string();
+
+    assert_eq!(
+        set_post_policy(&app, &owner_token, ch_id, "moderators").await,
+        StatusCode::OK
+    );
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/messages"),
+        Some(&member_token),
+        Some(json!({ "content": "after the lock" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "the composer");
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/messages/{parent_id}/thread"),
+        Some(&member_token),
+        Some(json!({ "content": "a reply is a post too" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "thread replies");
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/scheduled-messages"),
+        Some(&member_token),
+        Some(json!({
+            "channel_id": ch_id,
+            "content": "later",
+            "send_at": (chrono::Utc::now() + chrono::Duration::hours(1)).to_rfc3339(),
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "scheduled sends");
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/commands"),
+        Some(&member_token),
+        Some(json!({ "command": "shrug", "text": "hello" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "the command still runs: {body:?}");
+    assert_eq!(
+        body["response_type"], "ephemeral",
+        "but its answer is not posted into a channel they may not write to"
+    );
+
+    let posted: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM messages WHERE channel_id = $1")
+        .bind(ch_id)
+        .fetch_one(&state.pool)
+        .await
+        .expect("count");
+    assert_eq!(posted, 1, "only the message from before the lock");
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn reading_and_reacting_are_untouched_by_the_policy(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "ann-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Announcements").await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "releases", false).await;
+    let (member_id, _, member_token) = seed_and_login(&app, &state, "ann-member", false).await;
+    add_ws_member(&state, ws_id, member_id, "member").await;
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(ch_id, member_id, &ChannelRole::Member)
+        .await
+        .expect("add the member");
+
+    let (_, posted) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/messages"),
+        Some(&owner_token),
+        Some(json!({ "content": "release 2.0 is out" })),
+    )
+    .await;
+    let msg_id = posted["id"].as_str().expect("message id");
+    assert_eq!(
+        set_post_policy(&app, &owner_token, ch_id, "moderators").await,
+        StatusCode::OK
+    );
+
+    let (status, _) = send(
+        &app,
+        "GET",
+        &format!("/api/channels/{ch_id}/messages"),
+        Some(&member_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "reading is unaffected");
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/messages/{msg_id}/reactions"),
+        Some(&member_token),
+        Some(json!({ "emoji": "🎉" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "a reaction is not a post");
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn moderators_post_and_only_moderators_change_the_policy(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "ann-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Announcements").await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "releases", false).await;
+    let (member_id, _, member_token) = seed_and_login(&app, &state, "ann-member", false).await;
+    add_ws_member(&state, ws_id, member_id, "member").await;
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(ch_id, member_id, &ChannelRole::Member)
+        .await
+        .expect("add the member");
+
+    assert_eq!(
+        set_post_policy(&app, &member_token, ch_id, "moderators").await,
+        StatusCode::FORBIDDEN,
+        "a plain member cannot silence a channel"
+    );
+    assert_eq!(
+        set_post_policy(&app, &owner_token, ch_id, "moderators").await,
+        StatusCode::OK
+    );
+    assert_eq!(
+        set_post_policy(&app, &owner_token, ch_id, "nonsense").await,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "the policy is a closed set"
+    );
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/messages"),
+        Some(&owner_token),
+        Some(json!({ "content": "still allowed" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "the people who moderate can speak");
+
+    let audited: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM audit_log WHERE action = 'channel.post_policy_changed' \
+         AND details->>'from' = 'everyone' AND details->>'to' = 'moderators'",
+    )
+    .fetch_one(&state.pool)
+    .await
+    .expect("count audit");
+    assert_eq!(audited, 1, "with before and after");
+
+    assert_eq!(
+        set_post_policy(&app, &owner_token, ch_id, "everyone").await,
+        StatusCode::OK
+    );
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/messages"),
+        Some(&member_token),
+        Some(json!({ "content": "unlocked again" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "and it is reversible");
+}

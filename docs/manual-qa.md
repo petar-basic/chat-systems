@@ -326,3 +326,33 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 1. `docker compose ps` — all healthy? `/readyz` green?
 2. `docker compose logs api realtime` — JSON logs; find the `request_id` from the response and grep it.
 3. Postgres reachable on 5433 (dev) / inside-network 5432; Redis on 6380 (dev) / 6379.
+
+## 12. On a phone (what emulation cannot check)
+
+The Playwright `mobile` project covers layout at a phone width. These are the
+things a headless Pixel cannot tell you, and each one has bitten this app at
+least once.
+
+Install the PWA on a real device first: iOS *Share → Add to Home Screen*,
+Android *menu → Install app*. A secure context is required, so this needs the
+HTTPS deployment rather than `http://192.168.x.x`.
+
+- [ ] **Keyboard.** Tap the composer. The page must not zoom (that is the 16px
+      rule), the composer must stay visible above the keyboard, and the message
+      list must still be scrolled to where it was when the keyboard closes.
+- [ ] **Safe areas.** On a notched or gesture-bar device, the send button is not
+      under the home indicator, and the channel header is not under the notch —
+      in the installed PWA as well as in the browser, which crop differently.
+- [ ] **Drawer.** Open the navigation drawer, then open a dialog from it
+      (Browse channels). The dialog must cover the screen, not sit inside the
+      drawer. A transformed ancestor is the containing block for
+      `position: fixed`, which is what made this wrong before the portal.
+- [ ] **Back gesture.** From a thread, the system back gesture returns to the
+      channel rather than leaving the app.
+- [ ] **Background and foreground.** Lock the phone for a minute, come back:
+      the socket reconnects and missed messages backfill.
+- [ ] **Push.** With the app fully closed, a mention arrives as a system
+      notification, and tapping it opens that message. On iOS this only works
+      for the installed PWA.
+- [ ] **Huddle.** Joining is audio-only and says so; the call survives the screen
+      locking.

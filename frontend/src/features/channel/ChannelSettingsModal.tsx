@@ -15,6 +15,9 @@ export default function ChannelSettingsModal({ channel, workspaceId, onClose, on
   const [name, setName] = useState(channel.name ?? '');
   const [topic, setTopic] = useState(channel.topic ?? '');
   const [description, setDescription] = useState(channel.description ?? '');
+  const [announcementOnly, setAnnouncementOnly] = useState(
+    channel.settings?.post_policy === 'moderators',
+  );
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,6 +36,7 @@ export default function ChannelSettingsModal({ channel, workspaceId, onClose, on
         name: name.trim(),
         topic: topic.trim(),
         description: description.trim(),
+        post_policy: announcementOnly ? 'moderators' : 'everyone',
       });
       onClose();
     } catch (err: unknown) {
@@ -107,6 +111,22 @@ export default function ChannelSettingsModal({ channel, workspaceId, onClose, on
             className="w-full px-3 py-2.5 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
           />
         </div>
+
+        <label className="flex items-start gap-3 cursor-pointer" data-qa="channel-settings-announcement">
+          <input
+            type="checkbox"
+            checked={announcementOnly}
+            onChange={(e) => setAnnouncementOnly(e.target.checked)}
+            className="mt-0.5 w-4 h-4 rounded border-slate-600 bg-slate-700 text-purple-600 focus:ring-purple-500"
+          />
+          <span>
+            <span className="block text-sm font-medium text-slate-300">Announcement channel</span>
+            <span className="block text-xs text-slate-400">
+              Only workspace admins and this channel's admins can post. Everyone else can still
+              read and react.
+            </span>
+          </span>
+        </label>
 
         {error && (
           <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">

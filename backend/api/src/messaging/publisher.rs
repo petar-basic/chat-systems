@@ -19,6 +19,14 @@ pub fn workspace_stream(workspace_id: Uuid) -> String {
 /// deliberately not here: replaying a typing indicator from five minutes ago is
 /// not recovery, it is a bug, and a late ICE candidate is worse than none.
 fn is_durable(event_type: &str) -> bool {
+    // Huddle *membership* is history: it is written to a table and read back as
+    // a call log, so it belongs in the log with the other durable events. The
+    // ring and the WebRTC signalling stay ephemeral — replaying either one
+    // minutes later is worse than not replaying it.
+    if matches!(event_type, "huddle.member_joined" | "huddle.member_left") {
+        return true;
+    }
+
     matches!(
         event_type.split('.').next(),
         Some("message" | "reaction" | "workspace" | "conversation")

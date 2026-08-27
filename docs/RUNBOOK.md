@@ -334,6 +334,49 @@ a hook then has the server's network position, set
 **Nothing to migrate by hand.** Migrations 27 to 35 are additive apart from dropping the old
 `content_search` column, which is a catalog change rather than a rewrite.
 
+## Upgrade note: Wave 11 changes who guests can see and how sessions fail
+
+**Guests see less, immediately and without a migration.** A guest now gets only the people
+they share a channel with, and no email addresses at all. If you were relying on the member
+list as a directory for guest accounts, that is gone on deploy — it was handing external
+people your staff list. Members, admins and owners are unaffected.
+
+A guest also cannot start a conversation with somebody they share no channel with.
+Conversations that already exist keep working.
+
+**Announcement channels.** `PATCH /api/channels/:id` accepts `post_policy`: `everyone` (the
+default, and what every existing channel is) or `moderators`. Under `moderators` the
+composer, thread replies, scheduled sends and `in_channel` slash commands are refused for
+everybody but workspace admins and that channel's admins; reading and reacting are
+unchanged, and an incoming webhook scoped to the channel still posts. Changes are audited as
+`channel.post_policy_changed` with before and after.
+
+**`ACCESS_TOKEN_EXPIRY` now defaults to 900, not 3600.** Clients refresh transparently, so
+this is invisible in use — it is the window in which a revoked session would still work if
+the revocation store could not be reached. Raising it back raises that window.
+
+**A revocation lookup that fails now refuses the request.** Redis gets 250ms and one retry;
+after that the API answers `503` and the realtime gateway refuses the socket, rather than
+treating "cannot check" as "not revoked". Watch `auth_revocation_lookup_failures_total`: any
+sustained non-zero rate means Redis is unhealthy *and* people are being turned away, and both
+need looking at. This is the trade — a Redis outage now degrades sign-in instead of silently
+disabling deprovisioning.
+
+**Mention emails.** If SMTP is configured, somebody who is mentioned while offline, with no
+push subscription, not muted and not in do-not-disturb, gets one digest email five minutes
+later — cancelled if they come online first. It carries who and where and a link, never the
+message text. Individuals can turn it off at `PATCH /api/notifications/email`; with SMTP
+unconfigured the whole feature is off and logs nothing.
+
+**`chat-worker` can now run more than one replica.** The huddle consumer reads through a
+consumer group like the others, and the ring claims `(huddle_id, to_user_id)` before it
+sends, so a second replica loses the race instead of ringing twice. The scheduled dispatcher
+and reminder checker already claimed their rows. Nothing forces you to scale it — at a few
+dozen people one replica is plenty — but it is no longer a correctness constraint.
+
+**Migrations 39 and 40** add `pending_mention_emails`, `users.mention_emails` and
+`huddle_ring_claims`. All additive.
+
 ## Audit log
 
 `GET /api/workspaces/:ws_id/audit-log` (workspace admin) and `GET /api/admin/audit-log`

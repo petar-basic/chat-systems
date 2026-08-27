@@ -844,3 +844,160 @@ async fn a_thread_belongs_to_its_own_conversation(pool: PgPool) {
         "a thread is as private as the conversation it is in"
     );
 }
+
+/// CS-041 stopped a guest discovering the directory. This is the other way back
+/// to it: a guest who already knows a user id could open a private channel to
+/// anyone in the company.
+#[sqlx::test(migrations = "../migrations")]
+async fn a_guest_can_only_open_a_conversation_with_somebody_they_share_a_channel_with(
+    pool: PgPool,
+) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "dm-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Guest DMs").await;
+
+    let (mate_id, _, _) = seed_and_login(&app, &state, "dm-mate", false).await;
+    add_ws_member(&state, ws_id, mate_id, "member").await;
+    let (stranger_id, _, _) = seed_and_login(&app, &state, "dm-stranger", false).await;
+    add_ws_member(&state, ws_id, stranger_id, "member").await;
+
+    let (guest_id, _, guest_token) = seed_and_login(&app, &state, "dm-guest", false).await;
+    add_ws_member(&state, ws_id, guest_id, "guest").await;
+
+    let shared = seed_channel(&state, ws_id, owner_id, "shared-room", true).await;
+    for member in [mate_id, guest_id] {
+        state
+            .workspace_service
+            .repo
+            .add_channel_member(
+                shared,
+                member,
+                &crate::workspace::models::ChannelRole::Member,
+            )
+            .await
+            .expect("add to the shared channel");
+    }
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/conversations"),
+        Some(&guest_token),
+        Some(json!({ "participant_ids": [mate_id] })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "somebody they share a room with: {body:?}"
+    );
+
+    let (status, refused) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/conversations"),
+        Some(&guest_token),
+        Some(json!({ "participant_ids": [stranger_id] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "somebody they do not");
+
+    let (status, unknown) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/conversations"),
+        Some(&guest_token),
+        Some(json!({ "participant_ids": [Uuid::new_v4()] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(
+        unknown, refused,
+        "an id that does not exist and one that is out of reach answer identically, \
+         or the endpoint is the directory again"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn a_member_still_opens_a_conversation_with_anyone_in_the_workspace(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "dm-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Open DMs").await;
+    let (one_id, _, one_token) = seed_and_login(&app, &state, "dm-one", false).await;
+    add_ws_member(&state, ws_id, one_id, "member").await;
+    let (two_id, _, _) = seed_and_login(&app, &state, "dm-two", false).await;
+    add_ws_member(&state, ws_id, two_id, "member").await;
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/conversations"),
+        Some(&one_token),
+        Some(json!({ "participant_ids": [two_id] })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "the restriction is on the guest role, not on the workspace: {body:?}"
+    );
+}
+
+/// The rule is on creating one. Somebody who has since left the shared channel
+/// keeps the thread they already had.
+#[sqlx::test(migrations = "../migrations")]
+async fn an_existing_conversation_survives_the_guest_leaving_the_shared_channel(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "dm-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Leftovers").await;
+    let (mate_id, _, _) = seed_and_login(&app, &state, "dm-mate", false).await;
+    add_ws_member(&state, ws_id, mate_id, "member").await;
+    let (guest_id, _, guest_token) = seed_and_login(&app, &state, "dm-guest", false).await;
+    add_ws_member(&state, ws_id, guest_id, "guest").await;
+
+    let shared = seed_channel(&state, ws_id, owner_id, "temporary", true).await;
+    for member in [mate_id, guest_id] {
+        state
+            .workspace_service
+            .repo
+            .add_channel_member(
+                shared,
+                member,
+                &crate::workspace::models::ChannelRole::Member,
+            )
+            .await
+            .expect("add to the shared channel");
+    }
+
+    let (status, conversation) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/conversations"),
+        Some(&guest_token),
+        Some(json!({ "participant_ids": [mate_id] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{conversation:?}");
+    let conversation_id = conversation["id"].as_str().expect("conversation id");
+
+    sqlx::query("DELETE FROM channel_members WHERE channel_id = $1 AND user_id = $2")
+        .bind(shared)
+        .bind(guest_id)
+        .execute(&state.pool)
+        .await
+        .expect("remove the guest from the channel");
+
+    let (status, _) = send(
+        &app,
+        "GET",
+        &format!("/api/conversations/{conversation_id}/messages"),
+        Some(&guest_token),
+        None,
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "participation still guards reading it"
+    );
+}

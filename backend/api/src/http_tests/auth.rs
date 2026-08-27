@@ -863,3 +863,68 @@ async fn a_status_has_to_say_something(pool: PgPool) {
         "an expiry in the past"
     );
 }
+
+/// The failure mode CS-033 depends on. A Redis that cannot answer used to mean
+/// "not revoked", so during an incident a suspended or deprovisioned person kept
+/// working for the life of their access token.
+#[sqlx::test(migrations = "../migrations")]
+async fn a_revocation_store_that_cannot_answer_refuses_the_request(pool: PgPool) {
+    use crate::middleware::{RevocationRecord, RevocationState, RevocationStore};
+
+    let (app, state) = app_and_state(pool).await;
+    let (user_id, _, token) = seed_and_login(&app, &state, "revoke", false).await;
+
+    let healthy = RevocationStore(state.redis.clone());
+    let claims = crate::middleware::Claims {
+        sub: user_id,
+        email: "revoke@test.local".into(),
+        is_instance_admin: false,
+        iat: chrono::Utc::now().timestamp(),
+        exp: chrono::Utc::now().timestamp() + 900,
+        jti: Some(uuid::Uuid::new_v4()),
+        token_type: "access".into(),
+        workspace_id: None,
+        invite_role: None,
+    };
+    assert_eq!(
+        healthy.revocation_state(&claims).await,
+        RevocationState::Valid,
+        "a healthy store with no record says the session is fine"
+    );
+
+    healthy
+        .revoke(
+            user_id,
+            &RevocationRecord {
+                at: chrono::Utc::now().timestamp() + 1,
+                except_jti: None,
+            },
+            900,
+        )
+        .await;
+    assert_eq!(
+        healthy.revocation_state(&claims).await,
+        RevocationState::Revoked
+    );
+
+    // A Redis nobody is listening on: the connection manager reconnects
+    // forever, so every lookup errors or times out.
+    let dead = redis::Client::open("redis://127.0.0.1:6399")
+        .expect("client")
+        .get_connection_manager()
+        .await;
+    if let Ok(conn) = dead {
+        assert_eq!(
+            RevocationStore(conn).revocation_state(&claims).await,
+            RevocationState::Unknown,
+            "an unreachable store is not the same answer as a valid session"
+        );
+    }
+
+    let (status, _) = send(&app, "GET", "/api/users/me", Some(&token), None).await;
+    assert_eq!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "the revoked session is refused on the healthy path"
+    );
+}

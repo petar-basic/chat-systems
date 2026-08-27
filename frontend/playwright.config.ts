@@ -18,5 +18,20 @@ export default defineConfig({
     testIdAttribute: 'data-qa',
     trace: 'on-first-retry',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    {
+      name: 'chromium',
+      // The mobile spec asserts phone geometry; running it at desktop width
+      // fails for the right reason and the wrong project.
+      testIgnore: /mobile\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    // Layout regressions only. Everything emulation cannot reach — the virtual
+    // keyboard, safe areas, the install flow — is in docs/manual-qa.md.
+    {
+      name: 'mobile',
+      testMatch: /mobile\.spec\.ts/,
+      use: { ...devices['Pixel 7'] },
+    },
+  ],
 });

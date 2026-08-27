@@ -29,7 +29,8 @@ integration-test suite and a real CI pipeline.
 - **Presence & typing** — live, multi-tab and multi-node aware
 - **File sharing** — uploads served through the authenticated API (local disk or S3/MinIO)
 - **Multi-workspace** — one instance, many teams; the client can connect to several instances
-- **Role-based access** — Instance Admin, Workspace Owner/Admin, Channel Admin, Member, Guest
+- **Role-based access** — Instance Admin, Workspace Owner/Admin, Channel Admin, Member, Guest — guests see only the people they share a channel with
+- **Announcement channels** — read-only to everyone but moderators, while reactions keep working
 - **Invite-only onboarding** — email invites, password reset, no open sign-up
 - **Webhooks, bots and slash commands** — incoming (Slack-compatible `{"text":...}` → channel), outgoing (SSRF-hardened, HMAC-signed), and synchronous `/commands`
 - **Enterprise auth** — SSO (OIDC), TOTP with recovery codes, SCIM deprovisioning
@@ -52,7 +53,7 @@ What a team moving from Slack should expect to be missing or different:
 
 | Missing / different | Where it stands |
 |---|---|
-| **No mobile app.** The UI is desktop-first; on a phone it is usable but not designed for it. The PWA installs and receives push. | Responsive layout is the next planned work ([CS-038](docs/tickets/CS-038-mobile-client.md)) |
+| **No native mobile app.** The web app is responsive and installs as a PWA with push, but there is nothing in an app store. | Deliberate — see [ROADMAP.md](docs/ROADMAP.md#wave-11--guest-containment-operational-readiness-and-mobile--shipped); React Native only if push reliability or call ringing proves to be the blocker |
 | **Huddles are peer-to-peer mesh** — comfortable to six or eight people, not a 30-person all-hands. No recording. | SFU planned ([CS-037](docs/tickets/CS-037-huddle-sfu.md)); recording deliberately out of scope |
 | **Presence is derived, not declared.** Online / away / offline follows whether you hold a connection; there is no manual "away". A custom status ("In a meeting 🍕") is the separate thing, and that you do set yourself. | Deliberate |
 | **Search covers message text**, not file names or file contents. | Not planned yet |
@@ -110,8 +111,8 @@ unsigned-binary warnings, and it updates the moment you deploy:
   bar (or menu → *Install app*). You get a standalone window, dock/taskbar icon, and
   an unread-count badge on the app icon.
 - **Safari (macOS)** — *File → Add to Dock*.
-- **iOS / Android** — *Share → Add to Home Screen* (the UI is desktop-first; mobile
-  layout is not a goal yet).
+- **iOS / Android** — *Share → Add to Home Screen*. The layout adapts to a phone, and
+  an installed PWA is what receives Web Push on iOS.
 
 ## Documentation
 

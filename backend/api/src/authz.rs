@@ -8,6 +8,31 @@ use crate::workspace::models::{
     Channel, ChannelMember, ChannelRole, ChannelType, WorkspaceMember, WorkspaceRole,
 };
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PostPolicy {
+    Everyone,
+    Moderators,
+}
+
+impl PostPolicy {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Everyone => "everyone",
+            Self::Moderators => "moderators",
+        }
+    }
+
+    pub fn parse(value: &str) -> AppResult<Self> {
+        match value {
+            "everyone" => Ok(Self::Everyone),
+            "moderators" => Ok(Self::Moderators),
+            other => Err(AppError::Validation(format!(
+                "post_policy is 'everyone' or 'moderators', not '{other}'"
+            ))),
+        }
+    }
+}
+
 pub struct ChannelAccess {
     pub channel: Channel,
     pub member: WorkspaceMember,
@@ -25,6 +50,31 @@ impl ChannelAccess {
 
     pub fn is_channel_admin(&self) -> bool {
         matches!(&self.channel_member, Some(cm) if cm.role == ChannelRole::Admin)
+    }
+
+    /// Who may post here. `everyone` is the default and what every channel that
+    /// has never been configured returns; `moderators` is an announcement
+    /// channel, where the people who can moderate are the people who can speak.
+    ///
+    /// Read off `channels.settings`, which the schema has carried since the
+    /// first migration and nothing had ever used.
+    pub fn post_policy(&self) -> PostPolicy {
+        match self
+            .channel
+            .settings
+            .get("post_policy")
+            .and_then(|v| v.as_str())
+        {
+            Some("moderators") => PostPolicy::Moderators,
+            _ => PostPolicy::Everyone,
+        }
+    }
+
+    pub fn can_post(&self) -> bool {
+        match self.post_policy() {
+            PostPolicy::Everyone => true,
+            PostPolicy::Moderators => self.can_moderate(),
+        }
     }
 
     pub fn can_moderate(&self) -> bool {
@@ -99,6 +149,25 @@ pub async fn require_channel_access(
         return Err(AppError::Forbidden("Not a member of this channel".into()));
     }
 
+    Ok(access)
+}
+
+/// Access plus the right to speak. Every path that writes a message goes
+/// through this rather than through `require_channel_access`, so an
+/// announcement channel is enforced in one place instead of in each writer --
+/// and the writers are the part that gets missed: the composer, thread replies,
+/// scheduled sends and slash commands are four different files.
+pub async fn require_channel_post(
+    state: &AppState,
+    channel_id: Uuid,
+    user_id: Uuid,
+) -> AppResult<ChannelAccess> {
+    let access = require_channel_access(state, channel_id, user_id).await?;
+    if !access.can_post() {
+        return Err(AppError::Forbidden(
+            "Only moderators can post in this channel".into(),
+        ));
+    }
     Ok(access)
 }
 

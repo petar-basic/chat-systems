@@ -11,6 +11,24 @@ export function canModerateChannel(
   return channelRole === 'admin';
 }
 
+/**
+ * Mirrors `ChannelAccess::can_post` on the server, and deliberately delegates to
+ * `canModerateChannel` rather than restating who a moderator is — one copy of
+ * that rule on this side, not two.
+ *
+ * The server is still the boundary. This exists so the composer does not offer
+ * what will be refused, which reads as the product being broken rather than as
+ * the channel being locked.
+ */
+export function canPostInChannel(
+  settings: { post_policy?: 'everyone' | 'moderators' } | null | undefined,
+  workspaceRole: WorkspaceRole | null,
+  channelRole: ChannelRole | undefined,
+): boolean {
+  if (settings?.post_policy !== 'moderators') return true;
+  return canModerateChannel(workspaceRole, channelRole);
+}
+
 export function canAddChannelMembers(
   workspaceRole: WorkspaceRole | null,
   channelRole: ChannelRole | undefined,

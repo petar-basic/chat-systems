@@ -58,6 +58,15 @@
   word-break: break-words;
 }
 
+/* iOS Safari zooms the page whenever a focused editable is under 16px, so
+   tapping the composer scaled the whole app up and left the person pinching
+   back out. Only the editor needs the larger size, and only on a phone. */
+@media (max-width: 640px) {
+  .tiptap-editor .tiptap {
+    font-size: 1rem;
+  }
+}
+
 .tiptap-content p,
 .tiptap-editor .tiptap p {
   margin: 0;

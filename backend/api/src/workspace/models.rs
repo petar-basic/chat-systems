@@ -230,6 +230,9 @@ pub struct UpdateChannelRequest {
     pub name: Option<String>,
     pub topic: Option<String>,
     pub description: Option<String>,
+    /// `everyone` or `moderators`. Absent means unchanged, which is how a
+    /// client that predates announcement channels keeps working.
+    pub post_policy: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
