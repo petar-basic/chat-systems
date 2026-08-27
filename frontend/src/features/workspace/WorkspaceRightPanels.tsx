@@ -17,6 +17,7 @@ import ScheduledMessagesPanel from '@/components/ScheduledMessagesPanel';
 import ConversationThreadPanel from '@/components/ConversationThreadPanel';
 import SavedItemsPanel from '@/components/SavedItemsPanel';
 import RemindersPanel from '@/components/RemindersPanel';
+import SlackImportPanel from '@/components/SlackImportPanel';
 
 interface Props {
   panel: RightPanel;
@@ -102,6 +103,15 @@ export default function WorkspaceRightPanels({
         instanceUrl={currentWorkspace.instanceUrl}
         channels={channels}
         currentUserId={currentUserId}
+        onClose={onClose}
+      />
+    );
+  }
+  if (panel.kind === 'slackImport' && currentWorkspace) {
+    return (
+      <SlackImportPanel
+        workspaceId={currentWorkspace.id}
+        instanceUrl={currentWorkspace.instanceUrl}
         onClose={onClose}
       />
     );

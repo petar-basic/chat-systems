@@ -18,6 +18,10 @@ use chrono::{DateTime, Utc};
 use shared_common::errors::is_unique_violation;
 use tracing::{info, warn};
 
+/// Often enough that a watched import looks alive, rarely enough that it is not
+/// one write per message.
+const PROGRESS_EVERY: usize = 500;
+
 impl Import<'_> {
     /// The second pass. Parents are written before replies within a channel —
     /// Slack's day files are in order — so `thread_ts` resolves against a row
@@ -42,6 +46,11 @@ impl Import<'_> {
                 for message in messages {
                     self.import_message(*target, &message, &mut by_slack_ts)
                         .await?;
+                }
+                // Messages are the pass that takes hours, so the counter moves
+                // while it runs rather than at the end of it.
+                if self.report.messages_imported.is_multiple_of(PROGRESS_EVERY) {
+                    self.publish_progress().await;
                 }
             }
         }

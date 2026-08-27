@@ -22,6 +22,8 @@ const INBOUND_PER_SEC: f32 = 20.0;
 const INBOUND_BURST: f32 = 40.0;
 const TYPING_COALESCE: Duration = Duration::from_secs(3);
 const INBOUND_FLOOD_CLOSE_CODE: u16 = 4002;
+/// A cap on one frame, so the batch cannot become the flood it replaced.
+const MAX_JOINS_PER_FRAME: usize = 1_000;
 
 pub(crate) struct InboundState {
     tokens: f32,
@@ -333,20 +335,38 @@ pub(crate) async fn handle_client_message(
                 }
             }
         }
+        // One frame for however many channels the client can see. A workspace
+        // with hundreds of them used to mean hundreds of frames at connect,
+        // which the inbound flood guard rightly closed the socket over — the
+        // client was cut off by the very act of arriving.
         "channel.join" => {
-            if let Some(ch_id) = msg.get("channel_id").and_then(|v| v.as_str()) {
-                if let Ok(ch_id) = ch_id.parse::<Uuid>() {
-                    if !cm.is_channel_member(ch_id, user_id).await {
-                        warn!(
-                            "Denied channel.join: user {} is not a member of channel {}",
-                            user_id, ch_id
-                        );
-                        return;
-                    }
-                    cm.join_channel(conn_id, ch_id);
-                    info!("User {} joined channel {}", user_id, ch_id);
-                }
+            let requested: Vec<Uuid> = msg
+                .get("channel_ids")
+                .and_then(|v| v.as_array())
+                .map(|ids| {
+                    ids.iter()
+                        .filter_map(|id| id.as_str()?.parse::<Uuid>().ok())
+                        .take(MAX_JOINS_PER_FRAME)
+                        .collect()
+                })
+                .unwrap_or_default();
+            if requested.is_empty() {
+                return;
             }
+
+            let allowed = cm.channel_memberships(&requested, user_id).await;
+            if allowed.len() < requested.len() {
+                warn!(
+                    "Denied {} of {} channel.join ids: user {} is not a member",
+                    requested.len() - allowed.len(),
+                    requested.len(),
+                    user_id
+                );
+            }
+            for ch_id in &allowed {
+                cm.join_channel(conn_id, *ch_id);
+            }
+            info!("User {} joined {} channels", user_id, allowed.len());
         }
         "channel.leave" => {
             if let Some(ch_id) = msg.get("channel_id").and_then(|v| v.as_str()) {

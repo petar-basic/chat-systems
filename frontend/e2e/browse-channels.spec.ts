@@ -1,8 +1,8 @@
 import { test, expect, type APIRequestContext } from '@playwright/test';
-import { API, login, userContext } from './helpers';
+import { API, login, userContext, devWorkspace } from './helpers';
 
 async function firstWorkspace(ctx: APIRequestContext) {
-  return (await (await ctx.get(`${API}/workspaces`)).json()).data[0];
+  return await devWorkspace(ctx);
 }
 
 async function createChannel(ctx: APIRequestContext, workspaceId: string, name: string, type: string) {

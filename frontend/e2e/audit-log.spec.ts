@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext } from '@playwright/test';
-import { API, PASSWORD, login } from './helpers';
+import { API, PASSWORD, login, devWorkspace } from './helpers';
 
 async function signIn(ctx: APIRequestContext, email: string) {
   const res = await ctx.post(`${API}/auth/login`, { data: { email, password: PASSWORD } });
@@ -7,7 +7,7 @@ async function signIn(ctx: APIRequestContext, email: string) {
 }
 
 async function sharedWorkspace(ctx: APIRequestContext) {
-  return (await (await ctx.get(`${API}/workspaces`)).json()).data[0];
+  return await devWorkspace(ctx);
 }
 
 test('a destructive action shows up in the workspace audit log', async ({ page, playwright }) => {

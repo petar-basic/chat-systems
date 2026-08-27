@@ -364,13 +364,29 @@ move with it — nginx rejects first, and a mismatch surfaces as a bare 413.
 
 ## Importing a Slack export
 
-Slack gives you a ZIP. Unpack it or don't — `chat-import` reads either.
+Slack gives you a ZIP. **The ordinary way is the app**: as a workspace admin, workspace menu
+→ *Slack import*, choose the zip, leave *Dry run* ticked, and read the report. Untick it and
+upload again to do it for real. The upload is one request; the import itself runs in the
+worker, and the panel shows the counts as they move.
+
+The CLI below is for the two cases the browser cannot serve: an export larger than 512 MB, and
+a migration you want to watch from a shell.
 
 ```bash
 docker compose run --rm -e SERVICE=chat-import \
   -v /path/to/slack-export.zip:/import.zip api \
   --workspace <slug-or-uuid> --export /import.zip --dry-run
 ```
+
+**A whole Slack workspace becomes a workspace here.** Tick *Import into a new workspace* and
+the app suggests the name from the file — `Acme Slack export Jul 27 2026 - Aug 26 2026.zip`
+becomes `Acme` — because that is the only place Slack writes it. Nothing inside the archive
+names the workspace, manifest included.
+
+**Read the notes, not only the counts.** Slack's ordinary export (`MANUAL_NON_COMPLIANCE`)
+carries public channels and nothing else: no DMs, no private channels. An export whose
+`channels.json` is present and empty is a workspace with no public channels, which looks
+identical to a broken import until the report says which it was. Both are stated in the run.
 
 **What comes across.** Public channels from `channels.json`, private ones from `groups.json`,
 and direct and group messages from `dms.json` / `mpims.json` — the last two become

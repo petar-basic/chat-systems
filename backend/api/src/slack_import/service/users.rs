@@ -62,6 +62,15 @@ impl Import<'_> {
 
             if created {
                 self.report.users_created += 1;
+                if email.to_lowercase().ends_with("@slack-corp.com") {
+                    // Slack replaces a deactivated member's address with one of
+                    // its own. The account is still worth creating — their
+                    // history needs an owner — but nobody can ever claim it.
+                    self.report.note(format!(
+                        "{} has Slack's placeholder address, so that account cannot be claimed",
+                        user.display_name()
+                    ));
+                }
             } else {
                 self.report.users_matched += 1;
             }

@@ -101,6 +101,27 @@ impl ConnectionManager {
         self.redis.clone()
     }
 
+    /// Which of these channels the user actually belongs to, in one query. A
+    /// client joins every channel it can see the moment it connects, and asking
+    /// once per channel is a round trip per channel on every reconnect.
+    pub async fn channel_memberships(&self, channel_ids: &[Uuid], user_id: Uuid) -> Vec<Uuid> {
+        let result = sqlx::query_scalar::<_, Uuid>(
+            "SELECT channel_id FROM channel_members WHERE channel_id = ANY($1) AND user_id = $2",
+        )
+        .bind(channel_ids)
+        .bind(user_id)
+        .fetch_all(&self.db)
+        .await;
+
+        match result {
+            Ok(ids) => ids,
+            Err(e) => {
+                warn!("channel_memberships DB error (denying) user={user_id}: {e}");
+                Vec::new()
+            }
+        }
+    }
+
     pub async fn is_channel_member(&self, channel_id: Uuid, user_id: Uuid) -> bool {
         let result = sqlx::query_scalar::<_, bool>(
             "SELECT EXISTS(SELECT 1 FROM channel_members WHERE channel_id = $1 AND user_id = $2)",

@@ -1,12 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { authHeaders, login, SHOTS } from './helpers';
+import { authHeaders, devWorkspace, login, SHOTS } from './helpers';
 
 const stamp = process.env.E2E_STAMP || `x1-${Date.now()}`;
 
 test('J. hostile payloads are rendered inert', async ({ page, request }) => {
   const auth = await authHeaders(request, 'admin@dev.local');
-  const ws = (await (await request.get('http://localhost:3000/api/workspaces', { headers: auth })).json())
-    .data[0];
+  const ws = await devWorkspace(request, 'admin@dev.local');
   const chans = (
     await (
       await request.get(`http://localhost:3000/api/workspaces/${ws.id}/channels`, { headers: auth })
@@ -48,8 +47,7 @@ test('J. hostile payloads are rendered inert', async ({ page, request }) => {
 
 test('K. write rate limit protects the API', async ({ request }) => {
   const auth = await authHeaders(request, 'charlie@dev.local');
-  const ws = (await (await request.get('http://localhost:3000/api/workspaces', { headers: auth })).json())
-    .data[0];
+  const ws = await devWorkspace(request, 'charlie@dev.local');
   const chans = (
     await (
       await request.get(`http://localhost:3000/api/workspaces/${ws.id}/channels`, { headers: auth })

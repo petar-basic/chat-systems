@@ -106,6 +106,10 @@ export function useWorkspaceController() {
   } = useWorkspaceStore();
 
   const currentWorkspaceId = currentWorkspace?.id;
+  // The url is what `channels` was fetched for; the store catches up a render
+  // later. Navigating by the store id sends a fresh tab to the workspace it was
+  // last on, carrying the new workspace's channel with it.
+  const activeWorkspaceId = workspaceId ?? currentWorkspaceId;
 
   const { data: conversations = [] } = useConversations(
     workspaceId || currentWorkspace?.id || null,
@@ -238,7 +242,7 @@ export function useWorkspaceController() {
   }, [workspaces, deletedWorkspaces, workspaceId, currentWorkspace, selectWorkspace, navigate]);
 
   useEffect(() => {
-    if (!currentWorkspaceId || channels.length === 0) return;
+    if (!activeWorkspaceId || channels.length === 0) return;
     if (routeConversationId) return;
     if (urlChannelId) {
       const target = channels.find((c) => c.id === urlChannelId);
@@ -247,17 +251,17 @@ export function useWorkspaceController() {
         markChannelRead(target.id);
         markChannelNotificationsRead(target.id);
       } else if (!target) {
-        navigate(`/app/${currentWorkspaceId}`, { replace: true });
+        navigate(`/app/${activeWorkspaceId}`, { replace: true });
       }
     } else {
       const general = channels.find((c) => c.name === 'general') || channels[0];
-      navigate(`/app/${currentWorkspaceId}/${general.id}`, { replace: true });
+      navigate(`/app/${activeWorkspaceId}/${general.id}`, { replace: true });
     }
   }, [
     routeConversationId,
     urlChannelId,
     channels,
-    currentWorkspaceId,
+    activeWorkspaceId,
     currentChannel?.id,
     selectChannel,
     markChannelRead,
@@ -303,7 +307,7 @@ export function useWorkspaceController() {
   useEffect(() => {
     if (!currentWorkspaceId || channels.length === 0) return;
     const ws = getWs();
-    channels.forEach((ch) => ws.joinChannel(ch.id));
+    ws.joinChannels(channels.map((ch) => ch.id));
   }, [currentWorkspaceId, channels, getWs]);
 
   useEffect(() => {

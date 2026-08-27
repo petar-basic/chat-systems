@@ -42,6 +42,7 @@ pub enum AuditAction {
     InstanceRoleChanged,
     ExportRequested,
     ExportCompleted,
+    SlackImportStarted,
     UserDataErased,
     SsoLinked,
     TotpEnrolled,
@@ -93,6 +94,7 @@ impl AuditAction {
             Self::InstanceRoleChanged => "user.instance_role_changed",
             Self::ExportRequested => "export.requested",
             Self::ExportCompleted => "export.completed",
+            Self::SlackImportStarted => "slack_import.started",
             Self::UserDataErased => "user.data_erased",
             Self::SsoLinked => "sso.linked",
             Self::TotpEnrolled => "totp.enrolled",
@@ -155,6 +157,7 @@ impl AuditAction {
             Self::ScimTokenCreated | Self::ScimTokenRevoked | Self::ScimTokenRotated => "scim",
             Self::RetentionChanged | Self::RetentionPurge => "retention",
             Self::ExportRequested | Self::ExportCompleted => "export",
+            Self::SlackImportStarted => "slack_import",
         }
     }
 }

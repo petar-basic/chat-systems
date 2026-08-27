@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { API, login, send, userContext } from './helpers';
+import { API, login, send, userContext, devWorkspace } from './helpers';
 
 test.setTimeout(60_000);
 
@@ -13,7 +13,7 @@ async function openWorkspace(page: Page, email: string, workspaceId: string, cha
 
 test('a saved message shows up in the saved panel and can be taken out again', async ({ page }) => {
   const { ctx: admin } = await userContext('admin@dev.local');
-  const workspace = (await (await admin.get(`${API}/workspaces`)).json()).data[0];
+  const workspace = await devWorkspace(admin);
   const channels = (await (await admin.get(`${API}/workspaces/${workspace.id}/channels`)).json()).data;
   const channel = channels.find((c: { name: string }) => c.name === 'general');
 
@@ -45,7 +45,7 @@ test('a saved message shows up in the saved panel and can be taken out again', a
 test('a channel bookmark is added from the bar and everybody in the channel sees it', async ({ page }) => {
   const { ctx: admin } = await userContext('admin@dev.local');
   const { ctx: bob } = await userContext('bob@dev.local');
-  const workspace = (await (await admin.get(`${API}/workspaces`)).json()).data[0];
+  const workspace = await devWorkspace(admin);
   const stamp = Date.now();
   const created = await admin.post(`${API}/workspaces/${workspace.id}/channels`, {
     data: { name: `bookmarks-${stamp}`, channel_type: 'public' },
@@ -83,7 +83,7 @@ test('a channel bookmark is added from the bar and everybody in the channel sees
 test('a reply inside a direct message stays in its thread', async ({ page }) => {
   const { ctx: admin } = await userContext('admin@dev.local');
   const { ctx: bob, userId: bobId } = await userContext('bob@dev.local');
-  const workspace = (await (await bob.get(`${API}/workspaces`)).json()).data[0];
+  const workspace = await devWorkspace(bob);
   const stamp = Date.now();
 
   const conversation = await (
@@ -132,7 +132,7 @@ test('a reply inside a direct message stays in its thread', async ({ page }) => 
 
 test('a message forwarded to another channel arrives as a quote', async ({ page }) => {
   const { ctx: admin } = await userContext('admin@dev.local');
-  const workspace = (await (await admin.get(`${API}/workspaces`)).json()).data[0];
+  const workspace = await devWorkspace(admin);
   const channels = (await (await admin.get(`${API}/workspaces/${workspace.id}/channels`)).json()).data;
   const general = channels.find((c: { name: string }) => c.name === 'general');
 
@@ -171,7 +171,7 @@ test('a message forwarded to another channel arrives as a quote', async ({ page 
 
 test('a status set in the profile shows next to your name', async ({ page }) => {
   const { ctx: admin } = await userContext('admin@dev.local');
-  const workspace = (await (await admin.get(`${API}/workspaces`)).json()).data[0];
+  const workspace = await devWorkspace(admin);
   const channels = (await (await admin.get(`${API}/workspaces/${workspace.id}/channels`)).json()).data;
   const channel = channels.find((c: { name: string }) => c.name === 'general');
 
@@ -199,7 +199,7 @@ test('a status set in the profile shows next to your name', async ({ page }) => 
 
 test('a slash reminder turns up in the reminders panel and can be cancelled', async ({ page }) => {
   const { ctx: admin } = await userContext('admin@dev.local');
-  const workspace = (await (await admin.get(`${API}/workspaces`)).json()).data[0];
+  const workspace = await devWorkspace(admin);
   const channels = (await (await admin.get(`${API}/workspaces/${workspace.id}/channels`)).json()).data;
   const channel = channels.find((c: { name: string }) => c.name === 'general');
   const stamp = Date.now();

@@ -11,7 +11,7 @@ use crate::workspace::models::ChannelType;
 
 use super::files::SlackClient;
 use super::models::*;
-use super::source::ExportSource;
+use super::source::{read_json, ExportSource};
 
 mod channels;
 mod emoji;
@@ -43,6 +43,9 @@ pub struct Import<'a> {
     pub(crate) channels: HashMap<String, Uuid>,
     pub(crate) conversations: HashMap<String, Uuid>,
     pub(crate) report: ImportReport,
+    /// Set when the run was queued from the app: the row already exists, and the
+    /// import writes its progress into it rather than opening a second one.
+    run_id: Option<Uuid>,
 }
 
 impl<'a> Import<'a> {
@@ -74,26 +77,35 @@ impl<'a> Import<'a> {
             channels: HashMap::new(),
             conversations: HashMap::new(),
             report: ImportReport::default(),
+            run_id: None,
         })
     }
 
+    /// Reports into a row somebody else opened — the queued path, where the run
+    /// was recorded when the archive was uploaded.
+    pub fn reporting_into(mut self, run_id: Uuid) -> Self {
+        self.run_id = Some(run_id);
+        self
+    }
+
     pub async fn run(mut self, source: &mut dyn ExportSource) -> AppResult<ImportReport> {
-        let run_id = if self.dry_run {
-            None
-        } else {
-            Some(
+        if self.run_id.is_none() && !self.dry_run {
+            self.run_id = Some(
                 self.state
                     .slack_import_repo
                     .start_run(self.workspace_id, source.label(), self.dry_run)
                     .await
                     .map_err(|e| AppError::Database(e.to_string()))?,
-            )
-        };
+            );
+        }
 
+        self.check_manifest(source);
         self.load_existing_mappings().await?;
         self.import_users(source).await?;
+        self.publish_progress().await;
 
         self.import_custom_emoji(source).await?;
+        self.publish_progress().await;
 
         let mut targets = Vec::new();
         targets.extend(
@@ -107,9 +119,11 @@ impl<'a> Import<'a> {
         targets.extend(self.import_conversations(source, "dms.json").await?);
         targets.extend(self.import_conversations(source, "mpims.json").await?);
 
+        self.publish_progress().await;
+
         self.import_messages(source, &targets).await?;
 
-        if let Some(run_id) = run_id {
+        if let Some(run_id) = self.run_id {
             let report = serde_json::to_value(&self.report).unwrap_or_default();
             self.state
                 .slack_import_repo
@@ -119,6 +133,78 @@ impl<'a> Import<'a> {
         }
 
         Ok(self.report)
+    }
+
+    /// What the archive says about itself, checked against what is in it. Slack's
+    /// checksum is an undocumented aggregate, so this verifies the two things it
+    /// states plainly — how many files and how many bytes — which is what catches
+    /// a truncated download before an hour of work goes into it.
+    fn check_manifest(&mut self, source: &mut dyn ExportSource) {
+        if !source.has(".slack-manifest.json") {
+            return;
+        }
+        let manifest: SlackManifest = match read_json(source, ".slack-manifest.json") {
+            Ok(manifest) => manifest,
+            Err(e) => {
+                self.report.skip(".slack-manifest.json", e.to_string());
+                return;
+            }
+        };
+
+        let entries = source.entries();
+        let files = entries.len();
+        let bytes: u64 = entries.iter().map(|(_, size)| size).sum();
+
+        if let Some(claimed) = manifest.metadata.file_count {
+            if claimed != files {
+                self.report.skip(
+                    ".slack-manifest.json",
+                    format!("says {claimed} files, the archive holds {files}"),
+                );
+            }
+        }
+        if let Some(claimed) = manifest.metadata.total_bytes {
+            if claimed != bytes {
+                self.report.skip(
+                    ".slack-manifest.json",
+                    format!("says {claimed} bytes, the archive holds {bytes}"),
+                );
+            }
+        }
+
+        let kind = manifest
+            .metadata
+            .export_type
+            .unwrap_or_else(|| "unknown type".into());
+        let when = manifest.metadata.created_at_iso.unwrap_or_default();
+        self.report
+            .note(format!("{kind} export of {files} files, taken {when}"));
+        if kind.contains("NON_COMPLIANCE") {
+            // Worth saying before somebody concludes the import lost their
+            // messages: this kind of export never had them.
+            self.report.note(
+                "a non-compliance export carries public channels only — no DMs, no private channels"
+                    .to_string(),
+            );
+        }
+    }
+
+    /// The counts so far, for whoever is watching the run in the app. Best
+    /// effort: an import that cannot write its progress should still finish the
+    /// import.
+    pub(crate) async fn publish_progress(&self) {
+        let Some(run_id) = self.run_id else {
+            return;
+        };
+        let report = serde_json::to_value(&self.report).unwrap_or_default();
+        if let Err(e) = self
+            .state
+            .slack_import_repo
+            .record_progress(run_id, &report)
+            .await
+        {
+            tracing::warn!("import: failed to record progress: {e}");
+        }
     }
 
     /// A resumed run starts from what the last one wrote down, not from zero.
