@@ -13,6 +13,7 @@ import { QUERY_KEYS } from '@/shared/constants';
 import StatusEditor from './StatusEditor';
 import TwoFactorPanel from './TwoFactorPanel';
 import PushNotificationsPanel from './PushNotificationsPanel';
+import EmailNotificationsPanel from './EmailNotificationsPanel';
 
 interface Props {
   onClose: () => void;
@@ -221,19 +222,6 @@ export default function UserProfilePanel({ onClose }: Props) {
           />
         </div>
 
-        <div>
-          <label htmlFor="profile-avatar-url" className="block text-sm font-medium text-slate-300 mb-1.5">
-            Avatar URL
-          </label>
-          <input
-            id="profile-avatar-url"
-            type="url"
-            value={avatarUrl}
-            onChange={(e) => setAvatarUrl(e.target.value)}
-            className="w-full px-3 py-2.5 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            placeholder="https://example.com/avatar.png"
-          />
-        </div>
 
         {error && (
           <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
@@ -272,8 +260,20 @@ export default function UserProfilePanel({ onClose }: Props) {
         </div>
       </form>
 
-      <PushNotificationsPanel />
-      <TwoFactorPanel />
+      <section className="border-t border-slate-700 pt-5 mt-5 space-y-5">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Notifications
+        </h3>
+        <PushNotificationsPanel />
+        <EmailNotificationsPanel />
+      </section>
+
+      <section className="border-t border-slate-700 pt-5 mt-5">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">
+          Security
+        </h3>
+        <TwoFactorPanel />
+      </section>
     </Modal>
   );
 }

@@ -23,6 +23,7 @@ import {
   Bookmark,
   BellRing,
   Upload,
+  User,
 } from 'lucide-react';
 import type { Channel, Workspace, WorkspaceMember } from '@/stores/workspace';
 import type { Conversation } from '@/hooks/queries/useConversations';
@@ -219,6 +220,9 @@ export default function ChannelSidebar({
   const isWorkspaceAdmin = currentUserRole === 'admin' || currentUserRole === 'owner';
 
   const [wsDropdownOpen, setWsDropdownOpen] = useState(false);
+  const [youMenuOpen, setYouMenuOpen] = useState(false);
+  const youRef = useRef<HTMLDivElement>(null);
+  useOnClickOutside(youRef, () => setYouMenuOpen(false), youMenuOpen);
   const [showNewChannel, setShowNewChannel] = useState(false);
   const [newChannelName, setNewChannelName] = useState('');
   const [showDmPicker, setShowDmPicker] = useState(false);
@@ -328,7 +332,10 @@ export default function ChannelSidebar({
       <div
         role="navigation"
         aria-label="Channels and direct messages"
-        className="w-60 bg-slate-800/50 flex flex-col border-r border-slate-700/50"
+        // Opaque below `lg`: at that width this is a drawer floating over the
+        // message list, and a translucent panel let the messages read through
+        // the channel names.
+        className="w-60 bg-slate-800 lg:bg-slate-800/50 flex flex-col border-r border-slate-700/50"
       >
         <div className="relative" ref={wsDropdownRef}>
           <button
@@ -359,36 +366,6 @@ export default function ChannelSidebar({
                 }}
               >
                 <Settings className="w-4 h-4" /> Settings
-              </button>
-              <button
-                className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
-                data-qa="open-scheduled"
-                onClick={() => {
-                  onOpenScheduled();
-                  setWsDropdownOpen(false);
-                }}
-              >
-                <Clock className="w-4 h-4" /> Scheduled
-              </button>
-              <button
-                className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
-                data-qa="open-saved"
-                onClick={() => {
-                  onOpenSaved();
-                  setWsDropdownOpen(false);
-                }}
-              >
-                <Bookmark className="w-4 h-4" /> Saved
-              </button>
-              <button
-                className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
-                data-qa="open-reminders"
-                onClick={() => {
-                  onOpenReminders();
-                  setWsDropdownOpen(false);
-                }}
-              >
-                <BellRing className="w-4 h-4" /> Reminders
               </button>
               {isWorkspaceAdmin && (
                 <button
@@ -540,21 +517,78 @@ export default function ChannelSidebar({
               avatarUrl={user?.avatar_url}
             />
           </button>
-          <button
-            onClick={onOpenProfile}
-            className="flex-1 min-w-0 text-left hover:bg-slate-700/30 rounded px-1 -mx-1 transition cursor-pointer"
-            title="Edit profile"
-          >
-            <div className="text-sm font-medium truncate">
-              {user?.display_name}
-              {myStatus?.status_emoji && (
-                <span className="ml-1.5" data-qa="own-status-emoji">
-                  {myStatus.status_emoji}
-                </span>
-              )}
-            </div>
-            <div className="text-xs text-slate-400 truncate">{myStatus?.status_text || user?.email}</div>
-          </button>
+          <div className="relative flex-1 min-w-0" ref={youRef}>
+            <button
+              onClick={() => setYouMenuOpen((open) => !open)}
+              data-qa="open-you-menu"
+              className="w-full min-w-0 text-left hover:bg-slate-700/30 rounded px-1 -mx-1 transition cursor-pointer"
+              title="You"
+            >
+              <div className="text-sm font-medium truncate">
+                {user?.display_name}
+                {myStatus?.status_emoji && (
+                  <span className="ml-1.5" data-qa="own-status-emoji">
+                    {myStatus.status_emoji}
+                  </span>
+                )}
+              </div>
+              <div className="text-xs text-slate-400 truncate">
+                {myStatus?.status_text || user?.email}
+              </div>
+            </button>
+
+            {/* Saved, scheduled and reminders follow the person, not the
+                workspace: they are the same list whichever workspace is open,
+                so they belong here rather than under a workspace's name. */}
+            {youMenuOpen && (
+              <div
+                className="absolute bottom-full left-0 right-0 mb-1 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-20 py-1"
+                data-qa="you-menu"
+              >
+                <button
+                  className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
+                  data-qa="open-profile"
+                  onClick={() => {
+                    onOpenProfile();
+                    setYouMenuOpen(false);
+                  }}
+                >
+                  <User className="w-4 h-4" /> Profile &amp; settings
+                </button>
+                <div className="my-1 h-px bg-slate-700" />
+                <button
+                  className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
+                  data-qa="open-scheduled"
+                  onClick={() => {
+                    onOpenScheduled();
+                    setYouMenuOpen(false);
+                  }}
+                >
+                  <Clock className="w-4 h-4" /> Scheduled
+                </button>
+                <button
+                  className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
+                  data-qa="open-saved"
+                  onClick={() => {
+                    onOpenSaved();
+                    setYouMenuOpen(false);
+                  }}
+                >
+                  <Bookmark className="w-4 h-4" /> Saved
+                </button>
+                <button
+                  className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
+                  data-qa="open-reminders"
+                  onClick={() => {
+                    onOpenReminders();
+                    setYouMenuOpen(false);
+                  }}
+                >
+                  <BellRing className="w-4 h-4" /> Reminders
+                </button>
+              </div>
+            )}
+          </div>
           <button
             onClick={onOpenNotifications}
             className="relative text-slate-400 hover:text-white transition cursor-pointer"

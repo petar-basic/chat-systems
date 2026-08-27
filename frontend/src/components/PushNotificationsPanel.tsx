@@ -34,7 +34,7 @@ export default function PushNotificationsPanel() {
   const blocked = state.permission === 'denied' && !state.subscribed;
 
   return (
-    <div className="border-t border-slate-700 pt-5 mt-5" data-qa="push-notifications">
+    <div data-qa="push-notifications">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h3 className="text-sm font-medium text-white flex items-center gap-2">

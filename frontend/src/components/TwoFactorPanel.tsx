@@ -73,7 +73,7 @@ export default function TwoFactorPanel() {
   };
 
   return (
-    <div className="border-t border-slate-700 pt-5 mt-5" data-qa="two-factor">
+    <div data-qa="two-factor">
       <div className="flex items-start justify-between gap-4 mb-3">
         <div>
           <h3 className="text-sm font-medium text-white flex items-center gap-2">

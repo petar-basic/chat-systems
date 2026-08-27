@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Plus, ServerCrash, RefreshCw } from 'lucide-react';
+import { Plus, ServerCrash, RefreshCw, Upload } from 'lucide-react';
 import type { Workspace } from '@/stores/workspace';
 import { useInstanceStore } from '@/stores/instances';
 import { useWsStatusStore } from '@/stores/wsStatus';
@@ -14,6 +14,7 @@ interface Props {
   onSelectWorkspace: (ws: Workspace) => void;
   onCreateWorkspace: (name: string, instanceUrl: string) => Promise<void>;
   onAddInstance: () => void;
+  onImportFromSlack: (instanceUrl: string) => void;
 }
 
 export default function WorkspaceSidebar({
@@ -23,6 +24,7 @@ export default function WorkspaceSidebar({
   onSelectWorkspace,
   onCreateWorkspace,
   onAddInstance,
+  onImportFromSlack,
 }: Props) {
   const { instances } = useInstanceStore();
   const wsStatuses = useWsStatusStore((s) => s.statuses);
@@ -173,6 +175,28 @@ export default function WorkspaceSidebar({
           <form onSubmit={handleCreate}>
             <h2 className="text-lg font-bold mb-1">Create Workspace</h2>
             <p className="text-xs text-slate-400 mb-4">{instanceLabel(newWsInstanceUrl)}</p>
+
+            {/* The importer can create the workspace itself, and this is where
+                somebody looks for it — not inside the menu of a workspace they
+                have not made yet. */}
+            <button
+              type="button"
+              onClick={() => {
+                setShowNewWs(false);
+                onImportFromSlack(newWsInstanceUrl);
+              }}
+              data-qa="create-workspace-import"
+              className="w-full mb-4 flex items-center gap-3 px-3 py-2.5 rounded-lg border border-slate-700 hover:border-slate-600 hover:bg-slate-700/40 text-left transition cursor-pointer"
+            >
+              <Upload className="w-4 h-4 text-purple-400 shrink-0" />
+              <span>
+                <span className="block text-sm text-slate-200">Import from Slack instead</span>
+                <span className="block text-xs text-slate-400">
+                  Bring a workspace export in, with its history
+                </span>
+              </span>
+            </button>
+
             <input
               type="text"
               value={newWsName}

@@ -10,7 +10,7 @@ import type { MentionItem } from './MentionDropdown';
 import EmojiPicker from './EmojiPicker';
 import FormattingToolbar from '@/components/FormattingToolbar';
 import type { WorkspaceMember, Channel } from '@/stores/workspace';
-import { Clock, Paperclip, Send, SmilePlus } from 'lucide-react';
+import { Clock, Paperclip, Send, SmilePlus, Type } from 'lucide-react';
 import { MENTION_SUGGESTION_LIMIT, DRAFT_SAVE_DEBOUNCE_MS } from '@/shared/constants';
 import { useDraftStore } from '@/stores/drafts';
 import { flattenMentions } from '@/lib/mentions';
@@ -79,6 +79,7 @@ export default function MessageInput({
   const sendRef = useRef<() => void>(() => {});
   const emojiBtnRef = useRef<HTMLButtonElement>(null);
   const [showEmoji, setShowEmoji] = useState(false);
+  const [showFormatting, setShowFormatting] = useState(false);
   const editingRef = useRef(editing);
   const cancelRef = useRef(onCancel);
   useEffect(() => {
@@ -265,7 +266,22 @@ export default function MessageInput({
                 <div className="w-px h-4 bg-slate-600/60 mx-0.5" />
               </>
             )}
-            <FormattingToolbar editor={editor} />
+            {/* Twelve formatting buttons on a phone is more chrome than
+                composer, and markdown shortcuts still work while it is folded
+                away. */}
+            <div className={showFormatting ? 'contents' : 'max-sm:hidden contents'}>
+              <FormattingToolbar editor={editor} />
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowFormatting((open) => !open)}
+              aria-label={showFormatting ? 'Hide formatting' : 'Show formatting'}
+              aria-pressed={showFormatting}
+              data-qa="composer-formatting-toggle"
+              className="sm:hidden p-1 text-slate-400 hover:text-slate-200 transition cursor-pointer rounded hover:bg-slate-700/60"
+            >
+              <Type className="w-3.5 h-3.5" />
+            </button>
             <div className="relative">
               <button
                 ref={emojiBtnRef}

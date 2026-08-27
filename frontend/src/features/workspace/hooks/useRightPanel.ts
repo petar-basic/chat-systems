@@ -24,8 +24,27 @@ export type RightPanel =
 
 export type PanelKind = NonNullable<RightPanel>['kind'];
 
+/// The installed app's jump-list entries land here: `/app?panel=search` has to
+/// open search, or the shortcut is a link that quietly does nothing.
+function panelFromUrl(): RightPanel {
+  if (typeof window === 'undefined') return null;
+  const requested = new URLSearchParams(window.location.search).get('panel');
+  if (!requested) return null;
+
+  const opened = (['search', 'saved', 'reminders', 'scheduled', 'notifications'] as const).find(
+    (kind) => kind === requested,
+  );
+  if (!opened) return null;
+
+  const params = new URLSearchParams(window.location.search);
+  params.delete('panel');
+  const query = params.toString();
+  window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}`);
+  return { kind: opened };
+}
+
 export function useRightPanel(currentChannelId?: string, currentDmPartnerId?: string | null) {
-  const [active, setActive] = useState<RightPanel>(null);
+  const [active, setActive] = useState<RightPanel>(panelFromUrl);
 
   const contextKey = `${currentChannelId ?? ''}:${currentDmPartnerId ?? ''}`;
   const [lastContextKey, setLastContextKey] = useState(contextKey);

@@ -82,6 +82,7 @@ function MessageItem({
   const isOwn = currentUserId === message.user_id;
   const isEdited = message.updated_at !== message.created_at;
   const [showHistory, setShowHistory] = useState(false);
+  const [actionsRevealed, setActionsRevealed] = useState(false);
   // The marker becomes a control only for people entitled to what is behind it;
   // for everyone else it stays the plain marker it has always been.
   const { role } = useCurrentWorkspaceRole();
@@ -130,6 +131,16 @@ function MessageItem({
       data-message-id={message.id}
       data-qa="message-row"
       tabIndex={0}
+      // A finger cannot hover, so on a touch device a tap is what reveals this
+      // message's actions — and only this message's. Guarded on the pointer
+      // type and on there being no selection, so a mouse click that is really a
+      // text selection does not toggle anything.
+      onPointerUp={(e) => {
+        if (e.pointerType === 'mouse') return;
+        if (window.getSelection()?.toString()) return;
+        if ((e.target as HTMLElement).closest('button, a')) return;
+        setActionsRevealed((revealed) => !revealed);
+      }}
       className={`group relative flex items-start gap-3 px-2 rounded-lg transition-colors hover:bg-slate-800/50 ${grouped ? 'py-0.5' : 'py-1.5'} ${message.pending ? 'opacity-50' : ''} ${isHighlighted ? 'bg-amber-500/10 ring-1 ring-inset ring-amber-500/25' : ''}`}
     >
       {grouped ? (
@@ -279,7 +290,9 @@ function MessageItem({
       </div>
 
       {!editing && !confirmDelete && (
-        <div className="absolute -top-3 right-2 flex items-center gap-0.5 bg-slate-800 border border-slate-700 rounded-lg px-1 py-0.5 shadow-lg opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto">
+        <div className={`message-actions absolute -top-3 right-2 flex items-center gap-0.5 bg-slate-800 border border-slate-700 rounded-lg px-1 py-0.5 shadow-lg opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto ${
+            actionsRevealed ? 'opacity-100 pointer-events-auto' : ''
+          }`}>
           {onThreadOpen && (
             <button
               onClick={() => onThreadOpen(message)}
