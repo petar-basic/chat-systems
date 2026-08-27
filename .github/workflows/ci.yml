@@ -91,10 +91,14 @@ jobs:
         with:
           components: rustfmt, clippy
 
+      # Only main writes. A branch that saves its own copy costs another ~1.1GB,
+      # and nine of them had already pushed the repo past the 10GB cache limit,
+      # where LRU starts evicting the entries that would have made it faster.
       - name: Cache cargo build
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: backend
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: cargo fmt
         run: cargo fmt --all -- --check
@@ -204,7 +208,7 @@ jobs:
           load: true
           tags: chat-api:latest,chat-worker:latest,chat-realtime:latest
           cache-from: type=gha,scope=backend
-          cache-to: type=gha,scope=backend,mode=max
+          cache-to: ${{ github.ref == 'refs/heads/main' && 'type=gha,scope=backend,mode=max' || '' }}
 
       - name: Build the frontend image
         uses: docker/build-push-action@v6
@@ -213,7 +217,7 @@ jobs:
           load: true
           tags: chat-frontend:latest
           cache-from: type=gha,scope=frontend
-          cache-to: type=gha,scope=frontend,mode=max
+          cache-to: ${{ github.ref == 'refs/heads/main' && 'type=gha,scope=frontend,mode=max' || '' }}
 
       # No --build: the images above are already in the daemon under the tags
       # compose expects, and compose only builds what it cannot find.
