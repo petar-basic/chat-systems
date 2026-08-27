@@ -2,6 +2,10 @@ services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
+    command: >
+      postgres -c max_connections=40 -c shared_buffers=96MB
+               -c work_mem=4MB -c maintenance_work_mem=32MB
+               -c effective_cache_size=256MB
     environment:
       POSTGRES_DB: chatsystems
       POSTGRES_USER: chat
@@ -16,12 +20,12 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1g
+          memory: 512m
 
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
     healthcheck:
@@ -32,7 +36,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 384m
+          memory: 192m
 
   minio:
     image: minio/minio:RELEASE.2025-04-22T22-12-26Z
@@ -52,7 +56,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512m
+          memory: 320m
 
   minio-init:
     image: minio/mc:RELEASE.2025-04-08T15-39-49Z
@@ -70,10 +74,8 @@ services:
     restart: "no"
 
   api:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    image: chat-api:${VERSION:-latest}
+    image: ghcr.io/petar-basic/chat-systems-backend:${VERSION:-main}
+    pull_policy: always
     restart: unless-stopped
     environment:
       SERVICE: chat-api
@@ -107,6 +109,7 @@ services:
       TURN_URLS: ${TURN_URLS:-}
       STUN_URLS: ${STUN_URLS:-stun:stun.l.google.com:19302}
       TURN_TTL_SECS: ${TURN_TTL_SECS:-43200}
+      PG_POOL_MAX: ${PG_POOL_MAX:-5}
       RUST_LOG: ${RUST_LOG:-info}
     volumes:
       - file_data:/data/files
@@ -126,15 +129,13 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512m
+          memory: 256m
 
   # Background consumers. Redis pub/sub fans out to every subscriber, so a
   # second replica duplicates every notification and every webhook delivery.
   worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    image: chat-worker:${VERSION:-latest}
+    image: ghcr.io/petar-basic/chat-systems-backend:${VERSION:-main}
+    pull_policy: always
     restart: unless-stopped
     environment:
       SERVICE: chat-worker
@@ -150,6 +151,7 @@ services:
       S3_BUCKET: ${S3_BUCKET:-chatsystems}
       S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
       S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      PG_POOL_MAX: ${PG_POOL_MAX:-3}
       RUST_LOG: ${RUST_LOG:-info}
     volumes:
       - file_data:/data/files
@@ -172,13 +174,11 @@ services:
       replicas: 1
       resources:
         limits:
-          memory: 256m
+          memory: 128m
 
   realtime:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    image: chat-realtime:${VERSION:-latest}
+    image: ghcr.io/petar-basic/chat-systems-backend:${VERSION:-main}
+    pull_policy: always
     restart: unless-stopped
     environment:
       SERVICE: chat-realtime
@@ -187,6 +187,7 @@ services:
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET}
       CORS_ORIGINS: https://${DOMAIN}
+      PG_POOL_MAX: ${PG_POOL_MAX:-3}
       RUST_LOG: ${RUST_LOG:-info}
     depends_on:
       postgres:
@@ -204,13 +205,11 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512m
+          memory: 192m
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    image: chat-frontend:${VERSION:-latest}
+    image: ghcr.io/petar-basic/chat-systems-frontend:${VERSION:-main}
+    pull_policy: always
     restart: unless-stopped
     expose:
       - "8080"
@@ -220,7 +219,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 128m
+          memory: 64m
 
   db-backup:
     build:
@@ -247,7 +246,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 128m
+          memory: 96m
 
   minio-backup:
     image: minio/mc:RELEASE.2025-04-08T15-39-49Z
@@ -267,7 +266,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 128m
+          memory: 96m
 
   autoheal:
     image: willfarrell/autoheal:1.2.0
@@ -281,7 +280,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 64m
+          memory: 32m
 
 volumes:
   postgres_data:
