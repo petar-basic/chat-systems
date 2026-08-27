@@ -93,3 +93,13 @@ futures-util = "0.3"
 # Internal shared crates
 shared-common = { path = "shared/common" }
 shared-events = { path = "shared/events" }
+
+# Full debug info on every dependency is what turned the test binary into 426MB
+# of mostly-DWARF and the link into the slowest part of `cargo test`. Line tables
+# are enough for a panic backtrace; a debugger session can be had from `release`.
+[profile.dev]
+debug = "line-tables-only"
+split-debuginfo = "unpacked"
+
+[profile.dev.package."*"]
+debug = false

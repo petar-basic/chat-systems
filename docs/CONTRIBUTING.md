@@ -159,11 +159,10 @@ docs/         this folder
   `cargo sqlx prepare --workspace -- --all-targets` and commit `.sqlx/` — image builds
   set `SQLX_OFFLINE=true` and have no database, so a macro without a cache entry breaks
   the Docker build. CI enforces this with `cargo sqlx prepare --check`.
-- **Export `DATABASE_URL` when running `cargo test --workspace`.** `#[sqlx::test]` resolves
-  it through `dotenvy`, which races when several test binaries start at once — the realtime
-  crate then fails every test with `DATABASE_URL must be set` while passing on its own. CI
-  exports it explicitly and so should you:
-  `DATABASE_URL=postgres://chat:devpassword@localhost:5433/chatsystems cargo test --workspace`.
+- **The tests read `DATABASE_URL` and `REDIS_URL` from `backend/.cargo/config.toml`.** Both
+  point at the host-side ports compose publishes (5433 and 6380), so the suite runs with no
+  environment prefix. Neither is forced, so exporting either one still wins — which is how
+  CI aims them at its own services.
 - **One statement per `-- no-transaction` migration.** Postgres wraps a multi-statement
   string in an implicit transaction, so `CREATE INDEX CONCURRENTLY` fails with *cannot run
   inside a transaction block* even in a migration marked `-- no-transaction`. A batched
@@ -208,7 +207,9 @@ docs/         this folder
 
 ```bash
 # Backend — integration tests against an ephemeral Postgres (+ Redis for realtime)
-cd backend && cargo test --workspace
+# cargo-nextest runs each test in its own process and kills one that stops
+# making progress after 60s, instead of letting it hang the run.
+cd backend && cargo nextest run --workspace
 
 # Frontend — unit/component tests
 cd frontend && npm run test
@@ -236,7 +237,7 @@ migrations, and drive the full Axum stack — including the authorization matrix
 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs on every push to
 `main` and every PR, all steps **blocking**:
 
-- **Backend:** `cargo fmt --check`, `clippy -D warnings`, `cargo build`, `cargo test`
+- **Backend:** `cargo fmt --check`, `clippy -D warnings`, `cargo build`, `cargo nextest run`
   (against live Postgres + Redis service containers), then `cargo audit`.
 - **Frontend:** `npm audit --audit-level=high`, `prettier --check`, `eslint`,
   `tsc -b`, `vite build`, `vitest`.

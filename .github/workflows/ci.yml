@@ -105,13 +105,16 @@ jobs:
       - name: cargo build
         run: cargo build --workspace
 
-      - name: cargo test
-        run: cargo test --workspace
-
       - name: Install cargo tooling
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-audit,sqlx-cli
+          tool: cargo-nextest,cargo-audit,sqlx-cli
+
+      # nextest over `cargo test`: a process per test, and the ci profile kills
+      # one that stops making progress instead of letting it hold the job open
+      # until the runner's own timeout. The workspace has no doctests to lose.
+      - name: cargo nextest
+        run: cargo nextest run --workspace --profile ci
 
       - name: cargo audit
         run: cargo audit

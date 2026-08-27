@@ -1,0 +1,6 @@
+# The integration tests read these two. Host-side ports, because compose maps
+# postgres and redis off their defaults. Not forced: an exported value still
+# wins, which is how CI points them somewhere else.
+[env]
+DATABASE_URL = "postgres://chat:devpassword@localhost:5433/chatsystems"
+REDIS_URL = "redis://localhost:6380"

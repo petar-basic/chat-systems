@@ -1,0 +1,11 @@
+[profile.default]
+# A database test that stops making progress used to hang the whole run until
+# somebody noticed. Report it at 20s, kill it at 60s, and let the rest finish.
+slow-timeout = { period = "20s", terminate-after = 3 }
+fail-fast = false
+failure-output = "immediate-final"
+
+[profile.ci]
+slow-timeout = { period = "60s", terminate-after = 3 }
+fail-fast = false
+retries = 0
