@@ -91,10 +91,14 @@ jobs:
         with:
           components: rustfmt, clippy
 
+      # Only main writes. A branch that saves its own copy costs another ~1.1GB,
+      # and nine of them had already pushed the repo past the 10GB cache limit,
+      # where LRU starts evicting the entries that would have made it faster.
       - name: Cache cargo build
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: backend
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: cargo fmt
         run: cargo fmt --all -- --check
@@ -105,13 +109,16 @@ jobs:
       - name: cargo build
         run: cargo build --workspace
 
-      - name: cargo test
-        run: cargo test --workspace
-
       - name: Install cargo tooling
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-audit,sqlx-cli
+          tool: cargo-nextest,cargo-audit,sqlx-cli
+
+      # nextest over `cargo test`: a process per test, and the ci profile kills
+      # one that stops making progress instead of letting it hold the job open
+      # until the runner's own timeout. The workspace has no doctests to lose.
+      - name: cargo nextest
+        run: cargo nextest run --workspace --profile ci
 
       - name: cargo audit
         run: cargo audit
@@ -188,8 +195,34 @@ jobs:
       - name: Generate CI secrets
         run: ./.github/scripts/ci-env.sh
 
+      - uses: docker/setup-buildx-action@v3
+
+      # api, worker and realtime are the same image under three tags, so the
+      # workspace is compiled once here rather than three times by compose.
+      # Layer caching is the point: without it every run recompiles the whole
+      # release build, which was 71% of this job.
+      - name: Build the backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          load: true
+          tags: chat-api:latest,chat-worker:latest,chat-realtime:latest
+          cache-from: type=gha,scope=backend
+          cache-to: ${{ github.ref == 'refs/heads/main' && 'type=gha,scope=backend,mode=max' || '' }}
+
+      - name: Build the frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          load: true
+          tags: chat-frontend:latest
+          cache-from: type=gha,scope=frontend
+          cache-to: ${{ github.ref == 'refs/heads/main' && 'type=gha,scope=frontend,mode=max' || '' }}
+
+      # No --build: the images above are already in the daemon under the tags
+      # compose expects, and compose only builds what it cannot find.
       - name: Start the stack
-        run: docker compose --profile frontend up -d --build
+        run: docker compose --profile frontend up -d
 
       - name: Wait for readiness
         run: |

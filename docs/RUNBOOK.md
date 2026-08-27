@@ -185,11 +185,18 @@ The gateway is backwards compatible with an old client — one that sends no `la
 simply gets no replay, exactly as before — but an old **gateway** with a new client is not
 useful, so deploy realtime before or with the frontend.
 
-**Worker replicas are no longer limited to one.** The notification and hook consumers read
+**The notification and hook consumers stopped being the reason for one replica.** They read
 through `XREADGROUP` with acknowledgement, so events are distributed across replicas and an
-unacknowledged event is redelivered rather than lost with the process holding it. You can
-scale `chat-worker` now. The scheduled dispatcher and reminder checker still claim their
-rows in the database, which was already safe for multiple replicas.
+unacknowledged event is redelivered rather than lost with the process holding it. The
+scheduled dispatcher and reminder checker claim their rows in the database, which was
+already safe for multiple replicas.
+
+**Keep `chat-worker` at one replica anyway.** Two consumers are still on plain pub/sub,
+which delivers to every subscriber: the huddle consumer (`events:huddle`), which records
+joins and leaves and ends the session when the last person leaves, and the call
+notification consumer, which rings people. A second replica double-records huddle history
+and rings twice. Moving those two to consumer groups is what would make scaling out safe;
+until then the limit is theirs, not the notification consumer's.
 
 Delivery to the worker is at-least-once as a result. Outgoing webhooks claim a
 `(hook_id, event_id)` row before dispatching (migration `…22`), so a redelivery does not

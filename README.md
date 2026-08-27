@@ -66,10 +66,11 @@ actually costs in machine and in time.
 ## Architecture at a glance
 
 Three Rust binaries plus a React SPA. The API is stateless and the realtime gateway
-fans messages out across nodes via Redis pub/sub, so both scale horizontally. Redis
-pub/sub delivers to every subscriber, so the background consumers live in their own
-single-replica process rather than inside each API replica — otherwise a second replica
-would send every webhook and every notification twice.
+fans messages out across nodes via Redis, so both scale horizontally. Background consumers
+live in their own process rather than inside each API replica — otherwise a second API
+replica would send every webhook and every notification twice. Durable events reach that
+process through Redis Streams consumer groups; the two consumers still on plain pub/sub
+(huddle history and call ringing) are why `chat-worker` itself stays at one replica.
 
 | Component         | Technology                                                        |
 |-------------------|------------------------------------------------------------------|
