@@ -152,8 +152,7 @@ export const useUpdateChannel = (workspaceId: string, channelId: string) => {
       topic?: string;
       description?: string;
       post_policy?: 'everyone' | 'moderators';
-    }) =>
-      apiClient.patch<Channel>(`/channels/${channelId}`, patch),
+    }) => apiClient.patch<Channel>(`/channels/${channelId}`, patch),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceChannels(workspaceId) });
     },

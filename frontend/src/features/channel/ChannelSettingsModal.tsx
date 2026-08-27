@@ -15,9 +15,7 @@ export default function ChannelSettingsModal({ channel, workspaceId, onClose, on
   const [name, setName] = useState(channel.name ?? '');
   const [topic, setTopic] = useState(channel.topic ?? '');
   const [description, setDescription] = useState(channel.description ?? '');
-  const [announcementOnly, setAnnouncementOnly] = useState(
-    channel.settings?.post_policy === 'moderators',
-  );
+  const [announcementOnly, setAnnouncementOnly] = useState(channel.settings?.post_policy === 'moderators');
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -122,8 +120,8 @@ export default function ChannelSettingsModal({ channel, workspaceId, onClose, on
           <span>
             <span className="block text-sm font-medium text-slate-300">Announcement channel</span>
             <span className="block text-xs text-slate-400">
-              Only workspace admins and this channel's admins can post. Everyone else can still
-              read and react.
+              Only workspace admins and this channel's admins can post. Everyone else can still read and
+              react.
             </span>
           </span>
         </label>

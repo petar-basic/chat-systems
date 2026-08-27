@@ -7,9 +7,7 @@ import type { APIRequestContext } from '@playwright/test';
 /// on what earlier specs left behind.
 async function seededChannel(admin: APIRequestContext) {
   const workspace = (await (await admin.get(`${API}/workspaces`)).json()).data[0];
-  const channels = (
-    await (await admin.get(`${API}/workspaces/${workspace.id}/channels`)).json()
-  ).data;
+  const channels = (await (await admin.get(`${API}/workspaces/${workspace.id}/channels`)).json()).data;
   const channel = channels.find((c: { name: string }) => c.name === 'general') ?? channels[0];
 
   const posted = await admin.post(`${API}/channels/${channel.id}/messages`, {
@@ -19,7 +17,6 @@ async function seededChannel(admin: APIRequestContext) {
 
   return { workspace, channel };
 }
-
 
 /// Reading, opening a channel and sending have to work on a phone-sized screen
 /// with the sidebar collapsed — that is the journey the whole ticket is about.
@@ -96,7 +93,10 @@ test('a modal becomes a full-width sheet', async ({ page, playwright }) => {
     // The sidebar is a drawer at this width, so it has to be opened first —
     // which is itself the navigation behaviour this ticket is about.
     await page.locator('[data-qa="mobile-nav-toggle"]').click();
-    await page.getByRole('button', { name: /browse channels/i }).first().click();
+    await page
+      .getByRole('button', { name: /browse channels/i })
+      .first()
+      .click();
     const dialog = page.getByRole('dialog').first();
     await expect(dialog).toBeVisible();
 
