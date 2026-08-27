@@ -954,3 +954,51 @@ async fn a_guest_in_no_channels_sees_only_themselves(pool: PgPool) {
         Some(guest_id.to_string().as_str())
     );
 }
+
+/// A workspace picks its face the way a person picks theirs, and the remove
+/// button has to actually remove: `COALESCE` alone could only ever set one.
+#[sqlx::test(migrations = "../migrations")]
+async fn a_workspace_icon_can_be_set_and_taken_off(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, token) = seed_and_login(&app, &state, "icon-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Faces").await;
+
+    let (status, body) = send(
+        &app,
+        "PATCH",
+        &format!("/api/workspaces/{ws_id}"),
+        Some(&token),
+        Some(serde_json::json!({ "icon_url": "/api/files/download/emoji/logo.png" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(body["icon_url"], "/api/files/download/emoji/logo.png");
+
+    let (status, unchanged) = send(
+        &app,
+        "PATCH",
+        &format!("/api/workspaces/{ws_id}"),
+        Some(&token),
+        Some(serde_json::json!({ "name": "Faces renamed" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        unchanged["icon_url"], "/api/files/download/emoji/logo.png",
+        "leaving the field out leaves the icon alone"
+    );
+
+    let (status, cleared) = send(
+        &app,
+        "PATCH",
+        &format!("/api/workspaces/{ws_id}"),
+        Some(&token),
+        Some(serde_json::json!({ "icon_url": "" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        cleared["icon_url"].is_null(),
+        "an empty string takes it off"
+    );
+}

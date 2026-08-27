@@ -27,7 +27,7 @@ test('a saved message shows up in the saved panel and can be taken out again', a
     await row.hover();
     await row.locator('[data-qa="message-action-save"]').click();
 
-    await page.getByRole('button', { name: workspace.name }).click();
+    await page.locator('[data-qa="open-you-menu"]').click();
     await page.locator('[data-qa="open-saved"]').click();
 
     const panel = page.locator('[data-qa="saved-panel"]');
@@ -150,6 +150,7 @@ test('a message forwarded to another channel arrives as a quote', async ({ page 
     const row = page.locator('[data-qa="message-row"]', { hasText: text }).last();
     await expect(row).toBeVisible();
     await row.hover();
+    await row.locator('[data-qa="message-action-more"]').click();
     await row.locator('[data-qa="message-action-forward"]').click();
 
     const modal = page.locator('[data-qa="forward-modal"]');
@@ -210,7 +211,7 @@ test('a slash reminder turns up in the reminders panel and can be cancelled', as
     await send(page, `/remind me in 2h to check ${stamp}`);
     await expect(page.locator('[data-qa="command-response"]')).toContainText('I will remind you');
 
-    await page.getByRole('button', { name: workspace.name }).click();
+    await page.locator('[data-qa="open-you-menu"]').click();
     await page.locator('[data-qa="open-reminders"]').click();
 
     const panel = page.locator('[data-qa="reminders-panel"]');

@@ -23,6 +23,8 @@ import {
   Bookmark,
   BellRing,
   Upload,
+  User,
+  ChevronRight,
 } from 'lucide-react';
 import type { Channel, Workspace, WorkspaceMember } from '@/stores/workspace';
 import type { Conversation } from '@/hooks/queries/useConversations';
@@ -219,6 +221,36 @@ export default function ChannelSidebar({
   const isWorkspaceAdmin = currentUserRole === 'admin' || currentUserRole === 'owner';
 
   const [wsDropdownOpen, setWsDropdownOpen] = useState(false);
+  const [youMenuOpen, setYouMenuOpen] = useState(false);
+
+  // A flat scroll is fine with six channels and unusable with two hundred, and
+  // which sections somebody keeps shut is a preference that should survive a
+  // reload.
+  const [collapsed, setCollapsed] = useState<Record<'channels' | 'dms' | 'people', boolean>>(() => {
+    try {
+      return {
+        channels: false,
+        dms: false,
+        people: false,
+        ...JSON.parse(localStorage.getItem('sidebar-collapsed') ?? '{}'),
+      };
+    } catch {
+      return { channels: false, dms: false, people: false };
+    }
+  });
+  const toggleSection = (section: 'channels' | 'dms' | 'people') => {
+    setCollapsed((current) => {
+      const next = { ...current, [section]: !current[section] };
+      try {
+        localStorage.setItem('sidebar-collapsed', JSON.stringify(next));
+      } catch {
+        // A browser refusing storage is not a reason to refuse the click.
+      }
+      return next;
+    });
+  };
+  const youRef = useRef<HTMLDivElement>(null);
+  useOnClickOutside(youRef, () => setYouMenuOpen(false), youMenuOpen);
   const [showNewChannel, setShowNewChannel] = useState(false);
   const [newChannelName, setNewChannelName] = useState('');
   const [showDmPicker, setShowDmPicker] = useState(false);
@@ -328,7 +360,10 @@ export default function ChannelSidebar({
       <div
         role="navigation"
         aria-label="Channels and direct messages"
-        className="w-60 bg-slate-800/50 flex flex-col border-r border-slate-700/50"
+        // Opaque below `lg`: at that width this is a drawer floating over the
+        // message list, and a translucent panel let the messages read through
+        // the channel names.
+        className="w-60 bg-slate-800 lg:bg-slate-800/50 flex flex-col border-r border-slate-700/50"
       >
         <div className="relative" ref={wsDropdownRef}>
           <button
@@ -359,36 +394,6 @@ export default function ChannelSidebar({
                 }}
               >
                 <Settings className="w-4 h-4" /> Settings
-              </button>
-              <button
-                className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
-                data-qa="open-scheduled"
-                onClick={() => {
-                  onOpenScheduled();
-                  setWsDropdownOpen(false);
-                }}
-              >
-                <Clock className="w-4 h-4" /> Scheduled
-              </button>
-              <button
-                className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
-                data-qa="open-saved"
-                onClick={() => {
-                  onOpenSaved();
-                  setWsDropdownOpen(false);
-                }}
-              >
-                <Bookmark className="w-4 h-4" /> Saved
-              </button>
-              <button
-                className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
-                data-qa="open-reminders"
-                onClick={() => {
-                  onOpenReminders();
-                  setWsDropdownOpen(false);
-                }}
-              >
-                <BellRing className="w-4 h-4" /> Reminders
               </button>
               {isWorkspaceAdmin && (
                 <button
@@ -463,7 +468,17 @@ export default function ChannelSidebar({
 
         <div className="flex-1 overflow-y-auto py-2">
           <div className="px-3 mb-1 flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Channels</span>
+            <button
+              onClick={() => toggleSection('channels')}
+              aria-expanded={!collapsed.channels}
+              data-qa="toggle-section-channels"
+              className="flex items-center gap-1 text-xs font-semibold text-slate-400 uppercase tracking-wider hover:text-slate-200 transition cursor-pointer"
+            >
+              <ChevronRight
+                className={`w-3 h-3 transition-transform ${collapsed.channels ? '' : 'rotate-90'}`}
+              />
+              Channels
+            </button>
             <button
               onClick={() => setShowNewChannel(true)}
               aria-label="Create channel"
@@ -473,8 +488,8 @@ export default function ChannelSidebar({
               <Plus className="w-4 h-4" />
             </button>
           </div>
-          {channels.map((ch) => channelButton(ch, channelIcon(ch)))}
-          {currentUserRole !== 'guest' && (
+          {!collapsed.channels && channels.map((ch) => channelButton(ch, channelIcon(ch)))}
+          {!collapsed.channels && currentUserRole !== 'guest' && (
             <button
               onClick={() => setShowBrowseChannels(true)}
               data-qa="browse-channels-open"
@@ -486,9 +501,15 @@ export default function ChannelSidebar({
           )}
 
           <div className="px-3 mt-4 mb-1 flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            <button
+              onClick={() => toggleSection('dms')}
+              aria-expanded={!collapsed.dms}
+              data-qa="toggle-section-dms"
+              className="flex items-center gap-1 text-xs font-semibold text-slate-400 uppercase tracking-wider hover:text-slate-200 transition cursor-pointer"
+            >
+              <ChevronRight className={`w-3 h-3 transition-transform ${collapsed.dms ? '' : 'rotate-90'}`} />
               Direct Messages
-            </span>
+            </button>
             <button
               onClick={() => setShowDmPicker(true)}
               className="text-slate-400 hover:text-white transition cursor-pointer"
@@ -497,7 +518,7 @@ export default function ChannelSidebar({
               <Plus className="w-4 h-4" />
             </button>
           </div>
-          {conversations.length === 0 ? (
+          {collapsed.dms ? null : conversations.length === 0 ? (
             <div className="px-3 py-1.5 text-xs text-slate-400">No conversations yet</div>
           ) : (
             conversations.map((conv) => (
@@ -515,13 +536,28 @@ export default function ChannelSidebar({
           {workspaceMembers.length > 0 && (
             <>
               <div className="px-3 mt-4 mb-1">
-                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">People</span>
+                <button
+                  onClick={() => toggleSection('people')}
+                  aria-expanded={!collapsed.people}
+                  data-qa="toggle-section-people"
+                  className="flex items-center gap-1 text-xs font-semibold text-slate-400 uppercase tracking-wider hover:text-slate-200 transition cursor-pointer"
+                >
+                  <ChevronRight
+                    className={`w-3 h-3 transition-transform ${collapsed.people ? '' : 'rotate-90'}`}
+                  />
+                  People
+                </button>
               </div>
-              {workspaceMembers
-                .filter((m) => m.user_id !== currentUserId)
-                .map((m) => (
-                  <SidebarUser key={m.user_id} userId={m.user_id} onOpenDm={(id) => void onOpenWith([id])} />
-                ))}
+              {!collapsed.people &&
+                workspaceMembers
+                  .filter((m) => m.user_id !== currentUserId)
+                  .map((m) => (
+                    <SidebarUser
+                      key={m.user_id}
+                      userId={m.user_id}
+                      onOpenDm={(id) => void onOpenWith([id])}
+                    />
+                  ))}
             </>
           )}
         </div>
@@ -540,21 +576,76 @@ export default function ChannelSidebar({
               avatarUrl={user?.avatar_url}
             />
           </button>
-          <button
-            onClick={onOpenProfile}
-            className="flex-1 min-w-0 text-left hover:bg-slate-700/30 rounded px-1 -mx-1 transition cursor-pointer"
-            title="Edit profile"
-          >
-            <div className="text-sm font-medium truncate">
-              {user?.display_name}
-              {myStatus?.status_emoji && (
-                <span className="ml-1.5" data-qa="own-status-emoji">
-                  {myStatus.status_emoji}
-                </span>
-              )}
-            </div>
-            <div className="text-xs text-slate-400 truncate">{myStatus?.status_text || user?.email}</div>
-          </button>
+          <div className="relative flex-1 min-w-0" ref={youRef}>
+            <button
+              onClick={() => setYouMenuOpen((open) => !open)}
+              data-qa="open-you-menu"
+              className="w-full min-w-0 text-left hover:bg-slate-700/30 rounded px-1 -mx-1 transition cursor-pointer"
+              title="You"
+            >
+              <div className="text-sm font-medium truncate">
+                {user?.display_name}
+                {myStatus?.status_emoji && (
+                  <span className="ml-1.5" data-qa="own-status-emoji">
+                    {myStatus.status_emoji}
+                  </span>
+                )}
+              </div>
+              <div className="text-xs text-slate-400 truncate">{myStatus?.status_text || user?.email}</div>
+            </button>
+
+            {/* Saved, scheduled and reminders follow the person, not the
+                workspace: they are the same list whichever workspace is open,
+                so they belong here rather than under a workspace's name. */}
+            {youMenuOpen && (
+              <div
+                className="absolute bottom-full left-0 mb-1 w-52 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-20 py-1"
+                data-qa="you-menu"
+              >
+                <button
+                  className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
+                  data-qa="open-profile"
+                  onClick={() => {
+                    onOpenProfile();
+                    setYouMenuOpen(false);
+                  }}
+                >
+                  <User className="w-4 h-4 shrink-0" /> Profile &amp; settings
+                </button>
+                <div className="my-1 h-px bg-slate-700" />
+                <button
+                  className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
+                  data-qa="open-scheduled"
+                  onClick={() => {
+                    onOpenScheduled();
+                    setYouMenuOpen(false);
+                  }}
+                >
+                  <Clock className="w-4 h-4" /> Scheduled
+                </button>
+                <button
+                  className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
+                  data-qa="open-saved"
+                  onClick={() => {
+                    onOpenSaved();
+                    setYouMenuOpen(false);
+                  }}
+                >
+                  <Bookmark className="w-4 h-4" /> Saved
+                </button>
+                <button
+                  className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
+                  data-qa="open-reminders"
+                  onClick={() => {
+                    onOpenReminders();
+                    setYouMenuOpen(false);
+                  }}
+                >
+                  <BellRing className="w-4 h-4" /> Reminders
+                </button>
+              </div>
+            )}
+          </div>
           <button
             onClick={onOpenNotifications}
             className="relative text-slate-400 hover:text-white transition cursor-pointer"

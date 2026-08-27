@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Plus, ServerCrash, RefreshCw } from 'lucide-react';
+import { Plus, ServerCrash, RefreshCw, Upload } from 'lucide-react';
 import type { Workspace } from '@/stores/workspace';
 import { useInstanceStore } from '@/stores/instances';
 import { useWsStatusStore } from '@/stores/wsStatus';
@@ -14,6 +14,7 @@ interface Props {
   onSelectWorkspace: (ws: Workspace) => void;
   onCreateWorkspace: (name: string, instanceUrl: string) => Promise<void>;
   onAddInstance: () => void;
+  onImportFromSlack: (instanceUrl: string) => void;
 }
 
 export default function WorkspaceSidebar({
@@ -23,6 +24,7 @@ export default function WorkspaceSidebar({
   onSelectWorkspace,
   onCreateWorkspace,
   onAddInstance,
+  onImportFromSlack,
 }: Props) {
   const { instances } = useInstanceStore();
   const wsStatuses = useWsStatusStore((s) => s.statuses);
@@ -115,14 +117,21 @@ export default function WorkspaceSidebar({
                   <button
                     key={ws.id}
                     onClick={() => onSelectWorkspace(ws)}
-                    className={`relative w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold transition cursor-pointer ${
+                    className={`relative w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center text-sm font-bold transition cursor-pointer ${
                       currentWorkspaceId === ws.id
-                        ? 'bg-purple-600 text-white'
+                        ? 'bg-purple-600 text-white ring-2 ring-purple-400'
                         : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                     }`}
                     title={`${ws.name} · ${instanceLabel(group.instance.url)}${showBadge ? ` · ${unread} unread` : ''}`}
                   >
-                    {ws.name.charAt(0).toUpperCase()}
+                    {/* An icon if the workspace has picked one; the initial is
+                        the fallback, not the only option. A column of identical
+                        letters is not a switcher. */}
+                    {ws.icon_url ? (
+                      <img src={ws.icon_url} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      ws.name.charAt(0).toUpperCase()
+                    )}
                     {showBadge && (
                       <span
                         aria-label={`${unread} unread notifications`}
@@ -173,6 +182,28 @@ export default function WorkspaceSidebar({
           <form onSubmit={handleCreate}>
             <h2 className="text-lg font-bold mb-1">Create Workspace</h2>
             <p className="text-xs text-slate-400 mb-4">{instanceLabel(newWsInstanceUrl)}</p>
+
+            {/* The importer can create the workspace itself, and this is where
+                somebody looks for it — not inside the menu of a workspace they
+                have not made yet. */}
+            <button
+              type="button"
+              onClick={() => {
+                setShowNewWs(false);
+                onImportFromSlack(newWsInstanceUrl);
+              }}
+              data-qa="create-workspace-import"
+              className="w-full mb-4 flex items-center gap-3 px-3 py-2.5 rounded-lg border border-slate-700 hover:border-slate-600 hover:bg-slate-700/40 text-left transition cursor-pointer"
+            >
+              <Upload className="w-4 h-4 text-purple-400 shrink-0" />
+              <span>
+                <span className="block text-sm text-slate-200">Import from Slack instead</span>
+                <span className="block text-xs text-slate-400">
+                  Bring a workspace export in, with its history
+                </span>
+              </span>
+            </button>
+
             <input
               type="text"
               value={newWsName}

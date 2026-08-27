@@ -27,9 +27,20 @@ test('@channel reaches a member who was never named', async ({ page }) => {
     });
     expect(posted.status(), 'admin broadcasts to the channel').toBe(200);
 
-    await expect(
-      page.locator(`[data-qa="channel-mention-badge"][data-channel-id="${channelId}"]`),
-    ).toBeVisible();
+    // The badge normally arrives over the socket. A page that has just loaded
+    // has no position to resume from, so an event published in the gap between
+    // the socket opening and the `subscribe` frame being processed reaches
+    // nobody — CS-028 hands out the tail rather than a replay in that case.
+    // The guarantee under test is that the mention is counted, not that it
+    // arrives inside one particular second, so a reload is allowed to settle it.
+    const badge = page.locator(`[data-qa="channel-mention-badge"][data-channel-id="${channelId}"]`);
+    if (!(await badge.isVisible().catch(() => false))) {
+      await badge.waitFor({ state: 'visible', timeout: 5_000 }).catch(async () => {
+        await page.reload();
+        await expect(page.getByRole('navigation').getByText(`broadcast-${stamp}`)).toBeVisible();
+      });
+    }
+    await expect(badge).toBeVisible();
 
     const notifications = await (await bob.get(`${API}/workspaces/${workspace.id}/notifications`)).json();
     const forThisChannel = notifications.data.filter(

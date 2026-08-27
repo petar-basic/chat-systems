@@ -219,7 +219,7 @@ test('the scheduled panel lists a queued message and cancels it', async ({ page 
     await login(page, 'admin@dev.local');
     await page.goto(`/app/${workspace.id}/${channelId}`);
 
-    await page.getByRole('button', { name: workspace.name }).first().click();
+    await page.locator('[data-qa="open-you-menu"]').click();
     await page.locator('[data-qa="open-scheduled"]').click();
     await expect(page.locator('[data-qa="scheduled-panel"]')).toBeVisible();
 
@@ -269,7 +269,7 @@ test('a queued message can be moved to a new time from the panel', async ({ page
   try {
     await login(page, 'admin@dev.local');
     await page.goto(`/app/${workspace.id}/${channelId}`);
-    await page.getByRole('button', { name: workspace.name }).first().click();
+    await page.locator('[data-qa="open-you-menu"]').click();
     await page.locator('[data-qa="open-scheduled"]').click();
 
     const row = page.locator(`[data-qa="scheduled-row"][data-scheduled-id="${scheduledId}"]`);

@@ -45,7 +45,12 @@ export default function ChannelBookmarksBar({ channelId, instanceUrl }: Props) {
 
   return (
     <div
-      className="px-4 py-1.5 flex items-center gap-2 flex-wrap border-b border-slate-700/50 bg-slate-800/20 shrink-0"
+      // An empty bar still costs a row, and on a phone that row is expensive.
+      // With nothing pinned here, the invitation to add one waits for a wider
+      // screen; the channel settings reach it either way.
+      className={`px-4 py-1.5 flex items-center gap-2 flex-wrap border-b border-slate-700/50 bg-slate-800/20 shrink-0 ${
+        bookmarks.length === 0 ? 'max-sm:hidden' : ''
+      }`}
       data-qa="channel-bookmarks"
     >
       {bookmarks.map((bookmark) => (

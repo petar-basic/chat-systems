@@ -57,6 +57,7 @@ export default function WorkspaceRightPanels({
         workspaceId={currentWorkspace.id}
         instanceUrl={currentWorkspace.instanceUrl}
         currentName={currentWorkspace.name}
+        currentIconUrl={currentWorkspace.icon_url}
         currentDescription={currentWorkspace.description}
         deletedAt={currentWorkspace.deleted_at}
         onClose={onClose}

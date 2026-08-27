@@ -13,6 +13,7 @@ import AddInstancePanel from '../components/AddInstancePanel';
 import UserProfilePanel from '../components/UserProfilePanel';
 import TypingIndicator from '../components/TypingIndicator';
 import { useChannelModeration } from '@/features/channel/hooks/useChannelModeration';
+import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
 import { useActiveHuddlesSync } from '@/features/huddle';
 
 export default function WorkspacePage() {
@@ -24,6 +25,9 @@ export default function WorkspacePage() {
   useActiveHuddlesSync(currentWorkspace?.id, currentWorkspace?.instanceUrl);
 
   const { canPost } = useChannelModeration(currentChannel?.id ?? null, currentChannel?.settings);
+
+  // Every other panel and modal closes on Escape; the drawer did not.
+  useEscapeToClose(() => c.setMobileNavOpen(false), c.mobileNavOpen);
 
   return (
     <div className="h-dvh flex bg-slate-900 text-white relative">
@@ -38,6 +42,7 @@ export default function WorkspacePage() {
           currentWorkspaceId={currentWorkspace?.id}
           onSelectWorkspace={c.handleSelectWorkspace}
           onCreateWorkspace={c.handleCreateWorkspace}
+          onImportFromSlack={() => panel.toggle('slackImport')}
           onAddInstance={() => c.setShowAddInstance(true)}
         />
 

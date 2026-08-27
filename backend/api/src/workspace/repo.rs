@@ -136,7 +136,10 @@ impl WorkspaceRepo {
             UPDATE workspaces
             SET name = COALESCE($2, name),
                 description = COALESCE($3, description),
-                icon_url = COALESCE($4, icon_url),
+                -- An empty string clears it. Plain COALESCE could only ever set
+                -- an icon, never take one off, so the remove button had nothing
+                -- to say.
+                icon_url = CASE WHEN $4 = '' THEN NULL ELSE COALESCE($4, icon_url) END,
                 updated_at = NOW()
             WHERE id = $1
             RETURNING *
