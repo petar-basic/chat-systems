@@ -164,6 +164,7 @@ test('7. edit and delete propagate live', async () => {
 
   const row = admin.locator('[data-qa="message-row"]', { hasText: original }).last();
   await row.hover();
+  await row.locator('[data-qa="message-action-more"]').click();
   await row.locator('[data-qa="message-action-edit"]').click();
   const editEditor = admin.locator('[data-qa="message-row"] .ProseMirror[contenteditable="true"]');
   await editEditor.click();
@@ -173,6 +174,7 @@ test('7. edit and delete propagate live', async () => {
 
   const row2 = admin.locator('[data-qa="message-row"]', { hasText: `edited ${stamp}` }).last();
   await row2.hover();
+  await row2.locator('[data-qa="message-action-more"]').click();
   await row2.locator('[data-qa="message-action-delete"]').click();
   await row2.locator('[data-qa="message-delete-confirm"]').click();
   await expect(bob.getByText(`edited ${stamp}`)).toHaveCount(0, { timeout: 10_000 });

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Hash, Lock, Search, Pin, Users, Menu, Settings, Plug, MoreHorizontal } from 'lucide-react';
 import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
+import { useChannelMembers, useChannelPins } from '@/hooks/queries/useChannels';
 import { useNavigate } from 'react-router';
 import type { Channel } from '@/stores/workspace';
 import { HuddleBar } from '@/features/huddle';
@@ -33,6 +34,10 @@ export default function ChannelHeader({
   const { canModerate } = useChannelModeration(channel?.id ?? null);
   const { data: hookedChannels } = useHookedChannels(channel?.workspace_id ?? null);
   const [showSettings, setShowSettings] = useState(false);
+  const { data: members } = useChannelMembers(channel?.id ?? null);
+  const { data: pins } = useChannelPins(channel?.id ?? null);
+  const memberCount = members?.length;
+  const pinCount = pins?.length ?? 0;
   const [overflowOpen, setOverflowOpen] = useState(false);
   const overflowRef = useRef<HTMLDivElement>(null);
   useOnClickOutside(overflowRef, () => setOverflowOpen(false), overflowOpen);
@@ -73,6 +78,30 @@ export default function ChannelHeader({
           )}
           {channel.topic && (
             <span className="text-sm text-slate-400 ml-2 truncate hidden sm:inline">— {channel.topic}</span>
+          )}
+
+          {/* Chips rather than icons alone: how many people are in here and
+              whether anything is pinned is the state of the channel, and it
+              should be readable without clicking anything first. */}
+          <button
+            onClick={onToggleChannelMembers}
+            data-qa="channel-header-members"
+            className="max-sm:hidden ml-2 shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] text-slate-400 hover:text-white hover:bg-slate-700/50 transition cursor-pointer"
+            title="Channel members"
+          >
+            <Users className="w-3 h-3" />
+            {memberCount ?? '—'}
+          </button>
+          {pinCount > 0 && (
+            <button
+              onClick={onTogglePins}
+              data-qa="channel-header-pins"
+              className="max-sm:hidden shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] text-amber-400/80 hover:text-amber-300 hover:bg-slate-700/50 transition cursor-pointer"
+              title="Pinned messages"
+            >
+              <Pin className="w-3 h-3" />
+              {pinCount}
+            </button>
           )}
 
           <div className="ml-auto flex items-center gap-1">

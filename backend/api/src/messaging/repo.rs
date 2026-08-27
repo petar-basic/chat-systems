@@ -626,14 +626,17 @@ impl MessageRepo {
         Ok(())
     }
 
+    /// `last_read_msg` rides along because the client needs the boundary, not
+    /// just the count: a channel with forty unread messages and no marker in the
+    /// list leaves somebody scrolling and guessing where they stopped.
     pub async fn unread_counts(
         &self,
         workspace_id: Uuid,
         user_id: Uuid,
-    ) -> sqlx::Result<Vec<(Uuid, i32, i32)>> {
+    ) -> sqlx::Result<Vec<(Uuid, i32, i32, Option<Uuid>)>> {
         sqlx::query_as(
             r"
-            SELECT cm.channel_id, cm.unread_count, cm.mention_count
+            SELECT cm.channel_id, cm.unread_count, cm.mention_count, cm.last_read_msg
               FROM channel_members cm
               JOIN channels c ON c.id = cm.channel_id
              WHERE c.workspace_id = $1 AND cm.user_id = $2 AND c.is_archived = false

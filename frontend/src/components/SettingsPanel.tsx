@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { X, Save, Trash2, AlertTriangle, RotateCcw } from 'lucide-react';
 import { useRestoreWorkspace } from '../hooks/queries/useWorkspaces';
@@ -13,6 +13,7 @@ import { Modal } from '@/shared/components/Modal/Modal';
 
 interface Props {
   workspaceId: string;
+  currentIconUrl?: string | null;
   instanceUrl?: string;
   currentName: string;
   currentDescription: string | null;
@@ -24,6 +25,7 @@ type DeleteType = 'soft' | 'hard';
 
 export default function SettingsPanel({
   workspaceId,
+  currentIconUrl,
   instanceUrl,
   currentName,
   currentDescription,
@@ -32,6 +34,9 @@ export default function SettingsPanel({
 }: Props) {
   const navigate = useNavigate();
   const [name, setName] = useState(currentName);
+  const [iconUrl, setIconUrl] = useState(currentIconUrl ?? '');
+  const [uploadingIcon, setUploadingIcon] = useState(false);
+  const iconInputRef = useRef<HTMLInputElement>(null);
   const [description, setDescription] = useState(currentDescription || '');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -48,6 +53,26 @@ export default function SettingsPanel({
     return api;
   };
 
+  const handleIconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingIcon(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const uploaded = await getApi().upload<{ url: string }[]>(`/files/upload/${workspaceId}`, formData);
+      const url = uploaded[0]?.url;
+      if (url) setIconUrl(url);
+      else setError('Failed to upload the icon');
+    } catch (err) {
+      setError(toUserMessage(err));
+    } finally {
+      setUploadingIcon(false);
+      if (iconInputRef.current) iconInputRef.current.value = '';
+    }
+  };
+
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
@@ -57,6 +82,8 @@ export default function SettingsPanel({
     setSaved(false);
     try {
       await getApi().patch(`/workspaces/${workspaceId}`, {
+        // Empty string, not null: null means "unchanged" to the API.
+        icon_url: iconUrl.trim(),
         name: name.trim(),
         description: description.trim() || null,
       });
@@ -110,6 +137,46 @@ export default function SettingsPanel({
         </div>
 
         <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* A workspace picks its face the same way a person picks theirs.
+              Without it the switcher is a column of identical initials, which
+              on a phone has no tooltip to fall back on. */}
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-700 flex items-center justify-center shrink-0">
+              {iconUrl ? (
+                <img src={iconUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-lg font-bold text-slate-300">{name.charAt(0).toUpperCase()}</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => iconInputRef.current?.click()}
+                disabled={uploadingIcon}
+                data-qa="workspace-icon-upload"
+                className="px-3 py-2 text-sm bg-slate-700 hover:bg-slate-600 disabled:bg-slate-700/50 text-white rounded-lg transition cursor-pointer"
+              >
+                {uploadingIcon ? 'Uploading…' : 'Upload icon'}
+              </button>
+              {iconUrl && (
+                <button
+                  type="button"
+                  onClick={() => setIconUrl('')}
+                  className="text-xs text-slate-400 hover:text-red-400 transition cursor-pointer"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+            <input
+              ref={iconInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleIconUpload}
+            />
+          </div>
+
           <div>
             <label htmlFor="ws-name" className="block text-sm font-medium text-slate-300 mb-1.5">
               Workspace Name

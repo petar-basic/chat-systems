@@ -117,14 +117,21 @@ export default function WorkspaceSidebar({
                   <button
                     key={ws.id}
                     onClick={() => onSelectWorkspace(ws)}
-                    className={`relative w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold transition cursor-pointer ${
+                    className={`relative w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center text-sm font-bold transition cursor-pointer ${
                       currentWorkspaceId === ws.id
-                        ? 'bg-purple-600 text-white'
+                        ? 'bg-purple-600 text-white ring-2 ring-purple-400'
                         : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                     }`}
                     title={`${ws.name} · ${instanceLabel(group.instance.url)}${showBadge ? ` · ${unread} unread` : ''}`}
                   >
-                    {ws.name.charAt(0).toUpperCase()}
+                    {/* An icon if the workspace has picked one; the initial is
+                        the fallback, not the only option. A column of identical
+                        letters is not a switcher. */}
+                    {ws.icon_url ? (
+                      <img src={ws.icon_url} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      ws.name.charAt(0).toUpperCase()
+                    )}
                     {showBadge && (
                       <span
                         aria-label={`${unread} unread notifications`}

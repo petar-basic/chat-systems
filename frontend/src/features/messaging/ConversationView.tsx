@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { UnreadDivider } from './UnreadDivider';
 import { useUserCache } from '@/stores/users';
 import { usePresenceStore } from '@/stores/presence';
 import { ArrowLeft, Pencil, Trash2, SmilePlus, Menu, MessageSquare, Bookmark, Forward } from 'lucide-react';
@@ -87,6 +88,7 @@ export default function ConversationView({
   const renderRow = useCallback(
     (row: MessageRow<ConversationMessage>) => {
       if (row.kind === 'day') return <DaySeparator at={row.at} />;
+      if (row.kind === 'unread') return <UnreadDivider />;
       const msg = row.message;
       return (
         <ConversationMessageRow

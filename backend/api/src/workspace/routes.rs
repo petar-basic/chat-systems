@@ -140,7 +140,11 @@ async fn update_workspace(
         validation::validate_description(description)?;
     }
     if let Some(icon_url) = &req.icon_url {
-        validation::validate_icon_url(icon_url)?;
+        // An empty string is how the client says "remove it"; anything else has
+        // to be a URL.
+        if !icon_url.is_empty() {
+            validation::validate_icon_url(icon_url)?;
+        }
     }
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
     let workspace = state
@@ -524,16 +528,17 @@ async fn unread_channels(
 
     let channel_ids: Vec<Uuid> = counts
         .iter()
-        .filter(|(_, unread, _)| *unread > 0)
-        .map(|(id, _, _)| *id)
+        .filter(|(_, unread, _, _)| *unread > 0)
+        .map(|(id, _, _, _)| *id)
         .collect();
     let counts: Vec<serde_json::Value> = counts
         .into_iter()
-        .map(|(channel_id, unread, mentions)| {
+        .map(|(channel_id, unread, mentions, last_read_msg)| {
             serde_json::json!({
                 "channel_id": channel_id,
                 "unread_count": unread,
                 "mention_count": mentions,
+                "last_read_msg": last_read_msg,
             })
         })
         .collect();

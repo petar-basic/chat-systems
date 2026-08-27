@@ -75,6 +75,7 @@ test('C. pin a message and read it back from the pinned panel', async () => {
   await send(admin, text);
   const row = admin.locator('[data-qa="message-row"]', { hasText: text }).last();
   await row.hover();
+  await row.locator('[data-qa="message-action-more"]').click();
   await row.locator('[data-qa="message-action-pin"]').click();
   await admin.getByLabel('Pinned messages').click();
   await expect(admin.getByText(text).last()).toBeVisible({ timeout: 10_000 });

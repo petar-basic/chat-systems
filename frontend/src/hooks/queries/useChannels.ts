@@ -44,6 +44,9 @@ export interface ChannelUnreadCount {
   channel_id: string;
   unread_count: number;
   mention_count: number;
+  /// Where the person stopped reading. The count alone cannot place the line in
+  /// the list; this is the boundary it is drawn after.
+  last_read_msg: string | null;
 }
 
 export const useUnreadChannels = (workspaceId: string | null, instanceUrl?: string) => {

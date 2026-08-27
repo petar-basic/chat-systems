@@ -222,7 +222,6 @@ export default function UserProfilePanel({ onClose }: Props) {
           />
         </div>
 
-
         {error && (
           <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
             {error}
@@ -261,17 +260,13 @@ export default function UserProfilePanel({ onClose }: Props) {
       </form>
 
       <section className="border-t border-slate-700 pt-5 mt-5 space-y-5">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Notifications
-        </h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Notifications</h3>
         <PushNotificationsPanel />
         <EmailNotificationsPanel />
       </section>
 
       <section className="border-t border-slate-700 pt-5 mt-5">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">
-          Security
-        </h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Security</h3>
         <TwoFactorPanel />
       </section>
     </Modal>

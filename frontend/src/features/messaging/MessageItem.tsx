@@ -1,11 +1,27 @@
 import { memo, useState, useRef } from 'react';
-import { Pencil, Trash2, MessageSquare, SmilePlus, Pin, Link2, Bookmark, Forward } from 'lucide-react';
+import {
+  Pencil,
+  Trash2,
+  MessageSquare,
+  SmilePlus,
+  Pin,
+  Link2,
+  Bookmark,
+  Forward,
+  MoreHorizontal,
+} from 'lucide-react';
+import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
 import type { Message, WorkspaceMember, Channel } from '@/stores/workspace';
 import { ReactionEmoji } from '@/shared/components/ReactionEmoji';
 import RichTextDisplay from '@/components/RichTextDisplay';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { HuddleSystemMessage } from '@/features/huddle/components/HuddleSystemMessage';
 import EmojiPicker from './EmojiPicker';
+
+/// Reacting is the most common action in the product; a picker turns one tap
+/// into three. Kept to three so the toolbar stays narrow enough not to cover
+/// the message it belongs to.
+const QUICK_REACTIONS = ['👍', '✅', '🎉'];
 import MessageInput from './MessageInput';
 import EditHistoryPanel from './EditHistoryPanel';
 import { useCurrentWorkspaceRole } from '@/features/workspace/hooks/useCurrentWorkspaceRole';
@@ -83,6 +99,9 @@ function MessageItem({
   const isEdited = message.updated_at !== message.created_at;
   const [showHistory, setShowHistory] = useState(false);
   const [actionsRevealed, setActionsRevealed] = useState(false);
+  const [showOverflow, setShowOverflow] = useState(false);
+  const overflowRef = useRef<HTMLDivElement>(null);
+  useOnClickOutside(overflowRef, () => setShowOverflow(false), showOverflow);
   // The marker becomes a control only for people entitled to what is behind it;
   // for everyone else it stays the plain marker it has always been.
   const { role } = useCurrentWorkspaceRole();
@@ -290,9 +309,26 @@ function MessageItem({
       </div>
 
       {!editing && !confirmDelete && (
-        <div className={`message-actions absolute -top-3 right-2 flex items-center gap-0.5 bg-slate-800 border border-slate-700 rounded-lg px-1 py-0.5 shadow-lg opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto ${
+        <div
+          className={`message-actions absolute -top-3 right-2 flex items-center gap-0.5 bg-slate-800 border border-slate-700 rounded-lg px-1 py-0.5 shadow-lg opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto ${
             actionsRevealed ? 'opacity-100 pointer-events-auto' : ''
-          }`}>
+          }`}
+        >
+          {/* Slack surfaces a few emoji inline because reacting is the most
+              common action in the product, and a picker turns one tap into
+              three. These are the three this instance uses most. */}
+          {QUICK_REACTIONS.map((emoji) => (
+            <button
+              key={emoji}
+              onClick={() => handleReactionToggle(emoji)}
+              aria-label={`React with ${emoji}`}
+              data-qa="message-quick-reaction"
+              className="px-1 py-0.5 text-sm leading-none hover:bg-slate-700 rounded transition"
+            >
+              {emoji}
+            </button>
+          ))}
+          <div className="w-px h-4 bg-slate-700 mx-0.5" />
           {onThreadOpen && (
             <button
               onClick={() => onThreadOpen(message)}
@@ -324,24 +360,6 @@ function MessageItem({
               />
             )}
           </div>
-          <button
-            onClick={() => onTogglePin(message.id, message.is_pinned)}
-            aria-label={message.is_pinned ? 'Unpin message' : 'Pin message'}
-            data-qa="message-action-pin"
-            className="p-1 text-slate-400 hover:text-amber-400 hover:bg-slate-700 rounded transition"
-          >
-            <Pin className="w-3.5 h-3.5" />
-          </button>
-          {onCopyLink && (
-            <button
-              onClick={() => onCopyLink(message.id)}
-              aria-label="Copy link to message"
-              data-qa="message-action-copy-link"
-              className="p-1 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition"
-            >
-              <Link2 className="w-3.5 h-3.5" />
-            </button>
-          )}
           {onSave && (
             <button
               onClick={() => onSave(message)}
@@ -352,36 +370,85 @@ function MessageItem({
               <Bookmark className="w-3.5 h-3.5" />
             </button>
           )}
-          {onForward && (
+
+          {/* The toolbar sits over the message, so it has to stay short. The
+              four that get used live here; the rest are one click further. */}
+          <div className="relative">
             <button
-              onClick={() => onForward(message)}
-              aria-label="Forward message"
-              data-qa="message-action-forward"
+              onClick={() => setShowOverflow((open) => !open)}
+              aria-label="More actions"
+              data-qa="message-action-more"
               className="p-1 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition"
             >
-              <Forward className="w-3.5 h-3.5" />
+              <MoreHorizontal className="w-3.5 h-3.5" />
             </button>
-          )}
-          {isOwn && (
-            <button
-              onClick={() => setEditing(true)}
-              aria-label="Edit message"
-              data-qa="message-action-edit"
-              className="p-1 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition"
-            >
-              <Pencil className="w-3.5 h-3.5" />
-            </button>
-          )}
-          {isOwn && (
-            <button
-              onClick={() => setConfirmDelete(true)}
-              aria-label="Delete message"
-              data-qa="message-action-delete"
-              className="p-1 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded transition"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          )}
+            {showOverflow && (
+              <div
+                ref={overflowRef}
+                className="absolute right-0 top-full mt-1 w-44 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-20 py-1"
+                data-qa="message-overflow"
+              >
+                <button
+                  onClick={() => {
+                    onTogglePin(message.id, message.is_pinned);
+                    setShowOverflow(false);
+                  }}
+                  data-qa="message-action-pin"
+                  className="w-full px-3 py-1.5 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2"
+                >
+                  <Pin className="w-3.5 h-3.5" /> {message.is_pinned ? 'Unpin' : 'Pin'}
+                </button>
+                {onCopyLink && (
+                  <button
+                    onClick={() => {
+                      onCopyLink(message.id);
+                      setShowOverflow(false);
+                    }}
+                    data-qa="message-action-copy-link"
+                    className="w-full px-3 py-1.5 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2"
+                  >
+                    <Link2 className="w-3.5 h-3.5" /> Copy link
+                  </button>
+                )}
+                {onForward && (
+                  <button
+                    onClick={() => {
+                      onForward(message);
+                      setShowOverflow(false);
+                    }}
+                    data-qa="message-action-forward"
+                    className="w-full px-3 py-1.5 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2"
+                  >
+                    <Forward className="w-3.5 h-3.5" /> Forward
+                  </button>
+                )}
+                {isOwn && (
+                  <button
+                    onClick={() => {
+                      setEditing(true);
+                      setShowOverflow(false);
+                    }}
+                    data-qa="message-action-edit"
+                    className="w-full px-3 py-1.5 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2"
+                  >
+                    <Pencil className="w-3.5 h-3.5" /> Edit
+                  </button>
+                )}
+                {isOwn && (
+                  <button
+                    onClick={() => {
+                      setConfirmDelete(true);
+                      setShowOverflow(false);
+                    }}
+                    data-qa="message-action-delete"
+                    className="w-full px-3 py-1.5 text-left text-sm text-red-400 hover:bg-slate-700 flex items-center gap-2"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Delete
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

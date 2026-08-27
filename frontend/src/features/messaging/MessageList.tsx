@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useUnreadChannels } from '@/hooks/queries/useChannels';
+import { UnreadDivider } from './UnreadDivider';
 import { MessageSquare } from 'lucide-react';
 import MessageItem from './MessageItem';
 import VirtualMessageList from './VirtualMessageList';
 import { buildMessageRows, type MessageRow } from './messageRows';
-import type { Message, WorkspaceMember, Channel } from '@/stores/workspace';
+import { useWorkspaceStore, type Message, type WorkspaceMember, type Channel } from '@/stores/workspace';
 import { useMessages, messagesOldestFirst } from '@/hooks/queries/useMessages';
 import { useUserCache } from '@/stores/users';
 import { displayNameOf } from '@/lib/userHelpers';
@@ -59,7 +61,21 @@ export default function MessageList({
   }
 
   const messages = useMemo(() => messagesOldestFirst(data), [data]);
-  const rows = useMemo(() => buildMessageRows(messages), [messages]);
+
+  // Captured once per channel: the boundary must not move while the person is
+  // reading, or the line jumps down the list as each message is marked read.
+  const workspace = useWorkspaceStore((s) => s.currentWorkspace);
+  const { data: unread } = useUnreadChannels(workspace?.id ?? null, workspace?.instanceUrl);
+  const [readBoundary, setReadBoundary] = useState<string | null>(null);
+  const [boundaryChannel, setBoundaryChannel] = useState<string | null>(null);
+  if (boundaryChannel !== channelId) {
+    setBoundaryChannel(channelId);
+    setReadBoundary(
+      unread?.counts.find((c) => c.channel_id === channelId && c.unread_count > 0)?.last_read_msg ?? null,
+    );
+  }
+
+  const rows = useMemo(() => buildMessageRows(messages, readBoundary), [messages, readBoundary]);
 
   // A permalink can point at a message older than anything loaded, so keep
   // pulling pages until it turns up; `scrollToKey` does the rest once it does.
@@ -81,6 +97,7 @@ export default function MessageList({
   const renderRow = useCallback(
     (row: MessageRow<Message>) => {
       if (row.kind === 'day') return <DaySeparator at={row.at} />;
+      if (row.kind === 'unread') return <UnreadDivider />;
       const sender = getUser(row.message.user_id);
       return (
         <MessageItem
