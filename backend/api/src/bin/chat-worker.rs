@@ -8,7 +8,7 @@ use chat_api::config::AppConfig;
 use chat_api::state::AppState;
 use chat_api::{
     build_state, connect_pool, export, health, hooks, huddle, init_tracing, messaging, metrics,
-    notifications, retention, scheduled, shutdown_signal, supervise,
+    notifications, retention, scheduled, shutdown_signal, slack_import, supervise,
 };
 
 #[tokio::main]
@@ -131,6 +131,19 @@ fn spawn_consumers(state: &Arc<AppState>, redis_url: &str) {
                 let export_state = export_state.clone();
                 async move {
                     export::job::start_export_worker(export_state).await;
+                }
+            })
+            .await;
+        });
+    }
+
+    {
+        let import_state = state.clone();
+        tokio::spawn(async move {
+            supervise("slack_import_worker", || {
+                let import_state = import_state.clone();
+                async move {
+                    slack_import::job::start_import_worker(import_state).await;
                 }
             })
             .await;

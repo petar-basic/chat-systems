@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { API, login, userContext } from './helpers';
+import { API, login, userContext, devWorkspace } from './helpers';
 
 const TOTAL = 120;
 
@@ -22,7 +22,7 @@ type Ctx = import('@playwright/test').APIRequestContext;
 /** Spread across three authors: one user posting 120 messages trips the write limit. */
 async function seedChannel(authors: Ctx[], prefix: string) {
   const [admin] = authors;
-  const workspace = (await (await admin.get(`${API}/workspaces`)).json()).data[0];
+  const workspace = await devWorkspace(admin);
   const stamp = Date.now();
   const created = await admin.post(`${API}/workspaces/${workspace.id}/channels`, {
     data: { name: `${prefix}-${stamp}`, channel_type: 'public' },

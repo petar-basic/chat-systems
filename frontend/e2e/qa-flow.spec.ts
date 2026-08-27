@@ -1,10 +1,11 @@
 import { test, expect, type Page, type BrowserContext } from '@playwright/test';
-import { authHeaders, login, send, SHOTS, userContext } from './helpers';
+import { authHeaders, devWorkspace, login, send, SHOTS, userContext } from './helpers';
 
 let ctxA: BrowserContext;
 let ctxB: BrowserContext;
 let admin: Page;
 let bob: Page;
+let workspaceId: string;
 
 const stamp = process.env.E2E_STAMP || `run-${Date.now()}`;
 
@@ -35,6 +36,14 @@ test.afterAll(async () => {
 test('1. cold login both users, land in workspace', async () => {
   await login(admin, 'admin@dev.local');
   await login(bob, 'bob@dev.local');
+  // Sign-in lands in whichever workspace comes first, and these two share only
+  // the seeded one; the rest of the file talks about its channels.
+  const { ctx } = await userContext('admin@dev.local');
+  const workspace = await devWorkspace(ctx);
+  workspaceId = workspace.id;
+  await ctx.dispose();
+  await admin.goto(`/app/${workspaceId}`);
+  await bob.goto(`/app/${workspaceId}`);
   await admin.screenshot({ path: `${SHOTS}/01-admin-logged-in.png`, fullPage: false });
   await bob.screenshot({ path: `${SHOTS}/01-bob-logged-in.png` });
   await expect(admin.locator('[data-qa="connection-banner"]')).toHaveCount(0);
@@ -173,8 +182,7 @@ test('7. edit and delete propagate live', async () => {
 test('8. unread indicator appears on a channel the user is not viewing', async () => {
   const api = admin.request;
   const auth = await authHeaders(api, 'admin@dev.local');
-  const wsId = (await (await api.get('http://localhost:3000/api/workspaces', { headers: auth })).json())
-    .data[0].id;
+  const wsId = (await devWorkspace(api, 'admin@dev.local')).id;
   const chList = await (
     await api.get(`http://localhost:3000/api/workspaces/${wsId}/channels`, { headers: auth })
   ).json();
@@ -224,7 +232,7 @@ test('9. direct message is delivered live', async () => {
 });
 
 test('10. search finds a message', async () => {
-  await bob.goto('/');
+  await bob.goto(`/app/${workspaceId}`);
   await expect(bob.locator('[data-qa="message-list"]')).toBeVisible({ timeout: 20_000 });
   await bob.getByLabel('Search messages').click();
   await bob

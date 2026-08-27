@@ -4,7 +4,7 @@ import { execSync } from 'node:child_process';
 // the module URL keeps the suite runnable on a CI runner, not just one laptop.
 const REPO_ROOT = new URL('../..', import.meta.url).pathname;
 import { test, expect, type Page, type BrowserContext } from '@playwright/test';
-import { API, authHeaders, login, MAILHOG, send, SHOTS } from './helpers';
+import { API, authHeaders, devWorkspace, login, MAILHOG, send, SHOTS, userContext } from './helpers';
 
 const stamp = process.env.E2E_STAMP || `run2-${Date.now()}`;
 
@@ -12,6 +12,7 @@ let ctxA: BrowserContext;
 let ctxB: BrowserContext;
 let admin: Page;
 let bob: Page;
+let workspaceId: string;
 
 test.describe.configure({ mode: 'serial' });
 
@@ -22,6 +23,13 @@ test.beforeAll(async ({ browser }) => {
   bob = await ctxB.newPage();
   await login(admin, 'admin@dev.local');
   await login(bob, 'bob@dev.local');
+  // Both users have to be looking at the same channel for any of this to mean
+  // anything, and sign-in lands in whichever workspace comes first.
+  const { ctx } = await userContext('admin@dev.local');
+  workspaceId = (await devWorkspace(ctx)).id;
+  await ctx.dispose();
+  await admin.goto(`/app/${workspaceId}`);
+  await bob.goto(`/app/${workspaceId}`);
 });
 
 test.afterAll(async () => {
@@ -52,7 +60,7 @@ test('A. realtime gateway restart: banner shows, socket reconnects, missed messa
 
 test('B. same user in two tabs stays in sync', async () => {
   const tab2 = await ctxB.newPage();
-  await tab2.goto('/');
+  await tab2.goto(`/app/${workspaceId}`);
   await expect(tab2.locator('[data-qa="message-list"]')).toBeVisible({ timeout: 20_000 });
 
   const text = `two-tab ${stamp}`;
@@ -105,7 +113,8 @@ test('E. invite → email → registration lands the new user inside the workspa
     .catch(() => {});
   const api = admin.request;
   const auth = await authHeaders(api, 'admin@dev.local');
-  const ws = (await (await api.get(`${API}/workspaces`, { headers: auth })).json()).data[0];
+  const listed = await (await api.get(`${API}/workspaces`, { headers: auth })).json();
+  const ws = listed.data.find((w: { name: string }) => w.name === 'Dev Team');
   const inv = await api.post(`${API}/workspaces/${ws.id}/invites`, {
     headers: auth,
     data: { email, role: 'member' },
@@ -154,7 +163,8 @@ test('F. guest is scoped to the channels they were added to', async () => {
 
   const api = diana.request;
   const gauth = await authHeaders(api, 'diana@dev.local');
-  const ws = (await (await api.get(`${API}/workspaces`, { headers: gauth })).json()).data[0];
+  const listedForGuest = await (await api.get(`${API}/workspaces`, { headers: gauth })).json();
+  const ws = listedForGuest.data.find((w: { name: string }) => w.name === 'Dev Team');
   const chans = (await (await api.get(`${API}/workspaces/${ws.id}/channels`, { headers: gauth })).json())
     .data;
   expect(chans.some((c: { name: string }) => c.name === 'random')).toBe(false);

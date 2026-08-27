@@ -22,6 +22,7 @@ import {
   Smile,
   Bookmark,
   BellRing,
+  Upload,
 } from 'lucide-react';
 import type { Channel, Workspace, WorkspaceMember } from '@/stores/workspace';
 import type { Conversation } from '@/hooks/queries/useConversations';
@@ -66,6 +67,7 @@ interface Props {
   onOpenAuditLog: () => void;
   onOpenScheduled: () => void;
   onOpenSaved: () => void;
+  onOpenSlackImport: () => void;
   onOpenReminders: () => void;
   onOpenProfile: () => void;
   onOpenNotifications: () => void;
@@ -201,6 +203,7 @@ export default function ChannelSidebar({
   onOpenAuditLog,
   onOpenScheduled,
   onOpenSaved,
+  onOpenSlackImport,
   onOpenReminders,
   onOpenProfile,
   onOpenNotifications,
@@ -397,6 +400,18 @@ export default function ChannelSidebar({
                   }}
                 >
                   <Plug className="w-4 h-4" /> Integrations
+                </button>
+              )}
+              {isWorkspaceAdmin && (
+                <button
+                  className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
+                  data-qa="open-slack-import"
+                  onClick={() => {
+                    onOpenSlackImport();
+                    setWsDropdownOpen(false);
+                  }}
+                >
+                  <Upload className="w-4 h-4" /> Slack import
                 </button>
               )}
               <button

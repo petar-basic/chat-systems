@@ -8,7 +8,7 @@ use shared_common::errors::{AppError, AppResult};
 /// Where the export is read from. A ZIP is what Slack hands you; a directory is
 /// what you have five minutes later, and on a 20 GB export that difference
 /// matters enough to support both.
-pub trait ExportSource {
+pub trait ExportSource: Send {
     fn label(&self) -> &str;
     fn read_bytes(&mut self, path: &str) -> AppResult<Vec<u8>>;
     /// Whether the export carries this listing at all. `groups.json`, `dms.json`
@@ -16,6 +16,10 @@ pub trait ExportSource {
     fn has(&mut self, path: &str) -> bool;
     /// The per-day message files for a channel, in the order Slack wrote them.
     fn channel_days(&mut self, channel_name: &str) -> AppResult<Vec<String>>;
+    /// Every file in the archive with its size, for checking it against what the
+    /// manifest says should be there. Slack's own manifest is not counted: it
+    /// does not count itself either.
+    fn entries(&mut self) -> Vec<(String, u64)>;
 
     fn read_json<T: DeserializeOwned>(&mut self, path: &str) -> AppResult<T>
     where
@@ -61,6 +65,29 @@ impl ExportSource for DirectorySource {
 
     fn has(&mut self, path: &str) -> bool {
         self.root.join(path).is_file()
+    }
+
+    fn entries(&mut self) -> Vec<(String, u64)> {
+        let mut found = Vec::new();
+        let mut stack = vec![self.root.clone()];
+        while let Some(dir) = stack.pop() {
+            let Ok(entries) = fs::read_dir(&dir) else {
+                continue;
+            };
+            for entry in entries.filter_map(Result::ok) {
+                let path = entry.path();
+                let name = entry.file_name().to_string_lossy().to_string();
+                if name.starts_with('.') {
+                    continue;
+                }
+                if path.is_dir() {
+                    stack.push(path);
+                } else if let Ok(meta) = entry.metadata() {
+                    found.push((name, meta.len()));
+                }
+            }
+        }
+        found
     }
 
     fn channel_days(&mut self, channel_name: &str) -> AppResult<Vec<String>> {
@@ -120,6 +147,17 @@ impl ExportSource for ZipSource {
 
     fn has(&mut self, path: &str) -> bool {
         self.archive.by_name(path).is_ok()
+    }
+
+    fn entries(&mut self) -> Vec<(String, u64)> {
+        (0..self.archive.len())
+            .filter_map(|i| {
+                let entry = self.archive.by_index(i).ok()?;
+                let name = entry.name().to_string();
+                let base = name.rsplit('/').next().unwrap_or(&name);
+                (!entry.is_dir() && !base.starts_with('.')).then(|| (name.clone(), entry.size()))
+            })
+            .collect()
     }
 
     fn channel_days(&mut self, channel_name: &str) -> AppResult<Vec<String>> {

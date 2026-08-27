@@ -412,6 +412,73 @@ async fn an_export_arrives_as_channels_messages_threads_reactions_and_pins(pool:
     );
 }
 
+const BOUNDARY: &str = "----chatsystemsimporttest";
+
+/// Uploading the export is a multipart form, the same shape the browser sends.
+async fn send_multipart(
+    app: &axum::Router,
+    uri: &str,
+    token: &str,
+    archive: &[u8],
+    dry_run: bool,
+) -> (StatusCode, serde_json::Value) {
+    send_multipart_named(app, uri, token, archive, dry_run, None).await
+}
+
+async fn send_multipart_named(
+    app: &axum::Router,
+    uri: &str,
+    token: &str,
+    archive: &[u8],
+    dry_run: bool,
+    workspace_name: Option<&str>,
+) -> (StatusCode, serde_json::Value) {
+    let mut body = Vec::new();
+    body.extend_from_slice(
+        format!(
+            "--{BOUNDARY}\r\nContent-Disposition: form-data; name=\"dry_run\"\r\n\r\n{dry_run}\r\n"
+        )
+        .as_bytes(),
+    );
+    if let Some(name) = workspace_name {
+        body.extend_from_slice(
+            format!(
+                "--{BOUNDARY}\r\nContent-Disposition: form-data; name=\"workspace_name\"\r\n\r\n{name}\r\n"
+            )
+            .as_bytes(),
+        );
+    }
+    body.extend_from_slice(
+        format!(
+            "--{BOUNDARY}\r\nContent-Disposition: form-data; name=\"archive\"; filename=\"acme-export.zip\"\r\nContent-Type: application/zip\r\n\r\n"
+        )
+        .as_bytes(),
+    );
+    body.extend_from_slice(archive);
+    body.extend_from_slice(format!("\r\n--{BOUNDARY}--\r\n").as_bytes());
+
+    let request = axum::http::Request::builder()
+        .method("POST")
+        .uri(uri)
+        .header(axum::http::header::AUTHORIZATION, format!("Bearer {token}"))
+        .header(
+            axum::http::header::CONTENT_TYPE,
+            format!("multipart/form-data; boundary={BOUNDARY}"),
+        )
+        .body(axum::body::Body::from(body))
+        .expect("build request");
+
+    let response = tower::ServiceExt::oneshot(app.clone(), request)
+        .await
+        .expect("send");
+    let status = response.status();
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("read body");
+    let value = serde_json::from_slice(&bytes).unwrap_or(serde_json::Value::Null);
+    (status, value)
+}
+
 /// The documented input is a ZIP, so the ZIP path is what the acceptance test
 /// should exercise; a directory is the convenience.
 fn zip_of(root: &PathBuf) -> PathBuf {
@@ -707,6 +774,257 @@ async fn a_run_with_a_token_picks_up_the_files_the_first_run_could_not(pool: PgP
 
     let third = import(&state, ws, &fixture.root, false).await;
     assert_eq!(third.files_imported, 0, "and a third run adds nothing");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_admin_uploads_an_export_and_the_worker_runs_it(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "import-ui-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Imported").await;
+
+    let fixture = Fixture::write();
+    let archive = zip_of(&fixture.root);
+    let bytes = std::fs::read(&archive).expect("read the zip");
+    let _ = std::fs::remove_file(&archive);
+
+    let (status, queued) = send_multipart(
+        &app,
+        &format!("/api/workspaces/{ws}/slack-imports"),
+        &owner_token,
+        &bytes,
+        false,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{queued:?}");
+    assert_eq!(queued["data"]["status"], "pending");
+    assert!(
+        queued["data"]["storage_key"].is_null(),
+        "where the archive is kept is nobody's business but the worker's"
+    );
+    let run_id: Uuid = queued["data"]["id"]
+        .as_str()
+        .expect("id")
+        .parse()
+        .expect("uuid");
+
+    let claimed = state
+        .slack_import_repo
+        .claim_next()
+        .await
+        .expect("claim")
+        .expect("there is a job");
+    assert_eq!(claimed.id, run_id);
+
+    crate::slack_import::job::run(&state, claimed)
+        .await
+        .expect("the job runs");
+
+    let (status, finished) = send(
+        &app,
+        "GET",
+        &format!("/api/slack-imports/{run_id}"),
+        Some(&owner_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(finished["data"]["status"], "complete");
+    assert_eq!(finished["data"]["report"]["messages_imported"], 7);
+    assert_eq!(finished["data"]["report"]["channels_created"], 2);
+
+    let channels: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM channels WHERE workspace_id = $1 AND name = 'general-chat'",
+    )
+    .bind(ws)
+    .fetch_one(&state.pool)
+    .await
+    .expect("count channels");
+    assert_eq!(channels, 1, "the history actually landed");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_export_can_make_the_workspace_it_lands_in(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (_owner_id, _, token) = seed_and_login(&app, &state, "import-new-ws", false).await;
+
+    let fixture = Fixture::write();
+    let archive = zip_of(&fixture.root);
+    let bytes = std::fs::read(&archive).expect("read the zip");
+    let _ = std::fs::remove_file(&archive);
+
+    let (status, queued) = send_multipart_named(
+        &app,
+        "/api/slack-imports",
+        &token,
+        &bytes,
+        false,
+        Some("Coding Craftsmen Guild"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{queued:?}");
+
+    let ws: Uuid = queued["data"]["workspace_id"]
+        .as_str()
+        .expect("workspace")
+        .parse()
+        .expect("uuid");
+    let name: String = sqlx::query_scalar("SELECT name FROM workspaces WHERE id = $1")
+        .bind(ws)
+        .fetch_one(&state.pool)
+        .await
+        .expect("the workspace was created");
+    assert_eq!(name, "Coding Craftsmen Guild");
+
+    let claimed = state
+        .slack_import_repo
+        .claim_next()
+        .await
+        .expect("claim")
+        .expect("there is a job");
+    crate::slack_import::job::run(&state, claimed)
+        .await
+        .expect("the job runs");
+
+    let imported: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM channels WHERE workspace_id = $1 AND name IN ('general-chat', 'incident-2023')",
+    )
+    .bind(ws)
+    .fetch_one(&state.pool)
+    .await
+    .expect("count channels");
+    assert_eq!(
+        imported, 2,
+        "and the history landed in it, alongside the default channel a new workspace comes with"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_import_into_a_new_workspace_needs_a_name(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (_owner_id, _, token) = seed_and_login(&app, &state, "import-noname", false).await;
+
+    let fixture = Fixture::write();
+    let archive = zip_of(&fixture.root);
+    let bytes = std::fs::read(&archive).expect("read the zip");
+    let _ = std::fs::remove_file(&archive);
+
+    let (status, _) =
+        send_multipart_named(&app, "/api/slack-imports", &token, &bytes, false, None).await;
+    assert_eq!(
+        status,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "the export does not carry the workspace's name, so somebody has to give one"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn only_a_workspace_admin_can_start_one(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "import-ui-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Imported").await;
+
+    let (member_id, _, member_token) =
+        seed_and_login(&app, &state, "import-ui-member", false).await;
+    add_ws_member(&state, ws, member_id, "member").await;
+
+    let (status, _) = send_multipart(
+        &app,
+        &format!("/api/workspaces/{ws}/slack-imports"),
+        &member_token,
+        b"PK\x03\x04nonsense",
+        false,
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "an import writes history into every channel and creates accounts"
+    );
+
+    let (status, _) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws}/slack-imports"),
+        Some(&member_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "and so is reading the runs");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn something_that_is_not_a_zip_is_refused_before_it_becomes_a_job(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "import-ui-junk", false).await;
+    let ws = seed_workspace(&state, owner_id, "Imported").await;
+
+    let (status, _) = send_multipart(
+        &app,
+        &format!("/api/workspaces/{ws}/slack-imports"),
+        &owner_token,
+        b"this is a text file",
+        false,
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+
+    let queued: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM slack_imports WHERE workspace_id = $1")
+            .bind(ws)
+            .fetch_one(&state.pool)
+            .await
+            .expect("count runs");
+    assert_eq!(queued, 0, "nothing was queued and nothing was stored");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_job_whose_archive_is_gone_fails_with_a_reason(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "import-ui-gone", false).await;
+    let ws = seed_workspace(&state, owner_id, "Imported").await;
+
+    let run = state
+        .slack_import_repo
+        .queue_run(
+            ws,
+            "nowhere.zip",
+            "slack-imports/missing.zip",
+            owner_id,
+            false,
+        )
+        .await
+        .expect("queue");
+
+    let claimed = state
+        .slack_import_repo
+        .claim_next()
+        .await
+        .expect("claim")
+        .expect("there is a job");
+    let failure = crate::slack_import::job::run(&state, claimed)
+        .await
+        .expect_err("there is nothing to read");
+    state
+        .slack_import_repo
+        .fail_run(run.id, &failure)
+        .await
+        .expect("record the failure");
+
+    let (_, shown) = send(
+        &app,
+        "GET",
+        &format!("/api/slack-imports/{}", run.id),
+        Some(&owner_token),
+        None,
+    )
+    .await;
+    assert_eq!(shown["data"]["status"], "failed");
+    assert!(
+        shown["data"]["error"]
+            .as_str()
+            .is_some_and(|e| e.contains("uploaded archive")),
+        "the operator is told what went wrong: {shown:?}"
+    );
 }
 
 #[test_macros::db_test(migrations = "../migrations")]

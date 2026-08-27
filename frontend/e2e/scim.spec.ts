@@ -11,7 +11,7 @@ async function scimToken(admin: APIRequestContext) {
 
 async function inviteAndRegister(admin: APIRequestContext, request: APIRequestContext, email: string) {
   const workspaces = await (await admin.get(`${API}/workspaces`)).json();
-  const workspaceId = workspaces.data[0].id as string;
+  const workspaceId = workspaces.data.find((w: { name: string }) => w.name === 'Dev Team').id as string;
 
   const invite = await admin.post(`${API}/workspaces/${workspaceId}/invites`, {
     data: { email, role: 'member' },

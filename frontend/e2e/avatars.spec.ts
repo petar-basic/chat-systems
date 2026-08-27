@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
-import { API, login, userContext } from './helpers';
+import { API, login, userContext, devWorkspace } from './helpers';
 
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
@@ -7,7 +7,7 @@ const PNG = Buffer.from(
 );
 
 async function generalChannel(ctx: APIRequestContext) {
-  const workspace = (await (await ctx.get(`${API}/workspaces`)).json()).data[0];
+  const workspace = await devWorkspace(ctx);
   const channels = (await (await ctx.get(`${API}/workspaces/${workspace.id}/channels`)).json()).data;
   return { workspace, general: channels.find((c: { name: string }) => c.name === 'general') };
 }

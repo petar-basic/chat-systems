@@ -18,6 +18,7 @@ export type RightPanel =
   | { kind: 'scheduled' }
   | { kind: 'saved' }
   | { kind: 'reminders' }
+  | { kind: 'slackImport' }
   | { kind: 'notifications' }
   | null;
 

@@ -160,6 +160,7 @@ pub fn build_app(state: Arc<AppState>) -> Router {
         .merge(admin::routes::router(state.clone()))
         .merge(conversations::routes::router(state.clone()))
         .merge(saved::routes::router(state.clone()))
+        .merge(slack_import::routes::router(state.clone()))
         .merge(scheduled::routes::router(state.clone()))
         .merge(huddle::routes::router(state.clone()))
         .merge(retention::routes::router(state.clone()))

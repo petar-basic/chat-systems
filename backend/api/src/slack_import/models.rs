@@ -164,6 +164,27 @@ impl SlackFile {
     }
 }
 
+/// `.slack-manifest.json`, which Slack writes into the archive. Its checksum is
+/// an undocumented aggregate, so what can honestly be verified is what it counts:
+/// how many files there should be and how many bytes they add up to.
+#[derive(Debug, Clone, Deserialize)]
+pub struct SlackManifest {
+    #[serde(default)]
+    pub metadata: SlackManifestMetadata,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct SlackManifestMetadata {
+    #[serde(default)]
+    pub export_type: Option<String>,
+    #[serde(default)]
+    pub created_at_iso: Option<String>,
+    #[serde(default)]
+    pub file_count: Option<usize>,
+    #[serde(default)]
+    pub total_bytes: Option<u64>,
+}
+
 /// What the run did, and what it could not do. The second half is the point:
 /// an import that silently drops a tenth of its input looks identical to one
 /// that worked.
@@ -185,6 +206,10 @@ pub struct ImportReport {
     pub emoji_imported: usize,
     pub emoji_already_present: usize,
     pub skipped: Vec<Skipped>,
+    /// Things worth saying that are not failures: what the archive claims about
+    /// itself, a listing that is present but empty, an account nobody will ever
+    /// be able to claim.
+    pub notes: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -194,6 +219,10 @@ pub struct Skipped {
 }
 
 impl ImportReport {
+    pub fn note(&mut self, note: impl Into<String>) {
+        self.notes.push(note.into());
+    }
+
     pub fn skip(&mut self, what: impl Into<String>, why: impl Into<String>) {
         self.skipped.push(Skipped {
             what: what.into(),

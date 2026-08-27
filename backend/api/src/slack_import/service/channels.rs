@@ -174,7 +174,14 @@ impl Import<'_> {
             self.report.skip(listing.to_string(), "not in this export");
             return Ok(None);
         }
-        read_json(source, listing).map(Some)
+        let listed: Vec<SlackConversation> = read_json(source, listing)?;
+        // Present and empty is a different thing from absent, and the difference
+        // is what somebody reading the report before a real run wants to know.
+        if listed.is_empty() {
+            self.report
+                .note(format!("{listing} is in the export, and it is empty"));
+        }
+        Ok(Some(listed))
     }
 
     async fn add_channel_members(

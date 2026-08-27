@@ -66,6 +66,7 @@ export default function WorkspacePage() {
           onOpenAuditLog={() => panel.toggle('auditLog')}
           onOpenScheduled={() => panel.toggle('scheduled')}
           onOpenSaved={() => panel.toggle('saved')}
+          onOpenSlackImport={() => panel.toggle('slackImport')}
           onOpenReminders={() => panel.toggle('reminders')}
           onOpenProfile={() => c.setShowProfile(true)}
           onOpenNotifications={() => panel.toggle('notifications')}

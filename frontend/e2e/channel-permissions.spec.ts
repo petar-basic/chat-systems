@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
-import { API, login, userContext } from './helpers';
+import { API, login, userContext, devWorkspace } from './helpers';
 
 async function openChannel(page: Page, workspaceId: string, channelId: string, name: string) {
   await page.goto(`/app/${workspaceId}/${channelId}`);
@@ -8,7 +8,7 @@ async function openChannel(page: Page, workspaceId: string, channelId: string, n
 }
 
 async function sharedWorkspace(ctx: APIRequestContext) {
-  return (await (await ctx.get(`${API}/workspaces`)).json()).data[0];
+  return await devWorkspace(ctx);
 }
 
 async function createChannel(ctx: APIRequestContext, workspaceId: string, name: string, type = 'public') {

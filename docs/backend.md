@@ -411,9 +411,26 @@ All workspace-scoped routes require workspace membership.
 
 ### slack_import
 
-Reads a Slack export into a workspace. There are no routes: an import is long,
-restartable and supervised by whoever is running the migration, so it is the `chat-import`
-binary rather than a request somebody waits on.
+Reads a Slack export into a workspace, from the app or from a shell.
+
+**From the app** — a workspace admin uploads the zip and watches the run. The upload is one
+request; the import is not. It is queued, claimed by the worker the way an export job is, and
+writes its counters as it goes so a run that takes an hour has something to show.
+
+| Method | Route | Input | Output |
+|--------|-------|-------|--------|
+| POST | `/workspaces/{ws_id}/slack-imports` | multipart: `archive` (the zip), `dry_run` | `ImportRun` — status `pending`; workspace admins only |
+| POST | `/slack-imports` | multipart: `archive`, `workspace_name`, `dry_run` | Creates the workspace, then queues — an export *is* a workspace, and there is nothing to import into yet. The name is the caller's: Slack writes it into the file name and nowhere inside the archive, not even the manifest |
+| GET | `/workspaces/{ws_id}/slack-imports` | — | `{ data: ImportRun[] }` — the last 20 runs |
+| GET | `/slack-imports/{import_id}` | — | `ImportRun` — status, live counts, and what was skipped |
+
+The archive is checked for a zip's magic bytes before anything is stored, capped at 512 MB
+(past that the answer is the CLI, and the error says so), kept in the same storage uploads
+use, and **deleted once the worker has read it** — it is a copy of somebody's entire Slack
+history and there is no reason to keep it.
+
+**From a shell** — for an export too large to travel through a browser, or a migration
+somebody wants to watch over ssh:
 
 ```
 chat-import --workspace <uuid|slug> --export <zip-or-directory> [--dry-run] [--no-files] [--slack-token <token>]
@@ -461,6 +478,19 @@ outside it, no token, or a URL the guard refused — and the message it belonged
 imported. Running the import again with a token picks up the files a tokenless run left
 behind, without duplicating the messages.
 
+**The archive is checked against its own manifest.** `.slack-manifest.json` states a file
+count and a total size; both are verified before the import starts, which catches a truncated
+download before an hour of work goes into it. Its checksum is an undocumented aggregate
+(`sha256-agg-v2`), so that is reported rather than pretended to be verified. The report also
+carries what the manifest says the export *is* — a `MANUAL_NON_COMPLIANCE` export has public
+channels only, which is worth saying before somebody concludes the import lost their DMs.
+
+**Notes, not just failures.** The report separates what could not be imported from what is
+merely worth knowing: a listing that is present but empty (different from absent), the kind of
+export it was, and an account created under Slack's placeholder address for a deactivated
+member — which needs to exist so their history has an owner, but which nobody will ever be
+able to claim.
+
 **Custom emoji are not in the export.** Slack keeps them behind `emoji.list`, so the import
 reads them with the same token it uses for files (`emoji:read`) — or from an `emoji.json` in
 the export, which some tools write, and which wins when it is there. Aliases point at the
@@ -477,7 +507,7 @@ in silence.
 
 | Table | What it holds |
 |---|---|
-| `slack_imports` | One row per run: source, dry-run flag, the report as JSON |
+| `slack_imports` | One row per run: source, dry-run flag, status, the report as JSON, and the error if it failed |
 | `slack_users` | `(workspace, slack user id)` → our user |
 | `slack_channels` | `(workspace, slack channel id)` → our channel |
 | `slack_conversations` | `(workspace, slack channel id)` → our conversation, for DMs |
@@ -551,12 +581,18 @@ The upgrade additionally checks the `Origin` against the configured CORS origins
 
 ```json
 { "type": "subscribe",     "workspace_id": "..." }
-{ "type": "channel.join",  "channel_id": "..." }
+{ "type": "channel.join",  "channel_ids": ["...", "..."] }
 { "type": "channel.leave", "channel_id": "..." }
 { "type": "typing.start",  "channel_id": "..." }
 { "type": "typing.stop",   "channel_id": "..." }
 { "type": "ping" }
 ```
+
+**`channel.join` takes the whole set at once.** A client joins every channel it can see the
+moment it connects, and one frame per channel is what the inbound flood guard (20/s, burst 40)
+exists to stop — a workspace with more channels than that used to have its socket closed by
+the act of arriving. One frame, one membership query for the set, capped at 1 000 ids so the
+batch cannot become the flood it replaced.
 
 **Huddle signaling (incoming client messages).** Mesh WebRTC uses this socket purely as the signaling channel — no media flows through the server. After membership is verified, the server relays via `events:huddle`:
 

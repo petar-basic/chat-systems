@@ -1,11 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { API, login, userContext } from './helpers';
+import { API, login, userContext, devWorkspace } from './helpers';
 
 test('@channel reaches a member who was never named', async ({ page }) => {
   const { ctx: admin } = await userContext('admin@dev.local');
   const { ctx: bob, userId: bobId } = await userContext('bob@dev.local');
 
-  const workspace = (await (await bob.get(`${API}/workspaces`)).json()).data[0];
+  const workspace = await devWorkspace(bob);
   const stamp = Date.now();
   const created = await admin.post(`${API}/workspaces/${workspace.id}/channels`, {
     data: { name: `broadcast-${stamp}`, channel_type: 'public' },
@@ -47,7 +47,7 @@ test('a plain message leaves uninvolved members alone', async ({ page }) => {
   const { ctx: admin } = await userContext('admin@dev.local');
   const { ctx: bob, userId: bobId } = await userContext('bob@dev.local');
 
-  const workspace = (await (await bob.get(`${API}/workspaces`)).json()).data[0];
+  const workspace = await devWorkspace(bob);
   const stamp = Date.now();
   const created = await admin.post(`${API}/workspaces/${workspace.id}/channels`, {
     data: { name: `quiet-${stamp}`, channel_type: 'public' },

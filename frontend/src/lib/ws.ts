@@ -103,7 +103,12 @@ export class WebSocketClient {
       // replay, and a replayed event is routed through the same visibility
       // predicate as a live one — so a connection that has not re-declared its
       // channels yet would be handed nothing at all.
-      this.joinedChannels.forEach((channelId) => this.send({ type: 'channel.join', channel_id: channelId }));
+      // Re-join everything the socket had, in one frame: a reconnect on a
+      // workspace with many channels is exactly where the old per-channel frame
+      // tripped the gateway's flood guard.
+      if (this.joinedChannels.size > 0) {
+        this.send({ type: 'channel.join', channel_ids: [...this.joinedChannels] });
+      }
       if (this.subscribedWorkspace) {
         // Resuming from the last processed position is what turns a dropped
         // socket into a gap replay instead of a refetch of whatever is open.
@@ -194,8 +199,16 @@ export class WebSocketClient {
   }
 
   joinChannel(channel_id: string) {
-    this.joinedChannels.add(channel_id);
-    this.send({ type: 'channel.join', channel_id });
+    this.joinChannels([channel_id]);
+  }
+
+  // One frame for the whole set. A workspace with hundreds of channels used to
+  // send hundreds of frames the moment it connected, which the gateway's flood
+  // guard closed the socket over.
+  joinChannels(channelIds: string[]) {
+    const fresh = channelIds.filter((id) => !this.joinedChannels.has(id));
+    for (const id of fresh) this.joinedChannels.add(id);
+    if (fresh.length > 0) this.send({ type: 'channel.join', channel_ids: fresh });
   }
 
   leaveChannel(channel_id: string) {

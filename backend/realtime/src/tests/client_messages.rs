@@ -134,7 +134,7 @@ async fn channel_join_member_then_broadcast_reaches_conn(pool: PgPool) {
 
     let (conn_id, mut rx) = fake_conn(&cm, user);
 
-    let text = serde_json::json!({ "type": "channel.join", "channel_id": ch }).to_string();
+    let text = serde_json::json!({ "type": "channel.join", "channel_ids": [ch] }).to_string();
     crate::ws_handler::handle_client_message(&text, &conn_id, user, &cm, &mut inbound()).await;
 
     cm.broadcast_to_channel(Audience::Everyone, ch, r#"{"type":"message.new"}"#)
@@ -161,7 +161,7 @@ async fn channel_join_non_member_denied_no_broadcast(pool: PgPool) {
     let outsider = seed_user(cm.db()).await;
     let (conn_id, mut rx) = fake_conn(&cm, outsider);
 
-    let text = serde_json::json!({ "type": "channel.join", "channel_id": ch }).to_string();
+    let text = serde_json::json!({ "type": "channel.join", "channel_ids": [ch] }).to_string();
     crate::ws_handler::handle_client_message(&text, &conn_id, outsider, &cm, &mut inbound()).await;
 
     cm.broadcast_to_channel(Audience::Everyone, ch, r#"{"type":"message.new"}"#)
@@ -181,7 +181,7 @@ async fn channel_leave_stops_broadcasts(pool: PgPool) {
 
     let (conn_id, mut rx) = fake_conn(&cm, user);
 
-    let join = serde_json::json!({ "type": "channel.join", "channel_id": ch }).to_string();
+    let join = serde_json::json!({ "type": "channel.join", "channel_ids": [ch] }).to_string();
     crate::ws_handler::handle_client_message(&join, &conn_id, user, &cm, &mut inbound()).await;
 
     let leave = serde_json::json!({ "type": "channel.leave", "channel_id": ch }).to_string();
@@ -369,5 +369,37 @@ async fn repeated_typing_for_the_same_channel_is_coalesced(pool: PgPool) {
     assert!(
         listener.await.expect("listener task").is_some(),
         "typing again after a stop publishes"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_workspace_full_of_channels_joins_in_one_frame(pool: PgPool) {
+    let cm = manager(pool).await;
+    let (user, ws, first) = seed_member_in_channel(cm.db()).await;
+
+    // Comfortably past the inbound burst the gateway allows. Sent as one frame
+    // per channel, this is the shape that used to close the socket at connect.
+    let mut ids = vec![first.to_string()];
+    for _ in 0..120 {
+        let ch = seed_channel(cm.db(), ws, user).await;
+        add_ch_member(cm.db(), ch, user).await;
+        ids.push(ch.to_string());
+    }
+    let last: Uuid = ids.last().expect("a channel").parse().expect("uuid");
+
+    let (conn_id, mut rx) = fake_conn(&cm, user);
+    let text = serde_json::json!({ "type": "channel.join", "channel_ids": ids }).to_string();
+    let mut limiter = inbound();
+    crate::ws_handler::handle_client_message(&text, &conn_id, user, &cm, &mut limiter).await;
+
+    cm.broadcast_to_channel(Audience::Everyone, last, r#"{"type":"message.new"}"#)
+        .await;
+
+    let frames = drain_json(&mut rx);
+    assert!(
+        frames
+            .iter()
+            .any(|f| f.get("type").and_then(|v| v.as_str()) == Some("message.new")),
+        "the last channel in the batch is joined too, got: {frames:?}"
     );
 }
