@@ -13,6 +13,12 @@ export interface Workspace {
   instanceUrl: string;
 }
 
+export interface ChannelSettings {
+  /// Absent means `everyone`: every channel that predates announcement
+  /// channels, which is most of them.
+  post_policy?: 'everyone' | 'moderators';
+}
+
 export interface Channel {
   id: string;
   workspace_id: string;
@@ -22,6 +28,7 @@ export interface Channel {
   channel_type: string;
   is_default: boolean;
   muted?: boolean;
+  settings?: ChannelSettings;
 }
 
 export interface Reaction {

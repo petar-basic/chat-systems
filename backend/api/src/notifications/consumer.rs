@@ -9,7 +9,12 @@ use super::repo::NotificationRepo;
 use crate::messaging::stream_group::StreamGroup;
 use crate::push::sender::{PushPayload, PushSender};
 
-pub async fn start_consumer(redis_url: &str, repo: Arc<NotificationRepo>, push: Arc<PushSender>) {
+pub async fn start_consumer(
+    redis_url: &str,
+    app_state: Arc<crate::state::AppState>,
+    repo: Arc<NotificationRepo>,
+    push: Arc<PushSender>,
+) {
     let Some(mut group) = StreamGroup::connect(redis_url, "notifications").await else {
         return;
     };
@@ -24,7 +29,14 @@ pub async fn start_consumer(redis_url: &str, repo: Arc<NotificationRepo>, push: 
             // which is the point.
             async {
                 if delivery.event.event_type == "message.created" {
-                    notify_mentions(&repo, &push, &mut pub_conn, &delivery.event.payload).await;
+                    notify_mentions(
+                        &app_state,
+                        &repo,
+                        &push,
+                        &mut pub_conn,
+                        &delivery.event.payload,
+                    )
+                    .await;
                 }
             }
             .await;
@@ -38,6 +50,7 @@ pub async fn start_consumer(redis_url: &str, repo: Arc<NotificationRepo>, push: 
 /// driving a stream: everything that decides whether somebody hears about a
 /// mention lives here.
 pub async fn notify_mentions(
+    state: &crate::state::AppState,
     repo: &NotificationRepo,
     push: &PushSender,
     pub_conn: &mut redis::aio::ConnectionManager,
@@ -133,19 +146,63 @@ pub async fn notify_mentions(
             }
 
             let badge = repo.unread_count(uid, ws_id).await.unwrap_or(0);
-            push.send_to_user(
-                uid,
-                &PushPayload {
-                    title: "You were mentioned".into(),
-                    body: PushPayload::preview(content),
-                    workspace_id: Some(ws_id.to_string()),
-                    channel_id: channel_id.map(str::to_string),
-                    conversation_id: None,
-                    message_id: message_id.map(str::to_string),
-                    badge_count: badge,
-                },
-            )
-            .await;
+            let reached = push
+                .send_to_user(
+                    uid,
+                    &PushPayload {
+                        title: "You were mentioned".into(),
+                        body: PushPayload::preview(content),
+                        workspace_id: Some(ws_id.to_string()),
+                        channel_id: channel_id.map(str::to_string),
+                        conversation_id: None,
+                        message_id: message_id.map(str::to_string),
+                        badge_count: badge,
+                    },
+                )
+                .await;
+
+            // No socket, and no device that could be woken. Without this the
+            // mention waits until they next open the app, which for somebody on
+            // holiday is not a notification system.
+            if !reached {
+                let channel_name = match channel_uuid {
+                    Some(id) => state
+                        .workspace_service
+                        .repo
+                        .find_channel_by_id(id)
+                        .await
+                        .ok()
+                        .flatten()
+                        .and_then(|c| c.name)
+                        .unwrap_or_default(),
+                    None => String::new(),
+                };
+                let sender_name = match sender_id.and_then(|v| v.parse::<uuid::Uuid>().ok()) {
+                    Some(id) => state
+                        .auth_service
+                        .repo()
+                        .find_by_id(id)
+                        .await
+                        .ok()
+                        .flatten()
+                        .and_then(|u| u.display_name)
+                        .unwrap_or_else(|| "Somebody".to_string()),
+                    None => "Somebody".to_string(),
+                };
+
+                super::email::enqueue(
+                    state,
+                    super::email::PendingMention {
+                        user_id: uid,
+                        workspace_id: ws_id,
+                        channel_id: channel_uuid,
+                        message_id: message_id.and_then(|v| v.parse().ok()),
+                        sender_name: &sender_name,
+                        channel_name: &channel_name,
+                    },
+                )
+                .await;
+            }
         }
     }
 }
@@ -153,7 +210,11 @@ pub async fn notify_mentions(
 /// Call notifications stay on pub/sub because the event that triggers them does.
 /// A ring is worth nothing a minute later, so it is not in the replay log — and
 /// that means the stream consumer never sees it.
-pub async fn start_call_consumer(redis_url: &str, repo: Arc<NotificationRepo>) {
+pub async fn start_call_consumer(
+    redis_url: &str,
+    repo: Arc<NotificationRepo>,
+    huddle_repo: Arc<crate::huddle::repo::HuddleRepo>,
+) {
     let client = match redis::Client::open(redis_url) {
         Ok(c) => c,
         Err(e) => {
@@ -208,7 +269,25 @@ pub async fn start_call_consumer(redis_url: &str, repo: Arc<NotificationRepo>) {
                 .and_then(|v| v.as_str())
                 .and_then(|v| v.parse::<uuid::Uuid>().ok());
 
+            let huddle_id = event_payload
+                .get("huddle_id")
+                .and_then(|v| v.as_str())
+                .and_then(|v| v.parse::<uuid::Uuid>().ok());
+
             if let (Some(uid), Some(ws_id)) = (to_user_id, workspace_id) {
+                // A ring is ephemeral, so it stays on pub/sub — which delivers
+                // to every subscriber. The claim is what makes a second replica
+                // harmless instead of a second phone call.
+                if let Some(huddle_id) = huddle_id {
+                    match huddle_repo.claim_ring(huddle_id, uid).await {
+                        Ok(true) => {}
+                        Ok(false) => return,
+                        Err(e) => {
+                            warn!("Call consumer: could not claim the ring: {}", e);
+                        }
+                    }
+                }
+
                 let data_json = serde_json::json!({
                     "huddle_id": event_payload.get("huddle_id"),
                     "from_user_id": event_payload.get("from_user_id"),

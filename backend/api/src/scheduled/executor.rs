@@ -124,14 +124,15 @@ async fn deliver(state: &AppState, scheduled: &ScheduledMessage) -> Result<(), D
 
 /// The message was authorized when it was scheduled, possibly days ago. Between
 /// then and now the author may have left the channel, the workspace or the
-/// company — so the same predicate the interactive path runs has to run again
-/// here, at the moment of the effect.
+/// company, or the channel may have been made announcement-only — so the same
+/// predicate the interactive path runs has to run again here, at the moment of
+/// the effect.
 async fn authorize_channel(
     state: &AppState,
     scheduled: &ScheduledMessage,
     channel_id: Uuid,
 ) -> Result<(), DeliveryFailure> {
-    let access = authz::require_channel_access(state, channel_id, scheduled.user_id)
+    let access = authz::require_channel_post(state, channel_id, scheduled.user_id)
         .await
         .map_err(|_| DeliveryFailure::NotAuthorized)?;
 

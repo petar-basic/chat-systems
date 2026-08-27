@@ -88,8 +88,6 @@ async fn create_conversation(
     Path(ws_id): Path<Uuid>,
     Json(req): Json<CreateConversationRequest>,
 ) -> AppResult<Json<Conversation>> {
-    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
-
     let mut participants: Vec<Uuid> = req
         .participant_ids
         .into_iter()
@@ -108,8 +106,28 @@ async fn create_conversation(
             "A conversation holds at most {MAX_GROUP_PARTICIPANTS} people"
         )));
     }
+    let starter = authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
     for participant in &participants {
-        authz::require_workspace_member(&state, ws_id, *participant).await?;
+        // Deliberately the same refusal whether the id is unknown, belongs to
+        // another workspace, or is simply out of a guest's reach. Three
+        // different answers here would rebuild the directory CS-041 closed.
+        let reachable = match authz::require_workspace_member(&state, ws_id, *participant).await {
+            Ok(_) if starter.role != WorkspaceRole::Guest => true,
+            Ok(_) => {
+                state
+                    .workspace_service
+                    .repo
+                    .share_a_channel(auth.user_id, *participant)
+                    .await?
+            }
+            Err(_) => false,
+        };
+
+        if !reachable {
+            return Err(AppError::Forbidden(
+                "You cannot start a conversation with that person".into(),
+            ));
+        }
     }
 
     if participants.len() == 1 {

@@ -10,9 +10,9 @@ what it changed lives in the git history and in the docs it touched. Read
 [the index](./tickets/INDEX.md) for the dependency map and the conflict table; this page
 is the summary and the reasoning behind the sequence.
 
-**Waves 0 through 8 are shipped, and half of Wave 9.** Next ticket:
-[CS-038](./tickets/CS-038-mobile-client.md) — the responsive pass, now that Web Push has
-landed.
+**Waves 0 through 8 are shipped, Wave 9 bar the SFU, and all of Wave 11.** Next ticket:
+[CS-047](./tickets/CS-047-prove-it-at-import-scale.md) — it measures what Wave 11 changed,
+which is why it was held back from it.
 
 ## How the order was chosen
 
@@ -616,7 +616,8 @@ borrowing one would name somebody who did not do it.
 
 ## Wave 9 — Product parity (partly shipped)
 
-Five of seven shipped. `CS-037` and `CS-038` are still ahead and keep their tickets.
+Six of seven shipped. `CS-037` is still ahead and keeps its ticket; `CS-038` moved to Wave
+11 and shipped there, with Web Push behind it.
 
 ### [CS-034] Search language and DM search ✅ shipped
 `content_search` was `GENERATED ALWAYS AS (to_tsvector('english', content)) STORED`, so the
@@ -771,62 +772,123 @@ would do — counts and the list of what will not convert cleanly.
 **Today:** huddles use a WebRTC mesh, fine to six or eight participants. The `livekit_room`
 column exists and is unused. Keep the mesh for small calls; switch above a threshold.
 
-### [CS-038](./tickets/CS-038-mobile-client.md) — Mobile client
-**Today:** desktop-first, mobile layout explicitly not a goal. The largest adoption risk on
-this page: a chat tool that cannot reach people on a phone gets replaced in practice by
-whatever can. **Decided 2026-08-13: Option A, the responsive PWA.** Web Push shipped with
-CS-035, which was the half that made a PWA worth installing; React Native stays a follow-up
-for if push reliability or call ringing turns out to be the actual blocker.
-
 ---
 
-## Wave 10 — Guest containment and operational readiness
+## Wave 11 — Guest containment, operational readiness and mobile ✅ shipped
 
-Written on 2026-08-14 out of an adoption review: could a thirty-five person company with
-guest users, guest channels and locked channels move off Slack onto this instance? The
-answer was yes to the architecture and no to the current state, for reasons that are all
-small and none of which are structural. This wave is that list, in the order it should be
-worked.
+Written out of the adoption review of 2026-08-14 — could a thirty-five person company with
+guest users, guest channels and locked channels move off Slack onto this? — and shipped in
+the order that review put them. `CS-047` was deliberately left out: it measures what this
+wave changes, so it runs after it.
 
-### [CS-041](./tickets/CS-041-guest-directory-scoping.md) — Scope the member directory
-**Today:** `list_members` requires only workspace membership and returns every member's
-email. A guest invited into one channel receives the company's full staff directory with
-addresses. Every other guest rule in the product is tight; this is the door still open.
+### [CS-041] Scope the member directory
+`list_members` required only workspace membership and returned every member's email, so a
+guest invited into one channel received the company's staff directory with addresses. Every
+other guest rule was already tight; this was the door still open.
 
-### [CS-042](./tickets/CS-042-guest-conversation-scope.md) — Restrict who a guest may DM
-**Today:** `create_conversation` checks workspace membership and nothing else, so a guest
-can open a private channel to anyone in the company. Once CS-041 stops them discovering the
-directory, this is the way back to it.
+A guest now sees the people they share a channel with, and no addresses at all — not even
+for those people. A display name and an avatar are what the UI needs to render a message;
+an address is what somebody outside the company needs to phish it. The redaction lives in
+the repo query rather than in the handler, because a projection a caller has to remember to
+apply is one the next caller forgets.
 
-### [CS-043](./tickets/CS-043-channel-posting-restrictions.md) — Announcement channels
-**Today:** anyone who can reach a channel can post in it. `channels.settings` is a `JSONB`
-column that no route has ever read or written. An announcements channel, a release feed, or
-a channel shared with guests where only staff should speak, do not exist as concepts. The
-only missing *feature* in this wave rather than a leak.
+### [CS-042] Restrict who a guest may DM
+`create_conversation` checked workspace membership and nothing else, so a guest who already
+knew a user id could open a private channel to anyone. The same predicate CS-041
+introduced — "do these two share a channel" — now guards creating one, asked once for
+reading and once for writing.
 
-### [CS-044](./tickets/CS-044-revocation-fails-closed.md) — Revocation must not fail open
-**Today:** a Redis error during the revocation lookup is treated as "not revoked", and the
-default access token lives an hour. So during a Redis incident, suspending somebody or
-deprovisioning them through SCIM quietly does not take effect — and nothing alerts on it,
-which is the worse half. CS-033's headline guarantee depends on this path.
+An unknown id and an unreachable member return the same refusal, byte for byte. Three
+different answers would have rebuilt the directory CS-041 had just closed. Conversations
+that already exist keep working: the rule is on creating one.
 
-### [CS-045](./tickets/CS-045-email-fallback-for-mentions.md) — Email a mention that reached nobody
-**Today:** email is used for invitations and password resets, and for nothing else. Somebody
-mentioned while offline, who never granted push permission, finds out when they next open
-the app. Every team arriving from Slack reads that as messages being lost.
+### [CS-043] Announcement channels
+There was no way to make a channel read-only. `channels.settings` had been carried by the
+schema since the first migration and **no route had ever read or written it**.
 
-### [CS-046](./tickets/CS-046-huddle-consumers-on-groups.md) — Huddle and call consumers onto groups
-**Today:** CS-028 moved the notification and hook consumers onto consumer groups; the huddle
-and call consumers stayed on plain pub/sub, which delivers to every subscriber. A second
-`chat-worker` replica double-records huddle history and rings twice, so the worker stays at
-one — a single point of failure for calls that fails in the quietest possible way.
+`post_policy` is `everyone` or `moderators`, enforced by `require_channel_post` in `authz`
+rather than in each handler — the writers are the part that gets missed, and there are four
+of them in four different files: the composer, thread replies, scheduled sends and slash
+commands that answer `in_channel`. A scheduled message written before the channel was locked
+is refused at delivery, because CS-021 already re-authorizes at the moment of the effect.
 
-### [CS-047](./tickets/CS-047-prove-it-at-import-scale.md) — Prove it at import scale
-**Today:** the largest dataset this has ever run against is about 2,200 messages. A company
-migrating off Slack arrives with two or three orders of magnitude more on the first day.
-The search plan is right and the ranked pagination is unmeasured; the import, the backfill
-and the restore procedure have all only been exercised small. Nothing here is predicted to
-be broken — it is unknown, and the migration is where it would be discovered.
+Reading and reacting are untouched: a reaction is not a post. An incoming webhook scoped to
+the channel still posts, because a release feed is exactly what such a channel is for, and
+the hook's own scoping from CS-019 is what decides it. A command whose answer cannot be
+posted degrades to an ephemeral answer instead of an error for work it already did.
+
+### [CS-044] Revocation no longer fails open
+A Redis error during the revocation lookup was treated as "not revoked". With the access
+token defaulting to an hour, that meant suspending somebody or deprovisioning them through
+SCIM quietly did nothing for up to an hour whenever Redis was unavailable — and nothing
+alerted on it, which was the worse half. CS-033's whole promise runs through this call.
+
+The lookup now has three answers rather than two. A store that will not respond within
+250ms gets one retry; after that the request is refused with a `503` rather than a `401`,
+because a client should retry in a second, not throw the session away and send somebody to a
+login form over a cache blink. The same fix landed in the realtime gateway, where the thing
+being granted is a socket that stays open rather than one request.
+
+The default access token is now 15 minutes, and `auth_revocation_lookup_failures_total`
+is exposed so an operator can see revocation failing instead of finding out later.
+
+### [CS-045] Email a mention that reached nobody
+Email had two uses in this product — invitations and password resets — and no third.
+Somebody mentioned while offline, who had never granted push permission, found out when they
+next opened the app.
+
+The worker now queues a digest when nothing else could have reached them: no live socket,
+no push subscription, not muted, not in do-not-disturb. Five minutes later it sends one
+email per person per workspace, and coming online inside that window cancels it — the badge
+is already waiting for them, so the email would be describing what they can see. The queue
+is a table rather than Redis, because a worker restart inside the window would otherwise
+drop the only notification they were going to get.
+
+The email carries who, where and a link, and no message text: mail sits in an inbox on
+somebody else's server indefinitely, and is the least private transport this product
+touches. Off entirely when SMTP is unconfigured, exactly as Web Push is off without VAPID
+keys.
+
+### [CS-046] Huddle and call consumers onto consumer groups
+CS-028 moved the notification and hook consumers onto `XREADGROUP`; the huddle and call
+consumers stayed on plain pub/sub, which delivers to every subscriber. That kept
+`chat-worker` at one replica — a single point of failure for call ringing, which fails in
+the quietest possible way: everything else keeps working.
+
+Huddle membership is history — it is written to a table and read back as a call log — so it
+is now durable and read through a consumer group with acknowledgement. The ring stays
+ephemeral, because a call announced two minutes late is worse than one not announced, and
+instead the notification is claimed by `(huddle_id, to_user_id)` before it is written, the
+way CS-028 claims `(hook_id, event_id)`.
+
+Worth stating plainly: `record_join` was already an upsert and `end_session` already only
+succeeded once, so those two were no-ops on a redelivery rather than bugs. The ring was the
+one place a second replica produced a second effect.
+
+### [CS-038] Mobile client — the responsive PWA
+**Decided 2026-08-13: Option A.** Web Push shipped in Wave 9, which was the half that made
+an installed PWA worth having on a phone.
+
+The inventory came first, as the ticket demanded, and it showed the drawer and the
+right-hand panels were already responsive while the modals, the composer and the shell were
+not. What that inventory turned into:
+
+- **The viewport tag was doing half its job.** `viewport-fit=cover` is what makes
+  `env(safe-area-inset-*)` non-zero, and `interactive-widget=resizes-content` is what makes
+  the virtual keyboard shrink the viewport instead of scrolling the composer out from under
+  the person typing.
+- **The editor was 14px.** iOS Safari zooms the page whenever a focused editable is under
+  16px, so tapping the composer scaled the whole app up and left people pinching back out.
+- **Modals were trapped inside the navigation drawer.** The drawer animates with
+  `translate-x`, and a transformed ancestor becomes the containing block for
+  `position: fixed` — so a dialog opened from the sidebar was laid out inside its 304px
+  instead of over the screen. Found by the new mobile spec, fixed by rendering the shared
+  `Modal` through a portal. One change, eight callers.
+- Modals are now sheets that reach the bottom edge below `sm`, and centred dialogs above it.
+
+A `mobile` Playwright project runs the core journey at a phone width in CI, and
+`docs/manual-qa.md` gained the list of things emulation cannot check — the keyboard, safe
+areas on a real notch, the back gesture, background/foreground, and push to a closed app.
 
 ---
 

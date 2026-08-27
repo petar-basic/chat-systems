@@ -10,7 +10,20 @@ use uuid::Uuid;
 
 pub const WRITER_CHANNEL_CAP: usize = 256;
 
-pub const PRESENCE_TTL_SECS: u64 = 60;
+/// Matches the API side: short enough that a healthy Redis is never noticed,
+/// long enough that a busy one is not mistaken for a dead one.
+const REVOCATION_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(250);
+const REVOCATION_RETRIES: u8 = 1;
+const REVOCATION_RETRY_DELAY: std::time::Duration = std::time::Duration::from_millis(50);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RevocationState {
+    Valid,
+    Revoked,
+    Unknown,
+}
+
+const PRESENCE_TTL_SECS: u64 = 60;
 
 /// Distinct from the revocation code so the client can tell "you are too slow"
 /// from "you may not connect" and reconnect immediately in the first case.
@@ -411,23 +424,42 @@ impl ConnectionManager {
         }
     }
 
-    pub async fn is_revoked(&self, claims: &crate::Claims) -> bool {
-        let mut conn = self.redis.clone();
-        let raw: redis::RedisResult<Option<String>> =
-            conn.get(format!("revoked:{}", claims.sub)).await;
-        let payload = match raw {
-            Ok(Some(payload)) => payload,
-            Ok(None) => return false,
-            Err(e) => {
-                warn!("revocation lookup failed for user {}: {}", claims.sub, e);
-                return false;
+    /// Same three answers as the API's `revocation_state`, for the same reason:
+    /// a store that cannot be reached is not a session that is fine. Here it
+    /// matters more, because the thing being granted is a socket that stays open
+    /// and keeps receiving messages rather than one request.
+    pub async fn revocation_state(&self, claims: &crate::Claims) -> RevocationState {
+        let mut last_error = None;
+
+        for attempt in 0..=REVOCATION_RETRIES {
+            let mut conn = self.redis.clone();
+            let read = conn.get::<_, Option<String>>(format!("revoked:{}", claims.sub));
+
+            match tokio::time::timeout(REVOCATION_TIMEOUT, read).await {
+                Ok(Ok(Some(payload))) => {
+                    return match serde_json::from_str::<RevocationRecord>(&payload) {
+                        Ok(record) if record.covers(claims) => RevocationState::Revoked,
+                        Ok(_) => RevocationState::Valid,
+                        Err(_) => RevocationState::Revoked,
+                    };
+                }
+                Ok(Ok(None)) => return RevocationState::Valid,
+                Ok(Err(e)) => last_error = Some(e.to_string()),
+                Err(_) => last_error = Some("timed out".to_string()),
             }
-        };
-        let record: RevocationRecord = match serde_json::from_str(&payload) {
-            Ok(record) => record,
-            Err(_) => return true,
-        };
-        record.covers(claims)
+
+            if attempt < REVOCATION_RETRIES {
+                tokio::time::sleep(REVOCATION_RETRY_DELAY).await;
+            }
+        }
+
+        metrics::counter!("auth_revocation_lookup_failures_total").increment(1);
+        warn!(
+            "revocation lookup failed for user {}, refusing the socket: {}",
+            claims.sub,
+            last_error.unwrap_or_default()
+        );
+        RevocationState::Unknown
     }
 
     fn presence_key(workspace_id: &Uuid) -> String {

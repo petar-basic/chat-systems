@@ -32,6 +32,19 @@ async fn main() -> anyhow::Result<()> {
     spawn_consumers(&state, &redis_url);
 
     {
+        let digest_state = state.clone();
+        tokio::spawn(async move {
+            supervise("mention_email_digest", || {
+                let digest_state = digest_state.clone();
+                async move {
+                    notifications::email::start_digest_job(digest_state).await;
+                }
+            })
+            .await;
+        });
+    }
+
+    {
         let backfill_state = state.clone();
         tokio::spawn(async move {
             chat_api::search::backfill(&backfill_state).await;
@@ -180,14 +193,21 @@ fn spawn_consumers(state: &Arc<AppState>, redis_url: &str) {
         let redis_url = redis_url.to_string();
         let notif_repo = notif_repo.clone();
         let push = Arc::new(state.push_sender.clone());
+        let consumer_state = state.clone();
         tokio::spawn(async move {
             supervise("notification_consumer", || {
                 let redis_url = redis_url.clone();
                 let notif_repo = notif_repo.clone();
                 let push_sender = push.clone();
+                let state = consumer_state.clone();
                 async move {
-                    notifications::consumer::start_consumer(&redis_url, notif_repo, push_sender)
-                        .await;
+                    notifications::consumer::start_consumer(
+                        &redis_url,
+                        state,
+                        notif_repo,
+                        push_sender,
+                    )
+                    .await;
                 }
             })
             .await;
@@ -197,12 +217,19 @@ fn spawn_consumers(state: &Arc<AppState>, redis_url: &str) {
     {
         let redis_url = redis_url.to_string();
         let notif_repo = notif_repo.clone();
+        let ring_repo = huddle_repo.clone();
         tokio::spawn(async move {
             supervise("call_notification_consumer", || {
                 let redis_url = redis_url.clone();
                 let notif_repo = notif_repo.clone();
+                let huddle_repo = ring_repo.clone();
                 async move {
-                    notifications::consumer::start_call_consumer(&redis_url, notif_repo).await;
+                    notifications::consumer::start_call_consumer(
+                        &redis_url,
+                        notif_repo,
+                        huddle_repo,
+                    )
+                    .await;
                 }
             })
             .await;

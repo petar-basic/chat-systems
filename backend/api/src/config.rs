@@ -108,7 +108,10 @@ impl AppConfig {
             ),
             redis_url: env_or("REDIS_URL", "redis://127.0.0.1:6379"),
             jwt_secret: env_or("JWT_SECRET", "dev-secret-change-me-in-production"),
-            access_token_expiry: parse_env("ACCESS_TOKEN_EXPIRY", 3600),
+            // Fifteen minutes, not an hour: this is the window in which a revoked
+            // session keeps working if the revocation store cannot be reached, and
+            // the refresh flow already renews it without anybody noticing.
+            access_token_expiry: parse_env("ACCESS_TOKEN_EXPIRY", 900),
             refresh_token_expiry: parse_env("REFRESH_TOKEN_EXPIRY", 604800),
             admin_email: std::env::var("ADMIN_EMAIL").ok(),
             admin_password: std::env::var("ADMIN_PASSWORD").ok(),

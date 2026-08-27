@@ -1,6 +1,6 @@
 # CS-047 — Prove it at import scale
 
-**Wave:** 10 — Guest containment and operational readiness
+**Wave:** 12 — deferred out of Wave 11 on 2026-08-14; it decides what else gets a ticket, so it runs once the wave it would measure has landed
 **Area:** backend · ops
 **Blocked by:** ~~CS-034~~ ✅ shipped (search rewrite), ~~CS-036~~ ✅ shipped (Slack import)
 **Blocks:** —

@@ -218,6 +218,68 @@ impl WorkspaceRepo {
         .await
     }
 
+    /// Whether these two people are in any channel together. The predicate a
+    /// guest's reach is measured by, on both the reading side (the directory)
+    /// and the writing side (opening a conversation) -- one rule, asked twice.
+    pub async fn share_a_channel(&self, a: Uuid, b: Uuid) -> sqlx::Result<bool> {
+        sqlx::query_scalar::<_, bool>(
+            r"
+            SELECT EXISTS (
+              SELECT 1
+                FROM channel_members mine
+                JOIN channel_members theirs ON theirs.channel_id = mine.channel_id
+               WHERE mine.user_id = $1 AND theirs.user_id = $2
+            )
+            ",
+        )
+        .bind(a)
+        .bind(b)
+        .fetch_one(&self.pool)
+        .await
+    }
+
+    /// What a guest is allowed to know: the people they share a channel with,
+    /// without their addresses. The redaction happens here rather than in the
+    /// handler, because a projection a caller has to remember to apply is a
+    /// projection the next caller forgets.
+    ///
+    /// A display name and an avatar are what the UI needs to render a message.
+    /// An email is what somebody outside the company needs to phish it.
+    pub async fn list_members_visible_to_guest(
+        &self,
+        workspace_id: Uuid,
+        guest_id: Uuid,
+    ) -> sqlx::Result<Vec<MemberWithUser>> {
+        sqlx::query_as::<_, MemberWithUser>(
+            r"
+            SELECT wm.workspace_id, wm.user_id, wm.role, wm.joined_at,
+                   '' AS email, u.display_name, u.avatar_url,
+                   CASE WHEN u.status_expires_at IS NULL OR u.status_expires_at > NOW()
+                        THEN u.status_emoji END AS status_emoji,
+                   CASE WHEN u.status_expires_at IS NULL OR u.status_expires_at > NOW()
+                        THEN u.status_text END AS status_text
+            FROM workspace_members wm
+            JOIN users u ON u.id = wm.user_id
+            WHERE wm.workspace_id = $1
+              AND (
+                wm.user_id = $2
+                OR EXISTS (
+                  SELECT 1
+                    FROM channel_members mine
+                    JOIN channel_members theirs ON theirs.channel_id = mine.channel_id
+                   WHERE mine.user_id = $2
+                     AND theirs.user_id = wm.user_id
+                )
+              )
+            ORDER BY wm.joined_at
+            ",
+        )
+        .bind(workspace_id)
+        .bind(guest_id)
+        .fetch_all(&self.pool)
+        .await
+    }
+
     pub async fn list_members_with_users(
         &self,
         workspace_id: Uuid,
@@ -455,6 +517,26 @@ impl WorkspaceRepo {
         .bind(name)
         .bind(topic)
         .bind(description)
+        .fetch_one(&self.pool)
+        .await
+    }
+
+    /// Merged into `settings` rather than replacing it: the column is a bag
+    /// that later features will also want, and a whole-object write would
+    /// silently drop whatever they put there.
+    pub async fn set_channel_post_policy(&self, id: Uuid, policy: &str) -> sqlx::Result<Channel> {
+        sqlx::query_as::<_, Channel>(
+            r"
+            UPDATE channels
+               SET settings = COALESCE(settings, '{}'::jsonb)
+                              || jsonb_build_object('post_policy', $2::text),
+                   updated_at = NOW()
+             WHERE id = $1
+            RETURNING *
+            ",
+        )
+        .bind(id)
+        .bind(policy)
         .fetch_one(&self.pool)
         .await
     }

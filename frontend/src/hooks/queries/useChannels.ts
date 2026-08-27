@@ -147,8 +147,12 @@ export const useUpdateChannel = (workspaceId: string, channelId: string) => {
   const queryClient = useQueryClient();
   const apiClient = useCurrentApi();
   return useMutation({
-    mutationFn: async (patch: { name?: string; topic?: string; description?: string }) =>
-      apiClient.patch<Channel>(`/channels/${channelId}`, patch),
+    mutationFn: async (patch: {
+      name?: string;
+      topic?: string;
+      description?: string;
+      post_policy?: 'everyone' | 'moderators';
+    }) => apiClient.patch<Channel>(`/channels/${channelId}`, patch),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceChannels(workspaceId) });
     },

@@ -245,8 +245,18 @@ async fn ws_upgrade(
         return Err(AppError::Unauthorized("Origin not allowed".into()));
     }
     let claims = authenticate_ws(&headers, &state.jwt_secret)?;
-    if state.cm.is_revoked(&claims).await {
-        return Err(AppError::Unauthorized("Session revoked".into()));
+    match state.cm.revocation_state(&claims).await {
+        crate::connection_manager::RevocationState::Valid => {}
+        crate::connection_manager::RevocationState::Revoked => {
+            return Err(AppError::Unauthorized("Session revoked".into()));
+        }
+        // The client reconnects with backoff on a 503 and keeps its session; a
+        // 401 would send somebody back to a login form because a cache blinked.
+        crate::connection_manager::RevocationState::Unknown => {
+            return Err(AppError::ServiceUnavailable(
+                "Cannot verify the session right now. Please retry.".into(),
+            ));
+        }
     }
     let ws = WebSocketUpgrade::from_request(request, &state)
         .await

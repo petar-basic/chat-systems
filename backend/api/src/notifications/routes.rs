@@ -28,7 +28,11 @@ pub fn router(state: Arc<AppState>) -> Router {
             "/workspaces/{ws_id}/notifications/unread-count",
             get(unread_count),
         )
-        .route("/notifications/dnd", get(get_dnd).patch(set_dnd));
+        .route("/notifications/dnd", get(get_dnd).patch(set_dnd))
+        .route(
+            "/notifications/email",
+            get(get_email_preference).patch(set_email_preference),
+        );
 
     crate::protected(state, routes)
 }
@@ -126,4 +130,44 @@ async fn set_dnd(
         .set_dnd(auth.user_id, req.dnd_until)
         .await?;
     Ok(Json(serde_json::json!({ "dnd_until": req.dnd_until })))
+}
+
+/// Whether to email a mention that reached nobody. On by default: somebody who
+/// never grants push permission is exactly who it is for, and they are not going
+/// to go looking for a switch to turn it on.
+async fn get_email_preference(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+) -> AppResult<Json<serde_json::Value>> {
+    let enabled: Option<bool> =
+        sqlx::query_scalar("SELECT mention_emails FROM users WHERE id = $1")
+            .bind(auth.user_id)
+            .fetch_optional(&state.pool)
+            .await?;
+
+    Ok(Json(serde_json::json!({
+        "mention_emails": enabled.unwrap_or(true),
+        "available": state.auth_service.can_send_email(),
+    })))
+}
+
+#[derive(serde::Deserialize)]
+pub struct EmailPreferenceRequest {
+    pub mention_emails: bool,
+}
+
+async fn set_email_preference(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Json(req): Json<EmailPreferenceRequest>,
+) -> AppResult<Json<serde_json::Value>> {
+    sqlx::query("UPDATE users SET mention_emails = $2 WHERE id = $1")
+        .bind(auth.user_id)
+        .bind(req.mention_emails)
+        .execute(&state.pool)
+        .await?;
+
+    Ok(Json(
+        serde_json::json!({ "mention_emails": req.mention_emails }),
+    ))
 }

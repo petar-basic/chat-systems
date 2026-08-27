@@ -1,4 +1,4 @@
-import { Hash } from 'lucide-react';
+import { Hash, Megaphone } from 'lucide-react';
 import { ROUTES, EmptyLabels } from '@/shared/constants';
 import { useUserCache } from '@/stores/users';
 import { conversationTitle } from '@/lib/conversationHelpers';
@@ -12,6 +12,7 @@ import ForwardMessageModal from '@/features/messaging/ForwardMessageModal';
 import AddInstancePanel from '../components/AddInstancePanel';
 import UserProfilePanel from '../components/UserProfilePanel';
 import TypingIndicator from '../components/TypingIndicator';
+import { useChannelModeration } from '@/features/channel/hooks/useChannelModeration';
 import { useActiveHuddlesSync } from '@/features/huddle';
 
 export default function WorkspacePage() {
@@ -21,6 +22,8 @@ export default function WorkspacePage() {
   const activeConversation = c.conversations.find((conv) => conv.id === c.currentConversationId);
 
   useActiveHuddlesSync(currentWorkspace?.id, currentWorkspace?.instanceUrl);
+
+  const { canPost } = useChannelModeration(currentChannel?.id ?? null, currentChannel?.settings);
 
   return (
     <div className="h-dvh flex bg-slate-900 text-white relative">
@@ -172,7 +175,17 @@ export default function WorkspacePage() {
             </div>
           )}
 
-          {currentChannel && (
+          {currentChannel && !canPost && (
+            <div
+              data-qa="channel-read-only"
+              className="mx-4 mb-4 px-4 py-3 rounded-lg bg-slate-800/60 border border-slate-700 text-sm text-slate-400 flex items-center gap-2"
+            >
+              <Megaphone className="w-4 h-4 shrink-0 text-amber-400" />
+              Only admins can post in this channel.
+            </div>
+          )}
+
+          {currentChannel && canPost && (
             <MessageInput
               key={currentChannel.id}
               workspaceId={currentWorkspace?.id}

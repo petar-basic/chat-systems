@@ -234,7 +234,9 @@ export default function MessageInput({
   const isEmpty = !editor || editor.isEmpty;
 
   return (
-    <div className={editing ? 'mt-1' : 'px-4 pb-4'}>
+    // The bottom padding clears the iOS home indicator; without it the send
+    // button sits under it and cannot be tapped.
+    <div className={editing ? 'mt-1' : 'px-4 pb-4 max-sm:pb-[max(1rem,env(safe-area-inset-bottom))]'}>
       {onFileUpload && (
         <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} />
       )}

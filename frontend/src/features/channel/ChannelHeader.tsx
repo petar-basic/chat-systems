@@ -40,6 +40,7 @@ export default function ChannelHeader({
         <button
           onClick={onOpenNav}
           aria-label="Open navigation"
+          data-qa="mobile-nav-toggle"
           className="lg:hidden p-1.5 -ml-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/50"
         >
           <Menu className="w-5 h-5" />

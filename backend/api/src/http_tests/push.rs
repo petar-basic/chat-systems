@@ -221,6 +221,7 @@ async fn a_mention_reaches_every_registered_device(pool: PgPool) {
 
     let mut conn = state.redis.clone();
     notify_mentions(
+        &state,
         &state.notification_repo,
         &sender_for(&state),
         &mut conn,
@@ -286,6 +287,7 @@ async fn nothing_is_pushed_under_dnd_a_mute_or_a_live_socket(pool: PgPool) {
         .await
         .expect("mute the channel");
     notify_mentions(
+        &state,
         &state.notification_repo,
         &sender_for(&state),
         &mut conn,
@@ -313,6 +315,7 @@ async fn nothing_is_pushed_under_dnd_a_mute_or_a_live_socket(pool: PgPool) {
         .await
         .expect("set dnd");
     notify_mentions(
+        &state,
         &state.notification_repo,
         &sender_for(&state),
         &mut conn,
@@ -340,6 +343,7 @@ async fn nothing_is_pushed_under_dnd_a_mute_or_a_live_socket(pool: PgPool) {
     .await
     .expect("mark them online");
     notify_mentions(
+        &state,
         &state.notification_repo,
         &sender_for(&state),
         &mut conn,
@@ -356,6 +360,7 @@ async fn nothing_is_pushed_under_dnd_a_mute_or_a_live_socket(pool: PgPool) {
         .await
         .expect("clear presence");
     notify_mentions(
+        &state,
         &state.notification_repo,
         &sender_for(&state),
         &mut conn,
@@ -405,4 +410,194 @@ async fn a_subscription_the_service_calls_gone_is_dropped(pool: PgPool) {
             .is_empty(),
         "the dead subscription is gone"
     );
+}
+
+/// The last branch: no socket, no device that could be woken. Before this, the
+/// mention waited until they next opened the app.
+#[sqlx::test(migrations = "../migrations")]
+async fn a_mention_that_reached_nobody_is_queued_for_email(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (author, _, _) = seed_and_login(&app, &state, "mail-author", false).await;
+    let (target, _, _) = seed_and_login(&app, &state, "mail-target", false).await;
+    let ws_id = seed_workspace(&state, author, "Mail WS").await;
+    add_ws_member(&state, ws_id, target, "member").await;
+    let ch_id = seed_channel(&state, ws_id, author, "quiet", false).await;
+
+    let mut conn = state.redis.clone();
+    let event = json!({
+        "user_id": author.to_string(),
+        "workspace_id": ws_id.to_string(),
+        "channel_id": ch_id.to_string(),
+        "id": Uuid::new_v4().to_string(),
+        "content": "are you there @target",
+        "mentioned_user_ids": [target.to_string()],
+    });
+
+    notify_mentions(
+        &state,
+        &state.notification_repo,
+        &sender_for(&state),
+        &mut conn,
+        &event,
+    )
+    .await;
+
+    let queued: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM pending_mention_emails WHERE user_id = $1 AND workspace_id = $2",
+    )
+    .bind(target)
+    .bind(ws_id)
+    .fetch_one(&state.pool)
+    .await
+    .expect("count");
+    assert_eq!(
+        queued, 1,
+        "with nothing else able to reach them, an email is queued"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn nothing_is_queued_for_somebody_a_push_reached(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (author, _, _) = seed_and_login(&app, &state, "mail-author", false).await;
+    let (target, _, _) = seed_and_login(&app, &state, "mail-target", false).await;
+    let ws_id = seed_workspace(&state, author, "Mail WS").await;
+    add_ws_member(&state, ws_id, target, "member").await;
+    let ch_id = seed_channel(&state, ws_id, author, "quiet", false).await;
+
+    let service = fake_push_service(StatusCode::CREATED).await;
+    subscribe(&state, target, &format!("{}/push/laptop", service.address)).await;
+
+    let mut conn = state.redis.clone();
+    notify_mentions(
+        &state,
+        &state.notification_repo,
+        &sender_for(&state),
+        &mut conn,
+        &json!({
+            "user_id": author.to_string(),
+            "workspace_id": ws_id.to_string(),
+            "channel_id": ch_id.to_string(),
+            "id": Uuid::new_v4().to_string(),
+            "content": "ping @target",
+            "mentioned_user_ids": [target.to_string()],
+        }),
+    )
+    .await;
+
+    assert_eq!(service.hits.load(Ordering::SeqCst), 1, "the push went out");
+    let queued: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM pending_mention_emails WHERE user_id = $1")
+            .bind(target)
+            .fetch_one(&state.pool)
+            .await
+            .expect("count");
+    assert_eq!(queued, 0, "so there is nothing to email about");
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn somebody_who_turned_mention_emails_off_is_not_queued(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (author, _, _) = seed_and_login(&app, &state, "mail-author", false).await;
+    let (target, _, target_token) = seed_and_login(&app, &state, "mail-target", false).await;
+    let ws_id = seed_workspace(&state, author, "Mail WS").await;
+    add_ws_member(&state, ws_id, target, "member").await;
+    let ch_id = seed_channel(&state, ws_id, author, "quiet", false).await;
+
+    let (status, body) = send(
+        &app,
+        "GET",
+        "/api/notifications/email",
+        Some(&target_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["mention_emails"], json!(true), "on by default");
+
+    let (status, _) = send(
+        &app,
+        "PATCH",
+        "/api/notifications/email",
+        Some(&target_token),
+        Some(json!({ "mention_emails": false })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let mut conn = state.redis.clone();
+    notify_mentions(
+        &state,
+        &state.notification_repo,
+        &sender_for(&state),
+        &mut conn,
+        &json!({
+            "user_id": author.to_string(),
+            "workspace_id": ws_id.to_string(),
+            "channel_id": ch_id.to_string(),
+            "id": Uuid::new_v4().to_string(),
+            "content": "hello @target",
+            "mentioned_user_ids": [target.to_string()],
+        }),
+    )
+    .await;
+
+    let queued: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM pending_mention_emails WHERE user_id = $1")
+            .bind(target)
+            .fetch_one(&state.pool)
+            .await
+            .expect("count");
+    assert_eq!(queued, 0);
+}
+
+/// Coming back inside the digest window cancels it: the badge is already
+/// waiting for them, so the email would be telling them what they can see.
+#[sqlx::test(migrations = "../migrations")]
+async fn coming_online_inside_the_window_cancels_the_email(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (author, _, _) = seed_and_login(&app, &state, "mail-author", false).await;
+    let (target, _, _) = seed_and_login(&app, &state, "mail-target", false).await;
+    let ws_id = seed_workspace(&state, author, "Mail WS").await;
+    add_ws_member(&state, ws_id, target, "member").await;
+
+    sqlx::query(
+        "INSERT INTO pending_mention_emails \
+           (user_id, workspace_id, sender_name, channel_name, created_at) \
+         VALUES ($1, $2, 'Ana', 'general', NOW() - INTERVAL '10 minutes')",
+    )
+    .bind(target)
+    .bind(ws_id)
+    .execute(&state.pool)
+    .await
+    .expect("queue a due digest");
+
+    let mut conn = state.redis.clone();
+    let expires_at = chrono::Utc::now().timestamp() + 60;
+    let _: () = redis::AsyncCommands::zadd(
+        &mut conn,
+        format!("presence:ws:{ws_id}"),
+        target.to_string(),
+        expires_at,
+    )
+    .await
+    .expect("mark them online");
+
+    let sent = crate::notifications::email::flush_due(&state).await;
+    assert_eq!(sent, 0, "they are looking at it");
+
+    let left: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM pending_mention_emails WHERE user_id = $1")
+            .bind(target)
+            .fetch_one(&state.pool)
+            .await
+            .expect("count");
+    assert_eq!(
+        left, 0,
+        "and the queue is cleared rather than retried forever"
+    );
+
+    let _: () = redis::AsyncCommands::del(&mut conn, format!("presence:ws:{ws_id}"))
+        .await
+        .expect("clear presence");
 }

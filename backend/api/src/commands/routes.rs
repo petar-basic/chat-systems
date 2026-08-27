@@ -95,7 +95,11 @@ async fn invoke(
     Path(ch_id): Path<Uuid>,
     Json(req): Json<InvokeRequest>,
 ) -> AppResult<Json<CommandResponse>> {
-    authz::require_channel_access(&state, ch_id, auth.user_id).await?;
+    // Running a command is reading; answering `in_channel` is posting. The
+    // strict check happens up front so an announcement channel cannot be
+    // written to through `/topic` or a registered command either.
+    let access = authz::require_channel_access(&state, ch_id, auth.user_id).await?;
+    let may_post = access.can_post();
 
     let command = req.command.trim().trim_start_matches('/').to_lowercase();
     if command.is_empty() {
@@ -103,7 +107,7 @@ async fn invoke(
     }
 
     if let Some(response) = builtin::run(&state, ch_id, auth.user_id, &command, &req.text).await? {
-        return finish(&state, ch_id, auth.user_id, &command, response).await;
+        return finish(&state, ch_id, auth.user_id, &command, response, may_post).await;
     }
 
     let channel = state
@@ -158,7 +162,7 @@ async fn invoke(
     )
     .await;
 
-    finish(&state, ch_id, auth.user_id, &command, response).await
+    finish(&state, ch_id, auth.user_id, &command, response, may_post).await
 }
 
 /// An `in_channel` answer becomes a real message from the command; an ephemeral
@@ -169,7 +173,14 @@ async fn finish(
     user_id: Uuid,
     command: &str,
     response: CommandResponse,
+    may_post: bool,
 ) -> AppResult<Json<CommandResponse>> {
+    // An answer nobody may post becomes an answer only the person who asked
+    // sees, rather than an error for a command that already did its work.
+    if response.response_type == "in_channel" && !may_post {
+        return Ok(Json(CommandResponse::ephemeral(response.text)));
+    }
+
     if response.response_type == "in_channel" && !response.text.trim().is_empty() {
         let bot = serde_json::json!({ "name": format!("/{command}"), "icon_url": null });
         let msg = state

@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
 
 interface ModalProps {
@@ -48,9 +49,13 @@ export function Modal({ title, onClose, children, className, dataQa }: ModalProp
     };
   }, []);
 
-  return (
+  // Rendered at the document root rather than in place. The mobile navigation
+  // drawer animates with `translate-x`, and a transformed ancestor becomes the
+  // containing block for `position: fixed` — so any dialog opened from the
+  // sidebar was laid out inside the drawer's 304px instead of over the screen.
+  return createPortal(
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/50 flex items-end justify-center z-50 sm:items-center sm:p-4"
       onMouseDown={onClose}
     >
       <div
@@ -60,12 +65,16 @@ export function Modal({ title, onClose, children, className, dataQa }: ModalProp
         aria-label={title}
         data-qa={dataQa}
         onMouseDown={(e) => e.stopPropagation()}
-        className={
-          className ?? 'bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl'
-        }
+        // A phone gets a sheet that reaches the bottom edge and can grow to the
+        // full height; anything wider keeps the centred dialog.
+        className={`max-h-[90dvh] overflow-y-auto pb-[env(safe-area-inset-bottom)] sm:pb-0 ${
+          className ??
+          'bg-slate-800 border border-slate-700 rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-sm shadow-2xl'
+        }`}
       >
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

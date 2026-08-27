@@ -574,6 +574,22 @@ impl AuthService {
         .await
     }
 
+    /// Whether this instance can send at all. The mention digest is off rather
+    /// than erroring when SMTP is unconfigured, the same way Web Push is off
+    /// without VAPID keys.
+    pub fn can_send_email(&self) -> bool {
+        self.mailer.is_some()
+    }
+
+    pub async fn send_notification_email(
+        &self,
+        to: &str,
+        subject: &str,
+        body: &str,
+    ) -> AppResult<()> {
+        self.send_email(to, subject, body).await
+    }
+
     async fn send_email(&self, to: &str, subject: &str, body: &str) -> AppResult<()> {
         let mailer = self
             .mailer

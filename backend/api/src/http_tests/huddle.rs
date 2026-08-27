@@ -379,3 +379,90 @@ async fn active_huddles_lists_only_live_channel_huddles(pool: PgPool) {
 
     let _: i64 = conn.del(&key).await.unwrap();
 }
+
+/// Huddle membership is history — it is written to `huddle_participants` and
+/// read back as a call log — so it now goes to the durable log with the other
+/// history, which is what lets the consumer read it through a group with
+/// acknowledgement instead of plain pub/sub.
+#[sqlx::test(migrations = "../migrations")]
+async fn a_huddle_join_is_written_to_the_durable_log(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "huddle-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Huddles").await;
+
+    let mut conn = state.redis.clone();
+    let stream = crate::messaging::publisher::workspace_stream(ws_id);
+    let before: i64 = redis::cmd("XLEN")
+        .arg(&stream)
+        .query_async(&mut conn)
+        .await
+        .unwrap_or(0);
+
+    state
+        .publisher
+        .publish_scoped(
+            "huddle.member_joined",
+            ws_id,
+            serde_json::json!({ "huddle_id": uuid::Uuid::new_v4(), "user_id": owner_id }),
+        )
+        .await
+        .expect("publish a join");
+
+    let after: i64 = redis::cmd("XLEN")
+        .arg(&stream)
+        .query_async(&mut conn)
+        .await
+        .unwrap_or(0);
+    assert_eq!(after, before + 1, "the join is in the log");
+
+    // The signalling half stays ephemeral: replaying an ICE candidate minutes
+    // later is worse than not replaying it.
+    state
+        .publisher
+        .publish_scoped(
+            "huddle.signal",
+            ws_id,
+            serde_json::json!({ "huddle_id": uuid::Uuid::new_v4() }),
+        )
+        .await
+        .expect("publish signalling");
+
+    let unchanged: i64 = redis::cmd("XLEN")
+        .arg(&stream)
+        .query_async(&mut conn)
+        .await
+        .unwrap_or(0);
+    assert_eq!(unchanged, after, "and the signalling is not");
+}
+
+/// The ring stays ephemeral, so both replicas receive it. The claim is what
+/// keeps the second one from ringing the same person a second time.
+#[sqlx::test(migrations = "../migrations")]
+async fn only_one_replica_wins_the_right_to_ring(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (caller_id, _, _) = seed_and_login(&app, &state, "ring-caller", false).await;
+    let (callee_id, _, _) = seed_and_login(&app, &state, "ring-callee", false).await;
+    let _ = caller_id;
+    let huddle_id = uuid::Uuid::new_v4();
+
+    let first = state
+        .huddle_repo
+        .claim_ring(huddle_id, callee_id)
+        .await
+        .expect("first claim");
+    let second = state
+        .huddle_repo
+        .claim_ring(huddle_id, callee_id)
+        .await
+        .expect("second claim");
+
+    assert!(first, "the first replica sends");
+    assert!(!second, "the second does nothing");
+
+    let other_callee = state
+        .huddle_repo
+        .claim_ring(huddle_id, caller_id)
+        .await
+        .expect("a different person in the same call");
+    assert!(other_callee, "the claim is per person, not per call");
+}
