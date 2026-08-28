@@ -129,26 +129,26 @@ export default function InstanceAdminPage() {
   if (!currentUser?.is_instance_admin) return null;
 
   return (
-    <div className="h-screen bg-slate-900 text-white flex flex-col">
-      <div className="border-b border-slate-800 px-6 py-4 flex items-center gap-4">
+    <div className="h-screen bg-app text-fg flex flex-col">
+      <div className="border-b border-surface px-6 py-4 flex items-center gap-4">
         <button
           onClick={() => navigate('/app')}
-          className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition cursor-pointer"
+          className="p-2 text-muted hover:text-fg hover:bg-surface rounded-lg transition cursor-pointer"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex-1">
           <h1 className="text-lg font-bold">Instance Admin</h1>
-          {instance && <p className="text-xs text-slate-400">{instanceLabel(instance.url)}</p>}
+          {instance && <p className="text-xs text-muted">{instanceLabel(instance.url)}</p>}
         </div>
-        <div className="flex items-center gap-1 bg-slate-800 rounded-lg p-1">
+        <div className="flex items-center gap-1 bg-surface rounded-lg p-1">
           {(['users', 'audit'] as const).map((value) => (
             <button
               key={value}
               data-qa={`admin-tab-${value}`}
               onClick={() => setTab(value)}
               className={`px-3 py-1.5 text-sm rounded-md transition cursor-pointer ${
-                tab === value ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'
+                tab === value ? 'bg-raised text-fg' : 'text-muted hover:text-fg'
               }`}
             >
               {value === 'users' ? 'Users' : 'Audit log'}
@@ -158,16 +158,16 @@ export default function InstanceAdminPage() {
         <button
           onClick={refresh}
           disabled={loading || auditLoading}
-          className="flex items-center gap-2 px-3 py-2 text-sm text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition cursor-pointer disabled:opacity-50"
+          className="flex items-center gap-2 px-3 py-2 text-sm text-muted hover:text-fg hover:bg-surface rounded-lg transition cursor-pointer disabled:opacity-50"
         >
           <RefreshCw className={`w-4 h-4 ${loading || auditLoading ? 'animate-spin' : ''}`} />
           Refresh
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         {error && (
-          <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg mb-4 text-sm">
+          <div className="bg-red-500/10 border border-red-500/30 text-danger px-4 py-3 rounded-lg mb-4 text-sm">
             {error}
           </div>
         )}
@@ -182,46 +182,46 @@ export default function InstanceAdminPage() {
           </div>
         ) : (
           <div className="max-w-4xl mx-auto">
-            <div className="mb-4 text-sm text-slate-400">{users.length} users on this instance</div>
+            <div className="mb-4 text-sm text-muted">{users.length} users on this instance</div>
 
-            <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-              <table className="w-full">
+            <div className="bg-surface rounded-xl border border-line overflow-x-auto">
+              <table className="w-full min-w-[560px]">
                 <thead>
-                  <tr className="border-b border-slate-700">
-                    <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">
+                  <tr className="border-b border-line">
+                    <th className="text-left px-4 py-3 text-xs font-medium text-muted uppercase tracking-wider">
                       User
                     </th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">
+                    <th className="text-left px-4 py-3 text-xs font-medium text-muted uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">
+                    <th className="text-left px-4 py-3 text-xs font-medium text-muted uppercase tracking-wider">
                       Role
                     </th>
-                    <th className="text-right px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">
+                    <th className="text-right px-4 py-3 text-xs font-medium text-muted uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-700">
+                <tbody className="divide-y divide-line">
                   {users.map((user) => {
                     const isSelf = user.id === currentUser?.id;
                     return (
-                      <tr key={user.id} className="hover:bg-slate-700/30 transition">
+                      <tr key={user.id} className="hover:bg-raised/30 transition">
                         <td className="px-4 py-3">
-                          <div className="font-medium text-sm text-white">
+                          <div className="font-medium text-sm text-fg">
                             {user.display_name || '(no name)'}
-                            {isSelf && <span className="ml-2 text-xs text-purple-400">(you)</span>}
+                            {isSelf && <span className="ml-2 text-xs text-accent">(you)</span>}
                           </div>
-                          <div className="text-xs text-slate-400">{user.email}</div>
+                          <div className="text-xs text-muted">{user.email}</div>
                         </td>
                         <td className="px-4 py-3">
                           <span
                             className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
                               user.status === 'active'
-                                ? 'bg-green-500/10 text-green-400'
+                                ? 'bg-green-500/10 text-success'
                                 : user.status === 'pending'
-                                  ? 'bg-yellow-500/10 text-yellow-400'
-                                  : 'bg-red-500/10 text-red-400'
+                                  ? 'bg-yellow-500/10 text-warning'
+                                  : 'bg-red-500/10 text-danger'
                             }`}
                           >
                             {user.status}
@@ -235,7 +235,7 @@ export default function InstanceAdminPage() {
                               value={user.is_instance_admin ? 'admin' : 'user'}
                               onChange={(e) => handleRoleChange(user, e.target.value === 'admin')}
                               disabled={isSelf}
-                              className="text-xs bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white focus:outline-none focus:ring-1 focus:ring-purple-500 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                              className="text-xs bg-raised border border-line-strong rounded px-2 py-1 text-fg focus:outline-none focus:ring-1 focus:ring-purple-500 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                             >
                               <option value="user">User</option>
                               <option value="admin">Instance Admin</option>
@@ -249,7 +249,7 @@ export default function InstanceAdminPage() {
                               disabled={
                                 isSelf || actionLoading === user.id + '_status' || user.status === 'pending'
                               }
-                              className="flex items-center gap-1 px-2 py-1.5 rounded text-xs transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed text-slate-400 hover:text-red-400 hover:bg-slate-700"
+                              className="flex items-center gap-1 px-2 py-1.5 rounded text-xs transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed text-muted hover:text-danger hover:bg-raised"
                               title={user.status === 'active' ? 'Suspend user' : 'Activate user'}
                             >
                               {actionLoading === user.id + '_status' ? (

@@ -128,10 +128,10 @@ export default function SettingsPanel({
 
   return (
     <>
-      <div className="w-80 bg-slate-800/80 border-l border-slate-700/50 flex flex-col h-full">
-        <div className="h-14 px-4 flex items-center justify-between border-b border-slate-700/50 shrink-0">
-          <h2 className="font-semibold text-white">Workspace Settings</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white transition cursor-pointer">
+      <div className="w-80 bg-surface/80 border-l border-line/50 flex flex-col h-full">
+        <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">
+          <h2 className="font-semibold text-fg">Workspace Settings</h2>
+          <button onClick={onClose} className="text-muted hover:text-fg transition cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -141,11 +141,11 @@ export default function SettingsPanel({
               Without it the switcher is a column of identical initials, which
               on a phone has no tooltip to fall back on. */}
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-700 flex items-center justify-center shrink-0">
+            <div className="w-12 h-12 rounded-xl overflow-hidden bg-raised flex items-center justify-center shrink-0">
               {iconUrl ? (
                 <img src={iconUrl} alt="" className="w-full h-full object-cover" />
               ) : (
-                <span className="text-lg font-bold text-slate-300">{name.charAt(0).toUpperCase()}</span>
+                <span className="text-lg font-bold text-fg-dim">{name.charAt(0).toUpperCase()}</span>
               )}
             </div>
             <div className="flex items-center gap-2">
@@ -154,7 +154,7 @@ export default function SettingsPanel({
                 onClick={() => iconInputRef.current?.click()}
                 disabled={uploadingIcon}
                 data-qa="workspace-icon-upload"
-                className="px-3 py-2 text-sm bg-slate-700 hover:bg-slate-600 disabled:bg-slate-700/50 text-white rounded-lg transition cursor-pointer"
+                className="px-3 py-2 text-sm bg-raised hover:bg-elevated disabled:bg-raised/50 text-fg rounded-lg transition cursor-pointer"
               >
                 {uploadingIcon ? 'Uploading…' : 'Upload icon'}
               </button>
@@ -162,7 +162,7 @@ export default function SettingsPanel({
                 <button
                   type="button"
                   onClick={() => setIconUrl('')}
-                  className="text-xs text-slate-400 hover:text-red-400 transition cursor-pointer"
+                  className="text-xs text-muted hover:text-danger transition cursor-pointer"
                 >
                   Remove
                 </button>
@@ -178,7 +178,7 @@ export default function SettingsPanel({
           </div>
 
           <div>
-            <label htmlFor="ws-name" className="block text-sm font-medium text-slate-300 mb-1.5">
+            <label htmlFor="ws-name" className="block text-sm font-medium text-fg-dim mb-1.5">
               Workspace Name
             </label>
             <input
@@ -186,13 +186,13 @@ export default function SettingsPanel({
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2.5 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-3 py-2.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
               required
             />
           </div>
 
           <div>
-            <label htmlFor="ws-description" className="block text-sm font-medium text-slate-300 mb-1.5">
+            <label htmlFor="ws-description" className="block text-sm font-medium text-fg-dim mb-1.5">
               Description
             </label>
             <textarea
@@ -200,19 +200,19 @@ export default function SettingsPanel({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              className="w-full px-3 py-2.5 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+              className="w-full px-3 py-2.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
               placeholder="What is this workspace about?"
             />
           </div>
 
           {error && (
-            <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
+            <div className="text-sm text-danger bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
               {error}
             </div>
           )}
 
           {saved && (
-            <div className="text-sm text-green-400 bg-green-500/10 border border-green-500/30 rounded-lg px-3 py-2">
+            <div className="text-sm text-success bg-green-500/10 border border-green-500/30 rounded-lg px-3 py-2">
               Settings saved successfully.
             </div>
           )}
@@ -233,20 +233,20 @@ export default function SettingsPanel({
           </button>
 
           <div className="border border-red-500/30 rounded-lg p-4 mt-6">
-            <h3 className="text-sm font-semibold text-red-400 mb-2 flex items-center gap-1.5">
+            <h3 className="text-sm font-semibold text-danger mb-2 flex items-center gap-1.5">
               <AlertTriangle className="w-4 h-4" />
               Danger Zone
             </h3>
             {deletedAt ? (
               <>
-                <p className="text-xs text-slate-400 mb-3">
+                <p className="text-xs text-muted mb-3">
                   This workspace was soft-deleted. You can restore it to make it visible to members again.
                 </p>
                 <button
                   type="button"
                   onClick={handleRestore}
                   disabled={restoreMutation.isPending}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-green-600/20 hover:bg-green-600/40 border border-green-500/40 text-green-400 text-sm rounded-lg transition cursor-pointer disabled:cursor-not-allowed"
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-green-600/20 hover:bg-green-600/40 border border-green-500/40 text-success text-sm rounded-lg transition cursor-pointer disabled:cursor-not-allowed"
                 >
                   {restoreMutation.isPending ? (
                     <div className="w-4 h-4 border-2 border-green-400/30 border-t-green-400 rounded-full animate-spin" />
@@ -260,13 +260,13 @@ export default function SettingsPanel({
               </>
             ) : (
               <>
-                <p className="text-xs text-slate-400 mb-3">
+                <p className="text-xs text-muted mb-3">
                   Deleting a workspace is irreversible (hard) or hides it from members (soft).
                 </p>
                 <button
                   type="button"
                   onClick={() => setDeleteModal(true)}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-red-600/20 hover:bg-red-600/40 border border-red-500/40 text-red-400 text-sm rounded-lg transition cursor-pointer"
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-red-600/20 hover:bg-red-600/40 border border-red-500/40 text-danger text-sm rounded-lg transition cursor-pointer"
                 >
                   <Trash2 className="w-4 h-4" />
                   Delete Workspace
@@ -285,15 +285,15 @@ export default function SettingsPanel({
             setDeleteError(null);
           }}
           dataQa="delete-workspace-modal"
-          className="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl"
+          className="bg-surface border border-line rounded-2xl p-6 w-full max-w-md shadow-2xl"
         >
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-red-500/20 rounded-full flex items-center justify-center shrink-0">
-              <Trash2 className="w-5 h-5 text-red-400" />
+              <Trash2 className="w-5 h-5 text-danger" />
             </div>
             <div>
-              <h3 className="text-white font-semibold">Delete "{currentName}"</h3>
-              <p className="text-slate-400 text-sm">Choose how to delete this workspace</p>
+              <h3 className="text-fg font-semibold">Delete "{currentName}"</h3>
+              <p className="text-muted text-sm">Choose how to delete this workspace</p>
             </div>
           </div>
 
@@ -314,8 +314,8 @@ export default function SettingsPanel({
                 className="mt-0.5"
               />
               <div>
-                <div className="text-white text-sm font-medium">Soft Delete</div>
-                <div className="text-slate-400 text-xs mt-0.5">
+                <div className="text-fg text-sm font-medium">Soft Delete</div>
+                <div className="text-muted text-xs mt-0.5">
                   Hides the workspace from members. Only instance admins and workspace admins can see and
                   restore it.
                 </div>
@@ -338,8 +338,8 @@ export default function SettingsPanel({
                 className="mt-0.5"
               />
               <div>
-                <div className="text-red-400 text-sm font-medium">Hard Delete</div>
-                <div className="text-slate-400 text-xs mt-0.5">
+                <div className="text-danger text-sm font-medium">Hard Delete</div>
+                <div className="text-muted text-xs mt-0.5">
                   Permanently deletes everything: channels, messages, members. This cannot be undone.
                 </div>
               </div>
@@ -347,7 +347,7 @@ export default function SettingsPanel({
           </div>
 
           {deleteError && (
-            <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2 mb-4">
+            <div className="text-sm text-danger bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2 mb-4">
               {deleteError}
             </div>
           )}
@@ -359,7 +359,7 @@ export default function SettingsPanel({
                 setDeleteError(null);
               }}
               disabled={deleting}
-              className="flex-1 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-white text-sm rounded-lg transition cursor-pointer disabled:cursor-not-allowed"
+              className="flex-1 px-4 py-2.5 bg-raised hover:bg-elevated text-fg text-sm rounded-lg transition cursor-pointer disabled:cursor-not-allowed"
             >
               Cancel
             </button>

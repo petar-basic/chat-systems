@@ -55,7 +55,7 @@ export function Modal({ title, onClose, children, className, dataQa }: ModalProp
   // sidebar was laid out inside the drawer's 304px instead of over the screen.
   return createPortal(
     <div
-      className="fixed inset-0 bg-black/50 flex items-end justify-center z-50 sm:items-center sm:p-4"
+      className="fixed inset-0 bg-overlay/50 flex items-end justify-center z-50 sm:items-center sm:p-4"
       onMouseDown={onClose}
     >
       <div
@@ -69,7 +69,7 @@ export function Modal({ title, onClose, children, className, dataQa }: ModalProp
         // full height; anything wider keeps the centred dialog.
         className={`max-h-[90dvh] overflow-y-auto pb-[env(safe-area-inset-bottom)] sm:pb-0 ${
           className ??
-          'bg-slate-800 border border-slate-700 rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-sm shadow-2xl'
+          'bg-surface border border-line rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-sm shadow-2xl'
         }`}
       >
         {children}

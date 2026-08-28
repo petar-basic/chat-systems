@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { globalEventBus, type ServerEvent } from '../lib/globalEventBus';
 import { useUserCache } from '../stores/users';
+import { UNKNOWN_USER } from '@/shared/constants';
 
 interface Props {
   channelId: string;
@@ -60,7 +61,7 @@ export default function TypingIndicator({ channelId, currentUserId }: Props) {
 
   if (typingUsers.length === 0) return null;
 
-  const names = typingUsers.map((t) => getUser(t.userId)?.display_name || t.userId.slice(0, 8)).slice(0, 3);
+  const names = typingUsers.map((t) => getUser(t.userId)?.display_name || UNKNOWN_USER).slice(0, 3);
 
   let text: string;
   if (names.length === 1) {
@@ -72,18 +73,18 @@ export default function TypingIndicator({ channelId, currentUserId }: Props) {
   }
 
   return (
-    <div className="px-4 py-1 text-xs text-slate-400 flex items-center gap-2">
+    <div className="px-4 py-1 text-xs text-muted flex items-center gap-2">
       <div className="flex gap-0.5">
         <span
-          className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"
+          className="w-1.5 h-1.5 bg-subtle rounded-full animate-bounce"
           style={{ animationDelay: '0ms' }}
         />
         <span
-          className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"
+          className="w-1.5 h-1.5 bg-subtle rounded-full animate-bounce"
           style={{ animationDelay: '150ms' }}
         />
         <span
-          className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"
+          className="w-1.5 h-1.5 bg-subtle rounded-full animate-bounce"
           style={{ animationDelay: '300ms' }}
         />
       </div>

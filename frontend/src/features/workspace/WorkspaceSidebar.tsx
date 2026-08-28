@@ -66,11 +66,11 @@ export default function WorkspaceSidebar({
       <div
         role="navigation"
         aria-label="Workspaces"
-        className="w-16 bg-slate-950 flex flex-col items-center py-3 gap-1 border-r border-slate-800 overflow-y-auto"
+        className="w-16 bg-rail flex flex-col items-center py-3 gap-1 border-r border-surface overflow-y-auto"
       >
         {groups.map((group, groupIdx) => (
           <div key={group.instance.url} className="w-full flex flex-col items-center gap-1">
-            {groupIdx > 0 && <div className="w-8 h-px bg-slate-700 my-1" />}
+            {groupIdx > 0 && <div className="w-8 h-px bg-raised my-1" />}
 
             <div
               className="w-full flex flex-col items-center gap-1"
@@ -83,7 +83,7 @@ export default function WorkspaceSidebar({
                     ? 'bg-green-500'
                     : status === 'connecting'
                       ? 'bg-yellow-400'
-                      : 'bg-slate-500';
+                      : 'bg-subtle';
                 const statusLabel =
                   status === 'connected'
                     ? 'Connected'
@@ -101,7 +101,7 @@ export default function WorkspaceSidebar({
                     {(status === 'disconnected' || (!status && instances.length > 0)) && (
                       <button
                         onClick={() => instanceManager.get(group.instance.url).ws.connect()}
-                        className="text-slate-400 hover:text-slate-300 transition cursor-pointer"
+                        className="text-muted hover:text-fg-dim transition cursor-pointer"
                         title="Retry connection"
                       >
                         <RefreshCw className="w-2.5 h-2.5" />
@@ -120,7 +120,7 @@ export default function WorkspaceSidebar({
                     className={`relative w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center text-sm font-bold transition cursor-pointer ${
                       currentWorkspaceId === ws.id
                         ? 'bg-purple-600 text-white ring-2 ring-purple-400'
-                        : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                        : 'bg-raised text-fg-dim hover:bg-elevated'
                     }`}
                     title={`${ws.name} · ${instanceLabel(group.instance.url)}${showBadge ? ` · ${unread} unread` : ''}`}
                   >
@@ -148,7 +148,7 @@ export default function WorkspaceSidebar({
                 <button
                   key={ws.id}
                   onClick={() => onSelectWorkspace(ws)}
-                  className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold transition cursor-pointer opacity-40 hover:opacity-70 bg-slate-700 text-slate-400 relative"
+                  className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold transition cursor-pointer opacity-40 hover:opacity-70 bg-raised text-muted relative"
                   title={`${ws.name} (deleted) · ${instanceLabel(group.instance.url)}`}
                 >
                   <span className="line-through">{ws.name.charAt(0).toUpperCase()}</span>
@@ -157,7 +157,7 @@ export default function WorkspaceSidebar({
 
               <button
                 onClick={() => openCreateModal(group.instance.url)}
-                className="w-10 h-10 rounded-xl flex items-center justify-center bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white transition cursor-pointer"
+                className="w-10 h-10 rounded-xl flex items-center justify-center bg-surface text-muted hover:bg-raised hover:text-fg transition cursor-pointer"
                 title={`Create workspace on ${instanceLabel(group.instance.url)}`}
               >
                 <Plus className="w-4 h-4" />
@@ -166,11 +166,11 @@ export default function WorkspaceSidebar({
           </div>
         ))}
 
-        {groups.length > 0 && <div className="w-8 h-px bg-slate-700 my-1" />}
+        {groups.length > 0 && <div className="w-8 h-px bg-raised my-1" />}
 
         <button
           onClick={onAddInstance}
-          className="w-10 h-10 rounded-xl flex items-center justify-center bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white transition cursor-pointer"
+          className="w-10 h-10 rounded-xl flex items-center justify-center bg-surface text-muted hover:bg-raised hover:text-fg transition cursor-pointer"
           title="Add instance"
         >
           <ServerCrash className="w-4 h-4" />
@@ -181,7 +181,7 @@ export default function WorkspaceSidebar({
         <Modal title="Create Workspace" onClose={() => setShowNewWs(false)} dataQa="create-workspace-modal">
           <form onSubmit={handleCreate}>
             <h2 className="text-lg font-bold mb-1">Create Workspace</h2>
-            <p className="text-xs text-slate-400 mb-4">{instanceLabel(newWsInstanceUrl)}</p>
+            <p className="text-xs text-muted mb-4">{instanceLabel(newWsInstanceUrl)}</p>
 
             {/* The importer can create the workspace itself, and this is where
                 somebody looks for it — not inside the menu of a workspace they
@@ -193,12 +193,12 @@ export default function WorkspaceSidebar({
                 onImportFromSlack(newWsInstanceUrl);
               }}
               data-qa="create-workspace-import"
-              className="w-full mb-4 flex items-center gap-3 px-3 py-2.5 rounded-lg border border-slate-700 hover:border-slate-600 hover:bg-slate-700/40 text-left transition cursor-pointer"
+              className="w-full mb-4 flex items-center gap-3 px-3 py-2.5 rounded-lg border border-line hover:border-line-strong hover:bg-raised/40 text-left transition cursor-pointer"
             >
-              <Upload className="w-4 h-4 text-purple-400 shrink-0" />
+              <Upload className="w-4 h-4 text-accent shrink-0" />
               <span>
-                <span className="block text-sm text-slate-200">Import from Slack instead</span>
-                <span className="block text-xs text-slate-400">
+                <span className="block text-sm text-fg-soft">Import from Slack instead</span>
+                <span className="block text-xs text-muted">
                   Bring a workspace export in, with its history
                 </span>
               </span>
@@ -209,14 +209,14 @@ export default function WorkspaceSidebar({
               value={newWsName}
               onChange={(e) => setNewWsName(e.target.value)}
               placeholder="Workspace name"
-              className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 mb-4"
+              className="w-full px-4 py-3 bg-raised/50 border border-line-strong rounded-lg text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500 mb-4"
               required
             />
             <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setShowNewWs(false)}
-                className="px-4 py-2 text-slate-400 hover:text-white transition"
+                className="px-4 py-2 text-muted hover:text-fg transition"
               >
                 Cancel
               </button>

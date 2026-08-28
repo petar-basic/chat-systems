@@ -30,7 +30,7 @@ export function Avatar({ userId, name, avatarUrl, size = 'md', className = '' }:
         alt={name}
         data-qa="avatar-image"
         onError={() => setBrokenUrl(avatarUrl)}
-        className={`${shape} object-cover bg-slate-700`}
+        className={`${shape} object-cover bg-raised`}
       />
     );
   }
@@ -40,7 +40,7 @@ export function Avatar({ userId, name, avatarUrl, size = 'md', className = '' }:
       role="img"
       aria-label={name}
       data-qa="avatar-initials"
-      className={`${shape} ${avatarColorFor(userId)} inline-flex items-center justify-center font-bold text-white select-none`}
+      className={`${shape} ${avatarColorFor(userId)} inline-flex items-center justify-center font-bold text-fg select-none`}
     >
       {initialOf(name)}
     </span>

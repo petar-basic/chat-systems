@@ -13,22 +13,22 @@ export default function AuditLogPanel({ workspaceId, instanceUrl, onClose }: Pro
 
   return (
     <div
-      className="w-full lg:w-[32rem] max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-slate-800 border-l border-slate-700/50 flex flex-col"
+      className="w-full lg:w-[32rem] max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-surface border-l border-line/50 flex flex-col"
       data-qa="audit-log-panel"
     >
-      <div className="h-14 px-4 flex items-center justify-between border-b border-slate-700/50 shrink-0">
+      <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">
         <div className="flex items-center gap-2">
-          <ScrollText className="w-4 h-4 text-slate-400" />
+          <ScrollText className="w-4 h-4 text-muted" />
           <span className="font-semibold">Audit log</span>
         </div>
-        <button onClick={onClose} className="text-slate-400 hover:text-white transition cursor-pointer">
+        <button onClick={onClose} className="text-muted hover:text-fg transition cursor-pointer">
           <X className="w-4 h-4" />
         </button>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
         {error ? (
-          <div className="text-sm text-red-400">
+          <div className="text-sm text-danger">
             {error instanceof Error ? error.message : 'Failed to load the audit log'}
           </div>
         ) : (

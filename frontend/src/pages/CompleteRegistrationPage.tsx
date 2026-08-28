@@ -55,10 +55,10 @@ export default function CompleteRegistrationPage() {
 
   if (verifyError) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
-        <div className="bg-slate-800/50 backdrop-blur-xl border border-slate-700 rounded-2xl p-8 shadow-2xl max-w-md text-center">
-          <div className="text-red-400 text-lg font-medium mb-2">Invalid Invite</div>
-          <p className="text-slate-400">{verifyError}</p>
+      <div className="min-h-screen bg-gradient-to-br from-app via-accent-deep to-app flex items-center justify-center p-4">
+        <div className="bg-surface/50 backdrop-blur-xl border border-line rounded-2xl p-8 shadow-2xl max-w-md text-center">
+          <div className="text-danger text-lg font-medium mb-2">Invalid Invite</div>
+          <p className="text-muted">{verifyError}</p>
           <button
             onClick={() => navigate('/add-instance')}
             className="mt-6 px-6 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition cursor-pointer"
@@ -72,32 +72,32 @@ export default function CompleteRegistrationPage() {
 
   if (!inviteInfo) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-app via-accent-deep to-app flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-app via-accent-deep to-app flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-600 rounded-2xl mb-4">
-            <MessageSquare className="w-8 h-8 text-white" />
+            <MessageSquare className="w-8 h-8 text-fg" />
           </div>
-          <h1 className="text-3xl font-bold text-white">Complete Registration</h1>
-          <p className="text-slate-400 mt-2">
+          <h1 className="text-3xl font-bold text-fg">Complete Registration</h1>
+          <p className="text-muted mt-2">
             You've been invited to{' '}
-            <span className="text-purple-400 font-medium">{inviteInfo.workspace_name || 'a workspace'}</span>
+            <span className="text-accent font-medium">{inviteInfo.workspace_name || 'a workspace'}</span>
           </p>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="bg-slate-800/50 backdrop-blur-xl border border-slate-700 rounded-2xl p-8 shadow-2xl"
+          className="bg-surface/50 backdrop-blur-xl border border-line rounded-2xl p-8 shadow-2xl"
         >
           {completeRegistration.error && (
-            <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg mb-6 text-sm">
+            <div className="bg-red-500/10 border border-red-500/30 text-danger px-4 py-3 rounded-lg mb-6 text-sm">
               {completeRegistration.error instanceof Error
                 ? completeRegistration.error.message
                 : 'Registration failed'}
@@ -105,17 +105,17 @@ export default function CompleteRegistrationPage() {
           )}
 
           <div className="mb-4">
-            <label className="block text-sm font-medium text-slate-300 mb-2">Email</label>
+            <label className="block text-sm font-medium text-fg-dim mb-2">Email</label>
             <input
               type="email"
               value={inviteInfo.email}
               disabled
-              className="w-full px-4 py-3 bg-slate-700/30 border border-slate-600/50 rounded-lg text-slate-400 cursor-not-allowed"
+              className="w-full px-4 py-3 bg-raised/30 border border-line-strong/50 rounded-lg text-muted cursor-not-allowed"
             />
           </div>
 
           <div className="mb-4">
-            <label htmlFor="displayName" className="block text-sm font-medium text-slate-300 mb-2">
+            <label htmlFor="displayName" className="block text-sm font-medium text-fg-dim mb-2">
               Display Name
             </label>
             <input
@@ -123,14 +123,14 @@ export default function CompleteRegistrationPage() {
               type="text"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+              className="w-full px-4 py-3 bg-raised/50 border border-line-strong rounded-lg text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
               placeholder="John Doe"
               required
             />
           </div>
 
           <div className="mb-4">
-            <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-2">
+            <label htmlFor="password" className="block text-sm font-medium text-fg-dim mb-2">
               Password
             </label>
             <input
@@ -138,7 +138,7 @@ export default function CompleteRegistrationPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+              className="w-full px-4 py-3 bg-raised/50 border border-line-strong rounded-lg text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
               placeholder="Min 8 characters"
               minLength={8}
               required
@@ -146,7 +146,7 @@ export default function CompleteRegistrationPage() {
           </div>
 
           <div className="mb-6">
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-300 mb-2">
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-fg-dim mb-2">
               Confirm Password
             </label>
             <input
@@ -154,13 +154,13 @@ export default function CompleteRegistrationPage() {
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+              className="w-full px-4 py-3 bg-raised/50 border border-line-strong rounded-lg text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
               placeholder="Confirm your password"
               minLength={8}
               required
             />
             {confirmPassword && password !== confirmPassword && (
-              <p className="text-red-400 text-xs mt-1">Passwords do not match</p>
+              <p className="text-danger text-xs mt-1">Passwords do not match</p>
             )}
           </div>
 

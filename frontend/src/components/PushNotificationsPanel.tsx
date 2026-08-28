@@ -37,11 +37,11 @@ export default function PushNotificationsPanel() {
     <div data-qa="push-notifications">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h3 className="text-sm font-medium text-white flex items-center gap-2">
-            <Bell className="w-4 h-4 text-purple-400" />
+          <h3 className="text-sm font-medium text-fg flex items-center gap-2">
+            <Bell className="w-4 h-4 text-accent" />
             Notifications on this device
           </h3>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-muted mt-1">
             {blocked
               ? 'Your browser has blocked notifications for this site. Allow them in the address bar first.'
               : state.subscribed
@@ -54,7 +54,7 @@ export default function PushNotificationsPanel() {
           onClick={toggle}
           disabled={busy || blocked}
           data-qa="push-toggle"
-          className="flex items-center gap-1.5 px-3 py-2 text-sm bg-slate-700 hover:bg-slate-600 disabled:bg-slate-700/50 disabled:cursor-not-allowed text-white rounded-lg transition cursor-pointer whitespace-nowrap"
+          className="flex items-center gap-1.5 px-3 py-2 text-sm bg-raised hover:bg-elevated disabled:bg-raised/50 disabled:cursor-not-allowed text-fg rounded-lg transition cursor-pointer whitespace-nowrap"
         >
           {state.subscribed ? <BellOff className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
           {state.subscribed ? 'Turn off' : 'Turn on'}

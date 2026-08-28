@@ -6,15 +6,15 @@ import { useToastStore, type IToast } from './toast-store';
 const KIND_STYLES: Record<ToastKind, { ring: string; icon: React.ReactNode }> = {
   [ToastKind.success]: {
     ring: 'border-green-500/40',
-    icon: <CheckCircle2 className="w-4 h-4 text-green-400" />,
+    icon: <CheckCircle2 className="w-4 h-4 text-success" />,
   },
   [ToastKind.error]: {
     ring: 'border-red-500/40',
-    icon: <AlertCircle className="w-4 h-4 text-red-400" />,
+    icon: <AlertCircle className="w-4 h-4 text-danger" />,
   },
   [ToastKind.info]: {
-    ring: 'border-slate-500/40',
-    icon: <Info className="w-4 h-4 text-slate-300" />,
+    ring: 'border-line-strong/40',
+    icon: <Info className="w-4 h-4 text-fg-dim" />,
   },
 };
 
@@ -33,17 +33,17 @@ function ToastRow({ toast }: { toast: IToast }) {
     <div
       role="status"
       data-qa={`toast-${toast.kind}`}
-      className={`pointer-events-auto flex items-start gap-2.5 w-80 max-w-[90vw] bg-slate-800 border ${style.ring} rounded-xl px-3.5 py-3 shadow-2xl`}
+      className={`pointer-events-auto flex items-start gap-2.5 w-80 max-w-[90vw] bg-surface border ${style.ring} rounded-xl px-3.5 py-3 shadow-2xl`}
     >
       <div className="mt-0.5 shrink-0">{style.icon}</div>
-      <p className="flex-1 text-sm text-slate-200 break-words">{toast.message}</p>
+      <p className="flex-1 text-sm text-fg-soft break-words">{toast.message}</p>
       {toast.action && (
         <button
           onClick={() => {
             toast.action!.onClick();
             dismiss(toast.id);
           }}
-          className="shrink-0 text-xs font-semibold text-purple-300 hover:text-purple-200"
+          className="shrink-0 text-xs font-semibold text-accent-soft hover:text-accent-soft"
         >
           {toast.action.label}
         </button>
@@ -51,7 +51,7 @@ function ToastRow({ toast }: { toast: IToast }) {
       <button
         onClick={() => dismiss(toast.id)}
         aria-label="Dismiss notification"
-        className="shrink-0 text-slate-400 hover:text-slate-200"
+        className="shrink-0 text-muted hover:text-fg-soft"
       >
         <X className="w-3.5 h-3.5" />
       </button>

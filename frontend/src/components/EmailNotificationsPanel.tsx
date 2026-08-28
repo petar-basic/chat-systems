@@ -44,11 +44,11 @@ export default function EmailNotificationsPanel() {
   return (
     <div className="flex items-start justify-between gap-4" data-qa="email-notifications">
       <div>
-        <h4 className="text-sm font-medium text-white flex items-center gap-2">
-          <Mail className="w-4 h-4 text-purple-400" />
+        <h4 className="text-sm font-medium text-fg flex items-center gap-2">
+          <Mail className="w-4 h-4 text-accent" />
           Email me what I missed
         </h4>
-        <p className="text-xs text-slate-400 mt-1">
+        <p className="text-xs text-muted mt-1">
           {preference.mention_emails
             ? 'On. A mention that reached no device is emailed once, five minutes later — cancelled if you come back first.'
             : 'Off. A mention that reaches no device waits until you open the app.'}
@@ -59,7 +59,7 @@ export default function EmailNotificationsPanel() {
         onClick={toggle}
         disabled={busy}
         data-qa="email-notifications-toggle"
-        className="px-3 py-2 text-sm bg-slate-700 hover:bg-slate-600 disabled:bg-slate-700/50 text-white rounded-lg transition cursor-pointer whitespace-nowrap"
+        className="px-3 py-2 text-sm bg-raised hover:bg-elevated disabled:bg-raised/50 text-fg rounded-lg transition cursor-pointer whitespace-nowrap"
       >
         {preference.mention_emails ? 'Turn off' : 'Turn on'}
       </button>

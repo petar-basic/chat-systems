@@ -28,9 +28,9 @@ interface Props {
 export function DaySeparator({ at }: { at: string }) {
   return (
     <div className="flex items-center gap-3 px-2 py-2" data-qa="day-separator">
-      <div className="flex-1 h-px bg-slate-700/60" />
-      <span className="text-xs font-medium text-slate-400">{formatDaySeparator(at)}</span>
-      <div className="flex-1 h-px bg-slate-700/60" />
+      <div className="flex-1 h-px bg-raised/60" />
+      <span className="text-xs font-medium text-muted">{formatDaySeparator(at)}</span>
+      <div className="flex-1 h-px bg-raised/60" />
     </div>
   );
 }
@@ -134,7 +134,7 @@ export default function MessageList({
       onRetry={() => void refetch()}
       empty={
         <>
-          <MessageSquare className="w-12 h-12 mb-3 text-slate-600" />
+          <MessageSquare className="w-12 h-12 mb-3 text-faint" />
           <p className="text-lg font-medium">{EmptyLabels.NoMessages}</p>
           <p className="text-sm">{EmptyLabels.NoMessagesHint}</p>
         </>
@@ -147,6 +147,7 @@ export default function MessageList({
         isLoadingOlder={isFetchingNextPage}
         onLoadOlder={fetchNextPage}
         scrollToKey={scrollTarget}
+        stickKey={channelId}
         onScrollToKeyHandled={() => setScrollTarget(undefined)}
         qa="message-list"
         ariaLabel="Messages"

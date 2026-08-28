@@ -52,7 +52,7 @@ export default function StatusEditor({ instanceUrl, workspaceId }: Props) {
 
   return (
     <div data-qa="status-editor">
-      <span className="block text-sm font-medium text-slate-300 mb-1.5">Status</span>
+      <span className="block text-sm font-medium text-fg-dim mb-1.5">Status</span>
       <div className="flex items-center gap-2">
         <input
           value={emoji}
@@ -60,7 +60,7 @@ export default function StatusEditor({ instanceUrl, workspaceId }: Props) {
           placeholder="🙂"
           aria-label="Status emoji"
           data-qa="status-emoji"
-          className="w-14 px-2 py-2.5 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm text-center focus:outline-none focus:ring-2 focus:ring-purple-500"
+          className="w-14 px-2 py-2.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm text-center focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
         <input
           value={text}
@@ -68,7 +68,7 @@ export default function StatusEditor({ instanceUrl, workspaceId }: Props) {
           placeholder="What's happening?"
           aria-label="Status"
           data-qa="status-text"
-          className="flex-1 px-3 py-2.5 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          className="flex-1 px-3 py-2.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
       </div>
 
@@ -83,7 +83,7 @@ export default function StatusEditor({ instanceUrl, workspaceId }: Props) {
               setDuration(preset.minutes);
             }}
             data-qa="status-preset"
-            className="px-2 py-1 rounded-md bg-slate-700/40 text-xs text-slate-300 hover:bg-slate-700 transition cursor-pointer"
+            className="px-2 py-1 rounded-md bg-raised/40 text-xs text-fg-dim hover:bg-raised transition cursor-pointer"
           >
             {preset.emoji} {preset.text}
           </button>
@@ -96,7 +96,7 @@ export default function StatusEditor({ instanceUrl, workspaceId }: Props) {
           onChange={(e) => setDuration(e.target.value === '' ? null : Number(e.target.value))}
           aria-label="Clear status after"
           data-qa="status-duration"
-          className="px-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-xs focus:outline-none focus:ring-2 focus:ring-purple-500"
+          className="px-2 py-1.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-xs focus:outline-none focus:ring-2 focus:ring-purple-500"
         >
           {DURATIONS.map((option) => (
             <option key={option.label} value={option.minutes === null ? '' : String(option.minutes)}>
@@ -124,7 +124,7 @@ export default function StatusEditor({ instanceUrl, workspaceId }: Props) {
             }}
             disabled={clear.isPending}
             data-qa="status-clear"
-            className="px-2 py-1.5 text-xs text-slate-400 hover:text-red-400 transition cursor-pointer disabled:opacity-50"
+            className="px-2 py-1.5 text-xs text-muted hover:text-danger transition cursor-pointer disabled:opacity-50"
           >
             Clear
           </button>
@@ -132,12 +132,12 @@ export default function StatusEditor({ instanceUrl, workspaceId }: Props) {
       </div>
 
       {status?.status_expires_at && (
-        <p className="mt-1 text-[11px] text-slate-400" data-qa="status-expiry">
+        <p className="mt-1 text-[11px] text-muted" data-qa="status-expiry">
           Clears at {new Date(status.status_expires_at).toLocaleString()}
         </p>
       )}
       {error && (
-        <p className="mt-1 text-[11px] text-red-400" data-qa="status-error">
+        <p className="mt-1 text-[11px] text-danger" data-qa="status-error">
           {error}
         </p>
       )}

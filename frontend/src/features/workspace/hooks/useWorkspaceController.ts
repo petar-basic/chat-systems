@@ -8,7 +8,7 @@ import { useCustomEmojiStore } from '@/stores/customEmoji';
 import { useCustomEmoji } from '@/hooks/queries/useCustomEmoji';
 import { useUserGroupStore } from '@/stores/userGroups';
 import { useUserGroups } from '@/hooks/queries/useUserGroups';
-import { parseCommand, runCommand } from '@/lib/slashCommands';
+import { commandResultText, parseCommand, runCommand } from '@/lib/slashCommands';
 import { toUserMessage } from '@/lib/errors';
 import { instanceManager } from '@/lib/instances';
 import { api } from '@/lib/api';
@@ -337,7 +337,14 @@ export function useWorkspaceController() {
     }, 3000);
   }, [currentChannel, getWs]);
 
-  const [ephemeral, setEphemeral] = useState<string | null>(null);
+  const [commandBanner, setCommandBanner] = useState<{ text: string; channelId: string } | null>(null);
+  const ephemeral = commandBanner?.channelId === currentChannel?.id ? (commandBanner?.text ?? null) : null;
+
+  useEffect(() => {
+    if (!ephemeral) return undefined;
+    const timer = setTimeout(() => setCommandBanner(null), 10_000);
+    return () => clearTimeout(timer);
+  }, [ephemeral]);
 
   const handleSend = useCallback(
     async (content: string) => {
@@ -352,11 +359,15 @@ export function useWorkspaceController() {
           // An unknown command falls through to being sent as text; anything
           // else has already done its work on the server.
           if (result) {
-            setEphemeral(result.response_type === 'ephemeral' ? result.text : null);
+            setCommandBanner(
+              result.response_type === 'ephemeral'
+                ? { text: commandResultText(result), channelId: currentChannel.id }
+                : null,
+            );
             return;
           }
         } catch (e) {
-          setEphemeral(toUserMessage(e));
+          setCommandBanner({ text: toUserMessage(e), channelId: currentChannel.id });
           return;
         }
       }
@@ -530,7 +541,7 @@ export function useWorkspaceController() {
 
   return {
     ephemeral,
-    dismissEphemeral: () => setEphemeral(null),
+    dismissEphemeral: () => setCommandBanner(null),
     user,
     logout,
     navigate,

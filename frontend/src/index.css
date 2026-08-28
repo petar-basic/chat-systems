@@ -1,7 +1,100 @@
 @import "tailwindcss";
 
+@theme inline {
+  --color-rail: var(--rail);
+  --color-app: var(--app);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-elevated: var(--elevated);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-fg: var(--fg);
+  --color-fg-soft: var(--fg-soft);
+  --color-fg-dim: var(--fg-dim);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-deep: var(--accent-deep);
+  --color-overlay: var(--overlay);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+}
+
+:root {
+  color-scheme: dark;
+  --rail: #020617;
+  --app: #0f172a;
+  --surface: #1e293b;
+  --raised: #334155;
+  --elevated: #475569;
+  --line: #334155;
+  --line-strong: #475569;
+  --fg: #ffffff;
+  --fg-soft: #e2e8f0;
+  --fg-dim: #cbd5e1;
+  --muted: #94a3b8;
+  --subtle: #64748b;
+  --faint: #475569;
+  --accent: #a78bfa;
+  --accent-soft: #c4b5fd;
+  --accent-deep: #4c1d95;
+  --overlay: #000000;
+  --danger: #f87171;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --info: #60a5fa;
+  --code-bg: rgba(15, 23, 42, 0.8);
+  --code-fg: #86efac;
+  --code-inline-bg: rgba(51, 65, 85, 0.7);
+  --code-inline-fg: #f9a8d4;
+  --link: #60a5fa;
+  --mention-self-bg: rgba(245, 158, 11, 0.2);
+  --mention-self-fg: #fbbf24;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --rail: #dbe1ea;
+  --app: #eef1f6;
+  --surface: #ffffff;
+  --raised: #eef2f7;
+  --elevated: #dde3ec;
+  --line: #dfe5ee;
+  --line-strong: #c3ccda;
+  --fg: #0b1220;
+  --fg-soft: #1e293b;
+  --fg-dim: #334155;
+  --muted: #5b6b7c;
+  --subtle: #7c8798;
+  --faint: #aab3c0;
+  --accent: #6d28d9;
+  --accent-soft: #7c3aed;
+  --accent-deep: #ddd6fe;
+  --overlay: #0f172a;
+  --danger: #dc2626;
+  --success: #15803d;
+  --warning: #b45309;
+  --info: #1d4ed8;
+  --code-bg: rgba(241, 245, 249, 0.9);
+  --code-fg: #166534;
+  --code-inline-bg: rgba(226, 232, 240, 0.9);
+  --code-inline-fg: #be185d;
+  --link: #1d4ed8;
+  --mention-self-bg: rgba(245, 158, 11, 0.18);
+  --mention-self-fg: #b45309;
+}
+
 /* ── Base resets ──────────────────────────────────────────────── */
 @layer base {
+  body {
+    background-color: var(--app);
+    color: var(--fg);
+  }
+
   /* Tailwind v4 Preflight sets buttons to cursor:default; restore the pointer
      once globally instead of hand-adding `cursor-pointer` to every control. */
   button:not(:disabled),
@@ -11,7 +104,7 @@
 
   /* Visible keyboard focus everywhere (Preflight strips the UA outline). */
   :focus-visible {
-    outline: 2px solid rgb(167 139 250);
+    outline: 2px solid var(--accent-soft);
     outline-offset: 2px;
     border-radius: 2px;
   }
@@ -54,8 +147,9 @@
 .tiptap-editor .tiptap {
   font-size: 0.875rem;
   line-height: 1.5;
-  color: rgb(203 213 225);
-  word-break: break-words;
+  color: var(--fg-dim);
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 /* iOS Safari zooms the page whenever a focused editable is under 16px, so
@@ -80,7 +174,7 @@
 .tiptap-content strong,
 .tiptap-editor .tiptap strong {
   font-weight: 700;
-  color: rgb(226 232 240);
+  color: var(--fg-soft);
 }
 
 .tiptap-content em,
@@ -96,14 +190,14 @@
 .tiptap-content s,
 .tiptap-editor .tiptap s {
   text-decoration: line-through;
-  color: rgb(148 163 184);
+  color: var(--muted);
 }
 
 .tiptap-content code:not(pre code),
 .tiptap-editor .tiptap code:not(pre code) {
   padding: 0.125rem 0.375rem;
-  background: rgba(51, 65, 85, 0.7);
-  color: rgb(249 168 212);
+  background: var(--code-inline-bg);
+  color: var(--code-inline-fg);
   border-radius: 0.25rem;
   font-size: 0.85em;
   font-family: ui-monospace, SFMono-Regular, monospace;
@@ -113,8 +207,8 @@
 .tiptap-editor .tiptap pre {
   margin: 0.25rem 0;
   padding: 0.75rem;
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid rgba(51, 65, 85, 0.5);
+  background: var(--code-bg);
+  border: 1px solid var(--line);
   border-radius: 0.5rem;
   overflow-x: auto;
 }
@@ -123,7 +217,7 @@
 .tiptap-editor .tiptap pre code {
   padding: 0;
   background: transparent;
-  color: rgb(134 239 172);
+  color: var(--code-fg);
   font-size: 0.875rem;
   font-family: ui-monospace, SFMono-Regular, monospace;
 }
@@ -144,15 +238,15 @@
 
 .tiptap-content blockquote,
 .tiptap-editor .tiptap blockquote {
-  border-left: 3px solid rgb(100 116 139);
+  border-left: 3px solid var(--line-strong);
   padding-left: 0.75rem;
   margin: 0.25rem 0;
-  color: rgb(148 163 184);
+  color: var(--muted);
 }
 
 .tiptap-content a,
 .tiptap-editor .tiptap a {
-  color: rgb(96 165 250);
+  color: var(--link);
   text-decoration: underline;
   cursor: pointer;
 }
@@ -169,20 +263,20 @@
 
 /* Input editor: all mentions use the "other" style (no self-detection needed) */
 .tiptap-editor .tiptap .mention {
-  background: rgba(139, 92, 246, 0.15);
-  color: rgb(167 139 250);
+  background: color-mix(in oklab, var(--accent) 16%, transparent);
+  color: var(--accent);
 }
 
 /* Display: mention of another user */
 .tiptap-content .mention-other {
-  background: rgba(139, 92, 246, 0.15);
-  color: rgb(167 139 250);
+  background: color-mix(in oklab, var(--accent) 16%, transparent);
+  color: var(--accent);
 }
 
 /* Display: mention of current user / @here / @everyone / @channel */
 .tiptap-content .mention-self {
-  background: rgba(245, 158, 11, 0.2);
-  color: rgb(251 191 36);
+  background: var(--mention-self-bg);
+  color: var(--mention-self-fg);
 }
 
 /* ── Editor (input) specific ──────────────────────────────────── */
@@ -190,13 +284,22 @@
   outline: none;
   min-height: 1.5rem;
   flex: 1;
+  min-width: 0;
 }
 
 /* Placeholder */
+.tiptap-editor .tiptap p.is-editor-empty:first-child {
+  position: relative;
+}
+
 .tiptap-editor .tiptap p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
-  color: rgb(100 116 139);
+  color: var(--subtle);
   pointer-events: none;
-  float: left;
-  height: 0;
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

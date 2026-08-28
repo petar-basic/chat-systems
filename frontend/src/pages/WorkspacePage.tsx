@@ -30,7 +30,7 @@ export default function WorkspacePage() {
   useEscapeToClose(() => c.setMobileNavOpen(false), c.mobileNavOpen);
 
   return (
-    <div className="h-dvh flex bg-slate-900 text-white relative">
+    <div className="h-dvh flex bg-app text-fg relative">
       <div
         className={`flex shrink-0 max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:z-40 max-lg:shadow-2xl transition-transform ${
           c.mobileNavOpen ? 'max-lg:translate-x-0' : 'max-lg:-translate-x-full'
@@ -84,7 +84,7 @@ export default function WorkspacePage() {
 
       {c.mobileNavOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+          className="fixed inset-0 bg-overlay/50 z-30 lg:hidden"
           onClick={() => c.setMobileNavOpen(false)}
           aria-hidden
         />
@@ -112,7 +112,7 @@ export default function WorkspacePage() {
           <ConnectionBanner instanceUrl={currentWorkspace?.instanceUrl} />
           {currentWorkspace?.deleted_at && (
             <div className="bg-yellow-500/10 border-b border-yellow-500/30 px-4 py-2 flex items-center justify-between shrink-0">
-              <p className="text-sm text-yellow-300">
+              <p className="text-sm text-warning">
                 This workspace has been soft-deleted and is not visible to regular members.
               </p>
               <button
@@ -124,7 +124,7 @@ export default function WorkspacePage() {
                   });
                 }}
                 disabled={c.restoreWorkspace.isPending}
-                className="ml-4 px-3 py-1 text-xs bg-yellow-500/20 hover:bg-yellow-500/40 border border-yellow-500/40 text-yellow-300 rounded-lg transition cursor-pointer disabled:opacity-50 shrink-0"
+                className="ml-4 px-3 py-1 text-xs bg-yellow-500/20 hover:bg-yellow-500/40 border border-yellow-500/40 text-warning rounded-lg transition cursor-pointer disabled:opacity-50 shrink-0"
               >
                 {c.restoreWorkspace.isPending ? 'Restoring...' : 'Restore Workspace'}
               </button>
@@ -166,14 +166,14 @@ export default function WorkspacePage() {
           {c.ephemeral && (
             <div
               data-qa="command-response"
-              className="mx-4 mb-2 px-3 py-2 rounded-lg bg-slate-800/80 border border-slate-700 text-sm text-slate-300 flex items-start gap-2"
+              className="mx-4 mb-2 px-3 py-2 rounded-lg bg-surface/80 border border-line text-sm text-fg-dim flex items-start gap-2"
             >
               <span className="flex-1 whitespace-pre-wrap">{c.ephemeral}</span>
               <button
                 type="button"
                 onClick={c.dismissEphemeral}
                 aria-label="Dismiss"
-                className="text-slate-500 hover:text-white transition cursor-pointer"
+                className="text-subtle hover:text-fg transition cursor-pointer"
               >
                 ×
               </button>
@@ -183,9 +183,9 @@ export default function WorkspacePage() {
           {currentChannel && !canPost && (
             <div
               data-qa="channel-read-only"
-              className="mx-4 mb-4 px-4 py-3 rounded-lg bg-slate-800/60 border border-slate-700 text-sm text-slate-400 flex items-center gap-2"
+              className="mx-4 mb-4 px-4 py-3 rounded-lg bg-surface/60 border border-line text-sm text-muted flex items-center gap-2"
             >
-              <Megaphone className="w-4 h-4 shrink-0 text-amber-400" />
+              <Megaphone className="w-4 h-4 shrink-0 text-warning" />
               Only admins can post in this channel.
             </div>
           )}
@@ -208,10 +208,10 @@ export default function WorkspacePage() {
           )}
 
           {!currentChannel && (
-            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 gap-3 px-6 text-center">
+            <div className="flex-1 flex flex-col items-center justify-center text-muted gap-3 px-6 text-center">
               {c.channels.length === 0 ? (
                 <>
-                  <Hash className="w-12 h-12 text-slate-600" />
+                  <Hash className="w-12 h-12 text-faint" />
                   <p className="text-lg font-medium">{EmptyLabels.NoChannels}</p>
                   <p className="text-sm">{EmptyLabels.NoChannelsHint}</p>
                 </>

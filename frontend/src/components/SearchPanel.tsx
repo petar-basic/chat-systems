@@ -7,6 +7,8 @@ import { X, Search } from 'lucide-react';
 import { displayNameOf } from '@/lib/userHelpers';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
+import { useWorkspaceChannels } from '@/hooks/queries/useWorkspaces';
+import { toPlainText } from '@/lib/plainText';
 
 interface Props {
   onClose: () => void;
@@ -26,12 +28,14 @@ function Hit({
   userId,
   content,
   createdAt,
+  context,
   onClick,
   qa,
 }: {
   userId: string;
   content: string;
   createdAt: string;
+  context?: string;
   onClick?: () => void;
   qa: string;
 }) {
@@ -44,18 +48,23 @@ function Hit({
       type="button"
       onClick={onClick}
       data-qa={qa}
-      className="w-full text-left px-3 py-2.5 hover:bg-slate-700/30 rounded-lg transition disabled:cursor-default"
+      className="w-full text-left px-3 py-2.5 hover:bg-raised/30 rounded-lg transition disabled:cursor-default"
       disabled={!onClick}
     >
-      <div className="flex items-center gap-2 mb-0.5">
+      <div className="flex items-center gap-2 mb-0.5 min-w-0">
         <Avatar userId={userId} name={displayName} avatarUrl={sender?.avatar_url} size="xs" />
-        <span className="text-sm font-semibold text-slate-200">{displayName}</span>
-        <span className="text-xs text-slate-400">
+        <span className="text-sm font-semibold text-fg-soft">{displayName}</span>
+        {context && (
+          <span className="text-xs text-accent truncate" data-qa="search-result-context">
+            {context}
+          </span>
+        )}
+        <span className="text-xs text-muted shrink-0">
           {new Date(createdAt).toLocaleDateString()}{' '}
           {new Date(createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </span>
       </div>
-      <p className="text-sm text-slate-400 line-clamp-2">{content}</p>
+      <p className="text-sm text-muted line-clamp-2">{toPlainText(content)}</p>
     </button>
   );
 }
@@ -69,6 +78,9 @@ export default function SearchPanel({ onClose, onNavigateToMessage, onNavigateTo
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const workspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id);
+  const instanceUrl = useWorkspaceStore((s) => s.currentWorkspace?.instanceUrl);
+  const { data: channels = [] } = useWorkspaceChannels(workspaceId ?? null, instanceUrl);
+  const channelNames = new Map(channels.map((ch) => [ch.id, ch.name]));
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -112,20 +124,20 @@ export default function SearchPanel({ onClose, onNavigateToMessage, onNavigateTo
   };
 
   return (
-    <div className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 flex flex-col border-l border-slate-700/50 bg-slate-900/80">
-      <div className="h-14 px-4 flex items-center justify-between border-b border-slate-700/50 shrink-0">
-        <h3 className="text-sm font-bold text-white flex items-center gap-2">
+    <div className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 flex flex-col border-l border-line/50 bg-app/80">
+      <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">
+        <h3 className="text-sm font-bold text-fg flex items-center gap-2">
           <Search className="w-4 h-4" />
           Search
         </h3>
-        <button onClick={onClose} className="text-slate-400 hover:text-white transition cursor-pointer">
+        <button onClick={onClose} className="text-muted hover:text-fg transition cursor-pointer">
           <X className="w-4 h-4" />
         </button>
       </div>
 
-      <div className="px-3 py-3 border-b border-slate-700/30">
-        <div className="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2">
-          <Search className="w-4 h-4 text-slate-400 shrink-0" />
+      <div className="px-3 py-3 border-b border-line/30">
+        <div className="flex items-center gap-2 bg-surface border border-line rounded-lg px-3 py-2">
+          <Search className="w-4 h-4 text-muted shrink-0" />
           <input
             ref={inputRef}
             type="text"
@@ -133,7 +145,7 @@ export default function SearchPanel({ onClose, onNavigateToMessage, onNavigateTo
             onChange={(e) => handleChange(e.target.value)}
             placeholder="Search messages..."
             aria-label="Search messages"
-            className="flex-1 bg-transparent text-white placeholder-slate-500 focus:outline-none text-sm"
+            className="flex-1 bg-transparent text-fg placeholder-subtle focus:outline-none text-sm"
           />
           {query && (
             <button
@@ -143,7 +155,7 @@ export default function SearchPanel({ onClose, onNavigateToMessage, onNavigateTo
                 setConversationResults([]);
                 setSearched(false);
               }}
-              className="text-slate-400 hover:text-slate-300 transition cursor-pointer"
+              className="text-muted hover:text-fg-dim transition cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -157,11 +169,11 @@ export default function SearchPanel({ onClose, onNavigateToMessage, onNavigateTo
             <div className="w-5 h-5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
           </div>
         ) : error ? (
-          <div className="text-center py-8 text-red-400 text-sm" data-qa="search-error">
+          <div className="text-center py-8 text-danger text-sm" data-qa="search-error">
             {error}
           </div>
         ) : searched && results.length === 0 && conversationResults.length === 0 ? (
-          <div className="text-center py-8 text-slate-400 text-sm">
+          <div className="text-center py-8 text-muted text-sm">
             No messages found for &ldquo;{query}&rdquo;
           </div>
         ) : results.length > 0 || conversationResults.length > 0 ? (
@@ -169,9 +181,7 @@ export default function SearchPanel({ onClose, onNavigateToMessage, onNavigateTo
             {results.length > 0 && (
               <div className="space-y-1">
                 {conversationResults.length > 0 && (
-                  <h4 className="px-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Channels
-                  </h4>
+                  <h4 className="px-3 text-xs font-semibold uppercase tracking-wide text-subtle">Channels</h4>
                 )}
                 {results.map((msg) => (
                   <Hit
@@ -180,6 +190,9 @@ export default function SearchPanel({ onClose, onNavigateToMessage, onNavigateTo
                     userId={msg.user_id}
                     content={msg.content}
                     createdAt={msg.created_at}
+                    context={
+                      channelNames.has(msg.channel_id) ? `#${channelNames.get(msg.channel_id)}` : undefined
+                    }
                     onClick={
                       onNavigateToMessage ? () => onNavigateToMessage(msg.channel_id, msg.id) : undefined
                     }
@@ -189,7 +202,7 @@ export default function SearchPanel({ onClose, onNavigateToMessage, onNavigateTo
             )}
             {conversationResults.length > 0 && (
               <div className="space-y-1">
-                <h4 className="px-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <h4 className="px-3 text-xs font-semibold uppercase tracking-wide text-subtle">
                   Direct messages
                 </h4>
                 {conversationResults.map((hit) => (
@@ -210,7 +223,7 @@ export default function SearchPanel({ onClose, onNavigateToMessage, onNavigateTo
             )}
           </div>
         ) : (
-          <div className="text-center py-8 text-slate-400 text-sm">
+          <div className="text-center py-8 text-muted text-sm">
             Search across all messages in this workspace
           </div>
         )}

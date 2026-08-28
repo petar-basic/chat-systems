@@ -35,6 +35,8 @@ pub struct CommandResponse {
     /// message from the command.
     pub response_type: &'static str,
     pub text: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 impl CommandResponse {
@@ -42,6 +44,15 @@ impl CommandResponse {
         Self {
             response_type: "ephemeral",
             text: text.into(),
+            at: None,
+        }
+    }
+
+    pub fn ephemeral_at(text: impl Into<String>, at: chrono::DateTime<chrono::Utc>) -> Self {
+        Self {
+            response_type: "ephemeral",
+            text: text.into(),
+            at: Some(at),
         }
     }
 
@@ -49,6 +60,7 @@ impl CommandResponse {
         Self {
             response_type: "in_channel",
             text: text.into(),
+            at: None,
         }
     }
 }

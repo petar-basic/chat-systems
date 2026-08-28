@@ -5,6 +5,21 @@ import { ApiError } from './errors';
 export interface CommandResult {
   response_type: 'ephemeral' | 'in_channel';
   text: string;
+  at?: string;
+}
+
+export function commandResultText(result: Pick<CommandResult, 'text' | 'at'>): string {
+  if (!result.at) return result.text;
+  const at = new Date(result.at);
+  if (Number.isNaN(at.getTime())) return result.text;
+  const when = at.toLocaleString(undefined, {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  return `${result.text} ${when}.`;
 }
 
 /** `/deploy prod` → `{ command: 'deploy', text: 'prod' }`. */
