@@ -34,7 +34,7 @@ export default function EmojiPicker({ anchorRef, onSelect, onClose }: Props) {
       const el = new Picker({
         data,
         theme,
-        previewPosition: 'none',
+        previewPosition: 'bottom',
         skinTonePosition: 'search',
         autoFocus: true,
         onEmojiSelect: (e: { native: string }) => {

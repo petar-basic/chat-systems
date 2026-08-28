@@ -9,7 +9,7 @@ async fn saving_a_channel_message_puts_it_in_your_own_list(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "saved-owner", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Saved WS").await;
-    let ch_id = seed_channel(&state, ws_id, owner_id, "general", false).await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "main", false).await;
 
     let (_, message) = send(
         &app,
@@ -73,7 +73,7 @@ async fn saving_the_same_message_twice_is_the_same_row(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "saved-twice", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Saved WS").await;
-    let ch_id = seed_channel(&state, ws_id, owner_id, "general", false).await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "main", false).await;
 
     let (_, message) = send(
         &app,

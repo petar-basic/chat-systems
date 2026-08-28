@@ -6,6 +6,14 @@ pub mod workspace_events;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+pub const STREAM_MAXLEN: usize = 10_000;
+
+pub const STREAM_INDEX_KEY: &str = "stream:index";
+
+pub fn workspace_stream(workspace_id: Uuid) -> String {
+    format!("stream:ws:{workspace_id}")
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Event {
     pub id: Uuid,

@@ -40,7 +40,7 @@ export function Avatar({ userId, name, avatarUrl, size = 'md', className = '' }:
       role="img"
       aria-label={name}
       data-qa="avatar-initials"
-      className={`${shape} ${avatarColorFor(userId)} inline-flex items-center justify-center font-bold text-fg select-none`}
+      className={`${shape} ${avatarColorFor(userId)} inline-flex items-center justify-center font-bold text-white select-none`}
     >
       {initialOf(name)}
     </span>

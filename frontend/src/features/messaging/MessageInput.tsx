@@ -1,4 +1,5 @@
 import { useRef, useCallback, useMemo, useEffect, useState } from 'react';
+import { formatDateTime } from '@/lib/datetime';
 import { Extension } from '@tiptap/core';
 import { useEditor, EditorContent } from '@tiptap/react';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -198,7 +199,7 @@ export default function MessageInput({
         setShowSchedule(false);
         setCustomSendAt('');
         setScheduleError(null);
-        toast.success(`Scheduled for ${sendAt.toLocaleString()}`);
+        toast.success(`Scheduled for ${formatDateTime(sendAt)}`);
       } catch (err) {
         toast.error((err as { message?: string })?.message || 'Could not schedule that message');
       }

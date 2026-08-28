@@ -144,7 +144,7 @@ export default function UserProfilePanel({ onClose }: Props) {
         </button>
       </div>
 
-      <form onSubmit={handleSave} className="p-6 space-y-5">
+      <form id="profile-form" onSubmit={handleSave} className="p-6 space-y-5">
         <div className="flex items-center gap-4">
           <div className="relative">
             <Avatar
@@ -232,30 +232,6 @@ export default function UserProfilePanel({ onClose }: Props) {
             Profile saved successfully.
           </div>
         )}
-
-        <div className="flex justify-end gap-2 pt-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2.5 text-sm text-muted hover:text-fg transition cursor-pointer"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={saving || !displayName.trim()}
-            className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/50 text-white text-sm font-medium rounded-lg transition cursor-pointer disabled:cursor-not-allowed"
-          >
-            {saving ? (
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                Save Profile
-              </>
-            )}
-          </button>
-        </div>
       </form>
 
       <section className="px-6 border-t border-line pt-5 mt-5">
@@ -269,10 +245,35 @@ export default function UserProfilePanel({ onClose }: Props) {
         <EmailNotificationsPanel />
       </section>
 
-      <section className="px-6 pb-6 border-t border-line pt-5 mt-5">
+      <section className="px-6 border-t border-line pt-5 mt-5">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-subtle mb-3">Security</h3>
         <TwoFactorPanel />
       </section>
+
+      <div className="sticky bottom-0 flex justify-end gap-2 px-6 py-4 mt-5 border-t border-line bg-surface">
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-4 py-2.5 text-sm text-muted hover:text-fg transition cursor-pointer"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          form="profile-form"
+          disabled={saving || !displayName.trim()}
+          className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/50 text-white text-sm font-medium rounded-lg transition cursor-pointer disabled:cursor-not-allowed"
+        >
+          {saving ? (
+            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          ) : (
+            <>
+              <Save className="w-4 h-4" />
+              Save Profile
+            </>
+          )}
+        </button>
+      </div>
     </Modal>
   );
 }

@@ -1,4 +1,5 @@
 import { useRef, useState, type FormEvent } from 'react';
+import type { CreateChannelDraft } from '@/models/channel';
 import { useNavigate } from 'react-router';
 import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
@@ -57,7 +58,7 @@ interface Props {
   currentConversationId: string | null;
   unreadConversations: Set<string>;
   onSelectChannel: (ch: Channel) => void;
-  onCreateChannel: (name: string) => Promise<void>;
+  onCreateChannel: (draft: CreateChannelDraft) => Promise<void>;
   onToggleMute: (channelId: string, muted: boolean) => void;
   onOpenConversation: (conversationId: string) => void;
   onOpenWith: (participantIds: string[]) => Promise<void>;
@@ -250,6 +251,9 @@ export default function ChannelSidebar({
   useOnClickOutside(youRef, () => setYouMenuOpen(false), youMenuOpen);
   const [showNewChannel, setShowNewChannel] = useState(false);
   const [newChannelName, setNewChannelName] = useState('');
+  const [newChannelDescription, setNewChannelDescription] = useState('');
+  const [newChannelPrivate, setNewChannelPrivate] = useState(false);
+  const [newChannelAnnouncement, setNewChannelAnnouncement] = useState(false);
   const [newChannelError, setNewChannelError] = useState<string | null>(null);
   const [creatingChannel, setCreatingChannel] = useState(false);
   const [showDmPicker, setShowDmPicker] = useState(false);
@@ -282,6 +286,19 @@ export default function ChannelSidebar({
   useOnClickOutside(wsDropdownRef, () => setWsDropdownOpen(false), wsDropdownOpen);
   useEscapeToClose(() => setWsDropdownOpen(false), wsDropdownOpen);
 
+  const resetNewChannel = () => {
+    setNewChannelName('');
+    setNewChannelDescription('');
+    setNewChannelPrivate(false);
+    setNewChannelAnnouncement(false);
+    setNewChannelError(null);
+  };
+
+  const closeNewChannel = () => {
+    resetNewChannel();
+    setShowNewChannel(false);
+  };
+
   const handleCreateChannel = async (e: FormEvent) => {
     e.preventDefault();
     const name = newChannelName.trim();
@@ -296,8 +313,13 @@ export default function ChannelSidebar({
     setNewChannelError(null);
     setCreatingChannel(true);
     try {
-      await onCreateChannel(name);
-      setNewChannelName('');
+      await onCreateChannel({
+        name,
+        description: newChannelDescription.trim() || undefined,
+        isPrivate: newChannelPrivate,
+        announcementOnly: newChannelAnnouncement,
+      });
+      resetNewChannel();
       setShowNewChannel(false);
     } catch (err) {
       setNewChannelError(err instanceof Error ? err.message : 'Could not create the channel.');
@@ -754,14 +776,7 @@ export default function ChannelSidebar({
       )}
 
       {showNewChannel && (
-        <Modal
-          title="Create Channel"
-          onClose={() => {
-            setNewChannelError(null);
-            setShowNewChannel(false);
-          }}
-          dataQa="create-channel-modal"
-        >
+        <Modal title="Create Channel" onClose={closeNewChannel} dataQa="create-channel-modal">
           <form onSubmit={handleCreateChannel} noValidate>
             <h2 className="text-lg font-bold text-fg mb-4">Create Channel</h2>
             <input
@@ -790,13 +805,59 @@ export default function ChannelSidebar({
                 {newChannelError}
               </p>
             )}
-            <div className="flex justify-end gap-2 mt-4">
+            <label
+              htmlFor="create-channel-description"
+              className="mt-4 block text-sm font-medium text-fg-dim mb-1.5"
+            >
+              Description <span className="text-muted font-normal">(optional)</span>
+            </label>
+            <textarea
+              id="create-channel-description"
+              value={newChannelDescription}
+              onChange={(e) => setNewChannelDescription(e.target.value)}
+              rows={2}
+              placeholder="What is this channel for?"
+              data-qa="create-channel-description"
+              className="w-full px-4 py-2.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+            />
+
+            <label className="mt-4 flex items-start gap-3 cursor-pointer" data-qa="create-channel-private">
+              <input
+                type="checkbox"
+                checked={newChannelPrivate}
+                onChange={(e) => setNewChannelPrivate(e.target.checked)}
+                className="mt-0.5 w-4 h-4 accent-purple-500"
+              />
+              <span>
+                <span className="block text-sm font-medium text-fg-dim">Private channel</span>
+                <span className="block text-xs text-muted">
+                  Only people who are invited can find it or read it.
+                </span>
+              </span>
+            </label>
+
+            <label
+              className="mt-3 flex items-start gap-3 cursor-pointer"
+              data-qa="create-channel-announcement"
+            >
+              <input
+                type="checkbox"
+                checked={newChannelAnnouncement}
+                onChange={(e) => setNewChannelAnnouncement(e.target.checked)}
+                className="mt-0.5 w-4 h-4 accent-purple-500"
+              />
+              <span>
+                <span className="block text-sm font-medium text-fg-dim">Announcement channel</span>
+                <span className="block text-xs text-muted">
+                  Only admins can post. Everyone else can still read and react.
+                </span>
+              </span>
+            </label>
+
+            <div className="flex justify-end gap-2 mt-5">
               <button
                 type="button"
-                onClick={() => {
-                  setNewChannelError(null);
-                  setShowNewChannel(false);
-                }}
+                onClick={closeNewChannel}
                 className="px-4 py-2 text-muted hover:text-fg transition"
               >
                 Cancel

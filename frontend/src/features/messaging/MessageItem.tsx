@@ -1,4 +1,4 @@
-import { memo, useState, useRef } from 'react';
+import { memo, useEffect, useState, useRef } from 'react';
 import {
   Pencil,
   Trash2,
@@ -98,6 +98,12 @@ function MessageItem({
   const isOwn = currentUserId === message.user_id;
   const isEdited = message.updated_at !== message.created_at;
   const [showHistory, setShowHistory] = useState(false);
+  const rowRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!editing && !confirmDelete) return;
+    rowRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [editing, confirmDelete]);
   const [actionsRevealed, setActionsRevealed] = useState(false);
   const [showOverflow, setShowOverflow] = useState(false);
   const overflowAnchorRef = useRef<HTMLButtonElement>(null);
@@ -164,6 +170,7 @@ function MessageItem({
 
   return (
     <div
+      ref={rowRef}
       data-message-id={message.id}
       data-qa="message-row"
       tabIndex={0}

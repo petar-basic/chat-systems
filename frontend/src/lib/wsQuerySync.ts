@@ -176,7 +176,11 @@ export const useWebSocketQuerySync = () => {
 
         const { currentChannel, mutedChannels, bumpChannelUnread, currentUserId } =
           useWorkspaceStore.getState();
-        if (currentChannel?.id !== message.channel_id && !mutedChannels.has(message.channel_id)) {
+        if (
+          message.user_id !== currentUserId &&
+          currentChannel?.id !== message.channel_id &&
+          !mutedChannels.has(message.channel_id)
+        ) {
           useWorkspaceStore.setState((s) => {
             const nextUnread = new Set(s.unreadChannels);
             nextUnread.add(message.channel_id);

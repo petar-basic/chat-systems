@@ -635,7 +635,61 @@ impl ConnectionManager {
             "huddle.member_joined" | "huddle.member_left" => "events:huddle",
             _ => "events:huddle-signal",
         };
+        if channel == "events:huddle" {
+            if let Some(workspace_id) = self.huddle_workspace_id(&payload).await {
+                self.append_to_stream(workspace_id, event_type, &payload)
+                    .await;
+            }
+        }
         self.publish_event(channel, event_type, payload).await;
+    }
+
+    async fn huddle_workspace_id(&self, payload: &serde_json::Value) -> Option<Uuid> {
+        let huddle_id: Uuid = payload.get("huddle_id")?.as_str()?.parse().ok()?;
+        let result =
+            sqlx::query_scalar::<_, Uuid>("SELECT workspace_id FROM huddle_sessions WHERE id = $1")
+                .bind(huddle_id)
+                .fetch_optional(&self.db)
+                .await;
+        match result {
+            Ok(id) => id,
+            Err(e) => {
+                warn!("huddle_workspace_id DB error huddle={}: {}", huddle_id, e);
+                None
+            }
+        }
+    }
+
+    async fn append_to_stream(
+        &self,
+        workspace_id: Uuid,
+        event_type: &str,
+        payload: &serde_json::Value,
+    ) {
+        let event = shared_events::Event::new(event_type, payload.clone());
+        let Ok(body) = serde_json::to_string(&event) else {
+            return;
+        };
+        let key = shared_events::workspace_stream(workspace_id);
+        let mut conn = self.redis.clone();
+        let _: redis::RedisResult<()> = redis::cmd("SADD")
+            .arg(shared_events::STREAM_INDEX_KEY)
+            .arg(&key)
+            .query_async(&mut conn)
+            .await;
+        let appended: redis::RedisResult<String> = redis::cmd("XADD")
+            .arg(&key)
+            .arg("MAXLEN")
+            .arg("~")
+            .arg(shared_events::STREAM_MAXLEN)
+            .arg("*")
+            .arg("event")
+            .arg(&body)
+            .query_async(&mut conn)
+            .await;
+        if let Err(e) = appended {
+            warn!("XADD to {} failed for {}: {}", key, event_type, e);
+        }
     }
 
     fn huddle_members_key(huddle_id: &Uuid) -> String {

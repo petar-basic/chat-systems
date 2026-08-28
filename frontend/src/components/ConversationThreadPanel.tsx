@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X, MessageSquare } from 'lucide-react';
 import { useUserCache } from '@/stores/users';
 import { displayNameOf } from '@/lib/userHelpers';
@@ -13,6 +13,10 @@ import { useWorkspaceStore } from '@/stores/workspace';
 import RichTextDisplay from './RichTextDisplay';
 import { MessageInput } from '@/features/messaging';
 import { ConversationMessageRow } from '@/features/messaging/ConversationView';
+import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
+import { logger } from '@/lib/logger';
+import { toast } from '@/shared/components/Toast';
+import { ErrorLabels } from '@/shared/constants';
 
 interface Props {
   conversationId: string;
@@ -35,7 +39,30 @@ export default function ConversationThreadPanel({
     currentUserId,
     instanceUrl,
   );
+  const currentWorkspace = useWorkspaceStore((s) => s.currentWorkspace);
+  const [uploading, setUploading] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
+
+  const handleFileUpload = async (file: File) => {
+    if (!currentWorkspace) return;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const uploaded = await getApiForInstance(instanceUrl).upload<{ filename: string; url: string }[]>(
+        `/files/upload/${currentWorkspace.id}`,
+        formData,
+      );
+      for (const f of uploaded) {
+        await sendReply.mutateAsync(`[file: ${f.filename}](${f.url})`);
+      }
+    } catch (err) {
+      logger.error('ConversationThreadPanel', 'handleFileUpload', err);
+      toast.error(ErrorLabels.UploadFailed);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -47,7 +74,7 @@ export default function ConversationThreadPanel({
 
   return (
     <div
-      className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 flex flex-col border-l border-line/50 bg-app/80"
+      className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 flex flex-col border-l border-line/50 bg-app lg:bg-app/80"
       data-qa="dm-thread-panel"
     >
       <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">
@@ -117,6 +144,8 @@ export default function ConversationThreadPanel({
           onSend={async (content) => {
             await sendReply.mutateAsync(content);
           }}
+          onFileUpload={handleFileUpload}
+          uploading={uploading}
         />
       </div>
     </div>

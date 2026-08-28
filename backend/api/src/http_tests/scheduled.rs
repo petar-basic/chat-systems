@@ -15,7 +15,7 @@ async fn a_member_schedules_into_a_channel_they_can_post_to(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "sched-owner", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Scheduled WS").await;
-    let ch_id = seed_channel(&state, ws_id, owner_id, "general", false).await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "main", false).await;
 
     let (status, created) = send(
         &app,
@@ -113,7 +113,7 @@ async fn scheduling_needs_access_to_the_target(pool: PgPool) {
     .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "needs one target");
 
-    let ch_id = seed_channel(&state, ws_id, owner_id, "general", false).await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "main", false).await;
     let (status, _) = send(
         &app,
         "POST",
@@ -139,7 +139,7 @@ async fn the_scheduled_time_has_to_be_ahead_and_within_reach(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "sched-owner", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Scheduled Time WS").await;
-    let ch_id = seed_channel(&state, ws_id, owner_id, "general", false).await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "main", false).await;
 
     for send_at in [
         (Utc::now() - Duration::minutes(1)).to_rfc3339(),
@@ -172,7 +172,7 @@ async fn only_the_author_reschedules_or_cancels(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "sched-owner", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Scheduled Owner WS").await;
-    let ch_id = seed_channel(&state, ws_id, owner_id, "general", false).await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "main", false).await;
     let (other_id, _, other_token) = seed_and_login(&app, &state, "sched-other", false).await;
     add_ws_member(&state, ws_id, other_id, "member").await;
 
@@ -271,7 +271,7 @@ async fn the_dispatcher_delivers_due_messages_exactly_once(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "sched-owner", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Dispatch WS").await;
-    let ch_id = seed_channel(&state, ws_id, owner_id, "general", false).await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "main", false).await;
     let (partner_id, _, partner_token) = seed_and_login(&app, &state, "sched-partner", false).await;
     add_ws_member(&state, ws_id, partner_id, "member").await;
 
@@ -436,7 +436,7 @@ async fn a_message_from_someone_removed_from_the_workspace_is_not_delivered(pool
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "sched-owner", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Reauth WS").await;
-    let ch_id = seed_channel(&state, ws_id, owner_id, "general", false).await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "main", false).await;
 
     let (author_id, _) = seed(&state, "sched-author", false).await;
     add_ws_member(&state, ws_id, author_id, "member").await;
@@ -487,7 +487,7 @@ async fn a_message_into_a_deleted_workspace_is_not_delivered(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "sched-owner", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Doomed WS").await;
-    let ch_id = seed_channel(&state, ws_id, owner_id, "general", false).await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "main", false).await;
 
     let scheduled = queue_due(&state, ws_id, owner_id, Some(ch_id), None).await;
 
@@ -619,7 +619,7 @@ async fn removal_cancels_pending_messages_for_that_scope(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "sched-owner", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Cancel WS").await;
-    let ch_id = seed_channel(&state, ws_id, owner_id, "general", false).await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "main", false).await;
     let other_ch = seed_channel(&state, ws_id, owner_id, "elsewhere", false).await;
 
     let (author_id, _, author_token) = seed_and_login(&app, &state, "sched-author", false).await;

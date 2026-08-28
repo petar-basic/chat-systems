@@ -110,7 +110,7 @@ async fn delete_deactivates_and_destroys_nothing(pool: sqlx::PgPool) {
     let (_admin_id, _, admin) = seed_and_login(&app, &state, "scim-admin", true).await;
     let (leaver_id, leaver_email, _) = seed_and_login(&app, &state, "scim-gone", false).await;
     let ws_id = seed_workspace(&state, leaver_id, "Solo").await;
-    let channel_id = seed_channel(&state, ws_id, leaver_id, "general", false).await;
+    let channel_id = seed_channel(&state, ws_id, leaver_id, "main", false).await;
     let message = state
         .message_repo
         .create_message(channel_id, leaver_id, "still here", None, &[])

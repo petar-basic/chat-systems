@@ -18,7 +18,7 @@ async fn a_durable_event_lands_in_its_workspace_log(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "stream-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Stream WS").await;
-    let ch = seed_channel(&state, ws, owner_id, "general", false).await;
+    let ch = seed_channel(&state, ws, owner_id, "main", false).await;
 
     let before = stream_len(&state, ws).await;
     let (status, _) = send(
@@ -66,7 +66,7 @@ async fn two_worker_replicas_each_see_an_event_once(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "stream-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Stream WS").await;
-    let ch = seed_channel(&state, ws, owner_id, "general", false).await;
+    let ch = seed_channel(&state, ws, owner_id, "main", false).await;
 
     let redis_url = state.config.redis_url.clone();
 

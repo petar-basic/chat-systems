@@ -225,7 +225,11 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
         </button>
       </div>
 
-      {!localStream && <p className="text-xs text-muted text-center">Connecting…</p>}
+      {!localStream ? (
+        <p className="text-xs text-muted text-center">Connecting…</p>
+      ) : (
+        remotes.length === 0 && <p className="text-xs text-muted text-center">Waiting for others to join…</p>
+      )}
     </div>
   );
 }

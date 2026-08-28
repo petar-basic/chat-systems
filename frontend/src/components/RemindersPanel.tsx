@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { formatDateTime } from '@/lib/datetime';
 import { X, BellRing, Hash, Trash2 } from 'lucide-react';
 import type { Channel } from '@/stores/workspace';
 import { useReminders, useCreateReminder, useCancelReminder } from '@/hooks/queries/useReminders';
@@ -131,7 +132,7 @@ export default function RemindersPanel({
                     {reminder.content}
                   </div>
                   <div className="text-xs text-accent-soft mt-1" data-qa="reminder-at">
-                    {new Date(reminder.remind_at).toLocaleString()}
+                    {formatDateTime(reminder.remind_at)}
                   </div>
                   {channel && (
                     <div className="text-xs text-muted mt-0.5 flex items-center gap-1">

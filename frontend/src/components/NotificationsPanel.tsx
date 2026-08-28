@@ -177,7 +177,7 @@ export default function NotificationsPanel({ workspaceId, onClose, onNavigate }:
 
   return (
     <div
-      className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-surface/95 border-l border-line/50 flex flex-col h-full"
+      className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-surface lg:bg-surface/95 border-l border-line/50 flex flex-col h-full"
       data-qa="notifications-panel"
     >
       <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">

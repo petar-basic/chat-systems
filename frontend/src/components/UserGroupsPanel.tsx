@@ -77,7 +77,7 @@ export default function UserGroupsPanel({ workspaceId, instanceUrl, members, isA
   };
 
   return (
-    <div className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 flex flex-col border-l border-line/50 bg-app/80">
+    <div className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 flex flex-col border-l border-line/50 bg-app lg:bg-app/80">
       <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">
         <h3 className="text-sm font-bold text-fg flex items-center gap-2">
           <Users className="w-4 h-4" />

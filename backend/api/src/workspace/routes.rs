@@ -589,6 +589,18 @@ async fn create_channel(
         .add_channel_member(channel.id, auth.user_id, &ChannelRole::Admin)
         .await;
 
+    let channel = match &req.post_policy {
+        Some(requested) => {
+            let policy = authz::PostPolicy::parse(requested)?;
+            state
+                .workspace_service
+                .repo
+                .set_channel_post_policy(channel.id, policy.as_str())
+                .await?
+        }
+        None => channel,
+    };
+
     audit::record(
         &state,
         AuditEntry::new(AuditAction::ChannelCreated, auth.user_id)

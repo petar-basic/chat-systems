@@ -1,3 +1,4 @@
+import { formatDateTime } from '@/lib/datetime';
 export interface AuditEntry {
   id: string;
   workspace_id: string | null;
@@ -132,7 +133,7 @@ export default function AuditLogTable({ entries, loading, showWorkspace = false 
           {entries.map((entry) => (
             <tr key={entry.id} className="hover:bg-raised/30 transition" data-qa="audit-log-row">
               <td className="px-4 py-3 text-xs text-muted whitespace-nowrap">
-                {new Date(entry.created_at).toLocaleString()}
+                {formatDateTime(entry.created_at)}
               </td>
               <td className="px-4 py-3 text-sm text-fg">{actorLabel(entry)}</td>
               <td className="px-4 py-3 text-sm text-fg-soft" data-qa="audit-log-action">

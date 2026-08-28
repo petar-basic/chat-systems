@@ -207,7 +207,7 @@ async fn a_group_from_another_workspace_never_resolves(pool: PgPool) {
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "grp-owner", false).await;
     let ours = seed_workspace(&state, owner_id, "Ours").await;
     let theirs = seed_workspace(&state, owner_id, "Theirs").await;
-    let ch_id = seed_channel(&state, ours, owner_id, "general", false).await;
+    let ch_id = seed_channel(&state, ours, owner_id, "main", false).await;
 
     let (member_id, _, _) = seed_and_login(&app, &state, "grp-member", false).await;
     add_ws_member(&state, ours, member_id, "member").await;

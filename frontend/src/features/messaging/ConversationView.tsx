@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { UnreadDivider } from './UnreadDivider';
 import { useUserCache } from '@/stores/users';
 import { usePresenceStore } from '@/stores/presence';
@@ -21,10 +21,15 @@ import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { ConnectionBanner } from '@/shared/components/ConnectionBanner/ConnectionBanner';
 import { QueryState } from '@/shared/components/QueryState/QueryState';
 import { HuddleStartButton } from '@/features/huddle';
-import { EmptyLabels } from '@/shared/constants';
+import { EmptyLabels, ErrorLabels } from '@/shared/constants';
+import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
+import { logger } from '@/lib/logger';
+import { toast } from '@/shared/components/Toast';
 import VirtualMessageList from './VirtualMessageList';
 import { DaySeparator } from './MessageList';
 import { buildMessageRows, type MessageRow } from './messageRows';
+
+const QUICK_REACTIONS = ['👍', '✅', '🎉'];
 
 interface Props {
   workspaceId: string;
@@ -81,6 +86,28 @@ export default function ConversationView({
 
   const handleSend = async (content: string) => {
     sendMutation.mutate({ content, id: crypto.randomUUID() });
+  };
+
+  const [uploading, setUploading] = useState(false);
+
+  const handleFileUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const uploaded = await getApiForInstance(instanceUrl).upload<{ filename: string; url: string }[]>(
+        `/files/upload/${workspaceId}`,
+        formData,
+      );
+      for (const f of uploaded) {
+        sendMutation.mutate({ content: `[file: ${f.filename}](${f.url})`, id: crypto.randomUUID() });
+      }
+    } catch (err) {
+      logger.error('ConversationView', 'handleFileUpload', err);
+      toast.error(ErrorLabels.UploadFailed);
+    } finally {
+      setUploading(false);
+    }
   };
 
   const messageCount = displayMessages.length;
@@ -191,6 +218,8 @@ export default function ConversationView({
         draftKey={`conversation:${conversationId}`}
         isDm
         onSend={handleSend}
+        onFileUpload={handleFileUpload}
+        uploading={uploading}
         scheduleTarget={{ conversationId }}
         workspaceId={workspaceId}
         instanceUrl={instanceUrl}
@@ -232,6 +261,12 @@ export function ConversationMessageRow({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const reactBtnRef = useRef<HTMLButtonElement>(null);
+  const rowRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!editing && !confirmDelete) return;
+    rowRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [editing, confirmDelete]);
 
   const time = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -276,6 +311,7 @@ export function ConversationMessageRow({
 
   return (
     <div
+      ref={rowRef}
       data-qa="conversation-message"
       tabIndex={0}
       className={`group relative flex items-start gap-3 px-2 rounded-lg transition-colors hover:bg-surface/50 ${grouped ? 'py-0.5' : 'py-1.5'} ${msg.pending ? 'opacity-50' : ''}`}
@@ -370,6 +406,17 @@ export function ConversationMessageRow({
 
       {!editing && !confirmDelete && (
         <div className="absolute -top-3 right-2 flex items-center gap-0.5 bg-surface border border-line rounded-lg px-1 py-0.5 shadow-lg opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto">
+          {QUICK_REACTIONS.map((emoji) => (
+            <button
+              key={emoji}
+              onClick={() => handleReactionToggle(emoji)}
+              aria-label={`React with ${emoji}`}
+              data-qa="dm-quick-reaction"
+              className="px-1 py-0.5 text-sm leading-none hover:bg-raised rounded transition"
+            >
+              {emoji}
+            </button>
+          ))}
           <div className="relative">
             <button
               ref={reactBtnRef}

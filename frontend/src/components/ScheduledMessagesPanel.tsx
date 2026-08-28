@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { formatDateTime } from '@/lib/datetime';
 import { X, Clock, Hash, Trash2, MessageSquare } from 'lucide-react';
 import type { Channel } from '@/stores/workspace';
 import type { Conversation } from '@/hooks/queries/useConversations';
@@ -61,7 +62,7 @@ function ScheduledRow({
             {scheduled.content}
           </div>
           <div className="text-xs text-accent-soft mt-1" data-qa="scheduled-time">
-            {sendAt.toLocaleString()}
+            {formatDateTime(sendAt)}
           </div>
         </div>
         <button

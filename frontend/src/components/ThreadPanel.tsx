@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X, MessageSquare } from 'lucide-react';
 import { useUserCache } from '@/stores/users';
 import { useWorkspaceStore } from '@/stores/workspace';
@@ -8,6 +8,10 @@ import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { useThreadMessages, useSendThreadReply, useThreadReplyActions } from '@/hooks/queries/useThreads';
 import RichTextDisplay from './RichTextDisplay';
 import { MessageInput, MessageItem } from '@/features/messaging';
+import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
+import { logger } from '@/lib/logger';
+import { toast } from '@/shared/components/Toast';
+import { ErrorLabels } from '@/shared/constants';
 
 interface Props {
   parentMessage: Message;
@@ -20,6 +24,8 @@ export default function ThreadPanel({ parentMessage, members, channels, onClose 
   const { data: replies = [], isLoading: loading } = useThreadMessages(parentMessage.id);
   const sendReply = useSendThreadReply(parentMessage.id, parentMessage.channel_id);
   const currentUserId = useWorkspaceStore((s) => s.currentUserId) ?? '';
+  const currentWorkspace = useWorkspaceStore((s) => s.currentWorkspace);
+  const [uploading, setUploading] = useState(false);
   const { toggleReaction, edit, remove, togglePin } = useThreadReplyActions(parentMessage.id, currentUserId);
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -31,13 +37,33 @@ export default function ThreadPanel({ parentMessage, members, channels, onClose 
     await sendReply.mutateAsync(content);
   };
 
+  const handleFileUpload = async (file: File) => {
+    if (!currentWorkspace) return;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const uploaded = await getApiForInstance(currentWorkspace.instanceUrl).upload<
+        { filename: string; url: string }[]
+      >(`/files/upload/${currentWorkspace.id}`, formData);
+      for (const f of uploaded) {
+        await sendReply.mutateAsync(`[file: ${f.filename}](${f.url})`);
+      }
+    } catch (err) {
+      logger.error('ThreadPanel', 'handleFileUpload', err);
+      toast.error(ErrorLabels.UploadFailed);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const { getUser } = useUserCache();
   const parentSender = getUser(parentMessage.user_id);
   const parentName = displayNameOf(parentSender?.display_name);
 
   return (
     <div
-      className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 flex flex-col border-l border-line/50 bg-app/80"
+      className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 flex flex-col border-l border-line/50 bg-app lg:bg-app/80"
       data-qa="thread-panel"
     >
       <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">
@@ -110,6 +136,8 @@ export default function ThreadPanel({ parentMessage, members, channels, onClose 
           channels={channels}
           draftKey={`thread:${parentMessage.id}`}
           onSend={handleSend}
+          onFileUpload={handleFileUpload}
+          uploading={uploading}
         />
       </div>
     </div>

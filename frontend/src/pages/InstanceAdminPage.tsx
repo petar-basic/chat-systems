@@ -130,18 +130,18 @@ export default function InstanceAdminPage() {
 
   return (
     <div className="h-screen bg-app text-fg flex flex-col">
-      <div className="border-b border-surface px-6 py-4 flex items-center gap-4">
+      <div className="border-b border-surface px-4 sm:px-6 py-4 flex flex-wrap items-center gap-3 sm:gap-4">
         <button
           onClick={() => navigate('/app')}
           className="p-2 text-muted hover:text-fg hover:bg-surface rounded-lg transition cursor-pointer"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <div className="flex-1">
-          <h1 className="text-lg font-bold">Instance Admin</h1>
-          {instance && <p className="text-xs text-muted">{instanceLabel(instance.url)}</p>}
+        <div className="flex-1 min-w-0">
+          <h1 className="text-lg font-bold truncate">Instance Admin</h1>
+          {instance && <p className="text-xs text-muted truncate">{instanceLabel(instance.url)}</p>}
         </div>
-        <div className="flex items-center gap-1 bg-surface rounded-lg p-1">
+        <div className="flex items-center gap-1 bg-surface rounded-lg p-1 shrink-0">
           {(['users', 'audit'] as const).map((value) => (
             <button
               key={value}
@@ -151,17 +151,17 @@ export default function InstanceAdminPage() {
                 tab === value ? 'bg-raised text-fg' : 'text-muted hover:text-fg'
               }`}
             >
-              {value === 'users' ? 'Users' : 'Audit log'}
+              <span className="whitespace-nowrap">{value === 'users' ? 'Users' : 'Audit log'}</span>
             </button>
           ))}
         </div>
         <button
           onClick={refresh}
           disabled={loading || auditLoading}
-          className="flex items-center gap-2 px-3 py-2 text-sm text-muted hover:text-fg hover:bg-surface rounded-lg transition cursor-pointer disabled:opacity-50"
+          className="flex items-center gap-2 px-3 py-2 text-sm text-muted hover:text-fg hover:bg-surface rounded-lg transition cursor-pointer disabled:opacity-50 shrink-0"
         >
           <RefreshCw className={`w-4 h-4 ${loading || auditLoading ? 'animate-spin' : ''}`} />
-          Refresh
+          <span className="max-sm:sr-only">Refresh</span>
         </button>
       </div>
 

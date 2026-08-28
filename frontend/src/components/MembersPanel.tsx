@@ -208,7 +208,7 @@ export default function MembersPanel({ workspaceId, onClose }: Props) {
   };
 
   return (
-    <div className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-surface/80 border-l border-line/50 flex flex-col h-full">
+    <div className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-surface lg:bg-surface/80 border-l border-line/50 flex flex-col h-full">
       <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">
         <h2 className="font-semibold text-fg">Members</h2>
         <button onClick={onClose} className="text-muted hover:text-fg transition cursor-pointer">

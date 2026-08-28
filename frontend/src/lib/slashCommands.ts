@@ -1,6 +1,7 @@
 import { api } from './api';
 import { instanceManager } from './instances';
 import { ApiError } from './errors';
+import { formatDateTime } from './datetime';
 
 export interface CommandResult {
   response_type: 'ephemeral' | 'in_channel';
@@ -10,16 +11,8 @@ export interface CommandResult {
 
 export function commandResultText(result: Pick<CommandResult, 'text' | 'at'>): string {
   if (!result.at) return result.text;
-  const at = new Date(result.at);
-  if (Number.isNaN(at.getTime())) return result.text;
-  const when = at.toLocaleString(undefined, {
-    weekday: 'short',
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-  return `${result.text} ${when}.`;
+  const when = formatDateTime(result.at);
+  return when ? `${result.text} ${when}.` : result.text;
 }
 
 /** `/deploy prod` → `{ command: 'deploy', text: 'prod' }`. */

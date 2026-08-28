@@ -1259,7 +1259,7 @@ async fn sending_counts_for_everyone_but_the_author(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (author_id, _, author) = seed_and_login(&app, &state, "unread-author", false).await;
     let ws = seed_workspace(&state, author_id, "Unread WS").await;
-    let ch = seed_channel(&state, ws, author_id, "general", false).await;
+    let ch = seed_channel(&state, ws, author_id, "main", false).await;
 
     let (reader_id, _) = seed(&state, "unread-reader", false).await;
     add_ws_member(&state, ws, reader_id, "member").await;
@@ -1300,7 +1300,7 @@ async fn a_mention_counts_separately_from_the_unread_total(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (author_id, _, author) = seed_and_login(&app, &state, "unread-author", false).await;
     let ws = seed_workspace(&state, author_id, "Unread WS").await;
-    let ch = seed_channel(&state, ws, author_id, "general", false).await;
+    let ch = seed_channel(&state, ws, author_id, "main", false).await;
 
     let (reader_id, _) = seed(&state, "unread-reader", false).await;
     add_ws_member(&state, ws, reader_id, "member").await;
@@ -1340,7 +1340,7 @@ async fn marking_read_clears_both_counters(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (author_id, _, author) = seed_and_login(&app, &state, "unread-author", false).await;
     let ws = seed_workspace(&state, author_id, "Unread WS").await;
-    let ch = seed_channel(&state, ws, author_id, "general", false).await;
+    let ch = seed_channel(&state, ws, author_id, "main", false).await;
 
     let (reader_id, reader_email) = seed(&state, "unread-reader", false).await;
     add_ws_member(&state, ws, reader_id, "member").await;
@@ -1379,7 +1379,7 @@ async fn deleting_an_unread_message_takes_it_off_the_count(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (author_id, _, author) = seed_and_login(&app, &state, "unread-author", false).await;
     let ws = seed_workspace(&state, author_id, "Unread WS").await;
-    let ch = seed_channel(&state, ws, author_id, "general", false).await;
+    let ch = seed_channel(&state, ws, author_id, "main", false).await;
 
     let (reader_id, _) = seed(&state, "unread-reader", false).await;
     add_ws_member(&state, ws, reader_id, "member").await;
@@ -1424,7 +1424,7 @@ async fn muting_a_channel_does_not_change_its_unread_count(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (author_id, _, author) = seed_and_login(&app, &state, "unread-author", false).await;
     let ws = seed_workspace(&state, author_id, "Unread WS").await;
-    let ch = seed_channel(&state, ws, author_id, "general", false).await;
+    let ch = seed_channel(&state, ws, author_id, "main", false).await;
 
     let (reader_id, reader_email) = seed(&state, "unread-reader", false).await;
     add_ws_member(&state, ws, reader_id, "member").await;
@@ -1467,7 +1467,7 @@ async fn the_reconciler_corrects_a_drifted_counter(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (author_id, _, author) = seed_and_login(&app, &state, "unread-author", false).await;
     let ws = seed_workspace(&state, author_id, "Unread WS").await;
-    let ch = seed_channel(&state, ws, author_id, "general", false).await;
+    let ch = seed_channel(&state, ws, author_id, "main", false).await;
 
     let (reader_id, _) = seed(&state, "unread-reader", false).await;
     add_ws_member(&state, ws, reader_id, "member").await;
@@ -1513,7 +1513,7 @@ async fn the_unread_endpoint_reports_counts(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (author_id, _, author) = seed_and_login(&app, &state, "unread-author", false).await;
     let ws = seed_workspace(&state, author_id, "Unread WS").await;
-    let ch = seed_channel(&state, ws, author_id, "general", false).await;
+    let ch = seed_channel(&state, ws, author_id, "main", false).await;
 
     let (reader_id, reader_email) = seed(&state, "unread-reader", false).await;
     add_ws_member(&state, ws, reader_id, "member").await;
@@ -1558,7 +1558,7 @@ async fn a_moderator_puts_a_bookmark_on_the_channel(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "bm-owner", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Bookmarks WS").await;
-    let ch_id = seed_channel(&state, ws_id, owner_id, "general", false).await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "main", false).await;
 
     let (member_id, _, member_token) = seed_and_login(&app, &state, "bm-member", false).await;
     add_ws_member(&state, ws_id, member_id, "member").await;
@@ -1635,7 +1635,7 @@ async fn a_bookmark_has_to_be_a_link_somebody_can_safely_click(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "bm-scheme", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Bookmarks WS").await;
-    let ch_id = seed_channel(&state, ws_id, owner_id, "general", false).await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "main", false).await;
 
     for url in [
         "javascript:alert(1)",
@@ -1677,7 +1677,7 @@ async fn bookmarks_stay_inside_the_channel_that_owns_them(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "bm-scope", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Bookmarks WS").await;
-    let first = seed_channel(&state, ws_id, owner_id, "general", false).await;
+    let first = seed_channel(&state, ws_id, owner_id, "main", false).await;
     let second = seed_channel(&state, ws_id, owner_id, "random", false).await;
 
     let (_, created) = send(

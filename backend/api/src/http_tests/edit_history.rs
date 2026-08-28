@@ -35,7 +35,7 @@ async fn every_edit_leaves_the_text_it_replaced(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "edit-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Edits WS").await;
-    let ch = seed_channel(&state, ws, owner_id, "general", false).await;
+    let ch = seed_channel(&state, ws, owner_id, "main", false).await;
 
     let msg_id = post_message(&app, &token, ch, "first").await;
     edit(&app, &token, &msg_id, "second").await;
@@ -79,7 +79,7 @@ async fn history_is_for_the_author_and_workspace_admins_only(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner) = seed_and_login(&app, &state, "edit-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Edits WS").await;
-    let ch = seed_channel(&state, ws, owner_id, "general", false).await;
+    let ch = seed_channel(&state, ws, owner_id, "main", false).await;
 
     let (author_id, author_email) = seed(&state, "edit-author", false).await;
     add_ws_member(&state, ws, author_id, "member").await;
@@ -142,7 +142,7 @@ async fn an_admin_reading_somebody_elses_history_is_audited(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner) = seed_and_login(&app, &state, "edit-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Edits WS").await;
-    let ch = seed_channel(&state, ws, owner_id, "general", false).await;
+    let ch = seed_channel(&state, ws, owner_id, "main", false).await;
 
     let (author_id, author_email) = seed(&state, "edit-author", false).await;
     add_ws_member(&state, ws, author_id, "member").await;
@@ -187,7 +187,7 @@ async fn stored_versions_are_capped(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "edit-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Edits WS").await;
-    let ch = seed_channel(&state, ws, owner_id, "general", false).await;
+    let ch = seed_channel(&state, ws, owner_id, "main", false).await;
 
     let msg_id = post_message(&app, &token, ch, "v0").await;
     let cap = crate::messaging::repo::MAX_STORED_EDITS;

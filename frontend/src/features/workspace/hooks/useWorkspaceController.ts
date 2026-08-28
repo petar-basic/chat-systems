@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { CreateChannelDraft } from '@/models/channel';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { useCurrentUser, useLogout } from '@/hooks/queries/useAuth';
@@ -532,11 +533,18 @@ export function useWorkspaceController() {
   );
 
   const handleCreateChannel = useCallback(
-    async (name: string) => {
+    async (draft: CreateChannelDraft) => {
       if (!currentWorkspace) return;
-      await createChannelMutation.mutateAsync({ workspaceId: currentWorkspace.id, name });
+      const created = await createChannelMutation.mutateAsync({
+        workspaceId: currentWorkspace.id,
+        name: draft.name,
+        type: draft.isPrivate ? 'private' : 'public',
+        description: draft.description,
+        postPolicy: draft.announcementOnly ? 'moderators' : undefined,
+      });
+      handleSelectChannel(created);
     },
-    [currentWorkspace, createChannelMutation],
+    [currentWorkspace, createChannelMutation, handleSelectChannel],
   );
 
   return {

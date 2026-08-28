@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { formatDateTime } from '@/lib/datetime';
 import { useMyStatus, useSetStatus } from '@/hooks/queries/useStatus';
 
 interface Props {
@@ -133,7 +134,7 @@ export default function StatusEditor({ instanceUrl, workspaceId }: Props) {
 
       {status?.status_expires_at && (
         <p className="mt-1 text-[11px] text-muted" data-qa="status-expiry">
-          Clears at {new Date(status.status_expires_at).toLocaleString()}
+          Clears at {formatDateTime(status.status_expires_at)}
         </p>
       )}
       {error && (

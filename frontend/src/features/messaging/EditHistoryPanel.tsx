@@ -1,4 +1,5 @@
 import { X, History } from 'lucide-react';
+import { formatDateTime } from '@/lib/datetime';
 import { useEditHistory } from '@/hooks/queries/useEditHistory';
 import MessageContent from './MessageContent';
 
@@ -46,7 +47,7 @@ export default function EditHistoryPanel({ messageId, scope, currentContent, onC
           {edits.map((edit) => (
             <li key={edit.id} data-qa="edit-history-version" className="opacity-80">
               <div className="text-[11px] uppercase tracking-wider text-subtle mb-0.5">
-                Before {new Date(edit.edited_at).toLocaleString()}
+                Before {formatDateTime(edit.edited_at)}
               </div>
               <MessageContent content={edit.previous_content} />
             </li>
