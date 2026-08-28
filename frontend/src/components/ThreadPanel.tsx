@@ -111,6 +111,7 @@ export default function ThreadPanel({ parentMessage, members, channels, onClose 
               <MessageItem
                 key={r.id}
                 message={r}
+                dataQa="thread-reply"
                 currentUserId={currentUserId}
                 senderName={displayNameOf(sender?.display_name)}
                 senderAvatarUrl={sender?.avatar_url}

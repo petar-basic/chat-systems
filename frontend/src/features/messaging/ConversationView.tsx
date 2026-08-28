@@ -239,6 +239,7 @@ interface ConversationMessageProps {
   onOpenThread?: () => void;
   onSave?: () => void;
   onForward?: () => void;
+  dataQa?: string;
 }
 
 export function ConversationMessageRow({
@@ -252,6 +253,7 @@ export function ConversationMessageRow({
   onOpenThread,
   onSave,
   onForward,
+  dataQa = 'conversation-message',
 }: ConversationMessageProps) {
   const { getUser } = useUserCache();
   const sender = getUser(msg.user_id);
@@ -312,7 +314,7 @@ export function ConversationMessageRow({
   return (
     <div
       ref={rowRef}
-      data-qa="conversation-message"
+      data-qa={dataQa}
       tabIndex={0}
       className={`group relative flex items-start gap-3 px-2 rounded-lg transition-colors hover:bg-surface/50 ${grouped ? 'py-0.5' : 'py-1.5'} ${msg.pending ? 'opacity-50' : ''}`}
     >

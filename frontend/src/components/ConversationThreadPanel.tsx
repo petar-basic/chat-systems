@@ -124,6 +124,7 @@ export default function ConversationThreadPanel({
             <ConversationMessageRow
               key={reply.id}
               msg={reply}
+              dataQa="dm-thread-reply"
               isOwn={reply.user_id === currentUserId}
               currentUserId={currentUserId}
               onEdit={(content) => edit(reply.id, content)}

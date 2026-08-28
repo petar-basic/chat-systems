@@ -52,6 +52,7 @@ interface MessageItemProps {
   onCopyLink?: (messageId: string) => void;
   onSave?: (message: Message) => void;
   onForward?: (message: Message) => void;
+  dataQa?: string;
 }
 
 function groupReactions(message: Message, currentUserId: string): ReactionGroup[] {
@@ -88,6 +89,7 @@ function MessageItem({
   onCopyLink,
   onSave,
   onForward,
+  dataQa = 'message-row',
 }: MessageItemProps) {
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -172,7 +174,7 @@ function MessageItem({
     <div
       ref={rowRef}
       data-message-id={message.id}
-      data-qa="message-row"
+      data-qa={dataQa}
       tabIndex={0}
       // A finger cannot hover, so on a touch device a tap is what reveals this
       // message's actions — and only this message's. Guarded on the pointer
