@@ -68,8 +68,10 @@ jobs:
           COOLIFY_WEBHOOK: ${{ secrets.COOLIFY_WEBHOOK }}
           COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
         run: |
-          status=$(curl -sS -o response.txt -w '%{http_code}' \
+          status=$(curl -sS -X POST -o response.txt -w '%{http_code}' \
             -H "Authorization: Bearer $COOLIFY_TOKEN" \
+            -H "Accept: application/json" \
+            -H "Content-Length: 0" \
             "$COOLIFY_WEBHOOK")
           cat response.txt
           test "$status" -lt 300
