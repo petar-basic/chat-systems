@@ -89,8 +89,8 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
       aria-label="Huddle"
       className={
         expanded
-          ? 'fixed inset-0 z-60 bg-slate-900 p-4 flex flex-col gap-3'
-          : 'fixed bottom-4 right-4 z-60 w-120 max-w-[calc(100vw-2rem)] bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-3 flex flex-col gap-3'
+          ? 'fixed inset-0 z-60 bg-app p-4 flex flex-col gap-3'
+          : 'fixed bottom-4 right-4 z-60 w-120 max-w-[calc(100vw-2rem)] bg-surface border border-line rounded-2xl shadow-2xl p-3 flex flex-col gap-3'
       }
     >
       {tiles.map((t) => (
@@ -98,15 +98,15 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
       ))}
 
       <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold text-white">
-          Huddle <span className="text-slate-400 font-normal">· {tiles.length}</span>
+        <span className="text-sm font-semibold text-fg">
+          Huddle <span className="text-muted font-normal">· {tiles.length}</span>
         </span>
         <div className="flex items-center gap-1">
           <button
             onClick={() => setLayout((l) => (l === 'grid' ? 'focus' : 'grid'))}
             aria-label={layout === 'grid' ? 'Focus view' : 'Grid view'}
             title={layout === 'grid' ? 'Focus view' : 'Grid view'}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/50 transition"
+            className="p-1.5 rounded-lg text-muted hover:text-fg hover:bg-raised/50 transition"
           >
             {layout === 'grid' ? <Maximize2 className="w-4 h-4" /> : <LayoutGrid className="w-4 h-4" />}
           </button>
@@ -114,7 +114,7 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
             onClick={() => setExpanded((v) => !v)}
             aria-label={expanded ? 'Collapse huddle' : 'Expand huddle'}
             title={expanded ? 'Collapse' : 'Full screen'}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/50 transition"
+            className="p-1.5 rounded-lg text-muted hover:text-fg hover:bg-raised/50 transition"
           >
             {expanded ? <Shrink className="w-4 h-4" /> : <Expand className="w-4 h-4" />}
           </button>
@@ -225,7 +225,11 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
         </button>
       </div>
 
-      {!localStream && <p className="text-xs text-slate-400 text-center">Connecting…</p>}
+      {!localStream ? (
+        <p className="text-xs text-muted text-center">Connecting…</p>
+      ) : (
+        remotes.length === 0 && <p className="text-xs text-muted text-center">Waiting for others to join…</p>
+      )}
     </div>
   );
 }
@@ -326,7 +330,7 @@ function VideoTile({
 
   return (
     <div
-      className={`relative ${large ? 'aspect-video' : 'aspect-[4/3]'} rounded-lg overflow-hidden bg-slate-900 ring-2 transition ${
+      className={`relative ${large ? 'aspect-video' : 'aspect-[4/3]'} rounded-lg overflow-hidden bg-app ring-2 transition ${
         speaking && !muted ? 'ring-green-500/70' : 'ring-transparent'
       }`}
     >
@@ -360,10 +364,8 @@ function VideoTile({
           {name}
           {isSelf && ' (you)'}
         </span>
-        {sharing && (
-          <span className="px-1 py-0.5 rounded bg-purple-600/80 text-[10px] text-white">Sharing</span>
-        )}
-        {muted && <MicOff className="w-3 h-3 text-red-400 shrink-0" />}
+        {sharing && <span className="px-1 py-0.5 rounded bg-purple-600/80 text-[10px] text-fg">Sharing</span>}
+        {muted && <MicOff className="w-3 h-3 text-danger shrink-0" />}
       </div>
 
       {!isSelf && (
@@ -402,10 +404,10 @@ interface ControlButtonProps {
 
 function ControlButton({ active, onClick, on, off, label, danger, highlight }: ControlButtonProps) {
   const tone = danger
-    ? 'bg-red-600/20 text-red-400 hover:bg-red-600/30'
+    ? 'bg-red-600/20 text-danger hover:bg-red-600/30'
     : highlight
-      ? 'bg-purple-600/30 text-purple-300 hover:bg-purple-600/40'
-      : 'bg-slate-700 text-white hover:bg-slate-600';
+      ? 'bg-purple-600/30 text-accent-soft hover:bg-purple-600/40'
+      : 'bg-raised text-fg hover:bg-elevated';
   return (
     <button
       onClick={onClick}
@@ -428,12 +430,12 @@ function ReactionPicker({ onPick }: { onPick: (emoji: string) => void }) {
         aria-label="Send reaction"
         title="Send reaction"
         aria-expanded={open}
-        className="p-2.5 rounded-full bg-slate-700 text-white hover:bg-slate-600 transition"
+        className="p-2.5 rounded-full bg-raised text-fg hover:bg-elevated transition"
       >
         <Smile className="w-4 h-4" />
       </button>
       {open && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 flex gap-1 bg-slate-900 border border-slate-700 rounded-xl p-1.5 shadow-2xl">
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 flex gap-1 bg-app border border-line rounded-xl p-1.5 shadow-2xl">
           {QUICK_REACTIONS.map((emoji) => (
             <button
               key={emoji}
@@ -441,7 +443,7 @@ function ReactionPicker({ onPick }: { onPick: (emoji: string) => void }) {
                 onPick(emoji);
                 setOpen(false);
               }}
-              className="text-xl px-1.5 py-0.5 rounded-lg hover:bg-slate-700 transition"
+              className="text-xl px-1.5 py-0.5 rounded-lg hover:bg-raised transition"
             >
               {emoji}
             </button>
@@ -468,13 +470,13 @@ function InvitePicker({ active }: { active: ActiveHuddle }) {
         aria-label="Invite to huddle"
         title="Invite to huddle"
         aria-expanded={open}
-        className="p-2.5 rounded-full bg-slate-700 text-white hover:bg-slate-600 transition"
+        className="p-2.5 rounded-full bg-raised text-fg hover:bg-elevated transition"
       >
         <UserPlus className="w-4 h-4" />
       </button>
       {open && (
-        <div className="absolute bottom-full right-0 mb-2 w-56 max-h-64 overflow-y-auto bg-slate-900 border border-slate-700 rounded-xl p-2 shadow-2xl flex flex-col gap-0.5">
-          {candidates.length === 0 && <p className="text-xs text-slate-400 px-2 py-1.5">No one to invite</p>}
+        <div className="absolute bottom-full right-0 mb-2 w-56 max-h-64 overflow-y-auto bg-app border border-line rounded-xl p-2 shadow-2xl flex flex-col gap-0.5">
+          {candidates.length === 0 && <p className="text-xs text-muted px-2 py-1.5">No one to invite</p>}
           {candidates.map((m) => (
             <button
               key={m.user_id}
@@ -482,7 +484,7 @@ function InvitePicker({ active }: { active: ActiveHuddle }) {
                 invite.mutate([m.user_id]);
                 setOpen(false);
               }}
-              className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-sm text-slate-200 hover:bg-slate-700 transition"
+              className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-sm text-fg-soft hover:bg-raised transition"
             >
               <Avatar
                 userId={m.user_id}
@@ -511,12 +513,12 @@ function DevicePicker({ controls }: { controls: HuddleControls }) {
         aria-label="Devices"
         title="Devices"
         aria-expanded={open}
-        className="p-2.5 rounded-full bg-slate-700 text-white hover:bg-slate-600 transition"
+        className="p-2.5 rounded-full bg-raised text-fg hover:bg-elevated transition"
       >
         <Settings className="w-4 h-4" />
       </button>
       {open && (
-        <div className="absolute bottom-full right-0 mb-2 w-60 bg-slate-900 border border-slate-700 rounded-xl p-3 shadow-2xl flex flex-col gap-2">
+        <div className="absolute bottom-full right-0 mb-2 w-60 bg-app border border-line rounded-xl p-3 shadow-2xl flex flex-col gap-2">
           <DeviceSelect
             label="Microphone"
             options={devices.mics}
@@ -552,12 +554,12 @@ interface DeviceSelectProps {
 
 function DeviceSelect({ label, options, value, onChange }: DeviceSelectProps) {
   return (
-    <label className="flex flex-col gap-1 text-xs text-slate-300">
+    <label className="flex flex-col gap-1 text-xs text-fg-dim">
       <span>{label}</span>
       <select
         value={value ?? options[0]?.deviceId ?? ''}
         onChange={(e) => onChange(e.target.value)}
-        className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-white text-xs"
+        className="bg-surface border border-line rounded-lg px-2 py-1.5 text-fg text-xs"
       >
         {options.length === 0 && <option value="">No devices</option>}
         {options.map((d, i) => (

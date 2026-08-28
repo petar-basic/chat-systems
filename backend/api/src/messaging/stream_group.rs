@@ -17,7 +17,7 @@ const RESPONSE_HEADROOM: Duration = Duration::from_secs(5);
 /// The set of workspace streams that exist. Publishers add to it, so the worker
 /// can read every stream without scanning the keyspace and without being told
 /// which workspaces exist.
-pub const STREAM_INDEX_KEY: &str = "stream:index";
+pub use shared_events::STREAM_INDEX_KEY;
 
 pub struct Delivery {
     pub key: String,

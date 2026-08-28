@@ -8,11 +8,9 @@ use shared_events::Event;
 /// The replay buffer is bounded by both length and age: it exists so a client
 /// that missed a minute can catch up, not to store history. The database is the
 /// source of truth, and past the window the client refetches instead.
-pub const STREAM_MAXLEN: usize = 10_000;
+pub use shared_events::STREAM_MAXLEN;
 
-pub fn workspace_stream(workspace_id: Uuid) -> String {
-    format!("stream:ws:{workspace_id}")
-}
+pub use shared_events::workspace_stream;
 
 /// Events whose absence a client can still notice minutes later, so a gap in
 /// them is worth replaying. Typing, presence and WebRTC signalling are

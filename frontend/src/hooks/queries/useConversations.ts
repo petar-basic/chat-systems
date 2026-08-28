@@ -326,3 +326,78 @@ export const useSendConversationThreadReply = (
     },
   });
 };
+
+export const useConversationThreadReplyActions = (
+  parentMessageId: string,
+  currentUserId: string,
+  instanceUrl?: string,
+) => {
+  const queryClient = useQueryClient();
+  const key = QUERY_KEYS.conversationThread(parentMessageId);
+
+  const patchReply = (messageId: string, patch: (m: ConversationMessage) => ConversationMessage) => {
+    queryClient.setQueryData<ConversationMessage[]>(key, (old = []) =>
+      old.map((m) => (m.id === messageId ? patch(m) : m)),
+    );
+  };
+
+  const edit = async (messageId: string, content: string) => {
+    patchReply(messageId, (m) => ({ ...m, content, edited_at: new Date().toISOString() }));
+    try {
+      await getApiForInstance(instanceUrl).patch<ConversationMessage>(
+        `/conversations/messages/${messageId}`,
+        { content },
+      );
+    } catch (err) {
+      logger.error('useConversationThreadReplyActions', 'edit', err);
+      queryClient.invalidateQueries({ queryKey: key });
+      toast.error(ErrorLabels.EditFailed);
+    }
+  };
+
+  const remove = async (messageId: string) => {
+    patchReply(messageId, (m) => ({ ...m, deleted_at: new Date().toISOString() }));
+    try {
+      await getApiForInstance(instanceUrl).delete(`/conversations/messages/${messageId}`);
+    } catch (err) {
+      logger.error('useConversationThreadReplyActions', 'remove', err);
+      queryClient.invalidateQueries({ queryKey: key });
+      toast.error(ErrorLabels.DeleteFailed);
+    }
+  };
+
+  const toggleReaction = async (messageId: string, emoji: string, hasOwn: boolean) => {
+    patchReply(messageId, (m) => ({
+      ...m,
+      reactions: hasOwn
+        ? (m.reactions ?? []).filter((r) => !(r.user_id === currentUserId && r.emoji === emoji))
+        : [
+            ...(m.reactions ?? []),
+            {
+              id: `optimistic-${crypto.randomUUID()}`,
+              message_id: messageId,
+              user_id: currentUserId,
+              emoji,
+              created_at: new Date().toISOString(),
+            },
+          ],
+    }));
+    try {
+      if (hasOwn) {
+        await getApiForInstance(instanceUrl).delete(
+          `/conversations/messages/${messageId}/reactions/${encodeURIComponent(emoji)}`,
+        );
+      } else {
+        await getApiForInstance(instanceUrl).post(`/conversations/messages/${messageId}/reactions`, {
+          emoji,
+        });
+      }
+    } catch (err) {
+      logger.error('useConversationThreadReplyActions', 'toggleReaction', err);
+    } finally {
+      queryClient.invalidateQueries({ queryKey: key });
+    }
+  };
+
+  return { edit, remove, toggleReaction };
+};

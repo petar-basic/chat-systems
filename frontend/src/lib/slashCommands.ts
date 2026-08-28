@@ -1,10 +1,18 @@
 import { api } from './api';
 import { instanceManager } from './instances';
 import { ApiError } from './errors';
+import { formatDateTime } from './datetime';
 
 export interface CommandResult {
   response_type: 'ephemeral' | 'in_channel';
   text: string;
+  at?: string;
+}
+
+export function commandResultText(result: Pick<CommandResult, 'text' | 'at'>): string {
+  if (!result.at) return result.text;
+  const when = formatDateTime(result.at);
+  return when ? `${result.text} ${when}.` : result.text;
 }
 
 /** `/deploy prod` → `{ command: 'deploy', text: 'prod' }`. */

@@ -77,19 +77,19 @@ export default function UserGroupsPanel({ workspaceId, instanceUrl, members, isA
   };
 
   return (
-    <div className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 flex flex-col border-l border-slate-700/50 bg-slate-900/80">
-      <div className="h-14 px-4 flex items-center justify-between border-b border-slate-700/50 shrink-0">
-        <h3 className="text-sm font-bold text-white flex items-center gap-2">
+    <div className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 flex flex-col border-l border-line/50 bg-app lg:bg-app/80">
+      <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">
+        <h3 className="text-sm font-bold text-fg flex items-center gap-2">
           <Users className="w-4 h-4" />
           User groups
         </h3>
-        <button onClick={onClose} className="text-slate-400 hover:text-white transition cursor-pointer">
+        <button onClick={onClose} className="text-muted hover:text-fg transition cursor-pointer">
           <X className="w-4 h-4" />
         </button>
       </div>
 
       {isAdmin && (
-        <form onSubmit={handleCreate} className="px-3 py-3 border-b border-slate-700/30 space-y-2">
+        <form onSubmit={handleCreate} className="px-3 py-3 border-b border-line/30 space-y-2">
           <div className="flex gap-2">
             <input
               type="text"
@@ -97,7 +97,7 @@ export default function UserGroupsPanel({ workspaceId, instanceUrl, members, isA
               onChange={(e) => setHandle(e.target.value)}
               placeholder="handle (used as @handle)"
               data-qa="group-handle"
-              className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="flex-1 px-3 py-2 bg-surface border border-line rounded-lg text-fg text-sm placeholder-subtle focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
             <button
               type="submit"
@@ -108,7 +108,7 @@ export default function UserGroupsPanel({ workspaceId, instanceUrl, members, isA
               <Plus className="w-4 h-4" />
             </button>
           </div>
-          {error && <div className="text-xs text-red-400">{error}</div>}
+          {error && <div className="text-xs text-danger">{error}</div>}
         </form>
       )}
 
@@ -121,14 +121,14 @@ export default function UserGroupsPanel({ workspaceId, instanceUrl, members, isA
           <ul className="space-y-1">
             {groups.map((group) => (
               <li key={group.id} data-qa="group-row" className="rounded-lg">
-                <div className="flex items-center gap-2 px-3 py-2 hover:bg-slate-700/30 rounded-lg">
+                <div className="flex items-center gap-2 px-3 py-2 hover:bg-raised/30 rounded-lg">
                   <button
                     type="button"
                     onClick={() => openMembers(group.id)}
                     className="flex-1 text-left cursor-pointer"
                   >
-                    <span className="text-sm text-slate-200">@{group.handle}</span>
-                    <span className="ml-2 text-xs text-slate-500">
+                    <span className="text-sm text-fg-soft">@{group.handle}</span>
+                    <span className="ml-2 text-xs text-subtle">
                       {group.member_count} {group.member_count === 1 ? 'person' : 'people'}
                     </span>
                   </button>
@@ -137,7 +137,7 @@ export default function UserGroupsPanel({ workspaceId, instanceUrl, members, isA
                       type="button"
                       onClick={() => deleteGroup.mutate(group.id)}
                       aria-label={`Delete @${group.handle}`}
-                      className="text-slate-400 hover:text-red-400 transition cursor-pointer"
+                      className="text-muted hover:text-danger transition cursor-pointer"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -154,10 +154,10 @@ export default function UserGroupsPanel({ workspaceId, instanceUrl, members, isA
                             type="button"
                             disabled={!isAdmin}
                             onClick={() => toggleMember(group.id, member.user_id, !inGroup)}
-                            className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-sm text-slate-300 hover:bg-slate-700/30 rounded-lg transition cursor-pointer disabled:cursor-default"
+                            className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised/30 rounded-lg transition cursor-pointer disabled:cursor-default"
                           >
                             <span className="w-4">
-                              {inGroup && <Check className="w-3.5 h-3.5 text-green-400" />}
+                              {inGroup && <Check className="w-3.5 h-3.5 text-success" />}
                             </span>
                             <span className="truncate">
                               {displayNameOf(member.display_name) || member.email}
@@ -172,7 +172,7 @@ export default function UserGroupsPanel({ workspaceId, instanceUrl, members, isA
             ))}
           </ul>
         ) : (
-          <p className="text-center py-8 text-slate-400 text-sm">
+          <p className="text-center py-8 text-muted text-sm">
             No groups yet. A group gives a team one handle to mention.
           </p>
         )}

@@ -1,12 +1,17 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X, MessageSquare } from 'lucide-react';
 import { useUserCache } from '@/stores/users';
+import { useWorkspaceStore } from '@/stores/workspace';
 import type { Message, WorkspaceMember, Channel } from '@/stores/workspace';
 import { displayNameOf } from '@/lib/userHelpers';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
-import { useThreadMessages, useSendThreadReply } from '@/hooks/queries/useThreads';
+import { useThreadMessages, useSendThreadReply, useThreadReplyActions } from '@/hooks/queries/useThreads';
 import RichTextDisplay from './RichTextDisplay';
-import { MessageInput } from '@/features/messaging';
+import { MessageInput, MessageItem } from '@/features/messaging';
+import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
+import { logger } from '@/lib/logger';
+import { toast } from '@/shared/components/Toast';
+import { ErrorLabels } from '@/shared/constants';
 
 interface Props {
   parentMessage: Message;
@@ -15,36 +20,13 @@ interface Props {
   onClose: () => void;
 }
 
-function ThreadMessage({ message }: { message: Message }) {
-  const { getUser } = useUserCache();
-  const sender = getUser(message.user_id);
-  const displayName = displayNameOf(sender?.display_name);
-
-  return (
-    <div className="flex items-start gap-2.5 py-1.5">
-      <Avatar
-        userId={message.user_id}
-        name={displayName}
-        avatarUrl={sender?.avatar_url}
-        size="sm"
-        className="mt-0.5"
-      />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-baseline gap-2">
-          <span className="text-sm font-semibold text-slate-200">{displayName}</span>
-          <span className="text-xs text-slate-400">
-            {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </span>
-        </div>
-        <RichTextDisplay content={message.content} />
-      </div>
-    </div>
-  );
-}
-
 export default function ThreadPanel({ parentMessage, members, channels, onClose }: Props) {
   const { data: replies = [], isLoading: loading } = useThreadMessages(parentMessage.id);
   const sendReply = useSendThreadReply(parentMessage.id, parentMessage.channel_id);
+  const currentUserId = useWorkspaceStore((s) => s.currentUserId) ?? '';
+  const currentWorkspace = useWorkspaceStore((s) => s.currentWorkspace);
+  const [uploading, setUploading] = useState(false);
+  const { toggleReaction, edit, remove, togglePin } = useThreadReplyActions(parentMessage.id, currentUserId);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -55,36 +37,52 @@ export default function ThreadPanel({ parentMessage, members, channels, onClose 
     await sendReply.mutateAsync(content);
   };
 
+  const handleFileUpload = async (file: File) => {
+    if (!currentWorkspace) return;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const uploaded = await getApiForInstance(currentWorkspace.instanceUrl).upload<
+        { filename: string; url: string }[]
+      >(`/files/upload/${currentWorkspace.id}`, formData);
+      for (const f of uploaded) {
+        await sendReply.mutateAsync(`[file: ${f.filename}](${f.url})`);
+      }
+    } catch (err) {
+      logger.error('ThreadPanel', 'handleFileUpload', err);
+      toast.error(ErrorLabels.UploadFailed);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const { getUser } = useUserCache();
   const parentSender = getUser(parentMessage.user_id);
   const parentName = displayNameOf(parentSender?.display_name);
 
   return (
     <div
-      className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 flex flex-col border-l border-slate-700/50 bg-slate-900/80"
+      className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 flex flex-col border-l border-line/50 bg-app lg:bg-app/80"
       data-qa="thread-panel"
     >
-      <div className="h-14 px-4 flex items-center justify-between border-b border-slate-700/50 shrink-0">
-        <h3 className="text-sm font-bold text-white flex items-center gap-2">
+      <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">
+        <h3 className="text-sm font-bold text-fg flex items-center gap-2">
           <MessageSquare className="w-4 h-4" />
           Thread
         </h3>
-        <button
-          onClick={onClose}
-          aria-label="Close thread"
-          className="text-slate-400 hover:text-white transition"
-        >
+        <button onClick={onClose} aria-label="Close thread" className="text-muted hover:text-fg transition">
           <X className="w-4 h-4" />
         </button>
       </div>
 
-      <div className="px-4 py-3 border-b border-slate-700/30">
+      <div className="px-4 py-3 border-b border-line/30">
         <div className="flex items-start gap-2.5">
           <Avatar userId={parentMessage.user_id} name={parentName} avatarUrl={parentSender?.avatar_url} />
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-2">
-              <span className="text-sm font-semibold text-slate-200">{parentName}</span>
-              <span className="text-xs text-slate-400">
+              <span className="text-sm font-semibold text-fg-soft">{parentName}</span>
+              <span className="text-xs text-muted">
                 {new Date(parentMessage.created_at).toLocaleTimeString([], {
                   hour: '2-digit',
                   minute: '2-digit',
@@ -94,7 +92,7 @@ export default function ThreadPanel({ parentMessage, members, channels, onClose 
             <RichTextDisplay content={parentMessage.content} />
           </div>
         </div>
-        <div className="mt-2 text-xs text-slate-400">
+        <div className="mt-2 text-xs text-muted">
           {replies.length} {replies.length === 1 ? 'reply' : 'replies'}
         </div>
       </div>
@@ -105,16 +103,32 @@ export default function ThreadPanel({ parentMessage, members, channels, onClose 
             <div className="w-5 h-5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
           </div>
         ) : replies.length === 0 ? (
-          <div className="text-center py-8 text-slate-400 text-sm">
-            No replies yet. Start the conversation!
-          </div>
+          <div className="text-center py-8 text-muted text-sm">No replies yet. Start the conversation!</div>
         ) : (
-          replies.map((r) => <ThreadMessage key={r.id} message={r} />)
+          replies.map((r) => {
+            const sender = getUser(r.user_id);
+            return (
+              <MessageItem
+                key={r.id}
+                message={r}
+                dataQa="thread-reply"
+                currentUserId={currentUserId}
+                senderName={displayNameOf(sender?.display_name)}
+                senderAvatarUrl={sender?.avatar_url}
+                members={members}
+                channels={channels}
+                onToggleReaction={toggleReaction}
+                onTogglePin={togglePin}
+                onEdit={edit}
+                onDelete={remove}
+              />
+            );
+          })
         )}
         <div ref={endRef} />
       </div>
 
-      <div className="border-t border-slate-700/50">
+      <div className="border-t border-line/50">
         <MessageInput
           key={`thread:${parentMessage.id}`}
           channelName=""
@@ -123,6 +137,8 @@ export default function ThreadPanel({ parentMessage, members, channels, onClose 
           channels={channels}
           draftKey={`thread:${parentMessage.id}`}
           onSend={handleSend}
+          onFileUpload={handleFileUpload}
+          uploading={uploading}
         />
       </div>
     </div>

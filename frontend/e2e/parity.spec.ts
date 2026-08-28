@@ -151,7 +151,7 @@ test('a message forwarded to another channel arrives as a quote', async ({ page 
     await expect(row).toBeVisible();
     await row.hover();
     await row.locator('[data-qa="message-action-more"]').click();
-    await row.locator('[data-qa="message-action-forward"]').click();
+    await page.locator('[data-qa="message-overflow"] [data-qa="message-action-forward"]').click();
 
     const modal = page.locator('[data-qa="forward-modal"]');
     await expect(modal).toBeVisible();

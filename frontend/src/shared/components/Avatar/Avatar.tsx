@@ -30,7 +30,7 @@ export function Avatar({ userId, name, avatarUrl, size = 'md', className = '' }:
         alt={name}
         data-qa="avatar-image"
         onError={() => setBrokenUrl(avatarUrl)}
-        className={`${shape} object-cover bg-slate-700`}
+        className={`${shape} object-cover bg-raised`}
       />
     );
   }

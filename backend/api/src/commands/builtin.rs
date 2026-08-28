@@ -47,10 +47,10 @@ pub async fn run(
         "dnd" => {
             let until = parse_dnd(text)?;
             state.notification_repo.set_dnd(user_id, until).await?;
-            Ok(Some(CommandResponse::ephemeral(match until {
-                Some(until) => format!("Notifications paused until {}.", until.format("%H:%M UTC")),
-                None => "Notifications are on again.".into(),
-            })))
+            Ok(Some(match until {
+                Some(until) => CommandResponse::ephemeral_at("Notifications paused until", until),
+                None => CommandResponse::ephemeral("Notifications are on again."),
+            }))
         }
 
         "topic" => {
@@ -168,10 +168,10 @@ pub async fn run(
             } else {
                 format!("<@{target}>")
             };
-            Ok(Some(CommandResponse::ephemeral(format!(
-                "I will remind {who} on {}.",
-                remind_at.format("%a %d %b at %H:%M UTC")
-            ))))
+            Ok(Some(CommandResponse::ephemeral_at(
+                format!("I will remind {who}"),
+                remind_at,
+            )))
         }
 
         _ => Ok(None),

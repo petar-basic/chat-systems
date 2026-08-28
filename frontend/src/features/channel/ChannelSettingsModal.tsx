@@ -58,7 +58,7 @@ export default function ChannelSettingsModal({ channel, workspaceId, onClose, on
       title="Channel settings"
       onClose={onClose}
       dataQa="channel-settings-modal"
-      className="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl"
+      className="bg-surface border border-line rounded-2xl p-6 w-full max-w-md shadow-2xl"
     >
       <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
         <Settings className="w-4 h-4" />
@@ -67,7 +67,7 @@ export default function ChannelSettingsModal({ channel, workspaceId, onClose, on
 
       <form onSubmit={handleSave} className="space-y-4">
         <div>
-          <label htmlFor="channel-name" className="block text-sm font-medium text-slate-300 mb-1.5">
+          <label htmlFor="channel-name" className="block text-sm font-medium text-fg-dim mb-1.5">
             Name
           </label>
           <input
@@ -76,13 +76,13 @@ export default function ChannelSettingsModal({ channel, workspaceId, onClose, on
             value={name}
             onChange={(e) => setName(e.target.value)}
             data-qa="channel-settings-name"
-            className="w-full px-3 py-2.5 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="w-full px-3 py-2.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
             required
           />
         </div>
 
         <div>
-          <label htmlFor="channel-topic" className="block text-sm font-medium text-slate-300 mb-1.5">
+          <label htmlFor="channel-topic" className="block text-sm font-medium text-fg-dim mb-1.5">
             Topic
           </label>
           <input
@@ -92,12 +92,12 @@ export default function ChannelSettingsModal({ channel, workspaceId, onClose, on
             onChange={(e) => setTopic(e.target.value)}
             placeholder="What is this channel about?"
             data-qa="channel-settings-topic"
-            className="w-full px-3 py-2.5 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="w-full px-3 py-2.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
         </div>
 
         <div>
-          <label htmlFor="channel-description" className="block text-sm font-medium text-slate-300 mb-1.5">
+          <label htmlFor="channel-description" className="block text-sm font-medium text-fg-dim mb-1.5">
             Description
           </label>
           <textarea
@@ -106,7 +106,7 @@ export default function ChannelSettingsModal({ channel, workspaceId, onClose, on
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
             data-qa="channel-settings-description"
-            className="w-full px-3 py-2.5 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+            className="w-full px-3 py-2.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
           />
         </div>
 
@@ -115,11 +115,11 @@ export default function ChannelSettingsModal({ channel, workspaceId, onClose, on
             type="checkbox"
             checked={announcementOnly}
             onChange={(e) => setAnnouncementOnly(e.target.checked)}
-            className="mt-0.5 w-4 h-4 rounded border-slate-600 bg-slate-700 text-purple-600 focus:ring-purple-500"
+            className="mt-0.5 w-4 h-4 accent-purple-500"
           />
           <span>
-            <span className="block text-sm font-medium text-slate-300">Announcement channel</span>
-            <span className="block text-xs text-slate-400">
+            <span className="block text-sm font-medium text-fg-dim">Announcement channel</span>
+            <span className="block text-xs text-muted">
               Only workspace admins and this channel's admins can post. Everyone else can still read and
               react.
             </span>
@@ -127,7 +127,7 @@ export default function ChannelSettingsModal({ channel, workspaceId, onClose, on
         </label>
 
         {error && (
-          <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
+          <div className="text-sm text-danger bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
             {error}
           </div>
         )}
@@ -135,7 +135,7 @@ export default function ChannelSettingsModal({ channel, workspaceId, onClose, on
         <div className="flex items-center justify-between gap-2 pt-2">
           {confirmArchive ? (
             <div className="flex items-center gap-2 text-xs">
-              <span className="text-red-400">Archive this channel?</span>
+              <span className="text-danger">Archive this channel?</span>
               <button
                 type="button"
                 onClick={handleArchive}
@@ -148,9 +148,10 @@ export default function ChannelSettingsModal({ channel, workspaceId, onClose, on
               <button
                 type="button"
                 onClick={() => setConfirmArchive(false)}
-                className="text-slate-400 hover:text-white transition cursor-pointer"
+                data-qa="channel-settings-archive-cancel"
+                className="text-muted hover:text-fg transition cursor-pointer"
               >
-                Cancel
+                Keep channel
               </button>
             </div>
           ) : (
@@ -158,7 +159,7 @@ export default function ChannelSettingsModal({ channel, workspaceId, onClose, on
               type="button"
               onClick={() => setConfirmArchive(true)}
               data-qa="channel-settings-archive"
-              className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-red-400 transition cursor-pointer"
+              className="flex items-center gap-1.5 text-sm text-muted hover:text-danger transition cursor-pointer"
             >
               <Archive className="w-4 h-4" />
               Archive channel
@@ -169,7 +170,7 @@ export default function ChannelSettingsModal({ channel, workspaceId, onClose, on
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm text-slate-400 hover:text-white transition cursor-pointer"
+              className="px-4 py-2 text-sm text-muted hover:text-fg transition cursor-pointer"
             >
               Cancel
             </button>

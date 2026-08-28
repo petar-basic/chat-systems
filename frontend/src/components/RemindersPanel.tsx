@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { formatDateTime } from '@/lib/datetime';
 import { X, BellRing, Hash, Trash2 } from 'lucide-react';
 import type { Channel } from '@/stores/workspace';
 import { useReminders, useCreateReminder, useCancelReminder } from '@/hooks/queries/useReminders';
@@ -54,31 +55,31 @@ export default function RemindersPanel({
 
   return (
     <div
-      className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-slate-800 border-l border-slate-700/50 flex flex-col"
+      className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-surface border-l border-line/50 flex flex-col"
       data-qa="reminders-panel"
     >
-      <div className="h-14 px-4 flex items-center justify-between border-b border-slate-700/50 shrink-0">
+      <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">
         <div className="flex items-center gap-2">
-          <BellRing className="w-4 h-4 text-slate-400" />
+          <BellRing className="w-4 h-4 text-muted" />
           <span className="font-semibold">Reminders</span>
         </div>
         <button
           onClick={onClose}
           aria-label="Close reminders"
-          className="text-slate-400 hover:text-white transition cursor-pointer"
+          className="text-muted hover:text-fg transition cursor-pointer"
         >
           <X className="w-4 h-4" />
         </button>
       </div>
 
-      <div className="px-4 py-3 border-b border-slate-700/40 space-y-2">
+      <div className="px-4 py-3 border-b border-line/40 space-y-2">
         <input
           value={content}
           onChange={(e) => setContent(e.target.value)}
           placeholder="Remind me to…"
           aria-label="Reminder"
           data-qa="reminder-content"
-          className="w-full px-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          className="w-full px-2 py-1.5 bg-raised/50 border border-line-strong rounded text-sm text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
         <input
           type="datetime-local"
@@ -87,15 +88,15 @@ export default function RemindersPanel({
           onChange={(e) => setRemindAt(e.target.value)}
           aria-label="Remind at"
           data-qa="reminder-time"
-          className="w-full px-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500 [color-scheme:dark]"
+          className="w-full px-2 py-1.5 bg-raised/50 border border-line-strong rounded text-sm text-fg focus:outline-none focus:ring-2 focus:ring-purple-500 [color-scheme:dark]"
         />
         {error && (
-          <p className="text-[11px] text-red-400" data-qa="reminder-error">
+          <p className="text-[11px] text-danger" data-qa="reminder-error">
             {error}
           </p>
         )}
         <div className="flex items-center justify-between">
-          <span className="text-[11px] text-slate-400">or type /remind me in 30m to…</span>
+          <span className="text-[11px] text-muted">or type /remind me in 30m to…</span>
           <button
             onClick={submit}
             disabled={createReminder.isPending}
@@ -113,7 +114,7 @@ export default function RemindersPanel({
             <div className="w-5 h-5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
           </div>
         ) : pending.length === 0 ? (
-          <div className="text-center py-10 px-6 text-sm text-slate-400" data-qa="reminders-empty">
+          <div className="text-center py-10 px-6 text-sm text-muted" data-qa="reminders-empty">
             Nothing is waiting for you.
           </div>
         ) : (
@@ -122,19 +123,19 @@ export default function RemindersPanel({
             return (
               <div
                 key={reminder.id}
-                className="px-4 py-3 border-b border-slate-700/40 flex items-start gap-2"
+                className="px-4 py-3 border-b border-line/40 flex items-start gap-2"
                 data-qa="reminder-row"
                 data-reminder-id={reminder.id}
               >
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm text-slate-200 line-clamp-2" data-qa="reminder-text">
+                  <div className="text-sm text-fg-soft line-clamp-2" data-qa="reminder-text">
                     {reminder.content}
                   </div>
-                  <div className="text-xs text-purple-300 mt-1" data-qa="reminder-at">
-                    {new Date(reminder.remind_at).toLocaleString()}
+                  <div className="text-xs text-accent-soft mt-1" data-qa="reminder-at">
+                    {formatDateTime(reminder.remind_at)}
                   </div>
                   {channel && (
-                    <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
+                    <div className="text-xs text-muted mt-0.5 flex items-center gap-1">
                       <Hash className="w-3 h-3 shrink-0" />
                       <span className="truncate">{channel.name}</span>
                     </div>
@@ -146,7 +147,7 @@ export default function RemindersPanel({
                   aria-label="Cancel reminder"
                   title="Cancel"
                   data-qa="reminder-cancel"
-                  className="p-1.5 rounded text-slate-400 hover:text-red-400 hover:bg-slate-700 transition cursor-pointer disabled:opacity-50"
+                  className="p-1.5 rounded text-muted hover:text-danger hover:bg-raised transition cursor-pointer disabled:opacity-50"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>

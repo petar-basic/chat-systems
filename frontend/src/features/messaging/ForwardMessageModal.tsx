@@ -85,11 +85,11 @@ export default function ForwardMessageModal({
 
   return (
     <Modal title="Forward message" onClose={onClose} dataQa="forward-modal">
-      <div className="px-4 py-3 border-b border-slate-700/50">
-        <div className="text-xs text-slate-400 mb-1">
+      <div className="px-4 py-3 border-b border-line/50">
+        <div className="text-xs text-muted mb-1">
           From {source.authorName} in {source.origin}
         </div>
-        <div className="text-sm text-slate-300 line-clamp-3 whitespace-pre-wrap" data-qa="forward-preview">
+        <div className="text-sm text-fg-dim line-clamp-3 whitespace-pre-wrap" data-qa="forward-preview">
           {source.content}
         </div>
       </div>
@@ -101,21 +101,21 @@ export default function ForwardMessageModal({
           placeholder="Add a comment (optional)"
           aria-label="Comment"
           data-qa="forward-comment"
-          className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          className="w-full px-3 py-2 bg-raised/50 border border-line-strong rounded-lg text-sm text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
         <div className="relative">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-muted absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search channels and people"
             aria-label="Search for somewhere to forward to"
             data-qa="forward-search"
-            className="w-full pl-9 pr-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="w-full pl-9 pr-3 py-2 bg-raised/50 border border-line-strong rounded-lg text-sm text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
         </div>
         {error && (
-          <p className="text-xs text-red-400" data-qa="forward-error">
+          <p className="text-xs text-danger" data-qa="forward-error">
             {error}
           </p>
         )}
@@ -123,7 +123,7 @@ export default function ForwardMessageModal({
 
       <div className="max-h-72 overflow-y-auto px-2 pb-3">
         {targets.length === 0 ? (
-          <p className="px-3 py-6 text-center text-sm text-slate-400">Nothing matches that.</p>
+          <p className="px-3 py-6 text-center text-sm text-muted">Nothing matches that.</p>
         ) : (
           targets.map((target) => (
             <button
@@ -133,14 +133,14 @@ export default function ForwardMessageModal({
                 forwardTo({ channelId: target.channelId, conversationId: target.conversationId })
               }
               data-qa="forward-target"
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-700/30 transition cursor-pointer text-left disabled:opacity-50"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-raised/30 transition cursor-pointer text-left disabled:opacity-50"
             >
               {target.isChannel ? (
-                <Hash className="w-4 h-4 text-slate-400 shrink-0" />
+                <Hash className="w-4 h-4 text-muted shrink-0" />
               ) : (
-                <MessageSquare className="w-4 h-4 text-slate-400 shrink-0" />
+                <MessageSquare className="w-4 h-4 text-muted shrink-0" />
               )}
-              <span className="text-sm text-slate-200 truncate">{target.label}</span>
+              <span className="text-sm text-fg-soft truncate">{target.label}</span>
             </button>
           ))
         )}

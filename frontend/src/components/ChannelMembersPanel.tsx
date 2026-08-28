@@ -48,7 +48,7 @@ function MemberRow({
 
   return (
     <div
-      className="flex items-center gap-3 px-4 py-2 hover:bg-slate-700/30"
+      className="flex items-center gap-3 px-4 py-2 hover:bg-raised/30"
       data-qa="channel-member-row"
       data-user-id={member.user_id}
     >
@@ -56,10 +56,10 @@ function MemberRow({
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium truncate">
           {displayName}
-          {isSelf && <span className="text-slate-400 font-normal"> (you)</span>}
+          {isSelf && <span className="text-muted font-normal"> (you)</span>}
         </div>
-        <div className="text-xs text-slate-400 flex items-center gap-1">
-          {isAdmin && <ShieldCheck className="w-3 h-3 text-blue-400" />}
+        <div className="text-xs text-muted flex items-center gap-1">
+          {isAdmin && <ShieldCheck className="w-3 h-3 text-info" />}
           <span data-qa="channel-member-role">{isAdmin ? 'Channel admin' : 'Member'}</span>
         </div>
       </div>
@@ -73,7 +73,7 @@ function MemberRow({
           title={isAdmin ? 'Remove channel admin' : 'Make channel admin'}
           data-qa={isAdmin ? 'channel-member-demote' : 'channel-member-promote'}
           className={`p-1 rounded transition cursor-pointer disabled:opacity-50 ${
-            isAdmin ? 'text-blue-400 hover:text-slate-300' : 'text-slate-400 hover:text-blue-400'
+            isAdmin ? 'text-info hover:text-fg-dim' : 'text-muted hover:text-info'
           }`}
         >
           <Shield className="w-4 h-4" />
@@ -86,7 +86,7 @@ function MemberRow({
           aria-label={isSelf ? 'Leave channel' : `Remove ${displayName} from channel`}
           title={isSelf ? 'Leave channel' : 'Remove from channel'}
           data-qa="channel-member-remove"
-          className="text-slate-400 hover:text-red-400 transition cursor-pointer p-1 disabled:opacity-50"
+          className="text-muted hover:text-danger transition cursor-pointer p-1 disabled:opacity-50"
         >
           <UserMinus className="w-4 h-4" />
         </button>
@@ -105,11 +105,11 @@ function AddableUserRow({ userId, onAdd }: { userId: string; onAdd: (id: string)
       onClick={() => onAdd(userId)}
       data-qa="channel-member-add"
       data-user-id={userId}
-      className="w-full flex items-center gap-3 px-4 py-2 hover:bg-slate-700/30 cursor-pointer text-left"
+      className="w-full flex items-center gap-3 px-4 py-2 hover:bg-raised/30 cursor-pointer text-left"
     >
       <Avatar userId={userId} name={displayName} avatarUrl={info?.avatar_url} size="sm" />
       <span className="text-sm truncate">{displayName}</span>
-      <UserPlus className="w-3.5 h-3.5 text-slate-400 ml-auto shrink-0" />
+      <UserPlus className="w-3.5 h-3.5 text-muted ml-auto shrink-0" />
     </button>
   );
 }
@@ -167,15 +167,15 @@ export default function ChannelMembersPanel({ channelId, channelName, channelTyp
 
   return (
     <div
-      className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-slate-800 border-l border-slate-700/50 flex flex-col"
+      className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-surface border-l border-line/50 flex flex-col"
       data-qa="channel-members-panel"
     >
-      <div className="h-14 px-4 flex items-center justify-between border-b border-slate-700/50 shrink-0">
+      <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">
         <div className="flex items-center gap-2">
-          <Hash className="w-4 h-4 text-slate-400" />
+          <Hash className="w-4 h-4 text-muted" />
           <span className="font-semibold truncate">{channelName} Members</span>
         </div>
-        <button onClick={onClose} className="text-slate-400 hover:text-white transition cursor-pointer">
+        <button onClick={onClose} className="text-muted hover:text-fg transition cursor-pointer">
           <X className="w-4 h-4" />
         </button>
       </div>
@@ -188,13 +188,13 @@ export default function ChannelMembersPanel({ channelId, channelName, channelTyp
         ) : (
           <>
             <div className="px-4 py-2 flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              <span className="text-xs font-semibold text-muted uppercase tracking-wider">
                 Members ({members.length})
               </span>
               {canAdd && (
                 <button
                   onClick={() => setShowAddUser(!showAddUser)}
-                  className="text-slate-400 hover:text-white transition cursor-pointer"
+                  className="text-muted hover:text-fg transition cursor-pointer"
                   aria-label="Add member"
                   data-qa="channel-members-add-toggle"
                   title="Add member"
@@ -203,7 +203,7 @@ export default function ChannelMembersPanel({ channelId, channelName, channelTyp
                 </button>
               )}
             </div>
-            {error && <div className="px-4 pb-1 text-xs text-red-400">{error}</div>}
+            {error && <div className="px-4 pb-1 text-xs text-danger">{error}</div>}
             {members.map((m) => (
               <MemberRow
                 key={m.user_id}
@@ -220,8 +220,8 @@ export default function ChannelMembersPanel({ channelId, channelName, channelTyp
       </div>
 
       {showAddUser && canAdd && nonMembers.length > 0 && (
-        <div className="border-t border-slate-700/50 max-h-48 overflow-y-auto">
-          <div className="px-4 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+        <div className="border-t border-line/50 max-h-48 overflow-y-auto">
+          <div className="px-4 py-2 text-xs font-semibold text-muted uppercase tracking-wider">
             Add to channel
           </div>
           {nonMembers.map((userId) => (

@@ -18,6 +18,23 @@ import { QUERY_KEYS } from '@/shared/constants';
 
 type ChannelMessages = InfiniteData<{ data: Message[] }>;
 
+const pendingUserLookups = new Set<string>();
+let userLookupTimer: ReturnType<typeof setTimeout> | null = null;
+
+function ensureUserKnown(queryClient: QueryClient, userId: string | null | undefined) {
+  if (!userId) return;
+  if (useUserCache.getState().users.has(userId)) return;
+  pendingUserLookups.add(userId);
+  if (userLookupTimer) return;
+  userLookupTimer = setTimeout(() => {
+    userLookupTimer = null;
+    pendingUserLookups.clear();
+    const workspaceId = useWorkspaceStore.getState().currentWorkspace?.id;
+    if (!workspaceId) return;
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceMembers(workspaceId) });
+  }, 300);
+}
+
 function patchChannel(
   queryClient: QueryClient,
   channelId: string,
@@ -93,6 +110,9 @@ export const useWebSocketQuerySync = () => {
     );
 
     unsubs.push(
+      globalEventBus.on('typing.indicator', (event) => {
+        ensureUserKnown(queryClient, event.user_id);
+      }),
       globalEventBus.on('member.added', (event) => {
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceMembers(event.workspace_id) });
       }),
@@ -133,6 +153,7 @@ export const useWebSocketQuerySync = () => {
       globalEventBus.on('message.new', (event) => {
         const message = event.message;
         if (!message?.channel_id) return;
+        ensureUserKnown(queryClient, message.user_id);
 
         if (message.thread_parent_id) {
           queryClient.setQueryData<Message[]>(QUERY_KEYS.thread(message.thread_parent_id), (old = []) =>
@@ -155,7 +176,11 @@ export const useWebSocketQuerySync = () => {
 
         const { currentChannel, mutedChannels, bumpChannelUnread, currentUserId } =
           useWorkspaceStore.getState();
-        if (currentChannel?.id !== message.channel_id && !mutedChannels.has(message.channel_id)) {
+        if (
+          message.user_id !== currentUserId &&
+          currentChannel?.id !== message.channel_id &&
+          !mutedChannels.has(message.channel_id)
+        ) {
           useWorkspaceStore.setState((s) => {
             const nextUnread = new Set(s.unreadChannels);
             nextUnread.add(message.channel_id);
@@ -207,10 +232,14 @@ export const useWebSocketQuerySync = () => {
     unsubs.push(
       globalEventBus.on('reaction.added', (event) => {
         const { channel_id, ...reaction } = event.reaction;
+        ensureUserKnown(queryClient, reaction.user_id);
         patchChannel(queryClient, channel_id, (cache) =>
           patchMessageById(cache, event.message_id, (m) => {
             const reactions = m.reactions ?? [];
-            if (reactions.some((r) => r.id === reaction.id)) return m;
+            const known = reactions.some(
+              (r) => r.id === reaction.id || (r.user_id === reaction.user_id && r.emoji === reaction.emoji),
+            );
+            if (known) return m;
             return { ...m, reactions: [...reactions, reaction] };
           }),
         );
@@ -232,6 +261,7 @@ export const useWebSocketQuerySync = () => {
       globalEventBus.on('conversation.message.created', (event) => {
         const { currentUserId, currentConversationId, markConversationUnread } = useWorkspaceStore.getState();
         const isIncoming = event.user_id !== currentUserId;
+        ensureUserKnown(queryClient, event.user_id);
 
         // A threaded reply is not part of the feed — the server keeps it out of
         // the listing too, so putting it in here would be the one place it shows

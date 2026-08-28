@@ -13,7 +13,7 @@ interface QueryStateProps {
 }
 
 const centered =
-  'flex-1 overflow-y-auto px-4 py-4 flex flex-col items-center justify-center text-slate-400 text-center';
+  'flex-1 overflow-y-auto px-4 py-4 flex flex-col items-center justify-center text-muted text-center';
 
 export function QueryState({
   isLoading,
@@ -35,13 +35,13 @@ export function QueryState({
   if (isError) {
     return (
       <div className={centered} data-qa="query-error">
-        <AlertCircle className="w-10 h-10 mb-3 text-red-400/70" />
-        <p className="text-sm font-medium text-slate-300">{errorMessage || GENERIC_ERROR_MESSAGE}</p>
+        <AlertCircle className="w-10 h-10 mb-3 text-danger/70" />
+        <p className="text-sm font-medium text-fg-dim">{errorMessage || GENERIC_ERROR_MESSAGE}</p>
         {onRetry && (
           <button
             onClick={onRetry}
             data-qa="query-retry"
-            className="mt-3 px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg transition"
+            className="mt-3 px-3 py-1.5 text-xs bg-raised hover:bg-elevated text-fg-soft rounded-lg transition"
           >
             {ActionLabels.Retry}
           </button>

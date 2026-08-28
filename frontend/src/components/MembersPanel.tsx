@@ -47,27 +47,27 @@ function MemberRow({
   const roleIcon = () => {
     switch (member.role) {
       case 'owner':
-        return <Crown className="w-3.5 h-3.5 text-amber-400" />;
+        return <Crown className="w-3.5 h-3.5 text-warning" />;
       case 'admin':
-        return <Shield className="w-3.5 h-3.5 text-blue-400" />;
+        return <Shield className="w-3.5 h-3.5 text-info" />;
       default:
-        return <User className="w-3.5 h-3.5 text-slate-400" />;
+        return <User className="w-3.5 h-3.5 text-muted" />;
     }
   };
 
   const roleName = member.role.charAt(0).toUpperCase() + member.role.slice(1);
 
   return (
-    <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-700/30 rounded-lg">
+    <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-raised/30 rounded-lg">
       <div className="relative">
         <Avatar userId={member.user_id} name={displayName} avatarUrl={member.avatar_url} />
         <PresenceDot
           userId={member.user_id}
-          className="absolute -bottom-0.5 -right-0.5 ring-2 ring-slate-800"
+          className="absolute -bottom-0.5 -right-0.5 ring-2 ring-surface"
         />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-slate-200 truncate">
+        <div className="text-sm font-medium text-fg-soft truncate">
           {displayName}
           {member.status_emoji && (
             <span className="ml-1.5" data-qa="member-status-emoji" title={member.status_text ?? undefined}>
@@ -76,15 +76,15 @@ function MemberRow({
           )}
         </div>
         {member.status_text ? (
-          <div className="text-xs text-slate-400 truncate" data-qa="member-status-text">
+          <div className="text-xs text-muted truncate" data-qa="member-status-text">
             {member.status_text}
           </div>
         ) : (
-          email && <div className="text-xs text-slate-400 truncate">{email}</div>
+          email && <div className="text-xs text-muted truncate">{email}</div>
         )}
         {confirmRemove && (
           <div className="mt-1 flex items-center gap-2 text-xs">
-            <span className="text-red-400">Remove from workspace?</span>
+            <span className="text-danger">Remove from workspace?</span>
             <button
               onClick={() => {
                 onRemove(member.user_id);
@@ -97,7 +97,7 @@ function MemberRow({
             </button>
             <button
               onClick={() => setConfirmRemove(false)}
-              className="text-slate-400 hover:text-white transition cursor-pointer"
+              className="text-muted hover:text-fg transition cursor-pointer"
             >
               Cancel
             </button>
@@ -112,7 +112,7 @@ function MemberRow({
             onChange={(e) => onChangeRole(member.user_id, e.target.value)}
             aria-label={`Role for ${displayName}`}
             data-qa="member-role-select"
-            className="bg-slate-700/50 border border-slate-600 rounded-md px-1.5 py-1 text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50 cursor-pointer"
+            className="bg-raised/50 border border-line-strong rounded-md px-1.5 py-1 text-xs text-fg-soft focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50 cursor-pointer"
           >
             {grantable.map((r) => (
               <option key={r} value={r}>
@@ -125,13 +125,13 @@ function MemberRow({
             disabled={busy}
             aria-label={`Remove ${displayName}`}
             data-qa="member-remove"
-            className="p-1 text-slate-400 hover:text-red-400 transition cursor-pointer disabled:opacity-50"
+            className="p-1 text-muted hover:text-danger transition cursor-pointer disabled:opacity-50"
           >
             <UserMinus className="w-3.5 h-3.5" />
           </button>
         </div>
       ) : (
-        <div className="flex items-center gap-1.5 text-xs text-slate-400">
+        <div className="flex items-center gap-1.5 text-xs text-muted">
           {roleIcon()}
           <span>{roleName}</span>
         </div>
@@ -208,15 +208,15 @@ export default function MembersPanel({ workspaceId, onClose }: Props) {
   };
 
   return (
-    <div className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-slate-800/80 border-l border-slate-700/50 flex flex-col h-full">
-      <div className="h-14 px-4 flex items-center justify-between border-b border-slate-700/50 shrink-0">
-        <h2 className="font-semibold text-white">Members</h2>
-        <button onClick={onClose} className="text-slate-400 hover:text-white transition cursor-pointer">
+    <div className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-surface lg:bg-surface/80 border-l border-line/50 flex flex-col h-full">
+      <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">
+        <h2 className="font-semibold text-fg">Members</h2>
+        <button onClick={onClose} className="text-muted hover:text-fg transition cursor-pointer">
           <X className="w-5 h-5" />
         </button>
       </div>
 
-      <div className="px-4 py-3 border-b border-slate-700/50 shrink-0">
+      <div className="px-4 py-3 border-b border-line/50 shrink-0">
         {!showInvite ? (
           <button
             onClick={() => setShowInvite(true)}
@@ -228,13 +228,13 @@ export default function MembersPanel({ workspaceId, onClose }: Props) {
         ) : (
           <form onSubmit={handleInvite} className="space-y-2">
             <div className="flex items-center gap-2">
-              <Mail className="w-4 h-4 text-slate-400 shrink-0" />
+              <Mail className="w-4 h-4 text-muted shrink-0" />
               <input
                 type="email"
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
                 placeholder="user@example.com"
-                className="flex-1 px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="flex-1 px-3 py-2 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
                 autoFocus
                 required
               />
@@ -242,14 +242,14 @@ export default function MembersPanel({ workspaceId, onClose }: Props) {
             <select
               value={inviteRole}
               onChange={(e) => setInviteRole(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-3 py-2 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
             >
               <option value="member">Member</option>
               <option value="admin">Admin</option>
               <option value="guest">Guest</option>
             </select>
-            {inviteError && <div className="text-xs text-red-400 px-1">{inviteError}</div>}
-            {inviteResult && <div className="text-xs text-green-400 px-1">{inviteResult}</div>}
+            {inviteError && <div className="text-xs text-danger px-1">{inviteError}</div>}
+            {inviteResult && <div className="text-xs text-success px-1">{inviteResult}</div>}
             <div className="flex gap-2">
               <button
                 type="button"
@@ -258,7 +258,7 @@ export default function MembersPanel({ workspaceId, onClose }: Props) {
                   setInviteError(null);
                   setInviteResult(null);
                 }}
-                className="flex-1 px-3 py-2 text-sm text-slate-400 hover:text-white transition cursor-pointer"
+                className="flex-1 px-3 py-2 text-sm text-muted hover:text-fg transition cursor-pointer"
               >
                 Cancel
               </button>
@@ -280,15 +280,15 @@ export default function MembersPanel({ workspaceId, onClose }: Props) {
             <div className="w-5 h-5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
           </div>
         ) : members.length === 0 ? (
-          <div className="text-center text-slate-400 text-sm py-8">No members found</div>
+          <div className="text-center text-muted text-sm py-8">No members found</div>
         ) : (
           <>
             <div className="px-4 mb-1">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              <span className="text-xs font-semibold text-muted uppercase tracking-wider">
                 {members.length} member{members.length !== 1 ? 's' : ''}
               </span>
             </div>
-            {manageError && <div className="px-4 pb-1 text-xs text-red-400">{manageError}</div>}
+            {manageError && <div className="px-4 pb-1 text-xs text-danger">{manageError}</div>}
             {members.map((m) => (
               <MemberRow
                 key={m.user_id}

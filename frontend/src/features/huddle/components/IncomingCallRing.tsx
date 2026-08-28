@@ -40,13 +40,13 @@ export function IncomingCallRing({ call }: { call: IncomingCall }) {
     <Modal title="Incoming huddle" onClose={decline}>
       <div className="flex flex-col items-center gap-5 py-2">
         <div className="text-center">
-          <p className="text-lg font-semibold text-white">{callerName}</p>
-          <p className="text-sm text-slate-400">is starting a huddle…</p>
+          <p className="text-lg font-semibold text-fg">{callerName}</p>
+          <p className="text-sm text-muted">is starting a huddle…</p>
         </div>
         <div className="flex gap-3">
           <button
             onClick={decline}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-700 text-white hover:bg-slate-600 transition cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-raised text-fg hover:bg-elevated transition cursor-pointer"
           >
             <PhoneOff className="w-4 h-4" /> Decline
           </button>

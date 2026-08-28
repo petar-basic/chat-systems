@@ -55,7 +55,7 @@ async fn only_the_older_side_of_the_boundary_is_removed(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "ret-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Retention WS").await;
-    let ch = seed_channel(&state, ws, owner_id, "general", false).await;
+    let ch = seed_channel(&state, ws, owner_id, "main", false).await;
 
     let old = post(&app, &token, ch, "long ago").await;
     let recent = post(&app, &token, ch, "yesterday").await;
@@ -79,7 +79,7 @@ async fn keeping_forever_is_the_default_and_deletes_nothing(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "ret-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Retention WS").await;
-    let ch = seed_channel(&state, ws, owner_id, "general", false).await;
+    let ch = seed_channel(&state, ws, owner_id, "main", false).await;
 
     let ancient = post(&app, &token, ch, "from the beginning").await;
     age_message(&state, ancient, 5000).await;
@@ -108,7 +108,7 @@ async fn dry_run_reports_without_deleting(pool: PgPool) {
     let (app, state) = app_and_state_with(pool, config).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "ret-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Retention WS").await;
-    let ch = seed_channel(&state, ws, owner_id, "general", false).await;
+    let ch = seed_channel(&state, ws, owner_id, "main", false).await;
 
     let old = post(&app, &token, ch, "long ago").await;
     age_message(&state, old, 400).await;
@@ -173,7 +173,7 @@ async fn the_audit_trail_outlives_the_messages_it_describes(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "ret-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Retention WS").await;
-    let ch = seed_channel(&state, ws, owner_id, "general", false).await;
+    let ch = seed_channel(&state, ws, owner_id, "main", false).await;
 
     let msg = post(&app, &token, ch, "will be purged").await;
     age_message(&state, msg, 400).await;

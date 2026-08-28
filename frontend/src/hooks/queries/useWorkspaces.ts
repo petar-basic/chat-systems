@@ -163,15 +163,24 @@ export const useCreateChannel = () => {
       workspaceId,
       name,
       type = 'public',
+      description,
+      postPolicy,
     }: {
       workspaceId: string;
       name: string;
       type?: string;
+      description?: string;
+      postPolicy?: 'everyone' | 'moderators';
     }) => {
       const apiClient = currentWorkspace?.instanceUrl
         ? instanceManager.get(currentWorkspace.instanceUrl).api
         : api;
-      return apiClient.post<Channel>(`/workspaces/${workspaceId}/channels`, { name, channel_type: type });
+      return apiClient.post<Channel>(`/workspaces/${workspaceId}/channels`, {
+        name,
+        channel_type: type,
+        description: description || null,
+        post_policy: postPolicy ?? null,
+      });
     },
     onSuccess: (_, { workspaceId }) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceChannels(workspaceId) });

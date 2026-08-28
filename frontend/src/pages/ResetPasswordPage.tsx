@@ -28,36 +28,33 @@ function ForgotPasswordForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-900 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-app px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="w-12 h-12 rounded-2xl bg-purple-600 flex items-center justify-center text-2xl font-bold text-white mx-auto mb-4">
             C
           </div>
-          <h1 className="text-2xl font-bold text-white">Reset Password</h1>
-          <p className="text-slate-400 mt-2">Enter your email to receive a reset link</p>
+          <h1 className="text-2xl font-bold text-fg">Reset Password</h1>
+          <p className="text-muted mt-2">Enter your email to receive a reset link</p>
         </div>
 
         {submitted ? (
-          <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 text-center">
-            <p className="text-green-400 mb-4">
+          <div className="bg-surface border border-line rounded-2xl p-6 text-center">
+            <p className="text-success mb-4">
               If an account exists with that email, a password reset link has been sent.
             </p>
-            <Link to="/login" className="text-purple-400 hover:text-purple-300 text-sm">
+            <Link to="/login" className="text-accent hover:text-accent-soft text-sm">
               Back to Login
             </Link>
           </div>
         ) : (
-          <form
-            onSubmit={handleSubmit}
-            className="bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-4"
-          >
+          <form onSubmit={handleSubmit} className="bg-surface border border-line rounded-2xl p-6 space-y-4">
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Email address"
-              className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-4 py-3 bg-raised/50 border border-line-strong rounded-lg text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
               required
               autoFocus
             />
@@ -69,7 +66,7 @@ function ForgotPasswordForm() {
               {loading ? 'Sending...' : 'Send Reset Link'}
             </button>
             <div className="text-center">
-              <Link to="/login" className="text-purple-400 hover:text-purple-300 text-sm">
+              <Link to="/login" className="text-accent hover:text-accent-soft text-sm">
                 Back to Login
               </Link>
             </div>
@@ -109,18 +106,18 @@ function ResetForm({ token }: { token: string }) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-900 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-app px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="w-12 h-12 rounded-2xl bg-purple-600 flex items-center justify-center text-2xl font-bold text-white mx-auto mb-4">
             C
           </div>
-          <h1 className="text-2xl font-bold text-white">Set New Password</h1>
+          <h1 className="text-2xl font-bold text-fg">Set New Password</h1>
         </div>
 
         {success ? (
-          <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 text-center">
-            <p className="text-green-400 mb-4">Password has been reset successfully!</p>
+          <div className="bg-surface border border-line rounded-2xl p-6 text-center">
+            <p className="text-success mb-4">Password has been reset successfully!</p>
             <Link
               to="/login"
               className="inline-block px-6 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition"
@@ -129,16 +126,13 @@ function ResetForm({ token }: { token: string }) {
             </Link>
           </div>
         ) : (
-          <form
-            onSubmit={handleSubmit}
-            className="bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-4"
-          >
+          <form onSubmit={handleSubmit} className="bg-surface border border-line rounded-2xl p-6 space-y-4">
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="New password"
-              className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-4 py-3 bg-raised/50 border border-line-strong rounded-lg text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
               required
               minLength={8}
               autoFocus
@@ -148,11 +142,11 @@ function ResetForm({ token }: { token: string }) {
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               placeholder="Confirm new password"
-              className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-4 py-3 bg-raised/50 border border-line-strong rounded-lg text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
               required
               minLength={8}
             />
-            {error && <div className="text-red-400 text-sm">{error}</div>}
+            {error && <div className="text-danger text-sm">{error}</div>}
             <button
               type="submit"
               disabled={loading}

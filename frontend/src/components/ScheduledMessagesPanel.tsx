@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { formatDateTime } from '@/lib/datetime';
 import { X, Clock, Hash, Trash2, MessageSquare } from 'lucide-react';
 import type { Channel } from '@/stores/workspace';
 import type { Conversation } from '@/hooks/queries/useConversations';
@@ -43,13 +44,13 @@ function ScheduledRow({
 
   return (
     <div
-      className="px-4 py-3 border-b border-slate-700/40"
+      className="px-4 py-3 border-b border-line/40"
       data-qa="scheduled-row"
       data-scheduled-id={scheduled.id}
     >
       <div className="flex items-start gap-2">
         <div className="flex-1 min-w-0">
-          <div className="text-xs text-slate-400 flex items-center gap-1.5" data-qa="scheduled-target">
+          <div className="text-xs text-muted flex items-center gap-1.5" data-qa="scheduled-target">
             {scheduled.channel_id ? (
               <Hash className="w-3 h-3 shrink-0" />
             ) : (
@@ -57,11 +58,11 @@ function ScheduledRow({
             )}
             <span className="truncate">{target}</span>
           </div>
-          <div className="text-sm text-slate-200 mt-0.5 line-clamp-2" data-qa="scheduled-content">
+          <div className="text-sm text-fg-soft mt-0.5 line-clamp-2" data-qa="scheduled-content">
             {scheduled.content}
           </div>
-          <div className="text-xs text-purple-300 mt-1" data-qa="scheduled-time">
-            {sendAt.toLocaleString()}
+          <div className="text-xs text-accent-soft mt-1" data-qa="scheduled-time">
+            {formatDateTime(sendAt)}
           </div>
         </div>
         <button
@@ -77,7 +78,7 @@ function ScheduledRow({
           aria-label={`Reschedule message for ${target}`}
           title="Reschedule"
           data-qa="scheduled-reschedule"
-          className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition cursor-pointer disabled:opacity-50"
+          className="p-1.5 rounded text-muted hover:text-fg hover:bg-raised transition cursor-pointer disabled:opacity-50"
         >
           <Clock className="w-4 h-4" />
         </button>
@@ -87,7 +88,7 @@ function ScheduledRow({
           aria-label={`Cancel message for ${target}`}
           title="Cancel"
           data-qa="scheduled-cancel"
-          className="p-1.5 rounded text-slate-400 hover:text-red-400 hover:bg-slate-700 transition cursor-pointer disabled:opacity-50"
+          className="p-1.5 rounded text-muted hover:text-danger hover:bg-raised transition cursor-pointer disabled:opacity-50"
         >
           <Trash2 className="w-4 h-4" />
         </button>
@@ -105,17 +106,17 @@ function ScheduledRow({
             }}
             aria-label="New time"
             data-qa="scheduled-reschedule-input"
-            className="w-full px-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500 [color-scheme:dark]"
+            className="w-full px-2 py-1.5 bg-raised/50 border border-line-strong rounded text-sm text-fg focus:outline-none focus:ring-2 focus:ring-purple-500 [color-scheme:dark]"
           />
           {error && (
-            <p className="mt-1 text-[11px] text-red-400" data-qa="scheduled-reschedule-error">
+            <p className="mt-1 text-[11px] text-danger" data-qa="scheduled-reschedule-error">
               {error}
             </p>
           )}
           <div className="mt-2 flex justify-end gap-2">
             <button
               onClick={() => setEditingTime(null)}
-              className="px-2 py-1 text-xs text-slate-400 hover:text-white transition cursor-pointer"
+              className="px-2 py-1 text-xs text-muted hover:text-fg transition cursor-pointer"
             >
               Cancel
             </button>
@@ -186,28 +187,28 @@ export default function ScheduledMessagesPanel({
 
   return (
     <div
-      className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-slate-800 border-l border-slate-700/50 flex flex-col"
+      className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-surface border-l border-line/50 flex flex-col"
       data-qa="scheduled-panel"
     >
-      <div className="h-14 px-4 flex items-center justify-between border-b border-slate-700/50 shrink-0">
+      <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">
         <div className="flex items-center gap-2">
-          <Clock className="w-4 h-4 text-slate-400" />
+          <Clock className="w-4 h-4 text-muted" />
           <span className="font-semibold">Scheduled</span>
         </div>
-        <button onClick={onClose} className="text-slate-400 hover:text-white transition cursor-pointer">
+        <button onClick={onClose} className="text-muted hover:text-fg transition cursor-pointer">
           <X className="w-4 h-4" />
         </button>
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {error && <div className="px-4 py-2 text-xs text-red-400">{error}</div>}
+        {error && <div className="px-4 py-2 text-xs text-danger">{error}</div>}
 
         {isLoading ? (
           <div className="flex justify-center py-8">
             <div className="w-5 h-5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
           </div>
         ) : scheduled.length === 0 ? (
-          <div className="text-center py-10 px-6 text-sm text-slate-400" data-qa="scheduled-empty">
+          <div className="text-center py-10 px-6 text-sm text-muted" data-qa="scheduled-empty">
             Nothing is waiting to be sent. Write a message, then pick the clock next to Send.
           </div>
         ) : (

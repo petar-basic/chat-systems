@@ -15,6 +15,26 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <title>Chat Systems</title>
+    <script>
+      (function () {
+        var stored = null;
+        try {
+          stored = localStorage.getItem('chat_theme');
+        } catch (e) {
+          stored = null;
+        }
+        var resolved =
+          stored === 'light' || stored === 'dark'
+            ? stored
+            : window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+              ? 'light'
+              : 'dark';
+        document.documentElement.dataset.theme = resolved;
+        document
+          .querySelector('meta[name="theme-color"]')
+          .setAttribute('content', resolved === 'light' ? '#eef1f6' : '#0f172a');
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

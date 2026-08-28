@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { createPortal } from 'react-dom';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
+import { useThemeStore } from '@/stores/theme';
 
 interface Props {
   anchorRef: RefObject<HTMLElement | null>;
@@ -11,6 +13,7 @@ type PickerCtor = new (props: Record<string, unknown>) => HTMLElement;
 
 export default function EmojiPicker({ anchorRef, onSelect, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
+  const theme = useThemeStore((s) => s.resolved);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const onSelectRef = useRef(onSelect);
   const onCloseRef = useRef(onClose);
@@ -30,8 +33,8 @@ export default function EmojiPicker({ anchorRef, onSelect, onClose }: Props) {
       const Picker = mart.Picker as unknown as PickerCtor;
       const el = new Picker({
         data,
-        theme: 'dark',
-        previewPosition: 'none',
+        theme,
+        previewPosition: 'bottom',
         skinTonePosition: 'search',
         autoFocus: true,
         onEmojiSelect: (e: { native: string }) => {
@@ -45,7 +48,7 @@ export default function EmojiPicker({ anchorRef, onSelect, onClose }: Props) {
       cancelled = true;
       if (host) host.innerHTML = '';
     };
-  }, []);
+  }, [theme]);
 
   useLayoutEffect(() => {
     const anchor = anchorRef.current;
@@ -86,7 +89,7 @@ export default function EmojiPicker({ anchorRef, onSelect, onClose }: Props) {
     return () => document.removeEventListener('mousedown', onDown);
   }, [anchorRef, onClose]);
 
-  return (
+  return createPortal(
     <div
       ref={ref}
       style={{
@@ -96,6 +99,7 @@ export default function EmojiPicker({ anchorRef, onSelect, onClose }: Props) {
         visibility: pos ? 'visible' : 'hidden',
       }}
       className="z-60"
-    />
+    />,
+    document.body,
   );
 }

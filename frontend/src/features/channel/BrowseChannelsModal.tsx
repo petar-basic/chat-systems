@@ -33,12 +33,12 @@ function ChannelRow({
     <div
       data-qa="browse-channel-row"
       data-channel-id={channel.id}
-      className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-700/30"
+      className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-raised/30"
     >
-      <Hash className="w-4 h-4 text-slate-400 shrink-0" />
+      <Hash className="w-4 h-4 text-muted shrink-0" />
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-slate-200 truncate">{channel.name || 'Channel'}</div>
-        <div className="text-xs text-slate-400 truncate">
+        <div className="text-sm font-medium text-fg-soft truncate">{channel.name || 'Channel'}</div>
+        <div className="text-xs text-muted truncate">
           {channel.member_count} {channel.member_count === 1 ? 'member' : 'members'}
           {channel.topic || channel.description ? ` · ${channel.topic || channel.description}` : ''}
         </div>
@@ -48,7 +48,7 @@ function ChannelRow({
           <button
             onClick={onOpen}
             data-qa="browse-channel-open"
-            className="px-2.5 py-1 text-xs font-medium text-slate-200 bg-slate-700 hover:bg-slate-600 rounded-lg transition cursor-pointer"
+            className="px-2.5 py-1 text-xs font-medium text-fg-soft bg-raised hover:bg-elevated rounded-lg transition cursor-pointer"
           >
             Open
           </button>
@@ -56,7 +56,7 @@ function ChannelRow({
             onClick={onLeave}
             disabled={busy}
             data-qa="browse-channel-leave"
-            className="px-2.5 py-1 text-xs text-slate-400 hover:text-red-400 transition cursor-pointer disabled:opacity-50"
+            className="px-2.5 py-1 text-xs text-muted hover:text-danger transition cursor-pointer disabled:opacity-50"
           >
             Leave
           </button>
@@ -127,12 +127,12 @@ export default function BrowseChannelsModal({
       title="Browse Channels"
       onClose={onClose}
       dataQa="browse-channels-modal"
-      className="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-lg shadow-2xl"
+      className="bg-surface border border-line rounded-2xl p-6 w-full max-w-lg shadow-2xl"
     >
       <h2 className="text-lg font-bold mb-4">Browse Channels</h2>
 
-      <div className="flex items-center gap-2 bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 mb-3">
-        <Search className="w-4 h-4 text-slate-400 shrink-0" />
+      <div className="flex items-center gap-2 bg-raised/50 border border-line-strong rounded-lg px-3 py-2 mb-3">
+        <Search className="w-4 h-4 text-muted shrink-0" />
         <input
           type="text"
           value={query}
@@ -140,11 +140,11 @@ export default function BrowseChannelsModal({
           placeholder="Search channels…"
           aria-label="Search channels"
           data-qa="browse-channels-search"
-          className="flex-1 bg-transparent text-white text-sm placeholder-slate-400 focus:outline-none"
+          className="flex-1 bg-transparent text-fg text-sm placeholder-muted focus:outline-none"
         />
       </div>
 
-      {error && <div className="mb-2 text-xs text-red-400">{error}</div>}
+      {error && <div className="mb-2 text-xs text-danger">{error}</div>}
 
       <div className="max-h-80 overflow-y-auto -mx-1 px-1">
         {isLoading ? (
@@ -152,9 +152,9 @@ export default function BrowseChannelsModal({
             <div className="w-5 h-5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
           </div>
         ) : isError ? (
-          <div className="text-center py-8 text-sm text-red-400">Failed to load channels</div>
+          <div className="text-center py-8 text-sm text-danger">Failed to load channels</div>
         ) : matches.length === 0 ? (
-          <div className="text-center py-8 text-sm text-slate-400" data-qa="browse-channels-empty">
+          <div className="text-center py-8 text-sm text-muted" data-qa="browse-channels-empty">
             No channels found
           </div>
         ) : (
@@ -175,7 +175,7 @@ export default function BrowseChannelsModal({
       </div>
 
       <div className="mt-4 flex justify-end">
-        <button onClick={onClose} className="px-4 py-2 text-slate-400 hover:text-white transition">
+        <button onClick={onClose} className="px-4 py-2 text-muted hover:text-fg transition">
           Close
         </button>
       </div>

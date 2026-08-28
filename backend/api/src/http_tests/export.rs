@@ -36,7 +36,7 @@ async fn a_workspace_export_counts_what_it_wrote(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner) = seed_and_login(&app, &state, "exp-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Export WS").await;
-    let ch = seed_channel(&state, ws, owner_id, "general", false).await;
+    let ch = seed_channel(&state, ws, owner_id, "main", false).await;
 
     for i in 0..3 {
         send(
@@ -149,7 +149,7 @@ async fn a_user_export_contains_only_that_persons_authorship(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner) = seed_and_login(&app, &state, "exp-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Export WS").await;
-    let ch = seed_channel(&state, ws, owner_id, "general", false).await;
+    let ch = seed_channel(&state, ws, owner_id, "main", false).await;
 
     let (subject_id, subject_email) = seed(&state, "exp-subject", false).await;
     add_ws_member(&state, ws, subject_id, "member").await;
@@ -262,7 +262,7 @@ async fn anonymising_keeps_the_conversation_readable(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _owner) = seed_and_login(&app, &state, "exp-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Export WS").await;
-    let ch = seed_channel(&state, ws, owner_id, "general", false).await;
+    let ch = seed_channel(&state, ws, owner_id, "main", false).await;
 
     let (subject_id, subject_email) = seed(&state, "exp-subject", false).await;
     add_ws_member(&state, ws, subject_id, "member").await;
@@ -317,7 +317,7 @@ async fn hard_delete_removes_the_messages(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "exp-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Export WS").await;
-    let ch = seed_channel(&state, ws, owner_id, "general", false).await;
+    let ch = seed_channel(&state, ws, owner_id, "main", false).await;
 
     let (subject_id, subject_email) = seed(&state, "exp-subject", false).await;
     add_ws_member(&state, ws, subject_id, "member").await;

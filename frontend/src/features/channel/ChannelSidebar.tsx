@@ -1,4 +1,5 @@
 import { useRef, useState, type FormEvent } from 'react';
+import type { CreateChannelDraft } from '@/models/channel';
 import { useNavigate } from 'react-router';
 import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
@@ -57,7 +58,7 @@ interface Props {
   currentConversationId: string | null;
   unreadConversations: Set<string>;
   onSelectChannel: (ch: Channel) => void;
-  onCreateChannel: (name: string) => Promise<void>;
+  onCreateChannel: (draft: CreateChannelDraft) => Promise<void>;
   onToggleMute: (channelId: string, muted: boolean) => void;
   onOpenConversation: (conversationId: string) => void;
   onOpenWith: (participantIds: string[]) => Promise<void>;
@@ -93,10 +94,7 @@ function UserAvatarWithPresence({
   return (
     <div className="relative shrink-0">
       <Avatar userId={userId} name={name} avatarUrl={avatarUrl} size="xs" />
-      <PresenceDot
-        userId={userId}
-        className="absolute -bottom-0.5 -right-0.5 w-2 h-2 ring-2 ring-slate-800"
-      />
+      <PresenceDot userId={userId} className="absolute -bottom-0.5 -right-0.5 w-2 h-2 ring-2 ring-surface" />
     </div>
   );
 }
@@ -126,10 +124,10 @@ function ConversationButton({
       data-conversation-id={conversation.id}
       className={`w-full px-3 py-1.5 flex items-center gap-2 text-sm transition cursor-pointer ${
         isActive
-          ? 'bg-purple-600/20 text-white'
+          ? 'bg-purple-600/20 text-fg'
           : isUnread
-            ? 'text-white font-semibold hover:bg-slate-700/30'
-            : 'text-slate-400 hover:bg-slate-700/30 hover:text-slate-200'
+            ? 'text-fg font-semibold hover:bg-raised/30'
+            : 'text-muted hover:bg-raised/30 hover:text-fg-soft'
       }`}
     >
       {conversation.kind === 'group' ? (
@@ -141,7 +139,7 @@ function ConversationButton({
               name={displayNameOf(getUser(id)?.display_name)}
               avatarUrl={getUser(id)?.avatar_url}
               size="xs"
-              className="ring-2 ring-slate-800"
+              className="ring-2 ring-surface"
             />
           ))}
         </span>
@@ -163,7 +161,7 @@ function SidebarUser({ userId, onOpenDm }: { userId: string; onOpenDm: (id: stri
   return (
     <button
       onClick={() => onOpenDm(userId)}
-      className="w-full px-3 py-1 flex items-center gap-2 text-sm text-slate-400 hover:bg-slate-700/30 hover:text-slate-200 transition cursor-pointer"
+      className="w-full px-3 py-1 flex items-center gap-2 text-sm text-muted hover:bg-raised/30 hover:text-fg-soft transition cursor-pointer"
       title={cached?.status_text ? `Message ${name} — ${cached.status_text}` : `Message ${name}`}
     >
       <UserAvatarWithPresence userId={userId} name={name} avatarUrl={cached?.avatar_url} />
@@ -253,6 +251,11 @@ export default function ChannelSidebar({
   useOnClickOutside(youRef, () => setYouMenuOpen(false), youMenuOpen);
   const [showNewChannel, setShowNewChannel] = useState(false);
   const [newChannelName, setNewChannelName] = useState('');
+  const [newChannelDescription, setNewChannelDescription] = useState('');
+  const [newChannelPrivate, setNewChannelPrivate] = useState(false);
+  const [newChannelAnnouncement, setNewChannelAnnouncement] = useState(false);
+  const [newChannelError, setNewChannelError] = useState<string | null>(null);
+  const [creatingChannel, setCreatingChannel] = useState(false);
   const [showDmPicker, setShowDmPicker] = useState(false);
   const [dmSearch, setDmSearch] = useState('');
   const [showBrowseChannels, setShowBrowseChannels] = useState(false);
@@ -283,19 +286,53 @@ export default function ChannelSidebar({
   useOnClickOutside(wsDropdownRef, () => setWsDropdownOpen(false), wsDropdownOpen);
   useEscapeToClose(() => setWsDropdownOpen(false), wsDropdownOpen);
 
+  const resetNewChannel = () => {
+    setNewChannelName('');
+    setNewChannelDescription('');
+    setNewChannelPrivate(false);
+    setNewChannelAnnouncement(false);
+    setNewChannelError(null);
+  };
+
+  const closeNewChannel = () => {
+    resetNewChannel();
+    setShowNewChannel(false);
+  };
+
   const handleCreateChannel = async (e: FormEvent) => {
     e.preventDefault();
-    if (!newChannelName.trim()) return;
-    await onCreateChannel(newChannelName.trim());
-    setNewChannelName('');
-    setShowNewChannel(false);
+    const name = newChannelName.trim();
+    if (!name) {
+      setNewChannelError('Enter a channel name.');
+      return;
+    }
+    if (channels.some((ch) => ch.name.toLowerCase() === name.toLowerCase())) {
+      setNewChannelError('A channel with that name already exists.');
+      return;
+    }
+    setNewChannelError(null);
+    setCreatingChannel(true);
+    try {
+      await onCreateChannel({
+        name,
+        description: newChannelDescription.trim() || undefined,
+        isPrivate: newChannelPrivate,
+        announcementOnly: newChannelAnnouncement,
+      });
+      resetNewChannel();
+      setShowNewChannel(false);
+    } catch (err) {
+      setNewChannelError(err instanceof Error ? err.message : 'Could not create the channel.');
+    } finally {
+      setCreatingChannel(false);
+    }
   };
 
   const channelIcon = (ch: Channel) =>
     ch.channel_type === 'private' ? (
-      <Lock className="w-4 h-4 text-slate-400 shrink-0" />
+      <Lock className="w-4 h-4 text-muted shrink-0" />
     ) : (
-      <Hash className="w-4 h-4 text-slate-400 shrink-0" />
+      <Hash className="w-4 h-4 text-muted shrink-0" />
     );
 
   const channelButton = (ch: Channel, icon: React.ReactNode) => {
@@ -308,17 +345,17 @@ export default function ChannelSidebar({
           onClick={() => onSelectChannel(ch)}
           className={`flex-1 min-w-0 px-3 py-1.5 flex items-center gap-2 text-sm transition ${
             active
-              ? 'bg-purple-600/20 text-white'
+              ? 'bg-purple-600/20 text-fg'
               : unread
-                ? 'text-white font-semibold hover:bg-slate-700/30'
+                ? 'text-fg font-semibold hover:bg-raised/30'
                 : muted
-                  ? 'text-slate-500 hover:bg-slate-700/30'
-                  : 'text-slate-400 hover:bg-slate-700/30 hover:text-slate-200'
+                  ? 'text-subtle hover:bg-raised/30'
+                  : 'text-muted hover:bg-raised/30 hover:text-fg-soft'
           }`}
         >
           {icon}
           <span className="truncate">{ch.name || 'Channel'}</span>
-          {muted && <BellOff className="w-3 h-3 text-slate-600 ml-auto shrink-0" />}
+          {muted && <BellOff className="w-3 h-3 text-faint ml-auto shrink-0" />}
           {!muted && mentionChannels.has(ch.id) ? (
             <span
               aria-hidden="true"
@@ -336,7 +373,7 @@ export default function ChannelSidebar({
                 aria-hidden="true"
                 data-qa="channel-unread-badge"
                 data-channel-id={ch.id}
-                className="ml-auto min-w-5 h-5 px-1 bg-slate-600 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold text-white"
+                className="ml-auto min-w-5 h-5 px-1 bg-elevated rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold text-fg"
               >
                 {formatBadge(unreadCounts[ch.id])}
               </span>
@@ -347,7 +384,7 @@ export default function ChannelSidebar({
           onClick={() => onToggleMute(ch.id, !muted)}
           aria-label={muted ? `Unmute ${ch.name}` : `Mute ${ch.name}`}
           title={muted ? 'Unmute' : 'Mute'}
-          className="absolute right-1 hidden group-hover:flex p-1 rounded text-slate-400 hover:text-white hover:bg-slate-700"
+          className="absolute right-1 hidden group-hover:flex p-1 rounded text-muted hover:text-fg hover:bg-raised"
         >
           {muted ? <Bell className="w-3 h-3" /> : <BellOff className="w-3 h-3" />}
         </button>
@@ -363,22 +400,22 @@ export default function ChannelSidebar({
         // Opaque below `lg`: at that width this is a drawer floating over the
         // message list, and a translucent panel let the messages read through
         // the channel names.
-        className="w-60 bg-slate-800 lg:bg-slate-800/50 flex flex-col border-r border-slate-700/50"
+        className="w-60 bg-surface lg:bg-surface/50 flex flex-col border-r border-line/50"
       >
         <div className="relative" ref={wsDropdownRef}>
           <button
             onClick={() => setWsDropdownOpen(!wsDropdownOpen)}
-            className="w-full px-4 py-3 flex items-center justify-between border-b border-slate-700/50 hover:bg-slate-700/30 transition cursor-pointer"
+            className="w-full px-4 py-3 flex items-center justify-between border-b border-line/50 hover:bg-raised/30 transition cursor-pointer"
           >
-            <span className="font-semibold text-white truncate">
+            <span className="font-semibold text-fg truncate">
               {currentWorkspace?.name || 'Select workspace'}
             </span>
-            <ChevronDown className="w-4 h-4 text-slate-400" />
+            <ChevronDown className="w-4 h-4 text-muted" />
           </button>
           {wsDropdownOpen && (
-            <div className="absolute top-full left-0 right-0 bg-slate-800 border border-slate-700 rounded-b-lg shadow-xl z-10">
+            <div className="absolute top-full left-0 right-0 bg-surface border border-line rounded-b-lg shadow-xl z-30">
               <button
-                className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
+                className="w-full px-4 py-2 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2 cursor-pointer"
                 onClick={() => {
                   onOpenMembers();
                   setWsDropdownOpen(false);
@@ -387,7 +424,7 @@ export default function ChannelSidebar({
                 <Users className="w-4 h-4" /> Members
               </button>
               <button
-                className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
+                className="w-full px-4 py-2 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2 cursor-pointer"
                 onClick={() => {
                   onOpenSettings();
                   setWsDropdownOpen(false);
@@ -397,7 +434,7 @@ export default function ChannelSidebar({
               </button>
               {isWorkspaceAdmin && (
                 <button
-                  className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
+                  className="w-full px-4 py-2 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2 cursor-pointer"
                   data-qa="open-integrations"
                   onClick={() => {
                     onOpenIntegrations();
@@ -409,7 +446,7 @@ export default function ChannelSidebar({
               )}
               {isWorkspaceAdmin && (
                 <button
-                  className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
+                  className="w-full px-4 py-2 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2 cursor-pointer"
                   data-qa="open-slack-import"
                   onClick={() => {
                     onOpenSlackImport();
@@ -420,7 +457,7 @@ export default function ChannelSidebar({
                 </button>
               )}
               <button
-                className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
+                className="w-full px-4 py-2 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2 cursor-pointer"
                 data-qa="open-custom-emoji"
                 onClick={() => {
                   onOpenCustomEmoji();
@@ -430,7 +467,7 @@ export default function ChannelSidebar({
                 <Smile className="w-4 h-4" /> Custom emoji
               </button>
               <button
-                className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
+                className="w-full px-4 py-2 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2 cursor-pointer"
                 data-qa="open-user-groups"
                 onClick={() => {
                   onOpenUserGroups();
@@ -441,7 +478,7 @@ export default function ChannelSidebar({
               </button>
               {isWorkspaceAdmin && (
                 <button
-                  className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
+                  className="w-full px-4 py-2 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2 cursor-pointer"
                   data-qa="open-audit-log"
                   onClick={() => {
                     onOpenAuditLog();
@@ -453,7 +490,7 @@ export default function ChannelSidebar({
               )}
               {isInstanceAdmin && (
                 <button
-                  className="w-full px-4 py-2 text-left text-sm text-purple-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer border-t border-slate-700"
+                  className="w-full px-4 py-2 text-left text-sm text-accent-soft hover:bg-raised flex items-center gap-2 cursor-pointer border-t border-line"
                   onClick={() => {
                     navigate('/app/admin');
                     setWsDropdownOpen(false);
@@ -472,7 +509,7 @@ export default function ChannelSidebar({
               onClick={() => toggleSection('channels')}
               aria-expanded={!collapsed.channels}
               data-qa="toggle-section-channels"
-              className="flex items-center gap-1 text-xs font-semibold text-slate-400 uppercase tracking-wider hover:text-slate-200 transition cursor-pointer"
+              className="flex items-center gap-1 text-xs font-semibold text-muted uppercase tracking-wider hover:text-fg-soft transition cursor-pointer"
             >
               <ChevronRight
                 className={`w-3 h-3 transition-transform ${collapsed.channels ? '' : 'rotate-90'}`}
@@ -483,7 +520,7 @@ export default function ChannelSidebar({
               onClick={() => setShowNewChannel(true)}
               aria-label="Create channel"
               title="Create channel"
-              className="text-slate-400 hover:text-white transition cursor-pointer"
+              className="text-muted hover:text-fg transition cursor-pointer"
             >
               <Plus className="w-4 h-4" />
             </button>
@@ -493,7 +530,7 @@ export default function ChannelSidebar({
             <button
               onClick={() => setShowBrowseChannels(true)}
               data-qa="browse-channels-open"
-              className="w-full px-3 py-1.5 flex items-center gap-2 text-sm text-slate-400 hover:bg-slate-700/30 hover:text-slate-200 transition cursor-pointer"
+              className="w-full px-3 py-1.5 flex items-center gap-2 text-sm text-muted hover:bg-raised/30 hover:text-fg-soft transition cursor-pointer"
             >
               <Compass className="w-4 h-4 shrink-0" />
               <span className="truncate">Browse channels</span>
@@ -505,21 +542,21 @@ export default function ChannelSidebar({
               onClick={() => toggleSection('dms')}
               aria-expanded={!collapsed.dms}
               data-qa="toggle-section-dms"
-              className="flex items-center gap-1 text-xs font-semibold text-slate-400 uppercase tracking-wider hover:text-slate-200 transition cursor-pointer"
+              className="flex items-center gap-1 text-xs font-semibold text-muted uppercase tracking-wider hover:text-fg-soft transition cursor-pointer"
             >
               <ChevronRight className={`w-3 h-3 transition-transform ${collapsed.dms ? '' : 'rotate-90'}`} />
               Direct Messages
             </button>
             <button
               onClick={() => setShowDmPicker(true)}
-              className="text-slate-400 hover:text-white transition cursor-pointer"
+              className="text-muted hover:text-fg transition cursor-pointer"
               title="New direct message"
             >
               <Plus className="w-4 h-4" />
             </button>
           </div>
           {collapsed.dms ? null : conversations.length === 0 ? (
-            <div className="px-3 py-1.5 text-xs text-slate-400">No conversations yet</div>
+            <div className="px-3 py-1.5 text-xs text-muted">No conversations yet</div>
           ) : (
             conversations.map((conv) => (
               <ConversationButton
@@ -540,7 +577,7 @@ export default function ChannelSidebar({
                   onClick={() => toggleSection('people')}
                   aria-expanded={!collapsed.people}
                   data-qa="toggle-section-people"
-                  className="flex items-center gap-1 text-xs font-semibold text-slate-400 uppercase tracking-wider hover:text-slate-200 transition cursor-pointer"
+                  className="flex items-center gap-1 text-xs font-semibold text-muted uppercase tracking-wider hover:text-fg-soft transition cursor-pointer"
                 >
                   <ChevronRight
                     className={`w-3 h-3 transition-transform ${collapsed.people ? '' : 'rotate-90'}`}
@@ -562,7 +599,7 @@ export default function ChannelSidebar({
           )}
         </div>
 
-        <div className="px-3 py-3 border-t border-slate-700/50 flex items-center gap-2">
+        <div className="px-3 py-3 border-t border-line/50 flex items-center gap-2">
           <button
             onClick={onOpenProfile}
             aria-label="Edit profile"
@@ -580,7 +617,7 @@ export default function ChannelSidebar({
             <button
               onClick={() => setYouMenuOpen((open) => !open)}
               data-qa="open-you-menu"
-              className="w-full min-w-0 text-left hover:bg-slate-700/30 rounded px-1 -mx-1 transition cursor-pointer"
+              className="w-full min-w-0 text-left hover:bg-raised/30 rounded px-1 -mx-1 transition cursor-pointer"
               title="You"
             >
               <div className="text-sm font-medium truncate">
@@ -591,7 +628,7 @@ export default function ChannelSidebar({
                   </span>
                 )}
               </div>
-              <div className="text-xs text-slate-400 truncate">{myStatus?.status_text || user?.email}</div>
+              <div className="text-xs text-muted truncate">{myStatus?.status_text || user?.email}</div>
             </button>
 
             {/* Saved, scheduled and reminders follow the person, not the
@@ -599,11 +636,11 @@ export default function ChannelSidebar({
                 so they belong here rather than under a workspace's name. */}
             {youMenuOpen && (
               <div
-                className="absolute bottom-full left-0 mb-1 w-52 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-20 py-1"
+                className="absolute bottom-full left-0 mb-1 w-52 bg-surface border border-line rounded-lg shadow-xl z-20 py-1"
                 data-qa="you-menu"
               >
                 <button
-                  className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
+                  className="w-full px-4 py-2 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2 cursor-pointer"
                   data-qa="open-profile"
                   onClick={() => {
                     onOpenProfile();
@@ -612,9 +649,9 @@ export default function ChannelSidebar({
                 >
                   <User className="w-4 h-4 shrink-0" /> Profile &amp; settings
                 </button>
-                <div className="my-1 h-px bg-slate-700" />
+                <div className="my-1 h-px bg-raised" />
                 <button
-                  className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
+                  className="w-full px-4 py-2 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2 cursor-pointer"
                   data-qa="open-scheduled"
                   onClick={() => {
                     onOpenScheduled();
@@ -624,7 +661,7 @@ export default function ChannelSidebar({
                   <Clock className="w-4 h-4" /> Scheduled
                 </button>
                 <button
-                  className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
+                  className="w-full px-4 py-2 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2 cursor-pointer"
                   data-qa="open-saved"
                   onClick={() => {
                     onOpenSaved();
@@ -634,7 +671,7 @@ export default function ChannelSidebar({
                   <Bookmark className="w-4 h-4" /> Saved
                 </button>
                 <button
-                  className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
+                  className="w-full px-4 py-2 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2 cursor-pointer"
                   data-qa="open-reminders"
                   onClick={() => {
                     onOpenReminders();
@@ -648,7 +685,7 @@ export default function ChannelSidebar({
           </div>
           <button
             onClick={onOpenNotifications}
-            className="relative text-slate-400 hover:text-white transition cursor-pointer"
+            className="relative text-muted hover:text-fg transition cursor-pointer"
             title="Notifications"
           >
             <Bell className="w-4 h-4" />
@@ -660,7 +697,7 @@ export default function ChannelSidebar({
           </button>
           <button
             onClick={onLogout}
-            className="text-slate-400 hover:text-red-400 transition cursor-pointer"
+            className="text-muted hover:text-danger transition cursor-pointer"
             title="Sign out"
           >
             <LogOut className="w-4 h-4" />
@@ -671,7 +708,7 @@ export default function ChannelSidebar({
       {showDmPicker && (
         <Modal title="New Message" onClose={closeDmPicker} dataQa="new-dm-modal">
           <h2 className="text-lg font-bold mb-1">New message</h2>
-          <p className="text-xs text-slate-400 mb-3">
+          <p className="text-xs text-muted mb-3">
             Pick one person for a direct message, or up to eight for a group.
           </p>
           <input
@@ -681,11 +718,11 @@ export default function ChannelSidebar({
             placeholder="Search people…"
             aria-label="Search people"
             data-qa="new-dm-search"
-            className="w-full px-3 py-2 mb-3 bg-slate-700/50 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="w-full px-3 py-2 mb-3 bg-raised/50 border border-line-strong rounded-lg text-sm text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
           <div className="flex flex-col gap-1 max-h-64 overflow-y-auto">
             {dmCandidates.length === 0 ? (
-              <div className="px-3 py-4 text-sm text-slate-400 text-center">No people found</div>
+              <div className="px-3 py-4 text-sm text-muted text-center">No people found</div>
             ) : (
               dmCandidates
                 .filter((m) => m.user_id !== currentUserId)
@@ -699,29 +736,26 @@ export default function ChannelSidebar({
                       data-qa="new-dm-candidate"
                       data-user-id={m.user_id}
                       className={`w-full px-3 py-2 flex items-center gap-3 rounded-lg text-left transition ${
-                        picked ? 'bg-purple-600/20 text-white' : 'hover:bg-slate-700/50'
+                        picked ? 'bg-purple-600/20 text-fg' : 'hover:bg-raised/50'
                       }`}
                     >
                       <Avatar userId={m.user_id} name={m.display_name || m.email} avatarUrl={m.avatar_url} />
                       <div className="min-w-0">
                         <div className="text-sm font-medium truncate">{m.display_name || m.email}</div>
-                        <div className="text-xs text-slate-400 truncate">{m.email}</div>
+                        <div className="text-xs text-muted truncate">{m.email}</div>
                       </div>
-                      {picked && <Check className="w-4 h-4 text-purple-300 ml-auto shrink-0" />}
+                      {picked && <Check className="w-4 h-4 text-accent-soft ml-auto shrink-0" />}
                     </button>
                   );
                 })
             )}
           </div>
           <div className="mt-4 flex items-center justify-between gap-2">
-            <span className="text-xs text-slate-400" data-qa="new-dm-selected-count">
+            <span className="text-xs text-muted" data-qa="new-dm-selected-count">
               {selectedPeople.length === 0 ? 'Nobody picked yet' : `${selectedPeople.length} selected`}
             </span>
             <div className="flex gap-2">
-              <button
-                onClick={closeDmPicker}
-                className="px-4 py-2 text-slate-400 hover:text-white transition"
-              >
+              <button onClick={closeDmPicker} className="px-4 py-2 text-muted hover:text-fg transition">
                 Cancel
               </button>
               <button
@@ -742,30 +776,98 @@ export default function ChannelSidebar({
       )}
 
       {showNewChannel && (
-        <Modal title="Create Channel" onClose={() => setShowNewChannel(false)} dataQa="create-channel-modal">
-          <form onSubmit={handleCreateChannel}>
-            <h2 className="text-lg font-bold mb-4">Create Channel</h2>
+        <Modal title="Create Channel" onClose={closeNewChannel} dataQa="create-channel-modal">
+          <form onSubmit={handleCreateChannel} noValidate>
+            <h2 className="text-lg font-bold text-fg mb-4">Create Channel</h2>
             <input
               type="text"
               value={newChannelName}
-              onChange={(e) => setNewChannelName(e.target.value)}
+              onChange={(e) => {
+                setNewChannelName(e.target.value);
+                if (newChannelError) setNewChannelError(null);
+              }}
               placeholder="Channel name"
-              className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 mb-4"
-              required
+              aria-invalid={newChannelError ? true : undefined}
+              aria-describedby={newChannelError ? 'create-channel-error' : undefined}
+              data-qa="create-channel-name"
+              className={`w-full px-4 py-3 bg-raised/50 border rounded-lg text-fg placeholder-muted focus:outline-none focus:ring-2 ${
+                newChannelError
+                  ? 'border-red-500/60 focus:ring-red-500'
+                  : 'border-line-strong focus:ring-purple-500'
+              }`}
             />
-            <div className="flex justify-end gap-2">
+            {newChannelError && (
+              <p
+                id="create-channel-error"
+                data-qa="create-channel-error"
+                className="mt-2 text-sm text-danger"
+              >
+                {newChannelError}
+              </p>
+            )}
+            <label
+              htmlFor="create-channel-description"
+              className="mt-4 block text-sm font-medium text-fg-dim mb-1.5"
+            >
+              Description <span className="text-muted font-normal">(optional)</span>
+            </label>
+            <textarea
+              id="create-channel-description"
+              value={newChannelDescription}
+              onChange={(e) => setNewChannelDescription(e.target.value)}
+              rows={2}
+              placeholder="What is this channel for?"
+              data-qa="create-channel-description"
+              className="w-full px-4 py-2.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+            />
+
+            <label className="mt-4 flex items-start gap-3 cursor-pointer" data-qa="create-channel-private">
+              <input
+                type="checkbox"
+                checked={newChannelPrivate}
+                onChange={(e) => setNewChannelPrivate(e.target.checked)}
+                className="mt-0.5 w-4 h-4 accent-purple-500"
+              />
+              <span>
+                <span className="block text-sm font-medium text-fg-dim">Private channel</span>
+                <span className="block text-xs text-muted">
+                  Only people who are invited can find it or read it.
+                </span>
+              </span>
+            </label>
+
+            <label
+              className="mt-3 flex items-start gap-3 cursor-pointer"
+              data-qa="create-channel-announcement"
+            >
+              <input
+                type="checkbox"
+                checked={newChannelAnnouncement}
+                onChange={(e) => setNewChannelAnnouncement(e.target.checked)}
+                className="mt-0.5 w-4 h-4 accent-purple-500"
+              />
+              <span>
+                <span className="block text-sm font-medium text-fg-dim">Announcement channel</span>
+                <span className="block text-xs text-muted">
+                  Only admins can post. Everyone else can still read and react.
+                </span>
+              </span>
+            </label>
+
+            <div className="flex justify-end gap-2 mt-5">
               <button
                 type="button"
-                onClick={() => setShowNewChannel(false)}
-                className="px-4 py-2 text-slate-400 hover:text-white transition"
+                onClick={closeNewChannel}
+                className="px-4 py-2 text-muted hover:text-fg transition"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition"
+                disabled={creatingChannel}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/50 text-white rounded-lg transition disabled:cursor-not-allowed"
               >
-                Create
+                {creatingChannel ? 'Creating…' : 'Create'}
               </button>
             </div>
           </form>

@@ -548,6 +548,14 @@ async fn unread_channels(
     ))
 }
 
+fn duplicate_channel_name(err: sqlx::Error) -> AppError {
+    if shared_common::errors::is_unique_violation(&err) {
+        AppError::Conflict("A channel with that name already exists".into())
+    } else {
+        err.into()
+    }
+}
+
 async fn create_channel(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
@@ -572,13 +580,26 @@ async fn create_channel(
             auth.user_id,
             req.is_default.unwrap_or(false),
         )
-        .await?;
+        .await
+        .map_err(duplicate_channel_name)?;
 
     let _ = state
         .workspace_service
         .repo
         .add_channel_member(channel.id, auth.user_id, &ChannelRole::Admin)
         .await;
+
+    let channel = match &req.post_policy {
+        Some(requested) => {
+            let policy = authz::PostPolicy::parse(requested)?;
+            state
+                .workspace_service
+                .repo
+                .set_channel_post_policy(channel.id, policy.as_str())
+                .await?
+        }
+        None => channel,
+    };
 
     audit::record(
         &state,
@@ -638,7 +659,8 @@ async fn update_channel(
             req.topic.as_deref(),
             req.description.as_deref(),
         )
-        .await?;
+        .await
+        .map_err(duplicate_channel_name)?;
 
     if let Some(requested) = &req.post_policy {
         let policy = authz::PostPolicy::parse(requested)?;

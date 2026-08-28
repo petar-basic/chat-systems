@@ -223,6 +223,7 @@ pub struct CreateChannelRequest {
     pub channel_type: Option<ChannelType>,
     pub description: Option<String>,
     pub is_default: Option<bool>,
+    pub post_policy: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

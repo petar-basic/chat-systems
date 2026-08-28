@@ -685,7 +685,7 @@ async fn a_channel_moderator_can_take_down_somebody_elses_file(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner) = seed_and_login(&app, &state, "mod-owner", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Moderation WS").await;
-    let ch = seed_channel(&state, ws_id, owner_id, "general", false).await;
+    let ch = seed_channel(&state, ws_id, owner_id, "main", false).await;
 
     let (poster_id, poster_email) = seed(&state, "mod-poster", false).await;
     add_ws_member(&state, ws_id, poster_id, "member").await;
@@ -753,7 +753,7 @@ async fn deleting_a_message_takes_its_attachment_with_it(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner) = seed_and_login(&app, &state, "cascade-owner", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Cascade WS").await;
-    let ch = seed_channel(&state, ws_id, owner_id, "general", false).await;
+    let ch = seed_channel(&state, ws_id, owner_id, "main", false).await;
 
     let (status, uploaded) =
         upload_request(&app, ws_id, Some(&owner), "doc.txt", "text/plain", b"doc").await;
@@ -808,7 +808,7 @@ async fn editing_a_message_releases_the_attachment_it_drops(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner) = seed_and_login(&app, &state, "release-owner", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Release WS").await;
-    let ch = seed_channel(&state, ws_id, owner_id, "general", false).await;
+    let ch = seed_channel(&state, ws_id, owner_id, "main", false).await;
 
     let (_, kept) =
         upload_request(&app, ws_id, Some(&owner), "keep.txt", "text/plain", b"keep").await;

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { UnreadDivider } from './UnreadDivider';
 import { useUserCache } from '@/stores/users';
 import { usePresenceStore } from '@/stores/presence';
@@ -21,10 +21,15 @@ import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { ConnectionBanner } from '@/shared/components/ConnectionBanner/ConnectionBanner';
 import { QueryState } from '@/shared/components/QueryState/QueryState';
 import { HuddleStartButton } from '@/features/huddle';
-import { EmptyLabels } from '@/shared/constants';
+import { EmptyLabels, ErrorLabels } from '@/shared/constants';
+import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
+import { logger } from '@/lib/logger';
+import { toast } from '@/shared/components/Toast';
 import VirtualMessageList from './VirtualMessageList';
 import { DaySeparator } from './MessageList';
 import { buildMessageRows, type MessageRow } from './messageRows';
+
+const QUICK_REACTIONS = ['👍', '✅', '🎉'];
 
 interface Props {
   workspaceId: string;
@@ -83,6 +88,28 @@ export default function ConversationView({
     sendMutation.mutate({ content, id: crypto.randomUUID() });
   };
 
+  const [uploading, setUploading] = useState(false);
+
+  const handleFileUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const uploaded = await getApiForInstance(instanceUrl).upload<{ filename: string; url: string }[]>(
+        `/files/upload/${workspaceId}`,
+        formData,
+      );
+      for (const f of uploaded) {
+        sendMutation.mutate({ content: `[file: ${f.filename}](${f.url})`, id: crypto.randomUUID() });
+      }
+    } catch (err) {
+      logger.error('ConversationView', 'handleFileUpload', err);
+      toast.error(ErrorLabels.UploadFailed);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const messageCount = displayMessages.length;
 
   const renderRow = useCallback(
@@ -111,12 +138,12 @@ export default function ConversationView({
   return (
     <div role="main" aria-label="Direct message" className="flex-1 flex flex-col min-w-0">
       <ConnectionBanner instanceUrl={instanceUrl} />
-      <div className="h-12 px-4 flex items-center gap-3 border-b border-slate-700/50 shrink-0">
+      <div className="h-12 px-4 flex items-center gap-3 border-b border-line/50 shrink-0">
         {onOpenNav && (
           <button
             onClick={onOpenNav}
             aria-label="Open navigation"
-            className="lg:hidden p-1.5 -ml-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/50"
+            className="lg:hidden p-1.5 -ml-1 rounded-lg text-muted hover:text-fg hover:bg-raised/50"
           >
             <Menu className="w-5 h-5" />
           </button>
@@ -124,17 +151,14 @@ export default function ConversationView({
         <button
           onClick={onClose}
           aria-label="Back to channels"
-          className="text-slate-400 hover:text-white transition cursor-pointer mr-1"
+          className="text-muted hover:text-fg transition cursor-pointer mr-1"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
         {kind === 'direct' ? (
           <div className="relative shrink-0">
             <Avatar userId={partnerId} name={title} avatarUrl={partner?.avatar_url} size="sm" />
-            <PresenceDot
-              userId={partnerId}
-              className="absolute -bottom-0.5 -right-0.5 ring-2 ring-slate-900"
-            />
+            <PresenceDot userId={partnerId} className="absolute -bottom-0.5 -right-0.5 ring-2 ring-app" />
           </div>
         ) : (
           <div className="flex -space-x-2 shrink-0" data-qa="conversation-participants">
@@ -145,20 +169,18 @@ export default function ConversationView({
                 name={displayNameOf(getUser(id)?.display_name)}
                 avatarUrl={getUser(id)?.avatar_url}
                 size="xs"
-                className="ring-2 ring-slate-900"
+                className="ring-2 ring-app"
               />
             ))}
           </div>
         )}
-        <span className="font-semibold text-white truncate" data-qa="conversation-title">
+        <span className="font-semibold text-fg truncate" data-qa="conversation-title">
           {title}
         </span>
         {kind === 'group' && (
-          <span className="text-xs text-slate-400 shrink-0">{participantIds.length} people</span>
+          <span className="text-xs text-muted shrink-0">{participantIds.length} people</span>
         )}
-        {kind === 'direct' && status === 'online' && (
-          <span className="text-xs text-slate-400">Active now</span>
-        )}
+        {kind === 'direct' && status === 'online' && <span className="text-xs text-muted">Active now</span>}
         {kind === 'direct' && (
           <div className="ml-auto">
             <HuddleStartButton
@@ -184,6 +206,7 @@ export default function ConversationView({
           hasOlder={!!hasNextPage}
           isLoadingOlder={isFetchingNextPage}
           onLoadOlder={fetchNextPage}
+          stickKey={conversationId}
           qa="conversation-message-list"
           ariaLabel="Direct messages"
         />
@@ -195,6 +218,8 @@ export default function ConversationView({
         draftKey={`conversation:${conversationId}`}
         isDm
         onSend={handleSend}
+        onFileUpload={handleFileUpload}
+        uploading={uploading}
         scheduleTarget={{ conversationId }}
         workspaceId={workspaceId}
         instanceUrl={instanceUrl}
@@ -211,12 +236,13 @@ interface ConversationMessageProps {
   onEdit: (content: string) => Promise<unknown>;
   onDelete: () => Promise<unknown>;
   onToggleReaction: (emoji: string, hasOwn: boolean) => void;
-  onOpenThread: () => void;
-  onSave: () => void;
-  onForward: () => void;
+  onOpenThread?: () => void;
+  onSave?: () => void;
+  onForward?: () => void;
+  dataQa?: string;
 }
 
-function ConversationMessageRow({
+export function ConversationMessageRow({
   msg,
   grouped,
   isOwn,
@@ -227,6 +253,7 @@ function ConversationMessageRow({
   onOpenThread,
   onSave,
   onForward,
+  dataQa = 'conversation-message',
 }: ConversationMessageProps) {
   const { getUser } = useUserCache();
   const sender = getUser(msg.user_id);
@@ -236,6 +263,12 @@ function ConversationMessageRow({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const reactBtnRef = useRef<HTMLButtonElement>(null);
+  const rowRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!editing && !confirmDelete) return;
+    rowRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [editing, confirmDelete]);
 
   const time = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -268,11 +301,11 @@ function ConversationMessageRow({
         className="flex items-start gap-3 py-1.5 px-2 rounded-lg opacity-50"
         data-qa="conversation-message-deleted"
       >
-        <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center shrink-0 mt-0.5">
-          <Trash2 className="w-3.5 h-3.5 text-slate-400" />
+        <div className="w-8 h-8 rounded-full bg-raised flex items-center justify-center shrink-0 mt-0.5">
+          <Trash2 className="w-3.5 h-3.5 text-muted" />
         </div>
         <div className="flex-1 min-w-0 py-1">
-          <p className="text-sm text-slate-400 italic">This message was deleted</p>
+          <p className="text-sm text-muted italic">This message was deleted</p>
         </div>
       </div>
     );
@@ -280,13 +313,14 @@ function ConversationMessageRow({
 
   return (
     <div
-      data-qa="conversation-message"
+      ref={rowRef}
+      data-qa={dataQa}
       tabIndex={0}
-      className={`group relative flex items-start gap-3 px-2 rounded-lg transition-colors hover:bg-slate-800/50 ${grouped ? 'py-0.5' : 'py-1.5'} ${msg.pending ? 'opacity-50' : ''}`}
+      className={`group relative flex items-start gap-3 px-2 rounded-lg transition-colors hover:bg-surface/50 ${grouped ? 'py-0.5' : 'py-1.5'} ${msg.pending ? 'opacity-50' : ''}`}
     >
       {grouped ? (
         <div className="w-8 shrink-0 flex justify-end pr-0.5">
-          <span className="text-[10px] leading-5 text-slate-400 opacity-0 group-hover:opacity-100 tabular-nums">
+          <span className="text-[10px] leading-5 text-muted opacity-0 group-hover:opacity-100 tabular-nums">
             {time}
           </span>
         </div>
@@ -296,15 +330,15 @@ function ConversationMessageRow({
       <div className="flex-1 min-w-0">
         {!grouped && (
           <div className="flex items-baseline gap-2">
-            <span className="text-sm font-semibold text-slate-200">{senderName}</span>
+            <span className="text-sm font-semibold text-fg-soft">{senderName}</span>
             {sender?.status_emoji && (
               <span data-qa="message-status-emoji" title={sender.status_text ?? undefined}>
                 {sender.status_emoji}
               </span>
             )}
-            <span className="text-xs text-slate-400">{time}</span>
-            {msg.edited_at && <span className="text-xs text-slate-400 italic">(edited)</span>}
-            {msg.pending && <span className="text-xs text-slate-400 italic">Sending…</span>}
+            <span className="text-xs text-muted">{time}</span>
+            {msg.edited_at && <span className="text-xs text-muted italic">(edited)</span>}
+            {msg.pending && <span className="text-xs text-muted italic">Sending…</span>}
           </div>
         )}
 
@@ -321,11 +355,11 @@ function ConversationMessageRow({
           <RichTextDisplay content={msg.content} />
         )}
 
-        {msg.reply_count > 0 && (
+        {msg.reply_count > 0 && onOpenThread && (
           <button
             onClick={onOpenThread}
             data-qa="dm-thread-open"
-            className="mt-1 inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded text-xs text-purple-300 hover:bg-slate-700/50 transition cursor-pointer"
+            className="mt-1 inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded text-xs text-accent-soft hover:bg-raised/50 transition cursor-pointer"
           >
             <MessageSquare className="w-3 h-3" />
             {msg.reply_count} {msg.reply_count === 1 ? 'reply' : 'replies'}
@@ -342,8 +376,8 @@ function ConversationMessageRow({
                 data-qa="dm-reaction"
                 className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs border transition ${
                   g.hasOwn
-                    ? 'bg-purple-600/20 border-purple-500/40 text-purple-300'
-                    : 'bg-slate-700/50 border-slate-600/50 text-slate-300 hover:bg-slate-700'
+                    ? 'bg-purple-600/20 border-purple-500/40 text-accent-soft'
+                    : 'bg-raised/50 border-line-strong/50 text-fg-dim hover:bg-raised'
                 }`}
               >
                 <ReactionEmoji emoji={g.emoji} />
@@ -355,7 +389,7 @@ function ConversationMessageRow({
 
         {confirmDelete && (
           <div className="mt-1 flex items-center gap-2 text-xs">
-            <span className="text-red-400">Delete this message?</span>
+            <span className="text-danger">Delete this message?</span>
             <button
               onClick={async () => {
                 await onDelete();
@@ -365,10 +399,7 @@ function ConversationMessageRow({
             >
               Delete
             </button>
-            <button
-              onClick={() => setConfirmDelete(false)}
-              className="px-2 py-1 text-slate-400 hover:text-white"
-            >
+            <button onClick={() => setConfirmDelete(false)} className="px-2 py-1 text-muted hover:text-fg">
               Cancel
             </button>
           </div>
@@ -376,13 +407,24 @@ function ConversationMessageRow({
       </div>
 
       {!editing && !confirmDelete && (
-        <div className="absolute -top-3 right-2 flex items-center gap-0.5 bg-slate-800 border border-slate-700 rounded-lg px-1 py-0.5 shadow-lg opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto">
+        <div className="absolute -top-3 right-2 flex items-center gap-0.5 bg-surface border border-line rounded-lg px-1 py-0.5 shadow-lg opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto">
+          {QUICK_REACTIONS.map((emoji) => (
+            <button
+              key={emoji}
+              onClick={() => handleReactionToggle(emoji)}
+              aria-label={`React with ${emoji}`}
+              data-qa="dm-quick-reaction"
+              className="px-1 py-0.5 text-sm leading-none hover:bg-raised rounded transition"
+            >
+              {emoji}
+            </button>
+          ))}
           <div className="relative">
             <button
               ref={reactBtnRef}
               onClick={() => setShowEmojiPicker((v) => !v)}
               aria-label="Add reaction"
-              className="p-1 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition"
+              className="p-1 text-muted hover:text-fg hover:bg-raised rounded transition"
             >
               <SmilePlus className="w-3.5 h-3.5" />
             </button>
@@ -397,35 +439,41 @@ function ConversationMessageRow({
               />
             )}
           </div>
-          <button
-            onClick={onOpenThread}
-            aria-label="Reply in thread"
-            data-qa="dm-action-thread"
-            className="p-1 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition"
-          >
-            <MessageSquare className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={onSave}
-            aria-label="Save message"
-            data-qa="dm-action-save"
-            className="p-1 text-slate-400 hover:text-purple-300 hover:bg-slate-700 rounded transition"
-          >
-            <Bookmark className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={onForward}
-            aria-label="Forward message"
-            data-qa="dm-action-forward"
-            className="p-1 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition"
-          >
-            <Forward className="w-3.5 h-3.5" />
-          </button>
+          {onOpenThread && (
+            <button
+              onClick={onOpenThread}
+              aria-label="Reply in thread"
+              data-qa="dm-action-thread"
+              className="p-1 text-muted hover:text-fg hover:bg-raised rounded transition"
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {onSave && (
+            <button
+              onClick={onSave}
+              aria-label="Save message"
+              data-qa="dm-action-save"
+              className="p-1 text-muted hover:text-accent-soft hover:bg-raised rounded transition"
+            >
+              <Bookmark className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {onForward && (
+            <button
+              onClick={onForward}
+              aria-label="Forward message"
+              data-qa="dm-action-forward"
+              className="p-1 text-muted hover:text-fg hover:bg-raised rounded transition"
+            >
+              <Forward className="w-3.5 h-3.5" />
+            </button>
+          )}
           {isOwn && (
             <button
               onClick={() => setEditing(true)}
               aria-label="Edit message"
-              className="p-1 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition"
+              className="p-1 text-muted hover:text-fg hover:bg-raised rounded transition"
             >
               <Pencil className="w-3.5 h-3.5" />
             </button>
@@ -434,7 +482,7 @@ function ConversationMessageRow({
             <button
               onClick={() => setConfirmDelete(true)}
               aria-label="Delete message"
-              className="p-1 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded transition"
+              className="p-1 text-muted hover:text-danger hover:bg-raised rounded transition"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>

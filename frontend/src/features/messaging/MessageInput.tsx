@@ -1,4 +1,5 @@
 import { useRef, useCallback, useMemo, useEffect, useState } from 'react';
+import { formatDateTime } from '@/lib/datetime';
 import { Extension } from '@tiptap/core';
 import { useEditor, EditorContent } from '@tiptap/react';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -198,7 +199,7 @@ export default function MessageInput({
         setShowSchedule(false);
         setCustomSendAt('');
         setScheduleError(null);
-        toast.success(`Scheduled for ${sendAt.toLocaleString()}`);
+        toast.success(`Scheduled for ${formatDateTime(sendAt)}`);
       } catch (err) {
         toast.error((err as { message?: string })?.message || 'Could not schedule that message');
       }
@@ -241,7 +242,7 @@ export default function MessageInput({
       {onFileUpload && (
         <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} />
       )}
-      <div className="bg-slate-800 border border-slate-700 rounded-xl">
+      <div className="bg-surface border border-line rounded-xl">
         <div className="px-4 pt-3 pb-1">
           <EditorContent editor={editor} className="tiptap-editor" />
         </div>
@@ -255,15 +256,15 @@ export default function MessageInput({
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
                   aria-label="Upload file"
-                  className="p-1 text-slate-400 hover:text-slate-200 disabled:text-slate-600 transition cursor-pointer rounded hover:bg-slate-700/60"
+                  className="p-1 text-muted hover:text-fg-soft disabled:text-faint transition cursor-pointer rounded hover:bg-raised/60"
                 >
                   {uploading ? (
-                    <div className="w-3.5 h-3.5 border-2 border-slate-500/30 border-t-slate-400 rounded-full animate-spin" />
+                    <div className="w-3.5 h-3.5 border-2 border-line-strong/30 border-t-slate-400 rounded-full animate-spin" />
                   ) : (
                     <Paperclip className="w-3.5 h-3.5" />
                   )}
                 </button>
-                <div className="w-px h-4 bg-slate-600/60 mx-0.5" />
+                <div className="w-px h-4 bg-elevated/60 mx-0.5" />
               </>
             )}
             {/* Twelve formatting buttons on a phone is more chrome than
@@ -278,7 +279,7 @@ export default function MessageInput({
               aria-label={showFormatting ? 'Hide formatting' : 'Show formatting'}
               aria-pressed={showFormatting}
               data-qa="composer-formatting-toggle"
-              className="sm:hidden p-1 text-slate-400 hover:text-slate-200 transition cursor-pointer rounded hover:bg-slate-700/60"
+              className="sm:hidden p-1 text-muted hover:text-fg-soft transition cursor-pointer rounded hover:bg-raised/60"
             >
               <Type className="w-3.5 h-3.5" />
             </button>
@@ -288,7 +289,7 @@ export default function MessageInput({
                 type="button"
                 onClick={() => setShowEmoji((v) => !v)}
                 aria-label="Insert emoji"
-                className="p-1 text-slate-400 hover:text-slate-200 transition cursor-pointer rounded hover:bg-slate-700/60"
+                className="p-1 text-muted hover:text-fg-soft transition cursor-pointer rounded hover:bg-raised/60"
               >
                 <SmilePlus className="w-3.5 h-3.5" />
               </button>
@@ -319,7 +320,7 @@ export default function MessageInput({
               <button
                 type="button"
                 onClick={onCancel}
-                className="rounded px-2.5 py-1 text-slate-400 transition hover:text-white"
+                className="rounded px-2.5 py-1 text-muted transition hover:text-fg"
               >
                 Cancel
               </button>
@@ -338,7 +339,7 @@ export default function MessageInput({
                     aria-label="Schedule message"
                     aria-expanded={showSchedule}
                     data-qa="schedule-open"
-                    className="p-1 text-slate-400 hover:text-white disabled:text-slate-600 transition cursor-pointer disabled:cursor-not-allowed rounded hover:bg-slate-700/60"
+                    className="p-1 text-muted hover:text-fg disabled:text-faint transition cursor-pointer disabled:cursor-not-allowed rounded hover:bg-raised/60"
                     title="Send later"
                   >
                     <Clock className="w-3.5 h-3.5" />
@@ -347,7 +348,7 @@ export default function MessageInput({
                     <div
                       ref={scheduleMenuRef}
                       data-qa="schedule-menu"
-                      className="absolute bottom-full right-0 mb-2 w-64 bg-slate-800 border border-slate-700 rounded-lg shadow-xl py-1 z-20"
+                      className="absolute bottom-full right-0 mb-2 w-64 bg-surface border border-line rounded-lg shadow-xl py-1 z-20"
                     >
                       {SCHEDULE_PRESETS.map((preset) => (
                         <button
@@ -355,19 +356,17 @@ export default function MessageInput({
                           type="button"
                           onClick={() => void handleSchedule(preset.at())}
                           data-qa="schedule-preset"
-                          className="w-full px-3 py-2 flex items-center justify-between gap-2 text-left text-sm text-slate-300 hover:bg-slate-700/60 transition cursor-pointer"
+                          className="w-full px-3 py-2 flex items-center justify-between gap-2 text-left text-sm text-fg-dim hover:bg-raised/60 transition cursor-pointer"
                         >
                           <span>{preset.label}</span>
-                          <span className="text-[11px] text-slate-500">
-                            {formatScheduleHint(preset.at())}
-                          </span>
+                          <span className="text-[11px] text-subtle">{formatScheduleHint(preset.at())}</span>
                         </button>
                       ))}
 
-                      <div className="mt-1 border-t border-slate-700/70 px-3 py-2">
+                      <div className="mt-1 border-t border-line/70 px-3 py-2">
                         <label
                           htmlFor={`schedule-custom-${draftKey ?? 'composer'}`}
-                          className="block text-[11px] uppercase tracking-wider text-slate-400 mb-1"
+                          className="block text-[11px] uppercase tracking-wider text-muted mb-1"
                         >
                           Pick a time
                         </label>
@@ -381,10 +380,10 @@ export default function MessageInput({
                             setScheduleError(null);
                           }}
                           data-qa="schedule-custom-input"
-                          className="w-full px-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500 [color-scheme:dark]"
+                          className="w-full px-2 py-1.5 bg-raised/50 border border-line-strong rounded text-sm text-fg focus:outline-none focus:ring-2 focus:ring-purple-500 [color-scheme:dark]"
                         />
                         {scheduleError && (
-                          <p className="mt-1 text-[11px] text-red-400" data-qa="schedule-error">
+                          <p className="mt-1 text-[11px] text-danger" data-qa="schedule-error">
                             {scheduleError}
                           </p>
                         )}
@@ -416,7 +415,7 @@ export default function MessageInput({
                 type="button"
                 onClick={handleSend}
                 disabled={isEmpty}
-                className="p-1 text-purple-400 hover:text-purple-300 disabled:text-slate-600 transition cursor-pointer disabled:cursor-not-allowed rounded hover:bg-slate-700/60"
+                className="p-1 text-accent hover:text-accent-soft disabled:text-faint transition cursor-pointer disabled:cursor-not-allowed rounded hover:bg-raised/60"
                 title="Send (Enter)"
               >
                 <Send className="w-3.5 h-3.5" />

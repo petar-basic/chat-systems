@@ -72,25 +72,25 @@ export default function CustomEmojiPanel({ workspaceId, instanceUrl, onClose }: 
   };
 
   return (
-    <div className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 flex flex-col border-l border-slate-700/50 bg-slate-900/80">
-      <div className="h-14 px-4 flex items-center justify-between border-b border-slate-700/50 shrink-0">
-        <h3 className="text-sm font-bold text-white flex items-center gap-2">
+    <div className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 flex flex-col border-l border-line/50 bg-app lg:bg-app/80">
+      <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">
+        <h3 className="text-sm font-bold text-fg flex items-center gap-2">
           <Smile className="w-4 h-4" />
           Custom emoji
         </h3>
-        <button onClick={onClose} className="text-slate-400 hover:text-white transition cursor-pointer">
+        <button onClick={onClose} className="text-muted hover:text-fg transition cursor-pointer">
           <X className="w-4 h-4" />
         </button>
       </div>
 
-      <form onSubmit={handleUpload} className="px-3 py-3 border-b border-slate-700/30 space-y-2">
+      <form onSubmit={handleUpload} className="px-3 py-3 border-b border-line/30 space-y-2">
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="name (used as :name:)"
           data-qa="emoji-name"
-          className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          className="w-full px-3 py-2 bg-surface border border-line rounded-lg text-fg text-sm placeholder-subtle focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
         <input
           ref={fileRef}
@@ -98,9 +98,9 @@ export default function CustomEmojiPanel({ workspaceId, instanceUrl, onClose }: 
           accept="image/png,image/gif,image/webp,image/jpeg"
           onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           data-qa="emoji-file"
-          className="w-full text-xs text-slate-400 file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-slate-700 file:text-slate-200"
+          className="w-full text-xs text-muted file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-raised file:text-fg-soft"
         />
-        {error && <div className="text-xs text-red-400">{error}</div>}
+        {error && <div className="text-xs text-danger">{error}</div>}
         <button
           type="submit"
           disabled={busy || !file || !name.trim()}
@@ -123,15 +123,15 @@ export default function CustomEmojiPanel({ workspaceId, instanceUrl, onClose }: 
               <li
                 key={emoji.id}
                 data-qa="emoji-row"
-                className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-700/30"
+                className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-raised/30"
               >
                 <img src={emoji.url} alt={emoji.name} className="w-6 h-6" />
-                <span className="flex-1 text-sm text-slate-200 truncate">:{emoji.name}:</span>
+                <span className="flex-1 text-sm text-fg-soft truncate">:{emoji.name}:</span>
                 <button
                   type="button"
                   onClick={() => handleDelete(emoji.id)}
                   aria-label={`Remove :${emoji.name}:`}
-                  className="text-slate-400 hover:text-red-400 transition cursor-pointer"
+                  className="text-muted hover:text-danger transition cursor-pointer"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -139,7 +139,7 @@ export default function CustomEmojiPanel({ workspaceId, instanceUrl, onClose }: 
             ))}
           </ul>
         ) : (
-          <p className="text-center py-8 text-slate-400 text-sm">
+          <p className="text-center py-8 text-muted text-sm">
             No custom emoji yet. Anything you add here can be typed as <code>:name:</code>.
           </p>
         )}

@@ -711,7 +711,7 @@ async fn channel_broadcast_notifies_every_member_except_the_author(pool: PgPool)
     let (app, state) = app_and_state(pool).await;
     let (author_id, _, _) = seed_and_login(&app, &state, "mention-author", false).await;
     let ws_id = seed_workspace(&state, author_id, "Broadcast WS").await;
-    let ch_id = seed_channel(&state, ws_id, author_id, "general", false).await;
+    let ch_id = seed_channel(&state, ws_id, author_id, "main", false).await;
 
     let (first, _) = seed(&state, "mention-first", false).await;
     let (second, _) = seed(&state, "mention-second", false).await;
@@ -746,7 +746,7 @@ async fn here_only_reaches_members_with_a_live_connection(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (author_id, _, _) = seed_and_login(&app, &state, "mention-author", false).await;
     let ws_id = seed_workspace(&state, author_id, "Here WS").await;
-    let ch_id = seed_channel(&state, ws_id, author_id, "general", false).await;
+    let ch_id = seed_channel(&state, ws_id, author_id, "main", false).await;
 
     let (online_member, _) = seed(&state, "mention-online", false).await;
     let (offline_member, _) = seed(&state, "mention-offline", false).await;
@@ -775,7 +775,7 @@ async fn a_named_mention_alongside_a_broadcast_is_not_delivered_twice(pool: PgPo
     let (app, state) = app_and_state(pool).await;
     let (author_id, _, _) = seed_and_login(&app, &state, "mention-author", false).await;
     let ws_id = seed_workspace(&state, author_id, "Dedupe WS").await;
-    let ch_id = seed_channel(&state, ws_id, author_id, "general", false).await;
+    let ch_id = seed_channel(&state, ws_id, author_id, "main", false).await;
 
     let (member_id, _) = seed(&state, "mention-member", false).await;
     add_ws_member(&state, ws_id, member_id, "member").await;
@@ -797,7 +797,7 @@ async fn a_message_without_a_broadcast_only_notifies_the_named_user(pool: PgPool
     let (app, state) = app_and_state(pool).await;
     let (author_id, _, _) = seed_and_login(&app, &state, "mention-author", false).await;
     let ws_id = seed_workspace(&state, author_id, "Named WS").await;
-    let ch_id = seed_channel(&state, ws_id, author_id, "general", false).await;
+    let ch_id = seed_channel(&state, ws_id, author_id, "main", false).await;
 
     let (named, _) = seed(&state, "mention-named", false).await;
     let (bystander, _) = seed(&state, "mention-bystander", false).await;

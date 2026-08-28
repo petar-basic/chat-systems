@@ -58,16 +58,16 @@ export default function AddInstancePage() {
   const isFirstInstance = instances.length === 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-app via-accent-deep to-app flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-600 rounded-2xl mb-4">
-            <ServerCrash className="w-8 h-8 text-white" />
+            <ServerCrash className="w-8 h-8 text-fg" />
           </div>
-          <h1 className="text-3xl font-bold text-white">
+          <h1 className="text-3xl font-bold text-fg">
             {isFirstInstance ? 'Welcome to Chat Systems' : 'Add Instance'}
           </h1>
-          <p className="text-slate-400 mt-2">
+          <p className="text-muted mt-2">
             {isFirstInstance
               ? 'Connect to your Chat Systems server'
               : 'Connect to another Chat Systems server'}
@@ -76,22 +76,22 @@ export default function AddInstancePage() {
 
         <form
           onSubmit={handleSubmit}
-          className="bg-slate-800/50 backdrop-blur-xl border border-slate-700 rounded-2xl p-8 shadow-2xl"
+          className="bg-surface/50 backdrop-blur-xl border border-line rounded-2xl p-8 shadow-2xl"
         >
           {error && error !== 'totp_required' && (
-            <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg mb-6 text-sm">
+            <div className="bg-red-500/10 border border-red-500/30 text-danger px-4 py-3 rounded-lg mb-6 text-sm">
               {error}
             </div>
           )}
 
           {needsTotp && (
-            <div className="bg-purple-500/10 border border-purple-500/30 text-purple-200 px-4 py-3 rounded-lg mb-6 text-sm">
+            <div className="bg-purple-500/10 border border-purple-500/30 text-accent-soft px-4 py-3 rounded-lg mb-6 text-sm">
               Enter the six-digit code from your authenticator app, or one of your recovery codes.
             </div>
           )}
 
           <div className="mb-5">
-            <label htmlFor="url" className="block text-sm font-medium text-slate-300 mb-2">
+            <label htmlFor="url" className="block text-sm font-medium text-fg-dim mb-2">
               Server URL
             </label>
             <input
@@ -99,7 +99,7 @@ export default function AddInstancePage() {
               type="url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+              className="w-full px-4 py-3 bg-raised/50 border border-line-strong rounded-lg text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
               placeholder="https://chat.yourcompany.com"
               required
             />
@@ -109,15 +109,15 @@ export default function AddInstancePage() {
             <button
               type="button"
               onClick={() => setShowAdvanced(!showAdvanced)}
-              className="text-xs text-slate-400 hover:text-slate-300 transition flex items-center gap-1"
+              className="text-xs text-muted hover:text-fg-dim transition flex items-center gap-1"
             >
               <span>{showAdvanced ? '▾' : '▸'}</span> Advanced options
             </button>
             {showAdvanced && (
               <div className="mt-3">
-                <label htmlFor="wsUrl" className="block text-sm font-medium text-slate-300 mb-2">
+                <label htmlFor="wsUrl" className="block text-sm font-medium text-fg-dim mb-2">
                   WebSocket URL
-                  <span className="ml-2 text-xs text-slate-400 font-normal">
+                  <span className="ml-2 text-xs text-muted font-normal">
                     (optional — only needed if WS runs on a different port)
                   </span>
                 </label>
@@ -126,7 +126,7 @@ export default function AddInstancePage() {
                   type="url"
                   value={wsUrl}
                   onChange={(e) => setWsUrl(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                  className="w-full px-4 py-3 bg-raised/50 border border-line-strong rounded-lg text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
                   placeholder="ws://localhost:3004"
                 />
               </div>
@@ -134,7 +134,7 @@ export default function AddInstancePage() {
           </div>
 
           <div className="mb-5">
-            <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-2">
+            <label htmlFor="email" className="block text-sm font-medium text-fg-dim mb-2">
               Email
             </label>
             <input
@@ -142,14 +142,14 @@ export default function AddInstancePage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+              className="w-full px-4 py-3 bg-raised/50 border border-line-strong rounded-lg text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
               placeholder="you@company.com"
               required
             />
           </div>
 
           <div className="mb-6">
-            <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-2">
+            <label htmlFor="password" className="block text-sm font-medium text-fg-dim mb-2">
               Password
             </label>
             <input
@@ -157,7 +157,7 @@ export default function AddInstancePage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+              className="w-full px-4 py-3 bg-raised/50 border border-line-strong rounded-lg text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
               placeholder="Enter your password"
               required
             />
@@ -165,7 +165,7 @@ export default function AddInstancePage() {
 
           {needsTotp && (
             <div className="mb-6">
-              <label htmlFor="totp" className="block text-sm font-medium text-slate-300 mb-2">
+              <label htmlFor="totp" className="block text-sm font-medium text-fg-dim mb-2">
                 Authentication code
               </label>
               <input
@@ -177,7 +177,7 @@ export default function AddInstancePage() {
                 value={totpCode}
                 onChange={(e) => setTotpCode(e.target.value.trim())}
                 data-qa="login-totp"
-                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition tracking-widest"
+                className="w-full px-4 py-3 bg-raised/50 border border-line-strong rounded-lg text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition tracking-widest"
                 placeholder="123456"
                 required
               />
@@ -202,14 +202,14 @@ export default function AddInstancePage() {
           {instance?.sso_enabled && sameOrigin && (
             <>
               <div className="flex items-center gap-3 my-6">
-                <div className="h-px flex-1 bg-slate-700" />
-                <span className="text-xs uppercase tracking-wide text-slate-500">or</span>
-                <div className="h-px flex-1 bg-slate-700" />
+                <div className="h-px flex-1 bg-raised" />
+                <span className="text-xs uppercase tracking-wide text-subtle">or</span>
+                <div className="h-px flex-1 bg-raised" />
               </div>
               <a
                 href={`${window.location.origin}/api/auth/oidc/start`}
                 data-qa="sso-start"
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-lg transition"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-raised hover:bg-elevated text-fg font-medium rounded-lg transition"
               >
                 <KeyRound className="w-4 h-4" />
                 Sign in with SSO
@@ -221,13 +221,13 @@ export default function AddInstancePage() {
         {!isFirstInstance && (
           <button
             onClick={() => navigate(-1)}
-            className="mt-4 w-full text-center text-slate-400 text-sm hover:text-slate-300 transition"
+            className="mt-4 w-full text-center text-muted text-sm hover:text-fg-dim transition"
           >
             Cancel
           </button>
         )}
 
-        <p className="text-center text-slate-400 text-sm mt-6">
+        <p className="text-center text-muted text-sm mt-6">
           Invite-only platform. Contact your admin for access.
         </p>
       </div>
