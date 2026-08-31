@@ -11,6 +11,8 @@ import {
   MoreHorizontal,
 } from 'lucide-react';
 import { AnchoredPopover } from '@/shared/components/Popover/AnchoredPopover';
+import { useLongPress } from '@/shared/hooks/useLongPress';
+import MessageActionSheet, { type SheetAction } from './MessageActionSheet';
 import type { Message, WorkspaceMember, Channel } from '@/stores/workspace';
 import { ReactionEmoji } from '@/shared/components/ReactionEmoji';
 import RichTextDisplay from '@/components/RichTextDisplay';
@@ -101,12 +103,53 @@ function MessageItem({
   const isEdited = message.updated_at !== message.created_at;
   const [showHistory, setShowHistory] = useState(false);
   const rowRef = useRef<HTMLDivElement>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const longPress = useLongPress(() => setSheetOpen(true), !editing && !confirmDelete);
+
+  const sheetActions: SheetAction[] = [
+    ...(onThreadOpen
+      ? [
+          {
+            key: 'thread',
+            label: 'Reply in thread',
+            Icon: MessageSquare,
+            onSelect: () => onThreadOpen(message),
+          },
+        ]
+      : []),
+    ...(onSave
+      ? [{ key: 'save', label: 'Save message', Icon: Bookmark, onSelect: () => onSave(message) }]
+      : []),
+    ...(onCopyLink
+      ? [{ key: 'copy-link', label: 'Copy link', Icon: Link2, onSelect: () => onCopyLink(message.id) }]
+      : []),
+    ...(onForward
+      ? [{ key: 'forward', label: 'Forward', Icon: Forward, onSelect: () => onForward(message) }]
+      : []),
+    {
+      key: 'pin',
+      label: message.is_pinned ? 'Unpin from channel' : 'Pin to channel',
+      Icon: Pin,
+      onSelect: () => onTogglePin(message.id, message.is_pinned),
+    },
+    ...(isOwn
+      ? [
+          { key: 'edit', label: 'Edit message', Icon: Pencil, onSelect: () => setEditing(true) },
+          {
+            key: 'delete',
+            label: 'Delete message',
+            Icon: Trash2,
+            onSelect: () => setConfirmDelete(true),
+            destructive: true,
+          },
+        ]
+      : []),
+  ];
 
   useEffect(() => {
     if (!editing && !confirmDelete) return;
     rowRef.current?.scrollIntoView({ block: 'nearest' });
   }, [editing, confirmDelete]);
-  const [actionsRevealed, setActionsRevealed] = useState(false);
   const [showOverflow, setShowOverflow] = useState(false);
   const overflowAnchorRef = useRef<HTMLButtonElement>(null);
   // The marker becomes a control only for people entitled to what is behind it;
@@ -152,6 +195,12 @@ function MessageItem({
     );
   }
 
+  const pinnedMarker = message.is_pinned ? (
+    <span data-qa="pinned-marker" className="text-xs text-warning inline-flex items-center gap-0.5">
+      <Pin className="w-3 h-3" /> pinned
+    </span>
+  ) : null;
+
   const editedMarker =
     isEdited && !message.pending ? (
       canSeeHistory ? (
@@ -176,16 +225,7 @@ function MessageItem({
       data-message-id={message.id}
       data-qa={dataQa}
       tabIndex={0}
-      // A finger cannot hover, so on a touch device a tap is what reveals this
-      // message's actions — and only this message's. Guarded on the pointer
-      // type and on there being no selection, so a mouse click that is really a
-      // text selection does not toggle anything.
-      onPointerUp={(e) => {
-        if (e.pointerType === 'mouse') return;
-        if (window.getSelection()?.toString()) return;
-        if ((e.target as HTMLElement).closest('button, a')) return;
-        setActionsRevealed((revealed) => !revealed);
-      }}
+      {...longPress}
       className={`group relative flex items-start gap-3 px-2 rounded-lg transition-colors hover:bg-surface/50 ${grouped ? 'py-0.5' : 'py-1.5'} ${message.pending ? 'opacity-50' : ''} ${isHighlighted ? 'bg-amber-500/10 ring-1 ring-inset ring-amber-500/25' : ''}`}
     >
       {grouped ? (
@@ -217,11 +257,7 @@ function MessageItem({
             <span className="text-xs text-muted">{time}</span>
             {message.pending && <span className="text-xs text-muted italic">Sending…</span>}
             {editedMarker}
-            {message.is_pinned && (
-              <span className="text-xs text-warning flex items-center gap-0.5">
-                <Pin className="w-3 h-3" /> pinned
-              </span>
-            )}
+            {pinnedMarker}
           </div>
         )}
 
@@ -238,7 +274,12 @@ function MessageItem({
         ) : (
           <>
             <RichTextDisplay content={message.content} />
-            {grouped && editedMarker}
+            {grouped && (editedMarker || pinnedMarker) && (
+              <div className="flex items-center gap-2">
+                {editedMarker}
+                {pinnedMarker}
+              </div>
+            )}
           </>
         )}
 
@@ -327,7 +368,7 @@ function MessageItem({
       {!editing && !confirmDelete && (
         <div
           className={`message-actions absolute -top-3 right-2 flex items-center gap-0.5 bg-surface border border-line rounded-lg px-1 py-0.5 shadow-lg opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto ${
-            actionsRevealed || showOverflow ? 'opacity-100 pointer-events-auto' : ''
+            showOverflow ? 'opacity-100 pointer-events-auto' : ''
           }`}
         >
           {/* Slack surfaces a few emoji inline because reacting is the most
@@ -469,6 +510,15 @@ function MessageItem({
             )}
           </div>
         </div>
+      )}
+
+      {sheetOpen && (
+        <MessageActionSheet
+          quickReactions={QUICK_REACTIONS}
+          onReact={(emoji) => handleReactionToggle(emoji)}
+          actions={sheetActions}
+          onClose={() => setSheetOpen(false)}
+        />
       )}
     </div>
   );

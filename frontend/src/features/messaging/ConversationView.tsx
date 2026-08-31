@@ -28,6 +28,8 @@ import { toast } from '@/shared/components/Toast';
 import VirtualMessageList from './VirtualMessageList';
 import { DaySeparator } from './MessageList';
 import { buildMessageRows, type MessageRow } from './messageRows';
+import { useLongPress } from '@/shared/hooks/useLongPress';
+import MessageActionSheet, { type SheetAction } from './MessageActionSheet';
 
 const QUICK_REACTIONS = ['👍', '✅', '🎉'];
 
@@ -264,6 +266,28 @@ export function ConversationMessageRow({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const reactBtnRef = useRef<HTMLButtonElement>(null);
   const rowRef = useRef<HTMLDivElement>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const longPress = useLongPress(() => setSheetOpen(true), !editing && !confirmDelete);
+
+  const sheetActions: SheetAction[] = [
+    ...(onOpenThread
+      ? [{ key: 'thread', label: 'Reply in thread', Icon: MessageSquare, onSelect: onOpenThread }]
+      : []),
+    ...(onSave ? [{ key: 'save', label: 'Save message', Icon: Bookmark, onSelect: onSave }] : []),
+    ...(onForward ? [{ key: 'forward', label: 'Forward', Icon: Forward, onSelect: onForward }] : []),
+    ...(isOwn
+      ? [
+          { key: 'edit', label: 'Edit message', Icon: Pencil, onSelect: () => setEditing(true) },
+          {
+            key: 'delete',
+            label: 'Delete message',
+            Icon: Trash2,
+            onSelect: () => setConfirmDelete(true),
+            destructive: true,
+          },
+        ]
+      : []),
+  ];
 
   useEffect(() => {
     if (!editing && !confirmDelete) return;
@@ -314,8 +338,10 @@ export function ConversationMessageRow({
   return (
     <div
       ref={rowRef}
+      data-message-id={msg.id}
       data-qa={dataQa}
       tabIndex={0}
+      {...longPress}
       className={`group relative flex items-start gap-3 px-2 rounded-lg transition-colors hover:bg-surface/50 ${grouped ? 'py-0.5' : 'py-1.5'} ${msg.pending ? 'opacity-50' : ''}`}
     >
       {grouped ? (
@@ -488,6 +514,16 @@ export function ConversationMessageRow({
             </button>
           )}
         </div>
+      )}
+
+      {sheetOpen && (
+        <MessageActionSheet
+          quickReactions={QUICK_REACTIONS}
+          onReact={(emoji) => handleReactionToggle(emoji)}
+          actions={sheetActions}
+          onClose={() => setSheetOpen(false)}
+          dataQa="dm-action-sheet"
+        />
       )}
     </div>
   );

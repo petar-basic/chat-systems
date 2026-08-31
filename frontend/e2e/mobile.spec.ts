@@ -111,3 +111,39 @@ test('a modal becomes a full-width sheet', async ({ page, playwright }) => {
     await admin.dispose();
   }
 });
+
+/// A finger cannot hover, so the hover toolbar is unreachable on a phone.
+/// Holding a message is what opens its actions, the way Slack does it.
+test('holding a message opens the action sheet', async ({ page, playwright }) => {
+  const admin = await playwright.request.newContext({
+    extraHTTPHeaders: await authHeaders(await playwright.request.newContext(), 'admin@dev.local'),
+  });
+
+  try {
+    const { workspace, channel } = await seededChannel(admin);
+    const text = `long-press ${Date.now()}`;
+    await admin.post(`${API}/channels/${channel.id}/messages`, { data: { content: text } });
+
+    await login(page, 'admin@dev.local');
+    await page.goto(`/app/${workspace.id}/${channel.id}`);
+    const row = page.locator('[data-qa="message-row"]', { hasText: text }).last();
+    await expect(row).toBeVisible({ timeout: 20_000 });
+
+    const box = await row.boundingBox();
+    const at = { clientX: box!.x + box!.width / 2, clientY: box!.y + box!.height / 2 };
+    await row.dispatchEvent('pointerdown', { pointerType: 'touch', isPrimary: true, ...at });
+    await page.waitForTimeout(600);
+    await row.dispatchEvent('pointerup', { pointerType: 'touch', isPrimary: true, ...at });
+
+    const sheet = page.locator('[data-qa="message-action-sheet"]');
+    await expect(sheet).toBeVisible();
+    await expect(sheet.locator('[data-qa="sheet-quick-reaction"]').first()).toBeVisible();
+    await expect(sheet.locator('[data-qa="sheet-action-thread"]')).toBeVisible();
+
+    await sheet.locator('[data-qa="sheet-action-pin"]').click();
+    await expect(sheet).toHaveCount(0);
+    await expect(row.getByText(/pinned/i)).toBeVisible();
+  } finally {
+    await admin.dispose();
+  }
+});
