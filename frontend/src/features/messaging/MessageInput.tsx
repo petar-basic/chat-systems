@@ -13,6 +13,7 @@ import FormattingToolbar from '@/components/FormattingToolbar';
 import type { WorkspaceMember, Channel } from '@/stores/workspace';
 import { Clock, Paperclip, Send, SmilePlus, Type } from 'lucide-react';
 import { MENTION_SUGGESTION_LIMIT, DRAFT_SAVE_DEBOUNCE_MS } from '@/shared/constants';
+import { uploadFilesSequentially, transferFiles } from '@/lib/fileUploads';
 import { useDraftStore } from '@/stores/drafts';
 import { flattenMentions } from '@/lib/mentions';
 import { useScheduleMessage, type ScheduleTarget } from '@/hooks/queries/useScheduledMessages';
@@ -76,6 +77,16 @@ export default function MessageInput({
   scheduleTarget,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadRef = useRef(onFileUpload);
+  useEffect(() => {
+    uploadRef.current = onFileUpload;
+  });
+
+  const uploadFiles = useCallback(async (files: File[]) => {
+    const upload = uploadRef.current;
+    if (!upload) return;
+    await uploadFilesSequentially(files, upload);
+  }, []);
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sendRef = useRef<() => void>(() => {});
   const emojiBtnRef = useRef<HTMLButtonElement>(null);
@@ -152,6 +163,22 @@ export default function MessageInput({
 
   const editor = useEditor({
     shouldRerenderOnTransaction: true,
+    editorProps: {
+      handlePaste: (_view, event) => {
+        const files = transferFiles(event.clipboardData);
+        if (files.length === 0 || !uploadRef.current) return false;
+        event.preventDefault();
+        void uploadFiles(files);
+        return true;
+      },
+      handleDrop: (_view, event) => {
+        const files = transferFiles((event as DragEvent).dataTransfer);
+        if (files.length === 0 || !uploadRef.current) return false;
+        event.preventDefault();
+        void uploadFiles(files);
+        return true;
+      },
+    },
     extensions: [
       ...createEditorExtensions(),
       Placeholder.configure({
@@ -228,8 +255,7 @@ export default function MessageInput({
   }, [editing, editor]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && onFileUpload) onFileUpload(file);
+    void uploadFiles(Array.from(e.target.files ?? []));
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -240,15 +266,15 @@ export default function MessageInput({
     // button sits under it and cannot be tapped.
     <div className={editing ? 'mt-1' : 'px-4 pb-4 max-sm:pb-[max(1rem,env(safe-area-inset-bottom))]'}>
       {onFileUpload && (
-        <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} />
+        <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileChange} />
       )}
-      <div className="bg-surface border border-line rounded-xl">
+      <div className="@container bg-surface border border-line rounded-xl">
         <div className="px-4 pt-3 pb-1">
           <EditorContent editor={editor} className="tiptap-editor" />
         </div>
 
-        <div className="flex items-center justify-between px-3 pb-2 pt-1">
-          <div className="flex items-center gap-0.5">
+        <div className="flex items-start justify-between gap-1 px-3 pb-2 pt-1">
+          <div className="flex flex-wrap items-center gap-0.5 min-w-0">
             {onFileUpload && (
               <>
                 <button
@@ -267,10 +293,10 @@ export default function MessageInput({
                 <div className="w-px h-4 bg-elevated/60 mx-0.5" />
               </>
             )}
-            {/* Twelve formatting buttons on a phone is more chrome than
-                composer, and markdown shortcuts still work while it is folded
-                away. */}
-            <div className={showFormatting ? 'contents' : 'max-sm:hidden contents'}>
+            {/* Twelve formatting buttons in a composer this narrow is more
+                chrome than composer, and markdown shortcuts still work while it
+                is folded away. */}
+            <div className={showFormatting ? 'contents' : '@max-md:hidden contents'}>
               <FormattingToolbar editor={editor} />
             </div>
             <button
@@ -279,7 +305,7 @@ export default function MessageInput({
               aria-label={showFormatting ? 'Hide formatting' : 'Show formatting'}
               aria-pressed={showFormatting}
               data-qa="composer-formatting-toggle"
-              className="sm:hidden p-1 text-muted hover:text-fg-soft transition cursor-pointer rounded hover:bg-raised/60"
+              className="@md:hidden p-1 text-muted hover:text-fg-soft transition cursor-pointer rounded hover:bg-raised/60"
             >
               <Type className="w-3.5 h-3.5" />
             </button>
@@ -307,7 +333,7 @@ export default function MessageInput({
           </div>
 
           {editing ? (
-            <div className="flex items-center gap-2 text-xs">
+            <div className="flex shrink-0 items-center gap-2 text-xs">
               <button
                 type="button"
                 onClick={handleSend}
@@ -326,7 +352,7 @@ export default function MessageInput({
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-0.5">
+            <div className="flex shrink-0 items-center gap-0.5">
               {canSchedule && (
                 <div className="relative">
                   <button

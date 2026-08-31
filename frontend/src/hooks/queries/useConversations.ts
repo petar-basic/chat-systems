@@ -7,7 +7,13 @@ import {
 } from '@tanstack/react-query';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { QUERY_KEYS, MESSAGES_PAGE_SIZE, ErrorLabels } from '@/shared/constants';
-import { upsertMessage, removeMessageById, patchMessageById, newestFirst } from '@/lib/messageCache';
+import {
+  upsertMessage,
+  removeMessageById,
+  patchMessageById,
+  newestFirst,
+  claimReplyCount,
+} from '@/lib/messageCache';
 import { toast } from '@/shared/components/Toast';
 import { logger } from '@/lib/logger';
 import type { Reaction } from '@/stores/workspace';
@@ -314,11 +320,13 @@ export const useSendConversationThreadReply = (
         old.some((m) => m.id === reply.id) ? old : [...old, reply],
       );
       // The count under the parent lives in the feed, which never sees the reply.
-      queryClient.setQueryData<ConversationInfiniteData>(
-        QUERY_KEYS.conversationMessages(conversationId),
-        (old) =>
-          patchMessageById(old, parentMessageId, (m) => ({ ...m, reply_count: (m.reply_count ?? 0) + 1 })),
-      );
+      if (claimReplyCount(reply.id)) {
+        queryClient.setQueryData<ConversationInfiniteData>(
+          QUERY_KEYS.conversationMessages(conversationId),
+          (old) =>
+            patchMessageById(old, parentMessageId, (m) => ({ ...m, reply_count: (m.reply_count ?? 0) + 1 })),
+        );
+      }
     },
     onError: (err) => {
       logger.error('useSendConversationThreadReply', 'mutationFn', err);

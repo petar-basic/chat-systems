@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { globalEventBus, type ServerEvent } from '../lib/globalEventBus';
 import { useUserCache } from '../stores/users';
-import { UNKNOWN_USER } from '@/shared/constants';
+import { UNKNOWN_USER, TYPING_INDICATOR_TTL_MS } from '@/shared/constants';
 
 interface Props {
-  channelId: string;
+  channelId?: string;
+  conversationId?: string;
   currentUserId: string;
 }
 
@@ -13,14 +14,15 @@ interface TypingUser {
   expiresAt: number;
 }
 
-export default function TypingIndicator({ channelId, currentUserId }: Props) {
+export default function TypingIndicator({ channelId, conversationId, currentUserId }: Props) {
+  const scopeId = channelId ?? conversationId;
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
   const { getUser } = useUserCache();
 
   const handleTypingEvent = useCallback(
     (event: ServerEvent) => {
       if (event.type !== 'typing.indicator') return;
-      if (event.channel_id !== channelId) return;
+      if ((event.channel_id ?? event.conversation_id) !== scopeId) return;
       if (event.user_id === currentUserId) return;
 
       const userId = event.user_id as string;
@@ -29,13 +31,13 @@ export default function TypingIndicator({ channelId, currentUserId }: Props) {
       if (isTyping) {
         setTypingUsers((prev) => {
           const filtered = prev.filter((t) => t.userId !== userId);
-          return [...filtered, { userId, expiresAt: Date.now() + 5000 }];
+          return [...filtered, { userId, expiresAt: Date.now() + TYPING_INDICATOR_TTL_MS }];
         });
       } else {
         setTypingUsers((prev) => prev.filter((t) => t.userId !== userId));
       }
     },
-    [channelId, currentUserId],
+    [scopeId, currentUserId],
   );
 
   useEffect(() => {
@@ -57,7 +59,7 @@ export default function TypingIndicator({ channelId, currentUserId }: Props) {
     return () => {
       setTypingUsers([]);
     };
-  }, [channelId]);
+  }, [scopeId]);
 
   if (typingUsers.length === 0) return null;
 

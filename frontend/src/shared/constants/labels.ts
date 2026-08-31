@@ -5,6 +5,7 @@ export const ErrorLabels = {
   ReactionFailed: "Couldn't update the reaction",
   PinFailed: "Couldn't update the pin",
   UploadFailed: 'File upload failed',
+  UploadTooLarge: 'That file is too large (25 MB max)',
   RestoreFailed: "Couldn't restore the workspace",
   SessionExpired: 'Your session expired. Please sign in again.',
   SessionRevoked: 'This session was ended. Please sign in again.',

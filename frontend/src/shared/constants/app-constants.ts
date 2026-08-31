@@ -1,4 +1,6 @@
 export const TYPING_TIMEOUT_MS = 3000;
+export const TYPING_REFRESH_MS = 2000;
+export const TYPING_INDICATOR_TTL_MS = 8000;
 export const DRAFT_SAVE_DEBOUNCE_MS = 400;
 
 export const MESSAGE_GROUP_WINDOW_MS = 5 * 60 * 1000;

@@ -1,11 +1,33 @@
+import { useNotificationPrefs } from '@/stores/notificationPrefs';
+import { NOTIFICATION_SOUND_THROTTLE_MS, NOTIFICATION_AUTO_CLOSE_MS } from '@/shared/constants';
+
 let permissionGranted = false;
 let audioCtx: AudioContext | null = null;
+let lastSoundAt = 0;
 
-export function playNotificationSound() {
+function getAudioContext(): AudioContext | null {
   try {
     if (!audioCtx) audioCtx = new AudioContext();
+    if (audioCtx.state === 'suspended') void audioCtx.resume();
+    return audioCtx;
+  } catch {
+    return null;
+  }
+}
 
-    const ctx = audioCtx;
+if (typeof window !== 'undefined') {
+  const unlock = () => {
+    getAudioContext();
+  };
+  window.addEventListener('pointerdown', unlock, { once: true });
+  window.addEventListener('keydown', unlock, { once: true });
+}
+
+export function playNotificationSound() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  try {
     const now = ctx.currentTime;
 
     const osc = ctx.createOscillator();
@@ -27,6 +49,14 @@ export function playNotificationSound() {
   } catch {
     return;
   }
+}
+
+export function playMessageSound() {
+  if (!useNotificationPrefs.getState().soundEnabled) return;
+  const now = Date.now();
+  if (now - lastSoundAt < NOTIFICATION_SOUND_THROTTLE_MS) return;
+  lastSoundAt = now;
+  playNotificationSound();
 }
 
 export async function requestNotificationPermission(): Promise<boolean> {
@@ -64,5 +94,5 @@ export function showNotification(title: string, body: string, onClick?: () => vo
     };
   }
 
-  setTimeout(() => notification.close(), 5000);
+  setTimeout(() => notification.close(), NOTIFICATION_AUTO_CLOSE_MS);
 }

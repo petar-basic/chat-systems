@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @theme inline {
   --color-rail: var(--rail);
@@ -56,7 +56,7 @@
   --mention-self-fg: #fbbf24;
 }
 
-:root[data-theme="light"] {
+:root[data-theme='light'] {
   color-scheme: light;
   --rail: #dbe1ea;
   --app: #eef1f6;
@@ -98,7 +98,7 @@
   /* Tailwind v4 Preflight sets buttons to cursor:default; restore the pointer
      once globally instead of hand-adding `cursor-pointer` to every control. */
   button:not(:disabled),
-  [role="button"]:not([aria-disabled="true"]) {
+  [role='button']:not([aria-disabled='true']) {
     cursor: pointer;
   }
 
@@ -167,6 +167,31 @@
   .tiptap-editor .tiptap {
     font-size: 1rem;
   }
+}
+
+.tiptap-content .emoji {
+  font-size: 1.375em;
+  line-height: 1;
+  vertical-align: -0.15em;
+}
+
+.tiptap-content .custom-emoji {
+  width: 1.375rem;
+  height: 1.375rem;
+}
+
+.tiptap-content.emoji-jumbo {
+  line-height: 1.2;
+}
+
+.tiptap-content.emoji-jumbo .emoji {
+  font-size: 2rem;
+  vertical-align: -0.1em;
+}
+
+.tiptap-content.emoji-jumbo .custom-emoji {
+  width: 2rem;
+  height: 2rem;
 }
 
 .tiptap-content p,

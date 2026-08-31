@@ -156,6 +156,43 @@ impl ConnectionManager {
         }
     }
 
+    pub async fn is_conversation_participant(&self, conversation_id: Uuid, user_id: Uuid) -> bool {
+        let result = sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS(SELECT 1 FROM conversation_participants WHERE conversation_id = $1 AND user_id = $2)",
+        )
+        .bind(conversation_id)
+        .bind(user_id)
+        .fetch_one(&self.db)
+        .await;
+
+        match result {
+            Ok(is_participant) => is_participant,
+            Err(e) => {
+                warn!(
+                    "is_conversation_participant DB error (denying) conversation={} user={}: {}",
+                    conversation_id, user_id, e
+                );
+                false
+            }
+        }
+    }
+
+    pub async fn conversation_participant_ids(&self, conversation_id: Uuid) -> Vec<Uuid> {
+        sqlx::query_scalar::<_, Uuid>(
+            "SELECT user_id FROM conversation_participants WHERE conversation_id = $1",
+        )
+        .bind(conversation_id)
+        .fetch_all(&self.db)
+        .await
+        .unwrap_or_else(|e| {
+            warn!(
+                "conversation_participant_ids DB error conversation={}: {}",
+                conversation_id, e
+            );
+            Vec::new()
+        })
+    }
+
     pub async fn is_workspace_member(&self, workspace_id: Uuid, user_id: Uuid) -> bool {
         let result = sqlx::query_scalar::<_, bool>(
             "SELECT EXISTS(SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2)",
@@ -625,6 +662,29 @@ impl ConnectionManager {
                 "channel_id": channel_id,
                 "user_id": user_id,
                 "is_typing": is_typing,
+            }),
+        )
+        .await;
+    }
+
+    pub async fn publish_conversation_typing(
+        &self,
+        conversation_id: Uuid,
+        user_id: Uuid,
+        is_typing: bool,
+    ) {
+        let participant_ids = self.conversation_participant_ids(conversation_id).await;
+        if participant_ids.is_empty() {
+            return;
+        }
+        self.publish_event(
+            "events:typing",
+            "typing.indicator",
+            serde_json::json!({
+                "conversation_id": conversation_id,
+                "user_id": user_id,
+                "is_typing": is_typing,
+                "participant_ids": participant_ids,
             }),
         )
         .await;
