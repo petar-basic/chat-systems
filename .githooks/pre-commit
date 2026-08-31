@@ -1,0 +1,51 @@
+#!/bin/sh
+# Formats with the same tools CI checks with, so a commit cannot fail CI on
+# formatting alone. Skip it for one commit with `git commit --no-verify`.
+
+set -eu
+
+cd "$(git rev-parse --show-toplevel)"
+
+staged_rs=$(git diff --cached --name-only --diff-filter=ACMR -- 'backend/*.rs')
+staged_fe=$(git diff --cached --name-only --diff-filter=ACMR \
+  -- 'frontend/src/*.ts' 'frontend/src/*.tsx' 'frontend/e2e/*.ts')
+
+if [ -z "$staged_rs" ] && [ -z "$staged_fe" ]; then
+  exit 0
+fi
+
+# A staged file can also carry edits that were deliberately left out of the
+# index. Reformatting those is fine; re-staging them would commit work the
+# author held back, so they are reported instead.
+unstaged=$(git diff --name-only)
+
+if [ -n "$staged_rs" ]; then
+  (cd backend && cargo fmt --all)
+fi
+
+if [ -n "$staged_fe" ]; then
+  if [ ! -x frontend/node_modules/.bin/prettier ]; then
+    echo "pre-commit: frontend/node_modules/.bin/prettier is missing — run 'npm ci' in frontend/" >&2
+    exit 1
+  fi
+  (cd frontend && npm run --silent format >/dev/null)
+fi
+
+old_ifs=$IFS
+IFS='
+'
+held_back=""
+for file in $staged_rs $staged_fe; do
+  [ -n "$file" ] || continue
+  if printf '%s\n' "$unstaged" | grep -qxF -- "$file"; then
+    held_back="$held_back  $file
+"
+  else
+    git add -- "$file"
+  fi
+done
+IFS=$old_ifs
+
+if [ -n "$held_back" ]; then
+  printf 'pre-commit: reformatted but left out of this commit, because they also carry changes you did not stage:\n%s' "$held_back" >&2
+fi

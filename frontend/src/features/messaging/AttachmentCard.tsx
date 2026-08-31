@@ -1,24 +1,30 @@
+import { useState } from 'react';
 import { FileText, Download } from 'lucide-react';
 import type { ParsedAttachment } from '@/lib/attachments';
+import { ImageLightbox } from './ImageLightbox';
 
 export function AttachmentCard({ filename, url, isImage }: ParsedAttachment) {
+  const [previewing, setPreviewing] = useState(false);
+
   if (isImage) {
     return (
-      <a
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        data-qa="attachment-image"
-        className="inline-block mt-1 max-w-sm"
-        title={filename}
-      >
-        <img
-          src={url}
-          alt={filename}
-          loading="lazy"
-          className="max-h-80 max-w-full rounded-lg border border-line/60"
-        />
-      </a>
+      <>
+        <button
+          type="button"
+          onClick={() => setPreviewing(true)}
+          data-qa="attachment-image"
+          className="inline-block mt-1 max-w-sm cursor-zoom-in"
+          title={filename}
+        >
+          <img
+            src={url}
+            alt={filename}
+            loading="lazy"
+            className="max-h-80 max-w-full rounded-lg border border-line/60"
+          />
+        </button>
+        {previewing && <ImageLightbox filename={filename} url={url} onClose={() => setPreviewing(false)} />}
+      </>
     );
   }
 
