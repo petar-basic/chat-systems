@@ -108,9 +108,18 @@ function MessageItem({
 
   const sheetActions: SheetAction[] = [
     ...(onThreadOpen
-      ? [{ key: 'thread', label: 'Reply in thread', Icon: MessageSquare, onSelect: () => onThreadOpen(message) }]
+      ? [
+          {
+            key: 'thread',
+            label: 'Reply in thread',
+            Icon: MessageSquare,
+            onSelect: () => onThreadOpen(message),
+          },
+        ]
       : []),
-    ...(onSave ? [{ key: 'save', label: 'Save message', Icon: Bookmark, onSelect: () => onSave(message) }] : []),
+    ...(onSave
+      ? [{ key: 'save', label: 'Save message', Icon: Bookmark, onSelect: () => onSave(message) }]
+      : []),
     ...(onCopyLink
       ? [{ key: 'copy-link', label: 'Copy link', Icon: Link2, onSelect: () => onCopyLink(message.id) }]
       : []),
