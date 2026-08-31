@@ -1,7 +1,9 @@
 /**
- * Push only. There is deliberately no fetch handler and no caching: an app shell
- * served from a cache is an app that keeps running a version the server has
- * already replaced, and nobody asked for offline.
+ * Push, and the bare minimum to be installable. There is deliberately no
+ * caching: an app shell served from a cache is an app that keeps running a
+ * version the server has already replaced, and nobody asked for offline. The
+ * fetch handler below exists only because Chrome will not offer to install a
+ * site whose worker has none; it hands every request straight to the network.
  */
 
 self.addEventListener('install', () => {
@@ -13,6 +15,8 @@ self.addEventListener('install', () => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
+
+self.addEventListener('fetch', () => {});
 
 self.addEventListener('push', (event) => {
   if (!event.data) return;

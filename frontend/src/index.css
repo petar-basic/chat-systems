@@ -110,6 +110,14 @@
   }
 }
 
+/* Holding a message opens its action sheet, so iOS must not race that with its
+   own selection callout. */
+@media (hover: none) {
+  [data-message-id] {
+    -webkit-touch-callout: none;
+  }
+}
+
 /* Respect OS "reduce motion" — kill the spinners/bounces for sensitive users. */
 @media (prefers-reduced-motion: reduce) {
   *,

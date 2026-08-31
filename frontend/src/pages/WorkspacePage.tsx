@@ -3,6 +3,7 @@ import { ROUTES, EmptyLabels } from '@/shared/constants';
 import { useUserCache } from '@/stores/users';
 import { conversationTitle } from '@/lib/conversationHelpers';
 import { ConnectionBanner } from '@/shared/components/ConnectionBanner/ConnectionBanner';
+import InstallAppBanner from '@/components/InstallAppBanner';
 import { QuickSwitcher } from '@/features/navigation';
 import { WorkspaceSidebar, WorkspaceRightPanels, useWorkspaceController } from '@/features/workspace';
 import { ChannelSidebar, ChannelHeader, ChannelBookmarksBar } from '@/features/channel';
@@ -30,7 +31,9 @@ export default function WorkspacePage() {
   useEscapeToClose(() => c.setMobileNavOpen(false), c.mobileNavOpen);
 
   return (
-    <div className="h-dvh flex bg-app text-fg relative">
+    <div className="h-dvh flex flex-col bg-app text-fg">
+      <InstallAppBanner />
+      <div className="flex-1 flex min-h-0 relative">
       <div
         className={`flex shrink-0 max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:z-40 max-lg:shadow-2xl transition-transform ${
           c.mobileNavOpen ? 'max-lg:translate-x-0' : 'max-lg:-translate-x-full'
@@ -259,6 +262,7 @@ export default function WorkspacePage() {
           onClose={() => c.setQuickSwitcherOpen(false)}
         />
       )}
+      </div>
     </div>
   );
 }
