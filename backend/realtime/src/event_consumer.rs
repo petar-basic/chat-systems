@@ -295,16 +295,44 @@ pub(crate) async fn handle_event_for(
             }
         }
         "typing.indicator" => {
+            let user_id = payload.get("user_id");
+            let is_typing = payload
+                .get("is_typing")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false);
             if let Some(ch_id) = channel_id {
-                let user_id = payload.get("user_id");
                 let ws_msg = serde_json::json!({
                     "type": "typing.indicator",
                     "channel_id": ch_id,
                     "user_id": user_id,
-                    "is_typing": payload.get("is_typing").and_then(serde_json::Value::as_bool).unwrap_or(false),
+                    "is_typing": is_typing,
                 });
                 cm.broadcast_to_channel(audience, ch_id, &framed(ws_msg))
                     .await;
+            } else if let Some(conv_id) = payload
+                .get("conversation_id")
+                .and_then(|v| v.as_str())
+                .and_then(|v| v.parse::<uuid::Uuid>().ok())
+            {
+                let participants: Vec<uuid::Uuid> = payload
+                    .get("participant_ids")
+                    .and_then(|v| v.as_array())
+                    .map(|ids| {
+                        ids.iter()
+                            .filter_map(|v| v.as_str())
+                            .filter_map(|v| v.parse::<uuid::Uuid>().ok())
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                let ws_msg = framed(serde_json::json!({
+                    "type": "typing.indicator",
+                    "conversation_id": conv_id,
+                    "user_id": user_id,
+                    "is_typing": is_typing,
+                }));
+                for participant in participants {
+                    cm.send_to_user(audience, participant, &ws_msg).await;
+                }
             }
         }
         "conversation.created"

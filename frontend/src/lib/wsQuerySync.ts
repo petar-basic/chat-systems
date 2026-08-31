@@ -3,8 +3,8 @@ import { useQueryClient, type InfiniteData, type QueryClient } from '@tanstack/r
 import { globalEventBus } from './globalEventBus';
 import { logger } from './logger';
 import { backfillAfterReconnect } from './realtimeBackfill';
-import { upsertMessage, patchMessageById, newestFirst } from './messageCache';
-import { showNotification, playNotificationSound } from './notifications';
+import { upsertMessage, patchMessageById, newestFirst, claimReplyCount } from './messageCache';
+import { showNotification, playMessageSound } from './notifications';
 import type { Message, WorkspaceMember } from '@/stores/workspace';
 import type {
   Conversation,
@@ -156,17 +156,22 @@ export const useWebSocketQuerySync = () => {
         ensureUserKnown(queryClient, message.user_id);
 
         if (message.thread_parent_id) {
-          queryClient.setQueryData<Message[]>(QUERY_KEYS.thread(message.thread_parent_id), (old = []) =>
-            old.some((m) => m.id === message.id) ? old : [...old, message],
-          );
           const parentId = message.thread_parent_id;
-          patchChannel(
-            queryClient,
-            message.channel_id,
-            (cache) =>
-              patchMessageById(cache, parentId, (m) => ({ ...m, reply_count: (m.reply_count || 0) + 1 })),
-            true,
-          );
+          const threadKey = QUERY_KEYS.thread(parentId);
+          if (queryClient.getQueryData<Message[]>(threadKey)) {
+            queryClient.setQueryData<Message[]>(threadKey, (old = []) =>
+              old.some((m) => m.id === message.id) ? old : [...old, message],
+            );
+          }
+          if (claimReplyCount(message.id)) {
+            patchChannel(
+              queryClient,
+              message.channel_id,
+              (cache) =>
+                patchMessageById(cache, parentId, (m) => ({ ...m, reply_count: (m.reply_count || 0) + 1 })),
+              true,
+            );
+          }
           return;
         }
 
@@ -190,6 +195,7 @@ export const useWebSocketQuerySync = () => {
           // trip back to the channel list.
           const mentionedIds = (event.mentioned_user_ids ?? []) as string[];
           bumpChannelUnread(message.channel_id, mentionedIds.includes(currentUserId ?? ''));
+          playMessageSound();
         }
       }),
 
@@ -267,18 +273,22 @@ export const useWebSocketQuerySync = () => {
         // the listing too, so putting it in here would be the one place it shows
         // up twice.
         if (event.thread_parent_id) {
-          queryClient.setQueryData<ConversationMessage[]>(
-            QUERY_KEYS.conversationThread(event.thread_parent_id),
-            (old = []) => (old.some((m) => m.id === event.id) ? old : [...old, { ...event }]),
-          );
-          queryClient.setQueryData<ConversationInfiniteData>(
-            QUERY_KEYS.conversationMessages(event.conversation_id),
-            (old) =>
-              patchMessageById(old, event.thread_parent_id as string, (m) => ({
-                ...m,
-                reply_count: (m.reply_count ?? 0) + 1,
-              })),
-          );
+          const threadKey = QUERY_KEYS.conversationThread(event.thread_parent_id);
+          if (queryClient.getQueryData<ConversationMessage[]>(threadKey)) {
+            queryClient.setQueryData<ConversationMessage[]>(threadKey, (old = []) =>
+              old.some((m) => m.id === event.id) ? old : [...old, { ...event }],
+            );
+          }
+          if (claimReplyCount(event.id)) {
+            queryClient.setQueryData<ConversationInfiniteData>(
+              QUERY_KEYS.conversationMessages(event.conversation_id),
+              (old) =>
+                patchMessageById(old, event.thread_parent_id as string, (m) => ({
+                  ...m,
+                  reply_count: (m.reply_count ?? 0) + 1,
+                })),
+            );
+          }
         } else {
           queryClient.setQueryData<ConversationInfiniteData>(
             QUERY_KEYS.conversationMessages(event.conversation_id),
@@ -303,7 +313,7 @@ export const useWebSocketQuerySync = () => {
 
         if (isIncoming && currentConversationId !== event.conversation_id) {
           markConversationUnread(event.conversation_id);
-          if (!document.hasFocus()) playNotificationSound();
+          playMessageSound();
           const sender = useUserCache.getState().getUser(event.user_id)?.display_name || 'New message';
           showNotification(sender, event.content);
         }

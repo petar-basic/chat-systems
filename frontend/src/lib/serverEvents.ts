@@ -69,7 +69,13 @@ export type AppServerEvent =
     }
   | { type: 'presence.changed'; user_id: string; status: PresenceValue }
   | { type: 'presence.batch'; users: Array<{ user_id: string; status: PresenceValue }> }
-  | { type: 'typing.indicator'; channel_id: string; user_id: string; is_typing: boolean }
+  | {
+      type: 'typing.indicator';
+      channel_id?: string;
+      conversation_id?: string;
+      user_id: string;
+      is_typing: boolean;
+    }
   | { type: 'huddle.member_joined'; huddle_id: string; user_id: string }
   | { type: 'huddle.member_left'; huddle_id: string; user_id: string }
   | { type: 'huddle.members'; huddle_id: string; user_ids: string[] }

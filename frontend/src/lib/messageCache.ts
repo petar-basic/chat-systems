@@ -90,3 +90,16 @@ export function removeMessageById<P extends Page>(
     ),
   };
 }
+
+const REPLY_LEDGER_LIMIT = 500;
+const countedReplies = new Set<string>();
+
+export function claimReplyCount(replyId: string): boolean {
+  if (countedReplies.has(replyId)) return false;
+  countedReplies.add(replyId);
+  if (countedReplies.size > REPLY_LEDGER_LIMIT) {
+    const oldest = countedReplies.values().next().value;
+    if (oldest) countedReplies.delete(oldest);
+  }
+  return true;
+}

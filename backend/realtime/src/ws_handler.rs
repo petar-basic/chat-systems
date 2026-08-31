@@ -378,35 +378,54 @@ pub(crate) async fn handle_client_message(
             }
         }
         "typing.start" => {
-            if let Some(ch_id) = msg.get("channel_id").and_then(|v| v.as_str()) {
-                if let Ok(ch_id) = ch_id.parse::<Uuid>() {
-                    if !inbound.should_publish_typing(ch_id) {
-                        return;
-                    }
-                    if !cm.is_channel_member(ch_id, user_id).await {
-                        warn!(
-                            "Denied typing.start: user {} is not a member of channel {}",
-                            user_id, ch_id
-                        );
-                        return;
-                    }
-                    cm.publish_typing(ch_id, user_id, true).await;
+            if let Some(ch_id) = msg_uuid(&msg, "channel_id") {
+                if !inbound.should_publish_typing(ch_id) {
+                    return;
                 }
+                if !cm.is_channel_member(ch_id, user_id).await {
+                    warn!(
+                        "Denied typing.start: user {} is not a member of channel {}",
+                        user_id, ch_id
+                    );
+                    return;
+                }
+                cm.publish_typing(ch_id, user_id, true).await;
+            } else if let Some(conv_id) = msg_uuid(&msg, "conversation_id") {
+                if !inbound.should_publish_typing(conv_id) {
+                    return;
+                }
+                if !cm.is_conversation_participant(conv_id, user_id).await {
+                    warn!(
+                        "Denied typing.start: user {} is not a participant of conversation {}",
+                        user_id, conv_id
+                    );
+                    return;
+                }
+                cm.publish_conversation_typing(conv_id, user_id, true).await;
             }
         }
         "typing.stop" => {
-            if let Some(ch_id) = msg.get("channel_id").and_then(|v| v.as_str()) {
-                if let Ok(ch_id) = ch_id.parse::<Uuid>() {
-                    inbound.forget_typing(ch_id);
-                    if !cm.is_channel_member(ch_id, user_id).await {
-                        warn!(
-                            "Denied typing.stop: user {} is not a member of channel {}",
-                            user_id, ch_id
-                        );
-                        return;
-                    }
-                    cm.publish_typing(ch_id, user_id, false).await;
+            if let Some(ch_id) = msg_uuid(&msg, "channel_id") {
+                inbound.forget_typing(ch_id);
+                if !cm.is_channel_member(ch_id, user_id).await {
+                    warn!(
+                        "Denied typing.stop: user {} is not a member of channel {}",
+                        user_id, ch_id
+                    );
+                    return;
                 }
+                cm.publish_typing(ch_id, user_id, false).await;
+            } else if let Some(conv_id) = msg_uuid(&msg, "conversation_id") {
+                inbound.forget_typing(conv_id);
+                if !cm.is_conversation_participant(conv_id, user_id).await {
+                    warn!(
+                        "Denied typing.stop: user {} is not a participant of conversation {}",
+                        user_id, conv_id
+                    );
+                    return;
+                }
+                cm.publish_conversation_typing(conv_id, user_id, false)
+                    .await;
             }
         }
         "huddle.join" => {

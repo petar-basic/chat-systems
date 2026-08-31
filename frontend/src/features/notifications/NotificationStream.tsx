@@ -4,11 +4,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { globalEventBus } from '@/lib/globalEventBus';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useNotificationPrefs } from '@/stores/notificationPrefs';
-import { showNotification, playNotificationSound } from '@/lib/notifications';
-import { QUERY_KEYS, ROUTES, NOTIFICATION_SOUND_THROTTLE_MS } from '@/shared/constants';
+import { showNotification, playMessageSound } from '@/lib/notifications';
+import { QUERY_KEYS, ROUTES } from '@/shared/constants';
 import { NotificationType } from '@/models/enums';
-
-let lastSoundAt = 0;
 
 export function NotificationStream() {
   const navigate = useNavigate();
@@ -35,13 +33,11 @@ export function NotificationStream() {
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notificationUnreadCount(wsId) });
       }
 
-      const { soundEnabled, desktopEnabled } = useNotificationPrefs.getState();
+      const { desktopEnabled } = useNotificationPrefs.getState();
 
-      const now = Date.now();
-      if (soundEnabled && !document.hasFocus() && now - lastSoundAt > NOTIFICATION_SOUND_THROTTLE_MS) {
-        lastSoundAt = now;
-        playNotificationSound();
-      }
+      const viewing =
+        channel_id && useWorkspaceStore.getState().currentChannel?.id === channel_id && document.hasFocus();
+      if (!viewing) playMessageSound();
 
       if (desktopEnabled) {
         const onClick =

@@ -29,6 +29,10 @@ import VirtualMessageList from './VirtualMessageList';
 import { DaySeparator } from './MessageList';
 import { buildMessageRows, type MessageRow } from './messageRows';
 import { useLongPress } from '@/shared/hooks/useLongPress';
+import { useTypingSignal, typingTargetOf } from '@/shared/hooks/useTypingSignal';
+import TypingIndicator from '@/components/TypingIndicator';
+import { FileDropZone } from '@/shared/components/FileDropZone';
+import { uploadFilesSequentially } from '@/lib/fileUploads';
 import MessageActionSheet, { type SheetAction } from './MessageActionSheet';
 
 const QUICK_REACTIONS = ['👍', '✅', '🎉'];
@@ -86,7 +90,10 @@ export default function ConversationView({
   const displayMessages = useMemo(() => [...(data?.pages.flatMap((p) => p.data) ?? [])].reverse(), [data]);
   const rows = useMemo(() => buildMessageRows(displayMessages), [displayMessages]);
 
+  const { signalTyping, stopTyping } = useTypingSignal(typingTargetOf(null, conversationId), instanceUrl);
+
   const handleSend = async (content: string) => {
+    stopTyping();
     sendMutation.mutate({ content, id: crypto.randomUUID() });
   };
 
@@ -138,95 +145,103 @@ export default function ConversationView({
   );
 
   return (
-    <div role="main" aria-label="Direct message" className="flex-1 flex flex-col min-w-0">
-      <ConnectionBanner instanceUrl={instanceUrl} />
-      <div className="h-12 px-4 flex items-center gap-3 border-b border-line/50 shrink-0">
-        {onOpenNav && (
+    <FileDropZone
+      className="flex-1 flex min-w-0"
+      onFiles={(files) => void uploadFilesSequentially(files, handleFileUpload)}
+    >
+      <div role="main" aria-label="Direct message" className="flex-1 flex flex-col min-w-0">
+        <ConnectionBanner instanceUrl={instanceUrl} />
+        <div className="h-12 px-4 flex items-center gap-3 border-b border-line/50 shrink-0">
+          {onOpenNav && (
+            <button
+              onClick={onOpenNav}
+              aria-label="Open navigation"
+              className="lg:hidden p-1.5 -ml-1 rounded-lg text-muted hover:text-fg hover:bg-raised/50"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+          )}
           <button
-            onClick={onOpenNav}
-            aria-label="Open navigation"
-            className="lg:hidden p-1.5 -ml-1 rounded-lg text-muted hover:text-fg hover:bg-raised/50"
+            onClick={onClose}
+            aria-label="Back to channels"
+            className="text-muted hover:text-fg transition cursor-pointer mr-1"
           >
-            <Menu className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" />
           </button>
-        )}
-        <button
-          onClick={onClose}
-          aria-label="Back to channels"
-          className="text-muted hover:text-fg transition cursor-pointer mr-1"
-        >
-          <ArrowLeft className="w-4 h-4" />
-        </button>
-        {kind === 'direct' ? (
-          <div className="relative shrink-0">
-            <Avatar userId={partnerId} name={title} avatarUrl={partner?.avatar_url} size="sm" />
-            <PresenceDot userId={partnerId} className="absolute -bottom-0.5 -right-0.5 ring-2 ring-app" />
-          </div>
-        ) : (
-          <div className="flex -space-x-2 shrink-0" data-qa="conversation-participants">
-            {participantIds.slice(0, 3).map((id) => (
-              <Avatar
-                key={id}
-                userId={id}
-                name={displayNameOf(getUser(id)?.display_name)}
-                avatarUrl={getUser(id)?.avatar_url}
-                size="xs"
-                className="ring-2 ring-app"
+          {kind === 'direct' ? (
+            <div className="relative shrink-0">
+              <Avatar userId={partnerId} name={title} avatarUrl={partner?.avatar_url} size="sm" />
+              <PresenceDot userId={partnerId} className="absolute -bottom-0.5 -right-0.5 ring-2 ring-app" />
+            </div>
+          ) : (
+            <div className="flex -space-x-2 shrink-0" data-qa="conversation-participants">
+              {participantIds.slice(0, 3).map((id) => (
+                <Avatar
+                  key={id}
+                  userId={id}
+                  name={displayNameOf(getUser(id)?.display_name)}
+                  avatarUrl={getUser(id)?.avatar_url}
+                  size="xs"
+                  className="ring-2 ring-app"
+                />
+              ))}
+            </div>
+          )}
+          <span className="font-semibold text-fg truncate" data-qa="conversation-title">
+            {title}
+          </span>
+          {kind === 'group' && (
+            <span className="text-xs text-muted shrink-0">{participantIds.length} people</span>
+          )}
+          {kind === 'direct' && status === 'online' && <span className="text-xs text-muted">Active now</span>}
+          {kind === 'direct' && (
+            <div className="ml-auto">
+              <HuddleStartButton
+                workspaceId={workspaceId}
+                instanceUrl={instanceUrl}
+                partnerId={partnerId}
+                currentUserId={currentUserId}
               />
-            ))}
-          </div>
-        )}
-        <span className="font-semibold text-fg truncate" data-qa="conversation-title">
-          {title}
-        </span>
-        {kind === 'group' && (
-          <span className="text-xs text-muted shrink-0">{participantIds.length} people</span>
-        )}
-        {kind === 'direct' && status === 'online' && <span className="text-xs text-muted">Active now</span>}
-        {kind === 'direct' && (
-          <div className="ml-auto">
-            <HuddleStartButton
-              workspaceId={workspaceId}
-              instanceUrl={instanceUrl}
-              partnerId={partnerId}
-              currentUserId={currentUserId}
-            />
-          </div>
-        )}
-      </div>
+            </div>
+          )}
+        </div>
 
-      <QueryState
-        isLoading={isLoading}
-        isError={isError}
-        isEmpty={messageCount === 0}
-        onRetry={() => void refetch()}
-        empty={<p className="text-sm">{EmptyLabels.DmBeginning(title)}</p>}
-      >
-        <VirtualMessageList
-          rows={rows}
-          renderRow={renderRow}
-          hasOlder={!!hasNextPage}
-          isLoadingOlder={isFetchingNextPage}
-          onLoadOlder={fetchNextPage}
-          stickKey={conversationId}
-          qa="conversation-message-list"
-          ariaLabel="Direct messages"
+        <QueryState
+          isLoading={isLoading}
+          isError={isError}
+          isEmpty={messageCount === 0}
+          onRetry={() => void refetch()}
+          empty={<p className="text-sm">{EmptyLabels.DmBeginning(title)}</p>}
+        >
+          <VirtualMessageList
+            rows={rows}
+            renderRow={renderRow}
+            hasOlder={!!hasNextPage}
+            isLoadingOlder={isFetchingNextPage}
+            onLoadOlder={fetchNextPage}
+            stickKey={conversationId}
+            qa="conversation-message-list"
+            ariaLabel="Direct messages"
+          />
+        </QueryState>
+
+        <TypingIndicator conversationId={conversationId} currentUserId={currentUserId} />
+
+        <MessageInput
+          key={`conversation:${conversationId}`}
+          channelName={title}
+          draftKey={`conversation:${conversationId}`}
+          isDm
+          onSend={handleSend}
+          onFileUpload={handleFileUpload}
+          onTyping={signalTyping}
+          uploading={uploading}
+          scheduleTarget={{ conversationId }}
+          workspaceId={workspaceId}
+          instanceUrl={instanceUrl}
         />
-      </QueryState>
-
-      <MessageInput
-        key={`conversation:${conversationId}`}
-        channelName={title}
-        draftKey={`conversation:${conversationId}`}
-        isDm
-        onSend={handleSend}
-        onFileUpload={handleFileUpload}
-        uploading={uploading}
-        scheduleTarget={{ conversationId }}
-        workspaceId={workspaceId}
-        instanceUrl={instanceUrl}
-      />
-    </div>
+      </div>
+    </FileDropZone>
   );
 }
 

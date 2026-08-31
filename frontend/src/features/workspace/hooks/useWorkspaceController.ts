@@ -16,6 +16,7 @@ import { api } from '@/lib/api';
 import { wsClient } from '@/lib/ws';
 import { usePresenceStore } from '@/stores/presence';
 import { requestNotificationPermission } from '@/lib/notifications';
+import { useTypingSignal, typingTargetOf } from '@/shared/hooks/useTypingSignal';
 import { logger } from '@/lib/logger';
 import { toast } from '@/shared/components/Toast';
 import { ErrorLabels, ROUTES, QUERY_KEYS } from '@/shared/constants';
@@ -320,23 +321,7 @@ export function useWorkspaceController() {
     return cleanup;
   }, []);
 
-  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isTypingRef = useRef(false);
-
-  const handleTyping = useCallback(() => {
-    if (!currentChannel) return;
-    if (!isTypingRef.current) {
-      isTypingRef.current = true;
-      getWs().send({ type: 'typing.start', channel_id: currentChannel.id });
-    }
-    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-    typingTimerRef.current = setTimeout(() => {
-      isTypingRef.current = false;
-      if (currentChannel) {
-        getWs().send({ type: 'typing.stop', channel_id: currentChannel.id });
-      }
-    }, 3000);
-  }, [currentChannel, getWs]);
+  const { signalTyping, stopTyping } = useTypingSignal(typingTargetOf(currentChannel?.id), wsInstanceUrl);
 
   const [commandBanner, setCommandBanner] = useState<{ text: string; channelId: string } | null>(null);
   const ephemeral = commandBanner?.channelId === currentChannel?.id ? (commandBanner?.text ?? null) : null;
@@ -350,9 +335,7 @@ export function useWorkspaceController() {
   const handleSend = useCallback(
     async (content: string) => {
       if (!currentChannel || !user) return;
-      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-      isTypingRef.current = false;
-      getWs().send({ type: 'typing.stop', channel_id: currentChannel.id });
+      stopTyping();
 
       if (parseCommand(content)) {
         try {
@@ -376,7 +359,7 @@ export function useWorkspaceController() {
       const id = crypto.randomUUID();
       sendMessageMutation.mutate({ content, id });
     },
-    [currentChannel, user, getWs, sendMessageMutation, currentWsInstanceUrl],
+    [currentChannel, user, stopTyping, sendMessageMutation, currentWsInstanceUrl],
   );
 
   const handleFileUpload = useCallback(
@@ -581,7 +564,7 @@ export function useWorkspaceController() {
     urlMessageId,
     panel,
     handleTargetMessageFound,
-    handleTyping,
+    handleTyping: signalTyping,
     handleSend,
     handleFileUpload,
     handleSelectWorkspace,

@@ -4,6 +4,8 @@ import { instanceManager } from '@/lib/instances';
 import { api } from '@/lib/api';
 import type { Message } from '@/stores/workspace';
 import { QUERY_KEYS } from '@/shared/constants';
+import { patchMessageById, claimReplyCount } from '@/lib/messageCache';
+import type { MessagesInfiniteData } from './useMessages';
 
 interface ThreadMessagesResponse {
   data: Message[];
@@ -41,7 +43,10 @@ export const useSendThreadReply = (parentMessageId: string, channelId: string) =
       queryClient.setQueryData<Message[]>(QUERY_KEYS.thread(parentMessageId), (old = []) =>
         old.some((m) => m.id === newMessage.id) ? old : [...old, newMessage],
       );
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.messages(channelId) });
+      if (!claimReplyCount(newMessage.id)) return;
+      queryClient.setQueryData<MessagesInfiniteData>(QUERY_KEYS.messages(channelId), (old) =>
+        patchMessageById(old, parentMessageId, (m) => ({ ...m, reply_count: (m.reply_count || 0) + 1 })),
+      );
     },
   });
 };
