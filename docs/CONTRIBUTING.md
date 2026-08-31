@@ -203,6 +203,20 @@ docs/         this folder
   feels necessary, treat it as a sign to refactor.
 - Keep changes surgical and consistent with the surrounding code.
 
+## Formatting
+
+One-time, after cloning:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+`.githooks/pre-commit` then runs `cargo fmt --all` and `npm run format` whenever a commit
+touches a Rust file or a frontend `.ts`/`.tsx`, and re-stages what it changed — the same
+two commands CI checks with, so a commit cannot fail CI on formatting alone. A staged file
+that also carries unstaged edits is reformatted but left out of the commit, and named, so
+partial staging survives. `git commit --no-verify` skips the hook.
+
 ## Testing
 
 ```bash

@@ -7,13 +7,14 @@ interface ModalProps {
   onClose: () => void;
   children: ReactNode;
   className?: string;
+  backdropClassName?: string;
   dataQa?: string;
 }
 
 const FOCUSABLE =
   'a[href],button:not([disabled]),textarea:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
-export function Modal({ title, onClose, children, className, dataQa }: ModalProps) {
+export function Modal({ title, onClose, children, className, backdropClassName, dataQa }: ModalProps) {
   const ref = useRef<HTMLDivElement>(null);
   useEscapeToClose(onClose);
 
@@ -55,7 +56,10 @@ export function Modal({ title, onClose, children, className, dataQa }: ModalProp
   // sidebar was laid out inside the drawer's 304px instead of over the screen.
   return createPortal(
     <div
-      className="fixed inset-0 bg-overlay/50 flex items-end justify-center z-50 sm:items-center sm:p-4"
+      className={
+        backdropClassName ??
+        'fixed inset-0 bg-overlay/50 flex items-end justify-center z-50 sm:items-center sm:p-4'
+      }
       onMouseDown={onClose}
     >
       <div
