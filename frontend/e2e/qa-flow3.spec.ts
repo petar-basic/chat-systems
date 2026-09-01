@@ -94,6 +94,14 @@ test('I. notification badge + mark-all-read while viewing another channel', asyn
   ).data;
   const bobId = members.find((m: { email: string }) => m.email === 'bob@dev.local').user_id;
 
+  const random = chans.find((c: { name: string }) => c.name === 'random');
+  // Bob's membership of #random is this test's own setup. It used to arrive as
+  // a side effect of whichever spec ran before it.
+  await request.post(`http://localhost:3000/api/channels/${random.id}/members`, {
+    headers: auth,
+    data: { user_id: bobId },
+  });
+
   await login(page, 'bob@dev.local');
   await page.goto(`/app/${ws.id}`);
   await page

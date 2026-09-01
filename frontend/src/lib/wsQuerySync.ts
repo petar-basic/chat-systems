@@ -3,7 +3,13 @@ import { useQueryClient, type InfiniteData, type QueryClient } from '@tanstack/r
 import { globalEventBus } from './globalEventBus';
 import { logger } from './logger';
 import { backfillAfterReconnect } from './realtimeBackfill';
-import { upsertMessage, patchMessageById, newestFirst, claimReplyCount } from './messageCache';
+import {
+  upsertMessage,
+  patchMessageById,
+  newestFirst,
+  claimReplyCount,
+  removeMessageById,
+} from './messageCache';
 import { showNotification, playMessageSound } from './notifications';
 import type { Message, WorkspaceMember } from '@/stores/workspace';
 import type {
@@ -176,7 +182,12 @@ export const useWebSocketQuerySync = () => {
         }
 
         patchChannel(queryClient, message.channel_id, (cache) =>
-          upsertMessage(cache, { ...message, pending: false }, 'lastPage', newestFirst),
+          upsertMessage(
+            message.client_message_id ? removeMessageById(cache, message.client_message_id) : cache,
+            { ...message, pending: false },
+            'lastPage',
+            newestFirst,
+          ),
         );
 
         const { currentChannel, mutedChannels, bumpChannelUnread, currentUserId } =
@@ -292,7 +303,13 @@ export const useWebSocketQuerySync = () => {
         } else {
           queryClient.setQueryData<ConversationInfiniteData>(
             QUERY_KEYS.conversationMessages(event.conversation_id),
-            (old) => upsertMessage(old, { ...event, pending: false }, 'firstPage', newestFirst),
+            (old) =>
+              upsertMessage(
+                event.client_message_id ? removeMessageById(old, event.client_message_id) : old,
+                { ...event, pending: false },
+                'firstPage',
+                newestFirst,
+              ),
           );
         }
 

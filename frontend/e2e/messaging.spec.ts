@@ -32,8 +32,11 @@ test('a message sent by one user appears live for another in the same channel', 
   const text = `e2e-${Date.now()}`;
   await send(a, text);
 
-  await expect(a.getByText(text)).toBeVisible();
-  await expect(b.getByText(text)).toBeVisible();
+  // Scoped to the list: for a moment the sender holds both the optimistic copy
+  // and the echo of it, and an unscoped match turns that into a strict-mode
+  // failure about the wrong thing.
+  await expect(a.locator('[data-qa="message-list"]').getByText(text).last()).toBeVisible();
+  await expect(b.locator('[data-qa="message-list"]').getByText(text).last()).toBeVisible();
 
   await sender.close();
   await receiver.close();
