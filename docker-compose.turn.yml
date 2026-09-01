@@ -1,0 +1,39 @@
+# =============================================================================
+# Chat Systems — huddle WebRTC relay (coturn), deployed beside the app.
+# =============================================================================
+# TURN is infrastructure the application only needs two things from: a URL and a
+# shared secret. It has no network, volume or lifecycle in common with the
+# stack, and it needs the host network namespace because the browser reaches its
+# relay ports directly. A Coolify compose resource cannot express that — Coolify
+# attaches its own network to every service it manages — so this runs as its own
+# unit on the host instead of inside docker-compose.coolify.yml.
+#
+# On the server, from a checkout of this repository:
+#
+#   TURN_SECRET=<same value the api has> TURN_REALM=<your domain> \
+#     docker compose -f docker-compose.turn.yml up -d
+#
+# Open 3478/udp, 3478/tcp and 49160-49200/udp on the firewall. The relay range
+# is bounded in docker/coturn/turnserver.conf precisely so it can be opened
+# explicitly rather than as the whole ephemeral range.
+# =============================================================================
+
+services:
+  coturn:
+    image: coturn/coturn:4.6-alpine
+    container_name: chat-coturn
+    restart: unless-stopped
+    network_mode: "host"
+    volumes:
+      - ./docker/coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro
+    # Required, not defaulted: a relay running with an empty secret answers
+    # nothing and says nothing about why.
+    command:
+      - -c
+      - /etc/coturn/turnserver.conf
+      - --static-auth-secret=${TURN_SECRET:?TURN_SECRET must be set}
+      - --realm=${TURN_REALM:?TURN_REALM must be set}
+    deploy:
+      resources:
+        limits:
+          memory: 128m
