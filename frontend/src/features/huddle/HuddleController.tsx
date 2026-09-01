@@ -6,7 +6,9 @@ import { useWorkspaceStore } from '@/stores/workspace';
 import { useHuddleStore, type ActiveHuddle } from '@/stores/huddle';
 import { logger } from '@/lib/logger';
 import { MeshManager } from './lib/MeshManager';
-import { acquireCamera, acquireLocalAudio, acquireScreen, stopStream } from './lib/media';
+import { acquireCamera, acquireLocalAudio, acquireScreen, micErrorLabel, stopStream } from './lib/media';
+import { toast } from '@/shared/components/Toast';
+import { ErrorLabels } from '@/shared/constants';
 import { BackgroundProcessor } from './lib/backgroundProcessor';
 import { HuddleWindow } from './components/HuddleWindow';
 import { IncomingCallRing } from './components/IncomingCallRing';
@@ -90,22 +92,33 @@ export function HuddleController() {
     const send = (msg: Record<string, unknown>) => ws.send(msg);
 
     const start = async () => {
-      let iceServers: RTCIceServer[] = [];
+      let iceServers: RTCIceServer[];
       try {
         const res = await getApiForInstance(active.instanceUrl).get<{ ice_servers: RTCIceServer[] }>(
           `/workspaces/${active.workspaceId}/ice-servers`,
         );
         iceServers = res.ice_servers ?? [];
       } catch (err) {
+        // Joining anyway leaves only host candidates, which connects on a LAN
+        // and nowhere else — a call that fails silently is worse than one that
+        // says it could not start.
         logger.error('HuddleController', 'ice-servers', err);
+        toast.error(ErrorLabels.HuddleSetupFailed);
+        useHuddleStore.getState().setActive(null);
+        return;
       }
       if (cancelled) return;
+
+      if (iceServers.length === 0) {
+        logger.warn('HuddleController', 'ice-servers', 'no ICE servers configured');
+      }
 
       let stream: MediaStream;
       try {
         stream = await acquireLocalAudio(useHuddleStore.getState().devices.micId);
       } catch (err) {
         logger.error('HuddleController', 'getUserMedia', err);
+        toast.error(micErrorLabel(err));
         useHuddleStore.getState().setActive(null);
         return;
       }

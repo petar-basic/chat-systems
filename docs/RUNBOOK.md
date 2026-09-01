@@ -412,6 +412,35 @@ non-zero rate means logins are failing for infrastructure reasons, not credentia
 oversized file never lands in memory. `client_max_body_size` in `docker/nginx.conf` must
 move with it — nginx rejects first, and a mismatch surfaces as a bare 413.
 
+## Huddle relay (TURN)
+
+Huddles are mesh WebRTC. STUN alone only finds a path when neither side sits behind a
+symmetric NAT, which excludes most mobile carriers and anything doing CGNAT: two people on
+different connections then join a room that looks healthy and carries no audio. The
+`coturn` service is the relay that removes the dependency on what either side is behind.
+
+The API serves STUN-only until **both** `TURN_SECRET` and `TURN_URLS` are set, so the
+sequence matters — an advertised TURN server that is not answering is worse than none,
+because the browser waits on it before giving up.
+
+1. Set `TURN_SECRET` (`openssl rand -hex 32`) and `TURN_REALM` (your domain), and start
+   `coturn`. Leave `TURN_URLS` **unset** for now.
+2. Open `3478/udp`, `3478/tcp` and `49160-49200/udp` on the host firewall. The relay range
+   is bounded in `docker/coturn/turnserver.conf` so it can be opened explicitly.
+3. Confirm the relay answers before anything depends on it. On
+   [Trickle ICE](https://webrtc.github.io/samples/src/content/peerconnection/trickle-ice/),
+   enter `turn:<host>:3478` with a username of `<unix-expiry>:<any-user-id>` and a
+   credential of `base64(hmac_sha1(TURN_SECRET, username))`. A candidate of type `relay`
+   means it works; only `srflx` means the port is closed or the secret does not match.
+4. Now set `TURN_URLS=turn:<host>:3478` on the api and restart it. `GET
+   /api/workspaces/{id}/ice-servers` should return two entries — the STUN one and a TURN
+   one with credentials that expire after `TURN_TTL_SECS` (default 12h).
+
+Credentials are minted per user and time-limited (TURN REST API); coturn validates them
+against the same secret, which is why the two must match exactly. The relay refuses to
+forward to private, loopback and link-local ranges, so it cannot be turned into an SSRF
+primitive against the host it runs on.
+
 ## Importing a Slack export
 
 Slack gives you a ZIP. **The ordinary way is the app**: as a workspace admin, workspace menu

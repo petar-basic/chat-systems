@@ -10,6 +10,11 @@ export const ErrorLabels = {
   SessionExpired: 'Your session expired. Please sign in again.',
   SessionRevoked: 'This session was ended. Please sign in again.',
   NotFound: "We couldn't find that.",
+  MicBlocked: 'Your browser blocked the microphone. Allow it for this site and try again.',
+  MicMissing: 'No microphone found. Plug one in, or pick another input in settings.',
+  MicBusy: 'Another app is holding the microphone. Close it and try again.',
+  MicFailed: "Couldn't open the microphone.",
+  HuddleSetupFailed: "Couldn't set up the call. Try again in a moment.",
 } as const;
 
 export const EmptyLabels = {
