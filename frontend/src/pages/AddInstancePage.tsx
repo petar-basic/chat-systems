@@ -5,6 +5,16 @@ import { KeyRound, ServerCrash, LogIn } from 'lucide-react';
 import { useInstanceStore } from '../stores/instances';
 import { instanceManager } from '../lib/instances';
 import { isTotpRequired } from '@/lib/errors';
+import { PENDING_INVITE_KEY } from '@/shared/constants';
+
+/// A sign-in that started from an invite link owes the person the workspace
+/// they were invited to, not the generic app shell.
+function afterSignIn(): string {
+  const pending = sessionStorage.getItem(PENDING_INVITE_KEY);
+  if (!pending) return '/app';
+  sessionStorage.removeItem(PENDING_INVITE_KEY);
+  return `/invite/${pending}`;
+}
 
 export default function AddInstancePage() {
   const navigate = useNavigate();
@@ -31,7 +41,7 @@ export default function AddInstancePage() {
 
   useEffect(() => {
     if (hydrated && instances.length > 0 && !url && !email && !password) {
-      navigate('/app', { replace: true });
+      navigate(afterSignIn(), { replace: true });
     }
   }, [hydrated, instances.length, navigate, url, email, password]);
 
@@ -46,7 +56,7 @@ export default function AddInstancePage() {
         wsUrl.trim() || undefined,
         totpCode.trim() || undefined,
       );
-      navigate('/app', { replace: true });
+      navigate(afterSignIn(), { replace: true });
     } catch (e) {
       // A password that was right but incomplete is not a failed sign-in, so the
       // form asks for the code instead of showing an error for something the

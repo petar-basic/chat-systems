@@ -174,6 +174,27 @@ impl WorkspaceRepo {
         .await
     }
 
+    pub async fn add_member_if_absent_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        workspace_id: Uuid,
+        user_id: Uuid,
+        role: &WorkspaceRole,
+    ) -> sqlx::Result<Option<WorkspaceMember>> {
+        sqlx::query_as::<_, WorkspaceMember>(
+            r"
+            INSERT INTO workspace_members (workspace_id, user_id, role)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (workspace_id, user_id) DO NOTHING
+            RETURNING *
+            ",
+        )
+        .bind(workspace_id)
+        .bind(user_id)
+        .bind(role)
+        .fetch_optional(&mut **tx)
+        .await
+    }
+
     pub async fn add_member(
         &self,
         workspace_id: Uuid,

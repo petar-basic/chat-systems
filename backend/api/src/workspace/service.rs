@@ -127,6 +127,29 @@ impl WorkspaceService {
         Ok(invite)
     }
 
+    pub async fn join_workspace(
+        &self,
+        workspace_id: Uuid,
+        user_id: Uuid,
+        role: &WorkspaceRole,
+    ) -> AppResult<()> {
+        let mut tx = self.repo.begin().await?;
+
+        WorkspaceRepo::add_member_if_absent_tx(&mut tx, workspace_id, user_id, role).await?;
+
+        let channels = WorkspaceRepo::list_default_channels_tx(&mut tx, workspace_id).await?;
+
+        for ch in channels {
+            WorkspaceRepo::add_channel_member_tx(&mut tx, ch.id, user_id, &ChannelRole::Member)
+                .await?;
+        }
+
+        tx.commit().await?;
+
+        info!("User {} joined workspace {}", user_id, workspace_id);
+        Ok(())
+    }
+
     pub async fn accept_invite(
         &self,
         token: &str,

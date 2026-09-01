@@ -4,6 +4,7 @@ use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use chrono::{Duration, Utc};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, TokenData, Validation};
 use lettre::message::header::ContentType;
+use lettre::message::MultiPart;
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
 use tracing::info;
@@ -561,15 +562,23 @@ impl AuthService {
         workspace_name: &str,
         invite_url: &str,
     ) -> AppResult<()> {
-        let body = format!(
-            "You've been invited to join {} on {}.\n\nClick the link below to get started:\n{}\n",
+        let text = format!(
+            "You've been invited to join {} on {}.\n\nOpen this link to get started:\n{}\n",
             workspace_name, self.config.instance_name, invite_url
         );
 
-        self.send_email(
+        let html = invite_email_html(
+            &self.config.instance_name,
+            workspace_name,
+            invite_url,
+            self.config.instance_icon_url.as_deref(),
+        );
+
+        self.send_email_html(
             to_email,
             &format!("Join {} on {}", workspace_name, self.config.instance_name),
-            &body,
+            &text,
+            &html,
         )
         .await
     }
@@ -588,6 +597,47 @@ impl AuthService {
         body: &str,
     ) -> AppResult<()> {
         self.send_email(to, subject, body).await
+    }
+
+    async fn send_email_html(
+        &self,
+        to: &str,
+        subject: &str,
+        text: &str,
+        html: &str,
+    ) -> AppResult<()> {
+        let mailer = self
+            .mailer
+            .as_ref()
+            .ok_or_else(|| AppError::Internal("Email service not configured".into()))?;
+
+        let from = format!(
+            "{} <{}>",
+            self.config.smtp_from_name, self.config.smtp_from_address
+        );
+
+        let email = Message::builder()
+            .from(
+                from.parse()
+                    .map_err(|e| AppError::Internal(format!("Invalid from address: {e}")))?,
+            )
+            .to(to
+                .parse()
+                .map_err(|e| AppError::Internal(format!("Invalid to address: {e}")))?)
+            .subject(subject)
+            .multipart(MultiPart::alternative_plain_html(
+                text.to_string(),
+                html.to_string(),
+            ))
+            .map_err(|e| AppError::Internal(format!("Failed to build email: {e}")))?;
+
+        mailer
+            .send(email)
+            .await
+            .map_err(|e| AppError::Internal(format!("Failed to send email: {e}")))?;
+
+        info!("Email sent to {}: {}", to, subject);
+        Ok(())
     }
 
     async fn send_email(&self, to: &str, subject: &str, body: &str) -> AppResult<()> {
@@ -622,6 +672,82 @@ impl AuthService {
         info!("Email sent to {}: {}", to, subject);
         Ok(())
     }
+}
+
+fn escape_html(raw: &str) -> String {
+    let mut out = String::with_capacity(raw.len());
+    for c in raw.chars() {
+        match c {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '"' => out.push_str("&quot;"),
+            '\'' => out.push_str("&#39;"),
+            _ => out.push(c),
+        }
+    }
+    out
+}
+
+fn invite_email_html(
+    instance_name: &str,
+    workspace_name: &str,
+    invite_url: &str,
+    icon_url: Option<&str>,
+) -> String {
+    let instance = escape_html(instance_name);
+    let workspace = escape_html(workspace_name);
+    let url = escape_html(invite_url);
+
+    let logo = match icon_url {
+        Some(icon) if icon.starts_with("https://") => format!(
+            r#"<img src="{}" width="48" height="48" alt="" style="display:block;border:0;border-radius:12px;margin:0 auto 20px;">"#,
+            escape_html(icon)
+        ),
+        _ => String::new(),
+    };
+
+    format!(
+        r#"<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#f6f6f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1d1c1d;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f6f6f8;padding:32px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;background:#ffffff;border:1px solid #e6e6e9;border-radius:16px;padding:40px 32px;">
+            <tr>
+              <td align="center">
+                {logo}
+                <h1 style="margin:0 0 12px;font-size:24px;line-height:32px;font-weight:700;">Join {workspace}</h1>
+                <p style="margin:0 0 28px;font-size:15px;line-height:22px;color:#616061;">
+                  You've been invited to the <strong>{workspace}</strong> workspace on {instance}.
+                </p>
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 28px;">
+                  <tr>
+                    <td align="center" style="background:#7c3aed;border-radius:10px;">
+                      <a href="{url}" style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;">Join {workspace}</a>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:0 0 8px;font-size:12px;line-height:18px;color:#868686;">
+                  Button not working? Paste this into your browser:
+                </p>
+                <p style="margin:0;font-size:12px;line-height:18px;word-break:break-all;">
+                  <a href="{url}" style="color:#7c3aed;">{url}</a>
+                </p>
+              </td>
+            </tr>
+          </table>
+          <p style="max-width:520px;margin:20px auto 0;font-size:12px;line-height:18px;color:#868686;text-align:center;">
+            This invite expires in 7 days. If you weren't expecting it, you can ignore this email.
+          </p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+"#
+    )
 }
 
 #[cfg(test)]

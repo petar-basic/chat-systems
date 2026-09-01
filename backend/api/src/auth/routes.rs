@@ -14,8 +14,7 @@ use crate::audit::{self, AuditAction, AuditEntry};
 use crate::middleware::AuthUser;
 use crate::middleware::PeerAddr;
 use crate::state::AppState;
-use crate::workspace::models::{ChannelRole, WorkspaceRole};
-use crate::workspace::repo::WorkspaceRepo;
+use crate::workspace::models::WorkspaceRole;
 
 pub fn router(state: Arc<AppState>) -> Router {
     let protected = Router::new()
@@ -23,7 +22,8 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/users/me", patch(update_me))
         .route("/users/me/password", patch(change_password))
         .route("/users/me/status", put(set_status))
-        .route("/users/me/status", delete(clear_status));
+        .route("/users/me/status", delete(clear_status))
+        .route("/auth/invites/{token}/accept", post(accept_invite));
 
     let public = Router::new()
         .route("/auth/login", post(login))
@@ -186,6 +186,59 @@ async fn verify_invite(
         "email": user.email,
         "workspace_name": workspace.name,
         "workspace_id": workspace_id,
+        "already_registered": user.status == UserStatus::Active,
+    })))
+}
+
+/// An invite pointed at an account that already exists is a join, not a
+/// registration: the holder of the link is signed in already, so all that is
+/// left is the membership the invite promised.
+async fn accept_invite(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(token): Path<String>,
+) -> AppResult<Json<serde_json::Value>> {
+    let claims = state.auth_service.verify_registration_token(&token)?;
+
+    let workspace_id = claims
+        .workspace_id
+        .ok_or_else(|| AppError::BadRequest("Invite is not bound to a workspace".into()))?;
+
+    if claims.sub != auth.user_id {
+        return Err(AppError::Forbidden(
+            "This invite was issued to a different address".into(),
+        ));
+    }
+
+    let workspace = state
+        .workspace_service
+        .repo
+        .find_workspace_by_id(workspace_id)
+        .await?
+        .ok_or_else(|| AppError::Unauthorized("Invalid or expired invite".into()))?;
+
+    let role: WorkspaceRole = claims
+        .invite_role
+        .as_deref()
+        .and_then(|r| serde_json::from_value(serde_json::Value::String(r.to_string())).ok())
+        .unwrap_or(WorkspaceRole::Member);
+
+    state
+        .workspace_service
+        .join_workspace(workspace_id, auth.user_id, &role)
+        .await?;
+
+    audit::record(
+        &state,
+        AuditEntry::new(AuditAction::InviteAccepted, auth.user_id)
+            .workspace(workspace_id)
+            .resource(workspace_id),
+    )
+    .await;
+
+    Ok(Json(serde_json::json!({
+        "workspace_id": workspace_id,
+        "workspace_name": workspace.name,
     })))
 }
 
@@ -208,18 +261,10 @@ async fn complete_registration(
             .and_then(|r| serde_json::from_value(serde_json::Value::String(r.to_string())).ok())
             .unwrap_or(WorkspaceRole::Member);
 
-        let mut tx = state.workspace_service.repo.begin().await?;
-
-        WorkspaceRepo::add_member_tx(&mut tx, workspace_id, claims.sub, &role).await?;
-
-        let channels = WorkspaceRepo::list_default_channels_tx(&mut tx, workspace_id).await?;
-
-        for ch in channels {
-            WorkspaceRepo::add_channel_member_tx(&mut tx, ch.id, claims.sub, &ChannelRole::Member)
-                .await?;
-        }
-
-        tx.commit().await?;
+        state
+            .workspace_service
+            .join_workspace(workspace_id, claims.sub, &role)
+            .await?;
     }
 
     let secure = state.config.public_url.starts_with("https://");

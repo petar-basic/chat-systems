@@ -1002,3 +1002,67 @@ async fn a_workspace_icon_can_be_set_and_taken_off(pool: PgPool) {
         "an empty string takes it off"
     );
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn registration_token_accept_joins_an_already_active_account(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "reg-acc-owner", false).await;
+    let (joiner_id, joiner_email, joiner_token) =
+        seed_and_login(&app, &state, "reg-acc-join", false).await;
+    let (_, _, other_token) = seed_and_login(&app, &state, "reg-acc-other", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Second WS").await;
+
+    let reg_token = state
+        .auth_service
+        .generate_registration_token(joiner_id, &joiner_email, ws_id, "member")
+        .expect("registration token");
+
+    let (status, resp) = send(
+        &app,
+        "GET",
+        &format!("/api/auth/invites/{reg_token}/verify"),
+        None,
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "verify invite: {resp:?}");
+    assert_eq!(
+        resp["already_registered"], true,
+        "an active account must be flagged so the page offers a join, not a signup: {resp:?}"
+    );
+
+    let path = format!("/api/auth/invites/{reg_token}/accept");
+
+    let (status, _) = send(&app, "POST", &path, None, None).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+
+    let (status, _) = send(&app, "POST", &path, Some(&other_token), None).await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "an invite may only be accepted by the account it was issued to"
+    );
+
+    let (status, resp) = send(&app, "POST", &path, Some(&joiner_token), None).await;
+    assert_eq!(status, StatusCode::OK, "accept invite: {resp:?}");
+    assert_eq!(resp["workspace_id"], ws_id.to_string());
+
+    let (status, resp) = send(&app, "GET", "/api/workspaces", Some(&joiner_token), None).await;
+    assert_eq!(status, StatusCode::OK);
+    let joined = resp["data"]
+        .as_array()
+        .expect("workspace list")
+        .iter()
+        .any(|ws| ws["id"] == ws_id.to_string());
+    assert!(
+        joined,
+        "invited workspace must appear for the joiner: {resp:?}"
+    );
+
+    let (status, resp) = send(&app, "POST", &path, Some(&joiner_token), None).await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "accepting twice must be a no-op, not an error: {resp:?}"
+    );
+}
