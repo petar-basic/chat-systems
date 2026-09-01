@@ -17,10 +17,9 @@ async function openMembersPanel(page: Page, workspaceId: string) {
 test('G. instance admin page renders for the instance admin', async ({ page }) => {
   await login(page, 'admin@dev.local');
   await page.goto('/app/admin');
-  await page.waitForTimeout(2500);
+  await expect(page.locator('[data-qa="admin-tab-users"]')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('heading', { name: 'Instance Admin' })).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/G-instance-admin.png`, fullPage: true });
-  const body = await page.locator('body').innerText();
-  expect(body.length).toBeGreaterThan(50);
 });
 
 test('H. owner can change a member role and remove a member from the panel', async ({ page, request }) => {
@@ -101,7 +100,9 @@ test('I. notification badge + mark-all-read while viewing another channel', asyn
     .getByRole('button', { name: /^random$/ })
     .first()
     .click();
-  await page.waitForTimeout(1000);
+  // The mention must land while bob is somewhere else, so the channel he moved
+  // to has to be on screen before it is sent.
+  await expect(page.locator('[data-qa="channel-header-name"]')).toHaveText('random');
 
   await request.post(`http://localhost:3000/api/channels/${general}/messages`, {
     headers: auth,

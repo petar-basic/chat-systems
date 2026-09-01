@@ -77,7 +77,6 @@ test('3b. typing indicator still works after the user sent a message', async () 
   const editor = bob.locator('.ProseMirror[contenteditable="true"]').last();
   await editor.click();
   await editor.type('typing again after send', { delay: 40 });
-  await bob.waitForTimeout(1500);
   await expect(admin.getByText(/is typing/i)).toBeVisible({ timeout: 5000 });
   await admin.screenshot({ path: `${SHOTS}/03b-typing-after-send.png` });
   await editor.fill('');
@@ -249,7 +248,10 @@ test('10. search finds a message', async () => {
 test('11. member cannot reach the instance admin area', async () => {
   await expect(bob.getByRole('button', { name: 'Instance Admin' })).toHaveCount(0);
   await bob.goto('/app/admin');
-  await bob.waitForTimeout(2000);
+  // The page renders nothing at all for a member, so there is no element to
+  // wait on: the settled network is the signal that the guard has run.
+  await bob.waitForLoadState('networkidle');
+  await expect(bob.locator('[data-qa="admin-tab-users"]')).toHaveCount(0);
   await bob.screenshot({ path: `${SHOTS}/11-bob-admin-page.png` });
   const body = await bob.locator('body').innerText();
   expect(body).not.toMatch(/Instance Statistics|Total Users|Suspend/i);
@@ -270,8 +272,9 @@ test('12. suspending a user kills their live session', async () => {
   const susp = await api.post(`http://localhost:3000/api/admin/users/${bobId}/suspend`, { headers: auth });
   expect(susp.status()).toBe(200);
 
-  await bob.waitForTimeout(3000);
-  await bob.reload();
+  // No reload: the gateway pushes the revocation and the client drops the
+  // instance on it. Waiting for the login screen to arrive on its own is the
+  // difference between "the session was killed" and "the page was refreshed".
   await expect(bob.locator('#email')).toBeVisible({ timeout: 20_000 });
   await bob.screenshot({ path: `${SHOTS}/12-bob-suspended.png` });
 

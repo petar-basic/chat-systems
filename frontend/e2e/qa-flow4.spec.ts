@@ -33,7 +33,11 @@ test('J. hostile payloads are rendered inert', async ({ page, request }) => {
     await d.dismiss();
   });
   await login(page, 'bob@dev.local');
-  await page.waitForTimeout(2500);
+  // Every payload on screen, so the assertions below are about what rendering
+  // them did rather than about whether they rendered at all.
+  await expect(page.locator('[data-qa="message-row"]', { hasText: stamp })).toHaveCount(payloads.length, {
+    timeout: 15_000,
+  });
   await page.screenshot({ path: `${SHOTS}/J-hostile-payloads.png` });
 
   expect(await page.evaluate(() => (window as unknown as Record<string, unknown>).__xss)).toBeUndefined();
