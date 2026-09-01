@@ -63,6 +63,15 @@ export async function devWorkspace(request: APIRequestContext, email?: string) {
   return workspace as { id: string; name: string; slug: string };
 }
 
+/** A channel of this test's own, so a spec never asserts on rows another spec is writing. */
+export async function createChannel(ctx: APIRequestContext, workspaceId: string, prefix: string) {
+  const res = await ctx.post(`${API}/workspaces/${workspaceId}/channels`, {
+    data: { name: `${prefix}-${Date.now()}`, channel_type: 'public' },
+  });
+  expect(res.status(), `create channel ${prefix}`).toBe(200);
+  return (await res.json()) as { id: string; name: string };
+}
+
 export async function login(page: Page, email: string) {
   await page.goto('/');
   await page.locator('#email').fill(email);

@@ -33,7 +33,15 @@ test('J. hostile payloads are rendered inert', async ({ page, request }) => {
     await d.dismiss();
   });
   await login(page, 'bob@dev.local');
-  await page.waitForTimeout(2500);
+  // Sign-in lands wherever the app decides, which is not necessarily the channel
+  // the payloads were posted to. Every payload has to be on screen for the
+  // assertions below to be about what rendering them did rather than about
+  // whether they rendered at all.
+  await page.goto(`/app/${ws.id}/${general}`);
+  await expect(page.locator('[data-qa="channel-header-name"]')).toHaveText('general');
+  await expect(page.locator('[data-qa="message-row"]', { hasText: stamp })).toHaveCount(payloads.length, {
+    timeout: 15_000,
+  });
   await page.screenshot({ path: `${SHOTS}/J-hostile-payloads.png` });
 
   expect(await page.evaluate(() => (window as unknown as Record<string, unknown>).__xss)).toBeUndefined();

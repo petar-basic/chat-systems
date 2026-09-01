@@ -174,12 +174,11 @@ jobs:
   # the realtime container mid-test.
   e2e:
     name: E2E (Playwright)
-    needs: [changes, backend, frontend]
-    if: >-
-      !cancelled()
-      && needs.backend.result != 'failure'
-      && needs.frontend.result != 'failure'
-      && needs.changes.outputs.e2e == 'true'
+    # Deliberately not gated on the language jobs. This one builds its own
+    # images and shares no artifact with them, so waiting only bought a serial
+    # ~6 min: backend alone is longer than this whole job.
+    needs: changes
+    if: needs.changes.outputs.e2e == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -259,16 +258,54 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Resolve the Playwright version
+        id: playwright
+        working-directory: frontend
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Playwright browsers
+        id: playwright-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
       - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         working-directory: frontend
         run: npx playwright install --with-deps chromium
 
+      # The browser is cached; its apt dependencies are not, and they are not
+      # all preinstalled on the runner image.
+      - name: Install browser system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        working-directory: frontend
+        run: npx playwright install-deps chromium
+
+      # Same rule as the other caches: only main writes, branches read.
+      - name: Save Playwright browsers
+        if: github.ref == 'refs/heads/main' && steps.playwright-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+      # Three workers for the parallel batch; the serial batch sets its own.
       - name: Run E2E suite
         working-directory: frontend
         env:
           E2E_BASE_URL: http://localhost:8080
           E2E_SHOTS: ${{ runner.temp }}/shots
-        run: E2E_PASSWORD="$ADMIN_PASSWORD" npm run test:e2e
+          E2E_WORKERS: 3
+        run: E2E_PASSWORD="$ADMIN_PASSWORD" npx playwright test --project=chromium --project=mobile
+
+      - name: Run E2E suite (stack-exclusive specs)
+        working-directory: frontend
+        env:
+          E2E_BASE_URL: http://localhost:8080
+          E2E_SHOTS: ${{ runner.temp }}/shots
+          E2E_WORKERS: 1
+        run: E2E_PASSWORD="$ADMIN_PASSWORD" npx playwright test --project=serial
 
       - name: Collect container logs
         if: failure()

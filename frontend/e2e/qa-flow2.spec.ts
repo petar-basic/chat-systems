@@ -132,7 +132,7 @@ test('E. invite → email → registration lands the new user inside the workspa
   const ctxC = await admin.context().browser()!.newContext();
   const newbie = await ctxC.newPage();
   await newbie.goto(link as string);
-  await newbie.waitForTimeout(2500);
+  await expect(newbie.locator('input[type="text"]').first()).toBeVisible({ timeout: 15_000 });
   await newbie.screenshot({ path: `${SHOTS}/E1-invite-page.png` });
   await newbie.locator('input[type="text"]').first().fill('New Hire');
   const pw = newbie.locator('input[type="password"]');
