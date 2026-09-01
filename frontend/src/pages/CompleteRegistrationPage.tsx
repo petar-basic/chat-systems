@@ -93,10 +93,17 @@ export default function CompleteRegistrationPage() {
     if (password.length < 8) {
       return;
     }
+    if (!token) return;
 
-    if (token) {
-      completeRegistration.mutate({ token, password, displayName });
+    try {
+      await completeRegistration.mutateAsync({ token, password, displayName });
+    } catch {
+      return;
     }
+    await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaces() });
+    navigate(inviteInfo?.workspace_id ? `/app/${inviteInfo.workspace_id}` : '/app', {
+      replace: true,
+    });
   };
 
   if (verifyError) {
