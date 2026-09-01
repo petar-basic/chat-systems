@@ -419,12 +419,24 @@ symmetric NAT, which excludes most mobile carriers and anything doing CGNAT: two
 different connections then join a room that looks healthy and carries no audio. The
 `coturn` service is the relay that removes the dependency on what either side is behind.
 
+It runs from `docker-compose.turn.yml`, on the host, next to the stack rather than inside
+it. TURN needs the host network namespace — the browser reaches its relay ports directly —
+and a Coolify compose resource cannot express that, because Coolify attaches its own
+network to every service it manages. The relay shares nothing with the application anyway:
+two configuration values are the entire contract between them.
+
 The API serves STUN-only until **both** `TURN_SECRET` and `TURN_URLS` are set, so the
 sequence matters — an advertised TURN server that is not answering is worse than none,
 because the browser waits on it before giving up.
 
-1. Set `TURN_SECRET` (`openssl rand -hex 32`) and `TURN_REALM` (your domain), and start
-   `coturn`. Leave `TURN_URLS` **unset** for now.
+1. On the server, from a checkout of this repository:
+
+   ```bash
+   TURN_SECRET=$(openssl rand -hex 32) TURN_REALM=stage.example.com \
+     docker compose -f docker-compose.turn.yml up -d
+   ```
+
+   Keep that secret: the api needs the same value. Leave `TURN_URLS` **unset** for now.
 2. Open `3478/udp`, `3478/tcp` and `49160-49200/udp` on the host firewall. The relay range
    is bounded in `docker/coturn/turnserver.conf` so it can be opened explicitly.
 3. Confirm the relay answers before anything depends on it. On

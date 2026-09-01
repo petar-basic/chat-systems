@@ -282,37 +282,6 @@ services:
         limits:
           memory: 32m
 
-  # WebRTC relay for huddles. STUN alone only finds a path when neither side is
-  # behind a symmetric NAT, which rules out most mobile carriers and any network
-  # doing CGNAT — a call between two people on different connections then fails
-  # with the room looking perfectly healthy. The relay is what makes it work
-  # regardless of what either side is behind.
-  #
-  # Host networking because coturn hands the browser a range of relay ports to
-  # reach directly; publishing them one by one is the same thing, spelled worse.
-  # The range is bounded in turnserver.conf so it can be firewalled explicitly:
-  # open 3478/udp, 3478/tcp and 49160-49200/udp on the host.
-  #
-  # Idle until TURN_URLS and TURN_SECRET are set for the api: those two are what
-  # make the browser use it. Bring this up FIRST and confirm it hands out a
-  # relay candidate, then point the api at it — an advertised TURN server that
-  # is not answering is worse than none at all.
-  coturn:
-    image: coturn/coturn:4.6-alpine
-    restart: unless-stopped
-    network_mode: "host"
-    volumes:
-      - ./docker/coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro
-    command:
-      - -c
-      - /etc/coturn/turnserver.conf
-      - --static-auth-secret=${TURN_SECRET:-}
-      - --realm=${TURN_REALM:-stage.chat-systems.com}
-    deploy:
-      resources:
-        limits:
-          memory: 128m
-
 volumes:
   postgres_data:
   redis_data:
