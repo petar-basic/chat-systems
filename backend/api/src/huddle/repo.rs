@@ -81,22 +81,6 @@ impl HuddleRepo {
         .await
     }
 
-    /// Whichever replica gets the row sends the ring; the rest lose the race.
-    /// `record_join` is already an upsert and `end_session` already only
-    /// succeeds once, so this was the one place where a second replica produced
-    /// a second effect rather than a second no-op.
-    pub async fn claim_ring(&self, huddle_id: Uuid, to_user_id: Uuid) -> sqlx::Result<bool> {
-        let claimed = sqlx::query(
-            "INSERT INTO huddle_ring_claims (huddle_id, to_user_id) \
-             VALUES ($1, $2) ON CONFLICT DO NOTHING",
-        )
-        .bind(huddle_id)
-        .bind(to_user_id)
-        .execute(&self.pool)
-        .await?;
-        Ok(claimed.rows_affected() == 1)
-    }
-
     pub async fn end_session(&self, huddle_id: Uuid) -> sqlx::Result<Option<HuddleSession>> {
         sqlx::query_as::<_, HuddleSession>(
             "UPDATE huddle_sessions SET ended_at = NOW()

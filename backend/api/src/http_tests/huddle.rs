@@ -435,34 +435,60 @@ async fn a_huddle_join_is_written_to_the_durable_log(pool: PgPool) {
     assert_eq!(unchanged, after, "and the signalling is not");
 }
 
-/// The ring stays ephemeral, so both replicas receive it. The claim is what
-/// keeps the second one from ringing the same person a second time.
 #[sqlx::test(migrations = "../migrations")]
-async fn only_one_replica_wins_the_right_to_ring(pool: PgPool) {
+async fn a_ring_delivered_twice_rings_once_and_a_stale_ring_not_at_all(pool: PgPool) {
+    use crate::notifications::consumer::{notify_ring, RING_MAX_AGE};
+
     let (app, state) = app_and_state(pool).await;
     let (caller_id, _, _) = seed_and_login(&app, &state, "ring-caller", false).await;
     let (callee_id, _, _) = seed_and_login(&app, &state, "ring-callee", false).await;
-    let _ = caller_id;
+    let ws = seed_workspace(&state, caller_id, "Ring WS").await;
     let huddle_id = uuid::Uuid::new_v4();
+    let mut conn = state.redis.clone();
 
-    let first = state
-        .huddle_repo
-        .claim_ring(huddle_id, callee_id)
-        .await
-        .expect("first claim");
-    let second = state
-        .huddle_repo
-        .claim_ring(huddle_id, callee_id)
-        .await
-        .expect("second claim");
+    let ring = shared_events::Event::new(
+        "huddle.ring",
+        serde_json::json!({
+            "huddle_id": huddle_id,
+            "workspace_id": ws,
+            "from_user_id": caller_id,
+            "to_user_id": callee_id,
+        }),
+    );
 
-    assert!(first, "the first replica sends");
-    assert!(!second, "the second does nothing");
+    notify_ring(&state.notification_repo, &mut conn, &ring).await;
+    notify_ring(&state.notification_repo, &mut conn, &ring).await;
 
-    let other_callee = state
-        .huddle_repo
-        .claim_ring(huddle_id, caller_id)
-        .await
-        .expect("a different person in the same call");
-    assert!(other_callee, "the claim is per person, not per call");
+    let rows: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND data ->> 'huddle_id' = $2",
+    )
+    .bind(callee_id)
+    .bind(huddle_id.to_string())
+    .fetch_one(&state.pool)
+    .await
+    .unwrap();
+    assert_eq!(rows, 1, "a redelivered ring is one notification, not two");
+
+    let mut stale = shared_events::Event::new(
+        "huddle.ring",
+        serde_json::json!({
+            "huddle_id": uuid::Uuid::new_v4(),
+            "workspace_id": ws,
+            "from_user_id": callee_id,
+            "to_user_id": caller_id,
+        }),
+    );
+    stale.timestamp -= RING_MAX_AGE + chrono::Duration::seconds(1);
+    notify_ring(&state.notification_repo, &mut conn, &stale).await;
+
+    let stale_rows: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM notifications WHERE user_id = $1")
+            .bind(caller_id)
+            .fetch_one(&state.pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        stale_rows, 0,
+        "a ring older than the window is dropped, not rung late"
+    );
 }

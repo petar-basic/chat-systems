@@ -144,21 +144,30 @@ pub struct ChannelMember {
     pub joined_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, garde::Validate)]
+#[garde(allow_unvalidated)]
 pub struct CreateWorkspaceRequest {
+    #[garde(custom(shared_common::validation::rules::workspace_name))]
     pub name: String,
+    #[garde(inner(custom(shared_common::validation::rules::description)))]
     pub description: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, garde::Validate)]
+#[garde(allow_unvalidated)]
 pub struct UpdateWorkspaceRequest {
+    #[garde(inner(custom(shared_common::validation::rules::workspace_name)))]
     pub name: Option<String>,
+    #[garde(inner(custom(shared_common::validation::rules::description)))]
     pub description: Option<String>,
+    #[garde(inner(custom(shared_common::validation::rules::icon_url_or_empty)))]
     pub icon_url: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, garde::Validate)]
+#[garde(allow_unvalidated)]
 pub struct CreateInviteRequest {
+    #[garde(inner(custom(shared_common::validation::rules::email)))]
     pub email: Option<String>,
     pub role: Option<WorkspaceRole>,
     pub expires_in_hours: Option<i64>,
@@ -217,19 +226,26 @@ pub struct UpdateChannelMemberRoleRequest {
     pub role: ChannelRole,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, garde::Validate)]
+#[garde(allow_unvalidated)]
 pub struct CreateChannelRequest {
+    #[garde(custom(shared_common::validation::rules::channel_name))]
     pub name: String,
     pub channel_type: Option<ChannelType>,
+    #[garde(inner(custom(shared_common::validation::rules::description)))]
     pub description: Option<String>,
     pub is_default: Option<bool>,
     pub post_policy: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, garde::Validate)]
+#[garde(allow_unvalidated)]
 pub struct UpdateChannelRequest {
+    #[garde(inner(custom(shared_common::validation::rules::channel_name)))]
     pub name: Option<String>,
+    #[garde(inner(custom(shared_common::validation::rules::channel_topic)))]
     pub topic: Option<String>,
+    #[garde(inner(custom(shared_common::validation::rules::description)))]
     pub description: Option<String>,
     /// `everyone` or `moderators`. Absent means unchanged, which is how a
     /// client that predates announcement channels keeps working.
@@ -258,9 +274,13 @@ pub struct ChannelBookmark {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, garde::Validate)]
+#[garde(allow_unvalidated)]
 pub struct CreateChannelBookmarkRequest {
+    #[garde(custom(shared_common::validation::rules::bookmark_label))]
     pub label: String,
+    #[garde(custom(shared_common::validation::rules::bookmark_url))]
     pub url: String,
+    #[garde(inner(custom(shared_common::validation::rules::status_emoji_or_blank)))]
     pub emoji: Option<String>,
 }

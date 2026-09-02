@@ -6,21 +6,26 @@ the crates under `shared/`:
 | Process | Port | Role | Replicas |
 |---|---|---|---|
 | **`chat-api`** | 3000 | Stateless REST API. Owns the migrations, applied at startup. | scale freely |
-| **`chat-worker`** | 3005 | Background consumers: outgoing webhooks, reminders, notifications, huddle history, scheduled messages. Serves only `/livez`, `/readyz`, `/metrics`. | **exactly one** |
+| **`chat-worker`** | 3005 | Background consumers: outgoing webhooks, reminders, notifications, huddle history, call ringing, scheduled messages, email delivery. Serves only `/livez`, `/readyz`, `/metrics`. | scale freely |
 | **`chat-realtime`** | 3004 | WebSocket gateway. | scale freely |
+
+`chat-api` serves an OpenAPI document at `/api/openapi.json`, generated from the handlers
+themselves. The route tables below are hand-maintained and are being replaced by it one
+feature at a time; where the two disagree, the document is right.
 
 `chat-api` and `chat-worker` are two binaries over the same library crate
 (`backend/api`), so they share `AppState`, config and every repo.
 
-**Why the worker is separate, and why it is single-replica.** The consumers are driven
-by Redis pub/sub, which delivers a copy to *every* subscriber. Running them inside the
-API meant a second API replica produced a second notification row, a second outgoing
-webhook POST and a second reminder — so the API tier could not actually be replicated
-despite being stateless. Moving them into one process fixes that; keeping that process
-at one replica is the cheap correct answer until the transport becomes Redis Streams
-with consumer groups. Two safety nets sit underneath it anyway: a partial unique index
-makes a duplicate mention notification impossible, and reminders are claimed with
-`FOR UPDATE SKIP LOCKED` the way scheduled messages already were.
+**Why the worker is separate.** The consumers used to be driven by Redis pub/sub, which
+delivers a copy to *every* subscriber. Running them inside the API meant a second API
+replica produced a second notification row, a second outgoing webhook POST and a second
+reminder — so the API tier could not actually be replicated despite being stateless.
+Moving them into one process fixed that. The worker itself scales because every
+consumer now reads through a Redis Streams consumer group — each event reaches exactly
+one replica — or claims its row with `FOR UPDATE SKIP LOCKED` first. Delivery is
+at-least-once, so the side effects are idempotent on their own: partial unique indexes
+make a duplicate mention or call notification impossible, and outgoing webhooks claim
+`(hook_id, event_id)` before they POST.
 
 ## Architecture & Rationale
 

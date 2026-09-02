@@ -1,0 +1,1255 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Chat Systems API",
+    "description": "Every error response carries `{\"error\": \"<message>\"}` with the HTTP status saying what kind of error it is.",
+    "license": {
+      "name": "MIT",
+      "identifier": "MIT"
+    },
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "/api"
+    }
+  ],
+  "paths": {
+    "/channels/{ch_id}/messages": {
+      "get": {
+        "tags": [
+          "messages"
+        ],
+        "operationId": "list_messages",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_MessageWithReactions"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "messages"
+        ],
+        "operationId": "send_message",
+        "parameters": [
+          {
+            "name": "ch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/channels/{ch_id}/pins": {
+      "get": {
+        "tags": [
+          "messages"
+        ],
+        "operationId": "list_pins",
+        "parameters": [
+          {
+            "name": "ch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_Message"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/channels/{ch_id}/read": {
+      "post": {
+        "tags": [
+          "messages"
+        ],
+        "operationId": "mark_read",
+        "parameters": [
+          {
+            "name": "ch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkReadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/messages/{msg_id}": {
+      "delete": {
+        "tags": [
+          "messages"
+        ],
+        "operationId": "delete_message",
+        "parameters": [
+          {
+            "name": "msg_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "messages"
+        ],
+        "operationId": "update_message",
+        "parameters": [
+          {
+            "name": "msg_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/messages/{msg_id}/history": {
+      "get": {
+        "tags": [
+          "messages"
+        ],
+        "summary": "The author sees their own prior versions; a workspace admin sees anyone's,\nand that read is audited. Everyone else gets the \"edited\" marker and nothing\nbehind it — showing every earlier draft to every reader is a different\nproduct from the one people think they are using.",
+        "operationId": "message_history",
+        "parameters": [
+          {
+            "name": "msg_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_MessageEdit"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/messages/{msg_id}/pin": {
+      "post": {
+        "tags": [
+          "messages"
+        ],
+        "operationId": "pin_message",
+        "parameters": [
+          {
+            "name": "msg_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "messages"
+        ],
+        "operationId": "unpin_message",
+        "parameters": [
+          {
+            "name": "msg_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/messages/{msg_id}/reactions": {
+      "get": {
+        "tags": [
+          "messages"
+        ],
+        "operationId": "list_reactions",
+        "parameters": [
+          {
+            "name": "msg_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_Reaction"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "messages"
+        ],
+        "operationId": "add_reaction",
+        "parameters": [
+          {
+            "name": "msg_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddReactionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reaction"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/messages/{msg_id}/reactions/{emoji}": {
+      "delete": {
+        "tags": [
+          "messages"
+        ],
+        "operationId": "remove_reaction",
+        "parameters": [
+          {
+            "name": "msg_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "emoji",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/messages/{msg_id}/thread": {
+      "get": {
+        "tags": [
+          "messages"
+        ],
+        "operationId": "list_thread",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64"
+            }
+          },
+          {
+            "name": "msg_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_Message"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "messages"
+        ],
+        "operationId": "reply_to_thread",
+        "parameters": [
+          {
+            "name": "msg_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/search": {
+      "get": {
+        "tags": [
+          "messages"
+        ],
+        "operationId": "search_messages",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "channel_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64"
+            }
+          },
+          {
+            "name": "scope",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/components/schemas/SearchScope"
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AddReactionRequest": {
+        "type": "object",
+        "required": [
+          "emoji"
+        ],
+        "properties": {
+          "emoji": {
+            "type": "string"
+          }
+        }
+      },
+      "BotIdentity": {
+        "type": "object",
+        "required": [
+          "hook_id",
+          "name"
+        ],
+        "properties": {
+          "hook_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "icon_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "ConversationMessage": {
+        "type": "object",
+        "required": [
+          "id",
+          "conversation_id",
+          "user_id",
+          "content",
+          "reply_count",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "client_message_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "content": {
+            "type": "string"
+          },
+          "conversation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deleted_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "edited_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reply_count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "thread_parent_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "DataList_Message": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "channel_id",
+                "user_id",
+                "content",
+                "metadata",
+                "reply_count",
+                "is_pinned",
+                "created_at",
+                "updated_at"
+              ],
+              "properties": {
+                "channel_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "client_message_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid"
+                },
+                "content": {
+                  "type": "string"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "deleted_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "is_pinned": {
+                  "type": "boolean"
+                },
+                "metadata": {
+                  "$ref": "#/components/schemas/MessageMetadata"
+                },
+                "reply_count": {
+                  "type": "integer",
+                  "format": "int32"
+                },
+                "thread_parent_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid"
+                },
+                "updated_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "user_id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          }
+        }
+      },
+      "DataList_MessageEdit": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "message_id",
+                "previous_content",
+                "edited_by",
+                "edited_at"
+              ],
+              "properties": {
+                "edited_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "edited_by": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "message_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "previous_content": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "DataList_MessageWithReactions": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Message"
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "reactions"
+                  ],
+                  "properties": {
+                    "reactions": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Reaction"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "DataList_Reaction": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "message_id",
+                "user_id",
+                "emoji",
+                "created_at"
+              ],
+              "properties": {
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "emoji": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "message_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "user_id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          }
+        }
+      },
+      "MarkReadRequest": {
+        "type": "object",
+        "required": [
+          "message_id"
+        ],
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "Message": {
+        "type": "object",
+        "required": [
+          "id",
+          "channel_id",
+          "user_id",
+          "content",
+          "metadata",
+          "reply_count",
+          "is_pinned",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "channel_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "client_message_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "content": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deleted_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "is_pinned": {
+            "type": "boolean"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/MessageMetadata"
+          },
+          "reply_count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "thread_parent_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "MessageEdit": {
+        "type": "object",
+        "required": [
+          "id",
+          "message_id",
+          "previous_content",
+          "edited_by",
+          "edited_at"
+        ],
+        "properties": {
+          "edited_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "edited_by": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "message_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "previous_content": {
+            "type": "string"
+          }
+        }
+      },
+      "MessageMetadata": {
+        "type": "object",
+        "properties": {
+          "bot": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BotIdentity"
+              }
+            ]
+          },
+          "huddle_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "initiator_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "MessageWithReactions": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Message"
+          },
+          {
+            "type": "object",
+            "required": [
+              "reactions"
+            ],
+            "properties": {
+              "reactions": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Reaction"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "Reaction": {
+        "type": "object",
+        "required": [
+          "id",
+          "message_id",
+          "user_id",
+          "emoji",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "emoji": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "message_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "SearchResponse": {
+        "type": "object",
+        "required": [
+          "data",
+          "conversations"
+        ],
+        "properties": {
+          "conversations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConversationMessage"
+            }
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Message"
+            }
+          }
+        }
+      },
+      "SearchScope": {
+        "type": "string",
+        "description": "Channels and conversations are different resources with different visibility\nrules, so they are returned as two lists rather than merged into one. A\ncaller that filters by channel is asking about channels and gets nothing else.",
+        "enum": [
+          "channels",
+          "conversations",
+          "all"
+        ]
+      },
+      "SendMessageRequest": {
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "properties": {
+          "client_message_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "The sender's own id for this send, used only to make a retry idempotent.\nIt is not the message id — the server owns that."
+          },
+          "content": {
+            "type": "string"
+          },
+          "thread_parent_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "StatusResponse": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "UpdateMessageRequest": {
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "properties": {
+          "content": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Same-origin clients are authenticated by the httpOnly cookie instead."
+      }
+    }
+  },
+  "security": [
+    {
+      "bearer": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "messages",
+      "description": "Channel messages, threads, pins, reactions and search"
+    }
+  ]
+}

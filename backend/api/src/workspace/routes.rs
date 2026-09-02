@@ -3,10 +3,10 @@ use std::sync::Arc;
 use axum::extract::{Path, Query, State};
 use axum::routing::{delete, get, patch, post};
 use axum::{Json, Router};
+use garde::Validate;
 use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
-use shared_common::validation;
 
 use super::models::*;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
@@ -90,10 +90,7 @@ async fn create_workspace(
     ip: ClientIp,
     Json(req): Json<CreateWorkspaceRequest>,
 ) -> AppResult<Json<Workspace>> {
-    validation::validate_workspace_name(&req.name)?;
-    if let Some(description) = &req.description {
-        validation::validate_description(description)?;
-    }
+    req.validate()?;
     let workspace = state
         .workspace_service
         .create_workspace(&req.name, req.description.as_deref(), auth.user_id)
@@ -133,19 +130,7 @@ async fn update_workspace(
     Path(ws_id): Path<Uuid>,
     Json(req): Json<UpdateWorkspaceRequest>,
 ) -> AppResult<Json<Workspace>> {
-    if let Some(name) = &req.name {
-        validation::validate_workspace_name(name)?;
-    }
-    if let Some(description) = &req.description {
-        validation::validate_description(description)?;
-    }
-    if let Some(icon_url) = &req.icon_url {
-        // An empty string is how the client says "remove it"; anything else has
-        // to be a URL.
-        if !icon_url.is_empty() {
-            validation::validate_icon_url(icon_url)?;
-        }
-    }
+    req.validate()?;
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
     let workspace = state
         .workspace_service
@@ -383,9 +368,7 @@ async fn create_invite(
     Json(req): Json<CreateInviteRequest>,
 ) -> AppResult<Json<WorkspaceInvite>> {
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
-    if let Some(email) = &req.email {
-        validation::validate_email(email)?;
-    }
+    req.validate()?;
     let lifetime = InviteLifetime::resolve(&req)?;
     let invite = state
         .workspace_service
@@ -563,10 +546,7 @@ async fn create_channel(
     Path(ws_id): Path<Uuid>,
     Json(req): Json<CreateChannelRequest>,
 ) -> AppResult<Json<Channel>> {
-    validation::validate_channel_name(&req.name)?;
-    if let Some(description) = &req.description {
-        validation::validate_description(description)?;
-    }
+    req.validate()?;
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Member).await?;
     let channel_type = req.channel_type.unwrap_or(ChannelType::Public);
     let channel = state
@@ -639,15 +619,7 @@ async fn update_channel(
     Path(ch_id): Path<Uuid>,
     Json(req): Json<UpdateChannelRequest>,
 ) -> AppResult<Json<Channel>> {
-    if let Some(name) = &req.name {
-        validation::validate_channel_name(name)?;
-    }
-    if let Some(topic) = &req.topic {
-        validation::validate_channel_topic(topic)?;
-    }
-    if let Some(description) = &req.description {
-        validation::validate_description(description)?;
-    }
+    req.validate()?;
     let channel = authz::find_channel(&state, ch_id).await?;
     authz::require_channel_moderator(&state, &channel, auth.user_id).await?;
     let mut updated = state
@@ -947,16 +919,12 @@ async fn create_channel_bookmark(
     let access = authz::require_channel_access(&state, ch_id, auth.user_id).await?;
     authz::require_channel_moderator(&state, &access.channel, auth.user_id).await?;
 
-    validation::validate_bookmark_label(&req.label)?;
-    validation::validate_bookmark_url(&req.url)?;
+    req.validate()?;
     let emoji = req
         .emoji
         .as_deref()
         .map(str::trim)
         .filter(|e| !e.is_empty());
-    if let Some(emoji) = emoji {
-        validation::validate_status_emoji(emoji)?;
-    }
 
     let bookmark = state
         .workspace_service

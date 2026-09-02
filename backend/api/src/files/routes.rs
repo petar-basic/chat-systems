@@ -15,6 +15,7 @@ use super::repo::NewFile;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
 use crate::middleware::AuthUser;
+use crate::pagination::PageQuery;
 use crate::state::AppState;
 use crate::workspace::models::WorkspaceRole;
 
@@ -199,23 +200,13 @@ async fn list_files(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
-    Query(params): Query<std::collections::HashMap<String, String>>,
+    Query(params): Query<PageQuery>,
 ) -> AppResult<Json<serde_json::Value>> {
     authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
 
-    let limit = params
-        .get("limit")
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(50i64)
-        .clamp(1, 200);
-    let offset = params
-        .get("offset")
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(0i64)
-        .max(0);
     let files = state
         .file_repo
-        .list_by_workspace_for_user(ws_id, auth.user_id, limit, offset)
+        .list_by_workspace_for_user(ws_id, auth.user_id, params.limit(), params.offset())
         .await?;
     Ok(Json(serde_json::json!({ "data": files })))
 }

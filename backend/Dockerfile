@@ -9,44 +9,33 @@
 # =============================================================================
 
 # ── Stage 1: Build ──────────────────────────────────────────
-FROM rust:1.98-bookworm AS builder
+# cargo-chef splits the build in two: `cook` compiles every dependency from a
+# recipe derived from the manifests alone, so that layer is reused until
+# Cargo.lock changes; only the workspace crates are rebuilt on a source change.
+FROM lukemathwalker/cargo-chef:0.1.78-rust-1.98-bookworm AS chef
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends pkg-config libssl-dev \
+ && rm -rf /var/lib/apt/lists/*
 
-# No database reachable during an image build: compile-time-checked queries must
-# resolve against the committed .sqlx cache instead of a live connection.
+FROM chef AS planner
+COPY . .
+RUN cargo chef prepare --recipe-path recipe.json
+
+FROM chef AS builder
+
+# No database is reachable during an image build. Nothing uses sqlx's
+# compile-time-checked macros yet; the first query that does needs
+# `cargo sqlx prepare` and a committed .sqlx/ (see docs/CONTRIBUTING.md), and
+# this is what makes the build read that cache instead of failing.
 ENV SQLX_OFFLINE=true
 
-# Copy workspace manifests first for dependency caching
-COPY Cargo.toml Cargo.lock ./
-COPY shared/common/Cargo.toml     shared/common/Cargo.toml
-COPY shared/events/Cargo.toml     shared/events/Cargo.toml
-COPY test-macros/Cargo.toml        test-macros/Cargo.toml
-COPY api/Cargo.toml                api/Cargo.toml
-COPY realtime/Cargo.toml           realtime/Cargo.toml
+COPY --from=planner /app/recipe.json recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json
 
-# Create dummy source files for dependency caching
-RUN mkdir -p shared/common/src     && echo "" > shared/common/src/lib.rs \
- && mkdir -p shared/events/src     && echo "" > shared/events/src/lib.rs \
- && mkdir -p test-macros/src        && echo "" > test-macros/src/lib.rs \
- && mkdir -p api/src               && echo "fn main() {}" > api/src/main.rs \
- && mkdir -p realtime/src          && echo "fn main() {}" > realtime/src/main.rs
-
-RUN cargo build --release 2>/dev/null || true
-
-# Copy real source code
-COPY shared/ shared/
-COPY test-macros/ test-macros/
-COPY api/ api/
-COPY realtime/ realtime/
-COPY migrations/ migrations/
-
-# Touch all src files to invalidate cache for real sources only
-RUN find shared/ api/ realtime/ -name "*.rs" -exec touch {} +
-
-# Build both binaries
+COPY . .
 RUN cargo build --release
 
 # ── Stage 2: Runtime ───────────────────────────────────────
@@ -55,9 +44,10 @@ RUN cargo build --release
 # Leaving the tag here as no digest is pinned in this repo yet.
 FROM debian:bookworm-slim
 
-# ca-certificates for outbound TLS; curl for the HEALTHCHECK probe below.
+# ca-certificates for outbound TLS; libssl3 because web-push links OpenSSL
+# dynamically; curl for the HEALTHCHECK probe below.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates curl \
+ && apt-get install -y --no-install-recommends ca-certificates libssl3 curl \
  && rm -rf /var/lib/apt/lists/*
 
 # Run as an unprivileged, system (no-login) user instead of root.

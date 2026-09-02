@@ -21,11 +21,7 @@ impl WorkspaceService {
     }
 
     pub async fn is_workspace_member(&self, workspace_id: Uuid, user_id: Uuid) -> AppResult<bool> {
-        self.repo
-            .get_member(workspace_id, user_id)
-            .await
-            .map(|m| m.is_some())
-            .map_err(|e| AppError::Database(e.to_string()))
+        Ok(self.repo.get_member(workspace_id, user_id).await?.is_some())
     }
 
     pub async fn create_workspace(

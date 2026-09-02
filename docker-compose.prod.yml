@@ -80,7 +80,8 @@ services:
         limits:
           memory: 512m
 
-  # Single replica by contract — see docker-compose.yml for why.
+  # Every consumer reads through a consumer group or claims its row first, so a
+  # second replica is a second pair of hands, not a second copy of each effect.
   worker:
     environment:
       STORAGE_BACKEND: s3
@@ -89,7 +90,7 @@ services:
       S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set}
       PUBLIC_URL: https://${DOMAIN:?DOMAIN must be set}
     deploy:
-      replicas: 1
+      replicas: 2
       resources:
         limits:
           memory: 256m

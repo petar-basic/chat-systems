@@ -125,8 +125,12 @@ docs/         this folder
 - **Sessions end through `sessions::revoke`.** Deleting refresh tokens, marking access
   tokens invalid and closing live sockets belong together; the three steps have drifted
   apart before.
-- **Every `String` in a request DTO has a validator.** `shared_common::validation` is the
-  only place a limit is written down, and a handler calls it before any repo call. A
+- **Every `String` in a request DTO has a validator, declared on the field.** Request DTOs
+  derive `garde::Validate` and each field names its rule from
+  `shared_common::validation::rules` (`#[garde(custom(rules::message_content))]`, or
+  `inner(custom(...))` on an `Option`); the handler's first line is `req.validate()?`.
+  `shared_common::validation` is still the only place a limit is written down — the rules
+  module wraps those functions so the messages stay the product's, not the library's. A
   column that happens to be wide enough is not validation — it produces a 500 where the
   answer is 400. Deliberate exceptions (login and forgot-password, where an early
   rejection would be an oracle) are listed in the roadmap, not left implicit.
@@ -159,6 +163,15 @@ docs/         this folder
   `cargo sqlx prepare --workspace -- --all-targets` and commit `.sqlx/` — image builds
   set `SQLX_OFFLINE=true` and have no database, so a macro without a cache entry breaks
   the Docker build. CI enforces this with `cargo sqlx prepare --check`.
+- **The API contract is generated, not hand-written.** Handlers carry `#[utoipa::path]`
+  and their request and response types derive `ToSchema`; `chat-api` serves the result at
+  `/api/openapi.json`, and `cargo run --bin chat-openapi > ../frontend/src/api/openapi.json`
+  writes it to the repo. The frontend turns that into `src/api/schema.d.ts` with
+  `npm run api:types` and calls the API through `apiClient.typed(...)`, so a route change
+  that the frontend has not caught up with fails `tsc`, not a user. CI checks both generated
+  files are current. Messaging is the first feature on this path; when you touch another
+  feature's routes, move them onto `OpenApiRouter` the same way rather than adding to the
+  hand-maintained table in `docs/backend.md`.
 - **The tests read `DATABASE_URL` and `REDIS_URL` from `backend/.cargo/config.toml`.** Both
   point at the host-side ports compose publishes (5433 and 6380), so the suite runs with no
   environment prefix. Neither is forced, so exporting either one still wins — which is how

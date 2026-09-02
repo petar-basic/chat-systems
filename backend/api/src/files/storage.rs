@@ -1,410 +1,217 @@
-use std::path::PathBuf;
+use std::sync::Arc;
 
-use async_trait::async_trait;
-use aws_sdk_s3::primitives::ByteStream;
-use aws_sdk_s3::Client;
 use axum::body::Bytes;
-use tokio::io::AsyncWriteExt;
+use object_store::aws::AmazonS3Builder;
+use object_store::local::LocalFileSystem;
+use object_store::path::Path as ObjectPath;
+use object_store::{
+    Attribute, Attributes, ObjectStore, ObjectStoreExt, PutMultipartOptions, PutOptions,
+    PutPayload, WriteMultipart,
+};
 use tracing::info;
 
 use shared_common::errors::{AppError, AppResult};
 
 use crate::config::{AppConfig, StorageBackend};
 
-/// Accepts an upload one chunk at a time so a large file never has to exist in
-/// memory. `finish` returns the number of bytes actually written; `abort`
-/// removes whatever was already stored.
-#[async_trait]
-pub trait UploadSink: Send {
-    async fn write_chunk(&mut self, chunk: Bytes) -> AppResult<()>;
-    async fn finish(self: Box<Self>) -> AppResult<u64>;
-    async fn abort(self: Box<Self>) -> AppResult<()>;
+/// Below this an upload is a single PUT; above it the object is assembled
+/// from parts, so peak memory stays at a few parts rather than one file.
+const PART_SIZE: usize = 8 * 1024 * 1024;
+const PARTS_IN_FLIGHT: usize = 2;
+
+pub struct FileStorage {
+    store: Arc<dyn ObjectStore>,
+    public_url: String,
+    stores_content_type: bool,
 }
 
-#[async_trait]
-pub trait FileStorage: Send + Sync {
-    async fn upload(&self, key: &str, body: Vec<u8>, content_type: &str) -> AppResult<()>;
-    async fn begin_upload(&self, key: &str, content_type: &str) -> AppResult<Box<dyn UploadSink>>;
-    async fn download(&self, key: &str) -> AppResult<(Vec<u8>, String)>;
-    async fn delete(&self, key: &str) -> AppResult<()>;
-    fn public_url(&self, key: &str) -> String;
-}
-
-/// Below this an S3 upload is a single PUT; above it the object is assembled
-/// from parts, so peak memory stays at one part rather than one file.
-const S3_PART_SIZE: usize = 8 * 1024 * 1024;
-
-pub async fn create_storage(config: &AppConfig) -> AppResult<Box<dyn FileStorage>> {
-    match config.storage_backend {
-        StorageBackend::Local => {
-            let storage = LocalStorage::new(&config.local_storage_path, &config.public_url)?;
-            Ok(Box::new(storage))
-        }
-        StorageBackend::S3 => {
-            let storage = S3Storage::new(config).await?;
-            Ok(Box::new(storage))
+impl FileStorage {
+    pub async fn from_config(config: &AppConfig) -> AppResult<Self> {
+        match config.storage_backend {
+            StorageBackend::Local => Self::local(&config.local_storage_path, &config.public_url),
+            StorageBackend::S3 => Self::s3(config),
         }
     }
-}
 
-pub struct LocalStorage {
-    base_path: PathBuf,
-    public_url: String,
-}
-
-impl LocalStorage {
-    pub fn new(base_path: &str, public_url: &str) -> AppResult<Self> {
-        let path = PathBuf::from(base_path);
-        std::fs::create_dir_all(&path)
+    pub fn local(base_path: &str, public_url: &str) -> AppResult<Self> {
+        std::fs::create_dir_all(base_path)
             .map_err(|e| AppError::Internal(format!("Failed to create storage dir: {e}")))?;
-        info!("Local storage initialized: path={}", path.display());
+        let store = LocalFileSystem::new_with_prefix(base_path)
+            .map_err(|e| AppError::Internal(format!("Failed to open storage dir: {e}")))?;
+        info!("Local storage initialized: path={base_path}");
         Ok(Self {
-            base_path: path,
+            store: Arc::new(store),
             public_url: public_url.to_string(),
+            stores_content_type: false,
         })
     }
 
-    fn key_path(&self, key: &str) -> AppResult<PathBuf> {
-        if key.contains("..") || key.starts_with('/') {
-            return Err(AppError::BadRequest("invalid path".into()));
-        }
-
-        let path = self.base_path.join(key);
-
-        let parent = path
-            .parent()
-            .ok_or_else(|| AppError::BadRequest("invalid path".into()))?;
-
-        let canonical_base = self
-            .base_path
-            .canonicalize()
-            .map_err(|e| AppError::Internal(format!("Failed to resolve storage dir: {e}")))?;
-
-        if parent.exists() {
-            let canonical_parent = parent
-                .canonicalize()
-                .map_err(|e| AppError::Internal(format!("Failed to resolve path: {e}")))?;
-            if !canonical_parent.starts_with(&canonical_base) {
-                return Err(AppError::BadRequest("invalid path".into()));
-            }
-        } else if !parent.starts_with(&self.base_path) {
-            return Err(AppError::BadRequest("invalid path".into()));
-        }
-
-        Ok(path)
-    }
-}
-
-#[async_trait]
-impl FileStorage for LocalStorage {
-    async fn upload(&self, key: &str, body: Vec<u8>, _content_type: &str) -> AppResult<()> {
-        let path = self.key_path(key)?;
-        if let Some(parent) = path.parent() {
-            tokio::fs::create_dir_all(parent)
-                .await
-                .map_err(|e| AppError::Internal(format!("mkdir failed: {e}")))?;
-        }
-        tokio::fs::write(&path, &body)
-            .await
-            .map_err(|e| AppError::Internal(format!("File write failed: {e}")))?;
-        Ok(())
-    }
-
-    async fn begin_upload(&self, key: &str, _content_type: &str) -> AppResult<Box<dyn UploadSink>> {
-        let path = self.key_path(key)?;
-        if let Some(parent) = path.parent() {
-            tokio::fs::create_dir_all(parent)
-                .await
-                .map_err(|e| AppError::Internal(format!("mkdir failed: {e}")))?;
-        }
-        let file = tokio::fs::File::create(&path)
-            .await
-            .map_err(|e| AppError::Internal(format!("File create failed: {e}")))?;
-        Ok(Box::new(LocalUploadSink {
-            file,
-            path,
-            written: 0,
-        }))
-    }
-
-    async fn download(&self, key: &str) -> AppResult<(Vec<u8>, String)> {
-        let path = self.key_path(key)?;
-        let body = tokio::fs::read(&path)
-            .await
-            .map_err(|e| AppError::NotFound(format!("File not found: {e}")))?;
-        let content_type = mime_guess::from_path(&path)
-            .first_or_octet_stream()
-            .to_string();
-        Ok((body, content_type))
-    }
-
-    async fn delete(&self, key: &str) -> AppResult<()> {
-        let path = self.key_path(key)?;
-        tokio::fs::remove_file(&path)
-            .await
-            .map_err(|e| AppError::Internal(format!("File delete failed: {e}")))?;
-        Ok(())
-    }
-
-    fn public_url(&self, key: &str) -> String {
-        format!("{}/api/files/download/{}", self.public_url, key)
-    }
-}
-
-pub struct S3Storage {
-    client: Client,
-    bucket: String,
-    public_url: String,
-}
-
-impl S3Storage {
-    pub async fn new(config: &AppConfig) -> AppResult<Self> {
-        let creds = aws_sdk_s3::config::Credentials::new(
-            &config.s3_access_key,
-            &config.s3_secret_key,
-            None,
-            None,
-            "env",
-        );
-
-        let s3_config = aws_sdk_s3::Config::builder()
-            .endpoint_url(&config.s3_endpoint)
-            .region(aws_sdk_s3::config::Region::new(config.s3_region.clone()))
-            .credentials_provider(creds)
-            .force_path_style(true)
-            .behavior_version_latest()
-            .build();
-
-        let client = Client::from_conf(s3_config);
-
+    fn s3(config: &AppConfig) -> AppResult<Self> {
+        let store = AmazonS3Builder::new()
+            .with_endpoint(&config.s3_endpoint)
+            .with_region(&config.s3_region)
+            .with_bucket_name(&config.s3_bucket)
+            .with_access_key_id(&config.s3_access_key)
+            .with_secret_access_key(&config.s3_secret_key)
+            .with_virtual_hosted_style_request(false)
+            .with_allow_http(config.s3_endpoint.starts_with("http://"))
+            .build()
+            .map_err(|e| AppError::Internal(format!("S3 storage config invalid: {e}")))?;
         info!("S3 storage initialized: bucket={}", config.s3_bucket);
         Ok(Self {
-            client,
-            bucket: config.s3_bucket.clone(),
+            store: Arc::new(store),
             public_url: config.public_url.clone(),
+            stores_content_type: true,
         })
     }
-}
 
-#[async_trait]
-impl FileStorage for S3Storage {
-    async fn upload(&self, key: &str, body: Vec<u8>, content_type: &str) -> AppResult<()> {
-        self.client
-            .put_object()
-            .bucket(&self.bucket)
-            .key(key)
-            .body(ByteStream::from(body))
-            .content_type(content_type)
-            .send()
+    pub async fn upload(&self, key: &str, body: Vec<u8>, content_type: &str) -> AppResult<()> {
+        let path = parse_key(key)?;
+        let options = PutOptions {
+            attributes: self.attributes_for(content_type),
+            ..Default::default()
+        };
+        self.store
+            .put_opts(&path, PutPayload::from(body), options)
             .await
-            .map_err(|e| AppError::Internal(format!("S3 upload failed: {e}")))?;
+            .map_err(|e| storage_error("upload", e))?;
         Ok(())
     }
 
-    async fn begin_upload(&self, key: &str, content_type: &str) -> AppResult<Box<dyn UploadSink>> {
-        Ok(Box::new(S3UploadSink {
-            client: self.client.clone(),
-            bucket: self.bucket.clone(),
-            key: key.to_string(),
-            content_type: content_type.to_string(),
-            upload_id: None,
-            buffer: Vec::with_capacity(S3_PART_SIZE),
-            parts: Vec::new(),
+    pub async fn begin_upload(&self, key: &str, content_type: &str) -> AppResult<Upload> {
+        let path = parse_key(key)?;
+        let attributes = self.attributes_for(content_type);
+        Ok(Upload {
+            store: self.store.clone(),
+            path,
+            attributes,
+            buffer: Vec::new(),
+            multipart: None,
             written: 0,
-        }))
+        })
     }
 
-    async fn download(&self, key: &str) -> AppResult<(Vec<u8>, String)> {
-        let resp = self
-            .client
-            .get_object()
-            .bucket(&self.bucket)
-            .key(key)
-            .send()
+    pub async fn download(&self, key: &str) -> AppResult<(Bytes, String)> {
+        let path = parse_key(key)?;
+        let result = self
+            .store
+            .get(&path)
             .await
-            .map_err(|e| AppError::Internal(format!("S3 download failed: {e}")))?;
-
-        let content_type = resp
-            .content_type()
-            .unwrap_or("application/octet-stream")
-            .to_string();
-        let body = resp
-            .body
-            .collect()
-            .await
-            .map_err(|e| AppError::Internal(format!("S3 body read failed: {e}")))?
-            .into_bytes()
-            .to_vec();
-
+            .map_err(|e| storage_error("download", e))?;
+        let content_type = result
+            .attributes
+            .get(&Attribute::ContentType)
+            .map(|v| v.as_ref().to_string())
+            .unwrap_or_else(|| {
+                mime_guess::from_path(key)
+                    .first_or_octet_stream()
+                    .to_string()
+            });
+        let body = result.bytes().await.map_err(|e| storage_error("read", e))?;
         Ok((body, content_type))
     }
 
-    async fn delete(&self, key: &str) -> AppResult<()> {
-        self.client
-            .delete_object()
-            .bucket(&self.bucket)
-            .key(key)
-            .send()
+    pub async fn delete(&self, key: &str) -> AppResult<()> {
+        let path = parse_key(key)?;
+        self.store
+            .delete(&path)
             .await
-            .map_err(|e| AppError::Internal(format!("S3 delete failed: {e}")))?;
-        Ok(())
+            .map_err(|e| storage_error("delete", e))
     }
 
-    fn public_url(&self, key: &str) -> String {
+    pub fn public_url(&self, key: &str) -> String {
         format!("{}/api/files/download/{}", self.public_url, key)
     }
-}
 
-struct LocalUploadSink {
-    file: tokio::fs::File,
-    path: PathBuf,
-    written: u64,
-}
-
-#[async_trait]
-impl UploadSink for LocalUploadSink {
-    async fn write_chunk(&mut self, chunk: Bytes) -> AppResult<()> {
-        self.file
-            .write_all(&chunk)
-            .await
-            .map_err(|e| AppError::Internal(format!("File write failed: {e}")))?;
-        self.written += chunk.len() as u64;
-        Ok(())
-    }
-
-    async fn finish(mut self: Box<Self>) -> AppResult<u64> {
-        self.file
-            .flush()
-            .await
-            .map_err(|e| AppError::Internal(format!("File flush failed: {e}")))?;
-        Ok(self.written)
-    }
-
-    async fn abort(self: Box<Self>) -> AppResult<()> {
-        let _ = tokio::fs::remove_file(&self.path).await;
-        Ok(())
+    fn attributes_for(&self, content_type: &str) -> Attributes {
+        let mut attributes = Attributes::new();
+        if self.stores_content_type {
+            attributes.insert(Attribute::ContentType, content_type.to_string().into());
+        }
+        attributes
     }
 }
 
-struct S3UploadSink {
-    client: Client,
-    bucket: String,
-    key: String,
-    content_type: String,
-    upload_id: Option<String>,
+pub struct Upload {
+    store: Arc<dyn ObjectStore>,
+    path: ObjectPath,
+    attributes: Attributes,
     buffer: Vec<u8>,
-    parts: Vec<aws_sdk_s3::types::CompletedPart>,
+    multipart: Option<WriteMultipart>,
     written: u64,
 }
 
-impl S3UploadSink {
-    async fn flush_part(&mut self) -> AppResult<()> {
-        if self.upload_id.is_none() {
-            let started = self
-                .client
-                .create_multipart_upload()
-                .bucket(&self.bucket)
-                .key(&self.key)
-                .content_type(&self.content_type)
-                .send()
+impl Upload {
+    pub async fn write_chunk(&mut self, chunk: Bytes) -> AppResult<()> {
+        self.written += chunk.len() as u64;
+        if let Some(multipart) = &mut self.multipart {
+            multipart
+                .wait_for_capacity(PARTS_IN_FLIGHT)
                 .await
-                .map_err(|e| AppError::Internal(format!("S3 multipart start failed: {e}")))?;
-            self.upload_id = started.upload_id().map(std::string::ToString::to_string);
+                .map_err(|e| storage_error("part upload", e))?;
+            multipart.put(chunk);
+            return Ok(());
         }
-        let upload_id = self
-            .upload_id
-            .clone()
-            .ok_or_else(|| AppError::Internal("S3 multipart upload has no id".into()))?;
 
-        let part_number = self.parts.len() as i32 + 1;
-        let body = std::mem::replace(&mut self.buffer, Vec::with_capacity(S3_PART_SIZE));
-        let uploaded = self
-            .client
-            .upload_part()
-            .bucket(&self.bucket)
-            .key(&self.key)
-            .upload_id(&upload_id)
-            .part_number(part_number)
-            .body(ByteStream::from(body))
-            .send()
-            .await
-            .map_err(|e| AppError::Internal(format!("S3 part upload failed: {e}")))?;
+        self.buffer.extend_from_slice(&chunk);
+        if self.buffer.len() >= PART_SIZE {
+            let options = PutMultipartOptions {
+                attributes: self.attributes.clone(),
+                ..Default::default()
+            };
+            let upload = self
+                .store
+                .put_multipart_opts(&self.path, options)
+                .await
+                .map_err(|e| storage_error("multipart start", e))?;
+            let mut multipart = WriteMultipart::new_with_chunk_size(upload, PART_SIZE);
+            multipart.put(Bytes::from(std::mem::take(&mut self.buffer)));
+            self.multipart = Some(multipart);
+        }
+        Ok(())
+    }
 
-        self.parts.push(
-            aws_sdk_s3::types::CompletedPart::builder()
-                .set_e_tag(uploaded.e_tag().map(std::string::ToString::to_string))
-                .part_number(part_number)
-                .build(),
-        );
+    pub async fn finish(self) -> AppResult<u64> {
+        match self.multipart {
+            Some(multipart) => {
+                multipart
+                    .finish()
+                    .await
+                    .map_err(|e| storage_error("multipart complete", e))?;
+            }
+            None => {
+                let options = PutOptions {
+                    attributes: self.attributes,
+                    ..Default::default()
+                };
+                self.store
+                    .put_opts(&self.path, PutPayload::from(self.buffer), options)
+                    .await
+                    .map_err(|e| storage_error("upload", e))?;
+            }
+        }
+        Ok(self.written)
+    }
+
+    pub async fn abort(self) -> AppResult<()> {
+        if let Some(multipart) = self.multipart {
+            let _ = multipart.abort().await;
+        }
         Ok(())
     }
 }
 
-#[async_trait]
-impl UploadSink for S3UploadSink {
-    async fn write_chunk(&mut self, chunk: Bytes) -> AppResult<()> {
-        self.written += chunk.len() as u64;
-        self.buffer.extend_from_slice(&chunk);
-        if self.buffer.len() >= S3_PART_SIZE {
-            self.flush_part().await?;
-        }
-        Ok(())
+fn parse_key(key: &str) -> AppResult<ObjectPath> {
+    if key.starts_with('/') {
+        return Err(AppError::BadRequest("invalid path".into()));
     }
+    ObjectPath::parse(key).map_err(|_| AppError::BadRequest("invalid path".into()))
+}
 
-    async fn finish(mut self: Box<Self>) -> AppResult<u64> {
-        // Never grew past one part: a plain PUT is cheaper and avoids S3's
-        // 5 MiB minimum for non-final parts.
-        if self.upload_id.is_none() {
-            let body = std::mem::take(&mut self.buffer);
-            self.client
-                .put_object()
-                .bucket(&self.bucket)
-                .key(&self.key)
-                .body(ByteStream::from(body))
-                .content_type(&self.content_type)
-                .send()
-                .await
-                .map_err(|e| AppError::Internal(format!("S3 upload failed: {e}")))?;
-            return Ok(self.written);
-        }
-
-        if !self.buffer.is_empty() {
-            self.flush_part().await?;
-        }
-        let upload_id = self
-            .upload_id
-            .clone()
-            .ok_or_else(|| AppError::Internal("S3 multipart upload has no id".into()))?;
-
-        self.client
-            .complete_multipart_upload()
-            .bucket(&self.bucket)
-            .key(&self.key)
-            .upload_id(&upload_id)
-            .multipart_upload(
-                aws_sdk_s3::types::CompletedMultipartUpload::builder()
-                    .set_parts(Some(std::mem::take(&mut self.parts)))
-                    .build(),
-            )
-            .send()
-            .await
-            .map_err(|e| AppError::Internal(format!("S3 multipart complete failed: {e}")))?;
-
-        Ok(self.written)
-    }
-
-    async fn abort(self: Box<Self>) -> AppResult<()> {
-        if let Some(upload_id) = &self.upload_id {
-            let _ = self
-                .client
-                .abort_multipart_upload()
-                .bucket(&self.bucket)
-                .key(&self.key)
-                .upload_id(upload_id)
-                .send()
-                .await;
-        }
-        Ok(())
+fn storage_error(action: &str, e: object_store::Error) -> AppError {
+    match e {
+        object_store::Error::NotFound { .. } => AppError::NotFound("File not found".into()),
+        other => AppError::Internal(format!("Storage {action} failed: {other}")),
     }
 }
 
@@ -412,69 +219,158 @@ impl UploadSink for S3UploadSink {
 mod tests {
     use super::*;
 
-    fn temp_storage() -> (LocalStorage, PathBuf) {
+    fn temp_dir() -> std::path::PathBuf {
         use std::sync::atomic::{AtomicU64, Ordering};
         static COUNTER: AtomicU64 = AtomicU64::new(0);
-
         let n = COUNTER.fetch_add(1, Ordering::Relaxed);
         let dir =
             std::env::temp_dir().join(format!("chat_storage_test_{}_{}", std::process::id(), n));
         let _ = std::fs::remove_dir_all(&dir);
-        let storage = LocalStorage::new(dir.to_str().unwrap(), "http://x")
-            .expect("LocalStorage::new should create the base dir");
-        (storage, dir)
+        dir
     }
 
-    fn assert_rejected(result: AppResult<PathBuf>, key: &str) {
-        match result {
+    fn assert_rejected(key: &str) {
+        match parse_key(key) {
             Err(AppError::BadRequest(_)) => {}
             Err(other) => panic!("key {key:?}: expected BadRequest, got {other:?}"),
-            Ok(path) => panic!(
-                "key {key:?}: expected rejection, got Ok({})",
-                path.display()
-            ),
+            Ok(path) => panic!("key {key:?}: expected rejection, got Ok({path})"),
         }
     }
 
     #[test]
-    fn key_path_rejects_parent_dir_traversal() {
-        let (storage, _dir) = temp_storage();
-        assert_rejected(storage.key_path("../../etc/passwd"), "../../etc/passwd");
+    fn keys_that_could_escape_the_store_are_rejected() {
+        assert_rejected("../../etc/passwd");
+        assert_rejected("/abs");
+        assert_rejected("/etc/passwd");
+        assert_rejected("ws/../../../etc/passwd");
+        assert_rejected("ws//file.png");
     }
 
     #[test]
-    fn key_path_rejects_absolute_path() {
-        let (storage, _dir) = temp_storage();
-        assert_rejected(storage.key_path("/abs"), "/abs");
-        assert_rejected(storage.key_path("/etc/passwd"), "/etc/passwd");
-    }
-
-    #[test]
-    fn key_path_rejects_embedded_dotdot() {
-        let (storage, _dir) = temp_storage();
-        assert_rejected(
-            storage.key_path("ws/../../../etc/passwd"),
-            "ws/../../../etc/passwd",
-        );
-    }
-
-    #[test]
-    fn key_path_accepts_normal_key_and_stays_within_base() {
-        let (storage, dir) = temp_storage();
+    fn a_normal_nested_key_is_accepted_as_is() {
         let key = "ws/550e8400-e29b-41d4-a716-446655440000/file.png";
+        assert_eq!(parse_key(key).unwrap().as_ref(), key);
+    }
 
-        let resolved = storage
-            .key_path(key)
-            .expect("a normal nested key should be accepted");
+    #[tokio::test]
+    async fn a_small_upload_round_trips_and_stays_inside_the_base_dir() {
+        let dir = temp_dir();
+        let storage = FileStorage::local(dir.to_str().unwrap(), "http://x").unwrap();
+        let key = "ws/abc/hello.txt";
 
-        assert_eq!(resolved, dir.join(key));
-        assert!(
-            resolved.starts_with(&dir),
-            "resolved path {} escaped base {}",
-            resolved.display(),
-            dir.display(),
-        );
+        let mut upload = storage.begin_upload(key, "text/plain").await.unwrap();
+        upload
+            .write_chunk(Bytes::from_static(b"hello "))
+            .await
+            .unwrap();
+        upload
+            .write_chunk(Bytes::from_static(b"world"))
+            .await
+            .unwrap();
+        assert_eq!(upload.finish().await.unwrap(), 11);
 
+        assert!(dir.join(key).is_file());
+        let (body, content_type) = storage.download(key).await.unwrap();
+        assert_eq!(&body[..], b"hello world");
+        assert_eq!(content_type, "text/plain");
+
+        storage.delete(key).await.unwrap();
+        assert!(matches!(
+            storage.download(key).await,
+            Err(AppError::NotFound(_))
+        ));
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[tokio::test]
+    async fn an_upload_larger_than_a_part_is_assembled_from_parts() {
+        let dir = temp_dir();
+        let storage = FileStorage::local(dir.to_str().unwrap(), "http://x").unwrap();
+        let key = "ws/abc/big.bin";
+        let chunk = Bytes::from(vec![7u8; 3 * 1024 * 1024]);
+
+        let mut upload = storage
+            .begin_upload(key, "application/octet-stream")
+            .await
+            .unwrap();
+        for _ in 0..4 {
+            upload.write_chunk(chunk.clone()).await.unwrap();
+        }
+        assert_eq!(upload.finish().await.unwrap(), 12 * 1024 * 1024);
+
+        let (body, _) = storage.download(key).await.unwrap();
+        assert_eq!(body.len(), 12 * 1024 * 1024);
+        assert!(body.iter().all(|b| *b == 7));
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[tokio::test]
+    async fn an_aborted_upload_leaves_nothing_behind() {
+        let dir = temp_dir();
+        let storage = FileStorage::local(dir.to_str().unwrap(), "http://x").unwrap();
+        let key = "ws/abc/gone.bin";
+
+        let mut upload = storage
+            .begin_upload(key, "application/octet-stream")
+            .await
+            .unwrap();
+        upload
+            .write_chunk(Bytes::from(vec![1u8; PART_SIZE + 1]))
+            .await
+            .unwrap();
+        upload.abort().await.unwrap();
+
+        assert!(!dir.join(key).exists());
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    fn minio_config() -> AppConfig {
+        let mut config = crate::http_tests::common::test_config();
+        config.storage_backend = StorageBackend::S3;
+        config.s3_endpoint =
+            std::env::var("S3_ENDPOINT").unwrap_or_else(|_| "http://127.0.0.1:9000".into());
+        config.s3_bucket = std::env::var("S3_BUCKET").unwrap_or_else(|_| "chatsystems".into());
+        config.s3_access_key =
+            std::env::var("S3_ACCESS_KEY").unwrap_or_else(|_| "minioadmin".into());
+        config.s3_secret_key =
+            std::env::var("S3_SECRET_KEY").unwrap_or_else(|_| "minioadmin".into());
+        config
+    }
+
+    #[tokio::test]
+    #[ignore = "needs a MinIO on S3_ENDPOINT: docker compose up -d minio minio-init"]
+    async fn s3_round_trip_including_a_multipart_object() {
+        let storage = FileStorage::from_config(&minio_config()).await.unwrap();
+        let key = format!("test/{}/big.bin", uuid::Uuid::new_v4());
+        let chunk = Bytes::from(vec![9u8; 3 * 1024 * 1024]);
+
+        let mut upload = storage
+            .begin_upload(&key, "application/x-test")
+            .await
+            .unwrap();
+        for _ in 0..4 {
+            upload.write_chunk(chunk.clone()).await.unwrap();
+        }
+        assert_eq!(upload.finish().await.unwrap(), 12 * 1024 * 1024);
+
+        let (body, content_type) = storage.download(&key).await.unwrap();
+        assert_eq!(body.len(), 12 * 1024 * 1024);
+        assert_eq!(content_type, "application/x-test");
+
+        let small_key = format!("test/{}/small.txt", uuid::Uuid::new_v4());
+        storage
+            .upload(&small_key, b"hi".to_vec(), "text/plain")
+            .await
+            .unwrap();
+        let (body, content_type) = storage.download(&small_key).await.unwrap();
+        assert_eq!(&body[..], b"hi");
+        assert_eq!(content_type, "text/plain");
+
+        storage.delete(&key).await.unwrap();
+        storage.delete(&small_key).await.unwrap();
+        assert!(matches!(
+            storage.download(&key).await,
+            Err(AppError::NotFound(_))
+        ));
     }
 }

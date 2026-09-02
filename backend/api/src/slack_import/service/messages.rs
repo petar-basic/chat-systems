@@ -71,8 +71,7 @@ impl Import<'_> {
                     .await
             }
         };
-        rows.map(|rows| rows.into_iter().collect())
-            .map_err(|e| AppError::Database(e.to_string()))
+        Ok(rows?.into_iter().collect())
     }
 
     async fn import_message(
@@ -176,11 +175,7 @@ impl Import<'_> {
 
         if !message.pinned_to.is_empty() {
             if let Target::Channel(_) = target {
-                self.state
-                    .message_repo
-                    .set_pinned(stored_id, true)
-                    .await
-                    .map_err(|e| AppError::Database(e.to_string()))?;
+                self.state.message_repo.set_pinned(stored_id, true).await?;
                 self.report.pins += 1;
             }
         }
@@ -212,8 +207,7 @@ impl Import<'_> {
                         slack_ts,
                         created_at,
                     })
-                    .await
-                    .map_err(|e| AppError::Database(e.to_string()))?
+                    .await?
                     .id
             }
             Target::Conversation(conversation_id) => {
@@ -227,8 +221,7 @@ impl Import<'_> {
                         slack_ts,
                         created_at,
                     )
-                    .await
-                    .map_err(|e| AppError::Database(e.to_string()))?
+                    .await?
                     .id
             }
         };

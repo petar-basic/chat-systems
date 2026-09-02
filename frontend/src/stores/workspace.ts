@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { components } from '@/api/schema';
 import { instanceManager } from '../lib/instances';
 import { wsClient } from '../lib/ws';
 import { useInstanceStore } from './instances';
@@ -31,41 +32,15 @@ export interface Channel {
   settings?: ChannelSettings;
 }
 
-export interface Reaction {
-  id: string;
-  message_id: string;
-  user_id: string;
-  emoji: string;
-  created_at: string;
-}
+export type Reaction = components['schemas']['Reaction'];
 
-export interface BotIdentity {
-  hook_id: string;
-  name: string;
-  icon_url?: string | null;
-}
+export type BotIdentity = components['schemas']['BotIdentity'];
 
-export interface MessageMetadata {
-  kind?: string;
-  huddle_id?: string;
-  initiator_id?: string;
-  bot?: BotIdentity;
-}
+export type MessageMetadata = components['schemas']['MessageMetadata'];
 
-export interface Message {
-  id: string;
-  channel_id: string;
-  user_id: string;
-  client_message_id?: string | null;
-  content: string;
-  created_at: string;
-  updated_at: string;
-  deleted_at: string | null;
-  reactions?: Reaction[];
-  thread_parent_id: string | null;
-  reply_count: number;
-  is_pinned: boolean;
+export interface Message extends Omit<components['schemas']['Message'], 'metadata'> {
   metadata?: MessageMetadata;
+  reactions?: Reaction[];
   pending?: boolean;
   failed?: boolean;
 }

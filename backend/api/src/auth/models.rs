@@ -125,18 +125,26 @@ pub struct ResetPasswordRequest {
     pub password: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, garde::Validate)]
+#[garde(allow_unvalidated)]
 pub struct SetStatusRequest {
+    #[garde(inner(custom(shared_common::validation::rules::status_emoji_or_blank)))]
     pub emoji: Option<String>,
+    #[garde(inner(custom(shared_common::validation::rules::status_text_or_blank)))]
     pub text: Option<String>,
     pub expires_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, garde::Validate)]
+#[garde(allow_unvalidated)]
 pub struct UpdateProfileRequest {
+    #[garde(inner(custom(shared_common::validation::rules::display_name)))]
     pub display_name: Option<String>,
+    #[garde(inner(custom(shared_common::validation::rules::avatar_url_or_empty)))]
     pub avatar_url: Option<String>,
+    #[garde(inner(custom(shared_common::validation::rules::bio)))]
     pub bio: Option<String>,
+    #[garde(inner(custom(shared_common::validation::rules::timezone)))]
     pub timezone: Option<String>,
 }
 

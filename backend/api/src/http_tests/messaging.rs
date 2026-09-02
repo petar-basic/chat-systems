@@ -695,13 +695,17 @@ async fn mark_read_no_token_unauthorized(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-async fn mark_online(state: &crate::state::AppState, user_id: uuid::Uuid) {
+async fn mark_online(state: &crate::state::AppState, ws_id: uuid::Uuid, user_id: uuid::Uuid) {
     let mut conn = state.redis.clone();
-    let _: redis::RedisResult<()> = redis::cmd("SET")
-        .arg(format!("presence:{user_id}:test-node"))
-        .arg("online")
-        .arg("EX")
-        .arg(30)
+    let expires_at = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
+        + 60;
+    let _: redis::RedisResult<()> = redis::cmd("ZADD")
+        .arg(format!("presence:ws:{ws_id}"))
+        .arg(expires_at)
+        .arg(user_id.to_string())
         .query_async(&mut conn)
         .await;
 }
@@ -759,7 +763,7 @@ async fn here_only_reaches_members_with_a_live_connection(pool: PgPool) {
             .await
             .expect("add channel member");
     }
-    mark_online(&state, online_member).await;
+    mark_online(&state, ws_id, online_member).await;
 
     let mentioned = expand_mentions(&state, ch_id, author_id, "@[here](here) anyone around?").await;
 

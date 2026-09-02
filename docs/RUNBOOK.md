@@ -16,15 +16,16 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml \
 | Container | What it does | Safe to scale? |
 |---|---|---|
 | `api` | REST API; applies migrations at startup | yes |
-| `worker` | Background consumers: outgoing webhooks, reminders, notifications, huddle history, scheduled messages | **no — keep at one replica** |
+| `worker` | Background consumers: outgoing webhooks, reminders, notifications, huddle history, call ringing, scheduled messages, email delivery | yes |
 | `realtime` | WebSocket gateway | yes |
 
-Running two `worker` replicas duplicates every side effect they produce: two
-notification rows per mention, two POSTs per outgoing webhook, two reminder
-deliveries. The compose files pin `replicas: 1`; leave it there. If `worker` is down,
-nothing is lost permanently — messages still send and read — but webhooks, reminders,
-scheduled messages and notification rows stop until it returns. Its `/readyz` is
-wired to the autoheal sidecar like the others.
+Every consumer in `worker` either reads through a Redis Streams consumer group, which hands
+each event to exactly one replica, or claims its row in the database first, so a second
+replica is a second pair of hands rather than a second copy of every side effect. The
+production compose runs two. If every replica is down, nothing is lost permanently —
+messages still send and read — but webhooks, reminders, scheduled messages, call ringing
+and notification rows wait until one returns; the streams hold what was published in the
+meantime. Its `/readyz` is wired to the autoheal sidecar like the others.
 
 ## What self-hosting actually costs
 
@@ -187,16 +188,18 @@ useful, so deploy realtime before or with the frontend.
 
 **The notification and hook consumers stopped being the reason for one replica.** They read
 through `XREADGROUP` with acknowledgement, so events are distributed across replicas and an
-unacknowledged event is redelivered rather than lost with the process holding it. The
-scheduled dispatcher and reminder checker claim their rows in the database, which was
-already safe for multiple replicas.
+unacknowledged event is redelivered rather than lost with the process holding it: every
+replica runs `XAUTOCLAIM` on each stream every 30 seconds and takes over anything that has
+sat unacknowledged for 60 seconds, whoever was holding it. An event that has been delivered
+five times without ever being acknowledged is assumed to be killing its consumer and is
+acknowledged unprocessed — `dropping <stream> <id> after N deliveries` in the worker log is
+that happening, and the event id in it is what to go looking for. The scheduled dispatcher
+and reminder checker claim their rows in the database, which was already safe for multiple
+replicas.
 
-**Keep `chat-worker` at one replica anyway.** Two consumers are still on plain pub/sub,
-which delivers to every subscriber: the huddle consumer (`events:huddle`), which records
-joins and leaves and ends the session when the last person leaves, and the call
-notification consumer, which rings people. A second replica double-records huddle history
-and rings twice. Moving those two to consumer groups is what would make scaling out safe;
-until then the limit is theirs, not the notification consumer's.
+**At the time this shipped, two consumers were still on plain pub/sub** — the huddle
+consumer and the call notification consumer — and that kept `chat-worker` at one replica.
+Both have since moved to consumer groups; see the ring note under migration 42 below.
 
 Delivery to the worker is at-least-once as a result. Outgoing webhooks claim a
 `(hook_id, event_id)` row before dispatching (migration `…22`), so a redelivery does not
@@ -368,11 +371,35 @@ later — cancelled if they come online first. It carries who and where and a li
 message text. Individuals can turn it off at `PATCH /api/notifications/email`; with SMTP
 unconfigured the whole feature is off and logs nothing.
 
+**Invites and password resets go through an outbox.** Neither is sent inside the request
+any more: the row lands in `outbound_emails` and the worker delivers it within a couple of
+seconds, retrying with backoff (1, 4, 16, 64 minutes, then every four hours) up to eight
+attempts. After the last one the row is parked with `next_attempt_at` null and the SMTP
+error in `last_error`, which is what to look at when somebody says the invite never came:
+
+```sql
+SELECT to_address, subject, attempts, next_attempt_at, last_error
+  FROM outbound_emails WHERE sent_at IS NULL ORDER BY created_at DESC;
+```
+
+Setting `next_attempt_at = NOW()` on a parked row puts it back in the queue once the SMTP
+problem is fixed. With SMTP unconfigured nothing is queued and a warning is logged instead.
+
 **`chat-worker` can now run more than one replica.** The huddle consumer reads through a
 consumer group like the others, and the ring claims `(huddle_id, to_user_id)` before it
 sends, so a second replica loses the race instead of ringing twice. The scheduled dispatcher
 and reminder checker already claimed their rows. Nothing forces you to scale it — at a few
 dozen people one replica is plenty — but it is no longer a correctness constraint.
+
+**Migration 42 moves the ring itself onto the stream.** The ring was the last event still
+on pub/sub, which is at-most-once: a worker that was restarting when somebody started a
+call simply never rang anyone. It is now written to the workspace stream like every other
+durable event and read by the notification consumer through its group, so a ring that
+lands while every worker is down is delivered when one comes back — unless it is older than
+sixty seconds by then, in which case it is dropped, because a call announced a minute late
+is worse than one not announced. The `huddle_ring_claims` table is gone; a redelivery is
+absorbed by `idx_notifications_call_dedup`, one call notification per person per call.
+Reconnecting clients never see a ring in their replay.
 
 **Migrations 39 and 40** add `pending_mention_emails`, `users.mention_emails` and
 `huddle_ring_claims`. All additive.

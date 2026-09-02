@@ -138,8 +138,7 @@ impl Import<'_> {
             .state
             .emoji_repo
             .find_by_name(self.workspace_id, name)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?
+            .await?
             .map(|emoji| emoji.storage_key))
     }
 }

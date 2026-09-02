@@ -4,7 +4,7 @@ import { execSync } from 'node:child_process';
 // the module URL keeps the suite runnable on a CI runner, not just one laptop.
 const REPO_ROOT = new URL('../..', import.meta.url).pathname;
 import { test, expect, type Page, type BrowserContext } from '@playwright/test';
-import { API, authHeaders, devWorkspace, login, MAILHOG, send, SHOTS, userContext } from './helpers';
+import { API, authHeaders, devWorkspace, inviteEmailBody, login, send, SHOTS, userContext } from './helpers';
 
 const stamp = process.env.E2E_STAMP || `run2-${Date.now()}`;
 
@@ -122,10 +122,7 @@ test('E. invite → email → registration lands the new user inside the workspa
   });
   expect(inv.status()).toBe(200);
 
-  const mail = await api.get(`${MAILHOG}/api/v2/search?kind=to&query=` + encodeURIComponent(email));
-  const items = (await mail.json()).items;
-  expect(items.length).toBeGreaterThan(0);
-  const body: string = items[0].Content.Body.replace(/=\r\n/g, '').replace(/=3D/g, '=');
+  const body = await inviteEmailBody(api, email);
   const link = body.match(/https?:\/\/[^\s"'<>]*invite\/[A-Za-z0-9_.-]+/)?.[0];
   expect(link, 'invite link present in the email').toBeTruthy();
 

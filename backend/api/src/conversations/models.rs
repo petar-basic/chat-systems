@@ -30,7 +30,7 @@ pub struct ConversationSummary {
     pub participant_ids: Vec<Uuid>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow, utoipa::ToSchema)]
 pub struct ConversationMessage {
     pub id: Uuid,
     pub conversation_id: Uuid,
@@ -68,21 +68,28 @@ pub struct CreateConversationRequest {
     pub participant_ids: Vec<Uuid>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, garde::Validate)]
+#[garde(allow_unvalidated)]
 pub struct SendConversationMessageRequest {
+    #[garde(custom(shared_common::validation::rules::message_content))]
     pub content: String,
     /// The sender's own id for this send, used only to make a retry idempotent.
     /// It is not the message id — the server owns that.
+    #[garde(inner(custom(shared_common::validation::rules::client_message_id)))]
     pub client_message_id: Option<Uuid>,
     pub thread_parent_id: Option<Uuid>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, garde::Validate)]
+#[garde(allow_unvalidated)]
 pub struct EditConversationMessageRequest {
+    #[garde(custom(shared_common::validation::rules::message_content))]
     pub content: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, garde::Validate)]
+#[garde(allow_unvalidated)]
 pub struct AddConversationReactionRequest {
+    #[garde(custom(shared_common::validation::rules::reaction_emoji))]
     pub emoji: String,
 }

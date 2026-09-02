@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "license": "MIT",
   "type": "module",
-  "description": "Self-hosted team chat \u2014 desktop client.",
+  "description": "Self-hosted team chat — desktop client.",
   "author": "Petar Basic <petarbasic1910@gmail.com>",
   "repository": {
     "type": "git",
@@ -19,7 +19,8 @@
     "test:e2e": "playwright test --project=chromium --project=mobile && playwright test --project=serial",
     "preview": "vite preview",
     "format": "prettier --write \"src/**/*.{ts,tsx}\" \"e2e/**/*.ts\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"e2e/**/*.ts\""
+    "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"e2e/**/*.ts\"",
+    "api:types": "openapi-typescript src/api/openapi.json -o src/api/schema.d.ts"
   },
   "overrides": {
     "shell-quote": "^1.8.4",
@@ -27,6 +28,7 @@
   },
   "dependencies": {
     "@emoji-mart/data": "^1.2.1",
+    "@floating-ui/react-dom": "2.1.9",
     "@mediapipe/tasks-vision": "^1.0.1",
     "@tanstack/react-query": "^5.101.4",
     "@tanstack/react-virtual": "^3.14.10",
@@ -40,6 +42,7 @@
     "emoji-mart": "^5.6.0",
     "lucide-react": "^1.33.0",
     "markdown-it": "^15.0.0",
+    "openapi-fetch": "0.17.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router": "^8.3.0",
@@ -64,6 +67,7 @@
     "eslint-plugin-react-refresh": "^0.5.4",
     "globals": "^17.11.0",
     "jsdom": "^30.0.1",
+    "openapi-typescript": "7.13.0",
     "prettier": "^3.9.6",
     "tailwindcss": "^4.2.1",
     "typescript": "~5.9.3",

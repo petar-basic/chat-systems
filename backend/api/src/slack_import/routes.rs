@@ -37,11 +37,7 @@ async fn list_imports(
     Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
-    let runs = state
-        .slack_import_repo
-        .list_runs(ws_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+    let runs = state.slack_import_repo.list_runs(ws_id).await?;
     Ok(Json(serde_json::json!({ "data": runs })))
 }
 
@@ -53,8 +49,7 @@ async fn get_import(
     let run = state
         .slack_import_repo
         .find_run(import_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::NotFound("No such import".into()))?;
 
     authz::require_workspace_role(
@@ -214,8 +209,7 @@ async fn queue(
             user_id,
             upload.dry_run,
         )
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
 
     audit::record(
         state,

@@ -865,6 +865,15 @@ Worth stating plainly: `record_join` was already an upsert and `end_session` alr
 succeeded once, so those two were no-ops on a redelivery rather than bugs. The ring was the
 one place a second replica produced a second effect.
 
+**Revisited 2026-09-02: the ring goes on the stream after all.** Keeping it on pub/sub
+protected against a late ring but left the more common failure open — a worker restarting
+at the moment of the call rang nobody, ever. The ring is now a durable event read through
+the notification consumer's group; the "late ring" concern is handled where it belongs, by
+dropping any ring older than sixty seconds at delivery, and the replay path skips rings so
+a reconnecting client is never rung for a call that ended. `huddle_ring_claims` is dropped;
+a unique index on the notification row absorbs a redelivery. `chat-worker` runs two
+replicas in production.
+
 ### [CS-038] Mobile client — the responsive PWA
 **Decided 2026-08-13: Option A.** Web Push shipped in Wave 9, which was the half that made
 an installed PWA worth having on a phone.
@@ -909,3 +918,15 @@ areas on a real notch, the back gesture, background/foreground, and push to a cl
   diacritic folding, and it should not be smuggled in with it.
 - **SCIM `/Groups`.** `/Users` delivers the whole offboarding value; groups are where SCIM
   implementations go to die. Add only on request.
+- **Versioning the API path (`/api/v1`).** Considered 2026-09-02 and deferred. It would
+  break every incoming-webhook URL already pasted into somebody's CI, and touch nginx,
+  Caddy, the E2E helpers and every route table in `docs/backend.md`, for a benefit that
+  only materialises when a second, incompatible version exists. The OpenAPI document is
+  the contract in the meantime; revisit when a breaking API change is actually planned,
+  and do the version bump as part of it.
+- **Asymmetric JWT signing (EdDSA) instead of a shared HS256 secret.** Considered
+  2026-09-02 and deferred. It is the better design — the realtime gateway would hold only
+  the public key, and a leaked gateway config could no longer mint tokens — but it makes
+  every deployment generate and distribute a keypair, and changes `ci-env.sh`, compose and
+  the runbook. Revisit if the gateway ever runs on a less trusted host than the API, or if
+  a security review asks for it.

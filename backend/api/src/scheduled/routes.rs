@@ -3,18 +3,15 @@ use std::sync::Arc;
 use axum::extract::{Path, State};
 use axum::routing::{delete, get, patch};
 use axum::{Json, Router};
-use chrono::{DateTime, Duration, Utc};
+use garde::Validate;
 use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
-use shared_common::validation;
 
 use super::models::*;
 use super::repo::NewScheduledMessage;
 use crate::middleware::AuthUser;
 use crate::state::AppState;
-
-const MAX_SCHEDULE_AHEAD_DAYS: i64 = 120;
 
 pub fn router(state: Arc<AppState>) -> Router {
     let routes = Router::new()
@@ -26,21 +23,6 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/scheduled-messages/{id}", delete(cancel_scheduled));
 
     crate::protected(state, routes)
-}
-
-fn validate_send_at(send_at: DateTime<Utc>) -> AppResult<()> {
-    let now = Utc::now();
-    if send_at <= now {
-        return Err(AppError::Validation(
-            "Scheduled time must be in the future".into(),
-        ));
-    }
-    if send_at > now + Duration::days(MAX_SCHEDULE_AHEAD_DAYS) {
-        return Err(AppError::Validation(format!(
-            "Messages can be scheduled at most {MAX_SCHEDULE_AHEAD_DAYS} days ahead"
-        )));
-    }
-    Ok(())
 }
 
 async fn require_target_access(
@@ -112,8 +94,7 @@ async fn create_scheduled(
     Path(ws_id): Path<Uuid>,
     Json(req): Json<CreateScheduledMessageRequest>,
 ) -> AppResult<Json<ScheduledMessage>> {
-    validation::validate_message_content(&req.content)?;
-    validate_send_at(req.send_at)?;
+    req.validate()?;
     require_target_access(&state, &auth, ws_id, req.channel_id, req.conversation_id).await?;
 
     let scheduled = state
@@ -161,7 +142,7 @@ async fn reschedule(
     Path(id): Path<Uuid>,
     Json(req): Json<RescheduleRequest>,
 ) -> AppResult<Json<ScheduledMessage>> {
-    validate_send_at(req.send_at)?;
+    req.validate()?;
     owned_pending(&state, id, auth.user_id).await?;
     let updated = state.scheduled_repo.reschedule(id, req.send_at).await?;
     Ok(Json(updated))

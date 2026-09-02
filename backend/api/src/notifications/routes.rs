@@ -10,6 +10,7 @@ use shared_common::errors::AppResult;
 use super::models::*;
 use crate::authz;
 use crate::middleware::AuthUser;
+use crate::pagination::PageQuery;
 use crate::state::AppState;
 
 pub fn router(state: Arc<AppState>) -> Router {
@@ -41,22 +42,12 @@ async fn list_notifications(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
-    Query(params): Query<std::collections::HashMap<String, String>>,
+    Query(params): Query<PageQuery>,
 ) -> AppResult<Json<serde_json::Value>> {
     authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
-    let limit = params
-        .get("limit")
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(50i64)
-        .clamp(1, 200);
-    let offset = params
-        .get("offset")
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(0i64)
-        .max(0);
     let notifications = state
         .notification_repo
-        .list_for_user(auth.user_id, ws_id, limit, offset)
+        .list_for_user(auth.user_id, ws_id, params.limit(), params.offset())
         .await?;
     Ok(Json(serde_json::json!({ "data": notifications })))
 }

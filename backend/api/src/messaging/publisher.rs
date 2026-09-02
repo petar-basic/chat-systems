@@ -21,7 +21,10 @@ fn is_durable(event_type: &str) -> bool {
     // a call log, so it belongs in the log with the other durable events. The
     // ring and the WebRTC signalling stay ephemeral — replaying either one
     // minutes later is worse than not replaying it.
-    if matches!(event_type, "huddle.member_joined" | "huddle.member_left") {
+    if matches!(
+        event_type,
+        "huddle.member_joined" | "huddle.member_left" | "huddle.ring"
+    ) {
         return true;
     }
 

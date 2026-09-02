@@ -3,15 +3,16 @@ use std::sync::Arc;
 use axum::extract::{Path, Query, State};
 use axum::routing::{delete, get, patch, post};
 use axum::{Json, Router};
+use garde::Validate;
 use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
-use shared_common::validation;
 
 use super::models::*;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
 use crate::middleware::AuthUser;
+use crate::pagination::{BeforeQuery, PageQuery};
 use crate::state::AppState;
 use crate::workspace::models::WorkspaceRole;
 
@@ -170,20 +171,14 @@ async fn list_messages(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(conv_id): Path<Uuid>,
-    Query(params): Query<std::collections::HashMap<String, String>>,
+    Query(params): Query<BeforeQuery>,
 ) -> AppResult<Json<serde_json::Value>> {
     authz::require_conversation_participant(&state, conv_id, auth.user_id).await?;
 
-    let limit = params
-        .get("limit")
-        .and_then(|v| v.parse::<i64>().ok())
-        .unwrap_or(50)
-        .clamp(1, 200);
-    let before = params.get("before").and_then(|v| v.parse().ok());
-
+    let limit = params.limit();
     let messages = state
         .conversation_repo
-        .list_messages(conv_id, limit, before)
+        .list_messages(conv_id, limit, params.before)
         .await?;
 
     let next_cursor = if messages.len() as i64 == limit {
@@ -234,11 +229,7 @@ async fn send_message(
 ) -> AppResult<Json<ConversationMessage>> {
     let conversation =
         authz::require_conversation_participant(&state, conv_id, auth.user_id).await?;
-    validation::validate_message_content(&req.content)?;
-
-    if let Some(client_id) = req.client_message_id {
-        validation::validate_client_message_id(client_id)?;
-    }
+    req.validate()?;
 
     let thread_parent_id = match req.thread_parent_id {
         Some(parent_id) => {
@@ -315,7 +306,7 @@ async fn edit_message(
     Path(msg_id): Path<Uuid>,
     Json(req): Json<EditConversationMessageRequest>,
 ) -> AppResult<Json<ConversationMessage>> {
-    validation::validate_message_content(&req.content)?;
+    req.validate()?;
     let existing = state
         .conversation_repo
         .find_message(msg_id)
@@ -446,7 +437,7 @@ async fn add_reaction(
     Path(msg_id): Path<Uuid>,
     Json(req): Json<AddConversationReactionRequest>,
 ) -> AppResult<Json<ConversationReaction>> {
-    validation::validate_reaction_emoji(&req.emoji)?;
+    req.validate()?;
     let existing = state
         .conversation_repo
         .find_message(msg_id)
@@ -515,7 +506,7 @@ async fn list_thread(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(msg_id): Path<Uuid>,
-    Query(params): Query<std::collections::HashMap<String, String>>,
+    Query(params): Query<PageQuery>,
 ) -> AppResult<Json<serde_json::Value>> {
     let parent = state
         .conversation_repo
@@ -524,20 +515,9 @@ async fn list_thread(
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
     authz::require_conversation_participant(&state, parent.conversation_id, auth.user_id).await?;
 
-    let limit = params
-        .get("limit")
-        .and_then(|v| v.parse::<i64>().ok())
-        .unwrap_or(50)
-        .clamp(1, 200);
-    let offset = params
-        .get("offset")
-        .and_then(|v| v.parse::<i64>().ok())
-        .unwrap_or(0)
-        .max(0);
-
     let replies = state
         .conversation_repo
-        .list_thread(msg_id, limit, offset)
+        .list_thread(msg_id, params.limit(), params.offset())
         .await?;
 
     let ids: Vec<Uuid> = replies.iter().map(|m| m.id).collect();

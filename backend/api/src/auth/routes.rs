@@ -7,6 +7,7 @@ use axum::routing::{delete, get, patch, post, put};
 use axum::{Json, Router};
 use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
 use chrono::Utc;
+use garde::Validate;
 use shared_common::errors::{AppError, AppResult};
 
 use super::models::*;
@@ -365,18 +366,7 @@ async fn update_me(
     auth: AuthUser,
     Json(req): Json<UpdateProfileRequest>,
 ) -> AppResult<Json<UserPublic>> {
-    if let Some(name) = &req.display_name {
-        shared_common::validation::validate_display_name(name)?;
-    }
-    if let Some(avatar_url) = req.avatar_url.as_deref().filter(|url| !url.is_empty()) {
-        shared_common::validation::validate_avatar_url(avatar_url)?;
-    }
-    if let Some(bio) = &req.bio {
-        shared_common::validation::validate_bio(bio)?;
-    }
-    if let Some(timezone) = &req.timezone {
-        shared_common::validation::validate_timezone(timezone)?;
-    }
+    req.validate()?;
     let user = state
         .auth_service
         .repo()
@@ -396,6 +386,7 @@ async fn set_status(
     auth: AuthUser,
     Json(req): Json<SetStatusRequest>,
 ) -> AppResult<Json<UserPublic>> {
+    req.validate()?;
     let emoji = req
         .emoji
         .as_deref()
@@ -403,12 +394,6 @@ async fn set_status(
         .filter(|e| !e.is_empty());
     let text = req.text.as_deref().map(str::trim).filter(|t| !t.is_empty());
 
-    if let Some(emoji) = emoji {
-        shared_common::validation::validate_status_emoji(emoji)?;
-    }
-    if let Some(text) = text {
-        shared_common::validation::validate_status_text(text)?;
-    }
     if emoji.is_none() && text.is_none() {
         return Err(AppError::Validation(
             "A status needs an emoji or some text".into(),

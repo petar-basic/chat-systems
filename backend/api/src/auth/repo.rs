@@ -9,6 +9,10 @@ pub struct UserRepo {
 }
 
 impl UserRepo {
+    pub fn pool(&self) -> &PgPool {
+        &self.pool
+    }
+
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }

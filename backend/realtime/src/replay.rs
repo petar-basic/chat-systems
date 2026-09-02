@@ -16,6 +16,12 @@ pub fn workspace_stream(workspace_id: Uuid) -> String {
     format!("stream:ws:{workspace_id}")
 }
 
+/// A ring is in the log so the worker can be handed it at least once; a client
+/// reconnecting minutes later must not be rung for a call that is over.
+pub fn replays_to_clients(event_type: &str) -> bool {
+    event_type != "huddle.ring"
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum Replay {
     /// Everything the client missed was still in the log and has been delivered.
@@ -134,6 +140,11 @@ pub async fn replay_workspace(
             continue;
         };
 
+        if !replays_to_clients(&event.event_type) {
+            last_id = Some(id);
+            continue;
+        }
+
         handle_event_for(
             Audience::Connection(conn_id),
             &event.event_type,
@@ -164,6 +175,13 @@ mod tests {
         assert!(!is_older("100-2", "100-1"));
         // 9 is not older than 100 just because "9" sorts after "1" as text.
         assert!(is_older("9-0", "100-0"));
+    }
+
+    #[test]
+    fn a_ring_is_never_replayed_to_a_client() {
+        assert!(!replays_to_clients("huddle.ring"));
+        assert!(replays_to_clients("message.created"));
+        assert!(replays_to_clients("huddle.member_joined"));
     }
 
     #[test]

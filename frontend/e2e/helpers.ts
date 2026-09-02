@@ -98,3 +98,16 @@ export async function send(page: Page, text: string) {
   await editor.fill(text);
   await editor.press('Enter');
 }
+
+export async function inviteEmailBody(request: APIRequestContext, email: string): Promise<string> {
+  const deadline = Date.now() + 20_000;
+  while (Date.now() < deadline) {
+    const mail = await request.get(`${MAILHOG}/api/v2/search?kind=to&query=${encodeURIComponent(email)}`);
+    const items = (await mail.json()).items;
+    if (items.length > 0) {
+      return items[0].Content.Body.replace(/=\r\n/g, '').replace(/=3D/g, '=');
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  throw new Error(`no email for ${email} arrived in MailHog within 20s`);
+}

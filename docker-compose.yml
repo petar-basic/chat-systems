@@ -247,10 +247,10 @@ services:
       autoheal: "true"
 
   # Background consumers (outgoing webhooks, reminders, notifications, huddle
-  # history, scheduled messages). They run here and nowhere else: Redis pub/sub
-  # delivers to every subscriber, so a second copy duplicates every side effect
-  # — a second notification row, a second webhook POST. Scale `api` freely;
-  # keep this at one replica.
+  # history, call ringing, scheduled messages). They run here and not in `api`,
+  # so an API replica never carries a side effect. Every consumer reads through
+  # a Redis Streams consumer group or claims its row first, so this scales like
+  # `api` does; production runs two.
   worker:
     build:
       context: ./backend

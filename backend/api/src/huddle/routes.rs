@@ -78,8 +78,9 @@ async fn invite_to_huddle(
         }
         let _ = state
             .publisher
-            .publish(
+            .publish_scoped(
                 "huddle.ring",
+                ws_id,
                 serde_json::json!({
                     "huddle_id": huddle_id,
                     "workspace_id": ws_id,
@@ -161,8 +162,9 @@ async fn start_huddle(
                 .await?;
             let _ = state
                 .publisher
-                .publish(
+                .publish_scoped(
                     "huddle.ring",
+                    ws_id,
                     serde_json::json!({
                         "huddle_id": huddle_id,
                         "workspace_id": ws_id,

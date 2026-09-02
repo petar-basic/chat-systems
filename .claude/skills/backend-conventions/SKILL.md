@@ -27,7 +27,7 @@ Keep strict separation between HTTP handling, business logic, and data access.
 
 1. Create feature directory under `backend/api/src/<feature_name>/`.
 2. Add required files: `mod.rs`, `models.rs`, `repo.rs`, `routes.rs`.
-3. Add optional files only when required: `service.rs` (multi-step business logic), `publisher.rs` (Redis event publishing), `consumer.rs` (Redis event consumption), `executor.rs` (background task execution), `storage.rs` (external storage abstraction).
+3. Add optional files only when required: `service.rs` (multi-step business logic), `publisher.rs` (Redis event publishing), `consumer.rs` (Redis event consumption), `executor.rs` (background task execution), `storage.rs` (object storage via the `object_store` crate).
 4. Implement in this order: models → repo → service (if needed) → routes.
 5. Add the repo/service to `AppState` in `backend/api/src/state.rs`.
 6. Register the router in `backend/api/src/main.rs` by merging `<feature>::routes::router(state.clone())`.
@@ -109,7 +109,7 @@ Use this checklist:
 
 - Use `Arc<AppState>` as `State(state): State<Arc<AppState>>` in every handler.
 - Use `AppResult<T>` as the return type alias for `Result<T, AppError>`.
-- Convert sqlx errors with `.map_err(|e| AppError::Database(e.to_string()))?`.
+- Propagate sqlx errors with `?`; `From<sqlx::Error> for AppError` exists, so a manual `.map_err(|e| AppError::Database(...))` is noise.
 - Convert `Option::None` to errors with `.ok_or_else(|| AppError::NotFound("...".into()))`.
 - Use `snake_case` for all files, functions, and variables; `PascalCase` for types.
 - Keep `async fn` throughout the call chain; never block async paths with sync I/O.
@@ -128,7 +128,7 @@ pub struct AppState {
     pub message_repo: MessageRepo,
     pub publisher: EventPublisher,
     pub file_repo: FileRepo,
-    pub file_storage: Box<dyn FileStorage + Send + Sync>,
+    pub file_storage: FileStorage,
     pub hook_repo: HookRepo,
     pub notification_repo: NotificationRepo,
 }
@@ -151,9 +151,8 @@ AppError::Database(msg)       // 500 — sqlx error forwarded as string
 
 Standard conversion chain in route handlers:
 ```rust
-// sqlx error → AppError
-let msg = state.message_repo.find_by_id(id).await
-    .map_err(|e| AppError::Database(e.to_string()))?
+// sqlx error → AppError via From, None → NotFound
+let msg = state.message_repo.find_by_id(id).await?
     .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
 ```
 
@@ -167,8 +166,7 @@ async fn require_member(state: &AppState, workspace_id: Uuid, user_id: Uuid)
         .workspace_service
         .repo
         .get_member(workspace_id, user_id)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?
+        .await?
         .ok_or_else(|| AppError::Forbidden("Not a member of this workspace".into()))
 }
 

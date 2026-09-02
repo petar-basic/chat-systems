@@ -62,8 +62,7 @@ impl<'a> Import<'a> {
             .workspace_service
             .repo
             .find_workspace_by_id(workspace_id)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?
+            .await?
             .ok_or_else(|| AppError::NotFound("No such workspace".into()))?
             .owner_id;
 
@@ -94,8 +93,7 @@ impl<'a> Import<'a> {
                 self.state
                     .slack_import_repo
                     .start_run(self.workspace_id, source.label(), self.dry_run)
-                    .await
-                    .map_err(|e| AppError::Database(e.to_string()))?,
+                    .await?,
             );
         }
 
@@ -128,8 +126,7 @@ impl<'a> Import<'a> {
             self.state
                 .slack_import_repo
                 .finish_run(run_id, &report)
-                .await
-                .map_err(|e| AppError::Database(e.to_string()))?;
+                .await?;
         }
 
         Ok(self.report)
@@ -213,8 +210,7 @@ impl<'a> Import<'a> {
             .state
             .slack_import_repo
             .user_mappings(self.workspace_id)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+            .await?;
         for (slack_id, user_id, name) in users {
             self.users.insert(slack_id, (user_id, name));
         }
@@ -223,8 +219,7 @@ impl<'a> Import<'a> {
             .state
             .slack_import_repo
             .channel_mappings(self.workspace_id)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+            .await?;
         for (slack_id, channel_id) in channels {
             self.channels.insert(slack_id, channel_id);
         }
@@ -233,8 +228,7 @@ impl<'a> Import<'a> {
             .state
             .slack_import_repo
             .conversation_mappings(self.workspace_id)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+            .await?;
         for (slack_id, conversation_id) in conversations {
             self.conversations.insert(slack_id, conversation_id);
         }

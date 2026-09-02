@@ -1,6 +1,6 @@
 //! Channels from `channels.json` and `groups.json`, conversations from `dms.json` and `mpims.json`.
 
-use shared_common::errors::{AppError, AppResult};
+use shared_common::errors::AppResult;
 use uuid::Uuid;
 
 use super::super::models::*;
@@ -40,8 +40,7 @@ impl Import<'_> {
                 .workspace_service
                 .repo
                 .find_channel_by_name(self.workspace_id, &name)
-                .await
-                .map_err(|e| AppError::Database(e.to_string()))?;
+                .await?;
 
             let channel_id = match existing {
                 Some(found) => {
@@ -65,15 +64,13 @@ impl Import<'_> {
                             self.owner_id,
                             false,
                         )
-                        .await
-                        .map_err(|e| AppError::Database(e.to_string()))?;
+                        .await?;
                     if !channel.topic.value.is_empty() {
                         self.state
                             .workspace_service
                             .repo
                             .update_channel(created.id, None, Some(&channel.topic.value), None)
-                            .await
-                            .map_err(|e| AppError::Database(e.to_string()))?;
+                            .await?;
                     }
                     self.report.channels_created += 1;
                     created.id
@@ -84,8 +81,7 @@ impl Import<'_> {
                 self.state
                     .slack_import_repo
                     .map_channel(self.workspace_id, &channel.id, channel_id)
-                    .await
-                    .map_err(|e| AppError::Database(e.to_string()))?;
+                    .await?;
             }
             self.channels.insert(channel.id.clone(), channel_id);
             self.add_channel_members(&channel, channel_id).await?;
@@ -147,14 +143,12 @@ impl Import<'_> {
                 .state
                 .conversation_repo
                 .create(self.workspace_id, kind, participants[0], &participants)
-                .await
-                .map_err(|e| AppError::Database(e.to_string()))?;
+                .await?;
 
             self.state
                 .slack_import_repo
                 .map_conversation(self.workspace_id, &conversation.id, created.id)
-                .await
-                .map_err(|e| AppError::Database(e.to_string()))?;
+                .await?;
             self.conversations
                 .insert(conversation.id.clone(), created.id);
             targets.push((conversation, Target::Conversation(created.id)));
@@ -201,8 +195,7 @@ impl Import<'_> {
                 .workspace_service
                 .repo
                 .add_channel_member(channel_id, user_id, &ChannelRole::Member)
-                .await
-                .map_err(|e| AppError::Database(e.to_string()))?;
+                .await?;
         }
 
         Ok(())
