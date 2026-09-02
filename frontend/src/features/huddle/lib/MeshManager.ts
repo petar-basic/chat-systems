@@ -1,7 +1,9 @@
 import { logger } from '@/lib/logger';
 
+export type TrackKind = 'audio' | 'camera' | 'screen';
+
 type SendFn = (msg: Record<string, unknown>) => void;
-type TrackHandler = (peerId: string, stream: MediaStream) => void;
+type TrackHandler = (peerId: string, stream: MediaStream, kind: TrackKind) => void;
 
 interface PeerState {
   pc: RTCPeerConnection;
@@ -9,13 +11,16 @@ interface PeerState {
   ignoreOffer: boolean;
   polite: boolean;
   pendingCandidates: RTCIceCandidateInit[];
+  audioTx: RTCRtpTransceiver;
+  cameraTx: RTCRtpTransceiver;
+  screenTx: RTCRtpTransceiver;
 }
 
 export class MeshManager {
   private peers = new Map<string, PeerState>();
-  private localStream: MediaStream | null = null;
-  private videoTrack: MediaStreamTrack | null = null;
-  private videoSenders = new Map<string, RTCRtpSender>();
+  private audioTrack: MediaStreamTrack | null = null;
+  private cameraTrack: MediaStreamTrack | null = null;
+  private screenTrack: MediaStreamTrack | null = null;
 
   constructor(
     private readonly huddleId: string,
@@ -25,24 +30,24 @@ export class MeshManager {
     private readonly onTrack: TrackHandler,
   ) {}
 
-  setLocalStream(stream: MediaStream): void {
-    this.localStream = stream;
-    for (const { pc } of this.peers.values()) {
-      this.attachLocalTracks(pc);
+  setAudioTrack(track: MediaStreamTrack | null): void {
+    this.audioTrack = track;
+    for (const { audioTx } of this.peers.values()) {
+      void audioTx.sender.replaceTrack(track);
     }
   }
 
-  setVideoTrack(track: MediaStreamTrack | null): void {
-    this.videoTrack = track;
-    for (const [peerId, { pc }] of this.peers) {
-      this.applyVideo(peerId, pc);
+  setCameraTrack(track: MediaStreamTrack | null): void {
+    this.cameraTrack = track;
+    for (const { cameraTx } of this.peers.values()) {
+      void cameraTx.sender.replaceTrack(track);
     }
   }
 
-  setAudioTrack(track: MediaStreamTrack): void {
-    for (const { pc } of this.peers.values()) {
-      const sender = pc.getSenders().find((s) => s.track?.kind === 'audio');
-      if (sender) void sender.replaceTrack(track);
+  setScreenTrack(track: MediaStreamTrack | null): void {
+    this.screenTrack = track;
+    for (const { screenTx } of this.peers.values()) {
+      void screenTx.sender.replaceTrack(track);
     }
   }
 
@@ -50,20 +55,39 @@ export class MeshManager {
     if (peerId === this.selfUserId || this.peers.has(peerId)) return;
 
     const pc = new RTCPeerConnection({ iceServers: this.iceServers });
+
+    // Three m-lines up front, in an order both ends agree on: microphone,
+    // camera, screen. A transceiver both sends and receives the same slot, so
+    // the one that carries our camera carries theirs back, and `ontrack` can
+    // name a stream by identity instead of guessing from the SDP. Every later
+    // toggle is a replaceTrack into a slot that already exists, so turning a
+    // camera on mid-call renegotiates nothing.
+    const audioTx = pc.addTransceiver('audio', { direction: 'sendrecv' });
+    const cameraTx = pc.addTransceiver('video', { direction: 'sendrecv' });
+    const screenTx = pc.addTransceiver('video', { direction: 'sendrecv' });
+
     const state: PeerState = {
       pc,
       makingOffer: false,
       ignoreOffer: false,
       polite: this.selfUserId < peerId,
       pendingCandidates: [],
+      audioTx,
+      cameraTx,
+      screenTx,
     };
     this.peers.set(peerId, state);
 
-    this.attachLocalTracks(pc);
+    void audioTx.sender.replaceTrack(this.audioTrack);
+    void cameraTx.sender.replaceTrack(this.cameraTrack);
+    void screenTx.sender.replaceTrack(this.screenTrack);
 
     pc.ontrack = (event) => {
-      const [stream] = event.streams;
-      if (stream) this.onTrack(peerId, stream);
+      const kind: TrackKind =
+        event.transceiver === cameraTx ? 'camera' : event.transceiver === screenTx ? 'screen' : 'audio';
+      // A track handed over by replaceTrack carries no msid, so `event.streams`
+      // is empty and the stream has to be built here.
+      this.onTrack(peerId, new MediaStream([event.track]), kind);
     };
 
     pc.onicecandidate = ({ candidate }) => {
@@ -98,8 +122,6 @@ export class MeshManager {
       logger.info('MeshManager', 'connectionState', `${peerId} -> ${pc.connectionState}`);
       if (pc.connectionState === 'failed') pc.restartIce();
     };
-
-    this.applyVideo(peerId, pc);
   }
 
   private async flushCandidates(state: PeerState): Promise<void> {
@@ -111,16 +133,6 @@ export class MeshManager {
       } catch (err) {
         logger.error('MeshManager', 'flushCandidates', err);
       }
-    }
-  }
-
-  private applyVideo(peerId: string, pc: RTCPeerConnection): void {
-    const existing = this.videoSenders.get(peerId);
-    if (existing) {
-      void existing.replaceTrack(this.videoTrack);
-    } else if (this.videoTrack && this.localStream) {
-      const sender = pc.addTrack(this.videoTrack, this.localStream);
-      this.videoSenders.set(peerId, sender);
     }
   }
 
@@ -175,18 +187,9 @@ export class MeshManager {
     state.pc.onconnectionstatechange = null;
     state.pc.close();
     this.peers.delete(peerId);
-    this.videoSenders.delete(peerId);
   }
 
   close(): void {
     for (const peerId of [...this.peers.keys()]) this.removePeer(peerId);
-  }
-
-  private attachLocalTracks(pc: RTCPeerConnection): void {
-    if (!this.localStream) return;
-    const senderTracks = new Set(pc.getSenders().map((s) => s.track));
-    for (const track of this.localStream.getTracks()) {
-      if (!senderTracks.has(track)) pc.addTrack(track, this.localStream);
-    }
   }
 }

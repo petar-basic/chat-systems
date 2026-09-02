@@ -114,33 +114,37 @@ export default function WorkspaceSidebar({
                 const unread = unreadByWorkspace[ws.id] ?? 0;
                 const showBadge = unread > 0 && currentWorkspaceId !== ws.id;
                 return (
-                  <button
-                    key={ws.id}
-                    onClick={() => onSelectWorkspace(ws)}
-                    className={`relative w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center text-sm font-bold transition cursor-pointer ${
-                      currentWorkspaceId === ws.id
-                        ? 'bg-purple-600 text-white ring-2 ring-purple-400'
-                        : 'bg-raised text-fg-dim hover:bg-elevated'
-                    }`}
-                    title={`${ws.name} · ${instanceLabel(group.instance.url)}${showBadge ? ` · ${unread} unread` : ''}`}
-                  >
-                    {/* An icon if the workspace has picked one; the initial is
-                        the fallback, not the only option. A column of identical
-                        letters is not a switcher. */}
-                    {ws.icon_url ? (
-                      <img src={ws.icon_url} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      ws.name.charAt(0).toUpperCase()
-                    )}
+                  <div key={ws.id} className="relative">
+                    <button
+                      onClick={() => onSelectWorkspace(ws)}
+                      className={`w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center text-sm font-bold transition cursor-pointer ${
+                        currentWorkspaceId === ws.id
+                          ? 'bg-purple-600 text-white ring-2 ring-purple-400'
+                          : 'bg-raised text-fg-dim hover:bg-elevated'
+                      }`}
+                      title={`${ws.name} · ${instanceLabel(group.instance.url)}${showBadge ? ` · ${unread} unread` : ''}`}
+                    >
+                      {/* An icon if the workspace has picked one; the initial is
+                          the fallback, not the only option. A column of identical
+                          letters is not a switcher. */}
+                      {ws.icon_url ? (
+                        <img src={ws.icon_url} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        ws.name.charAt(0).toUpperCase()
+                      )}
+                    </button>
+                    {/* Outside the button: the icon needs `overflow-hidden` to
+                        stay in its rounded box, which would clip a badge that
+                        is meant to sit on the corner. */}
                     {showBadge && (
                       <span
                         aria-label={`${unread} unread notifications`}
-                        className="absolute -top-1 -right-1 min-w-4 h-4 px-1 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center leading-none"
+                        className="pointer-events-none absolute -top-1 -right-1 min-w-4 h-4 px-1 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center leading-none ring-2 ring-rail"
                       >
                         {unread > 99 ? '99+' : unread}
                       </span>
                     )}
-                  </button>
+                  </div>
                 );
               })}
 
