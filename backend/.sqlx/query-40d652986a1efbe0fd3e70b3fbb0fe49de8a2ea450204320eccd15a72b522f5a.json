@@ -1,0 +1,173 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT c.id, c.workspace_id, c.name, c.channel_type AS \"channel_type: ChannelType\", c.topic, c.description,\n                   c.created_by, c.is_default AS \"is_default!\", c.is_archived AS \"is_archived!\",\n                   c.settings AS \"settings!\", c.created_at, c.updated_at\n              FROM channels c\n              JOIN channel_members cm ON cm.channel_id = c.id\n             WHERE c.workspace_id = $1 AND cm.user_id = $2 AND c.is_archived = false\n               AND c.channel_type IN ('public', 'private')\n             ORDER BY c.is_default DESC, c.name\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "channels",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "channels",
+            "name": "workspace_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "channels",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "channel_type: ChannelType",
+        "type_info": {
+          "Custom": {
+            "name": "channel_type",
+            "kind": {
+              "Enum": [
+                "public",
+                "private",
+                "dm",
+                "group_dm"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "channels",
+            "name": "channel_type"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "topic",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "channels",
+            "name": "topic"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "description",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "channels",
+            "name": "description"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "created_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "channels",
+            "name": "created_by"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "is_default!",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "channels",
+            "name": "is_default"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "is_archived!",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "channels",
+            "name": "is_archived"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "settings!",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "channels",
+            "name": "settings"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "channels",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "channels",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "40d652986a1efbe0fd3e70b3fbb0fe49de8a2ea450204320eccd15a72b522f5a"
+}

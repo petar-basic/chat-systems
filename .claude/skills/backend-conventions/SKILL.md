@@ -88,7 +88,7 @@ Use this checklist:
 
 ### Models (`models.rs`)
 
-- Define `sqlx::FromRow` database structs.
+- Define database structs (plain structs; `query_as!` fills them by column name, no `FromRow`).
 - Define request DTOs (structs with `Deserialize`).
 - Define response DTOs or use `serde_json::Value` for ad-hoc shapes.
 - Keep role enums and their helper methods here (e.g., `WorkspaceRole::has_at_least`).
@@ -96,7 +96,8 @@ Use this checklist:
 ### Publisher (`publisher.rs`) — messaging pattern
 
 - Wrap an `EventPublisher` with typed convenience methods.
-- Serialize events to JSON and publish to Redis channels (`events:<domain>`).
+- A durable event is staged in the caller's transaction (`stage_*(&mut tx, …)`), committed with the row, then `dispatch`ed; repo write methods have an `_in(&mut PgConnection, …)` variant for this.
+- `publish_scoped` alone is for events with no row of their own; `publish` is for ephemeral ones (typing, presence, signalling).
 - Never call the publisher from repo.
 
 ### Consumer / Executor (`consumer.rs`, `executor.rs`) — background tasks
@@ -114,7 +115,7 @@ Use this checklist:
 - Use `snake_case` for all files, functions, and variables; `PascalCase` for types.
 - Keep `async fn` throughout the call chain; never block async paths with sync I/O.
 - Use `Uuid` for all primary keys; `DateTime<Utc>` for timestamps.
-- Use `#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]` for database models.
+- Use `#[derive(Debug, Clone, Serialize, Deserialize)]` for database models; `sqlx::query_as!` needs no `FromRow`.
 
 ## AppState Pattern
 
@@ -184,49 +185,46 @@ Call permission helpers at the very top of each handler before any mutation.
 
 ## sqlx Patterns
 
-**Simple insert with RETURNING:**
+Every query is a compile-time-checked macro (`sqlx::query!`, `query_as!`, `query_scalar!`),
+checked against `DATABASE_URL` from `backend/.cargo/config.toml` (or the committed `.sqlx/`
+cache with `SQLX_OFFLINE=true`). After changing a query run
+`cargo sqlx prepare --workspace -- --all-targets` and commit `.sqlx/`.
+
+**Simple insert with RETURNING (explicit column list, never `*`):**
 ```rust
 pub async fn create_message(&self, channel_id: Uuid, user_id: Uuid, content: &str)
     -> sqlx::Result<Message> {
-    sqlx::query_as::<_, Message>(
-        "INSERT INTO messages (channel_id, user_id, content)
-         VALUES ($1, $2, $3)
-         RETURNING *",
+    sqlx::query_as!(
+        Message,
+        r#"INSERT INTO messages (channel_id, user_id, content)
+           VALUES ($1, $2, $3)
+           RETURNING id, channel_id, user_id, content, metadata AS "metadata!",
+                     reply_count AS "reply_count!", is_pinned AS "is_pinned!",
+                     created_at, updated_at, deleted_at"#,
+        channel_id,
+        user_id,
+        content
     )
-    .bind(channel_id)
-    .bind(user_id)
-    .bind(content)
     .fetch_one(&self.pool)
     .await
 }
 ```
 
-**Cursor-based pagination (prefer over offset):**
-```rust
-if let Some(before_id) = cursor {
-    sqlx::query_as::<_, Message>(
-        "SELECT * FROM messages
-         WHERE channel_id = $1
-           AND deleted_at IS NULL
-           AND created_at < (SELECT created_at FROM messages WHERE id = $3)
-         ORDER BY created_at DESC LIMIT $2",
-    )
-    .bind(channel_id).bind(limit).bind(before_id)
-    .fetch_all(&self.pool).await
-} else {
-    // ... without cursor
-}
-```
+**Column annotations:** `AS "col: EnumType"` for Postgres enums, `AS "col!"` for NOT NULL
+columns sqlx cannot prove (defaults, aggregates, expressions), `AS "col?"` for columns from a
+`LEFT JOIN`. Pass enum arguments as `value.clone() as EnumType`, use `make_interval(days => $1)`
+instead of string-built intervals, and cast `$1::text` when sqlx reports inconsistent types.
 
 **Batch fetch to avoid N+1:**
 ```rust
-// Fetch all reactions for a set of messages in one query
 pub async fn list_reactions_for_messages(&self, message_ids: &[Uuid])
     -> sqlx::Result<Vec<Reaction>> {
-    sqlx::query_as::<_, Reaction>(
-        "SELECT * FROM reactions WHERE message_id = ANY($1)",
+    sqlx::query_as!(
+        Reaction,
+        "SELECT id, message_id, user_id, emoji, created_at
+           FROM reactions WHERE message_id = ANY($1)",
+        message_ids
     )
-    .bind(message_ids)
     .fetch_all(&self.pool)
     .await
 }
@@ -243,8 +241,7 @@ for r in reactions {
 **Soft delete:**
 ```rust
 pub async fn soft_delete(&self, id: Uuid) -> sqlx::Result<()> {
-    sqlx::query("UPDATE messages SET deleted_at = NOW() WHERE id = $1")
-        .bind(id)
+    sqlx::query!("UPDATE messages SET deleted_at = NOW() WHERE id = $1", id)
         .execute(&self.pool)
         .await?;
     Ok(())

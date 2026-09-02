@@ -34,7 +34,6 @@ pub struct PushPayload {
     pub body: String,
     pub workspace_id: Option<String>,
     pub channel_id: Option<String>,
-    pub conversation_id: Option<String>,
     pub message_id: Option<String>,
     pub badge_count: i64,
 }

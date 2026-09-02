@@ -4,11 +4,19 @@ const get = vi.fn();
 const post = vi.fn();
 const del = vi.fn();
 
+const ok = async (spy: (...args: unknown[]) => unknown, ...args: unknown[]) => ({
+  data: await spy(...args),
+  response: { ok: true, status: 200 },
+});
+
 vi.mock('./api', () => ({
   api: {
-    get: (...args: unknown[]) => get(...args),
-    post: (...args: unknown[]) => post(...args),
-    delete: (...args: unknown[]) => del(...args),
+    typed: (op: (client: unknown) => Promise<{ data: unknown }>) =>
+      op({
+        GET: (path: string) => ok(get, path),
+        POST: (path: string, init?: { body?: unknown }) => ok(post, path, init?.body),
+        DELETE: (path: string, init?: { body?: unknown }) => ok(del, path, init?.body),
+      }).then((result) => result.data),
   },
 }));
 

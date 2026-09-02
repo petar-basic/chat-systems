@@ -1,31 +1,21 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { components } from '@/api/schema';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { QUERY_KEYS } from '@/shared/constants';
 
-export interface ScheduledMessage {
-  id: string;
-  workspace_id: string;
-  user_id: string;
-  channel_id: string | null;
-  conversation_id: string | null;
-  content: string;
-  send_at: string;
-  sent_at: string | null;
-  canceled_at: string | null;
-  created_at: string;
-}
+export type ScheduledMessage = components['schemas']['ScheduledMessage'];
 
 export interface ScheduleTarget {
-  channelId?: string;
-  conversationId?: string;
+  channelId: string;
 }
 
 export const useScheduledMessages = (workspaceId: string | null, instanceUrl?: string) => {
   return useQuery({
     queryKey: QUERY_KEYS.scheduledMessages(workspaceId ?? ''),
     queryFn: async () => {
-      const res = await getApiForInstance(instanceUrl).get<{ data: ScheduledMessage[] }>(
-        `/workspaces/${workspaceId}/scheduled-messages`,
+      if (!workspaceId) throw new Error('No workspace selected');
+      const res = await getApiForInstance(instanceUrl).typed((c) =>
+        c.GET('/workspaces/{ws_id}/scheduled-messages', { params: { path: { ws_id: workspaceId } } }),
       );
       return res.data;
     },
@@ -46,12 +36,16 @@ export const useScheduleMessage = (workspaceId: string, instanceUrl?: string) =>
       content: string;
       sendAt: Date;
     }) =>
-      getApiForInstance(instanceUrl).post<ScheduledMessage>(`/workspaces/${workspaceId}/scheduled-messages`, {
-        channel_id: target.channelId ?? null,
-        conversation_id: target.conversationId ?? null,
-        content,
-        send_at: sendAt.toISOString(),
-      }),
+      getApiForInstance(instanceUrl).typed((c) =>
+        c.POST('/workspaces/{ws_id}/scheduled-messages', {
+          params: { path: { ws_id: workspaceId } },
+          body: {
+            channel_id: target.channelId,
+            content,
+            send_at: sendAt.toISOString(),
+          },
+        }),
+      ),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.scheduledMessages(workspaceId) });
     },
@@ -62,9 +56,12 @@ export const useRescheduleMessage = (workspaceId: string, instanceUrl?: string) 
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, sendAt }: { id: string; sendAt: Date }) =>
-      getApiForInstance(instanceUrl).patch<ScheduledMessage>(`/scheduled-messages/${id}`, {
-        send_at: sendAt.toISOString(),
-      }),
+      getApiForInstance(instanceUrl).typed((c) =>
+        c.PATCH('/scheduled-messages/{id}', {
+          params: { path: { id } },
+          body: { send_at: sendAt.toISOString() },
+        }),
+      ),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.scheduledMessages(workspaceId) });
     },
@@ -74,7 +71,10 @@ export const useRescheduleMessage = (workspaceId: string, instanceUrl?: string) 
 export const useCancelScheduledMessage = (workspaceId: string, instanceUrl?: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => getApiForInstance(instanceUrl).delete(`/scheduled-messages/${id}`),
+    mutationFn: async (id: string) =>
+      getApiForInstance(instanceUrl).typed((c) =>
+        c.DELETE('/scheduled-messages/{id}', { params: { path: { id } } }),
+      ),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.scheduledMessages(workspaceId) });
     },

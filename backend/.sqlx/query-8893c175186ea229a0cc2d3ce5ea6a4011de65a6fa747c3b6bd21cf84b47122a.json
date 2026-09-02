@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO slack_users (workspace_id, slack_user_id, user_id)\n            VALUES ($1, $2, $3)\n            ON CONFLICT (workspace_id, slack_user_id) DO UPDATE SET user_id = $3\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Varchar",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8893c175186ea229a0cc2d3ce5ea6a4011de65a6fa747c3b6bd21cf84b47122a"
+}

@@ -1,17 +1,7 @@
+import type { components } from '@/api/schema';
 import { formatDateTime } from '@/lib/datetime';
-export interface AuditEntry {
-  id: string;
-  workspace_id: string | null;
-  user_id: string | null;
-  actor_email: string | null;
-  actor_display_name: string | null;
-  action: string;
-  resource_type: string | null;
-  resource_id: string | null;
-  details: Record<string, unknown>;
-  ip_address: string | null;
-  created_at: string;
-}
+
+export type AuditEntry = components['schemas']['AuditRow'];
 
 interface Props {
   entries: AuditEntry[];
@@ -78,7 +68,8 @@ function actorLabel(entry: AuditEntry) {
   return entry.actor_display_name || entry.actor_email || entry.user_id || 'unknown';
 }
 
-function detailSummary(details: Record<string, unknown>) {
+function detailSummary(details: unknown) {
+  if (!details || typeof details !== 'object') return '';
   const parts = Object.entries(details)
     .filter(([, value]) => value !== null && value !== undefined && value !== '')
     .map(([key, value]) => `${key}: ${typeof value === 'object' ? JSON.stringify(value) : String(value)}`);

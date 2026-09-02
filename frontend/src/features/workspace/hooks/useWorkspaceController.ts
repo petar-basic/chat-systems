@@ -1,89 +1,25 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { CreateChannelDraft } from '@/models/channel';
-import { useNavigate, useParams, useSearchParams } from 'react-router';
-import { useQueryClient, type InfiniteData } from '@tanstack/react-query';
+import { useNavigate, useParams } from 'react-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCurrentUser, useLogout } from '@/hooks/queries/useAuth';
-import { useWorkspaceStore, type Message, type Channel } from '@/stores/workspace';
-import { useUserCache } from '@/stores/users';
-import { useCustomEmojiStore } from '@/stores/customEmoji';
-import { useCustomEmoji } from '@/hooks/queries/useCustomEmoji';
-import { useUserGroupStore } from '@/stores/userGroups';
-import { useUserGroups } from '@/hooks/queries/useUserGroups';
-import { commandResultText, parseCommand, runCommand } from '@/lib/slashCommands';
-import { toUserMessage } from '@/lib/errors';
-import { instanceManager } from '@/lib/instances';
-import { api } from '@/lib/api';
-import { wsClient } from '@/lib/ws';
-import { usePresenceStore } from '@/stores/presence';
-import { requestNotificationPermission } from '@/lib/notifications';
-import { useTypingSignal, typingTargetOf } from '@/shared/hooks/useTypingSignal';
-import { logger } from '@/lib/logger';
-import { toast } from '@/shared/components/Toast';
-import { ErrorLabels, ROUTES, QUERY_KEYS } from '@/shared/constants';
-import { useDocumentTitle } from '@/shared/hooks/useDocumentTitle';
-import { useFaviconBadge } from '@/shared/hooks/useFaviconBadge';
-import { useWorkspaceUnreadCounts, useMarkChannelNotificationsRead } from '@/hooks/queries/useNotifications';
-import {
-  useWorkspaces,
-  useWorkspaceChannels,
-  useWorkspaceMembers,
-  useDeletedWorkspaces,
-  useRestoreWorkspace,
-  useCreateWorkspace,
-  useCreateChannel,
-} from '@/hooks/queries/useWorkspaces';
-import {
-  useConversations,
-  useMarkConversationRead,
-  useOpenConversation,
-} from '@/hooks/queries/useConversations';
-import { useUnreadChannels, useSetChannelMuted } from '@/hooks/queries/useChannels';
+import { useWorkspaceStore, type Channel } from '@/stores/workspace';
+import { ROUTES, QUERY_KEYS } from '@/shared/constants';
+import { useCreateWorkspace, useCreateChannel } from '@/hooks/queries/useWorkspaces';
+import { useOpenConversation } from '@/hooks/queries/useConversations';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
-import { useSendMessage } from '@/hooks/queries/useMessages';
-import { useSaveMessage } from '@/hooks/queries/useSaved';
-import type { ConversationMessage } from '@/hooks/queries/useConversations';
-import type { ForwardSource } from '@/features/messaging/ForwardMessageModal';
-import { conversationTitle } from '@/lib/conversationHelpers';
-import { useInstanceStore } from '@/stores/instances';
+import type { MessagesInfiniteData } from '@/hooks/queries/useMessages';
 import { useRightPanel } from './useRightPanel';
-
-interface MessagesResponse {
-  data: Message[];
-}
+import { useWorkspaceData } from './useWorkspaceData';
+import { useWorkspaceRouting } from './useWorkspaceRouting';
+import { useComposer } from './useComposer';
+import { useMessageActions } from './useMessageActions';
 
 export function useWorkspaceController() {
   const { data: user } = useCurrentUser();
   const logout = useLogout();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const {
-    workspaceId,
-    channelId: urlChannelId,
-    messageId: urlMessageId,
-    conversationId: routeConversationId,
-  } = useParams<{
-    workspaceId?: string;
-    channelId?: string;
-    messageId?: string;
-    conversationId?: string;
-  }>();
-  const [searchParams] = useSearchParams();
-  const { activeInstanceUrl } = useInstanceStore();
-
-  const storeWorkspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id);
-  const { data: workspaces = [] } = useWorkspaces();
-  const { data: deletedWorkspaces = [] } = useDeletedWorkspaces();
-  const currentWsInstanceUrl =
-    workspaces.find((w) => w.id === workspaceId)?.instanceUrl ?? activeInstanceUrl ?? undefined;
-  const { data: channels = [] } = useWorkspaceChannels(workspaceId || null, currentWsInstanceUrl);
-  const { data: workspaceMembers = [] } = useWorkspaceMembers(
-    workspaceId || storeWorkspaceId || null,
-    currentWsInstanceUrl,
-  );
-
-  const createWorkspaceMutation = useCreateWorkspace();
-  const createChannelMutation = useCreateChannel();
-  const restoreWorkspace = useRestoreWorkspace();
 
   const {
     currentWorkspace,
@@ -96,114 +32,8 @@ export function useWorkspaceController() {
     currentConversationId,
     unreadConversations,
     selectWorkspace,
-    selectChannel,
-    selectConversation,
-    setCurrentUserId,
-    markChannelRead,
-    markConversationRead,
-    hydrateUnreadConversations,
-    hydrateUnreadChannels,
-    hydrateUnreadCounts,
-    hydrateMutedChannels,
   } = useWorkspaceStore();
 
-  const currentWorkspaceId = currentWorkspace?.id;
-  // The url is what `channels` was fetched for; the store catches up a render
-  // later. Navigating by the store id sends a fresh tab to the workspace it was
-  // last on, carrying the new workspace's channel with it.
-  const activeWorkspaceId = workspaceId ?? currentWorkspaceId;
-
-  const { data: conversations = [] } = useConversations(
-    workspaceId || currentWorkspace?.id || null,
-    currentWsInstanceUrl,
-  );
-  const openConversation = useOpenConversation(workspaceId ?? '', currentWsInstanceUrl);
-  const { mutate: markConversationReadServer } = useMarkConversationRead(
-    workspaceId || currentWorkspace?.id || '',
-    currentWsInstanceUrl,
-  );
-
-  useEffect(() => {
-    const unread = conversations
-      .filter(
-        (c) => c.id !== currentConversationId && (!c.last_read_at || c.last_message_at > c.last_read_at),
-      )
-      .map((c) => c.id);
-    hydrateUnreadConversations(unread);
-  }, [conversations, currentConversationId, hydrateUnreadConversations]);
-
-  const { data: unread } = useUnreadChannels(
-    workspaceId || currentWorkspace?.id || null,
-    currentWsInstanceUrl,
-  );
-  useEffect(() => {
-    if (!unread) return;
-    if (unread.channel_ids.length) hydrateUnreadChannels(unread.channel_ids);
-    hydrateUnreadCounts(unread.counts ?? []);
-  }, [unread, hydrateUnreadChannels, hydrateUnreadCounts]);
-
-  useEffect(() => {
-    hydrateMutedChannels(channels.filter((c) => c.muted).map((c) => c.id));
-  }, [channels, hydrateMutedChannels]);
-
-  const { mutate: setChannelMuted } = useSetChannelMuted(
-    workspaceId || currentWorkspace?.id || '',
-    currentWsInstanceUrl,
-  );
-
-  const { mutate: markChannelNotificationsRead } = useMarkChannelNotificationsRead(
-    workspaceId || currentWorkspace?.id || null,
-  );
-
-  const unreadByWorkspace = useWorkspaceUnreadCounts(workspaces);
-  const totalUnread = useMemo(
-    () => Object.values(unreadByWorkspace).reduce((sum, n) => sum + n, 0),
-    [unreadByWorkspace],
-  );
-  useFaviconBadge(totalUnread > 0);
-  useDocumentTitle(currentWorkspace ? `Chat Systems - ${currentWorkspace.name}` : 'Chat Systems');
-
-  useEffect(() => {
-    if (totalUnread > 0) {
-      navigator.setAppBadge?.(totalUnread).catch(() => {});
-    } else {
-      navigator.clearAppBadge?.().catch(() => {});
-    }
-  }, [totalUnread]);
-
-  const { populateUsers, getUser } = useUserCache();
-  const populateCustomEmoji = useCustomEmojiStore((s) => s.populate);
-  const populateSelfGroups = useUserGroupStore((s) => s.populate);
-  useEffect(() => {
-    if (workspaceMembers.length > 0) {
-      populateUsers(
-        workspaceMembers.map((m) => ({
-          id: m.user_id,
-          email: m.email,
-          display_name: m.display_name ?? '',
-          avatar_url: m.avatar_url,
-          status_emoji: m.status_emoji,
-          status_text: m.status_text,
-        })),
-      );
-    }
-  }, [workspaceMembers, populateUsers]);
-
-  const { data: customEmoji } = useCustomEmoji(workspaceId, currentWsInstanceUrl);
-  useEffect(() => {
-    populateCustomEmoji(customEmoji ?? []);
-  }, [customEmoji, populateCustomEmoji]);
-
-  const { data: userGroups } = useUserGroups(workspaceId, currentWsInstanceUrl);
-  useEffect(() => {
-    populateSelfGroups((userGroups ?? []).filter((g) => g.is_member).map((g) => `group:${g.id}`));
-  }, [userGroups, populateSelfGroups]);
-
-  useEffect(() => {
-    setCurrentUserId(user?.id ?? null);
-  }, [user?.id, setCurrentUserId]);
-
-  const [uploading, setUploading] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showAddInstance, setShowAddInstance] = useState(false);
   const [quickSwitcherOpen, setQuickSwitcherOpen] = useState(false);
@@ -222,171 +52,27 @@ export function useWorkspaceController() {
 
   const panel = useRightPanel(currentChannel?.id, currentConversationId);
 
-  const sendMessageMutation = useSendMessage(currentChannel?.id ?? '', user?.id ?? '');
+  const { workspaceId } = useParams<{ workspaceId?: string }>();
+  const data = useWorkspaceData(workspaceId, user?.id);
+  const routing = useWorkspaceRouting({
+    workspaces: data.workspaces,
+    deletedWorkspaces: data.deletedWorkspaces,
+    channels: data.channels,
+    markChannelNotificationsRead: data.markChannelNotificationsRead,
+    markConversationReadServer: data.markConversationReadServer,
+    panel,
+  });
 
-  useEffect(() => {
-    if (workspaces.length === 0 && deletedWorkspaces.length === 0) return;
-    if (workspaceId) {
-      const target =
-        workspaces.find((ws) => ws.id === workspaceId) ??
-        deletedWorkspaces.find((ws) => ws.id === workspaceId);
-      if (target) {
-        const needsUpdate =
-          currentWorkspace?.id !== target.id || currentWorkspace?.deleted_at !== target.deleted_at;
-        if (needsUpdate) selectWorkspace(target);
-      } else if (workspaces.length > 0) {
-        navigate(`/app/${workspaces[0].id}`, { replace: true });
-      }
-    } else {
-      const ws = currentWorkspace || workspaces[0];
-      if (ws) navigate(`/app/${ws.id}`, { replace: true });
-    }
-  }, [workspaces, deletedWorkspaces, workspaceId, currentWorkspace, selectWorkspace, navigate]);
+  const composer = useComposer({
+    currentWorkspace,
+    currentChannel,
+    userId: user?.id,
+    currentWsInstanceUrl: data.currentWsInstanceUrl,
+  });
 
-  useEffect(() => {
-    if (!activeWorkspaceId || channels.length === 0) return;
-    if (routeConversationId) return;
-    if (urlChannelId) {
-      const target = channels.find((c) => c.id === urlChannelId);
-      if (target && currentChannel?.id !== urlChannelId) {
-        selectChannel(target);
-        markChannelRead(target.id);
-        markChannelNotificationsRead(target.id);
-      } else if (!target) {
-        navigate(`/app/${activeWorkspaceId}`, { replace: true });
-      }
-    } else {
-      const general = channels.find((c) => c.name === 'general') || channels[0];
-      navigate(`/app/${activeWorkspaceId}/${general.id}`, { replace: true });
-    }
-  }, [
-    routeConversationId,
-    urlChannelId,
-    channels,
-    activeWorkspaceId,
-    currentChannel?.id,
-    selectChannel,
-    markChannelRead,
-    markChannelNotificationsRead,
-    navigate,
-  ]);
-
-  useEffect(() => {
-    if (!routeConversationId) return;
-    if (currentConversationId !== routeConversationId) {
-      selectConversation(routeConversationId);
-    }
-    markConversationRead(routeConversationId);
-    markConversationReadServer(routeConversationId);
-  }, [
-    routeConversationId,
-    currentConversationId,
-    selectConversation,
-    markConversationRead,
-    markConversationReadServer,
-  ]);
-
-  const threadOpenedRef = useRef(false);
-  useEffect(() => {
-    threadOpenedRef.current = false;
-  }, [urlMessageId]);
-  const handleTargetMessageFound = useCallback(
-    (msg: Message) => {
-      if (searchParams.get('thread') === '1' && !threadOpenedRef.current) {
-        threadOpenedRef.current = true;
-        panel.openThread(msg);
-      }
-    },
-    [searchParams, panel],
-  );
-
-  const wsInstanceUrl = currentWorkspace?.instanceUrl;
-  const getWs = useCallback(
-    () => (wsInstanceUrl ? instanceManager.get(wsInstanceUrl).ws : wsClient),
-    [wsInstanceUrl],
-  );
-
-  useEffect(() => {
-    if (!currentWorkspaceId || channels.length === 0) return;
-    const ws = getWs();
-    ws.joinChannels(channels.map((ch) => ch.id));
-  }, [currentWorkspaceId, channels, getWs]);
-
-  useEffect(() => {
-    requestNotificationPermission();
-  }, []);
-
-  useEffect(() => {
-    const cleanup = usePresenceStore.getState().initPresenceListener();
-    return cleanup;
-  }, []);
-
-  const { signalTyping, stopTyping } = useTypingSignal(typingTargetOf(currentChannel?.id), wsInstanceUrl);
-
-  const [commandBanner, setCommandBanner] = useState<{ text: string; channelId: string } | null>(null);
-  const ephemeral = commandBanner?.channelId === currentChannel?.id ? (commandBanner?.text ?? null) : null;
-
-  useEffect(() => {
-    if (!ephemeral) return undefined;
-    const timer = setTimeout(() => setCommandBanner(null), 10_000);
-    return () => clearTimeout(timer);
-  }, [ephemeral]);
-
-  const handleSend = useCallback(
-    async (content: string) => {
-      if (!currentChannel || !user) return;
-      stopTyping();
-
-      if (parseCommand(content)) {
-        try {
-          const result = await runCommand(currentChannel.id, content, currentWsInstanceUrl);
-          // An unknown command falls through to being sent as text; anything
-          // else has already done its work on the server.
-          if (result) {
-            setCommandBanner(
-              result.response_type === 'ephemeral'
-                ? { text: commandResultText(result), channelId: currentChannel.id }
-                : null,
-            );
-            return;
-          }
-        } catch (e) {
-          setCommandBanner({ text: toUserMessage(e), channelId: currentChannel.id });
-          return;
-        }
-      }
-
-      const id = crypto.randomUUID();
-      sendMessageMutation.mutate({ content, id });
-    },
-    [currentChannel, user, stopTyping, sendMessageMutation, currentWsInstanceUrl],
-  );
-
-  const handleFileUpload = useCallback(
-    async (file: File) => {
-      if (!currentWorkspace || !currentChannel) return;
-      setUploading(true);
-      try {
-        const formData = new FormData();
-        formData.append('file', file);
-        const uploaded = await getApiForInstance(currentWorkspace.instanceUrl).upload<
-          { filename: string; url: string }[]
-        >(`/files/upload/${currentWorkspace.id}`, formData);
-        for (const f of uploaded) {
-          sendMessageMutation.mutate({
-            content: `[file: ${f.filename}](${f.url})`,
-            id: crypto.randomUUID(),
-          });
-        }
-      } catch (err) {
-        logger.error('WorkspacePage', 'handleFileUpload', err);
-        toast.error(ErrorLabels.UploadFailed);
-      } finally {
-        setUploading(false);
-      }
-    },
-    [currentWorkspace, currentChannel, sendMessageMutation],
-  );
+  const createWorkspaceMutation = useCreateWorkspace();
+  const createChannelMutation = useCreateChannel();
+  const openConversation = useOpenConversation(workspaceId ?? '', data.currentWsInstanceUrl);
 
   const handleSelectWorkspace = useCallback(
     (ws: { id: string }) => {
@@ -402,14 +88,18 @@ export function useWorkspaceController() {
       const wsId = workspaceId || currentWorkspace?.id;
       if (!wsId) return;
       navigate(ROUTES.channel(wsId, ch.id));
-      const cached = queryClient.getQueryData<InfiniteData<MessagesResponse>>(QUERY_KEYS.messages(ch.id));
+      const cached = queryClient.getQueryData<MessagesInfiniteData>(QUERY_KEYS.messages(ch.id));
       const lastPage = cached?.pages[cached.pages.length - 1];
       const newestMsg = lastPage?.data[lastPage.data.length - 1];
       if (newestMsg) {
-        const apiClient = currentWorkspace?.instanceUrl
-          ? instanceManager.get(currentWorkspace.instanceUrl).api
-          : api;
-        apiClient.post(`/channels/${ch.id}/read`, { message_id: newestMsg.id }).catch(() => {});
+        getApiForInstance(currentWorkspace?.instanceUrl)
+          .typed((c) =>
+            c.POST('/channels/{ch_id}/read', {
+              params: { path: { ch_id: ch.id } },
+              body: { message_id: newestMsg.id },
+            }),
+          )
+          .catch(() => {});
       }
     },
     [workspaceId, currentWorkspace, navigate, queryClient],
@@ -446,66 +136,6 @@ export function useWorkspaceController() {
     [panel, workspaceId, currentWorkspace, navigate],
   );
 
-  const saveMessage = useSaveMessage(workspaceId ?? '', currentWsInstanceUrl);
-  const [forwarding, setForwarding] = useState<ForwardSource | null>(null);
-
-  const handleSaveMessage = useCallback(
-    (message: Message) => {
-      saveMessage.mutate(
-        { messageId: message.id },
-        {
-          onSuccess: () => toast.success('Saved'),
-          onError: (err) => toast.error(toUserMessage(err)),
-        },
-      );
-    },
-    [saveMessage],
-  );
-
-  const handleSaveConversationMessage = useCallback(
-    (message: ConversationMessage) => {
-      saveMessage.mutate(
-        { conversationMessageId: message.id },
-        {
-          onSuccess: () => toast.success('Saved'),
-          onError: (err) => toast.error(toUserMessage(err)),
-        },
-      );
-    },
-    [saveMessage],
-  );
-
-  const authorNameOf = useCallback(
-    (userId: string) => getUser(userId)?.display_name || 'Somebody',
-    [getUser],
-  );
-
-  const handleForwardMessage = useCallback(
-    (message: Message) => {
-      const channel = channels.find((c) => c.id === message.channel_id);
-      setForwarding({
-        content: message.content,
-        authorName: authorNameOf(message.user_id),
-        origin: channel ? `#${channel.name}` : 'a channel',
-      });
-    },
-    [authorNameOf, channels],
-  );
-
-  const handleForwardConversationMessage = useCallback(
-    (message: ConversationMessage) => {
-      const conversation = conversations.find((c) => c.id === message.conversation_id);
-      setForwarding({
-        content: message.content,
-        authorName: authorNameOf(message.user_id),
-        origin: conversation
-          ? conversationTitle(conversation, user?.id, (id) => getUser(id)?.display_name)
-          : 'a direct message',
-      });
-    },
-    [authorNameOf, conversations, getUser, user],
-  );
-
   const handleCreateWorkspace = useCallback(
     async (name: string, instanceUrl: string) => {
       const newWs = await createWorkspaceMutation.mutateAsync({ name, instanceUrl });
@@ -530,17 +160,26 @@ export function useWorkspaceController() {
     [currentWorkspace, createChannelMutation, handleSelectChannel],
   );
 
+  const actions = useMessageActions({
+    workspaceId,
+    currentWsInstanceUrl: data.currentWsInstanceUrl,
+    channels: data.channels,
+    conversations: data.conversations,
+    userId: user?.id,
+    getUser: data.getUser,
+  });
+
   return {
-    ephemeral,
-    dismissEphemeral: () => setCommandBanner(null),
+    ...composer,
+    ...actions,
     user,
     logout,
     navigate,
-    workspaces,
-    deletedWorkspaces,
-    channels,
-    workspaceMembers,
-    conversations,
+    workspaces: data.workspaces,
+    deletedWorkspaces: data.deletedWorkspaces,
+    channels: data.channels,
+    workspaceMembers: data.workspaceMembers,
+    conversations: data.conversations,
     currentWorkspace,
     currentChannel,
     unreadChannels,
@@ -550,9 +189,8 @@ export function useWorkspaceController() {
     mutedChannels,
     currentConversationId,
     unreadConversations,
-    restoreWorkspace,
-    setChannelMuted,
-    uploading,
+    restoreWorkspace: data.restoreWorkspace,
+    setChannelMuted: data.setChannelMuted,
     showProfile,
     setShowProfile,
     showAddInstance,
@@ -561,12 +199,9 @@ export function useWorkspaceController() {
     setQuickSwitcherOpen,
     mobileNavOpen,
     setMobileNavOpen,
-    urlMessageId,
+    urlMessageId: routing.urlMessageId,
     panel,
-    handleTargetMessageFound,
-    handleTyping: signalTyping,
-    handleSend,
-    handleFileUpload,
+    handleTargetMessageFound: routing.handleTargetMessageFound,
     handleSelectWorkspace,
     handleSelectChannel,
     handleOpenConversation,
@@ -574,11 +209,5 @@ export function useWorkspaceController() {
     handleNavigateToMessage,
     handleCreateWorkspace,
     handleCreateChannel,
-    handleSaveMessage,
-    handleSaveConversationMessage,
-    handleForwardMessage,
-    handleForwardConversationMessage,
-    forwarding,
-    dismissForward: () => setForwarding(null),
   };
 }

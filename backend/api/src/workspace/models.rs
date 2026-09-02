@@ -1,9 +1,10 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use shared_common::errors::{AppError, AppResult};
+use utoipa::{IntoParams, ToSchema};
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct Workspace {
     pub id: Uuid,
     pub name: String,
@@ -18,12 +19,12 @@ pub struct Workspace {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, IntoParams)]
 pub struct DeleteWorkspaceRequest {
     pub hard: Option<bool>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type, PartialEq, PartialOrd, ToSchema)]
 #[sqlx(type_name = "workspace_role", rename_all = "lowercase")]
 #[serde(rename_all = "lowercase")]
 pub enum WorkspaceRole {
@@ -48,7 +49,7 @@ impl WorkspaceRole {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct WorkspaceMember {
     pub workspace_id: Uuid,
     pub user_id: Uuid,
@@ -56,7 +57,7 @@ pub struct WorkspaceMember {
     pub joined_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct MemberWithUser {
     pub workspace_id: Uuid,
     pub user_id: Uuid,
@@ -69,7 +70,7 @@ pub struct MemberWithUser {
     pub status_text: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct WorkspaceInvite {
     pub id: Uuid,
     pub workspace_id: Uuid,
@@ -83,7 +84,7 @@ pub struct WorkspaceInvite {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type, PartialEq, ToSchema)]
 #[sqlx(type_name = "channel_type", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum ChannelType {
@@ -93,7 +94,7 @@ pub enum ChannelType {
     GroupDm,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type, PartialEq, ToSchema)]
 #[sqlx(type_name = "channel_role", rename_all = "lowercase")]
 #[serde(rename_all = "lowercase")]
 pub enum ChannelRole {
@@ -101,7 +102,7 @@ pub enum ChannelRole {
     Admin,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct Channel {
     pub id: Uuid,
     pub workspace_id: Uuid,
@@ -112,12 +113,63 @@ pub struct Channel {
     pub created_by: Option<Uuid>,
     pub is_default: bool,
     pub is_archived: bool,
+    #[schema(value_type = ChannelSettings)]
     pub settings: serde_json::Value,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+/// Who may post. `everyone` is the default and what every channel that has
+/// never been configured returns; `moderators` is an announcement channel,
+/// where the people who can moderate are the people who can speak.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum PostPolicy {
+    Everyone,
+    Moderators,
+}
+
+impl PostPolicy {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Everyone => "everyone",
+            Self::Moderators => "moderators",
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct ChannelSettings {
+    pub post_policy: Option<PostPolicy>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ChannelListing {
+    #[serde(flatten)]
+    pub channel: Channel,
+    pub muted: bool,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct MutedResponse {
+    pub muted: bool,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct UnreadCount {
+    pub channel_id: Uuid,
+    pub unread_count: i32,
+    pub mention_count: i32,
+    pub last_read_msg: Option<Uuid>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct UnreadChannels {
+    pub channel_ids: Vec<Uuid>,
+    pub counts: Vec<UnreadCount>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct BrowsableChannel {
     pub id: Uuid,
     pub workspace_id: Uuid,
@@ -131,7 +183,7 @@ pub struct BrowsableChannel {
     pub is_member: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ChannelMember {
     pub channel_id: Uuid,
     pub user_id: Uuid,
@@ -144,7 +196,7 @@ pub struct ChannelMember {
     pub joined_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Deserialize, garde::Validate)]
+#[derive(Debug, Deserialize, garde::Validate, ToSchema)]
 #[garde(allow_unvalidated)]
 pub struct CreateWorkspaceRequest {
     #[garde(custom(shared_common::validation::rules::workspace_name))]
@@ -153,7 +205,7 @@ pub struct CreateWorkspaceRequest {
     pub description: Option<String>,
 }
 
-#[derive(Debug, Deserialize, garde::Validate)]
+#[derive(Debug, Deserialize, garde::Validate, ToSchema)]
 #[garde(allow_unvalidated)]
 pub struct UpdateWorkspaceRequest {
     #[garde(inner(custom(shared_common::validation::rules::workspace_name)))]
@@ -164,7 +216,7 @@ pub struct UpdateWorkspaceRequest {
     pub icon_url: Option<String>,
 }
 
-#[derive(Debug, Deserialize, garde::Validate)]
+#[derive(Debug, Deserialize, garde::Validate, ToSchema)]
 #[garde(allow_unvalidated)]
 pub struct CreateInviteRequest {
     #[garde(inner(custom(shared_common::validation::rules::email)))]
@@ -216,17 +268,17 @@ impl InviteLifetime {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdateMemberRoleRequest {
     pub role: WorkspaceRole,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdateChannelMemberRoleRequest {
     pub role: ChannelRole,
 }
 
-#[derive(Debug, Deserialize, garde::Validate)]
+#[derive(Debug, Deserialize, garde::Validate, ToSchema)]
 #[garde(allow_unvalidated)]
 pub struct CreateChannelRequest {
     #[garde(custom(shared_common::validation::rules::channel_name))]
@@ -235,10 +287,10 @@ pub struct CreateChannelRequest {
     #[garde(inner(custom(shared_common::validation::rules::description)))]
     pub description: Option<String>,
     pub is_default: Option<bool>,
-    pub post_policy: Option<String>,
+    pub post_policy: Option<PostPolicy>,
 }
 
-#[derive(Debug, Deserialize, garde::Validate)]
+#[derive(Debug, Deserialize, garde::Validate, ToSchema)]
 #[garde(allow_unvalidated)]
 pub struct UpdateChannelRequest {
     #[garde(inner(custom(shared_common::validation::rules::channel_name)))]
@@ -247,22 +299,22 @@ pub struct UpdateChannelRequest {
     pub topic: Option<String>,
     #[garde(inner(custom(shared_common::validation::rules::description)))]
     pub description: Option<String>,
-    /// `everyone` or `moderators`. Absent means unchanged, which is how a
-    /// client that predates announcement channels keeps working.
-    pub post_policy: Option<String>,
+    /// Absent means unchanged, which is how a client that predates
+    /// announcement channels keeps working.
+    pub post_policy: Option<PostPolicy>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct AddChannelMemberRequest {
     pub user_id: Uuid,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct SetChannelNotificationsRequest {
     pub muted: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ChannelBookmark {
     pub id: Uuid,
     pub channel_id: Uuid,
@@ -274,7 +326,7 @@ pub struct ChannelBookmark {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Deserialize, garde::Validate)]
+#[derive(Debug, Deserialize, garde::Validate, ToSchema)]
 #[garde(allow_unvalidated)]
 pub struct CreateChannelBookmarkRequest {
     #[garde(custom(shared_common::validation::rules::bookmark_label))]

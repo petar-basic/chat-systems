@@ -1,0 +1,228 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE export_jobs\n               SET status = 'running'\n             WHERE id = (\n                 SELECT id FROM export_jobs\n                  WHERE status = 'pending'\n                  ORDER BY created_at\n                  FOR UPDATE SKIP LOCKED\n                  LIMIT 1\n             )\n            RETURNING id, scope AS \"scope: ExportScope\", workspace_id, subject_user_id, requested_by, include_dms,\n                   since, until, status AS \"status: ExportStatus\", storage_key, manifest, error,\n                   download_token, token_expires_at, created_at, completed_at\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "export_jobs",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "scope: ExportScope",
+        "type_info": {
+          "Custom": {
+            "name": "export_scope",
+            "kind": {
+              "Enum": [
+                "workspace",
+                "user"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "export_jobs",
+            "name": "scope"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "export_jobs",
+            "name": "workspace_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "subject_user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "export_jobs",
+            "name": "subject_user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "requested_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "export_jobs",
+            "name": "requested_by"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "include_dms",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "export_jobs",
+            "name": "include_dms"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "since",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "export_jobs",
+            "name": "since"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "until",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "export_jobs",
+            "name": "until"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "status: ExportStatus",
+        "type_info": {
+          "Custom": {
+            "name": "export_status",
+            "kind": {
+              "Enum": [
+                "pending",
+                "running",
+                "complete",
+                "failed"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "export_jobs",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "storage_key",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "export_jobs",
+            "name": "storage_key"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "manifest",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "export_jobs",
+            "name": "manifest"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "error",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "export_jobs",
+            "name": "error"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "download_token",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "export_jobs",
+            "name": "download_token"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "token_expires_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "export_jobs",
+            "name": "token_expires_at"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "export_jobs",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "completed_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "export_jobs",
+            "name": "completed_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true
+    ]
+  },
+  "hash": "399913843fa50fcb6a5b2315dba21314326de1eb82b171eff2950050df5ef79a"
+}

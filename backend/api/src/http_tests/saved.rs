@@ -170,7 +170,7 @@ async fn a_saved_dm_is_visible_only_to_the_person_who_saved_it(pool: PgPool) {
     let (_, message) = send(
         &app,
         "POST",
-        &format!("/api/conversations/{conv_id}/messages"),
+        &format!("/api/channels/{conv_id}/messages"),
         Some(&owner_token),
         Some(json!({ "content": "keep this one" })),
     )
@@ -182,7 +182,7 @@ async fn a_saved_dm_is_visible_only_to_the_person_who_saved_it(pool: PgPool) {
         "POST",
         &format!("/api/workspaces/{ws_id}/saved"),
         Some(&owner_token),
-        Some(json!({ "conversation_message_id": message_id })),
+        Some(json!({ "message_id": message_id })),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{saved:?}");

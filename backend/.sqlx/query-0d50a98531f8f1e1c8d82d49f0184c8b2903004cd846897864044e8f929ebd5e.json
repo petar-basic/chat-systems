@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT EXISTS (\n              SELECT 1\n                FROM channel_members mine\n                JOIN channel_members theirs ON theirs.channel_id = mine.channel_id\n               WHERE mine.user_id = $1 AND theirs.user_id = $2\n            ) AS \"exists!\"\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "exists!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "0d50a98531f8f1e1c8d82d49f0184c8b2903004cd846897864044e8f929ebd5e"
+}

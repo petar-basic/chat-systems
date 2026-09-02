@@ -118,11 +118,11 @@ impl ConnectionManager {
     /// client joins every channel it can see the moment it connects, and asking
     /// once per channel is a round trip per channel on every reconnect.
     pub async fn channel_memberships(&self, channel_ids: &[Uuid], user_id: Uuid) -> Vec<Uuid> {
-        let result = sqlx::query_scalar::<_, Uuid>(
+        let result = sqlx::query_scalar!(
             "SELECT channel_id FROM channel_members WHERE channel_id = ANY($1) AND user_id = $2",
+            channel_ids,
+            user_id
         )
-        .bind(channel_ids)
-        .bind(user_id)
         .fetch_all(&self.db)
         .await;
 
@@ -136,11 +136,11 @@ impl ConnectionManager {
     }
 
     pub async fn is_channel_member(&self, channel_id: Uuid, user_id: Uuid) -> bool {
-        let result = sqlx::query_scalar::<_, bool>(
-            "SELECT EXISTS(SELECT 1 FROM channel_members WHERE channel_id = $1 AND user_id = $2)",
+        let result = sqlx::query_scalar!(
+            r#"SELECT EXISTS(SELECT 1 FROM channel_members WHERE channel_id = $1 AND user_id = $2) AS "exists!""#,
+            channel_id,
+            user_id
         )
-        .bind(channel_id)
-        .bind(user_id)
         .fetch_one(&self.db)
         .await;
 
@@ -156,49 +156,12 @@ impl ConnectionManager {
         }
     }
 
-    pub async fn is_conversation_participant(&self, conversation_id: Uuid, user_id: Uuid) -> bool {
-        let result = sqlx::query_scalar::<_, bool>(
-            "SELECT EXISTS(SELECT 1 FROM conversation_participants WHERE conversation_id = $1 AND user_id = $2)",
-        )
-        .bind(conversation_id)
-        .bind(user_id)
-        .fetch_one(&self.db)
-        .await;
-
-        match result {
-            Ok(is_participant) => is_participant,
-            Err(e) => {
-                warn!(
-                    "is_conversation_participant DB error (denying) conversation={} user={}: {}",
-                    conversation_id, user_id, e
-                );
-                false
-            }
-        }
-    }
-
-    pub async fn conversation_participant_ids(&self, conversation_id: Uuid) -> Vec<Uuid> {
-        sqlx::query_scalar::<_, Uuid>(
-            "SELECT user_id FROM conversation_participants WHERE conversation_id = $1",
-        )
-        .bind(conversation_id)
-        .fetch_all(&self.db)
-        .await
-        .unwrap_or_else(|e| {
-            warn!(
-                "conversation_participant_ids DB error conversation={}: {}",
-                conversation_id, e
-            );
-            Vec::new()
-        })
-    }
-
     pub async fn is_workspace_member(&self, workspace_id: Uuid, user_id: Uuid) -> bool {
-        let result = sqlx::query_scalar::<_, bool>(
-            "SELECT EXISTS(SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2)",
+        let result = sqlx::query_scalar!(
+            r#"SELECT EXISTS(SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2) AS "exists!""#,
+            workspace_id,
+            user_id
         )
-        .bind(workspace_id)
-        .bind(user_id)
         .fetch_one(&self.db)
         .await;
 
@@ -265,6 +228,15 @@ impl ConnectionManager {
         if let Some(mut conn) = self.connections.get_mut(conn_id) {
             conn.subscribed_channels.insert(channel_id);
         }
+    }
+
+    /// Membership was proven when the connection joined the channel and is
+    /// withdrawn the moment it is removed, so the subscription set is the
+    /// answer — no round trip per keystroke.
+    pub fn is_subscribed_to_channel(&self, conn_id: &Uuid, channel_id: Uuid) -> bool {
+        self.connections
+            .get(conn_id)
+            .is_some_and(|conn| conn.subscribed_channels.contains(&channel_id))
     }
 
     pub fn leave_channel(&self, conn_id: &Uuid, channel_id: Uuid) {
@@ -616,10 +588,10 @@ impl ConnectionManager {
     }
 
     pub async fn user_workspace_ids(&self, user_id: Uuid) -> Vec<Uuid> {
-        let result = sqlx::query_scalar::<_, Uuid>(
+        let result = sqlx::query_scalar!(
             "SELECT workspace_id FROM workspace_members WHERE user_id = $1",
+            user_id
         )
-        .bind(user_id)
         .fetch_all(&self.db)
         .await;
         match result {
@@ -667,29 +639,6 @@ impl ConnectionManager {
         .await;
     }
 
-    pub async fn publish_conversation_typing(
-        &self,
-        conversation_id: Uuid,
-        user_id: Uuid,
-        is_typing: bool,
-    ) {
-        let participant_ids = self.conversation_participant_ids(conversation_id).await;
-        if participant_ids.is_empty() {
-            return;
-        }
-        self.publish_event(
-            "events:typing",
-            "typing.indicator",
-            serde_json::json!({
-                "conversation_id": conversation_id,
-                "user_id": user_id,
-                "is_typing": is_typing,
-                "participant_ids": participant_ids,
-            }),
-        )
-        .await;
-    }
-
     pub async fn publish_huddle(&self, event_type: &str, payload: serde_json::Value) {
         let channel = match event_type {
             "huddle.member_joined" | "huddle.member_left" => "events:huddle",
@@ -706,11 +655,12 @@ impl ConnectionManager {
 
     async fn huddle_workspace_id(&self, payload: &serde_json::Value) -> Option<Uuid> {
         let huddle_id: Uuid = payload.get("huddle_id")?.as_str()?.parse().ok()?;
-        let result =
-            sqlx::query_scalar::<_, Uuid>("SELECT workspace_id FROM huddle_sessions WHERE id = $1")
-                .bind(huddle_id)
-                .fetch_optional(&self.db)
-                .await;
+        let result = sqlx::query_scalar!(
+            "SELECT workspace_id FROM huddle_sessions WHERE id = $1",
+            huddle_id
+        )
+        .fetch_optional(&self.db)
+        .await;
         match result {
             Ok(id) => id,
             Err(e) => {

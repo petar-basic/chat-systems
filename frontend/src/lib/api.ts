@@ -1,5 +1,5 @@
 import createClient, { type Client } from 'openapi-fetch';
-import type { paths } from '@/api/schema';
+import type { components, paths } from '@/api/schema';
 import { ApiError, retryAfterSeconds } from './errors';
 
 export interface TypedResult<D> {
@@ -18,7 +18,7 @@ function errorMessage(error: unknown, response: Response): string {
 }
 
 interface RefreshData {
-  user?: unknown;
+  user?: components['schemas']['UserPublic'];
   access_token?: string;
   refresh_token?: string;
 }
@@ -120,35 +120,6 @@ export class ApiClient {
     return {};
   }
 
-  private async request<T>(method: string, path: string, body?: unknown, isRetry = false): Promise<T> {
-    const res = await fetch(`${this.baseUrl}${path}`, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...this.getAuthHeaders(),
-      },
-      credentials: 'include',
-      body: body ? JSON.stringify(body) : undefined,
-    });
-
-    if (res.status === 401 && !isRetry) {
-      const refreshed = await this.refresh();
-      if (refreshed) {
-        return this.request<T>(method, path, body, true);
-      }
-      this.onSessionExpired?.();
-      throw new ApiError(401, 'Session expired. Please log in again.');
-    }
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: res.statusText }));
-      throw new ApiError(res.status, err.error || err.message || res.statusText, retryAfterSeconds(res));
-    }
-
-    if (res.status === 204) return undefined as T;
-    return res.json() as Promise<T>;
-  }
-
   private refresh(): Promise<boolean> {
     if (this.refreshPromise) {
       return this.refreshPromise;
@@ -208,22 +179,6 @@ export class ApiClient {
     }
     if (res.status === 204) return undefined as T;
     return res.json() as Promise<T>;
-  }
-
-  get<T>(path: string) {
-    return this.request<T>('GET', path);
-  }
-  post<T>(path: string, body?: unknown) {
-    return this.request<T>('POST', path, body);
-  }
-  put<T>(path: string, body?: unknown) {
-    return this.request<T>('PUT', path, body);
-  }
-  patch<T>(path: string, body?: unknown) {
-    return this.request<T>('PATCH', path, body);
-  }
-  delete<T>(path: string, body?: unknown) {
-    return this.request<T>('DELETE', path, body);
   }
 }
 

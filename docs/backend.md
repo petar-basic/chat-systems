@@ -6,12 +6,14 @@ the crates under `shared/`:
 | Process | Port | Role | Replicas |
 |---|---|---|---|
 | **`chat-api`** | 3000 | Stateless REST API. Owns the migrations, applied at startup. | scale freely |
-| **`chat-worker`** | 3005 | Background consumers: outgoing webhooks, reminders, notifications, huddle history, call ringing, scheduled messages, email delivery. Serves only `/livez`, `/readyz`, `/metrics`. | scale freely |
+| **`chat-worker`** | 3005 | Background consumers: outgoing webhooks, reminders, notifications, huddle history, call ringing, scheduled messages, email delivery, event outbox relay. Serves only `/livez`, `/readyz`, `/metrics`. | scale freely |
 | **`chat-realtime`** | 3004 | WebSocket gateway. | scale freely |
 
 `chat-api` serves an OpenAPI document at `/api/openapi.json`, generated from the handlers
-themselves. The route tables below are hand-maintained and are being replaced by it one
-feature at a time; where the two disagree, the document is right.
+themselves, and the frontend's `src/api/schema.d.ts` is generated from that. Every feature
+is on it except SCIM (its own standard, its own error format) and the OIDC redirects. The
+route tables below are hand-maintained and kept only as a narrative overview; where the two
+disagree, the document is right.
 
 `chat-api` and `chat-worker` are two binaries over the same library crate
 (`backend/api`), so they share `AppState`, config and every repo.
@@ -221,48 +223,45 @@ feature — see `dm` below.)
 
 ### conversations
 
-Direct and group messages share one model: a `direct` conversation is the two-person case of
-the same rows that back a group, so read state, reactions and fan-out have a single shape.
-Every route requires the caller to be a participant; creating one requires every invitee to be
-a workspace member, and a conversation holds at most nine people.
+A direct message is a channel of type `dm` (two people) or `group_dm` (up to nine) that nobody
+can browse or join: participants are its `channel_members`, its messages are `messages`, and
+reactions, edit history, threads, pins, attachments, saved and scheduled messages are the
+channel ones. These routes only find and open conversations; everything else goes through the
+channel and message routes with the conversation id as `ch_id`. Every message route already
+requires membership of a non-public channel, so a conversation is readable by its participants
+and nobody else. `GET /workspaces/:ws_id/channels` leaves dm channels out; the unread endpoint
+counts them.
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
-| GET | `/workspaces/:ws_id/conversations` | — | `{ data: ConversationSummary[] }` — newest first, with `participant_ids` and the caller's `last_read_at` |
+| GET | `/workspaces/:ws_id/conversations` | — | `{ data: ConversationSummary[] }` — newest message first, with `participant_ids`, `last_message_at` and the caller's `last_read_at` |
 | POST | `/workspaces/:ws_id/conversations` | `{ participant_ids }` | `Conversation` — one other person returns the existing `direct` thread if there is one; more create a `group` |
-| GET | `/conversations/:conv_id/messages` | Query: `limit=50, before?` (message id) | `{ data: ConversationMessage[], next_cursor }` |
-| POST | `/conversations/:conv_id/messages` | `{ content, id?, thread_parent_id? }` | `ConversationMessage` — `id` makes the send idempotent; `thread_parent_id` makes it a threaded reply, which is kept out of the main feed. Threads are one level deep: replying to a reply joins the same thread |
-| GET | `/conversations/messages/:msg_id/thread` | Query: `limit=50, offset=0` | `{ data: ConversationMessage[] }` — oldest first, participants only |
-| POST | `/conversations/:conv_id/read` | — | `{ status: "ok" }` |
-| PATCH | `/conversations/messages/:msg_id` | `{ content }` | `ConversationMessage` — author only |
-| DELETE | `/conversations/messages/:msg_id` | — | `{ status: "deleted" }` — author only |
-| POST | `/conversations/messages/:msg_id/reactions` | `{ emoji }` | `ConversationReaction` |
-| DELETE | `/conversations/messages/:msg_id/reactions/:emoji` | — | `{ status: "ok" }` |
+| POST | `/conversations/:conv_id/read` | — | `{ status: "ok" }` — clears the caller's unread and mention counters for it |
 
-Mutations publish to `events:conversation` (`conversation.created`, `conversation.message.created`
-/`.updated`/`.deleted`, `conversation.reaction.added`/`.removed`); every payload carries
-`participant_ids`, and the realtime gateway pushes to exactly those users.
+Creating one publishes `conversation.created`, which the gateway delivers to every participant
+so the new thread shows up for the other side; messages in it are ordinary `message.*` and
+`reaction.*` events on that channel id, delivered to the sockets that joined it.
 
 ---
 
 ### scheduled
 
-Messages queued for later delivery, aimed at exactly one channel **or** one conversation. The
-author must be able to post to the target at scheduling time, and the send window is capped at
-120 days out.
+Messages queued for later delivery, aimed at one channel — a conversation id is a channel id
+here. The author must be able to post to the target at scheduling time, and the send window is
+capped at 120 days out.
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/scheduled-messages` | — | `{ data: ScheduledMessage[] }` — the caller's pending queue |
-| POST | `/workspaces/:ws_id/scheduled-messages` | `{ channel_id? \| conversation_id?, content, send_at }` | `ScheduledMessage` |
+| POST | `/workspaces/:ws_id/scheduled-messages` | `{ channel_id, content, send_at }` | `ScheduledMessage` |
 | PATCH | `/scheduled-messages/:id` | `{ send_at }` | `ScheduledMessage` — author only, pending only |
 | DELETE | `/scheduled-messages/:id` | — | `{ status: "canceled" }` — author only, pending only |
 
 A background dispatcher ticks every 15s and claims due rows with
 `UPDATE … WHERE id IN (SELECT … FOR UPDATE SKIP LOCKED) RETURNING *`, so several api replicas
-can run it without delivering a message twice. Delivery reuses the normal send path — channel
-messages expand mentions and publish `message.created`, conversation messages publish
-`conversation.message.created` — and a failure is recorded on the row instead of retried.
+can run it without delivering a message twice. Delivery reuses the normal send path — mentions
+are expanded and `message.created` is published — and a failure is recorded on the row instead
+of retried.
 
 ---
 
@@ -442,9 +441,9 @@ chat-import --workspace <uuid|slug> --export <zip-or-directory> [--dry-run] [--n
 ```
 
 **All four listings, and it says which ones were there.** `channels.json` becomes public
-channels, `groups.json` private ones, and `dms.json` / `mpims.json` become conversations —
-the same split this product makes natively, which keeps a two-person history out of
-everybody's channel list. A listing the export does not carry is named in the report rather
+channels, `groups.json` private ones, and `dms.json` / `mpims.json` become `dm` and
+`group_dm` channels, which the channel list never shows, so a two-person history stays out
+of everybody's sidebar. A listing the export does not carry is named in the report rather
 than assumed empty: an export without private channels and an export whose private channels
 were quietly dropped should not look the same.
 
@@ -514,23 +513,22 @@ in silence.
 |---|---|
 | `slack_imports` | One row per run: source, dry-run flag, status, the report as JSON, and the error if it failed |
 | `slack_users` | `(workspace, slack user id)` → our user |
-| `slack_channels` | `(workspace, slack channel id)` → our channel |
-| `slack_conversations` | `(workspace, slack channel id)` → our conversation, for DMs |
-| `messages.slack_ts`, `conversation_messages.slack_ts` | The Slack timestamp a message came from; unique per channel or conversation |
+| `slack_channels` | `(workspace, slack channel id)` → our channel, DMs included |
+| `messages.slack_ts` | The Slack timestamp a message came from; unique per channel |
 
 ---
 
 ### saved
 
-One person's own list of kept messages. A row points at exactly one channel message or one
-conversation message, and saving is idempotent: saving something twice returns the row that
-already exists rather than a second one. Reading a message is what entitles you to save it —
-the same channel and conversation checks the message routes use.
+One person's own list of kept messages. A row points at one message, and saving is
+idempotent: saving something twice returns the row that already exists rather than a second
+one. Reading a message is what entitles you to save it — the same channel access check the
+message routes use, which covers direct messages too.
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/saved` | — | `{ data: SavedMessageDetail[] }` — newest first, joined with the message so the panel renders in one round trip |
-| POST | `/workspaces/:ws_id/saved` | `{ message_id? \| conversation_message_id?, note? }` | `SavedMessage` — exactly one target |
+| POST | `/workspaces/:ws_id/saved` | `{ message_id, note? }` | `SavedMessage` |
 | DELETE | `/saved/:id` | — | `{ status: "removed" }` — owner only |
 
 ---

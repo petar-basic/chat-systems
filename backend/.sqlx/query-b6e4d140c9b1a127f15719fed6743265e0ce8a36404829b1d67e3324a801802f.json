@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM event_outbox\n          WHERE id IN (\n                SELECT id FROM event_outbox\n                 WHERE published_at < NOW() - make_interval(hours => $1)\n                 LIMIT 1000)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b6e4d140c9b1a127f15719fed6743265e0ce8a36404829b1d67e3324a801802f"
+}

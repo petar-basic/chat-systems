@@ -223,62 +223,13 @@ fn slug_from_name(name: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{AppConfig, StorageBackend};
+    use crate::config::AppConfig;
     use shared_common::errors::AppError;
     use sqlx::PgPool;
     use uuid::Uuid;
 
     fn test_config() -> AppConfig {
-        AppConfig {
-            port: 3000,
-            database_url: String::new(),
-            redis_url: String::new(),
-            jwt_secret: "test-jwt-secret-0123456789-abcdefghij".to_string(),
-            access_token_expiry: 3600,
-            refresh_token_expiry: 604_800,
-            admin_email: None,
-            admin_password: None,
-            smtp_host: "localhost".to_string(),
-            smtp_port: 1025,
-            smtp_user: String::new(),
-            smtp_password: String::new(),
-            smtp_from_address: "noreply@test.local".to_string(),
-            smtp_from_name: "Test".to_string(),
-            smtp_use_tls: false,
-            smtp_tls_mode: crate::config::SmtpTlsMode::None,
-            public_url: "http://localhost:3000".to_string(),
-            instance_name: "Test".to_string(),
-            instance_icon_url: None,
-            cors_origins: String::new(),
-            storage_backend: StorageBackend::Local,
-            local_storage_path: "./data/files".to_string(),
-            s3_endpoint: String::new(),
-            s3_region: String::new(),
-            s3_bucket: String::new(),
-            s3_access_key: String::new(),
-            s3_secret_key: String::new(),
-            turn_secret: String::new(),
-            turn_urls: String::new(),
-            stun_urls: String::new(),
-            turn_ttl_secs: 43200,
-            pg_pool_max: 5,
-            trusted_proxies: "127.0.0.0/8".into(),
-            max_upload_bytes: 100 * 1024 * 1024,
-            retention_dry_run: false,
-            require_admin_totp: false,
-            oidc_issuer: String::new(),
-            oidc_client_id: String::new(),
-            oidc_client_secret: String::new(),
-            oidc_provisioning: "invite_only".into(),
-            oidc_allowed_domains: String::new(),
-            webhook_allow_private_targets: true,
-            vapid_public_key: String::new(),
-            vapid_private_key: String::new(),
-            vapid_subject: "mailto:test@test.local".into(),
-            login_attempts_per_email: 10,
-            login_attempts_per_ip: 30,
-            login_attempts_window_secs: 900,
-        }
+        AppConfig::for_tests()
     }
 
     async fn insert_user(pool: &PgPool, email: &str) -> Uuid {

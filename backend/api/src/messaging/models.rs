@@ -3,9 +3,9 @@ use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 use uuid::Uuid;
 
-use crate::conversations::models::ConversationMessage;
+pub use crate::dto::{DataList, StatusResponse};
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct Message {
     pub id: Uuid,
     pub channel_id: Uuid,
@@ -37,7 +37,7 @@ pub struct MessageMetadata {
     pub bot: Option<BotIdentity>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct MessageEdit {
     pub id: Uuid,
     pub message_id: Uuid,
@@ -46,7 +46,7 @@ pub struct MessageEdit {
     pub edited_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct Reaction {
     pub id: Uuid,
     pub message_id: Uuid,
@@ -97,9 +97,10 @@ pub struct SearchQuery {
     pub scope: Option<SearchScope>,
 }
 
-/// Channels and conversations are different resources with different visibility
-/// rules, so they are returned as two lists rather than merged into one. A
-/// caller that filters by channel is asking about channels and gets nothing else.
+/// A direct message is a channel too, but somebody searching "the channels" is
+/// not asking to see their private threads next to them, so the scope picks
+/// which channel types the hits may come from. Filtering by channel is asking
+/// about channels, whatever the scope says.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum SearchScope {
@@ -132,23 +133,15 @@ pub struct MessageWithReactions {
 }
 
 #[derive(Debug, Serialize, ToSchema)]
-pub struct DataList<T: ToSchema> {
-    pub data: Vec<T>,
-}
-
-impl<T: ToSchema> From<Vec<T>> for DataList<T> {
-    fn from(data: Vec<T>) -> Self {
-        Self { data }
-    }
-}
-
-#[derive(Debug, Serialize, ToSchema)]
-pub struct StatusResponse {
-    pub status: &'static str,
-}
-
-#[derive(Debug, Serialize, ToSchema)]
 pub struct SearchResponse {
     pub data: Vec<Message>,
-    pub conversations: Vec<ConversationMessage>,
+}
+
+pub struct NewMessage<'a> {
+    pub channel_id: Uuid,
+    pub user_id: Uuid,
+    pub content: &'a str,
+    pub thread_parent_id: Option<Uuid>,
+    pub client_message_id: Option<Uuid>,
+    pub mentioned: &'a [Uuid],
 }

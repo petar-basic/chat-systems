@@ -1,0 +1,91 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT c.id,\n                   c.workspace_id,\n                   c.channel_type AS \"channel_type: ChannelType\",\n                   COALESCE((SELECT MAX(m.created_at) FROM messages m WHERE m.channel_id = c.id AND m.deleted_at IS NULL), c.created_at) AS \"last_message_at!\",\n                   mine.last_read_at,\n                   ARRAY(\n                       SELECT p.user_id FROM channel_members p\n                       WHERE p.channel_id = c.id\n                       ORDER BY p.joined_at, p.user_id\n                   ) AS \"participant_ids!\"\n              FROM channels c\n              JOIN channel_members mine ON mine.channel_id = c.id AND mine.user_id = $2\n             WHERE c.workspace_id = $1 AND c.channel_type IN ('dm', 'group_dm')\n             ORDER BY 4 DESC\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "channels",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "channels",
+            "name": "workspace_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "channel_type: ChannelType",
+        "type_info": {
+          "Custom": {
+            "name": "channel_type",
+            "kind": {
+              "Enum": [
+                "public",
+                "private",
+                "dm",
+                "group_dm"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "channels",
+            "name": "channel_type"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "last_message_at!",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "last_read_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "channel_members",
+            "name": "last_read_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "participant_ids!",
+        "type_info": "UuidArray",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      null,
+      true,
+      null
+    ]
+  },
+  "hash": "fc19eb533c64c83276c361fdde28a6ec34e7e717e31568e3cadb186eb59c263c"
+}

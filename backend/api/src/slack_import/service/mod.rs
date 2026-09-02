@@ -18,14 +18,10 @@ mod emoji;
 mod messages;
 mod users;
 
-/// Where a Slack conversation landed. Public and private channels are channels;
-/// DMs and group DMs are conversations, which is the same split this product
-/// makes natively.
-#[derive(Debug, Clone, Copy)]
-pub(crate) enum Target {
-    Channel(Uuid),
-    Conversation(Uuid),
-}
+/// The channel a Slack conversation landed in. Public and private channels,
+/// DMs and group DMs are all channels here; the last two are just the kind
+/// nobody can browse.
+pub(crate) type Target = Uuid;
 
 /// Users are matched by email, and by nothing else. A Slack handle is not an
 /// identity: two people can carry the same one across workspaces, and matching
@@ -41,7 +37,6 @@ pub struct Import<'a> {
     /// Slack user id → (our user id, the name to render in a mention).
     pub(crate) users: HashMap<String, (Uuid, String)>,
     pub(crate) channels: HashMap<String, Uuid>,
-    pub(crate) conversations: HashMap<String, Uuid>,
     pub(crate) report: ImportReport,
     /// Set when the run was queued from the app: the row already exists, and the
     /// import writes its progress into it rather than opening a second one.
@@ -74,7 +69,6 @@ impl<'a> Import<'a> {
             dry_run,
             users: HashMap::new(),
             channels: HashMap::new(),
-            conversations: HashMap::new(),
             report: ImportReport::default(),
             run_id: None,
         })
@@ -222,15 +216,6 @@ impl<'a> Import<'a> {
             .await?;
         for (slack_id, channel_id) in channels {
             self.channels.insert(slack_id, channel_id);
-        }
-
-        let conversations = self
-            .state
-            .slack_import_repo
-            .conversation_mappings(self.workspace_id)
-            .await?;
-        for (slack_id, conversation_id) in conversations {
-            self.conversations.insert(slack_id, conversation_id);
         }
 
         Ok(())

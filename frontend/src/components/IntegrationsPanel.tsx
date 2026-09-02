@@ -18,6 +18,14 @@ interface Props {
   onClose: () => void;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function configOf(source: { config: unknown }): Record<string, unknown> {
+  return isRecord(source.config) ? source.config : {};
+}
+
 function CopyField({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false);
 
@@ -75,7 +83,8 @@ function HookRow({
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const isIncoming = hook.hook_type === 'incoming_webhook';
-  const target = isIncoming ? `#${channelName ?? 'unknown channel'}` : String(hook.config.url ?? '');
+  const target = isIncoming ? `#${channelName ?? 'unknown channel'}` : String(configOf(hook).url ?? '');
+  const signingSecret = secrets ? configOf(secrets).secret : undefined;
 
   return (
     <div className="px-4 py-3 border-b border-line/40" data-qa="hook-row" data-hook-id={hook.id}>
@@ -153,9 +162,7 @@ function HookRow({
       {secrets && (
         <div data-qa="hook-secrets">
           {secrets.incoming_url && <CopyField label="Webhook URL" value={secrets.incoming_url} />}
-          {typeof secrets.config.secret === 'string' && (
-            <CopyField label="Signing secret" value={secrets.config.secret} />
-          )}
+          {typeof signingSecret === 'string' && <CopyField label="Signing secret" value={signingSecret} />}
         </div>
       )}
     </div>
@@ -231,7 +238,10 @@ export default function IntegrationsPanel({ workspaceId, instanceUrl, channels, 
     );
 
   const scopeLabel = (hook: Hook) => {
-    const ids = Array.isArray(hook.config.channel_ids) ? (hook.config.channel_ids as string[]) : [];
+    const channelIds = configOf(hook).channel_ids;
+    const ids = Array.isArray(channelIds)
+      ? channelIds.filter((id): id is string => typeof id === 'string')
+      : [];
     if (ids.length === 0) return undefined;
     return ids.map((id) => `#${channels.find((c) => c.id === id)?.name ?? 'unknown'}`).join(', ');
   };
@@ -307,7 +317,7 @@ export default function IntegrationsPanel({ workspaceId, instanceUrl, channels, 
             <HookRow
               key={hook.id}
               hook={hook}
-              channelName={channels.find((c) => c.id === hook.config.channel_id)?.name ?? null}
+              channelName={channels.find((c) => c.id === configOf(hook).channel_id)?.name ?? null}
               secrets={secretsByHook[hook.id] ?? null}
               busy={busy}
               onReveal={() => void handleReveal(hook.id)}

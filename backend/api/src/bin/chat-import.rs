@@ -126,10 +126,12 @@ async fn resolve_workspace(pool: &sqlx::PgPool, workspace: &str) -> Result<Uuid,
         return Ok(id);
     }
 
-    sqlx::query_scalar::<_, Uuid>("SELECT id FROM workspaces WHERE slug = $1 AND is_active = true")
-        .bind(workspace)
-        .fetch_optional(pool)
-        .await
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("no workspace with slug {workspace}"))
+    sqlx::query_scalar!(
+        "SELECT id FROM workspaces WHERE slug = $1 AND is_active = true",
+        workspace
+    )
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| e.to_string())?
+    .ok_or_else(|| format!("no workspace with slug {workspace}"))
 }

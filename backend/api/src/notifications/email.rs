@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use uuid::Uuid;
 
+use crate::email::outbox::{self, NewEmail};
 use crate::state::AppState;
 
 /// Long enough to be a digest rather than a stream, and a second chance for the
@@ -23,30 +24,31 @@ pub struct PendingMention<'a> {
 /// becomes the duplicate email that makes people write a filter rule for your
 /// domain.
 pub async fn enqueue(state: &AppState, pending: PendingMention<'_>) {
-    let wants_email: Option<bool> =
-        sqlx::query_scalar("SELECT mention_emails FROM users WHERE id = $1")
-            .bind(pending.user_id)
-            .fetch_optional(&state.pool)
-            .await
-            .unwrap_or(None);
+    let wants_email: Option<bool> = sqlx::query_scalar!(
+        "SELECT mention_emails FROM users WHERE id = $1",
+        pending.user_id
+    )
+    .fetch_optional(&state.pool)
+    .await
+    .unwrap_or(None);
 
     if wants_email != Some(true) {
         return;
     }
 
-    let result = sqlx::query(
+    let result = sqlx::query!(
         r"
         INSERT INTO pending_mention_emails
             (user_id, workspace_id, channel_id, message_id, sender_name, channel_name)
         VALUES ($1, $2, $3, $4, $5, $6)
         ",
+        pending.user_id,
+        pending.workspace_id,
+        pending.channel_id,
+        pending.message_id,
+        pending.sender_name,
+        pending.channel_name
     )
-    .bind(pending.user_id)
-    .bind(pending.workspace_id)
-    .bind(pending.channel_id)
-    .bind(pending.message_id)
-    .bind(pending.sender_name)
-    .bind(pending.channel_name)
     .execute(&state.pool)
     .await;
 
@@ -55,7 +57,7 @@ pub async fn enqueue(state: &AppState, pending: PendingMention<'_>) {
     }
 }
 
-#[derive(Debug, sqlx::FromRow)]
+#[derive(Debug)]
 struct DueDigest {
     user_id: Uuid,
     workspace_id: Uuid,
@@ -70,19 +72,20 @@ struct DueDigest {
 pub async fn flush_due(state: &AppState) -> usize {
     let cutoff = chrono::Utc::now() - chrono::Duration::from_std(DIGEST_WINDOW).unwrap_or_default();
 
-    let due = sqlx::query_as::<_, DueDigest>(
-        r"
+    let due = sqlx::query_as!(
+        DueDigest,
+        r#"
         SELECT p.user_id, p.workspace_id, u.email,
-               COUNT(*) AS mentions,
-               ARRAY_AGG(DISTINCT COALESCE(p.channel_name, '')) AS channels,
-               ARRAY_AGG(DISTINCT COALESCE(p.sender_name, '')) AS senders
+               COUNT(*) AS "mentions!",
+               ARRAY_AGG(DISTINCT COALESCE(p.channel_name, '')) AS "channels!",
+               ARRAY_AGG(DISTINCT COALESCE(p.sender_name, '')) AS "senders!"
           FROM pending_mention_emails p
           JOIN users u ON u.id = p.user_id
          WHERE p.created_at <= $1
          GROUP BY p.user_id, p.workspace_id, u.email
-        ",
+        "#,
+        cutoff
     )
-    .bind(cutoff)
     .fetch_all(&state.pool)
     .await;
 
@@ -109,25 +112,31 @@ pub async fn flush_due(state: &AppState) -> usize {
             };
             let body = body_for(&digest, &state.config.public_url);
 
-            if let Err(e) = state
-                .auth_service
-                .send_notification_email(&digest.email, &subject, &body)
-                .await
-            {
-                tracing::warn!("could not send a mention email: {}", e);
+            let queued = outbox::enqueue(
+                &state.pool,
+                NewEmail {
+                    to: &digest.email,
+                    subject: &subject,
+                    text: &body,
+                    html: None,
+                },
+            )
+            .await;
+            if let Err(e) = queued {
+                tracing::warn!("could not queue a mention email: {}", e);
                 continue;
             }
             sent += 1;
-            metrics::counter!("mention_emails_sent_total").increment(1);
+            metrics::counter!("mention_emails_queued_total").increment(1);
         }
 
-        let cleared = sqlx::query(
+        let cleared = sqlx::query!(
             "DELETE FROM pending_mention_emails \
               WHERE user_id = $1 AND workspace_id = $2 AND created_at <= $3",
+            digest.user_id,
+            digest.workspace_id,
+            cutoff
         )
-        .bind(digest.user_id)
-        .bind(digest.workspace_id)
-        .bind(cutoff)
         .execute(&state.pool)
         .await;
 

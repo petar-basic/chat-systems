@@ -1,0 +1,105 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO retention_policies\n                (workspace_id, message_days, file_days, audit_days, notification_days, updated_by)\n            VALUES ($1, $2, $3, COALESCE($4, 730), COALESCE($5, 90), $6)\n            ON CONFLICT (workspace_id) DO UPDATE SET\n                message_days = EXCLUDED.message_days,\n                file_days = EXCLUDED.file_days,\n                audit_days = EXCLUDED.audit_days,\n                notification_days = EXCLUDED.notification_days,\n                updated_by = EXCLUDED.updated_by,\n                updated_at = NOW()\n            RETURNING workspace_id, message_days, file_days, audit_days, notification_days, updated_by, updated_at\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "retention_policies",
+            "name": "workspace_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "message_days",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "retention_policies",
+            "name": "message_days"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "file_days",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "retention_policies",
+            "name": "file_days"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "audit_days",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "retention_policies",
+            "name": "audit_days"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "notification_days",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "retention_policies",
+            "name": "notification_days"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "updated_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "retention_policies",
+            "name": "updated_by"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "retention_policies",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "b2188c304cad8d7740ec983c1121bbeafa8701f044971fc686a33cd2d6c25336"
+}

@@ -5,15 +5,9 @@ import { useInstanceStore } from '../stores/instances';
 import { instanceManager } from '../lib/instances';
 import { useCurrentUser } from '../hooks/queries/useAuth';
 import AuditLogTable, { type AuditEntry } from '../features/workspace/components/AuditLogTable';
+import type { components } from '@/api/schema';
 
-interface AdminUser {
-  id: string;
-  email: string;
-  display_name: string | null;
-  status: string;
-  is_instance_admin: boolean;
-  created_at: string;
-}
+type AdminUser = components['schemas']['AdminUser'];
 
 type AdminTab = 'users' | 'audit';
 
@@ -45,7 +39,7 @@ export default function InstanceAdminPage() {
     setError(null);
     try {
       const apiClient = instanceManager.get(activeInstanceUrl).api;
-      const res = await apiClient.get<{ data: AdminUser[] }>('/admin/users?limit=200');
+      const res = await apiClient.typed((c) => c.GET('/admin/users', { params: { query: { limit: 200 } } }));
       setUsers(res.data);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load users');
@@ -60,7 +54,9 @@ export default function InstanceAdminPage() {
     setError(null);
     try {
       const apiClient = instanceManager.get(activeInstanceUrl).api;
-      const res = await apiClient.get<{ data: AuditEntry[] }>('/admin/audit-log?limit=200');
+      const res = await apiClient.typed((c) =>
+        c.GET('/admin/audit-log', { params: { query: { limit: 200 } } }),
+      );
       setEntries(res.data);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load the audit log');
@@ -95,9 +91,12 @@ export default function InstanceAdminPage() {
     setActionLoading(user.id + '_admin');
     try {
       const apiClient = instanceManager.get(activeInstanceUrl).api;
-      await apiClient.patch(`/admin/users/${user.id}/instance-role`, {
-        is_instance_admin: isAdmin,
-      });
+      await apiClient.typed((c) =>
+        c.PATCH('/admin/users/{user_id}/instance-role', {
+          params: { path: { user_id: user.id } },
+          body: { is_instance_admin: isAdmin },
+        }),
+      );
       setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, is_instance_admin: isAdmin } : u)));
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Action failed');
@@ -113,7 +112,12 @@ export default function InstanceAdminPage() {
     setActionLoading(user.id + '_status');
     try {
       const apiClient = instanceManager.get(activeInstanceUrl).api;
-      await apiClient.post(`/admin/users/${user.id}/${action}`, {});
+      const params = { path: { user_id: user.id } };
+      if (action === 'suspend') {
+        await apiClient.typed((c) => c.POST('/admin/users/{user_id}/suspend', { params }));
+      } else {
+        await apiClient.typed((c) => c.POST('/admin/users/{user_id}/activate', { params }));
+      }
       setUsers((prev) =>
         prev.map((u) =>
           u.id === user.id ? { ...u, status: action === 'suspend' ? 'suspended' : 'active' } : u,

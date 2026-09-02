@@ -93,7 +93,7 @@ test('a reply inside a direct message stays in its thread', async ({ page }) => 
   ).json();
 
   const parentText = `dm-thread-parent-${stamp}`;
-  await admin.post(`${API}/conversations/${conversation.id}/messages`, {
+  await admin.post(`${API}/channels/${conversation.id}/messages`, {
     data: { content: parentText },
   });
 
@@ -101,7 +101,7 @@ test('a reply inside a direct message stays in its thread', async ({ page }) => 
     await login(page, 'bob@dev.local');
     await page.goto(`/app/${workspace.id}/c/${conversation.id}`);
 
-    const parent = page.locator('[data-qa="conversation-message"]', { hasText: parentText }).last();
+    const parent = page.locator('[data-qa="message-row"]', { hasText: parentText }).last();
     await expect(parent).toBeVisible({ timeout: 20_000 });
     await parent.hover();
     await parent.locator('[data-qa="dm-action-thread"]').click();
@@ -117,7 +117,7 @@ test('a reply inside a direct message stays in its thread', async ({ page }) => 
 
     await expect(panel.locator('[data-qa="dm-thread-reply"]', { hasText: replyText })).toBeVisible();
 
-    const feed = await (await bob.get(`${API}/conversations/${conversation.id}/messages`)).json();
+    const feed = await (await bob.get(`${API}/channels/${conversation.id}/messages`)).json();
     expect(
       feed.data.some((m: { content: string }) => m.content === replyText),
       'a threaded reply does not clutter the main conversation',

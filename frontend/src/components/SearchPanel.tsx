@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { api } from '../lib/api';
+import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { useUserCache } from '../stores/users';
 import { useWorkspaceStore } from '../stores/workspace';
 import type { Message } from '../stores/workspace';
@@ -8,6 +8,7 @@ import { displayNameOf } from '@/lib/userHelpers';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
 import { useWorkspaceChannels } from '@/hooks/queries/useWorkspaces';
+import { useConversations } from '@/hooks/queries/useConversations';
 import { toPlainText } from '@/lib/plainText';
 import { formatDateTime } from '@/lib/datetime';
 
@@ -15,14 +16,6 @@ interface Props {
   onClose: () => void;
   onNavigateToMessage?: (channelId: string, messageId: string) => void;
   onNavigateToConversation?: (conversationId: string) => void;
-}
-
-interface ConversationHit {
-  id: string;
-  conversation_id: string;
-  user_id: string;
-  content: string;
-  created_at: string;
 }
 
 function Hit({
@@ -71,14 +64,15 @@ export default function SearchPanel({ onClose, onNavigateToMessage, onNavigateTo
   useEscapeToClose(onClose);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Message[]>([]);
-  const [conversationResults, setConversationResults] = useState<ConversationHit[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const workspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id);
   const instanceUrl = useWorkspaceStore((s) => s.currentWorkspace?.instanceUrl);
   const { data: channels = [] } = useWorkspaceChannels(workspaceId ?? null, instanceUrl);
+  const { data: conversations = [] } = useConversations(workspaceId ?? null, instanceUrl);
   const channelNames = new Map(channels.map((ch) => [ch.id, ch.name]));
+  const conversationIds = new Set(conversations.map((c) => c.id));
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -90,7 +84,6 @@ export default function SearchPanel({ onClose, onNavigateToMessage, onNavigateTo
     async (q: string) => {
       if (!q.trim() || !workspaceId) {
         setResults([]);
-        setConversationResults([]);
         setSearched(false);
         setError(null);
         return;
@@ -99,20 +92,18 @@ export default function SearchPanel({ onClose, onNavigateToMessage, onNavigateTo
       setSearched(true);
       setError(null);
       try {
-        const res = await api.get<{ data: Message[]; conversations: ConversationHit[] }>(
-          `/search?q=${encodeURIComponent(q.trim())}&workspace_id=${workspaceId}&limit=20`,
+        const res = await getApiForInstance(instanceUrl).typed((c) =>
+          c.GET('/search', { params: { query: { q: q.trim(), workspace_id: workspaceId, limit: 20 } } }),
         );
         setResults(res.data);
-        setConversationResults(res.conversations ?? []);
       } catch (err: unknown) {
         setResults([]);
-        setConversationResults([]);
         setError((err as { message?: string })?.message || 'Search failed');
       } finally {
         setLoading(false);
       }
     },
-    [workspaceId],
+    [workspaceId, instanceUrl],
   );
 
   const handleChange = (value: string) => {
@@ -150,7 +141,6 @@ export default function SearchPanel({ onClose, onNavigateToMessage, onNavigateTo
               onClick={() => {
                 setQuery('');
                 setResults([]);
-                setConversationResults([]);
                 setSearched(false);
               }}
               className="text-muted hover:text-fg-dim transition cursor-pointer"
@@ -170,55 +160,40 @@ export default function SearchPanel({ onClose, onNavigateToMessage, onNavigateTo
           <div className="text-center py-8 text-danger text-sm" data-qa="search-error">
             {error}
           </div>
-        ) : searched && results.length === 0 && conversationResults.length === 0 ? (
+        ) : searched && results.length === 0 ? (
           <div className="text-center py-8 text-muted text-sm">
             No messages found for &ldquo;{query}&rdquo;
           </div>
-        ) : results.length > 0 || conversationResults.length > 0 ? (
-          <div className="space-y-4">
-            {results.length > 0 && (
-              <div className="space-y-1">
-                {conversationResults.length > 0 && (
-                  <h4 className="px-3 text-xs font-semibold uppercase tracking-wide text-subtle">Channels</h4>
-                )}
-                {results.map((msg) => (
-                  <Hit
-                    key={msg.id}
-                    qa="search-result"
-                    userId={msg.user_id}
-                    content={msg.content}
-                    createdAt={msg.created_at}
-                    context={
-                      channelNames.has(msg.channel_id) ? `#${channelNames.get(msg.channel_id)}` : undefined
-                    }
-                    onClick={
-                      onNavigateToMessage ? () => onNavigateToMessage(msg.channel_id, msg.id) : undefined
-                    }
-                  />
-                ))}
-              </div>
-            )}
-            {conversationResults.length > 0 && (
-              <div className="space-y-1">
-                <h4 className="px-3 text-xs font-semibold uppercase tracking-wide text-subtle">
-                  Direct messages
-                </h4>
-                {conversationResults.map((hit) => (
-                  <Hit
-                    key={hit.id}
-                    qa="search-result-conversation"
-                    userId={hit.user_id}
-                    content={hit.content}
-                    createdAt={hit.created_at}
-                    onClick={
-                      onNavigateToConversation
-                        ? () => onNavigateToConversation(hit.conversation_id)
+        ) : results.length > 0 ? (
+          <div className="space-y-1">
+            {results.map((msg) => {
+              const conversation = conversationIds.has(msg.channel_id);
+              return (
+                <Hit
+                  key={msg.id}
+                  qa={conversation ? 'search-result-conversation' : 'search-result'}
+                  userId={msg.user_id}
+                  content={msg.content}
+                  createdAt={msg.created_at}
+                  context={
+                    channelNames.has(msg.channel_id)
+                      ? `#${channelNames.get(msg.channel_id)}`
+                      : conversation
+                        ? 'Direct message'
                         : undefined
-                    }
-                  />
-                ))}
-              </div>
-            )}
+                  }
+                  onClick={
+                    conversation
+                      ? onNavigateToConversation
+                        ? () => onNavigateToConversation(msg.channel_id)
+                        : undefined
+                      : onNavigateToMessage
+                        ? () => onNavigateToMessage(msg.channel_id, msg.id)
+                        : undefined
+                  }
+                />
+              );
+            })}
           </div>
         ) : (
           <div className="text-center py-8 text-muted text-sm">

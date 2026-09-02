@@ -62,16 +62,12 @@ impl Import<'_> {
         if self.dry_run {
             return Ok(HashMap::new());
         }
-        let rows = match target {
-            Target::Channel(id) => self.state.slack_import_repo.imported_message_ids(id).await,
-            Target::Conversation(id) => {
-                self.state
-                    .slack_import_repo
-                    .imported_conversation_message_ids(id)
-                    .await
-            }
-        };
-        Ok(rows?.into_iter().collect())
+        let rows = self
+            .state
+            .slack_import_repo
+            .imported_message_ids(target)
+            .await?;
+        Ok(rows.into_iter().collect())
     }
 
     async fn import_message(
@@ -171,13 +167,11 @@ impl Import<'_> {
             .await?;
         by_slack_ts.insert(message.ts.clone(), stored_id);
 
-        self.import_reactions(target, stored_id, message).await?;
+        self.import_reactions(stored_id, message).await?;
 
         if !message.pinned_to.is_empty() {
-            if let Target::Channel(_) = target {
-                self.state.message_repo.set_pinned(stored_id, true).await?;
-                self.report.pins += 1;
-            }
+            self.state.message_repo.set_pinned(stored_id, true).await?;
+            self.report.pins += 1;
         }
 
         self.import_files(target, user_id, message, created_at)
@@ -195,42 +189,23 @@ impl Import<'_> {
         slack_ts: &str,
         created_at: DateTime<Utc>,
     ) -> AppResult<Uuid> {
-        let id = match target {
-            Target::Channel(channel_id) => {
-                self.state
-                    .message_repo
-                    .insert_imported(ImportedMessage {
-                        channel_id,
-                        user_id,
-                        content,
-                        thread_parent_id,
-                        slack_ts,
-                        created_at,
-                    })
-                    .await?
-                    .id
-            }
-            Target::Conversation(conversation_id) => {
-                self.state
-                    .conversation_repo
-                    .insert_imported(
-                        conversation_id,
-                        user_id,
-                        content,
-                        thread_parent_id,
-                        slack_ts,
-                        created_at,
-                    )
-                    .await?
-                    .id
-            }
-        };
-        Ok(id)
+        let message = self
+            .state
+            .message_repo
+            .insert_imported(ImportedMessage {
+                channel_id: target,
+                user_id,
+                content,
+                thread_parent_id,
+                slack_ts,
+                created_at,
+            })
+            .await?;
+        Ok(message.id)
     }
 
     async fn import_reactions(
         &mut self,
-        target: Target,
         message_id: Uuid,
         message: &SlackMessage,
     ) -> AppResult<()> {
@@ -240,20 +215,12 @@ impl Import<'_> {
                 let Some(user_id) = self.users.get(slack_user_id).map(|(id, _)| *id) else {
                     continue;
                 };
-                let added = match target {
-                    Target::Channel(_) => self
-                        .state
-                        .message_repo
-                        .add_reaction(message_id, user_id, &emoji)
-                        .await
-                        .map(|_| ()),
-                    Target::Conversation(_) => self
-                        .state
-                        .conversation_repo
-                        .add_reaction(message_id, user_id, &emoji)
-                        .await
-                        .map(|_| ()),
-                };
+                let added = self
+                    .state
+                    .message_repo
+                    .add_reaction(message_id, user_id, &emoji)
+                    .await
+                    .map(|_| ());
                 match added {
                     Ok(_) => self.report.reactions += 1,
                     // The same person reacting twice is the same reaction; a

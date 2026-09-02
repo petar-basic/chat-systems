@@ -57,6 +57,7 @@ garde = { version = "0.23", features = ["derive"] }
 askama = "0.16"
 ipnet = "2"
 backon = "1"
+ts-rs = { version = "12", features = ["uuid-impl", "chrono-impl", "serde-json-impl", "serde-compat"] }
 toml = "0.8"
 
 # Utilities

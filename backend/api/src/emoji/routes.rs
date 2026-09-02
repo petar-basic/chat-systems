@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
 use axum::extract::{Multipart, Path, State};
-use axum::routing::get;
-use axum::{Json, Router};
+use axum::Json;
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::routes;
 use uuid::Uuid;
 
 use shared_common::errors::{is_unique_violation, AppError, AppResult};
@@ -10,6 +11,7 @@ use shared_common::errors::{is_unique_violation, AppError, AppResult};
 use super::standard::shadows_a_standard_emoji;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
+use crate::dto::{DataList, StatusResponse};
 use crate::middleware::AuthUser;
 use crate::state::AppState;
 use crate::workspace::models::WorkspaceRole;
@@ -19,18 +21,26 @@ use crate::workspace::models::WorkspaceRole;
 pub const MAX_EMOJI_BYTES: u64 = 256 * 1024;
 const ALLOWED_TYPES: &[&str] = &["image/png", "image/gif", "image/webp", "image/jpeg"];
 
-pub fn router(state: Arc<AppState>) -> Router {
-    let routes = Router::new()
-        .route(
-            "/workspaces/{ws_id}/emojis",
-            get(list_emojis).post(upload_emoji),
-        )
-        .route(
-            "/workspaces/{ws_id}/emojis/{emoji_id}",
-            axum::routing::delete(delete_emoji),
-        );
+pub fn router() -> OpenApiRouter<Arc<AppState>> {
+    OpenApiRouter::new()
+        .routes(routes!(list_emojis, upload_emoji))
+        .routes(routes!(delete_emoji))
+}
 
-    crate::protected(state, routes)
+#[derive(Debug, serde::Serialize, utoipa::ToSchema)]
+pub struct EmojiView {
+    pub id: Uuid,
+    pub name: String,
+    pub url: String,
+    pub created_by: Uuid,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, serde::Serialize, utoipa::ToSchema)]
+pub struct EmojiCreated {
+    pub id: Uuid,
+    pub name: String,
+    pub url: String,
 }
 
 pub fn validate_name(name: &str) -> AppResult<String> {
@@ -58,35 +68,36 @@ pub fn validate_name(name: &str) -> AppResult<String> {
     Ok(name)
 }
 
+#[utoipa::path(get, path = "/workspaces/{ws_id}/emojis", tag = "emoji", responses((status = 200, body = DataList<EmojiView>)))]
 async fn list_emojis(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<DataList<EmojiView>>> {
     authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
 
     let emojis = state.emoji_repo.list(ws_id).await?;
-    Ok(Json(serde_json::json!({
-        "data": emojis
-            .iter()
-            .map(|e| serde_json::json!({
-                "id": e.id,
-                "name": e.name,
-                "url": state.file_storage.public_url(&e.storage_key),
-                "created_by": e.created_by,
-                "created_at": e.created_at,
-            }))
-            .collect::<Vec<_>>(),
-    })))
+    let data = emojis
+        .into_iter()
+        .map(|e| EmojiView {
+            url: state.file_storage.public_url(&e.storage_key),
+            id: e.id,
+            name: e.name,
+            created_by: e.created_by,
+            created_at: e.created_at,
+        })
+        .collect();
+    Ok(Json(DataList { data }))
 }
 
+#[utoipa::path(post, path = "/workspaces/{ws_id}/emojis", tag = "emoji", request_body(content = String, content_type = "multipart/form-data", description = "`name` and an image field of at most 256 KiB"), responses((status = 200, body = EmojiCreated)))]
 async fn upload_emoji(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
     Path(ws_id): Path<Uuid>,
     mut multipart: Multipart,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<EmojiCreated>> {
     authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
 
     let mut name: Option<String> = None;
@@ -170,21 +181,22 @@ async fn upload_emoji(
     )
     .await;
 
-    Ok(Json(serde_json::json!({
-        "id": emoji.id,
-        "name": emoji.name,
-        "url": state.file_storage.public_url(&emoji.storage_key),
-    })))
+    Ok(Json(EmojiCreated {
+        url: state.file_storage.public_url(&emoji.storage_key),
+        id: emoji.id,
+        name: emoji.name,
+    }))
 }
 
 /// Whoever added it, or a workspace admin. An emoji is shared vocabulary, so
 /// removing one is a workspace decision rather than a personal one.
+#[utoipa::path(delete, path = "/workspaces/{ws_id}/emojis/{emoji_id}", tag = "emoji", responses((status = 200, body = StatusResponse)))]
 async fn delete_emoji(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
     Path((ws_id, emoji_id)): Path<(Uuid, Uuid)>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<StatusResponse>> {
     authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
 
     let emoji = state
@@ -211,7 +223,7 @@ async fn delete_emoji(
     )
     .await;
 
-    Ok(Json(serde_json::json!({ "status": "deleted" })))
+    Ok(Json(StatusResponse::new("deleted")))
 }
 
 #[cfg(test)]

@@ -103,7 +103,7 @@ async fn private_conversations_stay_out_unless_asked_for(pool: PgPool) {
     send(
         &app,
         "POST",
-        &format!("/api/conversations/{conv_id}/messages"),
+        &format!("/api/channels/{conv_id}/messages"),
         Some(&owner),
         Some(json!({ "content": "between us" })),
     )
@@ -119,7 +119,7 @@ async fn private_conversations_stay_out_unless_asked_for(pool: PgPool) {
     .await;
     let without = manifest_of(&state, run_pending_export(&state).await).await;
     assert_eq!(
-        without["files"]["conversation_messages.jsonl"]["rows"], 0,
+        without["files"]["messages.jsonl"]["rows"], 0,
         "an owner clicking export does not sweep up everyone's DMs"
     );
 
@@ -132,7 +132,7 @@ async fn private_conversations_stay_out_unless_asked_for(pool: PgPool) {
     )
     .await;
     let with = manifest_of(&state, run_pending_export(&state).await).await;
-    assert_eq!(with["files"]["conversation_messages.jsonl"]["rows"], 1);
+    assert_eq!(with["files"]["messages.jsonl"]["rows"], 1);
 
     let opted_in: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM audit_log WHERE action = 'export.requested' \

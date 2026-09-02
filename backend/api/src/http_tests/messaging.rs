@@ -985,7 +985,7 @@ async fn a_dm_is_searchable_by_its_participants_and_nobody_else(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/conversations/{conversation_id}/messages"),
+        &format!("/api/channels/{conversation_id}/messages"),
         Some(&owner_token),
         Some(json!({ "content": "the séance is at six" })),
     )
@@ -1003,13 +1003,11 @@ async fn a_dm_is_searchable_by_its_participants_and_nobody_else(pool: PgPool) {
         .await;
         assert_eq!(status, StatusCode::OK, "{body:?}");
         assert_eq!(
-            body["conversations"]
-                .as_array()
-                .expect("conversations")
-                .len(),
+            body["data"].as_array().expect("data").len(),
             1,
             "a participant finds their own DM: {body:?}"
         );
+        assert_eq!(body["data"][0]["channel_id"], conversation_id);
     }
 
     let (status, body) = send(
@@ -1022,10 +1020,7 @@ async fn a_dm_is_searchable_by_its_participants_and_nobody_else(pool: PgPool) {
     .await;
     assert_eq!(status, StatusCode::OK, "{body:?}");
     assert!(
-        body["conversations"]
-            .as_array()
-            .expect("conversations")
-            .is_empty(),
+        body["data"].as_array().expect("data").is_empty(),
         "a DM belongs to the people in it: {body:?}"
     );
 }
@@ -1052,7 +1047,7 @@ async fn scope_decides_which_half_of_the_search_runs(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/conversations/{conversation_id}/messages"),
+        &format!("/api/channels/{conversation_id}/messages"),
         Some(&owner_token),
         Some(json!({ "content": "shared word there" })),
     )
@@ -1075,17 +1070,18 @@ async fn scope_decides_which_half_of_the_search_runs(pool: PgPool) {
         )
         .await;
         assert_eq!(status, StatusCode::OK, "{body:?}");
+        let hits = body["data"].as_array().expect("data");
+        let in_conversation = hits
+            .iter()
+            .filter(|hit| hit["channel_id"] == conversation_id)
+            .count();
         assert_eq!(
-            body["data"].as_array().expect("data").len(),
+            hits.len() - in_conversation,
             channels,
             "channels for scope '{suffix}': {body:?}"
         );
         assert_eq!(
-            body["conversations"]
-                .as_array()
-                .expect("conversations")
-                .len(),
-            conversations,
+            in_conversation, conversations,
             "conversations for scope '{suffix}': {body:?}"
         );
     }

@@ -29,6 +29,10 @@ path = "src/bin/chat-import.rs"
 name = "chat-openapi"
 path = "src/bin/chat-openapi.rs"
 
+[[bin]]
+name = "chat-ts-events"
+path = "src/bin/chat-ts-events.rs"
+
 [dependencies]
 shared-common = { path = "../shared/common" }
 shared-events = { path = "../shared/events" }

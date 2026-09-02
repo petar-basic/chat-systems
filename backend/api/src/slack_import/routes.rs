@@ -1,15 +1,18 @@
 use std::sync::Arc;
 
 use axum::extract::{DefaultBodyLimit, Multipart, Path, State};
-use axum::routing::get;
-use axum::{Json, Router};
+use axum::Json;
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::routes;
 use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
 
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
+use crate::dto::{DataItem, DataList};
 use crate::middleware::AuthUser;
+use crate::slack_import::repo::ImportRun;
 use crate::state::AppState;
 use crate::workspace::models::WorkspaceRole;
 
@@ -18,34 +21,31 @@ use crate::workspace::models::WorkspaceRole;
 /// error says so rather than failing at the proxy.
 const MAX_ARCHIVE_BYTES: usize = 512 * 1024 * 1024;
 
-pub fn router(state: Arc<AppState>) -> Router {
-    let routes = Router::new()
-        .route(
-            "/workspaces/{ws_id}/slack-imports",
-            get(list_imports).post(start_import),
-        )
-        .route("/slack-imports", axum::routing::post(start_import_into_new))
-        .route("/slack-imports/{import_id}", get(get_import))
-        .layer(DefaultBodyLimit::max(MAX_ARCHIVE_BYTES));
-
-    crate::protected(state, routes)
+pub fn router() -> OpenApiRouter<Arc<AppState>> {
+    OpenApiRouter::new()
+        .routes(routes!(list_imports, start_import))
+        .routes(routes!(start_import_into_new))
+        .routes(routes!(get_import))
+        .layer(DefaultBodyLimit::max(MAX_ARCHIVE_BYTES))
 }
 
+#[utoipa::path(get, path = "/workspaces/{ws_id}/slack-imports", tag = "slack-import", responses((status = 200, body = DataList<ImportRun>)))]
 async fn list_imports(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<DataList<ImportRun>>> {
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
     let runs = state.slack_import_repo.list_runs(ws_id).await?;
-    Ok(Json(serde_json::json!({ "data": runs })))
+    Ok(Json(runs.into()))
 }
 
+#[utoipa::path(get, path = "/slack-imports/{import_id}", tag = "slack-import", responses((status = 200, body = DataItem<ImportRun>)))]
 async fn get_import(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(import_id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<DataItem<ImportRun>>> {
     let run = state
         .slack_import_repo
         .find_run(import_id)
@@ -60,19 +60,20 @@ async fn get_import(
     )
     .await?;
 
-    Ok(Json(serde_json::json!({ "data": run })))
+    Ok(Json(DataItem { data: run }))
 }
 
 /// The export is the whole workspace, so this is the case where there is nothing
 /// to import *into* yet. The name cannot come from the archive — Slack does not
 /// put it there, not even in the manifest — so the caller sends one, and the app
 /// suggests it from the file name.
+#[utoipa::path(post, path = "/slack-imports", tag = "slack-import", request_body(content = String, content_type = "multipart/form-data", description = "`archive` (a Slack export zip), optional `dry_run`, and for a new workspace `workspace_name`"), responses((status = 200, body = DataItem<ImportRun>)))]
 async fn start_import_into_new(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
     multipart: Multipart,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<DataItem<ImportRun>>> {
     let upload = read_upload(multipart).await?;
     let name = upload
         .workspace_name
@@ -101,13 +102,14 @@ async fn start_import_into_new(
 
 /// Takes the archive and queues the work. The response is the run, not the
 /// result: an import takes minutes to hours, and the client watches the row.
+#[utoipa::path(post, path = "/workspaces/{ws_id}/slack-imports", tag = "slack-import", request_body(content = String, content_type = "multipart/form-data", description = "`archive` (a Slack export zip), optional `dry_run`, and for a new workspace `workspace_name`"), responses((status = 200, body = DataItem<ImportRun>)))]
 async fn start_import(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
     Path(ws_id): Path<Uuid>,
     multipart: Multipart,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<DataItem<ImportRun>>> {
     // An import writes history into every channel and creates accounts. Nothing
     // short of a workspace admin has any business starting one.
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
@@ -193,7 +195,7 @@ async fn queue(
     user_id: Uuid,
     ip: ClientIp,
     upload: Upload,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<DataItem<ImportRun>>> {
     let storage_key = format!("slack-imports/{ws_id}/{}.zip", Uuid::new_v4());
     state
         .file_storage
@@ -221,5 +223,5 @@ async fn queue(
     )
     .await;
 
-    Ok(Json(serde_json::json!({ "data": run })))
+    Ok(Json(DataItem { data: run }))
 }

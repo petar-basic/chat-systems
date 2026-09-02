@@ -22,7 +22,9 @@ function ForgotPasswordForm() {
     e.preventDefault();
     if (!email.trim()) return;
     setLoading(true);
-    await api.post('/auth/forgot-password', { email: email.trim() }).catch(() => undefined);
+    await api
+      .typed((c) => c.POST('/auth/forgot-password', { body: { email: email.trim() } }))
+      .catch(() => undefined);
     setSubmitted(true);
     setLoading(false);
   };
@@ -97,7 +99,7 @@ function ResetForm({ token }: { token: string }) {
     setLoading(true);
     setError(null);
     try {
-      await api.post('/auth/reset-password', { token, new_password: password });
+      await api.typed((c) => c.POST('/auth/reset-password', { body: { token, password } }));
       setSuccess(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to reset password');

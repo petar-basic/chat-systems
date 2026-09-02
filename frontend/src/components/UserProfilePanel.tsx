@@ -20,15 +20,6 @@ interface Props {
   onClose: () => void;
 }
 
-interface UserProfile {
-  id: string;
-  email: string;
-  display_name: string;
-  avatar_url: string | null;
-  bio: string | null;
-  timezone: string | null;
-}
-
 function useActiveApi() {
   const activeInstanceUrl = useInstanceStore((s) => s.activeInstanceUrl);
   return activeInstanceUrl ? instanceManager.get(activeInstanceUrl).api : api;
@@ -53,7 +44,7 @@ export default function UserProfilePanel({ onClose }: Props) {
 
   if (!loaded) {
     api
-      .get<UserProfile>('/users/me')
+      .typed((c) => c.GET('/users/me'))
       .then((profile) => {
         setDisplayName(profile.display_name || '');
         setBio(profile.bio || '');
@@ -71,17 +62,21 @@ export default function UserProfilePanel({ onClose }: Props) {
     setError(null);
     setSaved(false);
     try {
-      const updated = await activeApi.patch<UserProfile>('/users/me', {
-        display_name: displayName.trim(),
-        bio: bio.trim() || null,
-        avatar_url: avatarUrl.trim(),
-      });
+      const updated = await activeApi.typed((c) =>
+        c.PATCH('/users/me', {
+          body: {
+            display_name: displayName.trim(),
+            bio: bio.trim() || null,
+            avatar_url: avatarUrl.trim(),
+          },
+        }),
+      );
 
       if (user && activeInstanceUrl) {
         updateInstanceUser(activeInstanceUrl, {
           ...user,
-          display_name: updated.display_name,
-          avatar_url: updated.avatar_url,
+          display_name: updated.display_name ?? '',
+          avatar_url: updated.avatar_url ?? null,
         });
       }
       if (currentWorkspace) {

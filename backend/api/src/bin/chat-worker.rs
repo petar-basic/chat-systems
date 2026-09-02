@@ -138,6 +138,19 @@ fn spawn_consumers(state: &Arc<AppState>, redis_url: &str) {
     }
 
     {
+        let relay_state = state.clone();
+        tokio::spawn(async move {
+            supervise("event_outbox_relay", || {
+                let relay_state = relay_state.clone();
+                async move {
+                    messaging::outbox::start_relay(relay_state).await;
+                }
+            })
+            .await;
+        });
+    }
+
+    {
         let outbox_state = state.clone();
         tokio::spawn(async move {
             supervise("email_outbox", || {

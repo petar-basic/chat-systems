@@ -3,15 +3,10 @@ import { instanceManager } from '@/lib/instances';
 import { wsClient } from '@/lib/ws';
 import { TYPING_TIMEOUT_MS, TYPING_REFRESH_MS } from '@/shared/constants';
 
-export type TypingTarget = { channel_id: string } | { conversation_id: string };
+export type TypingTarget = { channel_id: string };
 
-export function typingTargetOf(
-  channelId?: string | null,
-  conversationId?: string | null,
-): TypingTarget | null {
-  if (channelId) return { channel_id: channelId };
-  if (conversationId) return { conversation_id: conversationId };
-  return null;
+export function typingTargetOf(channelId?: string | null): TypingTarget | null {
+  return channelId ? { channel_id: channelId } : null;
 }
 
 export function useTypingSignal(target: TypingTarget | null, instanceUrl?: string) {

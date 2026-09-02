@@ -219,14 +219,14 @@ test('9. direct message is delivered live', async () => {
   await expect(admin.locator('[data-qa="conversation-title"]')).toContainText('Bob Smith');
   const dmText = `dm ${stamp} secret hello`;
   await send(admin, dmText);
-  await expect(admin.locator('[data-qa="conversation-message"]').last()).toContainText(dmText, {
+  await expect(admin.locator('[data-qa="message-row"]').last()).toContainText(dmText, {
     timeout: 10_000,
   });
   await admin.screenshot({ path: `${SHOTS}/09-dm-admin.png` });
 
   await bob.screenshot({ path: `${SHOTS}/09-dm-bob-sidebar-before-open.png` });
   await bob.getByTitle('Message Admin').first().click();
-  await expect(bob.locator('[data-qa="conversation-message"]').last()).toContainText(dmText, {
+  await expect(bob.locator('[data-qa="message-row"]').last()).toContainText(dmText, {
     timeout: 10_000,
   });
   await bob.screenshot({ path: `${SHOTS}/09-dm-bob.png` });

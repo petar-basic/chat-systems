@@ -4,33 +4,11 @@ import { instanceManager } from '../lib/instances';
 import { wsClient } from '../lib/ws';
 import { useInstanceStore } from './instances';
 
-export interface Workspace {
-  id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  icon_url: string | null;
-  deleted_at?: string | null;
-  instanceUrl: string;
-}
+export type Workspace = components['schemas']['Workspace'] & { instanceUrl: string };
 
-export interface ChannelSettings {
-  /// Absent means `everyone`: every channel that predates announcement
-  /// channels, which is most of them.
-  post_policy?: 'everyone' | 'moderators';
-}
+export type ChannelSettings = components['schemas']['ChannelSettings'];
 
-export interface Channel {
-  id: string;
-  workspace_id: string;
-  name: string;
-  topic: string | null;
-  description: string | null;
-  channel_type: string;
-  is_default: boolean;
-  muted?: boolean;
-  settings?: ChannelSettings;
-}
+export type Channel = components['schemas']['Channel'] & { muted?: boolean };
 
 export type Reaction = components['schemas']['Reaction'];
 
@@ -45,19 +23,9 @@ export interface Message extends Omit<components['schemas']['Message'], 'metadat
   failed?: boolean;
 }
 
-export type WorkspaceRole = 'owner' | 'admin' | 'channel_admin' | 'member' | 'guest';
+export type WorkspaceRole = components['schemas']['WorkspaceRole'];
 
-export interface WorkspaceMember {
-  workspace_id: string;
-  user_id: string;
-  role: string;
-  joined_at: string;
-  email: string;
-  display_name: string | null;
-  avatar_url: string | null;
-  status_emoji?: string | null;
-  status_text?: string | null;
-}
+export type WorkspaceMember = components['schemas']['MemberWithUser'];
 
 interface WorkspaceState {
   currentWorkspace: Workspace | null;

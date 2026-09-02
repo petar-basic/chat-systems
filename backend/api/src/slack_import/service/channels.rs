@@ -30,7 +30,7 @@ impl Import<'_> {
             if let Some(&channel_id) = self.channels.get(&channel.id) {
                 self.report.channels_reused += 1;
                 self.add_channel_members(&channel, channel_id).await?;
-                targets.push((channel, Target::Channel(channel_id)));
+                targets.push((channel, channel_id));
                 continue;
             }
 
@@ -85,14 +85,13 @@ impl Import<'_> {
             }
             self.channels.insert(channel.id.clone(), channel_id);
             self.add_channel_members(&channel, channel_id).await?;
-            targets.push((channel, Target::Channel(channel_id)));
+            targets.push((channel, channel_id));
         }
 
         Ok(targets)
     }
 
-    /// `dms.json` and `mpims.json`. These are conversations here rather than
-    /// channels, which is the same distinction the product already makes, and it
+    /// `dms.json` and `mpims.json`. These become dm and group_dm channels, which
     /// keeps a two-person history out of everybody's channel list.
     pub(crate) async fn import_conversations(
         &mut self,
@@ -105,9 +104,9 @@ impl Import<'_> {
         let mut targets = Vec::new();
 
         for conversation in conversations {
-            if let Some(&conversation_id) = self.conversations.get(&conversation.id) {
+            if let Some(&conversation_id) = self.channels.get(&conversation.id) {
                 self.report.conversations_reused += 1;
-                targets.push((conversation, Target::Conversation(conversation_id)));
+                targets.push((conversation, conversation_id));
                 continue;
             }
 
@@ -128,9 +127,8 @@ impl Import<'_> {
 
             self.report.conversations_created += 1;
             if self.dry_run {
-                self.conversations
-                    .insert(conversation.id.clone(), Uuid::nil());
-                targets.push((conversation, Target::Conversation(Uuid::nil())));
+                self.channels.insert(conversation.id.clone(), Uuid::nil());
+                targets.push((conversation, Uuid::nil()));
                 continue;
             }
 
@@ -147,11 +145,10 @@ impl Import<'_> {
 
             self.state
                 .slack_import_repo
-                .map_conversation(self.workspace_id, &conversation.id, created.id)
+                .map_channel(self.workspace_id, &conversation.id, created.id)
                 .await?;
-            self.conversations
-                .insert(conversation.id.clone(), created.id);
-            targets.push((conversation, Target::Conversation(created.id)));
+            self.channels.insert(conversation.id.clone(), created.id);
+            targets.push((conversation, created.id));
         }
 
         Ok(targets)

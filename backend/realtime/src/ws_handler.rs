@@ -8,6 +8,8 @@ use tokio::sync::mpsc;
 use tokio::time::interval;
 use tracing::{info, warn};
 
+use shared_events::frames::{PresenceEntry, ServerFrame};
+
 use crate::connection_manager::Audience;
 use uuid::Uuid;
 
@@ -140,12 +142,11 @@ pub async fn handle_ws(socket: WebSocket, claims: crate::Claims, cm: Arc<Connect
         cm.publish_presence(user_id, "online").await;
     }
 
-    let hello = serde_json::json!({
-        "type": "hello",
-        "user_id": user_id,
-        "connection_id": conn_id,
-    });
-    let _ = tx.try_send(Message::Text(hello.to_string().into()));
+    let hello = ServerFrame::Hello {
+        user_id,
+        connection_id: conn_id,
+    };
+    let _ = tx.try_send(Message::Text(frame_text(&hello).into()));
 
     let mut heartbeat = interval(HEARTBEAT_INTERVAL);
     heartbeat.tick().await;
@@ -307,28 +308,33 @@ pub(crate) async fn handle_client_message(
                         },
                     };
 
-                    let frame = match &sync {
-                        crate::replay::Replay::RefetchRequired => serde_json::json!({
-                            "type": "sync.refetch_required",
-                            "workspace_id": ws_id,
-                        }),
-                        crate::replay::Replay::Caught { events, last_id } => serde_json::json!({
-                            "type": "sync.complete",
-                            "workspace_id": ws_id,
-                            "replayed": events,
-                            "last_event_id": last_id,
-                        }),
+                    let frame = match sync {
+                        crate::replay::Replay::RefetchRequired => {
+                            ServerFrame::SyncRefetchRequired {
+                                workspace_id: ws_id,
+                            }
+                        }
+                        crate::replay::Replay::Caught { events, last_id } => {
+                            ServerFrame::SyncComplete {
+                                workspace_id: ws_id,
+                                replayed: events,
+                                last_event_id: last_id,
+                            }
+                        }
                     };
-                    cm.send_to_conn(*conn_id, &frame.to_string());
+                    cm.send_to_conn(*conn_id, &frame_text(&frame));
 
                     let online = cm.online_users_in_workspace(ws_id).await;
-                    let batch = serde_json::json!({
-                        "type": "presence.batch",
-                        "users": online.iter().map(|u| {
-                            serde_json::json!({ "user_id": u, "status": "online" })
-                        }).collect::<Vec<_>>(),
-                    });
-                    cm.send_to_user(Audience::Everyone, user_id, &batch.to_string())
+                    let batch = ServerFrame::PresenceBatch {
+                        users: online
+                            .iter()
+                            .map(|u| PresenceEntry {
+                                user_id: *u,
+                                status: "online".to_string(),
+                            })
+                            .collect(),
+                    };
+                    cm.send_to_user(Audience::Everyone, user_id, &frame_text(&batch))
                         .await;
 
                     cm.publish_presence(user_id, "online").await;
@@ -382,7 +388,7 @@ pub(crate) async fn handle_client_message(
                 if !inbound.should_publish_typing(ch_id) {
                     return;
                 }
-                if !cm.is_channel_member(ch_id, user_id).await {
+                if !cm.is_subscribed_to_channel(conn_id, ch_id) {
                     warn!(
                         "Denied typing.start: user {} is not a member of channel {}",
                         user_id, ch_id
@@ -390,24 +396,12 @@ pub(crate) async fn handle_client_message(
                     return;
                 }
                 cm.publish_typing(ch_id, user_id, true).await;
-            } else if let Some(conv_id) = msg_uuid(&msg, "conversation_id") {
-                if !inbound.should_publish_typing(conv_id) {
-                    return;
-                }
-                if !cm.is_conversation_participant(conv_id, user_id).await {
-                    warn!(
-                        "Denied typing.start: user {} is not a participant of conversation {}",
-                        user_id, conv_id
-                    );
-                    return;
-                }
-                cm.publish_conversation_typing(conv_id, user_id, true).await;
             }
         }
         "typing.stop" => {
             if let Some(ch_id) = msg_uuid(&msg, "channel_id") {
                 inbound.forget_typing(ch_id);
-                if !cm.is_channel_member(ch_id, user_id).await {
+                if !cm.is_subscribed_to_channel(conn_id, ch_id) {
                     warn!(
                         "Denied typing.stop: user {} is not a member of channel {}",
                         user_id, ch_id
@@ -415,17 +409,6 @@ pub(crate) async fn handle_client_message(
                     return;
                 }
                 cm.publish_typing(ch_id, user_id, false).await;
-            } else if let Some(conv_id) = msg_uuid(&msg, "conversation_id") {
-                inbound.forget_typing(conv_id);
-                if !cm.is_conversation_participant(conv_id, user_id).await {
-                    warn!(
-                        "Denied typing.stop: user {} is not a participant of conversation {}",
-                        user_id, conv_id
-                    );
-                    return;
-                }
-                cm.publish_conversation_typing(conv_id, user_id, false)
-                    .await;
             }
         }
         "huddle.join" => {
@@ -458,12 +441,11 @@ pub(crate) async fn handle_client_message(
             )
             .await;
             let members = cm.huddle_redis_members(huddle_id).await;
-            let snapshot = serde_json::json!({
-                "type": "huddle.members",
-                "huddle_id": huddle_id,
-                "user_ids": members,
-            });
-            cm.send_to_user(Audience::Everyone, user_id, &snapshot.to_string())
+            let snapshot = ServerFrame::HuddleMembers {
+                huddle_id,
+                user_ids: members,
+            };
+            cm.send_to_user(Audience::Everyone, user_id, &frame_text(&snapshot))
                 .await;
             info!("User {} joined huddle {}", user_id, huddle_id);
         }
@@ -615,12 +597,8 @@ pub(crate) async fn handle_client_message(
             .await;
         }
         "ping" => {
-            cm.send_to_user(
-                Audience::Everyone,
-                user_id,
-                &serde_json::json!({"type":"pong"}).to_string(),
-            )
-            .await;
+            cm.send_to_user(Audience::Everyone, user_id, &frame_text(&ServerFrame::Pong))
+                .await;
         }
         _ => {
             warn!("Unknown client message type: {}", msg_type);
@@ -632,4 +610,8 @@ fn msg_uuid(msg: &serde_json::Value, key: &str) -> Option<Uuid> {
     msg.get(key)
         .and_then(|v| v.as_str())
         .and_then(|s| s.parse::<Uuid>().ok())
+}
+
+fn frame_text(frame: &ServerFrame) -> String {
+    serde_json::to_string(frame).unwrap_or_default()
 }

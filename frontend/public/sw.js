@@ -35,12 +35,11 @@ self.addEventListener('push', (event) => {
     badge: '/icons/icon-192.png',
     // Replaces rather than stacks: five notifications from one channel is five
     // reasons to turn them off.
-    tag: payload.channel_id || payload.conversation_id || 'chat-systems',
+    tag: payload.channel_id || 'chat-systems',
     renotify: true,
     data: {
       workspace_id: payload.workspace_id,
       channel_id: payload.channel_id,
-      conversation_id: payload.conversation_id,
       message_id: payload.message_id,
     },
   };
@@ -66,8 +65,6 @@ self.addEventListener('notificationclick', (event) => {
   let target = '/app';
   if (data.workspace_id && data.channel_id && data.message_id) {
     target = `/app/${data.workspace_id}/${data.channel_id}/${data.message_id}`;
-  } else if (data.workspace_id && data.conversation_id) {
-    target = `/app/${data.workspace_id}/c/${data.conversation_id}`;
   } else if (data.workspace_id) {
     target = `/app/${data.workspace_id}`;
   }

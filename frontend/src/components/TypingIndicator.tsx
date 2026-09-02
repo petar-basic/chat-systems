@@ -4,8 +4,7 @@ import { useUserCache } from '../stores/users';
 import { UNKNOWN_USER, TYPING_INDICATOR_TTL_MS } from '@/shared/constants';
 
 interface Props {
-  channelId?: string;
-  conversationId?: string;
+  channelId: string;
   currentUserId: string;
 }
 
@@ -14,15 +13,14 @@ interface TypingUser {
   expiresAt: number;
 }
 
-export default function TypingIndicator({ channelId, conversationId, currentUserId }: Props) {
-  const scopeId = channelId ?? conversationId;
+export default function TypingIndicator({ channelId, currentUserId }: Props) {
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
   const { getUser } = useUserCache();
 
   const handleTypingEvent = useCallback(
     (event: ServerEvent) => {
       if (event.type !== 'typing.indicator') return;
-      if ((event.channel_id ?? event.conversation_id) !== scopeId) return;
+      if (event.channel_id !== channelId) return;
       if (event.user_id === currentUserId) return;
 
       const userId = event.user_id as string;
@@ -37,7 +35,7 @@ export default function TypingIndicator({ channelId, conversationId, currentUser
         setTypingUsers((prev) => prev.filter((t) => t.userId !== userId));
       }
     },
-    [scopeId, currentUserId],
+    [channelId, currentUserId],
   );
 
   useEffect(() => {
@@ -59,7 +57,7 @@ export default function TypingIndicator({ channelId, conversationId, currentUser
     return () => {
       setTypingUsers([]);
     };
-  }, [scopeId]);
+  }, [channelId]);
 
   if (typingUsers.length === 0) return null;
 

@@ -12,8 +12,7 @@ pub struct ScheduledRepo {
 pub struct NewScheduledMessage<'a> {
     pub workspace_id: Uuid,
     pub user_id: Uuid,
-    pub channel_id: Option<Uuid>,
-    pub conversation_id: Option<Uuid>,
+    pub channel_id: Uuid,
     pub content: &'a str,
     pub send_at: DateTime<Utc>,
 }
@@ -24,28 +23,31 @@ impl ScheduledRepo {
     }
 
     pub async fn create(&self, msg: NewScheduledMessage<'_>) -> sqlx::Result<ScheduledMessage> {
-        sqlx::query_as::<_, ScheduledMessage>(
+        sqlx::query_as!(
+            ScheduledMessage,
             r"
-            INSERT INTO scheduled_messages (workspace_id, user_id, channel_id, conversation_id, content, send_at)
-            VALUES ($1, $2, $3, $4, $5, $6)
-            RETURNING *
+            INSERT INTO scheduled_messages (workspace_id, user_id, channel_id, content, send_at)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at
             ",
+            msg.workspace_id,
+            msg.user_id,
+            msg.channel_id,
+            msg.content,
+            msg.send_at
         )
-        .bind(msg.workspace_id)
-        .bind(msg.user_id)
-        .bind(msg.channel_id)
-        .bind(msg.conversation_id)
-        .bind(msg.content)
-        .bind(msg.send_at)
         .fetch_one(&self.pool)
         .await
     }
 
     pub async fn find_by_id(&self, id: Uuid) -> sqlx::Result<Option<ScheduledMessage>> {
-        sqlx::query_as::<_, ScheduledMessage>("SELECT * FROM scheduled_messages WHERE id = $1")
-            .bind(id)
-            .fetch_optional(&self.pool)
-            .await
+        sqlx::query_as!(
+            ScheduledMessage,
+            "SELECT id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at FROM scheduled_messages WHERE id = $1",
+            id
+        )
+        .fetch_optional(&self.pool)
+        .await
     }
 
     pub async fn list_pending_for_user(
@@ -53,16 +55,17 @@ impl ScheduledRepo {
         workspace_id: Uuid,
         user_id: Uuid,
     ) -> sqlx::Result<Vec<ScheduledMessage>> {
-        sqlx::query_as::<_, ScheduledMessage>(
+        sqlx::query_as!(
+            ScheduledMessage,
             r"
-            SELECT * FROM scheduled_messages
+            SELECT id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at FROM scheduled_messages
             WHERE workspace_id = $1 AND user_id = $2 AND canceled_at IS NULL
               AND (sent_at IS NULL OR failure IS NOT NULL)
             ORDER BY send_at
             ",
+            workspace_id,
+            user_id
         )
-        .bind(workspace_id)
-        .bind(user_id)
         .fetch_all(&self.pool)
         .await
     }
@@ -72,27 +75,31 @@ impl ScheduledRepo {
         id: Uuid,
         send_at: DateTime<Utc>,
     ) -> sqlx::Result<ScheduledMessage> {
-        sqlx::query_as::<_, ScheduledMessage>(
-            "UPDATE scheduled_messages SET send_at = $2 WHERE id = $1 RETURNING *",
+        sqlx::query_as!(
+            ScheduledMessage,
+            "UPDATE scheduled_messages SET send_at = $2 WHERE id = $1 RETURNING id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at",
+            id,
+            send_at
         )
-        .bind(id)
-        .bind(send_at)
         .fetch_one(&self.pool)
         .await
     }
 
     pub async fn cancel(&self, id: Uuid) -> sqlx::Result<()> {
-        sqlx::query("UPDATE scheduled_messages SET canceled_at = NOW() WHERE id = $1")
-            .bind(id)
-            .execute(&self.pool)
-            .await?;
+        sqlx::query!(
+            "UPDATE scheduled_messages SET canceled_at = NOW() WHERE id = $1",
+            id
+        )
+        .execute(&self.pool)
+        .await?;
         Ok(())
     }
 
     /// Claims every message whose time has come, marking them sent in the same statement so
     /// two api replicas running the dispatcher cannot deliver the same row twice.
     pub async fn claim_due(&self) -> sqlx::Result<Vec<ScheduledMessage>> {
-        sqlx::query_as::<_, ScheduledMessage>(
+        sqlx::query_as!(
+            ScheduledMessage,
             r"
             UPDATE scheduled_messages
             SET sent_at = NOW()
@@ -103,8 +110,8 @@ impl ScheduledRepo {
                 FOR UPDATE SKIP LOCKED
                 LIMIT 100
             )
-            RETURNING *
-            ",
+            RETURNING id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at
+            "
         )
         .fetch_all(&self.pool)
         .await
@@ -118,13 +125,13 @@ impl ScheduledRepo {
         channel_id: Uuid,
         user_id: Uuid,
     ) -> sqlx::Result<u64> {
-        let result = sqlx::query(
+        let result = sqlx::query!(
             "UPDATE scheduled_messages SET canceled_at = NOW() \
               WHERE channel_id = $1 AND user_id = $2 \
                 AND sent_at IS NULL AND canceled_at IS NULL",
+            channel_id,
+            user_id
         )
-        .bind(channel_id)
-        .bind(user_id)
         .execute(&self.pool)
         .await?;
         Ok(result.rows_affected())
@@ -135,24 +142,26 @@ impl ScheduledRepo {
         workspace_id: Uuid,
         user_id: Uuid,
     ) -> sqlx::Result<u64> {
-        let result = sqlx::query(
+        let result = sqlx::query!(
             "UPDATE scheduled_messages SET canceled_at = NOW() \
               WHERE workspace_id = $1 AND user_id = $2 \
                 AND sent_at IS NULL AND canceled_at IS NULL",
+            workspace_id,
+            user_id
         )
-        .bind(workspace_id)
-        .bind(user_id)
         .execute(&self.pool)
         .await?;
         Ok(result.rows_affected())
     }
 
     pub async fn record_failure(&self, id: Uuid, failure: &str) -> sqlx::Result<()> {
-        sqlx::query("UPDATE scheduled_messages SET failure = $2 WHERE id = $1")
-            .bind(id)
-            .bind(failure)
-            .execute(&self.pool)
-            .await?;
+        sqlx::query!(
+            "UPDATE scheduled_messages SET failure = $2 WHERE id = $1",
+            id,
+            failure
+        )
+        .execute(&self.pool)
+        .await?;
         Ok(())
     }
 }

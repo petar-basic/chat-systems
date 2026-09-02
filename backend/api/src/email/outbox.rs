@@ -13,7 +13,7 @@ const POLL_INTERVAL: Duration = Duration::from_secs(2);
 const BATCH: i64 = 20;
 const LEASE: chrono::Duration = chrono::Duration::minutes(2);
 
-#[derive(Debug, sqlx::FromRow)]
+#[derive(Debug)]
 pub struct OutboundEmail {
     pub id: Uuid,
     pub to_address: String,
@@ -35,21 +35,22 @@ pub struct NewEmail<'a> {
 }
 
 pub async fn enqueue(pool: &PgPool, email: NewEmail<'_>) -> sqlx::Result<Uuid> {
-    sqlx::query_scalar(
+    sqlx::query_scalar!(
         "INSERT INTO outbound_emails (to_address, subject, text_body, html_body)
          VALUES ($1, $2, $3, $4)
          RETURNING id",
+        email.to,
+        email.subject,
+        email.text,
+        email.html
     )
-    .bind(email.to)
-    .bind(email.subject)
-    .bind(email.text)
-    .bind(email.html)
     .fetch_one(pool)
     .await
 }
 
 pub async fn claim_due(pool: &PgPool, limit: i64) -> sqlx::Result<Vec<OutboundEmail>> {
-    sqlx::query_as::<_, OutboundEmail>(
+    sqlx::query_as!(
+        OutboundEmail,
         "UPDATE outbound_emails
             SET attempts = attempts + 1, next_attempt_at = $2
           WHERE id IN (
@@ -58,30 +59,34 @@ pub async fn claim_due(pool: &PgPool, limit: i64) -> sqlx::Result<Vec<OutboundEm
                  ORDER BY next_attempt_at
                  LIMIT $1
                  FOR UPDATE SKIP LOCKED)
-      RETURNING *",
+      RETURNING id, to_address, subject, text_body, html_body, attempts, next_attempt_at, sent_at, last_error, created_at",
+        limit,
+        Utc::now() + LEASE
     )
-    .bind(limit)
-    .bind(Utc::now() + LEASE)
     .fetch_all(pool)
     .await
 }
 
 pub async fn mark_sent(pool: &PgPool, id: Uuid) -> sqlx::Result<()> {
-    sqlx::query("UPDATE outbound_emails SET sent_at = NOW(), last_error = NULL WHERE id = $1")
-        .bind(id)
-        .execute(pool)
-        .await?;
+    sqlx::query!(
+        "UPDATE outbound_emails SET sent_at = NOW(), last_error = NULL WHERE id = $1",
+        id
+    )
+    .execute(pool)
+    .await?;
     Ok(())
 }
 
 pub async fn mark_failed(pool: &PgPool, id: Uuid, attempts: i32, error: &str) -> sqlx::Result<()> {
     let next_attempt_at = (attempts < MAX_ATTEMPTS).then(|| Utc::now() + backoff(attempts));
-    sqlx::query("UPDATE outbound_emails SET next_attempt_at = $2, last_error = $3 WHERE id = $1")
-        .bind(id)
-        .bind(next_attempt_at)
-        .bind(error)
-        .execute(pool)
-        .await?;
+    sqlx::query!(
+        "UPDATE outbound_emails SET next_attempt_at = $2, last_error = $3 WHERE id = $1",
+        id,
+        next_attempt_at,
+        error
+    )
+    .execute(pool)
+    .await?;
     Ok(())
 }
 

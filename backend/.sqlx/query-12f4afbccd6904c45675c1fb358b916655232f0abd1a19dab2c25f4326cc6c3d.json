@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO huddle_sessions (id, workspace_id, channel_id, dm_partner_id, initiated_by)\n             VALUES ($1, $2, $3, $4, $5)\n             ON CONFLICT (id) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "12f4afbccd6904c45675c1fb358b916655232f0abd1a19dab2c25f4326cc6c3d"
+}

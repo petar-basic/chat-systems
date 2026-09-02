@@ -49,7 +49,7 @@ export function NotificationStream() {
                     : ROUTES.channel(wsId, channel_id),
                 )
             : undefined;
-        showNotification(isMention ? `🔔 ${title}` : title, body, onClick);
+        showNotification(isMention ? `🔔 ${title}` : title, body ?? '', onClick);
       }
     });
   }, [navigate, queryClient]);

@@ -1,16 +1,37 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, sqlx::Type, PartialEq)]
-#[sqlx(type_name = "conversation_kind", rename_all = "lowercase")]
+use crate::workspace::models::ChannelType;
+
+/// A direct message is the two-person case of a group; both are channels of a
+/// type nobody can browse or join, and this is the name the client knows them by.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum ConversationKind {
     Direct,
     Group,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+impl ConversationKind {
+    pub fn channel_type(self) -> ChannelType {
+        match self {
+            Self::Direct => ChannelType::Dm,
+            Self::Group => ChannelType::GroupDm,
+        }
+    }
+
+    pub fn of(channel_type: &ChannelType) -> Option<Self> {
+        match channel_type {
+            ChannelType::Dm => Some(Self::Direct),
+            ChannelType::GroupDm => Some(Self::Group),
+            ChannelType::Public | ChannelType::Private => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct Conversation {
     pub id: Uuid,
     pub workspace_id: Uuid,
@@ -20,7 +41,7 @@ pub struct Conversation {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ConversationSummary {
     pub id: Uuid,
     pub workspace_id: Uuid,
@@ -30,66 +51,7 @@ pub struct ConversationSummary {
     pub participant_ids: Vec<Uuid>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow, utoipa::ToSchema)]
-pub struct ConversationMessage {
-    pub id: Uuid,
-    pub conversation_id: Uuid,
-    pub user_id: Uuid,
-    pub client_message_id: Option<Uuid>,
-    pub content: String,
-    pub thread_parent_id: Option<Uuid>,
-    pub reply_count: i32,
-    pub edited_at: Option<DateTime<Utc>>,
-    pub deleted_at: Option<DateTime<Utc>>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
-pub struct ConversationMessageEdit {
-    pub id: Uuid,
-    pub message_id: Uuid,
-    pub previous_content: String,
-    pub edited_by: Uuid,
-    pub edited_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
-pub struct ConversationReaction {
-    pub id: Uuid,
-    pub message_id: Uuid,
-    pub user_id: Uuid,
-    pub emoji: String,
-    pub created_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateConversationRequest {
     pub participant_ids: Vec<Uuid>,
-}
-
-#[derive(Debug, Deserialize, garde::Validate)]
-#[garde(allow_unvalidated)]
-pub struct SendConversationMessageRequest {
-    #[garde(custom(shared_common::validation::rules::message_content))]
-    pub content: String,
-    /// The sender's own id for this send, used only to make a retry idempotent.
-    /// It is not the message id — the server owns that.
-    #[garde(inner(custom(shared_common::validation::rules::client_message_id)))]
-    pub client_message_id: Option<Uuid>,
-    pub thread_parent_id: Option<Uuid>,
-}
-
-#[derive(Debug, Deserialize, garde::Validate)]
-#[garde(allow_unvalidated)]
-pub struct EditConversationMessageRequest {
-    #[garde(custom(shared_common::validation::rules::message_content))]
-    pub content: String,
-}
-
-#[derive(Debug, Deserialize, garde::Validate)]
-#[garde(allow_unvalidated)]
-pub struct AddConversationReactionRequest {
-    #[garde(custom(shared_common::validation::rules::reaction_emoji))]
-    pub emoji: String,
 }

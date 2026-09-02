@@ -184,8 +184,11 @@ impl FromRequestParts<Arc<AppState>> for ClientIp {
             .extensions
             .get::<ConnectInfo<SocketAddr>>()
             .map(|c| c.0);
-        let trusted = crate::net::parse_trusted_proxies(&state.config.trusted_proxies);
-        Ok(Self(crate::net::client_ip(&parts.headers, peer, &trusted)))
+        Ok(Self(crate::net::client_ip(
+            &parts.headers,
+            peer,
+            &state.config.trusted_proxies,
+        )))
     }
 }
 
@@ -255,18 +258,18 @@ impl AuditEntry {
 /// time we get here, so a database hiccup on the trail must not turn a
 /// successful deletion into a 500 the caller will retry.
 pub async fn record(state: &AppState, entry: AuditEntry) {
-    let result = sqlx::query(
+    let result = sqlx::query!(
         "INSERT INTO audit_log \
          (workspace_id, user_id, action, resource_type, resource_id, details, ip_address) \
          VALUES ($1, $2, $3, $4, $5, $6, $7::text::inet)",
+        entry.workspace_id,
+        entry.actor_id,
+        entry.action.as_str(),
+        entry.action.resource_type(),
+        entry.resource_id,
+        &entry.details,
+        entry.ip.as_deref()
     )
-    .bind(entry.workspace_id)
-    .bind(entry.actor_id)
-    .bind(entry.action.as_str())
-    .bind(entry.action.resource_type())
-    .bind(entry.resource_id)
-    .bind(&entry.details)
-    .bind(&entry.ip)
     .execute(&state.pool)
     .await;
 
@@ -275,7 +278,7 @@ pub async fn record(state: &AppState, entry: AuditEntry) {
     }
 }
 
-#[derive(Debug, Serialize, sqlx::FromRow)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct AuditRow {
     pub id: Uuid,
     pub workspace_id: Option<Uuid>,
@@ -293,7 +296,7 @@ pub struct AuditRow {
 /// Keyset pagination on `(created_at, id)` — the pair the index is ordered by,
 /// so a page boundary that lands inside a batch of same-timestamp rows does not
 /// skip or repeat one.
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, utoipa::IntoParams)]
 pub struct AuditQuery {
     pub workspace_id: Option<Uuid>,
     pub action: Option<String>,
@@ -312,30 +315,31 @@ pub async fn list(
 ) -> Result<Vec<AuditRow>, AppError> {
     let limit = query.limit.unwrap_or(50).clamp(1, 200);
 
-    let rows = sqlx::query_as::<_, AuditRow>(
-        "SELECT a.id, a.workspace_id, a.user_id, u.email AS actor_email, \
-                u.display_name AS actor_display_name, a.action, a.resource_type, \
-                a.resource_id, a.details, host(a.ip_address) AS ip_address, a.created_at \
-           FROM audit_log a \
-           LEFT JOIN users u ON u.id = a.user_id \
-          WHERE ($1::uuid IS NULL OR a.workspace_id = $1) \
-            AND ($2::text IS NULL OR a.action = $2) \
-            AND ($3::uuid IS NULL OR a.user_id = $3) \
-            AND ($4::timestamptz IS NULL OR a.created_at >= $4) \
-            AND ($5::timestamptz IS NULL OR a.created_at <= $5) \
-            AND ($6::timestamptz IS NULL \
-                 OR (a.created_at, a.id) < ($6, COALESCE($7::uuid, '00000000-0000-0000-0000-000000000000'))) \
-          ORDER BY a.created_at DESC, a.id DESC \
-          LIMIT $8",
+    let rows = sqlx::query_as!(
+        AuditRow,
+        r#"SELECT a.id, a.workspace_id, a.user_id, u.email AS "actor_email?",
+                  u.display_name AS "actor_display_name?", a.action, a.resource_type,
+                  a.resource_id, a.details AS "details!", host(a.ip_address) AS "ip_address?", a.created_at
+             FROM audit_log a
+             LEFT JOIN users u ON u.id = a.user_id
+            WHERE ($1::uuid IS NULL OR a.workspace_id = $1)
+              AND ($2::text IS NULL OR a.action = $2)
+              AND ($3::uuid IS NULL OR a.user_id = $3)
+              AND ($4::timestamptz IS NULL OR a.created_at >= $4)
+              AND ($5::timestamptz IS NULL OR a.created_at <= $5)
+              AND ($6::timestamptz IS NULL
+                   OR (a.created_at, a.id) < ($6, COALESCE($7::uuid, '00000000-0000-0000-0000-000000000000')))
+            ORDER BY a.created_at DESC, a.id DESC
+            LIMIT $8"#,
+        workspace_id,
+        query.action.as_deref(),
+        query.user_id,
+        query.since,
+        query.until,
+        query.before,
+        query.before_id,
+        limit
     )
-    .bind(workspace_id)
-    .bind(query.action.as_deref())
-    .bind(query.user_id)
-    .bind(query.since)
-    .bind(query.until)
-    .bind(query.before)
-    .bind(query.before_id)
-    .bind(limit)
     .fetch_all(&state.pool)
     .await?;
 

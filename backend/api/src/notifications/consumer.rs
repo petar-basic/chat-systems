@@ -161,7 +161,6 @@ pub async fn notify_mentions(
                         body: PushPayload::preview(content),
                         workspace_id: Some(ws_id.to_string()),
                         channel_id: channel_id.map(str::to_string),
-                        conversation_id: None,
                         message_id: message_id.map(str::to_string),
                         badge_count: badge,
                     },

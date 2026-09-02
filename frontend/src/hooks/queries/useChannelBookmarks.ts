@@ -2,23 +2,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { QUERY_KEYS } from '@/shared/constants';
 
-export interface ChannelBookmark {
-  id: string;
-  channel_id: string;
-  created_by: string | null;
-  label: string;
-  url: string;
-  emoji: string | null;
-  position: number;
-  created_at: string;
-}
-
 export const useChannelBookmarks = (channelId: string | null, instanceUrl?: string) => {
   return useQuery({
     queryKey: QUERY_KEYS.channelBookmarks(channelId ?? ''),
     queryFn: async () => {
-      const res = await getApiForInstance(instanceUrl).get<{ data: ChannelBookmark[] }>(
-        `/channels/${channelId}/bookmarks`,
+      if (!channelId) throw new Error('No channel selected');
+      const res = await getApiForInstance(instanceUrl).typed((c) =>
+        c.GET('/channels/{ch_id}/bookmarks', { params: { path: { ch_id: channelId } } }),
       );
       return res.data;
     },
@@ -31,11 +21,12 @@ export const useCreateChannelBookmark = (channelId: string, instanceUrl?: string
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ label, url, emoji }: { label: string; url: string; emoji?: string }) =>
-      getApiForInstance(instanceUrl).post<ChannelBookmark>(`/channels/${channelId}/bookmarks`, {
-        label,
-        url,
-        emoji: emoji || null,
-      }),
+      getApiForInstance(instanceUrl).typed((c) =>
+        c.POST('/channels/{ch_id}/bookmarks', {
+          params: { path: { ch_id: channelId } },
+          body: { label, url, emoji: emoji || null },
+        }),
+      ),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.channelBookmarks(channelId) });
     },
@@ -46,7 +37,11 @@ export const useDeleteChannelBookmark = (channelId: string, instanceUrl?: string
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (bookmarkId: string) =>
-      getApiForInstance(instanceUrl).delete(`/channels/${channelId}/bookmarks/${bookmarkId}`),
+      getApiForInstance(instanceUrl).typed((c) =>
+        c.DELETE('/channels/{ch_id}/bookmarks/{bookmark_id}', {
+          params: { path: { ch_id: channelId, bookmark_id: bookmarkId } },
+        }),
+      ),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.channelBookmarks(channelId) });
     },

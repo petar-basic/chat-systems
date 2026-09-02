@@ -94,10 +94,14 @@ export function HuddleController() {
     const start = async () => {
       let iceServers: RTCIceServer[];
       try {
-        const res = await getApiForInstance(active.instanceUrl).get<{ ice_servers: RTCIceServer[] }>(
-          `/workspaces/${active.workspaceId}/ice-servers`,
+        const res = await getApiForInstance(active.instanceUrl).typed((c) =>
+          c.GET('/workspaces/{ws_id}/ice-servers', { params: { path: { ws_id: active.workspaceId } } }),
         );
-        iceServers = res.ice_servers ?? [];
+        iceServers = res.ice_servers.map((server) => ({
+          urls: server.urls,
+          username: server.username ?? undefined,
+          credential: server.credential ?? undefined,
+        }));
       } catch (err) {
         // Joining anyway leaves only host candidates, which connects on a LAN
         // and nowhere else — a call that fails silently is worse than one that

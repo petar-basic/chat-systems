@@ -117,6 +117,12 @@ jobs:
           cargo run -q --bin chat-openapi > ../frontend/src/api/openapi.json
           git diff --exit-code -- ../frontend/src/api/openapi.json
 
+      # The WebSocket frame union is generated from `ServerFrame` the same way.
+      - name: WebSocket frame types are current
+        run: |
+          cargo run -q --bin chat-ts-events > ../frontend/src/api/serverFrames.ts
+          git diff --exit-code -- ../frontend/src/api/serverFrames.ts
+
       - name: Install cargo tooling
         uses: taiki-e/install-action@v2
         with:

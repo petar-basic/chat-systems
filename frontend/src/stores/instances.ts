@@ -4,6 +4,7 @@ import { useWsStatusStore } from './wsStatus';
 import { backfillAfterReconnect } from '../lib/realtimeBackfill';
 import { toast } from '@/shared/components/Toast';
 import { ErrorLabels } from '@/shared/constants';
+import type { components } from '@/api/schema';
 
 export interface InstanceUser {
   id: string;
@@ -11,6 +12,16 @@ export interface InstanceUser {
   display_name: string;
   avatar_url: string | null;
   is_instance_admin: boolean;
+}
+
+export function toInstanceUser(user: components['schemas']['UserPublic']): InstanceUser {
+  return {
+    id: user.id,
+    email: user.email,
+    display_name: user.display_name ?? '',
+    avatar_url: user.avatar_url ?? null,
+    is_instance_admin: user.is_instance_admin,
+  };
 }
 
 export interface InstanceConfig {
@@ -116,7 +127,7 @@ async function adoptSsoSession(
 
   const clients = instanceManager.get(origin);
   try {
-    const user = await clients.api.get<InstanceUser>('/users/me');
+    const user = toInstanceUser(await clients.api.typed((c) => c.GET('/users/me')));
     clients.api.onSessionExpired = () => {
       toast.error(ErrorLabels.SessionExpired);
       store.removeInstance(origin);
@@ -179,7 +190,7 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
             clients.api.onTokensChanged = (access, refresh) => saveTokens(normalized, access, refresh);
             clients.api.setTokens(tokens.access, tokens.refresh);
             const refreshed = await clients.api.refreshSession().catch(() => null);
-            if (!refreshed) {
+            if (!refreshed?.user) {
               saveTokens(normalized, null, null);
               instanceManager.remove(config.url);
               continue;
@@ -187,10 +198,10 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
             valid.push({
               url: config.url,
               ...(config.wsUrl ? { wsUrl: config.wsUrl } : {}),
-              user: refreshed.user as InstanceUser,
+              user: toInstanceUser(refreshed.user),
             });
           } else {
-            const user = await clients.api.get<InstanceUser>('/users/me');
+            const user = toInstanceUser(await clients.api.typed((c) => c.GET('/users/me')));
             valid.push({ url: config.url, ...(config.wsUrl ? { wsUrl: config.wsUrl } : {}), user });
           }
           clients.ws.connect();
@@ -230,16 +241,11 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
       };
       clients.ws.addReconnectListener(backfillAfterReconnect);
 
-      const res = await clients.api.post<{
-        user: InstanceUser;
-        expires_in: number;
-        access_token: string;
-        refresh_token: string;
-      }>('/auth/login', {
-        email,
-        password,
-        ...(totpCode ? { totp_code: totpCode } : {}),
-      });
+      const res = await clients.api.typed((c) =>
+        c.POST('/auth/login', {
+          body: { email, password, ...(totpCode ? { totp_code: totpCode } : {}) },
+        }),
+      );
 
       if (normalized !== window.location.origin) {
         clients.api.onTokensChanged = (access, refresh) => saveTokens(normalized, access, refresh);
@@ -252,7 +258,7 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
       const config: InstanceConfig = {
         url: normalized,
         ...(normalizedWsUrl ? { wsUrl: normalizedWsUrl } : {}),
-        user: res.user,
+        user: toInstanceUser(res.user),
       };
 
       const existing = get().instances.filter((i) => i.url !== normalized);
@@ -277,7 +283,7 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
     const normalized = instanceManager.normalize(url);
     instanceManager
       .get(normalized)
-      .api.post('/auth/logout', {})
+      .api.typed((c) => c.POST('/auth/logout'))
       .catch(() => {});
     instanceManager.remove(normalized);
     saveTokens(normalized, null, null);

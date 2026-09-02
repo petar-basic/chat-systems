@@ -20,7 +20,31 @@ use crate::state::AppState;
     components(schemas(crate::messaging::models::SearchScope)),
     security(("bearer" = [])),
     modifiers(&BearerAuth),
-    tags((name = "messages", description = "Channel messages, threads, pins, reactions and search"))
+    tags(
+        (name = "messages", description = "Channel messages, threads, pins, reactions and search"),
+        (name = "workspaces", description = "Workspaces, membership, invites and the audit log"),
+        (name = "channels", description = "Channels, their members, notification settings and bookmarks"),
+        (name = "conversations", description = "Direct and group conversations and their messages"),
+        (name = "notifications", description = "In-app notifications, do-not-disturb and email preferences"),
+        (name = "auth", description = "Sessions, invites, registration and password recovery"),
+        (name = "users", description = "The signed-in user's own profile and status"),
+        (name = "instance", description = "What this instance says about itself"),
+        (name = "hooks", description = "Incoming and outgoing webhooks, bots and slash commands"),
+        (name = "reminders", description = "Reminders"),
+        (name = "files", description = "Uploads and their metadata"),
+        (name = "huddles", description = "Voice and video huddles"),
+        (name = "groups", description = "User groups that can be @-mentioned"),
+        (name = "emoji", description = "Custom emoji"),
+        (name = "saved", description = "Saved messages"),
+        (name = "scheduled", description = "Messages scheduled for later"),
+        (name = "admin", description = "Instance administration"),
+        (name = "commands", description = "Slash commands"),
+        (name = "exports", description = "Data exports"),
+        (name = "push", description = "Web Push subscriptions"),
+        (name = "retention", description = "Retention policies"),
+        (name = "totp", description = "Two-factor enrolment"),
+        (name = "slack-import", description = "Importing a Slack export")
+    )
 )]
 struct ApiDoc;
 
@@ -46,9 +70,43 @@ impl Modify for BearerAuth {
     }
 }
 
+/// Every feature router that carries its own OpenAPI paths. `build_app` mounts
+/// these behind auth; `spec` reads their documentation. One list, two uses.
+pub fn typed_routes() -> OpenApiRouter<Arc<AppState>> {
+    OpenApiRouter::new()
+        .merge(crate::auth::routes::router())
+        .merge(crate::messaging::routes::router())
+        .merge(crate::workspace::routes::router())
+        .merge(crate::conversations::routes::router())
+        .merge(crate::notifications::routes::router())
+        .merge(crate::hooks::routes::router())
+        .merge(crate::files::routes::router())
+        .merge(crate::huddle::routes::router())
+        .merge(crate::groups::routes::router())
+        .merge(crate::emoji::routes::router())
+        .merge(crate::saved::routes::router())
+        .merge(crate::scheduled::routes::router())
+        .merge(crate::admin::routes::router())
+        .merge(crate::commands::routes::router())
+        .merge(crate::export::routes::router())
+        .merge(crate::push::routes::router())
+        .merge(crate::retention::routes::router())
+        .merge(crate::auth::totp_routes::router())
+        .merge(crate::slack_import::routes::router())
+}
+
+/// Reachable without a session: signing in, accepting an invite, and what an
+/// instance says about itself before anyone has logged in.
+pub fn public_routes() -> OpenApiRouter<Arc<AppState>> {
+    OpenApiRouter::new()
+        .merge(crate::auth::routes::public_router())
+        .merge(crate::hooks::routes::public_router())
+}
+
 pub fn spec() -> utoipa::openapi::OpenApi {
     OpenApiRouter::<Arc<AppState>>::with_openapi(ApiDoc::openapi())
-        .merge(crate::messaging::routes::router())
+        .merge(public_routes())
+        .merge(typed_routes())
         .into_openapi()
 }
 
@@ -113,6 +171,20 @@ mod tests {
                         declared.contains(name),
                         "{method} {path}: path parameter {name} is not declared"
                     );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn operation_ids_are_unique() {
+        let json = serde_json::to_value(super::spec()).unwrap();
+        let mut seen = std::collections::HashMap::new();
+        for (path, item) in json["paths"].as_object().unwrap() {
+            for (method, op) in item.as_object().unwrap() {
+                let id = op["operationId"].as_str().unwrap().to_string();
+                if let Some(first) = seen.insert(id.clone(), format!("{method} {path}")) {
+                    panic!("operationId {id} is used by both {first} and {method} {path}");
                 }
             }
         }

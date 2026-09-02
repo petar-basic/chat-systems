@@ -33,6 +33,6 @@ export function buildMentionItems(
       label: m.display_name || m.email,
       type: 'user' as const,
     })),
-    ...channels.map((c) => ({ id: c.id, label: c.name, type: 'channel' as const })),
+    ...channels.flatMap((c) => (c.name ? [{ id: c.id, label: c.name, type: 'channel' as const }] : [])),
   ];
 }

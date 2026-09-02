@@ -26,10 +26,9 @@ RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef AS builder
 
-# No database is reachable during an image build. Nothing uses sqlx's
-# compile-time-checked macros yet; the first query that does needs
-# `cargo sqlx prepare` and a committed .sqlx/ (see docs/CONTRIBUTING.md), and
-# this is what makes the build read that cache instead of failing.
+# No database is reachable during an image build. Every query is a
+# compile-time-checked sqlx macro, so the build reads the committed .sqlx/
+# cache instead (`cargo sqlx prepare`, see docs/CONTRIBUTING.md).
 ENV SQLX_OFFLINE=true
 
 COPY --from=planner /app/recipe.json recipe.json

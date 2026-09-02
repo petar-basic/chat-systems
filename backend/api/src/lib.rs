@@ -5,6 +5,7 @@ pub mod authz;
 pub mod commands;
 pub mod config;
 pub mod conversations;
+pub mod dto;
 pub mod email;
 pub mod emoji;
 pub mod export;
@@ -96,7 +97,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
     let auth_service = AuthService::new(UserRepo::new(pool.clone()), config.clone());
     let workspace_service = WorkspaceService::new(WorkspaceRepo::new(pool.clone()), config.clone());
     let message_repo = MessageRepo::new(pool.clone());
-    let publisher = EventPublisher::new(redis_conn.clone());
+    let publisher = EventPublisher::new(redis_conn.clone(), pool.clone());
     let file_repo = FileRepo::new(pool.clone());
     let hook_repo = HookRepo::new(pool.clone());
     let notification_repo = NotificationRepo::new(pool.clone());
@@ -154,30 +155,18 @@ pub fn build_app(state: Arc<AppState>) -> Router {
     let cors_origins = state.config.cors_origins.clone();
     let revocation = RevocationStore(state.redis.clone());
 
-    let (messaging_routes, _) = messaging::routes::router().split_for_parts();
+    let (typed_routes, _) = openapi::typed_routes().split_for_parts();
+    let (public_routes, _) = openapi::public_routes().split_for_parts();
 
     let api = Router::new()
-        .merge(auth::routes::router(state.clone()))
-        .merge(workspace::routes::router(state.clone()))
-        .merge(protected(state.clone(), messaging_routes))
-        .merge(files::routes::router(state.clone()))
-        .merge(hooks::routes::router(state.clone()))
-        .merge(notifications::routes::router(state.clone()))
-        .merge(admin::routes::router(state.clone()))
-        .merge(conversations::routes::router(state.clone()))
-        .merge(saved::routes::router(state.clone()))
-        .merge(slack_import::routes::router(state.clone()))
-        .merge(scheduled::routes::router(state.clone()))
-        .merge(huddle::routes::router(state.clone()))
-        .merge(retention::routes::router(state.clone()))
-        .merge(export::routes::router(state.clone()))
-        .merge(auth::totp_routes::router(state.clone()))
+        .merge(public_routes.with_state(state.clone()))
+        .merge(protected(
+            state.clone(),
+            typed_routes.merge(files::routes::download_router()),
+        ))
+        .merge(export::routes::download_router().with_state(state.clone()))
         .merge(auth::oidc_routes::router(state.clone()))
-        .merge(scim::routes::router(state.clone()))
-        .merge(push::routes::router(state.clone()))
-        .merge(emoji::routes::router(state.clone()))
-        .merge(groups::routes::router(state.clone()))
-        .merge(commands::routes::router(state.clone()));
+        .merge(scim::routes::router(state.clone()));
 
     Router::new()
         .nest("/api", api)

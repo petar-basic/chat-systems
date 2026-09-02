@@ -1,103 +1,75 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { UnreadDivider } from './UnreadDivider';
+import { useState } from 'react';
+import { ArrowLeft, Menu } from 'lucide-react';
 import { useUserCache } from '@/stores/users';
 import { usePresenceStore } from '@/stores/presence';
-import { ArrowLeft, Pencil, Trash2, SmilePlus, Menu, MessageSquare, Bookmark, Forward } from 'lucide-react';
-import {
-  useConversationMessages,
-  useSendConversationMessage,
-  useEditConversationMessage,
-  useDeleteConversationMessage,
-  useReactToConversationMessage,
-  useRemoveConversationReaction,
-} from '@/hooks/queries/useConversations';
-import { MessageInput, EmojiPicker } from '@/features/messaging';
-import { ReactionEmoji } from '@/shared/components/ReactionEmoji';
-import RichTextDisplay from '@/components/RichTextDisplay';
-import PresenceDot from '@/components/PresenceDot';
-import type { ConversationMessage } from '@/hooks/queries/useConversations';
+import type { Channel, Message, WorkspaceMember } from '@/stores/workspace';
+import type { Conversation } from '@/hooks/queries/useConversations';
+import { useSendMessage } from '@/hooks/queries/useMessages';
+import { conversationTitle } from '@/lib/conversationHelpers';
 import { displayNameOf } from '@/lib/userHelpers';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { ConnectionBanner } from '@/shared/components/ConnectionBanner/ConnectionBanner';
-import { QueryState } from '@/shared/components/QueryState/QueryState';
 import { HuddleStartButton } from '@/features/huddle';
-import { EmptyLabels, ErrorLabels } from '@/shared/constants';
+import { ErrorLabels } from '@/shared/constants';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
+import { useTypingSignal, typingTargetOf } from '@/shared/hooks/useTypingSignal';
 import { logger } from '@/lib/logger';
 import { toast } from '@/shared/components/Toast';
-import VirtualMessageList from './VirtualMessageList';
-import { DaySeparator } from './MessageList';
-import { buildMessageRows, type MessageRow } from './messageRows';
-import { useLongPress } from '@/shared/hooks/useLongPress';
-import { useTypingSignal, typingTargetOf } from '@/shared/hooks/useTypingSignal';
-import TypingIndicator from '@/components/TypingIndicator';
 import { FileDropZone } from '@/shared/components/FileDropZone';
 import { uploadFilesSequentially } from '@/lib/fileUploads';
-import MessageActionSheet, { type SheetAction } from './MessageActionSheet';
-
-const QUICK_REACTIONS = ['👍', '✅', '🎉'];
+import PresenceDot from '@/components/PresenceDot';
+import TypingIndicator from '@/components/TypingIndicator';
+import MessageList from './MessageList';
+import MessageInput from './MessageInput';
 
 interface Props {
   workspaceId: string;
   instanceUrl: string;
-  conversationId: string;
-  title: string;
-  participantIds: string[];
-  kind: 'direct' | 'group';
+  conversation: Conversation;
   currentUserId: string;
+  members: WorkspaceMember[];
+  channels: Channel[];
+  highlightMessageId?: string;
   onClose: () => void;
   onOpenNav?: () => void;
-  onOpenThread: (message: ConversationMessage) => void;
-  onSave: (message: ConversationMessage) => void;
-  onForward: (message: ConversationMessage) => void;
+  onOpenThread: (message: Message) => void;
+  onSave: (message: Message) => void;
+  onForward: (message: Message) => void;
 }
 
+/// A direct message is a channel nobody can browse, so the feed, the composer
+/// and the thread panel are the channel ones; only the header knows the
+/// difference.
 export default function ConversationView({
   workspaceId,
   instanceUrl,
-  conversationId,
-  title,
-  participantIds,
-  kind,
+  conversation,
   currentUserId,
+  members,
+  channels,
+  highlightMessageId,
   onClose,
   onOpenNav,
   onOpenThread,
   onSave,
   onForward,
 }: Props) {
-  const partnerId = participantIds.find((id) => id !== currentUserId) ?? currentUserId;
   const { getUser } = useUserCache();
+  const title = conversationTitle(conversation, currentUserId, (id) => getUser(id)?.display_name);
+  const participantIds = conversation.participant_ids;
+  const partnerId = participantIds.find((id) => id !== currentUserId) ?? currentUserId;
   const partner = getUser(partnerId);
   const status = usePresenceStore((s) => s.getStatus(partnerId));
+  const isDirect = conversation.kind === 'direct';
 
-  const { data, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useConversationMessages(conversationId, instanceUrl);
-
-  const sendMutation = useSendConversationMessage(workspaceId, conversationId, currentUserId, instanceUrl);
-  const editMutation = useEditConversationMessage(conversationId, instanceUrl);
-  const deleteMutation = useDeleteConversationMessage(conversationId, instanceUrl);
-  const reactMutation = useReactToConversationMessage(conversationId, currentUserId, instanceUrl);
-  const removeReactionMutation = useRemoveConversationReaction(conversationId, currentUserId, instanceUrl);
-
-  const toggleReaction = useCallback(
-    (messageId: string, emoji: string, hasOwn: boolean) => {
-      if (hasOwn) removeReactionMutation.mutate({ messageId, emoji });
-      else reactMutation.mutate({ messageId, emoji });
-    },
-    [reactMutation, removeReactionMutation],
-  );
-  const displayMessages = useMemo(() => [...(data?.pages.flatMap((p) => p.data) ?? [])].reverse(), [data]);
-  const rows = useMemo(() => buildMessageRows(displayMessages), [displayMessages]);
-
-  const { signalTyping, stopTyping } = useTypingSignal(typingTargetOf(null, conversationId), instanceUrl);
+  const sendMutation = useSendMessage(conversation.id, currentUserId);
+  const { signalTyping, stopTyping } = useTypingSignal(typingTargetOf(conversation.id), instanceUrl);
+  const [uploading, setUploading] = useState(false);
 
   const handleSend = async (content: string) => {
     stopTyping();
     sendMutation.mutate({ content, id: crypto.randomUUID() });
   };
-
-  const [uploading, setUploading] = useState(false);
 
   const handleFileUpload = async (file: File) => {
     setUploading(true);
@@ -118,31 +90,6 @@ export default function ConversationView({
       setUploading(false);
     }
   };
-
-  const messageCount = displayMessages.length;
-
-  const renderRow = useCallback(
-    (row: MessageRow<ConversationMessage>) => {
-      if (row.kind === 'day') return <DaySeparator at={row.at} />;
-      if (row.kind === 'unread') return <UnreadDivider />;
-      const msg = row.message;
-      return (
-        <ConversationMessageRow
-          msg={msg}
-          grouped={row.grouped}
-          isOwn={msg.user_id === currentUserId}
-          currentUserId={currentUserId}
-          onEdit={(content) => editMutation.mutateAsync({ messageId: msg.id, content })}
-          onDelete={() => deleteMutation.mutateAsync({ messageId: msg.id })}
-          onToggleReaction={(emoji, hasOwn) => toggleReaction(msg.id, emoji, hasOwn)}
-          onOpenThread={() => onOpenThread(msg)}
-          onSave={() => onSave(msg)}
-          onForward={() => onForward(msg)}
-        />
-      );
-    },
-    [currentUserId, deleteMutation, editMutation, onForward, onOpenThread, onSave, toggleReaction],
-  );
 
   return (
     <FileDropZone
@@ -168,7 +115,7 @@ export default function ConversationView({
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
-          {kind === 'direct' ? (
+          {isDirect ? (
             <div className="relative shrink-0">
               <Avatar userId={partnerId} name={title} avatarUrl={partner?.avatar_url} size="sm" />
               <PresenceDot userId={partnerId} className="absolute -bottom-0.5 -right-0.5 ring-2 ring-app" />
@@ -190,11 +137,9 @@ export default function ConversationView({
           <span className="font-semibold text-fg truncate" data-qa="conversation-title">
             {title}
           </span>
-          {kind === 'group' && (
-            <span className="text-xs text-muted shrink-0">{participantIds.length} people</span>
-          )}
-          {kind === 'direct' && status === 'online' && <span className="text-xs text-muted">Active now</span>}
-          {kind === 'direct' && (
+          {!isDirect && <span className="text-xs text-muted shrink-0">{participantIds.length} people</span>}
+          {isDirect && status === 'online' && <span className="text-xs text-muted">Active now</span>}
+          {isDirect && (
             <div className="ml-auto">
               <HuddleStartButton
                 workspaceId={workspaceId}
@@ -206,340 +151,34 @@ export default function ConversationView({
           )}
         </div>
 
-        <QueryState
-          isLoading={isLoading}
-          isError={isError}
-          isEmpty={messageCount === 0}
-          onRetry={() => void refetch()}
-          empty={<p className="text-sm">{EmptyLabels.DmBeginning(title)}</p>}
-        >
-          <VirtualMessageList
-            rows={rows}
-            renderRow={renderRow}
-            hasOlder={!!hasNextPage}
-            isLoadingOlder={isFetchingNextPage}
-            onLoadOlder={fetchNextPage}
-            stickKey={conversationId}
-            qa="conversation-message-list"
-            ariaLabel="Direct messages"
-          />
-        </QueryState>
+        <MessageList
+          channelId={conversation.id}
+          members={members}
+          channels={channels}
+          onThreadOpen={onOpenThread}
+          onSave={onSave}
+          onForward={onForward}
+          highlightMessageId={highlightMessageId}
+        />
 
-        <TypingIndicator conversationId={conversationId} currentUserId={currentUserId} />
+        <TypingIndicator channelId={conversation.id} currentUserId={currentUserId} />
 
         <MessageInput
-          key={`conversation:${conversationId}`}
+          key={`conversation:${conversation.id}`}
           channelName={title}
-          draftKey={`conversation:${conversationId}`}
+          draftKey={`conversation:${conversation.id}`}
           isDm
+          members={members}
+          channels={channels}
           onSend={handleSend}
           onFileUpload={handleFileUpload}
           onTyping={signalTyping}
           uploading={uploading}
-          scheduleTarget={{ conversationId }}
+          scheduleTarget={{ channelId: conversation.id }}
           workspaceId={workspaceId}
           instanceUrl={instanceUrl}
         />
       </div>
     </FileDropZone>
-  );
-}
-
-interface ConversationMessageProps {
-  msg: ConversationMessage;
-  grouped?: boolean;
-  isOwn: boolean;
-  currentUserId: string;
-  onEdit: (content: string) => Promise<unknown>;
-  onDelete: () => Promise<unknown>;
-  onToggleReaction: (emoji: string, hasOwn: boolean) => void;
-  onOpenThread?: () => void;
-  onSave?: () => void;
-  onForward?: () => void;
-  dataQa?: string;
-}
-
-export function ConversationMessageRow({
-  msg,
-  grouped,
-  isOwn,
-  currentUserId,
-  onEdit,
-  onDelete,
-  onToggleReaction,
-  onOpenThread,
-  onSave,
-  onForward,
-  dataQa = 'conversation-message',
-}: ConversationMessageProps) {
-  const { getUser } = useUserCache();
-  const sender = getUser(msg.user_id);
-  const senderName = displayNameOf(sender?.display_name);
-
-  const [editing, setEditing] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const reactBtnRef = useRef<HTMLButtonElement>(null);
-  const rowRef = useRef<HTMLDivElement>(null);
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const longPress = useLongPress(() => setSheetOpen(true), !editing && !confirmDelete);
-
-  const sheetActions: SheetAction[] = [
-    ...(onOpenThread
-      ? [{ key: 'thread', label: 'Reply in thread', Icon: MessageSquare, onSelect: onOpenThread }]
-      : []),
-    ...(onSave ? [{ key: 'save', label: 'Save message', Icon: Bookmark, onSelect: onSave }] : []),
-    ...(onForward ? [{ key: 'forward', label: 'Forward', Icon: Forward, onSelect: onForward }] : []),
-    ...(isOwn
-      ? [
-          { key: 'edit', label: 'Edit message', Icon: Pencil, onSelect: () => setEditing(true) },
-          {
-            key: 'delete',
-            label: 'Delete message',
-            Icon: Trash2,
-            onSelect: () => setConfirmDelete(true),
-            destructive: true,
-          },
-        ]
-      : []),
-  ];
-
-  useEffect(() => {
-    if (!editing && !confirmDelete) return;
-    rowRef.current?.scrollIntoView({ block: 'nearest' });
-  }, [editing, confirmDelete]);
-
-  const time = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-  const reactionGroups: { emoji: string; count: number; hasOwn: boolean }[] = [];
-  for (const r of msg.reactions ?? []) {
-    const g = reactionGroups.find((x) => x.emoji === r.emoji);
-    if (g) {
-      g.count++;
-      if (r.user_id === currentUserId) g.hasOwn = true;
-    } else {
-      reactionGroups.push({ emoji: r.emoji, count: 1, hasOwn: r.user_id === currentUserId });
-    }
-  }
-
-  const handleReactionToggle = (emoji: string) => {
-    const hasOwn = (msg.reactions ?? []).some((r) => r.emoji === emoji && r.user_id === currentUserId);
-    onToggleReaction(emoji, hasOwn);
-  };
-
-  const handleEditSave = async (content: string) => {
-    const trimmed = content.trim();
-    if (!trimmed) return;
-    await onEdit(trimmed);
-    setEditing(false);
-  };
-
-  if (msg.deleted_at) {
-    return (
-      <div
-        className="flex items-start gap-3 py-1.5 px-2 rounded-lg opacity-50"
-        data-qa="conversation-message-deleted"
-      >
-        <div className="w-8 h-8 rounded-full bg-raised flex items-center justify-center shrink-0 mt-0.5">
-          <Trash2 className="w-3.5 h-3.5 text-muted" />
-        </div>
-        <div className="flex-1 min-w-0 py-1">
-          <p className="text-sm text-muted italic">This message was deleted</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      ref={rowRef}
-      data-message-id={msg.id}
-      data-qa={dataQa}
-      tabIndex={0}
-      {...longPress}
-      className={`group relative flex items-start gap-3 px-2 rounded-lg transition-colors hover:bg-surface/50 ${grouped ? 'py-0.5' : 'py-1.5'} ${msg.pending ? 'opacity-50' : ''}`}
-    >
-      {grouped ? (
-        <div className="w-8 shrink-0 flex justify-end pr-0.5">
-          <span className="text-[10px] leading-5 text-muted opacity-0 group-hover:opacity-100 tabular-nums">
-            {time}
-          </span>
-        </div>
-      ) : (
-        <Avatar userId={msg.user_id} name={senderName} avatarUrl={sender?.avatar_url} className="mt-0.5" />
-      )}
-      <div className="flex-1 min-w-0">
-        {!grouped && (
-          <div className="flex items-baseline gap-2">
-            <span className="text-sm font-semibold text-fg-soft">{senderName}</span>
-            {sender?.status_emoji && (
-              <span data-qa="message-status-emoji" title={sender.status_text ?? undefined}>
-                {sender.status_emoji}
-              </span>
-            )}
-            <span className="text-xs text-muted">{time}</span>
-            {msg.edited_at && <span className="text-xs text-muted italic">(edited)</span>}
-            {msg.pending && <span className="text-xs text-muted italic">Sending…</span>}
-          </div>
-        )}
-
-        {editing ? (
-          <MessageInput
-            key={`edit:${msg.id}`}
-            editing
-            isDm
-            initialContent={msg.content}
-            onSend={handleEditSave}
-            onCancel={() => setEditing(false)}
-          />
-        ) : (
-          <RichTextDisplay content={msg.content} />
-        )}
-
-        {msg.reply_count > 0 && onOpenThread && (
-          <button
-            onClick={onOpenThread}
-            data-qa="dm-thread-open"
-            className="mt-1 inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded text-xs text-accent-soft hover:bg-raised/50 transition cursor-pointer"
-          >
-            <MessageSquare className="w-3 h-3" />
-            {msg.reply_count} {msg.reply_count === 1 ? 'reply' : 'replies'}
-          </button>
-        )}
-
-        {reactionGroups.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1">
-            {reactionGroups.map((g) => (
-              <button
-                key={g.emoji}
-                onClick={() => handleReactionToggle(g.emoji)}
-                aria-pressed={g.hasOwn}
-                data-qa="dm-reaction"
-                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs border transition ${
-                  g.hasOwn
-                    ? 'bg-purple-600/20 border-purple-500/40 text-accent-soft'
-                    : 'bg-raised/50 border-line-strong/50 text-fg-dim hover:bg-raised'
-                }`}
-              >
-                <ReactionEmoji emoji={g.emoji} />
-                <span>{g.count}</span>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {confirmDelete && (
-          <div className="mt-1 flex items-center gap-2 text-xs">
-            <span className="text-danger">Delete this message?</span>
-            <button
-              onClick={async () => {
-                await onDelete();
-                setConfirmDelete(false);
-              }}
-              className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded"
-            >
-              Delete
-            </button>
-            <button onClick={() => setConfirmDelete(false)} className="px-2 py-1 text-muted hover:text-fg">
-              Cancel
-            </button>
-          </div>
-        )}
-      </div>
-
-      {!editing && !confirmDelete && (
-        <div className="absolute -top-3 right-2 flex items-center gap-0.5 bg-surface border border-line rounded-lg px-1 py-0.5 shadow-lg opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto">
-          {QUICK_REACTIONS.map((emoji) => (
-            <button
-              key={emoji}
-              onClick={() => handleReactionToggle(emoji)}
-              aria-label={`React with ${emoji}`}
-              data-qa="dm-quick-reaction"
-              className="px-1 py-0.5 text-sm leading-none hover:bg-raised rounded transition"
-            >
-              {emoji}
-            </button>
-          ))}
-          <div className="relative">
-            <button
-              ref={reactBtnRef}
-              onClick={() => setShowEmojiPicker((v) => !v)}
-              aria-label="Add reaction"
-              className="p-1 text-muted hover:text-fg hover:bg-raised rounded transition"
-            >
-              <SmilePlus className="w-3.5 h-3.5" />
-            </button>
-            {showEmojiPicker && (
-              <EmojiPicker
-                anchorRef={reactBtnRef}
-                onSelect={(emoji) => {
-                  handleReactionToggle(emoji);
-                  setShowEmojiPicker(false);
-                }}
-                onClose={() => setShowEmojiPicker(false)}
-              />
-            )}
-          </div>
-          {onOpenThread && (
-            <button
-              onClick={onOpenThread}
-              aria-label="Reply in thread"
-              data-qa="dm-action-thread"
-              className="p-1 text-muted hover:text-fg hover:bg-raised rounded transition"
-            >
-              <MessageSquare className="w-3.5 h-3.5" />
-            </button>
-          )}
-          {onSave && (
-            <button
-              onClick={onSave}
-              aria-label="Save message"
-              data-qa="dm-action-save"
-              className="p-1 text-muted hover:text-accent-soft hover:bg-raised rounded transition"
-            >
-              <Bookmark className="w-3.5 h-3.5" />
-            </button>
-          )}
-          {onForward && (
-            <button
-              onClick={onForward}
-              aria-label="Forward message"
-              data-qa="dm-action-forward"
-              className="p-1 text-muted hover:text-fg hover:bg-raised rounded transition"
-            >
-              <Forward className="w-3.5 h-3.5" />
-            </button>
-          )}
-          {isOwn && (
-            <button
-              onClick={() => setEditing(true)}
-              aria-label="Edit message"
-              className="p-1 text-muted hover:text-fg hover:bg-raised rounded transition"
-            >
-              <Pencil className="w-3.5 h-3.5" />
-            </button>
-          )}
-          {isOwn && (
-            <button
-              onClick={() => setConfirmDelete(true)}
-              aria-label="Delete message"
-              className="p-1 text-muted hover:text-danger hover:bg-raised rounded transition"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-      )}
-
-      {sheetOpen && (
-        <MessageActionSheet
-          quickReactions={QUICK_REACTIONS}
-          onReact={(emoji) => handleReactionToggle(emoji)}
-          actions={sheetActions}
-          onClose={() => setSheetOpen(false)}
-          dataQa="dm-action-sheet"
-        />
-      )}
-    </div>
   );
 }

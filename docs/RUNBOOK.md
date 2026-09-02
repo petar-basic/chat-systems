@@ -16,7 +16,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml \
 | Container | What it does | Safe to scale? |
 |---|---|---|
 | `api` | REST API; applies migrations at startup | yes |
-| `worker` | Background consumers: outgoing webhooks, reminders, notifications, huddle history, call ringing, scheduled messages, email delivery | yes |
+| `worker` | Background consumers: outgoing webhooks, reminders, notifications, huddle history, call ringing, scheduled messages, email delivery, event outbox relay | yes |
 | `realtime` | WebSocket gateway | yes |
 
 Every consumer in `worker` either reads through a Redis Streams consumer group, which hands
@@ -124,9 +124,9 @@ Two more changes ship with it and need no action:
 
 ## Upgrade note: Wave 5 changes the DM send contract
 
-`POST /api/conversations/:id/messages` and `POST /api/channels/:id/messages` no longer
-accept `id`. The server owns the message id; a sender that wants an idempotent retry passes
-`client_message_id` instead, unique within the conversation or channel. An old client that
+`POST /api/channels/:id/messages` no longer accepts `id`. The server owns the message id; a
+sender that wants an idempotent retry passes `client_message_id` instead, unique within the
+channel. An old client that
 still sends `id` is not rejected — the field is ignored, so its retries stop being
 idempotent and a double-send stores two rows. Ship the frontend and the API together.
 
@@ -371,6 +371,17 @@ later — cancelled if they come online first. It carries who and where and a li
 message text. Individuals can turn it off at `PATCH /api/notifications/email`; with SMTP
 unconfigured the whole feature is off and logs nothing.
 
+**Realtime events go through an outbox too.** Every durable event (messages, reactions,
+membership, rings) is written to `event_outbox` inside the transaction that writes the row
+it describes, published to Redis right after the commit, and marked `published_at`. If the
+API crashed or Redis was down at that moment, the worker's relay publishes it within a few
+seconds and the client sees it late rather than never. Rows are pruned a day after
+publishing. A growing count here means Redis is unreachable from the API:
+
+```sql
+SELECT event_type, COUNT(*) FROM event_outbox WHERE published_at IS NULL GROUP BY 1;
+```
+
 **Invites and password resets go through an outbox.** Neither is sent inside the request
 any more: the row lands in `outbound_emails` and the worker delivers it within a couple of
 seconds, retrying with backoff (1, 4, 16, 64 minutes, then every four hours) up to eight
@@ -507,9 +518,9 @@ carries public channels and nothing else: no DMs, no private channels. An export
 identical to a broken import until the report says which it was. Both are stated in the run.
 
 **What comes across.** Public channels from `channels.json`, private ones from `groups.json`,
-and direct and group messages from `dms.json` / `mpims.json` — the last two become
-conversations here rather than channels, so a two-person history does not land in everybody's
-channel list. Only some Slack plans export DMs at all; the report names every listing the
+and direct and group messages from `dms.json` / `mpims.json` — the last two become `dm` and
+`group_dm` channels, which the channel list never shows, so a two-person history does not land
+in everybody's sidebar. Only some Slack plans export DMs at all; the report names every listing the
 export did not carry.
 
 **Always dry-run first.** It writes nothing and prints the counts the real run would produce,

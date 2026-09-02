@@ -20,7 +20,10 @@ async fn livez() -> impl IntoResponse {
 }
 
 async fn readyz(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    if let Err(e) = sqlx::query("SELECT 1").execute(&state.pool).await {
+    if let Err(e) = sqlx::query_scalar!(r#"SELECT 1 AS "one!""#)
+        .fetch_one(&state.pool)
+        .await
+    {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
             format!("database unavailable: {e}"),

@@ -208,6 +208,18 @@ async fn an_event_held_by_a_dead_replica_is_claimed_by_a_live_one(pool: PgPool) 
     let redis_url = state.config.redis_url.clone();
     let group_name = format!("test-claim-{}", Uuid::new_v4());
 
+    // The group only learns about a workspace stream when it refreshes its
+    // index, so the stream has to exist before the replica joins.
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch}/messages"),
+        Some(&token),
+        Some(serde_json::json!({ "content": "warm up" })),
+    )
+    .await;
+    assert_eq!(status, axum::http::StatusCode::OK);
+
     let mut first = StreamGroup::connect(&redis_url, &group_name)
         .await
         .expect("first replica");

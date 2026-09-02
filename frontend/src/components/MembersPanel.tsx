@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { api } from '../lib/api';
-import type { WorkspaceMember } from '../stores/workspace';
+import type { WorkspaceMember, WorkspaceRole } from '../stores/workspace';
 import { useWorkspaceStore } from '../stores/workspace';
 import { useCurrentWorkspaceRole } from '@/features/workspace/hooks/useCurrentWorkspaceRole';
 import { getUserDisplay } from '../lib/userHelpers';
@@ -31,7 +31,7 @@ function MemberRow({
   member: WorkspaceMember;
   actorRole: string | null;
   isSelf: boolean;
-  onChangeRole: (userId: string, role: string) => void;
+  onChangeRole: (userId: string, role: WorkspaceRole) => void;
   onRemove: (userId: string) => void;
   busy: boolean;
 }) {
@@ -109,7 +109,10 @@ function MemberRow({
           <select
             value={member.role}
             disabled={busy}
-            onChange={(e) => onChangeRole(member.user_id, e.target.value)}
+            onChange={(e) => {
+              const role = grantable.find((r) => r === e.target.value);
+              if (role) onChangeRole(member.user_id, role);
+            }}
             aria-label={`Role for ${displayName}`}
             data-qa="member-role-select"
             className="bg-raised/50 border border-line-strong rounded-md px-1.5 py-1 text-xs text-fg-soft focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50 cursor-pointer"
@@ -153,8 +156,13 @@ export default function MembersPanel({ workspaceId, onClose }: Props) {
     queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceMembers(workspaceId) });
 
   const changeRole = useMutation({
-    mutationFn: ({ userId, role }: { userId: string; role: string }) =>
-      apiClient.patch(`/workspaces/${workspaceId}/members/${userId}/role`, { role }),
+    mutationFn: ({ userId, role }: { userId: string; role: WorkspaceRole }) =>
+      apiClient.typed((c) =>
+        c.PATCH('/workspaces/{ws_id}/members/{user_id}/role', {
+          params: { path: { ws_id: workspaceId, user_id: userId } },
+          body: { role },
+        }),
+      ),
     onSuccess: () => {
       setManageError(null);
       refreshMembers();
@@ -164,7 +172,12 @@ export default function MembersPanel({ workspaceId, onClose }: Props) {
   });
 
   const removeMember = useMutation({
-    mutationFn: (userId: string) => apiClient.delete(`/workspaces/${workspaceId}/members/${userId}`),
+    mutationFn: (userId: string) =>
+      apiClient.typed((c) =>
+        c.DELETE('/workspaces/{ws_id}/members/{user_id}', {
+          params: { path: { ws_id: workspaceId, user_id: userId } },
+        }),
+      ),
     onSuccess: () => {
       setManageError(null);
       refreshMembers();
@@ -175,7 +188,7 @@ export default function MembersPanel({ workspaceId, onClose }: Props) {
 
   const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState('member');
+  const [inviteRole, setInviteRole] = useState<WorkspaceRole>('member');
   const [inviting, setInviting] = useState(false);
   const [inviteResult, setInviteResult] = useState<string | null>(null);
   const [inviteError, setInviteError] = useState<string | null>(null);
@@ -188,15 +201,13 @@ export default function MembersPanel({ workspaceId, onClose }: Props) {
     setInviteError(null);
     setInviteResult(null);
     try {
-      const res = await api.post<{ action: string }>(`/workspaces/${workspaceId}/invites`, {
-        email: inviteEmail.trim(),
-        role: inviteRole,
-      });
-      if (res.action === 'added_directly') {
-        setInviteResult(`${inviteEmail} has been added to the workspace.`);
-      } else {
-        setInviteResult(`Invite sent to ${inviteEmail}.`);
-      }
+      await apiClient.typed((c) =>
+        c.POST('/workspaces/{ws_id}/invites', {
+          params: { path: { ws_id: workspaceId } },
+          body: { email: inviteEmail.trim(), role: inviteRole },
+        }),
+      );
+      setInviteResult(`Invite sent to ${inviteEmail}.`);
       setInviteEmail('');
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceMembers(workspaceId) });
     } catch (err: unknown) {
@@ -241,7 +252,10 @@ export default function MembersPanel({ workspaceId, onClose }: Props) {
             </div>
             <select
               value={inviteRole}
-              onChange={(e) => setInviteRole(e.target.value)}
+              onChange={(e) => {
+                const role = ASSIGNABLE_ROLES.find((r) => r === e.target.value);
+                if (role) setInviteRole(role);
+              }}
               className="w-full px-3 py-2 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
             >
               <option value="member">Member</option>

@@ -4,17 +4,9 @@ import { ShieldCheck, ShieldOff, Copy, Check } from 'lucide-react';
 import { api } from '../lib/api';
 import { toUserMessage } from '@/lib/errors';
 import { toast } from '@/shared/components/Toast';
+import type { components } from '@/api/schema';
 
-interface TotpStatus {
-  enrolled: boolean;
-  recovery_codes_remaining: number;
-  required: boolean;
-}
-
-interface Enrolment {
-  secret: string;
-  provisioning_uri: string;
-}
+type Enrolment = components['schemas']['TotpEnrolment'];
 
 export default function TwoFactorPanel() {
   const queryClient = useQueryClient();
@@ -27,13 +19,13 @@ export default function TwoFactorPanel() {
 
   const { data: status } = useQuery({
     queryKey: ['totp-status'],
-    queryFn: () => api.get<TotpStatus>('/auth/totp'),
+    queryFn: () => api.typed((c) => c.GET('/auth/totp')),
   });
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['totp-status'] });
 
   const start = useMutation({
-    mutationFn: () => api.post<Enrolment>('/auth/totp/enrol', {}),
+    mutationFn: () => api.typed((c) => c.POST('/auth/totp/enrol')),
     onSuccess: (data) => {
       setError(null);
       setEnrolment(data);
@@ -42,7 +34,7 @@ export default function TwoFactorPanel() {
   });
 
   const confirm = useMutation({
-    mutationFn: () => api.post<{ recovery_codes: string[] }>('/auth/totp/confirm', { code }),
+    mutationFn: () => api.typed((c) => c.POST('/auth/totp/confirm', { body: { code } })),
     onSuccess: (data) => {
       setError(null);
       setEnrolment(null);
@@ -54,7 +46,7 @@ export default function TwoFactorPanel() {
   });
 
   const disable = useMutation({
-    mutationFn: () => api.post('/auth/totp/disable', { code }),
+    mutationFn: () => api.typed((c) => c.POST('/auth/totp/disable', { body: { code } })),
     onSuccess: () => {
       setError(null);
       setDisabling(false);

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE slack_imports SET status = 'failed', error = $2, finished_at = NOW() WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9ae7faae3d03c61bb2f56db4fec9639255ad0e15c99f347e9a87237ce7ff7e9d"
+}

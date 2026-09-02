@@ -1,7 +1,5 @@
 import { Hash, Megaphone } from 'lucide-react';
 import { ROUTES, EmptyLabels } from '@/shared/constants';
-import { useUserCache } from '@/stores/users';
-import { conversationTitle } from '@/lib/conversationHelpers';
 import { ConnectionBanner } from '@/shared/components/ConnectionBanner/ConnectionBanner';
 import InstallAppBanner from '@/components/InstallAppBanner';
 import { QuickSwitcher } from '@/features/navigation';
@@ -22,7 +20,6 @@ import { uploadFilesSequentially } from '@/lib/fileUploads';
 export default function WorkspacePage() {
   const c = useWorkspaceController();
   const { panel, currentWorkspace, currentChannel, user } = c;
-  const { getUser } = useUserCache();
   const activeConversation = c.conversations.find((conv) => conv.id === c.currentConversationId);
 
   useActiveHuddlesSync(currentWorkspace?.id, currentWorkspace?.instanceUrl);
@@ -101,16 +98,16 @@ export default function WorkspacePage() {
           <ConversationView
             workspaceId={currentWorkspace.id}
             instanceUrl={currentWorkspace.instanceUrl}
-            conversationId={activeConversation.id}
-            title={conversationTitle(activeConversation, user.id, (id) => getUser(id)?.display_name)}
-            participantIds={activeConversation.participant_ids}
-            kind={activeConversation.kind}
+            conversation={activeConversation}
             currentUserId={user.id}
+            members={c.workspaceMembers}
+            channels={c.channels}
+            highlightMessageId={c.urlMessageId}
             onClose={() => c.navigate(ROUTES.workspace(currentWorkspace.id))}
             onOpenNav={() => c.setMobileNavOpen(true)}
-            onOpenThread={(message) => panel.openConversationThread(activeConversation.id, message)}
-            onSave={c.handleSaveConversationMessage}
-            onForward={c.handleForwardConversationMessage}
+            onOpenThread={panel.openThread}
+            onSave={c.handleSaveMessage}
+            onForward={c.handleForwardMessage}
           />
         ) : (
           <FileDropZone
@@ -209,7 +206,7 @@ export default function WorkspacePage() {
                   workspaceId={currentWorkspace?.id}
                   instanceUrl={currentWorkspace?.instanceUrl}
                   scheduleTarget={{ channelId: currentChannel.id }}
-                  channelName={currentChannel.name}
+                  channelName={currentChannel.name ?? undefined}
                   draftKey={currentChannel.id}
                   members={c.workspaceMembers}
                   channels={c.channels}

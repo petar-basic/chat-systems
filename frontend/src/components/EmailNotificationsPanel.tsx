@@ -3,11 +3,9 @@ import { Mail } from 'lucide-react';
 import { api } from '../lib/api';
 import { toast } from '@/shared/components/Toast';
 import { toUserMessage } from '@/lib/errors';
+import type { components } from '@/api/schema';
 
-interface Preference {
-  mention_emails: boolean;
-  available: boolean;
-}
+type Preference = components['schemas']['EmailPreference'];
 
 /**
  * The switch for the digest the worker sends when a mention reached nobody. The
@@ -20,7 +18,7 @@ export default function EmailNotificationsPanel() {
 
   useEffect(() => {
     api
-      .get<Preference>('/notifications/email')
+      .typed((c) => c.GET('/notifications/email'))
       .then(setPreference)
       .catch(() => setPreference(null));
   }, []);
@@ -32,7 +30,7 @@ export default function EmailNotificationsPanel() {
     setBusy(true);
     try {
       const next = !preference.mention_emails;
-      await api.patch('/notifications/email', { mention_emails: next });
+      await api.typed((c) => c.PATCH('/notifications/email', { body: { mention_emails: next } }));
       setPreference({ ...preference, mention_emails: next });
     } catch (e) {
       toast.error(toUserMessage(e));

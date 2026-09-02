@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM hook_executions WHERE executed_at < NOW() - INTERVAL '30 days'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "8a63a70a97ec91597e263e91aa1c0b7892f25c8cd5cb9cc9392da85df7677eaf"
+}

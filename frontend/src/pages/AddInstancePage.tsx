@@ -30,10 +30,7 @@ export default function AddInstancePage() {
 
   const { data: instance } = useQuery({
     queryKey: ['instance-info'],
-    queryFn: () =>
-      instanceManager
-        .get(window.location.origin)
-        .api.get<{ name: string; sso_enabled: boolean }>('/instance/info'),
+    queryFn: () => instanceManager.get(window.location.origin).api.typed((c) => c.GET('/instance/info')),
     staleTime: Infinity,
   });
 

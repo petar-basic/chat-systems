@@ -5,7 +5,6 @@ import MessageContent from './MessageContent';
 
 interface Props {
   messageId: string;
-  scope: 'channel' | 'conversation';
   currentContent: string;
   onClose: () => void;
 }
@@ -15,8 +14,8 @@ interface Props {
  * renderer as the message itself so a version reads the way it read when it was
  * posted, rather than as raw markdown.
  */
-export default function EditHistoryPanel({ messageId, scope, currentContent, onClose }: Props) {
-  const { data: edits = [], isLoading, error } = useEditHistory(messageId, scope);
+export default function EditHistoryPanel({ messageId, currentContent, onClose }: Props) {
+  const { data: edits = [], isLoading, error } = useEditHistory(messageId);
 
   return (
     <div className="mt-2 rounded-lg border border-line bg-surface/60 p-3" data-qa="edit-history">

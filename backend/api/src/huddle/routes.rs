@@ -1,41 +1,40 @@
 use std::sync::Arc;
 
 use axum::extract::{Path, State};
-use axum::routing::{get, post};
-use axum::{Json, Router};
+use axum::Json;
 use base64::Engine;
 use hmac::{Hmac, KeyInit, Mac};
 use redis::AsyncCommands;
 use sha1::Sha1;
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::routes;
 use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
 
 use super::models::{IceServer, IceServersResponse, InviteRequest, StartHuddleRequest};
 use crate::authz;
+use crate::dto::{DataList, StatusResponse};
+use crate::huddle::models::{ActiveHuddle, HuddleStarted};
 use crate::middleware::AuthUser;
 use crate::state::AppState;
 
 type HmacSha1 = Hmac<Sha1>;
 
-pub fn router(state: Arc<AppState>) -> Router {
-    let routes = Router::new()
-        .route("/workspaces/{ws_id}/ice-servers", get(ice_servers))
-        .route("/workspaces/{ws_id}/active-huddles", get(active_huddles))
-        .route("/workspaces/{ws_id}/huddles", post(start_huddle))
-        .route(
-            "/workspaces/{ws_id}/huddles/{huddle_id}/invite",
-            post(invite_to_huddle),
-        );
-
-    crate::protected(state, routes)
+pub fn router() -> OpenApiRouter<Arc<AppState>> {
+    OpenApiRouter::new()
+        .routes(routes!(ice_servers))
+        .routes(routes!(active_huddles))
+        .routes(routes!(start_huddle))
+        .routes(routes!(invite_to_huddle))
 }
 
+#[utoipa::path(get, path = "/workspaces/{ws_id}/active-huddles", tag = "huddles", responses((status = 200, body = DataList<ActiveHuddle>)))]
 async fn active_huddles(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<DataList<ActiveHuddle>>> {
     authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
 
     let sessions = state.huddle_repo.list_open_channel_sessions(ws_id).await?;
@@ -46,23 +45,24 @@ async fn active_huddles(
         let key = format!("huddle:{}:members", session.id);
         let count: i64 = conn.scard(&key).await.unwrap_or(0);
         if count > 0 {
-            active.push(serde_json::json!({
-                "huddle_id": session.id,
-                "channel_id": session.channel_id,
-                "initiator_id": session.initiated_by,
-            }));
+            active.push(ActiveHuddle {
+                huddle_id: session.id,
+                channel_id: session.channel_id,
+                initiator_id: session.initiated_by,
+            });
         }
     }
 
-    Ok(Json(serde_json::json!({ "data": active })))
+    Ok(Json(DataList { data: active }))
 }
 
+#[utoipa::path(post, path = "/workspaces/{ws_id}/huddles/{huddle_id}/invite", tag = "huddles", request_body = InviteRequest, responses((status = 200, body = StatusResponse)))]
 async fn invite_to_huddle(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path((ws_id, huddle_id)): Path<(Uuid, Uuid)>,
     Json(req): Json<InviteRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<StatusResponse>> {
     authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
 
     for invitee in req.user_ids {
@@ -91,15 +91,16 @@ async fn invite_to_huddle(
             .await;
     }
 
-    Ok(Json(serde_json::json!({ "status": "ok" })))
+    Ok(Json(StatusResponse::new("ok")))
 }
 
+#[utoipa::path(post, path = "/workspaces/{ws_id}/huddles", tag = "huddles", request_body = StartHuddleRequest, responses((status = 200, body = HuddleStarted)))]
 async fn start_huddle(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
     Json(req): Json<StartHuddleRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<HuddleStarted>> {
     authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
 
     let huddle_id = Uuid::new_v4();
@@ -119,9 +120,11 @@ async fn start_huddle(
                 .start_session(huddle_id, ws_id, Some(channel_id), None, auth.user_id)
                 .await?;
 
-            if let Ok(msg) = state
+            let mut tx = state.pool.begin().await?;
+            let msg = state
                 .message_repo
-                .create_system_message(
+                .create_system_message_in(
+                    &mut tx,
                     channel_id,
                     auth.user_id,
                     "started a huddle",
@@ -131,15 +134,13 @@ async fn start_huddle(
                         "initiator_id": auth.user_id,
                     }),
                 )
-                .await
-            {
-                if let Ok(msg_json) = serde_json::to_value(&msg) {
-                    let _ = state
-                        .publisher
-                        .publish_message_created(&msg_json, ws_id, &[])
-                        .await;
-                }
-            }
+                .await?;
+            let staged = state
+                .publisher
+                .stage_message_created(&mut tx, &msg, ws_id, &[])
+                .await?;
+            tx.commit().await?;
+            state.publisher.dispatch(staged).await;
 
             let _ = state
                 .publisher
@@ -181,9 +182,10 @@ async fn start_huddle(
         }
     }
 
-    Ok(Json(serde_json::json!({ "huddle_id": huddle_id })))
+    Ok(Json(HuddleStarted { huddle_id }))
 }
 
+#[utoipa::path(get, path = "/workspaces/{ws_id}/ice-servers", tag = "huddles", responses((status = 200, body = IceServersResponse)))]
 async fn ice_servers(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,

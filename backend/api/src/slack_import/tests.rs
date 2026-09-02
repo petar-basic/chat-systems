@@ -297,9 +297,10 @@ async fn an_export_arrives_as_channels_messages_threads_reactions_and_pins(pool:
     assert_eq!(private_type, "private", "and stayed private");
 
     let dm_messages: Vec<String> = sqlx::query_scalar(
-        r"SELECT cm.content FROM conversation_messages cm
-          JOIN conversations c ON c.id = cm.conversation_id
-          WHERE c.workspace_id = $1 ORDER BY cm.created_at",
+        r"SELECT m.content FROM messages m
+          JOIN channels c ON c.id = m.channel_id
+          WHERE c.workspace_id = $1 AND c.channel_type IN ('dm', 'group_dm')
+          ORDER BY m.created_at",
     )
     .bind(ws)
     .fetch_all(&state.pool)
@@ -308,7 +309,7 @@ async fn an_export_arrives_as_channels_messages_threads_reactions_and_pins(pool:
     assert_eq!(
         dm_messages,
         vec!["can you take the on-call swap?", "yes"],
-        "the DM landed as a conversation, not as a channel everybody can see"
+        "the DM landed in a dm channel, not in one everybody can see"
     );
 
     let channel_id: Uuid = sqlx::query_scalar(
@@ -1072,7 +1073,9 @@ async fn running_it_twice_writes_nothing_the_second_time(pool: PgPool) {
     assert_eq!(users, 2);
 
     let conversations: i64 =
-        sqlx::query_scalar("SELECT COUNT(*) FROM conversations WHERE workspace_id = $1")
+        sqlx::query_scalar(
+            "SELECT COUNT(*) FROM channels WHERE workspace_id = $1 AND channel_type IN ('dm', 'group_dm')",
+        )
             .bind(ws)
             .fetch_one(&state.pool)
             .await
@@ -1102,7 +1105,7 @@ async fn an_interrupted_import_picks_up_where_it_stopped(pool: PgPool) {
         .await
         .expect("drop what the interrupted run had written");
     sqlx::query(
-        "DELETE FROM conversation_messages WHERE conversation_id IN (SELECT id FROM conversations WHERE workspace_id = $1)",
+        "DELETE FROM messages WHERE channel_id IN (SELECT id FROM channels WHERE workspace_id = $1 AND channel_type IN ('dm', 'group_dm'))",
     )
     .bind(ws)
     .execute(&state.pool)
