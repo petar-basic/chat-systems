@@ -44,6 +44,7 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
   const localHandRaised = useHuddleStore((s) => s.localHandRaised);
   const background = useHuddleStore((s) => s.background);
   const localVideoStream = useHuddleStore((s) => s.localVideoStream);
+  const localScreenStream = useHuddleStore((s) => s.localScreenStream);
   const localStream = useHuddleStore((s) => s.localStream);
   const speakerId = useHuddleStore((s) => s.devices.speakerId);
   const reactions = useHuddleStore((s) => s.reactions);
@@ -55,33 +56,80 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
   const self = active.selfUserId;
   const remotes = Object.values(participants).filter((p) => p.userId !== self);
 
-  const tiles = [
+  // A shared screen is its own tile, not a replacement for the face: whoever is
+  // sharing shows up twice, once as themselves and once as their screen.
+  const tiles: TileProps[] = [
     {
+      tileId: `${self}:camera`,
       userId: self,
+      kind: 'camera' as const,
       stream: localVideoStream,
-      audioStream: null as MediaStream | null,
+      audioStream: null,
       muted: localMuted,
       cameraOn: localCameraOn,
       sharing: localSharing,
       handRaised: localHandRaised,
       isSelf: true,
     },
-    ...remotes.map((p) => ({
-      userId: p.userId,
-      stream: p.stream,
-      audioStream: p.stream,
-      muted: p.audioMuted,
-      cameraOn: p.cameraOn,
-      sharing: p.sharing,
-      handRaised: p.handRaised,
-      isSelf: false,
-    })),
+    ...(localSharing && localScreenStream
+      ? [
+          {
+            tileId: `${self}:screen`,
+            userId: self,
+            kind: 'screen' as const,
+            stream: localScreenStream,
+            audioStream: null,
+            muted: localMuted,
+            cameraOn: localCameraOn,
+            sharing: true,
+            handRaised: false,
+            isSelf: true,
+          },
+        ]
+      : []),
+    ...remotes.flatMap((p) => [
+      {
+        tileId: `${p.userId}:camera`,
+        userId: p.userId,
+        kind: 'camera' as const,
+        stream: p.cameraStream,
+        audioStream: p.audioStream,
+        muted: p.audioMuted,
+        cameraOn: p.cameraOn,
+        sharing: p.sharing,
+        handRaised: p.handRaised,
+        isSelf: false,
+      },
+      ...(p.sharing && p.screenStream
+        ? [
+            {
+              tileId: `${p.userId}:screen`,
+              userId: p.userId,
+              kind: 'screen' as const,
+              stream: p.screenStream,
+              audioStream: null,
+              muted: p.audioMuted,
+              cameraOn: p.cameraOn,
+              sharing: true,
+              handRaised: false,
+              isSelf: false,
+            },
+          ]
+        : []),
+    ]),
   ];
 
+  // A screen is shared to be looked at, so it takes the stage over whoever
+  // happens to be talking; an explicit pin still wins over both.
   const activeSpeaker = [...speaking].find((id) => id !== self) ?? null;
-  const focusId = pinnedUserId ?? activeSpeaker ?? remotes[0]?.userId ?? self;
-  const focusTile = tiles.find((t) => t.userId === focusId) ?? tiles[0];
-  const stripTiles = tiles.filter((t) => t.userId !== focusTile.userId);
+  const sharedScreen = tiles.find((t) => t.kind === 'screen' && !t.isSelf) ?? null;
+  const pinnedTile = pinnedUserId ? tiles.find((t) => t.userId === pinnedUserId) : null;
+  const focusTile =
+    pinnedTile ??
+    sharedScreen ??
+    tiles.find((t) => t.userId === (activeSpeaker ?? remotes[0]?.userId ?? self)) ??
+    tiles[0];
+  const stripTiles = tiles.filter((t) => t.tileId !== focusTile.tileId);
 
   return (
     <div
@@ -93,9 +141,11 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
           : 'fixed bottom-4 right-4 z-60 w-120 max-w-[calc(100vw-2rem)] bg-surface border border-line rounded-2xl shadow-2xl p-3 flex flex-col gap-3'
       }
     >
-      {tiles.map((t) => (
-        <SpeakingDetector key={`spk-${t.userId}`} userId={t.userId} stream={t.audioStream ?? t.stream} />
-      ))}
+      {tiles
+        .filter((t) => t.audioStream)
+        .map((t) => (
+          <SpeakingDetector key={`spk-${t.tileId}`} userId={t.userId} stream={t.audioStream} />
+        ))}
 
       <div className="flex items-center justify-between">
         <span className="text-sm font-semibold text-fg">
@@ -134,7 +184,7 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
             {stripTiles.length > 0 && (
               <div className="flex gap-2 overflow-x-auto">
                 {stripTiles.map((t) => (
-                  <div key={t.userId} className="w-28 shrink-0">
+                  <div key={t.tileId} className="w-28 shrink-0">
                     <VideoTile
                       {...t}
                       speaking={speaking.has(t.userId)}
@@ -152,7 +202,7 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
           >
             {tiles.map((t) => (
               <VideoTile
-                key={t.userId}
+                key={t.tileId}
                 {...t}
                 speaking={speaking.has(t.userId)}
                 pinned={pinnedUserId === t.userId}
@@ -235,24 +285,32 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
 }
 
 interface TileProps {
+  tileId: string;
   userId: string;
+  kind: 'camera' | 'screen';
   stream: MediaStream | null;
+  audioStream: MediaStream | null;
   muted: boolean;
   cameraOn: boolean;
   sharing: boolean;
   handRaised: boolean;
   isSelf: boolean;
+}
+
+type VideoTileProps = TileProps & {
   speaking: boolean;
   pinned: boolean;
   speakerId: string | null;
   large?: boolean;
-}
+};
 
 type SinkAudio = HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> };
 
 function VideoTile({
   userId,
+  kind,
   stream,
+  audioStream,
   muted,
   sharing,
   handRaised,
@@ -261,12 +319,13 @@ function VideoTile({
   pinned,
   speakerId,
   large,
-}: TileProps) {
+}: VideoTileProps) {
   const { getUser } = useUserCache();
   const participant = getUser(userId);
   const name = displayNameOf(participant?.display_name);
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const isScreen = kind === 'screen';
 
   const subscribeVideo = useCallback(
     (onChange: () => void) => {
@@ -309,12 +368,15 @@ function VideoTile({
   useEffect(() => {
     const v = videoRef.current;
     if (v && v.srcObject !== stream) v.srcObject = stream;
+  }, [stream]);
+
+  useEffect(() => {
     const a = audioRef.current;
-    if (a && a.srcObject !== stream) {
-      a.srcObject = stream;
+    if (a && a.srcObject !== audioStream) {
+      a.srcObject = audioStream;
       void a.play().catch((e) => logger.warn('VideoTile', 'audioPlay', String(e)));
     }
-  }, [stream]);
+  }, [audioStream]);
 
   useEffect(() => {
     if (hasVideo)
@@ -339,19 +401,26 @@ function VideoTile({
         autoPlay
         playsInline
         muted
-        className={`w-full h-full object-cover ${hasVideo ? '' : 'hidden'} ${isSelf && !sharing ? 'scale-x-[-1]' : ''}`}
+        className={`w-full h-full ${isScreen ? 'object-contain bg-black' : 'object-cover'} ${
+          hasVideo ? '' : 'hidden'
+        } ${isSelf && !isScreen ? 'scale-x-[-1]' : ''}`}
       />
-      {!isSelf && <audio ref={audioRef} autoPlay />}
-      {!hasVideo && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <Avatar
-            userId={userId}
-            name={name}
-            avatarUrl={participant?.avatar_url}
-            size={large ? 'xl' : 'lg'}
-          />
-        </div>
-      )}
+      {!isSelf && audioStream && <audio ref={audioRef} autoPlay />}
+      {!hasVideo &&
+        (isScreen ? (
+          <div className="absolute inset-0 flex items-center justify-center text-xs text-muted">
+            Waiting for the screen…
+          </div>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Avatar
+              userId={userId}
+              name={name}
+              avatarUrl={participant?.avatar_url}
+              size={large ? 'xl' : 'lg'}
+            />
+          </div>
+        ))}
 
       {handRaised && (
         <div className="absolute top-1 left-1 text-lg" aria-label="Hand raised" title="Hand raised">
@@ -361,14 +430,16 @@ function VideoTile({
 
       <div className="absolute bottom-1 left-1 right-1 flex items-center gap-1">
         <span className="px-1.5 py-0.5 rounded bg-black/50 text-[11px] text-white truncate max-w-full">
-          {name}
-          {isSelf && ' (you)'}
+          {isScreen ? `${name}'s screen` : name}
+          {isSelf && !isScreen && ' (you)'}
         </span>
-        {sharing && <span className="px-1 py-0.5 rounded bg-purple-600/80 text-[10px] text-fg">Sharing</span>}
-        {muted && <MicOff className="w-3 h-3 text-danger shrink-0" />}
+        {sharing && !isScreen && (
+          <span className="px-1 py-0.5 rounded bg-purple-600/80 text-[10px] text-fg">Sharing</span>
+        )}
+        {muted && !isScreen && <MicOff className="w-3 h-3 text-danger shrink-0" />}
       </div>
 
-      {!isSelf && (
+      {!isSelf && !isScreen && (
         <button
           onClick={() => useHuddleStore.getState().setPinned(pinned ? null : userId)}
           aria-label={pinned ? 'Unpin' : 'Pin'}
