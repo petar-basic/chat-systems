@@ -23,7 +23,7 @@ jobs:
 
       # A change to the workflow itself re-verifies both sides — otherwise a
       # broken filter could disable the checks it is supposed to select.
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
