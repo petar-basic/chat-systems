@@ -135,12 +135,7 @@ async fn invoke(
         return finish(&state, ch_id, auth.user_id, &command, response, may_post).await;
     }
 
-    let channel = state
-        .workspace_service
-        .repo
-        .find_channel_by_id(ch_id)
-        .await?
-        .ok_or_else(|| AppError::NotFound("No such channel".into()))?;
+    let channel = authz::find_channel(&state, ch_id).await?;
 
     let hook = state
         .hook_repo
@@ -208,12 +203,7 @@ async fn finish(
 
     if response.response_type == "in_channel" && !response.text.trim().is_empty() {
         let bot = serde_json::json!({ "name": format!("/{command}"), "icon_url": null });
-        let channel = state
-            .workspace_service
-            .repo
-            .find_channel_by_id(ch_id)
-            .await?
-            .ok_or_else(|| AppError::NotFound("Channel not found".into()))?;
+        let channel = authz::find_channel(state, ch_id).await?;
 
         let mut tx = state.pool.begin().await?;
         let msg = state

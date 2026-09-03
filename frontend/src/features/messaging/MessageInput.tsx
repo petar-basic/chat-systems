@@ -1,4 +1,5 @@
 import { useRef, useCallback, useMemo, useEffect, useState } from 'react';
+import { toUserMessage } from '@/lib/errors';
 import { formatDateTime } from '@/lib/datetime';
 import { Extension } from '@tiptap/core';
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -228,7 +229,7 @@ export default function MessageInput({
         setScheduleError(null);
         toast.success(`Scheduled for ${formatDateTime(sendAt)}`);
       } catch (err) {
-        toast.error((err as { message?: string })?.message || 'Could not schedule that message');
+        toast.error(toUserMessage(err, 'Could not schedule that message'));
       }
     },
     [editor, scheduleTarget, scheduleMessage, draftKey],
@@ -266,7 +267,14 @@ export default function MessageInput({
     // button sits under it and cannot be tapped.
     <div className={editing ? 'mt-1' : 'px-4 pb-4 max-sm:pb-[max(1rem,env(safe-area-inset-bottom))]'}>
       {onFileUpload && (
-        <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileChange} />
+        <input
+          aria-label="Attach files"
+          ref={fileInputRef}
+          type="file"
+          multiple
+          className="hidden"
+          onChange={handleFileChange}
+        />
       )}
       <div className="@container bg-surface border border-line rounded-xl">
         <div className="px-4 pt-3 pb-1">

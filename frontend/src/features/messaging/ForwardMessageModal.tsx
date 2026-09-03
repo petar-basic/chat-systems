@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { toUserMessage } from '@/lib/errors';
 import { Hash, MessageSquare, Search } from 'lucide-react';
 import { Modal } from '@/shared/components/Modal/Modal';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
@@ -67,7 +68,7 @@ export default function ForwardMessageModal({
       );
       onClose();
     } catch (err) {
-      setError((err as { message?: string })?.message || 'Failed to forward that message');
+      setError(toUserMessage(err, 'Failed to forward that message'));
     } finally {
       setSending(false);
     }

@@ -137,6 +137,7 @@ export default function TwoFactorPanel() {
           </a>
           <div className="flex gap-2">
             <input
+              aria-label="Authenticator code"
               type="text"
               inputMode="numeric"
               autoComplete="one-time-code"
@@ -188,6 +189,7 @@ export default function TwoFactorPanel() {
       {disabling && (
         <div className="flex gap-2">
           <input
+            aria-label="Current authenticator code"
             type="text"
             inputMode="numeric"
             autoComplete="one-time-code"

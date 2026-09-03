@@ -1,8 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react';
+import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { useQueryClient } from '@tanstack/react-query';
 import { X, Smile, Trash2, Upload } from 'lucide-react';
-import { api } from '../lib/api';
-import { instanceManager } from '../lib/instances';
 import { useCustomEmoji, customEmojiKey } from '@/hooks/queries/useCustomEmoji';
 import { toUserMessage } from '@/lib/errors';
 import { toast } from '@/shared/components/Toast';
@@ -22,7 +21,7 @@ export default function CustomEmojiPanel({ workspaceId, instanceUrl, onClose }: 
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const client = instanceUrl ? instanceManager.get(instanceUrl).api : api;
+  const client = getApiForInstance(instanceUrl);
   const refresh = () => queryClient.invalidateQueries({ queryKey: customEmojiKey(workspaceId) });
 
   const handleUpload = async (e: FormEvent) => {
@@ -89,6 +88,7 @@ export default function CustomEmojiPanel({ workspaceId, instanceUrl, onClose }: 
 
       <form onSubmit={handleUpload} className="px-3 py-3 border-b border-line/30 space-y-2">
         <input
+          aria-label="Emoji name"
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -97,6 +97,7 @@ export default function CustomEmojiPanel({ workspaceId, instanceUrl, onClose }: 
           className="w-full px-3 py-2 bg-surface border border-line rounded-lg text-fg text-sm placeholder-subtle focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
         <input
+          aria-label="Emoji image"
           ref={fileRef}
           type="file"
           accept="image/png,image/gif,image/webp,image/jpeg"

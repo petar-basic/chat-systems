@@ -76,17 +76,18 @@ process through Redis Streams consumer groups, each event to exactly one replica
 | Component         | Technology                                                        |
 |-------------------|------------------------------------------------------------------|
 | **chat-api**      | Rust (Axum) — stateless REST API                                 |
-| **chat-worker**   | Rust — background consumers (webhooks, reminders, notifications, scheduled messages) |
+| **chat-worker**   | Rust — background consumers (webhooks, reminders, notifications, scheduled messages, email, event outbox relay) |
 | **chat-realtime** | Rust (Axum) — WebSocket gateway                                  |
 | **Frontend**      | React 19, Vite, React Router, TailwindCSS, Zustand, TanStack Query |
 | **Edge (prod)**   | Caddy — automatic HTTPS + reverse proxy                          |
 | **Database**      | PostgreSQL 16                                                    |
-| **Cache / PubSub**| Redis 7                                                          |
+| **Bus**           | Redis 7 — streams with consumer groups, live pub/sub, presence, rate limits |
 | **Storage**       | Local disk, or MinIO / S3                                        |
 
 ```
-HTTP request → chat-api → PostgreSQL write → Redis PUBLISH
-            → chat-realtime consumer → WebSocket push to subscribed clients
+HTTP request → chat-api → PostgreSQL write + outbox row → Redis stream + publish
+            → chat-realtime → WebSocket push          (clients replay the stream on reconnect)
+            → chat-worker consumer groups → notifications, webhooks, history
 ```
 
 ## Try it locally
@@ -127,15 +128,15 @@ unsigned-binary warnings, and it updates the moment you deploy:
 
 Honest about the edges, since this is a reference codebase:
 
-- **Real-time delivery is at-most-once.** Events fan out over Redis pub/sub; a client
-  that misses messages while disconnected recovers by refetching open views on reconnect,
-  not by replaying a gap. Durable delivery (Redis Streams + a per-client cursor) is the
-  next planned step — see the [roadmap](docs/ROADMAP.md).
+- **Real-time delivery is at-least-once, not exactly-once.** Every durable event is
+  written through an outbox and a per-workspace Redis Stream, and a reconnecting client
+  replays from its cursor; a gap longer than the stream keeps (10 000 entries) falls back
+  to refetching open views. Consumers and clients are written to tolerate a duplicate.
 - **Huddles use a WebRTC mesh**, which is great up to ~6–8 participants; large all-hands
   calls would need an SFU.
-- **No SSO/2FA yet** — email + password only.
-- **Notifications arrive only while the app is open** (an installed PWA counts as
-  open while its window runs). Web Push for closed-app delivery is planned.
+- **One instance is one trust domain.** SSO, TOTP and SCIM are per instance, not per
+  workspace, and there is no cross-organisation sharing.
+- **Search covers message text**, not file names or contents.
 
 The full prioritized list lives in **[docs/ROADMAP.md](docs/ROADMAP.md)**.
 

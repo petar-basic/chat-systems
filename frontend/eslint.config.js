@@ -7,7 +7,14 @@ import prettier from 'eslint-config-prettier';
 import { defineConfig, globalIgnores } from 'eslint/config';
 
 export default defineConfig([
-  globalIgnores(['dist', 'release', 'playwright-report', 'test-results', 'src/api/schema.d.ts', 'src/api/serverFrames.ts']),
+  globalIgnores([
+    'dist',
+    'release',
+    'playwright-report',
+    'test-results',
+    'src/api/schema.d.ts',
+    'src/api/serverFrames.ts',
+  ]),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -42,15 +49,6 @@ export default defineConfig([
     files: ['src/features/messaging/MessageInput.tsx'],
     rules: {
       'react-hooks/refs': 'warn',
-    },
-  },
-  {
-    // The one page still fetching by hand rather than through react-query;
-    // its loaders set a loading flag straight from the effect. Queued for
-    // conversion, and a warning until then.
-    files: ['src/pages/InstanceAdminPage.tsx'],
-    rules: {
-      'react-hooks/set-state-in-effect': 'warn',
     },
   },
   {

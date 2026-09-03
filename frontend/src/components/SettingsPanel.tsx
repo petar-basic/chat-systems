@@ -1,9 +1,9 @@
 import { useRef, useState, type FormEvent } from 'react';
+import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { useNavigate } from 'react-router';
 import { X, Save, Trash2, AlertTriangle, RotateCcw } from 'lucide-react';
 import { useRestoreWorkspace } from '../hooks/queries/useWorkspaces';
 import { useQueryClient } from '@tanstack/react-query';
-import { instanceManager } from '../lib/instances';
 import { api } from '../lib/api';
 import { logger } from '@/lib/logger';
 import { toast } from '@/shared/components/Toast';
@@ -49,7 +49,7 @@ export default function SettingsPanel({
   const restoreMutation = useRestoreWorkspace();
 
   const getApi = () => {
-    if (instanceUrl) return instanceManager.get(instanceUrl).api;
+    if (instanceUrl) return getApiForInstance(instanceUrl);
     return api;
   };
 
@@ -178,6 +178,7 @@ export default function SettingsPanel({
               )}
             </div>
             <input
+              aria-label="Workspace icon"
               ref={iconInputRef}
               type="file"
               accept="image/*"

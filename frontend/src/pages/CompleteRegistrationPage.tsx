@@ -222,6 +222,7 @@ export default function CompleteRegistrationPage() {
           <div className="mb-4">
             <label className="block text-sm font-medium text-fg-dim mb-2">Email</label>
             <input
+              aria-label="Email address"
               type="email"
               value={inviteInfo.email}
               disabled

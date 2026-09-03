@@ -1,12 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useAttachmentUpload } from '@/features/messaging/useAttachmentUpload';
 import type { Channel, Workspace } from '@/stores/workspace';
 import { commandResultText, parseCommand, runCommand } from '@/lib/slashCommands';
 import { toUserMessage } from '@/lib/errors';
 import { useTypingSignal, typingTargetOf } from '@/shared/hooks/useTypingSignal';
-import { logger } from '@/lib/logger';
-import { toast } from '@/shared/components/Toast';
-import { ErrorLabels } from '@/shared/constants';
-import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { useSendMessage } from '@/hooks/queries/useMessages';
 
 interface Args {
@@ -24,7 +21,6 @@ export function useComposer({ currentWorkspace, currentChannel, userId, currentW
     typingTargetOf(currentChannel?.id),
     currentWorkspace?.instanceUrl,
   );
-  const [uploading, setUploading] = useState(false);
 
   const [commandBanner, setCommandBanner] = useState<{ text: string; channelId: string } | null>(null);
   const ephemeral = commandBanner?.channelId === currentChannel?.id ? (commandBanner?.text ?? null) : null;
@@ -65,31 +61,11 @@ export function useComposer({ currentWorkspace, currentChannel, userId, currentW
     [currentChannel, userId, stopTyping, sendMessageMutation, currentWsInstanceUrl],
   );
 
-  const handleFileUpload = useCallback(
-    async (file: File) => {
-      if (!currentWorkspace || !currentChannel) return;
-      setUploading(true);
-      try {
-        const formData = new FormData();
-        formData.append('file', file);
-        const uploaded = await getApiForInstance(currentWorkspace.instanceUrl).upload<
-          { filename: string; url: string }[]
-        >(`/files/upload/${currentWorkspace.id}`, formData);
-        for (const f of uploaded) {
-          sendMessageMutation.mutate({
-            content: `[file: ${f.filename}](${f.url})`,
-            id: crypto.randomUUID(),
-          });
-        }
-      } catch (err) {
-        logger.error('WorkspacePage', 'handleFileUpload', err);
-        toast.error(ErrorLabels.UploadFailed);
-      } finally {
-        setUploading(false);
-      }
-    },
-    [currentWorkspace, currentChannel, sendMessageMutation],
-  );
+  const { uploading, handleFileUpload } = useAttachmentUpload({
+    workspaceId: currentChannel ? currentWorkspace?.id : undefined,
+    instanceUrl: currentWorkspace?.instanceUrl,
+    send: (content) => sendMessageMutation.mutate({ content, id: crypto.randomUUID() }),
+  });
 
   return {
     ephemeral,

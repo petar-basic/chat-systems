@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { ArrowLeft, Menu } from 'lucide-react';
 import { useUserCache } from '@/stores/users';
 import { usePresenceStore } from '@/stores/presence';
@@ -10,17 +9,14 @@ import { displayNameOf } from '@/lib/userHelpers';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { ConnectionBanner } from '@/shared/components/ConnectionBanner/ConnectionBanner';
 import { HuddleStartButton } from '@/features/huddle';
-import { ErrorLabels } from '@/shared/constants';
-import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { useTypingSignal, typingTargetOf } from '@/shared/hooks/useTypingSignal';
-import { logger } from '@/lib/logger';
-import { toast } from '@/shared/components/Toast';
 import { FileDropZone } from '@/shared/components/FileDropZone';
 import { uploadFilesSequentially } from '@/lib/fileUploads';
 import PresenceDot from '@/components/PresenceDot';
 import TypingIndicator from '@/components/TypingIndicator';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
+import { useAttachmentUpload } from './useAttachmentUpload';
 
 interface Props {
   workspaceId: string;
@@ -64,32 +60,16 @@ export default function ConversationView({
 
   const sendMutation = useSendMessage(conversation.id, currentUserId);
   const { signalTyping, stopTyping } = useTypingSignal(typingTargetOf(conversation.id), instanceUrl);
-  const [uploading, setUploading] = useState(false);
-
   const handleSend = async (content: string) => {
     stopTyping();
     sendMutation.mutate({ content, id: crypto.randomUUID() });
   };
 
-  const handleFileUpload = async (file: File) => {
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const uploaded = await getApiForInstance(instanceUrl).upload<{ filename: string; url: string }[]>(
-        `/files/upload/${workspaceId}`,
-        formData,
-      );
-      for (const f of uploaded) {
-        sendMutation.mutate({ content: `[file: ${f.filename}](${f.url})`, id: crypto.randomUUID() });
-      }
-    } catch (err) {
-      logger.error('ConversationView', 'handleFileUpload', err);
-      toast.error(ErrorLabels.UploadFailed);
-    } finally {
-      setUploading(false);
-    }
-  };
+  const { uploading, handleFileUpload } = useAttachmentUpload({
+    workspaceId,
+    instanceUrl,
+    send: (content) => sendMutation.mutate({ content, id: crypto.randomUUID() }),
+  });
 
   return (
     <FileDropZone

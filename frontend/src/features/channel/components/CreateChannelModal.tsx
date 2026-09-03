@@ -50,6 +50,7 @@ export function CreateChannelModal({ channels, onCreate, onClose }: Props) {
       <form onSubmit={handleSubmit} noValidate>
         <h2 className="text-lg font-bold text-fg mb-4">Create Channel</h2>
         <input
+          aria-label="Channel name"
           type="text"
           value={name}
           onChange={(e) => {

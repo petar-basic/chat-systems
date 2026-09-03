@@ -1,5 +1,4 @@
-import { api } from './api';
-import { instanceManager } from './instances';
+import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { ApiError } from './errors';
 import { formatDateTime } from './datetime';
 import type { components } from '@/api/schema';
@@ -35,7 +34,7 @@ export async function runCommand(
   const parsed = parseCommand(content);
   if (!parsed) return null;
 
-  const client = instanceUrl ? instanceManager.get(instanceUrl).api : api;
+  const client = getApiForInstance(instanceUrl);
   try {
     return await client.typed((c) =>
       c.POST('/channels/{ch_id}/commands', { params: { path: { ch_id: channelId } }, body: parsed }),

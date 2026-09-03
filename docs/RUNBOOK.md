@@ -423,6 +423,24 @@ Reconnecting clients never see a ring in their replay.
 **Migrations 39 and 40** add `pending_mention_emails`, `users.mention_emails` and
 `huddle_ring_claims`. All additive.
 
+## Upgrade note: the 2026-09 follow-ups fold direct messages into channels
+
+Migrations 43–45 ship together. **Take a backup first** (see below): 45 is not reversible.
+
+- **Migration 45 makes every conversation a channel** of type `dm` or `group_dm`, moves
+  its messages, reactions, edit history, attachments, saved and scheduled rows onto the
+  channel tables with their ids preserved, and drops the conversation tables. Old clients
+  break: the `/conversations/…/messages` routes and the `conversation.message.*` frames are
+  gone, so deploy api, worker, realtime and frontend in one go. Retention policies now cover
+  direct messages, which they previously did not reach.
+- **Migration 44 adds `event_outbox`** and migration 43 `outbound_emails`. Both are additive,
+  but email is now delivered by `chat-worker`, so the worker needs the same `SMTP_*`
+  settings as the api (the compose files carry them; a hand-written deployment must add
+  them). The relay and the outbox prune themselves.
+- **Every query is now a compile-time-checked macro.** A build from source needs either
+  `DATABASE_URL` pointing at a migrated database or the committed `.sqlx/` cache with
+  `SQLX_OFFLINE=true`; the Docker build uses the cache.
+
 ## Audit log
 
 `GET /api/workspaces/:ws_id/audit-log` (workspace admin) and `GET /api/admin/audit-log`

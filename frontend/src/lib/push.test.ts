@@ -4,21 +4,16 @@ const get = vi.fn();
 const post = vi.fn();
 const del = vi.fn();
 
-const ok = async (spy: (...args: unknown[]) => unknown, ...args: unknown[]) => ({
-  data: await spy(...args),
-  response: { ok: true, status: 200 },
+vi.mock('./api', async () => {
+  const { typedApiMock } = await import('@/test/typedApiMock');
+  return {
+    api: typedApiMock({
+      get: (...args) => get(...args),
+      post: (...args) => post(...args),
+      delete: (...args) => del(...args),
+    }),
+  };
 });
-
-vi.mock('./api', () => ({
-  api: {
-    typed: (op: (client: unknown) => Promise<{ data: unknown }>) =>
-      op({
-        GET: (path: string) => ok(get, path),
-        POST: (path: string, init?: { body?: unknown }) => ok(post, path, init?.body),
-        DELETE: (path: string, init?: { body?: unknown }) => ok(del, path, init?.body),
-      }).then((result) => result.data),
-  },
-}));
 
 const requestPermission = vi.fn();
 const subscribeOnManager = vi.fn();

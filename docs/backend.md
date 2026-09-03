@@ -39,19 +39,31 @@ make a duplicate mention or call notification impossible, and outgoing webhooks 
 - **Two binaries, not one.** The REST API is request/response and **stateless**; the
   WebSocket gateway is long-lived and **connection-stateful**. Splitting them lets each
   scale and fail independently — you can run many api replicas and many realtime nodes.
-- **Redis as the bus.** The api never talks to sockets directly. It `PUBLISH`es domain
-  events to Redis; every realtime node runs a consumer and pushes to *its* locally
-  connected clients. Result: an event from any api replica reaches sockets on every
-  realtime node, with no sticky sessions. Redis also backs presence (TTL-keyed per node,
-  self-healing) and rate-limit counters.
-- **PostgreSQL + sqlx.** Compile-time-checked, fully parameterized queries; soft deletes,
-  partial indexes, and a GIN full-text index for search. Migrations run automatically on
-  api startup (`sqlx::migrate!`).
+- **Redis as the bus, Postgres as the ledger.** The api never talks to sockets directly.
+  A durable event (message, reaction, membership, ring) is written to `event_outbox` in
+  the same transaction as the row it describes, then appended to the workspace's Redis
+  Stream (`stream:ws:{id}`) and published live; a relay in the worker re-sends anything
+  the fast path missed. Every realtime node reads the live channel and pushes to *its*
+  connected clients, and a reconnecting client replays the stream from its cursor. The
+  worker's consumers read the streams through consumer groups, so each event reaches
+  exactly one replica. Redis also backs presence (TTL-keyed per node, self-healing) and
+  rate-limit counters.
+- **PostgreSQL + sqlx.** Every query is a `sqlx::query!` macro checked against the schema
+  at compile time (the committed `.sqlx/` cache makes that work without a database, which
+  is how the image builds); fully parameterized, soft deletes, partial indexes, a GIN
+  full-text index plus trigram fallback for search. Migrations run automatically on api
+  startup (`sqlx::migrate!`).
+- **Boring libraries for boring problems.** `object_store` for local disk and S3, `garde`
+  for request validation, `askama` for email templates, `utoipa` for the OpenAPI document,
+  `ts-rs` for the WebSocket frame types, `ipnet` for proxy trust, `backon` for retries.
+  Each replaced a hand-rolled version that had accumulated its own bugs.
 
 ### Feature-modular layering
 
-Every feature under `api/src/` (`auth`, `workspace`, `messaging`, `dm`, `files`, `hooks`,
-`notifications`, `admin`, `huddle`) follows the same shape, with files added only where warranted:
+Every feature under `api/src/` (`auth`, `workspace`, `conversations`, `messaging`, `files`,
+`hooks`, `notifications`, `scheduled`, `saved`, `groups`, `emoji`, `retention`, `export`,
+`slack_import`, `scim`, `push`, `commands`, `huddle`, `admin`) follows the same shape, with
+files added only where warranted:
 
 | File | Responsibility |
 |------|----------------|
@@ -60,7 +72,7 @@ Every feature under `api/src/` (`auth`, `workspace`, `messaging`, `dm`, `files`,
 | `repo.rs` | **all** SQL for the feature; the only place that touches the pool |
 | `models.rs` | request/response and row types |
 | `publisher.rs` / `consumer.rs` / `executor.rs` | Redis publish / background consumers / outbound execution |
-| `storage.rs` | storage backend abstraction (files) |
+| `storage.rs` | the `object_store`-backed file store (files) |
 
 Rules that keep it from rotting: routes never write SQL, a feature never reaches into
 another feature's repo, and `AppState` (`state.rs`) is the single composition root wired
@@ -81,9 +93,17 @@ in `main.rs`.
   messaging and files routers (120 writes / 60s per user).
 - **Error handling.** `AppError` (`shared/common`) maps to status codes; 500-class errors
   log detail but return an opaque body so internals/SQL never leak (with tests proving it).
-- **Files.** A `FileStorage` trait abstracts local disk vs S3/MinIO; both serve downloads
-  through the authenticated `/api/files/download` route, so the object store stays private
-  and access is gated by workspace **and** channel membership.
+- **Files.** `FileStorage` wraps an `object_store` backend (local disk or S3/MinIO) and
+  streams multipart uploads; downloads go through the authenticated `/api/files/download`
+  route, so the object store stays private and access is gated by channel membership —
+  which covers direct messages, since a DM is a channel.
+- **Validation.** Request DTOs derive `garde::Validate` with the rule declared on the
+  field; a handler calls `req.validate()?` and a violation is a 422 with the field named.
+- **Email.** Invites, resets and mention digests are queued in `outbound_emails` inside
+  the request and delivered by the worker with retries and backoff; templates are `askama`.
+- **The API contract is generated.** Handlers carry `#[utoipa::path]`, the document is
+  served at `/api/openapi.json`, and the frontend's types and WebSocket frame union are
+  generated from the backend; CI fails when either is stale.
 - **Webhooks.** Outbound delivery is SSRF-hardened (scheme allow-list, DNS resolution with
   private/loopback/link-local/metadata-IP blocking, redirects disabled) and HMAC-signed.
 
@@ -95,7 +115,7 @@ full Axum router via `tower::oneshot` — real middleware, real auth, real JSON 
 the authorization matrix per endpoint. Realtime tests use real Redis + Postgres and assert
 the right frames reach the right subscribers.
 
-**Where the databases come from.** Running all 36 migrations per test cost about 0.4s and
+**Where the databases come from.** Running all 45 migrations per test cost about 0.4s and
 there are several hundred tests. The first test in a process builds a *template* database
 instead — migrations once, behind an advisory lock so parallel test binaries do not race —
 and every test after it clones the template with `CREATE DATABASE ... TEMPLATE`, which costs
@@ -262,21 +282,6 @@ A background dispatcher ticks every 15s and claims due rows with
 can run it without delivering a message twice. Delivery reuses the normal send path — mentions
 are expanded and `message.created` is published — and a failure is recorded on the row instead
 of retried.
-
----
-
-----|-------|-------|--------|
-| GET | `/workspaces/:ws_id/dm` | — | `{ data: DmConversation[] }` |
-| GET | `/workspaces/:ws_id/dm/:user_id` | Query: `limit=50, before?` | `{ data: DirectMessage[], next_cursor }` |
-| POST | `/workspaces/:ws_id/dm/:user_id` | `{ content, id? }` | `DirectMessage` |
-| POST | `/workspaces/:ws_id/dm/:user_id/read` | — | `{ status: "ok" }` |
-| PATCH | `/workspaces/:ws_id/dm/:user_id/:msg_id` | `{ content }` | `DirectMessage` |
-| DELETE | `/workspaces/:ws_id/dm/:user_id/:msg_id` | — | `{ status: "deleted" }` |
-| POST | `/workspaces/:ws_id/dm/:user_id/:msg_id/reactions` | `{ emoji }` | `DmReaction` |
-| DELETE | `/workspaces/:ws_id/dm/:user_id/:msg_id/reactions/:emoji` | — | `{ status: "ok" }` |
-
-Edit/delete are author-only. Mutations publish to `events:dm` (`dm.created`, `dm.updated`,
-`dm.deleted`, `dm.reaction.added`, `dm.reaction.removed`), fanned out to both participants.
 
 ---
 
@@ -574,7 +579,7 @@ Live voice/video rooms (Slack-style huddles) over mesh WebRTC. Live membership a
 
 ## chat-realtime (WebSocket Gateway)
 
-Single WebSocket endpoint. Validates the JWT on the upgrade handshake, re-checks channel/workspace membership against the DB on every subscribe/join, then relays Redis pub/sub events to connected clients. The socket is also closed when the access token's `exp` passes, so a long-lived connection can't outlive its token.
+Single WebSocket endpoint. Validates the JWT on the upgrade handshake, re-checks channel/workspace membership against the DB on every subscribe/join, then relays events from Redis to connected clients: the live pub/sub channels for latency, and the per-workspace stream for replay after a reconnect. Every frame it sends is a `ServerFrame` variant (`shared/events`), and the frontend's frame union is generated from that enum. The socket is also closed when the access token's `exp` passes, so a long-lived connection can't outlive its token.
 
 The upgrade additionally checks the `Origin` against the configured CORS origins and rejects a token covered by a revocation record. A revocation stores the moment it happened rather than a boolean, so it invalidates every token issued up to that point while leaving a later sign-in working, and it can spare one named session (`except_jti`) — which is what lets "log out my other devices" keep the device you are typing on. `session.revoked` closes the matching live sockets with close code `4001` and a reason; suspending a user closes all of theirs. Alongside `/ws`, the gateway serves `/livez`, `/readyz` (DB + Redis + event-consumer liveness — it reports unhealthy if the consumer has stalled), and `/metrics` (Prometheus: connection count, consumer heartbeat age, events, backpressure drops). Presence is workspace-scoped: a client only sees the online roster and status changes for workspaces it shares. See [RUNBOOK.md](RUNBOOK.md) for ops.
 
@@ -614,14 +619,14 @@ batch cannot become the flood it replaced.
 
 `offer`/`answer`/`ice` are relayed only to `to_user_id` (and only when both users are current room members); the rest broadcast to the room. On join the caller gets a `huddle.members` snapshot. Disconnect removes the user and, when a room empties, the API consumer emits `huddle.ended`.
 
-**Outgoing events pushed to client** (sourced from Redis pub/sub):
+**Outgoing events pushed to client** (live copies arrive on these pub/sub channels; the durable ones are also on `stream:ws:{id}` for replay):
 
 | Redis channel | Event types |
 |---------------|-------------|
 | `events:message` | `message.created`, `message.updated`, `message.deleted`, `message.pinned` |
 | `events:reaction` | `reaction.added`, `reaction.removed` |
 | `events:notification` | `notification.push` |
-| `events:dm` | `dm.created`, `dm.updated`, `dm.deleted`, `dm.reaction.added`, `dm.reaction.removed` |
+| `events:conversation` | `conversation.created` — fanned out to the participants; a conversation's messages are ordinary `message.*` / `reaction.*` events on its channel id |
 | `events:presence` | `presence.changed` (fanned out only to workspaces shared with the subject) |
 | `events:typing` | `typing.indicator` |
 | `events:workspace` | `workspace.deleted`, `workspace.restored` |
@@ -651,8 +656,8 @@ All events use the envelope: `{ id, event_type, payload, timestamp }`.
 ```
 HTTP Request
   → API handler
-  → PostgreSQL write
-  → Redis PUBLISH
-  → chat-realtime event consumer
-  → WebSocket PUSH to subscribed clients
+  → PostgreSQL write + event_outbox row (one transaction)
+  → XADD stream:ws:{id} + PUBLISH events:*      (outbox relay covers a crash in between)
+  → chat-realtime event consumer → WebSocket PUSH to subscribed clients
+  → chat-worker consumer groups  → notifications, webhooks, history (each event once)
 ```

@@ -87,9 +87,11 @@ in `chat-worker`, one replica by contract. Two safety nets underneath: a partial
 index makes a duplicate mention notification impossible, and reminders are claimed with
 `FOR UPDATE SKIP LOCKED` the way scheduled messages already were.
 
-### [CS-005] Compile-time-checked queries — decided
-Adopt `sqlx::query_as!` for new code, convert existing runtime queries opportunistically,
-no big-bang rewrite. `SQLX_OFFLINE=true` in the image build and
+### [CS-005] Compile-time-checked queries — done
+Decided 2026-08-07 as "new code uses `sqlx::query_as!`, convert the rest opportunistically";
+completed as a single pass on 2026-09-02 instead, once the architecture review made the
+runtime queries the last place a schema change could hide. Every query is a macro now,
+`.sqlx/` is committed, `SQLX_OFFLINE=true` in the image build and
 `cargo sqlx prepare --check` in CI are the guardrails. Rationale and the contributor
 rule are in [CONTRIBUTING.md](./CONTRIBUTING.md#backend-rust).
 

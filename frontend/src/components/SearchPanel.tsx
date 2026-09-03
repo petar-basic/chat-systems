@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { toUserMessage } from '@/lib/errors';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { useUserCache } from '../stores/users';
 import { useWorkspaceStore } from '../stores/workspace';
@@ -98,7 +99,7 @@ export default function SearchPanel({ onClose, onNavigateToMessage, onNavigateTo
         setResults(res.data);
       } catch (err: unknown) {
         setResults([]);
-        setError((err as { message?: string })?.message || 'Search failed');
+        setError(toUserMessage(err, 'Search failed'));
       } finally {
         setLoading(false);
       }
