@@ -219,7 +219,7 @@ jobs:
       - name: Generate CI secrets
         run: ./.github/scripts/ci-env.sh
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
       # api, worker and realtime are the same image under three tags, so the
       # workspace is compiled once here rather than three times by compose.
