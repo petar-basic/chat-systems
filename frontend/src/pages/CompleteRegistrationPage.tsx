@@ -6,13 +6,9 @@ import { useCompleteRegistration } from '../hooks/queries/useAuth';
 import { useInstanceStore } from '@/stores/instances';
 import { instanceManager } from '@/lib/instances';
 import { QUERY_KEYS, PENDING_INVITE_KEY } from '@/shared/constants';
+import type { components } from '@/api/schema';
 
-interface InviteInfo {
-  email: string;
-  workspace_name: string | null;
-  workspace_id: string | null;
-  already_registered: boolean;
-}
+type InviteInfo = components['schemas']['InvitePreview'];
 
 export default function CompleteRegistrationPage() {
   const { token: pathToken } = useParams<{ token: string }>();
@@ -51,7 +47,7 @@ export default function CompleteRegistrationPage() {
     if (!token) return;
     instanceManager
       .get(originUrl)
-      .api.get<InviteInfo>(`/auth/invites/${token}/verify`)
+      .api.typed((c) => c.GET('/auth/invites/{token}/verify', { params: { path: { token } } }))
       .then(setInviteInfo)
       .catch(() => setVerifyError('This invite link is invalid or has expired.'));
   }, [token, originUrl]);
@@ -63,7 +59,7 @@ export default function CompleteRegistrationPage() {
     try {
       const res = await instanceManager
         .get(originUrl)
-        .api.post<{ workspace_id: string }>(`/auth/invites/${token}/accept`);
+        .api.typed((c) => c.POST('/auth/invites/{token}/accept', { params: { path: { token } } }));
       setActiveInstance(originUrl);
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaces() });
       navigate(`/app/${res.workspace_id}`, { replace: true });

@@ -2,36 +2,10 @@ use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
 
-use crate::conversations::models::Conversation;
 use crate::state::AppState;
 use crate::workspace::models::{
-    Channel, ChannelMember, ChannelRole, ChannelType, WorkspaceMember, WorkspaceRole,
+    Channel, ChannelMember, ChannelRole, ChannelType, PostPolicy, WorkspaceMember, WorkspaceRole,
 };
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PostPolicy {
-    Everyone,
-    Moderators,
-}
-
-impl PostPolicy {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Everyone => "everyone",
-            Self::Moderators => "moderators",
-        }
-    }
-
-    pub fn parse(value: &str) -> AppResult<Self> {
-        match value {
-            "everyone" => Ok(Self::Everyone),
-            "moderators" => Ok(Self::Moderators),
-            other => Err(AppError::Validation(format!(
-                "post_policy is 'everyone' or 'moderators', not '{other}'"
-            ))),
-        }
-    }
-}
 
 pub struct ChannelAccess {
     pub channel: Channel,
@@ -211,30 +185,6 @@ pub async fn require_channel_moderator(
     Err(AppError::Forbidden(
         "Requires channel admin or workspace admin".into(),
     ))
-}
-
-pub async fn require_conversation_participant(
-    state: &AppState,
-    conversation_id: Uuid,
-    user_id: Uuid,
-) -> AppResult<Conversation> {
-    let conversation = state
-        .conversation_repo
-        .find_by_id(conversation_id)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Conversation not found".into()))?;
-
-    if !state
-        .conversation_repo
-        .is_participant(conversation_id, user_id)
-        .await?
-    {
-        return Err(AppError::Forbidden(
-            "Not a participant in this conversation".into(),
-        ));
-    }
-
-    Ok(conversation)
 }
 
 #[cfg(test)]

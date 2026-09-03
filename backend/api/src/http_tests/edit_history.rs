@@ -239,7 +239,7 @@ async fn conversation_messages_keep_history_too(pool: PgPool) {
     let (_, msg) = send(
         &app,
         "POST",
-        &format!("/api/conversations/{conv_id}/messages"),
+        &format!("/api/channels/{conv_id}/messages"),
         Some(&alice),
         Some(json!({ "content": "original" })),
     )
@@ -249,7 +249,7 @@ async fn conversation_messages_keep_history_too(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/conversations/messages/{msg_id}"),
+        &format!("/api/messages/{msg_id}"),
         Some(&alice),
         Some(json!({ "content": "revised" })),
     )
@@ -259,7 +259,7 @@ async fn conversation_messages_keep_history_too(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/conversations/messages/{msg_id}/history"),
+        &format!("/api/messages/{msg_id}/history"),
         Some(&alice),
         None,
     )
@@ -270,7 +270,7 @@ async fn conversation_messages_keep_history_too(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/conversations/messages/{msg_id}/history"),
+        &format!("/api/messages/{msg_id}/history"),
         Some(&bob),
         None,
     )

@@ -1,0 +1,134 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE reminders\n            SET is_delivered = true\n            WHERE id IN (\n                SELECT id FROM reminders\n                WHERE remind_at <= NOW() AND is_delivered = false\n                ORDER BY remind_at\n                FOR UPDATE SKIP LOCKED\n                LIMIT 100\n            )\n            RETURNING id, workspace_id, created_by, target_user_id, channel_id, message_id, content, remind_at,\n                   is_delivered AS \"is_delivered!\", created_at\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "reminders",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "reminders",
+            "name": "workspace_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "created_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "reminders",
+            "name": "created_by"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "target_user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "reminders",
+            "name": "target_user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "channel_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "reminders",
+            "name": "channel_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "message_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "reminders",
+            "name": "message_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "content",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "reminders",
+            "name": "content"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "remind_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "reminders",
+            "name": "remind_at"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "is_delivered!",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "reminders",
+            "name": "is_delivered"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "reminders",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "8ef4ee6173b3318eec165d32777e679c63100a647fa6e198a5038ec5617fc395"
+}

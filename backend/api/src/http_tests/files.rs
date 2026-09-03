@@ -559,7 +559,7 @@ async fn a_dm_attachment_is_readable_by_participants_and_nobody_else(pool: PgPoo
     let (status, msg) = send(
         &app,
         "POST",
-        &format!("/api/conversations/{conv_id}/messages"),
+        &format!("/api/channels/{conv_id}/messages"),
         Some(&alice),
         Some(json!({ "content": format!("here it is /api/files/download/{key}") })),
     )

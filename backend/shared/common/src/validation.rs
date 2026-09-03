@@ -274,6 +274,75 @@ pub fn validate_status_emoji(emoji: &str) -> AppResult<()> {
     Ok(())
 }
 
+pub mod rules {
+    use super::*;
+
+    fn adapt(result: AppResult<()>) -> garde::Result {
+        result.map_err(|e| match e {
+            AppError::Validation(message) => garde::Error::new(message),
+            other => garde::Error::new(other.to_string()),
+        })
+    }
+
+    macro_rules! rule {
+        ($name:ident, $validate:ident) => {
+            pub fn $name(value: &str, _: &()) -> garde::Result {
+                adapt($validate(value))
+            }
+        };
+    }
+
+    rule!(email, validate_email);
+    rule!(password, validate_password);
+    rule!(display_name, validate_display_name);
+    rule!(workspace_name, validate_workspace_name);
+    rule!(channel_name, validate_channel_name);
+    rule!(message_content, validate_message_content);
+    rule!(reaction_emoji, validate_reaction_emoji);
+    rule!(reminder_content, validate_reminder_content);
+    rule!(channel_topic, validate_channel_topic);
+    rule!(description, validate_description);
+    rule!(hook_name, validate_hook_name);
+    rule!(bio, validate_bio);
+    rule!(timezone, validate_timezone);
+    rule!(bookmark_label, validate_bookmark_label);
+    rule!(bookmark_url, validate_bookmark_url);
+
+    pub fn avatar_url_or_empty(value: &str, _: &()) -> garde::Result {
+        if value.is_empty() {
+            return Ok(());
+        }
+        adapt(validate_avatar_url(value))
+    }
+
+    pub fn icon_url_or_empty(value: &str, _: &()) -> garde::Result {
+        if value.is_empty() {
+            return Ok(());
+        }
+        adapt(validate_icon_url(value))
+    }
+
+    pub fn status_text_or_blank(value: &str, _: &()) -> garde::Result {
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            return Ok(());
+        }
+        adapt(validate_status_text(trimmed))
+    }
+
+    pub fn status_emoji_or_blank(value: &str, _: &()) -> garde::Result {
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            return Ok(());
+        }
+        adapt(validate_status_emoji(trimmed))
+    }
+
+    pub fn client_message_id(value: &uuid::Uuid, _: &()) -> garde::Result {
+        adapt(validate_client_message_id(*value))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

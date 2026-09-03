@@ -138,11 +138,7 @@ async fn authenticate(
     peer: Option<std::net::SocketAddr>,
 ) -> ScimResult<ScimToken> {
     let mut conn = state.redis.clone();
-    if let Some(ip) = crate::net::client_ip(
-        headers,
-        peer,
-        &crate::net::parse_trusted_proxies(&state.config.trusted_proxies),
-    ) {
+    if let Some(ip) = crate::net::client_ip(headers, peer, &state.config.trusted_proxies) {
         crate::rate_limit::enforce(
             &mut conn,
             &format!("rate_limit:scim_ip:{ip}"),
@@ -223,20 +219,20 @@ async fn list_users(
                 .into_iter()
                 .collect()
         }
-        None => sqlx::query_as::<_, User>(
-            "SELECT * FROM users ORDER BY created_at, id OFFSET $1 LIMIT $2",
-        )
-        .bind(start_index - 1)
-        .bind(count)
-        .fetch_all(&state.pool)
-        .await
-        .map_err(|e| ScimError::new(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?,
+        None => state
+            .auth_service
+            .repo()
+            .list_page(start_index - 1, count)
+            .await
+            .map_err(|e| ScimError::new(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?,
     };
 
     let total: i64 = match query.filter {
         Some(_) => users.len() as i64,
-        None => sqlx::query_scalar("SELECT COUNT(*) FROM users")
-            .fetch_one(&state.pool)
+        None => state
+            .auth_service
+            .repo()
+            .count()
             .await
             .map_err(|e| ScimError::new(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?,
     };

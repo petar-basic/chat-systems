@@ -286,7 +286,6 @@ function MessageItem({
         {showHistory && (
           <EditHistoryPanel
             messageId={message.id}
-            scope="channel"
             currentContent={message.content}
             onClose={() => setShowHistory(false)}
           />

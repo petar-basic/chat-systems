@@ -5,3 +5,6 @@ coverage
 playwright-report
 test-results
 *.md
+src/api/schema.d.ts
+src/api/serverFrames.ts
+src/api/openapi.json

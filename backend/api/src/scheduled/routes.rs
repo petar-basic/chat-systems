@@ -1,120 +1,69 @@
 use std::sync::Arc;
 
 use axum::extract::{Path, State};
-use axum::routing::{delete, get, patch};
-use axum::{Json, Router};
-use chrono::{DateTime, Duration, Utc};
+use axum::Json;
+use garde::Validate;
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::routes;
 use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
-use shared_common::validation;
 
 use super::models::*;
 use super::repo::NewScheduledMessage;
+use crate::dto::{DataList, StatusResponse};
 use crate::middleware::AuthUser;
 use crate::state::AppState;
 
-const MAX_SCHEDULE_AHEAD_DAYS: i64 = 120;
-
-pub fn router(state: Arc<AppState>) -> Router {
-    let routes = Router::new()
-        .route(
-            "/workspaces/{ws_id}/scheduled-messages",
-            get(list_scheduled).post(create_scheduled),
-        )
-        .route("/scheduled-messages/{id}", patch(reschedule))
-        .route("/scheduled-messages/{id}", delete(cancel_scheduled));
-
-    crate::protected(state, routes)
-}
-
-fn validate_send_at(send_at: DateTime<Utc>) -> AppResult<()> {
-    let now = Utc::now();
-    if send_at <= now {
-        return Err(AppError::Validation(
-            "Scheduled time must be in the future".into(),
-        ));
-    }
-    if send_at > now + Duration::days(MAX_SCHEDULE_AHEAD_DAYS) {
-        return Err(AppError::Validation(format!(
-            "Messages can be scheduled at most {MAX_SCHEDULE_AHEAD_DAYS} days ahead"
-        )));
-    }
-    Ok(())
+pub fn router() -> OpenApiRouter<Arc<AppState>> {
+    OpenApiRouter::new()
+        .routes(routes!(list_scheduled, create_scheduled))
+        .routes(routes!(reschedule, cancel_scheduled))
 }
 
 async fn require_target_access(
     state: &AppState,
     auth: &AuthUser,
     workspace_id: Uuid,
-    channel_id: Option<Uuid>,
-    conversation_id: Option<Uuid>,
+    channel_id: Uuid,
 ) -> AppResult<()> {
-    match (channel_id, conversation_id) {
-        (Some(channel_id), None) => {
-            let channel = state
-                .workspace_service
-                .repo
-                .find_channel_by_id(channel_id)
-                .await?
-                .ok_or_else(|| AppError::NotFound("Channel not found".into()))?;
-            if channel.workspace_id != workspace_id {
-                return Err(AppError::Validation(
-                    "Channel does not belong to this workspace".into(),
-                ));
-            }
-            crate::authz::require_channel_post(state, channel_id, auth.user_id).await?;
-            Ok(())
-        }
-        (None, Some(conversation_id)) => {
-            let conversation = state
-                .conversation_repo
-                .find_by_id(conversation_id)
-                .await?
-                .ok_or_else(|| AppError::NotFound("Conversation not found".into()))?;
-            if conversation.workspace_id != workspace_id {
-                return Err(AppError::Validation(
-                    "Conversation does not belong to this workspace".into(),
-                ));
-            }
-            if !state
-                .conversation_repo
-                .is_participant(conversation_id, auth.user_id)
-                .await?
-            {
-                return Err(AppError::Forbidden(
-                    "Not a participant in this conversation".into(),
-                ));
-            }
-            Ok(())
-        }
-        _ => Err(AppError::Validation(
-            "Schedule to exactly one channel or conversation".into(),
-        )),
+    let channel = state
+        .workspace_service
+        .repo
+        .find_channel_by_id(channel_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Channel not found".into()))?;
+    if channel.workspace_id != workspace_id {
+        return Err(AppError::Validation(
+            "Channel does not belong to this workspace".into(),
+        ));
     }
+    crate::authz::require_channel_post(state, channel_id, auth.user_id).await?;
+    Ok(())
 }
 
+#[utoipa::path(get, path = "/workspaces/{ws_id}/scheduled-messages", tag = "scheduled", responses((status = 200, body = DataList<ScheduledMessage>)))]
 async fn list_scheduled(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<DataList<ScheduledMessage>>> {
     let messages = state
         .scheduled_repo
         .list_pending_for_user(ws_id, auth.user_id)
         .await?;
-    Ok(Json(serde_json::json!({ "data": messages })))
+    Ok(Json(messages.into()))
 }
 
+#[utoipa::path(post, path = "/workspaces/{ws_id}/scheduled-messages", tag = "scheduled", request_body = CreateScheduledMessageRequest, responses((status = 200, body = ScheduledMessage)))]
 async fn create_scheduled(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
     Json(req): Json<CreateScheduledMessageRequest>,
 ) -> AppResult<Json<ScheduledMessage>> {
-    validation::validate_message_content(&req.content)?;
-    validate_send_at(req.send_at)?;
-    require_target_access(&state, &auth, ws_id, req.channel_id, req.conversation_id).await?;
+    req.validate()?;
+    require_target_access(&state, &auth, ws_id, req.channel_id).await?;
 
     let scheduled = state
         .scheduled_repo
@@ -122,7 +71,6 @@ async fn create_scheduled(
             workspace_id: ws_id,
             user_id: auth.user_id,
             channel_id: req.channel_id,
-            conversation_id: req.conversation_id,
             content: &req.content,
             send_at: req.send_at,
         })
@@ -155,24 +103,26 @@ async fn owned_pending(state: &AppState, id: Uuid, user_id: Uuid) -> AppResult<S
     Ok(scheduled)
 }
 
+#[utoipa::path(patch, path = "/scheduled-messages/{id}", tag = "scheduled", request_body = RescheduleRequest, responses((status = 200, body = ScheduledMessage)))]
 async fn reschedule(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(id): Path<Uuid>,
     Json(req): Json<RescheduleRequest>,
 ) -> AppResult<Json<ScheduledMessage>> {
-    validate_send_at(req.send_at)?;
+    req.validate()?;
     owned_pending(&state, id, auth.user_id).await?;
     let updated = state.scheduled_repo.reschedule(id, req.send_at).await?;
     Ok(Json(updated))
 }
 
+#[utoipa::path(delete, path = "/scheduled-messages/{id}", tag = "scheduled", responses((status = 200, body = StatusResponse)))]
 async fn cancel_scheduled(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<StatusResponse>> {
     owned_pending(&state, id, auth.user_id).await?;
     state.scheduled_repo.cancel(id).await?;
-    Ok(Json(serde_json::json!({ "status": "canceled" })))
+    Ok(Json(StatusResponse::new("canceled")))
 }

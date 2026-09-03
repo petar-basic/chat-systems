@@ -1,22 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { components } from '@/api/schema';
 import { useInstanceStore } from '@/stores/instances';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { instanceManager } from '@/lib/instances';
-import { api } from '@/lib/api';
+import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { QUERY_KEYS } from '@/shared/constants';
-import type { Workspace, WorkspaceMember, Channel } from '@/stores/workspace';
-
-interface WorkspacesResponse {
-  data: Omit<Workspace, 'instanceUrl'>[];
-}
-
-interface WorkspaceMembersResponse {
-  data: WorkspaceMember[];
-}
-
-interface ChannelsResponse {
-  data: Channel[];
-}
+import type { Workspace, Channel } from '@/stores/workspace';
 
 export const useWorkspaces = () => {
   const instances = useInstanceStore((s) => s.instances);
@@ -30,8 +19,7 @@ export const useWorkspaces = () => {
     queryFn: async (): Promise<Workspace[]> => {
       const results = await Promise.allSettled(
         instances.map(async (inst) => {
-          const clients = instanceManager.get(inst.url);
-          const res = await clients.api.get<WorkspacesResponse>('/workspaces');
+          const res = await instanceManager.get(inst.url).api.typed((c) => c.GET('/workspaces'));
           return res.data.map((ws) => ({ ...ws, instanceUrl: inst.url }));
         }),
       );
@@ -63,7 +51,9 @@ export const useWorkspace = (workspaceId: string | null) => {
       const instanceUrl = cached?.find((w) => w.id === workspaceId)?.instanceUrl;
       const apiClient = instanceUrl ? instanceManager.get(instanceUrl).api : undefined;
       if (!apiClient) throw new Error('Instance not found for workspace');
-      const response = await apiClient.get<Workspace>(`/workspaces/${workspaceId}`);
+      const response = await apiClient.typed((c) =>
+        c.GET('/workspaces/{ws_id}', { params: { path: { ws_id: workspaceId } } }),
+      );
       return { ...response, instanceUrl };
     },
     enabled: !!workspaceId,
@@ -76,8 +66,9 @@ export const useWorkspaceMembers = (workspaceId: string | null, instanceUrl?: st
     queryKey: QUERY_KEYS.workspaceMembers(workspaceId ?? ''),
     queryFn: async () => {
       if (!workspaceId) throw new Error('No workspace ID');
-      const apiClient = instanceUrl ? instanceManager.get(instanceUrl).api : api;
-      const response = await apiClient.get<WorkspaceMembersResponse>(`/workspaces/${workspaceId}/members`);
+      const response = await getApiForInstance(instanceUrl).typed((c) =>
+        c.GET('/workspaces/{ws_id}/members', { params: { path: { ws_id: workspaceId } } }),
+      );
       return response.data;
     },
     enabled: !!workspaceId,
@@ -88,10 +79,11 @@ export const useWorkspaceMembers = (workspaceId: string | null, instanceUrl?: st
 export const useWorkspaceChannels = (workspaceId: string | null, instanceUrl?: string) => {
   return useQuery({
     queryKey: QUERY_KEYS.workspaceChannels(workspaceId ?? ''),
-    queryFn: async () => {
+    queryFn: async (): Promise<Channel[]> => {
       if (!workspaceId) throw new Error('No workspace ID');
-      const apiClient = instanceUrl ? instanceManager.get(instanceUrl).api : api;
-      const response = await apiClient.get<ChannelsResponse>(`/workspaces/${workspaceId}/channels`);
+      const response = await getApiForInstance(instanceUrl).typed((c) =>
+        c.GET('/workspaces/{ws_id}/channels', { params: { path: { ws_id: workspaceId } } }),
+      );
       return response.data;
     },
     enabled: !!workspaceId && !!instanceUrl,
@@ -111,8 +103,7 @@ export const useDeletedWorkspaces = () => {
     queryFn: async (): Promise<Workspace[]> => {
       const results = await Promise.allSettled(
         instances.map(async (inst) => {
-          const clients = instanceManager.get(inst.url);
-          const res = await clients.api.get<WorkspacesResponse>('/workspaces/deleted');
+          const res = await instanceManager.get(inst.url).api.typed((c) => c.GET('/workspaces/deleted'));
           return res.data.map((ws) => ({ ...ws, instanceUrl: inst.url }));
         }),
       );
@@ -129,10 +120,12 @@ export const useRestoreWorkspace = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ workspaceId, instanceUrl }: { workspaceId: string; instanceUrl: string }) => {
-      const clients = instanceManager.get(instanceUrl);
-      return clients.api.post<Workspace>(`/workspaces/${workspaceId}/restore`, {});
-    },
+    mutationFn: async ({ workspaceId, instanceUrl }: { workspaceId: string; instanceUrl: string }) =>
+      instanceManager
+        .get(instanceUrl)
+        .api.typed((c) =>
+          c.POST('/workspaces/{ws_id}/restore', { params: { path: { ws_id: workspaceId } } }),
+        ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaces() });
     },
@@ -143,10 +136,11 @@ export const useCreateWorkspace = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ name, instanceUrl }: { name: string; instanceUrl: string }) => {
-      const clients = instanceManager.get(instanceUrl);
-      const ws = await clients.api.post<Omit<Workspace, 'instanceUrl'>>('/workspaces', { name });
-      return { ...ws, instanceUrl } as Workspace;
+    mutationFn: async ({ name, instanceUrl }: { name: string; instanceUrl: string }): Promise<Workspace> => {
+      const ws = await instanceManager
+        .get(instanceUrl)
+        .api.typed((c) => c.POST('/workspaces', { body: { name } }));
+      return { ...ws, instanceUrl };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaces() });
@@ -168,20 +162,21 @@ export const useCreateChannel = () => {
     }: {
       workspaceId: string;
       name: string;
-      type?: string;
+      type?: components['schemas']['ChannelType'];
       description?: string;
-      postPolicy?: 'everyone' | 'moderators';
-    }) => {
-      const apiClient = currentWorkspace?.instanceUrl
-        ? instanceManager.get(currentWorkspace.instanceUrl).api
-        : api;
-      return apiClient.post<Channel>(`/workspaces/${workspaceId}/channels`, {
-        name,
-        channel_type: type,
-        description: description || null,
-        post_policy: postPolicy ?? null,
-      });
-    },
+      postPolicy?: components['schemas']['PostPolicy'];
+    }) =>
+      getApiForInstance(currentWorkspace?.instanceUrl).typed((c) =>
+        c.POST('/workspaces/{ws_id}/channels', {
+          params: { path: { ws_id: workspaceId } },
+          body: {
+            name,
+            channel_type: type,
+            description: description || null,
+            post_policy: postPolicy ?? null,
+          },
+        }),
+      ),
     onSuccess: (_, { workspaceId }) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceChannels(workspaceId) });
     },

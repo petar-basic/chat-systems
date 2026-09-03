@@ -43,30 +43,6 @@ pub async fn link_to_channel_message(
     }
 }
 
-pub async fn link_to_conversation_message(
-    state: &AppState,
-    content: &str,
-    message_id: Uuid,
-    workspace_id: Uuid,
-    user_id: Uuid,
-) {
-    let keys = extract_file_keys(content);
-    if keys.is_empty() {
-        return;
-    }
-    if let Err(e) = state
-        .file_repo
-        .link_to_conversation_message(&keys, message_id, workspace_id, user_id)
-        .await
-    {
-        tracing::warn!(
-            "failed to link attachments to conversation message {}: {}",
-            message_id,
-            e
-        );
-    }
-}
-
 /// Deleting the message deletes what was attached to it. An attachment whose
 /// message is gone is unreachable through the UI but still downloadable by
 /// storage key, so leaving it behind means "deleted" only ever meant "hidden".
@@ -75,21 +51,6 @@ pub async fn delete_for_channel_message(state: &AppState, message_id: Uuid) {
         Ok(records) => purge_objects(state, &records).await,
         Err(e) => tracing::warn!(
             "failed to drop attachments of message {}: {}",
-            message_id,
-            e
-        ),
-    }
-}
-
-pub async fn delete_for_conversation_message(state: &AppState, message_id: Uuid) {
-    match state
-        .file_repo
-        .delete_for_conversation_message(message_id)
-        .await
-    {
-        Ok(records) => purge_objects(state, &records).await,
-        Err(e) => tracing::warn!(
-            "failed to drop attachments of conversation message {}: {}",
             message_id,
             e
         ),
@@ -112,26 +73,6 @@ pub async fn release_unlinked_from_channel_message(
         Ok(records) => purge_objects(state, &records).await,
         Err(e) => tracing::warn!(
             "failed to release attachments of message {}: {}",
-            message_id,
-            e
-        ),
-    }
-}
-
-pub async fn release_unlinked_from_conversation_message(
-    state: &AppState,
-    content: &str,
-    message_id: Uuid,
-) {
-    let kept = extract_file_keys(content);
-    match state
-        .file_repo
-        .delete_unlinked_from_conversation_message(message_id, &kept)
-        .await
-    {
-        Ok(records) => purge_objects(state, &records).await,
-        Err(e) => tracing::warn!(
-            "failed to release attachments of conversation message {}: {}",
             message_id,
             e
         ),

@@ -21,48 +21,48 @@ impl HuddleRepo {
         dm_partner_id: Option<Uuid>,
         initiated_by: Uuid,
     ) -> sqlx::Result<()> {
-        sqlx::query(
+        sqlx::query!(
             "INSERT INTO huddle_sessions (id, workspace_id, channel_id, dm_partner_id, initiated_by)
              VALUES ($1, $2, $3, $4, $5)
              ON CONFLICT (id) DO NOTHING",
+            id,
+            workspace_id,
+            channel_id,
+            dm_partner_id,
+            initiated_by
         )
-        .bind(id)
-        .bind(workspace_id)
-        .bind(channel_id)
-        .bind(dm_partner_id)
-        .bind(initiated_by)
         .execute(&self.pool)
         .await?;
         Ok(())
     }
 
     pub async fn record_join(&self, huddle_id: Uuid, user_id: Uuid) -> sqlx::Result<()> {
-        sqlx::query(
+        sqlx::query!(
             "INSERT INTO huddle_participants (huddle_id, user_id)
              VALUES ($1, $2)
              ON CONFLICT (huddle_id, user_id) DO UPDATE SET left_at = NULL",
+            huddle_id,
+            user_id
         )
-        .bind(huddle_id)
-        .bind(user_id)
         .execute(&self.pool)
         .await?;
         Ok(())
     }
 
     pub async fn record_leave(&self, huddle_id: Uuid, user_id: Uuid) -> sqlx::Result<i64> {
-        sqlx::query(
+        sqlx::query!(
             "UPDATE huddle_participants SET left_at = NOW()
              WHERE huddle_id = $1 AND user_id = $2 AND left_at IS NULL",
+            huddle_id,
+            user_id
         )
-        .bind(huddle_id)
-        .bind(user_id)
         .execute(&self.pool)
         .await?;
 
-        sqlx::query_scalar::<_, i64>(
-            "SELECT COUNT(*) FROM huddle_participants WHERE huddle_id = $1 AND left_at IS NULL",
+        sqlx::query_scalar!(
+            r#"SELECT COUNT(*) AS "count!" FROM huddle_participants WHERE huddle_id = $1 AND left_at IS NULL"#,
+            huddle_id
         )
-        .bind(huddle_id)
         .fetch_one(&self.pool)
         .await
     }
@@ -71,39 +71,26 @@ impl HuddleRepo {
         &self,
         workspace_id: Uuid,
     ) -> sqlx::Result<Vec<HuddleSession>> {
-        sqlx::query_as::<_, HuddleSession>(
-            "SELECT * FROM huddle_sessions
-             WHERE workspace_id = $1 AND channel_id IS NOT NULL AND ended_at IS NULL
-             ORDER BY started_at DESC",
+        sqlx::query_as!(
+            HuddleSession,
+            "SELECT id, workspace_id, channel_id, dm_partner_id, initiated_by, started_at, ended_at
+               FROM huddle_sessions
+              WHERE workspace_id = $1 AND channel_id IS NOT NULL AND ended_at IS NULL
+              ORDER BY started_at DESC",
+            workspace_id
         )
-        .bind(workspace_id)
         .fetch_all(&self.pool)
         .await
     }
 
-    /// Whichever replica gets the row sends the ring; the rest lose the race.
-    /// `record_join` is already an upsert and `end_session` already only
-    /// succeeds once, so this was the one place where a second replica produced
-    /// a second effect rather than a second no-op.
-    pub async fn claim_ring(&self, huddle_id: Uuid, to_user_id: Uuid) -> sqlx::Result<bool> {
-        let claimed = sqlx::query(
-            "INSERT INTO huddle_ring_claims (huddle_id, to_user_id) \
-             VALUES ($1, $2) ON CONFLICT DO NOTHING",
-        )
-        .bind(huddle_id)
-        .bind(to_user_id)
-        .execute(&self.pool)
-        .await?;
-        Ok(claimed.rows_affected() == 1)
-    }
-
     pub async fn end_session(&self, huddle_id: Uuid) -> sqlx::Result<Option<HuddleSession>> {
-        sqlx::query_as::<_, HuddleSession>(
+        sqlx::query_as!(
+            HuddleSession,
             "UPDATE huddle_sessions SET ended_at = NOW()
-             WHERE id = $1 AND ended_at IS NULL
-             RETURNING *",
+              WHERE id = $1 AND ended_at IS NULL
+              RETURNING id, workspace_id, channel_id, dm_partner_id, initiated_by, started_at, ended_at",
+            huddle_id
         )
-        .bind(huddle_id)
         .fetch_optional(&self.pool)
         .await
     }

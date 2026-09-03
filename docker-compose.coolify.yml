@@ -144,6 +144,13 @@ services:
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
       PUBLIC_URL: https://${DOMAIN:?DOMAIN must be set}
+      SMTP_HOST: ${SMTP_HOST:?SMTP_HOST must be set}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_ADDRESS: ${SMTP_FROM_ADDRESS:?SMTP_FROM_ADDRESS must be set}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Chat Systems}
+      SMTP_TLS_MODE: ${SMTP_TLS_MODE:-starttls}
       STORAGE_BACKEND: ${STORAGE_BACKEND:-s3}
       LOCAL_STORAGE_PATH: /data/files
       S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}

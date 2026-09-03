@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#f6f6f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1d1c1d;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f6f6f8;padding:32px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;background:#ffffff;border:1px solid #e6e6e9;border-radius:16px;padding:40px 32px;">
+            <tr>
+              <td align="center">
+                {% if let Some(icon) = icon_url %}{% if icon.starts_with("https://") %}<img src="{{ icon }}" width="48" height="48" alt="" style="display:block;border:0;border-radius:12px;margin:0 auto 20px;">{% endif %}{% endif %}
+                <h1 style="margin:0 0 12px;font-size:24px;line-height:32px;font-weight:700;">Join {{ workspace_name }}</h1>
+                <p style="margin:0 0 28px;font-size:15px;line-height:22px;color:#616061;">
+                  You've been invited to the <strong>{{ workspace_name }}</strong> workspace on {{ instance_name }}.
+                </p>
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 28px;">
+                  <tr>
+                    <td align="center" style="background:#7c3aed;border-radius:10px;">
+                      <a href="{{ invite_url }}" style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;">Join {{ workspace_name }}</a>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:0 0 8px;font-size:12px;line-height:18px;color:#868686;">
+                  Button not working? Paste this into your browser:
+                </p>
+                <p style="margin:0;font-size:12px;line-height:18px;word-break:break-all;">
+                  <a href="{{ invite_url }}" style="color:#7c3aed;">{{ invite_url }}</a>
+                </p>
+              </td>
+            </tr>
+          </table>
+          <p style="max-width:520px;margin:20px auto 0;font-size:12px;line-height:18px;color:#868686;text-align:center;">
+            This invite expires in 7 days. If you weren't expecting it, you can ignore this email.
+          </p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

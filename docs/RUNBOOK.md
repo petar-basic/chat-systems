@@ -16,15 +16,16 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml \
 | Container | What it does | Safe to scale? |
 |---|---|---|
 | `api` | REST API; applies migrations at startup | yes |
-| `worker` | Background consumers: outgoing webhooks, reminders, notifications, huddle history, scheduled messages | **no — keep at one replica** |
+| `worker` | Background consumers: outgoing webhooks, reminders, notifications, huddle history, call ringing, scheduled messages, email delivery, event outbox relay | yes |
 | `realtime` | WebSocket gateway | yes |
 
-Running two `worker` replicas duplicates every side effect they produce: two
-notification rows per mention, two POSTs per outgoing webhook, two reminder
-deliveries. The compose files pin `replicas: 1`; leave it there. If `worker` is down,
-nothing is lost permanently — messages still send and read — but webhooks, reminders,
-scheduled messages and notification rows stop until it returns. Its `/readyz` is
-wired to the autoheal sidecar like the others.
+Every consumer in `worker` either reads through a Redis Streams consumer group, which hands
+each event to exactly one replica, or claims its row in the database first, so a second
+replica is a second pair of hands rather than a second copy of every side effect. The
+production compose runs two. If every replica is down, nothing is lost permanently —
+messages still send and read — but webhooks, reminders, scheduled messages, call ringing
+and notification rows wait until one returns; the streams hold what was published in the
+meantime. Its `/readyz` is wired to the autoheal sidecar like the others.
 
 ## What self-hosting actually costs
 
@@ -123,9 +124,9 @@ Two more changes ship with it and need no action:
 
 ## Upgrade note: Wave 5 changes the DM send contract
 
-`POST /api/conversations/:id/messages` and `POST /api/channels/:id/messages` no longer
-accept `id`. The server owns the message id; a sender that wants an idempotent retry passes
-`client_message_id` instead, unique within the conversation or channel. An old client that
+`POST /api/channels/:id/messages` no longer accepts `id`. The server owns the message id; a
+sender that wants an idempotent retry passes `client_message_id` instead, unique within the
+channel. An old client that
 still sends `id` is not rejected — the field is ignored, so its retries stop being
 idempotent and a double-send stores two rows. Ship the frontend and the API together.
 
@@ -187,16 +188,18 @@ useful, so deploy realtime before or with the frontend.
 
 **The notification and hook consumers stopped being the reason for one replica.** They read
 through `XREADGROUP` with acknowledgement, so events are distributed across replicas and an
-unacknowledged event is redelivered rather than lost with the process holding it. The
-scheduled dispatcher and reminder checker claim their rows in the database, which was
-already safe for multiple replicas.
+unacknowledged event is redelivered rather than lost with the process holding it: every
+replica runs `XAUTOCLAIM` on each stream every 30 seconds and takes over anything that has
+sat unacknowledged for 60 seconds, whoever was holding it. An event that has been delivered
+five times without ever being acknowledged is assumed to be killing its consumer and is
+acknowledged unprocessed — `dropping <stream> <id> after N deliveries` in the worker log is
+that happening, and the event id in it is what to go looking for. The scheduled dispatcher
+and reminder checker claim their rows in the database, which was already safe for multiple
+replicas.
 
-**Keep `chat-worker` at one replica anyway.** Two consumers are still on plain pub/sub,
-which delivers to every subscriber: the huddle consumer (`events:huddle`), which records
-joins and leaves and ends the session when the last person leaves, and the call
-notification consumer, which rings people. A second replica double-records huddle history
-and rings twice. Moving those two to consumer groups is what would make scaling out safe;
-until then the limit is theirs, not the notification consumer's.
+**At the time this shipped, two consumers were still on plain pub/sub** — the huddle
+consumer and the call notification consumer — and that kept `chat-worker` at one replica.
+Both have since moved to consumer groups; see the ring note under migration 42 below.
 
 Delivery to the worker is at-least-once as a result. Outgoing webhooks claim a
 `(hook_id, event_id)` row before dispatching (migration `…22`), so a redelivery does not
@@ -213,7 +216,9 @@ at-most-once — the streams are then trimmed away by age on their own.
 refresh tokens, consumed password-reset tokens, expired invites and `hook_executions` older
 than 30 days are purged unconditionally on every pass. None of that is anybody's data.
 Messages, files, notifications and audit rows are only touched where a workspace owner has
-set a policy; a workspace with no `retention_policies` row keeps everything forever.
+set a policy; a workspace with no `retention_policies` row keeps everything forever. A policy
+covers direct and group messages too — they are messages in `dm`/`group_dm` channels, and a
+retention rule that skipped them would keep exactly the history people assume is gone.
 
 Set `RETENTION_DRY_RUN=true` for the first run on a real instance. It logs and counts what
 each pass *would* delete and deletes nothing. Deletion is irreversible, and a misread policy
@@ -362,17 +367,58 @@ sustained non-zero rate means Redis is unhealthy *and* people are being turned a
 need looking at. This is the trade — a Redis outage now degrades sign-in instead of silently
 disabling deprovisioning.
 
+**Email leaves through the worker.** Invites, password resets and mention digests are
+queued in `outbound_emails` by the api and delivered by `chat-worker`, so the worker needs
+the same `SMTP_*` settings as the api — an api that can queue and a worker that cannot send
+looks like "the invite never arrived". `outbound_emails` rows with `sent_at IS NULL` and a
+`last_error` are the first thing to look at.
+
 **Mention emails.** If SMTP is configured, somebody who is mentioned while offline, with no
 push subscription, not muted and not in do-not-disturb, gets one digest email five minutes
 later — cancelled if they come online first. It carries who and where and a link, never the
 message text. Individuals can turn it off at `PATCH /api/notifications/email`; with SMTP
 unconfigured the whole feature is off and logs nothing.
 
+**Realtime events go through an outbox too.** Every durable event (messages, reactions,
+membership, rings) is written to `event_outbox` inside the transaction that writes the row
+it describes, published to Redis right after the commit, and marked `published_at`. If the
+API crashed or Redis was down at that moment, the worker's relay publishes it within a few
+seconds and the client sees it late rather than never. Rows are pruned a day after
+publishing. A growing count here means Redis is unreachable from the API:
+
+```sql
+SELECT event_type, COUNT(*) FROM event_outbox WHERE published_at IS NULL GROUP BY 1;
+```
+
+**Invites and password resets go through an outbox.** Neither is sent inside the request
+any more: the row lands in `outbound_emails` and the worker delivers it within a couple of
+seconds, retrying with backoff (1, 4, 16, 64 minutes, then every four hours) up to eight
+attempts. After the last one the row is parked with `next_attempt_at` null and the SMTP
+error in `last_error`, which is what to look at when somebody says the invite never came:
+
+```sql
+SELECT to_address, subject, attempts, next_attempt_at, last_error
+  FROM outbound_emails WHERE sent_at IS NULL ORDER BY created_at DESC;
+```
+
+Setting `next_attempt_at = NOW()` on a parked row puts it back in the queue once the SMTP
+problem is fixed. With SMTP unconfigured nothing is queued and a warning is logged instead.
+
 **`chat-worker` can now run more than one replica.** The huddle consumer reads through a
 consumer group like the others, and the ring claims `(huddle_id, to_user_id)` before it
 sends, so a second replica loses the race instead of ringing twice. The scheduled dispatcher
 and reminder checker already claimed their rows. Nothing forces you to scale it — at a few
 dozen people one replica is plenty — but it is no longer a correctness constraint.
+
+**Migration 42 moves the ring itself onto the stream.** The ring was the last event still
+on pub/sub, which is at-most-once: a worker that was restarting when somebody started a
+call simply never rang anyone. It is now written to the workspace stream like every other
+durable event and read by the notification consumer through its group, so a ring that
+lands while every worker is down is delivered when one comes back — unless it is older than
+sixty seconds by then, in which case it is dropped, because a call announced a minute late
+is worse than one not announced. The `huddle_ring_claims` table is gone; a redelivery is
+absorbed by `idx_notifications_call_dedup`, one call notification per person per call.
+Reconnecting clients never see a ring in their replay.
 
 **Migrations 39 and 40** add `pending_mention_emails`, `users.mention_emails` and
 `huddle_ring_claims`. All additive.
@@ -480,9 +526,9 @@ carries public channels and nothing else: no DMs, no private channels. An export
 identical to a broken import until the report says which it was. Both are stated in the run.
 
 **What comes across.** Public channels from `channels.json`, private ones from `groups.json`,
-and direct and group messages from `dms.json` / `mpims.json` — the last two become
-conversations here rather than channels, so a two-person history does not land in everybody's
-channel list. Only some Slack plans export DMs at all; the report names every listing the
+and direct and group messages from `dms.json` / `mpims.json` — the last two become `dm` and
+`group_dm` channels, which the channel list never shows, so a two-person history does not land
+in everybody's sidebar. Only some Slack plans export DMs at all; the report names every listing the
 export did not carry.
 
 **Always dry-run first.** It writes nothing and prints the counts the real run would produce,

@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE channel_members cm\n               SET unread_count = GREATEST(cm.unread_count - 1, 0)\n              FROM messages m\n             WHERE m.id = $2\n               AND cm.channel_id = $1\n               AND cm.user_id <> $3\n               AND (cm.last_read_at IS NULL OR m.created_at > cm.last_read_at)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9234f27a4f2de0b67a1cfab8d1f406fbc31e0729f355c2d1a553541d6a8622b7"
+}

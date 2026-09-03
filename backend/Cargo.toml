@@ -31,9 +31,8 @@ sqlx = { version = "0.9", features = ["runtime-tokio", "tls-rustls", "postgres",
 # Redis
 redis = { version = "1.6", features = ["tokio-comp", "connection-manager"] }
 
-# S3 / MinIO
-aws-sdk-s3 = { version = "1", default-features = false, features = ["sigv4a", "http-1x", "default-https-client", "rt-tokio"] }
-aws-config = "1"
+# File storage (local disk, S3 / MinIO)
+object_store = { version = "0.14", features = ["aws", "fs", "tokio"] }
 
 # Auth — aws_lc_rs provider (reuses the aws-lc-rs already built for rustls) keeps the
 # pure-Rust `rsa` crate (RUSTSEC-2023-0071) out of the tree; we only use HS256.
@@ -52,6 +51,13 @@ openidconnect = { version = "4", default-features = false, features = ["reqwest"
 # Serialization
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+utoipa = { version = "5", features = ["axum_extras", "uuid", "chrono"] }
+utoipa-axum = "0.2"
+garde = { version = "0.23", features = ["derive"] }
+askama = "0.16"
+ipnet = "2"
+backon = "1"
+ts-rs = { version = "12", features = ["uuid-impl", "chrono-impl", "serde-json-impl", "serde-compat"] }
 toml = "0.8"
 
 # Utilities

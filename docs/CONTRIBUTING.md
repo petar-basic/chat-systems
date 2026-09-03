@@ -117,16 +117,20 @@ docs/         this folder
 - **Parameterized SQL only** (sqlx bind params) — never string-built queries.
 - **Permission checks come from `authz`.** `backend/api/src/authz.rs` holds the only
   definition of each predicate (`require_workspace_member`, `require_workspace_role`,
-  `require_channel_access`, `require_channel_moderator`,
-  `require_conversation_participant`). Never re-derive one in a feature module or in
+  `require_channel_access`, `require_channel_moderator`). A direct message is a channel,
+  so `require_channel_access` is the conversation check too. Never re-derive one in a feature module or in
   SQL — the rules drifted that way before and it cost real access-control bugs. A
   query that needs to reproduce channel visibility asks `ChannelAccess`, it does not
   restate the rule.
 - **Sessions end through `sessions::revoke`.** Deleting refresh tokens, marking access
   tokens invalid and closing live sockets belong together; the three steps have drifted
   apart before.
-- **Every `String` in a request DTO has a validator.** `shared_common::validation` is the
-  only place a limit is written down, and a handler calls it before any repo call. A
+- **Every `String` in a request DTO has a validator, declared on the field.** Request DTOs
+  derive `garde::Validate` and each field names its rule from
+  `shared_common::validation::rules` (`#[garde(custom(rules::message_content))]`, or
+  `inner(custom(...))` on an `Option`); the handler's first line is `req.validate()?`.
+  `shared_common::validation` is still the only place a limit is written down — the rules
+  module wraps those functions so the messages stay the product's, not the library's. A
   column that happens to be wide enough is not validation — it produces a 500 where the
   answer is 400. Deliberate exceptions (login and forgot-password, where an early
   rejection would be an oracle) are listed in the roadmap, not left implicit.
@@ -137,6 +141,20 @@ docs/         this folder
   that produced it — the scheduled dispatcher, the reminder checker — re-runs the same
   `authz` predicate the interactive handler runs. Authorization granted days ago is not
   authorization now.
+- **A durable event is staged in the transaction that writes its row.** `EventPublisher::stage`
+  inserts into `event_outbox` on the caller's connection; the route commits, then calls
+  `dispatch`, which publishes and marks the row. Repo write methods come in pairs for this —
+  `create_message_in(&mut conn, …)` for a caller that owns the transaction, `create_message`
+  for one that does not. `publish_scoped` on a durable type still works from anywhere and
+  goes through the outbox in a transaction of its own, so it is at-least-once but not atomic
+  with anything; use it only where there is no row to be atomic with. The worker's relay
+  publishes whatever the fast path missed.
+- **Every WebSocket frame is a `ServerFrame` variant.** The gateway builds frames from
+  `shared_events::frames::ServerFrame` (tagged by `type`), never from ad-hoc JSON, and
+  `cargo run --bin chat-ts-events > ../frontend/src/api/serverFrames.ts` generates the
+  TypeScript union the frontend switches over. Message shapes inside a frame come from the
+  OpenAPI schema, so a field is declared once. A new frame is a new variant, and CI fails
+  until the generated file is regenerated.
 - **Realtime delivery is at-least-once.** Anything reading the event log has to tolerate
   seeing an event twice: replay overlaps the live tail on purpose, and consumer groups
   redeliver what was not acknowledged. Handlers upsert by id; anything with an outward side
@@ -153,12 +171,36 @@ docs/         this folder
   nobody will ever find. `record` never returns an error to the handler: the action has
   already happened, and failing the request on the trail turns an audit problem into an
   availability one.
-- **New queries use `sqlx::query_as!` / `query!`.** Decided 2026-08-07: the macros are
-  the standard for new code, existing runtime queries convert opportunistically when
-  their method is touched for another reason, and there is no big-bang rewrite. Run
+- **Every query is `sqlx::query!` / `query_as!` / `query_scalar!`.** Decided 2026-08-07,
+  completed 2026-09-02: the macros check SQL and column types against the schema at
+  compile time, so models carry no `sqlx::FromRow` and a column list is spelled out (no
+  `SELECT *`). The one runtime query is the search backfill, whose table name is chosen
+  at runtime. `backend/.cargo/config.toml` points `DATABASE_URL` at the dev database for
+  local builds; after changing a query or a migration run
   `cargo sqlx prepare --workspace -- --all-targets` and commit `.sqlx/` — image builds
   set `SQLX_OFFLINE=true` and have no database, so a macro without a cache entry breaks
-  the Docker build. CI enforces this with `cargo sqlx prepare --check`.
+  the Docker build. CI enforces this with `cargo sqlx prepare --check`. Column
+  annotations: `AS "col: EnumType"` for Postgres enums, `AS "col!"` for NOT NULL columns
+  sqlx cannot prove (defaults, aggregates, expressions), `AS "col?"` for columns from a
+  `LEFT JOIN`, and `$1::text` when sqlx reports inconsistent parameter types.
+- **The API contract is generated, not hand-written.** Handlers carry `#[utoipa::path]`
+  and their request and response types derive `ToSchema`; `chat-api` serves the result at
+  `/api/openapi.json`, and `cargo run --bin chat-openapi > ../frontend/src/api/openapi.json`
+  writes it to the repo. The frontend turns that into `src/api/schema.d.ts` with
+  `npm run api:types` and calls the API through `apiClient.typed(...)`, so a route change
+  that the frontend has not caught up with fails `tsc`, not a user. CI checks both generated
+  files are current. Every feature router except SCIM and OIDC is an `OpenApiRouter` and is
+  registered in `openapi::typed_routes` (or `public_routes` for the handful reachable
+  without a session); a new route is not mounted until it is on that list, which is the
+  point. utoipa uses the handler's function name as the `operationId`, and
+  `openapi-typescript` keys its `operations` map by that id, so two features sharing a
+  handler name (`send_message` on channels and on conversations) silently hand one path
+  the other's types; the `operation_ids_are_unique` test refuses that, and the fix is
+  `operation_id = "<feature>_<handler>"` on both. Schema names collide the same way
+  (two `MarkReadRequest` structs became one schema), so request/response type names are
+  unique across the crate. Ad-hoc `serde_json::json!` responses are not used — shared shapes live in
+  `crate::dto` (`DataList<T>`, `DataItem<T>`, `StatusResponse`), feature shapes in the
+  feature's `models.rs`.
 - **The tests read `DATABASE_URL` and `REDIS_URL` from `backend/.cargo/config.toml`.** Both
   point at the host-side ports compose publishes (5433 and 6380), so the suite runs with no
   environment prefix. Neither is forced, so exporting either one still wins — which is how

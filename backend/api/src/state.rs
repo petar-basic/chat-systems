@@ -22,7 +22,7 @@ pub struct AppState {
     pub message_repo: MessageRepo,
     pub publisher: EventPublisher,
     pub file_repo: FileRepo,
-    pub file_storage: Box<dyn FileStorage>,
+    pub file_storage: FileStorage,
     pub hook_repo: HookRepo,
     pub notification_repo: NotificationRepo,
     pub conversation_repo: ConversationRepo,

@@ -5,6 +5,8 @@ import {
   useStartSlackImport,
   workspaceNameFrom,
   type SlackImportRun,
+  type SlackImportReport,
+  reportOf,
 } from '@/hooks/queries/useSlackImport';
 
 interface Props {
@@ -13,7 +15,7 @@ interface Props {
   onClose: () => void;
 }
 
-const COUNTS: { key: keyof NonNullable<SlackImportRun['report']> & string; label: string }[] = [
+const COUNTS: { key: keyof Omit<SlackImportReport, 'skipped' | 'notes'>; label: string }[] = [
   { key: 'messages_imported', label: 'messages' },
   { key: 'channels_created', label: 'channels' },
   { key: 'conversations_created', label: 'DMs' },
@@ -26,9 +28,9 @@ const COUNTS: { key: keyof NonNullable<SlackImportRun['report']> & string; label
 ];
 
 function RunRow({ run }: { run: SlackImportRun }) {
-  const report = (run.report ?? {}) as Record<string, number | undefined>;
-  const skipped = (run.report as SlackImportRun['report'])?.skipped ?? [];
-  const notes = (run.report as SlackImportRun['report'])?.notes ?? [];
+  const report = reportOf(run);
+  const skipped = report.skipped ?? [];
+  const notes = report.notes ?? [];
   const running = run.status === 'pending' || run.status === 'running';
 
   return (
@@ -51,7 +53,7 @@ function RunRow({ run }: { run: SlackImportRun }) {
       </div>
 
       <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted">
-        {COUNTS.filter(({ key }) => (report[key] ?? 0) > 0).map(({ key, label }) => (
+        {COUNTS.filter(({ key }) => report[key] > 0).map(({ key, label }) => (
           <span key={key}>
             <span className="text-fg-soft tabular-nums">{report[key]}</span> {label}
           </span>

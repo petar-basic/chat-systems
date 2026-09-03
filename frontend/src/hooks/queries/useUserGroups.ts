@@ -1,21 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api';
-import { instanceManager } from '@/lib/instances';
+import type { components } from '@/api/schema';
+import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 
-export interface UserGroup {
-  id: string;
-  handle: string;
-  name: string;
-  description: string | null;
-  member_count: number;
-  is_member: boolean;
-}
+export type UserGroup = components['schemas']['UserGroupSummary'];
 
 export const userGroupsKey = (workspaceId: string) => ['user-groups', workspaceId] as const;
-
-function clientFor(instanceUrl?: string) {
-  return instanceUrl ? instanceManager.get(instanceUrl).api : api;
-}
 
 export function useUserGroups(workspaceId: string | undefined, instanceUrl?: string) {
   return useQuery({
@@ -23,8 +12,9 @@ export function useUserGroups(workspaceId: string | undefined, instanceUrl?: str
     enabled: Boolean(workspaceId),
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
-      const res = await clientFor(instanceUrl).get<{ data: UserGroup[] }>(
-        `/workspaces/${workspaceId}/groups`,
+      if (!workspaceId) throw new Error('No workspace selected');
+      const res = await getApiForInstance(instanceUrl).typed((c) =>
+        c.GET('/workspaces/{ws_id}/groups', { params: { path: { ws_id: workspaceId } } }),
       );
       return res.data;
     },
@@ -34,8 +24,10 @@ export function useUserGroups(workspaceId: string | undefined, instanceUrl?: str
 export function useCreateGroup(workspaceId: string, instanceUrl?: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (body: { handle: string; name?: string; description?: string }) =>
-      clientFor(instanceUrl).post<UserGroup>(`/workspaces/${workspaceId}/groups`, body),
+    mutationFn: (body: components['schemas']['CreateGroupRequest']) =>
+      getApiForInstance(instanceUrl).typed((c) =>
+        c.POST('/workspaces/{ws_id}/groups', { params: { path: { ws_id: workspaceId } }, body }),
+      ),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: userGroupsKey(workspaceId) }),
   });
 }
@@ -44,7 +36,11 @@ export function useDeleteGroup(workspaceId: string, instanceUrl?: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (groupId: string) =>
-      clientFor(instanceUrl).delete(`/workspaces/${workspaceId}/groups/${groupId}`),
+      getApiForInstance(instanceUrl).typed((c) =>
+        c.DELETE('/workspaces/{ws_id}/groups/{group_id}', {
+          params: { path: { ws_id: workspaceId, group_id: groupId } },
+        }),
+      ),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: userGroupsKey(workspaceId) }),
   });
 }
@@ -54,10 +50,17 @@ export function useSetGroupMember(workspaceId: string, instanceUrl?: string) {
   return useMutation({
     mutationFn: ({ groupId, userId, member }: { groupId: string; userId: string; member: boolean }) =>
       member
-        ? clientFor(instanceUrl).post(`/workspaces/${workspaceId}/groups/${groupId}/members`, {
-            user_id: userId,
-          })
-        : clientFor(instanceUrl).delete(`/workspaces/${workspaceId}/groups/${groupId}/members/${userId}`),
+        ? getApiForInstance(instanceUrl).typed((c) =>
+            c.POST('/workspaces/{ws_id}/groups/{group_id}/members', {
+              params: { path: { ws_id: workspaceId, group_id: groupId } },
+              body: { user_id: userId },
+            }),
+          )
+        : getApiForInstance(instanceUrl).typed((c) =>
+            c.DELETE('/workspaces/{ws_id}/groups/{group_id}/members/{user_id}', {
+              params: { path: { ws_id: workspaceId, group_id: groupId, user_id: userId } },
+            }),
+          ),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: userGroupsKey(workspaceId) }),
   });
 }

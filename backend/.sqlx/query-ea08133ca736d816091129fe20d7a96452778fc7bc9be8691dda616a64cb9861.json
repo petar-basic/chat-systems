@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH local AS (\n                SELECT date_trunc('day', NOW() AT TIME ZONE $1)\n                       + make_interval(days => $2, hours => $3, mins => $4) AS at\n            )\n            SELECT CASE\n                     WHEN (at AT TIME ZONE $1) <= NOW() THEN (at + interval '1 day') AT TIME ZONE $1\n                     ELSE at AT TIME ZONE $1\n                   END AS \"at!\"\n            FROM local\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "at!",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int4",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "ea08133ca736d816091129fe20d7a96452778fc7bc9be8691dda616a64cb9861"
+}

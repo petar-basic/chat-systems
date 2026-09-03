@@ -98,7 +98,7 @@ async fn scheduling_needs_access_to_the_target(pool: PgPool) {
         "POST",
         &format!("/api/workspaces/{ws_id}/scheduled-messages"),
         Some(&stranger_token),
-        Some(json!({ "conversation_id": conv_id, "content": "not my thread", "send_at": in_an_hour() })),
+        Some(json!({ "channel_id": conv_id, "content": "not my thread", "send_at": in_an_hour() })),
     )
     .await;
     assert_eq!(status, StatusCode::FORBIDDEN);
@@ -112,26 +112,6 @@ async fn scheduling_needs_access_to_the_target(pool: PgPool) {
     )
     .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "needs one target");
-
-    let ch_id = seed_channel(&state, ws_id, owner_id, "main", false).await;
-    let (status, _) = send(
-        &app,
-        "POST",
-        &format!("/api/workspaces/{ws_id}/scheduled-messages"),
-        Some(&owner_token),
-        Some(json!({
-            "channel_id": ch_id,
-            "conversation_id": conv_id,
-            "content": "two targets",
-            "send_at": in_an_hour()
-        })),
-    )
-    .await;
-    assert_eq!(
-        status,
-        StatusCode::UNPROCESSABLE_ENTITY,
-        "exactly one target"
-    );
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
@@ -285,14 +265,13 @@ async fn the_dispatcher_delivers_due_messages_exactly_once(pool: PgPool) {
     .await;
     let conv_id: Uuid = conv["id"].as_str().expect("id").parse().expect("uuid");
 
-    for (channel, conversation) in [(Some(ch_id), None), (None, Some(conv_id))] {
+    for channel in [ch_id, conv_id] {
         state
             .scheduled_repo
             .create(crate::scheduled::repo::NewScheduledMessage {
                 workspace_id: ws_id,
                 user_id: owner_id,
                 channel_id: channel,
-                conversation_id: conversation,
                 content: "sent by the dispatcher",
                 send_at: Utc::now() - Duration::seconds(5),
             })
@@ -330,7 +309,7 @@ async fn the_dispatcher_delivers_due_messages_exactly_once(pool: PgPool) {
     let (_, conversation_messages) = send(
         &app,
         "GET",
-        &format!("/api/conversations/{conv_id}/messages"),
+        &format!("/api/channels/{conv_id}/messages"),
         Some(&partner_token),
         None,
     )
@@ -345,8 +324,7 @@ async fn queue_due(
     state: &crate::state::AppState,
     ws_id: Uuid,
     user_id: Uuid,
-    channel_id: Option<Uuid>,
-    conversation_id: Option<Uuid>,
+    channel_id: Uuid,
 ) -> crate::scheduled::models::ScheduledMessage {
     state
         .scheduled_repo
@@ -354,7 +332,6 @@ async fn queue_due(
             workspace_id: ws_id,
             user_id,
             channel_id,
-            conversation_id,
             content: "written before losing access",
             send_at: Utc::now() - Duration::seconds(5),
         })
@@ -402,7 +379,7 @@ async fn a_message_from_someone_removed_from_the_channel_is_not_delivered(pool: 
         .await
         .expect("add to channel");
 
-    let scheduled = queue_due(&state, ws_id, author_id, Some(ch_id), None).await;
+    let scheduled = queue_due(&state, ws_id, author_id, ch_id).await;
 
     state
         .workspace_service
@@ -441,7 +418,7 @@ async fn a_message_from_someone_removed_from_the_workspace_is_not_delivered(pool
     let (author_id, _) = seed(&state, "sched-author", false).await;
     add_ws_member(&state, ws_id, author_id, "member").await;
 
-    let scheduled = queue_due(&state, ws_id, author_id, Some(ch_id), None).await;
+    let scheduled = queue_due(&state, ws_id, author_id, ch_id).await;
 
     state
         .workspace_service
@@ -465,7 +442,7 @@ async fn a_message_to_an_archived_channel_is_not_delivered(pool: PgPool) {
     let ws_id = seed_workspace(&state, owner_id, "Reauth WS").await;
     let ch_id = seed_channel(&state, ws_id, owner_id, "going-away", false).await;
 
-    let scheduled = queue_due(&state, ws_id, owner_id, Some(ch_id), None).await;
+    let scheduled = queue_due(&state, ws_id, owner_id, ch_id).await;
 
     state
         .workspace_service
@@ -489,7 +466,7 @@ async fn a_message_into_a_deleted_workspace_is_not_delivered(pool: PgPool) {
     let ws_id = seed_workspace(&state, owner_id, "Doomed WS").await;
     let ch_id = seed_channel(&state, ws_id, owner_id, "main", false).await;
 
-    let scheduled = queue_due(&state, ws_id, owner_id, Some(ch_id), None).await;
+    let scheduled = queue_due(&state, ws_id, owner_id, ch_id).await;
 
     state
         .workspace_service
@@ -524,16 +501,14 @@ async fn a_dm_from_a_removed_participant_is_not_delivered(pool: PgPool) {
     .await;
     let conv_id: Uuid = conv["id"].as_str().expect("id").parse().expect("uuid");
 
-    let scheduled = queue_due(&state, ws_id, partner_id, None, Some(conv_id)).await;
+    let scheduled = queue_due(&state, ws_id, partner_id, conv_id).await;
 
-    sqlx::query(
-        "DELETE FROM conversation_participants WHERE conversation_id = $1 AND user_id = $2",
-    )
-    .bind(conv_id)
-    .bind(partner_id)
-    .execute(&state.pool)
-    .await
-    .expect("drop the participant");
+    sqlx::query("DELETE FROM channel_members WHERE channel_id = $1 AND user_id = $2")
+        .bind(conv_id)
+        .bind(partner_id)
+        .execute(&state.pool)
+        .await
+        .expect("drop the participant");
 
     let failure = deliver_now(&state, &scheduled).await.expect_err("refused");
     assert_eq!(
@@ -541,12 +516,11 @@ async fn a_dm_from_a_removed_participant_is_not_delivered(pool: PgPool) {
         crate::scheduled::executor::DeliveryFailure::NotAuthorized
     );
 
-    let delivered: i64 =
-        sqlx::query_scalar("SELECT COUNT(*) FROM conversation_messages WHERE conversation_id = $1")
-            .bind(conv_id)
-            .fetch_one(&state.pool)
-            .await
-            .expect("count");
+    let delivered: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM messages WHERE channel_id = $1")
+        .bind(conv_id)
+        .fetch_one(&state.pool)
+        .await
+        .expect("count");
     assert_eq!(delivered, 0);
 }
 
@@ -557,7 +531,7 @@ async fn a_refused_delivery_tells_the_author(pool: PgPool) {
     let ws_id = seed_workspace(&state, owner_id, "Notify WS").await;
     let ch_id = seed_channel(&state, ws_id, owner_id, "going-away", false).await;
 
-    let scheduled = queue_due(&state, ws_id, owner_id, Some(ch_id), None).await;
+    let scheduled = queue_due(&state, ws_id, owner_id, ch_id).await;
     state
         .workspace_service
         .repo
@@ -587,7 +561,7 @@ async fn a_failed_message_stays_visible_to_its_author(pool: PgPool) {
     let ws_id = seed_workspace(&state, owner_id, "Visible WS").await;
     let ch_id = seed_channel(&state, ws_id, owner_id, "going-away", false).await;
 
-    let scheduled = queue_due(&state, ws_id, owner_id, Some(ch_id), None).await;
+    let scheduled = queue_due(&state, ws_id, owner_id, ch_id).await;
     state
         .workspace_service
         .repo
@@ -637,8 +611,8 @@ async fn removal_cancels_pending_messages_for_that_scope(pool: PgPool) {
             .expect("add to channel");
     }
 
-    let in_channel = queue_due(&state, ws_id, author_id, Some(ch_id), None).await;
-    let elsewhere = queue_due(&state, ws_id, author_id, Some(other_ch), None).await;
+    let in_channel = queue_due(&state, ws_id, author_id, ch_id).await;
+    let elsewhere = queue_due(&state, ws_id, author_id, other_ch).await;
 
     let (status, _) = send(
         &app,

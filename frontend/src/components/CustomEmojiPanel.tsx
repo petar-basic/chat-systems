@@ -64,7 +64,11 @@ export default function CustomEmojiPanel({ workspaceId, instanceUrl, onClose }: 
 
   const handleDelete = async (id: string) => {
     try {
-      await client.delete(`/workspaces/${workspaceId}/emojis/${id}`);
+      await client.typed((c) =>
+        c.DELETE('/workspaces/{ws_id}/emojis/{emoji_id}', {
+          params: { path: { ws_id: workspaceId, emoji_id: id } },
+        }),
+      );
       await refresh();
     } catch (err) {
       toast.error(toUserMessage(err));

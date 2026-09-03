@@ -24,14 +24,14 @@ test('a group conversation reaches all three people and shows every name', async
     await expect(page.locator('[data-qa="conversation-title"]')).toContainText('Admin');
 
     const text = `group-hello-${stamp}`;
-    const posted = await admin.post(`${API}/conversations/${conversation.id}/messages`, {
+    const posted = await admin.post(`${API}/channels/${conversation.id}/messages`, {
       data: { content: text },
     });
     expect(posted.status()).toBe(200);
 
     await expect(page.getByText(text)).toBeVisible();
 
-    const forCharlie = await (await charlie.get(`${API}/conversations/${conversation.id}/messages`)).json();
+    const forCharlie = await (await charlie.get(`${API}/channels/${conversation.id}/messages`)).json();
     expect(
       forCharlie.data.some((m: { content: string }) => m.content === text),
       'the third participant sees it too',

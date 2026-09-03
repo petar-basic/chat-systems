@@ -14,10 +14,22 @@ export class ApiError extends Error {
   constructor(
     public readonly status: number,
     message: string,
+    public readonly retryAfterSeconds: number | null = null,
   ) {
     super(message);
     this.name = 'ApiError';
   }
+}
+
+export function retryAfterSeconds(response: Response): number | null {
+  if (response.status !== 429) return null;
+  const raw = response.headers.get('Retry-After');
+  const seconds = raw ? Number.parseInt(raw, 10) : Number.NaN;
+  return Number.isFinite(seconds) && seconds > 0 ? seconds : null;
+}
+
+export function isRateLimited(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.status === 429;
 }
 
 export function isSessionExpired(error: unknown): boolean {
@@ -32,6 +44,9 @@ export function isTotpRequired(error: unknown): boolean {
 }
 
 export function toUserMessage(error: unknown): string {
+  if (isRateLimited(error) && error.retryAfterSeconds) {
+    return `${error.message} Try again in ${error.retryAfterSeconds}s.`;
+  }
   if (error instanceof ApiError || error instanceof HttpError) return error.message;
   if (error instanceof Error && error.message) return error.message;
   return GENERIC_ERROR_MESSAGE;

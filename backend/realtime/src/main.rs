@@ -276,7 +276,7 @@ async fn livez() -> impl IntoResponse {
 }
 
 async fn readyz(State(state): State<AppState>) -> Response {
-    if let Err(e) = sqlx::query_scalar::<_, i32>("SELECT 1")
+    if let Err(e) = sqlx::query_scalar!(r#"SELECT 1 AS "one!""#)
         .fetch_one(state.cm.db())
         .await
     {

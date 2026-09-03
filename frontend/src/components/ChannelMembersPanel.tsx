@@ -10,14 +10,9 @@ import { useChannelModeration } from '@/features/channel/hooks/useChannelModerat
 import { canAddChannelMembers, type ChannelRole } from '@/lib/channelPermissions';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { QUERY_KEYS } from '@/shared/constants';
+import type { components } from '@/api/schema';
 
-interface ChannelMember {
-  id: string;
-  channel_id: string;
-  user_id: string;
-  role: string;
-  joined_at: string;
-}
+type ChannelMember = components['schemas']['ChannelMember'];
 
 interface Props {
   channelId: string;
@@ -139,7 +134,12 @@ export default function ChannelMembersPanel({ channelId, channelName, channelTyp
 
   const addMemberMutation = useMutation({
     mutationFn: async (userId: string) => {
-      return apiClient.post<ChannelMember>(`/channels/${channelId}/members`, { user_id: userId });
+      return apiClient.typed((c) =>
+        c.POST('/channels/{ch_id}/members', {
+          params: { path: { ch_id: channelId } },
+          body: { user_id: userId },
+        }),
+      );
     },
     onSuccess: () => {
       setError(null);
@@ -150,7 +150,11 @@ export default function ChannelMembersPanel({ channelId, channelName, channelTyp
 
   const removeMemberMutation = useMutation({
     mutationFn: async (userId: string) => {
-      return apiClient.delete(`/channels/${channelId}/members/${userId}`);
+      return apiClient.typed((c) =>
+        c.DELETE('/channels/{ch_id}/members/{user_id}', {
+          params: { path: { ch_id: channelId, user_id: userId } },
+        }),
+      );
     },
     onSuccess: () => {
       setError(null);

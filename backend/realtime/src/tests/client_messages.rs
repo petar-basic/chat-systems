@@ -202,6 +202,8 @@ async fn typing_start_member_publishes(pool: PgPool) {
     let cm = manager(pool).await;
     let (user, _ws, ch) = seed_member_in_channel(cm.db()).await;
     let (conn_id, _rx) = fake_conn(&cm, user);
+    let join = serde_json::json!({ "type": "channel.join", "channel_ids": [ch] }).to_string();
+    crate::ws_handler::handle_client_message(&join, &conn_id, user, &cm, &mut inbound()).await;
 
     let listener = tokio::spawn(await_typing_for_channel(ch));
     settle().await;
@@ -229,6 +231,25 @@ async fn typing_start_member_publishes(pool: PgPool) {
             .get("is_typing")
             .and_then(serde_json::Value::as_bool),
         Some(true)
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn typing_start_without_having_joined_is_denied(pool: PgPool) {
+    let cm = manager(pool).await;
+    let (user, _ws, ch) = seed_member_in_channel(cm.db()).await;
+    let (conn_id, _rx) = fake_conn(&cm, user);
+
+    let listener = tokio::spawn(await_typing_for_channel(ch));
+    settle().await;
+
+    let text = serde_json::json!({ "type": "typing.start", "channel_id": ch }).to_string();
+    crate::ws_handler::handle_client_message(&text, &conn_id, user, &cm, &mut inbound()).await;
+
+    let env = listener.await.expect("listener task");
+    assert!(
+        env.is_none(),
+        "a member who has not joined the channel on this socket has not proven anything yet, got: {env:?}"
     );
 }
 
@@ -262,6 +283,8 @@ async fn typing_stop_member_publishes_false(pool: PgPool) {
     let cm = manager(pool).await;
     let (user, _ws, ch) = seed_member_in_channel(cm.db()).await;
     let (conn_id, _rx) = fake_conn(&cm, user);
+    let join = serde_json::json!({ "type": "channel.join", "channel_ids": [ch] }).to_string();
+    crate::ws_handler::handle_client_message(&join, &conn_id, user, &cm, &mut inbound()).await;
 
     let listener = tokio::spawn(await_typing_for_channel(ch));
     settle().await;
@@ -337,6 +360,8 @@ async fn repeated_typing_for_the_same_channel_is_coalesced(pool: PgPool) {
     let cm = manager(pool).await;
     let (user, _ws, ch) = seed_member_in_channel(cm.db()).await;
     let (conn_id, _rx) = fake_conn(&cm, user);
+    let join = serde_json::json!({ "type": "channel.join", "channel_ids": [ch] }).to_string();
+    crate::ws_handler::handle_client_message(&join, &conn_id, user, &cm, &mut inbound()).await;
     let mut state = inbound();
 
     let text = serde_json::json!({ "type": "typing.start", "channel_id": ch }).to_string();

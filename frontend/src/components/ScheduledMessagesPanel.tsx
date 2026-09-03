@@ -172,14 +172,12 @@ export default function ScheduledMessagesPanel({
   const busy = cancelScheduled.isPending || reschedule.isPending;
 
   const targetOf = (message: ScheduledMessage) => {
-    if (message.channel_id) {
-      const channel = channels.find((c) => c.id === message.channel_id);
-      return channel ? `#${channel.name}` : 'a channel you left';
-    }
-    const conversation = conversations.find((c) => c.id === message.conversation_id);
+    const channel = channels.find((c) => c.id === message.channel_id);
+    if (channel) return `#${channel.name}`;
+    const conversation = conversations.find((c) => c.id === message.channel_id);
     return conversation
       ? conversationTitle(conversation, currentUserId ?? undefined, (id) => getUser(id)?.display_name)
-      : 'a conversation you left';
+      : 'a channel you left';
   };
 
   const failWith = (fallback: string) => (err: unknown) =>

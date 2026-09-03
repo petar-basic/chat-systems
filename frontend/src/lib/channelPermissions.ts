@@ -1,3 +1,4 @@
+import type { ChannelSettings } from '@/stores/workspace';
 import type { WorkspaceRole } from '@/stores/workspace';
 
 export type ChannelRole = 'member' | 'admin';
@@ -21,7 +22,7 @@ export function canModerateChannel(
  * the channel being locked.
  */
 export function canPostInChannel(
-  settings: { post_policy?: 'everyone' | 'moderators' } | null | undefined,
+  settings: ChannelSettings | null | undefined,
   workspaceRole: WorkspaceRole | null,
   channelRole: ChannelRole | undefined,
 ): boolean {

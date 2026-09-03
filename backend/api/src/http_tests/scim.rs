@@ -113,7 +113,14 @@ async fn delete_deactivates_and_destroys_nothing(pool: sqlx::PgPool) {
     let channel_id = seed_channel(&state, ws_id, leaver_id, "main", false).await;
     let message = state
         .message_repo
-        .create_message(channel_id, leaver_id, "still here", None, &[])
+        .create_message(crate::messaging::models::NewMessage {
+            channel_id,
+            user_id: leaver_id,
+            content: "still here",
+            thread_parent_id: None,
+            client_message_id: None,
+            mentioned: &[],
+        })
         .await
         .expect("post a message");
 

@@ -28,12 +28,13 @@ export const useMessages = (channelId: string | null) => {
 
   return useInfiniteQuery({
     queryKey: QUERY_KEYS.messages(channelId ?? ''),
-    queryFn: async ({ pageParam }) => {
+    queryFn: async ({ pageParam }): Promise<MessagesResponse> => {
       if (!channelId) throw new Error('No channel selected');
-      const params = new URLSearchParams();
-      params.set('limit', String(MESSAGES_PAGE_SIZE));
-      if (pageParam) params.set('cursor', pageParam);
-      return apiClient.get<MessagesResponse>(`/channels/${channelId}/messages?${params.toString()}`);
+      return apiClient.typed((c) =>
+        c.GET('/channels/{ch_id}/messages', {
+          params: { path: { ch_id: channelId }, query: { limit: MESSAGES_PAGE_SIZE, cursor: pageParam } },
+        }),
+      );
     },
     getNextPageParam: olderMessagesCursor,
     initialPageParam: undefined as string | undefined,
@@ -55,10 +56,12 @@ export const useSendMessage = (channelId: string, userId: string) => {
     mutationFn: async ({ content, id }: { content: string; id: string }) => {
       // The server owns the message id; this one only makes a retry of the same
       // send idempotent, and is scoped to this channel.
-      return apiClient.post<Message>(`/channels/${channelId}/messages`, {
-        content,
-        client_message_id: id,
-      });
+      return apiClient.typed((c) =>
+        c.POST('/channels/{ch_id}/messages', {
+          params: { path: { ch_id: channelId } },
+          body: { content, client_message_id: id },
+        }),
+      );
     },
     onMutate: async ({ content, id }) => {
       await queryClient.cancelQueries({ queryKey: key });
@@ -110,7 +113,9 @@ export const useEditMessage = () => {
 
   return useMutation({
     mutationFn: async ({ messageId, content }: { messageId: string; content: string; channelId: string }) => {
-      return apiClient.patch<Message>(`/messages/${messageId}`, { content });
+      return apiClient.typed((c) =>
+        c.PATCH('/messages/{msg_id}', { params: { path: { msg_id: messageId } }, body: { content } }),
+      );
     },
     onMutate: async ({ messageId, content, channelId }) => {
       const key = QUERY_KEYS.messages(channelId);
@@ -135,7 +140,9 @@ export const useDeleteMessage = () => {
 
   return useMutation({
     mutationFn: async ({ messageId }: { messageId: string; channelId: string }) => {
-      await apiClient.delete(`/messages/${messageId}`);
+      await apiClient.typed((c) =>
+        c.DELETE('/messages/{msg_id}', { params: { path: { msg_id: messageId } } }),
+      );
     },
     onSuccess: (_data, { messageId, channelId }) => {
       queryClient.setQueryData<MessagesInfiniteData>(QUERY_KEYS.messages(channelId), (old) =>
@@ -169,8 +176,9 @@ export const usePinMessage = () => {
       channelId: string;
       isPinned: boolean;
     }) => {
-      if (isPinned) await apiClient.delete(`/messages/${messageId}/pin`);
-      else await apiClient.post(`/messages/${messageId}/pin`, {});
+      const params = { path: { msg_id: messageId } };
+      if (isPinned) await apiClient.typed((c) => c.DELETE('/messages/{msg_id}/pin', { params }));
+      else await apiClient.typed((c) => c.POST('/messages/{msg_id}/pin', { params }));
     },
     onMutate: async ({ messageId, channelId, isPinned }) => {
       const key = QUERY_KEYS.messages(channelId);
@@ -198,7 +206,9 @@ export const useReactToMessage = () => {
 
   return useMutation({
     mutationFn: async ({ messageId, emoji }: ReactionVars) => {
-      return apiClient.post<Reaction>(`/messages/${messageId}/reactions`, { emoji });
+      return apiClient.typed((c) =>
+        c.POST('/messages/{msg_id}/reactions', { params: { path: { msg_id: messageId } }, body: { emoji } }),
+      );
     },
     onMutate: async ({ messageId, channelId, emoji, userId }) => {
       const key = QUERY_KEYS.messages(channelId);
@@ -237,7 +247,9 @@ export const useRemoveReaction = () => {
 
   return useMutation({
     mutationFn: async ({ messageId, emoji }: ReactionVars) => {
-      return apiClient.delete(`/messages/${messageId}/reactions/${encodeURIComponent(emoji)}`);
+      return apiClient.typed((c) =>
+        c.DELETE('/messages/{msg_id}/reactions/{emoji}', { params: { path: { msg_id: messageId, emoji } } }),
+      );
     },
     onMutate: async ({ messageId, channelId, emoji, userId }) => {
       const key = QUERY_KEYS.messages(channelId);

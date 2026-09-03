@@ -25,6 +25,14 @@ path = "src/bin/chat-worker.rs"
 name = "chat-import"
 path = "src/bin/chat-import.rs"
 
+[[bin]]
+name = "chat-openapi"
+path = "src/bin/chat-openapi.rs"
+
+[[bin]]
+name = "chat-ts-events"
+path = "src/bin/chat-ts-events.rs"
+
 [dependencies]
 shared-common = { path = "../shared/common" }
 shared-events = { path = "../shared/events" }
@@ -45,9 +53,8 @@ totp-rs = { workspace = true }
 # Redis
 redis = { workspace = true }
 
-# S3 / MinIO
-aws-sdk-s3 = { workspace = true }
-aws-config = { workspace = true }
+# File storage (local disk, S3 / MinIO)
+object_store = { workspace = true }
 
 # Auth
 jsonwebtoken = { workspace = true }
@@ -67,6 +74,12 @@ base64 = { workspace = true }
 # Serialization
 serde = { workspace = true }
 serde_json = { workspace = true }
+utoipa = { workspace = true }
+utoipa-axum = { workspace = true }
+garde = { workspace = true }
+askama = { workspace = true }
+ipnet = { workspace = true }
+backon = { workspace = true }
 
 # Utilities
 uuid = { workspace = true }

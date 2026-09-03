@@ -419,49 +419,83 @@ async fn typing_indicator_broadcasts_to_channel_subscriber(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
-async fn a_conversation_message_reaches_every_participant_and_nobody_else(pool: PgPool) {
+async fn a_direct_message_reaches_the_sockets_that_joined_its_channel_and_nobody_else(
+    pool: PgPool,
+) {
     let cm = manager(pool).await;
     let author = Uuid::new_v4();
-    let second = Uuid::new_v4();
-    let third = Uuid::new_v4();
+    let partner = Uuid::new_v4();
     let bystander = Uuid::new_v4();
+    let conversation = Uuid::new_v4();
 
-    let (_author_conn, mut author_rx) = fake_conn(&cm, author);
-    let (_second_conn, mut second_rx) = fake_conn(&cm, second);
-    let (_third_conn, mut third_rx) = fake_conn(&cm, third);
+    let (author_conn, mut author_rx) = fake_conn(&cm, author);
+    let (partner_conn, mut partner_rx) = fake_conn(&cm, partner);
     let (_by_conn, mut by_rx) = fake_conn(&cm, bystander);
+    cm.join_channel(&author_conn, conversation);
+    cm.join_channel(&partner_conn, conversation);
 
     let payload = json!({
-        "id": Uuid::new_v4().to_string(),
-        "conversation_id": Uuid::new_v4().to_string(),
+        "message_id": Uuid::new_v4().to_string(),
+        "channel_id": conversation.to_string(),
         "user_id": author.to_string(),
         "content": "hi there",
-        "participant_ids": [author.to_string(), second.to_string(), third.to_string()],
     });
-    crate::event_consumer::handle_event("conversation.message.created", &payload, &cm).await;
+    crate::event_consumer::handle_event("message.created", &payload, &cm).await;
 
     let author_frame = next_json(&mut author_rx).expect("the author sees their own message");
     assert_eq!(
         author_frame.get("type").and_then(|t| t.as_str()),
-        Some("conversation.message.created")
+        Some("message.new")
     );
     assert_eq!(
-        author_frame.get("content").and_then(|c| c.as_str()),
+        author_frame
+            .get("message")
+            .and_then(|m| m.get("content"))
+            .and_then(|c| c.as_str()),
         Some("hi there")
     );
-
-    assert_eq!(
-        next_type(&mut second_rx).as_deref(),
-        Some("conversation.message.created")
-    );
-    assert_eq!(
-        next_type(&mut third_rx).as_deref(),
-        Some("conversation.message.created")
-    );
+    assert_eq!(next_type(&mut partner_rx).as_deref(), Some("message.new"));
     assert!(
         next_json(&mut by_rx).is_none(),
         "someone outside the conversation hears nothing"
     );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_new_conversation_is_announced_to_every_participant_and_nobody_else(pool: PgPool) {
+    let cm = manager(pool).await;
+    let starter = Uuid::new_v4();
+    let second = Uuid::new_v4();
+    let bystander = Uuid::new_v4();
+    let conversation = Uuid::new_v4();
+
+    let (_starter_conn, mut starter_rx) = fake_conn(&cm, starter);
+    let (_second_conn, mut second_rx) = fake_conn(&cm, second);
+    let (_by_conn, mut by_rx) = fake_conn(&cm, bystander);
+
+    let now = chrono::Utc::now().to_rfc3339();
+    let payload = json!({
+        "id": conversation.to_string(),
+        "workspace_id": Uuid::new_v4().to_string(),
+        "kind": "direct",
+        "created_by": starter.to_string(),
+        "last_message_at": now,
+        "created_at": now,
+        "conversation_id": conversation.to_string(),
+        "participant_ids": [starter.to_string(), second.to_string()],
+    });
+    crate::event_consumer::handle_event("conversation.created", &payload, &cm).await;
+
+    assert_eq!(
+        next_type(&mut starter_rx).as_deref(),
+        Some("conversation.created")
+    );
+    let frame = next_json(&mut second_rx).expect("the other participant is told");
+    assert_eq!(
+        frame.get("conversation_id").and_then(|c| c.as_str()),
+        Some(conversation.to_string().as_str())
+    );
+    assert!(next_json(&mut by_rx).is_none());
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
@@ -471,8 +505,8 @@ async fn a_conversation_event_without_participants_is_a_noop(pool: PgPool) {
 
     let (_conn, mut rx) = fake_conn(&cm, user);
 
-    let payload = json!({ "conversation_id": Uuid::new_v4().to_string(), "content": "x" });
-    crate::event_consumer::handle_event("conversation.message.created", &payload, &cm).await;
+    let payload = json!({ "conversation_id": Uuid::new_v4().to_string(), "kind": "direct" });
+    crate::event_consumer::handle_event("conversation.created", &payload, &cm).await;
 
     assert!(next_json(&mut rx).is_none());
 }

@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
 use axum::extract::{Path, Query, State};
-use axum::routing::{delete, get, patch, post};
-use axum::{Json, Router};
+use axum::Json;
+use garde::Validate;
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::routes;
 use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
@@ -11,49 +13,40 @@ use super::models::*;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
 use crate::middleware::AuthUser;
+use crate::pagination::PageQuery;
 use crate::state::AppState;
 use crate::workspace::models::WorkspaceRole;
 
-pub fn router(state: Arc<AppState>) -> Router {
-    let routes = Router::new()
-        .route("/channels/{ch_id}/messages", get(list_messages))
-        .route("/channels/{ch_id}/messages", post(send_message))
-        .route("/channels/{ch_id}/pins", get(list_pins))
-        .route("/channels/{ch_id}/read", post(mark_read))
-        .route("/messages/{msg_id}", patch(update_message))
-        .route("/messages/{msg_id}", delete(delete_message))
-        .route("/messages/{msg_id}/history", get(message_history))
-        .route("/messages/{msg_id}/pin", post(pin_message))
-        .route("/messages/{msg_id}/pin", delete(unpin_message))
-        .route("/messages/{msg_id}/thread", get(list_thread))
-        .route("/messages/{msg_id}/thread", post(reply_to_thread))
-        .route("/messages/{msg_id}/reactions", get(list_reactions))
-        .route("/messages/{msg_id}/reactions", post(add_reaction))
-        .route(
-            "/messages/{msg_id}/reactions/{emoji}",
-            delete(remove_reaction),
-        )
-        .route("/search", get(search_messages));
-
-    crate::protected(state, routes)
+pub fn router() -> OpenApiRouter<Arc<AppState>> {
+    OpenApiRouter::new()
+        .routes(routes!(list_messages, send_message))
+        .routes(routes!(list_pins))
+        .routes(routes!(mark_read))
+        .routes(routes!(update_message, delete_message))
+        .routes(routes!(message_history))
+        .routes(routes!(pin_message, unpin_message))
+        .routes(routes!(list_thread, reply_to_thread))
+        .routes(routes!(list_reactions, add_reaction))
+        .routes(routes!(remove_reaction))
+        .routes(routes!(search_messages))
 }
 
+#[utoipa::path(
+    operation_id = "messaging_list_messages",
+    get, path = "/channels/{ch_id}/messages", tag = "messages",
+    params(ListMessagesQuery),
+    responses((status = 200, body = DataList<MessageWithReactions>)))]
 async fn list_messages(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ch_id): Path<Uuid>,
-    Query(params): Query<std::collections::HashMap<String, String>>,
-) -> AppResult<Json<serde_json::Value>> {
+    Query(params): Query<ListMessagesQuery>,
+) -> AppResult<Json<DataList<MessageWithReactions>>> {
     authz::require_channel_access(&state, ch_id, auth.user_id).await?;
-    let limit = params
-        .get("limit")
-        .and_then(|v| v.parse::<i64>().ok())
-        .unwrap_or(50)
-        .clamp(1, 200);
-    let cursor = params.get("cursor").and_then(|v| v.parse().ok());
+    let limit = params.limit.unwrap_or(50).clamp(1, 200);
     let messages = state
         .message_repo
-        .list_channel_messages(ch_id, limit, cursor)
+        .list_channel_messages(ch_id, limit, params.cursor)
         .await?;
 
     let message_ids: Vec<Uuid> = messages.iter().map(|m| m.id).collect();
@@ -62,7 +55,7 @@ async fn list_messages(
         .list_reactions_for_messages(&message_ids)
         .await?;
 
-    let mut reactions_map: std::collections::HashMap<Uuid, Vec<_>> =
+    let mut reactions_map: std::collections::HashMap<Uuid, Vec<Reaction>> =
         std::collections::HashMap::new();
     for reaction in reactions {
         reactions_map
@@ -71,76 +64,94 @@ async fn list_messages(
             .push(reaction);
     }
 
-    let messages_with_reactions: Vec<serde_json::Value> = messages
+    let data = messages
         .into_iter()
-        .map(|msg| {
-            let mut msg_json = serde_json::to_value(&msg).unwrap_or_default();
-            if let Some(obj) = msg_json.as_object_mut() {
-                let msg_reactions = reactions_map.get(&msg.id).cloned().unwrap_or_default();
-                obj.insert(
-                    "reactions".to_string(),
-                    serde_json::to_value(msg_reactions).unwrap_or_default(),
-                );
-            }
-            msg_json
+        .map(|message| {
+            let reactions = reactions_map.remove(&message.id).unwrap_or_default();
+            MessageWithReactions { message, reactions }
         })
         .collect();
 
-    Ok(Json(serde_json::json!({ "data": messages_with_reactions })))
+    Ok(Json(DataList { data }))
 }
 
+/// Threads are one level deep and stay in their channel: replying to a reply
+/// joins the root's thread, and a parent from elsewhere is refused rather than
+/// letting a message hang off something its readers cannot see.
+async fn thread_root(state: &AppState, channel_id: Uuid, parent_id: Uuid) -> AppResult<Uuid> {
+    let parent = state
+        .message_repo
+        .find_by_id(parent_id)
+        .await?
+        .filter(|parent| parent.channel_id == channel_id)
+        .ok_or_else(|| AppError::Validation("Thread parent is not in this channel".into()))?;
+    Ok(parent.thread_parent_id.unwrap_or(parent.id))
+}
+
+#[utoipa::path(
+    operation_id = "messaging_send_message",
+    post, path = "/channels/{ch_id}/messages", tag = "messages",
+    request_body = SendMessageRequest,
+    responses((status = 200, body = Message)))]
 async fn send_message(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ch_id): Path<Uuid>,
     Json(req): Json<SendMessageRequest>,
 ) -> AppResult<Json<Message>> {
-    shared_common::validation::validate_message_content(&req.content)?;
+    req.validate()?;
 
     let channel = authz::require_channel_post(&state, ch_id, auth.user_id)
         .await?
         .channel;
 
+    let thread_parent_id = match req.thread_parent_id {
+        Some(parent_id) => Some(thread_root(&state, ch_id, parent_id).await?),
+        None => None,
+    };
+
     // The mention set has to exist before the insert: the unread and mention
     // counters are bumped inside the same transaction that writes the message.
     let mentioned_ids = expand_mentions(&state, ch_id, auth.user_id, &req.content).await;
 
-    let msg = if let Some(client_id) = req.client_message_id {
-        shared_common::validation::validate_client_message_id(client_id)?;
-        match state
-            .message_repo
-            .create_message_with_client_id(
-                client_id,
-                ch_id,
-                auth.user_id,
-                &req.content,
-                req.thread_parent_id,
-                &mentioned_ids,
-            )
-            .await
-        {
-            Ok(msg) => msg,
-            // The only unique key a client controls is `(channel_id,
-            // client_message_id)`, so a violation means this exact send already
-            // landed — in this channel, by definition of the index.
-            Err(ref e) if shared_common::errors::is_unique_violation(e) => state
+    let mut tx = state.pool.begin().await?;
+    let created = state
+        .message_repo
+        .create_message_in(
+            &mut tx,
+            NewMessage {
+                channel_id: ch_id,
+                user_id: auth.user_id,
+                content: &req.content,
+                thread_parent_id,
+                client_message_id: req.client_message_id,
+                mentioned: &mentioned_ids,
+            },
+        )
+        .await;
+
+    let (msg, staged) = match (created, req.client_message_id) {
+        (Ok(msg), _) => {
+            let staged = state
+                .publisher
+                .stage_message_created(&mut tx, &msg, channel.workspace_id, &mentioned_ids)
+                .await?;
+            tx.commit().await?;
+            (msg, Some(staged))
+        }
+        // The only unique key a client controls is `(channel_id,
+        // client_message_id)`, so a violation means this exact send already
+        // landed — in this channel, by definition of the index.
+        (Err(ref e), Some(client_id)) if shared_common::errors::is_unique_violation(e) => {
+            drop(tx);
+            let existing = state
                 .message_repo
                 .find_by_client_id(ch_id, client_id)
                 .await?
-                .ok_or_else(|| AppError::Conflict("Message id already in use".into()))?,
-            Err(e) => return Err(AppError::Database(e.to_string())),
+                .ok_or_else(|| AppError::Conflict("Message id already in use".into()))?;
+            (existing, None)
         }
-    } else {
-        state
-            .message_repo
-            .create_message(
-                ch_id,
-                auth.user_id,
-                &req.content,
-                req.thread_parent_id,
-                &mentioned_ids,
-            )
-            .await?
+        (Err(e), _) => return Err(AppError::Database(e.to_string())),
     };
 
     crate::files::service::link_to_channel_message(
@@ -152,22 +163,23 @@ async fn send_message(
     )
     .await;
 
-    let msg_json = serde_json::to_value(&msg).map_err(|e| AppError::Internal(e.to_string()))?;
-    let _ = state
-        .publisher
-        .publish_message_created(&msg_json, channel.workspace_id, &mentioned_ids)
-        .await;
+    if let Some(staged) = staged {
+        state.publisher.dispatch(staged).await;
+    }
 
     Ok(Json(msg))
 }
 
+#[utoipa::path(patch, path = "/messages/{msg_id}", tag = "messages",
+    request_body = UpdateMessageRequest,
+    responses((status = 200, body = Message)))]
 async fn update_message(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(msg_id): Path<Uuid>,
     Json(req): Json<UpdateMessageRequest>,
 ) -> AppResult<Json<Message>> {
-    shared_common::validation::validate_message_content(&req.content)?;
+    req.validate()?;
 
     let existing = state
         .message_repo
@@ -181,12 +193,19 @@ async fn update_message(
         ));
     }
 
+    let channel = authz::find_channel(&state, existing.channel_id).await?;
+
+    let mut tx = state.pool.begin().await?;
     let msg = state
         .message_repo
-        .update_message(msg_id, &req.content, auth.user_id)
+        .update_message_in(&mut tx, msg_id, &req.content, auth.user_id)
         .await?;
+    let staged = state
+        .publisher
+        .stage_message_updated(&mut tx, &msg, channel.workspace_id)
+        .await?;
+    tx.commit().await?;
 
-    let channel = authz::find_channel(&state, msg.channel_id).await?;
     crate::files::service::link_to_channel_message(
         &state,
         &req.content,
@@ -198,11 +217,7 @@ async fn update_message(
     crate::files::service::release_unlinked_from_channel_message(&state, &req.content, msg.id)
         .await;
 
-    let msg_json = serde_json::to_value(&msg).map_err(|e| AppError::Internal(e.to_string()))?;
-    let _ = state
-        .publisher
-        .publish_message_updated(&msg_json, channel.workspace_id)
-        .await;
+    state.publisher.dispatch(staged).await;
 
     Ok(Json(msg))
 }
@@ -211,12 +226,16 @@ async fn update_message(
 /// and that read is audited. Everyone else gets the "edited" marker and nothing
 /// behind it — showing every earlier draft to every reader is a different
 /// product from the one people think they are using.
+#[utoipa::path(
+    operation_id = "messaging_message_history",
+    get, path = "/messages/{msg_id}/history", tag = "messages",
+    responses((status = 200, body = DataList<MessageEdit>)))]
 async fn message_history(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
     Path(msg_id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<DataList<MessageEdit>>> {
     let message = state
         .message_repo
         .find_by_id(msg_id)
@@ -244,15 +263,19 @@ async fn message_history(
     }
 
     let edits = state.message_repo.list_edits(msg_id).await?;
-    Ok(Json(serde_json::json!({ "data": edits })))
+    Ok(Json(edits.into()))
 }
 
+#[utoipa::path(
+    operation_id = "messaging_delete_message",
+    delete, path = "/messages/{msg_id}", tag = "messages",
+    responses((status = 200, body = StatusResponse)))]
 async fn delete_message(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
     Path(msg_id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<StatusResponse>> {
     let existing = state
         .message_repo
         .find_by_id(msg_id)
@@ -282,13 +305,19 @@ async fn delete_message(
             e
         );
     }
-    state.message_repo.soft_delete_message(msg_id).await?;
-    crate::files::service::delete_for_channel_message(&state, msg_id).await;
-
-    let _ = state
+    let mut tx = state.pool.begin().await?;
+    state
+        .message_repo
+        .soft_delete_message_in(&mut tx, msg_id)
+        .await?;
+    let staged = state
         .publisher
-        .publish_message_deleted(msg_id, existing.channel_id, channel.workspace_id)
-        .await;
+        .stage_message_deleted(&mut tx, msg_id, existing.channel_id, channel.workspace_id)
+        .await?;
+    tx.commit().await?;
+
+    crate::files::service::delete_for_channel_message(&state, msg_id).await;
+    state.publisher.dispatch(staged).await;
 
     audit::record(
         &state,
@@ -304,14 +333,16 @@ async fn delete_message(
     )
     .await;
 
-    Ok(Json(serde_json::json!({ "status": "deleted" })))
+    Ok(Json(StatusResponse { status: "deleted" }))
 }
 
+#[utoipa::path(post, path = "/messages/{msg_id}/pin", tag = "messages",
+    responses((status = 200, body = StatusResponse)))]
 async fn pin_message(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(msg_id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<StatusResponse>> {
     let existing = state
         .message_repo
         .find_by_id(msg_id)
@@ -329,21 +360,28 @@ async fn pin_message(
     }
 
     let channel = authz::find_channel(&state, existing.channel_id).await?;
-    let msg = state.message_repo.set_pinned(msg_id, true).await?;
-
-    let _ = state
+    let mut tx = state.pool.begin().await?;
+    let msg = state
+        .message_repo
+        .set_pinned_in(&mut tx, msg_id, true)
+        .await?;
+    let staged = state
         .publisher
-        .publish_message_pinned(msg_id, msg.channel_id, channel.workspace_id, true)
-        .await;
+        .stage_message_pinned(&mut tx, msg_id, msg.channel_id, channel.workspace_id, true)
+        .await?;
+    tx.commit().await?;
+    state.publisher.dispatch(staged).await;
 
-    Ok(Json(serde_json::json!({ "status": "pinned" })))
+    Ok(Json(StatusResponse { status: "pinned" }))
 }
 
+#[utoipa::path(delete, path = "/messages/{msg_id}/pin", tag = "messages",
+    responses((status = 200, body = StatusResponse)))]
 async fn unpin_message(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(msg_id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<StatusResponse>> {
     let existing = state
         .message_repo
         .find_by_id(msg_id)
@@ -361,32 +399,44 @@ async fn unpin_message(
     }
 
     let channel = authz::find_channel(&state, existing.channel_id).await?;
-    let msg = state.message_repo.set_pinned(msg_id, false).await?;
-
-    let _ = state
+    let mut tx = state.pool.begin().await?;
+    let msg = state
+        .message_repo
+        .set_pinned_in(&mut tx, msg_id, false)
+        .await?;
+    let staged = state
         .publisher
-        .publish_message_pinned(msg_id, msg.channel_id, channel.workspace_id, false)
-        .await;
+        .stage_message_pinned(&mut tx, msg_id, msg.channel_id, channel.workspace_id, false)
+        .await?;
+    tx.commit().await?;
+    state.publisher.dispatch(staged).await;
 
-    Ok(Json(serde_json::json!({ "status": "unpinned" })))
+    Ok(Json(StatusResponse { status: "unpinned" }))
 }
 
+#[utoipa::path(get, path = "/channels/{ch_id}/pins", tag = "messages",
+    responses((status = 200, body = DataList<Message>)))]
 async fn list_pins(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ch_id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<DataList<Message>>> {
     authz::require_channel_access(&state, ch_id, auth.user_id).await?;
     let pins = state.message_repo.list_pinned(ch_id).await?;
-    Ok(Json(serde_json::json!({ "data": pins })))
+    Ok(Json(pins.into()))
 }
 
+#[utoipa::path(
+    operation_id = "messaging_list_thread",
+    get, path = "/messages/{msg_id}/thread", tag = "messages",
+    params(PageQuery),
+    responses((status = 200, body = DataList<Message>)))]
 async fn list_thread(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(msg_id): Path<Uuid>,
-    Query(params): Query<std::collections::HashMap<String, String>>,
-) -> AppResult<Json<serde_json::Value>> {
+    Query(params): Query<PageQuery>,
+) -> AppResult<Json<DataList<Message>>> {
     let channel_id = state
         .message_repo
         .find_by_id(msg_id)
@@ -394,30 +444,23 @@ async fn list_thread(
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?
         .channel_id;
     authz::require_channel_access(&state, channel_id, auth.user_id).await?;
-    let limit = params
-        .get("limit")
-        .and_then(|v| v.parse::<i64>().ok())
-        .unwrap_or(50)
-        .clamp(1, 200);
-    let offset = params
-        .get("offset")
-        .and_then(|v| v.parse::<i64>().ok())
-        .unwrap_or(0)
-        .max(0);
     let messages = state
         .message_repo
-        .list_thread_messages(msg_id, limit, offset)
+        .list_thread_messages(msg_id, params.limit(), params.offset())
         .await?;
-    Ok(Json(serde_json::json!({ "data": messages })))
+    Ok(Json(messages.into()))
 }
 
+#[utoipa::path(post, path = "/messages/{msg_id}/thread", tag = "messages",
+    request_body = SendMessageRequest,
+    responses((status = 200, body = Message)))]
 async fn reply_to_thread(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(msg_id): Path<Uuid>,
     Json(req): Json<SendMessageRequest>,
 ) -> AppResult<Json<Message>> {
-    shared_common::validation::validate_message_content(&req.content)?;
+    req.validate()?;
 
     let parent = state
         .message_repo
@@ -429,19 +472,30 @@ async fn reply_to_thread(
         .await?
         .channel;
 
+    let root_id = parent.thread_parent_id.unwrap_or(parent.id);
     let mentioned_ids =
         expand_mentions(&state, parent.channel_id, auth.user_id, &req.content).await;
 
+    let mut tx = state.pool.begin().await?;
     let msg = state
         .message_repo
-        .create_message(
-            parent.channel_id,
-            auth.user_id,
-            &req.content,
-            Some(msg_id),
-            &mentioned_ids,
+        .create_message_in(
+            &mut tx,
+            NewMessage {
+                channel_id: parent.channel_id,
+                user_id: auth.user_id,
+                content: &req.content,
+                thread_parent_id: Some(root_id),
+                client_message_id: None,
+                mentioned: &mentioned_ids,
+            },
         )
         .await?;
+    let staged = state
+        .publisher
+        .stage_message_created(&mut tx, &msg, channel.workspace_id, &mentioned_ids)
+        .await?;
+    tx.commit().await?;
 
     crate::files::service::link_to_channel_message(
         &state,
@@ -452,20 +506,18 @@ async fn reply_to_thread(
     )
     .await;
 
-    let msg_json = serde_json::to_value(&msg).map_err(|e| AppError::Internal(e.to_string()))?;
-    let _ = state
-        .publisher
-        .publish_message_created(&msg_json, channel.workspace_id, &mentioned_ids)
-        .await;
+    state.publisher.dispatch(staged).await;
 
     Ok(Json(msg))
 }
 
+#[utoipa::path(get, path = "/messages/{msg_id}/reactions", tag = "messages",
+    responses((status = 200, body = DataList<Reaction>)))]
 async fn list_reactions(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(msg_id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<DataList<Reaction>>> {
     let channel_id = state
         .message_repo
         .find_by_id(msg_id)
@@ -474,16 +526,21 @@ async fn list_reactions(
         .channel_id;
     authz::require_channel_access(&state, channel_id, auth.user_id).await?;
     let reactions = state.message_repo.list_reactions(msg_id).await?;
-    Ok(Json(serde_json::json!({ "data": reactions })))
+    Ok(Json(reactions.into()))
 }
 
+#[utoipa::path(
+    operation_id = "messaging_add_reaction",
+    post, path = "/messages/{msg_id}/reactions", tag = "messages",
+    request_body = AddReactionRequest,
+    responses((status = 200, body = Reaction)))]
 async fn add_reaction(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(msg_id): Path<Uuid>,
     Json(req): Json<AddReactionRequest>,
 ) -> AppResult<Json<Reaction>> {
-    shared_common::validation::validate_reaction_emoji(&req.emoji)?;
+    req.validate()?;
     let msg = state
         .message_repo
         .find_by_id(msg_id)
@@ -492,9 +549,10 @@ async fn add_reaction(
 
     let access = authz::require_channel_access(&state, msg.channel_id, auth.user_id).await?;
 
+    let mut tx = state.pool.begin().await?;
     let reaction = state
         .message_repo
-        .add_reaction(msg_id, auth.user_id, &req.emoji)
+        .add_reaction_in(&mut tx, msg_id, auth.user_id, &req.emoji)
         .await
         .map_err(|e| {
             if shared_common::errors::is_unique_violation(&e) {
@@ -503,22 +561,30 @@ async fn add_reaction(
                 AppError::Database(e.to_string())
             }
         })?;
-
-    let reaction_json =
-        serde_json::to_value(&reaction).map_err(|e| AppError::Internal(e.to_string()))?;
-    let _ = state
+    let staged = state
         .publisher
-        .publish_reaction_added(&reaction_json, msg.channel_id, access.channel.workspace_id)
-        .await;
+        .stage_reaction_added(
+            &mut tx,
+            &reaction,
+            msg.channel_id,
+            access.channel.workspace_id,
+        )
+        .await?;
+    tx.commit().await?;
+    state.publisher.dispatch(staged).await;
 
     Ok(Json(reaction))
 }
 
+#[utoipa::path(
+    operation_id = "messaging_remove_reaction",
+    delete, path = "/messages/{msg_id}/reactions/{emoji}", tag = "messages",
+    responses((status = 200, body = StatusResponse)))]
 async fn remove_reaction(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path((msg_id, emoji)): Path<(Uuid, String)>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<StatusResponse>> {
     let msg = state
         .message_repo
         .find_by_id(msg_id)
@@ -527,44 +593,55 @@ async fn remove_reaction(
 
     let access = authz::require_channel_access(&state, msg.channel_id, auth.user_id).await?;
 
+    let mut tx = state.pool.begin().await?;
     state
         .message_repo
-        .remove_reaction(msg_id, auth.user_id, &emoji)
+        .remove_reaction_in(&mut tx, msg_id, auth.user_id, &emoji)
         .await?;
-
-    let _ = state
+    let staged = state
         .publisher
-        .publish_reaction_removed(
+        .stage_reaction_removed(
+            &mut tx,
             msg_id,
             msg.channel_id,
             access.channel.workspace_id,
             auth.user_id,
             &emoji,
         )
-        .await;
+        .await?;
+    tx.commit().await?;
+    state.publisher.dispatch(staged).await;
 
-    Ok(Json(serde_json::json!({ "status": "removed" })))
+    Ok(Json(StatusResponse { status: "removed" }))
 }
 
+#[utoipa::path(
+    operation_id = "messaging_mark_read",
+    post, path = "/channels/{ch_id}/read", tag = "messages",
+    request_body = MarkReadRequest,
+    responses((status = 200, body = StatusResponse)))]
 async fn mark_read(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ch_id): Path<Uuid>,
     Json(req): Json<MarkReadRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<StatusResponse>> {
     authz::require_channel_access(&state, ch_id, auth.user_id).await?;
     state
         .message_repo
         .mark_read(ch_id, auth.user_id, req.message_id)
         .await?;
-    Ok(Json(serde_json::json!({ "status": "read" })))
+    Ok(Json(StatusResponse { status: "read" }))
 }
 
+#[utoipa::path(get, path = "/search", tag = "messages",
+    params(SearchQuery),
+    responses((status = 200, body = SearchResponse)))]
 async fn search_messages(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Query(params): Query<SearchQuery>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<SearchResponse>> {
     let query = params.q.clone().unwrap_or_default();
     if query.is_empty() {
         return Err(AppError::Validation("Search query is required".into()));
@@ -585,39 +662,22 @@ async fn search_messages(
         None => params.scope.unwrap_or(SearchScope::All),
     };
 
-    let messages = if scope.includes_channels() {
-        state
-            .message_repo
-            .search(crate::messaging::repo::MessageSearch {
-                query: &query,
-                workspace_id: params.workspace_id,
-                requester_id: auth.user_id,
-                requester_is_guest: member.role == WorkspaceRole::Guest,
-                channel_id: params.channel_id,
-                author_id: params.user_id,
-                limit,
-                offset,
-            })
-            .await?
-    } else {
-        Vec::new()
-    };
+    let messages = state
+        .message_repo
+        .search(crate::messaging::repo::MessageSearch {
+            query: &query,
+            workspace_id: params.workspace_id,
+            requester_id: auth.user_id,
+            requester_is_guest: member.role == WorkspaceRole::Guest,
+            channel_id: params.channel_id,
+            author_id: params.user_id,
+            scope,
+            limit,
+            offset,
+        })
+        .await?;
 
-    // A guest is scoped to what they were explicitly added to; that rule has no
-    // conversation equivalent, and participation already enforces it.
-    let conversations = if scope.includes_conversations() {
-        state
-            .conversation_repo
-            .search(&query, params.workspace_id, auth.user_id, limit, offset)
-            .await?
-    } else {
-        Vec::new()
-    };
-
-    Ok(Json(serde_json::json!({
-        "data": messages,
-        "conversations": conversations,
-    })))
+    Ok(Json(SearchResponse { data: messages }))
 }
 
 #[derive(Debug, Default, PartialEq)]
@@ -683,6 +743,20 @@ pub(crate) async fn expand_mentions(
     let mut mentioned: Vec<Uuid> = extract_mentioned_user_ids(content);
     let broadcast = extract_broadcast_mentions(content);
     let groups = extract_group_mentions(content);
+    let here_only = broadcast.here && !broadcast.channel;
+
+    let workspace_id = if here_only || !groups.is_empty() {
+        state
+            .workspace_service
+            .repo
+            .find_channel_by_id(channel_id)
+            .await
+            .ok()
+            .flatten()
+            .map(|c| c.workspace_id)
+    } else {
+        None
+    };
 
     if broadcast.any() {
         let members = state
@@ -691,11 +765,13 @@ pub(crate) async fn expand_mentions(
             .await
             .unwrap_or_default();
 
-        let online = if broadcast.here && !broadcast.channel {
-            let mut conn = state.redis.clone();
-            Some(crate::presence::online_user_ids(&mut conn).await)
-        } else {
-            None
+        let online = match (here_only, workspace_id) {
+            (true, Some(workspace_id)) => {
+                let mut conn = state.redis.clone();
+                Some(crate::presence::online_user_ids(&mut conn, workspace_id).await)
+            }
+            (true, None) => Some(std::collections::HashSet::new()),
+            (false, _) => None,
         };
 
         for member in members {
@@ -711,15 +787,7 @@ pub(crate) async fn expand_mentions(
     // channel would tell them a private channel exists and hand them a preview
     // of a message they cannot open.
     if !groups.is_empty() {
-        if let Some(workspace_id) = state
-            .workspace_service
-            .repo
-            .find_channel_by_id(channel_id)
-            .await
-            .ok()
-            .flatten()
-            .map(|c| c.workspace_id)
-        {
+        if let Some(workspace_id) = workspace_id {
             let in_group = state
                 .group_repo
                 .member_ids_for_groups(workspace_id, &groups)

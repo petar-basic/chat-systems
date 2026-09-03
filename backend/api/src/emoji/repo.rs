@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct WorkspaceEmoji {
     pub id: Uuid,
     pub workspace_id: Uuid,
@@ -29,26 +29,29 @@ impl EmojiRepo {
         storage_key: &str,
         created_by: Uuid,
     ) -> sqlx::Result<WorkspaceEmoji> {
-        sqlx::query_as::<_, WorkspaceEmoji>(
+        sqlx::query_as!(
+            WorkspaceEmoji,
             r"
             INSERT INTO workspace_emojis (workspace_id, name, storage_key, created_by)
             VALUES ($1, $2, $3, $4)
-            RETURNING *
+            RETURNING id, workspace_id, name, storage_key, created_by, created_at
             ",
+            workspace_id,
+            name,
+            storage_key,
+            created_by
         )
-        .bind(workspace_id)
-        .bind(name)
-        .bind(storage_key)
-        .bind(created_by)
         .fetch_one(&self.pool)
         .await
     }
 
     pub async fn list(&self, workspace_id: Uuid) -> sqlx::Result<Vec<WorkspaceEmoji>> {
-        sqlx::query_as::<_, WorkspaceEmoji>(
-            "SELECT * FROM workspace_emojis WHERE workspace_id = $1 ORDER BY name",
+        sqlx::query_as!(
+            WorkspaceEmoji,
+            "SELECT id, workspace_id, name, storage_key, created_by, created_at
+               FROM workspace_emojis WHERE workspace_id = $1 ORDER BY name",
+            workspace_id
         )
-        .bind(workspace_id)
         .fetch_all(&self.pool)
         .await
     }
@@ -58,25 +61,30 @@ impl EmojiRepo {
         workspace_id: Uuid,
         name: &str,
     ) -> sqlx::Result<Option<WorkspaceEmoji>> {
-        sqlx::query_as::<_, WorkspaceEmoji>(
-            "SELECT * FROM workspace_emojis WHERE workspace_id = $1 AND name = $2",
+        sqlx::query_as!(
+            WorkspaceEmoji,
+            "SELECT id, workspace_id, name, storage_key, created_by, created_at
+               FROM workspace_emojis WHERE workspace_id = $1 AND name = $2",
+            workspace_id,
+            name
         )
-        .bind(workspace_id)
-        .bind(name)
         .fetch_optional(&self.pool)
         .await
     }
 
     pub async fn find(&self, id: Uuid) -> sqlx::Result<Option<WorkspaceEmoji>> {
-        sqlx::query_as::<_, WorkspaceEmoji>("SELECT * FROM workspace_emojis WHERE id = $1")
-            .bind(id)
-            .fetch_optional(&self.pool)
-            .await
+        sqlx::query_as!(
+            WorkspaceEmoji,
+            "SELECT id, workspace_id, name, storage_key, created_by, created_at
+               FROM workspace_emojis WHERE id = $1",
+            id
+        )
+        .fetch_optional(&self.pool)
+        .await
     }
 
     pub async fn delete(&self, id: Uuid) -> sqlx::Result<()> {
-        sqlx::query("DELETE FROM workspace_emojis WHERE id = $1")
-            .bind(id)
+        sqlx::query!("DELETE FROM workspace_emojis WHERE id = $1", id)
             .execute(&self.pool)
             .await?;
         Ok(())

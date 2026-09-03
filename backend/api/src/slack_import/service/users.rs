@@ -1,6 +1,6 @@
 //! Accounts: matched by email, created pending, made members.
 
-use shared_common::errors::{AppError, AppResult};
+use shared_common::errors::AppResult;
 use uuid::Uuid;
 
 use super::super::models::*;
@@ -34,8 +34,7 @@ impl Import<'_> {
                 .auth_service
                 .repo()
                 .find_by_email(&email.to_lowercase())
-                .await
-                .map_err(|e| AppError::Database(e.to_string()))?;
+                .await?;
 
             let (user_id, created) = match existing {
                 Some(found) => (found.id, false),
@@ -54,8 +53,7 @@ impl Import<'_> {
                             Some(&user.display_name()),
                             false,
                         )
-                        .await
-                        .map_err(|e| AppError::Database(e.to_string()))?;
+                        .await?;
                     (created.id, true)
                 }
             };
@@ -80,8 +78,7 @@ impl Import<'_> {
                 self.state
                     .slack_import_repo
                     .map_user(self.workspace_id, &user.id, user_id)
-                    .await
-                    .map_err(|e| AppError::Database(e.to_string()))?;
+                    .await?;
             }
             self.users
                 .insert(user.id.clone(), (user_id, user.display_name()));
@@ -96,8 +93,7 @@ impl Import<'_> {
             .workspace_service
             .repo
             .get_member(self.workspace_id, user_id)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?
+            .await?
             .is_some()
         {
             return Ok(());
@@ -107,8 +103,7 @@ impl Import<'_> {
             .workspace_service
             .repo
             .add_member(self.workspace_id, user_id, &WorkspaceRole::Member)
-            .await
-            .map_err(|e| AppError::Database(e.to_string()))?;
+            .await?;
         Ok(())
     }
 }

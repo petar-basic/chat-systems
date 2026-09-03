@@ -32,20 +32,20 @@ export default function SavedItemsPanel({
   const { getUser } = useUserCache();
   const currentUserId = useWorkspaceStore((s) => s.currentUserId);
 
+  const conversationOf = (item: SavedItem) => conversations.find((c) => c.id === item.channel_id);
+
   const targetOf = (item: SavedItem) => {
-    if (item.channel_id) {
-      const channel = channels.find((c) => c.id === item.channel_id);
-      return channel ? `#${channel.name}` : 'a channel you left';
-    }
-    const conversation = conversations.find((c) => c.id === item.conversation_id);
+    const channel = channels.find((c) => c.id === item.channel_id);
+    if (channel) return `#${channel.name}`;
+    const conversation = conversationOf(item);
     return conversation
       ? conversationTitle(conversation, currentUserId ?? undefined, (id) => getUser(id)?.display_name)
-      : 'a conversation you left';
+      : 'a channel you left';
   };
 
   const open = (item: SavedItem) => {
-    if (item.channel_id && item.message_id) onNavigateToMessage(item.channel_id, item.message_id);
-    else if (item.conversation_id) onOpenConversation(item.conversation_id);
+    if (conversationOf(item)) onOpenConversation(item.channel_id);
+    else onNavigateToMessage(item.channel_id, item.message_id);
   };
 
   return (

@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE files\n            SET message_id = $1\n            WHERE storage_key = ANY($2)\n              AND workspace_id = $3\n              AND user_id = $4\n              AND message_id IS NULL\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "TextArray",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2bbcb834262bf241f89e72617c284698852c74c74c600edd4dd963fe98a8462d"
+}

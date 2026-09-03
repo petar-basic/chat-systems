@@ -81,12 +81,17 @@ export default function SettingsPanel({
     setError(null);
     setSaved(false);
     try {
-      await getApi().patch(`/workspaces/${workspaceId}`, {
-        // Empty string, not null: null means "unchanged" to the API.
-        icon_url: iconUrl.trim(),
-        name: name.trim(),
-        description: description.trim() || null,
-      });
+      await getApi().typed((c) =>
+        c.PATCH('/workspaces/{ws_id}', {
+          params: { path: { ws_id: workspaceId } },
+          body: {
+            // Empty string, not null: null means "unchanged" to the API.
+            icon_url: iconUrl.trim(),
+            name: name.trim(),
+            description: description.trim() || null,
+          },
+        }),
+      );
       setSaved(true);
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaces() });
       setTimeout(() => setSaved(false), 2000);
@@ -114,7 +119,11 @@ export default function SettingsPanel({
     setDeleteError(null);
     try {
       const hard = deleteType === 'hard';
-      await getApi().delete(`/workspaces/${workspaceId}${hard ? '?hard=true' : ''}`);
+      await getApi().typed((c) =>
+        c.DELETE('/workspaces/{ws_id}', {
+          params: { path: { ws_id: workspaceId }, query: hard ? { hard } : undefined },
+        }),
+      );
       setDeleteModal(false);
       onClose();
       navigate('/app');

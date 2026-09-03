@@ -393,7 +393,6 @@ async fn a_subscription_the_service_calls_gone_is_dropped(pool: PgPool) {
                 body: "hello".into(),
                 workspace_id: None,
                 channel_id: None,
-                conversation_id: None,
                 message_id: None,
                 badge_count: 1,
             },

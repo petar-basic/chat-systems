@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT COUNT(*) AS \"count!\" FROM messages m\n              JOIN channels c ON c.id = m.channel_id\n             WHERE c.workspace_id = $1\n               AND m.created_at < NOW() - make_interval(days => $2)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "fefcfbd288f17a78eaeee715c68053059f695feba03f2b703ad708bd9f4bfe25"
+}

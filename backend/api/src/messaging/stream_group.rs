@@ -1,6 +1,11 @@
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
-use redis::streams::{StreamReadOptions, StreamReadReply};
+use redis::streams::{
+    StreamAutoClaimOptions, StreamAutoClaimReply, StreamId, StreamPendingCountReply,
+    StreamReadOptions, StreamReadReply,
+};
 use redis::AsyncCommands;
 
 use tracing::warn;
@@ -10,9 +15,14 @@ use shared_events::Event;
 const BLOCK_MS: usize = 2_000;
 const BATCH: usize = 100;
 const REFRESH_STREAMS_EVERY: Duration = Duration::from_secs(30);
+const CLAIM_EVERY: Duration = Duration::from_secs(30);
+const CLAIM_MIN_IDLE: Duration = Duration::from_secs(60);
+pub const MAX_DELIVERIES: usize = 5;
 /// How long past the block a reply is still expected, before the connection is
 /// treated as broken.
 const RESPONSE_HEADROOM: Duration = Duration::from_secs(5);
+
+static CONSUMER_SEQ: AtomicUsize = AtomicUsize::new(0);
 
 /// The set of workspace streams that exist. Publishers add to it, so the worker
 /// can read every stream without scanning the keyspace and without being told
@@ -38,6 +48,29 @@ pub struct StreamGroup {
     consumer: String,
     streams: Vec<String>,
     refreshed_at: Option<Instant>,
+    claimed_at: Option<Instant>,
+    claim_min_idle: Duration,
+}
+
+fn consumer_name(group: &str) -> String {
+    let host = std::env::var("HOSTNAME")
+        .ok()
+        .filter(|h| !h.is_empty())
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    let seq = CONSUMER_SEQ.fetch_add(1, Ordering::Relaxed);
+    format!("{group}-{host}-{}-{seq}", std::process::id())
+}
+
+fn parse_delivery(key: &str, entry: StreamId) -> Result<Delivery, String> {
+    let body: Option<String> = entry.get("event");
+    match body.and_then(|b| serde_json::from_str::<Event>(&b).ok()) {
+        Some(event) => Ok(Delivery {
+            key: key.to_string(),
+            id: entry.id,
+            event,
+        }),
+        None => Err(entry.id),
+    }
 }
 
 impl StreamGroup {
@@ -61,10 +94,17 @@ impl StreamGroup {
         Some(Self {
             conn,
             group: group.to_string(),
-            consumer: format!("{group}-{}", uuid::Uuid::new_v4()),
+            consumer: consumer_name(group),
             streams: Vec::new(),
             refreshed_at: None,
+            claimed_at: None,
+            claim_min_idle: CLAIM_MIN_IDLE,
         })
+    }
+
+    pub fn claim_min_idle(mut self, min_idle: Duration) -> Self {
+        self.claim_min_idle = min_idle;
+        self
     }
 
     async fn refresh_streams(&mut self) {
@@ -124,11 +164,101 @@ impl StreamGroup {
         }
     }
 
+    async fn claim_abandoned(&mut self) -> Vec<Delivery> {
+        let due = self.claimed_at.is_none_or(|at| at.elapsed() >= CLAIM_EVERY);
+        if !due {
+            return Vec::new();
+        }
+        self.claimed_at = Some(Instant::now());
+
+        let min_idle_ms = self.claim_min_idle.as_millis() as usize;
+        let mut out = Vec::new();
+        for key in self.streams.clone() {
+            let mut start = String::from("0-0");
+            loop {
+                let reply: redis::RedisResult<StreamAutoClaimReply> = self
+                    .conn
+                    .xautoclaim_options(
+                        &key,
+                        &self.group,
+                        &self.consumer,
+                        min_idle_ms,
+                        &start,
+                        StreamAutoClaimOptions::default().count(BATCH),
+                    )
+                    .await;
+                let reply = match reply {
+                    Ok(reply) => reply,
+                    Err(e) => {
+                        warn!("{}: XAUTOCLAIM failed on {}: {}", self.group, key, e);
+                        break;
+                    }
+                };
+
+                let deliveries = self.delivery_counts(&key, &reply.claimed).await;
+                for entry in reply.claimed {
+                    let times = deliveries.get(&entry.id).copied().unwrap_or(0);
+                    if times > MAX_DELIVERIES {
+                        warn!(
+                            "{}: dropping {} {} after {} deliveries",
+                            self.group, key, entry.id, times
+                        );
+                        self.ack(&key, &entry.id).await;
+                        continue;
+                    }
+                    match parse_delivery(&key, entry) {
+                        Ok(delivery) => out.push(delivery),
+                        Err(id) => self.ack(&key, &id).await,
+                    }
+                }
+
+                if reply.next_stream_id == "0-0" {
+                    break;
+                }
+                start = reply.next_stream_id;
+            }
+        }
+        out
+    }
+
+    async fn delivery_counts(&mut self, key: &str, claimed: &[StreamId]) -> HashMap<String, usize> {
+        let (Some(first), Some(last)) = (claimed.first(), claimed.last()) else {
+            return HashMap::new();
+        };
+        let reply: redis::RedisResult<StreamPendingCountReply> = self
+            .conn
+            .xpending_consumer_count(
+                key,
+                &self.group,
+                &first.id,
+                &last.id,
+                claimed.len(),
+                &self.consumer,
+            )
+            .await;
+        match reply {
+            Ok(reply) => reply
+                .ids
+                .into_iter()
+                .map(|p| (p.id, p.times_delivered))
+                .collect(),
+            Err(e) => {
+                warn!("{}: XPENDING failed on {}: {}", self.group, key, e);
+                HashMap::new()
+            }
+        }
+    }
+
     pub async fn next_batch(&mut self) -> Vec<Delivery> {
         self.refresh_streams().await;
         if self.streams.is_empty() {
             tokio::time::sleep(Duration::from_millis(BLOCK_MS as u64)).await;
             return Vec::new();
+        }
+
+        let claimed = self.claim_abandoned().await;
+        if !claimed.is_empty() {
+            return claimed;
         }
 
         let options = StreamReadOptions::default()
@@ -158,16 +288,11 @@ impl StreamGroup {
         let mut out = Vec::new();
         for stream in batches.keys {
             for entry in stream.ids {
-                let body: Option<String> = entry.get("event");
-                match body.and_then(|b| serde_json::from_str::<Event>(&b).ok()) {
-                    Some(event) => out.push(Delivery {
-                        key: stream.key.clone(),
-                        id: entry.id,
-                        event,
-                    }),
+                match parse_delivery(&stream.key, entry) {
+                    Ok(delivery) => out.push(delivery),
                     // Acknowledge what cannot be parsed, or it comes back for
                     // ever as a pending entry nobody can process.
-                    None => self.ack(&stream.key, &entry.id).await,
+                    Err(id) => self.ack(&stream.key, &id).await,
                 }
             }
         }

@@ -1,5 +1,6 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useEffect, useRef, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
+import { autoUpdate, flip, offset, shift, useFloating } from '@floating-ui/react-dom';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
 
 type Align = 'start' | 'end';
@@ -25,44 +26,18 @@ export function AnchoredPopover({
   dataQa,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   useEscapeToClose(onClose);
 
-  useLayoutEffect(() => {
-    const anchor = anchorRef.current;
-    const el = ref.current;
-    if (!anchor || !el) return undefined;
+  const { refs, floatingStyles, isPositioned } = useFloating({
+    placement: align === 'end' ? 'bottom-end' : 'bottom-start',
+    strategy: 'fixed',
+    middleware: [offset(GAP), flip({ padding: MARGIN }), shift({ padding: MARGIN })],
+    whileElementsMounted: autoUpdate,
+  });
 
-    const compute = () => {
-      const a = anchor.getBoundingClientRect();
-      const w = el.offsetWidth;
-      const h = el.offsetHeight;
-      if (!w || !h) return;
-
-      let top = a.bottom + GAP;
-      if (top + h > window.innerHeight - MARGIN) {
-        const above = a.top - h - GAP;
-        top = above >= MARGIN ? above : window.innerHeight - h - MARGIN;
-      }
-      top = Math.max(MARGIN, top);
-
-      let left = align === 'end' ? a.right - w : a.left;
-      left = Math.max(MARGIN, Math.min(left, window.innerWidth - w - MARGIN));
-
-      setPos({ top, left });
-    };
-
-    compute();
-    const ro = new ResizeObserver(compute);
-    ro.observe(el);
-    window.addEventListener('resize', compute);
-    window.addEventListener('scroll', compute, true);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener('resize', compute);
-      window.removeEventListener('scroll', compute, true);
-    };
-  }, [anchorRef, align]);
+  useEffect(() => {
+    refs.setReference(anchorRef.current);
+  }, [anchorRef, refs]);
 
   useEffect(() => {
     const onDown = (e: MouseEvent | TouchEvent) => {
@@ -80,14 +55,12 @@ export function AnchoredPopover({
 
   return createPortal(
     <div
-      ref={ref}
-      data-qa={dataQa}
-      style={{
-        position: 'fixed',
-        top: pos?.top ?? -9999,
-        left: pos?.left ?? -9999,
-        visibility: pos ? 'visible' : 'hidden',
+      ref={(node) => {
+        ref.current = node;
+        refs.setFloating(node);
       }}
+      data-qa={dataQa}
+      style={{ ...floatingStyles, visibility: isPositioned ? 'visible' : 'hidden' }}
       className={`z-70 ${className}`}
     >
       {children}

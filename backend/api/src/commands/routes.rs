@@ -2,9 +2,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::extract::{Path, State};
-use axum::routing::{get, post};
-use axum::{Json, Router};
+use axum::Json;
 use serde::{Deserialize, Serialize};
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::routes;
 use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
@@ -12,6 +13,7 @@ use shared_common::errors::{AppError, AppResult};
 use super::builtin;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
+use crate::dto::DataList;
 use crate::hooks::{executor, ssrf};
 use crate::middleware::AuthUser;
 use crate::state::AppState;
@@ -21,15 +23,20 @@ use crate::state::AppState;
 /// should be posting back through an incoming webhook instead.
 const COMMAND_TIMEOUT: Duration = Duration::from_secs(3);
 
-pub fn router(state: Arc<AppState>) -> Router {
-    let routes = Router::new()
-        .route("/channels/{ch_id}/commands", post(invoke))
-        .route("/workspaces/{ws_id}/commands", get(list_commands));
-
-    crate::protected(state, routes)
+pub fn router() -> OpenApiRouter<Arc<AppState>> {
+    OpenApiRouter::new()
+        .routes(routes!(invoke))
+        .routes(routes!(list_commands))
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub struct CommandInfo {
+    pub command: String,
+    pub hint: Option<String>,
+    pub builtin: bool,
+}
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct CommandResponse {
     /// `ephemeral` is seen only by whoever ran it; `in_channel` is posted as a
     /// message from the command.
@@ -65,41 +72,47 @@ impl CommandResponse {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct InvokeRequest {
     pub command: String,
     #[serde(default)]
     pub text: String,
 }
 
+#[utoipa::path(get, path = "/workspaces/{ws_id}/commands", tag = "commands", responses((status = 200, body = DataList<CommandInfo>)))]
 async fn list_commands(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<DataList<CommandInfo>>> {
     authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
 
-    let mut commands: Vec<serde_json::Value> = builtin::BUILTIN_COMMANDS
+    let mut commands: Vec<CommandInfo> = builtin::BUILTIN_COMMANDS
         .iter()
-        .map(|(name, hint)| serde_json::json!({ "command": name, "hint": hint, "builtin": true }))
+        .map(|(name, hint)| CommandInfo {
+            command: name.to_string(),
+            hint: Some(hint.to_string()),
+            builtin: true,
+        })
         .collect();
 
     for hook in state.hook_repo.list_slash_commands(ws_id).await? {
         if let Some(command) = hook.config.get("command").and_then(|v| v.as_str()) {
-            commands.push(serde_json::json!({
-                "command": command,
-                "hint": hook.description,
-                "builtin": false,
-            }));
+            commands.push(CommandInfo {
+                command: command.to_string(),
+                hint: hook.description.clone(),
+                builtin: false,
+            });
         }
     }
 
-    Ok(Json(serde_json::json!({ "data": commands })))
+    Ok(Json(commands.into()))
 }
 
 /// Built-ins first, then anything registered. An unknown command is a 404 by
 /// design: the client falls back to sending what was typed as an ordinary
 /// message, so a typo does not vanish into an error dialog.
+#[utoipa::path(post, path = "/channels/{ch_id}/commands", tag = "commands", request_body = InvokeRequest, responses((status = 200, body = CommandResponse)))]
 async fn invoke(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
@@ -195,24 +208,24 @@ async fn finish(
 
     if response.response_type == "in_channel" && !response.text.trim().is_empty() {
         let bot = serde_json::json!({ "name": format!("/{command}"), "icon_url": null });
-        let msg = state
-            .message_repo
-            .create_bot_message(ch_id, user_id, &response.text, &bot)
-            .await?;
-
-        if let Some(channel) = state
+        let channel = state
             .workspace_service
             .repo
             .find_channel_by_id(ch_id)
             .await?
-        {
-            let msg_json =
-                serde_json::to_value(&msg).map_err(|e| AppError::Internal(e.to_string()))?;
-            let _ = state
-                .publisher
-                .publish_message_created(&msg_json, channel.workspace_id, &[])
-                .await;
-        }
+            .ok_or_else(|| AppError::NotFound("Channel not found".into()))?;
+
+        let mut tx = state.pool.begin().await?;
+        let msg = state
+            .message_repo
+            .create_bot_message_in(&mut tx, ch_id, user_id, &response.text, &bot)
+            .await?;
+        let staged = state
+            .publisher
+            .stage_message_created(&mut tx, &msg, channel.workspace_id, &[])
+            .await?;
+        tx.commit().await?;
+        state.publisher.dispatch(staged).await;
     }
 
     Ok(Json(response))

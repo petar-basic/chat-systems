@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use sqlx::PgPool;
+use sqlx::{PgConnection, PgPool};
 use uuid::Uuid;
 
 use super::models::*;
@@ -28,6 +28,7 @@ pub struct MessageSearch<'a> {
     pub requester_is_guest: bool,
     pub channel_id: Option<Uuid>,
     pub author_id: Option<Uuid>,
+    pub scope: SearchScope,
     pub limit: i64,
     pub offset: i64,
 }
@@ -40,23 +41,23 @@ pub struct MessageSearch<'a> {
 /// delivered, not whether a message is unread. Letting it change the counter
 /// would make the badge disagree with the message list.
 async fn bump_unread(
-    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    conn: &mut PgConnection,
     channel_id: Uuid,
     author_id: Uuid,
     mentioned: &[Uuid],
 ) -> sqlx::Result<()> {
-    sqlx::query(
+    sqlx::query!(
         r"
         UPDATE channel_members
            SET unread_count = unread_count + 1,
                mention_count = mention_count + CASE WHEN user_id = ANY($3) THEN 1 ELSE 0 END
          WHERE channel_id = $1 AND user_id <> $2
         ",
+        channel_id,
+        author_id,
+        mentioned
     )
-    .bind(channel_id)
-    .bind(author_id)
-    .bind(mentioned)
-    .execute(&mut **tx)
+    .execute(&mut *conn)
     .await?;
     Ok(())
 }
@@ -66,41 +67,45 @@ impl MessageRepo {
         Self { pool }
     }
 
-    pub async fn create_message(
+    pub async fn create_message_in(
         &self,
-        channel_id: Uuid,
-        user_id: Uuid,
-        content: &str,
-        thread_parent_id: Option<Uuid>,
-        mentioned: &[Uuid],
+        conn: &mut PgConnection,
+        new: NewMessage<'_>,
     ) -> sqlx::Result<Message> {
-        let mut tx = self.pool.begin().await?;
-
-        let msg = sqlx::query_as::<_, Message>(
-            r"
-            INSERT INTO messages (channel_id, user_id, content, thread_parent_id)
-            VALUES ($1, $2, $3, $4)
-            RETURNING *
-            ",
+        let msg = sqlx::query_as!(
+            Message,
+            r#"
+            INSERT INTO messages (client_message_id, channel_id, user_id, content, thread_parent_id)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING id, channel_id, user_id, client_message_id, content, metadata AS "metadata!", thread_parent_id, reply_count AS "reply_count!", is_pinned AS "is_pinned!", created_at, updated_at, deleted_at
+            "#,
+            new.client_message_id,
+            new.channel_id,
+            new.user_id,
+            new.content,
+            new.thread_parent_id
         )
-        .bind(channel_id)
-        .bind(user_id)
-        .bind(content)
-        .bind(thread_parent_id)
-        .fetch_one(&mut *tx)
+        .fetch_one(&mut *conn)
         .await?;
 
-        if let Some(parent_id) = thread_parent_id {
-            sqlx::query("UPDATE messages SET reply_count = reply_count + 1 WHERE id = $1")
-                .bind(parent_id)
-                .execute(&mut *tx)
-                .await?;
+        if let Some(parent_id) = new.thread_parent_id {
+            sqlx::query!(
+                "UPDATE messages SET reply_count = reply_count + 1 WHERE id = $1",
+                parent_id
+            )
+            .execute(&mut *conn)
+            .await?;
         }
 
-        bump_unread(&mut tx, channel_id, user_id, mentioned).await?;
+        bump_unread(conn, new.channel_id, new.user_id, new.mentioned).await?;
 
+        Ok(msg)
+    }
+
+    pub async fn create_message(&self, new: NewMessage<'_>) -> sqlx::Result<Message> {
+        let mut tx = self.pool.begin().await?;
+        let msg = self.create_message_in(&mut tx, new).await?;
         tx.commit().await?;
-
         Ok(msg)
     }
 
@@ -116,30 +121,61 @@ impl MessageRepo {
     pub async fn insert_imported(&self, message: ImportedMessage<'_>) -> sqlx::Result<Message> {
         let mut tx = self.pool.begin().await?;
 
-        let msg = sqlx::query_as::<_, Message>(
-            r"
+        let msg = sqlx::query_as!(
+            Message,
+            r#"
             INSERT INTO messages (channel_id, user_id, content, thread_parent_id, slack_ts, created_at, updated_at)
             VALUES ($1, $2, $3, $4, $5, $6, $6)
-            RETURNING *
-            ",
+            RETURNING id, channel_id, user_id, client_message_id, content, metadata AS "metadata!", thread_parent_id, reply_count AS "reply_count!", is_pinned AS "is_pinned!", created_at, updated_at, deleted_at
+            "#,
+            message.channel_id,
+            message.user_id,
+            message.content,
+            message.thread_parent_id,
+            message.slack_ts,
+            message.created_at
         )
-        .bind(message.channel_id)
-        .bind(message.user_id)
-        .bind(message.content)
-        .bind(message.thread_parent_id)
-        .bind(message.slack_ts)
-        .bind(message.created_at)
         .fetch_one(&mut *tx)
         .await?;
 
         if let Some(parent_id) = message.thread_parent_id {
-            sqlx::query("UPDATE messages SET reply_count = reply_count + 1 WHERE id = $1")
-                .bind(parent_id)
-                .execute(&mut *tx)
-                .await?;
+            sqlx::query!(
+                "UPDATE messages SET reply_count = reply_count + 1 WHERE id = $1",
+                parent_id
+            )
+            .execute(&mut *tx)
+            .await?;
         }
 
         tx.commit().await?;
+
+        Ok(msg)
+    }
+
+    pub async fn create_bot_message_in(
+        &self,
+        conn: &mut PgConnection,
+        channel_id: Uuid,
+        posted_by: Uuid,
+        content: &str,
+        bot: &serde_json::Value,
+    ) -> sqlx::Result<Message> {
+        let msg = sqlx::query_as!(
+            Message,
+            r#"
+            INSERT INTO messages (channel_id, user_id, content, metadata)
+            VALUES ($1, $2, $3, jsonb_build_object('bot', $4::jsonb))
+            RETURNING id, channel_id, user_id, client_message_id, content, metadata AS "metadata!", thread_parent_id, reply_count AS "reply_count!", is_pinned AS "is_pinned!", created_at, updated_at, deleted_at
+            "#,
+            channel_id,
+            posted_by,
+            content,
+            bot
+        )
+        .fetch_one(&mut *conn)
+        .await?;
+
+        bump_unread(conn, channel_id, posted_by, &[]).await?;
 
         Ok(msg)
     }
@@ -152,65 +188,10 @@ impl MessageRepo {
         bot: &serde_json::Value,
     ) -> sqlx::Result<Message> {
         let mut tx = self.pool.begin().await?;
-
-        let msg = sqlx::query_as::<_, Message>(
-            r"
-            INSERT INTO messages (channel_id, user_id, content, metadata)
-            VALUES ($1, $2, $3, jsonb_build_object('bot', $4::jsonb))
-            RETURNING *
-            ",
-        )
-        .bind(channel_id)
-        .bind(posted_by)
-        .bind(content)
-        .bind(bot)
-        .fetch_one(&mut *tx)
-        .await?;
-
-        bump_unread(&mut tx, channel_id, posted_by, &[]).await?;
-
+        let msg = self
+            .create_bot_message_in(&mut tx, channel_id, posted_by, content, bot)
+            .await?;
         tx.commit().await?;
-
-        Ok(msg)
-    }
-
-    pub async fn create_message_with_client_id(
-        &self,
-        client_message_id: Uuid,
-        channel_id: Uuid,
-        user_id: Uuid,
-        content: &str,
-        thread_parent_id: Option<Uuid>,
-        mentioned: &[Uuid],
-    ) -> sqlx::Result<Message> {
-        let mut tx = self.pool.begin().await?;
-
-        let msg = sqlx::query_as::<_, Message>(
-            r"
-            INSERT INTO messages (client_message_id, channel_id, user_id, content, thread_parent_id)
-            VALUES ($1, $2, $3, $4, $5)
-            RETURNING *
-            ",
-        )
-        .bind(client_message_id)
-        .bind(channel_id)
-        .bind(user_id)
-        .bind(content)
-        .bind(thread_parent_id)
-        .fetch_one(&mut *tx)
-        .await?;
-
-        if let Some(parent_id) = thread_parent_id {
-            sqlx::query("UPDATE messages SET reply_count = reply_count + 1 WHERE id = $1")
-                .bind(parent_id)
-                .execute(&mut *tx)
-                .await?;
-        }
-
-        bump_unread(&mut tx, channel_id, user_id, mentioned).await?;
-
-        tx.commit().await?;
-
         Ok(msg)
     }
 
@@ -221,12 +202,37 @@ impl MessageRepo {
         channel_id: Uuid,
         client_message_id: Uuid,
     ) -> sqlx::Result<Option<Message>> {
-        sqlx::query_as::<_, Message>(
-            "SELECT * FROM messages WHERE channel_id = $1 AND client_message_id = $2",
+        sqlx::query_as!(
+            Message,
+            r#"SELECT id, channel_id, user_id, client_message_id, content, metadata AS "metadata!", thread_parent_id, reply_count AS "reply_count!", is_pinned AS "is_pinned!", created_at, updated_at, deleted_at FROM messages WHERE channel_id = $1 AND client_message_id = $2"#,
+            channel_id,
+            client_message_id
         )
-        .bind(channel_id)
-        .bind(client_message_id)
         .fetch_optional(&self.pool)
+        .await
+    }
+
+    pub async fn create_system_message_in(
+        &self,
+        conn: &mut PgConnection,
+        channel_id: Uuid,
+        user_id: Uuid,
+        content: &str,
+        metadata: serde_json::Value,
+    ) -> sqlx::Result<Message> {
+        sqlx::query_as!(
+            Message,
+            r#"
+            INSERT INTO messages (channel_id, user_id, content, metadata)
+            VALUES ($1, $2, $3, $4)
+            RETURNING id, channel_id, user_id, client_message_id, content, metadata AS "metadata!", thread_parent_id, reply_count AS "reply_count!", is_pinned AS "is_pinned!", created_at, updated_at, deleted_at
+            "#,
+            channel_id,
+            user_id,
+            content,
+            metadata
+        )
+        .fetch_one(&mut *conn)
         .await
     }
 
@@ -237,24 +243,20 @@ impl MessageRepo {
         content: &str,
         metadata: serde_json::Value,
     ) -> sqlx::Result<Message> {
-        sqlx::query_as::<_, Message>(
-            r"
-            INSERT INTO messages (channel_id, user_id, content, metadata)
-            VALUES ($1, $2, $3, $4)
-            RETURNING *
-            ",
-        )
-        .bind(channel_id)
-        .bind(user_id)
-        .bind(content)
-        .bind(metadata)
-        .fetch_one(&self.pool)
-        .await
+        let mut tx = self.pool.begin().await?;
+        let msg = self
+            .create_system_message_in(&mut tx, channel_id, user_id, content, metadata)
+            .await?;
+        tx.commit().await?;
+        Ok(msg)
     }
 
     pub async fn find_by_id(&self, id: Uuid) -> sqlx::Result<Option<Message>> {
-        sqlx::query_as::<_, Message>("SELECT * FROM messages WHERE id = $1 AND deleted_at IS NULL")
-            .bind(id)
+        sqlx::query_as!(
+            Message,
+            r#"SELECT id, channel_id, user_id, client_message_id, content, metadata AS "metadata!", thread_parent_id, reply_count AS "reply_count!", is_pinned AS "is_pinned!", created_at, updated_at, deleted_at FROM messages WHERE id = $1 AND deleted_at IS NULL"#,
+            id
+        )
             .fetch_optional(&self.pool)
             .await
     }
@@ -266,35 +268,37 @@ impl MessageRepo {
         before: Option<Uuid>,
     ) -> sqlx::Result<Vec<Message>> {
         if let Some(cursor) = before {
-            sqlx::query_as::<_, Message>(
-                r"
-                SELECT * FROM messages
+            sqlx::query_as!(
+            Message,
+            r#"
+                SELECT id, channel_id, user_id, client_message_id, content, metadata AS "metadata!", thread_parent_id, reply_count AS "reply_count!", is_pinned AS "is_pinned!", created_at, updated_at, deleted_at FROM messages
                 WHERE channel_id = $1
                   AND deleted_at IS NULL
                   AND thread_parent_id IS NULL
                   AND (created_at, id) < (SELECT created_at, id FROM messages WHERE id = $3)
                 ORDER BY created_at DESC, id DESC
                 LIMIT $2
-                ",
-            )
-            .bind(channel_id)
-            .bind(limit)
-            .bind(cursor)
+                "#,
+            channel_id,
+            limit,
+            cursor
+        )
             .fetch_all(&self.pool)
             .await
         } else {
-            sqlx::query_as::<_, Message>(
-                r"
-                SELECT * FROM messages
+            sqlx::query_as!(
+            Message,
+            r#"
+                SELECT id, channel_id, user_id, client_message_id, content, metadata AS "metadata!", thread_parent_id, reply_count AS "reply_count!", is_pinned AS "is_pinned!", created_at, updated_at, deleted_at FROM messages
                 WHERE channel_id = $1
                   AND deleted_at IS NULL
                   AND thread_parent_id IS NULL
                 ORDER BY created_at DESC, id DESC
                 LIMIT $2
-                ",
-            )
-            .bind(channel_id)
-            .bind(limit)
+                "#,
+            channel_id,
+            limit
+        )
             .fetch_all(&self.pool)
             .await
         }
@@ -306,17 +310,18 @@ impl MessageRepo {
         limit: i64,
         offset: i64,
     ) -> sqlx::Result<Vec<Message>> {
-        sqlx::query_as::<_, Message>(
-            r"
-            SELECT * FROM messages
+        sqlx::query_as!(
+            Message,
+            r#"
+            SELECT id, channel_id, user_id, client_message_id, content, metadata AS "metadata!", thread_parent_id, reply_count AS "reply_count!", is_pinned AS "is_pinned!", created_at, updated_at, deleted_at FROM messages
             WHERE thread_parent_id = $1 AND deleted_at IS NULL
             ORDER BY created_at ASC
             LIMIT $2 OFFSET $3
-            ",
+            "#,
+            parent_id,
+            limit,
+            offset
         )
-        .bind(parent_id)
-        .bind(limit)
-        .bind(offset)
         .fetch_all(&self.pool)
         .await
     }
@@ -324,28 +329,27 @@ impl MessageRepo {
     /// Keeps the pre-image in the same transaction as the update. An edit that
     /// loses its history is worse than a rejected edit, so if the insert fails
     /// the edit fails with it.
-    pub async fn update_message(
+    pub async fn update_message_in(
         &self,
+        conn: &mut PgConnection,
         id: Uuid,
         content: &str,
         edited_by: Uuid,
     ) -> sqlx::Result<Message> {
-        let mut tx = self.pool.begin().await?;
-
-        sqlx::query(
+        sqlx::query!(
             r"
             INSERT INTO message_edits (message_id, previous_content, edited_by)
             SELECT id, content, $2 FROM messages WHERE id = $1
             ",
+            id,
+            edited_by
         )
-        .bind(id)
-        .bind(edited_by)
-        .execute(&mut *tx)
+        .execute(&mut *conn)
         .await?;
 
         // An edit loop on a long message would otherwise accumulate without
         // bound; retention (CS-030) removes the rest when the message goes.
-        sqlx::query(
+        sqlx::query!(
             r"
             DELETE FROM message_edits
              WHERE message_id = $1
@@ -356,59 +360,121 @@ impl MessageRepo {
                     LIMIT $2
                )
             ",
+            id,
+            MAX_STORED_EDITS
         )
-        .bind(id)
-        .bind(MAX_STORED_EDITS)
-        .execute(&mut *tx)
+        .execute(&mut *conn)
         .await?;
 
-        let message = sqlx::query_as::<_, Message>(
-            r"
+        let message = sqlx::query_as!(
+            Message,
+            r#"
             UPDATE messages SET content = $2, updated_at = NOW()
             WHERE id = $1
-            RETURNING *
-            ",
+            RETURNING id, channel_id, user_id, client_message_id, content, metadata AS "metadata!", thread_parent_id, reply_count AS "reply_count!", is_pinned AS "is_pinned!", created_at, updated_at, deleted_at
+            "#,
+            id,
+            content
         )
-        .bind(id)
-        .bind(content)
-        .fetch_one(&mut *tx)
+        .fetch_one(&mut *conn)
         .await?;
 
+        Ok(message)
+    }
+
+    pub async fn update_message(
+        &self,
+        id: Uuid,
+        content: &str,
+        edited_by: Uuid,
+    ) -> sqlx::Result<Message> {
+        let mut tx = self.pool.begin().await?;
+        let message = self
+            .update_message_in(&mut tx, id, content, edited_by)
+            .await?;
         tx.commit().await?;
         Ok(message)
     }
 
     pub async fn list_edits(&self, message_id: Uuid) -> sqlx::Result<Vec<MessageEdit>> {
-        sqlx::query_as::<_, MessageEdit>(
-            "SELECT * FROM message_edits WHERE message_id = $1 ORDER BY edited_at DESC, id DESC",
+        sqlx::query_as!(
+            MessageEdit,
+            "SELECT id, message_id, previous_content, edited_by, edited_at FROM message_edits WHERE message_id = $1 ORDER BY edited_at DESC, id DESC",
+            message_id
         )
-        .bind(message_id)
         .fetch_all(&self.pool)
         .await
     }
 
-    pub async fn soft_delete_message(&self, id: Uuid) -> sqlx::Result<()> {
-        sqlx::query("UPDATE messages SET deleted_at = NOW() WHERE id = $1")
-            .bind(id)
-            .execute(&self.pool)
+    pub async fn soft_delete_message_in(
+        &self,
+        conn: &mut PgConnection,
+        id: Uuid,
+    ) -> sqlx::Result<()> {
+        sqlx::query!("UPDATE messages SET deleted_at = NOW() WHERE id = $1", id)
+            .execute(&mut *conn)
             .await?;
         Ok(())
     }
 
-    pub async fn set_pinned(&self, id: Uuid, pinned: bool) -> sqlx::Result<Message> {
-        sqlx::query_as::<_, Message>("UPDATE messages SET is_pinned = $2 WHERE id = $1 RETURNING *")
-            .bind(id)
-            .bind(pinned)
-            .fetch_one(&self.pool)
+    pub async fn soft_delete_message(&self, id: Uuid) -> sqlx::Result<()> {
+        let mut tx = self.pool.begin().await?;
+        self.soft_delete_message_in(&mut tx, id).await?;
+        tx.commit().await
+    }
+
+    pub async fn set_pinned_in(
+        &self,
+        conn: &mut PgConnection,
+        id: Uuid,
+        pinned: bool,
+    ) -> sqlx::Result<Message> {
+        sqlx::query_as!(
+            Message,
+            r#"UPDATE messages SET is_pinned = $2 WHERE id = $1 RETURNING id, channel_id, user_id, client_message_id, content, metadata AS "metadata!", thread_parent_id, reply_count AS "reply_count!", is_pinned AS "is_pinned!", created_at, updated_at, deleted_at"#,
+            id,
+            pinned
+        )
+            .fetch_one(&mut *conn)
             .await
     }
 
+    pub async fn set_pinned(&self, id: Uuid, pinned: bool) -> sqlx::Result<Message> {
+        let mut tx = self.pool.begin().await?;
+        let message = self.set_pinned_in(&mut tx, id, pinned).await?;
+        tx.commit().await?;
+        Ok(message)
+    }
+
     pub async fn list_pinned(&self, channel_id: Uuid) -> sqlx::Result<Vec<Message>> {
-        sqlx::query_as::<_, Message>(
-            "SELECT * FROM messages WHERE channel_id = $1 AND is_pinned = true AND deleted_at IS NULL ORDER BY updated_at DESC",
+        sqlx::query_as!(
+            Message,
+            r#"SELECT id, channel_id, user_id, client_message_id, content, metadata AS "metadata!", thread_parent_id, reply_count AS "reply_count!", is_pinned AS "is_pinned!", created_at, updated_at, deleted_at FROM messages WHERE channel_id = $1 AND is_pinned = true AND deleted_at IS NULL ORDER BY updated_at DESC"#,
+            channel_id
         )
-        .bind(channel_id)
         .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn add_reaction_in(
+        &self,
+        conn: &mut PgConnection,
+        message_id: Uuid,
+        user_id: Uuid,
+        emoji: &str,
+    ) -> sqlx::Result<Reaction> {
+        sqlx::query_as!(
+            Reaction,
+            r"
+            INSERT INTO reactions (message_id, user_id, emoji)
+            VALUES ($1, $2, $3)
+            RETURNING id, message_id, user_id, emoji, created_at
+            ",
+            message_id,
+            user_id,
+            emoji
+        )
+        .fetch_one(&mut *conn)
         .await
     }
 
@@ -418,18 +484,30 @@ impl MessageRepo {
         user_id: Uuid,
         emoji: &str,
     ) -> sqlx::Result<Reaction> {
-        sqlx::query_as::<_, Reaction>(
-            r"
-            INSERT INTO reactions (message_id, user_id, emoji)
-            VALUES ($1, $2, $3)
-            RETURNING *
-            ",
+        let mut tx = self.pool.begin().await?;
+        let reaction = self
+            .add_reaction_in(&mut tx, message_id, user_id, emoji)
+            .await?;
+        tx.commit().await?;
+        Ok(reaction)
+    }
+
+    pub async fn remove_reaction_in(
+        &self,
+        conn: &mut PgConnection,
+        message_id: Uuid,
+        user_id: Uuid,
+        emoji: &str,
+    ) -> sqlx::Result<()> {
+        sqlx::query!(
+            "DELETE FROM reactions WHERE message_id = $1 AND user_id = $2 AND emoji = $3",
+            message_id,
+            user_id,
+            emoji
         )
-        .bind(message_id)
-        .bind(user_id)
-        .bind(emoji)
-        .fetch_one(&self.pool)
-        .await
+        .execute(&mut *conn)
+        .await?;
+        Ok(())
     }
 
     pub async fn remove_reaction(
@@ -438,20 +516,18 @@ impl MessageRepo {
         user_id: Uuid,
         emoji: &str,
     ) -> sqlx::Result<()> {
-        sqlx::query("DELETE FROM reactions WHERE message_id = $1 AND user_id = $2 AND emoji = $3")
-            .bind(message_id)
-            .bind(user_id)
-            .bind(emoji)
-            .execute(&self.pool)
+        let mut tx = self.pool.begin().await?;
+        self.remove_reaction_in(&mut tx, message_id, user_id, emoji)
             .await?;
-        Ok(())
+        tx.commit().await
     }
 
     pub async fn list_reactions(&self, message_id: Uuid) -> sqlx::Result<Vec<Reaction>> {
-        sqlx::query_as::<_, Reaction>(
-            "SELECT * FROM reactions WHERE message_id = $1 ORDER BY created_at",
+        sqlx::query_as!(
+            Reaction,
+            "SELECT id, message_id, user_id, emoji, created_at FROM reactions WHERE message_id = $1 ORDER BY created_at",
+            message_id
         )
-        .bind(message_id)
         .fetch_all(&self.pool)
         .await
     }
@@ -463,18 +539,20 @@ impl MessageRepo {
         if message_ids.is_empty() {
             return Ok(vec![]);
         }
-        sqlx::query_as::<_, Reaction>(
-            "SELECT * FROM reactions WHERE message_id = ANY($1) ORDER BY created_at",
+        sqlx::query_as!(
+            Reaction,
+            "SELECT id, message_id, user_id, emoji, created_at FROM reactions WHERE message_id = ANY($1) ORDER BY created_at",
+            message_ids
         )
-        .bind(message_ids)
         .fetch_all(&self.pool)
         .await
     }
 
     pub async fn search(&self, params: MessageSearch<'_>) -> sqlx::Result<Vec<Message>> {
-        sqlx::query_as::<_, Message>(
-            r"
-            SELECT m.* FROM messages m
+        sqlx::query_as!(
+            Message,
+            r#"
+            SELECT m.id, m.channel_id, m.user_id, m.client_message_id, m.content, m.metadata AS "metadata!", m.thread_parent_id, m.reply_count AS "reply_count!", m.is_pinned AS "is_pinned!", m.created_at, m.updated_at, m.deleted_at FROM messages m
             JOIN channels c ON c.id = m.channel_id
             WHERE (
                 m.search_vector @@ plainto_tsquery(search_text_config(), search_normalize($1))
@@ -490,10 +568,11 @@ impl MessageRepo {
                 -- Guests are held to explicit membership everywhere else
                 -- (`authz::require_channel_access`); search must not be the one
                 -- door that opens every public channel to them.
-                OR (NOT $8 AND c.channel_type = 'public')
+                OR (NOT $8::bool AND c.channel_type = 'public')
               )
               AND ($4::uuid IS NULL OR m.channel_id = $4)
               AND ($5::uuid IS NULL OR m.user_id = $5)
+              AND CASE WHEN c.channel_type IN ('dm', 'group_dm') THEN $9::bool ELSE $10::bool END
             -- Both signals, not one: the vector answers what was asked for and
             -- the trigram answers what was meant. `<%` rather than `%` because
             -- the query is a fragment and the message is a sentence -- whole
@@ -505,38 +584,39 @@ impl MessageRepo {
               word_similarity(search_normalize($1), search_normalize(m.content)) DESC,
               m.created_at DESC
             LIMIT $6 OFFSET $7
-            ",
+            "#,
+            params.query,
+            params.workspace_id,
+            params.requester_id,
+            params.channel_id,
+            params.author_id,
+            params.limit,
+            params.offset,
+            params.requester_is_guest,
+            params.scope.includes_conversations(),
+            params.scope.includes_channels()
         )
-        .bind(params.query)
-        .bind(params.workspace_id)
-        .bind(params.requester_id)
-        .bind(params.channel_id)
-        .bind(params.author_id)
-        .bind(params.limit)
-        .bind(params.offset)
-        .bind(params.requester_is_guest)
         .fetch_all(&self.pool)
         .await
     }
 
     pub async fn list_channel_member_ids(&self, channel_id: Uuid) -> sqlx::Result<Vec<Uuid>> {
-        let rows: Vec<(Uuid,)> =
-            sqlx::query_as("SELECT user_id FROM channel_members WHERE channel_id = $1")
-                .bind(channel_id)
-                .fetch_all(&self.pool)
-                .await?;
-        Ok(rows.into_iter().map(|r| r.0).collect())
+        sqlx::query_scalar!(
+            "SELECT user_id FROM channel_members WHERE channel_id = $1",
+            channel_id
+        )
+        .fetch_all(&self.pool)
+        .await
     }
 
     pub async fn is_channel_admin(&self, channel_id: Uuid, user_id: Uuid) -> sqlx::Result<bool> {
-        let row: (bool,) = sqlx::query_as(
-            "SELECT EXISTS(SELECT 1 FROM channel_members WHERE channel_id = $1 AND user_id = $2 AND role = 'admin')",
+        sqlx::query_scalar!(
+            r#"SELECT EXISTS(SELECT 1 FROM channel_members WHERE channel_id = $1 AND user_id = $2 AND role = 'admin') AS "exists!""#,
+            channel_id,
+            user_id
         )
-        .bind(channel_id)
-        .bind(user_id)
         .fetch_one(&self.pool)
-        .await?;
-        Ok(row.0)
+        .await
     }
 
     pub async fn is_workspace_admin_for_channel(
@@ -544,20 +624,19 @@ impl MessageRepo {
         channel_id: Uuid,
         user_id: Uuid,
     ) -> sqlx::Result<bool> {
-        let row: (bool,) = sqlx::query_as(
-            r"
+        sqlx::query_scalar!(
+            r#"
             SELECT EXISTS(
                 SELECT 1 FROM workspace_members wm
                 JOIN channels c ON c.workspace_id = wm.workspace_id
                 WHERE c.id = $1 AND wm.user_id = $2 AND wm.role IN ('admin', 'owner')
-            )
-            ",
+            ) AS "exists!"
+            "#,
+            channel_id,
+            user_id
         )
-        .bind(channel_id)
-        .bind(user_id)
         .fetch_one(&self.pool)
-        .await?;
-        Ok(row.0)
+        .await
     }
 
     pub async fn can_moderate_channel(
@@ -579,7 +658,7 @@ impl MessageRepo {
         user_id: Uuid,
         message_id: Uuid,
     ) -> sqlx::Result<()> {
-        sqlx::query(
+        sqlx::query!(
             r"
             UPDATE channel_members
             SET last_read_at = NOW(),
@@ -589,10 +668,10 @@ impl MessageRepo {
                 mention_count = 0
             WHERE channel_id = $1 AND user_id = $2
             ",
+            channel_id,
+            user_id,
+            message_id
         )
-        .bind(channel_id)
-        .bind(user_id)
-        .bind(message_id)
         .execute(&self.pool)
         .await?;
         Ok(())
@@ -607,7 +686,7 @@ impl MessageRepo {
         message_id: Uuid,
         author_id: Uuid,
     ) -> sqlx::Result<()> {
-        sqlx::query(
+        sqlx::query!(
             r"
             UPDATE channel_members cm
                SET unread_count = GREATEST(cm.unread_count - 1, 0)
@@ -617,10 +696,10 @@ impl MessageRepo {
                AND cm.user_id <> $3
                AND (cm.last_read_at IS NULL OR m.created_at > cm.last_read_at)
             ",
+            channel_id,
+            message_id,
+            author_id
         )
-        .bind(channel_id)
-        .bind(message_id)
-        .bind(author_id)
         .execute(&self.pool)
         .await?;
         Ok(())
@@ -634,18 +713,29 @@ impl MessageRepo {
         workspace_id: Uuid,
         user_id: Uuid,
     ) -> sqlx::Result<Vec<(Uuid, i32, i32, Option<Uuid>)>> {
-        sqlx::query_as(
+        let rows = sqlx::query!(
             r"
             SELECT cm.channel_id, cm.unread_count, cm.mention_count, cm.last_read_msg
               FROM channel_members cm
               JOIN channels c ON c.id = cm.channel_id
              WHERE c.workspace_id = $1 AND cm.user_id = $2 AND c.is_archived = false
             ",
+            workspace_id,
+            user_id
         )
-        .bind(workspace_id)
-        .bind(user_id)
         .fetch_all(&self.pool)
-        .await
+        .await?;
+        Ok(rows
+            .into_iter()
+            .map(|r| {
+                (
+                    r.channel_id,
+                    r.unread_count,
+                    r.mention_count,
+                    r.last_read_msg,
+                )
+            })
+            .collect())
     }
 
     /// Recomputes what the counters should be and reports the rows that were
@@ -653,7 +743,7 @@ impl MessageRepo {
     /// a restore — and a badge nobody can explain is a bug report nobody can
     /// action. This turns that class into a log line and a number.
     pub async fn reconcile_unread_counts(&self, since_hours: i64) -> sqlx::Result<u64> {
-        let result = sqlx::query(
+        let result = sqlx::query!(
             r"
             WITH truth AS (
                 SELECT cm.channel_id,
@@ -668,7 +758,7 @@ impl MessageRepo {
                   LEFT JOIN messages m ON m.channel_id = cm.channel_id
                  WHERE c.id IN (
                        SELECT DISTINCT channel_id FROM messages
-                        WHERE created_at > NOW() - ($1 || ' hours')::interval
+                        WHERE created_at > NOW() - make_interval(hours => $1)
                  )
                  GROUP BY cm.channel_id, cm.user_id
             )
@@ -679,8 +769,8 @@ impl MessageRepo {
                AND truth.user_id = cm.user_id
                AND cm.unread_count <> truth.total
             ",
+            since_hours as i32
         )
-        .bind(since_hours.to_string())
         .execute(&self.pool)
         .await?;
         Ok(result.rows_affected())
@@ -741,7 +831,14 @@ mod tests {
         let repo = MessageRepo::new(pool);
 
         let parent = repo
-            .create_message(channel_id, user_id, "parent message", None, &[])
+            .create_message(NewMessage {
+                channel_id,
+                user_id,
+                content: "parent message",
+                thread_parent_id: None,
+                client_message_id: None,
+                mentioned: &[],
+            })
             .await
             .expect("create parent");
         assert_eq!(parent.reply_count, 0, "fresh parent must have 0 replies");
@@ -751,7 +848,14 @@ mod tests {
         );
 
         let reply = repo
-            .create_message(channel_id, user_id, "a reply", Some(parent.id), &[])
+            .create_message(NewMessage {
+                channel_id,
+                user_id,
+                content: "a reply",
+                thread_parent_id: Some(parent.id),
+                client_message_id: None,
+                mentioned: &[],
+            })
             .await
             .expect("create reply");
         assert_eq!(
@@ -777,7 +881,14 @@ mod tests {
         let repo = MessageRepo::new(pool);
 
         let msg = repo
-            .create_message(channel_id, user_id, "doomed message", None, &[])
+            .create_message(NewMessage {
+                channel_id,
+                user_id,
+                content: "doomed message",
+                thread_parent_id: None,
+                client_message_id: None,
+                mentioned: &[],
+            })
             .await
             .expect("create message");
 

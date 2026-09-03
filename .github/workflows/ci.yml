@@ -100,6 +100,17 @@ jobs:
           workspaces: backend
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
+      - name: Install cargo tooling
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest,cargo-audit,sqlx-cli
+
+      # Every query is a compile-time-checked sqlx macro, and this job compiles
+      # against the live service database rather than the committed .sqlx cache,
+      # so the schema has to exist before the first `cargo` that expands one.
+      - name: Migrate the database
+        run: cargo sqlx migrate run
+
       - name: cargo fmt
         run: cargo fmt --all -- --check
 
@@ -109,10 +120,19 @@ jobs:
       - name: cargo build
         run: cargo build --workspace
 
-      - name: Install cargo tooling
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-nextest,cargo-audit,sqlx-cli
+      # The frontend's API types are generated from this document, so a route
+      # change that forgot to regenerate it is caught here rather than as a
+      # runtime type mismatch. `cargo run --bin chat-openapi` regenerates it.
+      - name: OpenAPI document is current
+        run: |
+          cargo run -q --bin chat-openapi > ../frontend/src/api/openapi.json
+          git diff --exit-code -- ../frontend/src/api/openapi.json
+
+      # The WebSocket frame union is generated from `ServerFrame` the same way.
+      - name: WebSocket frame types are current
+        run: |
+          cargo run -q --bin chat-ts-events > ../frontend/src/api/serverFrames.ts
+          git diff --exit-code -- ../frontend/src/api/serverFrames.ts
 
       # nextest over `cargo test`: a process per test, and the ci profile kills
       # one that stops making progress instead of letting it hold the job open
@@ -153,6 +173,11 @@ jobs:
 
       - name: Audit dependencies
         run: npm audit --audit-level=high
+
+      - name: Generated API types are current
+        run: |
+          npm run -s api:types
+          git diff --exit-code -- src/api/schema.d.ts
 
       - name: Format check
         run: npm run format:check

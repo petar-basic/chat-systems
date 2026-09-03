@@ -70,8 +70,8 @@ Three Rust binaries plus a React SPA. The API is stateless and the realtime gate
 fans messages out across nodes via Redis, so both scale horizontally. Background consumers
 live in their own process rather than inside each API replica — otherwise a second API
 replica would send every webhook and every notification twice. Durable events reach that
-process through Redis Streams consumer groups; the two consumers still on plain pub/sub
-(huddle history and call ringing) are why `chat-worker` itself stays at one replica.
+process through Redis Streams consumer groups, each event to exactly one replica, so
+`chat-worker` scales too.
 
 | Component         | Technology                                                        |
 |-------------------|------------------------------------------------------------------|

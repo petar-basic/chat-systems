@@ -1,9 +1,11 @@
 use std::sync::Arc;
 
 use axum::extract::{Path, State};
-use axum::routing::{delete, get, post};
-use axum::{Json, Router};
+use axum::Json;
+use garde::Validate;
 use rand::RngExt;
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::routes;
 use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
@@ -12,37 +14,27 @@ use super::models::*;
 use super::repo::NewReminder;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
+use crate::dto::{DataList, StatusResponse};
 use crate::middleware::AuthUser;
 use crate::middleware::PeerAddr;
 use crate::state::AppState;
 use crate::workspace::models::{ChannelType, WorkspaceRole};
 
-pub fn router(state: Arc<AppState>) -> Router {
-    let protected = Router::new()
-        .route(
-            "/workspaces/{ws_id}/hooks/channels",
-            get(list_hooked_channels),
-        )
-        .route("/workspaces/{ws_id}/hooks", get(list_hooks))
-        .route("/workspaces/{ws_id}/hooks", post(create_hook))
-        .route("/hooks/{hook_id}", get(get_hook))
-        .route("/hooks/{hook_id}", delete(delete_hook))
-        .route("/hooks/{hook_id}/reveal", post(reveal_hook))
-        .route("/hooks/{hook_id}/rotate", post(rotate_hook))
-        .route("/workspaces/{ws_id}/reminders", get(list_reminders))
-        .route("/workspaces/{ws_id}/reminders", post(create_reminder))
-        .route(
-            "/workspaces/{ws_id}/reminders/{reminder_id}",
-            delete(delete_reminder),
-        );
+pub fn router() -> OpenApiRouter<Arc<AppState>> {
+    OpenApiRouter::new()
+        .routes(routes!(list_hooked_channels))
+        .routes(routes!(list_hooks, create_hook))
+        .routes(routes!(get_hook, delete_hook))
+        .routes(routes!(reveal_hook))
+        .routes(routes!(rotate_hook))
+        .routes(routes!(list_reminders, create_reminder))
+        .routes(routes!(delete_reminder))
+}
 
-    // The incoming webhook is authenticated by its URL token, not a session, so
-    // it must NOT sit behind auth_middleware.
-    let public = Router::new().route("/hooks/incoming/{token}", post(incoming_webhook));
-
-    Router::new()
-        .merge(crate::protected(state.clone(), protected))
-        .merge(public.with_state(state))
+/// Authenticated by the token in its URL, not a session, so it must not sit
+/// behind `auth_middleware`.
+pub fn public_router() -> OpenApiRouter<Arc<AppState>> {
+    OpenApiRouter::new().routes(routes!(incoming_webhook))
 }
 
 fn generate_token() -> String {
@@ -52,22 +44,24 @@ fn generate_token() -> String {
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
 }
 
+#[utoipa::path(get, path = "/workspaces/{ws_id}/hooks", tag = "hooks", responses((status = 200, body = DataList<Hook>)))]
 async fn list_hooks(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<DataList<Hook>>> {
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
-    let hooks = state.hook_repo.list_hooks(ws_id).await?;
-    let mut data = serde_json::to_value(&hooks).map_err(|e| AppError::Internal(e.to_string()))?;
-    if let Some(arr) = data.as_array_mut() {
-        for hook in arr.iter_mut() {
-            redact_secrets(hook.get_mut("config"));
-        }
-    }
-    Ok(Json(serde_json::json!({ "data": data })))
+    let data = state
+        .hook_repo
+        .list_hooks(ws_id)
+        .await?
+        .into_iter()
+        .map(redacted)
+        .collect();
+    Ok(Json(DataList { data }))
 }
 
+#[utoipa::path(post, path = "/workspaces/{ws_id}/hooks", tag = "hooks", request_body = CreateHookRequest, responses((status = 200, body = Hook)))]
 async fn create_hook(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
@@ -76,10 +70,7 @@ async fn create_hook(
     Json(req): Json<CreateHookRequest>,
 ) -> AppResult<Json<Hook>> {
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
-    shared_common::validation::validate_hook_name(&req.name)?;
-    if let Some(description) = &req.description {
-        shared_common::validation::validate_description(description)?;
-    }
+    req.validate()?;
     let mut config = req.config.unwrap_or(serde_json::json!({}));
 
     if req.hook_type == HookType::IncomingWebhook {
@@ -264,24 +255,26 @@ fn parse_channel_ids(config: &serde_json::Value) -> AppResult<Vec<Uuid>> {
         .collect()
 }
 
+#[utoipa::path(get, path = "/workspaces/{ws_id}/hooks/channels", tag = "hooks", responses((status = 200, body = HookedChannels)))]
 async fn list_hooked_channels(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<HookedChannels>> {
     authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
     let channel_ids = state
         .hook_repo
         .channel_ids_with_outgoing_hooks(ws_id)
         .await?;
-    Ok(Json(serde_json::json!({ "channel_ids": channel_ids })))
+    Ok(Json(HookedChannels { channel_ids }))
 }
 
+#[utoipa::path(get, path = "/hooks/{hook_id}", tag = "hooks", responses((status = 200, body = Hook)))]
 async fn get_hook(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(hook_id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<Hook>> {
     let hook = state
         .hook_repo
         .find_hook_by_id(hook_id)
@@ -294,23 +287,26 @@ async fn get_hook(
         &WorkspaceRole::Admin,
     )
     .await?;
-    let mut value = serde_json::to_value(&hook).map_err(|e| AppError::Internal(e.to_string()))?;
-    redact_secrets(value.get_mut("config"));
-    Ok(Json(value))
+    Ok(Json(redacted(hook)))
 }
 
-fn secrets_response(state: &AppState, hook: &Hook) -> serde_json::Value {
+fn redacted(mut hook: Hook) -> Hook {
+    redact_secrets(Some(&mut hook.config));
+    hook
+}
+
+fn secrets_response(state: &AppState, hook: &Hook) -> HookSecrets {
     let incoming_url = hook
         .config
         .get("token")
         .and_then(|v| v.as_str())
         .map(|token| format!("{}/api/hooks/incoming/{}", state.config.public_url, token));
-    serde_json::json!({
-        "hook_id": hook.id,
-        "hook_type": hook.hook_type,
-        "config": hook.config,
-        "incoming_url": incoming_url,
-    })
+    HookSecrets {
+        hook_id: hook.id,
+        hook_type: hook.hook_type.clone(),
+        config: hook.config.clone(),
+        incoming_url,
+    }
 }
 
 async fn require_hook_admin(state: &AppState, hook_id: Uuid, user_id: Uuid) -> AppResult<Hook> {
@@ -323,12 +319,13 @@ async fn require_hook_admin(state: &AppState, hook_id: Uuid, user_id: Uuid) -> A
     Ok(hook)
 }
 
+#[utoipa::path(post, path = "/hooks/{hook_id}/reveal", tag = "hooks", responses((status = 200, body = HookSecrets)))]
 async fn reveal_hook(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
     Path(hook_id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<HookSecrets>> {
     let hook = require_hook_admin(&state, hook_id, auth.user_id).await?;
     audit::record(
         &state,
@@ -341,12 +338,13 @@ async fn reveal_hook(
     Ok(Json(secrets_response(&state, &hook)))
 }
 
+#[utoipa::path(post, path = "/hooks/{hook_id}/rotate", tag = "hooks", responses((status = 200, body = HookSecrets)))]
 async fn rotate_hook(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
     Path(hook_id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<HookSecrets>> {
     let hook = require_hook_admin(&state, hook_id, auth.user_id).await?;
 
     let rotated_key = match hook.hook_type {
@@ -378,12 +376,13 @@ async fn rotate_hook(
     Ok(Json(secrets_response(&state, &updated)))
 }
 
+#[utoipa::path(delete, path = "/hooks/{hook_id}", tag = "hooks", responses((status = 200, body = StatusResponse)))]
 async fn delete_hook(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
     Path(hook_id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<StatusResponse>> {
     let hook = state
         .hook_repo
         .find_hook_by_id(hook_id)
@@ -411,26 +410,28 @@ async fn delete_hook(
     )
     .await;
 
-    Ok(Json(serde_json::json!({ "status": "deleted" })))
+    Ok(Json(StatusResponse::new("deleted")))
 }
 
+#[utoipa::path(get, path = "/workspaces/{ws_id}/reminders", tag = "reminders", responses((status = 200, body = DataList<Reminder>)))]
 async fn list_reminders(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<DataList<Reminder>>> {
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Member).await?;
     let reminders = state.hook_repo.list_reminders(ws_id, auth.user_id).await?;
-    Ok(Json(serde_json::json!({ "data": reminders })))
+    Ok(Json(reminders.into()))
 }
 
+#[utoipa::path(post, path = "/workspaces/{ws_id}/reminders", tag = "reminders", request_body = CreateReminderRequest, responses((status = 200, body = Reminder)))]
 async fn create_reminder(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
     Json(req): Json<CreateReminderRequest>,
 ) -> AppResult<Json<Reminder>> {
-    shared_common::validation::validate_reminder_content(&req.content)?;
+    req.validate()?;
     let member =
         authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Member).await?;
     if req.target_user_id != auth.user_id {
@@ -463,11 +464,12 @@ async fn create_reminder(
     Ok(Json(reminder))
 }
 
+#[utoipa::path(delete, path = "/workspaces/{ws_id}/reminders/{reminder_id}", tag = "reminders", responses((status = 200, body = StatusResponse)))]
 async fn delete_reminder(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path((ws_id, reminder_id)): Path<(Uuid, Uuid)>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<StatusResponse>> {
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Member).await?;
 
     let reminder = state
@@ -480,26 +482,23 @@ async fn delete_reminder(
     }
 
     state.hook_repo.delete_reminder(reminder_id).await?;
-    Ok(Json(serde_json::json!({ "status": "deleted" })))
+    Ok(Json(StatusResponse::new("deleted")))
 }
 
+#[utoipa::path(post, path = "/hooks/incoming/{token}", tag = "hooks", request_body = IncomingWebhookPayload, responses((status = 200, body = IncomingAccepted)), security(()))]
 async fn incoming_webhook(
     State(state): State<Arc<AppState>>,
     Path(token): Path<String>,
     PeerAddr(peer): PeerAddr,
     headers: axum::http::HeaderMap,
     Json(payload): Json<IncomingWebhookPayload>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<IncomingAccepted>> {
     let mut conn = state.redis.clone();
 
     // Bound the source before the database is touched. Keying only on the token
     // means a caller who varies the token gets a fresh bucket every request, and
     // each one still costs a lookup.
-    if let Some(ip) = crate::net::client_ip(
-        &headers,
-        peer,
-        &crate::net::parse_trusted_proxies(&state.config.trusted_proxies),
-    ) {
+    if let Some(ip) = crate::net::client_ip(&headers, peer, &state.config.trusted_proxies) {
         crate::rate_limit::enforce(
             &mut conn,
             &format!("rate_limit:hook_ip:{ip}"),
@@ -525,7 +524,7 @@ async fn incoming_webhook(
         .await?
         .ok_or_else(|| AppError::Unauthorized("Invalid webhook token".into()))?;
 
-    shared_common::validation::validate_message_content(&payload.text)?;
+    payload.validate()?;
 
     let channel_id = hook
         .config
@@ -539,23 +538,17 @@ async fn incoming_webhook(
         "name": payload.username.as_deref().unwrap_or(&hook.name),
         "icon_url": payload.icon_url,
     });
+    let mut tx = state.pool.begin().await?;
     let msg = state
         .message_repo
-        .create_bot_message(channel_id, hook.created_by, &payload.text, &bot)
+        .create_bot_message_in(&mut tx, channel_id, hook.created_by, &payload.text, &bot)
         .await?;
-
-    let msg_json = serde_json::to_value(&msg).map_err(|e| AppError::Internal(e.to_string()))?;
-    if let Err(e) = state
+    let staged = state
         .publisher
-        .publish_message_created(&msg_json, hook.workspace_id, &[])
-        .await
-    {
-        tracing::warn!(
-            "incoming webhook publish failed for hook {}: {}",
-            hook.id,
-            e
-        );
-    }
+        .stage_message_created(&mut tx, &msg, hook.workspace_id, &[])
+        .await?;
+    tx.commit().await?;
+    state.publisher.dispatch(staged).await;
 
     let _ = state
         .hook_repo
@@ -568,9 +561,10 @@ async fn incoming_webhook(
         )
         .await;
 
-    Ok(Json(
-        serde_json::json!({ "status": "ok", "message_id": msg.id }),
-    ))
+    Ok(Json(IncomingAccepted {
+        status: "ok",
+        message_id: msg.id,
+    }))
 }
 
 fn redact_secrets(value: Option<&mut serde_json::Value>) {

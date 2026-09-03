@@ -58,7 +58,7 @@ test('the sender sees one reply on their own direct message', async ({ page }) =
     })
   ).json();
   const parentText = `dm-count-parent-${stamp()}`;
-  const posted = await alice.post(`${API}/conversations/${conversation.id}/messages`, {
+  const posted = await alice.post(`${API}/channels/${conversation.id}/messages`, {
     data: { content: parentText },
   });
   expect(posted.status(), 'seed the parent message').toBe(200);
@@ -67,16 +67,16 @@ test('the sender sees one reply on their own direct message', async ({ page }) =
     await login(page, 'alice@dev.local');
     await page.goto(`/app/${workspace.id}/c/${conversation.id}`);
 
-    const parent = page.locator('[data-qa="conversation-message"]', { hasText: parentText });
+    const parent = page.locator('[data-qa="message-row"]', { hasText: parentText });
     await expect(parent).toBeVisible({ timeout: 20_000 });
     await parent.hover();
-    await parent.locator('[data-qa="dm-action-thread"]').click();
+    await parent.locator('[data-qa="message-action-thread"]').click();
 
-    const panel = page.locator('[data-qa="dm-thread-panel"]');
+    const panel = page.locator('[data-qa="thread-panel"]');
     await expect(panel).toBeVisible();
     await replyInPanel(panel, `dm-thread-reply-${stamp()}`);
 
-    const count = parent.locator('[data-qa="dm-thread-open"]');
+    const count = parent.locator('[data-qa="message-thread-open"]');
     await expect(count).toContainText('1 reply');
     await page.waitForTimeout(1500);
     await expect(count).toContainText('1 reply');

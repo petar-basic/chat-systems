@@ -695,13 +695,17 @@ async fn mark_read_no_token_unauthorized(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-async fn mark_online(state: &crate::state::AppState, user_id: uuid::Uuid) {
+async fn mark_online(state: &crate::state::AppState, ws_id: uuid::Uuid, user_id: uuid::Uuid) {
     let mut conn = state.redis.clone();
-    let _: redis::RedisResult<()> = redis::cmd("SET")
-        .arg(format!("presence:{user_id}:test-node"))
-        .arg("online")
-        .arg("EX")
-        .arg(30)
+    let expires_at = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
+        + 60;
+    let _: redis::RedisResult<()> = redis::cmd("ZADD")
+        .arg(format!("presence:ws:{ws_id}"))
+        .arg(expires_at)
+        .arg(user_id.to_string())
         .query_async(&mut conn)
         .await;
 }
@@ -759,7 +763,7 @@ async fn here_only_reaches_members_with_a_live_connection(pool: PgPool) {
             .await
             .expect("add channel member");
     }
-    mark_online(&state, online_member).await;
+    mark_online(&state, ws_id, online_member).await;
 
     let mentioned = expand_mentions(&state, ch_id, author_id, "@[here](here) anyone around?").await;
 
@@ -981,7 +985,7 @@ async fn a_dm_is_searchable_by_its_participants_and_nobody_else(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/conversations/{conversation_id}/messages"),
+        &format!("/api/channels/{conversation_id}/messages"),
         Some(&owner_token),
         Some(json!({ "content": "the séance is at six" })),
     )
@@ -999,13 +1003,11 @@ async fn a_dm_is_searchable_by_its_participants_and_nobody_else(pool: PgPool) {
         .await;
         assert_eq!(status, StatusCode::OK, "{body:?}");
         assert_eq!(
-            body["conversations"]
-                .as_array()
-                .expect("conversations")
-                .len(),
+            body["data"].as_array().expect("data").len(),
             1,
             "a participant finds their own DM: {body:?}"
         );
+        assert_eq!(body["data"][0]["channel_id"], conversation_id);
     }
 
     let (status, body) = send(
@@ -1018,10 +1020,7 @@ async fn a_dm_is_searchable_by_its_participants_and_nobody_else(pool: PgPool) {
     .await;
     assert_eq!(status, StatusCode::OK, "{body:?}");
     assert!(
-        body["conversations"]
-            .as_array()
-            .expect("conversations")
-            .is_empty(),
+        body["data"].as_array().expect("data").is_empty(),
         "a DM belongs to the people in it: {body:?}"
     );
 }
@@ -1048,7 +1047,7 @@ async fn scope_decides_which_half_of_the_search_runs(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/conversations/{conversation_id}/messages"),
+        &format!("/api/channels/{conversation_id}/messages"),
         Some(&owner_token),
         Some(json!({ "content": "shared word there" })),
     )
@@ -1071,17 +1070,18 @@ async fn scope_decides_which_half_of_the_search_runs(pool: PgPool) {
         )
         .await;
         assert_eq!(status, StatusCode::OK, "{body:?}");
+        let hits = body["data"].as_array().expect("data");
+        let in_conversation = hits
+            .iter()
+            .filter(|hit| hit["channel_id"] == conversation_id)
+            .count();
         assert_eq!(
-            body["data"].as_array().expect("data").len(),
+            hits.len() - in_conversation,
             channels,
             "channels for scope '{suffix}': {body:?}"
         );
         assert_eq!(
-            body["conversations"]
-                .as_array()
-                .expect("conversations")
-                .len(),
-            conversations,
+            in_conversation, conversations,
             "conversations for scope '{suffix}': {body:?}"
         );
     }

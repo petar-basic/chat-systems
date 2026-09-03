@@ -28,8 +28,6 @@ export const QUERY_KEYS = {
 
   conversationsAll: () => ['conversations'] as const,
   conversations: (workspaceId: string) => ['conversations', workspaceId] as const,
-  conversationMessages: (conversationId: string) => ['conversations', 'messages', conversationId] as const,
-  conversationThread: (parentId: string) => ['conversations', 'thread', parentId] as const,
 
   scheduledMessages: (workspaceId: string) => ['scheduled-messages', workspaceId] as const,
 

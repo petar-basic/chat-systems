@@ -1,3 +1,4 @@
+use ipnet::IpNet;
 use tracing::info;
 
 #[derive(Debug, Clone)]
@@ -49,7 +50,7 @@ pub struct AppConfig {
     pub login_attempts_per_ip: u64,
     pub login_attempts_window_secs: u64,
 
-    pub trusted_proxies: String,
+    pub trusted_proxies: Vec<IpNet>,
 
     pub max_upload_bytes: u64,
 
@@ -144,10 +145,10 @@ impl AppConfig {
             login_attempts_window_secs: parse_env("LOGIN_ATTEMPTS_WINDOW_SECS", 900),
             // The docker bridge ranges plus loopback: where our own nginx and a
             // host-run dev proxy actually sit.
-            trusted_proxies: env_or(
+            trusted_proxies: crate::net::parse_trusted_proxies(&env_or(
                 "TRUSTED_PROXIES",
                 "127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16",
-            ),
+            )),
             // Keep `client_max_body_size` in docker/nginx.conf in step with this.
             max_upload_bytes: parse_env("MAX_UPLOAD_BYTES", 100 * 1024 * 1024),
             retention_dry_run: parse_env("RETENTION_DRY_RUN", false),
@@ -250,6 +251,62 @@ where
             panic!("{key} has invalid value {raw:?}: {e}");
         }),
         Err(_) => default,
+    }
+}
+
+#[cfg(test)]
+impl AppConfig {
+    pub fn for_tests() -> Self {
+        AppConfig {
+            port: 3000,
+            database_url: String::new(),
+            redis_url: String::new(),
+            jwt_secret: "test-jwt-secret-0123456789-abcdefghij".to_string(),
+            access_token_expiry: 3600,
+            refresh_token_expiry: 604_800,
+            admin_email: None,
+            admin_password: None,
+            smtp_host: "localhost".to_string(),
+            smtp_port: 1025,
+            smtp_user: String::new(),
+            smtp_password: String::new(),
+            smtp_from_address: "noreply@test.local".to_string(),
+            smtp_from_name: "Test".to_string(),
+            smtp_use_tls: false,
+            smtp_tls_mode: SmtpTlsMode::None,
+            public_url: "http://localhost:3000".to_string(),
+            instance_name: "Test".to_string(),
+            instance_icon_url: None,
+            cors_origins: String::new(),
+            storage_backend: StorageBackend::Local,
+            local_storage_path: "./data/files".to_string(),
+            s3_endpoint: String::new(),
+            s3_region: String::new(),
+            s3_bucket: String::new(),
+            s3_access_key: String::new(),
+            s3_secret_key: String::new(),
+            turn_secret: String::new(),
+            turn_urls: String::new(),
+            stun_urls: String::new(),
+            turn_ttl_secs: 43200,
+            pg_pool_max: 5,
+            trusted_proxies: crate::net::parse_trusted_proxies("127.0.0.0/8"),
+            max_upload_bytes: 100 * 1024 * 1024,
+            retention_dry_run: false,
+            require_admin_totp: false,
+            oidc_issuer: String::new(),
+            oidc_client_id: String::new(),
+            oidc_client_secret: String::new(),
+            oidc_provisioning: "invite_only".into(),
+            oidc_allowed_domains: String::new(),
+            webhook_allow_private_targets: true,
+            vapid_public_key: String::new(),
+            vapid_private_key: String::new(),
+            vapid_subject: "mailto:test@test.local".into(),
+            login_attempts_per_email: 10,
+            login_attempts_per_ip: 30,
+            login_attempts_window_secs: 900,
+        }
     }
 }
 

@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT muted FROM channel_members WHERE channel_id = $1 AND user_id = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "muted",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "channel_members",
+            "name": "muted"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "0809b2bec4bd7c041e1604e819d7d859bee03b4ed07bc033c813a07e32977d22"
+}

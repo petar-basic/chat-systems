@@ -1,58 +1,26 @@
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::{IpAddr, SocketAddr};
 
 use axum::http::HeaderMap;
+use ipnet::IpNet;
 
-/// An IPv4 CIDR block. Hand-rolled rather than pulling a crate in: the only
-/// thing this needs to answer is "did this request arrive from our own reverse
-/// proxy", and the deployment's proxies are always private IPv4.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Cidr {
-    network: u32,
-    prefix: u8,
+fn parse_net(spec: &str) -> Option<IpNet> {
+    let spec = spec.trim();
+    spec.parse::<IpNet>()
+        .ok()
+        .or_else(|| spec.parse::<IpAddr>().ok().map(IpNet::from))
 }
 
-impl Cidr {
-    pub fn parse(spec: &str) -> Option<Self> {
-        let (addr, prefix) = match spec.split_once('/') {
-            Some((addr, prefix)) => (addr, prefix.parse::<u8>().ok()?),
-            None => (spec, 32),
-        };
-        if prefix > 32 {
-            return None;
-        }
-        let addr: Ipv4Addr = addr.trim().parse().ok()?;
-        let mask = mask_for(prefix);
-        Some(Self {
-            network: u32::from(addr) & mask,
-            prefix,
-        })
-    }
-
-    pub fn contains(&self, ip: IpAddr) -> bool {
-        let v4 = match ip {
-            IpAddr::V4(v4) => v4,
-            IpAddr::V6(v6) => match v6.to_ipv4_mapped() {
-                Some(v4) => v4,
-                None => return false,
-            },
-        };
-        u32::from(v4) & mask_for(self.prefix) == self.network
+fn unmapped(ip: IpAddr) -> IpAddr {
+    match ip {
+        IpAddr::V6(v6) => v6.to_ipv4_mapped().map_or(ip, IpAddr::V4),
+        v4 => v4,
     }
 }
 
-fn mask_for(prefix: u8) -> u32 {
-    if prefix == 0 {
-        0
-    } else {
-        u32::MAX << (32 - prefix)
-    }
-}
-
-pub fn parse_trusted_proxies(spec: &str) -> Vec<Cidr> {
+pub fn parse_trusted_proxies(spec: &str) -> Vec<IpNet> {
     spec.split(',')
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .filter_map(Cidr::parse)
+        .filter(|s| !s.trim().is_empty())
+        .filter_map(parse_net)
         .collect()
 }
 
@@ -63,10 +31,10 @@ pub fn parse_trusted_proxies(spec: &str) -> Vec<Cidr> {
 pub fn client_ip(
     headers: &HeaderMap,
     peer: Option<SocketAddr>,
-    trusted: &[Cidr],
+    trusted: &[IpNet],
 ) -> Option<String> {
     let peer_is_trusted = match peer {
-        Some(addr) => trusted.iter().any(|c| c.contains(addr.ip())),
+        Some(addr) => trusted.iter().any(|net| net.contains(&unmapped(addr.ip()))),
         // No peer information (unit tests, or a server built without
         // ConnectInfo): fall back to the header rather than to nothing.
         None => true,
@@ -111,16 +79,26 @@ mod tests {
 
     #[test]
     fn parses_cidr_blocks_and_bare_addresses() {
-        assert!(Cidr::parse("10.0.0.0/8")
+        assert!(parse_net("10.0.0.0/8")
             .unwrap()
-            .contains("10.9.9.9".parse().unwrap()));
-        assert!(!Cidr::parse("10.0.0.0/8")
+            .contains(&"10.9.9.9".parse::<IpAddr>().unwrap()));
+        assert!(!parse_net("10.0.0.0/8")
             .unwrap()
-            .contains("11.0.0.1".parse().unwrap()));
-        assert!(Cidr::parse("127.0.0.1")
+            .contains(&"11.0.0.1".parse::<IpAddr>().unwrap()));
+        assert!(parse_net("127.0.0.1")
             .unwrap()
-            .contains("127.0.0.1".parse().unwrap()));
-        assert!(Cidr::parse("nonsense").is_none());
+            .contains(&"127.0.0.1".parse::<IpAddr>().unwrap()));
+        assert!(parse_net("fd00::/8")
+            .unwrap()
+            .contains(&"fd00::1".parse::<IpAddr>().unwrap()));
+        assert!(parse_net("nonsense").is_none());
+    }
+
+    #[test]
+    fn a_v4_mapped_v6_peer_matches_a_v4_proxy_range() {
+        let trusted = parse_trusted_proxies("172.16.0.0/12");
+        let ip = client_ip(&headers("203.0.113.7"), peer("::ffff:172.18.0.5"), &trusted);
+        assert_eq!(ip.as_deref(), Some("203.0.113.7"));
     }
 
     #[test]

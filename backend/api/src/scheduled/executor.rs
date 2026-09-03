@@ -5,6 +5,7 @@ use uuid::Uuid;
 
 use super::models::ScheduledMessage;
 use crate::authz;
+use crate::messaging::models::NewMessage;
 use crate::notifications::models::NotificationType;
 use crate::state::AppState;
 
@@ -111,15 +112,7 @@ pub(crate) async fn deliver_for_test(
 }
 
 async fn deliver(state: &AppState, scheduled: &ScheduledMessage) -> Result<(), DeliveryFailure> {
-    match (scheduled.channel_id, scheduled.conversation_id) {
-        (Some(channel_id), None) => deliver_to_channel(state, scheduled, channel_id).await,
-        (None, Some(conversation_id)) => {
-            deliver_to_conversation(state, scheduled, conversation_id).await
-        }
-        _ => Err(DeliveryFailure::Internal(
-            "scheduled message has no single target".into(),
-        )),
-    }
+    deliver_to_channel(state, scheduled, scheduled.channel_id).await
 }
 
 /// The message was authorized when it was scheduled, possibly days ago. Between
@@ -167,17 +160,28 @@ async fn deliver_to_channel(
     )
     .await;
 
+    let mut tx = state.pool.begin().await.map_err(internal)?;
     let message = state
         .message_repo
-        .create_message(
-            channel_id,
-            scheduled.user_id,
-            &scheduled.content,
-            None,
-            &mentioned,
+        .create_message_in(
+            &mut tx,
+            NewMessage {
+                channel_id,
+                user_id: scheduled.user_id,
+                content: &scheduled.content,
+                thread_parent_id: None,
+                client_message_id: None,
+                mentioned: &mentioned,
+            },
         )
         .await
         .map_err(internal)?;
+    let staged = state
+        .publisher
+        .stage_message_created(&mut tx, &message, scheduled.workspace_id, &mentioned)
+        .await
+        .map_err(internal)?;
+    tx.commit().await.map_err(internal)?;
 
     crate::files::service::link_to_channel_message(
         state,
@@ -188,69 +192,7 @@ async fn deliver_to_channel(
     )
     .await;
 
-    let payload = serde_json::to_value(&message).map_err(internal)?;
-    let _ = state
-        .publisher
-        .publish_message_created(&payload, scheduled.workspace_id, &mentioned)
-        .await;
-
-    Ok(())
-}
-
-async fn deliver_to_conversation(
-    state: &AppState,
-    scheduled: &ScheduledMessage,
-    conversation_id: Uuid,
-) -> Result<(), DeliveryFailure> {
-    authz::require_conversation_participant(state, conversation_id, scheduled.user_id)
-        .await
-        .map_err(|_| DeliveryFailure::NotAuthorized)?;
-
-    let message = state
-        .conversation_repo
-        .create_message(
-            Uuid::new_v4(),
-            conversation_id,
-            scheduled.user_id,
-            &scheduled.content,
-            None,
-            None,
-        )
-        .await
-        .map_err(internal)?;
-
-    crate::files::service::link_to_conversation_message(
-        state,
-        &scheduled.content,
-        message.id,
-        scheduled.workspace_id,
-        scheduled.user_id,
-    )
-    .await;
-
-    let participants = state
-        .conversation_repo
-        .participant_ids(conversation_id)
-        .await
-        .map_err(internal)?;
-
-    let mut payload = serde_json::to_value(&message).map_err(internal)?;
-    if let Some(obj) = payload.as_object_mut() {
-        obj.insert("conversation_id".into(), serde_json::json!(conversation_id));
-        obj.insert(
-            "workspace_id".into(),
-            serde_json::json!(scheduled.workspace_id),
-        );
-        obj.insert("participant_ids".into(), serde_json::json!(participants));
-    }
-    let _ = state
-        .publisher
-        .publish_scoped(
-            "conversation.message.created",
-            scheduled.workspace_id,
-            payload,
-        )
-        .await;
+    state.publisher.dispatch(staged).await;
 
     Ok(())
 }
@@ -261,7 +203,6 @@ async fn notify_author(state: &AppState, scheduled: &ScheduledMessage, failure: 
     let data = serde_json::json!({
         "scheduled_message_id": scheduled.id,
         "channel_id": scheduled.channel_id,
-        "conversation_id": scheduled.conversation_id,
         "failure": failure.as_str(),
     });
 

@@ -3,49 +3,43 @@ use std::sync::Arc;
 use axum::extract::{Path, State};
 use axum::http::header::AUTHORIZATION;
 use axum::http::HeaderMap;
-use axum::routing::{delete, get, patch, post, put};
-use axum::{Json, Router};
+use axum::Json;
 use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
 use chrono::Utc;
+use garde::Validate;
 use shared_common::errors::{AppError, AppResult};
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::routes;
 
 use super::models::*;
 use crate::audit::{self, AuditAction, AuditEntry};
+use crate::dto::StatusResponse;
 use crate::middleware::AuthUser;
 use crate::middleware::PeerAddr;
 use crate::state::AppState;
 use crate::workspace::models::WorkspaceRole;
 
-pub fn router(state: Arc<AppState>) -> Router {
-    let protected = Router::new()
-        .route("/users/me", get(get_me))
-        .route("/users/me", patch(update_me))
-        .route("/users/me/password", patch(change_password))
-        .route("/users/me/status", put(set_status))
-        .route("/users/me/status", delete(clear_status))
-        .route("/auth/invites/{token}/accept", post(accept_invite));
-
-    let public = Router::new()
-        .route("/auth/login", post(login))
-        .route("/auth/invites/{token}/verify", get(verify_invite))
-        .route("/auth/complete-registration", post(complete_registration))
-        .route("/auth/refresh", post(refresh))
-        .route("/auth/logout", post(logout))
-        .route("/auth/forgot-password", post(forgot_password))
-        .route("/auth/reset-password", post(reset_password))
-        .route(
-            "/instance/info",
-            get({
-                let s = state.clone();
-                move || instance_info(s)
-            }),
-        );
-
-    Router::new()
-        .merge(public.with_state(state.clone()))
-        .merge(crate::protected(state, protected))
+pub fn router() -> OpenApiRouter<Arc<AppState>> {
+    OpenApiRouter::new()
+        .routes(routes!(get_me, update_me))
+        .routes(routes!(change_password))
+        .routes(routes!(set_status, clear_status))
+        .routes(routes!(accept_invite))
 }
 
+pub fn public_router() -> OpenApiRouter<Arc<AppState>> {
+    OpenApiRouter::new()
+        .routes(routes!(login))
+        .routes(routes!(verify_invite))
+        .routes(routes!(complete_registration))
+        .routes(routes!(refresh))
+        .routes(routes!(logout))
+        .routes(routes!(forgot_password))
+        .routes(routes!(reset_password))
+        .routes(routes!(instance_info))
+}
+
+#[utoipa::path(post, path = "/auth/login", tag = "auth", request_body = LoginRequest, responses((status = 200, body = AuthSession)), security(()))]
 async fn login(
     State(state): State<Arc<AppState>>,
     jar: CookieJar,
@@ -56,11 +50,7 @@ async fn login(
     let key = format!("rate_limit:login:{}", req.email.to_lowercase());
     let window = state.config.login_attempts_window_secs;
     check_rate_limit(&state, &key, state.config.login_attempts_per_email, window).await?;
-    if let Some(ip) = crate::net::client_ip(
-        &headers,
-        peer,
-        &crate::net::parse_trusted_proxies(&state.config.trusted_proxies),
-    ) {
+    if let Some(ip) = crate::net::client_ip(&headers, peer, &state.config.trusted_proxies) {
         check_rate_limit(
             &state,
             &format!("rate_limit:login_ip:{ip}"),
@@ -158,10 +148,11 @@ async fn consume_recovery_code(
     Ok(false)
 }
 
+#[utoipa::path(get, path = "/auth/invites/{token}/verify", tag = "auth", responses((status = 200, body = InvitePreview)), security(()))]
 async fn verify_invite(
     State(state): State<Arc<AppState>>,
     Path(token): Path<String>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<InvitePreview>> {
     let claims = state.auth_service.verify_registration_token(&token)?;
 
     let invalid = || AppError::Unauthorized("Invalid or expired invite".into());
@@ -182,22 +173,25 @@ async fn verify_invite(
         .await?
         .ok_or_else(invalid)?;
 
-    Ok(Json(serde_json::json!({
-        "email": user.email,
-        "workspace_name": workspace.name,
-        "workspace_id": workspace_id,
-        "already_registered": user.status == UserStatus::Active,
-    })))
+    Ok(Json(InvitePreview {
+        already_registered: user.status == UserStatus::Active,
+        email: user.email,
+        workspace_name: workspace.name,
+        workspace_id,
+    }))
 }
 
 /// An invite pointed at an account that already exists is a join, not a
 /// registration: the holder of the link is signed in already, so all that is
 /// left is the membership the invite promised.
+#[utoipa::path(
+    operation_id = "auth_accept_invite",
+    post, path = "/auth/invites/{token}/accept", tag = "auth", responses((status = 200, body = InviteAccepted)))]
 async fn accept_invite(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(token): Path<String>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<InviteAccepted>> {
     let claims = state.auth_service.verify_registration_token(&token)?;
 
     let workspace_id = claims
@@ -236,12 +230,13 @@ async fn accept_invite(
     )
     .await;
 
-    Ok(Json(serde_json::json!({
-        "workspace_id": workspace_id,
-        "workspace_name": workspace.name,
-    })))
+    Ok(Json(InviteAccepted {
+        workspace_id,
+        workspace_name: workspace.name,
+    }))
 }
 
+#[utoipa::path(post, path = "/auth/complete-registration", tag = "auth", request_body = RegisterCompleteRequest, responses((status = 200, body = AuthSession)), security(()))]
 async fn complete_registration(
     State(state): State<Arc<AppState>>,
     jar: CookieJar,
@@ -273,6 +268,7 @@ async fn complete_registration(
     Ok((jar, Json(tokens.into())))
 }
 
+#[utoipa::path(post, path = "/auth/refresh", tag = "auth", responses((status = 200, body = AuthSession)), security(()))]
 async fn refresh(
     State(state): State<Arc<AppState>>,
     jar: CookieJar,
@@ -294,31 +290,34 @@ async fn refresh(
     Ok((jar, Json(tokens.into())))
 }
 
+#[utoipa::path(post, path = "/auth/logout", tag = "auth", responses((status = 200, body = StatusResponse)), security(()))]
 async fn logout(
     State(state): State<Arc<AppState>>,
     jar: CookieJar,
-) -> AppResult<(CookieJar, Json<serde_json::Value>)> {
+) -> AppResult<(CookieJar, Json<StatusResponse>)> {
     if let Some(cookie) = jar.get("refresh_token") {
         let _ = state.auth_service.logout(cookie.value()).await;
     }
     let jar = clear_auth_cookies(jar);
-    Ok((jar, Json(serde_json::json!({ "status": "logged_out" }))))
+    Ok((jar, Json(StatusResponse::new("logged_out"))))
 }
 
+#[utoipa::path(post, path = "/auth/forgot-password", tag = "auth", request_body = ForgotPasswordRequest, responses((status = 200, body = StatusResponse)), security(()))]
 async fn forgot_password(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ForgotPasswordRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<StatusResponse>> {
     let key = format!("rate_limit:forgot:{}", req.email.to_lowercase());
     check_rate_limit(&state, &key, 5, 900).await?;
     state.auth_service.forgot_password(&req.email).await?;
-    Ok(Json(serde_json::json!({ "status": "sent" })))
+    Ok(Json(StatusResponse::new("sent")))
 }
 
+#[utoipa::path(post, path = "/auth/reset-password", tag = "auth", request_body = ResetPasswordRequest, responses((status = 200, body = StatusResponse)), security(()))]
 async fn reset_password(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ResetPasswordRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<StatusResponse>> {
     let user_id = state
         .auth_service
         .reset_password(&req.token, &req.password)
@@ -334,22 +333,24 @@ async fn reset_password(
     )
     .await?;
 
-    Ok(Json(serde_json::json!({ "status": "reset" })))
+    Ok(Json(StatusResponse::new("reset")))
 }
 
-async fn instance_info(state: Arc<AppState>) -> Json<serde_json::Value> {
-    Json(serde_json::json!({
-        "name": state.config.instance_name,
-        "icon_url": state.config.instance_icon_url,
-        "sso_enabled": super::oidc_routes::settings_from(&state.config).is_configured()
+#[utoipa::path(get, path = "/instance/info", tag = "instance", responses((status = 200, body = InstanceInfo)), security(()))]
+async fn instance_info(State(state): State<Arc<AppState>>) -> Json<InstanceInfo> {
+    Json(InstanceInfo {
+        name: state.config.instance_name.clone(),
+        icon_url: state.config.instance_icon_url.clone(),
+        sso_enabled: super::oidc_routes::settings_from(&state.config).is_configured()
             && super::oidc::Provisioning::parse(
                 &state.config.oidc_provisioning,
                 &state.config.oidc_allowed_domains,
             )
             .may_sign_in(),
-    }))
+    })
 }
 
+#[utoipa::path(get, path = "/users/me", tag = "users", responses((status = 200, body = UserPublic)))]
 async fn get_me(State(state): State<Arc<AppState>>, auth: AuthUser) -> AppResult<Json<UserPublic>> {
     let user = state
         .auth_service
@@ -360,23 +361,13 @@ async fn get_me(State(state): State<Arc<AppState>>, auth: AuthUser) -> AppResult
     Ok(Json(user.into()))
 }
 
+#[utoipa::path(patch, path = "/users/me", tag = "users", request_body = UpdateProfileRequest, responses((status = 200, body = UserPublic)))]
 async fn update_me(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Json(req): Json<UpdateProfileRequest>,
 ) -> AppResult<Json<UserPublic>> {
-    if let Some(name) = &req.display_name {
-        shared_common::validation::validate_display_name(name)?;
-    }
-    if let Some(avatar_url) = req.avatar_url.as_deref().filter(|url| !url.is_empty()) {
-        shared_common::validation::validate_avatar_url(avatar_url)?;
-    }
-    if let Some(bio) = &req.bio {
-        shared_common::validation::validate_bio(bio)?;
-    }
-    if let Some(timezone) = &req.timezone {
-        shared_common::validation::validate_timezone(timezone)?;
-    }
+    req.validate()?;
     let user = state
         .auth_service
         .repo()
@@ -391,11 +382,13 @@ async fn update_me(
     Ok(Json(user.into()))
 }
 
+#[utoipa::path(put, path = "/users/me/status", tag = "users", request_body = SetStatusRequest, responses((status = 200, body = UserPublic)))]
 async fn set_status(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Json(req): Json<SetStatusRequest>,
 ) -> AppResult<Json<UserPublic>> {
+    req.validate()?;
     let emoji = req
         .emoji
         .as_deref()
@@ -403,12 +396,6 @@ async fn set_status(
         .filter(|e| !e.is_empty());
     let text = req.text.as_deref().map(str::trim).filter(|t| !t.is_empty());
 
-    if let Some(emoji) = emoji {
-        shared_common::validation::validate_status_emoji(emoji)?;
-    }
-    if let Some(text) = text {
-        shared_common::validation::validate_status_text(text)?;
-    }
     if emoji.is_none() && text.is_none() {
         return Err(AppError::Validation(
             "A status needs an emoji or some text".into(),
@@ -430,6 +417,7 @@ async fn set_status(
     Ok(Json(user.into()))
 }
 
+#[utoipa::path(delete, path = "/users/me/status", tag = "users", responses((status = 200, body = UserPublic)))]
 async fn clear_status(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
@@ -442,11 +430,12 @@ async fn clear_status(
     Ok(Json(user.into()))
 }
 
+#[utoipa::path(patch, path = "/users/me/password", tag = "users", request_body = ChangePasswordRequest, responses((status = 200, body = StatusResponse)))]
 async fn change_password(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Json(req): Json<ChangePasswordRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<StatusResponse>> {
     state
         .auth_service
         .change_password(auth.user_id, &req.current_password, &req.new_password)
@@ -460,7 +449,7 @@ async fn change_password(
     };
     crate::sessions::revoke(&state, auth.user_id, scope, "password changed").await?;
 
-    Ok(Json(serde_json::json!({ "status": "password_changed" })))
+    Ok(Json(StatusResponse::new("password_changed")))
 }
 
 fn bearer_token(headers: &HeaderMap) -> Option<String> {

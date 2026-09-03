@@ -44,37 +44,27 @@ export default function ForwardMessageModal({
       label: `#${channel.name}`,
       isChannel: true,
       channelId: channel.id,
-      conversationId: undefined as string | undefined,
     }));
     const conversationTargets = conversations.map((conversation) => ({
       key: `conversation:${conversation.id}`,
       label: conversationTitle(conversation, currentUserId, (id) => getUser(id)?.display_name),
       isChannel: false,
-      channelId: undefined as string | undefined,
-      conversationId: conversation.id,
+      channelId: conversation.id,
     }));
     return [...channelTargets, ...conversationTargets].filter((target) =>
       needle ? target.label.toLowerCase().includes(needle) : true,
     );
   }, [channels, conversations, currentUserId, getUser, query]);
 
-  const forwardTo = async (target: { channelId?: string; conversationId?: string }) => {
+  const forwardTo = async (channelId: string) => {
     setSending(true);
     setError(null);
     try {
       const content = forwardedBody(source, comment);
-      const api = getApiForInstance(instanceUrl);
-      if (target.channelId) {
-        await api.post(`/channels/${target.channelId}/messages`, {
-          content,
-          client_message_id: crypto.randomUUID(),
-        });
-      } else {
-        await api.post(`/conversations/${target.conversationId}/messages`, {
-          content,
-          client_message_id: crypto.randomUUID(),
-        });
-      }
+      const body = { content, client_message_id: crypto.randomUUID() };
+      await getApiForInstance(instanceUrl).typed((c) =>
+        c.POST('/channels/{ch_id}/messages', { params: { path: { ch_id: channelId } }, body }),
+      );
       onClose();
     } catch (err) {
       setError((err as { message?: string })?.message || 'Failed to forward that message');
@@ -129,9 +119,7 @@ export default function ForwardMessageModal({
             <button
               key={target.key}
               disabled={sending}
-              onClick={() =>
-                forwardTo({ channelId: target.channelId, conversationId: target.conversationId })
-              }
+              onClick={() => forwardTo(target.channelId)}
               data-qa="forward-target"
               className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-raised/30 transition cursor-pointer text-left disabled:opacity-50"
             >

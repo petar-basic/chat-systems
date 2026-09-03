@@ -1,0 +1,100 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE huddle_sessions SET ended_at = NOW()\n              WHERE id = $1 AND ended_at IS NULL\n              RETURNING id, workspace_id, channel_id, dm_partner_id, initiated_by, started_at, ended_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "huddle_sessions",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "huddle_sessions",
+            "name": "workspace_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "channel_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "huddle_sessions",
+            "name": "channel_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "dm_partner_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "huddle_sessions",
+            "name": "dm_partner_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "initiated_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "huddle_sessions",
+            "name": "initiated_by"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "started_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "huddle_sessions",
+            "name": "started_at"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "ended_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "huddle_sessions",
+            "name": "ended_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "6c25a6bbdbd4c3efea7398c93b35d53f2c388800426f502006007f2e01873a1a"
+}

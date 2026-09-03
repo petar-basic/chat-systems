@@ -247,10 +247,10 @@ services:
       autoheal: "true"
 
   # Background consumers (outgoing webhooks, reminders, notifications, huddle
-  # history, scheduled messages). They run here and nowhere else: Redis pub/sub
-  # delivers to every subscriber, so a second copy duplicates every side effect
-  # — a second notification row, a second webhook POST. Scale `api` freely;
-  # keep this at one replica.
+  # history, call ringing, scheduled messages). They run here and not in `api`,
+  # so an API replica never carries a side effect. Every consumer reads through
+  # a Redis Streams consumer group or claims its row first, so this scales like
+  # `api` does; production runs two.
   worker:
     build:
       context: ./backend
@@ -268,6 +268,12 @@ services:
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@localhost}
+      # Queued email (invites, resets, mention digests) is delivered from here,
+      # not from the api, so the SMTP settings have to match the api's.
+      SMTP_HOST: mailhog
+      SMTP_PORT: "1025"
+      SMTP_FROM_ADDRESS: noreply@dev.local
+      SMTP_FROM_NAME: Chat Systems
       STORAGE_BACKEND: ${STORAGE_BACKEND:-local}
       LOCAL_STORAGE_PATH: /data/files
       S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}

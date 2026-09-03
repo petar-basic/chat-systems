@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO hook_executions (hook_id, event_id, event_type)\n            VALUES ($1, $2, 'pending')\n            ON CONFLICT DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6f48236bb9ad244ddf3112d6e79bd127eb4e001be514a0b662d956fabc643adc"
+}
