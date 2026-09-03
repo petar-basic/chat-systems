@@ -123,6 +123,7 @@ unsigned-binary warnings, and it updates the moment you deploy:
 - **[Frontend architecture](docs/frontend.md)** — design rationale + components, stores, and data flow
 - **[Manual QA script](docs/manual-qa.md)** — end-to-end test checklist
 - **[Roadmap & known limitations](docs/ROADMAP.md)** — what's deliberately not done yet, and why
+- **[Engineering history](docs/history.md)** — what each shipped wave changed and why
 
 ## Known limitations
 

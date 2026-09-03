@@ -147,7 +147,7 @@ pub async fn write_rate_limit(
         enforce(
             &mut conn,
             &key,
-            budget.max,
+            budget.max * state.config.write_rate_limit_multiplier,
             budget.window_secs,
             LimiterFailure::Open,
         )

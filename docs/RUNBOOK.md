@@ -472,6 +472,11 @@ return 503 rather than verifying a password, so a Redis outage cannot silently r
 brute-force protection. Watch `rate_limit_backend_failures_total{policy="closed"}`: a
 non-zero rate means logins are failing for infrastructure reasons, not credentials.
 
+`WRITE_RATE_LIMIT_MULTIPLIER` scales all of the write budgets at once and is 1 everywhere
+except the CI stack, where three Playwright workers act as a single admin account and would
+otherwise trip the 120/min default class mid-suite — the symptom was a slash command or an
+import that silently did nothing, with a 429 in the trace.
+
 `MAX_UPLOAD_BYTES` (default 100 MiB) caps uploads and is enforced while streaming, so an
 oversized file never lands in memory. `client_max_body_size` in `docker/nginx.conf` must
 move with it — nginx rejects first, and a mismatch surfaces as a bare 413.

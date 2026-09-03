@@ -29,6 +29,9 @@ CORS_ORIGINS=http://localhost:8080
 LOGIN_ATTEMPTS_PER_EMAIL=1000
 LOGIN_ATTEMPTS_PER_IP=1000
 LOGIN_ATTEMPTS_WINDOW_SECS=900
+# Three Playwright workers act as one admin account, which is a hundred writes
+# a minute on a good day; the per-user write budgets stay real, only scaled.
+WRITE_RATE_LIMIT_MULTIPLIER=10
 # The SSO suite drives a real provider (the `oidc` service), so the flow it
 # exercises is the redirect and the code exchange rather than a stub. The issuer
 # is the compose service name because the same string has to resolve from inside
