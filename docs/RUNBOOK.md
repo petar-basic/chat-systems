@@ -216,7 +216,9 @@ at-most-once — the streams are then trimmed away by age on their own.
 refresh tokens, consumed password-reset tokens, expired invites and `hook_executions` older
 than 30 days are purged unconditionally on every pass. None of that is anybody's data.
 Messages, files, notifications and audit rows are only touched where a workspace owner has
-set a policy; a workspace with no `retention_policies` row keeps everything forever.
+set a policy; a workspace with no `retention_policies` row keeps everything forever. A policy
+covers direct and group messages too — they are messages in `dm`/`group_dm` channels, and a
+retention rule that skipped them would keep exactly the history people assume is gone.
 
 Set `RETENTION_DRY_RUN=true` for the first run on a real instance. It logs and counts what
 each pass *would* delete and deletes nothing. Deletion is irreversible, and a misread policy
@@ -364,6 +366,12 @@ treating "cannot check" as "not revoked". Watch `auth_revocation_lookup_failures
 sustained non-zero rate means Redis is unhealthy *and* people are being turned away, and both
 need looking at. This is the trade — a Redis outage now degrades sign-in instead of silently
 disabling deprovisioning.
+
+**Email leaves through the worker.** Invites, password resets and mention digests are
+queued in `outbound_emails` by the api and delivered by `chat-worker`, so the worker needs
+the same `SMTP_*` settings as the api — an api that can queue and a worker that cannot send
+looks like "the invite never arrived". `outbound_emails` rows with `sent_at IS NULL` and a
+`last_error` are the first thing to look at.
 
 **Mention emails.** If SMTP is configured, somebody who is mentioned while offline, with no
 push subscription, not muted and not in do-not-disturb, gets one digest email five minutes

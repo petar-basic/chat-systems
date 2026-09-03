@@ -70,13 +70,13 @@ test('the sender sees one reply on their own direct message', async ({ page }) =
     const parent = page.locator('[data-qa="message-row"]', { hasText: parentText });
     await expect(parent).toBeVisible({ timeout: 20_000 });
     await parent.hover();
-    await parent.locator('[data-qa="dm-action-thread"]').click();
+    await parent.locator('[data-qa="message-action-thread"]').click();
 
-    const panel = page.locator('[data-qa="dm-thread-panel"]');
+    const panel = page.locator('[data-qa="thread-panel"]');
     await expect(panel).toBeVisible();
     await replyInPanel(panel, `dm-thread-reply-${stamp()}`);
 
-    const count = parent.locator('[data-qa="dm-thread-open"]');
+    const count = parent.locator('[data-qa="message-thread-open"]');
     await expect(count).toContainText('1 reply');
     await page.waitForTimeout(1500);
     await expect(count).toContainText('1 reply');

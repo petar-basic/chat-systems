@@ -104,9 +104,9 @@ test('a reply inside a direct message stays in its thread', async ({ page }) => 
     const parent = page.locator('[data-qa="message-row"]', { hasText: parentText }).last();
     await expect(parent).toBeVisible({ timeout: 20_000 });
     await parent.hover();
-    await parent.locator('[data-qa="dm-action-thread"]').click();
+    await parent.locator('[data-qa="message-action-thread"]').click();
 
-    const panel = page.locator('[data-qa="dm-thread-panel"]');
+    const panel = page.locator('[data-qa="thread-panel"]');
     await expect(panel).toBeVisible();
 
     const replyText = `dm-thread-reply-${stamp}`;
@@ -115,7 +115,7 @@ test('a reply inside a direct message stays in its thread', async ({ page }) => 
     await editor.fill(replyText);
     await editor.press('Enter');
 
-    await expect(panel.locator('[data-qa="dm-thread-reply"]', { hasText: replyText })).toBeVisible();
+    await expect(panel.locator('[data-qa="thread-reply"]', { hasText: replyText })).toBeVisible();
 
     const feed = await (await bob.get(`${API}/channels/${conversation.id}/messages`)).json();
     expect(

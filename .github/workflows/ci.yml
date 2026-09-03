@@ -100,6 +100,17 @@ jobs:
           workspaces: backend
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
+      - name: Install cargo tooling
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest,cargo-audit,sqlx-cli
+
+      # Every query is a compile-time-checked sqlx macro, and this job compiles
+      # against the live service database rather than the committed .sqlx cache,
+      # so the schema has to exist before the first `cargo` that expands one.
+      - name: Migrate the database
+        run: cargo sqlx migrate run
+
       - name: cargo fmt
         run: cargo fmt --all -- --check
 
@@ -122,11 +133,6 @@ jobs:
         run: |
           cargo run -q --bin chat-ts-events > ../frontend/src/api/serverFrames.ts
           git diff --exit-code -- ../frontend/src/api/serverFrames.ts
-
-      - name: Install cargo tooling
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-nextest,cargo-audit,sqlx-cli
 
       # nextest over `cargo test`: a process per test, and the ci profile kills
       # one that stops making progress instead of letting it hold the job open
