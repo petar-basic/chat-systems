@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toUserMessage } from '@/lib/errors';
 import { formatDateTime } from '@/lib/datetime';
 import { X, Clock, Hash, Trash2, MessageSquare } from 'lucide-react';
 import type { Channel } from '@/stores/workspace';
@@ -9,7 +10,7 @@ import {
   useRescheduleMessage,
   type ScheduledMessage,
 } from '@/hooks/queries/useScheduledMessages';
-import { conversationTitle } from '@/lib/conversationHelpers';
+import { targetLabel } from '@/lib/targetLabel';
 import { toLocalInputValue } from '@/features/messaging/schedulePresets';
 import { useUserCache } from '@/stores/users';
 import { useWorkspaceStore } from '@/stores/workspace';
@@ -137,7 +138,7 @@ function ScheduledRow({
                   await onReschedule(at);
                   setEditingTime(null);
                 } catch (err) {
-                  setError((err as { message?: string })?.message || 'Failed to move that message');
+                  setError(toUserMessage(err, 'Failed to move that message'));
                 } finally {
                   setSaving(false);
                 }
@@ -171,14 +172,14 @@ export default function ScheduledMessagesPanel({
 
   const busy = cancelScheduled.isPending || reschedule.isPending;
 
-  const targetOf = (message: ScheduledMessage) => {
-    const channel = channels.find((c) => c.id === message.channel_id);
-    if (channel) return `#${channel.name}`;
-    const conversation = conversations.find((c) => c.id === message.channel_id);
-    return conversation
-      ? conversationTitle(conversation, currentUserId ?? undefined, (id) => getUser(id)?.display_name)
-      : 'a channel you left';
-  };
+  const targetOf = (message: ScheduledMessage) =>
+    targetLabel(
+      message.channel_id,
+      channels,
+      conversations,
+      currentUserId ?? undefined,
+      (id) => getUser(id)?.display_name,
+    );
 
   const failWith = (fallback: string) => (err: unknown) =>
     setError((err as { message?: string })?.message || fallback);

@@ -3,7 +3,8 @@
 - **[CONTRIBUTING.md](./CONTRIBUTING.md)** — how to run (dev / Docker / production), project
   layout, coding standards, testing, and CI.
 - **[RUNBOOK.md](./RUNBOOK.md)** — day-2 operations: backups, restore, upgrade/rollback, alerts.
-- **[ROADMAP.md](./ROADMAP.md)** — known limitations and what's planned next, with rationale.
+- **[ROADMAP.md](./ROADMAP.md)** — what is open, the order, and what is deliberately not built.
+- **[history.md](./history.md)** — what each shipped wave changed and why; the changelog's raw material.
 - **[backend.md](./backend.md)** — backend architecture & rationale, plus the full REST and
   WebSocket API reference.
 - **[frontend.md](./frontend.md)** — frontend architecture & rationale, plus pages,

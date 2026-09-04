@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toUserMessage } from '@/lib/errors';
 import { formatDateTime } from '@/lib/datetime';
 import { X, BellRing, Hash, Trash2 } from 'lucide-react';
 import type { Channel } from '@/stores/workspace';
@@ -49,7 +50,7 @@ export default function RemindersPanel({
       await createReminder.mutateAsync({ targetUserId: currentUserId, content: trimmed, remindAt: at });
       setContent('');
     } catch (err) {
-      setError((err as { message?: string })?.message || 'Failed to set that reminder');
+      setError(toUserMessage(err, 'Failed to set that reminder'));
     }
   };
 

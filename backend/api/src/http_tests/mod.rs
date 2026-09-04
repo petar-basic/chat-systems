@@ -5,6 +5,7 @@ mod export;
 mod groups;
 mod oidc;
 mod push;
+mod rate_limits;
 mod retention;
 mod scim;
 mod smoke;

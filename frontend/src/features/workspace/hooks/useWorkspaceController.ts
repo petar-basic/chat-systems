@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import type { CreateChannelDraft } from '@/models/channel';
 import { useNavigate, useParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -32,7 +33,20 @@ export function useWorkspaceController() {
     currentConversationId,
     unreadConversations,
     selectWorkspace,
-  } = useWorkspaceStore();
+  } = useWorkspaceStore(
+    useShallow((s) => ({
+      currentWorkspace: s.currentWorkspace,
+      currentChannel: s.currentChannel,
+      unreadChannels: s.unreadChannels,
+      mentionChannels: s.mentionChannels,
+      unreadCounts: s.unreadCounts,
+      mentionCounts: s.mentionCounts,
+      mutedChannels: s.mutedChannels,
+      currentConversationId: s.currentConversationId,
+      unreadConversations: s.unreadConversations,
+      selectWorkspace: s.selectWorkspace,
+    })),
+  );
 
   const [showProfile, setShowProfile] = useState(false);
   const [showAddInstance, setShowAddInstance] = useState(false);

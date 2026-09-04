@@ -308,9 +308,9 @@ async fn thread_reply_and_list_succeeds(pool: PgPool) {
     let (reply_status, reply_body) = send(
         &app,
         "POST",
-        &format!("/api/messages/{parent}/thread"),
+        &format!("/api/channels/{ch_id}/messages"),
         Some(&token),
-        Some(json!({ "content": "a reply" })),
+        Some(json!({ "content": "a reply", "thread_parent_id": parent })),
     )
     .await;
     assert_eq!(reply_status, StatusCode::OK, "{reply_body:?}");
@@ -336,9 +336,9 @@ async fn thread_reply_non_member_forbidden(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "POST",
-        &format!("/api/messages/{parent}/thread"),
+        &format!("/api/channels/{ch_id}/messages"),
         Some(&outsider_token),
-        Some(json!({ "content": "intruder reply" })),
+        Some(json!({ "content": "intruder reply", "thread_parent_id": parent })),
     )
     .await;
     assert_eq!(status, StatusCode::FORBIDDEN);
@@ -351,9 +351,9 @@ async fn thread_reply_no_token_unauthorized(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "POST",
-        &format!("/api/messages/{parent}/thread"),
+        &format!("/api/channels/{ch_id}/messages"),
         None,
-        Some(json!({ "content": "anon reply" })),
+        Some(json!({ "content": "anon reply", "thread_parent_id": parent })),
     )
     .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);

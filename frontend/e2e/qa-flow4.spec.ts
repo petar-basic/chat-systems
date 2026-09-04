@@ -52,24 +52,3 @@ test('J. hostile payloads are rendered inert', async ({ page, request }) => {
   const jsHrefs = await page.locator('[data-qa="message-list"] a[href^="javascript:"]').count();
   expect(jsHrefs).toBe(0);
 });
-
-test('K. write rate limit protects the API', async ({ request }) => {
-  const auth = await authHeaders(request, 'charlie@dev.local');
-  const ws = await devWorkspace(request, 'charlie@dev.local');
-  const chans = (
-    await (
-      await request.get(`http://localhost:3000/api/workspaces/${ws.id}/channels`, { headers: auth })
-    ).json()
-  ).data;
-  const general = chans.find((c: { name: string }) => c.name === 'general').id;
-
-  let limited = 0;
-  for (let i = 0; i < 140; i++) {
-    const r = await request.post(`http://localhost:3000/api/channels/${general}/messages`, {
-      headers: auth,
-      data: { content: `flood ${stamp} ${i}` },
-    });
-    if (r.status() === 429) limited++;
-  }
-  expect(limited).toBeGreaterThan(0);
-});

@@ -8,7 +8,7 @@ async function replyInPanel(panel: ReturnType<Page['locator']>, text: string) {
   await editor.click();
   await editor.fill(text);
   await editor.press('Enter');
-  await expect(panel.getByText(text)).toBeVisible({ timeout: 15_000 });
+  await expect(panel.locator('[data-qa="thread-reply"]').getByText(text)).toBeVisible({ timeout: 15_000 });
 }
 
 // The count the sender sees is the one that used to read 2 after a single

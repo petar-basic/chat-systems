@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toUserMessage } from '@/lib/errors';
 import { Plus, X, ExternalLink } from 'lucide-react';
 import {
   useChannelBookmarks,
@@ -39,7 +40,7 @@ export default function ChannelBookmarksBar({ channelId, instanceUrl }: Props) {
       setUrl('');
       setAdding(false);
     } catch (err) {
-      setError((err as { message?: string })?.message || 'Failed to add that bookmark');
+      setError(toUserMessage(err, 'Failed to add that bookmark'));
     }
   };
 

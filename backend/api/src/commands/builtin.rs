@@ -54,12 +54,7 @@ pub async fn run(
         }
 
         "topic" => {
-            let channel = state
-                .workspace_service
-                .repo
-                .find_channel_by_id(channel_id)
-                .await?
-                .ok_or_else(|| AppError::NotFound("No such channel".into()))?;
+            let channel = authz::find_channel(state, channel_id).await?;
             // The route has already established that this person can see the
             // channel; setting a topic is an ordinary member's job, as it is in
             // the panel.
@@ -85,12 +80,7 @@ pub async fn run(
         "invite" => {
             let target = resolve_mentioned_user(text)
                 .ok_or_else(|| AppError::Validation("Name somebody: /invite @user".into()))?;
-            let channel = state
-                .workspace_service
-                .repo
-                .find_channel_by_id(channel_id)
-                .await?
-                .ok_or_else(|| AppError::NotFound("No such channel".into()))?;
+            let channel = authz::find_channel(state, channel_id).await?;
 
             authz::require_workspace_member(state, channel.workspace_id, target).await?;
             state
@@ -105,12 +95,7 @@ pub async fn run(
 
         "remind" => {
             let parsed = parse_remind(text)?;
-            let channel = state
-                .workspace_service
-                .repo
-                .find_channel_by_id(channel_id)
-                .await?
-                .ok_or_else(|| AppError::NotFound("No such channel".into()))?;
+            let channel = authz::find_channel(state, channel_id).await?;
 
             let target = parsed.target.unwrap_or(user_id);
             if target != user_id {

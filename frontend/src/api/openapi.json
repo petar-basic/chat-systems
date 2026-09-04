@@ -2195,45 +2195,6 @@
             }
           }
         }
-      },
-      "post": {
-        "tags": [
-          "messages"
-        ],
-        "operationId": "reply_to_thread",
-        "parameters": [
-          {
-            "name": "msg_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SendMessageRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Message"
-                }
-              }
-            }
-          }
-        }
       }
     },
     "/notifications/dnd": {

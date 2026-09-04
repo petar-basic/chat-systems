@@ -6,20 +6,12 @@ import TwoFactorPanel from './TwoFactorPanel';
 const get = vi.fn();
 const post = vi.fn();
 
-const ok = async (spy: (...args: unknown[]) => unknown, ...args: unknown[]) => ({
-  data: await spy(...args),
-  response: { ok: true, status: 200 },
+vi.mock('../lib/api', async () => {
+  const { typedApiMock } = await import('@/test/typedApiMock');
+  return {
+    api: typedApiMock({ get: (...args) => get(...args), post: (...args) => post(...args) }),
+  };
 });
-
-vi.mock('../lib/api', () => ({
-  api: {
-    typed: (op: (client: unknown) => Promise<{ data: unknown }>) =>
-      op({
-        GET: (path: string) => ok(get, path),
-        POST: (path: string, init?: { body?: unknown }) => ok(post, path, init?.body),
-      }).then((result) => result.data),
-  },
-}));
 
 vi.mock('@/shared/components/Toast', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
