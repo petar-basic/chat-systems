@@ -1761,9 +1761,9 @@ async fn an_announcement_channel_refuses_every_way_a_member_could_post(pool: PgP
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/messages/{parent_id}/thread"),
+        &format!("/api/channels/{ch_id}/messages"),
         Some(&member_token),
-        Some(json!({ "content": "a reply is a post too" })),
+        Some(json!({ "content": "a reply is a post too", "thread_parent_id": parent_id })),
     )
     .await;
     assert_eq!(status, StatusCode::FORBIDDEN, "thread replies");

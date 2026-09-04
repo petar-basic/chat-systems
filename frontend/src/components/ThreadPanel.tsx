@@ -19,8 +19,8 @@ interface Props {
 
 export default function ThreadPanel({ parentMessage, members, channels, onClose }: Props) {
   const { data: replies = [], isLoading: loading } = useThreadMessages(parentMessage.id);
-  const sendReply = useSendThreadReply(parentMessage.id, parentMessage.channel_id);
   const currentUserId = useWorkspaceStore((s) => s.currentUserId) ?? '';
+  const sendReply = useSendThreadReply(parentMessage.id, parentMessage.channel_id, currentUserId);
   const currentWorkspace = useWorkspaceStore((s) => s.currentWorkspace);
   const { toggleReaction, edit, remove, togglePin } = useThreadReplyActions(parentMessage.id, currentUserId);
   const endRef = useRef<HTMLDivElement>(null);
@@ -30,13 +30,13 @@ export default function ThreadPanel({ parentMessage, members, channels, onClose 
   }, [replies]);
 
   const handleSend = async (content: string) => {
-    await sendReply.mutateAsync(content);
+    sendReply.mutate({ content, id: crypto.randomUUID() });
   };
 
   const { uploading, handleFileUpload } = useAttachmentUpload({
     workspaceId: currentWorkspace?.id,
     instanceUrl: currentWorkspace?.instanceUrl,
-    send: (content) => sendReply.mutateAsync(content),
+    send: (content) => sendReply.mutate({ content, id: crypto.randomUUID() }),
   });
 
   const { getUser } = useUserCache();

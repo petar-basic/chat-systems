@@ -294,7 +294,7 @@ Sends and manages messages, threads, reactions, pins, read tracking, and search.
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/channels/:ch_id/messages` | Query: `limit=50, cursor?` | `{ data: Message[] }` |
-| POST | `/channels/:ch_id/messages` | `{ content, thread_parent_id?, id? }` | `Message` |
+| POST | `/channels/:ch_id/messages` | `{ content, thread_parent_id?, client_message_id? }` | `Message` — the one send path; a `thread_parent_id` makes it a reply (one level deep, same channel) and `client_message_id` makes a retry idempotent |
 | PATCH | `/messages/:msg_id` | `{ content }` | `Message` |
 | DELETE | `/messages/:msg_id` | — | `{ status: "deleted" }` |
 
@@ -303,7 +303,6 @@ Sends and manages messages, threads, reactions, pins, read tracking, and search.
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/messages/:msg_id/thread` | Query: `limit=50, offset=0` | `{ data: Message[] }` |
-| POST | `/messages/:msg_id/thread` | `{ content }` | `Message` |
 
 **Mentions.** Sending a channel message or thread reply expands the mentions in its body
 into the `mentioned_user_ids` carried by `message.created`, which the notifications

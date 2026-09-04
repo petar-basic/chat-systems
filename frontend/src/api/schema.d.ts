@@ -834,7 +834,7 @@ export interface paths {
         };
         get: operations["messaging_list_thread"];
         put?: never;
-        post: operations["reply_to_thread"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4522,31 +4522,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DataList_Message"];
-                };
-            };
-        };
-    };
-    reply_to_thread: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                msg_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SendMessageRequest"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Message"];
                 };
             };
         };

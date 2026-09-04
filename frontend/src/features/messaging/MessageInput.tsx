@@ -239,10 +239,15 @@ export default function MessageInput({
     if (!editor) return;
     const markdown = editor.storage.markdown.getMarkdown().trim();
     if (!markdown) return;
-    await onSend(markdown);
     editor.commands.clearContent();
     editor.commands.focus();
     if (draftKey) useDraftStore.getState().clearDraft(draftKey);
+    try {
+      await onSend(markdown);
+    } catch {
+      editor.commands.setContent(markdown);
+      if (draftKey) useDraftStore.getState().setDraft(draftKey, markdown);
+    }
   }, [editor, onSend, draftKey]);
 
   useEffect(() => {
