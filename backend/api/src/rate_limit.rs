@@ -69,11 +69,17 @@ pub fn budget_for(method: &Method, path: &str) -> Option<Budget> {
         return None;
     }
 
+    // `nest("/api", …)` strips the prefix before this middleware runs, so the
+    // path here is `/workspaces` while a caller sees `/api/workspaces`. Both
+    // forms are matched: a classification that silently misses falls through to
+    // the default budget, which is the loosest one there is.
+    let path = path.strip_prefix("/api").unwrap_or(path);
+
     let budget = if path.contains("/reactions") {
         REACTION
     } else if path.ends_with("/invites") {
         INVITE
-    } else if path == "/api/workspaces" {
+    } else if path == "/workspaces" {
         WORKSPACE
     } else if path.ends_with("/channels") {
         CHANNEL
@@ -190,6 +196,30 @@ mod tests {
                 "{path} has no rate-limit class"
             );
         }
+    }
+
+    /// `nest("/api", …)` means the middleware is handed `/workspaces`, never
+    /// `/api/workspaces`. Asserting only the outward-facing form is how the
+    /// workspace budget came to be dead: every path fell through to the
+    /// default class and nobody noticed for five waves.
+    #[test]
+    fn a_path_is_classified_the_same_with_or_without_the_api_prefix() {
+        for path in [
+            "/workspaces",
+            "/workspaces/abc/invites",
+            "/workspaces/abc/channels",
+            "/channels/abc/messages",
+            "/messages/abc/thread",
+            "/messages/abc/reactions",
+            "/users/me/password",
+        ] {
+            assert_eq!(
+                class(Method::POST, path),
+                class(Method::POST, &format!("/api{path}")),
+                "{path} is classified differently once it is nested"
+            );
+        }
+        assert_eq!(class(Method::POST, "/workspaces"), Some("workspace"));
     }
 
     #[test]
