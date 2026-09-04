@@ -31,7 +31,9 @@ LOGIN_ATTEMPTS_PER_IP=1000
 LOGIN_ATTEMPTS_WINDOW_SECS=900
 # Three Playwright workers act as one admin account, which is a hundred writes
 # a minute on a good day; the per-user write budgets stay real, only scaled.
-WRITE_RATE_LIMIT_MULTIPLIER=10
+# Kept small on purpose: the rate-limit spec has to flood past the scaled
+# budget, and every step up here is another few hundred requests there.
+WRITE_RATE_LIMIT_MULTIPLIER=5
 # The SSO suite drives a real provider (the `oidc` service), so the flow it
 # exercises is the redirect and the code exchange rather than a stub. The issuer
 # is the compose service name because the same string has to resolve from inside
@@ -43,10 +45,11 @@ OIDC_PROVISIONING=domain_allowlist
 OIDC_ALLOWED_DOMAINS=dev.local
 ENV
 
-# The E2E job needs the admin password to drive the suite; hand it back through
-# the step output rather than re-reading the file in every later step.
+# The E2E job needs the admin password to drive the suite, and the rate-limit
+# spec needs the multiplier to know how many writes reach the limit; hand them
+# back through the job env rather than re-reading the file in every later step.
 if [ -n "${GITHUB_ENV:-}" ]; then
-  grep -E '^(ADMIN_EMAIL|ADMIN_PASSWORD)=' .env >> "$GITHUB_ENV"
+  grep -E '^(ADMIN_EMAIL|ADMIN_PASSWORD|WRITE_RATE_LIMIT_MULTIPLIER)=' .env >> "$GITHUB_ENV"
 fi
 
 echo "wrote .env with generated CI secrets"

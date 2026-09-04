@@ -63,13 +63,20 @@ test('K. write rate limit protects the API', async ({ request }) => {
   ).data;
   const general = chans.find((c: { name: string }) => c.name === 'general').id;
 
+  const messagesPerMinuteForOneUser = 120 * Number(process.env.WRITE_RATE_LIMIT_MULTIPLIER ?? 1);
+  const flood = messagesPerMinuteForOneUser + 20;
+  const batch = 50;
   let limited = 0;
-  for (let i = 0; i < 140; i++) {
-    const r = await request.post(`http://localhost:3000/api/channels/${general}/messages`, {
-      headers: auth,
-      data: { content: `flood ${stamp} ${i}` },
-    });
-    if (r.status() === 429) limited++;
+  for (let sent = 0; sent < flood; sent += batch) {
+    const responses = await Promise.all(
+      Array.from({ length: Math.min(batch, flood - sent) }, (_, i) =>
+        request.post(`http://localhost:3000/api/channels/${general}/messages`, {
+          headers: auth,
+          data: { content: `flood ${stamp} ${sent + i}` },
+        }),
+      ),
+    );
+    limited += responses.filter((r) => r.status() === 429).length;
   }
   expect(limited).toBeGreaterThan(0);
 });

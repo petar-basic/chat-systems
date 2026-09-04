@@ -473,9 +473,10 @@ brute-force protection. Watch `rate_limit_backend_failures_total{policy="closed"
 non-zero rate means logins are failing for infrastructure reasons, not credentials.
 
 `WRITE_RATE_LIMIT_MULTIPLIER` scales all of the write budgets at once and is 1 everywhere
-except the CI stack, where three Playwright workers act as a single admin account and would
-otherwise trip the 120/min default class mid-suite — the symptom was a slash command or an
-import that silently did nothing, with a 429 in the trace.
+except the CI stack (5), where three Playwright workers act as a single admin account and
+would otherwise trip the 120/min default class mid-suite — the symptom was a slash command
+or an import that silently did nothing, with a 429 in the trace. The spec that proves the
+limit reads the same variable, so raising it costs that spec a few hundred more requests.
 
 `MAX_UPLOAD_BYTES` (default 100 MiB) caps uploads and is enforced while streaming, so an
 oversized file never lands in memory. `client_max_body_size` in `docker/nginx.conf` must
