@@ -1,4 +1,7 @@
 import { Extension, InputRule } from '@tiptap/core';
+import type { EditorState } from '@tiptap/pm/state';
+
+import { EMOTICON_RULE, emoticonToEmoji } from './emoticons';
 
 interface ShortcodeData {
   emojis: Record<string, { skins: { native: string }[] }>;
@@ -32,6 +35,13 @@ export function shortcodeToEmoji(shortcode: string): string | undefined {
   return table?.get(shortcode.toLowerCase());
 }
 
+function isVerbatim(state: EditorState, pos: number): boolean {
+  const $pos = state.doc.resolve(pos);
+  if ($pos.parent.type.spec.code) return true;
+  const codeMark = state.schema.marks.code;
+  return !!codeMark && codeMark.isInSet($pos.marks());
+}
+
 export const EmojiShortcodes = Extension.create({
   name: 'emojiShortcodes',
   onCreate() {
@@ -42,9 +52,20 @@ export const EmojiShortcodes = Extension.create({
       new InputRule({
         find: /:([a-zA-Z0-9_+-]+):$/,
         handler: ({ state, range, match }) => {
+          if (isVerbatim(state, range.from)) return;
           const emoji = shortcodeToEmoji(match[1]);
           if (emoji) {
             state.tr.insertText(emoji, range.from, range.to);
+          }
+        },
+      }),
+      new InputRule({
+        find: EMOTICON_RULE,
+        handler: ({ state, range, match }) => {
+          if (isVerbatim(state, range.from)) return;
+          const emoji = emoticonToEmoji(match[2]);
+          if (emoji) {
+            state.tr.insertText(`${match[1]}${emoji}`, range.from, range.to);
           }
         },
       }),
