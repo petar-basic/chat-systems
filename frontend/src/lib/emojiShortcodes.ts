@@ -38,8 +38,7 @@ export function shortcodeToEmoji(shortcode: string): string | undefined {
 function isVerbatim(state: EditorState, pos: number): boolean {
   const $pos = state.doc.resolve(pos);
   if ($pos.parent.type.spec.code) return true;
-  const codeMark = state.schema.marks.code;
-  return !!codeMark && codeMark.isInSet($pos.marks());
+  return !!state.schema.marks.code?.isInSet($pos.marks());
 }
 
 export const EmojiShortcodes = Extension.create({
