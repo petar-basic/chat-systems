@@ -23,7 +23,7 @@ tokio = { version = "1", features = ["full"] }
 axum = { version = "0.8", features = ["ws", "multipart"] }
 axum-extra = { version = "0.12", features = ["typed-header", "cookie"] }
 tower = { version = "0.5" }
-tower-http = { version = "0.6", features = ["cors", "compression-gzip", "trace", "limit", "timeout", "request-id"] }
+tower-http = { version = "0.7", features = ["cors", "compression-gzip", "trace", "limit", "timeout", "request-id"] }
 
 # Database
 sqlx = { version = "0.9", features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "chrono", "json", "migrate"] }
@@ -37,7 +37,7 @@ object_store = { version = "0.14", features = ["aws", "fs", "tokio"] }
 # Auth — aws_lc_rs provider (reuses the aws-lc-rs already built for rustls) keeps the
 # pure-Rust `rsa` crate (RUSTSEC-2023-0071) out of the tree; we only use HS256.
 jsonwebtoken = { version = "11", default-features = false, features = ["use_pem", "aws_lc_rs"] }
-argon2 = "0.5"
+argon2 = "0.6"
 
 # Crypto (webhook signing + TURN REST credentials)
 hmac = "0.13"
@@ -67,7 +67,7 @@ time = { version = "0.3", features = ["serde"] }
 rand = "0.10"
 mime_guess = "2"
 # Reading a Slack export where it is handed to you: a zip.
-zip = { version = "5", default-features = false, features = ["deflate"] }
+zip = { version = "8", default-features = false, features = ["deflate"] }
 base64 = "0.23"
 url = "2"
 
@@ -86,14 +86,14 @@ lettre = { version = "0.11", default-features = false, features = ["tokio1-rustl
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
 # Error handling
-thiserror = "1"
+thiserror = "2"
 anyhow = "1"
 
 # Async traits
 async-trait = "0.1"
 
 # Concurrency
-dashmap = "5"
+dashmap = "6"
 futures-util = "0.3"
 
 # Internal shared crates
