@@ -9,9 +9,10 @@ history and in the docs it changed. A bug found mid-wave gets a suffixed number
 (`CS-005a`) so it lands where it belongs in the order without renumbering everything
 below it.
 
-**Waves 0 through 8 are done, and half of Wave 9.** The E2E suite is green and the `e2e`
-job blocks merges. Next ticket: [CS-038](CS-038-mobile-client.md) — the responsive pass now
-that Web Push has landed.
+**Every wave through 12 is done, bar the SFU in Wave 9.** Wave 12 was the un-ticketed
+architecture review of 2026-09 (written up in [history.md](../history.md)). The E2E suite is
+green — desktop and a phone viewport — and the `e2e` job blocks merges. Next ticket:
+[CS-047](CS-047-prove-it-at-import-scale.md), which measures what the last wave changed.
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
@@ -135,14 +136,26 @@ CS-033 SCIM deprovisioning. See [ROADMAP.md](../ROADMAP.md#wave-8--compliance--s
 ### Wave 9 — Product parity (partly done)
 
 CS-034 search, CS-035 web push, CS-039 emoji/groups/bots/commands and CS-040 the small Slack
-gaps (DM threads, saved items, bookmarks, forwarding, status, reminders) are shipped — see
+gaps (DM threads, saved items, bookmarks, forwarding, status, reminders) and CS-036 the Slack
+importer are shipped — see
 [ROADMAP.md](../ROADMAP.md#wave-9--product-parity-partly-shipped). What is left:
 
 | # | Ticket | Area |
 |---|---|---|
-| [CS-036](CS-036-slack-import-export.md) | Slack import / export CLI | backend |
 | [CS-037](CS-037-huddle-sfu.md) | SFU for large huddles | backend · frontend |
-| [CS-038](CS-038-mobile-client.md) | Mobile client | frontend |
+
+### Wave 11 — Guest containment, operational readiness and mobile ✅ done
+
+CS-041 guest directory · CS-042 guest DM scope · CS-043 announcement channels · CS-044
+revocation · CS-045 mention emails · CS-046 huddle consumers · CS-038 the responsive PWA.
+See [ROADMAP.md](../ROADMAP.md#wave-11--guest-containment-operational-readiness-and-mobile--shipped).
+
+### Still open
+
+| # | Ticket | Area | Why it is not done |
+|---|---|---|---|
+| [CS-037](CS-037-huddle-sfu.md) | SFU for large huddles | backend · frontend | LiveKit is infrastructure of its own; the mesh is right for everything under six people |
+| [CS-047](CS-047-prove-it-at-import-scale.md) | Prove it at import scale | backend · ops | Deferred out of Wave 11 on purpose: it measures what Wave 11 changed, so it runs after it |
 
 ## Conflict map
 
@@ -151,9 +164,11 @@ Tickets that touch the same files, and the order that avoids rework:
 | File | Tickets, in order |
 |---|---|
 | `backend/api/src/lib.rs` router wiring | CS-012 ✅ → CS-030 ✅ |
-| `backend/api/src/authz.rs` | CS-009 → CS-010 → CS-020 ✅ |
+| `backend/api/src/authz.rs` | CS-009 ✅ → CS-010 ✅ → CS-020 ✅ → CS-041 ✅ → CS-042 ✅ → CS-043 ✅ |
 | `backend/api/src/sessions.rs` | CS-008 ✅ → CS-033 ✅ |
 | `backend/api/src/auth/service.rs` | CS-008 ✅ → CS-016 ✅ → CS-017 ✅ → CS-032 ✅ |
-| realtime event consumer | CS-007 ✅ → CS-014 ✅ → CS-027 ✅ → CS-028 ✅ |
+| realtime event consumer | CS-007 ✅ → CS-014 ✅ → CS-027 ✅ → CS-028 ✅ → CS-046 ✅ |
+| `workspace/repo.rs` member queries | CS-041 ✅ → CS-042 ✅ |
+| notification worker path | CS-028 ✅ → CS-035 ✅ → CS-045 ✅ → CS-046 ✅ |
 | `frontend/src/features/messaging/` | CS-024 ✅ → CS-025 ✅ → CS-029 ✅ |
 | `messages` table schema | CS-029 ✅ → CS-030 ✅ → CS-034 ✅ |

@@ -3,6 +3,7 @@ import { parseMessage, type MessageNode } from '@/lib/messageMarkdown';
 import { highlightMentions, type MentionRef } from '@/lib/mentionHighlight';
 import { parseMentions, flattenMentions } from '@/lib/mentions';
 import { splitCustomEmoji } from '@/lib/customEmoji';
+import { splitEmojiText, isJumboEmoji } from '@/lib/emoji';
 import { useCurrentUser } from '@/hooks/queries/useAuth';
 import type { CustomEmoji } from '@/hooks/queries/useCustomEmoji';
 import { useCustomEmojiStore } from '@/stores/customEmoji';
@@ -20,12 +21,26 @@ interface RenderContext {
   selfGroupIds: Set<string>;
 }
 
+function renderUnicodeEmoji(text: string, key: string): ReactNode {
+  const spans = splitEmojiText(text);
+  if (spans.length === 1 && !spans[0].isEmoji) return spans[0].text;
+  return spans.map((span, i) =>
+    span.isEmoji ? (
+      <span key={`${key}-u${i}`} className="emoji" data-qa="emoji">
+        {span.text}
+      </span>
+    ) : (
+      <span key={`${key}-u${i}`}>{span.text}</span>
+    ),
+  );
+}
+
 function renderPlain(text: string, ctx: RenderContext, key: string): ReactNode {
   const spans = splitCustomEmoji(text, ctx.emoji);
-  if (spans.length === 1 && spans[0].emoji === null) return spans[0].text;
+  if (spans.length === 1 && spans[0].emoji === null) return renderUnicodeEmoji(spans[0].text, key);
   return spans.map((span, i) =>
     span.emoji === null ? (
-      <span key={`${key}-e${i}`}>{span.text}</span>
+      <span key={`${key}-e${i}`}>{renderUnicodeEmoji(span.text, `${key}-e${i}`)}</span>
     ) : (
       <img
         key={`${key}-e${i}`}
@@ -33,7 +48,7 @@ function renderPlain(text: string, ctx: RenderContext, key: string): ReactNode {
         alt={span.text}
         title={span.text}
         data-qa="custom-emoji"
-        className="inline-block w-5 h-5 align-text-bottom"
+        className="custom-emoji inline-block align-text-bottom"
       />
     ),
   );
@@ -128,7 +143,16 @@ function MessageContent({ content, className }: Props) {
     [nodes, selfId, mentions, emoji, selfGroupIds],
   );
 
-  return <div className={`tiptap-content${className ? ` ${className}` : ''}`}>{rendered}</div>;
+  const jumbo = useMemo(() => isJumboEmoji(content, emoji), [content, emoji]);
+
+  return (
+    <div
+      className={`tiptap-content${jumbo ? ' emoji-jumbo' : ''}${className ? ` ${className}` : ''}`}
+      data-qa={jumbo ? 'jumbo-emoji' : undefined}
+    >
+      {rendered}
+    </div>
+  );
 }
 
 export default memo(MessageContent);

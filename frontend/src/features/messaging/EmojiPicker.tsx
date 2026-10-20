@@ -1,5 +1,8 @@
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
+import { createPortal } from 'react-dom';
+import { autoUpdate, flip, offset, shift, useFloating } from '@floating-ui/react-dom';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
+import { useThemeStore } from '@/stores/theme';
 
 interface Props {
   anchorRef: RefObject<HTMLElement | null>;
@@ -11,7 +14,7 @@ type PickerCtor = new (props: Record<string, unknown>) => HTMLElement;
 
 export default function EmojiPicker({ anchorRef, onSelect, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const theme = useThemeStore((s) => s.resolved);
   const onSelectRef = useRef(onSelect);
   const onCloseRef = useRef(onClose);
   useEffect(() => {
@@ -19,6 +22,17 @@ export default function EmojiPicker({ anchorRef, onSelect, onClose }: Props) {
     onCloseRef.current = onClose;
   });
   useEscapeToClose(onClose);
+
+  const { refs, floatingStyles, isPositioned } = useFloating({
+    placement: 'top-end',
+    strategy: 'fixed',
+    middleware: [offset(6), flip({ padding: 8 }), shift({ padding: 8 })],
+    whileElementsMounted: autoUpdate,
+  });
+
+  useEffect(() => {
+    refs.setReference(anchorRef.current);
+  }, [anchorRef, refs]);
 
   useEffect(() => {
     let cancelled = false;
@@ -30,8 +44,8 @@ export default function EmojiPicker({ anchorRef, onSelect, onClose }: Props) {
       const Picker = mart.Picker as unknown as PickerCtor;
       const el = new Picker({
         data,
-        theme: 'dark',
-        previewPosition: 'none',
+        theme,
+        previewPosition: 'bottom',
         skinTonePosition: 'search',
         autoFocus: true,
         onEmojiSelect: (e: { native: string }) => {
@@ -45,36 +59,7 @@ export default function EmojiPicker({ anchorRef, onSelect, onClose }: Props) {
       cancelled = true;
       if (host) host.innerHTML = '';
     };
-  }, []);
-
-  useLayoutEffect(() => {
-    const anchor = anchorRef.current;
-    const el = ref.current;
-    if (!anchor || !el) return undefined;
-    const compute = () => {
-      const a = anchor.getBoundingClientRect();
-      const w = el.offsetWidth;
-      const h = el.offsetHeight;
-      if (!w || !h) return;
-      const margin = 8;
-      let top = a.top - h - 6;
-      if (top < margin) top = a.bottom + 6;
-      top = Math.max(margin, Math.min(top, window.innerHeight - h - margin));
-      let left = a.right - w;
-      left = Math.max(margin, Math.min(left, window.innerWidth - w - margin));
-      setPos({ top, left });
-    };
-    compute();
-    const ro = new ResizeObserver(compute);
-    ro.observe(el);
-    window.addEventListener('resize', compute);
-    window.addEventListener('scroll', compute, true);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener('resize', compute);
-      window.removeEventListener('scroll', compute, true);
-    };
-  }, [anchorRef]);
+  }, [theme]);
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
@@ -86,16 +71,15 @@ export default function EmojiPicker({ anchorRef, onSelect, onClose }: Props) {
     return () => document.removeEventListener('mousedown', onDown);
   }, [anchorRef, onClose]);
 
-  return (
+  return createPortal(
     <div
-      ref={ref}
-      style={{
-        position: 'fixed',
-        top: pos?.top ?? -9999,
-        left: pos?.left ?? -9999,
-        visibility: pos ? 'visible' : 'hidden',
+      ref={(node) => {
+        ref.current = node;
+        refs.setFloating(node);
       }}
+      style={{ ...floatingStyles, visibility: isPositioned ? 'visible' : 'hidden' }}
       className="z-60"
-    />
+    />,
+    document.body,
   );
 }

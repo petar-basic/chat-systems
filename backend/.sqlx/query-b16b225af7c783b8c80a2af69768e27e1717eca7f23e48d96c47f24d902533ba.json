@@ -1,0 +1,169 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT m.id, m.channel_id, m.user_id, m.client_message_id, m.content, m.metadata AS \"metadata!\", m.thread_parent_id, m.reply_count AS \"reply_count!\", m.is_pinned AS \"is_pinned!\", m.created_at, m.updated_at, m.deleted_at FROM messages m\n            JOIN channels c ON c.id = m.channel_id\n            WHERE (\n                m.search_vector @@ plainto_tsquery(search_text_config(), search_normalize($1))\n                OR search_normalize($1) <% search_normalize(m.content)\n              )\n              AND c.workspace_id = $2\n              AND m.deleted_at IS NULL\n              AND (\n                EXISTS (\n                  SELECT 1 FROM channel_members cm\n                  WHERE cm.channel_id = c.id AND cm.user_id = $3\n                )\n                -- Guests are held to explicit membership everywhere else\n                -- (`authz::require_channel_access`); search must not be the one\n                -- door that opens every public channel to them.\n                OR (NOT $8::bool AND c.channel_type = 'public')\n              )\n              AND ($4::uuid IS NULL OR m.channel_id = $4)\n              AND ($5::uuid IS NULL OR m.user_id = $5)\n              AND CASE WHEN c.channel_type IN ('dm', 'group_dm') THEN $9::bool ELSE $10::bool END\n            -- Both signals, not one: the vector answers what was asked for and\n            -- the trigram answers what was meant. `<%` rather than `%` because\n            -- the query is a fragment and the message is a sentence -- whole\n            -- string similarity between the two is near zero however good the\n            -- match is. Ranking keeps every fuzzy hit below every exact one\n            -- instead of interleaving them by score.\n            ORDER BY\n              ts_rank(m.search_vector, plainto_tsquery(search_text_config(), search_normalize($1))) DESC,\n              word_similarity(search_normalize($1), search_normalize(m.content)) DESC,\n              m.created_at DESC\n            LIMIT $6 OFFSET $7\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "channel_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "channel_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "client_message_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "client_message_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "content",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "content"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "metadata!",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "metadata"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "thread_parent_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "thread_parent_id"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "reply_count!",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "reply_count"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "is_pinned!",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "is_pinned"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "updated_at"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "deleted_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "deleted_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Int8",
+        "Int8",
+        "Bool",
+        "Bool",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "b16b225af7c783b8c80a2af69768e27e1717eca7f23e48d96c47f24d902533ba"
+}

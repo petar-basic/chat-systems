@@ -6,9 +6,8 @@ use super::common::*;
 use crate::auth::totp;
 use crate::config::AppConfig;
 
-/// The code an authenticator would be showing right now for this secret.
-fn code_for(state: &crate::state::AppState, secret: &str, email: &str) -> String {
-    let totp = totp_rs::Builder::new()
+fn authenticator(state: &crate::state::AppState, secret: &str, email: &str) -> totp_rs::Totp {
+    totp_rs::Builder::new()
         .with_algorithm(totp_rs::Algorithm::SHA1)
         .with_digits(6)
         .with_skew(1)
@@ -17,8 +16,27 @@ fn code_for(state: &crate::state::AppState, secret: &str, email: &str) -> String
         .with_issuer(Some(state.config.instance_name.clone()))
         .with_account_name(email.to_string())
         .build()
-        .expect("totp");
-    totp.generate_current().to_string()
+        .expect("totp")
+}
+
+/// The code an authenticator would be showing right now for this secret.
+fn code_for(state: &crate::state::AppState, secret: &str, email: &str) -> String {
+    authenticator(state, secret, email)
+        .generate_current()
+        .to_string()
+}
+
+/// The code the previous step produced. Skew still accepts it, so a request
+/// carrying it is already one step past the step it belongs to.
+fn code_from_the_previous_step(
+    state: &crate::state::AppState,
+    secret: &str,
+    email: &str,
+) -> String {
+    let step = totp::current_step(chrono::Utc::now().timestamp()) - 1;
+    authenticator(state, secret, email)
+        .generate(step as u64 * 30)
+        .to_string()
 }
 
 async fn enrol(
@@ -171,7 +189,11 @@ async fn a_code_stays_spent_after_the_clock_ticks_over(pool: PgPool) {
 
     let (_, body) = send(&app, "POST", "/api/auth/totp/enrol", Some(&token), None).await;
     let secret = body["secret"].as_str().expect("secret").to_string();
-    let code = code_for(&state, &secret, &email);
+
+    // Enrolling with a code the clock has already ticked past puts the replay
+    // below in the window a shoulder-surfer would use — the digits are still
+    // valid on skew, but their step is behind us — without waiting for it.
+    let code = code_from_the_previous_step(&state, &secret, &email);
     let (status, _) = send(
         &app,
         "POST",
@@ -181,11 +203,6 @@ async fn a_code_stays_spent_after_the_clock_ticks_over(pool: PgPool) {
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-
-    // Skew keeps the digits valid into the next step. That is exactly the window
-    // a shoulder-surfer would use, so wait it out and try the replay there.
-    let into_step = chrono::Utc::now().timestamp() % 30;
-    tokio::time::sleep(std::time::Duration::from_secs((30 - into_step) as u64 + 1)).await;
 
     let (status, _) = send(
         &app,

@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT to_jsonb(c) AS \"row!\" FROM channels c\n         WHERE c.workspace_id = $1\n           AND ($2::bool OR c.channel_type NOT IN ('dm', 'group_dm'))\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "row!",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "9c8b1038adb61a39acf5f43aacf82ee61dbd2070da3a1731c2344c7af64a1d1b"
+}

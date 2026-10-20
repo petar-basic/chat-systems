@@ -4,13 +4,16 @@ const get = vi.fn();
 const post = vi.fn();
 const del = vi.fn();
 
-vi.mock('./api', () => ({
-  api: {
-    get: (...args: unknown[]) => get(...args),
-    post: (...args: unknown[]) => post(...args),
-    delete: (...args: unknown[]) => del(...args),
-  },
-}));
+vi.mock('./api', async () => {
+  const { typedApiMock } = await import('@/test/typedApiMock');
+  return {
+    api: typedApiMock({
+      get: (...args) => get(...args),
+      post: (...args) => post(...args),
+      delete: (...args) => del(...args),
+    }),
+  };
+});
 
 const requestPermission = vi.fn();
 const subscribeOnManager = vi.fn();

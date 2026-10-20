@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { resolveCurrentWorkspaceRole } from './useCurrentWorkspaceRole';
-import type { WorkspaceMember } from '@/stores/workspace';
+import type { WorkspaceMember, WorkspaceRole } from '@/stores/workspace';
 
-const member = (user_id: string, role: string, workspace_id = 'ws1'): WorkspaceMember => ({
+const member = (user_id: string, role: WorkspaceRole, workspace_id = 'ws1'): WorkspaceMember => ({
   workspace_id,
   user_id,
   role,

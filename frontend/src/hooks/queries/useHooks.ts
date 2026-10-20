@@ -1,34 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { components } from '@/api/schema';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { QUERY_KEYS } from '@/shared/constants';
 
-export type HookType = 'incoming_webhook' | 'outgoing_webhook' | 'bot' | 'slash_command' | 'scheduled';
+export type Hook = components['schemas']['Hook'];
 
-export interface Hook {
-  id: string;
-  workspace_id: string;
-  created_by: string;
-  hook_type: HookType;
-  name: string;
-  description: string | null;
-  config: Record<string, unknown>;
-  is_active: boolean;
-  created_at: string;
-}
-
-export interface HookSecrets {
-  hook_id: string;
-  hook_type: HookType;
-  config: Record<string, unknown>;
-  incoming_url: string | null;
-}
+export type HookSecrets = components['schemas']['HookSecrets'];
 
 export const useHooks = (workspaceId: string | null, instanceUrl?: string) => {
   return useQuery({
     queryKey: QUERY_KEYS.hooks(workspaceId ?? ''),
     queryFn: async () => {
-      const res = await getApiForInstance(instanceUrl).get<{ data: Hook[] }>(
-        `/workspaces/${workspaceId}/hooks`,
+      if (!workspaceId) throw new Error('No workspace selected');
+      const res = await getApiForInstance(instanceUrl).typed((c) =>
+        c.GET('/workspaces/{ws_id}/hooks', { params: { path: { ws_id: workspaceId } } }),
       );
       return res.data;
     },
@@ -45,8 +30,9 @@ export const useHookedChannels = (workspaceId: string | null, instanceUrl?: stri
   return useQuery({
     queryKey: QUERY_KEYS.hookedChannels(workspaceId ?? ''),
     queryFn: async () => {
-      const res = await getApiForInstance(instanceUrl).get<{ channel_ids: string[] }>(
-        `/workspaces/${workspaceId}/hooks/channels`,
+      if (!workspaceId) throw new Error('No workspace selected');
+      const res = await getApiForInstance(instanceUrl).typed((c) =>
+        c.GET('/workspaces/{ws_id}/hooks/channels', { params: { path: { ws_id: workspaceId } } }),
       );
       return new Set(res.channel_ids);
     },
@@ -58,8 +44,10 @@ export const useHookedChannels = (workspaceId: string | null, instanceUrl?: stri
 export const useCreateHook = (workspaceId: string, instanceUrl?: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (body: { hook_type: HookType; name: string; config: Record<string, unknown> }) =>
-      getApiForInstance(instanceUrl).post<Hook>(`/workspaces/${workspaceId}/hooks`, body),
+    mutationFn: async (body: components['schemas']['CreateHookRequest']) =>
+      getApiForInstance(instanceUrl).typed((c) =>
+        c.POST('/workspaces/{ws_id}/hooks', { params: { path: { ws_id: workspaceId } }, body }),
+      ),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.hooks(workspaceId) });
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.hookedChannels(workspaceId) });
@@ -70,7 +58,10 @@ export const useCreateHook = (workspaceId: string, instanceUrl?: string) => {
 export const useDeleteHook = (workspaceId: string, instanceUrl?: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (hookId: string) => getApiForInstance(instanceUrl).delete(`/hooks/${hookId}`),
+    mutationFn: async (hookId: string) =>
+      getApiForInstance(instanceUrl).typed((c) =>
+        c.DELETE('/hooks/{hook_id}', { params: { path: { hook_id: hookId } } }),
+      ),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.hooks(workspaceId) });
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.hookedChannels(workspaceId) });
@@ -81,13 +72,17 @@ export const useDeleteHook = (workspaceId: string, instanceUrl?: string) => {
 export const useRevealHook = (instanceUrl?: string) => {
   return useMutation({
     mutationFn: async (hookId: string) =>
-      getApiForInstance(instanceUrl).post<HookSecrets>(`/hooks/${hookId}/reveal`, {}),
+      getApiForInstance(instanceUrl).typed((c) =>
+        c.POST('/hooks/{hook_id}/reveal', { params: { path: { hook_id: hookId } } }),
+      ),
   });
 };
 
 export const useRotateHook = (instanceUrl?: string) => {
   return useMutation({
     mutationFn: async (hookId: string) =>
-      getApiForInstance(instanceUrl).post<HookSecrets>(`/hooks/${hookId}/rotate`, {}),
+      getApiForInstance(instanceUrl).typed((c) =>
+        c.POST('/hooks/{hook_id}/rotate', { params: { path: { hook_id: hookId } } }),
+      ),
   });
 };

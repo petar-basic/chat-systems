@@ -6,21 +6,28 @@ the crates under `shared/`:
 | Process | Port | Role | Replicas |
 |---|---|---|---|
 | **`chat-api`** | 3000 | Stateless REST API. Owns the migrations, applied at startup. | scale freely |
-| **`chat-worker`** | 3005 | Background consumers: outgoing webhooks, reminders, notifications, huddle history, scheduled messages. Serves only `/livez`, `/readyz`, `/metrics`. | **exactly one** |
+| **`chat-worker`** | 3005 | Background consumers: outgoing webhooks, reminders, notifications, huddle history, call ringing, scheduled messages, email delivery, event outbox relay. Serves only `/livez`, `/readyz`, `/metrics`. | scale freely |
 | **`chat-realtime`** | 3004 | WebSocket gateway. | scale freely |
+
+`chat-api` serves an OpenAPI document at `/api/openapi.json`, generated from the handlers
+themselves, and the frontend's `src/api/schema.d.ts` is generated from that. Every feature
+is on it except SCIM (its own standard, its own error format) and the OIDC redirects. The
+route tables below are hand-maintained and kept only as a narrative overview; where the two
+disagree, the document is right.
 
 `chat-api` and `chat-worker` are two binaries over the same library crate
 (`backend/api`), so they share `AppState`, config and every repo.
 
-**Why the worker is separate, and why it is single-replica.** The consumers are driven
-by Redis pub/sub, which delivers a copy to *every* subscriber. Running them inside the
-API meant a second API replica produced a second notification row, a second outgoing
-webhook POST and a second reminder — so the API tier could not actually be replicated
-despite being stateless. Moving them into one process fixes that; keeping that process
-at one replica is the cheap correct answer until the transport becomes Redis Streams
-with consumer groups. Two safety nets sit underneath it anyway: a partial unique index
-makes a duplicate mention notification impossible, and reminders are claimed with
-`FOR UPDATE SKIP LOCKED` the way scheduled messages already were.
+**Why the worker is separate.** The consumers used to be driven by Redis pub/sub, which
+delivers a copy to *every* subscriber. Running them inside the API meant a second API
+replica produced a second notification row, a second outgoing webhook POST and a second
+reminder — so the API tier could not actually be replicated despite being stateless.
+Moving them into one process fixed that. The worker itself scales because every
+consumer now reads through a Redis Streams consumer group — each event reaches exactly
+one replica — or claims its row with `FOR UPDATE SKIP LOCKED` first. Delivery is
+at-least-once, so the side effects are idempotent on their own: partial unique indexes
+make a duplicate mention or call notification impossible, and outgoing webhooks claim
+`(hook_id, event_id)` before they POST.
 
 ## Architecture & Rationale
 
@@ -32,19 +39,31 @@ makes a duplicate mention notification impossible, and reminders are claimed wit
 - **Two binaries, not one.** The REST API is request/response and **stateless**; the
   WebSocket gateway is long-lived and **connection-stateful**. Splitting them lets each
   scale and fail independently — you can run many api replicas and many realtime nodes.
-- **Redis as the bus.** The api never talks to sockets directly. It `PUBLISH`es domain
-  events to Redis; every realtime node runs a consumer and pushes to *its* locally
-  connected clients. Result: an event from any api replica reaches sockets on every
-  realtime node, with no sticky sessions. Redis also backs presence (TTL-keyed per node,
-  self-healing) and rate-limit counters.
-- **PostgreSQL + sqlx.** Compile-time-checked, fully parameterized queries; soft deletes,
-  partial indexes, and a GIN full-text index for search. Migrations run automatically on
-  api startup (`sqlx::migrate!`).
+- **Redis as the bus, Postgres as the ledger.** The api never talks to sockets directly.
+  A durable event (message, reaction, membership, ring) is written to `event_outbox` in
+  the same transaction as the row it describes, then appended to the workspace's Redis
+  Stream (`stream:ws:{id}`) and published live; a relay in the worker re-sends anything
+  the fast path missed. Every realtime node reads the live channel and pushes to *its*
+  connected clients, and a reconnecting client replays the stream from its cursor. The
+  worker's consumers read the streams through consumer groups, so each event reaches
+  exactly one replica. Redis also backs presence (TTL-keyed per node, self-healing) and
+  rate-limit counters.
+- **PostgreSQL + sqlx.** Every query is a `sqlx::query!` macro checked against the schema
+  at compile time (the committed `.sqlx/` cache makes that work without a database, which
+  is how the image builds); fully parameterized, soft deletes, partial indexes, a GIN
+  full-text index plus trigram fallback for search. Migrations run automatically on api
+  startup (`sqlx::migrate!`).
+- **Boring libraries for boring problems.** `object_store` for local disk and S3, `garde`
+  for request validation, `askama` for email templates, `utoipa` for the OpenAPI document,
+  `ts-rs` for the WebSocket frame types, `ipnet` for proxy trust, `backon` for retries.
+  Each replaced a hand-rolled version that had accumulated its own bugs.
 
 ### Feature-modular layering
 
-Every feature under `api/src/` (`auth`, `workspace`, `messaging`, `dm`, `files`, `hooks`,
-`notifications`, `admin`, `huddle`) follows the same shape, with files added only where warranted:
+Every feature under `api/src/` (`auth`, `workspace`, `conversations`, `messaging`, `files`,
+`hooks`, `notifications`, `scheduled`, `saved`, `groups`, `emoji`, `retention`, `export`,
+`slack_import`, `scim`, `push`, `commands`, `huddle`, `admin`) follows the same shape, with
+files added only where warranted:
 
 | File | Responsibility |
 |------|----------------|
@@ -53,7 +72,7 @@ Every feature under `api/src/` (`auth`, `workspace`, `messaging`, `dm`, `files`,
 | `repo.rs` | **all** SQL for the feature; the only place that touches the pool |
 | `models.rs` | request/response and row types |
 | `publisher.rs` / `consumer.rs` / `executor.rs` | Redis publish / background consumers / outbound execution |
-| `storage.rs` | storage backend abstraction (files) |
+| `storage.rs` | the `object_store`-backed file store (files) |
 
 Rules that keep it from rotting: routes never write SQL, a feature never reaches into
 another feature's repo, and `AppState` (`state.rs`) is the single composition root wired
@@ -74,9 +93,17 @@ in `main.rs`.
   messaging and files routers (120 writes / 60s per user).
 - **Error handling.** `AppError` (`shared/common`) maps to status codes; 500-class errors
   log detail but return an opaque body so internals/SQL never leak (with tests proving it).
-- **Files.** A `FileStorage` trait abstracts local disk vs S3/MinIO; both serve downloads
-  through the authenticated `/api/files/download` route, so the object store stays private
-  and access is gated by workspace **and** channel membership.
+- **Files.** `FileStorage` wraps an `object_store` backend (local disk or S3/MinIO) and
+  streams multipart uploads; downloads go through the authenticated `/api/files/download`
+  route, so the object store stays private and access is gated by channel membership —
+  which covers direct messages, since a DM is a channel.
+- **Validation.** Request DTOs derive `garde::Validate` with the rule declared on the
+  field; a handler calls `req.validate()?` and a violation is a 422 with the field named.
+- **Email.** Invites, resets and mention digests are queued in `outbound_emails` inside
+  the request and delivered by the worker with retries and backoff; templates are `askama`.
+- **The API contract is generated.** Handlers carry `#[utoipa::path]`, the document is
+  served at `/api/openapi.json`, and the frontend's types and WebSocket frame union are
+  generated from the backend; CI fails when either is stale.
 - **Webhooks.** Outbound delivery is SSRF-hardened (scheme allow-list, DNS resolution with
   private/loopback/link-local/metadata-IP blocking, redirects disabled) and HMAC-signed.
 
@@ -88,7 +115,7 @@ full Axum router via `tower::oneshot` — real middleware, real auth, real JSON 
 the authorization matrix per endpoint. Realtime tests use real Redis + Postgres and assert
 the right frames reach the right subscribers.
 
-**Where the databases come from.** Running all 36 migrations per test cost about 0.4s and
+**Where the databases come from.** Running all 45 migrations per test cost about 0.4s and
 there are several hundred tests. The first test in a process builds a *template* database
 instead — migrations once, behind an advisory lock so parallel test binaries do not race —
 and every test after it clones the template with `CREATE DATABASE ... TEMPLATE`, which costs
@@ -216,63 +243,45 @@ feature — see `dm` below.)
 
 ### conversations
 
-Direct and group messages share one model: a `direct` conversation is the two-person case of
-the same rows that back a group, so read state, reactions and fan-out have a single shape.
-Every route requires the caller to be a participant; creating one requires every invitee to be
-a workspace member, and a conversation holds at most nine people.
+A direct message is a channel of type `dm` (two people) or `group_dm` (up to nine) that nobody
+can browse or join: participants are its `channel_members`, its messages are `messages`, and
+reactions, edit history, threads, pins, attachments, saved and scheduled messages are the
+channel ones. These routes only find and open conversations; everything else goes through the
+channel and message routes with the conversation id as `ch_id`. Every message route already
+requires membership of a non-public channel, so a conversation is readable by its participants
+and nobody else. `GET /workspaces/:ws_id/channels` leaves dm channels out; the unread endpoint
+counts them.
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
-| GET | `/workspaces/:ws_id/conversations` | — | `{ data: ConversationSummary[] }` — newest first, with `participant_ids` and the caller's `last_read_at` |
+| GET | `/workspaces/:ws_id/conversations` | — | `{ data: ConversationSummary[] }` — newest message first, with `participant_ids`, `last_message_at` and the caller's `last_read_at` |
 | POST | `/workspaces/:ws_id/conversations` | `{ participant_ids }` | `Conversation` — one other person returns the existing `direct` thread if there is one; more create a `group` |
-| GET | `/conversations/:conv_id/messages` | Query: `limit=50, before?` (message id) | `{ data: ConversationMessage[], next_cursor }` |
-| POST | `/conversations/:conv_id/messages` | `{ content, id?, thread_parent_id? }` | `ConversationMessage` — `id` makes the send idempotent; `thread_parent_id` makes it a threaded reply, which is kept out of the main feed. Threads are one level deep: replying to a reply joins the same thread |
-| GET | `/conversations/messages/:msg_id/thread` | Query: `limit=50, offset=0` | `{ data: ConversationMessage[] }` — oldest first, participants only |
-| POST | `/conversations/:conv_id/read` | — | `{ status: "ok" }` |
-| PATCH | `/conversations/messages/:msg_id` | `{ content }` | `ConversationMessage` — author only |
-| DELETE | `/conversations/messages/:msg_id` | — | `{ status: "deleted" }` — author only |
-| POST | `/conversations/messages/:msg_id/reactions` | `{ emoji }` | `ConversationReaction` |
-| DELETE | `/conversations/messages/:msg_id/reactions/:emoji` | — | `{ status: "ok" }` |
+| POST | `/conversations/:conv_id/read` | — | `{ status: "ok" }` — clears the caller's unread and mention counters for it |
 
-Mutations publish to `events:conversation` (`conversation.created`, `conversation.message.created`
-/`.updated`/`.deleted`, `conversation.reaction.added`/`.removed`); every payload carries
-`participant_ids`, and the realtime gateway pushes to exactly those users.
+Creating one publishes `conversation.created`, which the gateway delivers to every participant
+so the new thread shows up for the other side; messages in it are ordinary `message.*` and
+`reaction.*` events on that channel id, delivered to the sockets that joined it.
 
 ---
 
 ### scheduled
 
-Messages queued for later delivery, aimed at exactly one channel **or** one conversation. The
-author must be able to post to the target at scheduling time, and the send window is capped at
-120 days out.
+Messages queued for later delivery, aimed at one channel — a conversation id is a channel id
+here. The author must be able to post to the target at scheduling time, and the send window is
+capped at 120 days out.
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/scheduled-messages` | — | `{ data: ScheduledMessage[] }` — the caller's pending queue |
-| POST | `/workspaces/:ws_id/scheduled-messages` | `{ channel_id? \| conversation_id?, content, send_at }` | `ScheduledMessage` |
+| POST | `/workspaces/:ws_id/scheduled-messages` | `{ channel_id, content, send_at }` | `ScheduledMessage` |
 | PATCH | `/scheduled-messages/:id` | `{ send_at }` | `ScheduledMessage` — author only, pending only |
 | DELETE | `/scheduled-messages/:id` | — | `{ status: "canceled" }` — author only, pending only |
 
 A background dispatcher ticks every 15s and claims due rows with
 `UPDATE … WHERE id IN (SELECT … FOR UPDATE SKIP LOCKED) RETURNING *`, so several api replicas
-can run it without delivering a message twice. Delivery reuses the normal send path — channel
-messages expand mentions and publish `message.created`, conversation messages publish
-`conversation.message.created` — and a failure is recorded on the row instead of retried.
-
----
-
-----|-------|-------|--------|
-| GET | `/workspaces/:ws_id/dm` | — | `{ data: DmConversation[] }` |
-| GET | `/workspaces/:ws_id/dm/:user_id` | Query: `limit=50, before?` | `{ data: DirectMessage[], next_cursor }` |
-| POST | `/workspaces/:ws_id/dm/:user_id` | `{ content, id? }` | `DirectMessage` |
-| POST | `/workspaces/:ws_id/dm/:user_id/read` | — | `{ status: "ok" }` |
-| PATCH | `/workspaces/:ws_id/dm/:user_id/:msg_id` | `{ content }` | `DirectMessage` |
-| DELETE | `/workspaces/:ws_id/dm/:user_id/:msg_id` | — | `{ status: "deleted" }` |
-| POST | `/workspaces/:ws_id/dm/:user_id/:msg_id/reactions` | `{ emoji }` | `DmReaction` |
-| DELETE | `/workspaces/:ws_id/dm/:user_id/:msg_id/reactions/:emoji` | — | `{ status: "ok" }` |
-
-Edit/delete are author-only. Mutations publish to `events:dm` (`dm.created`, `dm.updated`,
-`dm.deleted`, `dm.reaction.added`, `dm.reaction.removed`), fanned out to both participants.
+can run it without delivering a message twice. Delivery reuses the normal send path — mentions
+are expanded and `message.created` is published — and a failure is recorded on the row instead
+of retried.
 
 ---
 
@@ -285,7 +294,7 @@ Sends and manages messages, threads, reactions, pins, read tracking, and search.
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/channels/:ch_id/messages` | Query: `limit=50, cursor?` | `{ data: Message[] }` |
-| POST | `/channels/:ch_id/messages` | `{ content, thread_parent_id?, id? }` | `Message` |
+| POST | `/channels/:ch_id/messages` | `{ content, thread_parent_id?, client_message_id? }` | `Message` — the one send path; a `thread_parent_id` makes it a reply (one level deep, same channel) and `client_message_id` makes a retry idempotent |
 | PATCH | `/messages/:msg_id` | `{ content }` | `Message` |
 | DELETE | `/messages/:msg_id` | — | `{ status: "deleted" }` |
 
@@ -294,7 +303,6 @@ Sends and manages messages, threads, reactions, pins, read tracking, and search.
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/messages/:msg_id/thread` | Query: `limit=50, offset=0` | `{ data: Message[] }` |
-| POST | `/messages/:msg_id/thread` | `{ content }` | `Message` |
 
 **Mentions.** Sending a channel message or thread reply expands the mentions in its body
 into the `mentioned_user_ids` carried by `message.created`, which the notifications
@@ -409,17 +417,122 @@ All workspace-scoped routes require workspace membership.
 
 ---
 
+### slack_import
+
+Reads a Slack export into a workspace, from the app or from a shell.
+
+**From the app** — a workspace admin uploads the zip and watches the run. The upload is one
+request; the import is not. It is queued, claimed by the worker the way an export job is, and
+writes its counters as it goes so a run that takes an hour has something to show.
+
+| Method | Route | Input | Output |
+|--------|-------|-------|--------|
+| POST | `/workspaces/{ws_id}/slack-imports` | multipart: `archive` (the zip), `dry_run` | `ImportRun` — status `pending`; workspace admins only |
+| POST | `/slack-imports` | multipart: `archive`, `workspace_name`, `dry_run` | Creates the workspace, then queues — an export *is* a workspace, and there is nothing to import into yet. The name is the caller's: Slack writes it into the file name and nowhere inside the archive, not even the manifest |
+| GET | `/workspaces/{ws_id}/slack-imports` | — | `{ data: ImportRun[] }` — the last 20 runs |
+| GET | `/slack-imports/{import_id}` | — | `ImportRun` — status, live counts, and what was skipped |
+
+The archive is checked for a zip's magic bytes before anything is stored, capped at 512 MB
+(past that the answer is the CLI, and the error says so), kept in the same storage uploads
+use, and **deleted once the worker has read it** — it is a copy of somebody's entire Slack
+history and there is no reason to keep it.
+
+**From a shell** — for an export too large to travel through a browser, or a migration
+somebody wants to watch over ssh:
+
+```
+chat-import --workspace <uuid|slug> --export <zip-or-directory> [--dry-run] [--no-files] [--slack-token <token>]
+```
+
+**All four listings, and it says which ones were there.** `channels.json` becomes public
+channels, `groups.json` private ones, and `dms.json` / `mpims.json` become `dm` and
+`group_dm` channels, which the channel list never shows, so a two-person history stays out
+of everybody's sidebar. A listing the export does not carry is named in the report rather
+than assumed empty: an export without private channels and an export whose private channels
+were quietly dropped should not look the same.
+
+**Two passes, because threads are what break single-pass importers.** The first creates
+users, channels, conversations and memberships; the second writes messages, so a `thread_ts`
+resolves against a row that already exists. A reply whose parent is missing from the export
+stays in the channel as an ordinary message rather than being dropped, and says so in the
+report.
+
+**Users are matched by email and by nothing else.** A Slack handle is not an identity.
+Somebody with no matching account is created with no password, so their history is
+attributed to an account only they can claim through the ordinary invite flow; a bot, or an
+account the export carries no address for, is reported rather than guessed at.
+
+**Idempotent by construction.** `messages.slack_ts` carries the Slack timestamp the row came
+from, unique per channel, and `slack_users` / `slack_channels` record what a previous run
+mapped. A re-run finds them and moves on, which is also what makes an interrupted import
+resumable — a 200k-message import will be interrupted.
+
+**`--dry-run` writes nothing**, not even the run record, and reports the same counts the real
+run would produce, including which items would not convert.
+
+**An attachment becomes its own message.** This product's attachment form is a message whose
+whole body is `[file: name](url)`, so a Slack message carrying both text and a file arrives as
+two: the text, then the attachment. That is what makes it render and what puts it under the
+same access rules as a native upload, at the cost of one extra row.
+
+**Files are fetched, not linked.** Slack's URLs expire, so the bytes are downloaded during
+the import and stored through `FileStorage`. Every fetch goes through the same SSRF guard the
+webhook path uses, the token is attached only for Slack's own hosts — an export names those
+URLs, and it is a file that arrives from outside — and the response is read with the size cap
+applied as it streams rather than after it has all arrived; the message that carries one is written in the
+composer's own attachment form, which is what makes CS-009's access rules apply to it. A file
+that cannot be fetched is named in the report with the reason — deleted in Slack, hosted
+outside it, no token, or a URL the guard refused — and the message it belonged to is still
+imported. Running the import again with a token picks up the files a tokenless run left
+behind, without duplicating the messages.
+
+**The archive is checked against its own manifest.** `.slack-manifest.json` states a file
+count and a total size; both are verified before the import starts, which catches a truncated
+download before an hour of work goes into it. Its checksum is an undocumented aggregate
+(`sha256-agg-v2`), so that is reported rather than pretended to be verified. The report also
+carries what the manifest says the export *is* — a `MANUAL_NON_COMPLIANCE` export has public
+channels only, which is worth saying before somebody concludes the import lost their DMs.
+
+**Notes, not just failures.** The report separates what could not be imported from what is
+merely worth knowing: a listing that is present but empty (different from absent), the kind of
+export it was, and an account created under Slack's placeholder address for a deactivated
+member — which needs to exist so their history has an owner, but which nobody will ever be
+able to claim.
+
+**Custom emoji are not in the export.** Slack keeps them behind `emoji.list`, so the import
+reads them with the same token it uses for files (`emoji:read`) — or from an `emoji.json` in
+the export, which some tools write, and which wins when it is there. Aliases point at the
+image they alias rather than downloading it twice, and a name our own rules reject (uppercase,
+too long, or one that shadows a standard emoji) is reported instead of being mangled into
+something else. Without a token the run says so, rather than leaving somebody to discover it
+from a message full of `:shortcodes:`.
+
+**What it does not carry over.** Message `attachments` and Block Kit `blocks` (the `text`
+fallback is imported instead), per-person starred items, edit history,
+and anything an integration posted — a bot has no account here, and inventing one would put a
+stranger in the member list. Each of those is counted in the report rather than passed over
+in silence.
+
+| Table | What it holds |
+|---|---|
+| `slack_imports` | One row per run: source, dry-run flag, status, the report as JSON, and the error if it failed |
+| `slack_users` | `(workspace, slack user id)` → our user |
+| `slack_channels` | `(workspace, slack channel id)` → our channel, DMs included |
+| `messages.slack_ts` | The Slack timestamp a message came from; unique per channel |
+
+---
+
 ### saved
 
-One person's own list of kept messages. A row points at exactly one channel message or one
-conversation message, and saving is idempotent: saving something twice returns the row that
-already exists rather than a second one. Reading a message is what entitles you to save it —
-the same channel and conversation checks the message routes use.
+One person's own list of kept messages. A row points at one message, and saving is
+idempotent: saving something twice returns the row that already exists rather than a second
+one. Reading a message is what entitles you to save it — the same channel access check the
+message routes use, which covers direct messages too.
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/saved` | — | `{ data: SavedMessageDetail[] }` — newest first, joined with the message so the panel renders in one round trip |
-| POST | `/workspaces/:ws_id/saved` | `{ message_id? \| conversation_message_id?, note? }` | `SavedMessage` — exactly one target |
+| POST | `/workspaces/:ws_id/saved` | `{ message_id, note? }` | `SavedMessage` |
 | DELETE | `/saved/:id` | — | `{ status: "removed" }` — owner only |
 
 ---
@@ -465,7 +578,7 @@ Live voice/video rooms (Slack-style huddles) over mesh WebRTC. Live membership a
 
 ## chat-realtime (WebSocket Gateway)
 
-Single WebSocket endpoint. Validates the JWT on the upgrade handshake, re-checks channel/workspace membership against the DB on every subscribe/join, then relays Redis pub/sub events to connected clients. The socket is also closed when the access token's `exp` passes, so a long-lived connection can't outlive its token.
+Single WebSocket endpoint. Validates the JWT on the upgrade handshake, re-checks channel/workspace membership against the DB on every subscribe/join, then relays events from Redis to connected clients: the live pub/sub channels for latency, and the per-workspace stream for replay after a reconnect. Every frame it sends is a `ServerFrame` variant (`shared/events`), and the frontend's frame union is generated from that enum. The socket is also closed when the access token's `exp` passes, so a long-lived connection can't outlive its token.
 
 The upgrade additionally checks the `Origin` against the configured CORS origins and rejects a token covered by a revocation record. A revocation stores the moment it happened rather than a boolean, so it invalidates every token issued up to that point while leaving a later sign-in working, and it can spare one named session (`except_jti`) — which is what lets "log out my other devices" keep the device you are typing on. `session.revoked` closes the matching live sockets with close code `4001` and a reason; suspending a user closes all of theirs. Alongside `/ws`, the gateway serves `/livez`, `/readyz` (DB + Redis + event-consumer liveness — it reports unhealthy if the consumer has stalled), and `/metrics` (Prometheus: connection count, consumer heartbeat age, events, backpressure drops). Presence is workspace-scoped: a client only sees the online roster and status changes for workspaces it shares. See [RUNBOOK.md](RUNBOOK.md) for ops.
 
@@ -475,12 +588,18 @@ The upgrade additionally checks the `Origin` against the configured CORS origins
 
 ```json
 { "type": "subscribe",     "workspace_id": "..." }
-{ "type": "channel.join",  "channel_id": "..." }
+{ "type": "channel.join",  "channel_ids": ["...", "..."] }
 { "type": "channel.leave", "channel_id": "..." }
 { "type": "typing.start",  "channel_id": "..." }
 { "type": "typing.stop",   "channel_id": "..." }
 { "type": "ping" }
 ```
+
+**`channel.join` takes the whole set at once.** A client joins every channel it can see the
+moment it connects, and one frame per channel is what the inbound flood guard (20/s, burst 40)
+exists to stop — a workspace with more channels than that used to have its socket closed by
+the act of arriving. One frame, one membership query for the set, capped at 1 000 ids so the
+batch cannot become the flood it replaced.
 
 **Huddle signaling (incoming client messages).** Mesh WebRTC uses this socket purely as the signaling channel — no media flows through the server. After membership is verified, the server relays via `events:huddle`:
 
@@ -499,14 +618,14 @@ The upgrade additionally checks the `Origin` against the configured CORS origins
 
 `offer`/`answer`/`ice` are relayed only to `to_user_id` (and only when both users are current room members); the rest broadcast to the room. On join the caller gets a `huddle.members` snapshot. Disconnect removes the user and, when a room empties, the API consumer emits `huddle.ended`.
 
-**Outgoing events pushed to client** (sourced from Redis pub/sub):
+**Outgoing events pushed to client** (live copies arrive on these pub/sub channels; the durable ones are also on `stream:ws:{id}` for replay):
 
 | Redis channel | Event types |
 |---------------|-------------|
 | `events:message` | `message.created`, `message.updated`, `message.deleted`, `message.pinned` |
 | `events:reaction` | `reaction.added`, `reaction.removed` |
 | `events:notification` | `notification.push` |
-| `events:dm` | `dm.created`, `dm.updated`, `dm.deleted`, `dm.reaction.added`, `dm.reaction.removed` |
+| `events:conversation` | `conversation.created` — fanned out to the participants; a conversation's messages are ordinary `message.*` / `reaction.*` events on its channel id |
 | `events:presence` | `presence.changed` (fanned out only to workspaces shared with the subject) |
 | `events:typing` | `typing.indicator` |
 | `events:workspace` | `workspace.deleted`, `workspace.restored` |
@@ -536,8 +655,8 @@ All events use the envelope: `{ id, event_type, payload, timestamp }`.
 ```
 HTTP Request
   → API handler
-  → PostgreSQL write
-  → Redis PUBLISH
-  → chat-realtime event consumer
-  → WebSocket PUSH to subscribed clients
+  → PostgreSQL write + event_outbox row (one transaction)
+  → XADD stream:ws:{id} + PUBLISH events:*      (outbox relay covers a crash in between)
+  → chat-realtime event consumer → WebSocket PUSH to subscribed clients
+  → chat-worker consumer groups  → notifications, webhooks, history (each event once)
 ```

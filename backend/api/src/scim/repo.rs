@@ -3,7 +3,7 @@ use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct ScimToken {
     pub id: Uuid,
     #[serde(skip)]
@@ -41,40 +41,47 @@ impl ScimRepo {
         description: Option<&str>,
         created_by: Uuid,
     ) -> sqlx::Result<ScimToken> {
-        sqlx::query_as::<_, ScimToken>(
+        sqlx::query_as!(
+            ScimToken,
             r"
             INSERT INTO scim_tokens (token_hash, description, created_by)
             VALUES ($1, $2, $3)
-            RETURNING *
+            RETURNING id, token_hash, description, created_by, last_used_at, revoked_at, created_at
             ",
+            hash_token(token),
+            description,
+            created_by
         )
-        .bind(hash_token(token))
-        .bind(description)
-        .bind(created_by)
         .fetch_one(&self.pool)
         .await
     }
 
     pub async fn find_active(&self, token: &str) -> sqlx::Result<Option<ScimToken>> {
-        sqlx::query_as::<_, ScimToken>(
-            "SELECT * FROM scim_tokens WHERE token_hash = $1 AND revoked_at IS NULL",
+        sqlx::query_as!(
+            ScimToken,
+            "SELECT id, token_hash, description, created_by, last_used_at, revoked_at, created_at
+               FROM scim_tokens WHERE token_hash = $1 AND revoked_at IS NULL",
+            hash_token(token)
         )
-        .bind(hash_token(token))
         .fetch_optional(&self.pool)
         .await
     }
 
     pub async fn list(&self) -> sqlx::Result<Vec<ScimToken>> {
-        sqlx::query_as::<_, ScimToken>("SELECT * FROM scim_tokens ORDER BY created_at DESC")
-            .fetch_all(&self.pool)
-            .await
+        sqlx::query_as!(
+            ScimToken,
+            "SELECT id, token_hash, description, created_by, last_used_at, revoked_at, created_at
+               FROM scim_tokens ORDER BY created_at DESC"
+        )
+        .fetch_all(&self.pool)
+        .await
     }
 
     pub async fn revoke(&self, id: Uuid) -> sqlx::Result<bool> {
-        let updated = sqlx::query(
+        let updated = sqlx::query!(
             "UPDATE scim_tokens SET revoked_at = NOW() WHERE id = $1 AND revoked_at IS NULL",
+            id
         )
-        .bind(id)
         .execute(&self.pool)
         .await?;
         Ok(updated.rows_affected() == 1)
@@ -83,10 +90,12 @@ impl ScimRepo {
     /// Best-effort: an unrecorded use is not a reason to fail a provisioning
     /// call, but a token nobody has used in a year is worth seeing in the list.
     pub async fn touch(&self, id: Uuid) {
-        let _ = sqlx::query("UPDATE scim_tokens SET last_used_at = NOW() WHERE id = $1")
-            .bind(id)
-            .execute(&self.pool)
-            .await;
+        let _ = sqlx::query!(
+            "UPDATE scim_tokens SET last_used_at = NOW() WHERE id = $1",
+            id
+        )
+        .execute(&self.pool)
+        .await;
     }
 }
 

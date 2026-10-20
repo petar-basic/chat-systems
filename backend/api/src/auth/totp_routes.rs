@@ -1,47 +1,64 @@
 use std::sync::Arc;
 
 use axum::extract::State;
-use axum::routing::{get, post};
-use axum::{Json, Router};
+use axum::Json;
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::routes;
 
 use shared_common::errors::{AppError, AppResult};
 
 use super::service::AuthService;
 use super::totp;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
+use crate::dto::StatusResponse;
 use crate::middleware::AuthUser;
 use crate::state::AppState;
 
-pub fn router(state: Arc<AppState>) -> Router {
-    let routes = Router::new()
-        .route("/auth/totp", get(status))
-        .route("/auth/totp/enrol", post(enrol))
-        .route("/auth/totp/confirm", post(confirm))
-        .route("/auth/totp/disable", post(disable));
-
-    crate::protected(state, routes)
+pub fn router() -> OpenApiRouter<Arc<AppState>> {
+    OpenApiRouter::new()
+        .routes(routes!(status))
+        .routes(routes!(enrol))
+        .routes(routes!(confirm))
+        .routes(routes!(disable))
 }
 
-async fn status(
-    State(state): State<Arc<AppState>>,
-    auth: AuthUser,
-) -> AppResult<Json<serde_json::Value>> {
+#[derive(Debug, serde::Serialize, utoipa::ToSchema)]
+pub struct TotpStatus {
+    pub enrolled: bool,
+    pub recovery_codes_remaining: i64,
+    pub required: bool,
+}
+
+#[derive(Debug, serde::Serialize, utoipa::ToSchema)]
+pub struct TotpEnrolment {
+    pub secret: String,
+    pub provisioning_uri: String,
+}
+
+#[derive(Debug, serde::Serialize, utoipa::ToSchema)]
+pub struct TotpConfirmed {
+    pub status: &'static str,
+    pub recovery_codes: Vec<String>,
+}
+
+#[utoipa::path(get, path = "/auth/totp", tag = "totp", responses((status = 200, body = TotpStatus)))]
+async fn status(State(state): State<Arc<AppState>>, auth: AuthUser) -> AppResult<Json<TotpStatus>> {
     let enrolment = state.totp_repo.find(auth.user_id).await?;
-    let remaining: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM totp_recovery_codes WHERE user_id = $1 AND used_at IS NULL",
+    let remaining = sqlx::query_scalar!(
+        r#"SELECT COUNT(*) AS "count!" FROM totp_recovery_codes WHERE user_id = $1 AND used_at IS NULL"#,
+        auth.user_id
     )
-    .bind(auth.user_id)
     .fetch_one(&state.pool)
     .await?;
 
-    Ok(Json(serde_json::json!({
-        "enrolled": enrolment.map(|e| e.is_active()).unwrap_or(false),
-        "recovery_codes_remaining": remaining,
-        "required": state.config.require_admin_totp,
-    })))
+    Ok(Json(TotpStatus {
+        enrolled: enrolment.map(|e| e.is_active()).unwrap_or(false),
+        recovery_codes_remaining: remaining,
+        required: state.config.require_admin_totp,
+    }))
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, utoipa::ToSchema)]
 pub struct CodeRequest {
     pub code: String,
 }
@@ -49,10 +66,11 @@ pub struct CodeRequest {
 /// Hands back a secret and its provisioning URI. Nothing is enforced yet: the
 /// enrolment is not active until a code proves the authenticator actually has
 /// it, or people lock themselves out of accounts they never finished setting up.
+#[utoipa::path(post, path = "/auth/totp/enrol", tag = "totp", responses((status = 200, body = TotpEnrolment)))]
 async fn enrol(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<TotpEnrolment>> {
     let user = state
         .auth_service
         .repo()
@@ -68,18 +86,19 @@ async fn enrol(
         .await?;
 
     let uri = totp::provisioning_uri(&secret, &user.email, &state.config.instance_name)?;
-    Ok(Json(serde_json::json!({
-        "secret": secret,
-        "provisioning_uri": uri,
-    })))
+    Ok(Json(TotpEnrolment {
+        secret,
+        provisioning_uri: uri,
+    }))
 }
 
+#[utoipa::path(post, path = "/auth/totp/confirm", tag = "totp", request_body = CodeRequest, responses((status = 200, body = TotpConfirmed)))]
 async fn confirm(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
     Json(req): Json<CodeRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<TotpConfirmed>> {
     let user = state
         .auth_service
         .repo()
@@ -138,18 +157,19 @@ async fn confirm(
     )
     .await;
 
-    Ok(Json(serde_json::json!({
-        "status": "enrolled",
-        "recovery_codes": codes,
-    })))
+    Ok(Json(TotpConfirmed {
+        status: "enrolled",
+        recovery_codes: codes,
+    }))
 }
 
+#[utoipa::path(post, path = "/auth/totp/disable", tag = "totp", request_body = CodeRequest, responses((status = 200, body = StatusResponse)))]
 async fn disable(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
     Json(req): Json<CodeRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<StatusResponse>> {
     let user = state
         .auth_service
         .repo()
@@ -192,5 +212,5 @@ async fn disable(
     )
     .await;
 
-    Ok(Json(serde_json::json!({ "status": "disabled" })))
+    Ok(Json(StatusResponse::new("disabled")))
 }

@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            DELETE FROM audit_log\n             WHERE id IN (\n                 SELECT id FROM audit_log\n                  WHERE workspace_id = $1\n                    AND created_at < NOW() - make_interval(days => $2)\n                  LIMIT $3\n             )\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "288a8fa3e83a701afcbc838dc18d433656a77626d2d4b46a2287dec4d7d31785"
+}

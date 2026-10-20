@@ -16,15 +16,16 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml \
 | Container | What it does | Safe to scale? |
 |---|---|---|
 | `api` | REST API; applies migrations at startup | yes |
-| `worker` | Background consumers: outgoing webhooks, reminders, notifications, huddle history, scheduled messages | **no — keep at one replica** |
+| `worker` | Background consumers: outgoing webhooks, reminders, notifications, huddle history, call ringing, scheduled messages, email delivery, event outbox relay | yes |
 | `realtime` | WebSocket gateway | yes |
 
-Running two `worker` replicas duplicates every side effect they produce: two
-notification rows per mention, two POSTs per outgoing webhook, two reminder
-deliveries. The compose files pin `replicas: 1`; leave it there. If `worker` is down,
-nothing is lost permanently — messages still send and read — but webhooks, reminders,
-scheduled messages and notification rows stop until it returns. Its `/readyz` is
-wired to the autoheal sidecar like the others.
+Every consumer in `worker` either reads through a Redis Streams consumer group, which hands
+each event to exactly one replica, or claims its row in the database first, so a second
+replica is a second pair of hands rather than a second copy of every side effect. The
+production compose runs two. If every replica is down, nothing is lost permanently —
+messages still send and read — but webhooks, reminders, scheduled messages, call ringing
+and notification rows wait until one returns; the streams hold what was published in the
+meantime. Its `/readyz` is wired to the autoheal sidecar like the others.
 
 ## What self-hosting actually costs
 
@@ -123,9 +124,9 @@ Two more changes ship with it and need no action:
 
 ## Upgrade note: Wave 5 changes the DM send contract
 
-`POST /api/conversations/:id/messages` and `POST /api/channels/:id/messages` no longer
-accept `id`. The server owns the message id; a sender that wants an idempotent retry passes
-`client_message_id` instead, unique within the conversation or channel. An old client that
+`POST /api/channels/:id/messages` no longer accepts `id`. The server owns the message id; a
+sender that wants an idempotent retry passes `client_message_id` instead, unique within the
+channel. An old client that
 still sends `id` is not rejected — the field is ignored, so its retries stop being
 idempotent and a double-send stores two rows. Ship the frontend and the API together.
 
@@ -185,11 +186,20 @@ The gateway is backwards compatible with an old client — one that sends no `la
 simply gets no replay, exactly as before — but an old **gateway** with a new client is not
 useful, so deploy realtime before or with the frontend.
 
-**Worker replicas are no longer limited to one.** The notification and hook consumers read
+**The notification and hook consumers stopped being the reason for one replica.** They read
 through `XREADGROUP` with acknowledgement, so events are distributed across replicas and an
-unacknowledged event is redelivered rather than lost with the process holding it. You can
-scale `chat-worker` now. The scheduled dispatcher and reminder checker still claim their
-rows in the database, which was already safe for multiple replicas.
+unacknowledged event is redelivered rather than lost with the process holding it: every
+replica runs `XAUTOCLAIM` on each stream every 30 seconds and takes over anything that has
+sat unacknowledged for 60 seconds, whoever was holding it. An event that has been delivered
+five times without ever being acknowledged is assumed to be killing its consumer and is
+acknowledged unprocessed — `dropping <stream> <id> after N deliveries` in the worker log is
+that happening, and the event id in it is what to go looking for. The scheduled dispatcher
+and reminder checker claim their rows in the database, which was already safe for multiple
+replicas.
+
+**At the time this shipped, two consumers were still on plain pub/sub** — the huddle
+consumer and the call notification consumer — and that kept `chat-worker` at one replica.
+Both have since moved to consumer groups; see the ring note under migration 42 below.
 
 Delivery to the worker is at-least-once as a result. Outgoing webhooks claim a
 `(hook_id, event_id)` row before dispatching (migration `…22`), so a redelivery does not
@@ -206,7 +216,9 @@ at-most-once — the streams are then trimmed away by age on their own.
 refresh tokens, consumed password-reset tokens, expired invites and `hook_executions` older
 than 30 days are purged unconditionally on every pass. None of that is anybody's data.
 Messages, files, notifications and audit rows are only touched where a workspace owner has
-set a policy; a workspace with no `retention_policies` row keeps everything forever.
+set a policy; a workspace with no `retention_policies` row keeps everything forever. A policy
+covers direct and group messages too — they are messages in `dm`/`group_dm` channels, and a
+retention rule that skipped them would keep exactly the history people assume is gone.
 
 Set `RETENTION_DRY_RUN=true` for the first run on a real instance. It logs and counts what
 each pass *would* delete and deletes nothing. Deletion is irreversible, and a misread policy
@@ -327,6 +339,108 @@ a hook then has the server's network position, set
 **Nothing to migrate by hand.** Migrations 27 to 35 are additive apart from dropping the old
 `content_search` column, which is a catalog change rather than a rewrite.
 
+## Upgrade note: Wave 11 changes who guests can see and how sessions fail
+
+**Guests see less, immediately and without a migration.** A guest now gets only the people
+they share a channel with, and no email addresses at all. If you were relying on the member
+list as a directory for guest accounts, that is gone on deploy — it was handing external
+people your staff list. Members, admins and owners are unaffected.
+
+A guest also cannot start a conversation with somebody they share no channel with.
+Conversations that already exist keep working.
+
+**Announcement channels.** `PATCH /api/channels/:id` accepts `post_policy`: `everyone` (the
+default, and what every existing channel is) or `moderators`. Under `moderators` the
+composer, thread replies, scheduled sends and `in_channel` slash commands are refused for
+everybody but workspace admins and that channel's admins; reading and reacting are
+unchanged, and an incoming webhook scoped to the channel still posts. Changes are audited as
+`channel.post_policy_changed` with before and after.
+
+**`ACCESS_TOKEN_EXPIRY` now defaults to 900, not 3600.** Clients refresh transparently, so
+this is invisible in use — it is the window in which a revoked session would still work if
+the revocation store could not be reached. Raising it back raises that window.
+
+**A revocation lookup that fails now refuses the request.** Redis gets 250ms and one retry;
+after that the API answers `503` and the realtime gateway refuses the socket, rather than
+treating "cannot check" as "not revoked". Watch `auth_revocation_lookup_failures_total`: any
+sustained non-zero rate means Redis is unhealthy *and* people are being turned away, and both
+need looking at. This is the trade — a Redis outage now degrades sign-in instead of silently
+disabling deprovisioning.
+
+**Email leaves through the worker.** Invites, password resets and mention digests are
+queued in `outbound_emails` by the api and delivered by `chat-worker`, so the worker needs
+the same `SMTP_*` settings as the api — an api that can queue and a worker that cannot send
+looks like "the invite never arrived". `outbound_emails` rows with `sent_at IS NULL` and a
+`last_error` are the first thing to look at.
+
+**Mention emails.** If SMTP is configured, somebody who is mentioned while offline, with no
+push subscription, not muted and not in do-not-disturb, gets one digest email five minutes
+later — cancelled if they come online first. It carries who and where and a link, never the
+message text. Individuals can turn it off at `PATCH /api/notifications/email`; with SMTP
+unconfigured the whole feature is off and logs nothing.
+
+**Realtime events go through an outbox too.** Every durable event (messages, reactions,
+membership, rings) is written to `event_outbox` inside the transaction that writes the row
+it describes, published to Redis right after the commit, and marked `published_at`. If the
+API crashed or Redis was down at that moment, the worker's relay publishes it within a few
+seconds and the client sees it late rather than never. Rows are pruned a day after
+publishing. A growing count here means Redis is unreachable from the API:
+
+```sql
+SELECT event_type, COUNT(*) FROM event_outbox WHERE published_at IS NULL GROUP BY 1;
+```
+
+**Invites and password resets go through an outbox.** Neither is sent inside the request
+any more: the row lands in `outbound_emails` and the worker delivers it within a couple of
+seconds, retrying with backoff (1, 4, 16, 64 minutes, then every four hours) up to eight
+attempts. After the last one the row is parked with `next_attempt_at` null and the SMTP
+error in `last_error`, which is what to look at when somebody says the invite never came:
+
+```sql
+SELECT to_address, subject, attempts, next_attempt_at, last_error
+  FROM outbound_emails WHERE sent_at IS NULL ORDER BY created_at DESC;
+```
+
+Setting `next_attempt_at = NOW()` on a parked row puts it back in the queue once the SMTP
+problem is fixed. With SMTP unconfigured nothing is queued and a warning is logged instead.
+
+**`chat-worker` can now run more than one replica.** The huddle consumer reads through a
+consumer group like the others, and the ring claims `(huddle_id, to_user_id)` before it
+sends, so a second replica loses the race instead of ringing twice. The scheduled dispatcher
+and reminder checker already claimed their rows. Nothing forces you to scale it — at a few
+dozen people one replica is plenty — but it is no longer a correctness constraint.
+
+**Migration 42 moves the ring itself onto the stream.** The ring was the last event still
+on pub/sub, which is at-most-once: a worker that was restarting when somebody started a
+call simply never rang anyone. It is now written to the workspace stream like every other
+durable event and read by the notification consumer through its group, so a ring that
+lands while every worker is down is delivered when one comes back — unless it is older than
+sixty seconds by then, in which case it is dropped, because a call announced a minute late
+is worse than one not announced. The `huddle_ring_claims` table is gone; a redelivery is
+absorbed by `idx_notifications_call_dedup`, one call notification per person per call.
+Reconnecting clients never see a ring in their replay.
+
+**Migrations 39 and 40** add `pending_mention_emails`, `users.mention_emails` and
+`huddle_ring_claims`. All additive.
+
+## Upgrade note: the 2026-09 follow-ups fold direct messages into channels
+
+Migrations 43–45 ship together. **Take a backup first** (see below): 45 is not reversible.
+
+- **Migration 45 makes every conversation a channel** of type `dm` or `group_dm`, moves
+  its messages, reactions, edit history, attachments, saved and scheduled rows onto the
+  channel tables with their ids preserved, and drops the conversation tables. Old clients
+  break: the `/conversations/…/messages` routes and the `conversation.message.*` frames are
+  gone, so deploy api, worker, realtime and frontend in one go. Retention policies now cover
+  direct messages, which they previously did not reach.
+- **Migration 44 adds `event_outbox`** and migration 43 `outbound_emails`. Both are additive,
+  but email is now delivered by `chat-worker`, so the worker needs the same `SMTP_*`
+  settings as the api (the compose files carry them; a hand-written deployment must add
+  them). The relay and the outbox prune themselves.
+- **Every query is now a compile-time-checked macro.** A build from source needs either
+  `DATABASE_URL` pointing at a migrated database or the committed `.sqlx/` cache with
+  `SQLX_OFFLINE=true`; the Docker build uses the cache.
+
 ## Audit log
 
 `GET /api/workspaces/:ws_id/audit-log` (workspace admin) and `GET /api/admin/audit-log`
@@ -352,15 +466,129 @@ no credentials still starts, with a warning.
 ## Rate limits and upload size
 
 Writes are limited per user, per class of action: messages 120/min, reactions 240/min,
-invites 20/hour, workspaces 5/hour, channels 30/hour, everything else 120/min. Auth paths
+invites 20/hour, workspaces 5/hour, channels 30/hour, everything else 120/min. **The
+workspace budget only began to be enforced on 2026-09-04**: the classifier matched
+`/api/workspaces` while `nest("/api", …)` hands the middleware `/workspaces`, so creating
+workspaces had silently been on the 120/min default class. Nothing else was affected — every
+other class matches on a suffix — but an instance that leaned on the loose behaviour will
+now see a 429 on the sixth workspace in an hour. Auth paths
 (`/auth/login`, `/auth/forgot-password`) **fail closed** — if Redis is unreachable they
 return 503 rather than verifying a password, so a Redis outage cannot silently remove
 brute-force protection. Watch `rate_limit_backend_failures_total{policy="closed"}`: a
 non-zero rate means logins are failing for infrastructure reasons, not credentials.
 
+`WRITE_RATE_LIMIT_MULTIPLIER` scales all of the write budgets at once and is 1 everywhere
+except the CI stack (5), where three Playwright workers act as a single admin account and
+would otherwise trip the 120/min default class mid-suite — the symptom was a slash command
+or an import that silently did nothing, with a 429 in the trace. That the limiter works is
+proved in `http_tests/rate_limits.rs` against the smallest budget, so no test fights this
+setting.
+
 `MAX_UPLOAD_BYTES` (default 100 MiB) caps uploads and is enforced while streaming, so an
 oversized file never lands in memory. `client_max_body_size` in `docker/nginx.conf` must
 move with it — nginx rejects first, and a mismatch surfaces as a bare 413.
+
+## Huddle relay (TURN)
+
+Huddles are mesh WebRTC. STUN alone only finds a path when neither side sits behind a
+symmetric NAT, which excludes most mobile carriers and anything doing CGNAT: two people on
+different connections then join a room that looks healthy and carries no audio. The
+`coturn` service is the relay that removes the dependency on what either side is behind.
+
+It runs from `docker-compose.turn.yml`, on the host, next to the stack rather than inside
+it. TURN needs the host network namespace — the browser reaches its relay ports directly —
+and a Coolify compose resource cannot express that, because Coolify attaches its own
+network to every service it manages. The relay shares nothing with the application anyway:
+two configuration values are the entire contract between them.
+
+The API serves STUN-only until **both** `TURN_SECRET` and `TURN_URLS` are set, so the
+sequence matters — an advertised TURN server that is not answering is worse than none,
+because the browser waits on it before giving up.
+
+1. On the server, from a checkout of this repository:
+
+   ```bash
+   TURN_SECRET=$(openssl rand -hex 32) TURN_REALM=stage.example.com \
+     docker compose -f docker-compose.turn.yml up -d
+   ```
+
+   Keep that secret: the api needs the same value. Leave `TURN_URLS` **unset** for now.
+2. Open `3478/udp`, `3478/tcp` and `49160-49200/udp` on the host firewall. The relay range
+   is bounded in `docker/coturn/turnserver.conf` so it can be opened explicitly.
+3. Confirm the relay answers before anything depends on it. On
+   [Trickle ICE](https://webrtc.github.io/samples/src/content/peerconnection/trickle-ice/),
+   enter `turn:<host>:3478` with a username of `<unix-expiry>:<any-user-id>` and a
+   credential of `base64(hmac_sha1(TURN_SECRET, username))`. A candidate of type `relay`
+   means it works; only `srflx` means the port is closed or the secret does not match.
+4. Now set `TURN_URLS=turn:<host>:3478` on the api and restart it. `GET
+   /api/workspaces/{id}/ice-servers` should return two entries — the STUN one and a TURN
+   one with credentials that expire after `TURN_TTL_SECS` (default 12h).
+
+Credentials are minted per user and time-limited (TURN REST API); coturn validates them
+against the same secret, which is why the two must match exactly. The relay refuses to
+forward to private, loopback and link-local ranges, so it cannot be turned into an SSRF
+primitive against the host it runs on.
+
+## Importing a Slack export
+
+Slack gives you a ZIP. **The ordinary way is the app**: as a workspace admin, workspace menu
+→ *Slack import*, choose the zip, leave *Dry run* ticked, and read the report. Untick it and
+upload again to do it for real. The upload is one request; the import itself runs in the
+worker, and the panel shows the counts as they move.
+
+The CLI below is for the two cases the browser cannot serve: an export larger than 512 MB, and
+a migration you want to watch from a shell.
+
+```bash
+docker compose run --rm -e SERVICE=chat-import \
+  -v /path/to/slack-export.zip:/import.zip api \
+  --workspace <slug-or-uuid> --export /import.zip --dry-run
+```
+
+**A whole Slack workspace becomes a workspace here.** Tick *Import into a new workspace* and
+the app suggests the name from the file — `Acme Slack export Jul 27 2026 - Aug 26 2026.zip`
+becomes `Acme` — because that is the only place Slack writes it. Nothing inside the archive
+names the workspace, manifest included.
+
+**Read the notes, not only the counts.** Slack's ordinary export (`MANUAL_NON_COMPLIANCE`)
+carries public channels and nothing else: no DMs, no private channels. An export whose
+`channels.json` is present and empty is a workspace with no public channels, which looks
+identical to a broken import until the report says which it was. Both are stated in the run.
+
+**What comes across.** Public channels from `channels.json`, private ones from `groups.json`,
+and direct and group messages from `dms.json` / `mpims.json` — the last two become `dm` and
+`group_dm` channels, which the channel list never shows, so a two-person history does not land
+in everybody's sidebar. Only some Slack plans export DMs at all; the report names every listing the
+export did not carry.
+
+**Always dry-run first.** It writes nothing and prints the counts the real run would produce,
+plus every item that will not convert and why. Read that list before the real run: it is where
+you find the accounts with no email address, the bots, and the replies whose parent was
+deleted in Slack years ago.
+
+Then the same command without `--dry-run`. It is safe to run twice — a second run finds what
+the first wrote and skips it — which is also what makes it safe to interrupt. A large import
+will take hours; running it under `tmux` or `nohup` costs nothing and saves the afternoon.
+
+**Attachments and custom emoji need a token — put it in the environment, not the command.**
+`SLACK_TOKEN=xoxb-…` rather than `--slack-token xoxb-…`: an argument is visible in `ps` to
+every user on the host, and this one is a live credential with `files:read` and `emoji:read`.
+
+Slack's file URLs are private and expire, and custom emoji are not in the export at all — the
+import reads them from `emoji.list`. Without a token the messages still import; every file
+and the emoji are named in the report as not fetched, and imported messages keep their
+`:shortcodes:` as text. **Running the import again with a token picks the files up** without
+duplicating anything. `--no-files` skips both deliberately, which is the faster way to
+rehearse an import.
+
+The token only ever goes to Slack's own hosts, and every URL from the export is checked
+against the same guard outgoing webhooks use before anything is fetched.
+
+**What people will see afterwards.** Imported messages keep their original timestamps, so
+they appear in the channel's history where they belong rather than as a wall of new activity —
+no unread counters move, and nothing is pushed to anybody's phone. Accounts created by the
+import have no password: those people go through the normal invite flow, and until they do,
+their history is attributed to an account only they can claim.
 
 ## What gets backed up
 

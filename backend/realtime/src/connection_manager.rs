@@ -10,7 +10,20 @@ use uuid::Uuid;
 
 pub const WRITER_CHANNEL_CAP: usize = 256;
 
-pub const PRESENCE_TTL_SECS: u64 = 60;
+/// Matches the API side: short enough that a healthy Redis is never noticed,
+/// long enough that a busy one is not mistaken for a dead one.
+const REVOCATION_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(250);
+const REVOCATION_RETRIES: u8 = 1;
+const REVOCATION_RETRY_DELAY: std::time::Duration = std::time::Duration::from_millis(50);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RevocationState {
+    Valid,
+    Revoked,
+    Unknown,
+}
+
+const PRESENCE_TTL_SECS: u64 = 60;
 
 /// Distinct from the revocation code so the client can tell "you are too slow"
 /// from "you may not connect" and reconnect immediately in the first case.
@@ -101,12 +114,33 @@ impl ConnectionManager {
         self.redis.clone()
     }
 
-    pub async fn is_channel_member(&self, channel_id: Uuid, user_id: Uuid) -> bool {
-        let result = sqlx::query_scalar::<_, bool>(
-            "SELECT EXISTS(SELECT 1 FROM channel_members WHERE channel_id = $1 AND user_id = $2)",
+    /// Which of these channels the user actually belongs to, in one query. A
+    /// client joins every channel it can see the moment it connects, and asking
+    /// once per channel is a round trip per channel on every reconnect.
+    pub async fn channel_memberships(&self, channel_ids: &[Uuid], user_id: Uuid) -> Vec<Uuid> {
+        let result = sqlx::query_scalar!(
+            "SELECT channel_id FROM channel_members WHERE channel_id = ANY($1) AND user_id = $2",
+            channel_ids,
+            user_id
         )
-        .bind(channel_id)
-        .bind(user_id)
+        .fetch_all(&self.db)
+        .await;
+
+        match result {
+            Ok(ids) => ids,
+            Err(e) => {
+                warn!("channel_memberships DB error (denying) user={user_id}: {e}");
+                Vec::new()
+            }
+        }
+    }
+
+    pub async fn is_channel_member(&self, channel_id: Uuid, user_id: Uuid) -> bool {
+        let result = sqlx::query_scalar!(
+            r#"SELECT EXISTS(SELECT 1 FROM channel_members WHERE channel_id = $1 AND user_id = $2) AS "exists!""#,
+            channel_id,
+            user_id
+        )
         .fetch_one(&self.db)
         .await;
 
@@ -123,11 +157,11 @@ impl ConnectionManager {
     }
 
     pub async fn is_workspace_member(&self, workspace_id: Uuid, user_id: Uuid) -> bool {
-        let result = sqlx::query_scalar::<_, bool>(
-            "SELECT EXISTS(SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2)",
+        let result = sqlx::query_scalar!(
+            r#"SELECT EXISTS(SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2) AS "exists!""#,
+            workspace_id,
+            user_id
         )
-        .bind(workspace_id)
-        .bind(user_id)
         .fetch_one(&self.db)
         .await;
 
@@ -194,6 +228,15 @@ impl ConnectionManager {
         if let Some(mut conn) = self.connections.get_mut(conn_id) {
             conn.subscribed_channels.insert(channel_id);
         }
+    }
+
+    /// Membership was proven when the connection joined the channel and is
+    /// withdrawn the moment it is removed, so the subscription set is the
+    /// answer — no round trip per keystroke.
+    pub fn is_subscribed_to_channel(&self, conn_id: &Uuid, channel_id: Uuid) -> bool {
+        self.connections
+            .get(conn_id)
+            .is_some_and(|conn| conn.subscribed_channels.contains(&channel_id))
     }
 
     pub fn leave_channel(&self, conn_id: &Uuid, channel_id: Uuid) {
@@ -390,23 +433,42 @@ impl ConnectionManager {
         }
     }
 
-    pub async fn is_revoked(&self, claims: &crate::Claims) -> bool {
-        let mut conn = self.redis.clone();
-        let raw: redis::RedisResult<Option<String>> =
-            conn.get(format!("revoked:{}", claims.sub)).await;
-        let payload = match raw {
-            Ok(Some(payload)) => payload,
-            Ok(None) => return false,
-            Err(e) => {
-                warn!("revocation lookup failed for user {}: {}", claims.sub, e);
-                return false;
+    /// Same three answers as the API's `revocation_state`, for the same reason:
+    /// a store that cannot be reached is not a session that is fine. Here it
+    /// matters more, because the thing being granted is a socket that stays open
+    /// and keeps receiving messages rather than one request.
+    pub async fn revocation_state(&self, claims: &crate::Claims) -> RevocationState {
+        let mut last_error = None;
+
+        for attempt in 0..=REVOCATION_RETRIES {
+            let mut conn = self.redis.clone();
+            let read = conn.get::<_, Option<String>>(format!("revoked:{}", claims.sub));
+
+            match tokio::time::timeout(REVOCATION_TIMEOUT, read).await {
+                Ok(Ok(Some(payload))) => {
+                    return match serde_json::from_str::<RevocationRecord>(&payload) {
+                        Ok(record) if record.covers(claims) => RevocationState::Revoked,
+                        Ok(_) => RevocationState::Valid,
+                        Err(_) => RevocationState::Revoked,
+                    };
+                }
+                Ok(Ok(None)) => return RevocationState::Valid,
+                Ok(Err(e)) => last_error = Some(e.to_string()),
+                Err(_) => last_error = Some("timed out".to_string()),
             }
-        };
-        let record: RevocationRecord = match serde_json::from_str(&payload) {
-            Ok(record) => record,
-            Err(_) => return true,
-        };
-        record.covers(claims)
+
+            if attempt < REVOCATION_RETRIES {
+                tokio::time::sleep(REVOCATION_RETRY_DELAY).await;
+            }
+        }
+
+        metrics::counter!("auth_revocation_lookup_failures_total").increment(1);
+        warn!(
+            "revocation lookup failed for user {}, refusing the socket: {}",
+            claims.sub,
+            last_error.unwrap_or_default()
+        );
+        RevocationState::Unknown
     }
 
     fn presence_key(workspace_id: &Uuid) -> String {
@@ -526,10 +588,10 @@ impl ConnectionManager {
     }
 
     pub async fn user_workspace_ids(&self, user_id: Uuid) -> Vec<Uuid> {
-        let result = sqlx::query_scalar::<_, Uuid>(
+        let result = sqlx::query_scalar!(
             "SELECT workspace_id FROM workspace_members WHERE user_id = $1",
+            user_id
         )
-        .bind(user_id)
         .fetch_all(&self.db)
         .await;
         match result {
@@ -582,7 +644,62 @@ impl ConnectionManager {
             "huddle.member_joined" | "huddle.member_left" => "events:huddle",
             _ => "events:huddle-signal",
         };
+        if channel == "events:huddle" {
+            if let Some(workspace_id) = self.huddle_workspace_id(&payload).await {
+                self.append_to_stream(workspace_id, event_type, &payload)
+                    .await;
+            }
+        }
         self.publish_event(channel, event_type, payload).await;
+    }
+
+    async fn huddle_workspace_id(&self, payload: &serde_json::Value) -> Option<Uuid> {
+        let huddle_id: Uuid = payload.get("huddle_id")?.as_str()?.parse().ok()?;
+        let result = sqlx::query_scalar!(
+            "SELECT workspace_id FROM huddle_sessions WHERE id = $1",
+            huddle_id
+        )
+        .fetch_optional(&self.db)
+        .await;
+        match result {
+            Ok(id) => id,
+            Err(e) => {
+                warn!("huddle_workspace_id DB error huddle={}: {}", huddle_id, e);
+                None
+            }
+        }
+    }
+
+    async fn append_to_stream(
+        &self,
+        workspace_id: Uuid,
+        event_type: &str,
+        payload: &serde_json::Value,
+    ) {
+        let event = shared_events::Event::new(event_type, payload.clone());
+        let Ok(body) = serde_json::to_string(&event) else {
+            return;
+        };
+        let key = shared_events::workspace_stream(workspace_id);
+        let mut conn = self.redis.clone();
+        let _: redis::RedisResult<()> = redis::cmd("SADD")
+            .arg(shared_events::STREAM_INDEX_KEY)
+            .arg(&key)
+            .query_async(&mut conn)
+            .await;
+        let appended: redis::RedisResult<String> = redis::cmd("XADD")
+            .arg(&key)
+            .arg("MAXLEN")
+            .arg("~")
+            .arg(shared_events::STREAM_MAXLEN)
+            .arg("*")
+            .arg("event")
+            .arg(&body)
+            .query_async(&mut conn)
+            .await;
+        if let Err(e) = appended {
+            warn!("XADD to {} failed for {}: {}", key, event_type, e);
+        }
     }
 
     fn huddle_members_key(huddle_id: &Uuid) -> String {

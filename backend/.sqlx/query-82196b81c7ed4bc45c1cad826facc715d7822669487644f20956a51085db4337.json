@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT EXISTS(\n                SELECT 1 FROM workspace_members wm\n                JOIN channels c ON c.workspace_id = wm.workspace_id\n                WHERE c.id = $1 AND wm.user_id = $2 AND wm.role IN ('admin', 'owner')\n            ) AS \"exists!\"\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "exists!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "82196b81c7ed4bc45c1cad826facc715d7822669487644f20956a51085db4337"
+}

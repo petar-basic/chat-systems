@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useInstanceStore, type InstanceUser, type InstanceConfig } from '@/stores/instances';
+import { useInstanceStore, type InstanceUser, type InstanceConfig, toInstanceUser } from '@/stores/instances';
 import { instanceManager } from '@/lib/instances';
 import { useWsStatusStore } from '@/stores/wsStatus';
 
@@ -61,12 +61,9 @@ export const useCompleteRegistration = () => {
       const clients = instanceManager.get(instanceUrl);
       clients.api.onSessionExpired = () => useInstanceStore.getState().removeInstance(instanceUrl);
 
-      const res = await clients.api.post<{
-        user: InstanceUser;
-        expires_in: number;
-        access_token: string;
-        refresh_token: string;
-      }>('/auth/complete-registration', { token, password, display_name: displayName });
+      const res = await clients.api.typed((c) =>
+        c.POST('/auth/complete-registration', { body: { token, password, display_name: displayName } }),
+      );
 
       clients.api.setTokens(res.access_token, res.refresh_token);
       clients.ws.onStatusChange = (status) => {
@@ -74,7 +71,7 @@ export const useCompleteRegistration = () => {
       };
       clients.ws.connect();
 
-      const config: InstanceConfig = { url: instanceUrl, user: res.user };
+      const config: InstanceConfig = { url: instanceUrl, user: toInstanceUser(res.user) };
       addValidatedInstance(config);
 
       return res;

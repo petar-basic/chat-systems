@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE messages SET search_vector = search_vector_of(content)\n              WHERE id IN (SELECT id FROM messages WHERE search_vector IS NULL LIMIT $1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ba6398d7d64e0cf8efc6f7cec74d70a9d9926ff7fd4793147adc109d070aefcb"
+}

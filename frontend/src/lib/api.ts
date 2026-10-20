@@ -1,7 +1,24 @@
-import { ApiError } from './errors';
+import createClient, { type Client } from 'openapi-fetch';
+import type { components, paths } from '@/api/schema';
+import { ApiError, retryAfterSeconds } from './errors';
+
+export interface TypedResult<D> {
+  data?: D;
+  error?: unknown;
+  response: Response;
+}
+
+function errorMessage(error: unknown, response: Response): string {
+  if (error && typeof error === 'object') {
+    const body = error as { error?: unknown; message?: unknown };
+    if (typeof body.error === 'string') return body.error;
+    if (typeof body.message === 'string') return body.message;
+  }
+  return response.statusText;
+}
 
 interface RefreshData {
-  user?: unknown;
+  user?: components['schemas']['UserPublic'];
   access_token?: string;
   refresh_token?: string;
 }
@@ -25,6 +42,7 @@ export class ApiClient {
   private refreshToken: string | null = null;
 
   private refreshPromise: Promise<boolean> | null = null;
+  private typedClient: Client<paths> | null = null;
 
   onSessionExpired: (() => void) | null = null;
   onTokensChanged: ((access: string | null, refresh: string | null) => void) | null = null;
@@ -60,40 +78,46 @@ export class ApiClient {
     return this.memoryToken;
   }
 
-  private getAuthHeaders(): Record<string, string> {
-    if (this.isCrossOrigin && this.memoryToken) {
-      return { Authorization: `Bearer ${this.memoryToken}` };
+  private get client(): Client<paths> {
+    if (!this.typedClient) {
+      const client = createClient<paths>({ baseUrl: this.baseUrl, credentials: 'include' });
+      client.use({
+        onRequest: ({ request }) => {
+          for (const [name, value] of Object.entries(this.getAuthHeaders())) {
+            request.headers.set(name, value);
+          }
+          return request;
+        },
+      });
+      this.typedClient = client;
     }
-    return {};
+    return this.typedClient;
   }
 
-  private async request<T>(method: string, path: string, body?: unknown, isRetry = false): Promise<T> {
-    const res = await fetch(`${this.baseUrl}${path}`, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...this.getAuthHeaders(),
-      },
-      credentials: 'include',
-      body: body ? JSON.stringify(body) : undefined,
-    });
+  async typed<D>(op: (client: Client<paths>) => Promise<TypedResult<D>>, isRetry = false): Promise<D> {
+    const { data, error, response } = await op(this.client);
 
-    if (res.status === 401 && !isRetry) {
+    if (response.status === 401 && !isRetry) {
       const refreshed = await this.refresh();
       if (refreshed) {
-        return this.request<T>(method, path, body, true);
+        return this.typed(op, true);
       }
       this.onSessionExpired?.();
       throw new ApiError(401, 'Session expired. Please log in again.');
     }
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: res.statusText }));
-      throw new ApiError(res.status, err.error || err.message || res.statusText);
+    if (!response.ok) {
+      throw new ApiError(response.status, errorMessage(error, response), retryAfterSeconds(response));
     }
 
-    if (res.status === 204) return undefined as T;
-    return res.json() as Promise<T>;
+    return data as D;
+  }
+
+  private getAuthHeaders(): Record<string, string> {
+    if (this.isCrossOrigin && this.memoryToken) {
+      return { Authorization: `Bearer ${this.memoryToken}` };
+    }
+    return {};
   }
 
   private refresh(): Promise<boolean> {
@@ -151,26 +175,10 @@ export class ApiClient {
     }
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
-      throw new ApiError(res.status, err.error || err.message || res.statusText);
+      throw new ApiError(res.status, err.error || err.message || res.statusText, retryAfterSeconds(res));
     }
     if (res.status === 204) return undefined as T;
     return res.json() as Promise<T>;
-  }
-
-  get<T>(path: string) {
-    return this.request<T>('GET', path);
-  }
-  post<T>(path: string, body?: unknown) {
-    return this.request<T>('POST', path, body);
-  }
-  put<T>(path: string, body?: unknown) {
-    return this.request<T>('PUT', path, body);
-  }
-  patch<T>(path: string, body?: unknown) {
-    return this.request<T>('PATCH', path, body);
-  }
-  delete<T>(path: string, body?: unknown) {
-    return this.request<T>('DELETE', path, body);
   }
 }
 

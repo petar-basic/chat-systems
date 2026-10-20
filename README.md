@@ -29,7 +29,8 @@ integration-test suite and a real CI pipeline.
 - **Presence & typing** — live, multi-tab and multi-node aware
 - **File sharing** — uploads served through the authenticated API (local disk or S3/MinIO)
 - **Multi-workspace** — one instance, many teams; the client can connect to several instances
-- **Role-based access** — Instance Admin, Workspace Owner/Admin, Channel Admin, Member, Guest
+- **Role-based access** — Instance Admin, Workspace Owner/Admin, Channel Admin, Member, Guest — guests see only the people they share a channel with
+- **Announcement channels** — read-only to everyone but moderators, while reactions keep working
 - **Invite-only onboarding** — email invites, password reset, no open sign-up
 - **Webhooks, bots and slash commands** — incoming (Slack-compatible `{"text":...}` → channel), outgoing (SSRF-hardened, HMAC-signed), and synchronous `/commands`
 - **Enterprise auth** — SSO (OIDC), TOTP with recovery codes, SCIM deprovisioning
@@ -44,6 +45,7 @@ DMs, DMs and group DMs (up to nine people), reactions, pins, saved items, channe
 message forwarding, a status you set yourself, editing with history, search across channels
 and DMs, file sharing, `@person` / `@group` / `@channel` / `@here` mentions, custom emoji,
 scheduled send, reminders with `/remind`, huddles with screen sharing, slash commands,
+a Slack importer that brings your history with you,
 incoming and outgoing webhooks, SSO (OIDC), TOTP, SCIM deprovisioning, retention policies
 and GDPR-style export.
 
@@ -51,8 +53,7 @@ What a team moving from Slack should expect to be missing or different:
 
 | Missing / different | Where it stands |
 |---|---|
-| **No mobile app.** The UI is desktop-first; on a phone it is usable but not designed for it. The PWA installs and receives push. | Responsive layout is the next planned work ([CS-038](docs/tickets/CS-038-mobile-client.md)) |
-| **No Slack import.** History does not come with you. | Planned ([CS-036](docs/tickets/CS-036-slack-import-export.md)) |
+| **No native mobile app.** The web app is responsive and installs as a PWA with push, but there is nothing in an app store. | Deliberate — see [ROADMAP.md](docs/ROADMAP.md#wave-11--guest-containment-operational-readiness-and-mobile--shipped); React Native only if push reliability or call ringing proves to be the blocker |
 | **Huddles are peer-to-peer mesh** — comfortable to six or eight people, not a 30-person all-hands. No recording. | SFU planned ([CS-037](docs/tickets/CS-037-huddle-sfu.md)); recording deliberately out of scope |
 | **Presence is derived, not declared.** Online / away / offline follows whether you hold a connection; there is no manual "away". A custom status ("In a meeting 🍕") is the separate thing, and that you do set yourself. | Deliberate |
 | **Search covers message text**, not file names or file contents. | Not planned yet |
@@ -66,25 +67,27 @@ actually costs in machine and in time.
 ## Architecture at a glance
 
 Three Rust binaries plus a React SPA. The API is stateless and the realtime gateway
-fans messages out across nodes via Redis pub/sub, so both scale horizontally. Redis
-pub/sub delivers to every subscriber, so the background consumers live in their own
-single-replica process rather than inside each API replica — otherwise a second replica
-would send every webhook and every notification twice.
+fans messages out across nodes via Redis, so both scale horizontally. Background consumers
+live in their own process rather than inside each API replica — otherwise a second API
+replica would send every webhook and every notification twice. Durable events reach that
+process through Redis Streams consumer groups, each event to exactly one replica, so
+`chat-worker` scales too.
 
 | Component         | Technology                                                        |
 |-------------------|------------------------------------------------------------------|
 | **chat-api**      | Rust (Axum) — stateless REST API                                 |
-| **chat-worker**   | Rust — background consumers (webhooks, reminders, notifications, scheduled messages) |
+| **chat-worker**   | Rust — background consumers (webhooks, reminders, notifications, scheduled messages, email, event outbox relay) |
 | **chat-realtime** | Rust (Axum) — WebSocket gateway                                  |
 | **Frontend**      | React 19, Vite, React Router, TailwindCSS, Zustand, TanStack Query |
 | **Edge (prod)**   | Caddy — automatic HTTPS + reverse proxy                          |
 | **Database**      | PostgreSQL 16                                                    |
-| **Cache / PubSub**| Redis 7                                                          |
+| **Bus**           | Redis 7 — streams with consumer groups, live pub/sub, presence, rate limits |
 | **Storage**       | Local disk, or MinIO / S3                                        |
 
 ```
-HTTP request → chat-api → PostgreSQL write → Redis PUBLISH
-            → chat-realtime consumer → WebSocket push to subscribed clients
+HTTP request → chat-api → PostgreSQL write + outbox row → Redis stream + publish
+            → chat-realtime → WebSocket push          (clients replay the stream on reconnect)
+            → chat-worker consumer groups → notifications, webhooks, history
 ```
 
 ## Try it locally
@@ -109,8 +112,8 @@ unsigned-binary warnings, and it updates the moment you deploy:
   bar (or menu → *Install app*). You get a standalone window, dock/taskbar icon, and
   an unread-count badge on the app icon.
 - **Safari (macOS)** — *File → Add to Dock*.
-- **iOS / Android** — *Share → Add to Home Screen* (the UI is desktop-first; mobile
-  layout is not a goal yet).
+- **iOS / Android** — *Share → Add to Home Screen*. The layout adapts to a phone, and
+  an installed PWA is what receives Web Push on iOS.
 
 ## Documentation
 
@@ -120,20 +123,21 @@ unsigned-binary warnings, and it updates the moment you deploy:
 - **[Frontend architecture](docs/frontend.md)** — design rationale + components, stores, and data flow
 - **[Manual QA script](docs/manual-qa.md)** — end-to-end test checklist
 - **[Roadmap & known limitations](docs/ROADMAP.md)** — what's deliberately not done yet, and why
+- **[Engineering history](docs/history.md)** — what each shipped wave changed and why
 
 ## Known limitations
 
 Honest about the edges, since this is a reference codebase:
 
-- **Real-time delivery is at-most-once.** Events fan out over Redis pub/sub; a client
-  that misses messages while disconnected recovers by refetching open views on reconnect,
-  not by replaying a gap. Durable delivery (Redis Streams + a per-client cursor) is the
-  next planned step — see the [roadmap](docs/ROADMAP.md).
+- **Real-time delivery is at-least-once, not exactly-once.** Every durable event is
+  written through an outbox and a per-workspace Redis Stream, and a reconnecting client
+  replays from its cursor; a gap longer than the stream keeps (10 000 entries) falls back
+  to refetching open views. Consumers and clients are written to tolerate a duplicate.
 - **Huddles use a WebRTC mesh**, which is great up to ~6–8 participants; large all-hands
   calls would need an SFU.
-- **No SSO/2FA yet** — email + password only.
-- **Notifications arrive only while the app is open** (an installed PWA counts as
-  open while its window runs). Web Push for closed-app delivery is planned.
+- **One instance is one trust domain.** SSO, TOTP and SCIM are per instance, not per
+  workspace, and there is no cross-organisation sharing.
+- **Search covers message text**, not file names or contents.
 
 The full prioritized list lives in **[docs/ROADMAP.md](docs/ROADMAP.md)**.
 

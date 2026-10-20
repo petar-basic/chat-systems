@@ -1,9 +1,10 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
+use utoipa::ToSchema;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type, ToSchema)]
 #[sqlx(type_name = "export_scope", rename_all = "lowercase")]
 #[serde(rename_all = "lowercase")]
 pub enum ExportScope {
@@ -11,7 +12,7 @@ pub enum ExportScope {
     User,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type, ToSchema)]
 #[sqlx(type_name = "export_status", rename_all = "lowercase")]
 #[serde(rename_all = "lowercase")]
 pub enum ExportStatus {
@@ -21,7 +22,7 @@ pub enum ExportStatus {
     Failed,
 }
 
-#[derive(Debug, Clone, Serialize, sqlx::FromRow)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct ExportJob {
     pub id: Uuid,
     pub scope: ExportScope,
@@ -42,7 +43,7 @@ pub struct ExportJob {
     pub completed_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateExportRequest {
     #[serde(default)]
     pub include_dms: bool,
@@ -71,37 +72,47 @@ impl ExportRepo {
     }
 
     pub async fn create(&self, job: NewExport) -> sqlx::Result<ExportJob> {
-        sqlx::query_as::<_, ExportJob>(
-            r"
+        sqlx::query_as!(
+            ExportJob,
+            r#"
             INSERT INTO export_jobs
                 (scope, workspace_id, subject_user_id, requested_by, include_dms, since, until)
             VALUES ($1, $2, $3, $4, $5, $6, $7)
-            RETURNING *
-            ",
+            RETURNING id, scope AS "scope: ExportScope", workspace_id, subject_user_id, requested_by, include_dms,
+                   since, until, status AS "status: ExportStatus", storage_key, manifest, error,
+                   download_token, token_expires_at, created_at, completed_at
+            "#,
+            job.scope as ExportScope,
+            job.workspace_id,
+            job.subject_user_id,
+            job.requested_by,
+            job.include_dms,
+            job.since,
+            job.until
         )
-        .bind(job.scope)
-        .bind(job.workspace_id)
-        .bind(job.subject_user_id)
-        .bind(job.requested_by)
-        .bind(job.include_dms)
-        .bind(job.since)
-        .bind(job.until)
         .fetch_one(&self.pool)
         .await
     }
 
     pub async fn find(&self, id: Uuid) -> sqlx::Result<Option<ExportJob>> {
-        sqlx::query_as::<_, ExportJob>("SELECT * FROM export_jobs WHERE id = $1")
-            .bind(id)
-            .fetch_optional(&self.pool)
-            .await
+        sqlx::query_as!(
+            ExportJob,
+            r#"SELECT id, scope AS "scope: ExportScope", workspace_id, subject_user_id, requested_by, include_dms,
+                   since, until, status AS "status: ExportStatus", storage_key, manifest, error,
+                   download_token, token_expires_at, created_at, completed_at
+                 FROM export_jobs WHERE id = $1"#,
+            id
+        )
+        .fetch_optional(&self.pool)
+        .await
     }
 
     /// Claims one pending job, marking it running in the same statement so two
     /// worker replicas cannot both run the same export.
     pub async fn claim_next(&self) -> sqlx::Result<Option<ExportJob>> {
-        sqlx::query_as::<_, ExportJob>(
-            r"
+        sqlx::query_as!(
+            ExportJob,
+            r#"
             UPDATE export_jobs
                SET status = 'running'
              WHERE id = (
@@ -111,8 +122,10 @@ impl ExportRepo {
                   FOR UPDATE SKIP LOCKED
                   LIMIT 1
              )
-            RETURNING *
-            ",
+            RETURNING id, scope AS "scope: ExportScope", workspace_id, subject_user_id, requested_by, include_dms,
+                   since, until, status AS "status: ExportStatus", storage_key, manifest, error,
+                   download_token, token_expires_at, created_at, completed_at
+            "#
         )
         .fetch_optional(&self.pool)
         .await
@@ -126,34 +139,34 @@ impl ExportRepo {
         download_token: &str,
         token_ttl_hours: i64,
     ) -> sqlx::Result<()> {
-        sqlx::query(
+        sqlx::query!(
             r"
             UPDATE export_jobs
                SET status = 'complete',
                    storage_key = $2,
                    manifest = $3,
                    download_token = $4,
-                   token_expires_at = NOW() + ($5 || ' hours')::interval,
+                   token_expires_at = NOW() + make_interval(hours => $5),
                    completed_at = NOW()
              WHERE id = $1
             ",
+            id,
+            storage_key,
+            manifest,
+            download_token,
+            token_ttl_hours as i32
         )
-        .bind(id)
-        .bind(storage_key)
-        .bind(manifest)
-        .bind(download_token)
-        .bind(token_ttl_hours.to_string())
         .execute(&self.pool)
         .await?;
         Ok(())
     }
 
     pub async fn fail(&self, id: Uuid, error: &str) -> sqlx::Result<()> {
-        sqlx::query(
+        sqlx::query!(
             "UPDATE export_jobs SET status = 'failed', error = $2, completed_at = NOW() WHERE id = $1",
+            id,
+            error
         )
-        .bind(id)
-        .bind(error)
         .execute(&self.pool)
         .await?;
         Ok(())
@@ -162,17 +175,20 @@ impl ExportRepo {
     /// Consumes the token as it resolves it: a download link works once, and a
     /// second attempt finds nothing rather than handing the archive out again.
     pub async fn claim_download(&self, token: &str) -> sqlx::Result<Option<ExportJob>> {
-        sqlx::query_as::<_, ExportJob>(
-            r"
+        sqlx::query_as!(
+            ExportJob,
+            r#"
             UPDATE export_jobs
                SET download_token = NULL
              WHERE download_token = $1
                AND token_expires_at > NOW()
                AND status = 'complete'
-            RETURNING *
-            ",
+            RETURNING id, scope AS "scope: ExportScope", workspace_id, subject_user_id, requested_by, include_dms,
+                   since, until, status AS "status: ExportStatus", storage_key, manifest, error,
+                   download_token, token_expires_at, created_at, completed_at
+            "#,
+            token
         )
-        .bind(token)
         .fetch_optional(&self.pool)
         .await
     }

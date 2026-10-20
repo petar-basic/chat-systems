@@ -4,14 +4,16 @@ use axum::body::Body;
 use axum::extract::{Path, State};
 use axum::http::header;
 use axum::response::Response;
-use axum::routing::{delete, get, post};
+use axum::routing::get;
 use axum::{Json, Router};
 use rand::RngExt;
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::routes;
 use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
 
-use super::repo::{CreateExportRequest, ExportScope, NewExport};
+use super::repo::{CreateExportRequest, ExportJob, ExportScope, NewExport};
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
 use crate::middleware::AuthUser;
@@ -25,31 +27,53 @@ pub fn generate_download_token() -> String {
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
 }
 
-pub fn router(state: Arc<AppState>) -> Router {
-    let protected = Router::new()
-        .route("/workspaces/{ws_id}/exports", post(create_workspace_export))
-        .route("/users/{user_id}/exports", post(create_user_export))
-        .route("/exports/{id}", get(get_export))
-        .route("/admin/users/{user_id}/data", delete(erase_user_data));
+pub fn router() -> OpenApiRouter<Arc<AppState>> {
+    OpenApiRouter::new()
+        .routes(routes!(create_workspace_export))
+        .routes(routes!(create_user_export))
+        .routes(routes!(get_export))
+        .routes(routes!(erase_user_data))
+}
 
-    // The download carries its own single-use credential, so it does not sit
-    // behind a session: the recipient of an export is often not the requester.
-    let public = Router::new().route("/exports/download/{token}", get(download));
+/// The download carries its own single-use credential, so it does not sit
+/// behind a session: the recipient of an export is often not the requester.
+pub fn download_router() -> Router<Arc<AppState>> {
+    Router::new().route("/exports/download/{token}", get(download))
+}
 
-    Router::new()
-        .merge(crate::protected(state.clone(), protected))
-        .merge(public.with_state(state))
+#[derive(Debug, serde::Serialize, utoipa::ToSchema)]
+pub struct ExportCreated {
+    pub export: ExportJob,
+}
+
+#[derive(Debug, serde::Serialize, utoipa::ToSchema)]
+pub struct ExportDetail {
+    pub export: ExportJob,
+    pub download_url: Option<String>,
+}
+
+#[derive(Debug, serde::Serialize, utoipa::ToSchema)]
+pub struct ErasedCounts {
+    pub messages: u64,
+}
+
+#[derive(Debug, serde::Serialize, utoipa::ToSchema)]
+pub struct Erased {
+    pub status: &'static str,
+    pub hard_delete: bool,
+    pub removed: ErasedCounts,
 }
 
 /// The most sensitive operation in the product: everything anyone said in a
 /// workspace, in one file. Owner only.
+#[utoipa::path(post, path = "/workspaces/{ws_id}/exports", tag = "exports", request_body = CreateExportRequest, responses((status = 200, body = ExportCreated)))]
 async fn create_workspace_export(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
     Path(ws_id): Path<Uuid>,
     Json(req): Json<CreateExportRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<ExportCreated>> {
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Owner).await?;
 
     let job = state
@@ -82,16 +106,17 @@ async fn create_workspace_export(
     )
     .await;
 
-    Ok(Json(serde_json::json!({ "export": job })))
+    Ok(Json(ExportCreated { export: job }))
 }
 
+#[utoipa::path(post, path = "/users/{user_id}/exports", tag = "exports", request_body = CreateExportRequest, responses((status = 200, body = ExportCreated)))]
 async fn create_user_export(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
     Path(user_id): Path<Uuid>,
     Json(req): Json<CreateExportRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<ExportCreated>> {
     // Your own data, or an instance admin acting on a subject access request.
     if user_id != auth.user_id && !auth.is_instance_admin {
         return Err(AppError::Forbidden(
@@ -121,14 +146,15 @@ async fn create_user_export(
     )
     .await;
 
-    Ok(Json(serde_json::json!({ "export": job })))
+    Ok(Json(ExportCreated { export: job }))
 }
 
+#[utoipa::path(get, path = "/exports/{id}", tag = "exports", responses((status = 200, body = ExportDetail)))]
 async fn get_export(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<ExportDetail>> {
     let job = state
         .export_repo
         .find(id)
@@ -144,9 +170,10 @@ async fn get_export(
         .as_ref()
         .map(|token| format!("{}/api/exports/download/{}", state.config.public_url, token));
 
-    Ok(Json(
-        serde_json::json!({ "export": job, "download_url": download_url }),
-    ))
+    Ok(Json(ExportDetail {
+        export: job,
+        download_url,
+    }))
 }
 
 async fn download(
@@ -175,8 +202,8 @@ async fn download(
         .map_err(|e| AppError::Internal(format!("Response build failed: {e}")))
 }
 
-#[derive(serde::Deserialize)]
-struct EraseRequest {
+#[derive(serde::Deserialize, utoipa::ToSchema)]
+pub struct EraseRequest {
     /// Anonymise by default. Hard-deleting one participant's messages makes
     /// every conversation they were in unreadable for everyone else, which is a
     /// destructive answer to a request that rarely asked for it.
@@ -184,37 +211,31 @@ struct EraseRequest {
     hard_delete: bool,
 }
 
+#[utoipa::path(delete, path = "/admin/users/{user_id}/data", tag = "admin", request_body = EraseRequest, responses((status = 200, body = Erased)))]
 async fn erase_user_data(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
     Path(user_id): Path<Uuid>,
     Json(req): Json<EraseRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<Erased>> {
     if !auth.is_instance_admin {
         return Err(AppError::Forbidden("Requires an instance admin".into()));
     }
 
     let removed = if req.hard_delete {
-        let messages = sqlx::query("DELETE FROM messages WHERE user_id = $1")
-            .bind(user_id)
+        let messages = sqlx::query!("DELETE FROM messages WHERE user_id = $1", user_id)
             .execute(&state.pool)
             .await?
             .rows_affected();
-        let conversation_messages =
-            sqlx::query("DELETE FROM conversation_messages WHERE user_id = $1")
-                .bind(user_id)
-                .execute(&state.pool)
-                .await?
-                .rows_affected();
-        serde_json::json!({ "messages": messages, "conversation_messages": conversation_messages })
+        ErasedCounts { messages }
     } else {
-        serde_json::json!({ "messages": 0, "conversation_messages": 0 })
+        ErasedCounts { messages: 0 }
     };
 
     // The account is tombstoned either way: the profile is what identifies a
     // person, and it goes even when their messages stay readable.
-    sqlx::query(
+    sqlx::query!(
         r"
         UPDATE users
            SET email = 'deleted-' || id || '@invalid',
@@ -226,8 +247,8 @@ async fn erase_user_data(
                updated_at = NOW()
          WHERE id = $1
         ",
+        user_id
     )
-    .bind(user_id)
     .execute(&state.pool)
     .await?;
 
@@ -244,11 +265,16 @@ async fn erase_user_data(
         AuditEntry::new(AuditAction::UserDataErased, auth.user_id)
             .resource(user_id)
             .ip(&ip)
-            .details(serde_json::json!({ "hard_delete": req.hard_delete, "removed": removed })),
+            .details(serde_json::json!({
+                "hard_delete": req.hard_delete,
+                "removed": { "messages": removed.messages },
+            })),
     )
     .await;
 
-    Ok(Json(
-        serde_json::json!({ "status": "erased", "hard_delete": req.hard_delete, "removed": removed }),
-    ))
+    Ok(Json(Erased {
+        status: "erased",
+        hard_delete: req.hard_delete,
+        removed,
+    }))
 }

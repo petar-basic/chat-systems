@@ -48,6 +48,30 @@ export async function userContext(email: string) {
   return { ctx, userId: session.userId };
 }
 
+/**
+ * The seeded workspace, by name rather than by position. `data[0]` is whichever
+ * workspace sorts first, so an import — or anything else that creates one —
+ * silently pointed the whole suite at the wrong place.
+ */
+export async function devWorkspace(request: APIRequestContext, email?: string) {
+  // Playwright's bare `request` fixture carries no session; a context from
+  // `userContext` does. Naming the user covers both.
+  const headers = email ? await authHeaders(request, email) : undefined;
+  const listed = await (await request.get(`${API}/workspaces`, { headers })).json();
+  const workspace = listed.data.find((w: { name: string }) => w.name === 'Dev Team');
+  expect(workspace, 'the seeded "Dev Team" workspace').toBeTruthy();
+  return workspace as { id: string; name: string; slug: string };
+}
+
+/** A channel of this test's own, so a spec never asserts on rows another spec is writing. */
+export async function createChannel(ctx: APIRequestContext, workspaceId: string, prefix: string) {
+  const res = await ctx.post(`${API}/workspaces/${workspaceId}/channels`, {
+    data: { name: `${prefix}-${Date.now()}`, channel_type: 'public' },
+  });
+  expect(res.status(), `create channel ${prefix}`).toBe(200);
+  return (await res.json()) as { id: string; name: string };
+}
+
 export async function login(page: Page, email: string) {
   await page.goto('/');
   await page.locator('#email').fill(email);
@@ -73,4 +97,17 @@ export async function send(page: Page, text: string) {
   await editor.click();
   await editor.fill(text);
   await editor.press('Enter');
+}
+
+export async function inviteEmailBody(request: APIRequestContext, email: string): Promise<string> {
+  const deadline = Date.now() + 20_000;
+  while (Date.now() < deadline) {
+    const mail = await request.get(`${MAILHOG}/api/v2/search?kind=to&query=${encodeURIComponent(email)}`);
+    const items = (await mail.json()).items;
+    if (items.length > 0) {
+      return items[0].Content.Body.replace(/=\r\n/g, '').replace(/=3D/g, '=');
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  throw new Error(`no email for ${email} arrived in MailHog within 20s`);
 }

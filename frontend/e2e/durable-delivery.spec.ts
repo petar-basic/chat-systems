@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { execSync } from 'node:child_process';
-import { API, login, userContext } from './helpers';
+import { API, login, userContext, devWorkspace } from './helpers';
 
 const REPO_ROOT = new URL('../..', import.meta.url).pathname;
 
@@ -15,7 +15,7 @@ test('a message sent while the socket is down still marks its channel unread', a
   const { ctx: admin } = await userContext('admin@dev.local');
   const { ctx: bobCtx, userId: bobId } = await userContext('bob@dev.local');
 
-  const workspace = (await (await admin.get(`${API}/workspaces`)).json()).data[0];
+  const workspace = await devWorkspace(admin);
   const stamp = Date.now();
 
   const watched = await admin.post(`${API}/workspaces/${workspace.id}/channels`, {

@@ -178,26 +178,28 @@ pub(crate) async fn link_or_create(
         return Err(AppError::Unauthorized("This account is suspended".into()));
     }
 
-    sqlx::query(
+    sqlx::query!(
         r"
         INSERT INTO oauth_accounts (user_id, provider, provider_id, email)
         VALUES ($1, 'oidc', $2, $3)
         ON CONFLICT (provider, provider_id) DO UPDATE SET email = EXCLUDED.email
         ",
+        user.id,
+        &identity.subject,
+        &identity.email
     )
-    .bind(user.id)
-    .bind(&identity.subject)
-    .bind(&identity.email)
     .execute(&state.pool)
     .await?;
 
     // A shadow password on every SSO account is a second way in that nobody is
     // watching. The break-glass local admin is the deliberate exception.
     if !user.is_instance_admin && user.password_hash.is_some() {
-        sqlx::query("UPDATE users SET password_hash = NULL, updated_at = NOW() WHERE id = $1")
-            .bind(user.id)
-            .execute(&state.pool)
-            .await?;
+        sqlx::query!(
+            "UPDATE users SET password_hash = NULL, updated_at = NOW() WHERE id = $1",
+            user.id
+        )
+        .execute(&state.pool)
+        .await?;
     }
 
     audit::record(
@@ -215,10 +217,10 @@ pub(crate) async fn link_or_create(
 }
 
 async fn find_linked_user(state: &AppState, subject: &str) -> AppResult<Option<uuid::Uuid>> {
-    Ok(sqlx::query_scalar(
+    Ok(sqlx::query_scalar!(
         "SELECT user_id FROM oauth_accounts WHERE provider = 'oidc' AND provider_id = $1",
+        subject
     )
-    .bind(subject)
     .fetch_optional(&state.pool)
     .await?)
 }

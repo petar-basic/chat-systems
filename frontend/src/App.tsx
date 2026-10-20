@@ -23,7 +23,7 @@ const InstanceAdminPage = lazy(() => import('./pages/InstanceAdminPage'));
 
 function SplashScreen() {
   return (
-    <div className="h-screen flex flex-col items-center justify-center bg-slate-900">
+    <div className="h-screen flex flex-col items-center justify-center bg-app">
       <div className="w-12 h-12 rounded-2xl bg-purple-600 flex items-center justify-center text-2xl font-bold text-white mb-4">
         C
       </div>

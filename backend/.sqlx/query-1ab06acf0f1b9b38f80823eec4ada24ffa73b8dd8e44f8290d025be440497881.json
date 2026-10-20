@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT EXISTS(\n              SELECT 1 FROM users\n              WHERE avatar_url IS NOT NULL\n                AND position($1 in avatar_url) > 0\n            ) AS \"exists!\"\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "exists!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "1ab06acf0f1b9b38f80823eec4ada24ffa73b8dd8e44f8290d025be440497881"
+}

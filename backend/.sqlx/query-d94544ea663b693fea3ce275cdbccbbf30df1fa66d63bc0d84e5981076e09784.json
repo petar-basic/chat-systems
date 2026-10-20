@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE hook_executions\n               SET event_type = $3, payload = $4, response_status = $5, response_body = $6\n             WHERE hook_id = $1 AND event_id = $2\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Varchar",
+        "Jsonb",
+        "Int4",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d94544ea663b693fea3ce275cdbccbbf30df1fa66d63bc0d84e5981076e09784"
+}

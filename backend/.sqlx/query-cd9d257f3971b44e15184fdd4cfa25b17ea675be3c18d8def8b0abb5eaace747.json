@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT DISTINCT m.user_id\n              FROM user_group_members m\n              JOIN user_groups g ON g.id = m.group_id\n             WHERE g.workspace_id = $1\n               AND g.id = ANY($2)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "user_group_members",
+            "name": "user_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "cd9d257f3971b44e15184fdd4cfa25b17ea675be3c18d8def8b0abb5eaace747"
+}
