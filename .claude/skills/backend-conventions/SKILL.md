@@ -30,7 +30,7 @@ Keep strict separation between HTTP handling, business logic, and data access.
 3. Add optional files only when required: `service.rs` (multi-step business logic), `publisher.rs` (Redis event publishing), `consumer.rs` (Redis event consumption), `executor.rs` (background task execution), `storage.rs` (object storage via the `object_store` crate).
 4. Implement in this order: models → repo → service (if needed) → routes.
 5. Add the repo/service to `AppState` in `backend/api/src/state.rs`.
-6. Register the router in `backend/api/src/main.rs` by merging `<feature>::routes::router(state.clone())`.
+6. Build the router as an `OpenApiRouter` with `#[utoipa::path]` on every handler and register it in `backend/api/src/openapi.rs` (`typed_routes`, or `public_routes` for the few reachable without a session); then regenerate `frontend/src/api/openapi.json` with `cargo run --bin chat-openapi` and `npm run api:types`.
 7. Add migrations to `backend/migrations/` with sqlx migrate.
 8. Spawn background tasks in `main.rs` via `tokio::spawn(...)` if needed.
 
@@ -102,8 +102,8 @@ Use this checklist:
 
 ### Consumer / Executor (`consumer.rs`, `executor.rs`) — background tasks
 
-- Run as `tokio::spawn`-ed tasks in `main.rs`.
-- Subscribe to Redis channels and react to events.
+- Run as supervised tasks in `chat-worker` (`bin/chat-worker.rs`), never in the api.
+- Read the workspace streams through a `StreamGroup` consumer group; delivery is at-least-once, so every side effect is idempotent (a unique index or a claim row, not a check-then-insert).
 - Call repo methods to persist side effects.
 
 ## Coding Conventions
@@ -251,21 +251,33 @@ pub async fn soft_delete(&self, id: Uuid) -> sqlx::Result<()> {
 ## Route Registration Pattern
 
 ```rust
-// routes.rs — every feature exports a router function
-pub fn router(state: Arc<AppState>) -> Router {
-    let routes = Router::new()
-        .route("/resource", get(list).post(create))
-        .route("/resource/:id", get(get_one).patch(update).delete(remove))
-        .layer(middleware::from_fn(auth_middleware));
-    Router::new().merge(routes).with_state(state)
+// routes.rs — every feature exports an OpenApiRouter; the path attribute is the contract
+pub fn router() -> OpenApiRouter<Arc<AppState>> {
+    OpenApiRouter::new()
+        .routes(routes!(list_resources, create_resource))
+        .routes(routes!(get_resource, update_resource, delete_resource))
 }
 
-// main.rs — merge all feature routers
-let api = Router::new()
-    .merge(feature_a::routes::router(state.clone()))
-    .merge(feature_b::routes::router(state.clone()));
-let app = Router::new().nest("/api", api);
+#[utoipa::path(get, path = "/workspaces/{ws_id}/resources", tag = "resources",
+    responses((status = 200, body = DataList<Resource>)))]
+async fn list_resources(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(ws_id): Path<Uuid>,
+) -> AppResult<Json<DataList<Resource>>> { /* … */ }
+
+// openapi.rs — the one list every feature router is mounted from
+pub fn typed_routes() -> OpenApiRouter<Arc<AppState>> {
+    OpenApiRouter::new()
+        .merge(messaging::routes::router())
+        .merge(resources::routes::router())
+}
 ```
+
+Two handlers in different features must not share a function name unless one sets
+`operation_id`: the id is what the generated TypeScript keys on, and the
+`operation_ids_are_unique` test refuses a collision. Shared response shapes live in
+`crate::dto` (`DataList<T>`, `DataItem<T>`, `StatusResponse`); never `serde_json::json!`.
 
 ## Quick Anti-Patterns
 

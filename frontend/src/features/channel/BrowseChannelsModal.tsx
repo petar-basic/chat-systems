@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { toUserMessage } from '@/lib/errors';
 import { Hash, Search } from 'lucide-react';
 import { Modal } from '@/shared/components/Modal/Modal';
 import {
@@ -106,7 +107,7 @@ export default function BrowseChannelsModal({
       onOpenChannel(channelId);
       onClose();
     } catch (err: unknown) {
-      setError((err as { message?: string })?.message || 'Failed to join the channel');
+      setError(toUserMessage(err, 'Failed to join the channel'));
     }
   };
 
@@ -116,7 +117,7 @@ export default function BrowseChannelsModal({
     try {
       await leave.mutateAsync(channelId);
     } catch (err: unknown) {
-      setError((err as { message?: string })?.message || 'Failed to leave the channel');
+      setError(toUserMessage(err, 'Failed to leave the channel'));
     }
   };
 

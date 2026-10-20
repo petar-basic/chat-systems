@@ -11,6 +11,8 @@ import {
   MoreHorizontal,
 } from 'lucide-react';
 import { AnchoredPopover } from '@/shared/components/Popover/AnchoredPopover';
+import { HoverCard } from '@/shared/components/Popover/HoverCard';
+import { UserHoverCard } from '@/components/UserHoverCard';
 import { useLongPress } from '@/shared/hooks/useLongPress';
 import MessageActionSheet, { type SheetAction } from './MessageActionSheet';
 import type { Message, WorkspaceMember, Channel } from '@/stores/workspace';
@@ -27,12 +29,9 @@ const QUICK_REACTIONS = ['👍', '✅', '🎉'];
 import MessageInput from './MessageInput';
 import EditHistoryPanel from './EditHistoryPanel';
 import { useCurrentWorkspaceRole } from '@/features/workspace/hooks/useCurrentWorkspaceRole';
-
-interface ReactionGroup {
-  emoji: string;
-  count: number;
-  hasOwn: boolean;
-}
+import { useUserCache } from '@/stores/users';
+import { displayNameOf } from '@/lib/userHelpers';
+import { joinReactors, reactorNames, type ReactionGroup } from './reactionSummary';
 
 interface MessageItemProps {
   message: Message;
@@ -63,9 +62,15 @@ function groupReactions(message: Message, currentUserId: string): ReactionGroup[
     const existing = groups.find((g) => g.emoji === r.emoji);
     if (existing) {
       existing.count++;
+      existing.userIds.push(r.user_id);
       if (r.user_id === currentUserId) existing.hasOwn = true;
     } else {
-      groups.push({ emoji: r.emoji, count: 1, hasOwn: r.user_id === currentUserId });
+      groups.push({
+        emoji: r.emoji,
+        count: 1,
+        hasOwn: r.user_id === currentUserId,
+        userIds: [r.user_id],
+      });
     }
   }
   return groups;
@@ -235,12 +240,27 @@ function MessageItem({
           </span>
         </div>
       ) : (
-        <Avatar userId={message.user_id} name={senderName} avatarUrl={senderAvatarUrl} className="mt-0.5" />
+        <UserHoverCard
+          userId={message.user_id}
+          name={senderName}
+          avatarUrl={senderAvatarUrl}
+          triggerClassName="inline-flex shrink-0 cursor-pointer"
+        >
+          <Avatar userId={message.user_id} name={senderName} avatarUrl={senderAvatarUrl} className="mt-0.5" />
+        </UserHoverCard>
       )}
       <div className="flex-1 min-w-0">
         {!grouped && (
           <div className="flex items-baseline gap-2">
-            <span className="text-sm font-semibold text-fg-soft">{senderName}</span>
+            <UserHoverCard userId={message.user_id} name={senderName} avatarUrl={senderAvatarUrl}>
+              <button
+                type="button"
+                data-qa="message-sender"
+                className="text-sm font-semibold text-fg-soft hover:underline cursor-pointer"
+              >
+                {senderName}
+              </button>
+            </UserHoverCard>
             {senderStatusEmoji && (
               <span data-qa="message-status-emoji" title={senderStatusText ?? undefined}>
                 {senderStatusEmoji}
@@ -323,20 +343,12 @@ function MessageItem({
         {reactionGroups.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-1">
             {reactionGroups.map((g) => (
-              <button
+              <ReactionPill
                 key={g.emoji}
-                onClick={() => handleReactionToggle(g.emoji)}
-                aria-pressed={g.hasOwn}
-                data-qa="message-reaction"
-                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs border transition ${
-                  g.hasOwn
-                    ? 'bg-purple-600/20 border-purple-500/40 text-accent-soft'
-                    : 'bg-raised/50 border-line-strong/50 text-fg-dim hover:bg-raised'
-                }`}
-              >
-                <ReactionEmoji emoji={g.emoji} />
-                <span>{g.count}</span>
-              </button>
+                group={g}
+                currentUserId={currentUserId}
+                onToggle={handleReactionToggle}
+              />
             ))}
           </div>
         )}
@@ -520,6 +532,55 @@ function MessageItem({
         />
       )}
     </div>
+  );
+}
+
+function ReactionPill({
+  group,
+  currentUserId,
+  onToggle,
+}: {
+  group: ReactionGroup;
+  currentUserId: string;
+  onToggle: (emoji: string) => void;
+}) {
+  const getUser = useUserCache((s) => s.getUser);
+  const names = reactorNames(group.userIds, currentUserId, (id) => {
+    const user = getUser(id);
+    return user ? displayNameOf(user.display_name) : undefined;
+  });
+
+  return (
+    <HoverCard
+      placement="top"
+      dataQa="reaction-tooltip"
+      triggerClassName="inline-flex"
+      panelClassName="max-w-56 px-2.5 py-1.5 rounded-lg bg-elevated border border-line-strong shadow-xl text-xs text-fg-dim text-center"
+      content={
+        <>
+          <span className="block text-lg leading-none mb-1">
+            <ReactionEmoji emoji={group.emoji} />
+          </span>
+          <span className="text-fg-soft font-medium">{joinReactors(names)}</span>
+          <span> reacted</span>
+        </>
+      }
+    >
+      <button
+        onClick={() => onToggle(group.emoji)}
+        aria-pressed={group.hasOwn}
+        aria-label={`${joinReactors(names)} reacted`}
+        data-qa="message-reaction"
+        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs border transition ${
+          group.hasOwn
+            ? 'bg-purple-600/20 border-purple-500/40 text-accent-soft'
+            : 'bg-raised/50 border-line-strong/50 text-fg-dim hover:bg-raised'
+        }`}
+      >
+        <ReactionEmoji emoji={group.emoji} />
+        <span>{group.count}</span>
+      </button>
+    </HoverCard>
   );
 }
 

@@ -9,7 +9,8 @@ history and in the docs it changed. A bug found mid-wave gets a suffixed number
 (`CS-005a`) so it lands where it belongs in the order without renumbering everything
 below it.
 
-**Waves 0 through 8 are done, Wave 9 bar the SFU, and all of Wave 11.** The E2E suite is
+**Every wave through 12 is done, bar the SFU in Wave 9.** Wave 12 was the un-ticketed
+architecture review of 2026-09 (written up in [history.md](../history.md)). The E2E suite is
 green — desktop and a phone viewport — and the `e2e` job blocks merges. Next ticket:
 [CS-047](CS-047-prove-it-at-import-scale.md), which measures what the last wave changed.
 

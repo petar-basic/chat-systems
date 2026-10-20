@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toUserMessage } from '@/lib/errors';
 import { formatDateTime } from '@/lib/datetime';
 import { useMyStatus, useSetStatus } from '@/hooks/queries/useStatus';
 
@@ -47,7 +48,7 @@ export default function StatusEditor({ instanceUrl, workspaceId }: Props) {
         expiresAt: next.minutes ? new Date(Date.now() + next.minutes * 60_000) : null,
       });
     } catch (err) {
-      setError((err as { message?: string })?.message || 'Failed to set that status');
+      setError(toUserMessage(err, 'Failed to set that status'));
     }
   };
 

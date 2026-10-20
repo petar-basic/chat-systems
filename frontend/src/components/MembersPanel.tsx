@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
-import { api } from '../lib/api';
+import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
+import { toUserMessage } from '@/lib/errors';
 import type { WorkspaceMember, WorkspaceRole } from '../stores/workspace';
 import { useWorkspaceStore } from '../stores/workspace';
 import { useCurrentWorkspaceRole } from '@/features/workspace/hooks/useCurrentWorkspaceRole';
@@ -9,7 +10,6 @@ import PresenceDot from './PresenceDot';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { useWorkspaceMembers } from '../hooks/queries/useWorkspaces';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { instanceManager } from '../lib/instances';
 import { QUERY_KEYS } from '@/shared/constants';
 
 interface Props {
@@ -151,7 +151,7 @@ export default function MembersPanel({ workspaceId, onClose }: Props) {
   const { data: members = [], isLoading: loading } = useWorkspaceMembers(workspaceId, instanceUrl);
   const [manageError, setManageError] = useState<string | null>(null);
 
-  const apiClient = instanceUrl ? instanceManager.get(instanceUrl).api : api;
+  const apiClient = getApiForInstance(instanceUrl);
   const refreshMembers = () =>
     queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceMembers(workspaceId) });
 
@@ -167,8 +167,7 @@ export default function MembersPanel({ workspaceId, onClose }: Props) {
       setManageError(null);
       refreshMembers();
     },
-    onError: (err: unknown) =>
-      setManageError((err as { message?: string })?.message || 'Failed to change role'),
+    onError: (err: unknown) => setManageError(toUserMessage(err, 'Failed to change role')),
   });
 
   const removeMember = useMutation({
@@ -182,8 +181,7 @@ export default function MembersPanel({ workspaceId, onClose }: Props) {
       setManageError(null);
       refreshMembers();
     },
-    onError: (err: unknown) =>
-      setManageError((err as { message?: string })?.message || 'Failed to remove member'),
+    onError: (err: unknown) => setManageError(toUserMessage(err, 'Failed to remove member')),
   });
 
   const [showInvite, setShowInvite] = useState(false);
@@ -211,7 +209,7 @@ export default function MembersPanel({ workspaceId, onClose }: Props) {
       setInviteEmail('');
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceMembers(workspaceId) });
     } catch (err: unknown) {
-      const msg = (err as { message?: string })?.message || 'Failed to invite user';
+      const msg = toUserMessage(err, 'Failed to invite user');
       setInviteError(msg);
     } finally {
       setInviting(false);
@@ -241,6 +239,7 @@ export default function MembersPanel({ workspaceId, onClose }: Props) {
             <div className="flex items-center gap-2">
               <Mail className="w-4 h-4 text-muted shrink-0" />
               <input
+                aria-label="Email address to invite"
                 type="email"
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
@@ -251,6 +250,7 @@ export default function MembersPanel({ workspaceId, onClose }: Props) {
               />
             </div>
             <select
+              aria-label="Invite role"
               value={inviteRole}
               onChange={(e) => {
                 const role = ASSIGNABLE_ROLES.find((r) => r === e.target.value);

@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useUserCache } from '@/stores/users';
 import { useCustomEmojiStore } from '@/stores/customEmoji';
@@ -36,7 +37,17 @@ export function useWorkspaceData(workspaceId: string | undefined, currentUserId:
     hydrateUnreadChannels,
     hydrateUnreadCounts,
     hydrateMutedChannels,
-  } = useWorkspaceStore();
+  } = useWorkspaceStore(
+    useShallow((s) => ({
+      currentWorkspace: s.currentWorkspace,
+      currentConversationId: s.currentConversationId,
+      setCurrentUserId: s.setCurrentUserId,
+      hydrateUnreadConversations: s.hydrateUnreadConversations,
+      hydrateUnreadChannels: s.hydrateUnreadChannels,
+      hydrateUnreadCounts: s.hydrateUnreadCounts,
+      hydrateMutedChannels: s.hydrateMutedChannels,
+    })),
+  );
   const storeWorkspaceId = currentWorkspace?.id;
 
   const { data: workspaces = [] } = useWorkspaces();

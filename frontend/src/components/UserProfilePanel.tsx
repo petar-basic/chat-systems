@@ -1,9 +1,9 @@
 import { useState, useRef, type FormEvent } from 'react';
+import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCurrentUser } from '../hooks/queries/useAuth';
 import { useInstanceStore } from '../stores/instances';
 import { useWorkspaceStore } from '../stores/workspace';
-import { instanceManager } from '../lib/instances';
 import { api } from '../lib/api';
 import { X, Save, Camera, User } from 'lucide-react';
 import { Modal } from '@/shared/components/Modal/Modal';
@@ -22,7 +22,7 @@ interface Props {
 
 function useActiveApi() {
   const activeInstanceUrl = useInstanceStore((s) => s.activeInstanceUrl);
-  return activeInstanceUrl ? instanceManager.get(activeInstanceUrl).api : api;
+  return getApiForInstance(activeInstanceUrl);
 }
 
 export default function UserProfilePanel({ onClose }: Props) {
@@ -163,6 +163,7 @@ export default function UserProfilePanel({ onClose }: Props) {
               )}
             </button>
             <input
+              aria-label="Avatar image"
               ref={fileInputRef}
               type="file"
               accept="image/*"

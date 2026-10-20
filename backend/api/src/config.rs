@@ -49,6 +49,10 @@ pub struct AppConfig {
     pub login_attempts_per_email: u64,
     pub login_attempts_per_ip: u64,
     pub login_attempts_window_secs: u64,
+    /// Scales every per-user write budget. Production keeps 1; a test stack that
+    /// drives the whole suite as one account raises it rather than loosening
+    /// the real limits.
+    pub write_rate_limit_multiplier: u64,
 
     pub trusted_proxies: Vec<IpNet>,
 
@@ -143,6 +147,7 @@ impl AppConfig {
             login_attempts_per_email: parse_env("LOGIN_ATTEMPTS_PER_EMAIL", 10),
             login_attempts_per_ip: parse_env("LOGIN_ATTEMPTS_PER_IP", 30),
             login_attempts_window_secs: parse_env("LOGIN_ATTEMPTS_WINDOW_SECS", 900),
+            write_rate_limit_multiplier: parse_env("WRITE_RATE_LIMIT_MULTIPLIER", 1u64).max(1),
             // The docker bridge ranges plus loopback: where our own nginx and a
             // host-run dev proxy actually sit.
             trusted_proxies: crate::net::parse_trusted_proxies(&env_or(
@@ -306,6 +311,7 @@ impl AppConfig {
             login_attempts_per_email: 10,
             login_attempts_per_ip: 30,
             login_attempts_window_secs: 900,
+            write_rate_limit_multiplier: 1,
         }
     }
 }

@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { toUserMessage } from '@/lib/errors';
 import { X, Upload, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
 import {
   useSlackImports,
@@ -124,7 +125,7 @@ export default function SlackImportPanel({ workspaceId, instanceUrl, onClose }: 
       setArchive(null);
       if (fileRef.current) fileRef.current.value = '';
     } catch (e) {
-      setError((e as { message?: string })?.message || 'Failed to start that import');
+      setError(toUserMessage(e, 'Failed to start that import'));
     }
   };
 

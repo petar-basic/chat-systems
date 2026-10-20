@@ -203,12 +203,7 @@ async fn require_attachable_channel(
     channel_id: Uuid,
     user_id: Uuid,
 ) -> AppResult<()> {
-    let channel = state
-        .workspace_service
-        .repo
-        .find_channel_by_id(channel_id)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Channel not found".into()))?;
+    let channel = authz::find_channel(state, channel_id).await?;
     if channel.workspace_id != ws_id {
         return Err(AppError::Validation(
             "channel does not belong to this workspace".into(),

@@ -42,6 +42,8 @@ export const QUERY_KEYS = {
   hookedChannels: (workspaceId: string) => ['hooks', workspaceId, 'channels'] as const,
 
   auditLog: (workspaceId: string) => ['audit-log', workspaceId] as const,
+  adminUsers: (instanceUrl: string) => ['admin', 'users', instanceUrl] as const,
+  adminAuditLog: (instanceUrl: string) => ['admin', 'audit-log', instanceUrl] as const,
 
   editHistory: (messageId: string) => ['edit-history', messageId] as const,
 

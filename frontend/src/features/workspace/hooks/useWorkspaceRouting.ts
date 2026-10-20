@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { useWorkspaceStore, type Message, type Workspace, type Channel } from '@/stores/workspace';
 import type { useRightPanel } from './useRightPanel';
@@ -40,7 +41,18 @@ export function useWorkspaceRouting({
     selectConversation,
     markChannelRead,
     markConversationRead,
-  } = useWorkspaceStore();
+  } = useWorkspaceStore(
+    useShallow((s) => ({
+      currentWorkspace: s.currentWorkspace,
+      currentChannel: s.currentChannel,
+      currentConversationId: s.currentConversationId,
+      selectWorkspace: s.selectWorkspace,
+      selectChannel: s.selectChannel,
+      selectConversation: s.selectConversation,
+      markChannelRead: s.markChannelRead,
+      markConversationRead: s.markConversationRead,
+    })),
+  );
 
   // The url is what `channels` was fetched for; the store catches up a render
   // later. Navigating by the store id sends a fresh tab to the workspace it was

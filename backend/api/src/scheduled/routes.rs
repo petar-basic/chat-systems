@@ -11,6 +11,7 @@ use shared_common::errors::{AppError, AppResult};
 
 use super::models::*;
 use super::repo::NewScheduledMessage;
+use crate::authz;
 use crate::dto::{DataList, StatusResponse};
 use crate::middleware::AuthUser;
 use crate::state::AppState;
@@ -27,12 +28,7 @@ async fn require_target_access(
     workspace_id: Uuid,
     channel_id: Uuid,
 ) -> AppResult<()> {
-    let channel = state
-        .workspace_service
-        .repo
-        .find_channel_by_id(channel_id)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Channel not found".into()))?;
+    let channel = authz::find_channel(state, channel_id).await?;
     if channel.workspace_id != workspace_id {
         return Err(AppError::Validation(
             "Channel does not belong to this workspace".into(),

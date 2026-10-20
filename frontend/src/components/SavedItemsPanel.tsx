@@ -2,7 +2,7 @@ import { X, Bookmark, Hash, MessageSquare, Trash2 } from 'lucide-react';
 import type { Channel } from '@/stores/workspace';
 import type { Conversation } from '@/hooks/queries/useConversations';
 import { useSavedItems, useUnsaveMessage, type SavedItem } from '@/hooks/queries/useSaved';
-import { conversationTitle } from '@/lib/conversationHelpers';
+import { targetLabel } from '@/lib/targetLabel';
 import { displayNameOf } from '@/lib/userHelpers';
 import { useUserCache } from '@/stores/users';
 import { useWorkspaceStore } from '@/stores/workspace';
@@ -34,14 +34,14 @@ export default function SavedItemsPanel({
 
   const conversationOf = (item: SavedItem) => conversations.find((c) => c.id === item.channel_id);
 
-  const targetOf = (item: SavedItem) => {
-    const channel = channels.find((c) => c.id === item.channel_id);
-    if (channel) return `#${channel.name}`;
-    const conversation = conversationOf(item);
-    return conversation
-      ? conversationTitle(conversation, currentUserId ?? undefined, (id) => getUser(id)?.display_name)
-      : 'a channel you left';
-  };
+  const targetOf = (item: SavedItem) =>
+    targetLabel(
+      item.channel_id,
+      channels,
+      conversations,
+      currentUserId ?? undefined,
+      (id) => getUser(id)?.display_name,
+    );
 
   const open = (item: SavedItem) => {
     if (conversationOf(item)) onOpenConversation(item.channel_id);

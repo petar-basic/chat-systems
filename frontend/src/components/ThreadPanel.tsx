@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { X, MessageSquare } from 'lucide-react';
 import { useUserCache } from '@/stores/users';
 import { useWorkspaceStore } from '@/stores/workspace';
@@ -8,10 +8,7 @@ import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { useThreadMessages, useSendThreadReply, useThreadReplyActions } from '@/hooks/queries/useThreads';
 import RichTextDisplay from './RichTextDisplay';
 import { MessageInput, MessageItem } from '@/features/messaging';
-import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
-import { logger } from '@/lib/logger';
-import { toast } from '@/shared/components/Toast';
-import { ErrorLabels } from '@/shared/constants';
+import { useAttachmentUpload } from '@/features/messaging/useAttachmentUpload';
 
 interface Props {
   parentMessage: Message;
@@ -22,10 +19,9 @@ interface Props {
 
 export default function ThreadPanel({ parentMessage, members, channels, onClose }: Props) {
   const { data: replies = [], isLoading: loading } = useThreadMessages(parentMessage.id);
-  const sendReply = useSendThreadReply(parentMessage.id, parentMessage.channel_id);
   const currentUserId = useWorkspaceStore((s) => s.currentUserId) ?? '';
+  const sendReply = useSendThreadReply(parentMessage.id, parentMessage.channel_id, currentUserId);
   const currentWorkspace = useWorkspaceStore((s) => s.currentWorkspace);
-  const [uploading, setUploading] = useState(false);
   const { toggleReaction, edit, remove, togglePin } = useThreadReplyActions(parentMessage.id, currentUserId);
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -34,28 +30,14 @@ export default function ThreadPanel({ parentMessage, members, channels, onClose 
   }, [replies]);
 
   const handleSend = async (content: string) => {
-    await sendReply.mutateAsync(content);
+    sendReply.mutate({ content, id: crypto.randomUUID() });
   };
 
-  const handleFileUpload = async (file: File) => {
-    if (!currentWorkspace) return;
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const uploaded = await getApiForInstance(currentWorkspace.instanceUrl).upload<
-        { filename: string; url: string }[]
-      >(`/files/upload/${currentWorkspace.id}`, formData);
-      for (const f of uploaded) {
-        await sendReply.mutateAsync(`[file: ${f.filename}](${f.url})`);
-      }
-    } catch (err) {
-      logger.error('ThreadPanel', 'handleFileUpload', err);
-      toast.error(ErrorLabels.UploadFailed);
-    } finally {
-      setUploading(false);
-    }
-  };
+  const { uploading, handleFileUpload } = useAttachmentUpload({
+    workspaceId: currentWorkspace?.id,
+    instanceUrl: currentWorkspace?.instanceUrl,
+    send: (content) => sendReply.mutate({ content, id: crypto.randomUUID() }),
+  });
 
   const { getUser } = useUserCache();
   const parentSender = getUser(parentMessage.user_id);

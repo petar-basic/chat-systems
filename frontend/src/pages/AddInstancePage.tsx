@@ -1,9 +1,9 @@
 import { useState, useEffect, type FormEvent } from 'react';
+import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { KeyRound, ServerCrash, LogIn } from 'lucide-react';
 import { useInstanceStore } from '../stores/instances';
-import { instanceManager } from '../lib/instances';
 import { isTotpRequired } from '@/lib/errors';
 import { PENDING_INVITE_KEY } from '@/shared/constants';
 
@@ -30,7 +30,7 @@ export default function AddInstancePage() {
 
   const { data: instance } = useQuery({
     queryKey: ['instance-info'],
-    queryFn: () => instanceManager.get(window.location.origin).api.typed((c) => c.GET('/instance/info')),
+    queryFn: () => getApiForInstance(window.location.origin).typed((c) => c.GET('/instance/info')),
     staleTime: Infinity,
   });
 

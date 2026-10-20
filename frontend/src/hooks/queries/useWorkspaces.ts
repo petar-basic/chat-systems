@@ -19,7 +19,7 @@ export const useWorkspaces = () => {
     queryFn: async (): Promise<Workspace[]> => {
       const results = await Promise.allSettled(
         instances.map(async (inst) => {
-          const res = await instanceManager.get(inst.url).api.typed((c) => c.GET('/workspaces'));
+          const res = await getApiForInstance(inst.url).typed((c) => c.GET('/workspaces'));
           return res.data.map((ws) => ({ ...ws, instanceUrl: inst.url }));
         }),
       );
@@ -49,7 +49,7 @@ export const useWorkspace = (workspaceId: string | null) => {
         ),
       );
       const instanceUrl = cached?.find((w) => w.id === workspaceId)?.instanceUrl;
-      const apiClient = instanceUrl ? instanceManager.get(instanceUrl).api : undefined;
+      const apiClient = instanceUrl ? getApiForInstance(instanceUrl) : undefined;
       if (!apiClient) throw new Error('Instance not found for workspace');
       const response = await apiClient.typed((c) =>
         c.GET('/workspaces/{ws_id}', { params: { path: { ws_id: workspaceId } } }),
@@ -103,7 +103,7 @@ export const useDeletedWorkspaces = () => {
     queryFn: async (): Promise<Workspace[]> => {
       const results = await Promise.allSettled(
         instances.map(async (inst) => {
-          const res = await instanceManager.get(inst.url).api.typed((c) => c.GET('/workspaces/deleted'));
+          const res = await getApiForInstance(inst.url).typed((c) => c.GET('/workspaces/deleted'));
           return res.data.map((ws) => ({ ...ws, instanceUrl: inst.url }));
         }),
       );

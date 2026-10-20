@@ -608,12 +608,7 @@ async fn get_channel(
     auth: AuthUser,
     Path(ch_id): Path<Uuid>,
 ) -> AppResult<Json<Channel>> {
-    let channel = state
-        .workspace_service
-        .repo
-        .find_channel_by_id(ch_id)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Channel not found".into()))?;
+    let channel = authz::find_channel(&state, ch_id).await?;
     authz::require_workspace_member(&state, channel.workspace_id, auth.user_id).await?;
     Ok(Json(channel))
 }
@@ -758,12 +753,7 @@ async fn list_channel_members(
     auth: AuthUser,
     Path(ch_id): Path<Uuid>,
 ) -> AppResult<Json<DataList<ChannelMember>>> {
-    let channel = state
-        .workspace_service
-        .repo
-        .find_channel_by_id(ch_id)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Channel not found".into()))?;
+    let channel = authz::find_channel(&state, ch_id).await?;
     authz::require_workspace_member(&state, channel.workspace_id, auth.user_id).await?;
     let members = state
         .workspace_service

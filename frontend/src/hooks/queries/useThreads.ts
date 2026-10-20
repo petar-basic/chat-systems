@@ -1,7 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Message } from '@/stores/workspace';
 import { useCurrentApi } from '@/shared/hooks/useCurrentApi';
-import { QUERY_KEYS } from '@/shared/constants';
+import { logger } from '@/lib/logger';
+import { toast } from '@/shared/components/Toast';
+import { QUERY_KEYS, ErrorLabels } from '@/shared/constants';
 import { patchMessageById, claimReplyCount } from '@/lib/messageCache';
 import type { MessagesInfiniteData } from './useMessages';
 
@@ -19,23 +21,49 @@ export const useThreadMessages = (parentMessageId: string) => {
   });
 };
 
-export const useSendThreadReply = (parentMessageId: string, channelId: string) => {
+export const useSendThreadReply = (parentMessageId: string, channelId: string, userId: string) => {
   const queryClient = useQueryClient();
   const apiClient = useCurrentApi();
+  const key = QUERY_KEYS.thread(parentMessageId);
 
   return useMutation({
-    mutationFn: async (content: string) => {
-      return apiClient.typed((c) =>
-        c.POST('/messages/{msg_id}/thread', {
-          params: { path: { msg_id: parentMessageId } },
-          body: { content },
+    mutationFn: async ({ content, id }: { content: string; id: string }) =>
+      apiClient.typed((c) =>
+        c.POST('/channels/{ch_id}/messages', {
+          params: { path: { ch_id: channelId } },
+          body: { content, client_message_id: id, thread_parent_id: parentMessageId },
         }),
-      );
+      ),
+    onMutate: async ({ content, id }) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const optimistic: Message = {
+        id,
+        channel_id: channelId,
+        user_id: userId,
+        client_message_id: id,
+        content,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        deleted_at: null,
+        thread_parent_id: parentMessageId,
+        reply_count: 0,
+        is_pinned: false,
+        pending: true,
+      };
+      queryClient.setQueryData<Message[]>(key, (old = []) => [...old, optimistic]);
     },
-    onSuccess: (newMessage) => {
-      queryClient.setQueryData<Message[]>(QUERY_KEYS.thread(parentMessageId), (old = []) =>
-        old.some((m) => m.id === newMessage.id) ? old : [...old, newMessage],
+    onError: (err, { id }) => {
+      logger.error('useSendThreadReply', 'mutationFn', err);
+      queryClient.setQueryData<Message[]>(key, (old = []) =>
+        old.map((m) => (m.id === id ? { ...m, pending: false, failed: true } : m)),
       );
+      toast.error(ErrorLabels.SendFailed);
+    },
+    onSuccess: (newMessage, { id }) => {
+      queryClient.setQueryData<Message[]>(key, (old = []) => {
+        const without = old.filter((m) => m.id !== id && m.id !== newMessage.id);
+        return [...without, { ...newMessage, pending: false, failed: false }];
+      });
       if (!claimReplyCount(newMessage.id)) return;
       queryClient.setQueryData<MessagesInfiniteData>(QUERY_KEYS.messages(channelId), (old) =>
         patchMessageById(old, parentMessageId, (m) => ({ ...m, reply_count: (m.reply_count || 0) + 1 })),

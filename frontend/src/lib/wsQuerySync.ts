@@ -138,7 +138,9 @@ export const useWebSocketQuerySync = () => {
           const threadKey = QUERY_KEYS.thread(parentId);
           if (queryClient.getQueryData<Message[]>(threadKey)) {
             queryClient.setQueryData<Message[]>(threadKey, (old = []) =>
-              old.some((m) => m.id === message.id) ? old : [...old, message],
+              old.some((m) => m.id === message.id)
+                ? old
+                : [...old.filter((m) => m.id !== message.client_message_id), message],
             );
           }
           if (claimReplyCount(message.id)) {

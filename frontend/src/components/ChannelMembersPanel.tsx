@@ -1,8 +1,8 @@
 import { useState } from 'react';
+import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { X, UserPlus, UserMinus, Hash, ShieldCheck, Shield } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { instanceManager } from '../lib/instances';
 import { useUserCache } from '../stores/users';
 import { useWorkspaceStore } from '../stores/workspace';
 import { useUpdateChannelMemberRole } from '../hooks/queries/useChannels';
@@ -123,9 +123,7 @@ export default function ChannelMembersPanel({ channelId, channelName, channelTyp
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const currentWorkspace = useWorkspaceStore((s) => s.currentWorkspace);
-  const apiClient = currentWorkspace?.instanceUrl
-    ? instanceManager.get(currentWorkspace.instanceUrl).api
-    : api;
+  const apiClient = currentWorkspace?.instanceUrl ? getApiForInstance(currentWorkspace.instanceUrl) : api;
 
   const canAdd = canAddChannelMembers(workspaceRole, myRole, channelType);
 

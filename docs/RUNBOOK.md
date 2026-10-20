@@ -423,6 +423,24 @@ Reconnecting clients never see a ring in their replay.
 **Migrations 39 and 40** add `pending_mention_emails`, `users.mention_emails` and
 `huddle_ring_claims`. All additive.
 
+## Upgrade note: the 2026-09 follow-ups fold direct messages into channels
+
+Migrations 43–45 ship together. **Take a backup first** (see below): 45 is not reversible.
+
+- **Migration 45 makes every conversation a channel** of type `dm` or `group_dm`, moves
+  its messages, reactions, edit history, attachments, saved and scheduled rows onto the
+  channel tables with their ids preserved, and drops the conversation tables. Old clients
+  break: the `/conversations/…/messages` routes and the `conversation.message.*` frames are
+  gone, so deploy api, worker, realtime and frontend in one go. Retention policies now cover
+  direct messages, which they previously did not reach.
+- **Migration 44 adds `event_outbox`** and migration 43 `outbound_emails`. Both are additive,
+  but email is now delivered by `chat-worker`, so the worker needs the same `SMTP_*`
+  settings as the api (the compose files carry them; a hand-written deployment must add
+  them). The relay and the outbox prune themselves.
+- **Every query is now a compile-time-checked macro.** A build from source needs either
+  `DATABASE_URL` pointing at a migrated database or the committed `.sqlx/` cache with
+  `SQLX_OFFLINE=true`; the Docker build uses the cache.
+
 ## Audit log
 
 `GET /api/workspaces/:ws_id/audit-log` (workspace admin) and `GET /api/admin/audit-log`
@@ -448,11 +466,23 @@ no credentials still starts, with a warning.
 ## Rate limits and upload size
 
 Writes are limited per user, per class of action: messages 120/min, reactions 240/min,
-invites 20/hour, workspaces 5/hour, channels 30/hour, everything else 120/min. Auth paths
+invites 20/hour, workspaces 5/hour, channels 30/hour, everything else 120/min. **The
+workspace budget only began to be enforced on 2026-09-04**: the classifier matched
+`/api/workspaces` while `nest("/api", …)` hands the middleware `/workspaces`, so creating
+workspaces had silently been on the 120/min default class. Nothing else was affected — every
+other class matches on a suffix — but an instance that leaned on the loose behaviour will
+now see a 429 on the sixth workspace in an hour. Auth paths
 (`/auth/login`, `/auth/forgot-password`) **fail closed** — if Redis is unreachable they
 return 503 rather than verifying a password, so a Redis outage cannot silently remove
 brute-force protection. Watch `rate_limit_backend_failures_total{policy="closed"}`: a
 non-zero rate means logins are failing for infrastructure reasons, not credentials.
+
+`WRITE_RATE_LIMIT_MULTIPLIER` scales all of the write budgets at once and is 1 everywhere
+except the CI stack (5), where three Playwright workers act as a single admin account and
+would otherwise trip the 120/min default class mid-suite — the symptom was a slash command
+or an import that silently did nothing, with a 429 in the trace. That the limiter works is
+proved in `http_tests/rate_limits.rs` against the smallest budget, so no test fights this
+setting.
 
 `MAX_UPLOAD_BYTES` (default 100 MiB) caps uploads and is enforced while streaming, so an
 oversized file never lands in memory. `client_max_body_size` in `docker/nginx.conf` must

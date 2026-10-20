@@ -3,7 +3,7 @@ import type { Channel, Message } from '@/stores/workspace';
 import type { Conversation } from '@/hooks/queries/useConversations';
 import { useSaveMessage } from '@/hooks/queries/useSaved';
 import type { ForwardSource } from '@/features/messaging/ForwardMessageModal';
-import { conversationTitle } from '@/lib/conversationHelpers';
+import { targetLabel } from '@/lib/targetLabel';
 import { toUserMessage } from '@/lib/errors';
 import { toast } from '@/shared/components/Toast';
 
@@ -46,16 +46,16 @@ export function useMessageActions({
 
   const handleForwardMessage = useCallback(
     (message: Message) => {
-      const channel = channels.find((c) => c.id === message.channel_id);
-      const conversation = conversations.find((c) => c.id === message.channel_id);
       setForwarding({
         content: message.content,
         authorName: authorNameOf(message.user_id),
-        origin: channel
-          ? `#${channel.name}`
-          : conversation
-            ? conversationTitle(conversation, userId, (id) => getUser(id)?.display_name)
-            : 'a channel',
+        origin: targetLabel(
+          message.channel_id,
+          channels,
+          conversations,
+          userId,
+          (id) => getUser(id)?.display_name,
+        ),
       });
     },
     [authorNameOf, channels, conversations, getUser, userId],

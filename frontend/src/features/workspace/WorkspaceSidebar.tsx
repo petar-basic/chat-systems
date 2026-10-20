@@ -209,6 +209,7 @@ export default function WorkspaceSidebar({
             </button>
 
             <input
+              aria-label="Workspace name"
               type="text"
               value={newWsName}
               onChange={(e) => setNewWsName(e.target.value)}

@@ -92,6 +92,7 @@ export default function UserGroupsPanel({ workspaceId, instanceUrl, members, isA
         <form onSubmit={handleCreate} className="px-3 py-3 border-b border-line/30 space-y-2">
           <div className="flex gap-2">
             <input
+              aria-label="Group handle"
               type="text"
               value={handle}
               onChange={(e) => setHandle(e.target.value)}

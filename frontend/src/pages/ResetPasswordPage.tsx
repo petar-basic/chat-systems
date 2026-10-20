@@ -52,6 +52,7 @@ function ForgotPasswordForm() {
         ) : (
           <form onSubmit={handleSubmit} className="bg-surface border border-line rounded-2xl p-6 space-y-4">
             <input
+              aria-label="Email address"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -130,6 +131,7 @@ function ResetForm({ token }: { token: string }) {
         ) : (
           <form onSubmit={handleSubmit} className="bg-surface border border-line rounded-2xl p-6 space-y-4">
             <input
+              aria-label="New password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -140,6 +142,7 @@ function ResetForm({ token }: { token: string }) {
               autoFocus
             />
             <input
+              aria-label="Confirm new password"
               type="password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}

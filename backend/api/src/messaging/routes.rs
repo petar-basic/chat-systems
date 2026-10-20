@@ -25,7 +25,7 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(update_message, delete_message))
         .routes(routes!(message_history))
         .routes(routes!(pin_message, unpin_message))
-        .routes(routes!(list_thread, reply_to_thread))
+        .routes(routes!(list_thread))
         .routes(routes!(list_reactions, add_reaction))
         .routes(routes!(remove_reaction))
         .routes(routes!(search_messages))
@@ -449,66 +449,6 @@ async fn list_thread(
         .list_thread_messages(msg_id, params.limit(), params.offset())
         .await?;
     Ok(Json(messages.into()))
-}
-
-#[utoipa::path(post, path = "/messages/{msg_id}/thread", tag = "messages",
-    request_body = SendMessageRequest,
-    responses((status = 200, body = Message)))]
-async fn reply_to_thread(
-    State(state): State<Arc<AppState>>,
-    auth: AuthUser,
-    Path(msg_id): Path<Uuid>,
-    Json(req): Json<SendMessageRequest>,
-) -> AppResult<Json<Message>> {
-    req.validate()?;
-
-    let parent = state
-        .message_repo
-        .find_by_id(msg_id)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Parent message not found".into()))?;
-
-    let channel = authz::require_channel_post(&state, parent.channel_id, auth.user_id)
-        .await?
-        .channel;
-
-    let root_id = parent.thread_parent_id.unwrap_or(parent.id);
-    let mentioned_ids =
-        expand_mentions(&state, parent.channel_id, auth.user_id, &req.content).await;
-
-    let mut tx = state.pool.begin().await?;
-    let msg = state
-        .message_repo
-        .create_message_in(
-            &mut tx,
-            NewMessage {
-                channel_id: parent.channel_id,
-                user_id: auth.user_id,
-                content: &req.content,
-                thread_parent_id: Some(root_id),
-                client_message_id: None,
-                mentioned: &mentioned_ids,
-            },
-        )
-        .await?;
-    let staged = state
-        .publisher
-        .stage_message_created(&mut tx, &msg, channel.workspace_id, &mentioned_ids)
-        .await?;
-    tx.commit().await?;
-
-    crate::files::service::link_to_channel_message(
-        &state,
-        &req.content,
-        msg.id,
-        channel.workspace_id,
-        auth.user_id,
-    )
-    .await;
-
-    state.publisher.dispatch(staged).await;
-
-    Ok(Json(msg))
 }
 
 #[utoipa::path(get, path = "/messages/{msg_id}/reactions", tag = "messages",

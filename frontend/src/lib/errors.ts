@@ -43,11 +43,11 @@ export function isTotpRequired(error: unknown): boolean {
   return error instanceof ApiError && error.status === 409 && error.message === 'totp_required';
 }
 
-export function toUserMessage(error: unknown): string {
+export function toUserMessage(error: unknown, fallback = GENERIC_ERROR_MESSAGE): string {
   if (isRateLimited(error) && error.retryAfterSeconds) {
     return `${error.message} Try again in ${error.retryAfterSeconds}s.`;
   }
   if (error instanceof ApiError || error instanceof HttpError) return error.message;
   if (error instanceof Error && error.message) return error.message;
-  return GENERIC_ERROR_MESSAGE;
+  return fallback;
 }
