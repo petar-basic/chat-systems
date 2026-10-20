@@ -33,7 +33,7 @@ export function HuddleStartButton({ workspaceId, instanceUrl, partnerId, current
       disabled={inHuddle || start.isPending}
       aria-label="Start huddle"
       title="Start huddle"
-      className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/50 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+      className="p-1.5 rounded-lg text-muted hover:text-fg hover:bg-raised/50 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
     >
       <Phone className="w-4 h-4" />
     </button>

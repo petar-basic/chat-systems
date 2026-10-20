@@ -1,0 +1,73 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT p.user_id, p.workspace_id, u.email,\n               COUNT(*) AS \"mentions!\",\n               ARRAY_AGG(DISTINCT COALESCE(p.channel_name, '')) AS \"channels!\",\n               ARRAY_AGG(DISTINCT COALESCE(p.sender_name, '')) AS \"senders!\"\n          FROM pending_mention_emails p\n          JOIN users u ON u.id = p.user_id\n         WHERE p.created_at <= $1\n         GROUP BY p.user_id, p.workspace_id, u.email\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "pending_mention_emails",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "pending_mention_emails",
+            "name": "workspace_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "email",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "email"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "mentions!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "channels!",
+        "type_info": "VarcharArray",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "senders!",
+        "type_info": "VarcharArray",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "43c4755177388d35b90e7fc44a03b73f325a6a4cfef1d03cae598ac9a8109877"
+}

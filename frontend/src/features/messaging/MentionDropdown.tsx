@@ -48,14 +48,14 @@ export const MentionDropdown = forwardRef<MentionDropdownHandle, Props>(({ items
 
   if (!items.length) {
     return (
-      <div className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl px-3 py-2 text-xs text-slate-400 w-52">
+      <div className="bg-surface border border-line rounded-lg shadow-xl px-3 py-2 text-xs text-muted w-52">
         No results
       </div>
     );
   }
 
   return (
-    <div className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden w-64">
+    <div className="bg-surface border border-line rounded-lg shadow-xl overflow-hidden w-64">
       {items.map((item, i) => (
         <button
           key={`${item.type}-${item.id}`}
@@ -65,20 +65,20 @@ export const MentionDropdown = forwardRef<MentionDropdownHandle, Props>(({ items
             command(item);
           }}
           className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition cursor-pointer ${
-            i === selectedIndex ? 'bg-purple-600/20 text-white' : 'text-slate-300 hover:bg-slate-700/50'
+            i === selectedIndex ? 'bg-purple-600/20 text-fg' : 'text-fg-dim hover:bg-raised/50'
           }`}
         >
           {item.type === 'channel' ? (
-            <Hash className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <Hash className="w-3.5 h-3.5 text-muted shrink-0" />
           ) : item.type === 'broadcast' ? (
-            <Megaphone className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <Megaphone className="w-3.5 h-3.5 text-warning shrink-0" />
           ) : item.type === 'group' ? (
-            <Users className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+            <Users className="w-3.5 h-3.5 text-accent shrink-0" />
           ) : (
-            <AtSign className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <AtSign className="w-3.5 h-3.5 text-muted shrink-0" />
           )}
           <span className="truncate">{item.label}</span>
-          {item.hint && <span className="ml-auto text-[10px] text-slate-500 shrink-0">{item.hint}</span>}
+          {item.hint && <span className="ml-auto text-[10px] text-subtle shrink-0">{item.hint}</span>}
         </button>
       ))}
     </div>

@@ -1,8 +1,17 @@
 import { create } from 'zustand';
+import type { TrackKind } from '@/features/huddle/lib/MeshManager';
+
+const STREAM_FIELD = {
+  audio: 'audioStream',
+  camera: 'cameraStream',
+  screen: 'screenStream',
+} as const satisfies Record<TrackKind, keyof HuddleParticipant>;
 
 export interface HuddleParticipant {
   userId: string;
-  stream: MediaStream | null;
+  audioStream: MediaStream | null;
+  cameraStream: MediaStream | null;
+  screenStream: MediaStream | null;
   audioMuted: boolean;
   cameraOn: boolean;
   sharing: boolean;
@@ -42,6 +51,7 @@ interface HuddleState {
   active: ActiveHuddle | null;
   localStream: MediaStream | null;
   localVideoStream: MediaStream | null;
+  localScreenStream: MediaStream | null;
   localMuted: boolean;
   localCameraOn: boolean;
   localSharing: boolean;
@@ -57,13 +67,14 @@ interface HuddleState {
   setActive: (active: ActiveHuddle | null) => void;
   setLocalStream: (stream: MediaStream | null) => void;
   setLocalVideoStream: (stream: MediaStream | null) => void;
+  setLocalScreenStream: (stream: MediaStream | null) => void;
   setLocalMuted: (muted: boolean) => void;
   setLocalCamera: (on: boolean) => void;
   setLocalSharing: (sharing: boolean) => void;
   setLocalHand: (raised: boolean) => void;
   setBackground: (mode: 'none' | 'blur') => void;
   upsertParticipant: (userId: string) => void;
-  setParticipantStream: (userId: string, stream: MediaStream) => void;
+  setParticipantStream: (userId: string, kind: TrackKind, stream: MediaStream) => void;
   setParticipantMuted: (userId: string, muted: boolean) => void;
   setParticipantCamera: (userId: string, on: boolean) => void;
   setParticipantSharing: (userId: string, sharing: boolean) => void;
@@ -81,7 +92,9 @@ interface HuddleState {
 
 const emptyParticipant = (userId: string): HuddleParticipant => ({
   userId,
-  stream: null,
+  audioStream: null,
+  cameraStream: null,
+  screenStream: null,
   audioMuted: false,
   cameraOn: false,
   sharing: false,
@@ -92,6 +105,7 @@ export const useHuddleStore = create<HuddleState>((set) => ({
   active: null,
   localStream: null,
   localVideoStream: null,
+  localScreenStream: null,
   localMuted: false,
   localCameraOn: false,
   localSharing: false,
@@ -107,6 +121,7 @@ export const useHuddleStore = create<HuddleState>((set) => ({
   setActive: (active) => set({ active }),
   setLocalStream: (localStream) => set({ localStream }),
   setLocalVideoStream: (localVideoStream) => set({ localVideoStream }),
+  setLocalScreenStream: (localScreenStream) => set({ localScreenStream }),
   setLocalMuted: (localMuted) => set({ localMuted }),
   setLocalCamera: (localCameraOn) => set({ localCameraOn }),
   setLocalSharing: (localSharing) => set({ localSharing }),
@@ -120,11 +135,14 @@ export const useHuddleStore = create<HuddleState>((set) => ({
         : { participants: { ...s.participants, [userId]: emptyParticipant(userId) } },
     ),
 
-  setParticipantStream: (userId, stream) =>
+  setParticipantStream: (userId, kind, stream) =>
     set((s) => ({
       participants: {
         ...s.participants,
-        [userId]: { ...(s.participants[userId] ?? emptyParticipant(userId)), stream },
+        [userId]: {
+          ...(s.participants[userId] ?? emptyParticipant(userId)),
+          [STREAM_FIELD[kind]]: stream,
+        },
       },
     })),
 

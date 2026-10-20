@@ -1155,3 +1155,58 @@ async fn outgoing_hooks_only_match_their_own_channel(pool: PgPool) {
         "a channel outside the scope must never reach the webhook"
     );
 }
+
+/// An integration posting into an announcement channel is the normal case — a
+/// release feed is exactly what such a channel is for. The hook's own scoping
+/// (CS-019) is what decides it, not the human posting policy.
+#[sqlx::test(migrations = "../migrations")]
+async fn an_incoming_webhook_still_posts_into_an_announcement_channel(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "hook-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Releases").await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "releases", false).await;
+
+    let (status, hook) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/hooks"),
+        Some(&owner_token),
+        Some(json!({
+            "hook_type": "incoming_webhook",
+            "name": "CI",
+            "config": { "channel_id": ch_id }
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{hook:?}");
+    let token = hook["config"]["token"].as_str().expect("token").to_string();
+
+    let (status, _) = send(
+        &app,
+        "PATCH",
+        &format!("/api/channels/{ch_id}"),
+        Some(&owner_token),
+        Some(json!({ "post_policy": "moderators" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        &format!("/api/hooks/incoming/{token}"),
+        None,
+        Some(json!({ "text": "build 42 shipped" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "the hook is not a person: {body:?}");
+
+    let posted: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM messages WHERE channel_id = $1 AND metadata ? 'bot'",
+    )
+    .bind(ch_id)
+    .fetch_one(&state.pool)
+    .await
+    .expect("count");
+    assert_eq!(posted, 1);
+}

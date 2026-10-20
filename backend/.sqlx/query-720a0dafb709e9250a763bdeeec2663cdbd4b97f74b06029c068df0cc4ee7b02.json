@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO oauth_accounts (user_id, provider, provider_id, email)\n        VALUES ($1, 'oidc', $2, $3)\n        ON CONFLICT (provider, provider_id) DO UPDATE SET email = EXCLUDED.email\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Varchar",
+        "Varchar"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "720a0dafb709e9250a763bdeeec2663cdbd4b97f74b06029c068df0cc4ee7b02"
+}

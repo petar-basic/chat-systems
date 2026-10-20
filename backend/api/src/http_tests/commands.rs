@@ -66,7 +66,7 @@ async fn an_unknown_command_is_a_404_so_the_client_can_send_it_as_text(pool: PgP
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "cmd-owner", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Commands").await;
-    let ch_id = seed_channel(&state, ws_id, owner_id, "general", false).await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "main", false).await;
 
     let (status, _) = send(
         &app,
@@ -88,7 +88,7 @@ async fn dnd_and_topic_are_built_in_and_change_real_state(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "cmd-owner", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Commands").await;
-    let ch_id = seed_channel(&state, ws_id, owner_id, "general", false).await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "main", false).await;
 
     let (status, body) = send(
         &app,
@@ -153,7 +153,7 @@ async fn a_registered_command_is_called_and_its_answer_comes_back(pool: PgPool) 
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "cmd-owner", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Commands").await;
-    let ch_id = seed_channel(&state, ws_id, owner_id, "general", false).await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "main", false).await;
 
     let (endpoint, hits) =
         fake_command_endpoint(json!({ "response_type": "ephemeral", "text": "deploying prod" }))
@@ -219,7 +219,7 @@ async fn a_command_name_is_claimed_once_and_never_shadows_a_built_in(pool: PgPoo
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "cmd-owner", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Commands").await;
-    let ch_id = seed_channel(&state, ws_id, owner_id, "general", false).await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "main", false).await;
     let (endpoint, _) = fake_command_endpoint(json!({ "text": "ok" })).await;
 
     let (status, _) = register_command(&app, &token, ws_id, "deploy", &endpoint, vec![ch_id]).await;
@@ -245,7 +245,7 @@ async fn the_registry_lists_what_can_be_typed(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "cmd-owner", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Commands").await;
-    let ch_id = seed_channel(&state, ws_id, owner_id, "general", false).await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "main", false).await;
     let (endpoint, _) = fake_command_endpoint(json!({ "text": "ok" })).await;
     register_command(&app, &token, ws_id, "deploy", &endpoint, vec![ch_id]).await;
 
@@ -312,7 +312,7 @@ async fn remind_creates_a_reminder_the_worker_will_deliver(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "cmd-remind", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Reminders").await;
-    let ch_id = seed_channel(&state, ws_id, owner_id, "general", false).await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "main", false).await;
 
     let (status, body) = send(
         &app,
@@ -345,7 +345,7 @@ async fn remind_reads_a_clock_time_in_the_users_own_timezone(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "cmd-remind-tz", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Reminders").await;
-    let ch_id = seed_channel(&state, ws_id, owner_id, "general", false).await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "main", false).await;
 
     let (status, _) = send(
         &app,
@@ -398,7 +398,7 @@ async fn remind_rejects_a_time_it_cannot_read(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "cmd-remind-bad", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Reminders").await;
-    let ch_id = seed_channel(&state, ws_id, owner_id, "general", false).await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "main", false).await;
 
     let (status, _) = send(
         &app,
@@ -429,7 +429,7 @@ async fn only_an_admin_reminds_somebody_else(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "cmd-remind-owner", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Reminders").await;
-    let ch_id = seed_channel(&state, ws_id, owner_id, "general", false).await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "main", false).await;
 
     let (member_id, _, member_token) =
         seed_and_login(&app, &state, "cmd-remind-member", false).await;

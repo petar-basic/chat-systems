@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE export_jobs\n               SET status = 'complete',\n                   storage_key = $2,\n                   manifest = $3,\n                   download_token = $4,\n                   token_expires_at = NOW() + make_interval(hours => $5),\n                   completed_at = NOW()\n             WHERE id = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Jsonb",
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ec8c20a16fca81e816e6e3bb01749ba78f44206602b3fee81a61760eeb53c3ff"
+}

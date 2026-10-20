@@ -1,39 +1,28 @@
 use std::sync::Arc;
 
 use axum::extract::{Path, State};
-use axum::routing::{get, patch};
-use axum::{Json, Router};
+use axum::Json;
 use serde::Deserialize;
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::routes;
 use uuid::Uuid;
 
 use shared_common::errors::{is_unique_violation, AppError, AppResult};
 
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
+use crate::dto::{DataList, StatusResponse};
+use crate::groups::repo::{UserGroup, UserGroupSummary};
 use crate::middleware::AuthUser;
 use crate::state::AppState;
 use crate::workspace::models::WorkspaceRole;
 
-pub fn router(state: Arc<AppState>) -> Router {
-    let routes = Router::new()
-        .route(
-            "/workspaces/{ws_id}/groups",
-            get(list_groups).post(create_group),
-        )
-        .route(
-            "/workspaces/{ws_id}/groups/{group_id}",
-            patch(update_group).delete(delete_group),
-        )
-        .route(
-            "/workspaces/{ws_id}/groups/{group_id}/members",
-            get(list_members).post(add_member),
-        )
-        .route(
-            "/workspaces/{ws_id}/groups/{group_id}/members/{user_id}",
-            axum::routing::delete(remove_member),
-        );
-
-    crate::protected(state, routes)
+pub fn router() -> OpenApiRouter<Arc<AppState>> {
+    OpenApiRouter::new()
+        .routes(routes!(list_groups, create_group))
+        .routes(routes!(update_group, delete_group))
+        .routes(routes!(list_members, add_member))
+        .routes(routes!(remove_member))
 }
 
 /// The same shape as a channel name, for the same reason: it is typed after an
@@ -67,30 +56,32 @@ pub fn validate_handle(handle: &str) -> AppResult<String> {
 
 /// Anybody in the workspace can see which groups exist -- a handle they cannot
 /// discover is a handle they will mention by accident.
+#[utoipa::path(get, path = "/workspaces/{ws_id}/groups", tag = "groups", responses((status = 200, body = DataList<UserGroupSummary>)))]
 async fn list_groups(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<DataList<UserGroupSummary>>> {
     authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
     let groups = state.group_repo.list(ws_id, auth.user_id).await?;
-    Ok(Json(serde_json::json!({ "data": groups })))
+    Ok(Json(groups.into()))
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct CreateGroupRequest {
     pub handle: String,
     pub name: Option<String>,
     pub description: Option<String>,
 }
 
+#[utoipa::path(post, path = "/workspaces/{ws_id}/groups", tag = "groups", request_body = CreateGroupRequest, responses((status = 200, body = UserGroup)))]
 async fn create_group(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
     Path(ws_id): Path<Uuid>,
     Json(req): Json<CreateGroupRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<UserGroup>> {
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
 
     let handle = validate_handle(&req.handle)?;
@@ -124,10 +115,10 @@ async fn create_group(
     )
     .await;
 
-    Ok(Json(serde_json::to_value(group).unwrap_or_default()))
+    Ok(Json(group))
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct UpdateGroupRequest {
     pub name: String,
     pub description: Option<String>,
@@ -136,13 +127,14 @@ pub struct UpdateGroupRequest {
 /// The handle is not editable. Messages already sent carry the group id, but the
 /// text people read is the handle, and renaming it would silently rewrite the
 /// history of who was asked.
+#[utoipa::path(patch, path = "/workspaces/{ws_id}/groups/{group_id}", tag = "groups", request_body = UpdateGroupRequest, responses((status = 200, body = UserGroup)))]
 async fn update_group(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
     Path((ws_id, group_id)): Path<(Uuid, Uuid)>,
     Json(req): Json<UpdateGroupRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<UserGroup>> {
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
     let group = load(&state, ws_id, group_id).await?;
 
@@ -160,15 +152,16 @@ async fn update_group(
     )
     .await;
 
-    Ok(Json(serde_json::to_value(updated).unwrap_or_default()))
+    Ok(Json(updated))
 }
 
+#[utoipa::path(delete, path = "/workspaces/{ws_id}/groups/{group_id}", tag = "groups", responses((status = 200, body = StatusResponse)))]
 async fn delete_group(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
     Path((ws_id, group_id)): Path<(Uuid, Uuid)>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<StatusResponse>> {
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
     let group = load(&state, ws_id, group_id).await?;
 
@@ -184,34 +177,43 @@ async fn delete_group(
     )
     .await;
 
-    Ok(Json(serde_json::json!({ "status": "deleted" })))
+    Ok(Json(StatusResponse::new("deleted")))
 }
 
+#[utoipa::path(
+    operation_id = "groups_list_members",
+    get, path = "/workspaces/{ws_id}/groups/{group_id}/members", tag = "groups", responses((status = 200, body = GroupMembers)))]
 async fn list_members(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path((ws_id, group_id)): Path<(Uuid, Uuid)>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<GroupMembers>> {
     authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
     let group = load(&state, ws_id, group_id).await?;
     let members = state.group_repo.list_member_ids(group.id).await?;
-    Ok(Json(serde_json::json!({ "data": members })))
+    Ok(Json(GroupMembers { data: members }))
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, serde::Serialize, utoipa::ToSchema)]
+pub struct GroupMembers {
+    pub data: Vec<Uuid>,
+}
+
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct MemberRequest {
     pub user_id: Uuid,
 }
 
 /// Membership is workspace membership first: a group is a shorthand for people
 /// who are already here, not a way to reach somebody who is not.
+#[utoipa::path(post, path = "/workspaces/{ws_id}/groups/{group_id}/members", tag = "groups", request_body = MemberRequest, responses((status = 200, body = StatusResponse)))]
 async fn add_member(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
     Path((ws_id, group_id)): Path<(Uuid, Uuid)>,
     Json(req): Json<MemberRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<StatusResponse>> {
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
     let group = load(&state, ws_id, group_id).await?;
     authz::require_workspace_member(&state, ws_id, req.user_id).await?;
@@ -228,15 +230,18 @@ async fn add_member(
     )
     .await;
 
-    Ok(Json(serde_json::json!({ "status": "added" })))
+    Ok(Json(StatusResponse::new("added")))
 }
 
+#[utoipa::path(
+    operation_id = "groups_remove_member",
+    delete, path = "/workspaces/{ws_id}/groups/{group_id}/members/{user_id}", tag = "groups", responses((status = 200, body = StatusResponse)))]
 async fn remove_member(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
     Path((ws_id, group_id, user_id)): Path<(Uuid, Uuid, Uuid)>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<StatusResponse>> {
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
     let group = load(&state, ws_id, group_id).await?;
 
@@ -252,7 +257,7 @@ async fn remove_member(
     )
     .await;
 
-    Ok(Json(serde_json::json!({ "status": "removed" })))
+    Ok(Json(StatusResponse::new("removed")))
 }
 
 async fn load(

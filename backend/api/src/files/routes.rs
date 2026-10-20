@@ -4,8 +4,10 @@ use axum::body::Body;
 use axum::extract::{DefaultBodyLimit, Multipart, Path, Query, State};
 use axum::http::header;
 use axum::response::Response;
-use axum::routing::{delete, get, post};
+use axum::routing::get;
 use axum::{Json, Router};
+use utoipa_axum::router::{OpenApiRouter, UtoipaMethodRouterExt};
+use utoipa_axum::routes;
 use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
@@ -14,7 +16,10 @@ use super::models::{FileRecord, FileUploadResponse};
 use super::repo::NewFile;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
+use crate::dto::{DataList, StatusResponse};
+use crate::files::models::FileMeta;
 use crate::middleware::AuthUser;
+use crate::pagination::PageQuery;
 use crate::state::AppState;
 use crate::workspace::models::WorkspaceRole;
 
@@ -39,21 +44,20 @@ fn sanitize_filename(name: &str) -> String {
     }
 }
 
-pub fn router(state: Arc<AppState>) -> Router {
-    let routes = Router::new()
-        .route(
-            "/files/upload/{ws_id}",
-            // The generous body limit belongs here and nowhere else.
-            post(upload_file).layer(DefaultBodyLimit::disable()),
-        )
-        .route("/files/download/{*key}", get(download_file))
-        .route("/files/{file_id}", get(get_file_meta))
-        .route("/files/{file_id}", delete(delete_file))
-        .route("/files/workspace/{ws_id}", get(list_files));
-
-    crate::protected(state, routes)
+pub fn router() -> OpenApiRouter<Arc<AppState>> {
+    OpenApiRouter::new()
+        .routes(routes!(upload_file).layer(DefaultBodyLimit::disable()))
+        .routes(routes!(get_file_meta, delete_file))
+        .routes(routes!(list_files))
 }
 
+/// The one route with a wildcard segment, which the OpenAPI document does not
+/// describe: it serves bytes, not a shape.
+pub fn download_router() -> Router<Arc<AppState>> {
+    Router::new().route("/files/download/{*key}", get(download_file))
+}
+
+#[utoipa::path(post, path = "/files/upload/{ws_id}", tag = "files", request_body(content = String, content_type = "multipart/form-data", description = "One or more files as multipart fields"), responses((status = 200, body = Vec<FileUploadResponse>)))]
 async fn upload_file(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
@@ -175,11 +179,12 @@ async fn download_file(
     Ok(response)
 }
 
+#[utoipa::path(get, path = "/files/{file_id}", tag = "files", responses((status = 200, body = FileMeta)))]
 async fn get_file_meta(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(file_id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<FileMeta>> {
     let record = state
         .file_repo
         .find_by_id(file_id)
@@ -189,43 +194,32 @@ async fn get_file_meta(
     require_file_access(&state, &record, auth.user_id).await?;
 
     let url = state.file_storage.public_url(&record.storage_key);
-    Ok(Json(serde_json::json!({
-        "file": record,
-        "url": url,
-    })))
+    Ok(Json(FileMeta { file: record, url }))
 }
 
+#[utoipa::path(get, path = "/files/workspace/{ws_id}", tag = "files", params(PageQuery), responses((status = 200, body = DataList<FileRecord>)))]
 async fn list_files(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
-    Query(params): Query<std::collections::HashMap<String, String>>,
-) -> AppResult<Json<serde_json::Value>> {
+    Query(params): Query<PageQuery>,
+) -> AppResult<Json<DataList<FileRecord>>> {
     authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
 
-    let limit = params
-        .get("limit")
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(50i64)
-        .clamp(1, 200);
-    let offset = params
-        .get("offset")
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(0i64)
-        .max(0);
     let files = state
         .file_repo
-        .list_by_workspace_for_user(ws_id, auth.user_id, limit, offset)
+        .list_by_workspace_for_user(ws_id, auth.user_id, params.limit(), params.offset())
         .await?;
-    Ok(Json(serde_json::json!({ "data": files })))
+    Ok(Json(files.into()))
 }
 
+#[utoipa::path(delete, path = "/files/{file_id}", tag = "files", responses((status = 200, body = StatusResponse)))]
 async fn delete_file(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
     Path(file_id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<StatusResponse>> {
     let record = state
         .file_repo
         .find_by_id(file_id)
@@ -256,7 +250,7 @@ async fn delete_file(
     )
     .await;
 
-    Ok(Json(serde_json::json!({ "status": "deleted" })))
+    Ok(Json(StatusResponse::new("deleted")))
 }
 
 /// Somebody else's file. A workspace admin answers for everything posted in the
@@ -292,17 +286,6 @@ async fn require_file_access(
     if let Some(message_id) = record.message_id {
         if let Some(channel_id) = state.file_repo.channel_id_for_message(message_id).await? {
             authz::require_channel_access(state, channel_id, user_id).await?;
-            return Ok(());
-        }
-    }
-
-    if let Some(message_id) = record.conversation_message_id {
-        if let Some(conversation_id) = state
-            .file_repo
-            .conversation_id_for_message(message_id)
-            .await?
-        {
-            authz::require_conversation_participant(state, conversation_id, user_id).await?;
             return Ok(());
         }
     }

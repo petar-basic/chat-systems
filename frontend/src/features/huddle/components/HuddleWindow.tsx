@@ -44,6 +44,7 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
   const localHandRaised = useHuddleStore((s) => s.localHandRaised);
   const background = useHuddleStore((s) => s.background);
   const localVideoStream = useHuddleStore((s) => s.localVideoStream);
+  const localScreenStream = useHuddleStore((s) => s.localScreenStream);
   const localStream = useHuddleStore((s) => s.localStream);
   const speakerId = useHuddleStore((s) => s.devices.speakerId);
   const reactions = useHuddleStore((s) => s.reactions);
@@ -55,33 +56,80 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
   const self = active.selfUserId;
   const remotes = Object.values(participants).filter((p) => p.userId !== self);
 
-  const tiles = [
+  // A shared screen is its own tile, not a replacement for the face: whoever is
+  // sharing shows up twice, once as themselves and once as their screen.
+  const tiles: TileProps[] = [
     {
+      tileId: `${self}:camera`,
       userId: self,
+      kind: 'camera' as const,
       stream: localVideoStream,
-      audioStream: null as MediaStream | null,
+      audioStream: null,
       muted: localMuted,
       cameraOn: localCameraOn,
       sharing: localSharing,
       handRaised: localHandRaised,
       isSelf: true,
     },
-    ...remotes.map((p) => ({
-      userId: p.userId,
-      stream: p.stream,
-      audioStream: p.stream,
-      muted: p.audioMuted,
-      cameraOn: p.cameraOn,
-      sharing: p.sharing,
-      handRaised: p.handRaised,
-      isSelf: false,
-    })),
+    ...(localSharing && localScreenStream
+      ? [
+          {
+            tileId: `${self}:screen`,
+            userId: self,
+            kind: 'screen' as const,
+            stream: localScreenStream,
+            audioStream: null,
+            muted: localMuted,
+            cameraOn: localCameraOn,
+            sharing: true,
+            handRaised: false,
+            isSelf: true,
+          },
+        ]
+      : []),
+    ...remotes.flatMap((p) => [
+      {
+        tileId: `${p.userId}:camera`,
+        userId: p.userId,
+        kind: 'camera' as const,
+        stream: p.cameraStream,
+        audioStream: p.audioStream,
+        muted: p.audioMuted,
+        cameraOn: p.cameraOn,
+        sharing: p.sharing,
+        handRaised: p.handRaised,
+        isSelf: false,
+      },
+      ...(p.sharing && p.screenStream
+        ? [
+            {
+              tileId: `${p.userId}:screen`,
+              userId: p.userId,
+              kind: 'screen' as const,
+              stream: p.screenStream,
+              audioStream: null,
+              muted: p.audioMuted,
+              cameraOn: p.cameraOn,
+              sharing: true,
+              handRaised: false,
+              isSelf: false,
+            },
+          ]
+        : []),
+    ]),
   ];
 
+  // A screen is shared to be looked at, so it takes the stage over whoever
+  // happens to be talking; an explicit pin still wins over both.
   const activeSpeaker = [...speaking].find((id) => id !== self) ?? null;
-  const focusId = pinnedUserId ?? activeSpeaker ?? remotes[0]?.userId ?? self;
-  const focusTile = tiles.find((t) => t.userId === focusId) ?? tiles[0];
-  const stripTiles = tiles.filter((t) => t.userId !== focusTile.userId);
+  const sharedScreen = tiles.find((t) => t.kind === 'screen' && !t.isSelf) ?? null;
+  const pinnedTile = pinnedUserId ? tiles.find((t) => t.userId === pinnedUserId) : null;
+  const focusTile =
+    pinnedTile ??
+    sharedScreen ??
+    tiles.find((t) => t.userId === (activeSpeaker ?? remotes[0]?.userId ?? self)) ??
+    tiles[0];
+  const stripTiles = tiles.filter((t) => t.tileId !== focusTile.tileId);
 
   return (
     <div
@@ -89,24 +137,26 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
       aria-label="Huddle"
       className={
         expanded
-          ? 'fixed inset-0 z-60 bg-slate-900 p-4 flex flex-col gap-3'
-          : 'fixed bottom-4 right-4 z-60 w-120 max-w-[calc(100vw-2rem)] bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-3 flex flex-col gap-3'
+          ? 'fixed inset-0 z-60 bg-app p-4 flex flex-col gap-3'
+          : 'fixed bottom-4 right-4 z-60 w-120 max-w-[calc(100vw-2rem)] bg-surface border border-line rounded-2xl shadow-2xl p-3 flex flex-col gap-3'
       }
     >
-      {tiles.map((t) => (
-        <SpeakingDetector key={`spk-${t.userId}`} userId={t.userId} stream={t.audioStream ?? t.stream} />
-      ))}
+      {tiles
+        .filter((t) => t.audioStream)
+        .map((t) => (
+          <SpeakingDetector key={`spk-${t.tileId}`} userId={t.userId} stream={t.audioStream} />
+        ))}
 
       <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold text-white">
-          Huddle <span className="text-slate-400 font-normal">· {tiles.length}</span>
+        <span className="text-sm font-semibold text-fg">
+          Huddle <span className="text-muted font-normal">· {tiles.length}</span>
         </span>
         <div className="flex items-center gap-1">
           <button
             onClick={() => setLayout((l) => (l === 'grid' ? 'focus' : 'grid'))}
             aria-label={layout === 'grid' ? 'Focus view' : 'Grid view'}
             title={layout === 'grid' ? 'Focus view' : 'Grid view'}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/50 transition"
+            className="p-1.5 rounded-lg text-muted hover:text-fg hover:bg-raised/50 transition"
           >
             {layout === 'grid' ? <Maximize2 className="w-4 h-4" /> : <LayoutGrid className="w-4 h-4" />}
           </button>
@@ -114,7 +164,7 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
             onClick={() => setExpanded((v) => !v)}
             aria-label={expanded ? 'Collapse huddle' : 'Expand huddle'}
             title={expanded ? 'Collapse' : 'Full screen'}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/50 transition"
+            className="p-1.5 rounded-lg text-muted hover:text-fg hover:bg-raised/50 transition"
           >
             {expanded ? <Shrink className="w-4 h-4" /> : <Expand className="w-4 h-4" />}
           </button>
@@ -134,7 +184,7 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
             {stripTiles.length > 0 && (
               <div className="flex gap-2 overflow-x-auto">
                 {stripTiles.map((t) => (
-                  <div key={t.userId} className="w-28 shrink-0">
+                  <div key={t.tileId} className="w-28 shrink-0">
                     <VideoTile
                       {...t}
                       speaking={speaking.has(t.userId)}
@@ -152,7 +202,7 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
           >
             {tiles.map((t) => (
               <VideoTile
-                key={t.userId}
+                key={t.tileId}
                 {...t}
                 speaking={speaking.has(t.userId)}
                 pinned={pinnedUserId === t.userId}
@@ -225,30 +275,42 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
         </button>
       </div>
 
-      {!localStream && <p className="text-xs text-slate-400 text-center">Connecting…</p>}
+      {!localStream ? (
+        <p className="text-xs text-muted text-center">Connecting…</p>
+      ) : (
+        remotes.length === 0 && <p className="text-xs text-muted text-center">Waiting for others to join…</p>
+      )}
     </div>
   );
 }
 
 interface TileProps {
+  tileId: string;
   userId: string;
+  kind: 'camera' | 'screen';
   stream: MediaStream | null;
+  audioStream: MediaStream | null;
   muted: boolean;
   cameraOn: boolean;
   sharing: boolean;
   handRaised: boolean;
   isSelf: boolean;
+}
+
+type VideoTileProps = TileProps & {
   speaking: boolean;
   pinned: boolean;
   speakerId: string | null;
   large?: boolean;
-}
+};
 
 type SinkAudio = HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> };
 
 function VideoTile({
   userId,
+  kind,
   stream,
+  audioStream,
   muted,
   sharing,
   handRaised,
@@ -257,12 +319,13 @@ function VideoTile({
   pinned,
   speakerId,
   large,
-}: TileProps) {
+}: VideoTileProps) {
   const { getUser } = useUserCache();
   const participant = getUser(userId);
   const name = displayNameOf(participant?.display_name);
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const isScreen = kind === 'screen';
 
   const subscribeVideo = useCallback(
     (onChange: () => void) => {
@@ -305,12 +368,15 @@ function VideoTile({
   useEffect(() => {
     const v = videoRef.current;
     if (v && v.srcObject !== stream) v.srcObject = stream;
+  }, [stream]);
+
+  useEffect(() => {
     const a = audioRef.current;
-    if (a && a.srcObject !== stream) {
-      a.srcObject = stream;
+    if (a && a.srcObject !== audioStream) {
+      a.srcObject = audioStream;
       void a.play().catch((e) => logger.warn('VideoTile', 'audioPlay', String(e)));
     }
-  }, [stream]);
+  }, [audioStream]);
 
   useEffect(() => {
     if (hasVideo)
@@ -326,7 +392,7 @@ function VideoTile({
 
   return (
     <div
-      className={`relative ${large ? 'aspect-video' : 'aspect-[4/3]'} rounded-lg overflow-hidden bg-slate-900 ring-2 transition ${
+      className={`relative ${large ? 'aspect-video' : 'aspect-[4/3]'} rounded-lg overflow-hidden bg-app ring-2 transition ${
         speaking && !muted ? 'ring-green-500/70' : 'ring-transparent'
       }`}
     >
@@ -335,19 +401,26 @@ function VideoTile({
         autoPlay
         playsInline
         muted
-        className={`w-full h-full object-cover ${hasVideo ? '' : 'hidden'} ${isSelf && !sharing ? 'scale-x-[-1]' : ''}`}
+        className={`w-full h-full ${isScreen ? 'object-contain bg-black' : 'object-cover'} ${
+          hasVideo ? '' : 'hidden'
+        } ${isSelf && !isScreen ? 'scale-x-[-1]' : ''}`}
       />
-      {!isSelf && <audio ref={audioRef} autoPlay />}
-      {!hasVideo && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <Avatar
-            userId={userId}
-            name={name}
-            avatarUrl={participant?.avatar_url}
-            size={large ? 'xl' : 'lg'}
-          />
-        </div>
-      )}
+      {!isSelf && audioStream && <audio ref={audioRef} autoPlay />}
+      {!hasVideo &&
+        (isScreen ? (
+          <div className="absolute inset-0 flex items-center justify-center text-xs text-muted">
+            Waiting for the screen…
+          </div>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Avatar
+              userId={userId}
+              name={name}
+              avatarUrl={participant?.avatar_url}
+              size={large ? 'xl' : 'lg'}
+            />
+          </div>
+        ))}
 
       {handRaised && (
         <div className="absolute top-1 left-1 text-lg" aria-label="Hand raised" title="Hand raised">
@@ -357,16 +430,16 @@ function VideoTile({
 
       <div className="absolute bottom-1 left-1 right-1 flex items-center gap-1">
         <span className="px-1.5 py-0.5 rounded bg-black/50 text-[11px] text-white truncate max-w-full">
-          {name}
-          {isSelf && ' (you)'}
+          {isScreen ? `${name}'s screen` : name}
+          {isSelf && !isScreen && ' (you)'}
         </span>
-        {sharing && (
-          <span className="px-1 py-0.5 rounded bg-purple-600/80 text-[10px] text-white">Sharing</span>
+        {sharing && !isScreen && (
+          <span className="px-1 py-0.5 rounded bg-purple-600/80 text-[10px] text-fg">Sharing</span>
         )}
-        {muted && <MicOff className="w-3 h-3 text-red-400 shrink-0" />}
+        {muted && !isScreen && <MicOff className="w-3 h-3 text-danger shrink-0" />}
       </div>
 
-      {!isSelf && (
+      {!isSelf && !isScreen && (
         <button
           onClick={() => useHuddleStore.getState().setPinned(pinned ? null : userId)}
           aria-label={pinned ? 'Unpin' : 'Pin'}
@@ -402,10 +475,10 @@ interface ControlButtonProps {
 
 function ControlButton({ active, onClick, on, off, label, danger, highlight }: ControlButtonProps) {
   const tone = danger
-    ? 'bg-red-600/20 text-red-400 hover:bg-red-600/30'
+    ? 'bg-red-600/20 text-danger hover:bg-red-600/30'
     : highlight
-      ? 'bg-purple-600/30 text-purple-300 hover:bg-purple-600/40'
-      : 'bg-slate-700 text-white hover:bg-slate-600';
+      ? 'bg-purple-600/30 text-accent-soft hover:bg-purple-600/40'
+      : 'bg-raised text-fg hover:bg-elevated';
   return (
     <button
       onClick={onClick}
@@ -428,12 +501,12 @@ function ReactionPicker({ onPick }: { onPick: (emoji: string) => void }) {
         aria-label="Send reaction"
         title="Send reaction"
         aria-expanded={open}
-        className="p-2.5 rounded-full bg-slate-700 text-white hover:bg-slate-600 transition"
+        className="p-2.5 rounded-full bg-raised text-fg hover:bg-elevated transition"
       >
         <Smile className="w-4 h-4" />
       </button>
       {open && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 flex gap-1 bg-slate-900 border border-slate-700 rounded-xl p-1.5 shadow-2xl">
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 flex gap-1 bg-app border border-line rounded-xl p-1.5 shadow-2xl">
           {QUICK_REACTIONS.map((emoji) => (
             <button
               key={emoji}
@@ -441,7 +514,7 @@ function ReactionPicker({ onPick }: { onPick: (emoji: string) => void }) {
                 onPick(emoji);
                 setOpen(false);
               }}
-              className="text-xl px-1.5 py-0.5 rounded-lg hover:bg-slate-700 transition"
+              className="text-xl px-1.5 py-0.5 rounded-lg hover:bg-raised transition"
             >
               {emoji}
             </button>
@@ -468,13 +541,13 @@ function InvitePicker({ active }: { active: ActiveHuddle }) {
         aria-label="Invite to huddle"
         title="Invite to huddle"
         aria-expanded={open}
-        className="p-2.5 rounded-full bg-slate-700 text-white hover:bg-slate-600 transition"
+        className="p-2.5 rounded-full bg-raised text-fg hover:bg-elevated transition"
       >
         <UserPlus className="w-4 h-4" />
       </button>
       {open && (
-        <div className="absolute bottom-full right-0 mb-2 w-56 max-h-64 overflow-y-auto bg-slate-900 border border-slate-700 rounded-xl p-2 shadow-2xl flex flex-col gap-0.5">
-          {candidates.length === 0 && <p className="text-xs text-slate-400 px-2 py-1.5">No one to invite</p>}
+        <div className="absolute bottom-full right-0 mb-2 w-56 max-h-64 overflow-y-auto bg-app border border-line rounded-xl p-2 shadow-2xl flex flex-col gap-0.5">
+          {candidates.length === 0 && <p className="text-xs text-muted px-2 py-1.5">No one to invite</p>}
           {candidates.map((m) => (
             <button
               key={m.user_id}
@@ -482,7 +555,7 @@ function InvitePicker({ active }: { active: ActiveHuddle }) {
                 invite.mutate([m.user_id]);
                 setOpen(false);
               }}
-              className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-sm text-slate-200 hover:bg-slate-700 transition"
+              className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-sm text-fg-soft hover:bg-raised transition"
             >
               <Avatar
                 userId={m.user_id}
@@ -511,12 +584,12 @@ function DevicePicker({ controls }: { controls: HuddleControls }) {
         aria-label="Devices"
         title="Devices"
         aria-expanded={open}
-        className="p-2.5 rounded-full bg-slate-700 text-white hover:bg-slate-600 transition"
+        className="p-2.5 rounded-full bg-raised text-fg hover:bg-elevated transition"
       >
         <Settings className="w-4 h-4" />
       </button>
       {open && (
-        <div className="absolute bottom-full right-0 mb-2 w-60 bg-slate-900 border border-slate-700 rounded-xl p-3 shadow-2xl flex flex-col gap-2">
+        <div className="absolute bottom-full right-0 mb-2 w-60 bg-app border border-line rounded-xl p-3 shadow-2xl flex flex-col gap-2">
           <DeviceSelect
             label="Microphone"
             options={devices.mics}
@@ -552,12 +625,12 @@ interface DeviceSelectProps {
 
 function DeviceSelect({ label, options, value, onChange }: DeviceSelectProps) {
   return (
-    <label className="flex flex-col gap-1 text-xs text-slate-300">
+    <label className="flex flex-col gap-1 text-xs text-fg-dim">
       <span>{label}</span>
       <select
         value={value ?? options[0]?.deviceId ?? ''}
         onChange={(e) => onChange(e.target.value)}
-        className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-white text-xs"
+        className="bg-surface border border-line rounded-lg px-2 py-1.5 text-fg text-xs"
       >
         {options.length === 0 && <option value="">No devices</option>}
         {options.map((d, i) => (

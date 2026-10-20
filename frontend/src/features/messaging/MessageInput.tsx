@@ -1,4 +1,6 @@
 import { useRef, useCallback, useMemo, useEffect, useState } from 'react';
+import { toUserMessage } from '@/lib/errors';
+import { formatDateTime } from '@/lib/datetime';
 import { Extension } from '@tiptap/core';
 import { useEditor, EditorContent } from '@tiptap/react';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -10,8 +12,9 @@ import type { MentionItem } from './MentionDropdown';
 import EmojiPicker from './EmojiPicker';
 import FormattingToolbar from '@/components/FormattingToolbar';
 import type { WorkspaceMember, Channel } from '@/stores/workspace';
-import { Clock, Paperclip, Send, SmilePlus } from 'lucide-react';
+import { Clock, Paperclip, Send, SmilePlus, Type } from 'lucide-react';
 import { MENTION_SUGGESTION_LIMIT, DRAFT_SAVE_DEBOUNCE_MS } from '@/shared/constants';
+import { uploadFilesSequentially, transferFiles } from '@/lib/fileUploads';
 import { useDraftStore } from '@/stores/drafts';
 import { flattenMentions } from '@/lib/mentions';
 import { useScheduleMessage, type ScheduleTarget } from '@/hooks/queries/useScheduledMessages';
@@ -75,10 +78,21 @@ export default function MessageInput({
   scheduleTarget,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadRef = useRef(onFileUpload);
+  useEffect(() => {
+    uploadRef.current = onFileUpload;
+  });
+
+  const uploadFiles = useCallback(async (files: File[]) => {
+    const upload = uploadRef.current;
+    if (!upload) return;
+    await uploadFilesSequentially(files, upload);
+  }, []);
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sendRef = useRef<() => void>(() => {});
   const emojiBtnRef = useRef<HTMLButtonElement>(null);
   const [showEmoji, setShowEmoji] = useState(false);
+  const [showFormatting, setShowFormatting] = useState(false);
   const editingRef = useRef(editing);
   const cancelRef = useRef(onCancel);
   useEffect(() => {
@@ -150,6 +164,22 @@ export default function MessageInput({
 
   const editor = useEditor({
     shouldRerenderOnTransaction: true,
+    editorProps: {
+      handlePaste: (_view, event) => {
+        const files = transferFiles(event.clipboardData);
+        if (files.length === 0 || !uploadRef.current) return false;
+        event.preventDefault();
+        void uploadFiles(files);
+        return true;
+      },
+      handleDrop: (_view, event) => {
+        const files = transferFiles((event as DragEvent).dataTransfer);
+        if (files.length === 0 || !uploadRef.current) return false;
+        event.preventDefault();
+        void uploadFiles(files);
+        return true;
+      },
+    },
     extensions: [
       ...createEditorExtensions(),
       Placeholder.configure({
@@ -197,9 +227,9 @@ export default function MessageInput({
         setShowSchedule(false);
         setCustomSendAt('');
         setScheduleError(null);
-        toast.success(`Scheduled for ${sendAt.toLocaleString()}`);
+        toast.success(`Scheduled for ${formatDateTime(sendAt)}`);
       } catch (err) {
-        toast.error((err as { message?: string })?.message || 'Could not schedule that message');
+        toast.error(toUserMessage(err, 'Could not schedule that message'));
       }
     },
     [editor, scheduleTarget, scheduleMessage, draftKey],
@@ -209,10 +239,15 @@ export default function MessageInput({
     if (!editor) return;
     const markdown = editor.storage.markdown.getMarkdown().trim();
     if (!markdown) return;
-    await onSend(markdown);
     editor.commands.clearContent();
     editor.commands.focus();
     if (draftKey) useDraftStore.getState().clearDraft(draftKey);
+    try {
+      await onSend(markdown);
+    } catch {
+      editor.commands.setContent(markdown);
+      if (draftKey) useDraftStore.getState().setDraft(draftKey, markdown);
+    }
   }, [editor, onSend, draftKey]);
 
   useEffect(() => {
@@ -226,25 +261,33 @@ export default function MessageInput({
   }, [editing, editor]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && onFileUpload) onFileUpload(file);
+    void uploadFiles(Array.from(e.target.files ?? []));
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const isEmpty = !editor || editor.isEmpty;
 
   return (
-    <div className={editing ? 'mt-1' : 'px-4 pb-4'}>
+    // The bottom padding clears the iOS home indicator; without it the send
+    // button sits under it and cannot be tapped.
+    <div className={editing ? 'mt-1' : 'px-4 pb-4 max-sm:pb-[max(1rem,env(safe-area-inset-bottom))]'}>
       {onFileUpload && (
-        <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} />
+        <input
+          aria-label="Attach files"
+          ref={fileInputRef}
+          type="file"
+          multiple
+          className="hidden"
+          onChange={handleFileChange}
+        />
       )}
-      <div className="bg-slate-800 border border-slate-700 rounded-xl">
+      <div className="@container bg-surface border border-line rounded-xl">
         <div className="px-4 pt-3 pb-1">
           <EditorContent editor={editor} className="tiptap-editor" />
         </div>
 
-        <div className="flex items-center justify-between px-3 pb-2 pt-1">
-          <div className="flex items-center gap-0.5">
+        <div className="flex items-start justify-between gap-1 px-3 pb-2 pt-1">
+          <div className="flex flex-wrap items-center gap-0.5 min-w-0">
             {onFileUpload && (
               <>
                 <button
@@ -252,25 +295,40 @@ export default function MessageInput({
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
                   aria-label="Upload file"
-                  className="p-1 text-slate-400 hover:text-slate-200 disabled:text-slate-600 transition cursor-pointer rounded hover:bg-slate-700/60"
+                  className="p-1 text-muted hover:text-fg-soft disabled:text-faint transition cursor-pointer rounded hover:bg-raised/60"
                 >
                   {uploading ? (
-                    <div className="w-3.5 h-3.5 border-2 border-slate-500/30 border-t-slate-400 rounded-full animate-spin" />
+                    <div className="w-3.5 h-3.5 border-2 border-line-strong/30 border-t-slate-400 rounded-full animate-spin" />
                   ) : (
                     <Paperclip className="w-3.5 h-3.5" />
                   )}
                 </button>
-                <div className="w-px h-4 bg-slate-600/60 mx-0.5" />
+                <div className="w-px h-4 bg-elevated/60 mx-0.5" />
               </>
             )}
-            <FormattingToolbar editor={editor} />
+            {/* Twelve formatting buttons in a composer this narrow is more
+                chrome than composer, and markdown shortcuts still work while it
+                is folded away. */}
+            <div className={showFormatting ? 'contents' : '@max-md:hidden contents'}>
+              <FormattingToolbar editor={editor} />
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowFormatting((open) => !open)}
+              aria-label={showFormatting ? 'Hide formatting' : 'Show formatting'}
+              aria-pressed={showFormatting}
+              data-qa="composer-formatting-toggle"
+              className="@md:hidden p-1 text-muted hover:text-fg-soft transition cursor-pointer rounded hover:bg-raised/60"
+            >
+              <Type className="w-3.5 h-3.5" />
+            </button>
             <div className="relative">
               <button
                 ref={emojiBtnRef}
                 type="button"
                 onClick={() => setShowEmoji((v) => !v)}
                 aria-label="Insert emoji"
-                className="p-1 text-slate-400 hover:text-slate-200 transition cursor-pointer rounded hover:bg-slate-700/60"
+                className="p-1 text-muted hover:text-fg-soft transition cursor-pointer rounded hover:bg-raised/60"
               >
                 <SmilePlus className="w-3.5 h-3.5" />
               </button>
@@ -288,7 +346,7 @@ export default function MessageInput({
           </div>
 
           {editing ? (
-            <div className="flex items-center gap-2 text-xs">
+            <div className="flex shrink-0 items-center gap-2 text-xs">
               <button
                 type="button"
                 onClick={handleSend}
@@ -301,13 +359,13 @@ export default function MessageInput({
               <button
                 type="button"
                 onClick={onCancel}
-                className="rounded px-2.5 py-1 text-slate-400 transition hover:text-white"
+                className="rounded px-2.5 py-1 text-muted transition hover:text-fg"
               >
                 Cancel
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-0.5">
+            <div className="flex shrink-0 items-center gap-0.5">
               {canSchedule && (
                 <div className="relative">
                   <button
@@ -320,7 +378,7 @@ export default function MessageInput({
                     aria-label="Schedule message"
                     aria-expanded={showSchedule}
                     data-qa="schedule-open"
-                    className="p-1 text-slate-400 hover:text-white disabled:text-slate-600 transition cursor-pointer disabled:cursor-not-allowed rounded hover:bg-slate-700/60"
+                    className="p-1 text-muted hover:text-fg disabled:text-faint transition cursor-pointer disabled:cursor-not-allowed rounded hover:bg-raised/60"
                     title="Send later"
                   >
                     <Clock className="w-3.5 h-3.5" />
@@ -329,7 +387,7 @@ export default function MessageInput({
                     <div
                       ref={scheduleMenuRef}
                       data-qa="schedule-menu"
-                      className="absolute bottom-full right-0 mb-2 w-64 bg-slate-800 border border-slate-700 rounded-lg shadow-xl py-1 z-20"
+                      className="absolute bottom-full right-0 mb-2 w-64 bg-surface border border-line rounded-lg shadow-xl py-1 z-20"
                     >
                       {SCHEDULE_PRESETS.map((preset) => (
                         <button
@@ -337,19 +395,17 @@ export default function MessageInput({
                           type="button"
                           onClick={() => void handleSchedule(preset.at())}
                           data-qa="schedule-preset"
-                          className="w-full px-3 py-2 flex items-center justify-between gap-2 text-left text-sm text-slate-300 hover:bg-slate-700/60 transition cursor-pointer"
+                          className="w-full px-3 py-2 flex items-center justify-between gap-2 text-left text-sm text-fg-dim hover:bg-raised/60 transition cursor-pointer"
                         >
                           <span>{preset.label}</span>
-                          <span className="text-[11px] text-slate-500">
-                            {formatScheduleHint(preset.at())}
-                          </span>
+                          <span className="text-[11px] text-subtle">{formatScheduleHint(preset.at())}</span>
                         </button>
                       ))}
 
-                      <div className="mt-1 border-t border-slate-700/70 px-3 py-2">
+                      <div className="mt-1 border-t border-line/70 px-3 py-2">
                         <label
                           htmlFor={`schedule-custom-${draftKey ?? 'composer'}`}
-                          className="block text-[11px] uppercase tracking-wider text-slate-400 mb-1"
+                          className="block text-[11px] uppercase tracking-wider text-muted mb-1"
                         >
                           Pick a time
                         </label>
@@ -363,10 +419,10 @@ export default function MessageInput({
                             setScheduleError(null);
                           }}
                           data-qa="schedule-custom-input"
-                          className="w-full px-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500 [color-scheme:dark]"
+                          className="w-full px-2 py-1.5 bg-raised/50 border border-line-strong rounded text-sm text-fg focus:outline-none focus:ring-2 focus:ring-purple-500 [color-scheme:dark]"
                         />
                         {scheduleError && (
-                          <p className="mt-1 text-[11px] text-red-400" data-qa="schedule-error">
+                          <p className="mt-1 text-[11px] text-danger" data-qa="schedule-error">
                             {scheduleError}
                           </p>
                         )}
@@ -398,7 +454,7 @@ export default function MessageInput({
                 type="button"
                 onClick={handleSend}
                 disabled={isEmpty}
-                className="p-1 text-purple-400 hover:text-purple-300 disabled:text-slate-600 transition cursor-pointer disabled:cursor-not-allowed rounded hover:bg-slate-700/60"
+                className="p-1 text-accent hover:text-accent-soft disabled:text-faint transition cursor-pointer disabled:cursor-not-allowed rounded hover:bg-raised/60"
                 title="Send (Enter)"
               >
                 <Send className="w-3.5 h-3.5" />

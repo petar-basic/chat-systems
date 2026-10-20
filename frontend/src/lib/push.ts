@@ -52,7 +52,7 @@ export async function currentState(): Promise<PushState> {
 
   let enabled: boolean;
   try {
-    const key = await api.get<{ public_key: string; enabled: boolean }>('/push/key');
+    const key = await api.typed((c) => c.GET('/push/key'));
     enabled = key.enabled;
   } catch {
     enabled = false;
@@ -77,10 +77,7 @@ export async function currentState(): Promise<PushState> {
 export async function subscribe(): Promise<boolean> {
   if (!pushSupported()) return false;
 
-  const { public_key: publicKey, enabled } = await api.get<{
-    public_key: string;
-    enabled: boolean;
-  }>('/push/key');
+  const { public_key: publicKey, enabled } = await api.typed((c) => c.GET('/push/key'));
   if (!enabled || !publicKey) return false;
 
   const permission = await Notification.requestPermission();
@@ -94,14 +91,18 @@ export async function subscribe(): Promise<boolean> {
     applicationServerKey: fromBase64Url(publicKey),
   });
 
-  await api.post('/push/subscriptions', {
-    endpoint: subscription.endpoint,
-    keys: {
-      p256dh: toBase64Url(subscription.getKey('p256dh')),
-      auth: toBase64Url(subscription.getKey('auth')),
-    },
-    user_agent: navigator.userAgent.slice(0, 255),
-  });
+  await api.typed((c) =>
+    c.POST('/push/subscriptions', {
+      body: {
+        endpoint: subscription.endpoint,
+        keys: {
+          p256dh: toBase64Url(subscription.getKey('p256dh')),
+          auth: toBase64Url(subscription.getKey('auth')),
+        },
+        user_agent: navigator.userAgent.slice(0, 255),
+      },
+    }),
+  );
 
   return true;
 }
@@ -117,6 +118,8 @@ export async function unsubscribe(): Promise<void> {
   const subscription = await registration?.pushManager.getSubscription();
   if (!subscription) return;
 
-  await api.delete('/push/subscriptions', { endpoint: subscription.endpoint }).catch(() => {});
+  await api
+    .typed((c) => c.DELETE('/push/subscriptions', { body: { endpoint: subscription.endpoint } }))
+    .catch(() => {});
   await subscription.unsubscribe();
 }

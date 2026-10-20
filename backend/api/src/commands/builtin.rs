@@ -47,19 +47,14 @@ pub async fn run(
         "dnd" => {
             let until = parse_dnd(text)?;
             state.notification_repo.set_dnd(user_id, until).await?;
-            Ok(Some(CommandResponse::ephemeral(match until {
-                Some(until) => format!("Notifications paused until {}.", until.format("%H:%M UTC")),
-                None => "Notifications are on again.".into(),
-            })))
+            Ok(Some(match until {
+                Some(until) => CommandResponse::ephemeral_at("Notifications paused until", until),
+                None => CommandResponse::ephemeral("Notifications are on again."),
+            }))
         }
 
         "topic" => {
-            let channel = state
-                .workspace_service
-                .repo
-                .find_channel_by_id(channel_id)
-                .await?
-                .ok_or_else(|| AppError::NotFound("No such channel".into()))?;
+            let channel = authz::find_channel(state, channel_id).await?;
             // The route has already established that this person can see the
             // channel; setting a topic is an ordinary member's job, as it is in
             // the panel.
@@ -85,12 +80,7 @@ pub async fn run(
         "invite" => {
             let target = resolve_mentioned_user(text)
                 .ok_or_else(|| AppError::Validation("Name somebody: /invite @user".into()))?;
-            let channel = state
-                .workspace_service
-                .repo
-                .find_channel_by_id(channel_id)
-                .await?
-                .ok_or_else(|| AppError::NotFound("No such channel".into()))?;
+            let channel = authz::find_channel(state, channel_id).await?;
 
             authz::require_workspace_member(state, channel.workspace_id, target).await?;
             state
@@ -105,12 +95,7 @@ pub async fn run(
 
         "remind" => {
             let parsed = parse_remind(text)?;
-            let channel = state
-                .workspace_service
-                .repo
-                .find_channel_by_id(channel_id)
-                .await?
-                .ok_or_else(|| AppError::NotFound("No such channel".into()))?;
+            let channel = authz::find_channel(state, channel_id).await?;
 
             let target = parsed.target.unwrap_or(user_id);
             if target != user_id {
@@ -168,10 +153,10 @@ pub async fn run(
             } else {
                 format!("<@{target}>")
             };
-            Ok(Some(CommandResponse::ephemeral(format!(
-                "I will remind {who} on {}.",
-                remind_at.format("%a %d %b at %H:%M UTC")
-            ))))
+            Ok(Some(CommandResponse::ephemeral_at(
+                format!("I will remind {who}"),
+                remind_at,
+            )))
         }
 
         _ => Ok(None),

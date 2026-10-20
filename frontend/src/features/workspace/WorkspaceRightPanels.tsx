@@ -14,9 +14,9 @@ import UserGroupsPanel from '@/components/UserGroupsPanel';
 import { useCurrentWorkspaceRole } from './hooks/useCurrentWorkspaceRole';
 import AuditLogPanel from '@/components/AuditLogPanel';
 import ScheduledMessagesPanel from '@/components/ScheduledMessagesPanel';
-import ConversationThreadPanel from '@/components/ConversationThreadPanel';
 import SavedItemsPanel from '@/components/SavedItemsPanel';
 import RemindersPanel from '@/components/RemindersPanel';
+import SlackImportPanel from '@/components/SlackImportPanel';
 
 interface Props {
   panel: RightPanel;
@@ -56,7 +56,8 @@ export default function WorkspaceRightPanels({
         workspaceId={currentWorkspace.id}
         instanceUrl={currentWorkspace.instanceUrl}
         currentName={currentWorkspace.name}
-        currentDescription={currentWorkspace.description}
+        currentIconUrl={currentWorkspace.icon_url}
+        currentDescription={currentWorkspace.description ?? null}
         deletedAt={currentWorkspace.deleted_at}
         onClose={onClose}
       />
@@ -68,16 +69,6 @@ export default function WorkspaceRightPanels({
         parentMessage={panel.message}
         members={workspaceMembers}
         channels={channels}
-        onClose={onClose}
-      />
-    );
-  }
-  if (panel.kind === 'conversationThread' && currentWorkspace) {
-    return (
-      <ConversationThreadPanel
-        conversationId={panel.conversationId}
-        parentMessage={panel.message}
-        instanceUrl={currentWorkspace.instanceUrl}
         onClose={onClose}
       />
     );
@@ -106,6 +97,15 @@ export default function WorkspaceRightPanels({
       />
     );
   }
+  if (panel.kind === 'slackImport' && currentWorkspace) {
+    return (
+      <SlackImportPanel
+        workspaceId={currentWorkspace.id}
+        instanceUrl={currentWorkspace.instanceUrl}
+        onClose={onClose}
+      />
+    );
+  }
   if (panel.kind === 'search' && currentWorkspace) {
     return (
       <SearchPanel
@@ -128,7 +128,7 @@ export default function WorkspaceRightPanels({
     return (
       <ChannelMembersPanel
         channelId={currentChannel.id}
-        channelName={currentChannel.name}
+        channelName={currentChannel.name ?? ''}
         channelType={currentChannel.channel_type}
         onClose={onClose}
       />

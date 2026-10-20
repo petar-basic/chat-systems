@@ -1,8 +1,9 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User {
     pub id: Uuid,
     pub email: String,
@@ -20,7 +21,7 @@ pub struct User {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type, PartialEq, ToSchema)]
 #[sqlx(type_name = "user_status", rename_all = "lowercase")]
 #[serde(rename_all = "lowercase")]
 pub enum UserStatus {
@@ -29,7 +30,7 @@ pub enum UserStatus {
     Suspended,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct UserPublic {
     pub id: Uuid,
     pub email: String,
@@ -79,7 +80,7 @@ pub struct AuthTokens {
     pub user: UserPublic,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct AuthSession {
     pub user: UserPublic,
     pub expires_in: i64,
@@ -98,7 +99,7 @@ impl From<AuthTokens> for AuthSession {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct LoginRequest {
     pub email: String,
     pub password: String,
@@ -107,41 +108,70 @@ pub struct LoginRequest {
     pub totp_code: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct RegisterCompleteRequest {
     pub token: String,
     pub display_name: String,
     pub password: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct ForgotPasswordRequest {
     pub email: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct ResetPasswordRequest {
     pub token: String,
     pub password: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, garde::Validate, ToSchema)]
+#[garde(allow_unvalidated)]
 pub struct SetStatusRequest {
+    #[garde(inner(custom(shared_common::validation::rules::status_emoji_or_blank)))]
     pub emoji: Option<String>,
+    #[garde(inner(custom(shared_common::validation::rules::status_text_or_blank)))]
     pub text: Option<String>,
     pub expires_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, garde::Validate, ToSchema)]
+#[garde(allow_unvalidated)]
 pub struct UpdateProfileRequest {
+    #[garde(inner(custom(shared_common::validation::rules::display_name)))]
     pub display_name: Option<String>,
+    #[garde(inner(custom(shared_common::validation::rules::avatar_url_or_empty)))]
     pub avatar_url: Option<String>,
+    #[garde(inner(custom(shared_common::validation::rules::bio)))]
     pub bio: Option<String>,
+    #[garde(inner(custom(shared_common::validation::rules::timezone)))]
     pub timezone: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct ChangePasswordRequest {
     pub current_password: String,
     pub new_password: String,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct InvitePreview {
+    pub email: String,
+    pub workspace_name: String,
+    pub workspace_id: Uuid,
+    pub already_registered: bool,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct InviteAccepted {
+    pub workspace_id: Uuid,
+    pub workspace_name: String,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct InstanceInfo {
+    pub name: String,
+    pub icon_url: Option<String>,
+    pub sso_enabled: bool,
 }

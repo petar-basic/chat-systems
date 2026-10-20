@@ -827,3 +827,242 @@ async fn an_expired_invite_is_refused(pool: PgPool) {
     .await;
     assert_eq!(status, StatusCode::BAD_REQUEST, "expired invite: {body:?}");
 }
+
+/// A guest is somebody from outside who was let into a room. Every other guest
+/// rule in the product holds them to the channels they were added to; the
+/// directory was the one door still open, and it was the one handing over a
+/// staff list with addresses.
+#[sqlx::test(migrations = "../migrations")]
+async fn a_guest_sees_only_the_people_they_share_a_channel_with(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, owner_email, _owner_token) =
+        seed_and_login(&app, &state, "dir-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Directory").await;
+
+    let (shared_id, shared_email, _) = seed_and_login(&app, &state, "dir-shared", false).await;
+    add_ws_member(&state, ws_id, shared_id, "member").await;
+    let (unrelated_id, unrelated_email, _) =
+        seed_and_login(&app, &state, "dir-unrelated", false).await;
+    add_ws_member(&state, ws_id, unrelated_id, "member").await;
+
+    let (guest_id, _, guest_token) = seed_and_login(&app, &state, "dir-guest", false).await;
+    add_ws_member(&state, ws_id, guest_id, "guest").await;
+
+    let shared_channel = seed_channel(&state, ws_id, owner_id, "shared-room", true).await;
+    for member in [shared_id, guest_id] {
+        state
+            .workspace_service
+            .repo
+            .add_channel_member(
+                shared_channel,
+                member,
+                &crate::workspace::models::ChannelRole::Member,
+            )
+            .await
+            .expect("add to the shared channel");
+    }
+
+    let (status, body) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws_id}/members"),
+        Some(&guest_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+
+    let seen: Vec<&str> = body["data"]
+        .as_array()
+        .expect("data")
+        .iter()
+        .filter_map(|m| m["user_id"].as_str())
+        .collect();
+    assert!(
+        seen.contains(&guest_id.to_string().as_str()),
+        "a guest sees themselves"
+    );
+    assert!(
+        seen.contains(&shared_id.to_string().as_str()),
+        "and the person in their channel"
+    );
+    assert!(
+        !seen.contains(&unrelated_id.to_string().as_str()),
+        "but not somebody they share nothing with: {body:?}"
+    );
+    assert!(
+        seen.contains(&owner_id.to_string().as_str()),
+        "the owner created the channel and is in it, so they are visible for the same reason"
+    );
+
+    let payload = serde_json::to_string(&body).expect("serialize");
+    for email in [&shared_email, &unrelated_email, &owner_email] {
+        assert!(
+            !payload.contains(email.as_str()),
+            "a guest gets no addresses at all, not even for people they can see"
+        );
+    }
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn an_ordinary_member_still_sees_the_whole_workspace(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, owner_email, _) = seed_and_login(&app, &state, "dir-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Directory").await;
+    let (member_id, _, member_token) = seed_and_login(&app, &state, "dir-member", false).await;
+    add_ws_member(&state, ws_id, member_id, "member").await;
+
+    let (status, body) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws_id}/members"),
+        Some(&member_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["data"].as_array().expect("data").len(), 2);
+    assert!(
+        serde_json::to_string(&body)
+            .expect("serialize")
+            .contains(owner_email.as_str()),
+        "the workspace already trusts a member with its own directory"
+    );
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn a_guest_in_no_channels_sees_only_themselves(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "dir-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Directory").await;
+    let (guest_id, _, guest_token) = seed_and_login(&app, &state, "dir-guest", false).await;
+    add_ws_member(&state, ws_id, guest_id, "guest").await;
+
+    let (status, body) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws_id}/members"),
+        Some(&guest_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let seen = body["data"].as_array().expect("data");
+    assert_eq!(seen.len(), 1, "an empty list, not the workspace: {body:?}");
+    assert_eq!(
+        seen[0]["user_id"].as_str(),
+        Some(guest_id.to_string().as_str())
+    );
+}
+
+/// A workspace picks its face the way a person picks theirs, and the remove
+/// button has to actually remove: `COALESCE` alone could only ever set one.
+#[sqlx::test(migrations = "../migrations")]
+async fn a_workspace_icon_can_be_set_and_taken_off(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, token) = seed_and_login(&app, &state, "icon-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Faces").await;
+
+    let (status, body) = send(
+        &app,
+        "PATCH",
+        &format!("/api/workspaces/{ws_id}"),
+        Some(&token),
+        Some(serde_json::json!({ "icon_url": "/api/files/download/emoji/logo.png" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(body["icon_url"], "/api/files/download/emoji/logo.png");
+
+    let (status, unchanged) = send(
+        &app,
+        "PATCH",
+        &format!("/api/workspaces/{ws_id}"),
+        Some(&token),
+        Some(serde_json::json!({ "name": "Faces renamed" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        unchanged["icon_url"], "/api/files/download/emoji/logo.png",
+        "leaving the field out leaves the icon alone"
+    );
+
+    let (status, cleared) = send(
+        &app,
+        "PATCH",
+        &format!("/api/workspaces/{ws_id}"),
+        Some(&token),
+        Some(serde_json::json!({ "icon_url": "" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        cleared["icon_url"].is_null(),
+        "an empty string takes it off"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn registration_token_accept_joins_an_already_active_account(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "reg-acc-owner", false).await;
+    let (joiner_id, joiner_email, joiner_token) =
+        seed_and_login(&app, &state, "reg-acc-join", false).await;
+    let (_, _, other_token) = seed_and_login(&app, &state, "reg-acc-other", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Second WS").await;
+
+    let reg_token = state
+        .auth_service
+        .generate_registration_token(joiner_id, &joiner_email, ws_id, "member")
+        .expect("registration token");
+
+    let (status, resp) = send(
+        &app,
+        "GET",
+        &format!("/api/auth/invites/{reg_token}/verify"),
+        None,
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "verify invite: {resp:?}");
+    assert_eq!(
+        resp["already_registered"], true,
+        "an active account must be flagged so the page offers a join, not a signup: {resp:?}"
+    );
+
+    let path = format!("/api/auth/invites/{reg_token}/accept");
+
+    let (status, _) = send(&app, "POST", &path, None, None).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+
+    let (status, _) = send(&app, "POST", &path, Some(&other_token), None).await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "an invite may only be accepted by the account it was issued to"
+    );
+
+    let (status, resp) = send(&app, "POST", &path, Some(&joiner_token), None).await;
+    assert_eq!(status, StatusCode::OK, "accept invite: {resp:?}");
+    assert_eq!(resp["workspace_id"], ws_id.to_string());
+
+    let (status, resp) = send(&app, "GET", "/api/workspaces", Some(&joiner_token), None).await;
+    assert_eq!(status, StatusCode::OK);
+    let joined = resp["data"]
+        .as_array()
+        .expect("workspace list")
+        .iter()
+        .any(|ws| ws["id"] == ws_id.to_string());
+    assert!(
+        joined,
+        "invited workspace must appear for the joiner: {resp:?}"
+    );
+
+    let (status, resp) = send(&app, "POST", &path, Some(&joiner_token), None).await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "accepting twice must be a no-op, not an error: {resp:?}"
+    );
+}

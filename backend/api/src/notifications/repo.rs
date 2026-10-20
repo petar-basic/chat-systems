@@ -23,20 +23,22 @@ impl NotificationRepo {
         body: Option<&str>,
         data: &serde_json::Value,
     ) -> sqlx::Result<Option<Notification>> {
-        sqlx::query_as::<_, Notification>(
-            r"
+        sqlx::query_as!(
+            Notification,
+            r#"
             INSERT INTO notifications (user_id, workspace_id, notification_type, title, body, data)
             VALUES ($1, $2, $3, $4, $5, $6)
             ON CONFLICT DO NOTHING
-            RETURNING *
-            ",
+            RETURNING id, user_id, workspace_id, notification_type AS "notification_type: NotificationType",
+                   title, body, data AS "data!", is_read AS "is_read!", created_at
+            "#,
+            user_id,
+            workspace_id,
+            notification_type.clone() as NotificationType,
+            title,
+            body,
+            data
         )
-        .bind(user_id)
-        .bind(workspace_id)
-        .bind(notification_type)
-        .bind(title)
-        .bind(body)
-        .bind(data)
         .fetch_optional(&self.pool)
         .await
     }
@@ -48,39 +50,42 @@ impl NotificationRepo {
         limit: i64,
         offset: i64,
     ) -> sqlx::Result<Vec<Notification>> {
-        sqlx::query_as::<_, Notification>(
-            r"
-            SELECT * FROM notifications
-            WHERE user_id = $1 AND workspace_id = $2
-            ORDER BY created_at DESC
-            LIMIT $3 OFFSET $4
-            ",
+        sqlx::query_as!(
+            Notification,
+            r#"
+            SELECT id, user_id, workspace_id, notification_type AS "notification_type: NotificationType",
+                   title, body, data AS "data!", is_read AS "is_read!", created_at
+              FROM notifications
+             WHERE user_id = $1 AND workspace_id = $2
+             ORDER BY created_at DESC
+             LIMIT $3 OFFSET $4
+            "#,
+            user_id,
+            workspace_id,
+            limit,
+            offset
         )
-        .bind(user_id)
-        .bind(workspace_id)
-        .bind(limit)
-        .bind(offset)
         .fetch_all(&self.pool)
         .await
     }
 
     pub async fn mark_read(&self, notification_ids: &[Uuid], user_id: Uuid) -> sqlx::Result<u64> {
-        let result = sqlx::query(
+        let result = sqlx::query!(
             "UPDATE notifications SET is_read = true WHERE id = ANY($1) AND user_id = $2",
+            notification_ids,
+            user_id
         )
-        .bind(notification_ids)
-        .bind(user_id)
         .execute(&self.pool)
         .await?;
         Ok(result.rows_affected())
     }
 
     pub async fn mark_all_read(&self, user_id: Uuid, workspace_id: Uuid) -> sqlx::Result<u64> {
-        let result = sqlx::query(
+        let result = sqlx::query!(
             "UPDATE notifications SET is_read = true WHERE user_id = $1 AND workspace_id = $2 AND is_read = false",
+            user_id,
+            workspace_id
         )
-        .bind(user_id)
-        .bind(workspace_id)
         .execute(&self.pool)
         .await?;
         Ok(result.rows_affected())
@@ -92,65 +97,64 @@ impl NotificationRepo {
         workspace_id: Uuid,
         channel_id: Uuid,
     ) -> sqlx::Result<u64> {
-        let result = sqlx::query(
+        let result = sqlx::query!(
             "UPDATE notifications SET is_read = true WHERE user_id = $1 AND workspace_id = $2 AND is_read = false AND data->>'channel_id' = $3",
+            user_id,
+            workspace_id,
+            channel_id.to_string()
         )
-        .bind(user_id)
-        .bind(workspace_id)
-        .bind(channel_id.to_string())
         .execute(&self.pool)
         .await?;
         Ok(result.rows_affected())
     }
 
     pub async fn get_dnd(&self, user_id: Uuid) -> sqlx::Result<Option<DateTime<Utc>>> {
-        let row: Option<(Option<DateTime<Utc>>,)> =
-            sqlx::query_as("SELECT dnd_until FROM users WHERE id = $1")
-                .bind(user_id)
-                .fetch_optional(&self.pool)
-                .await?;
-        Ok(row.and_then(|r| r.0))
+        let row = sqlx::query_scalar!("SELECT dnd_until FROM users WHERE id = $1", user_id)
+            .fetch_optional(&self.pool)
+            .await?;
+        Ok(row.flatten())
     }
 
     pub async fn set_dnd(&self, user_id: Uuid, until: Option<DateTime<Utc>>) -> sqlx::Result<()> {
-        sqlx::query("UPDATE users SET dnd_until = $2 WHERE id = $1")
-            .bind(user_id)
-            .bind(until)
-            .execute(&self.pool)
-            .await?;
+        sqlx::query!(
+            "UPDATE users SET dnd_until = $2 WHERE id = $1",
+            user_id,
+            until
+        )
+        .execute(&self.pool)
+        .await?;
         Ok(())
     }
 
     pub async fn is_dnd_active(&self, user_id: Uuid) -> sqlx::Result<bool> {
-        let row: Option<(bool,)> = sqlx::query_as(
-            "SELECT (dnd_until IS NOT NULL AND dnd_until > NOW()) FROM users WHERE id = $1",
+        let row = sqlx::query_scalar!(
+            r#"SELECT (dnd_until IS NOT NULL AND dnd_until > NOW()) AS "active!" FROM users WHERE id = $1"#,
+            user_id
         )
-        .bind(user_id)
         .fetch_optional(&self.pool)
         .await?;
-        Ok(row.map(|r| r.0).unwrap_or(false))
+        Ok(row.unwrap_or(false))
     }
 
     pub async fn is_channel_muted(&self, channel_id: Uuid, user_id: Uuid) -> sqlx::Result<bool> {
-        let row: Option<(bool,)> = sqlx::query_as(
+        let row = sqlx::query_scalar!(
             "SELECT muted FROM channel_members WHERE channel_id = $1 AND user_id = $2",
+            channel_id,
+            user_id
         )
-        .bind(channel_id)
-        .bind(user_id)
         .fetch_optional(&self.pool)
         .await?;
-        Ok(row.map(|r| r.0).unwrap_or(false))
+        Ok(row.unwrap_or(false))
     }
 
     pub async fn unread_count(&self, user_id: Uuid, workspace_id: Uuid) -> sqlx::Result<i64> {
-        let row: (i64,) = sqlx::query_as(
-            "SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND workspace_id = $2 AND is_read = false",
+        sqlx::query_scalar!(
+            r#"SELECT COUNT(*) AS "count!" FROM notifications WHERE user_id = $1 AND workspace_id = $2 AND is_read = false"#,
+            user_id,
+            workspace_id
         )
-        .bind(user_id)
-        .bind(workspace_id)
         .fetch_one(&self.pool)
-        .await?;
-        Ok(row.0)
+        .await
     }
 }
 

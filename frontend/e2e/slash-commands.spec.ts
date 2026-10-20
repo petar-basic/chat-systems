@@ -1,12 +1,12 @@
 import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
-import { API, authHeaders, login, send } from './helpers';
+import { API, authHeaders, login, send, devWorkspace } from './helpers';
 
 // Three round trips through the composer plus a sign-in; the default 30s is
 // tight on a seeded instance.
 test.setTimeout(60_000);
 
 async function openGeneral(page: Page, admin: APIRequestContext) {
-  const workspace = (await (await admin.get(`${API}/workspaces`)).json()).data[0];
+  const workspace = await devWorkspace(admin);
   const channels = (await (await admin.get(`${API}/workspaces/${workspace.id}/channels`)).json()).data;
   const channel = channels.find((c: { name: string }) => c.name === 'general');
   await login(page, 'admin@dev.local');

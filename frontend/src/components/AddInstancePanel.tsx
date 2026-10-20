@@ -36,33 +36,33 @@ export default function AddInstancePanel({ onClose }: Props) {
 
   return (
     <div className="absolute inset-0 z-30 flex">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-overlay/50 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative z-10 w-80 bg-slate-800 border-r border-slate-700 flex flex-col h-full shadow-2xl">
-        <div className="h-14 px-4 flex items-center justify-between border-b border-slate-700 shrink-0">
+      <div className="relative z-10 w-80 bg-surface border-r border-line flex flex-col h-full shadow-2xl">
+        <div className="h-14 px-4 flex items-center justify-between border-b border-line shrink-0">
           <div className="flex items-center gap-2">
-            <ServerCrash className="w-5 h-5 text-purple-400" />
-            <h2 className="font-semibold text-white">Add Instance</h2>
+            <ServerCrash className="w-5 h-5 text-accent" />
+            <h2 className="font-semibold text-fg">Add Instance</h2>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white transition cursor-pointer">
+          <button onClick={onClose} className="text-muted hover:text-fg transition cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 space-y-4">
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-muted">
             Connect to another Chat Systems server using its URL and your credentials.
           </p>
 
           {error && error !== 'totp_required' && (
-            <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-3 py-2 rounded-lg text-sm">
+            <div className="bg-red-500/10 border border-red-500/30 text-danger px-3 py-2 rounded-lg text-sm">
               {error}
             </div>
           )}
 
           {needsTotp && (
             <div>
-              <label htmlFor="instance-totp" className="block text-sm font-medium text-slate-300 mb-1.5">
+              <label htmlFor="instance-totp" className="block text-sm font-medium text-fg-dim mb-1.5">
                 Authentication code
               </label>
               <input
@@ -72,7 +72,7 @@ export default function AddInstancePanel({ onClose }: Props) {
                 autoComplete="one-time-code"
                 value={totpCode}
                 onChange={(e) => setTotpCode(e.target.value.trim())}
-                className="w-full px-3 py-2.5 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm tracking-widest focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full px-3 py-2.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm tracking-widest focus:outline-none focus:ring-2 focus:ring-purple-500"
                 placeholder="123456"
                 required
               />
@@ -80,7 +80,7 @@ export default function AddInstancePanel({ onClose }: Props) {
           )}
 
           <div>
-            <label htmlFor="instance-url" className="block text-sm font-medium text-slate-300 mb-1.5">
+            <label htmlFor="instance-url" className="block text-sm font-medium text-fg-dim mb-1.5">
               Server URL
             </label>
             <input
@@ -88,7 +88,7 @@ export default function AddInstancePanel({ onClose }: Props) {
               type="url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              className="w-full px-3 py-2.5 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-3 py-2.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder="https://chat.yourcompany.com"
               required
             />
@@ -98,22 +98,22 @@ export default function AddInstancePanel({ onClose }: Props) {
             <button
               type="button"
               onClick={() => setShowAdvanced(!showAdvanced)}
-              className="text-xs text-slate-400 hover:text-slate-300 transition flex items-center gap-1"
+              className="text-xs text-muted hover:text-fg-dim transition flex items-center gap-1"
             >
               <span>{showAdvanced ? '▾' : '▸'}</span> Advanced options
             </button>
             {showAdvanced && (
               <div className="mt-2">
-                <label htmlFor="instance-ws-url" className="block text-sm font-medium text-slate-300 mb-1.5">
+                <label htmlFor="instance-ws-url" className="block text-sm font-medium text-fg-dim mb-1.5">
                   WebSocket URL
-                  <span className="ml-2 text-xs text-slate-400 font-normal">(optional)</span>
+                  <span className="ml-2 text-xs text-muted font-normal">(optional)</span>
                 </label>
                 <input
                   id="instance-ws-url"
                   type="url"
                   value={wsUrl}
                   onChange={(e) => setWsUrl(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-3 py-2.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
                   placeholder="ws://localhost:3004"
                 />
               </div>
@@ -121,7 +121,7 @@ export default function AddInstancePanel({ onClose }: Props) {
           </div>
 
           <div>
-            <label htmlFor="instance-email" className="block text-sm font-medium text-slate-300 mb-1.5">
+            <label htmlFor="instance-email" className="block text-sm font-medium text-fg-dim mb-1.5">
               Email
             </label>
             <input
@@ -129,14 +129,14 @@ export default function AddInstancePanel({ onClose }: Props) {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2.5 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-3 py-2.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder="you@company.com"
               required
             />
           </div>
 
           <div>
-            <label htmlFor="instance-password" className="block text-sm font-medium text-slate-300 mb-1.5">
+            <label htmlFor="instance-password" className="block text-sm font-medium text-fg-dim mb-1.5">
               Password
             </label>
             <input
@@ -144,7 +144,7 @@ export default function AddInstancePanel({ onClose }: Props) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2.5 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-3 py-2.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder="Enter your password"
               required
             />

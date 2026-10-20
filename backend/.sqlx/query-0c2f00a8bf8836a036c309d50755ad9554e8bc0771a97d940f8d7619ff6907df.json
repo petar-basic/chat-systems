@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, message_id, previous_content, edited_by, edited_at FROM message_edits WHERE message_id = $1 ORDER BY edited_at DESC, id DESC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "message_edits",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "message_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "message_edits",
+            "name": "message_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "previous_content",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "message_edits",
+            "name": "previous_content"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "edited_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "message_edits",
+            "name": "edited_by"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "edited_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "message_edits",
+            "name": "edited_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "0c2f00a8bf8836a036c309d50755ad9554e8bc0771a97d940f8d7619ff6907df"
+}

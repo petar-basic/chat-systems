@@ -31,7 +31,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   render() {
     if (this.state.hasError) {
       return (
-        <div className="h-screen flex flex-col items-center justify-center bg-slate-900 text-white gap-4 px-6 text-center">
+        <div className="h-screen flex flex-col items-center justify-center bg-app text-fg gap-4 px-6 text-center">
           <div className="text-lg font-semibold">Something went wrong</div>
           <button
             type="button"

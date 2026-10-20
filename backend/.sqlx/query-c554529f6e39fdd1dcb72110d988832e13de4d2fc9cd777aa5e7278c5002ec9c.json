@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE huddle_participants SET left_at = NOW()\n             WHERE huddle_id = $1 AND user_id = $2 AND left_at IS NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c554529f6e39fdd1dcb72110d988832e13de4d2fc9cd777aa5e7278c5002ec9c"
+}

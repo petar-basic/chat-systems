@@ -1,4 +1,5 @@
 import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { components } from '@/api/schema';
 import { useCurrentApi, getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { QUERY_KEYS, NOTIFICATIONS_PAGE_SIZE } from '@/shared/constants';
 import { toast } from '@/shared/components/Toast';
@@ -6,7 +7,9 @@ import { logger } from '@/lib/logger';
 import { ErrorLabels } from '@/shared/constants';
 import type { Workspace } from '@/stores/workspace';
 
-export type NotificationKind = 'mention' | 'dm' | 'reply' | 'reaction' | 'call' | 'reminder' | 'system';
+export type NotificationKind = components['schemas']['NotificationType'];
+
+export type RawNotification = components['schemas']['Notification'];
 
 export interface AppNotification {
   id: string;
@@ -21,24 +24,12 @@ export interface AppNotification {
   created_at: string;
 }
 
-export interface RawNotification {
-  id: string;
-  workspace_id: string;
-  user_id: string;
-  notification_type: NotificationKind;
-  title: string;
-  body: string | null;
-  data: { channel_id?: string | null; message_id?: string | null } | null;
-  is_read: boolean;
-  created_at: string;
-}
-
-interface NotificationsResponse {
-  data: RawNotification[];
-}
-
-interface UnreadCountResponse {
-  unread_count: number;
+function deepLink(data: unknown): Pick<AppNotification, 'channel_id' | 'message_id'> {
+  if (typeof data !== 'object' || data === null) return { channel_id: null, message_id: null };
+  return {
+    channel_id: 'channel_id' in data && typeof data.channel_id === 'string' ? data.channel_id : null,
+    message_id: 'message_id' in data && typeof data.message_id === 'string' ? data.message_id : null,
+  };
 }
 
 export function normalizeNotification(raw: RawNotification): AppNotification {
@@ -49,8 +40,7 @@ export function normalizeNotification(raw: RawNotification): AppNotification {
     notification_type: raw.notification_type,
     title: raw.title,
     body: raw.body ?? '',
-    channel_id: raw.data?.channel_id ?? null,
-    message_id: raw.data?.message_id ?? null,
+    ...deepLink(raw.data),
     is_read: raw.is_read,
     created_at: raw.created_at,
   };
@@ -62,8 +52,10 @@ export const useNotifications = (workspaceId: string | null) => {
     queryKey: QUERY_KEYS.notifications(workspaceId ?? ''),
     queryFn: async () => {
       if (!workspaceId) throw new Error('No workspace');
-      const res = await apiClient.get<NotificationsResponse>(
-        `/workspaces/${workspaceId}/notifications?limit=${NOTIFICATIONS_PAGE_SIZE}`,
+      const res = await apiClient.typed((c) =>
+        c.GET('/workspaces/{ws_id}/notifications', {
+          params: { path: { ws_id: workspaceId }, query: { limit: NOTIFICATIONS_PAGE_SIZE } },
+        }),
       );
       return res.data.map(normalizeNotification);
     },
@@ -78,8 +70,8 @@ export const useUnreadNotificationCount = (workspaceId: string | null) => {
     queryKey: QUERY_KEYS.notificationUnreadCount(workspaceId ?? ''),
     queryFn: async () => {
       if (!workspaceId) throw new Error('No workspace');
-      const res = await apiClient.get<UnreadCountResponse>(
-        `/workspaces/${workspaceId}/notifications/unread-count`,
+      const res = await apiClient.typed((c) =>
+        c.GET('/workspaces/{ws_id}/notifications/unread-count', { params: { path: { ws_id: workspaceId } } }),
       );
       return res.unread_count;
     },
@@ -93,8 +85,8 @@ export const useWorkspaceUnreadCounts = (workspaces: Workspace[]): Record<string
     queries: workspaces.map((ws) => ({
       queryKey: QUERY_KEYS.notificationUnreadCount(ws.id),
       queryFn: async () => {
-        const res = await getApiForInstance(ws.instanceUrl).get<UnreadCountResponse>(
-          `/workspaces/${ws.id}/notifications/unread-count`,
+        const res = await getApiForInstance(ws.instanceUrl).typed((c) =>
+          c.GET('/workspaces/{ws_id}/notifications/unread-count', { params: { path: { ws_id: ws.id } } }),
         );
         return res.unread_count;
       },
@@ -114,8 +106,8 @@ export const useDndStatus = () => {
   return useQuery({
     queryKey: QUERY_KEYS.notificationDnd(),
     queryFn: async () => {
-      const res = await apiClient.get<{ dnd_until: string | null }>('/notifications/dnd');
-      return res.dnd_until;
+      const res = await apiClient.typed((c) => c.GET('/notifications/dnd'));
+      return res.dnd_until ?? null;
     },
     staleTime: 1000 * 60,
   });
@@ -126,7 +118,7 @@ export const useSetDnd = () => {
   const apiClient = useCurrentApi();
   return useMutation({
     mutationFn: async (dndUntil: string | null) =>
-      apiClient.patch('/notifications/dnd', { dnd_until: dndUntil }),
+      apiClient.typed((c) => c.PATCH('/notifications/dnd', { body: { dnd_until: dndUntil } })),
     onMutate: (dndUntil) => {
       const previous = queryClient.getQueryData<string | null>(QUERY_KEYS.notificationDnd());
       queryClient.setQueryData(QUERY_KEYS.notificationDnd(), dndUntil);
@@ -148,7 +140,9 @@ export const useMarkNotificationsRead = (workspaceId: string | null) => {
 
   return useMutation({
     mutationFn: async (notificationIds: string[]) => {
-      return apiClient.post('/notifications/read', { notification_ids: notificationIds });
+      return apiClient.typed((c) =>
+        c.POST('/notifications/read', { body: { notification_ids: notificationIds } }),
+      );
     },
     onMutate: async (notificationIds) => {
       await queryClient.cancelQueries({ queryKey: listKey });
@@ -186,7 +180,11 @@ export const useMarkChannelNotificationsRead = (workspaceId: string | null) => {
   return useMutation({
     mutationFn: async (channelId: string) => {
       if (!workspaceId) throw new Error('No workspace');
-      return apiClient.post(`/workspaces/${workspaceId}/channels/${channelId}/notifications/read`, {});
+      return apiClient.typed((c) =>
+        c.POST('/workspaces/{ws_id}/channels/{ch_id}/notifications/read', {
+          params: { path: { ws_id: workspaceId, ch_id: channelId } },
+        }),
+      );
     },
     onMutate: async (channelId) => {
       await queryClient.cancelQueries({ queryKey: listKey });
@@ -227,7 +225,9 @@ export const useMarkAllNotificationsRead = (workspaceId: string | null) => {
   return useMutation({
     mutationFn: async () => {
       if (!workspaceId) throw new Error('No workspace');
-      return apiClient.post(`/workspaces/${workspaceId}/notifications/read-all`, {});
+      return apiClient.typed((c) =>
+        c.POST('/workspaces/{ws_id}/notifications/read-all', { params: { path: { ws_id: workspaceId } } }),
+      );
     },
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: listKey });

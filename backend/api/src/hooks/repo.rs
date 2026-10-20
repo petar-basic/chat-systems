@@ -33,35 +33,45 @@ impl HookRepo {
         description: Option<&str>,
         config: &serde_json::Value,
     ) -> sqlx::Result<Hook> {
-        sqlx::query_as::<_, Hook>(
-            r"
+        sqlx::query_as!(
+            Hook,
+            r#"
             INSERT INTO hooks (workspace_id, created_by, hook_type, name, description, config)
             VALUES ($1, $2, $3, $4, $5, $6)
-            RETURNING *
-            ",
+            RETURNING id, workspace_id, created_by, hook_type AS "hook_type: HookType", name, description,
+                   config, is_active AS "is_active!", created_at, updated_at
+            "#,
+            workspace_id,
+            created_by,
+            hook_type.clone() as HookType,
+            name,
+            description,
+            config
         )
-        .bind(workspace_id)
-        .bind(created_by)
-        .bind(hook_type)
-        .bind(name)
-        .bind(description)
-        .bind(config)
         .fetch_one(&self.pool)
         .await
     }
 
     pub async fn find_hook_by_id(&self, id: Uuid) -> sqlx::Result<Option<Hook>> {
-        sqlx::query_as::<_, Hook>("SELECT * FROM hooks WHERE id = $1")
-            .bind(id)
-            .fetch_optional(&self.pool)
-            .await
+        sqlx::query_as!(
+            Hook,
+            r#"SELECT id, workspace_id, created_by, hook_type AS "hook_type: HookType", name, description,
+                   config, is_active AS "is_active!", created_at, updated_at
+                 FROM hooks WHERE id = $1"#,
+            id
+        )
+        .fetch_optional(&self.pool)
+        .await
     }
 
     pub async fn list_hooks(&self, workspace_id: Uuid) -> sqlx::Result<Vec<Hook>> {
-        sqlx::query_as::<_, Hook>(
-            "SELECT * FROM hooks WHERE workspace_id = $1 ORDER BY created_at DESC",
+        sqlx::query_as!(
+            Hook,
+            r#"SELECT id, workspace_id, created_by, hook_type AS "hook_type: HookType", name, description,
+                   config, is_active AS "is_active!", created_at, updated_at
+                 FROM hooks WHERE workspace_id = $1 ORDER BY created_at DESC"#,
+            workspace_id
         )
-        .bind(workspace_id)
         .fetch_all(&self.pool)
         .await
     }
@@ -71,18 +81,20 @@ impl HookRepo {
         id: Uuid,
         config: &serde_json::Value,
     ) -> sqlx::Result<Hook> {
-        sqlx::query_as::<_, Hook>(
-            "UPDATE hooks SET config = $2, updated_at = NOW() WHERE id = $1 RETURNING *",
+        sqlx::query_as!(
+            Hook,
+            r#"UPDATE hooks SET config = $2, updated_at = NOW() WHERE id = $1
+               RETURNING id, workspace_id, created_by, hook_type AS "hook_type: HookType", name, description,
+                   config, is_active AS "is_active!", created_at, updated_at"#,
+            id,
+            config
         )
-        .bind(id)
-        .bind(config)
         .fetch_one(&self.pool)
         .await
     }
 
     pub async fn delete_hook(&self, id: Uuid) -> sqlx::Result<()> {
-        sqlx::query("DELETE FROM hooks WHERE id = $1")
-            .bind(id)
+        sqlx::query!("DELETE FROM hooks WHERE id = $1", id)
             .execute(&self.pool)
             .await?;
         Ok(())
@@ -92,10 +104,13 @@ impl HookRepo {
         &self,
         token: &str,
     ) -> sqlx::Result<Option<Hook>> {
-        sqlx::query_as::<_, Hook>(
-            "SELECT * FROM hooks WHERE hook_type = 'incoming_webhook' AND is_active = true AND config->>'token' = $1",
+        sqlx::query_as!(
+            Hook,
+            r#"SELECT id, workspace_id, created_by, hook_type AS "hook_type: HookType", name, description,
+                   config, is_active AS "is_active!", created_at, updated_at
+                 FROM hooks WHERE hook_type = 'incoming_webhook' AND is_active = true AND config->>'token' = $1"#,
+            token
         )
-        .bind(token)
         .fetch_optional(&self.pool)
         .await
     }
@@ -108,15 +123,18 @@ impl HookRepo {
         workspace_id: Uuid,
         channel_id: Uuid,
     ) -> sqlx::Result<Vec<Hook>> {
-        sqlx::query_as::<_, Hook>(
-            "SELECT * FROM hooks \
-              WHERE workspace_id = $1 \
-                AND hook_type = 'outgoing_webhook' \
-                AND is_active = true \
-                AND config->'channel_ids' ? $2::text",
+        sqlx::query_as!(
+            Hook,
+            r#"SELECT id, workspace_id, created_by, hook_type AS "hook_type: HookType", name, description,
+                   config, is_active AS "is_active!", created_at, updated_at
+                 FROM hooks
+                WHERE workspace_id = $1
+                  AND hook_type = 'outgoing_webhook'
+                  AND is_active = true
+                  AND config->'channel_ids' ? $2::text"#,
+            workspace_id,
+            channel_id.to_string()
         )
-        .bind(workspace_id)
-        .bind(channel_id.to_string())
         .fetch_all(&self.pool)
         .await
     }
@@ -128,28 +146,34 @@ impl HookRepo {
         workspace_id: Uuid,
         command: &str,
     ) -> sqlx::Result<Option<Hook>> {
-        sqlx::query_as::<_, Hook>(
-            "SELECT * FROM hooks \
-              WHERE workspace_id = $1 \
-                AND hook_type = 'slash_command' \
-                AND is_active = true \
-                AND config->>'command' = $2",
+        sqlx::query_as!(
+            Hook,
+            r#"SELECT id, workspace_id, created_by, hook_type AS "hook_type: HookType", name, description,
+                   config, is_active AS "is_active!", created_at, updated_at
+                 FROM hooks
+                WHERE workspace_id = $1
+                  AND hook_type = 'slash_command'
+                  AND is_active = true
+                  AND config->>'command' = $2"#,
+            workspace_id,
+            command
         )
-        .bind(workspace_id)
-        .bind(command)
         .fetch_optional(&self.pool)
         .await
     }
 
     pub async fn list_slash_commands(&self, workspace_id: Uuid) -> sqlx::Result<Vec<Hook>> {
-        sqlx::query_as::<_, Hook>(
-            "SELECT * FROM hooks \
-              WHERE workspace_id = $1 \
-                AND hook_type = 'slash_command' \
-                AND is_active = true \
-              ORDER BY config->>'command'",
+        sqlx::query_as!(
+            Hook,
+            r#"SELECT id, workspace_id, created_by, hook_type AS "hook_type: HookType", name, description,
+                   config, is_active AS "is_active!", created_at, updated_at
+                 FROM hooks
+                WHERE workspace_id = $1
+                  AND hook_type = 'slash_command'
+                  AND is_active = true
+                ORDER BY config->>'command'"#,
+            workspace_id
         )
-        .bind(workspace_id)
         .fetch_all(&self.pool)
         .await
     }
@@ -158,15 +182,15 @@ impl HookRepo {
         &self,
         workspace_id: Uuid,
     ) -> sqlx::Result<Vec<String>> {
-        sqlx::query_scalar(
-            "SELECT DISTINCT jsonb_array_elements_text(config->'channel_ids') \
-               FROM hooks \
-              WHERE workspace_id = $1 \
-                AND hook_type = 'outgoing_webhook' \
-                AND is_active = true \
-                AND jsonb_typeof(config->'channel_ids') = 'array'",
+        sqlx::query_scalar!(
+            r#"SELECT DISTINCT jsonb_array_elements_text(config->'channel_ids') AS "channel_id!"
+                 FROM hooks
+                WHERE workspace_id = $1
+                  AND hook_type = 'outgoing_webhook'
+                  AND is_active = true
+                  AND jsonb_typeof(config->'channel_ids') = 'array'"#,
+            workspace_id
         )
-        .bind(workspace_id)
         .fetch_all(&self.pool)
         .await
     }
@@ -174,15 +198,15 @@ impl HookRepo {
     /// Reserves this (hook, event) pair. Returns false when somebody already
     /// has it, which is how a redelivery is told apart from a first delivery.
     pub async fn claim_execution(&self, hook_id: Uuid, event_id: Uuid) -> sqlx::Result<bool> {
-        let claimed = sqlx::query(
+        let claimed = sqlx::query!(
             r"
             INSERT INTO hook_executions (hook_id, event_id, event_type)
             VALUES ($1, $2, 'pending')
             ON CONFLICT DO NOTHING
             ",
+            hook_id,
+            event_id
         )
-        .bind(hook_id)
-        .bind(event_id)
         .execute(&self.pool)
         .await?;
         Ok(claimed.rows_affected() == 1)
@@ -197,19 +221,19 @@ impl HookRepo {
         response_status: Option<i32>,
         response_body: Option<&str>,
     ) -> sqlx::Result<()> {
-        sqlx::query(
+        sqlx::query!(
             r"
             UPDATE hook_executions
                SET event_type = $3, payload = $4, response_status = $5, response_body = $6
              WHERE hook_id = $1 AND event_id = $2
             ",
+            hook_id,
+            event_id,
+            event_type,
+            payload,
+            response_status,
+            response_body
         )
-        .bind(hook_id)
-        .bind(event_id)
-        .bind(event_type)
-        .bind(payload)
-        .bind(response_status)
-        .bind(response_body)
         .execute(&self.pool)
         .await?;
         Ok(())
@@ -223,37 +247,40 @@ impl HookRepo {
         response_status: Option<i32>,
         response_body: Option<&str>,
     ) -> sqlx::Result<HookExecution> {
-        sqlx::query_as::<_, HookExecution>(
+        sqlx::query_as!(
+            HookExecution,
             r"
             INSERT INTO hook_executions (hook_id, event_type, payload, response_status, response_body)
             VALUES ($1, $2, $3, $4, $5)
-            RETURNING *
+            RETURNING id, hook_id, event_type, payload, response_status, response_body, executed_at
             ",
+            hook_id,
+            event_type,
+            payload,
+            response_status,
+            response_body
         )
-        .bind(hook_id)
-        .bind(event_type)
-        .bind(payload)
-        .bind(response_status)
-        .bind(response_body)
         .fetch_one(&self.pool)
         .await
     }
 
     pub async fn create_reminder(&self, reminder: NewReminder<'_>) -> sqlx::Result<Reminder> {
-        sqlx::query_as::<_, Reminder>(
-            r"
+        sqlx::query_as!(
+            Reminder,
+            r#"
             INSERT INTO reminders (workspace_id, created_by, target_user_id, channel_id, message_id, content, remind_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7)
-            RETURNING *
-            ",
+            RETURNING id, workspace_id, created_by, target_user_id, channel_id, message_id, content, remind_at,
+                   is_delivered AS "is_delivered!", created_at
+            "#,
+            reminder.workspace_id,
+            reminder.created_by,
+            reminder.target_user_id,
+            reminder.channel_id,
+            reminder.message_id,
+            reminder.content,
+            reminder.remind_at
         )
-        .bind(reminder.workspace_id)
-        .bind(reminder.created_by)
-        .bind(reminder.target_user_id)
-        .bind(reminder.channel_id)
-        .bind(reminder.message_id)
-        .bind(reminder.content)
-        .bind(reminder.remind_at)
         .fetch_one(&self.pool)
         .await
     }
@@ -263,25 +290,32 @@ impl HookRepo {
         workspace_id: Uuid,
         user_id: Uuid,
     ) -> sqlx::Result<Vec<Reminder>> {
-        sqlx::query_as::<_, Reminder>(
-            "SELECT * FROM reminders WHERE workspace_id = $1 AND target_user_id = $2 ORDER BY remind_at",
+        sqlx::query_as!(
+            Reminder,
+            r#"SELECT id, workspace_id, created_by, target_user_id, channel_id, message_id, content, remind_at,
+                   is_delivered AS "is_delivered!", created_at
+                 FROM reminders WHERE workspace_id = $1 AND target_user_id = $2 ORDER BY remind_at"#,
+            workspace_id,
+            user_id
         )
-        .bind(workspace_id)
-        .bind(user_id)
         .fetch_all(&self.pool)
         .await
     }
 
     pub async fn find_reminder(&self, id: Uuid) -> sqlx::Result<Option<Reminder>> {
-        sqlx::query_as::<_, Reminder>("SELECT * FROM reminders WHERE id = $1")
-            .bind(id)
-            .fetch_optional(&self.pool)
-            .await
+        sqlx::query_as!(
+            Reminder,
+            r#"SELECT id, workspace_id, created_by, target_user_id, channel_id, message_id, content, remind_at,
+                   is_delivered AS "is_delivered!", created_at
+                 FROM reminders WHERE id = $1"#,
+            id
+        )
+        .fetch_optional(&self.pool)
+        .await
     }
 
     pub async fn delete_reminder(&self, id: Uuid) -> sqlx::Result<()> {
-        sqlx::query("DELETE FROM reminders WHERE id = $1")
-            .bind(id)
+        sqlx::query!("DELETE FROM reminders WHERE id = $1", id)
             .execute(&self.pool)
             .await?;
         Ok(())
@@ -297,8 +331,8 @@ impl HookRepo {
         hour: i32,
         minute: i32,
     ) -> sqlx::Result<DateTime<Utc>> {
-        sqlx::query_scalar(
-            r"
+        sqlx::query_scalar!(
+            r#"
             WITH local AS (
                 SELECT date_trunc('day', NOW() AT TIME ZONE $1)
                        + make_interval(days => $2, hours => $3, mins => $4) AS at
@@ -306,21 +340,22 @@ impl HookRepo {
             SELECT CASE
                      WHEN (at AT TIME ZONE $1) <= NOW() THEN (at + interval '1 day') AT TIME ZONE $1
                      ELSE at AT TIME ZONE $1
-                   END
+                   END AS "at!"
             FROM local
-            ",
+            "#,
+            timezone,
+            day_offset,
+            hour,
+            minute
         )
-        .bind(timezone)
-        .bind(day_offset)
-        .bind(hour)
-        .bind(minute)
         .fetch_one(&self.pool)
         .await
     }
 
     pub async fn claim_due_reminders(&self) -> sqlx::Result<Vec<Reminder>> {
-        sqlx::query_as::<_, Reminder>(
-            r"
+        sqlx::query_as!(
+            Reminder,
+            r#"
             UPDATE reminders
             SET is_delivered = true
             WHERE id IN (
@@ -330,18 +365,21 @@ impl HookRepo {
                 FOR UPDATE SKIP LOCKED
                 LIMIT 100
             )
-            RETURNING *
-            ",
+            RETURNING id, workspace_id, created_by, target_user_id, channel_id, message_id, content, remind_at,
+                   is_delivered AS "is_delivered!", created_at
+            "#
         )
         .fetch_all(&self.pool)
         .await
     }
 
     pub async fn release_reminder(&self, id: Uuid) -> sqlx::Result<()> {
-        sqlx::query("UPDATE reminders SET is_delivered = false WHERE id = $1")
-            .bind(id)
-            .execute(&self.pool)
-            .await?;
+        sqlx::query!(
+            "UPDATE reminders SET is_delivered = false WHERE id = $1",
+            id
+        )
+        .execute(&self.pool)
+        .await?;
         Ok(())
     }
 }

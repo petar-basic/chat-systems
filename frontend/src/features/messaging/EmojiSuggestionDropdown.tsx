@@ -42,7 +42,7 @@ export const EmojiSuggestionDropdown = forwardRef<EmojiSuggestionHandle, Props>(
   if (!items.length) return null;
 
   return (
-    <div className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden w-60 max-h-60 overflow-y-auto">
+    <div className="bg-surface border border-line rounded-lg shadow-xl overflow-hidden w-60 max-h-60 overflow-y-auto">
       {items.map((item, i) => (
         <button
           key={item.id}
@@ -52,11 +52,11 @@ export const EmojiSuggestionDropdown = forwardRef<EmojiSuggestionHandle, Props>(
             command(item);
           }}
           className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition cursor-pointer ${
-            i === selectedIndex ? 'bg-purple-600/20 text-white' : 'text-slate-300 hover:bg-slate-700/50'
+            i === selectedIndex ? 'bg-purple-600/20 text-fg' : 'text-fg-dim hover:bg-raised/50'
           }`}
         >
           <span className="text-lg leading-none">{item.native}</span>
-          <span className="truncate text-slate-400">:{item.id}:</span>
+          <span className="truncate text-muted">:{item.id}:</span>
         </button>
       ))}
     </div>

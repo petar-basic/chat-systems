@@ -34,15 +34,15 @@ export function HuddleSystemMessage({ channelId, huddleId, initiatorId }: Props)
   };
 
   return (
-    <div className="flex items-center gap-2 py-1.5 px-2 text-sm text-slate-400">
-      <Phone className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+    <div className="flex items-center gap-2 py-1.5 px-2 text-sm text-muted">
+      <Phone className="w-3.5 h-3.5 text-accent shrink-0" />
       <span>
-        <span className="text-slate-200 font-medium">{name}</span> started a huddle
+        <span className="text-fg-soft font-medium">{name}</span> started a huddle
       </span>
       {canJoin && (
         <button
           onClick={join}
-          className="ml-1 px-2 py-0.5 rounded-md bg-green-600/20 text-green-300 hover:bg-green-600/30 text-xs font-medium transition"
+          className="ml-1 px-2 py-0.5 rounded-md bg-green-600/20 text-success hover:bg-green-600/30 text-xs font-medium transition"
         >
           Join
         </button>
