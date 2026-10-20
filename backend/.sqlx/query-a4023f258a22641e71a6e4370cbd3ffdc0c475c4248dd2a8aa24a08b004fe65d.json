@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT DISTINCT jsonb_array_elements_text(config->'channel_ids') AS \"channel_id!\"\n                 FROM hooks\n                WHERE workspace_id = $1\n                  AND hook_type = 'outgoing_webhook'\n                  AND is_active = true\n                  AND jsonb_typeof(config->'channel_ids') = 'array'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "channel_id!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "a4023f258a22641e71a6e4370cbd3ffdc0c475c4248dd2a8aa24a08b004fe65d"
+}

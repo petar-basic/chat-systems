@@ -40,7 +40,7 @@ export function HuddleBar({ channelId }: { channelId: string }) {
         onClick={() => !busy && enter(channelHuddle.huddleId)}
         disabled={busy}
         aria-label="Join huddle"
-        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-green-600/20 text-green-300 hover:bg-green-600/30 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-green-600/20 text-success hover:bg-green-600/30 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <Users className="w-4 h-4" />
         <span className="text-xs font-medium">Join huddle</span>
@@ -54,7 +54,7 @@ export function HuddleBar({ channelId }: { channelId: string }) {
       disabled={busy}
       aria-label="Start huddle"
       title="Start huddle"
-      className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/50 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+      className="p-1.5 rounded-lg text-muted hover:text-fg hover:bg-raised/50 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
     >
       <Phone className="w-4 h-4" />
     </button>

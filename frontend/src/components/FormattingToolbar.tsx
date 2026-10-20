@@ -23,9 +23,7 @@ function ToolbarButton({ onClick, active, title, children }: ToolbarButtonProps)
       }}
       title={title}
       className={`p-1 rounded transition cursor-pointer ${
-        active
-          ? 'text-purple-400 bg-purple-500/15'
-          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/60'
+        active ? 'text-accent bg-purple-500/15' : 'text-muted hover:text-fg-soft hover:bg-raised/60'
       }`}
     >
       {children}
@@ -34,7 +32,7 @@ function ToolbarButton({ onClick, active, title, children }: ToolbarButtonProps)
 }
 
 function Divider() {
-  return <div className="w-px h-4 bg-slate-600/60 mx-0.5" />;
+  return <div className="w-px h-4 bg-elevated/60 mx-0.5" />;
 }
 
 export default function FormattingToolbar({ editor }: Props) {

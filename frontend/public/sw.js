@@ -1,7 +1,9 @@
 /**
- * Push only. There is deliberately no fetch handler and no caching: an app shell
- * served from a cache is an app that keeps running a version the server has
- * already replaced, and nobody asked for offline.
+ * Push, and the bare minimum to be installable. There is deliberately no
+ * caching: an app shell served from a cache is an app that keeps running a
+ * version the server has already replaced, and nobody asked for offline. The
+ * fetch handler below exists only because Chrome will not offer to install a
+ * site whose worker has none; it hands every request straight to the network.
  */
 
 self.addEventListener('install', () => {
@@ -13,6 +15,8 @@ self.addEventListener('install', () => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
+
+self.addEventListener('fetch', () => {});
 
 self.addEventListener('push', (event) => {
   if (!event.data) return;
@@ -31,12 +35,11 @@ self.addEventListener('push', (event) => {
     badge: '/icons/icon-192.png',
     // Replaces rather than stacks: five notifications from one channel is five
     // reasons to turn them off.
-    tag: payload.channel_id || payload.conversation_id || 'chat-systems',
+    tag: payload.channel_id || 'chat-systems',
     renotify: true,
     data: {
       workspace_id: payload.workspace_id,
       channel_id: payload.channel_id,
-      conversation_id: payload.conversation_id,
       message_id: payload.message_id,
     },
   };
@@ -62,8 +65,6 @@ self.addEventListener('notificationclick', (event) => {
   let target = '/app';
   if (data.workspace_id && data.channel_id && data.message_id) {
     target = `/app/${data.workspace_id}/${data.channel_id}/${data.message_id}`;
-  } else if (data.workspace_id && data.conversation_id) {
-    target = `/app/${data.workspace_id}/c/${data.conversation_id}`;
   } else if (data.workspace_id) {
     target = `/app/${data.workspace_id}`;
   }

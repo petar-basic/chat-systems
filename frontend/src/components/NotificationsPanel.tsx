@@ -51,17 +51,17 @@ const FILTERS: { key: Filter; label: string }[] = [
 function notificationIcon(type: NotificationKind) {
   switch (type) {
     case 'mention':
-      return <AtSign className="w-3.5 h-3.5 text-red-400" />;
+      return <AtSign className="w-3.5 h-3.5 text-danger" />;
     case 'dm':
-      return <MessageSquare className="w-3.5 h-3.5 text-purple-400" />;
+      return <MessageSquare className="w-3.5 h-3.5 text-accent" />;
     case 'reply':
-      return <Reply className="w-3.5 h-3.5 text-blue-400" />;
+      return <Reply className="w-3.5 h-3.5 text-info" />;
     case 'reaction':
-      return <Smile className="w-3.5 h-3.5 text-amber-400" />;
+      return <Smile className="w-3.5 h-3.5 text-warning" />;
     case 'reminder':
-      return <Clock className="w-3.5 h-3.5 text-green-400" />;
+      return <Clock className="w-3.5 h-3.5 text-success" />;
     default:
-      return <Info className="w-3.5 h-3.5 text-slate-400" />;
+      return <Info className="w-3.5 h-3.5 text-muted" />;
   }
 }
 
@@ -116,21 +116,19 @@ function NotificationRow({
     <button
       onClick={handleClick}
       data-qa="notification-row"
-      className={`w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-slate-700/40 transition border-b border-slate-700/30 last:border-0 ${
+      className={`w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-raised/40 transition border-b border-line/30 last:border-0 ${
         notification.is_read ? 'opacity-50' : ''
       } ${isNavigable ? '' : 'cursor-default'}`}
     >
-      <div className="mt-0.5 shrink-0 w-6 h-6 rounded-full bg-slate-700/60 flex items-center justify-center">
+      <div className="mt-0.5 shrink-0 w-6 h-6 rounded-full bg-raised/60 flex items-center justify-center">
         {notificationIcon(notification.notification_type)}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2 mb-0.5">
-          <span className="text-xs font-semibold text-slate-200 truncate">{notification.title}</span>
-          <span className="text-xs text-slate-400 shrink-0">
-            {formatRelativeTime(notification.created_at)}
-          </span>
+          <span className="text-xs font-semibold text-fg-soft truncate">{notification.title}</span>
+          <span className="text-xs text-muted shrink-0">{formatRelativeTime(notification.created_at)}</span>
         </div>
-        <p className="text-xs text-slate-400 line-clamp-2">{flattenMentions(notification.body)}</p>
+        <p className="text-xs text-muted line-clamp-2">{flattenMentions(notification.body)}</p>
       </div>
       {!notification.is_read && <div className="mt-1.5 w-2 h-2 rounded-full bg-purple-500 shrink-0" />}
     </button>
@@ -179,13 +177,13 @@ export default function NotificationsPanel({ workspaceId, onClose, onNavigate }:
 
   return (
     <div
-      className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-slate-800/95 border-l border-slate-700/50 flex flex-col h-full"
+      className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-surface lg:bg-surface/95 border-l border-line/50 flex flex-col h-full"
       data-qa="notifications-panel"
     >
-      <div className="h-14 px-4 flex items-center justify-between border-b border-slate-700/50 shrink-0">
+      <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">
         <div className="flex items-center gap-2">
-          <Bell className="w-4 h-4 text-slate-300" />
-          <h2 className="font-semibold text-white">Notifications</h2>
+          <Bell className="w-4 h-4 text-fg-dim" />
+          <h2 className="font-semibold text-fg">Notifications</h2>
           {unreadCount > 0 && (
             <span className="px-1.5 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full">
               {unreadCount > 99 ? '99+' : unreadCount}
@@ -198,36 +196,36 @@ export default function NotificationsPanel({ workspaceId, onClose, onNavigate }:
               onClick={() => setDndMenuOpen((v) => !v)}
               aria-label="Do not disturb"
               title={dndActive ? 'Do Not Disturb is on' : 'Pause notifications'}
-              className={`transition ${dndActive ? 'text-purple-400' : 'text-slate-400 hover:text-white'}`}
+              className={`transition ${dndActive ? 'text-accent' : 'text-muted hover:text-fg'}`}
             >
               <Moon className="w-4 h-4" />
             </button>
             {dndMenuOpen && (
-              <div className="absolute right-0 top-full mt-1 w-44 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-10 py-1">
+              <div className="absolute right-0 top-full mt-1 w-44 bg-surface border border-line rounded-lg shadow-xl z-10 py-1">
                 {dndActive ? (
                   <button
                     onClick={clearDnd}
-                    className="w-full px-3 py-2 text-left text-sm text-purple-300 hover:bg-slate-700"
+                    className="w-full px-3 py-2 text-left text-sm text-accent-soft hover:bg-raised"
                   >
                     Turn off Do Not Disturb
                   </button>
                 ) : (
                   <>
-                    <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-slate-500">
+                    <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-subtle">
                       Pause notifications
                     </div>
                     {DND_PRESETS.map((p) => (
                       <button
                         key={p.minutes}
                         onClick={() => snooze(p.minutes)}
-                        className="w-full px-3 py-1.5 text-left text-sm text-slate-300 hover:bg-slate-700"
+                        className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised"
                       >
                         {p.label}
                       </button>
                     ))}
                     <button
                       onClick={snoozeUntilTomorrow}
-                      className="w-full px-3 py-1.5 text-left text-sm text-slate-300 hover:bg-slate-700"
+                      className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised"
                     >
                       Until tomorrow
                     </button>
@@ -240,15 +238,15 @@ export default function NotificationsPanel({ workspaceId, onClose, onNavigate }:
             onClick={toggleSound}
             aria-label={soundEnabled ? 'Mute notification sound' : 'Unmute notification sound'}
             title={soundEnabled ? 'Mute sound' : 'Unmute sound'}
-            className="text-slate-400 hover:text-white transition"
+            className="text-muted hover:text-fg transition"
           >
-            {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4 text-red-400" />}
+            {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4 text-danger" />}
           </button>
           {unreadCount > 0 && (
             <button
               onClick={() => markAllRead.mutate()}
               disabled={markAllRead.isPending}
-              className="text-xs text-purple-400 hover:text-purple-300 transition disabled:opacity-50"
+              className="text-xs text-accent hover:text-accent-soft transition disabled:opacity-50"
             >
               {ActionLabels.MarkAllRead}
             </button>
@@ -256,19 +254,19 @@ export default function NotificationsPanel({ workspaceId, onClose, onNavigate }:
           <button
             onClick={onClose}
             aria-label="Close notifications"
-            className="text-slate-400 hover:text-white transition"
+            className="text-muted hover:text-fg transition"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
       </div>
-      <div className="flex items-center gap-1 px-3 py-2 border-b border-slate-700/40 shrink-0">
+      <div className="flex items-center gap-1 px-3 py-2 border-b border-line/40 shrink-0">
         {FILTERS.map((f) => (
           <button
             key={f.key}
             onClick={() => setFilter(f.key)}
             className={`px-2.5 py-1 text-xs rounded-md transition ${
-              filter === f.key ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200'
+              filter === f.key ? 'bg-raised text-fg' : 'text-muted hover:text-fg-soft'
             }`}
           >
             {f.label}
@@ -283,7 +281,7 @@ export default function NotificationsPanel({ workspaceId, onClose, onNavigate }:
           onRetry={() => void refetch()}
           empty={
             <>
-              <Bell className="w-10 h-10 mb-3 text-slate-600" />
+              <Bell className="w-10 h-10 mb-3 text-faint" />
               <p className="text-sm font-medium">{EmptyLabels.NoNotifications}</p>
               <p className="text-xs mt-1">{EmptyLabels.NoNotificationsHint}</p>
             </>

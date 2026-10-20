@@ -9,7 +9,7 @@ async fn deleting_a_message_lands_in_the_workspace_trail(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "audit-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Audit WS").await;
-    let ch = seed_channel(&state, ws, owner_id, "general", false).await;
+    let ch = seed_channel(&state, ws, owner_id, "main", false).await;
 
     let (_, msg) = send(
         &app,
@@ -56,7 +56,7 @@ async fn a_moderated_deletion_names_the_moderator_and_the_author(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "audit-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Audit WS").await;
-    let ch = seed_channel(&state, ws, owner_id, "general", false).await;
+    let ch = seed_channel(&state, ws, owner_id, "main", false).await;
 
     let (author_id, author_email) = seed(&state, "audit-author", false).await;
     add_ws_member(&state, ws, author_id, "member").await;

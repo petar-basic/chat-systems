@@ -1,12 +1,12 @@
 import { test, expect } from '@playwright/test';
-import { API, login, userContext } from './helpers';
+import { API, login, userContext, devWorkspace } from './helpers';
 
 test('a group conversation reaches all three people and shows every name', async ({ page }) => {
   const { ctx: admin } = await userContext('admin@dev.local');
   const { ctx: bob, userId: bobId } = await userContext('bob@dev.local');
   const { ctx: charlie, userId: charlieId } = await userContext('charlie@dev.local');
 
-  const workspace = (await (await bob.get(`${API}/workspaces`)).json()).data[0];
+  const workspace = await devWorkspace(bob);
   const stamp = Date.now();
 
   const created = await admin.post(`${API}/workspaces/${workspace.id}/conversations`, {
@@ -24,14 +24,14 @@ test('a group conversation reaches all three people and shows every name', async
     await expect(page.locator('[data-qa="conversation-title"]')).toContainText('Admin');
 
     const text = `group-hello-${stamp}`;
-    const posted = await admin.post(`${API}/conversations/${conversation.id}/messages`, {
+    const posted = await admin.post(`${API}/channels/${conversation.id}/messages`, {
       data: { content: text },
     });
     expect(posted.status()).toBe(200);
 
     await expect(page.getByText(text)).toBeVisible();
 
-    const forCharlie = await (await charlie.get(`${API}/conversations/${conversation.id}/messages`)).json();
+    const forCharlie = await (await charlie.get(`${API}/channels/${conversation.id}/messages`)).json();
     expect(
       forCharlie.data.some((m: { content: string }) => m.content === text),
       'the third participant sees it too',
@@ -46,7 +46,7 @@ test('a group conversation reaches all three people and shows every name', async
 test('a direct conversation opened twice stays one thread', async () => {
   const { ctx: admin } = await userContext('admin@dev.local');
   const { ctx: bob, userId: bobId } = await userContext('bob@dev.local');
-  const workspace = (await (await bob.get(`${API}/workspaces`)).json()).data[0];
+  const workspace = await devWorkspace(bob);
 
   try {
     const first = await (
@@ -72,7 +72,7 @@ test('a message scheduled from the composer waits in the pending list', async ({
   const { ctx: admin } = await userContext('admin@dev.local');
   const { ctx: bob } = await userContext('bob@dev.local');
 
-  const workspace = (await (await bob.get(`${API}/workspaces`)).json()).data[0];
+  const workspace = await devWorkspace(bob);
   const stamp = Date.now();
   const created = await admin.post(`${API}/workspaces/${workspace.id}/channels`, {
     data: { name: `later-${stamp}`, channel_type: 'public' },
@@ -119,7 +119,7 @@ test('a custom date and time can be picked for a scheduled message', async ({ pa
   const { ctx: admin } = await userContext('admin@dev.local');
   const { ctx: bob } = await userContext('bob@dev.local');
 
-  const workspace = (await (await bob.get(`${API}/workspaces`)).json()).data[0];
+  const workspace = await devWorkspace(bob);
   const stamp = Date.now();
   const created = await admin.post(`${API}/workspaces/${workspace.id}/channels`, {
     data: { name: `custom-${stamp}`, channel_type: 'public' },
@@ -164,7 +164,7 @@ test('a time in the past is refused before it reaches the server', async ({ page
   const { ctx: admin } = await userContext('admin@dev.local');
   const { ctx: bob } = await userContext('bob@dev.local');
 
-  const workspace = (await (await bob.get(`${API}/workspaces`)).json()).data[0];
+  const workspace = await devWorkspace(bob);
   const stamp = Date.now();
   const created = await admin.post(`${API}/workspaces/${workspace.id}/channels`, {
     data: { name: `past-${stamp}`, channel_type: 'public' },
@@ -199,7 +199,7 @@ test('the scheduled panel lists a queued message and cancels it', async ({ page 
   const { ctx: admin } = await userContext('admin@dev.local');
   const { ctx: bob } = await userContext('bob@dev.local');
 
-  const workspace = (await (await bob.get(`${API}/workspaces`)).json()).data[0];
+  const workspace = await devWorkspace(bob);
   const stamp = Date.now();
   const created = await admin.post(`${API}/workspaces/${workspace.id}/channels`, {
     data: { name: `panel-${stamp}`, channel_type: 'public' },
@@ -219,7 +219,7 @@ test('the scheduled panel lists a queued message and cancels it', async ({ page 
     await login(page, 'admin@dev.local');
     await page.goto(`/app/${workspace.id}/${channelId}`);
 
-    await page.getByRole('button', { name: workspace.name }).first().click();
+    await page.locator('[data-qa="open-you-menu"]').click();
     await page.locator('[data-qa="open-scheduled"]').click();
     await expect(page.locator('[data-qa="scheduled-panel"]')).toBeVisible();
 
@@ -243,7 +243,7 @@ test('a queued message can be moved to a new time from the panel', async ({ page
   const { ctx: admin } = await userContext('admin@dev.local');
   const { ctx: bob } = await userContext('bob@dev.local');
 
-  const workspace = (await (await bob.get(`${API}/workspaces`)).json()).data[0];
+  const workspace = await devWorkspace(bob);
   const stamp = Date.now();
   const created = await admin.post(`${API}/workspaces/${workspace.id}/channels`, {
     data: { name: `move-${stamp}`, channel_type: 'public' },
@@ -269,7 +269,7 @@ test('a queued message can be moved to a new time from the panel', async ({ page
   try {
     await login(page, 'admin@dev.local');
     await page.goto(`/app/${workspace.id}/${channelId}`);
-    await page.getByRole('button', { name: workspace.name }).first().click();
+    await page.locator('[data-qa="open-you-menu"]').click();
     await page.locator('[data-qa="open-scheduled"]').click();
 
     const row = page.locator(`[data-qa="scheduled-row"][data-scheduled-id="${scheduledId}"]`);

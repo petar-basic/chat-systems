@@ -34,7 +34,6 @@ pub struct PushPayload {
     pub body: String,
     pub workspace_id: Option<String>,
     pub channel_id: Option<String>,
-    pub conversation_id: Option<String>,
     pub message_id: Option<String>,
     pub badge_count: i64,
 }
@@ -73,16 +72,19 @@ impl PushSender {
     /// One request per live subscription. Failures are per subscription: a
     /// browser whose push service is down must not stop the person's other
     /// devices from being notified.
-    pub async fn send_to_user(&self, user_id: Uuid, payload: &PushPayload) {
+    ///
+    /// Returns whether at least one device accepted it, which is what the caller
+    /// needs to decide whether anything reached this person at all.
+    pub async fn send_to_user(&self, user_id: Uuid, payload: &PushPayload) -> bool {
         if !self.is_configured() {
-            return;
+            return false;
         }
 
         let subscriptions = match self.repo.list_for_user(user_id).await {
             Ok(subscriptions) => subscriptions,
             Err(e) => {
                 tracing::warn!("push: could not read subscriptions for {}: {}", user_id, e);
-                return;
+                return false;
             }
         };
 
@@ -90,10 +92,11 @@ impl PushSender {
             Ok(body) => body,
             Err(e) => {
                 tracing::warn!("push: could not serialize payload: {}", e);
-                return;
+                return false;
             }
         };
 
+        let mut delivered = false;
         for subscription in subscriptions {
             let info = SubscriptionInfo {
                 endpoint: subscription.endpoint.clone(),
@@ -112,6 +115,7 @@ impl PushSender {
                 Ok(status) if status.is_success() => {
                     self.repo.touch(subscription.id).await;
                     metrics::counter!("push_notifications_sent_total").increment(1);
+                    delivered = true;
                 }
                 Ok(status) => {
                     tracing::warn!("push: service answered {}", status);
@@ -123,6 +127,8 @@ impl PushSender {
                 }
             }
         }
+
+        delivered
     }
 
     /// The crate builds and encrypts the message; the request goes out over the

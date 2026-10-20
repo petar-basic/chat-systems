@@ -9,7 +9,7 @@ use tower::ServiceExt;
 use uuid::Uuid;
 
 use crate::auth::service::AuthService;
-use crate::config::{AppConfig, StorageBackend};
+use crate::config::AppConfig;
 use crate::state::AppState;
 use crate::workspace::models::{ChannelRole, ChannelType};
 use crate::{build_app, build_state};
@@ -22,23 +22,8 @@ pub fn test_config() -> AppConfig {
         database_url: "postgres://unused/in/tests".into(),
         redis_url: std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".into()),
         jwt_secret: "integration-test-secret-key-0123456789-abcdef".into(),
-        access_token_expiry: 3600,
-        refresh_token_expiry: 604_800,
-        admin_email: None,
-        admin_password: None,
-        smtp_host: "localhost".into(),
-        smtp_port: 1025,
-        smtp_user: String::new(),
-        smtp_password: String::new(),
-        smtp_from_address: "noreply@test.local".into(),
-        smtp_from_name: "Test".into(),
-        smtp_use_tls: false,
-        smtp_tls_mode: crate::config::SmtpTlsMode::None,
         public_url: "http://localhost".into(),
-        instance_name: "Test".into(),
-        instance_icon_url: None,
         cors_origins: "http://localhost".into(),
-        storage_backend: StorageBackend::Local,
         local_storage_path: std::env::temp_dir()
             .join(format!("chatsys-test-{}", Uuid::new_v4()))
             .to_string_lossy()
@@ -48,29 +33,9 @@ pub fn test_config() -> AppConfig {
         s3_bucket: "test".into(),
         s3_access_key: "test".into(),
         s3_secret_key: "test".into(),
-        turn_secret: String::new(),
-        turn_urls: String::new(),
         stun_urls: "stun:stun.l.google.com:19302".into(),
-        turn_ttl_secs: 43200,
-        pg_pool_max: 5,
-        login_attempts_per_email: 10,
-        login_attempts_per_ip: 30,
-        login_attempts_window_secs: 900,
-        trusted_proxies: "127.0.0.0/8".into(),
         max_upload_bytes: 4096,
-        retention_dry_run: false,
-        require_admin_totp: false,
-        oidc_issuer: String::new(),
-        oidc_client_id: String::new(),
-        oidc_client_secret: String::new(),
-        oidc_provisioning: "invite_only".into(),
-        oidc_allowed_domains: String::new(),
-        // Tests point commands at a loopback server on purpose; production
-        // defaults to refusing exactly that.
-        webhook_allow_private_targets: true,
-        vapid_public_key: String::new(),
-        vapid_private_key: String::new(),
-        vapid_subject: "mailto:test@test.local".into(),
+        ..AppConfig::for_tests()
     }
 }
 

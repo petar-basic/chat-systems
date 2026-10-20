@@ -5,6 +5,8 @@ pub mod authz;
 pub mod commands;
 pub mod config;
 pub mod conversations;
+pub mod dto;
+pub mod email;
 pub mod emoji;
 pub mod export;
 pub mod files;
@@ -17,6 +19,8 @@ pub mod metrics;
 pub mod middleware;
 pub mod net;
 pub mod notifications;
+pub mod openapi;
+pub mod pagination;
 pub mod presence;
 pub mod push;
 pub mod rate_limit;
@@ -26,6 +30,7 @@ pub mod scheduled;
 pub mod scim;
 pub mod search;
 pub mod sessions;
+pub mod slack_import;
 pub mod state;
 pub mod workspace;
 
@@ -39,6 +44,7 @@ use std::time::Duration;
 use axum::extract::DefaultBodyLimit;
 use axum::Extension;
 use axum::Router;
+use backon::{ExponentialBuilder, Retryable};
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use tower_http::compression::CompressionLayer;
@@ -53,7 +59,7 @@ use crate::auth::service::AuthService;
 use crate::config::AppConfig;
 use crate::conversations::repo::ConversationRepo;
 use crate::files::repo::FileRepo;
-use crate::files::storage::create_storage;
+use crate::files::storage::FileStorage;
 use crate::hooks::repo::HookRepo;
 use crate::huddle::repo::HuddleRepo;
 use crate::messaging::publisher::EventPublisher;
@@ -86,17 +92,18 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
     let redis_client = redis::Client::open(config.redis_url.as_str())?;
     let redis_conn = redis::aio::ConnectionManager::new(redis_client).await?;
 
-    let file_storage = create_storage(&config).await?;
+    let file_storage = FileStorage::from_config(&config).await?;
 
     let auth_service = AuthService::new(UserRepo::new(pool.clone()), config.clone());
     let workspace_service = WorkspaceService::new(WorkspaceRepo::new(pool.clone()), config.clone());
     let message_repo = MessageRepo::new(pool.clone());
-    let publisher = EventPublisher::new(redis_conn.clone());
+    let publisher = EventPublisher::new(redis_conn.clone(), pool.clone());
     let file_repo = FileRepo::new(pool.clone());
     let hook_repo = HookRepo::new(pool.clone());
     let notification_repo = NotificationRepo::new(pool.clone());
     let conversation_repo = ConversationRepo::new(pool.clone());
     let saved_repo = saved::repo::SavedRepo::new(pool.clone());
+    let slack_import_repo = slack_import::repo::SlackImportRepo::new(pool.clone());
     let scheduled_repo = scheduled::repo::ScheduledRepo::new(pool.clone());
     let retention_repo = retention::repo::RetentionRepo::new(pool.clone());
     let export_repo = export::repo::ExportRepo::new(pool.clone());
@@ -129,6 +136,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
         notification_repo,
         conversation_repo,
         saved_repo,
+        slack_import_repo,
         scheduled_repo,
         retention_repo,
         export_repo,
@@ -147,31 +155,23 @@ pub fn build_app(state: Arc<AppState>) -> Router {
     let cors_origins = state.config.cors_origins.clone();
     let revocation = RevocationStore(state.redis.clone());
 
+    let (typed_routes, _) = openapi::typed_routes().split_for_parts();
+    let (public_routes, _) = openapi::public_routes().split_for_parts();
+
     let api = Router::new()
-        .merge(auth::routes::router(state.clone()))
-        .merge(workspace::routes::router(state.clone()))
-        .merge(messaging::routes::router(state.clone()))
-        .merge(files::routes::router(state.clone()))
-        .merge(hooks::routes::router(state.clone()))
-        .merge(notifications::routes::router(state.clone()))
-        .merge(admin::routes::router(state.clone()))
-        .merge(conversations::routes::router(state.clone()))
-        .merge(saved::routes::router(state.clone()))
-        .merge(scheduled::routes::router(state.clone()))
-        .merge(huddle::routes::router(state.clone()))
-        .merge(retention::routes::router(state.clone()))
-        .merge(export::routes::router(state.clone()))
-        .merge(auth::totp_routes::router(state.clone()))
+        .merge(public_routes.with_state(state.clone()))
+        .merge(protected(
+            state.clone(),
+            typed_routes.merge(files::routes::download_router()),
+        ))
+        .merge(export::routes::download_router().with_state(state.clone()))
         .merge(auth::oidc_routes::router(state.clone()))
-        .merge(scim::routes::router(state.clone()))
-        .merge(push::routes::router(state.clone()))
-        .merge(emoji::routes::router(state.clone()))
-        .merge(groups::routes::router(state.clone()))
-        .merge(commands::routes::router(state.clone()));
+        .merge(scim::routes::router(state.clone()));
 
     Router::new()
         .nest("/api", api)
         .merge(health::router(state.clone()))
+        .merge(openapi::router())
         .layer(axum::middleware::from_fn(metrics::track_metrics))
         .layer(Extension(revocation))
         .layer(Extension(JwtSecret(jwt_secret)))
@@ -205,18 +205,24 @@ where
     F: Fn() -> Fut,
     Fut: Future<Output = ()>,
 {
-    const MAX_BACKOFF: Duration = Duration::from_secs(30);
-    let mut backoff = Duration::from_secs(1);
+    let restarts = ExponentialBuilder::default()
+        .with_min_delay(Duration::from_secs(1))
+        .with_max_delay(Duration::from_secs(30))
+        .with_jitter()
+        .without_max_times();
 
-    loop {
+    let _ = (|| async {
         consumer().await;
+        Err::<(), ()>(())
+    })
+    .retry(restarts)
+    .notify(|_, delay| {
         warn!(
             "background task '{}' exited; restarting in {:?}",
-            name, backoff
+            name, delay
         );
-        tokio::time::sleep(backoff).await;
-        backoff = (backoff * 2).min(MAX_BACKOFF);
-    }
+    })
+    .await;
 }
 
 pub async fn shutdown_signal() {

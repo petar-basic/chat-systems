@@ -7,8 +7,8 @@ use tracing::info;
 use chat_api::config::AppConfig;
 use chat_api::state::AppState;
 use chat_api::{
-    build_state, connect_pool, export, health, hooks, huddle, init_tracing, messaging, metrics,
-    notifications, retention, scheduled, shutdown_signal, supervise,
+    build_state, connect_pool, email, export, health, hooks, huddle, init_tracing, messaging,
+    metrics, notifications, retention, scheduled, shutdown_signal, slack_import, supervise,
 };
 
 #[tokio::main]
@@ -27,9 +27,22 @@ async fn main() -> anyhow::Result<()> {
     let pool = connect_pool(&config).await?;
     let state = build_state(pool, config).await?;
 
-    info!("chat-worker starting background consumers (single replica by contract)");
+    info!("chat-worker starting background consumers");
 
     spawn_consumers(&state, &redis_url);
+
+    {
+        let digest_state = state.clone();
+        tokio::spawn(async move {
+            supervise("mention_email_digest", || {
+                let digest_state = digest_state.clone();
+                async move {
+                    notifications::email::start_digest_job(digest_state).await;
+                }
+            })
+            .await;
+        });
+    }
 
     {
         let backfill_state = state.clone();
@@ -125,12 +138,51 @@ fn spawn_consumers(state: &Arc<AppState>, redis_url: &str) {
     }
 
     {
+        let relay_state = state.clone();
+        tokio::spawn(async move {
+            supervise("event_outbox_relay", || {
+                let relay_state = relay_state.clone();
+                async move {
+                    messaging::outbox::start_relay(relay_state).await;
+                }
+            })
+            .await;
+        });
+    }
+
+    {
+        let outbox_state = state.clone();
+        tokio::spawn(async move {
+            supervise("email_outbox", || {
+                let outbox_state = outbox_state.clone();
+                async move {
+                    email::outbox::start_outbox_worker(outbox_state).await;
+                }
+            })
+            .await;
+        });
+    }
+
+    {
         let export_state = state.clone();
         tokio::spawn(async move {
             supervise("export_worker", || {
                 let export_state = export_state.clone();
                 async move {
                     export::job::start_export_worker(export_state).await;
+                }
+            })
+            .await;
+        });
+    }
+
+    {
+        let import_state = state.clone();
+        tokio::spawn(async move {
+            supervise("slack_import_worker", || {
+                let import_state = import_state.clone();
+                async move {
+                    slack_import::job::start_import_worker(import_state).await;
                 }
             })
             .await;
@@ -167,29 +219,21 @@ fn spawn_consumers(state: &Arc<AppState>, redis_url: &str) {
         let redis_url = redis_url.to_string();
         let notif_repo = notif_repo.clone();
         let push = Arc::new(state.push_sender.clone());
+        let consumer_state = state.clone();
         tokio::spawn(async move {
             supervise("notification_consumer", || {
                 let redis_url = redis_url.clone();
                 let notif_repo = notif_repo.clone();
                 let push_sender = push.clone();
+                let state = consumer_state.clone();
                 async move {
-                    notifications::consumer::start_consumer(&redis_url, notif_repo, push_sender)
-                        .await;
-                }
-            })
-            .await;
-        });
-    }
-
-    {
-        let redis_url = redis_url.to_string();
-        let notif_repo = notif_repo.clone();
-        tokio::spawn(async move {
-            supervise("call_notification_consumer", || {
-                let redis_url = redis_url.clone();
-                let notif_repo = notif_repo.clone();
-                async move {
-                    notifications::consumer::start_call_consumer(&redis_url, notif_repo).await;
+                    notifications::consumer::start_consumer(
+                        &redis_url,
+                        state,
+                        notif_repo,
+                        push_sender,
+                    )
+                    .await;
                 }
             })
             .await;

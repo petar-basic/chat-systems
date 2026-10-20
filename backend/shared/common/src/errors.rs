@@ -102,6 +102,17 @@ pub fn is_unique_violation(e: &sqlx::Error) -> bool {
     matches!(e, sqlx::Error::Database(dbe) if dbe.code().as_deref() == Some("23505"))
 }
 
+impl From<garde::Report> for AppError {
+    fn from(report: garde::Report) -> Self {
+        let message = report
+            .iter()
+            .next()
+            .map(|(_, error)| error.to_string())
+            .unwrap_or_else(|| "Invalid request".to_string());
+        AppError::Validation(message)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

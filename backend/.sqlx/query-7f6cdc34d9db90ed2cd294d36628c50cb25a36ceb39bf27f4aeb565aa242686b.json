@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE scim_tokens SET revoked_at = NOW() WHERE id = $1 AND revoked_at IS NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7f6cdc34d9db90ed2cd294d36628c50cb25a36ceb39bf27f4aeb565aa242686b"
+}

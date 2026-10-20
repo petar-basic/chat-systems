@@ -9,7 +9,7 @@ async fn an_over_long_channel_reaction_is_a_400_not_a_500(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "val-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Validation WS").await;
-    let ch = seed_channel(&state, ws, owner_id, "general", false).await;
+    let ch = seed_channel(&state, ws, owner_id, "main", false).await;
 
     let (_, msg) = send(
         &app,
@@ -41,7 +41,7 @@ async fn a_reaction_the_websocket_would_accept_is_accepted_here_too(pool: PgPool
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "val-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Validation WS").await;
-    let ch = seed_channel(&state, ws, owner_id, "general", false).await;
+    let ch = seed_channel(&state, ws, owner_id, "main", false).await;
 
     let (_, msg) = send(
         &app,
@@ -69,7 +69,7 @@ async fn a_duplicate_reaction_is_a_conflict_not_a_database_error(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "val-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Validation WS").await;
-    let ch = seed_channel(&state, ws, owner_id, "general", false).await;
+    let ch = seed_channel(&state, ws, owner_id, "main", false).await;
 
     let (_, msg) = send(
         &app,
@@ -133,7 +133,7 @@ async fn over_long_channel_topic_and_description_are_refused(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "val-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Validation WS").await;
-    let ch = seed_channel(&state, ws, owner_id, "general", false).await;
+    let ch = seed_channel(&state, ws, owner_id, "main", false).await;
 
     let (status, _) = send(
         &app,
@@ -245,7 +245,7 @@ async fn a_channel_client_id_never_reaches_into_another_channel(pool: PgPool) {
     let (owner_id, _, owner) = seed_and_login(&app, &state, "idem-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Channel Idempotency WS").await;
     let secret = seed_channel(&state, ws, owner_id, "leadership", true).await;
-    let open = seed_channel(&state, ws, owner_id, "general", false).await;
+    let open = seed_channel(&state, ws, owner_id, "main", false).await;
 
     let shared_id = uuid::Uuid::new_v4();
     let (status, hidden) = send(
@@ -291,7 +291,7 @@ async fn resending_a_channel_message_with_the_same_client_id_is_idempotent(pool:
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner) = seed_and_login(&app, &state, "idem-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Channel Idempotency WS").await;
-    let ch = seed_channel(&state, ws, owner_id, "general", false).await;
+    let ch = seed_channel(&state, ws, owner_id, "main", false).await;
 
     let body = json!({ "content": "sent once", "client_message_id": uuid::Uuid::new_v4() });
 

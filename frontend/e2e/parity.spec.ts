@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { API, login, send, userContext } from './helpers';
+import { API, login, send, userContext, devWorkspace } from './helpers';
 
 test.setTimeout(60_000);
 
@@ -13,7 +13,7 @@ async function openWorkspace(page: Page, email: string, workspaceId: string, cha
 
 test('a saved message shows up in the saved panel and can be taken out again', async ({ page }) => {
   const { ctx: admin } = await userContext('admin@dev.local');
-  const workspace = (await (await admin.get(`${API}/workspaces`)).json()).data[0];
+  const workspace = await devWorkspace(admin);
   const channels = (await (await admin.get(`${API}/workspaces/${workspace.id}/channels`)).json()).data;
   const channel = channels.find((c: { name: string }) => c.name === 'general');
 
@@ -27,7 +27,7 @@ test('a saved message shows up in the saved panel and can be taken out again', a
     await row.hover();
     await row.locator('[data-qa="message-action-save"]').click();
 
-    await page.getByRole('button', { name: workspace.name }).click();
+    await page.locator('[data-qa="open-you-menu"]').click();
     await page.locator('[data-qa="open-saved"]').click();
 
     const panel = page.locator('[data-qa="saved-panel"]');
@@ -45,7 +45,7 @@ test('a saved message shows up in the saved panel and can be taken out again', a
 test('a channel bookmark is added from the bar and everybody in the channel sees it', async ({ page }) => {
   const { ctx: admin } = await userContext('admin@dev.local');
   const { ctx: bob } = await userContext('bob@dev.local');
-  const workspace = (await (await admin.get(`${API}/workspaces`)).json()).data[0];
+  const workspace = await devWorkspace(admin);
   const stamp = Date.now();
   const created = await admin.post(`${API}/workspaces/${workspace.id}/channels`, {
     data: { name: `bookmarks-${stamp}`, channel_type: 'public' },
@@ -83,7 +83,7 @@ test('a channel bookmark is added from the bar and everybody in the channel sees
 test('a reply inside a direct message stays in its thread', async ({ page }) => {
   const { ctx: admin } = await userContext('admin@dev.local');
   const { ctx: bob, userId: bobId } = await userContext('bob@dev.local');
-  const workspace = (await (await bob.get(`${API}/workspaces`)).json()).data[0];
+  const workspace = await devWorkspace(bob);
   const stamp = Date.now();
 
   const conversation = await (
@@ -93,7 +93,7 @@ test('a reply inside a direct message stays in its thread', async ({ page }) => 
   ).json();
 
   const parentText = `dm-thread-parent-${stamp}`;
-  await admin.post(`${API}/conversations/${conversation.id}/messages`, {
+  await admin.post(`${API}/channels/${conversation.id}/messages`, {
     data: { content: parentText },
   });
 
@@ -101,12 +101,12 @@ test('a reply inside a direct message stays in its thread', async ({ page }) => 
     await login(page, 'bob@dev.local');
     await page.goto(`/app/${workspace.id}/c/${conversation.id}`);
 
-    const parent = page.locator('[data-qa="conversation-message"]', { hasText: parentText }).last();
+    const parent = page.locator('[data-qa="message-row"]', { hasText: parentText }).last();
     await expect(parent).toBeVisible({ timeout: 20_000 });
     await parent.hover();
-    await parent.locator('[data-qa="dm-action-thread"]').click();
+    await parent.locator('[data-qa="message-action-thread"]').click();
 
-    const panel = page.locator('[data-qa="dm-thread-panel"]');
+    const panel = page.locator('[data-qa="thread-panel"]');
     await expect(panel).toBeVisible();
 
     const replyText = `dm-thread-reply-${stamp}`;
@@ -115,9 +115,9 @@ test('a reply inside a direct message stays in its thread', async ({ page }) => 
     await editor.fill(replyText);
     await editor.press('Enter');
 
-    await expect(panel.locator('[data-qa="dm-thread-reply"]', { hasText: replyText })).toBeVisible();
+    await expect(panel.locator('[data-qa="thread-reply"]', { hasText: replyText })).toBeVisible();
 
-    const feed = await (await bob.get(`${API}/conversations/${conversation.id}/messages`)).json();
+    const feed = await (await bob.get(`${API}/channels/${conversation.id}/messages`)).json();
     expect(
       feed.data.some((m: { content: string }) => m.content === replyText),
       'a threaded reply does not clutter the main conversation',
@@ -132,7 +132,7 @@ test('a reply inside a direct message stays in its thread', async ({ page }) => 
 
 test('a message forwarded to another channel arrives as a quote', async ({ page }) => {
   const { ctx: admin } = await userContext('admin@dev.local');
-  const workspace = (await (await admin.get(`${API}/workspaces`)).json()).data[0];
+  const workspace = await devWorkspace(admin);
   const channels = (await (await admin.get(`${API}/workspaces/${workspace.id}/channels`)).json()).data;
   const general = channels.find((c: { name: string }) => c.name === 'general');
 
@@ -150,7 +150,8 @@ test('a message forwarded to another channel arrives as a quote', async ({ page 
     const row = page.locator('[data-qa="message-row"]', { hasText: text }).last();
     await expect(row).toBeVisible();
     await row.hover();
-    await row.locator('[data-qa="message-action-forward"]').click();
+    await row.locator('[data-qa="message-action-more"]').click();
+    await page.locator('[data-qa="message-overflow"] [data-qa="message-action-forward"]').click();
 
     const modal = page.locator('[data-qa="forward-modal"]');
     await expect(modal).toBeVisible();
@@ -171,7 +172,7 @@ test('a message forwarded to another channel arrives as a quote', async ({ page 
 
 test('a status set in the profile shows next to your name', async ({ page }) => {
   const { ctx: admin } = await userContext('admin@dev.local');
-  const workspace = (await (await admin.get(`${API}/workspaces`)).json()).data[0];
+  const workspace = await devWorkspace(admin);
   const channels = (await (await admin.get(`${API}/workspaces/${workspace.id}/channels`)).json()).data;
   const channel = channels.find((c: { name: string }) => c.name === 'general');
 
@@ -199,7 +200,7 @@ test('a status set in the profile shows next to your name', async ({ page }) => 
 
 test('a slash reminder turns up in the reminders panel and can be cancelled', async ({ page }) => {
   const { ctx: admin } = await userContext('admin@dev.local');
-  const workspace = (await (await admin.get(`${API}/workspaces`)).json()).data[0];
+  const workspace = await devWorkspace(admin);
   const channels = (await (await admin.get(`${API}/workspaces/${workspace.id}/channels`)).json()).data;
   const channel = channels.find((c: { name: string }) => c.name === 'general');
   const stamp = Date.now();
@@ -210,7 +211,7 @@ test('a slash reminder turns up in the reminders panel and can be cancelled', as
     await send(page, `/remind me in 2h to check ${stamp}`);
     await expect(page.locator('[data-qa="command-response"]')).toContainText('I will remind you');
 
-    await page.getByRole('button', { name: workspace.name }).click();
+    await page.locator('[data-qa="open-you-menu"]').click();
     await page.locator('[data-qa="open-reminders"]').click();
 
     const panel = page.locator('[data-qa="reminders-panel"]');

@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
 use axum::extract::{Path, State};
-use axum::routing::{delete, get, post};
-use axum::{Json, Router};
+use axum::Json;
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::routes;
 use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
@@ -10,28 +11,28 @@ use shared_common::errors::{AppError, AppResult};
 use super::models::*;
 use super::repo::NewSavedMessage;
 use crate::authz;
+use crate::dto::{DataList, StatusResponse};
 use crate::middleware::AuthUser;
 use crate::state::AppState;
 
-pub fn router(state: Arc<AppState>) -> Router {
-    let routes = Router::new()
-        .route("/workspaces/{ws_id}/saved", get(list_saved))
-        .route("/workspaces/{ws_id}/saved", post(save_message))
-        .route("/saved/{id}", delete(unsave_message));
-
-    crate::protected(state, routes)
+pub fn router() -> OpenApiRouter<Arc<AppState>> {
+    OpenApiRouter::new()
+        .routes(routes!(list_saved, save_message))
+        .routes(routes!(unsave_message))
 }
 
+#[utoipa::path(get, path = "/workspaces/{ws_id}/saved", tag = "saved", responses((status = 200, body = DataList<SavedMessageDetail>)))]
 async fn list_saved(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<DataList<SavedMessageDetail>>> {
     authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
     let saved = state.saved_repo.list(auth.user_id, ws_id).await?;
-    Ok(Json(serde_json::json!({ "data": saved })))
+    Ok(Json(saved.into()))
 }
 
+#[utoipa::path(post, path = "/workspaces/{ws_id}/saved", tag = "saved", request_body = SaveMessageRequest, responses((status = 200, body = SavedMessage)))]
 async fn save_message(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
@@ -42,44 +43,16 @@ async fn save_message(
 
     // Saving is reading: whatever lets somebody open the message is what lets
     // them keep a pointer to it.
-    match (req.message_id, req.conversation_message_id) {
-        (Some(message_id), None) => {
-            let message = state
-                .message_repo
-                .find_by_id(message_id)
-                .await?
-                .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
-            let channel =
-                authz::require_channel_access(&state, message.channel_id, auth.user_id).await?;
-            if channel.channel.workspace_id != ws_id {
-                return Err(AppError::Validation(
-                    "That message is in another workspace".into(),
-                ));
-            }
-        }
-        (None, Some(conversation_message_id)) => {
-            let message = state
-                .conversation_repo
-                .find_message(conversation_message_id)
-                .await?
-                .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
-            let conversation = authz::require_conversation_participant(
-                &state,
-                message.conversation_id,
-                auth.user_id,
-            )
-            .await?;
-            if conversation.workspace_id != ws_id {
-                return Err(AppError::Validation(
-                    "That message is in another workspace".into(),
-                ));
-            }
-        }
-        _ => {
-            return Err(AppError::Validation(
-                "Save exactly one channel message or one conversation message".into(),
-            ))
-        }
+    let message = state
+        .message_repo
+        .find_by_id(req.message_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
+    let channel = authz::require_channel_access(&state, message.channel_id, auth.user_id).await?;
+    if channel.channel.workspace_id != ws_id {
+        return Err(AppError::Validation(
+            "That message is in another workspace".into(),
+        ));
     }
 
     let note = req.note.as_deref().map(str::trim).filter(|n| !n.is_empty());
@@ -95,7 +68,6 @@ async fn save_message(
             user_id: auth.user_id,
             workspace_id: ws_id,
             message_id: req.message_id,
-            conversation_message_id: req.conversation_message_id,
             note,
         })
         .await?;
@@ -103,11 +75,12 @@ async fn save_message(
     Ok(Json(saved))
 }
 
+#[utoipa::path(delete, path = "/saved/{id}", tag = "saved", responses((status = 200, body = StatusResponse)))]
 async fn unsave_message(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<StatusResponse>> {
     let saved = state
         .saved_repo
         .find(id)
@@ -117,5 +90,5 @@ async fn unsave_message(
         return Err(AppError::Forbidden("That is somebody else's list".into()));
     }
     state.saved_repo.delete(id).await?;
-    Ok(Json(serde_json::json!({ "status": "removed" })))
+    Ok(Json(StatusResponse::new("removed")))
 }

@@ -91,10 +91,25 @@ jobs:
         with:
           components: rustfmt, clippy
 
+      # Only main writes. A branch that saves its own copy costs another ~1.1GB,
+      # and nine of them had already pushed the repo past the 10GB cache limit,
+      # where LRU starts evicting the entries that would have made it faster.
       - name: Cache cargo build
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: backend
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Install cargo tooling
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest,cargo-audit,sqlx-cli
+
+      # Every query is a compile-time-checked sqlx macro, and this job compiles
+      # against the live service database rather than the committed .sqlx cache,
+      # so the schema has to exist before the first `cargo` that expands one.
+      - name: Migrate the database
+        run: cargo sqlx migrate run
 
       - name: cargo fmt
         run: cargo fmt --all -- --check
@@ -105,13 +120,25 @@ jobs:
       - name: cargo build
         run: cargo build --workspace
 
-      - name: cargo test
-        run: cargo test --workspace
+      # The frontend's API types are generated from this document, so a route
+      # change that forgot to regenerate it is caught here rather than as a
+      # runtime type mismatch. `cargo run --bin chat-openapi` regenerates it.
+      - name: OpenAPI document is current
+        run: |
+          cargo run -q --bin chat-openapi > ../frontend/src/api/openapi.json
+          git diff --exit-code -- ../frontend/src/api/openapi.json
 
-      - name: Install cargo tooling
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-audit,sqlx-cli
+      # The WebSocket frame union is generated from `ServerFrame` the same way.
+      - name: WebSocket frame types are current
+        run: |
+          cargo run -q --bin chat-ts-events > ../frontend/src/api/serverFrames.ts
+          git diff --exit-code -- ../frontend/src/api/serverFrames.ts
+
+      # nextest over `cargo test`: a process per test, and the ci profile kills
+      # one that stops making progress instead of letting it hold the job open
+      # until the runner's own timeout. The workspace has no doctests to lose.
+      - name: cargo nextest
+        run: cargo nextest run --workspace --profile ci
 
       - name: cargo audit
         run: cargo audit
@@ -147,6 +174,11 @@ jobs:
       - name: Audit dependencies
         run: npm audit --audit-level=high
 
+      - name: Generated API types are current
+        run: |
+          npm run -s api:types
+          git diff --exit-code -- src/api/schema.d.ts
+
       - name: Format check
         run: npm run format:check
 
@@ -167,12 +199,11 @@ jobs:
   # the realtime container mid-test.
   e2e:
     name: E2E (Playwright)
-    needs: [changes, backend, frontend]
-    if: >-
-      !cancelled()
-      && needs.backend.result != 'failure'
-      && needs.frontend.result != 'failure'
-      && needs.changes.outputs.e2e == 'true'
+    # Deliberately not gated on the language jobs. This one builds its own
+    # images and shares no artifact with them, so waiting only bought a serial
+    # ~6 min: backend alone is longer than this whole job.
+    needs: changes
+    if: needs.changes.outputs.e2e == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -188,8 +219,34 @@ jobs:
       - name: Generate CI secrets
         run: ./.github/scripts/ci-env.sh
 
+      - uses: docker/setup-buildx-action@v3
+
+      # api, worker and realtime are the same image under three tags, so the
+      # workspace is compiled once here rather than three times by compose.
+      # Layer caching is the point: without it every run recompiles the whole
+      # release build, which was 71% of this job.
+      - name: Build the backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          load: true
+          tags: chat-api:latest,chat-worker:latest,chat-realtime:latest
+          cache-from: type=gha,scope=backend
+          cache-to: ${{ github.ref == 'refs/heads/main' && 'type=gha,scope=backend,mode=max' || '' }}
+
+      - name: Build the frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          load: true
+          tags: chat-frontend:latest
+          cache-from: type=gha,scope=frontend
+          cache-to: ${{ github.ref == 'refs/heads/main' && 'type=gha,scope=frontend,mode=max' || '' }}
+
+      # No --build: the images above are already in the daemon under the tags
+      # compose expects, and compose only builds what it cannot find.
       - name: Start the stack
-        run: docker compose --profile frontend up -d --build
+        run: docker compose --profile frontend up -d
 
       - name: Wait for readiness
         run: |
@@ -226,16 +283,54 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Resolve the Playwright version
+        id: playwright
+        working-directory: frontend
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Playwright browsers
+        id: playwright-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
       - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         working-directory: frontend
         run: npx playwright install --with-deps chromium
 
+      # The browser is cached; its apt dependencies are not, and they are not
+      # all preinstalled on the runner image.
+      - name: Install browser system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        working-directory: frontend
+        run: npx playwright install-deps chromium
+
+      # Same rule as the other caches: only main writes, branches read.
+      - name: Save Playwright browsers
+        if: github.ref == 'refs/heads/main' && steps.playwright-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+      # Three workers for the parallel batch; the serial batch sets its own.
       - name: Run E2E suite
         working-directory: frontend
         env:
           E2E_BASE_URL: http://localhost:8080
           E2E_SHOTS: ${{ runner.temp }}/shots
-        run: E2E_PASSWORD="$ADMIN_PASSWORD" npm run test:e2e
+          E2E_WORKERS: 3
+        run: E2E_PASSWORD="$ADMIN_PASSWORD" npx playwright test --project=chromium --project=mobile
+
+      - name: Run E2E suite (stack-exclusive specs)
+        working-directory: frontend
+        env:
+          E2E_BASE_URL: http://localhost:8080
+          E2E_SHOTS: ${{ runner.temp }}/shots
+          E2E_WORKERS: 1
+        run: E2E_PASSWORD="$ADMIN_PASSWORD" npx playwright test --project=serial
 
       - name: Collect container logs
         if: failure()

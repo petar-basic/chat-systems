@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE channel_members\n            SET last_read_at = NOW(),\n                last_read_msg = $3,\n                last_read_message_id = $3,\n                unread_count = 0,\n                mention_count = 0\n            WHERE channel_id = $1 AND user_id = $2\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2e47beeb83d928f62707e5805111975b89c24fc610704e6a6bea8612c0a85865"
+}
