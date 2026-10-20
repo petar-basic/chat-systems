@@ -111,7 +111,7 @@ pub async fn seed_channel(pool: &PgPool, ws: Uuid, creator: Uuid) -> Uuid {
     )
     .bind(id)
     .bind(ws)
-    .bind("general")
+    .bind(format!("channel-{}", &id.simple().to_string()[..8]))
     .bind(creator)
     .execute(pool)
     .await

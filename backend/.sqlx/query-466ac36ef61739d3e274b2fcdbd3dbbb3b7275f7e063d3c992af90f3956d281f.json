@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH truth AS (\n                SELECT cm.channel_id,\n                       cm.user_id,\n                       COUNT(m.id) FILTER (\n                           WHERE m.deleted_at IS NULL\n                             AND m.user_id <> cm.user_id\n                             AND (cm.last_read_at IS NULL OR m.created_at > cm.last_read_at)\n                       )::int AS total\n                  FROM channel_members cm\n                  JOIN channels c ON c.id = cm.channel_id\n                  LEFT JOIN messages m ON m.channel_id = cm.channel_id\n                 WHERE c.id IN (\n                       SELECT DISTINCT channel_id FROM messages\n                        WHERE created_at > NOW() - make_interval(hours => $1)\n                 )\n                 GROUP BY cm.channel_id, cm.user_id\n            )\n            UPDATE channel_members cm\n               SET unread_count = truth.total\n              FROM truth\n             WHERE truth.channel_id = cm.channel_id\n               AND truth.user_id = cm.user_id\n               AND cm.unread_count <> truth.total\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "466ac36ef61739d3e274b2fcdbd3dbbb3b7275f7e063d3c992af90f3956d281f"
+}

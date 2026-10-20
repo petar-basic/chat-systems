@@ -379,3 +379,116 @@ async fn active_huddles_lists_only_live_channel_huddles(pool: PgPool) {
 
     let _: i64 = conn.del(&key).await.unwrap();
 }
+
+/// Huddle membership is history — it is written to `huddle_participants` and
+/// read back as a call log — so it now goes to the durable log with the other
+/// history, which is what lets the consumer read it through a group with
+/// acknowledgement instead of plain pub/sub.
+#[sqlx::test(migrations = "../migrations")]
+async fn a_huddle_join_is_written_to_the_durable_log(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "huddle-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Huddles").await;
+
+    let mut conn = state.redis.clone();
+    let stream = crate::messaging::publisher::workspace_stream(ws_id);
+    let before: i64 = redis::cmd("XLEN")
+        .arg(&stream)
+        .query_async(&mut conn)
+        .await
+        .unwrap_or(0);
+
+    state
+        .publisher
+        .publish_scoped(
+            "huddle.member_joined",
+            ws_id,
+            serde_json::json!({ "huddle_id": uuid::Uuid::new_v4(), "user_id": owner_id }),
+        )
+        .await
+        .expect("publish a join");
+
+    let after: i64 = redis::cmd("XLEN")
+        .arg(&stream)
+        .query_async(&mut conn)
+        .await
+        .unwrap_or(0);
+    assert_eq!(after, before + 1, "the join is in the log");
+
+    // The signalling half stays ephemeral: replaying an ICE candidate minutes
+    // later is worse than not replaying it.
+    state
+        .publisher
+        .publish_scoped(
+            "huddle.signal",
+            ws_id,
+            serde_json::json!({ "huddle_id": uuid::Uuid::new_v4() }),
+        )
+        .await
+        .expect("publish signalling");
+
+    let unchanged: i64 = redis::cmd("XLEN")
+        .arg(&stream)
+        .query_async(&mut conn)
+        .await
+        .unwrap_or(0);
+    assert_eq!(unchanged, after, "and the signalling is not");
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn a_ring_delivered_twice_rings_once_and_a_stale_ring_not_at_all(pool: PgPool) {
+    use crate::notifications::consumer::{notify_ring, RING_MAX_AGE};
+
+    let (app, state) = app_and_state(pool).await;
+    let (caller_id, _, _) = seed_and_login(&app, &state, "ring-caller", false).await;
+    let (callee_id, _, _) = seed_and_login(&app, &state, "ring-callee", false).await;
+    let ws = seed_workspace(&state, caller_id, "Ring WS").await;
+    let huddle_id = uuid::Uuid::new_v4();
+    let mut conn = state.redis.clone();
+
+    let ring = shared_events::Event::new(
+        "huddle.ring",
+        serde_json::json!({
+            "huddle_id": huddle_id,
+            "workspace_id": ws,
+            "from_user_id": caller_id,
+            "to_user_id": callee_id,
+        }),
+    );
+
+    notify_ring(&state.notification_repo, &mut conn, &ring).await;
+    notify_ring(&state.notification_repo, &mut conn, &ring).await;
+
+    let rows: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND data ->> 'huddle_id' = $2",
+    )
+    .bind(callee_id)
+    .bind(huddle_id.to_string())
+    .fetch_one(&state.pool)
+    .await
+    .unwrap();
+    assert_eq!(rows, 1, "a redelivered ring is one notification, not two");
+
+    let mut stale = shared_events::Event::new(
+        "huddle.ring",
+        serde_json::json!({
+            "huddle_id": uuid::Uuid::new_v4(),
+            "workspace_id": ws,
+            "from_user_id": callee_id,
+            "to_user_id": caller_id,
+        }),
+    );
+    stale.timestamp -= RING_MAX_AGE + chrono::Duration::seconds(1);
+    notify_ring(&state.notification_repo, &mut conn, &stale).await;
+
+    let stale_rows: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM notifications WHERE user_id = $1")
+            .bind(caller_id)
+            .fetch_one(&state.pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        stale_rows, 0,
+        "a ring older than the window is dropped, not rung late"
+    );
+}

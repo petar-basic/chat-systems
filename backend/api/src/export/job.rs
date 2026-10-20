@@ -112,8 +112,6 @@ async fn export_workspace(
     workspace_id: Uuid,
     archive: &mut ExportArchive,
 ) -> Result<(), String> {
-    // Declared up front so the manifest says "0 conversations" rather than
-    // staying silent about them — the difference is the whole DM question.
     for file in [
         "channels.jsonl",
         "messages.jsonl",
@@ -122,35 +120,41 @@ async fn export_workspace(
         "members.jsonl",
         "files.jsonl",
         "audit_log.jsonl",
-        "conversations.jsonl",
-        "conversation_messages.jsonl",
     ] {
         archive.declare(file);
     }
 
-    let rows: Vec<serde_json::Value> =
-        sqlx::query_scalar("SELECT to_jsonb(c) FROM channels c WHERE c.workspace_id = $1")
-            .bind(workspace_id)
-            .fetch_all(&state.pool)
-            .await
-            .map_err(|e| e.to_string())?;
+    let rows: Vec<serde_json::Value> = sqlx::query_scalar!(
+        r#"
+        SELECT to_jsonb(c) AS "row!" FROM channels c
+         WHERE c.workspace_id = $1
+           AND ($2::bool OR c.channel_type NOT IN ('dm', 'group_dm'))
+        "#,
+        workspace_id,
+        job.include_dms
+    )
+    .fetch_all(&state.pool)
+    .await
+    .map_err(|e| e.to_string())?;
     for row in rows {
         archive.append("channels.jsonl", &row);
     }
 
-    let rows: Vec<serde_json::Value> = sqlx::query_scalar(
-        r"
-        SELECT to_jsonb(m) FROM messages m
+    let rows: Vec<serde_json::Value> = sqlx::query_scalar!(
+        r#"
+        SELECT to_jsonb(m) AS "row!" FROM messages m
           JOIN channels c ON c.id = m.channel_id
          WHERE c.workspace_id = $1
            AND ($2::timestamptz IS NULL OR m.created_at >= $2)
            AND ($3::timestamptz IS NULL OR m.created_at <= $3)
+           AND ($4::bool OR c.channel_type NOT IN ('dm', 'group_dm'))
          ORDER BY m.created_at
-        ",
+        "#,
+        workspace_id,
+        job.since,
+        job.until,
+        job.include_dms
     )
-    .bind(workspace_id)
-    .bind(job.since)
-    .bind(job.until)
     .fetch_all(&state.pool)
     .await
     .map_err(|e| e.to_string())?;
@@ -160,16 +164,18 @@ async fn export_workspace(
 
     // An export without edit history answers "what does it say now", not "what
     // happened" — which is the question being asked.
-    let rows: Vec<serde_json::Value> = sqlx::query_scalar(
-        r"
-        SELECT to_jsonb(e) FROM message_edits e
+    let rows: Vec<serde_json::Value> = sqlx::query_scalar!(
+        r#"
+        SELECT to_jsonb(e) AS "row!" FROM message_edits e
           JOIN messages m ON m.id = e.message_id
           JOIN channels c ON c.id = m.channel_id
          WHERE c.workspace_id = $1
+           AND ($2::bool OR c.channel_type NOT IN ('dm', 'group_dm'))
          ORDER BY e.edited_at
-        ",
+        "#,
+        workspace_id,
+        job.include_dms
     )
-    .bind(workspace_id)
     .fetch_all(&state.pool)
     .await
     .map_err(|e| e.to_string())?;
@@ -177,15 +183,17 @@ async fn export_workspace(
         archive.append("message_edits.jsonl", &row);
     }
 
-    let rows: Vec<serde_json::Value> = sqlx::query_scalar(
-        r"
-        SELECT to_jsonb(r) FROM reactions r
+    let rows: Vec<serde_json::Value> = sqlx::query_scalar!(
+        r#"
+        SELECT to_jsonb(r) AS "row!" FROM reactions r
           JOIN messages m ON m.id = r.message_id
           JOIN channels c ON c.id = m.channel_id
          WHERE c.workspace_id = $1
-        ",
+           AND ($2::bool OR c.channel_type NOT IN ('dm', 'group_dm'))
+        "#,
+        workspace_id,
+        job.include_dms
     )
-    .bind(workspace_id)
     .fetch_all(&state.pool)
     .await
     .map_err(|e| e.to_string())?;
@@ -193,10 +201,10 @@ async fn export_workspace(
         archive.append("reactions.jsonl", &row);
     }
 
-    let rows: Vec<serde_json::Value> = sqlx::query_scalar(
-        "SELECT to_jsonb(wm) FROM workspace_members wm WHERE wm.workspace_id = $1",
+    let rows: Vec<serde_json::Value> = sqlx::query_scalar!(
+        r#"SELECT to_jsonb(wm) AS "row!" FROM workspace_members wm WHERE wm.workspace_id = $1"#,
+        workspace_id
     )
-    .bind(workspace_id)
     .fetch_all(&state.pool)
     .await
     .map_err(|e| e.to_string())?;
@@ -204,58 +212,26 @@ async fn export_workspace(
         archive.append("members.jsonl", &row);
     }
 
-    let rows: Vec<serde_json::Value> =
-        sqlx::query_scalar("SELECT to_jsonb(f) FROM files f WHERE f.workspace_id = $1")
-            .bind(workspace_id)
-            .fetch_all(&state.pool)
-            .await
-            .map_err(|e| e.to_string())?;
+    let rows: Vec<serde_json::Value> = sqlx::query_scalar!(
+        r#"SELECT to_jsonb(f) AS "row!" FROM files f WHERE f.workspace_id = $1"#,
+        workspace_id
+    )
+    .fetch_all(&state.pool)
+    .await
+    .map_err(|e| e.to_string())?;
     for row in rows {
         archive.append("files.jsonl", &row);
     }
 
-    let rows: Vec<serde_json::Value> =
-        sqlx::query_scalar("SELECT to_jsonb(a) FROM audit_log a WHERE a.workspace_id = $1")
-            .bind(workspace_id)
-            .fetch_all(&state.pool)
-            .await
-            .map_err(|e| e.to_string())?;
+    let rows: Vec<serde_json::Value> = sqlx::query_scalar!(
+        r#"SELECT to_jsonb(a) AS "row!" FROM audit_log a WHERE a.workspace_id = $1"#,
+        workspace_id
+    )
+    .fetch_all(&state.pool)
+    .await
+    .map_err(|e| e.to_string())?;
     for row in rows {
         archive.append("audit_log.jsonl", &row);
-    }
-
-    // Silently exporting everyone's private conversations because an owner
-    // clicked a button is the kind of default that ends up in a news story.
-    if job.include_dms {
-        let rows: Vec<serde_json::Value> =
-            sqlx::query_scalar("SELECT to_jsonb(c) FROM conversations c WHERE c.workspace_id = $1")
-                .bind(workspace_id)
-                .fetch_all(&state.pool)
-                .await
-                .map_err(|e| e.to_string())?;
-        for row in rows {
-            archive.append("conversations.jsonl", &row);
-        }
-
-        let rows: Vec<serde_json::Value> = sqlx::query_scalar(
-            r"
-            SELECT to_jsonb(cm) FROM conversation_messages cm
-              JOIN conversations c ON c.id = cm.conversation_id
-             WHERE c.workspace_id = $1
-               AND ($2::timestamptz IS NULL OR cm.created_at >= $2)
-               AND ($3::timestamptz IS NULL OR cm.created_at <= $3)
-             ORDER BY cm.created_at
-            ",
-        )
-        .bind(workspace_id)
-        .bind(job.since)
-        .bind(job.until)
-        .fetch_all(&state.pool)
-        .await
-        .map_err(|e| e.to_string())?;
-        for row in rows {
-            archive.append("conversation_messages.jsonl", &row);
-        }
     }
 
     Ok(())
@@ -270,36 +246,37 @@ async fn export_user(
         "profile.jsonl",
         "memberships.jsonl",
         "messages.jsonl",
-        "conversation_messages.jsonl",
         "files.jsonl",
     ] {
         archive.declare(file);
     }
 
-    let rows: Vec<serde_json::Value> =
-        sqlx::query_scalar("SELECT to_jsonb(u) - 'password_hash' FROM users u WHERE u.id = $1")
-            .bind(user_id)
-            .fetch_all(&state.pool)
-            .await
-            .map_err(|e| e.to_string())?;
+    let rows: Vec<serde_json::Value> = sqlx::query_scalar!(
+        r#"SELECT to_jsonb(u) - 'password_hash' AS "row!" FROM users u WHERE u.id = $1"#,
+        user_id
+    )
+    .fetch_all(&state.pool)
+    .await
+    .map_err(|e| e.to_string())?;
     for row in rows {
         archive.append("profile.jsonl", &row);
     }
 
-    let rows: Vec<serde_json::Value> =
-        sqlx::query_scalar("SELECT to_jsonb(wm) FROM workspace_members wm WHERE wm.user_id = $1")
-            .bind(user_id)
-            .fetch_all(&state.pool)
-            .await
-            .map_err(|e| e.to_string())?;
+    let rows: Vec<serde_json::Value> = sqlx::query_scalar!(
+        r#"SELECT to_jsonb(wm) AS "row!" FROM workspace_members wm WHERE wm.user_id = $1"#,
+        user_id
+    )
+    .fetch_all(&state.pool)
+    .await
+    .map_err(|e| e.to_string())?;
     for row in rows {
         archive.append("memberships.jsonl", &row);
     }
 
-    let rows: Vec<serde_json::Value> = sqlx::query_scalar(
-        "SELECT to_jsonb(m) FROM messages m WHERE m.user_id = $1 ORDER BY m.created_at",
+    let rows: Vec<serde_json::Value> = sqlx::query_scalar!(
+        r#"SELECT to_jsonb(m) AS "row!" FROM messages m WHERE m.user_id = $1 ORDER BY m.created_at"#,
+        user_id
     )
-    .bind(user_id)
     .fetch_all(&state.pool)
     .await
     .map_err(|e| e.to_string())?;
@@ -307,23 +284,13 @@ async fn export_user(
         archive.append("messages.jsonl", &row);
     }
 
-    let rows: Vec<serde_json::Value> = sqlx::query_scalar(
-        "SELECT to_jsonb(cm) FROM conversation_messages cm WHERE cm.user_id = $1 ORDER BY cm.created_at",
+    let rows: Vec<serde_json::Value> = sqlx::query_scalar!(
+        r#"SELECT to_jsonb(f) AS "row!" FROM files f WHERE f.user_id = $1"#,
+        user_id
     )
-    .bind(user_id)
     .fetch_all(&state.pool)
     .await
     .map_err(|e| e.to_string())?;
-    for row in rows {
-        archive.append("conversation_messages.jsonl", &row);
-    }
-
-    let rows: Vec<serde_json::Value> =
-        sqlx::query_scalar("SELECT to_jsonb(f) FROM files f WHERE f.user_id = $1")
-            .bind(user_id)
-            .fetch_all(&state.pool)
-            .await
-            .map_err(|e| e.to_string())?;
     for row in rows {
         archive.append("files.jsonl", &row);
     }

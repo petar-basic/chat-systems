@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext } from '@playwright/test';
-import { API, PASSWORD, login } from './helpers';
+import { API, PASSWORD, login, devWorkspace } from './helpers';
 
 async function signIn(ctx: APIRequestContext, email: string) {
   const res = await ctx.post(`${API}/auth/login`, { data: { email, password: PASSWORD } });
@@ -7,7 +7,7 @@ async function signIn(ctx: APIRequestContext, email: string) {
 }
 
 async function sharedWorkspace(ctx: APIRequestContext) {
-  return (await (await ctx.get(`${API}/workspaces`)).json()).data[0];
+  return await devWorkspace(ctx);
 }
 
 test('a destructive action shows up in the workspace audit log', async ({ page, playwright }) => {
@@ -17,9 +17,9 @@ test('a destructive action shows up in the workspace audit log', async ({ page, 
   await signIn(bob, 'bob@dev.local');
 
   const workspace = await sharedWorkspace(bob);
-  const stamp = Date.now();
+  const channelName = `audited-${Date.now()}`;
   const created = await admin.post(`${API}/workspaces/${workspace.id}/channels`, {
-    data: { name: `audited-${stamp}`, channel_type: 'public' },
+    data: { name: channelName, channel_type: 'public' },
   });
   const channelId = (await created.json()).id as string;
 
@@ -34,7 +34,13 @@ test('a destructive action shows up in the workspace audit log', async ({ page, 
 
     const panel = page.locator('[data-qa="audit-log-panel"]');
     await expect(panel).toBeVisible();
-    await expect(panel.locator('[data-qa="audit-log-action"]').first()).toHaveText('Channel archived');
+    // This run's own entry, not whatever sits at the top of the log: anything
+    // else recorded in the shared workspace lands above it.
+    const archivedRow = panel
+      .locator('[data-qa="audit-log-row"]')
+      .filter({ hasText: channelName })
+      .filter({ hasText: 'Channel archived' });
+    await expect(archivedRow).toHaveCount(1);
   } finally {
     await admin.dispose();
     await bob.dispose();

@@ -36,7 +36,7 @@ async fn a_workspace_export_counts_what_it_wrote(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner) = seed_and_login(&app, &state, "exp-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Export WS").await;
-    let ch = seed_channel(&state, ws, owner_id, "general", false).await;
+    let ch = seed_channel(&state, ws, owner_id, "main", false).await;
 
     for i in 0..3 {
         send(
@@ -103,7 +103,7 @@ async fn private_conversations_stay_out_unless_asked_for(pool: PgPool) {
     send(
         &app,
         "POST",
-        &format!("/api/conversations/{conv_id}/messages"),
+        &format!("/api/channels/{conv_id}/messages"),
         Some(&owner),
         Some(json!({ "content": "between us" })),
     )
@@ -119,7 +119,7 @@ async fn private_conversations_stay_out_unless_asked_for(pool: PgPool) {
     .await;
     let without = manifest_of(&state, run_pending_export(&state).await).await;
     assert_eq!(
-        without["files"]["conversation_messages.jsonl"]["rows"], 0,
+        without["files"]["messages.jsonl"]["rows"], 0,
         "an owner clicking export does not sweep up everyone's DMs"
     );
 
@@ -132,7 +132,7 @@ async fn private_conversations_stay_out_unless_asked_for(pool: PgPool) {
     )
     .await;
     let with = manifest_of(&state, run_pending_export(&state).await).await;
-    assert_eq!(with["files"]["conversation_messages.jsonl"]["rows"], 1);
+    assert_eq!(with["files"]["messages.jsonl"]["rows"], 1);
 
     let opted_in: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM audit_log WHERE action = 'export.requested' \
@@ -149,7 +149,7 @@ async fn a_user_export_contains_only_that_persons_authorship(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner) = seed_and_login(&app, &state, "exp-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Export WS").await;
-    let ch = seed_channel(&state, ws, owner_id, "general", false).await;
+    let ch = seed_channel(&state, ws, owner_id, "main", false).await;
 
     let (subject_id, subject_email) = seed(&state, "exp-subject", false).await;
     add_ws_member(&state, ws, subject_id, "member").await;
@@ -262,7 +262,7 @@ async fn anonymising_keeps_the_conversation_readable(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _owner) = seed_and_login(&app, &state, "exp-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Export WS").await;
-    let ch = seed_channel(&state, ws, owner_id, "general", false).await;
+    let ch = seed_channel(&state, ws, owner_id, "main", false).await;
 
     let (subject_id, subject_email) = seed(&state, "exp-subject", false).await;
     add_ws_member(&state, ws, subject_id, "member").await;
@@ -317,7 +317,7 @@ async fn hard_delete_removes_the_messages(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "exp-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Export WS").await;
-    let ch = seed_channel(&state, ws, owner_id, "general", false).await;
+    let ch = seed_channel(&state, ws, owner_id, "main", false).await;
 
     let (subject_id, subject_email) = seed(&state, "exp-subject", false).await;
     add_ws_member(&state, ws, subject_id, "member").await;

@@ -4,17 +4,9 @@ import { ShieldCheck, ShieldOff, Copy, Check } from 'lucide-react';
 import { api } from '../lib/api';
 import { toUserMessage } from '@/lib/errors';
 import { toast } from '@/shared/components/Toast';
+import type { components } from '@/api/schema';
 
-interface TotpStatus {
-  enrolled: boolean;
-  recovery_codes_remaining: number;
-  required: boolean;
-}
-
-interface Enrolment {
-  secret: string;
-  provisioning_uri: string;
-}
+type Enrolment = components['schemas']['TotpEnrolment'];
 
 export default function TwoFactorPanel() {
   const queryClient = useQueryClient();
@@ -27,13 +19,13 @@ export default function TwoFactorPanel() {
 
   const { data: status } = useQuery({
     queryKey: ['totp-status'],
-    queryFn: () => api.get<TotpStatus>('/auth/totp'),
+    queryFn: () => api.typed((c) => c.GET('/auth/totp')),
   });
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['totp-status'] });
 
   const start = useMutation({
-    mutationFn: () => api.post<Enrolment>('/auth/totp/enrol', {}),
+    mutationFn: () => api.typed((c) => c.POST('/auth/totp/enrol')),
     onSuccess: (data) => {
       setError(null);
       setEnrolment(data);
@@ -42,7 +34,7 @@ export default function TwoFactorPanel() {
   });
 
   const confirm = useMutation({
-    mutationFn: () => api.post<{ recovery_codes: string[] }>('/auth/totp/confirm', { code }),
+    mutationFn: () => api.typed((c) => c.POST('/auth/totp/confirm', { body: { code } })),
     onSuccess: (data) => {
       setError(null);
       setEnrolment(null);
@@ -54,7 +46,7 @@ export default function TwoFactorPanel() {
   });
 
   const disable = useMutation({
-    mutationFn: () => api.post('/auth/totp/disable', { code }),
+    mutationFn: () => api.typed((c) => c.POST('/auth/totp/disable', { body: { code } })),
     onSuccess: () => {
       setError(null);
       setDisabling(false);
@@ -73,14 +65,14 @@ export default function TwoFactorPanel() {
   };
 
   return (
-    <div className="border-t border-slate-700 pt-5 mt-5" data-qa="two-factor">
+    <div data-qa="two-factor">
       <div className="flex items-start justify-between gap-4 mb-3">
         <div>
-          <h3 className="text-sm font-medium text-white flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-purple-400" />
+          <h3 className="text-sm font-medium text-fg flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-accent" />
             Two-factor authentication
           </h3>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-muted mt-1">
             {status?.enrolled
               ? `On. ${status.recovery_codes_remaining} recovery codes left.`
               : 'A stolen password alone is not enough to sign in as you.'}
@@ -104,7 +96,7 @@ export default function TwoFactorPanel() {
             disabled={status.required}
             title={status.required ? 'This instance requires a second factor for admins' : undefined}
             data-qa="totp-disable"
-            className="flex items-center gap-1.5 px-3 py-2 text-sm text-slate-300 hover:text-red-400 disabled:text-slate-600 disabled:cursor-not-allowed transition cursor-pointer whitespace-nowrap"
+            className="flex items-center gap-1.5 px-3 py-2 text-sm text-fg-dim hover:text-danger disabled:text-faint disabled:cursor-not-allowed transition cursor-pointer whitespace-nowrap"
           >
             <ShieldOff className="w-4 h-4" />
             Turn off
@@ -113,38 +105,39 @@ export default function TwoFactorPanel() {
       </div>
 
       {error && (
-        <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2 mb-3">
+        <div className="text-sm text-danger bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2 mb-3">
           {error}
         </div>
       )}
 
       {enrolment && (
         <div className="space-y-3">
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-muted">
             Add this to your authenticator app, then enter the code it shows. Nothing changes until you do —
             an enrolment you never finished cannot lock you out.
           </p>
           <div className="flex items-center gap-2">
-            <code className="flex-1 px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-200 break-all">
+            <code className="flex-1 px-3 py-2 bg-app border border-line rounded-lg text-xs text-fg-soft break-all">
               {enrolment.secret}
             </code>
             <button
               type="button"
               onClick={copySecret}
               aria-label="Copy the setup key"
-              className="p-2 text-slate-400 hover:text-white transition cursor-pointer"
+              className="p-2 text-muted hover:text-fg transition cursor-pointer"
             >
-              {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+              {copied ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
             </button>
           </div>
           <a
             href={enrolment.provisioning_uri}
-            className="inline-block text-xs text-purple-400 hover:text-purple-300"
+            className="inline-block text-xs text-accent hover:text-accent-soft"
           >
             Open in your authenticator app
           </a>
           <div className="flex gap-2">
             <input
+              aria-label="Authenticator code"
               type="text"
               inputMode="numeric"
               autoComplete="one-time-code"
@@ -152,7 +145,7 @@ export default function TwoFactorPanel() {
               onChange={(e) => setCode(e.target.value.trim())}
               placeholder="123456"
               data-qa="totp-code"
-              className="flex-1 px-3 py-2.5 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm tracking-widest focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="flex-1 px-3 py-2.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm tracking-widest focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
             <button
               type="button"
@@ -169,7 +162,7 @@ export default function TwoFactorPanel() {
 
       {recoveryCodes && (
         <div className="mt-3 space-y-2" data-qa="totp-recovery-codes">
-          <p className="text-xs text-amber-300">
+          <p className="text-xs text-warning">
             Save these somewhere safe. They are shown once, and each one works once — they are the way back in
             if you lose the phone.
           </p>
@@ -177,7 +170,7 @@ export default function TwoFactorPanel() {
             {recoveryCodes.map((recoveryCode) => (
               <code
                 key={recoveryCode}
-                className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-200 text-center"
+                className="px-3 py-2 bg-app border border-line rounded-lg text-xs text-fg-soft text-center"
               >
                 {recoveryCode}
               </code>
@@ -186,7 +179,7 @@ export default function TwoFactorPanel() {
           <button
             type="button"
             onClick={() => setRecoveryCodes(null)}
-            className="text-xs text-slate-400 hover:text-white transition cursor-pointer"
+            className="text-xs text-muted hover:text-fg transition cursor-pointer"
           >
             I have saved them
           </button>
@@ -196,6 +189,7 @@ export default function TwoFactorPanel() {
       {disabling && (
         <div className="flex gap-2">
           <input
+            aria-label="Current authenticator code"
             type="text"
             inputMode="numeric"
             autoComplete="one-time-code"
@@ -203,7 +197,7 @@ export default function TwoFactorPanel() {
             onChange={(e) => setCode(e.target.value.trim())}
             placeholder="Current code"
             data-qa="totp-disable-code"
-            className="flex-1 px-3 py-2.5 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm tracking-widest focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="flex-1 px-3 py-2.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm tracking-widest focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
           <button
             type="button"
@@ -220,7 +214,7 @@ export default function TwoFactorPanel() {
               setDisabling(false);
               setCode('');
             }}
-            className="px-3 py-2.5 text-sm text-slate-400 hover:text-white transition cursor-pointer"
+            className="px-3 py-2.5 text-sm text-muted hover:text-fg transition cursor-pointer"
           >
             Cancel
           </button>

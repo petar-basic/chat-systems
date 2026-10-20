@@ -5,8 +5,10 @@ import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useHuddleStore, type ActiveHuddle } from '@/stores/huddle';
 import { logger } from '@/lib/logger';
-import { MeshManager } from './lib/MeshManager';
-import { acquireCamera, acquireLocalAudio, acquireScreen, stopStream } from './lib/media';
+import { MeshManager, type TrackKind } from './lib/MeshManager';
+import { acquireCamera, acquireLocalAudio, acquireScreen, micErrorLabel, stopStream } from './lib/media';
+import { toast } from '@/shared/components/Toast';
+import { ErrorLabels } from '@/shared/constants';
 import { BackgroundProcessor } from './lib/backgroundProcessor';
 import { HuddleWindow } from './components/HuddleWindow';
 import { IncomingCallRing } from './components/IncomingCallRing';
@@ -51,10 +53,10 @@ export function HuddleController() {
   const rejoiningRef = useRef(false);
   const rejoinRef = useRef<(() => void) | null>(null);
 
-  const onRemoteTrack = useCallback((peerId: string, remote: MediaStream) => {
+  const onRemoteTrack = useCallback((peerId: string, remote: MediaStream, kind: TrackKind) => {
     const store = useHuddleStore.getState();
     store.upsertParticipant(peerId);
-    store.setParticipantStream(peerId, remote);
+    store.setParticipantStream(peerId, kind, remote);
   }, []);
 
   const announceLocalState = useCallback(() => {
@@ -90,22 +92,37 @@ export function HuddleController() {
     const send = (msg: Record<string, unknown>) => ws.send(msg);
 
     const start = async () => {
-      let iceServers: RTCIceServer[] = [];
+      let iceServers: RTCIceServer[];
       try {
-        const res = await getApiForInstance(active.instanceUrl).get<{ ice_servers: RTCIceServer[] }>(
-          `/workspaces/${active.workspaceId}/ice-servers`,
+        const res = await getApiForInstance(active.instanceUrl).typed((c) =>
+          c.GET('/workspaces/{ws_id}/ice-servers', { params: { path: { ws_id: active.workspaceId } } }),
         );
-        iceServers = res.ice_servers ?? [];
+        iceServers = res.ice_servers.map((server) => ({
+          urls: server.urls,
+          username: server.username ?? undefined,
+          credential: server.credential ?? undefined,
+        }));
       } catch (err) {
+        // Joining anyway leaves only host candidates, which connects on a LAN
+        // and nowhere else — a call that fails silently is worse than one that
+        // says it could not start.
         logger.error('HuddleController', 'ice-servers', err);
+        toast.error(ErrorLabels.HuddleSetupFailed);
+        useHuddleStore.getState().setActive(null);
+        return;
       }
       if (cancelled) return;
+
+      if (iceServers.length === 0) {
+        logger.warn('HuddleController', 'ice-servers', 'no ICE servers configured');
+      }
 
       let stream: MediaStream;
       try {
         stream = await acquireLocalAudio(useHuddleStore.getState().devices.micId);
       } catch (err) {
         logger.error('HuddleController', 'getUserMedia', err);
+        toast.error(micErrorLabel(err));
         useHuddleStore.getState().setActive(null);
         return;
       }
@@ -119,7 +136,7 @@ export function HuddleController() {
       iceServersRef.current = iceServers;
 
       const mesh = new MeshManager(active.huddleId, active.selfUserId, iceServers, send, onRemoteTrack);
-      mesh.setLocalStream(stream);
+      mesh.setAudioTrack(stream.getAudioTracks()[0] ?? null);
       meshRef.current = mesh;
 
       send(joinMessage(active));
@@ -208,6 +225,7 @@ export function HuddleController() {
       stopStream(store.localStream);
       store.setLocalStream(null);
       store.setLocalVideoStream(null);
+      store.setLocalScreenStream(null);
       store.setLocalMuted(false);
       store.setLocalCamera(false);
       store.setLocalSharing(false);
@@ -224,21 +242,24 @@ export function HuddleController() {
     wsFor(a).send({ type: 'huddle.mute', huddle_id: a.huddleId, audio_muted: next });
   }, []);
 
+  // Camera and screen ride their own transceivers, so sharing never costs the
+  // person their face: both go out at once, the way Slack does it.
   const updateVideoOutput = useCallback(() => {
     const mesh = meshRef.current;
     if (!mesh) return;
     const store = useHuddleStore.getState();
-    let track: MediaStreamTrack | null = null;
-    if (store.localSharing) {
-      track = screenTrackRef.current;
-    } else if (store.localCameraOn) {
-      track =
-        store.background === 'blur' && processedTrackRef.current
-          ? processedTrackRef.current
-          : camTrackRef.current;
-    }
-    mesh.setVideoTrack(track);
-    useHuddleStore.getState().setLocalVideoStream(track ? new MediaStream([track]) : null);
+
+    const camera = store.localCameraOn
+      ? store.background === 'blur' && processedTrackRef.current
+        ? processedTrackRef.current
+        : camTrackRef.current
+      : null;
+    const screen = store.localSharing ? screenTrackRef.current : null;
+
+    mesh.setCameraTrack(camera);
+    mesh.setScreenTrack(screen);
+    store.setLocalVideoStream(camera ? new MediaStream([camera]) : null);
+    store.setLocalScreenStream(screen ? new MediaStream([screen]) : null);
   }, []);
 
   const startBlur = useCallback(async () => {
@@ -269,7 +290,7 @@ export function HuddleController() {
       const send = (msg: Record<string, unknown>) => ws.send(msg);
       meshRef.current?.close();
       const mesh = new MeshManager(a.huddleId, a.selfUserId, iceServersRef.current, send, onRemoteTrack);
-      if (micStreamRef.current) mesh.setLocalStream(micStreamRef.current);
+      mesh.setAudioTrack(micStreamRef.current?.getAudioTracks()[0] ?? null);
       meshRef.current = mesh;
       useHuddleStore.getState().resetParticipants();
       updateVideoOutput();
@@ -303,7 +324,7 @@ export function HuddleController() {
       const camStream = await acquireCamera(store.devices.cameraId);
       camTrackRef.current = camStream.getVideoTracks()[0];
       useHuddleStore.getState().setLocalCamera(true);
-      if (useHuddleStore.getState().background === 'blur' && !useHuddleStore.getState().localSharing) {
+      if (useHuddleStore.getState().background === 'blur') {
         await startBlur();
       } else {
         updateVideoOutput();
@@ -319,19 +340,9 @@ export function HuddleController() {
     screenTrackRef.current?.stop();
     screenTrackRef.current = null;
     useHuddleStore.getState().setLocalSharing(false);
-    const store = useHuddleStore.getState();
-    if (
-      store.localCameraOn &&
-      store.background === 'blur' &&
-      camTrackRef.current &&
-      !processedTrackRef.current
-    ) {
-      void startBlur();
-    } else {
-      updateVideoOutput();
-    }
+    updateVideoOutput();
     if (a) wsFor(a).send({ type: 'huddle.screenshare', huddle_id: a.huddleId, sharing: false });
-  }, [startBlur, updateVideoOutput]);
+  }, [updateVideoOutput]);
 
   const toggleScreen = useCallback(async () => {
     const a = useHuddleStore.getState().active;
@@ -357,7 +368,7 @@ export function HuddleController() {
     const next = store.background === 'blur' ? 'none' : 'blur';
     store.setBackground(next);
     if (next === 'blur') {
-      if (store.localCameraOn && !store.localSharing) await startBlur();
+      if (store.localCameraOn) await startBlur();
     } else {
       stopBlur();
       updateVideoOutput();
@@ -389,7 +400,7 @@ export function HuddleController() {
         stopBlur();
         camTrackRef.current?.stop();
         camTrackRef.current = camStream.getVideoTracks()[0];
-        if (useHuddleStore.getState().background === 'blur' && !useHuddleStore.getState().localSharing) {
+        if (useHuddleStore.getState().background === 'blur') {
           await startBlur();
         } else {
           updateVideoOutput();

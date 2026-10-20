@@ -1,10 +1,11 @@
 import { test, expect, type Page, type BrowserContext } from '@playwright/test';
-import { authHeaders, login, send, SHOTS, userContext } from './helpers';
+import { authHeaders, devWorkspace, login, send, SHOTS, userContext } from './helpers';
 
 let ctxA: BrowserContext;
 let ctxB: BrowserContext;
 let admin: Page;
 let bob: Page;
+let workspaceId: string;
 
 const stamp = process.env.E2E_STAMP || `run-${Date.now()}`;
 
@@ -35,6 +36,14 @@ test.afterAll(async () => {
 test('1. cold login both users, land in workspace', async () => {
   await login(admin, 'admin@dev.local');
   await login(bob, 'bob@dev.local');
+  // Sign-in lands in whichever workspace comes first, and these two share only
+  // the seeded one; the rest of the file talks about its channels.
+  const { ctx } = await userContext('admin@dev.local');
+  const workspace = await devWorkspace(ctx);
+  workspaceId = workspace.id;
+  await ctx.dispose();
+  await admin.goto(`/app/${workspaceId}`);
+  await bob.goto(`/app/${workspaceId}`);
   await admin.screenshot({ path: `${SHOTS}/01-admin-logged-in.png`, fullPage: false });
   await bob.screenshot({ path: `${SHOTS}/01-bob-logged-in.png` });
   await expect(admin.locator('[data-qa="connection-banner"]')).toHaveCount(0);
@@ -68,7 +77,6 @@ test('3b. typing indicator still works after the user sent a message', async () 
   const editor = bob.locator('.ProseMirror[contenteditable="true"]').last();
   await editor.click();
   await editor.type('typing again after send', { delay: 40 });
-  await bob.waitForTimeout(1500);
   await expect(admin.getByText(/is typing/i)).toBeVisible({ timeout: 5000 });
   await admin.screenshot({ path: `${SHOTS}/03b-typing-after-send.png` });
   await editor.fill('');
@@ -155,7 +163,8 @@ test('7. edit and delete propagate live', async () => {
 
   const row = admin.locator('[data-qa="message-row"]', { hasText: original }).last();
   await row.hover();
-  await row.locator('[data-qa="message-action-edit"]').click();
+  await row.locator('[data-qa="message-action-more"]').click();
+  await admin.locator('[data-qa="message-overflow"] [data-qa="message-action-edit"]').click();
   const editEditor = admin.locator('[data-qa="message-row"] .ProseMirror[contenteditable="true"]');
   await editEditor.click();
   await editEditor.fill(`edited ${stamp}`);
@@ -164,7 +173,8 @@ test('7. edit and delete propagate live', async () => {
 
   const row2 = admin.locator('[data-qa="message-row"]', { hasText: `edited ${stamp}` }).last();
   await row2.hover();
-  await row2.locator('[data-qa="message-action-delete"]').click();
+  await row2.locator('[data-qa="message-action-more"]').click();
+  await admin.locator('[data-qa="message-overflow"] [data-qa="message-action-delete"]').click();
   await row2.locator('[data-qa="message-delete-confirm"]').click();
   await expect(bob.getByText(`edited ${stamp}`)).toHaveCount(0, { timeout: 10_000 });
   await bob.screenshot({ path: `${SHOTS}/07-after-edit-delete.png` });
@@ -173,8 +183,7 @@ test('7. edit and delete propagate live', async () => {
 test('8. unread indicator appears on a channel the user is not viewing', async () => {
   const api = admin.request;
   const auth = await authHeaders(api, 'admin@dev.local');
-  const wsId = (await (await api.get('http://localhost:3000/api/workspaces', { headers: auth })).json())
-    .data[0].id;
+  const wsId = (await devWorkspace(api, 'admin@dev.local')).id;
   const chList = await (
     await api.get(`http://localhost:3000/api/workspaces/${wsId}/channels`, { headers: auth })
   ).json();
@@ -210,21 +219,21 @@ test('9. direct message is delivered live', async () => {
   await expect(admin.locator('[data-qa="conversation-title"]')).toContainText('Bob Smith');
   const dmText = `dm ${stamp} secret hello`;
   await send(admin, dmText);
-  await expect(admin.locator('[data-qa="conversation-message"]').last()).toContainText(dmText, {
+  await expect(admin.locator('[data-qa="message-row"]').last()).toContainText(dmText, {
     timeout: 10_000,
   });
   await admin.screenshot({ path: `${SHOTS}/09-dm-admin.png` });
 
   await bob.screenshot({ path: `${SHOTS}/09-dm-bob-sidebar-before-open.png` });
   await bob.getByTitle('Message Admin').first().click();
-  await expect(bob.locator('[data-qa="conversation-message"]').last()).toContainText(dmText, {
+  await expect(bob.locator('[data-qa="message-row"]').last()).toContainText(dmText, {
     timeout: 10_000,
   });
   await bob.screenshot({ path: `${SHOTS}/09-dm-bob.png` });
 });
 
 test('10. search finds a message', async () => {
-  await bob.goto('/');
+  await bob.goto(`/app/${workspaceId}`);
   await expect(bob.locator('[data-qa="message-list"]')).toBeVisible({ timeout: 20_000 });
   await bob.getByLabel('Search messages').click();
   await bob
@@ -239,7 +248,10 @@ test('10. search finds a message', async () => {
 test('11. member cannot reach the instance admin area', async () => {
   await expect(bob.getByRole('button', { name: 'Instance Admin' })).toHaveCount(0);
   await bob.goto('/app/admin');
-  await bob.waitForTimeout(2000);
+  // The page renders nothing at all for a member, so there is no element to
+  // wait on: the settled network is the signal that the guard has run.
+  await bob.waitForLoadState('networkidle');
+  await expect(bob.locator('[data-qa="admin-tab-users"]')).toHaveCount(0);
   await bob.screenshot({ path: `${SHOTS}/11-bob-admin-page.png` });
   const body = await bob.locator('body').innerText();
   expect(body).not.toMatch(/Instance Statistics|Total Users|Suspend/i);
@@ -260,8 +272,9 @@ test('12. suspending a user kills their live session', async () => {
   const susp = await api.post(`http://localhost:3000/api/admin/users/${bobId}/suspend`, { headers: auth });
   expect(susp.status()).toBe(200);
 
-  await bob.waitForTimeout(3000);
-  await bob.reload();
+  // No reload: the gateway pushes the revocation and the client drops the
+  // instance on it. Waiting for the login screen to arrive on its own is the
+  // difference between "the session was killed" and "the page was refreshed".
   await expect(bob.locator('#email')).toBeVisible({ timeout: 20_000 });
   await bob.screenshot({ path: `${SHOTS}/12-bob-suspended.png` });
 

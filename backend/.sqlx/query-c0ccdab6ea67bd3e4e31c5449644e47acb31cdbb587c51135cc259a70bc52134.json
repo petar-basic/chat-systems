@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT c.id FROM channels c\n            JOIN channel_members cm ON cm.channel_id = c.id\n            WHERE c.workspace_id = $1 AND cm.user_id = $2 AND cm.muted = true\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "channels",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c0ccdab6ea67bd3e4e31c5449644e47acb31cdbb587c51135cc259a70bc52134"
+}

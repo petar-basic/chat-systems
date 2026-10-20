@@ -18,6 +18,7 @@ interface Props<R extends VirtualRow> {
   onLoadOlder: () => void;
   /** Scrolls the row with this key into view once, for permalinks and jumps. */
   scrollToKey?: string;
+  stickKey?: string;
   onScrollToKeyHandled?: () => void;
   qa?: string;
   ariaLabel?: string;
@@ -40,6 +41,7 @@ export default function VirtualMessageList<R extends VirtualRow>({
   isLoadingOlder,
   onLoadOlder,
   scrollToKey,
+  stickKey,
   onScrollToKeyHandled,
   qa,
   ariaLabel,
@@ -88,6 +90,7 @@ export default function VirtualMessageList<R extends VirtualRow>({
   const firstKey = useRef<string | undefined>(rows[0]?.key);
   const lastKey = useRef<string | undefined>(rows[rows.length - 1]?.key);
   const settled = useRef(false);
+  const stuckTo = useRef(stickKey);
 
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;
@@ -128,9 +131,13 @@ export default function VirtualMessageList<R extends VirtualRow>({
     firstKey.current = nextFirst;
     lastKey.current = nextLast;
 
-    if (!settled.current) {
+    if (!settled.current || stuckTo.current !== stickKey) {
       settled.current = true;
+      stuckTo.current = stickKey;
       stick.current = true;
+      anchor.current = null;
+      anchorArmed.current = false;
+      setHasUnseen(false);
     }
 
     if (prepended) anchorArmed.current = true;
@@ -153,9 +160,9 @@ export default function VirtualMessageList<R extends VirtualRow>({
 
     if (stick.current) {
       if (el.scrollHeight - el.scrollTop - el.clientHeight > 1) el.scrollTop = el.scrollHeight;
-      else stick.current = false;
+      else if (el.scrollHeight > el.clientHeight) stick.current = false;
     }
-  }, [rows, totalSize, atBottom]);
+  }, [rows, totalSize, atBottom, stickKey]);
 
   useEffect(() => {
     if (!scrollToKey) return;

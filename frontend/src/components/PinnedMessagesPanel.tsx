@@ -19,12 +19,12 @@ function PinnedMessageRow({ message, onNavigate }: { message: Message; onNavigat
   return (
     <button
       onClick={() => onNavigate?.(message.id)}
-      className="w-full text-left px-4 py-3 border-b border-slate-700/50 hover:bg-slate-700/20 transition cursor-pointer"
+      className="w-full text-left px-4 py-3 border-b border-line/50 hover:bg-raised/20 transition cursor-pointer"
     >
       <div className="flex items-center gap-2 mb-1">
         <Avatar userId={message.user_id} name={displayName} avatarUrl={sender?.avatar_url} size="xs" />
-        <span className="text-sm font-semibold text-slate-200">{displayName}</span>
-        <span className="text-xs text-slate-400">
+        <span className="text-sm font-semibold text-fg-soft">{displayName}</span>
+        <span className="text-xs text-muted">
           {new Date(message.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}
         </span>
       </div>
@@ -39,13 +39,13 @@ export default function PinnedMessagesPanel({ channelId, onClose, onNavigate }: 
   const { data: messages = [], isLoading: loading } = useChannelPins(channelId);
 
   return (
-    <div className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-slate-800 border-l border-slate-700/50 flex flex-col">
-      <div className="h-14 px-4 flex items-center justify-between border-b border-slate-700/50 shrink-0">
+    <div className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-surface border-l border-line/50 flex flex-col">
+      <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">
         <div className="flex items-center gap-2">
-          <Pin className="w-4 h-4 text-amber-400" />
+          <Pin className="w-4 h-4 text-warning" />
           <span className="font-semibold">Pinned Messages</span>
         </div>
-        <button onClick={onClose} className="text-slate-400 hover:text-white transition cursor-pointer">
+        <button onClick={onClose} className="text-muted hover:text-fg transition cursor-pointer">
           <X className="w-4 h-4" />
         </button>
       </div>
@@ -56,8 +56,8 @@ export default function PinnedMessagesPanel({ channelId, onClose, onNavigate }: 
             <div className="w-5 h-5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
           </div>
         ) : messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-slate-400 px-4 text-center">
-            <Pin className="w-8 h-8 mb-2 text-slate-600" />
+          <div className="flex flex-col items-center justify-center h-full text-muted px-4 text-center">
+            <Pin className="w-8 h-8 mb-2 text-faint" />
             <p className="text-sm">No pinned messages yet</p>
             <p className="text-xs mt-1">Pin important messages to find them later</p>
           </div>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toUserMessage } from '@/lib/errors';
 import { Plus, X, ExternalLink } from 'lucide-react';
 import {
   useChannelBookmarks,
@@ -39,19 +40,24 @@ export default function ChannelBookmarksBar({ channelId, instanceUrl }: Props) {
       setUrl('');
       setAdding(false);
     } catch (err) {
-      setError((err as { message?: string })?.message || 'Failed to add that bookmark');
+      setError(toUserMessage(err, 'Failed to add that bookmark'));
     }
   };
 
   return (
     <div
-      className="px-4 py-1.5 flex items-center gap-2 flex-wrap border-b border-slate-700/50 bg-slate-800/20 shrink-0"
+      // An empty bar still costs a row, and on a phone that row is expensive.
+      // With nothing pinned here, the invitation to add one waits for a wider
+      // screen; the channel settings reach it either way.
+      className={`px-4 py-1.5 flex items-center gap-2 flex-wrap border-b border-line/50 bg-surface/20 shrink-0 ${
+        bookmarks.length === 0 ? 'max-sm:hidden' : ''
+      }`}
       data-qa="channel-bookmarks"
     >
       {bookmarks.map((bookmark) => (
         <span
           key={bookmark.id}
-          className="group inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-md bg-slate-700/40 text-xs text-slate-200"
+          className="group inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-md bg-raised/40 text-xs text-fg-soft"
           data-qa="channel-bookmark"
           data-bookmark-id={bookmark.id}
         >
@@ -59,7 +65,7 @@ export default function ChannelBookmarksBar({ channelId, instanceUrl }: Props) {
             href={bookmark.url}
             target="_blank"
             rel="noreferrer noopener"
-            className="inline-flex items-center gap-1 hover:text-white transition"
+            className="inline-flex items-center gap-1 hover:text-fg transition"
           >
             {bookmark.emoji ? <span>{bookmark.emoji}</span> : <ExternalLink className="w-3 h-3" />}
             <span className="max-w-40 truncate">{bookmark.label}</span>
@@ -69,7 +75,7 @@ export default function ChannelBookmarksBar({ channelId, instanceUrl }: Props) {
               onClick={() => deleteBookmark.mutate(bookmark.id)}
               aria-label={`Remove bookmark ${bookmark.label}`}
               data-qa="channel-bookmark-remove"
-              className="p-0.5 rounded text-slate-500 hover:text-red-400 transition cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100"
+              className="p-0.5 rounded text-subtle hover:text-danger transition cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100"
             >
               <X className="w-3 h-3" />
             </button>
@@ -81,7 +87,7 @@ export default function ChannelBookmarksBar({ channelId, instanceUrl }: Props) {
         <button
           onClick={() => setAdding(true)}
           data-qa="channel-bookmark-add"
-          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs text-slate-400 hover:text-white hover:bg-slate-700/50 transition cursor-pointer"
+          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs text-muted hover:text-fg hover:bg-raised/50 transition cursor-pointer"
         >
           <Plus className="w-3 h-3" />
           Add a bookmark
@@ -96,7 +102,7 @@ export default function ChannelBookmarksBar({ channelId, instanceUrl }: Props) {
             placeholder="Label"
             aria-label="Bookmark label"
             data-qa="channel-bookmark-label"
-            className="px-2 py-1 w-32 bg-slate-700/50 border border-slate-600 rounded text-xs text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="px-2 py-1 w-32 bg-raised/50 border border-line-strong rounded text-xs text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
           <input
             value={url}
@@ -104,7 +110,7 @@ export default function ChannelBookmarksBar({ channelId, instanceUrl }: Props) {
             placeholder="https://…"
             aria-label="Bookmark link"
             data-qa="channel-bookmark-url"
-            className="px-2 py-1 w-56 bg-slate-700/50 border border-slate-600 rounded text-xs text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="px-2 py-1 w-56 bg-raised/50 border border-line-strong rounded text-xs text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
           <button
             onClick={submit}
@@ -119,12 +125,12 @@ export default function ChannelBookmarksBar({ channelId, instanceUrl }: Props) {
               setAdding(false);
               setError(null);
             }}
-            className="px-2 py-1 text-xs text-slate-400 hover:text-white transition cursor-pointer"
+            className="px-2 py-1 text-xs text-muted hover:text-fg transition cursor-pointer"
           >
             Cancel
           </button>
           {error && (
-            <span className="text-[11px] text-red-400" data-qa="channel-bookmark-error">
+            <span className="text-[11px] text-danger" data-qa="channel-bookmark-error">
               {error}
             </span>
           )}

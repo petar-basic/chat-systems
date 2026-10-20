@@ -3,20 +3,41 @@ import { useQueryClient, type InfiniteData, type QueryClient } from '@tanstack/r
 import { globalEventBus } from './globalEventBus';
 import { logger } from './logger';
 import { backfillAfterReconnect } from './realtimeBackfill';
-import { upsertMessage, patchMessageById, newestFirst } from './messageCache';
-import { showNotification, playNotificationSound } from './notifications';
+import {
+  upsertMessage,
+  patchMessageById,
+  newestFirst,
+  claimReplyCount,
+  removeMessageById,
+} from './messageCache';
+import { showNotification, playMessageSound } from './notifications';
 import type { Message, WorkspaceMember } from '@/stores/workspace';
-import type {
-  Conversation,
-  ConversationInfiniteData,
-  ConversationMessage,
-} from '@/hooks/queries/useConversations';
+import type { Conversation } from '@/hooks/queries/useConversations';
+import { instanceManager } from './instances';
+import { wsClient } from './ws';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useInstanceStore } from '@/stores/instances';
 import { useUserCache } from '@/stores/users';
 import { QUERY_KEYS } from '@/shared/constants';
 
 type ChannelMessages = InfiniteData<{ data: Message[] }>;
+
+const pendingUserLookups = new Set<string>();
+let userLookupTimer: ReturnType<typeof setTimeout> | null = null;
+
+function ensureUserKnown(queryClient: QueryClient, userId: string | null | undefined) {
+  if (!userId) return;
+  if (useUserCache.getState().users.has(userId)) return;
+  pendingUserLookups.add(userId);
+  if (userLookupTimer) return;
+  userLookupTimer = setTimeout(() => {
+    userLookupTimer = null;
+    pendingUserLookups.clear();
+    const workspaceId = useWorkspaceStore.getState().currentWorkspace?.id;
+    if (!workspaceId) return;
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceMembers(workspaceId) });
+  }, 300);
+}
 
 function patchChannel(
   queryClient: QueryClient,
@@ -40,13 +61,6 @@ export const useWebSocketQuerySync = () => {
     const unsubs: Array<() => void> = [];
 
     unsubs.push(
-      globalEventBus.on('workspace.created', () => {
-        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaces() });
-      }),
-      globalEventBus.on('workspace.updated', (event) => {
-        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspace(event.workspace_id) });
-        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaces() });
-      }),
       globalEventBus.on('workspace.deleted', (event) => {
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaces() });
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.deletedWorkspaces() });
@@ -93,28 +107,12 @@ export const useWebSocketQuerySync = () => {
     );
 
     unsubs.push(
-      globalEventBus.on('member.added', (event) => {
-        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceMembers(event.workspace_id) });
-      }),
-      globalEventBus.on('member.removed', (event) => {
-        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceMembers(event.workspace_id) });
+      globalEventBus.on('typing.indicator', (event) => {
+        ensureUserKnown(queryClient, event.user_id);
       }),
     );
 
-    unsubs.push(
-      globalEventBus.on('channel.created', (event) => {
-        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceChannels(event.workspace_id) });
-      }),
-      globalEventBus.on('channel.updated', (event) => {
-        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.channel(event.channel_id) });
-      }),
-      globalEventBus.on('channel.member_added', (event) => {
-        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.channelMembers(event.channel_id) });
-      }),
-      globalEventBus.on('channel.member_removed', (event) => {
-        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.channelMembers(event.channel_id) });
-      }),
-    );
+    unsubs.push();
 
     unsubs.push(
       globalEventBus.on('sync.refetch_required', (event) => {
@@ -133,29 +131,76 @@ export const useWebSocketQuerySync = () => {
       globalEventBus.on('message.new', (event) => {
         const message = event.message;
         if (!message?.channel_id) return;
+        ensureUserKnown(queryClient, message.user_id);
 
         if (message.thread_parent_id) {
-          queryClient.setQueryData<Message[]>(QUERY_KEYS.thread(message.thread_parent_id), (old = []) =>
-            old.some((m) => m.id === message.id) ? old : [...old, message],
-          );
           const parentId = message.thread_parent_id;
-          patchChannel(
-            queryClient,
-            message.channel_id,
-            (cache) =>
-              patchMessageById(cache, parentId, (m) => ({ ...m, reply_count: (m.reply_count || 0) + 1 })),
-            true,
-          );
+          const threadKey = QUERY_KEYS.thread(parentId);
+          if (queryClient.getQueryData<Message[]>(threadKey)) {
+            queryClient.setQueryData<Message[]>(threadKey, (old = []) =>
+              old.some((m) => m.id === message.id)
+                ? old
+                : [...old.filter((m) => m.id !== message.client_message_id), message],
+            );
+          }
+          if (claimReplyCount(message.id)) {
+            patchChannel(
+              queryClient,
+              message.channel_id,
+              (cache) =>
+                patchMessageById(cache, parentId, (m) => ({ ...m, reply_count: (m.reply_count || 0) + 1 })),
+              true,
+            );
+          }
           return;
         }
 
         patchChannel(queryClient, message.channel_id, (cache) =>
-          upsertMessage(cache, { ...message, pending: false }, 'lastPage', newestFirst),
+          upsertMessage(
+            message.client_message_id ? removeMessageById(cache, message.client_message_id) : cache,
+            { ...message, pending: false },
+            'lastPage',
+            newestFirst,
+          ),
         );
 
-        const { currentChannel, mutedChannels, bumpChannelUnread, currentUserId } =
-          useWorkspaceStore.getState();
-        if (currentChannel?.id !== message.channel_id && !mutedChannels.has(message.channel_id)) {
+        const {
+          currentWorkspace,
+          currentChannel,
+          currentConversationId,
+          mutedChannels,
+          bumpChannelUnread,
+          markConversationUnread,
+          currentUserId,
+        } = useWorkspaceStore.getState();
+        const isIncoming = message.user_id !== currentUserId;
+
+        const conversationsKey = QUERY_KEYS.conversations(currentWorkspace?.id ?? '');
+        const conversations = queryClient.getQueryData<Conversation[]>(conversationsKey);
+        const conversation = conversations?.find((c) => c.id === message.channel_id);
+        if (conversation) {
+          queryClient.setQueryData<Conversation[]>(conversationsKey, (old = []) => [
+            {
+              ...conversation,
+              last_message_at: message.created_at,
+              last_read_at: isIncoming ? conversation.last_read_at : message.created_at,
+            },
+            ...old.filter((c) => c.id !== conversation.id),
+          ]);
+          if (isIncoming && currentConversationId !== message.channel_id) {
+            markConversationUnread(message.channel_id);
+            playMessageSound();
+            const sender = useUserCache.getState().getUser(message.user_id)?.display_name || 'New message';
+            showNotification(sender, message.content);
+          }
+          return;
+        }
+
+        if (
+          isIncoming &&
+          currentChannel?.id !== message.channel_id &&
+          !mutedChannels.has(message.channel_id)
+        ) {
           useWorkspaceStore.setState((s) => {
             const nextUnread = new Set(s.unreadChannels);
             nextUnread.add(message.channel_id);
@@ -165,6 +210,7 @@ export const useWebSocketQuerySync = () => {
           // trip back to the channel list.
           const mentionedIds = (event.mentioned_user_ids ?? []) as string[];
           bumpChannelUnread(message.channel_id, mentionedIds.includes(currentUserId ?? ''));
+          playMessageSound();
         }
       }),
 
@@ -207,10 +253,14 @@ export const useWebSocketQuerySync = () => {
     unsubs.push(
       globalEventBus.on('reaction.added', (event) => {
         const { channel_id, ...reaction } = event.reaction;
+        ensureUserKnown(queryClient, reaction.user_id);
         patchChannel(queryClient, channel_id, (cache) =>
           patchMessageById(cache, event.message_id, (m) => {
             const reactions = m.reactions ?? [];
-            if (reactions.some((r) => r.id === reaction.id)) return m;
+            const known = reactions.some(
+              (r) => r.id === reaction.id || (r.user_id === reaction.user_id && r.emoji === reaction.emoji),
+            );
+            if (known) return m;
             return { ...m, reactions: [...reactions, reaction] };
           }),
         );
@@ -229,114 +279,11 @@ export const useWebSocketQuerySync = () => {
     );
 
     unsubs.push(
-      globalEventBus.on('conversation.message.created', (event) => {
-        const { currentUserId, currentConversationId, markConversationUnread } = useWorkspaceStore.getState();
-        const isIncoming = event.user_id !== currentUserId;
-
-        // A threaded reply is not part of the feed — the server keeps it out of
-        // the listing too, so putting it in here would be the one place it shows
-        // up twice.
-        if (event.thread_parent_id) {
-          queryClient.setQueryData<ConversationMessage[]>(
-            QUERY_KEYS.conversationThread(event.thread_parent_id),
-            (old = []) => (old.some((m) => m.id === event.id) ? old : [...old, { ...event }]),
-          );
-          queryClient.setQueryData<ConversationInfiniteData>(
-            QUERY_KEYS.conversationMessages(event.conversation_id),
-            (old) =>
-              patchMessageById(old, event.thread_parent_id as string, (m) => ({
-                ...m,
-                reply_count: (m.reply_count ?? 0) + 1,
-              })),
-          );
-        } else {
-          queryClient.setQueryData<ConversationInfiniteData>(
-            QUERY_KEYS.conversationMessages(event.conversation_id),
-            (old) => upsertMessage(old, { ...event, pending: false }, 'firstPage', newestFirst),
-          );
-        }
-
-        queryClient.setQueryData<Conversation[]>(QUERY_KEYS.conversations(event.workspace_id), (old) => {
-          if (!old) return old;
-          const previous = old.find((c) => c.id === event.conversation_id);
-          if (!previous) return old;
-          const without = old.filter((c) => c.id !== event.conversation_id);
-          return [
-            {
-              ...previous,
-              last_message_at: event.created_at,
-              last_read_at: isIncoming ? previous.last_read_at : event.created_at,
-            },
-            ...without,
-          ];
-        });
-
-        if (isIncoming && currentConversationId !== event.conversation_id) {
-          markConversationUnread(event.conversation_id);
-          if (!document.hasFocus()) playNotificationSound();
-          const sender = useUserCache.getState().getUser(event.user_id)?.display_name || 'New message';
-          showNotification(sender, event.content);
-        }
-      }),
-
       globalEventBus.on('conversation.created', (event) => {
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.conversations(event.workspace_id) });
-      }),
-
-      globalEventBus.on('conversation.message.updated', (event) => {
-        queryClient.setQueryData<ConversationInfiniteData>(
-          QUERY_KEYS.conversationMessages(event.conversation_id),
-          (old) =>
-            patchMessageById(old, event.id, (m) => ({
-              ...m,
-              content: event.content,
-              edited_at: event.edited_at,
-            })),
-        );
-      }),
-
-      globalEventBus.on('conversation.message.deleted', (event) => {
-        queryClient.setQueryData<ConversationInfiniteData>(
-          QUERY_KEYS.conversationMessages(event.conversation_id),
-          (old) =>
-            patchMessageById(old, event.id, (m) => ({
-              ...m,
-              deleted_at: event.deleted_at ?? new Date().toISOString(),
-            })),
-        );
-      }),
-
-      globalEventBus.on('conversation.reaction.added', (event) => {
-        queryClient.setQueryData<ConversationInfiniteData>(
-          QUERY_KEYS.conversationMessages(event.conversation_id),
-          (old) =>
-            patchMessageById(old, event.message_id, (m) => {
-              const reactions = m.reactions ?? [];
-              if (
-                reactions.some(
-                  (r) =>
-                    r.id === event.reaction.id ||
-                    (r.user_id === event.reaction.user_id && r.emoji === event.reaction.emoji),
-                )
-              ) {
-                return m;
-              }
-              return { ...m, reactions: [...reactions, event.reaction] };
-            }),
-        );
-      }),
-
-      globalEventBus.on('conversation.reaction.removed', (event) => {
-        queryClient.setQueryData<ConversationInfiniteData>(
-          QUERY_KEYS.conversationMessages(event.conversation_id),
-          (old) =>
-            patchMessageById(old, event.message_id, (m) => ({
-              ...m,
-              reactions: (m.reactions ?? []).filter(
-                (r) => !(r.user_id === event.user_id && r.emoji === event.emoji),
-              ),
-            })),
-        );
+        const instanceUrl = useWorkspaceStore.getState().currentWorkspace?.instanceUrl;
+        const ws = instanceUrl ? instanceManager.get(instanceUrl).ws : wsClient;
+        ws.joinChannels([event.conversation_id]);
       }),
     );
 

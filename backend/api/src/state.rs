@@ -10,6 +10,7 @@ use crate::messaging::repo::MessageRepo;
 use crate::notifications::repo::NotificationRepo;
 use crate::saved::repo::SavedRepo;
 use crate::scheduled::repo::ScheduledRepo;
+use crate::slack_import::repo::SlackImportRepo;
 use crate::workspace::service::WorkspaceService;
 
 pub struct AppState {
@@ -21,11 +22,12 @@ pub struct AppState {
     pub message_repo: MessageRepo,
     pub publisher: EventPublisher,
     pub file_repo: FileRepo,
-    pub file_storage: Box<dyn FileStorage>,
+    pub file_storage: FileStorage,
     pub hook_repo: HookRepo,
     pub notification_repo: NotificationRepo,
     pub conversation_repo: ConversationRepo,
     pub saved_repo: SavedRepo,
+    pub slack_import_repo: SlackImportRepo,
     pub scheduled_repo: ScheduledRepo,
     pub retention_repo: crate::retention::repo::RetentionRepo,
     pub export_repo: crate::export::repo::ExportRepo,

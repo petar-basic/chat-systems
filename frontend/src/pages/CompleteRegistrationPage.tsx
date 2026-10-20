@@ -1,42 +1,84 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useMemo, type FormEvent } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router';
-import { useCompleteRegistration, useCurrentUser } from '../hooks/queries/useAuth';
-import { api } from '../lib/api';
-import { UserPlus, MessageSquare } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { UserPlus, MessageSquare, LogIn } from 'lucide-react';
+import { useCompleteRegistration } from '../hooks/queries/useAuth';
+import { useInstanceStore } from '@/stores/instances';
+import { instanceManager } from '@/lib/instances';
+import { QUERY_KEYS, PENDING_INVITE_KEY } from '@/shared/constants';
+import type { components } from '@/api/schema';
 
-interface InviteInfo {
-  email: string;
-  workspace_name: string | null;
-  workspace_id: string | null;
-}
+type InviteInfo = components['schemas']['InvitePreview'];
 
 export default function CompleteRegistrationPage() {
   const { token: pathToken } = useParams<{ token: string }>();
   const [searchParams] = useSearchParams();
   const token = pathToken || searchParams.get('token') || undefined;
   const navigate = useNavigate();
-  const { data: user } = useCurrentUser();
+  const queryClient = useQueryClient();
   const completeRegistration = useCompleteRegistration();
+
+  const instances = useInstanceStore((s) => s.instances);
+  const hydrated = useInstanceStore((s) => s.hydrated);
+  const removeInstance = useInstanceStore((s) => s.removeInstance);
+  const setActiveInstance = useInstanceStore((s) => s.setActiveInstance);
+
+  const originUrl = instanceManager.normalize(window.location.origin);
+  const localInstance = useMemo(
+    () => instances.find((i) => i.url === originUrl) ?? null,
+    [instances, originUrl],
+  );
 
   const [inviteInfo, setInviteInfo] = useState<InviteInfo | null>(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [joinError, setJoinError] = useState<string | null>(null);
+  const [joining, setJoining] = useState(false);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
 
   useEffect(() => {
-    if (user) {
+    if (!token && hydrated && instances.length > 0) {
       navigate('/app');
     }
-  }, [user, navigate]);
+  }, [token, hydrated, instances.length, navigate]);
 
   useEffect(() => {
     if (!token) return;
-    api
-      .get<InviteInfo>(`/auth/invites/${token}/verify`)
+    instanceManager
+      .get(originUrl)
+      .api.typed((c) => c.GET('/auth/invites/{token}/verify', { params: { path: { token } } }))
       .then(setInviteInfo)
       .catch(() => setVerifyError('This invite link is invalid or has expired.'));
-  }, [token]);
+  }, [token, originUrl]);
+
+  const handleJoin = async () => {
+    if (!token) return;
+    setJoinError(null);
+    setJoining(true);
+    try {
+      const res = await instanceManager
+        .get(originUrl)
+        .api.typed((c) => c.POST('/auth/invites/{token}/accept', { params: { path: { token } } }));
+      setActiveInstance(originUrl);
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaces() });
+      navigate(`/app/${res.workspace_id}`, { replace: true });
+    } catch (e) {
+      setJoinError(e instanceof Error ? e.message : 'Could not join this workspace.');
+      setJoining(false);
+    }
+  };
+
+  const handleSignInToJoin = () => {
+    if (token) sessionStorage.setItem(PENDING_INVITE_KEY, token);
+    navigate('/add-instance');
+  };
+
+  const handleSwitchAccount = () => {
+    removeInstance(originUrl);
+    if (token) sessionStorage.setItem(PENDING_INVITE_KEY, token);
+    navigate('/add-instance');
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -47,18 +89,25 @@ export default function CompleteRegistrationPage() {
     if (password.length < 8) {
       return;
     }
+    if (!token) return;
 
-    if (token) {
-      completeRegistration.mutate({ token, password, displayName });
+    try {
+      await completeRegistration.mutateAsync({ token, password, displayName });
+    } catch {
+      return;
     }
+    await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaces() });
+    navigate(inviteInfo?.workspace_id ? `/app/${inviteInfo.workspace_id}` : '/app', {
+      replace: true,
+    });
   };
 
   if (verifyError) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
-        <div className="bg-slate-800/50 backdrop-blur-xl border border-slate-700 rounded-2xl p-8 shadow-2xl max-w-md text-center">
-          <div className="text-red-400 text-lg font-medium mb-2">Invalid Invite</div>
-          <p className="text-slate-400">{verifyError}</p>
+      <Shell>
+        <div className="bg-surface/50 backdrop-blur-xl border border-line rounded-2xl p-8 shadow-2xl max-w-md text-center">
+          <div className="text-danger text-lg font-medium mb-2">Invalid Invite</div>
+          <p className="text-muted">{verifyError}</p>
           <button
             onClick={() => navigate('/add-instance')}
             className="mt-6 px-6 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition cursor-pointer"
@@ -66,38 +115,104 @@ export default function CompleteRegistrationPage() {
             Go to Login
           </button>
         </div>
-      </div>
+      </Shell>
     );
   }
 
-  if (!inviteInfo) {
+  if (!inviteInfo || !hydrated) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+      <Shell>
         <div className="w-8 h-8 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
-      </div>
+      </Shell>
+    );
+  }
+
+  const workspaceLabel = inviteInfo.workspace_name || 'the workspace';
+
+  if (inviteInfo.already_registered) {
+    const signedInAs = localInstance?.user.email ?? null;
+    const matches = signedInAs?.toLowerCase() === inviteInfo.email.toLowerCase();
+
+    return (
+      <Shell>
+        <div className="w-full max-w-md">
+          <InviteHeader workspaceLabel={workspaceLabel} email={inviteInfo.email} />
+
+          <div className="bg-surface/50 backdrop-blur-xl border border-line rounded-2xl p-8 shadow-2xl text-center">
+            {joinError && (
+              <div className="bg-red-500/10 border border-red-500/30 text-danger px-4 py-3 rounded-lg mb-6 text-sm">
+                {joinError}
+              </div>
+            )}
+
+            {matches ? (
+              <button
+                onClick={handleJoin}
+                disabled={joining}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/50 text-white font-medium rounded-lg transition cursor-pointer disabled:cursor-not-allowed"
+              >
+                {joining ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <UserPlus className="w-4 h-4" />
+                    Join {workspaceLabel}
+                  </>
+                )}
+              </button>
+            ) : signedInAs ? (
+              <>
+                <p className="text-muted text-sm mb-6">
+                  You're signed in as <span className="text-fg font-medium">{signedInAs}</span>, but this
+                  invite was sent to <span className="text-fg font-medium">{inviteInfo.email}</span>.
+                </p>
+                <button
+                  onClick={handleSwitchAccount}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 hover:bg-purple-500 text-white font-medium rounded-lg transition cursor-pointer"
+                >
+                  <LogIn className="w-4 h-4" />
+                  Switch account
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-muted text-sm mb-6">
+                  This email already has an account here. Sign in to accept the invite.
+                </p>
+                <button
+                  onClick={handleSignInToJoin}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 hover:bg-purple-500 text-white font-medium rounded-lg transition cursor-pointer"
+                >
+                  <LogIn className="w-4 h-4" />
+                  Sign in to join
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </Shell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+    <Shell>
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-600 rounded-2xl mb-4">
-            <MessageSquare className="w-8 h-8 text-white" />
+            <MessageSquare className="w-8 h-8 text-fg" />
           </div>
-          <h1 className="text-3xl font-bold text-white">Complete Registration</h1>
-          <p className="text-slate-400 mt-2">
-            You've been invited to{' '}
-            <span className="text-purple-400 font-medium">{inviteInfo.workspace_name || 'a workspace'}</span>
+          <h1 className="text-3xl font-bold text-fg">Complete Registration</h1>
+          <p className="text-muted mt-2">
+            You've been invited to <span className="text-accent font-medium">{workspaceLabel}</span>
           </p>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="bg-slate-800/50 backdrop-blur-xl border border-slate-700 rounded-2xl p-8 shadow-2xl"
+          className="bg-surface/50 backdrop-blur-xl border border-line rounded-2xl p-8 shadow-2xl"
         >
           {completeRegistration.error && (
-            <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg mb-6 text-sm">
+            <div className="bg-red-500/10 border border-red-500/30 text-danger px-4 py-3 rounded-lg mb-6 text-sm">
               {completeRegistration.error instanceof Error
                 ? completeRegistration.error.message
                 : 'Registration failed'}
@@ -105,17 +220,18 @@ export default function CompleteRegistrationPage() {
           )}
 
           <div className="mb-4">
-            <label className="block text-sm font-medium text-slate-300 mb-2">Email</label>
+            <label className="block text-sm font-medium text-fg-dim mb-2">Email</label>
             <input
+              aria-label="Email address"
               type="email"
               value={inviteInfo.email}
               disabled
-              className="w-full px-4 py-3 bg-slate-700/30 border border-slate-600/50 rounded-lg text-slate-400 cursor-not-allowed"
+              className="w-full px-4 py-3 bg-raised/30 border border-line-strong/50 rounded-lg text-muted cursor-not-allowed"
             />
           </div>
 
           <div className="mb-4">
-            <label htmlFor="displayName" className="block text-sm font-medium text-slate-300 mb-2">
+            <label htmlFor="displayName" className="block text-sm font-medium text-fg-dim mb-2">
               Display Name
             </label>
             <input
@@ -123,14 +239,14 @@ export default function CompleteRegistrationPage() {
               type="text"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+              className="w-full px-4 py-3 bg-raised/50 border border-line-strong rounded-lg text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
               placeholder="John Doe"
               required
             />
           </div>
 
           <div className="mb-4">
-            <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-2">
+            <label htmlFor="password" className="block text-sm font-medium text-fg-dim mb-2">
               Password
             </label>
             <input
@@ -138,7 +254,7 @@ export default function CompleteRegistrationPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+              className="w-full px-4 py-3 bg-raised/50 border border-line-strong rounded-lg text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
               placeholder="Min 8 characters"
               minLength={8}
               required
@@ -146,7 +262,7 @@ export default function CompleteRegistrationPage() {
           </div>
 
           <div className="mb-6">
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-300 mb-2">
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-fg-dim mb-2">
               Confirm Password
             </label>
             <input
@@ -154,13 +270,13 @@ export default function CompleteRegistrationPage() {
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+              className="w-full px-4 py-3 bg-raised/50 border border-line-strong rounded-lg text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
               placeholder="Confirm your password"
               minLength={8}
               required
             />
             {confirmPassword && password !== confirmPassword && (
-              <p className="text-red-400 text-xs mt-1">Passwords do not match</p>
+              <p className="text-danger text-xs mt-1">Passwords do not match</p>
             )}
           </div>
 
@@ -180,6 +296,28 @@ export default function CompleteRegistrationPage() {
           </button>
         </form>
       </div>
+    </Shell>
+  );
+}
+
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-app via-accent-deep to-app flex items-center justify-center p-4">
+      {children}
+    </div>
+  );
+}
+
+function InviteHeader({ workspaceLabel, email }: { workspaceLabel: string; email: string }) {
+  return (
+    <div className="text-center mb-8">
+      <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-600 rounded-2xl mb-4">
+        <MessageSquare className="w-8 h-8 text-fg" />
+      </div>
+      <h1 className="text-3xl font-bold text-fg">Join {workspaceLabel}</h1>
+      <p className="text-muted mt-2">
+        Invitation for <span className="text-accent font-medium">{email}</span>
+      </p>
     </div>
   );
 }

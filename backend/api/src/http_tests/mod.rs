@@ -1,10 +1,11 @@
-mod common;
+pub(crate) mod common;
 mod edit_history;
 mod emoji;
 mod export;
 mod groups;
 mod oidc;
 mod push;
+mod rate_limits;
 mod retention;
 mod scim;
 mod smoke;

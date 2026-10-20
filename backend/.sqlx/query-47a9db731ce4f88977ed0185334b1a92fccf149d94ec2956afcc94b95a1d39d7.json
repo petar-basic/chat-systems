@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            DELETE FROM notifications\n             WHERE id IN (\n                 SELECT id FROM notifications\n                  WHERE workspace_id = $1\n                    AND created_at < NOW() - make_interval(days => $2)\n                  LIMIT $3\n             )\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "47a9db731ce4f88977ed0185334b1a92fccf149d94ec2956afcc94b95a1d39d7"
+}

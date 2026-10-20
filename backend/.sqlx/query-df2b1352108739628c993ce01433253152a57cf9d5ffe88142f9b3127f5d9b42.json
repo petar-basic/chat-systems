@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT slack_ts AS \"slack_ts!\", id FROM messages WHERE channel_id = $1 AND slack_ts IS NOT NULL",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "slack_ts!",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "slack_ts"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      false
+    ]
+  },
+  "hash": "df2b1352108739628c993ce01433253152a57cf9d5ffe88142f9b3127f5d9b42"
+}

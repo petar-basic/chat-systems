@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext } from '@playwright/test';
-import { API, MAILHOG, PASSWORD, authHeaders } from './helpers';
+import { API, PASSWORD, authHeaders, inviteEmailBody } from './helpers';
 
 async function scimToken(admin: APIRequestContext) {
   const res = await admin.post(`${API}/admin/scim/tokens`, {
@@ -11,17 +11,14 @@ async function scimToken(admin: APIRequestContext) {
 
 async function inviteAndRegister(admin: APIRequestContext, request: APIRequestContext, email: string) {
   const workspaces = await (await admin.get(`${API}/workspaces`)).json();
-  const workspaceId = workspaces.data[0].id as string;
+  const workspaceId = workspaces.data.find((w: { name: string }) => w.name === 'Dev Team').id as string;
 
   const invite = await admin.post(`${API}/workspaces/${workspaceId}/invites`, {
     data: { email, role: 'member' },
   });
   expect(invite.status(), 'inviting the person we are about to deprovision').toBe(200);
 
-  const mail = await request.get(`${MAILHOG}/api/v2/search?kind=to&query=${encodeURIComponent(email)}`);
-  const items = (await mail.json()).items;
-  expect(items.length, 'the invite email arrived').toBeGreaterThan(0);
-  const body: string = items[0].Content.Body.replace(/=\r\n/g, '').replace(/=3D/g, '=');
+  const body = await inviteEmailBody(request, email);
   const token = body.match(/invite\/([A-Za-z0-9_.-]+)/)?.[1];
   expect(token, 'the invite link carries a registration token').toBeTruthy();
 

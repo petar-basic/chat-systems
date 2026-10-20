@@ -18,10 +18,12 @@ pub async fn deactivate(
     token_id: Uuid,
     ip: &ClientIp,
 ) -> AppResult<()> {
-    sqlx::query("UPDATE users SET status = 'suspended', updated_at = NOW() WHERE id = $1")
-        .bind(user_id)
-        .execute(&state.pool)
-        .await?;
+    sqlx::query!(
+        "UPDATE users SET status = 'suspended', updated_at = NOW() WHERE id = $1",
+        user_id
+    )
+    .execute(&state.pool)
+    .await?;
 
     sessions::revoke(state, user_id, SessionScope::All, "deprovisioned").await?;
 
@@ -78,10 +80,12 @@ pub async fn reactivate(
     token_id: Uuid,
     ip: &ClientIp,
 ) -> AppResult<()> {
-    sqlx::query("UPDATE users SET status = 'active', updated_at = NOW() WHERE id = $1")
-        .bind(user_id)
-        .execute(&state.pool)
-        .await?;
+    sqlx::query!(
+        "UPDATE users SET status = 'active', updated_at = NOW() WHERE id = $1",
+        user_id
+    )
+    .execute(&state.pool)
+    .await?;
 
     sessions::restore(state, user_id).await;
 
@@ -122,11 +126,13 @@ pub async fn provision(
 
     let user = repo.create_sso_user(&email).await?;
     if let Some(name) = display_name {
-        sqlx::query("UPDATE users SET display_name = $2, updated_at = NOW() WHERE id = $1")
-            .bind(user.id)
-            .bind(name)
-            .execute(&state.pool)
-            .await?;
+        sqlx::query!(
+            "UPDATE users SET display_name = $2, updated_at = NOW() WHERE id = $1",
+            user.id,
+            name
+        )
+        .execute(&state.pool)
+        .await?;
     }
 
     audit::record(
@@ -144,10 +150,12 @@ pub async fn provision(
 }
 
 pub async fn rename(state: &AppState, user_id: Uuid, display_name: &str) -> AppResult<()> {
-    sqlx::query("UPDATE users SET display_name = $2, updated_at = NOW() WHERE id = $1")
-        .bind(user_id)
-        .bind(display_name)
-        .execute(&state.pool)
-        .await?;
+    sqlx::query!(
+        "UPDATE users SET display_name = $2, updated_at = NOW() WHERE id = $1",
+        user_id,
+        display_name
+    )
+    .execute(&state.pool)
+    .await?;
     Ok(())
 }

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO message_edits (message_id, previous_content, edited_by)\n            SELECT id, content, $2 FROM messages WHERE id = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3caedd557d214eadd52431a61d41f47151932b9ef50987e7f7600add7b0210e6"
+}

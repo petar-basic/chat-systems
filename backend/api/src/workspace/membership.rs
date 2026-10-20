@@ -11,11 +11,28 @@ use crate::state::AppState;
 ///
 /// Returns the channels they were dropped from, for callers that audit them.
 pub async fn detach(state: &AppState, ws_id: Uuid, user_id: Uuid) -> AppResult<Vec<Uuid>> {
+    let mut tx = state.pool.begin().await?;
     let dropped_channels = state
         .workspace_service
         .repo
-        .remove_member(ws_id, user_id)
+        .remove_member_in(&mut tx, ws_id, user_id)
         .await?;
+    let mut staged = Vec::with_capacity(dropped_channels.len() + 1);
+    for channel_id in &dropped_channels {
+        staged.push(
+            state
+                .publisher
+                .stage_channel_member_removed(&mut tx, *channel_id, ws_id, user_id)
+                .await?,
+        );
+    }
+    staged.push(
+        state
+            .publisher
+            .stage_workspace_member_removed(&mut tx, ws_id, user_id)
+            .await?,
+    );
+    tx.commit().await?;
 
     if let Err(e) = state
         .scheduled_repo
@@ -28,16 +45,7 @@ pub async fn detach(state: &AppState, ws_id: Uuid, user_id: Uuid) -> AppResult<V
         );
     }
 
-    for channel_id in &dropped_channels {
-        let _ = state
-            .publisher
-            .publish_channel_member_removed(*channel_id, ws_id, user_id)
-            .await;
-    }
-    let _ = state
-        .publisher
-        .publish_workspace_member_removed(ws_id, user_id)
-        .await;
+    state.publisher.dispatch_all(staged).await;
 
     Ok(dropped_channels)
 }

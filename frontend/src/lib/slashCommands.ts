@@ -1,10 +1,14 @@
-import { api } from './api';
-import { instanceManager } from './instances';
+import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { ApiError } from './errors';
+import { formatDateTime } from './datetime';
+import type { components } from '@/api/schema';
 
-export interface CommandResult {
-  response_type: 'ephemeral' | 'in_channel';
-  text: string;
+export type CommandResult = components['schemas']['CommandResponse'];
+
+export function commandResultText(result: Pick<CommandResult, 'text' | 'at'>): string {
+  if (!result.at) return result.text;
+  const when = formatDateTime(result.at);
+  return when ? `${result.text} ${when}.` : result.text;
 }
 
 /** `/deploy prod` → `{ command: 'deploy', text: 'prod' }`. */
@@ -30,9 +34,11 @@ export async function runCommand(
   const parsed = parseCommand(content);
   if (!parsed) return null;
 
-  const client = instanceUrl ? instanceManager.get(instanceUrl).api : api;
+  const client = getApiForInstance(instanceUrl);
   try {
-    return await client.post<CommandResult>(`/channels/${channelId}/commands`, parsed);
+    return await client.typed((c) =>
+      c.POST('/channels/{ch_id}/commands', { params: { path: { ch_id: channelId } }, body: parsed }),
+    );
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) return null;
     throw e;

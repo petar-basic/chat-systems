@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM pending_mention_emails WHERE user_id = $1 AND workspace_id = $2 AND created_at <= $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e68ed3298ec992678a94418c93090f1455f13031bb638ddee9e12c6ecf725a87"
+}

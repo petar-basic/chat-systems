@@ -31,7 +31,7 @@ vi.mock('@/hooks/queries/useAuth', () => ({
 describe('EditHistoryPanel', () => {
   it('shows the current text and every earlier version, newest first', () => {
     state = { data: edits, isLoading: false };
-    render(<EditHistoryPanel messageId="m1" scope="channel" currentContent="third" onClose={vi.fn()} />);
+    render(<EditHistoryPanel messageId="m1" currentContent="third" onClose={vi.fn()} />);
 
     expect(screen.getByTestId('edit-history-current')).toHaveTextContent('third');
     const versions = screen.getAllByTestId('edit-history-version');
@@ -42,13 +42,13 @@ describe('EditHistoryPanel', () => {
 
   it('says so when there is nothing behind the marker', () => {
     state = { data: [], isLoading: false };
-    render(<EditHistoryPanel messageId="m1" scope="channel" currentContent="only" onClose={vi.fn()} />);
+    render(<EditHistoryPanel messageId="m1" currentContent="only" onClose={vi.fn()} />);
     expect(screen.getByText('No earlier versions.')).toBeInTheDocument();
   });
 
   it('surfaces a failed load rather than rendering an empty history', () => {
     state = { isLoading: false, error: new Error('Requires at least Admin role') };
-    render(<EditHistoryPanel messageId="m1" scope="channel" currentContent="only" onClose={vi.fn()} />);
+    render(<EditHistoryPanel messageId="m1" currentContent="only" onClose={vi.fn()} />);
     expect(screen.getByText('Requires at least Admin role')).toBeInTheDocument();
     expect(screen.queryByTestId('edit-history-version')).toBeNull();
   });

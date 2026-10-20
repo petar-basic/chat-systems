@@ -28,7 +28,7 @@ export function initialOf(name: string | null | undefined): string {
 
 export function getUserDisplay(userId: string, members: WorkspaceMember[]) {
   const member = members.find((m) => m.user_id === userId);
-  const displayName = member?.display_name || userId.slice(0, 8);
+  const displayName = member?.display_name || UNKNOWN_USER;
   const email = member?.email || '';
 
   return {

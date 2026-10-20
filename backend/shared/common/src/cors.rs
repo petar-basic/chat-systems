@@ -26,6 +26,7 @@ pub fn cors_layer(allowed_origins: &str) -> CorsLayer {
             axum::http::header::ORIGIN,
             axum::http::header::HeaderName::from_static("x-requested-with"),
         ])
+        .expose_headers([axum::http::header::RETRY_AFTER])
         .allow_credentials(true)
         .max_age(std::time::Duration::from_secs(86400))
 }

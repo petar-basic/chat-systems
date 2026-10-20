@@ -93,8 +93,19 @@ pub async fn auth_middleware(request: Request, next: Next) -> Result<Response, A
     }
 
     if let Some(revocation) = parts.extensions.get::<RevocationStore>() {
-        if revocation.is_revoked(&token_data.claims).await {
-            return Err(AppError::Unauthorized("Session revoked".into()));
+        match revocation.revocation_state(&token_data.claims).await {
+            RevocationState::Valid => {}
+            RevocationState::Revoked => {
+                return Err(AppError::Unauthorized("Session revoked".into()));
+            }
+            // Deliberately not a 401: the client should retry in a moment, not
+            // throw the session away and send somebody back to a login form
+            // because a cache was briefly unreachable.
+            RevocationState::Unknown => {
+                return Err(AppError::ServiceUnavailable(
+                    "Cannot verify the session right now. Please retry.".into(),
+                ));
+            }
         }
     }
 
@@ -151,6 +162,21 @@ impl RevocationRecord {
     }
 }
 
+/// Short enough that a healthy Redis is never noticed, long enough that a busy
+/// one is not mistaken for a dead one.
+const REVOCATION_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(250);
+const REVOCATION_RETRIES: u8 = 1;
+const REVOCATION_RETRY_DELAY: std::time::Duration = std::time::Duration::from_millis(50);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RevocationState {
+    Valid,
+    Revoked,
+    /// The store could not be reached. Not the same as valid, and the whole
+    /// reason this enum exists rather than a `bool`.
+    Unknown,
+}
+
 #[derive(Clone)]
 pub struct RevocationStore(pub redis::aio::ConnectionManager);
 
@@ -182,23 +208,60 @@ impl RevocationStore {
         }
     }
 
-    pub async fn is_revoked(&self, claims: &Claims) -> bool {
-        let mut conn = self.0.clone();
-        let raw: redis::RedisResult<Option<String>> = conn.get(Self::key(claims.sub)).await;
-        let payload = match raw {
-            Ok(Some(payload)) => payload,
-            Ok(None) => return false,
-            Err(e) => {
-                tracing::warn!("revocation lookup failed for user {}: {}", claims.sub, e);
-                return false;
+    /// Answers "is this session still valid", or refuses to answer.
+    ///
+    /// It used to treat a Redis error as "not revoked", which meant that during
+    /// a Redis incident, suspending somebody or deprovisioning them through
+    /// SCIM quietly did nothing for the life of their access token. The whole
+    /// promise of CS-033 runs through this call.
+    ///
+    /// A blanket fail-closed is not the answer either: it turns a blip in a
+    /// cache into a total outage. So a slow Redis gets one more chance, and
+    /// only a Redis that will not answer at all stops the request.
+    pub async fn revocation_state(&self, claims: &Claims) -> RevocationState {
+        let mut last_error = None;
+
+        for attempt in 0..=REVOCATION_RETRIES {
+            let mut conn = self.0.clone();
+            let read = conn.get::<_, Option<String>>(Self::key(claims.sub));
+            let lookup = tokio::time::timeout(REVOCATION_TIMEOUT, read);
+
+            match lookup.await {
+                Ok(Ok(Some(payload))) => return Self::decide(claims, &payload),
+                Ok(Ok(None)) => return RevocationState::Valid,
+                Ok(Err(e)) => last_error = Some(e.to_string()),
+                Err(_) => last_error = Some("timed out".to_string()),
             }
-        };
-        match serde_json::from_str::<RevocationRecord>(&payload) {
-            Ok(record) => record.covers(claims),
+
+            if attempt < REVOCATION_RETRIES {
+                tokio::time::sleep(REVOCATION_RETRY_DELAY).await;
+            }
+        }
+
+        metrics::counter!("auth_revocation_lookup_failures_total").increment(1);
+        tracing::warn!(
+            user_id = %claims.sub,
+            "revocation lookup failed, refusing the request: {}",
+            last_error.unwrap_or_default()
+        );
+        RevocationState::Unknown
+    }
+
+    pub async fn is_revoked(&self, claims: &Claims) -> bool {
+        matches!(
+            self.revocation_state(claims).await,
+            RevocationState::Revoked
+        )
+    }
+
+    fn decide(claims: &Claims, payload: &str) -> RevocationState {
+        match serde_json::from_str::<RevocationRecord>(payload) {
+            Ok(record) if record.covers(claims) => RevocationState::Revoked,
+            Ok(_) => RevocationState::Valid,
             // A record written by an older build is the bare value `1`. Treat
             // anything unparseable as still revoked: the key only exists because
             // somebody revoked this user, and it expires on its own.
-            Err(_) => true,
+            Err(_) => RevocationState::Revoked,
         }
     }
 }

@@ -1,99 +1,70 @@
 use std::sync::Arc;
 
 use axum::extract::{Path, Query, State};
-use axum::routing::{delete, get, patch, post};
-use axum::{Json, Router};
+use axum::Json;
+use garde::Validate;
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::routes;
 use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
-use shared_common::validation;
 
 use super::models::*;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
+use crate::dto::{DataList, StatusResponse};
 use crate::middleware::AuthUser;
 use crate::state::AppState;
 
-pub fn router(state: Arc<AppState>) -> Router {
-    let routes = Router::new()
-        .route("/workspaces", get(list_workspaces))
-        .route("/workspaces", post(create_workspace))
-        .route("/workspaces/deleted", get(list_deleted_workspaces))
-        .route("/workspaces/{ws_id}", get(get_workspace))
-        .route("/workspaces/{ws_id}", patch(update_workspace))
-        .route("/workspaces/{ws_id}", delete(delete_workspace))
-        .route("/workspaces/{ws_id}/restore", post(restore_workspace))
-        .route("/workspaces/{ws_id}/audit-log", get(list_audit_log))
-        .route("/workspaces/{ws_id}/members", get(list_members))
-        .route(
-            "/workspaces/{ws_id}/members/{user_id}/role",
-            patch(update_member_role),
-        )
-        .route(
-            "/workspaces/{ws_id}/members/{user_id}",
-            delete(remove_member),
-        )
-        .route("/workspaces/{ws_id}/invites", get(list_invites))
-        .route("/workspaces/{ws_id}/invites", post(create_invite))
-        .route(
-            "/workspaces/{ws_id}/invites/{invite_id}",
-            delete(revoke_invite),
-        )
-        .route("/invites/{token}/accept", post(accept_invite))
-        .route("/workspaces/{ws_id}/channels", get(list_channels))
-        .route("/workspaces/{ws_id}/channels/unread", get(unread_channels))
-        .route("/workspaces/{ws_id}/channels/browse", get(browse_channels))
-        .route("/workspaces/{ws_id}/channels", post(create_channel))
-        .route("/channels/{ch_id}", get(get_channel))
-        .route("/channels/{ch_id}", patch(update_channel))
-        .route("/channels/{ch_id}", delete(archive_channel))
-        .route(
-            "/channels/{ch_id}/notifications",
-            patch(set_channel_notifications),
-        )
-        .route("/channels/{ch_id}/members", get(list_channel_members))
-        .route("/channels/{ch_id}/members", post(add_channel_member))
-        .route("/channels/{ch_id}/join", post(join_channel))
-        .route(
-            "/channels/{ch_id}/members/{user_id}/role",
-            patch(update_channel_member_role),
-        )
-        .route(
-            "/channels/{ch_id}/members/{user_id}",
-            delete(remove_channel_member),
-        )
-        .route("/channels/{ch_id}/bookmarks", get(list_channel_bookmarks))
-        .route("/channels/{ch_id}/bookmarks", post(create_channel_bookmark))
-        .route(
-            "/channels/{ch_id}/bookmarks/{bookmark_id}",
-            delete(delete_channel_bookmark),
-        );
-
-    crate::protected(state, routes)
+pub fn router() -> OpenApiRouter<Arc<AppState>> {
+    OpenApiRouter::new()
+        .routes(routes!(list_workspaces, create_workspace))
+        .routes(routes!(list_deleted_workspaces))
+        .routes(routes!(get_workspace, update_workspace, delete_workspace))
+        .routes(routes!(restore_workspace))
+        .routes(routes!(list_audit_log))
+        .routes(routes!(list_members))
+        .routes(routes!(update_member_role))
+        .routes(routes!(remove_member))
+        .routes(routes!(list_invites, create_invite))
+        .routes(routes!(revoke_invite))
+        .routes(routes!(accept_invite))
+        .routes(routes!(list_channels, create_channel))
+        .routes(routes!(unread_channels))
+        .routes(routes!(browse_channels))
+        .routes(routes!(get_channel, update_channel, archive_channel))
+        .routes(routes!(set_channel_notifications))
+        .routes(routes!(list_channel_members, add_channel_member))
+        .routes(routes!(join_channel))
+        .routes(routes!(update_channel_member_role))
+        .routes(routes!(remove_channel_member))
+        .routes(routes!(list_channel_bookmarks, create_channel_bookmark))
+        .routes(routes!(delete_channel_bookmark))
 }
 
+#[utoipa::path(
+    operation_id = "workspace_list_workspaces",
+    get, path = "/workspaces", tag = "workspaces", responses((status = 200, body = DataList<Workspace>)))]
 async fn list_workspaces(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<DataList<Workspace>>> {
     let workspaces = state
         .workspace_service
         .repo
         .list_user_workspaces(auth.user_id)
         .await?;
-    Ok(Json(serde_json::json!({ "data": workspaces })))
+    Ok(Json(workspaces.into()))
 }
 
+#[utoipa::path(post, path = "/workspaces", tag = "workspaces", request_body = CreateWorkspaceRequest, responses((status = 200, body = Workspace)))]
 async fn create_workspace(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
     Json(req): Json<CreateWorkspaceRequest>,
 ) -> AppResult<Json<Workspace>> {
-    validation::validate_workspace_name(&req.name)?;
-    if let Some(description) = &req.description {
-        validation::validate_description(description)?;
-    }
+    req.validate()?;
     let workspace = state
         .workspace_service
         .create_workspace(&req.name, req.description.as_deref(), auth.user_id)
@@ -112,6 +83,7 @@ async fn create_workspace(
     Ok(Json(workspace))
 }
 
+#[utoipa::path(get, path = "/workspaces/{ws_id}", tag = "workspaces", responses((status = 200, body = Workspace)))]
 async fn get_workspace(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
@@ -127,21 +99,14 @@ async fn get_workspace(
     Ok(Json(workspace))
 }
 
+#[utoipa::path(patch, path = "/workspaces/{ws_id}", tag = "workspaces", request_body = UpdateWorkspaceRequest, responses((status = 200, body = Workspace)))]
 async fn update_workspace(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
     Json(req): Json<UpdateWorkspaceRequest>,
 ) -> AppResult<Json<Workspace>> {
-    if let Some(name) = &req.name {
-        validation::validate_workspace_name(name)?;
-    }
-    if let Some(description) = &req.description {
-        validation::validate_description(description)?;
-    }
-    if let Some(icon_url) = &req.icon_url {
-        validation::validate_icon_url(icon_url)?;
-    }
+    req.validate()?;
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
     let workspace = state
         .workspace_service
@@ -156,13 +121,16 @@ async fn update_workspace(
     Ok(Json(workspace))
 }
 
+#[utoipa::path(
+    operation_id = "workspace_delete_workspace",
+    delete, path = "/workspaces/{ws_id}", tag = "workspaces", params(DeleteWorkspaceRequest), responses((status = 200, body = StatusResponse)))]
 async fn delete_workspace(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
     Path(ws_id): Path<Uuid>,
     Query(params): Query<DeleteWorkspaceRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<StatusResponse>> {
     if !auth.is_instance_admin {
         authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Owner).await?;
     }
@@ -173,33 +141,36 @@ async fn delete_workspace(
         .ip(&ip)
         .details(serde_json::json!({ "hard": hard }));
 
+    let mut tx = state.pool.begin().await?;
     if hard {
         state
             .workspace_service
             .repo
-            .hard_delete_workspace(ws_id)
+            .hard_delete_workspace_in(&mut tx, ws_id)
             .await?;
-        let _ = state
-            .publisher
-            .publish_workspace_deleted(ws_id, "hard")
-            .await;
-        audit::record(&state, entry).await;
-        Ok(Json(serde_json::json!({ "status": "hard_deleted" })))
     } else {
         state
             .workspace_service
             .repo
-            .soft_delete_workspace(ws_id)
+            .soft_delete_workspace_in(&mut tx, ws_id)
             .await?;
-        let _ = state
-            .publisher
-            .publish_workspace_deleted(ws_id, "soft")
-            .await;
-        audit::record(&state, entry).await;
-        Ok(Json(serde_json::json!({ "status": "soft_deleted" })))
     }
+    let delete_type = if hard { "hard" } else { "soft" };
+    let staged = state
+        .publisher
+        .stage_workspace_deleted(&mut tx, ws_id, delete_type)
+        .await?;
+    tx.commit().await?;
+    state.publisher.dispatch(staged).await;
+    audit::record(&state, entry).await;
+    Ok(Json(StatusResponse::new(if hard {
+        "hard_deleted"
+    } else {
+        "soft_deleted"
+    })))
 }
 
+#[utoipa::path(post, path = "/workspaces/{ws_id}/restore", tag = "workspaces", responses((status = 200, body = Workspace)))]
 async fn restore_workspace(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
@@ -209,12 +180,18 @@ async fn restore_workspace(
     if !auth.is_instance_admin {
         authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Owner).await?;
     }
+    let mut tx = state.pool.begin().await?;
     let workspace = state
         .workspace_service
         .repo
-        .restore_workspace(ws_id)
+        .restore_workspace_in(&mut tx, ws_id)
         .await?;
-    let _ = state.publisher.publish_workspace_restored(ws_id).await;
+    let staged = state
+        .publisher
+        .stage_workspace_restored(&mut tx, ws_id)
+        .await?;
+    tx.commit().await?;
+    state.publisher.dispatch(staged).await;
 
     audit::record(
         &state,
@@ -228,43 +205,64 @@ async fn restore_workspace(
     Ok(Json(workspace))
 }
 
+#[utoipa::path(
+    operation_id = "workspace_list_audit_log",
+    get, path = "/workspaces/{ws_id}/audit-log", tag = "workspaces", params(audit::AuditQuery), responses((status = 200, body = DataList<audit::AuditRow>)))]
 async fn list_audit_log(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
     Query(query): Query<audit::AuditQuery>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<DataList<audit::AuditRow>>> {
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
     let entries = audit::list(&state, Some(ws_id), &query).await?;
-    Ok(Json(serde_json::json!({ "data": entries })))
+    Ok(Json(entries.into()))
 }
 
+#[utoipa::path(get, path = "/workspaces/deleted", tag = "workspaces", responses((status = 200, body = DataList<Workspace>)))]
 async fn list_deleted_workspaces(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<DataList<Workspace>>> {
     let workspaces = state
         .workspace_service
         .repo
         .list_deleted_workspaces_for_user(auth.user_id, auth.is_instance_admin)
         .await?;
-    Ok(Json(serde_json::json!({ "data": workspaces })))
+    Ok(Json(workspaces.into()))
 }
 
+#[utoipa::path(
+    operation_id = "workspace_list_members",
+    get, path = "/workspaces/{ws_id}/members", tag = "workspaces", responses((status = 200, body = DataList<MemberWithUser>)))]
 async fn list_members(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
-    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
-    let members = state
-        .workspace_service
-        .repo
-        .list_members_with_users(ws_id)
-        .await?;
-    Ok(Json(serde_json::json!({ "data": members })))
+) -> AppResult<Json<DataList<MemberWithUser>>> {
+    let member = authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
+
+    // A guest is somebody from outside who was let into a room. Handing them the
+    // company's directory, with addresses, is the one door the rest of the guest
+    // rules leave open.
+    let members = if member.role == WorkspaceRole::Guest {
+        state
+            .workspace_service
+            .repo
+            .list_members_visible_to_guest(ws_id, auth.user_id)
+            .await?
+    } else {
+        state
+            .workspace_service
+            .repo
+            .list_members_with_users(ws_id)
+            .await?
+    };
+
+    Ok(Json(members.into()))
 }
 
+#[utoipa::path(patch, path = "/workspaces/{ws_id}/members/{user_id}/role", tag = "workspaces", request_body = UpdateMemberRoleRequest, responses((status = 200, body = WorkspaceMember)))]
 async fn update_member_role(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
@@ -311,12 +309,15 @@ async fn update_member_role(
     Ok(Json(member))
 }
 
+#[utoipa::path(
+    operation_id = "workspace_remove_member",
+    delete, path = "/workspaces/{ws_id}/members/{user_id}", tag = "workspaces", responses((status = 200, body = StatusResponse)))]
 async fn remove_member(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
     Path((ws_id, user_id)): Path<(Uuid, Uuid)>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<StatusResponse>> {
     let target = authz::require_workspace_member(&state, ws_id, user_id).await?;
     if target.role == WorkspaceRole::Owner {
         return Err(AppError::Forbidden(
@@ -345,19 +346,21 @@ async fn remove_member(
     )
     .await;
 
-    Ok(Json(serde_json::json!({ "status": "removed" })))
+    Ok(Json(StatusResponse::new("removed")))
 }
 
+#[utoipa::path(get, path = "/workspaces/{ws_id}/invites", tag = "workspaces", responses((status = 200, body = DataList<WorkspaceInvite>)))]
 async fn list_invites(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<DataList<WorkspaceInvite>>> {
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
     let invites = state.workspace_service.repo.list_invites(ws_id).await?;
-    Ok(Json(serde_json::json!({ "data": invites })))
+    Ok(Json(invites.into()))
 }
 
+#[utoipa::path(post, path = "/workspaces/{ws_id}/invites", tag = "workspaces", request_body = CreateInviteRequest, responses((status = 200, body = WorkspaceInvite)))]
 async fn create_invite(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
@@ -366,9 +369,7 @@ async fn create_invite(
     Json(req): Json<CreateInviteRequest>,
 ) -> AppResult<Json<WorkspaceInvite>> {
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
-    if let Some(email) = &req.email {
-        validation::validate_email(email)?;
-    }
+    req.validate()?;
     let lifetime = InviteLifetime::resolve(&req)?;
     let invite = state
         .workspace_service
@@ -399,6 +400,9 @@ async fn create_invite(
     Ok(Json(invite))
 }
 
+#[utoipa::path(
+    operation_id = "workspace_accept_invite",
+    post, path = "/invites/{token}/accept", tag = "workspaces", responses((status = 200, body = WorkspaceMember)))]
 async fn accept_invite(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
@@ -417,12 +421,13 @@ async fn accept_invite(
     Ok(Json(member))
 }
 
+#[utoipa::path(delete, path = "/workspaces/{ws_id}/invites/{invite_id}", tag = "workspaces", responses((status = 200, body = StatusResponse)))]
 async fn revoke_invite(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
     Path((ws_id, invite_id)): Path<(Uuid, Uuid)>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<StatusResponse>> {
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
     let invite = state
         .workspace_service
@@ -449,14 +454,15 @@ async fn revoke_invite(
     )
     .await;
 
-    Ok(Json(serde_json::json!({ "status": "revoked" })))
+    Ok(Json(StatusResponse::new("revoked")))
 }
 
+#[utoipa::path(get, path = "/workspaces/{ws_id}/channels", tag = "channels", responses((status = 200, body = DataList<ChannelListing>)))]
 async fn list_channels(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<DataList<ChannelListing>>> {
     authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
     let channels = state
         .workspace_service
@@ -470,39 +476,37 @@ async fn list_channels(
         .await?
         .into_iter()
         .collect();
-    let data: Vec<serde_json::Value> = channels
+    let data: Vec<ChannelListing> = channels
         .into_iter()
-        .map(|c| {
-            let is_muted = muted.contains(&c.id);
-            let mut json = serde_json::to_value(&c).unwrap_or_default();
-            if let Some(obj) = json.as_object_mut() {
-                obj.insert("muted".to_string(), serde_json::json!(is_muted));
-            }
-            json
+        .map(|channel| ChannelListing {
+            muted: muted.contains(&channel.id),
+            channel,
         })
         .collect();
-    Ok(Json(serde_json::json!({ "data": data })))
+    Ok(Json(DataList { data }))
 }
 
+#[utoipa::path(patch, path = "/channels/{ch_id}/notifications", tag = "channels", request_body = SetChannelNotificationsRequest, responses((status = 200, body = MutedResponse)))]
 async fn set_channel_notifications(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ch_id): Path<Uuid>,
     Json(req): Json<SetChannelNotificationsRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<MutedResponse>> {
     state
         .workspace_service
         .repo
         .set_channel_muted(ch_id, auth.user_id, req.muted)
         .await?;
-    Ok(Json(serde_json::json!({ "muted": req.muted })))
+    Ok(Json(MutedResponse { muted: req.muted }))
 }
 
+#[utoipa::path(get, path = "/workspaces/{ws_id}/channels/unread", tag = "channels", responses((status = 200, body = UnreadChannels)))]
 async fn unread_channels(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<UnreadChannels>> {
     authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
     let counts = state
         .message_repo
@@ -511,25 +515,36 @@ async fn unread_channels(
 
     let channel_ids: Vec<Uuid> = counts
         .iter()
-        .filter(|(_, unread, _)| *unread > 0)
-        .map(|(id, _, _)| *id)
+        .filter(|(_, unread, _, _)| *unread > 0)
+        .map(|(id, _, _, _)| *id)
         .collect();
-    let counts: Vec<serde_json::Value> = counts
+    let counts: Vec<UnreadCount> = counts
         .into_iter()
-        .map(|(channel_id, unread, mentions)| {
-            serde_json::json!({
-                "channel_id": channel_id,
-                "unread_count": unread,
-                "mention_count": mentions,
-            })
-        })
+        .map(
+            |(channel_id, unread_count, mention_count, last_read_msg)| UnreadCount {
+                channel_id,
+                unread_count,
+                mention_count,
+                last_read_msg,
+            },
+        )
         .collect();
 
-    Ok(Json(
-        serde_json::json!({ "channel_ids": channel_ids, "counts": counts }),
-    ))
+    Ok(Json(UnreadChannels {
+        channel_ids,
+        counts,
+    }))
 }
 
+fn duplicate_channel_name(err: sqlx::Error) -> AppError {
+    if shared_common::errors::is_unique_violation(&err) {
+        AppError::Conflict("A channel with that name already exists".into())
+    } else {
+        err.into()
+    }
+}
+
+#[utoipa::path(post, path = "/workspaces/{ws_id}/channels", tag = "channels", request_body = CreateChannelRequest, responses((status = 200, body = Channel)))]
 async fn create_channel(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
@@ -537,10 +552,7 @@ async fn create_channel(
     Path(ws_id): Path<Uuid>,
     Json(req): Json<CreateChannelRequest>,
 ) -> AppResult<Json<Channel>> {
-    validation::validate_channel_name(&req.name)?;
-    if let Some(description) = &req.description {
-        validation::validate_description(description)?;
-    }
+    req.validate()?;
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Member).await?;
     let channel_type = req.channel_type.unwrap_or(ChannelType::Public);
     let channel = state
@@ -554,13 +566,25 @@ async fn create_channel(
             auth.user_id,
             req.is_default.unwrap_or(false),
         )
-        .await?;
+        .await
+        .map_err(duplicate_channel_name)?;
 
     let _ = state
         .workspace_service
         .repo
         .add_channel_member(channel.id, auth.user_id, &ChannelRole::Admin)
         .await;
+
+    let channel = match req.post_policy {
+        Some(policy) => {
+            state
+                .workspace_service
+                .repo
+                .set_channel_post_policy(channel.id, policy.as_str())
+                .await?
+        }
+        None => channel,
+    };
 
     audit::record(
         &state,
@@ -578,21 +602,18 @@ async fn create_channel(
     Ok(Json(channel))
 }
 
+#[utoipa::path(get, path = "/channels/{ch_id}", tag = "channels", responses((status = 200, body = Channel)))]
 async fn get_channel(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ch_id): Path<Uuid>,
 ) -> AppResult<Json<Channel>> {
-    let channel = state
-        .workspace_service
-        .repo
-        .find_channel_by_id(ch_id)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Channel not found".into()))?;
+    let channel = authz::find_channel(&state, ch_id).await?;
     authz::require_workspace_member(&state, channel.workspace_id, auth.user_id).await?;
     Ok(Json(channel))
 }
 
+#[utoipa::path(patch, path = "/channels/{ch_id}", tag = "channels", request_body = UpdateChannelRequest, responses((status = 200, body = Channel)))]
 async fn update_channel(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
@@ -600,18 +621,10 @@ async fn update_channel(
     Path(ch_id): Path<Uuid>,
     Json(req): Json<UpdateChannelRequest>,
 ) -> AppResult<Json<Channel>> {
-    if let Some(name) = &req.name {
-        validation::validate_channel_name(name)?;
-    }
-    if let Some(topic) = &req.topic {
-        validation::validate_channel_topic(topic)?;
-    }
-    if let Some(description) = &req.description {
-        validation::validate_description(description)?;
-    }
+    req.validate()?;
     let channel = authz::find_channel(&state, ch_id).await?;
     authz::require_channel_moderator(&state, &channel, auth.user_id).await?;
-    let updated = state
+    let mut updated = state
         .workspace_service
         .repo
         .update_channel(
@@ -620,7 +633,35 @@ async fn update_channel(
             req.topic.as_deref(),
             req.description.as_deref(),
         )
-        .await?;
+        .await
+        .map_err(duplicate_channel_name)?;
+
+    if let Some(policy) = req.post_policy {
+        let before = channel
+            .settings
+            .get("post_policy")
+            .and_then(|v| v.as_str())
+            .unwrap_or("everyone")
+            .to_string();
+
+        updated = state
+            .workspace_service
+            .repo
+            .set_channel_post_policy(ch_id, policy.as_str())
+            .await?;
+
+        // "Who silenced this channel" is exactly the question an audit log is
+        // for, so it is recorded separately from the rename.
+        audit::record(
+            &state,
+            AuditEntry::new(AuditAction::ChannelPostPolicyChanged, auth.user_id)
+                .workspace(channel.workspace_id)
+                .resource(ch_id)
+                .ip(&ip)
+                .details(serde_json::json!({ "from": before, "to": policy.as_str() })),
+        )
+        .await;
+    }
 
     audit::record(
         &state,
@@ -635,20 +676,22 @@ async fn update_channel(
     Ok(Json(updated))
 }
 
+#[utoipa::path(get, path = "/workspaces/{ws_id}/channels/browse", tag = "channels", responses((status = 200, body = DataList<BrowsableChannel>)))]
 async fn browse_channels(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<DataList<BrowsableChannel>>> {
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Member).await?;
     let channels = state
         .workspace_service
         .repo
         .list_browsable_channels(ws_id, auth.user_id)
         .await?;
-    Ok(Json(serde_json::json!({ "data": channels })))
+    Ok(Json(channels.into()))
 }
 
+#[utoipa::path(post, path = "/channels/{ch_id}/join", tag = "channels", responses((status = 200, body = ChannelMember)))]
 async fn join_channel(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
@@ -680,12 +723,13 @@ async fn join_channel(
     Ok(Json(member))
 }
 
+#[utoipa::path(delete, path = "/channels/{ch_id}", tag = "channels", responses((status = 200, body = StatusResponse)))]
 async fn archive_channel(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
     Path(ch_id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<StatusResponse>> {
     let channel = authz::find_channel(&state, ch_id).await?;
     authz::require_channel_moderator(&state, &channel, auth.user_id).await?;
     state.workspace_service.repo.archive_channel(ch_id).await?;
@@ -700,29 +744,26 @@ async fn archive_channel(
     )
     .await;
 
-    Ok(Json(serde_json::json!({ "status": "archived" })))
+    Ok(Json(StatusResponse::new("archived")))
 }
 
+#[utoipa::path(get, path = "/channels/{ch_id}/members", tag = "channels", responses((status = 200, body = DataList<ChannelMember>)))]
 async fn list_channel_members(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ch_id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
-    let channel = state
-        .workspace_service
-        .repo
-        .find_channel_by_id(ch_id)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Channel not found".into()))?;
+) -> AppResult<Json<DataList<ChannelMember>>> {
+    let channel = authz::find_channel(&state, ch_id).await?;
     authz::require_workspace_member(&state, channel.workspace_id, auth.user_id).await?;
     let members = state
         .workspace_service
         .repo
         .list_channel_members(ch_id)
         .await?;
-    Ok(Json(serde_json::json!({ "data": members })))
+    Ok(Json(members.into()))
 }
 
+#[utoipa::path(post, path = "/channels/{ch_id}/members", tag = "channels", request_body = AddChannelMemberRequest, responses((status = 200, body = ChannelMember)))]
 async fn add_channel_member(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
@@ -770,6 +811,7 @@ async fn add_channel_member(
     Ok(Json(member))
 }
 
+#[utoipa::path(patch, path = "/channels/{ch_id}/members/{user_id}/role", tag = "channels", request_body = UpdateChannelMemberRoleRequest, responses((status = 200, body = ChannelMember)))]
 async fn update_channel_member_role(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
@@ -808,21 +850,28 @@ async fn update_channel_member_role(
     Ok(Json(member))
 }
 
+#[utoipa::path(delete, path = "/channels/{ch_id}/members/{user_id}", tag = "channels", responses((status = 200, body = StatusResponse)))]
 async fn remove_channel_member(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
     Path((ch_id, user_id)): Path<(Uuid, Uuid)>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<StatusResponse>> {
     let channel = authz::find_channel(&state, ch_id).await?;
     if auth.user_id != user_id {
         authz::require_channel_moderator(&state, &channel, auth.user_id).await?;
     }
+    let mut tx = state.pool.begin().await?;
     state
         .workspace_service
         .repo
-        .remove_channel_member(ch_id, user_id)
+        .remove_channel_member_in(&mut tx, ch_id, user_id)
         .await?;
+    let staged = state
+        .publisher
+        .stage_channel_member_removed(&mut tx, ch_id, channel.workspace_id, user_id)
+        .await?;
+    tx.commit().await?;
 
     if let Err(e) = state
         .scheduled_repo
@@ -835,10 +884,7 @@ async fn remove_channel_member(
         );
     }
 
-    let _ = state
-        .publisher
-        .publish_channel_member_removed(ch_id, channel.workspace_id, user_id)
-        .await;
+    state.publisher.dispatch(staged).await;
 
     audit::record(
         &state,
@@ -853,23 +899,25 @@ async fn remove_channel_member(
     )
     .await;
 
-    Ok(Json(serde_json::json!({ "status": "removed" })))
+    Ok(Json(StatusResponse::new("removed")))
 }
 
+#[utoipa::path(get, path = "/channels/{ch_id}/bookmarks", tag = "channels", responses((status = 200, body = DataList<ChannelBookmark>)))]
 async fn list_channel_bookmarks(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ch_id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<DataList<ChannelBookmark>>> {
     authz::require_channel_access(&state, ch_id, auth.user_id).await?;
     let bookmarks = state
         .workspace_service
         .repo
         .list_channel_bookmarks(ch_id)
         .await?;
-    Ok(Json(serde_json::json!({ "data": bookmarks })))
+    Ok(Json(bookmarks.into()))
 }
 
+#[utoipa::path(post, path = "/channels/{ch_id}/bookmarks", tag = "channels", request_body = CreateChannelBookmarkRequest, responses((status = 200, body = ChannelBookmark)))]
 async fn create_channel_bookmark(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
@@ -879,16 +927,12 @@ async fn create_channel_bookmark(
     let access = authz::require_channel_access(&state, ch_id, auth.user_id).await?;
     authz::require_channel_moderator(&state, &access.channel, auth.user_id).await?;
 
-    validation::validate_bookmark_label(&req.label)?;
-    validation::validate_bookmark_url(&req.url)?;
+    req.validate()?;
     let emoji = req
         .emoji
         .as_deref()
         .map(str::trim)
         .filter(|e| !e.is_empty());
-    if let Some(emoji) = emoji {
-        validation::validate_status_emoji(emoji)?;
-    }
 
     let bookmark = state
         .workspace_service
@@ -899,11 +943,12 @@ async fn create_channel_bookmark(
     Ok(Json(bookmark))
 }
 
+#[utoipa::path(delete, path = "/channels/{ch_id}/bookmarks/{bookmark_id}", tag = "channels", responses((status = 200, body = StatusResponse)))]
 async fn delete_channel_bookmark(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path((ch_id, bookmark_id)): Path<(Uuid, Uuid)>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<StatusResponse>> {
     let access = authz::require_channel_access(&state, ch_id, auth.user_id).await?;
     authz::require_channel_moderator(&state, &access.channel, auth.user_id).await?;
 
@@ -923,5 +968,5 @@ async fn delete_channel_bookmark(
         .delete_channel_bookmark(bookmark_id)
         .await?;
 
-    Ok(Json(serde_json::json!({ "status": "deleted" })))
+    Ok(Json(StatusResponse::new("deleted")))
 }

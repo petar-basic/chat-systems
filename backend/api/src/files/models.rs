@@ -1,12 +1,12 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct FileRecord {
     pub id: Uuid,
     pub message_id: Option<Uuid>,
-    pub conversation_message_id: Option<Uuid>,
     pub user_id: Uuid,
     pub workspace_id: Uuid,
     pub filename: String,
@@ -17,11 +17,17 @@ pub struct FileRecord {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct FileUploadResponse {
     pub id: Uuid,
     pub url: String,
     pub filename: String,
     pub mime_type: String,
     pub size_bytes: i64,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct FileMeta {
+    pub file: FileRecord,
+    pub url: String,
 }

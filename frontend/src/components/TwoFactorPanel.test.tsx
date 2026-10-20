@@ -6,12 +6,12 @@ import TwoFactorPanel from './TwoFactorPanel';
 const get = vi.fn();
 const post = vi.fn();
 
-vi.mock('../lib/api', () => ({
-  api: {
-    get: (...args: unknown[]) => get(...args),
-    post: (...args: unknown[]) => post(...args),
-  },
-}));
+vi.mock('../lib/api', async () => {
+  const { typedApiMock } = await import('@/test/typedApiMock');
+  return {
+    api: typedApiMock({ get: (...args) => get(...args), post: (...args) => post(...args) }),
+  };
+});
 
 vi.mock('@/shared/components/Toast', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
@@ -41,7 +41,7 @@ describe('TwoFactorPanel', () => {
 
     expect(await screen.findByText('JBSWY3DPEHPK3PXP')).toBeInTheDocument();
     expect(screen.getByTestId('totp-confirm')).toBeDisabled();
-    expect(post).toHaveBeenCalledWith('/auth/totp/enrol', {});
+    expect(post).toHaveBeenCalledWith('/auth/totp/enrol', undefined);
     expect(post).not.toHaveBeenCalledWith('/auth/totp/confirm', expect.anything());
   });
 

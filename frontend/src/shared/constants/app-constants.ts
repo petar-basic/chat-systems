@@ -1,4 +1,6 @@
 export const TYPING_TIMEOUT_MS = 3000;
+export const TYPING_REFRESH_MS = 2000;
+export const TYPING_INDICATOR_TTL_MS = 8000;
 export const DRAFT_SAVE_DEBOUNCE_MS = 400;
 
 export const MESSAGE_GROUP_WINDOW_MS = 5 * 60 * 1000;
@@ -20,3 +22,5 @@ export const RELATIVE_TIME_TICK_MS = 30_000;
 export const TOAST_DEFAULT_DURATION_MS = 5000;
 
 export const GENERIC_ERROR_MESSAGE = 'Something went wrong. Please try again.';
+
+export const PENDING_INVITE_KEY = 'chat_pending_invite';

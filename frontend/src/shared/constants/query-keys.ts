@@ -28,12 +28,11 @@ export const QUERY_KEYS = {
 
   conversationsAll: () => ['conversations'] as const,
   conversations: (workspaceId: string) => ['conversations', workspaceId] as const,
-  conversationMessages: (conversationId: string) => ['conversations', 'messages', conversationId] as const,
-  conversationThread: (parentId: string) => ['conversations', 'thread', parentId] as const,
 
   scheduledMessages: (workspaceId: string) => ['scheduled-messages', workspaceId] as const,
 
   saved: (workspaceId: string) => ['saved', workspaceId] as const,
+  slackImports: (workspaceId: string) => ['slack-imports', workspaceId] as const,
   reminders: (workspaceId: string) => ['reminders', workspaceId] as const,
   channelBookmarks: (channelId: string) => ['channels', channelId, 'bookmarks'] as const,
 
@@ -43,6 +42,8 @@ export const QUERY_KEYS = {
   hookedChannels: (workspaceId: string) => ['hooks', workspaceId, 'channels'] as const,
 
   auditLog: (workspaceId: string) => ['audit-log', workspaceId] as const,
+  adminUsers: (instanceUrl: string) => ['admin', 'users', instanceUrl] as const,
+  adminAuditLog: (instanceUrl: string) => ['admin', 'audit-log', instanceUrl] as const,
 
   editHistory: (messageId: string) => ['edit-history', messageId] as const,
 

@@ -9,7 +9,7 @@ async fn saving_a_channel_message_puts_it_in_your_own_list(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "saved-owner", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Saved WS").await;
-    let ch_id = seed_channel(&state, ws_id, owner_id, "general", false).await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "main", false).await;
 
     let (_, message) = send(
         &app,
@@ -73,7 +73,7 @@ async fn saving_the_same_message_twice_is_the_same_row(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "saved-twice", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Saved WS").await;
-    let ch_id = seed_channel(&state, ws_id, owner_id, "general", false).await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "main", false).await;
 
     let (_, message) = send(
         &app,
@@ -170,7 +170,7 @@ async fn a_saved_dm_is_visible_only_to_the_person_who_saved_it(pool: PgPool) {
     let (_, message) = send(
         &app,
         "POST",
-        &format!("/api/conversations/{conv_id}/messages"),
+        &format!("/api/channels/{conv_id}/messages"),
         Some(&owner_token),
         Some(json!({ "content": "keep this one" })),
     )
@@ -182,7 +182,7 @@ async fn a_saved_dm_is_visible_only_to_the_person_who_saved_it(pool: PgPool) {
         "POST",
         &format!("/api/workspaces/{ws_id}/saved"),
         Some(&owner_token),
-        Some(json!({ "conversation_message_id": message_id })),
+        Some(json!({ "message_id": message_id })),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{saved:?}");

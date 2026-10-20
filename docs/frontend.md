@@ -17,10 +17,12 @@ reconciles them into the Query cache.
   Ephemeral UI state (current selection, open panels, presence, drafts) is plain client
   state — Zustand, no boilerplate. Keeping them separate avoids the "everything in one
   global store" trap.
-- **A typed event bus bridges WebSocket → cache.** `serverEvents.ts` defines a discriminated
-  union of server events; `wsQuerySync` is the single reducer that turns each event into the
-  right cache mutation (upsert/patch/remove), so realtime updates and HTTP responses converge
-  on one source of truth.
+- **The contract is generated, twice.** `src/api/schema.d.ts` comes from the backend's
+  OpenAPI document and every request goes through `apiClient.typed(...)`, so a path, body or
+  response the server does not have fails `tsc`. `src/api/serverFrames.ts` is generated from
+  the gateway's `ServerFrame` enum; `wsQuerySync` is the single reducer that turns each frame
+  into the right cache mutation (upsert/patch/remove), so realtime updates and HTTP responses
+  converge on one source of truth.
 
 ### Structure
 
@@ -28,7 +30,7 @@ reconciles them into the Query cache.
   notifications, huddle), each with a barrel. Smart logic lives in hooks; views stay thin — e.g.
   `useWorkspaceController` holds the page's data + handlers and `WorkspacePage` just renders.
 - **`hooks/queries/*`** wrap every endpoint with Query/Mutation hooks and optimistic updates.
-- **`lib/`** is the infrastructure layer: `api` (fetch client with single-flight 401 refresh),
+- **`lib/`** is the infrastructure layer: `api` (typed `openapi-fetch` client with single-flight 401 refresh),
   `ws` (reconnecting WebSocket with backoff + re-subscribe + reconnect backfill), `instances`
   (multi-instance manager), `messageCache` (cache helpers),
   `wsQuerySync`/`globalEventBus`/`serverEvents` (typed WS → cache reducer).
@@ -82,13 +84,16 @@ Main app container, kept thin: it calls `useWorkspaceController()` for all data 
 handlers and renders the layout (sidebars, conversation, right panels). The logic lives
 in the hook, not the view. It is mounted by several routes that all resolve to the same
 page: `/app/:workspaceId?`, `/app/:workspaceId/:channelId`,
-`/app/:workspaceId/:channelId/:messageId`, and `/app/:workspaceId/dm/:dmUserId` (DM view).
-When a `dmUserId` param is present the conversation area renders `DmView` instead of the
-channel message list.
+`/app/:workspaceId/:channelId/:messageId`, and `/app/:workspaceId/c/:conversationId`.
+A conversation is a channel of type `dm`/`group_dm`, so with a `conversationId` the page
+renders `ConversationView` — a header with the participants over the same `MessageList`,
+`MessageInput`, `TypingIndicator` and `ThreadPanel` a channel uses, keyed on the
+conversation id as the channel id.
 
-- **`features/workspace/hooks/useWorkspaceController`** — the "smart" hook: wires every
-  query/store, the URL↔store sync effects, presence/notification init, WebSocket join +
-  typing, and the send/upload/navigate handlers. Returns one object the view consumes.
+- **`features/workspace/hooks/useWorkspaceController`** — composes the page's hooks and
+  returns one object the view consumes: `useWorkspaceData` (queries, store hydration,
+  socket joins), `useWorkspaceRouting` (URL↔store sync), `useComposer` (send, slash
+  commands, uploads, typing) and `useMessageActions` (save, forward).
 - **`features/workspace/hooks/useRightPanel`** — open-panel state (members / settings /
   thread / search / pins / channel members / notifications), Esc-to-close, reset on
   conversation change.
@@ -112,7 +117,7 @@ Standard auth flows. POST to their respective `/auth/*` endpoints.
 ### `InstanceAdminPage`
 Instance-admin user management for the active instance (route `/app/admin`). Instance-admin
 gated; redirects non-admins to `/app`.
-**Reads:** GET `/admin/users?limit=200`
+**Reads:** GET `/admin/users?limit=200`, GET `/admin/audit-log?limit=200` (through `hooks/queries/useAdmin.ts`)
 **Writes:**
 - POST `/admin/users/{id}/suspend` / `/admin/users/{id}/activate` — toggle account status
 - PATCH `/admin/users/{id}/instance-role` `{ is_instance_admin }` — grant/revoke instance admin
@@ -340,7 +345,7 @@ Token refresh is **not** a hook — `ApiClient` refreshes automatically on 401 /
 | Hook | Call | Description |
 |------|------|-------------|
 | `useMessages(channelId)` | GET `/channels/{id}/messages?limit=50&cursor=...` | Infinite query; `select` reverses each page to newest-last |
-| `useSendMessage(channelId, userId)` | POST `/channels/{id}/messages` `{ content, id }` | Optimistic insert; confirmed by WS `message.new` |
+| `useSendMessage(channelId, userId)` | POST `/channels/{id}/messages` `{ content, client_message_id }` | Optimistic insert, idempotent retry; confirmed by WS `message.new` |
 | `useEditMessage()` | PATCH `/messages/{id}` | Optimistic edit, rollback on error |
 | `useDeleteMessage()` | DELETE `/messages/{id}` | Soft-delete on success (`deleted_at`) |
 | `useReactToMessage()` | POST `/messages/{id}/reactions` | Optimistic add reaction |
@@ -358,20 +363,21 @@ Token refresh is **not** a hook — `ApiClient` refreshes automatically on 401 /
 |------|------|-------------|
 | `useChannelMembers(channelId)` | GET `/channels/{id}/members` | Channel members |
 | `useChannelPins(channelId)` | GET `/channels/{id}/pins` | Pinned messages |
-| `useUnreadChannelIds(wsId, instanceUrl?)` | GET `/workspaces/{id}/channels/unread` | Unread channel IDs |
+| `useUnreadChannels(wsId, instanceUrl?)` | GET `/workspaces/{id}/channels/unread` | Unread and mention counts per channel, conversations included |
+| `useBrowsableChannels` / `useJoinChannel` / `useLeaveChannel` | GET `/workspaces/{id}/channels/browse`, POST `/channels/{id}/join`, DELETE `/channels/{id}/members/{userId}` | Channel browser |
 | `useSetChannelMuted(wsId, instanceUrl?)` | PATCH `/channels/{id}/notifications` `{ muted }` | Mute/unmute (optimistic) |
 
 (`useChannel` lives in this module's barrel as needed; the channel object itself is also carried in the workspace channels list.)
 
-### Direct Messages (`hooks/queries/useDm.ts`)
+### Conversations (`hooks/queries/useConversations.ts`)
 | Hook | Call | Description |
 |------|------|-------------|
-| `useDmConversations(wsId, instanceUrl?)` | GET `/workspaces/{id}/dm` | DM conversation list (sorted by last message) |
-| `useDirectMessages(wsId, partnerId, instanceUrl?)` | GET `/workspaces/{id}/dm/{partnerId}?limit=50&before=...` | Infinite DM thread |
-| `useSendDirectMessage(...)` | POST `/workspaces/{id}/dm/{partnerId}` `{ content, id }` | Optimistic send |
-| `useEditDirectMessage(...)` / `useDeleteDirectMessage(...)` | PATCH/DELETE `/workspaces/{id}/dm/{partnerId}/{messageId}` | Optimistic edit/soft-delete |
-| `useReactToDm(...)` / `useRemoveDmReaction(...)` | POST/DELETE `/workspaces/{id}/dm/{partnerId}/{messageId}/reactions[/{emoji}]` | Optimistic DM reactions |
-| `useMarkDmRead(wsId, instanceUrl?)` | POST `/workspaces/{id}/dm/{partnerId}/read` | Mark DM read |
+| `useConversations(wsId, instanceUrl?)` | GET `/workspaces/{id}/conversations` | Direct and group conversations, newest message first, with participants and the caller's `last_read_at` |
+| `useOpenConversation(wsId, instanceUrl?)` | POST `/workspaces/{id}/conversations` `{ participant_ids }` | Finds or creates one; the result's id is a channel id |
+| `useMarkConversationRead(wsId, instanceUrl?)` | POST `/conversations/{id}/read` | Clears the caller's unread counters |
+
+Messages, threads, reactions, edits, pins, saved items and scheduled sends in a conversation
+use the channel hooks above with the conversation id as `channelId`.
 
 ### Notifications (`hooks/queries/useNotifications.ts`)
 | Hook | Call | Description |
@@ -392,12 +398,14 @@ Token refresh is **not** a hook — `ApiClient` refreshes automatically on 401 /
 ## Infrastructure (`src/lib/`)
 
 ### `api.ts` — `ApiClient`
-Thin fetch wrapper. All requests include `credentials: 'include'`. Cross-origin/desktop clients
-additionally set `Authorization: Bearer <access>` from the in-memory token; same-origin relies on
-the cookie. The client decodes the access token's `exp` and refreshes ~10s before expiry.
+An `openapi-fetch` client typed by `src/api/schema.d.ts`. All requests include
+`credentials: 'include'`. Cross-origin/desktop clients additionally set
+`Authorization: Bearer <access>` from the in-memory token; same-origin relies on the cookie.
 - Same-origin: routes through `/api` (Vite proxy)
 - Cross-origin: routes to `{instanceUrl}/api`
-- Methods: `get<T>`, `post<T>`, `patch<T>`, `delete<T>`, `upload<T>` (multipart)
+- `typed((c) => c.GET('/channels/{ch_id}/messages', { params }))` — the only way to call a JSON route; paths, params, bodies and responses come from the schema
+- `upload<T>(path, formData)` — the one multipart path (files, avatars, Slack archives)
+- Regenerate with `npm run api:types` after `cargo run --bin chat-openapi > src/api/openapi.json`
 - On 401: single-flight refresh once, then retry via `POST /auth/refresh`; if refresh fails, fires `onSessionExpired`
 - `onTokensChanged` lets the store persist rotated tokens (cross-origin `chat_tokens`)
 - Singleton `api` for default instance; `instanceManager.get(url).api` for others
@@ -423,14 +431,15 @@ Registry of `{ api: ApiClient, ws: WebSocketClient }` per instance URL.
 - Used by all hooks/stores that need instance-aware requests
 
 ### `globalEventBus.ts` — `GlobalEventBus`
-Typed pub/sub bus (events are the `AppServerEvent` discriminated union in `serverEvents.ts`). All
-WebSocket clients from all instances publish here.
+Typed pub/sub bus over the `ServerFrame` union generated into `src/api/serverFrames.ts`
+(`cargo run --bin chat-ts-events`; `lib/serverEvents.ts` re-exports it). All WebSocket clients
+from all instances publish here.
 - `on(type, handler)` — subscribe, narrowed to the event variant (returns unsub fn)
 - `emit(event)` — broadcast
 
 Event types include: `workspace.created/updated/deleted/restored`, `member.added/removed`,
 `channel.created/updated/member_added/member_removed`, `message.new/updated/deleted/pinned`,
-`reaction.added/removed`, `dm.new/updated/deleted`, `dm.reaction.added/removed`, `notification`,
+`reaction.added/removed`, `conversation.created`, `notification`,
 `presence.changed`, `presence.batch`, `typing.indicator`, and the `huddle.*` signaling/lifecycle
 events.
 
@@ -441,7 +450,7 @@ typing, and `notification` events are handled separately — by `usePresenceStor
 
 | Event | Cache action |
 |-------|-------------|
-| `message.new` | Upsert into message list (confirm optimistic / append); if thread reply, append to thread cache + increment `reply_count` on parent; mark channel unread unless current/muted |
+| `message.new` | Upsert into message list (confirm optimistic / append); if thread reply, append to thread cache + increment `reply_count` on parent; for a channel, mark unread unless current/muted; for a conversation, reorder the conversation list and mark it unread / notify if incoming and not open |
 | `message.updated` | Patch content/updated_at in cached message |
 | `message.deleted` | Soft-delete: set `deleted_at` on cached message |
 | `message.pinned` | Invalidate pins query + patch `is_pinned` on cached message |
@@ -453,9 +462,7 @@ typing, and `notification` events are handled separately — by `usePresenceStor
 | `workspace.created` / `workspace.restored` | Invalidate workspaces list |
 | `workspace.deleted` | Invalidate workspaces + deleted list; navigate away unless workspace/instance admin |
 | `workspace.updated` | Invalidate single workspace + workspaces list |
-| `dm.new` | Upsert into DM thread + conversation list; mark unread / notify if incoming and not active |
-| `dm.updated` / `dm.deleted` | Patch / soft-delete cached DM |
-| `dm.reaction.added` / `dm.reaction.removed` | Patch reactions on cached DM |
+| `conversation.created` | Invalidate the conversation list and join the new channel on the socket |
 | `huddle.started` / `huddle.ended` | Set/clear the channel's active-huddle entry in `useWorkspaceStore` |
 
 ---
@@ -498,7 +505,7 @@ typing, and `notification` events are handled separately — by `usePresenceStor
 | Channel members | React Query | API + WS channel events |
 | Pinned messages | React Query | API + WS pin events |
 | Thread messages | React Query | API |
-| DM conversations / messages | React Query | API + WS `dm.*` events |
+| Conversations | React Query | API + WS `conversation.created`; their messages are the message list keyed by the conversation id |
 | Instance config (url + wsUrl? + user) | Zustand + localStorage (`chat_instances`) | Login response `{ user }` |
 | Auth tokens | Access in memory (`ApiClient`); refresh in cookie (same-origin) / `chat_tokens` localStorage (cross-origin) | `/auth/login`, `/auth/refresh` |
 | Current user | Zustand (from instance) | Login response |
