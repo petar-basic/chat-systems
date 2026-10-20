@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import { bench, describe } from 'vitest';
+import { test } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -56,24 +56,18 @@ function List({ items, Row }: { items: string[]; Row: ComponentType<{ content: s
 }
 
 for (const size of [100, 500]) {
-  describe(`mounting ${size} messages`, () => {
+  test(`mounting ${size} messages`, async ({ bench }) => {
     const items = corpus(size);
 
-    bench(
-      'MessageContent (static tree)',
-      () => {
+    await bench.compare(
+      bench('MessageContent (static tree)', () => {
         render(<List items={items} Row={MessageContent} />);
         cleanup();
-      },
-      { iterations: 5 },
-    );
-
-    bench(
-      'RichTextDisplay (one TipTap editor per message)',
-      () => {
+      }),
+      bench('RichTextDisplay (one TipTap editor per message)', () => {
         render(<List items={items} Row={LegacyMessage} />);
         cleanup();
-      },
+      }),
       { iterations: 5 },
     );
   });
