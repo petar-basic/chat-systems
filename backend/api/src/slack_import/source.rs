@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -153,7 +154,7 @@ impl ExportSource for ZipSource {
         (0..self.archive.len())
             .filter_map(|i| {
                 let entry = self.archive.by_index(i).ok()?;
-                let name = entry.name().to_string();
+                let name = entry.name().ok()?.into_owned();
                 let base = name.rsplit('/').next().unwrap_or(&name);
                 (!entry.is_dir() && !base.starts_with('.')).then(|| (name.clone(), entry.size()))
             })
@@ -165,8 +166,9 @@ impl ExportSource for ZipSource {
         let mut days: Vec<String> = self
             .archive
             .file_names()
+            .filter_map(Result::ok)
             .filter(|name| name.starts_with(&prefix) && name.ends_with(".json"))
-            .map(str::to_string)
+            .map(Cow::into_owned)
             .collect();
         days.sort();
         Ok(days)

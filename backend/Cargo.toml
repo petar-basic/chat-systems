@@ -11,7 +11,7 @@ resolver = "2"
 [workspace.package]
 version = "1.0.0"
 edition = "2021"
-rust-version = "1.94"
+rust-version = "1.98"
 license = "MIT"
 repository = "https://github.com/petar-basic/chat-systems"
 
@@ -67,7 +67,7 @@ time = { version = "0.3", features = ["serde"] }
 rand = "0.10"
 mime_guess = "2"
 # Reading a Slack export where it is handed to you: a zip.
-zip = { version = "5", default-features = false, features = ["deflate"] }
+zip = { version = "9", default-features = false, features = ["deflate"] }
 base64 = "0.23"
 url = "2"
 

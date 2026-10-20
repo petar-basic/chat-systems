@@ -486,8 +486,8 @@ fn zip_of(root: &PathBuf) -> PathBuf {
     let target = root.with_extension("zip");
     let file = std::fs::File::create(&target).expect("create the zip");
     let mut writer = zip::ZipWriter::new(file);
-    let options: zip::write::FileOptions<'_, ()> =
-        zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+    let options = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated);
 
     let mut stack = vec![root.clone()];
     while let Some(dir) = stack.pop() {
