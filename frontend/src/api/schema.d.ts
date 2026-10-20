@@ -1888,7 +1888,7 @@ export interface components {
         /** @enum {string} */
         ChannelRole: "member" | "admin";
         ChannelSettings: {
-            post_policy?: null | components["schemas"]["PostPolicy"];
+            post_policy?: components["schemas"]["PostPolicy"] | null;
         };
         /** @enum {string} */
         ChannelType: "public" | "private" | "dm" | "group_dm";
@@ -1947,11 +1947,11 @@ export interface components {
             url: string;
         };
         CreateChannelRequest: {
-            channel_type?: null | components["schemas"]["ChannelType"];
+            channel_type?: components["schemas"]["ChannelType"] | null;
             description?: string | null;
             is_default?: boolean | null;
             name: string;
-            post_policy?: null | components["schemas"]["PostPolicy"];
+            post_policy?: components["schemas"]["PostPolicy"] | null;
         };
         CreateConversationRequest: {
             participant_ids: string[];
@@ -1980,7 +1980,7 @@ export interface components {
             expires_in_hours?: number | null;
             /** Format: int32 */
             max_uses?: number | null;
-            role?: null | components["schemas"]["WorkspaceRole"];
+            role?: components["schemas"]["WorkspaceRole"] | null;
         };
         CreateReminderRequest: {
             /** Format: uuid */
@@ -2750,7 +2750,7 @@ export interface components {
             previous_content: string;
         };
         MessageMetadata: {
-            bot?: null | components["schemas"]["BotIdentity"];
+            bot?: components["schemas"]["BotIdentity"] | null;
             /** Format: uuid */
             huddle_id?: string | null;
             /** Format: uuid */
@@ -2781,7 +2781,7 @@ export interface components {
         /** @enum {string} */
         NotificationType: "mention" | "dm" | "reply" | "reaction" | "call" | "reminder" | "system";
         PolicyResponse: {
-            policy?: null | components["schemas"]["RetentionPolicy"];
+            policy?: components["schemas"]["RetentionPolicy"] | null;
         };
         /**
          * @description Who may post. `everyone` is the default and what every channel that has
@@ -3021,7 +3021,7 @@ export interface components {
         UpdateChannelRequest: {
             description?: string | null;
             name?: string | null;
-            post_policy?: null | components["schemas"]["PostPolicy"];
+            post_policy?: components["schemas"]["PostPolicy"] | null;
             topic?: string | null;
         };
         UpdateGroupRequest: {
@@ -4793,7 +4793,7 @@ export interface operations {
                 user_id?: string | null;
                 limit?: number | null;
                 offset?: number | null;
-                scope?: null | components["schemas"]["SearchScope"];
+                scope?: components["schemas"]["SearchScope"] | null;
             };
             header?: never;
             path?: never;
