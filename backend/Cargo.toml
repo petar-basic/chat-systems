@@ -31,7 +31,7 @@ sqlx = { version = "0.9", features = ["runtime-tokio", "tls-rustls", "postgres",
 # Redis
 redis = { version = "1.6", features = ["tokio-comp", "connection-manager"] }
 
-# File storage (local disk, S3 / MinIO)
+# File storage (local disk or S3)
 object_store = { version = "0.14", features = ["aws", "fs", "tokio"] }
 
 # Auth — aws_lc_rs provider (reuses the aws-lc-rs already built for rustls) keeps the

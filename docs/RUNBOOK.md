@@ -42,7 +42,7 @@ Measured on an idle instance with nobody connected:
 | `worker` | ~5 MB |
 | `realtime` | ~3 MB |
 
-Roughly 450 MB for the core, plus MinIO and Caddy in the production stack — call it
+Roughly 450 MB for the core, plus RustFS and Caddy in the production stack — call it
 under 1 GB idle. The per-container limits in `docker-compose.prod.yml` total about 4 GB
 and exist to stop one runaway process taking the host down, not because the stack needs
 that much. Two CPU cores and 4 GB of RAM is a comfortable starting point for a team of a
@@ -74,7 +74,7 @@ honest summary: a laptop is a demo, not a deployment.
 
 Automated already: migrations run forward at api startup, an `autoheal` sidecar restarts
 anything Docker marks unhealthy, `db-backup` dumps Postgres and verifies each dump with
-`gzip -t` before keeping it, `minio-backup` mirrors uploads, and retention/cleanup jobs run
+`gzip -t` before keeping it, `storage-backup` copies uploads, and retention/cleanup jobs run
 in the worker.
 
 What still needs a person:
@@ -504,6 +504,41 @@ too small for parallel queries and parallel vacuum on a table this size; they fa
 `could not resize shared memory segment`. Recreate the container to pick it up:
 `docker compose up -d postgres`.
 
+## Upgrade note: RustFS replaces MinIO
+
+**MinIO can no longer be installed.** Its images were deleted from Docker Hub in September
+2026, quay.io stopped serving them anonymously two weeks later, and the project was archived
+in April. Every compose file now runs [RustFS](https://github.com/rustfs/rustfs) instead —
+an S3-compatible server built as a MinIO replacement — and `rclone` instead of `mc` for
+creating the bucket and for backups. The application talks S3 and did not change.
+
+What changes for an instance on the `s3` profile:
+
+- Services: `minio` → `rustfs`, `minio-init` → `rustfs-init`, `minio-backup` →
+  `storage-backup`. Volumes: `minio_data` → `rustfs_data`, `minio_backups` →
+  `storage_backups`. The old volumes are left alone.
+- `S3_ENDPOINT` defaults to `http://rustfs:9000`. **If you set it to `http://minio:9000`
+  yourself, change or remove it.**
+- `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` keep their names and are now RustFS's
+  credentials, so an existing `.env` works unchanged.
+
+**Existing files have to be copied across once**, because RustFS starts with an empty
+volume. The MinIO image is very likely still on a host that ran it, which is all the copy
+needs. After deploying, on that host:
+
+```bash
+docker volume ls | grep minio_data          # the old volume's full name
+docker network ls                            # the network the rustfs container is on
+OLD_VOLUME=<project>_minio_data NETWORK=<project>_default \
+MINIO_ROOT_USER=... MINIO_ROOT_PASSWORD=... \
+  ./docker/migrate-minio-to-rustfs.sh
+```
+
+It starts the old MinIO on its old volume, copies the bucket into
+RustFS with `rclone`, verifies the copy with `rclone check`, and removes the helper
+container. Remove the old volumes once uploads open correctly. Under Coolify the volume and
+network names carry the resource UUID — `docker volume ls` shows them.
+
 ## Audit log
 
 `GET /api/workspaces/:ws_id/audit-log` (workspace admin) and `GET /api/admin/audit-log`
@@ -671,7 +706,7 @@ their history is attributed to an account only they can claim.
 | Data | Where it lives | Backed up by | Backup volume |
 |------|----------------|--------------|---------------|
 | Postgres (messages, users, workspaces, …) | `postgres_data` | `db-backup` sidecar (`pg_dump`, hourly/daily) | `pg_backups` |
-| File uploads (attachments, avatars) | MinIO `minio_data` | `minio-backup` sidecar (`mc mirror`) | `minio_backups` |
+| File uploads (attachments, avatars) | RustFS `rustfs_data` | `storage-backup` sidecar (`rclone copy`) | `storage_backups` |
 | Caddy TLS certs | `caddy_data` | not automated — see below | — |
 
 Both sidecars run on `BACKUP_INTERVAL_SECS` (default `86400` = daily). The
@@ -709,7 +744,7 @@ this with the app **stopped** so nothing writes mid-restore.
 ### 1. Start only the data services
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml \
-  --profile s3 up -d postgres redis minio
+  --profile s3 up -d postgres redis rustfs
 ```
 
 ### 2. Restore Postgres
@@ -744,13 +779,12 @@ docker compose ... exec postgres psql -U chat -d chatsystems -c \
      USING gin (public.search_normalize(content) public.gin_trgm_ops)'
 ```
 
-### 3. Restore MinIO objects
-Mirror the backed-up bucket tree back into MinIO:
+### 3. Restore the file objects
+Copy the backed-up bucket tree back into RustFS:
 ```bash
-docker compose ... exec minio-backup sh -c '
-  mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" &&
-  mc mb --ignore-existing local/$BUCKET_NAME &&
-  mc mirror --overwrite /backups/$BUCKET_NAME local/$BUCKET_NAME'
+docker compose ... run --rm --entrypoint sh storage-backup -c '
+  rclone mkdir "store:$BUCKET_NAME" &&
+  rclone copy "/backups/$BUCKET_NAME" "store:$BUCKET_NAME"'
 ```
 
 ### 4. Start the app and verify
