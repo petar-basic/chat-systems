@@ -8,6 +8,8 @@ use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
 
+use super::github::{self, Fetched, GitHub};
+use super::http::TokenSet;
 use super::jira::{self, Atlassian};
 use super::models::*;
 use super::repo::NewConnection;
@@ -18,6 +20,7 @@ use crate::state::AppState;
 const SECRET_PURPOSE: &str = "workspace-app-secrets";
 const PENDING_TTL_SECS: u64 = 600;
 const REFRESH_MARGIN_SECS: i64 = 60;
+const PUBLIC_CACHE_SECS: u64 = 600;
 
 pub enum AppUnfurl {
     Card(Box<Unfurl>),
@@ -42,6 +45,21 @@ fn atlassian(state: &AppState) -> Atlassian {
         api_base: state
             .config
             .atlassian_api_url
+            .trim_end_matches('/')
+            .to_string(),
+    }
+}
+
+fn github_client(state: &AppState) -> GitHub {
+    GitHub {
+        web_base: state
+            .config
+            .github_web_url
+            .trim_end_matches('/')
+            .to_string(),
+        api_base: state
+            .config
+            .github_api_url
             .trim_end_matches('/')
             .to_string(),
     }
@@ -199,13 +217,15 @@ pub async fn start_connection(
         .await
         .map_err(|e| AppError::Internal(format!("redis: {e}")))?;
 
+    let redirect = redirect_url(state);
+    let challenge = challenge(&verifier);
     Ok(match provider {
-        Provider::Jira => atlassian(state).authorize_url(
-            &app.client_id,
-            &redirect_url(state),
-            &oauth_state,
-            &challenge(&verifier),
-        ),
+        Provider::Jira => {
+            atlassian(state).authorize_url(&app.client_id, &redirect, &oauth_state, &challenge)
+        }
+        Provider::Github => {
+            github_client(state).authorize_url(&app.client_id, &redirect, &oauth_state, &challenge)
+        }
     })
 }
 
@@ -242,7 +262,9 @@ pub async fn complete_connection(
         &app.client_secret_nonce,
     )?;
 
-    let external_account = match pending.provider {
+    let redirect = redirect_url(state);
+    let (tokens, account, resources): (TokenSet, String, serde_json::Value) = match pending.provider
+    {
         Provider::Jira => {
             let client = atlassian(state);
             let tokens = client
@@ -250,7 +272,7 @@ pub async fn complete_connection(
                     &app.client_id,
                     &secret,
                     &req.code,
-                    &redirect_url(state),
+                    &redirect,
                     &pending.code_verifier,
                 )
                 .await?;
@@ -258,28 +280,43 @@ pub async fn complete_connection(
             let account = client.account_name(&tokens.access_token).await?;
             let resources =
                 serde_json::to_value(&sites).map_err(|e| AppError::Internal(e.to_string()))?;
-            let access = seal(state, &tokens.access_token)?;
-            let refresh = tokens
-                .refresh_token
-                .as_deref()
-                .map(|t| seal(state, t))
-                .transpose()?;
-            state
-                .integration_repo
-                .upsert_connection(NewConnection {
-                    workspace_id: pending.workspace_id,
-                    user_id,
-                    provider: pending.provider.as_str(),
-                    external_account: &account,
-                    access_token: &access,
-                    refresh_token: refresh.as_ref(),
-                    expires_at: tokens.expires_in.map(|s| Utc::now() + Duration::seconds(s)),
-                    resources: &resources,
-                })
+            (tokens, account, resources)
+        }
+        Provider::Github => {
+            let client = github_client(state);
+            let tokens = client
+                .exchange(
+                    &app.client_id,
+                    &secret,
+                    &req.code,
+                    &redirect,
+                    &pending.code_verifier,
+                )
                 .await?;
-            account
+            let account = client.account_name(&tokens.access_token).await?;
+            (tokens, account, serde_json::json!([]))
         }
     };
+    let access = seal(state, &tokens.access_token)?;
+    let refresh = tokens
+        .refresh_token
+        .as_deref()
+        .map(|t| seal(state, t))
+        .transpose()?;
+    state
+        .integration_repo
+        .upsert_connection(NewConnection {
+            workspace_id: pending.workspace_id,
+            user_id,
+            provider: pending.provider.as_str(),
+            external_account: &account,
+            access_token: &access,
+            refresh_token: refresh.as_ref(),
+            expires_at: tokens.expires_in.map(|s| Utc::now() + Duration::seconds(s)),
+            resources: &resources,
+        })
+        .await?;
+    let external_account = account;
 
     Ok(CompleteConnectionResponse {
         workspace_id: pending.workspace_id,
@@ -319,9 +356,24 @@ async fn access_token(
         &app.client_secret_encrypted,
         &app.client_secret_nonce,
     )?;
-    let tokens = atlassian(state)
-        .refresh(&app.client_id, &secret, &refresh_token)
-        .await?;
+    let tokens = match Provider::parse(&app.provider) {
+        Some(Provider::Jira) => {
+            atlassian(state)
+                .refresh(&app.client_id, &secret, &refresh_token)
+                .await?
+        }
+        Some(Provider::Github) => {
+            github_client(state)
+                .refresh(&app.client_id, &secret, &refresh_token)
+                .await?
+        }
+        None => {
+            return Err(AppError::Internal(format!(
+                "unknown provider {}",
+                app.provider
+            )))
+        }
+    };
     let access = seal(state, &tokens.access_token)?;
     let refresh = tokens
         .refresh_token
@@ -348,15 +400,35 @@ pub async fn unfurl(
     poster_id: Uuid,
     url: &str,
 ) -> AppResult<AppUnfurl> {
-    let Some(issue) = jira::match_issue(url) else {
-        return Ok(AppUnfurl::Unclaimed);
-    };
-    let Some(app) = state
+    if let Some(issue) = jira::match_issue(url) {
+        return jira_unfurl(state, workspace_id, poster_id, &issue, url).await;
+    }
+    if let Some(target) = github::match_url(url) {
+        return github_unfurl(state, workspace_id, poster_id, &target, url).await;
+    }
+    Ok(AppUnfurl::Unclaimed)
+}
+
+async fn enabled_app(
+    state: &AppState,
+    workspace_id: Uuid,
+    provider: Provider,
+) -> AppResult<Option<WorkspaceApp>> {
+    Ok(state
         .integration_repo
-        .app(workspace_id, Provider::Jira.as_str())
+        .app(workspace_id, provider.as_str())
         .await?
-        .filter(|a| a.enabled)
-    else {
+        .filter(|a| a.enabled))
+}
+
+async fn jira_unfurl(
+    state: &AppState,
+    workspace_id: Uuid,
+    poster_id: Uuid,
+    issue: &jira::IssueRef,
+    url: &str,
+) -> AppResult<AppUnfurl> {
+    let Some(app) = enabled_app(state, workspace_id, Provider::Jira).await? else {
         return Ok(AppUnfurl::Unclaimed);
     };
     let Some(connection) = state
@@ -377,13 +449,72 @@ pub async fn unfurl(
     let token = access_token(state, &app, poster_id, &connection).await?;
     Ok(
         match atlassian(state)
-            .issue_card(&token, &site.id, &issue, url)
+            .issue_card(&token, &site.id, issue, url)
             .await?
         {
             Some(card) => AppUnfurl::Card(Box::new(card)),
             None => AppUnfurl::Unclaimed,
         },
     )
+}
+
+async fn github_unfurl(
+    state: &AppState,
+    workspace_id: Uuid,
+    poster_id: Uuid,
+    target: &github::Target,
+    url: &str,
+) -> AppResult<AppUnfurl> {
+    let client = github_client(state);
+    let app = enabled_app(state, workspace_id, Provider::Github).await?;
+    if let Some(app) = &app {
+        if let Some(connection) = state
+            .integration_repo
+            .connection(workspace_id, poster_id, Provider::Github.as_str())
+            .await?
+        {
+            let token = access_token(state, app, poster_id, &connection).await?;
+            return Ok(match client.card(target, url, Some(&token)).await? {
+                Fetched::Card(card) => AppUnfurl::Card(card),
+                Fetched::NotVisible => AppUnfurl::Unclaimed,
+            });
+        }
+    }
+    if let Some(card) = public_github_card(state, &client, target, url).await? {
+        return Ok(AppUnfurl::Card(card));
+    }
+    Ok(match app {
+        Some(_) => AppUnfurl::Connect(Provider::Github),
+        None => AppUnfurl::Unclaimed,
+    })
+}
+
+async fn public_github_card(
+    state: &AppState,
+    client: &GitHub,
+    target: &github::Target,
+    url: &str,
+) -> AppResult<Option<Box<Unfurl>>> {
+    let key = format!(
+        "gh-public:v1:{}",
+        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(Sha256::digest(url.as_bytes()))
+    );
+    let mut redis = state.redis.clone();
+    let cached: Option<String> = redis.get(&key).await.unwrap_or_default();
+    if let Some(cached) = cached.and_then(|c| serde_json::from_str::<Option<Unfurl>>(&c).ok()) {
+        return Ok(cached.map(Box::new));
+    }
+    let card = match client.card(target, url, None).await? {
+        Fetched::Card(card) => Some(*card),
+        Fetched::NotVisible => None,
+    };
+    if let Ok(encoded) = serde_json::to_string(&card) {
+        let stored: redis::RedisResult<()> = redis.set_ex(&key, encoded, PUBLIC_CACHE_SECS).await;
+        if let Err(e) = stored {
+            tracing::warn!("apps: failed to cache a public GitHub card: {e}");
+        }
+    }
+    Ok(card.map(Box::new))
 }
 
 #[cfg(test)]

@@ -152,7 +152,7 @@ function AppSetupForm({
         Open the developer console <ExternalLink className="w-3 h-3" />
       </a>
       <CopyField label="Callback URL" value={app.redirect_url} />
-      <CopyField label="Scopes" value={app.scopes.join(' ')} />
+      {app.scopes.length > 0 && <CopyField label="Scopes" value={app.scopes.join(' ')} />}
 
       <label className="block text-xs text-fg-dim">
         Client ID

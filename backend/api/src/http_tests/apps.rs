@@ -419,3 +419,234 @@ async fn apps_outsider_forbidden(pool: PgPool) {
     .await;
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
+
+async fn fake_github() -> String {
+    async fn token(Json(body): Json<Value>) -> Json<Value> {
+        if body["code"] == "good-code"
+            && body["code_verifier"]
+                .as_str()
+                .is_some_and(|v| v.len() >= 43)
+        {
+            return Json(
+                json!({ "access_token": "gh-1", "refresh_token": "ghr-1", "expires_in": 28800 }),
+            );
+        }
+        Json(json!({ "error": "bad_verification_code" }))
+    }
+    fn authorized(headers: &HeaderMap) -> bool {
+        headers
+            .get("authorization")
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|v| v == "Bearer gh-1")
+    }
+    async fn user(headers: HeaderMap) -> (StatusCode, Json<Value>) {
+        if !authorized(&headers) {
+            return (StatusCode::UNAUTHORIZED, Json(json!({})));
+        }
+        (
+            StatusCode::OK,
+            Json(json!({ "login": "ana", "name": "Ana" })),
+        )
+    }
+    async fn public_pull() -> Json<Value> {
+        Json(json!({
+            "title": "Ship it", "state": "open", "draft": false, "merged": false,
+            "user": { "login": "ana" }, "additions": 1, "deletions": 0, "changed_files": 1, "labels": []
+        }))
+    }
+    async fn private_issue(headers: HeaderMap) -> (StatusCode, Json<Value>) {
+        if !authorized(&headers) {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(json!({ "message": "Not Found" })),
+            );
+        }
+        (
+            StatusCode::OK,
+            Json(
+                json!({ "title": "Secret bug", "state": "open", "user": { "login": "ana" }, "labels": [] }),
+            ),
+        )
+    }
+    async fn issue_nine() -> Json<Value> {
+        Json(
+            json!({ "title": "Really an issue", "state": "open", "user": { "login": "ana" }, "labels": [] }),
+        )
+    }
+    let router = Router::new()
+        .route("/login/oauth/access_token", post(token))
+        .route("/user", get(user))
+        .route("/repos/acme/rocket/pulls/42", get(public_pull))
+        .route("/repos/acme/secret/issues/7", get(private_issue))
+        .route("/repos/acme/rocket/issues/9", get(issue_nine));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind");
+    let addr = listener.local_addr().expect("addr");
+    tokio::spawn(async move {
+        let _ = axum::serve(listener, router).await;
+    });
+    format!("http://{addr}")
+}
+
+async fn github_setup(pool: PgPool) -> Setup {
+    let base = fake_github().await;
+    let config = crate::config::AppConfig {
+        github_web_url: base.clone(),
+        github_api_url: base,
+        ..test_config()
+    };
+    let (app, state) = app_and_state_with(pool, config).await;
+    let (owner, _email, owner_token) = seed_and_login(&app, &state, "gh-owner", false).await;
+    let ws_id = seed_workspace(&state, owner, &format!("ws-{}", uuid::Uuid::new_v4())).await;
+    Setup {
+        app,
+        state,
+        owner,
+        owner_token,
+        ws_id,
+    }
+}
+
+const PUBLIC_PR: &str = "https://github.com/acme/rocket/pull/42";
+const PRIVATE_ISSUE: &str = "https://github.com/acme/secret/issues/7";
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_public_pull_request_gets_a_card_with_no_setup_at_all(pool: PgPool) {
+    let s = github_setup(pool).await;
+    match service::unfurl(&s.state, s.ws_id, s.owner, PUBLIC_PR)
+        .await
+        .expect("unfurl")
+    {
+        AppUnfurl::Card(card) => {
+            assert_eq!(card.title, "Ship it");
+            assert_eq!(card.provider.as_deref(), Some("github"));
+        }
+        _ => panic!("a public pull request is carded anonymously"),
+    }
+    assert!(matches!(
+        service::unfurl(&s.state, s.ws_id, s.owner, PRIVATE_ISSUE)
+            .await
+            .expect("unfurl"),
+        AppUnfurl::Unclaimed
+    ));
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_private_issue_needs_the_posters_github_account(pool: PgPool) {
+    let s = github_setup(pool).await;
+    let (status, body) = send(
+        &s.app,
+        "PUT",
+        &format!("/api/workspaces/{}/apps/github", s.ws_id),
+        Some(&s.owner_token),
+        Some(json!({ "client_id": "gh-client", "client_secret": "shh", "enabled": true })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert!(matches!(
+        service::unfurl(&s.state, s.ws_id, s.owner, PRIVATE_ISSUE)
+            .await
+            .expect("unfurl"),
+        AppUnfurl::Connect(_)
+    ));
+
+    let (status, body) = send(
+        &s.app,
+        "POST",
+        &format!("/api/workspaces/{}/apps/github/connect", s.ws_id),
+        Some(&s.owner_token),
+        Some(json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    let url = reqwest::Url::parse(body["authorize_url"].as_str().expect("url")).expect("parse");
+    assert!(url.path().ends_with("/login/oauth/authorize"));
+    let oauth_state = url
+        .query_pairs()
+        .find(|(k, _)| k == "state")
+        .map(|(_, v)| v.into_owned())
+        .expect("state");
+
+    let (status, body) = send(
+        &s.app,
+        "POST",
+        "/api/apps/connections",
+        Some(&s.owner_token),
+        Some(json!({ "code": "good-code", "state": oauth_state })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(body["external_account"], json!("Ana (@ana)"));
+
+    match service::unfurl(&s.state, s.ws_id, s.owner, PRIVATE_ISSUE)
+        .await
+        .expect("unfurl")
+    {
+        AppUnfurl::Card(card) => assert_eq!(card.title, "Secret bug"),
+        _ => panic!("the connected poster's private issue is carded"),
+    }
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_rejected_github_code_is_an_error_not_a_connection(pool: PgPool) {
+    let s = github_setup(pool).await;
+    send(
+        &s.app,
+        "PUT",
+        &format!("/api/workspaces/{}/apps/github", s.ws_id),
+        Some(&s.owner_token),
+        Some(json!({ "client_id": "gh-client", "client_secret": "shh", "enabled": true })),
+    )
+    .await;
+    let (_, body) = send(
+        &s.app,
+        "POST",
+        &format!("/api/workspaces/{}/apps/github/connect", s.ws_id),
+        Some(&s.owner_token),
+        Some(json!({})),
+    )
+    .await;
+    let url = reqwest::Url::parse(body["authorize_url"].as_str().expect("url")).expect("parse");
+    let oauth_state = url
+        .query_pairs()
+        .find(|(k, _)| k == "state")
+        .map(|(_, v)| v.into_owned())
+        .expect("state");
+    let (status, _) = send(
+        &s.app,
+        "POST",
+        "/api/apps/connections",
+        Some(&s.owner_token),
+        Some(json!({ "code": "bad-code", "state": oauth_state })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let connected: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM app_connections WHERE user_id = $1")
+            .bind(s.owner)
+            .fetch_one(&s.state.pool)
+            .await
+            .expect("count");
+    assert_eq!(connected, 0);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_pull_request_link_to_an_issue_gets_the_issue_card(pool: PgPool) {
+    let s = github_setup(pool).await;
+    match service::unfurl(
+        &s.state,
+        s.ws_id,
+        s.owner,
+        "https://github.com/acme/rocket/pull/9",
+    )
+    .await
+    .expect("unfurl")
+    {
+        AppUnfurl::Card(card) => {
+            assert_eq!(card.title, "Really an issue");
+            assert_eq!(card.subtitle.as_deref(), Some("Issue #9 in acme/rocket"));
+        }
+        _ => panic!("GitHub serves /pull/N for issues too, and so do we"),
+    }
+}

@@ -182,7 +182,7 @@ week and does not find. The activity view a review might add to this list alread
 
 | # | Ticket | Area | Why it is not done |
 |---|---|---|---|
-| [CS-053](CS-053-app-unfurls.md) | App previews | backend · frontend · ops | In progress — Jira shipped; GitHub, then Google Drive |
+| [CS-053](CS-053-app-unfurls.md) | App previews | backend · frontend · ops | In progress — Jira and GitHub shipped; Google Drive next |
 | [CS-037](CS-037-huddle-sfu.md) | SFU for large huddles | backend · frontend | LiveKit is infrastructure of its own; the mesh is right for everything under six people |
 
 ## Conflict map
