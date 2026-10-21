@@ -165,6 +165,15 @@ describe('the link allowlist', () => {
     }
   });
 
+  it('reads an angle-bracketed url as a link, without the brackets', () => {
+    const [paragraph] = parseMessage('<https://x.test/browse/MS-1>');
+    expect(paragraph).toMatchObject({
+      kind: 'paragraph',
+      children: [{ kind: 'link', href: 'https://x.test/browse/MS-1' }],
+    });
+    expect(kinds(parseMessage('<javascript:alert(1)>'))).not.toContain('link');
+  });
+
   it('autolinks a bare url the way the display path did', () => {
     const [paragraph] = parseMessage('see https://x.test/a now');
     expect(paragraph).toMatchObject({

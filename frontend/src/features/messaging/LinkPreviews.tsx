@@ -9,9 +9,11 @@ interface LinkPreviewsProps {
 }
 
 export function LinkPreviews({ unfurls, onHide }: LinkPreviewsProps) {
+  const worthShowing = unfurls.filter((unfurl) => unfurl.description || unfurl.image_url);
+  if (worthShowing.length === 0) return null;
   return (
     <div className="mt-1 flex flex-col gap-1.5" data-qa="link-previews">
-      {unfurls.map((unfurl) => (
+      {worthShowing.map((unfurl) => (
         <LinkPreviewCard key={unfurl.url} unfurl={unfurl} onHide={onHide} />
       ))}
     </div>
