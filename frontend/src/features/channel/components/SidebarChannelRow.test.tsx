@@ -28,8 +28,8 @@ describe('SidebarChannelRow', () => {
       />,
     );
     fireEvent.click(screen.getByTestId('sidebar-channel-move'));
-    expect(screen.queryByRole('button', { name: 'Channels' })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Projects' }));
+    expect(screen.queryByText('Channels')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('Projects'));
     expect(onMove).toHaveBeenCalledWith('ch-1', 'sec-1');
   });
 });
