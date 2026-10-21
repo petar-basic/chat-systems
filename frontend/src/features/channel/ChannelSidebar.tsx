@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { CreateChannelDraft } from '@/models/channel';
 import { useNavigate } from 'react-router';
-import { Compass, Inbox } from 'lucide-react';
+import { Compass, FolderPlus, Inbox } from 'lucide-react';
 import type { Channel, Workspace, WorkspaceMember } from '@/stores/workspace';
 import type { Conversation } from '@/hooks/queries/useConversations';
 import { useCurrentWorkspaceRole } from '@/features/workspace/hooks/useCurrentWorkspaceRole';
@@ -17,6 +17,10 @@ import { WorkspaceMenu } from './components/WorkspaceMenu';
 import { YouMenu } from './components/YouMenu';
 import { NewDmModal } from './components/NewDmModal';
 import { CreateChannelModal } from './components/CreateChannelModal';
+import { SidebarCustomSection } from './components/SidebarCustomSection';
+import { acceptsChannelDrop } from './components/channelDrag';
+import { SectionNameInput } from './components/SectionNameInput';
+import { useSidebarLayout, useSidebarActions } from '@/hooks/queries/useSidebarLayout';
 
 interface Props {
   currentWorkspace: Workspace | null;
@@ -100,7 +104,47 @@ export default function ChannelSidebar({
   const isInstanceAdmin = currentInstance?.user.is_instance_admin ?? false;
   const isWorkspaceAdmin = currentUserRole === 'admin' || currentUserRole === 'owner';
 
-  const { collapsed, toggleSection } = useCollapsedSections();
+  const { data: layout } = useSidebarLayout(currentWorkspace?.id);
+  const sidebar = useSidebarActions(currentWorkspace?.id);
+  const { collapsed, toggleSection } = useCollapsedSections(layout, (section, isCollapsed) =>
+    sidebar.collapseBuiltin.mutate({ section, collapsed: isCollapsed }),
+  );
+  const [creatingSection, setCreatingSection] = useState(false);
+  const sections = [...(layout?.sections ?? [])].sort((a, b) => a.position - b.position);
+  const sectionIds = new Set(sections.map((section) => section.id));
+  const placement = new Map(
+    (layout?.placements ?? [])
+      .filter((p) => sectionIds.has(p.section_id))
+      .map((p) => [p.channel_id, p.section_id] as const),
+  );
+  const moveTargets = [
+    { id: null, name: 'Channels' },
+    ...sections.map((section) => ({ id: section.id, name: section.name })),
+  ];
+  const moveChannel = (channelId: string, sectionId: string | null) =>
+    sidebar.placeChannel.mutate({ channelId, sectionId });
+  const reorder = (from: number, to: number) => {
+    const ids = sections.map((section) => section.id);
+    [ids[from], ids[to]] = [ids[to], ids[from]];
+    sidebar.reorderSections.mutate(ids);
+  };
+  const renderChannel = (ch: Channel) => (
+    <SidebarChannelRow
+      key={ch.id}
+      channel={ch}
+      active={currentChannel?.id === ch.id}
+      muted={mutedChannels.has(ch.id)}
+      unread={unreadChannels.has(ch.id)}
+      mentioned={mentionChannels.has(ch.id)}
+      unreadCount={unreadCounts[ch.id]}
+      mentionCount={mentionCounts[ch.id]}
+      onSelect={onSelectChannel}
+      onToggleMute={onToggleMute}
+      moveTargets={moveTargets}
+      sectionId={placement.get(ch.id) ?? null}
+      onMove={moveChannel}
+    />
+  );
   const [showNewChannel, setShowNewChannel] = useState(false);
   const totalUnread =
     channels.reduce((sum, ch) => sum + (mutedChannels.has(ch.id) ? 0 : (unreadCounts[ch.id] ?? 0)), 0) +
@@ -151,28 +195,36 @@ export default function ChannelSidebar({
               </span>
             )}
           </button>
-          <SidebarSectionHeader
-            section="channels"
-            label="Channels"
-            collapsed={collapsed.channels}
-            onToggle={toggleSection}
-            action={{ label: 'Create channel', onClick: () => setShowNewChannel(true) }}
-          />
-          {!collapsed.channels &&
-            channels.map((ch) => (
-              <SidebarChannelRow
-                key={ch.id}
-                channel={ch}
-                active={currentChannel?.id === ch.id}
-                muted={mutedChannels.has(ch.id)}
-                unread={unreadChannels.has(ch.id)}
-                mentioned={mentionChannels.has(ch.id)}
-                unreadCount={unreadCounts[ch.id]}
-                mentionCount={mentionCounts[ch.id]}
-                onSelect={onSelectChannel}
-                onToggleMute={onToggleMute}
-              />
-            ))}
+          {sections.map((section, index) => (
+            <SidebarCustomSection
+              key={section.id}
+              id={section.id}
+              name={section.name}
+              collapsed={section.collapsed}
+              onToggle={() => sidebar.updateSection.mutate({ id: section.id, collapsed: !section.collapsed })}
+              onRename={(name) => sidebar.updateSection.mutate({ id: section.id, name })}
+              onDelete={() => sidebar.deleteSection.mutate(section.id)}
+              onMoveUp={index > 0 ? () => reorder(index, index - 1) : undefined}
+              onMoveDown={index < sections.length - 1 ? () => reorder(index, index + 1) : undefined}
+              onDropChannel={(channelId) => moveChannel(channelId, section.id)}
+            >
+              {channels.filter((ch) => placement.get(ch.id) === section.id).map(renderChannel)}
+            </SidebarCustomSection>
+          ))}
+
+          <div
+            className={sections.length > 0 ? 'mt-4' : ''}
+            {...acceptsChannelDrop((id) => moveChannel(id, null))}
+          >
+            <SidebarSectionHeader
+              section="channels"
+              label="Channels"
+              collapsed={collapsed.channels}
+              onToggle={toggleSection}
+              action={{ label: 'Create channel', onClick: () => setShowNewChannel(true) }}
+            />
+            {!collapsed.channels && channels.filter((ch) => !placement.has(ch.id)).map(renderChannel)}
+          </div>
           {!collapsed.channels && currentUserRole !== 'guest' && (
             <button
               onClick={() => setShowBrowseChannels(true)}
@@ -183,6 +235,28 @@ export default function ChannelSidebar({
               <span className="truncate">Browse channels</span>
             </button>
           )}
+          {!collapsed.channels &&
+            (creatingSection ? (
+              <div className="px-3 py-1">
+                <SectionNameInput
+                  label="New section name"
+                  onSubmit={(name) => {
+                    setCreatingSection(false);
+                    sidebar.createSection.mutate(name);
+                  }}
+                  onCancel={() => setCreatingSection(false)}
+                />
+              </div>
+            ) : (
+              <button
+                onClick={() => setCreatingSection(true)}
+                data-qa="sidebar-section-create"
+                className="w-full px-3 py-1.5 flex items-center gap-2 text-sm text-muted hover:bg-raised/30 hover:text-fg-soft transition cursor-pointer"
+              >
+                <FolderPlus className="w-4 h-4 shrink-0" />
+                <span className="truncate">Create section</span>
+              </button>
+            ))}
 
           <SidebarSectionHeader
             section="dms"

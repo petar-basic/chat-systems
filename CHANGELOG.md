@@ -24,6 +24,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - **All unreads**: every channel and DM with new messages on one page, muted ones last, each
   with its newest messages and a *Mark as read* button. In the sidebar and on Shift+Alt+A;
   Esc marks the focused channel read.
+- **Sidebar sections** of your own: create, rename, reorder and delete them, and move channels
+  in by drag and drop or the channel's *Move to…* menu. Your layout, including which sections
+  are collapsed, follows you to every device.
 - **Mark as unread** from a message's menu, or Alt+click. The channel's badge comes back with
   the right count and stays until you read past that message again.
 

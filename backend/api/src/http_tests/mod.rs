@@ -26,4 +26,5 @@ mod messaging;
 mod notifications;
 mod saved;
 mod scheduled;
+mod sidebar;
 mod workspace;

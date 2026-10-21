@@ -36,6 +36,7 @@ use crate::state::AppState;
         (name = "groups", description = "User groups that can be @-mentioned"),
         (name = "emoji", description = "Custom emoji"),
         (name = "saved", description = "Saved messages"),
+        (name = "sidebar", description = "Per-person sidebar sections"),
         (name = "scheduled", description = "Messages scheduled for later"),
         (name = "admin", description = "Instance administration"),
         (name = "commands", description = "Slash commands"),
@@ -85,6 +86,7 @@ pub fn typed_routes() -> OpenApiRouter<Arc<AppState>> {
         .merge(crate::groups::routes::router())
         .merge(crate::emoji::routes::router())
         .merge(crate::saved::routes::router())
+        .merge(crate::sidebar::routes::router())
         .merge(crate::scheduled::routes::router())
         .merge(crate::admin::routes::router())
         .merge(crate::commands::routes::router())

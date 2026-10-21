@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT section FROM sidebar_collapsed_builtins WHERE user_id = $1 AND workspace_id = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "section",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sidebar_collapsed_builtins",
+            "name": "section"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "86d7cef779b300bb6a756098141b949b5a04839d5b22892ae247f8896ef8914e"
+}

@@ -1392,6 +1392,46 @@
         }
       }
     },
+    "/channels/{ch_id}/section": {
+      "put": {
+        "tags": [
+          "sidebar"
+        ],
+        "operationId": "place_channel",
+        "parameters": [
+          {
+            "name": "ch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlaceChannelRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/channels/{ch_id}/unread": {
       "post": {
         "tags": [
@@ -4778,6 +4818,242 @@
         }
       }
     },
+    "/workspaces/{ws_id}/sidebar": {
+      "get": {
+        "tags": [
+          "sidebar"
+        ],
+        "operationId": "get_layout",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SidebarLayout"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/sidebar/builtins": {
+      "put": {
+        "tags": [
+          "sidebar"
+        ],
+        "operationId": "collapse_builtin",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CollapseBuiltinRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/sidebar/order": {
+      "put": {
+        "tags": [
+          "sidebar"
+        ],
+        "operationId": "reorder_sections",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderSectionsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/sidebar/sections": {
+      "post": {
+        "tags": [
+          "sidebar"
+        ],
+        "operationId": "create_section",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SidebarSection"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/sidebar/sections/{section_id}": {
+      "delete": {
+        "tags": [
+          "sidebar"
+        ],
+        "operationId": "delete_section",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "section_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "sidebar"
+        ],
+        "operationId": "update_section",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "section_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SidebarSection"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workspaces/{ws_id}/slack-imports": {
       "get": {
         "tags": [
@@ -5211,6 +5487,14 @@
           }
         }
       },
+      "BuiltinSection": {
+        "type": "string",
+        "enum": [
+          "channels",
+          "dms",
+          "people"
+        ]
+      },
       "ChangePasswordRequest": {
         "type": "object",
         "required": [
@@ -5412,6 +5696,23 @@
           }
         }
       },
+      "ChannelPlacement": {
+        "type": "object",
+        "required": [
+          "channel_id",
+          "section_id"
+        ],
+        "properties": {
+          "channel_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "section_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
       "ChannelRole": {
         "type": "string",
         "enum": [
@@ -5451,6 +5752,21 @@
         "properties": {
           "code": {
             "type": "string"
+          }
+        }
+      },
+      "CollapseBuiltinRequest": {
+        "type": "object",
+        "required": [
+          "section",
+          "collapsed"
+        ],
+        "properties": {
+          "collapsed": {
+            "type": "boolean"
+          },
+          "section": {
+            "$ref": "#/components/schemas/BuiltinSection"
           }
         }
       },
@@ -5819,6 +6135,17 @@
           "send_at": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "CreateSectionRequest": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
           }
         }
       },
@@ -8542,6 +8869,18 @@
           "system"
         ]
       },
+      "PlaceChannelRequest": {
+        "type": "object",
+        "properties": {
+          "section_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
       "PolicyResponse": {
         "type": "object",
         "properties": {
@@ -8745,6 +9084,21 @@
           "workspace_id": {
             "type": "string",
             "format": "uuid"
+          }
+        }
+      },
+      "ReorderSectionsRequest": {
+        "type": "object",
+        "required": [
+          "section_ids"
+        ],
+        "properties": {
+          "section_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         }
       },
@@ -9086,6 +9440,59 @@
               "string",
               "null"
             ]
+          }
+        }
+      },
+      "SidebarLayout": {
+        "type": "object",
+        "required": [
+          "sections",
+          "placements",
+          "collapsed_builtins"
+        ],
+        "properties": {
+          "collapsed_builtins": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BuiltinSection"
+            }
+          },
+          "placements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChannelPlacement"
+            }
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SidebarSection"
+            }
+          }
+        }
+      },
+      "SidebarSection": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "position",
+          "collapsed"
+        ],
+        "properties": {
+          "collapsed": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "position": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
@@ -9553,6 +9960,23 @@
           }
         }
       },
+      "UpdateSectionRequest": {
+        "type": "object",
+        "properties": {
+          "collapsed": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
       "UpdateWorkspaceRequest": {
         "type": "object",
         "properties": {
@@ -9985,6 +10409,10 @@
     {
       "name": "saved",
       "description": "Saved messages"
+    },
+    {
+      "name": "sidebar",
+      "description": "Per-person sidebar sections"
     },
     {
       "name": "scheduled",

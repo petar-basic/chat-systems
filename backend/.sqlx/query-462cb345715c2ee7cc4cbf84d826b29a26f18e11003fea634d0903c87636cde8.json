@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE sidebar_sections s\n                SET position = ordered.position - 1\n               FROM unnest($3::uuid[]) WITH ORDINALITY AS ordered(id, position)\n              WHERE s.id = ordered.id AND s.user_id = $1 AND s.workspace_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "462cb345715c2ee7cc4cbf84d826b29a26f18e11003fea634d0903c87636cde8"
+}

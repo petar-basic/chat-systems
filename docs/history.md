@@ -983,7 +983,7 @@ restore procedure now ends with `vacuumdb --analyze-only`, which closes that win
 
 ---
 
-## Wave 14 — What a team from Slack misses on day one
+## Wave 14 — What a team from Slack misses on day one ✅ shipped
 
 ### [CS-049] Link previews ✅ shipped
 A link now arrives with a card. The worker's `unfurl` consumer reads `message.created` and
@@ -1050,5 +1050,26 @@ button; the routing hook learned not to redirect it to #general. Opening the vie
 nothing read — the per-channel button and Esc on a focused group do, through the ordinary
 read endpoint, so the badge clears on every device by way of CS-050's `channel.read_state`.
 New messages and read changes refresh the view while it is open.
+
+---
+
+### [CS-052] Custom sidebar sections ✅ shipped
+Forty channels can be grouped the way people think about them. A section is a row in
+`sidebar_sections` (migration 47), owned by one person in one workspace; a channel's place is
+a nullable `section_id` on that person's `channel_members` row, so the layout costs nothing
+for anybody who never makes a section, leaving a channel forgets where it was, and deleting a
+section sends its channels back to *Channels* by `ON DELETE SET NULL` rather than by code.
+Names are unique per person ignoring case.
+
+The collapsed state of the built-in sections moved to the server too
+(`sidebar_collapsed_builtins`), so the layout follows the person to another device;
+`localStorage` is only the first paint before the layout arrives.
+
+Channels move by drag and drop between sections or by *Move to…* on the row, which is the
+keyboard and touch path to the same thing; sections reorder with *Move up* / *Move down* from
+their menu rather than by dragging, for the same reason. Every change is optimistic and rolls
+back to the server's copy if it fails.
+
+Wave 14 is done with this ticket.
 
 ---
