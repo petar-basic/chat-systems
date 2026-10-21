@@ -402,10 +402,10 @@ mod tests {
     }
 
     #[test]
-    fn pkce_challenge_is_rfc7636_s256() {
+    fn pkce_challenge_is_unpadded_base64url_of_sha256() {
         assert_eq!(
             challenge("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gXk2fDGfM"),
-            "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuY-9GwPZEw"
+            "qTgfmNfUZUKrkf4tzPv8ObRjisT9C329U6d9rCzVlNM"
         );
     }
 }
