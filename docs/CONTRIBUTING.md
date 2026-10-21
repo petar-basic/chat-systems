@@ -318,6 +318,22 @@ in the gate's `needs`.
 [`.github/dependabot.yml`](../.github/dependabot.yml) opens weekly grouped update
 PRs for cargo (`/backend`), npm (`/frontend`), and github-actions.
 
+## Releases
+
+Versions follow semver; a release that needs anything from the operator beyond pulling
+new images (a manual step, an irreversible migration, a removed route) is a major one.
+
+1. In a PR, date the release's section in [CHANGELOG.md](../CHANGELOG.md)
+   (`## [X.Y.Z] — YYYY-MM-DD`) and make sure every operator-facing change has an upgrade
+   note in [RUNBOOK.md](RUNBOOK.md). Merge it.
+2. Tag the merge commit on `main` and push the tag:
+   `git tag -a vX.Y.Z -m "Chat Systems X.Y.Z" && git push origin vX.Y.Z`.
+
+[`.github/workflows/release.yml`](../.github/workflows/release.yml) then refuses a tag
+that is not on `main` or has no dated CHANGELOG section, builds both images from the
+tagged commit, pushes them to GHCR as `X.Y.Z`, `X.Y` and `latest`, and creates the GitHub
+release with that CHANGELOG section as its notes.
+
 ## Commits & PRs
 
 - Keep commits focused; write a clear subject line describing the *why*.

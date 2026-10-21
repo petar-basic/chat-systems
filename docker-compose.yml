@@ -173,7 +173,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    image: chat-api:${VERSION:-latest}
+    image: ${BACKEND_IMAGE:-chat-api}:${VERSION:-latest}
     restart: unless-stopped
     environment:
       SERVICE: chat-api
@@ -257,7 +257,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    image: chat-worker:${VERSION:-latest}
+    image: ${BACKEND_IMAGE:-chat-worker}:${VERSION:-latest}
     restart: unless-stopped
     environment:
       SERVICE: chat-worker
@@ -308,7 +308,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    image: chat-realtime:${VERSION:-latest}
+    image: ${BACKEND_IMAGE:-chat-realtime}:${VERSION:-latest}
     restart: unless-stopped
     environment:
       SERVICE: chat-realtime
@@ -344,7 +344,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    image: chat-frontend:${VERSION:-latest}
+    image: ${FRONTEND_IMAGE:-chat-frontend}:${VERSION:-latest}
     restart: unless-stopped
     depends_on:
       - api

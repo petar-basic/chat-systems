@@ -2,8 +2,8 @@
 
 What each shipped ticket changed and why, in the state it shipped. This is the record the
 roadmap points at: [ROADMAP.md](./ROADMAP.md) keeps only what is open, the order, and the
-decisions not to build something. When the first tagged release is cut, this is the material
-the changelog is written from.
+decisions not to build something. [CHANGELOG.md](../CHANGELOG.md) is written from this
+material, one release at a time.
 
 A shipped section describes the code as it was on the day; where the architecture has moved
 since (the conversation tables of Wave 1 and 5 no longer exist, for example), the current
