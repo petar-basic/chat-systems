@@ -27,6 +27,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   issues, commits and repositories. Public repositories need no setup; private ones need a
   read-only GitHub App that an admin sets up under *Apps*, and each person connects their own
   GitHub account.
+- **Google Drive cards** for Docs, Sheets, Slides, Forms, Drawings, files and folders: type,
+  owner, last modified and by whom. The app can read file metadata only, never contents.
 
 ### Fixed
 

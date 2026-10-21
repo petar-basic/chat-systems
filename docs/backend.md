@@ -554,7 +554,7 @@ message routes use, which covers direct messages too.
 
 ### integrations (apps)
 
-Per-workspace connected apps — Jira Cloud and GitHub — and each person's own connection to them.
+Per-workspace connected apps — Jira Cloud, GitHub and Google Drive — and each person's own connection to them.
 An admin stores the app's OAuth client (`workspace_apps`, secret sealed); a member connects
 through OAuth 2.0 with PKCE, the pending `state` and verifier held in Redis for ten minutes
 and readable once (`GETDEL`), bound to the member who started it. Tokens live sealed in
@@ -565,7 +565,9 @@ and are refreshed when they are within a minute of expiry. The unfurl consumer a
 GitHub pull request, issue, commit or repository link uses the poster's connection when there
 is one, otherwise GitHub's anonymous API for public repositories (cached ten minutes, shared
 by everyone because it is public), and only then prompts. `/pull/N` that is really an issue,
-and `/issues/N` that is really a pull request, get the right card.
+and `/issues/N` that is really a pull request, get the right card. A Google Docs, Sheets,
+Slides, Forms, Drawings or Drive link needs the poster's connection, scoped to
+`drive.metadata.readonly`.
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|

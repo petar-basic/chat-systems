@@ -3090,7 +3090,7 @@ export interface components {
          */
         PostPolicy: "everyone" | "moderators";
         /** @enum {string} */
-        Provider: "jira" | "github";
+        Provider: "jira" | "github" | "google_drive";
         PushKey: {
             enabled: boolean;
             public_key: string;
