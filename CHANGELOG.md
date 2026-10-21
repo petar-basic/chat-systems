@@ -14,6 +14,15 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
+## [Unreleased]
+
+### Fixed
+
+- A link written as `<https://…>` — the way Slack and most tools paste one — shows as a link
+  instead of keeping its angle brackets.
+- A link to a page behind a login (a Jira ticket, a private document) no longer gets a card
+  that says only the site's name; previews need a description or an image to be shown.
+
 ## [2.1.0] — 2026-10-21
 
 ### Upgrading from 2.0.0

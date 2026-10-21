@@ -101,7 +101,7 @@ mod tests {
     #[tokio::test]
     async fn reads_a_page() {
         let base = serve(vec![html_response(
-            r#"<head><meta property="og:title" content="Hello"></head>"#,
+            r#"<head><meta property="og:title" content="Hello"><meta name="description" content="Hi"></head>"#,
         )])
         .await;
         let unfurl = fetch(&format!("{base}/a"), true).await.expect("unfurl");
@@ -114,7 +114,9 @@ mod tests {
         let base = serve(vec![
             "HTTP/1.1 301 Moved\r\nlocation: /b\r\ncontent-length: 0\r\nconnection: close\r\n\r\n"
                 .to_string(),
-            html_response("<head><title>Moved here</title></head>"),
+            html_response(
+                "<head><title>Moved here</title><meta name=description content=x></head>",
+            ),
         ])
         .await;
         let unfurl = fetch(&format!("{base}/a"), true).await.expect("unfurl");
