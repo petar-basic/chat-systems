@@ -832,6 +832,151 @@ async fn mark_read_no_token_unauthorized(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
+async fn colleague_in_channel(
+    app: &axum::Router,
+    state: &crate::state::AppState,
+    ws_id: uuid::Uuid,
+    ch_id: uuid::Uuid,
+) -> (uuid::Uuid, String) {
+    let (colleague_id, _email, colleague_token) =
+        seed_and_login(app, state, "colleague", false).await;
+    add_ws_member(state, ws_id, colleague_id, "member").await;
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(ch_id, colleague_id, &ChannelRole::Member)
+        .await
+        .expect("add channel member");
+    (colleague_id, colleague_token)
+}
+
+async fn mark_unread_as(
+    app: &axum::Router,
+    token: &str,
+    ch_id: uuid::Uuid,
+    msg_id: uuid::Uuid,
+) -> (StatusCode, serde_json::Value) {
+    send(
+        app,
+        "POST",
+        &format!("/api/channels/{ch_id}/unread"),
+        Some(token),
+        Some(json!({ "message_id": msg_id })),
+    )
+    .await
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn mark_unread_counts_from_the_marked_message(pool: PgPool) {
+    let (app, state, _owner, token, ws_id, ch_id) = setup_channel(pool).await;
+    let (_colleague, colleague_token) = colleague_in_channel(&app, &state, ws_id, ch_id).await;
+    let first = create_message(&app, &colleague_token, ch_id, "one").await;
+    let second = create_message(&app, &colleague_token, ch_id, "two").await;
+    let third = create_message(&app, &colleague_token, ch_id, "three").await;
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/read"),
+        Some(&token),
+        Some(json!({ "message_id": third })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, body) = mark_unread_as(&app, &token, ch_id, second).await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(body["unread_count"], json!(2));
+    assert_eq!(body["last_read_message_id"], json!(first.to_string()));
+
+    let (_, body) = mark_unread_as(&app, &token, ch_id, first).await;
+    assert_eq!(body["unread_count"], json!(3));
+    assert_eq!(body["last_read_message_id"], json!(null));
+
+    let (_, body) = mark_unread_as(&app, &token, ch_id, third).await;
+    assert_eq!(body["unread_count"], json!(1));
+    assert_eq!(body["last_read_message_id"], json!(second.to_string()));
+
+    let (status, body) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws_id}/channels/unread"),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert!(
+        body["channel_ids"]
+            .as_array()
+            .expect("channel ids")
+            .contains(&json!(ch_id.to_string())),
+        "the channel is unread again: {body:?}"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn mark_unread_restores_a_mention(pool: PgPool) {
+    let (app, state, owner, token, ws_id, ch_id) = setup_channel(pool).await;
+    let (_colleague, colleague_token) = colleague_in_channel(&app, &state, ws_id, ch_id).await;
+    let mention = create_message(
+        &app,
+        &colleague_token,
+        ch_id,
+        &format!("@[Owner]({owner}) look"),
+    )
+    .await;
+    state
+        .notification_repo
+        .create(
+            owner,
+            ws_id,
+            &crate::notifications::models::NotificationType::Mention,
+            "You were mentioned",
+            None,
+            &json!({ "channel_id": ch_id, "message_id": mention }),
+        )
+        .await
+        .expect("notification");
+
+    let (status, body) = mark_unread_as(&app, &token, ch_id, mention).await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(body["unread_count"], json!(1));
+    assert_eq!(body["mention_count"], json!(1));
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn mark_unread_message_from_another_channel_not_found(pool: PgPool) {
+    let (app, state, owner, token, ws_id, ch_id) = setup_channel(pool).await;
+    let other = seed_channel(&state, ws_id, owner, "elsewhere", false).await;
+    let msg_id = create_message(&app, &token, other, "not here").await;
+    let (status, _body) = mark_unread_as(&app, &token, ch_id, msg_id).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn mark_unread_non_member_forbidden(pool: PgPool) {
+    let (app, state, _owner, token, _ws, ch_id) = setup_channel(pool).await;
+    let msg_id = create_message(&app, &token, ch_id, "read me").await;
+    let (_outsider, _email, outsider_token) = seed_and_login(&app, &state, "outsider", false).await;
+    let (status, _body) = mark_unread_as(&app, &outsider_token, ch_id, msg_id).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn mark_unread_no_token_unauthorized(pool: PgPool) {
+    let (app, _state, _owner, token, _ws, ch_id) = setup_channel(pool).await;
+    let msg_id = create_message(&app, &token, ch_id, "read me").await;
+    let (status, _body) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/unread"),
+        None,
+        Some(json!({ "message_id": msg_id })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+}
+
 async fn mark_online(state: &crate::state::AppState, ws_id: uuid::Uuid, user_id: uuid::Uuid) {
     let mut conn = state.redis.clone();
     let expires_at = std::time::SystemTime::now()

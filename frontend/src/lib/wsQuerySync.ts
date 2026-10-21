@@ -19,6 +19,7 @@ import { useWorkspaceStore } from '@/stores/workspace';
 import { useInstanceStore } from '@/stores/instances';
 import { useUserCache } from '@/stores/users';
 import { QUERY_KEYS } from '@/shared/constants';
+import { applyReadState } from './readState';
 
 type ChannelMessages = InfiniteData<{ data: Message[] }>;
 
@@ -81,6 +82,7 @@ export const useWebSocketQuerySync = () => {
       }),
       // The gateway drops the subscription server-side; the client has to stop
       // showing a channel it can no longer read, and forget what it cached.
+      globalEventBus.on('channel.read_state', (event) => applyReadState(queryClient, event)),
       globalEventBus.on('channel.access_revoked', (event) => {
         queryClient.removeQueries({ queryKey: QUERY_KEYS.messages(event.channel_id) });
         queryClient.removeQueries({ queryKey: QUERY_KEYS.channelMembers(event.channel_id) });

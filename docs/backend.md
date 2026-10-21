@@ -347,6 +347,7 @@ their own message, and a named user inside a broadcast is notified once, not twi
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | POST | `/channels/:ch_id/read` | `{ message_id }` | `{ status: "read" }` |
+| POST | `/channels/:ch_id/unread` | `{ message_id }` | `ReadState` — moves the caller's read position to just before that message and recomputes their unread and mention counts for the channel |
 | GET | `/search` | Query: `q, workspace_id, channel_id?, user_id?, limit=20, offset=0` | `{ data: Message[] }` |
 
 Search is access-scoped: results come only from public channels in the workspace
@@ -644,6 +645,7 @@ batch cannot become the flood it replaced.
 | `events:workspace` | `workspace.deleted`, `workspace.restored` |
 | `events:user` | `user.suspended` — consumed by the gateway to close the user's sockets (not pushed to clients) |
 | `events:huddle` | `huddle.started`, `huddle.ended`, `huddle.ring`, `huddle.member_joined`, `huddle.member_left` — lifecycle; also consumed by the API for history + call notifications |
+| `events:channel` | `channel.read_state` — sent only to the user whose read position moved (by `/read` or `/unread`), so their other tabs and devices update their badges; `channel.member_removed` becomes `channel.access_revoked` for the removed user |
 | `events:huddle-signal` | `huddle.offer`, `huddle.answer`, `huddle.ice`, `huddle.mute`, `huddle.camera`, `huddle.screenshare`, `huddle.hand`, `huddle.reaction` — high-frequency relay, realtime-only (kept off `events:huddle` so the API consumers don't parse every ICE candidate) |
 
 All events use the envelope: `{ id, event_type, payload, timestamp }`.

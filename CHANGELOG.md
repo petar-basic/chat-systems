@@ -21,6 +21,13 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - **Link previews.** Links in a message get a card with the page's title, description, site
   and image, fetched by the worker. The author can remove a message's previews; a workspace
   admin can turn them off in workspace settings.
+- **Mark as unread** from a message's menu, or Alt+click. The channel's badge comes back with
+  the right count and stays until you read past that message again.
+
+### Changed
+
+- Reading or marking a channel unread updates its badge on your other tabs and devices
+  straight away; before, they caught up on the next reload.
 
 ### Changed
 

@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import type { Message, Reaction } from '@/stores/workspace';
 import { useCurrentApi } from '@/shared/hooks/useCurrentApi';
+import { applyReadState } from '@/lib/readState';
 import { QUERY_KEYS, MESSAGES_PAGE_SIZE, ErrorLabels } from '@/shared/constants';
 import { upsertMessage, patchMessageById, newestFirst, removeMessageById } from '@/lib/messageCache';
 import { toast } from '@/shared/components/Toast';
@@ -173,6 +174,26 @@ export const useHideLinkPreviews = () => {
     onError: (err) => {
       logger.error('useHideLinkPreviews', 'mutationFn', err);
       toast.error(ErrorLabels.HidePreviewFailed);
+    },
+  });
+};
+
+export const useMarkUnread = () => {
+  const queryClient = useQueryClient();
+  const apiClient = useCurrentApi();
+
+  return useMutation({
+    mutationFn: async ({ messageId, channelId }: { messageId: string; channelId: string }) =>
+      apiClient.typed((c) =>
+        c.POST('/channels/{ch_id}/unread', {
+          params: { path: { ch_id: channelId } },
+          body: { message_id: messageId },
+        }),
+      ),
+    onSuccess: (state) => applyReadState(queryClient, state),
+    onError: (err) => {
+      logger.error('useMarkUnread', 'mutationFn', err);
+      toast.error(ErrorLabels.MarkUnreadFailed);
     },
   });
 };

@@ -1013,3 +1013,25 @@ point at. The fetcher is tested against a local server through its private-addre
 instead, and the refusal of that same server in strict mode is a test of its own.
 
 ---
+
+### [CS-050] Mark as unread ✅ shipped
+`POST /channels/:id/unread` moves the member's read position to just before the chosen
+message and recomputes both counters from the same rule the unread reconciler uses —
+undeleted messages by somebody else, at or after the boundary — so the badge it produces is
+the one the reconciler would converge on anyway. Mentions are recomputed from the mention
+notifications on messages past the boundary; a muted channel never stored those, so marking
+one unread brings back its count but not a mention badge. On a 63,000-message channel the
+call takes about 30 ms, and 1.7 s cold when the boundary is the very first message.
+
+**The ticket assumed a frame the read path did not have.** Reading a channel never told the
+reader's other tabs anything, so the "existing" read frame it meant to reuse did not exist.
+`channel.read_state` is new: published by both `/read` and `/unread`, sent by the gateway
+only to that user's connections, ephemeral like typing (a missed one is corrected by the
+next unread-count fetch). Reading a channel on a phone now clears its badge on the laptop.
+
+The open channel did not need the auto-read suppression the ticket planned: the client only
+marks a channel read when you enter it, so a channel marked unread while open stays unread
+until you leave and come back. *Mark unread* is in the message menu, the mobile action
+sheet, and on Alt+click.
+
+---

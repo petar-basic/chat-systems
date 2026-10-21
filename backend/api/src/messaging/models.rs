@@ -105,6 +105,14 @@ pub struct MarkReadRequest {
     pub message_id: Uuid,
 }
 
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct ReadState {
+    pub channel_id: Uuid,
+    pub unread_count: i32,
+    pub mention_count: i32,
+    pub last_read_message_id: Option<Uuid>,
+}
+
 #[derive(Debug, Deserialize, IntoParams)]
 pub struct SearchQuery {
     pub q: Option<String>,
