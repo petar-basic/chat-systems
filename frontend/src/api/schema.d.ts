@@ -563,6 +563,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/channels/{ch_id}/section": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["place_channel"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/channels/{ch_id}/unread": {
         parameters: {
             query?: never;
@@ -1748,6 +1764,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{ws_id}/sidebar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_layout"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/sidebar/builtins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["collapse_builtin"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/sidebar/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["reorder_sections"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/sidebar/sections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["create_section"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/sidebar/sections/{section_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete_section"];
+        options?: never;
+        head?: never;
+        patch: operations["update_section"];
+        trace?: never;
+    };
     "/workspaces/{ws_id}/slack-imports": {
         parameters: {
             query?: never;
@@ -1876,6 +1972,8 @@ export interface components {
             /** Format: uuid */
             workspace_id: string;
         };
+        /** @enum {string} */
+        BuiltinSection: "channels" | "dms" | "people";
         ChangePasswordRequest: {
             current_password: string;
             new_password: string;
@@ -1933,6 +2031,12 @@ export interface components {
             /** Format: uuid */
             user_id: string;
         };
+        ChannelPlacement: {
+            /** Format: uuid */
+            channel_id: string;
+            /** Format: uuid */
+            section_id: string;
+        };
         /** @enum {string} */
         ChannelRole: "member" | "admin";
         ChannelSettings: {
@@ -1942,6 +2046,10 @@ export interface components {
         ChannelType: "public" | "private" | "dm" | "group_dm";
         CodeRequest: {
             code: string;
+        };
+        CollapseBuiltinRequest: {
+            collapsed: boolean;
+            section: components["schemas"]["BuiltinSection"];
         };
         CommandInfo: {
             builtin: boolean;
@@ -2047,6 +2155,9 @@ export interface components {
             content: string;
             /** Format: date-time */
             send_at: string;
+        };
+        CreateSectionRequest: {
+            name: string;
         };
         CreateWorkspaceRequest: {
             description?: string | null;
@@ -2830,6 +2941,10 @@ export interface components {
         };
         /** @enum {string} */
         NotificationType: "mention" | "dm" | "reply" | "reaction" | "call" | "reminder" | "system";
+        PlaceChannelRequest: {
+            /** Format: uuid */
+            section_id?: string | null;
+        };
         PolicyResponse: {
             policy?: components["schemas"]["RetentionPolicy"] | null;
         };
@@ -2898,6 +3013,9 @@ export interface components {
             target_user_id: string;
             /** Format: uuid */
             workspace_id: string;
+        };
+        ReorderSectionsRequest: {
+            section_ids: string[];
         };
         RescheduleRequest: {
             /** Format: date-time */
@@ -3017,6 +3135,19 @@ export interface components {
             /** Format: date-time */
             expires_at?: string | null;
             text?: string | null;
+        };
+        SidebarLayout: {
+            collapsed_builtins: components["schemas"]["BuiltinSection"][];
+            placements: components["schemas"]["ChannelPlacement"][];
+            sections: components["schemas"]["SidebarSection"][];
+        };
+        SidebarSection: {
+            collapsed: boolean;
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: int32 */
+            position: number;
         };
         StartHuddleRequest: {
             /** Format: uuid */
@@ -3138,6 +3269,10 @@ export interface components {
             message_days?: number | null;
             /** Format: int32 */
             notification_days?: number | null;
+        };
+        UpdateSectionRequest: {
+            collapsed?: boolean | null;
+            name?: string | null;
         };
         UpdateWorkspaceRequest: {
             description?: string | null;
@@ -4116,6 +4251,31 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["MarkReadRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    place_channel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaceChannelRequest"];
             };
         };
         responses: {
@@ -6303,6 +6463,150 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ScheduledMessage"];
+                };
+            };
+        };
+    };
+    get_layout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SidebarLayout"];
+                };
+            };
+        };
+    };
+    collapse_builtin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CollapseBuiltinRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    reorder_sections: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderSectionsRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    create_section: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSectionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SidebarSection"];
+                };
+            };
+        };
+    };
+    delete_section: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+                section_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    update_section: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+                section_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSectionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SidebarSection"];
                 };
             };
         };

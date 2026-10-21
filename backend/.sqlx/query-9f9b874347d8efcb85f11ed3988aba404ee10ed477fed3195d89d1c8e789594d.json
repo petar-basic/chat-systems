@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE channel_members cm\n                SET section_id = $3\n               FROM channels c\n              WHERE cm.channel_id = $1\n                AND cm.user_id = $2\n                AND c.id = cm.channel_id\n                AND (\n                    $3::uuid IS NULL\n                    OR EXISTS (\n                        SELECT 1 FROM sidebar_sections s\n                         WHERE s.id = $3 AND s.user_id = $2 AND s.workspace_id = c.workspace_id\n                    )\n                )",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9f9b874347d8efcb85f11ed3988aba404ee10ed477fed3195d89d1c8e789594d"
+}

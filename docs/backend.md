@@ -552,6 +552,26 @@ message routes use, which covers direct messages too.
 
 ---
 
+### sidebar
+
+One person's sidebar layout in one workspace: their own sections, which channel sits in
+which, and which of the built-in sections (`channels`, `dms`, `people`) they keep collapsed.
+Nobody else ever sees it, and every query is scoped to the caller, so another member's
+section id is simply not found. A channel's section lives on its `channel_members` row, so
+leaving a channel forgets it and deleting a section returns its channels to *Channels*.
+
+| Method | Route | Input | Output |
+|--------|-------|-------|--------|
+| GET | `/workspaces/:ws_id/sidebar` | — | `{ sections, placements, collapsed_builtins }` |
+| POST | `/workspaces/:ws_id/sidebar/sections` | `{ name }` | `SidebarSection` — 1–80 characters, unique per person ignoring case (409), at most 50 |
+| PATCH | `/workspaces/:ws_id/sidebar/sections/:section_id` | `{ name?, collapsed? }` | `SidebarSection` |
+| DELETE | `/workspaces/:ws_id/sidebar/sections/:section_id` | — | `{ status: "deleted" }` |
+| PUT | `/workspaces/:ws_id/sidebar/order` | `{ section_ids }` | `{ status: "reordered" }` |
+| PUT | `/workspaces/:ws_id/sidebar/builtins` | `{ section, collapsed }` | `{ status: "saved" }` |
+| PUT | `/channels/:ch_id/section` | `{ section_id \| null }` | `{ status: "moved" }` — the caller must be a channel member and own the section |
+
+---
+
 ### admin
 
 Instance-level administration. Requires `is_instance_admin = true`.

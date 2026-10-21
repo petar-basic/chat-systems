@@ -24,7 +24,7 @@ integration-test suite and a real CI pipeline.
 - **Mentions** — `@person`, `@group`, `@channel` / `@here` / `@everyone`, with custom emoji
 - **Scheduled send** — queue a message for a channel or conversation and send it later
 - **Reminders** — `/remind me in 30m to ship`, `at 15:00`, `tomorrow at 9am`, read in your own timezone
-- **Keeping things** — saved items, channel bookmarks, message forwarding, and a status you set yourself
+- **Keeping things** — saved items, channel bookmarks, message forwarding, a status you set yourself, and sidebar sections of your own
 - **Huddles** — WebRTC voice/video with screen sharing (mesh, small groups)
 - **Presence & typing** — live, multi-tab and multi-node aware
 - **File sharing** — uploads served through the authenticated API (local disk or S3, RustFS in the compose stack)

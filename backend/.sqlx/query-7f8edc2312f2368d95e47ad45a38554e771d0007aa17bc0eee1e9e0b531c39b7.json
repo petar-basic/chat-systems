@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO sidebar_collapsed_builtins (user_id, workspace_id, section)\n                 VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7f8edc2312f2368d95e47ad45a38554e771d0007aa17bc0eee1e9e0b531c39b7"
+}

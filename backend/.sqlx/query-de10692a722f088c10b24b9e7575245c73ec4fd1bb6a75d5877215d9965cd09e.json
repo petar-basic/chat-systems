@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT cm.channel_id, cm.section_id AS \"section_id!\"\n                 FROM channel_members cm\n                 JOIN channels c ON c.id = cm.channel_id\n                WHERE cm.user_id = $1 AND c.workspace_id = $2 AND cm.section_id IS NOT NULL",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "channel_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "channel_members",
+            "name": "channel_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "section_id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "channel_members",
+            "name": "section_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "de10692a722f088c10b24b9e7575245c73ec4fd1bb6a75d5877215d9965cd09e"
+}

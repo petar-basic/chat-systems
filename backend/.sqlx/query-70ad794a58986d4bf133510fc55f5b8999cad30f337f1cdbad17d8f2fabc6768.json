@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM sidebar_collapsed_builtins\n                  WHERE user_id = $1 AND workspace_id = $2 AND section = $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "70ad794a58986d4bf133510fc55f5b8999cad30f337f1cdbad17d8f2fabc6768"
+}
