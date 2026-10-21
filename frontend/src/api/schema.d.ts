@@ -1768,6 +1768,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{ws_id}/unreads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_unreads"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3062,6 +3078,25 @@ export interface components {
         UnreadCountResponse: {
             /** Format: int64 */
             unread_count: number;
+        };
+        UnreadGroup: {
+            /** Format: uuid */
+            channel_id: string;
+            channel_name?: string | null;
+            channel_type: components["schemas"]["ChannelType"];
+            /** Format: date-time */
+            last_activity_at: string;
+            /** Format: int32 */
+            mention_count: number;
+            messages: components["schemas"]["Message"][];
+            muted: boolean;
+            /** Format: int32 */
+            unread_count: number;
+        };
+        UnreadsPage: {
+            data: components["schemas"]["UnreadGroup"][];
+            /** Format: int64 */
+            next_offset?: number | null;
         };
         UnsubscribeRequest: {
             endpoint: string;
@@ -6315,6 +6350,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DataItem_ImportRun"];
+                };
+            };
+        };
+    };
+    list_unreads: {
+        parameters: {
+            query?: {
+                limit?: number | null;
+                offset?: number | null;
+            };
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnreadsPage"];
                 };
             };
         };

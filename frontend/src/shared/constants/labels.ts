@@ -4,6 +4,7 @@ export const ErrorLabels = {
   DeleteFailed: "Couldn't delete the message",
   HidePreviewFailed: "Couldn't remove the preview",
   MarkUnreadFailed: "Couldn't mark the message unread",
+  MarkReadFailed: "Couldn't mark the channel read",
   ReactionFailed: "Couldn't update the reaction",
   PinFailed: "Couldn't update the pin",
   UploadFailed: 'File upload failed',

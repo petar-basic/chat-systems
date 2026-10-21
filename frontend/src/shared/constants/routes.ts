@@ -12,6 +12,7 @@ export const ROUTES = {
   message: (workspaceId: string, channelId: string, messageId: string) =>
     `/app/${workspaceId}/${channelId}/${messageId}`,
   conversation: (workspaceId: string, conversationId: string) => `/app/${workspaceId}/c/${conversationId}`,
+  unreads: (workspaceId: string) => `/app/${workspaceId}/unreads`,
 } as const;
 
 export const ROUTE_PATTERNS = {
@@ -19,4 +20,5 @@ export const ROUTE_PATTERNS = {
   channel: '/app/:workspaceId/:channelId',
   message: '/app/:workspaceId/:channelId/:messageId',
   conversation: '/app/:workspaceId/c/:conversationId',
+  unreads: '/app/:workspaceId/unreads',
 } as const;

@@ -14,7 +14,7 @@ architecture review of 2026-09 (written up in [history.md](../history.md)). The 
 green — desktop and a phone viewport — and the `e2e` job blocks merges. CS-047 measured the
 system at 500,000 messages and closed with Wave 12; what its numbers justified, CS-048, is
 Wave 13 and is shipped too. Wave 14 closes the daily-use gaps a team arriving from Slack
-notices first; CS-049 and CS-050 are shipped and the next ticket is [CS-051](CS-051-all-unreads.md).
+notices first; CS-049, CS-050 and CS-051 are shipped and the next ticket is [CS-052](CS-052-custom-sidebar-sections.md).
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
@@ -169,14 +169,14 @@ week and does not find. The activity view a review might add to this list alread
 |---|---|---|
 | CS-049 ✅ | Link previews | backend · frontend |
 | CS-050 ✅ | Mark as unread | backend · frontend |
-| [CS-051](CS-051-all-unreads.md) | All unreads | backend · frontend |
+| CS-051 ✅ | All unreads | backend · frontend |
 | [CS-052](CS-052-custom-sidebar-sections.md) | Custom sidebar sections | backend · frontend |
 
 ### Still open
 
 | # | Ticket | Area | Why it is not done |
 |---|---|---|---|
-| [CS-051](CS-051-all-unreads.md)–[CS-052](CS-052-custom-sidebar-sections.md) | Wave 14 | backend · frontend | Next up; CS-049 and CS-050 shipped |
+| [CS-052](CS-052-custom-sidebar-sections.md) | Custom sidebar sections | backend · frontend | Next up; the rest of Wave 14 shipped |
 | [CS-037](CS-037-huddle-sfu.md) | SFU for large huddles | backend · frontend | LiveKit is infrastructure of its own; the mesh is right for everything under six people |
 
 ## Conflict map
@@ -194,5 +194,5 @@ Tickets that touch the same files, and the order that avoids rework:
 | notification worker path | CS-028 ✅ → CS-035 ✅ → CS-045 ✅ → CS-046 ✅ |
 | `frontend/src/features/messaging/` | CS-024 ✅ → CS-025 ✅ → CS-029 ✅ |
 | `messages` table schema | CS-029 ✅ → CS-030 ✅ → CS-034 ✅ |
-| `channel_members` read position and counters | CS-026 ✅ → CS-050 ✅ → CS-051 → CS-052 |
+| `channel_members` read position and counters | CS-026 ✅ → CS-050 ✅ → CS-051 ✅ → CS-052 |
 | message metadata and `message.updated` | CS-029 ✅ → CS-049 ✅ |

@@ -9,8 +9,7 @@ ticket in [`docs/tickets/`](./tickets/INDEX.md); a ticket's file is deleted when
 
 | Ticket | What | Status |
 |---|---|---|
-| [CS-051](./tickets/CS-051-all-unreads.md) | All unreads: every channel's new messages on one page | **Next.** Wave 14; CS-049 and CS-050 shipped |
-| [CS-052](./tickets/CS-052-custom-sidebar-sections.md) | Custom sidebar sections that follow you across devices | Wave 14 |
+| [CS-052](./tickets/CS-052-custom-sidebar-sections.md) | Custom sidebar sections that follow you across devices | **Next.** The last of Wave 14 |
 | [CS-037](./tickets/CS-037-huddle-sfu.md) | SFU (LiveKit) for huddles above the mesh's six-to-eight ceiling | On request. Adds a media server to the stack; nothing below a 20-person team needs it |
 
 Two decisions were considered on 2026-09-02 and deferred with their reasoning below:

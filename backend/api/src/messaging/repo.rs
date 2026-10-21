@@ -857,6 +857,81 @@ impl MessageRepo {
     /// `last_read_msg` rides along because the client needs the boundary, not
     /// just the count: a channel with forty unread messages and no marker in the
     /// list leaves somebody scrolling and guessing where they stopped.
+    pub async fn list_unread_channels(
+        &self,
+        workspace_id: Uuid,
+        user_id: Uuid,
+        limit: i64,
+        offset: i64,
+    ) -> sqlx::Result<Vec<UnreadChannelRow>> {
+        sqlx::query_as!(
+            UnreadChannelRow,
+            r#"
+            SELECT c.id AS channel_id, c.name AS channel_name,
+                   c.channel_type AS "channel_type: crate::workspace::models::ChannelType",
+                   cm.muted AS "muted!", cm.unread_count, cm.mention_count,
+                   latest.created_at AS "last_activity_at!"
+              FROM channel_members cm
+              JOIN channels c ON c.id = cm.channel_id
+              CROSS JOIN LATERAL (
+                  SELECT m.created_at FROM messages m
+                   WHERE m.channel_id = c.id AND m.deleted_at IS NULL
+                   ORDER BY m.created_at DESC
+                   LIMIT 1
+              ) latest
+             WHERE c.workspace_id = $1
+               AND cm.user_id = $2
+               AND cm.unread_count > 0
+               AND c.is_archived = false
+             ORDER BY cm.muted, latest.created_at DESC, c.id
+             LIMIT $3 OFFSET $4
+            "#,
+            workspace_id,
+            user_id,
+            limit,
+            offset
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn newest_unread_messages(
+        &self,
+        channel_ids: &[Uuid],
+        user_id: Uuid,
+        per_channel: i64,
+    ) -> sqlx::Result<Vec<Message>> {
+        if channel_ids.is_empty() {
+            return Ok(vec![]);
+        }
+        sqlx::query_as!(
+            Message,
+            r#"
+            SELECT m.id AS "id!", m.channel_id AS "channel_id!", m.user_id AS "user_id!",
+                   m.client_message_id, m.content AS "content!", m.metadata AS "metadata!",
+                   m.thread_parent_id, m.reply_count AS "reply_count!", m.is_pinned AS "is_pinned!",
+                   m.created_at AS "created_at!", m.updated_at AS "updated_at!", m.deleted_at
+              FROM unnest($1::uuid[]) AS wanted(channel_id)
+              JOIN channel_members cm ON cm.channel_id = wanted.channel_id AND cm.user_id = $2
+              CROSS JOIN LATERAL (
+                  SELECT * FROM messages msg
+                   WHERE msg.channel_id = wanted.channel_id
+                     AND msg.deleted_at IS NULL
+                     AND msg.user_id <> $2
+                     AND (cm.last_read_at IS NULL OR msg.created_at > cm.last_read_at)
+                   ORDER BY msg.created_at DESC
+                   LIMIT $3
+              ) m
+             ORDER BY m.channel_id, m.created_at
+            "#,
+            channel_ids,
+            user_id,
+            per_channel
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
     pub async fn unread_counts(
         &self,
         workspace_id: Uuid,

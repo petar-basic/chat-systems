@@ -7,6 +7,7 @@ import { WorkspaceSidebar, WorkspaceRightPanels, useWorkspaceController } from '
 import { ChannelSidebar, ChannelHeader, ChannelBookmarksBar } from '@/features/channel';
 import { MessageList, MessageInput } from '@/features/messaging';
 import ConversationView from '@/features/messaging/ConversationView';
+import { AllUnreadsView } from '@/features/unreads';
 import ForwardMessageModal from '@/features/messaging/ForwardMessageModal';
 import AddInstancePanel from '../components/AddInstancePanel';
 import UserProfilePanel from '../components/UserProfilePanel';
@@ -80,6 +81,8 @@ export default function WorkspacePage() {
             onOpenReminders={() => panel.toggle('reminders')}
             onOpenProfile={() => c.setShowProfile(true)}
             onOpenNotifications={() => panel.toggle('notifications')}
+            onOpenUnreads={c.handleOpenUnreads}
+            unreadsActive={c.isUnreadsRoute}
             onLogout={() => c.logout.mutate()}
           />
         </div>
@@ -94,7 +97,19 @@ export default function WorkspacePage() {
 
         {c.showAddInstance && <AddInstancePanel onClose={() => c.setShowAddInstance(false)} />}
 
-        {activeConversation && currentWorkspace && user ? (
+        {c.isUnreadsRoute && currentWorkspace && user ? (
+          <AllUnreadsView
+            workspaceId={currentWorkspace.id}
+            currentUserId={user.id}
+            conversations={c.conversations}
+            onOpenChannel={(channelId) => {
+              const channel = c.channels.find((ch) => ch.id === channelId);
+              if (channel) c.handleSelectChannel(channel);
+            }}
+            onOpenConversation={c.handleOpenConversation}
+            onOpenNav={() => c.setMobileNavOpen(true)}
+          />
+        ) : activeConversation && currentWorkspace && user ? (
           <ConversationView
             workspaceId={currentWorkspace.id}
             instanceUrl={currentWorkspace.instanceUrl}

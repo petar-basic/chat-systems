@@ -1035,3 +1035,20 @@ until you leave and come back. *Mark unread* is in the message menu, the mobile 
 sheet, and on Alt+click.
 
 ---
+
+### [CS-051] All unreads ✅ shipped
+Catching up no longer means clicking through every bold channel. `GET
+/workspaces/:id/unreads` reads the CS-026 counters for the channels with anything unread —
+muted last, then newest activity first — and fetches each one's newest 20 unread messages
+in a single `LATERAL` query rather than one per channel. Guests need no rule of their own:
+counters exist only for channel memberships. At 500,000 messages, a member with about 200
+unread channels gets the first page in 8 ms at p95; `measure-scale.py` now carries the
+scenario.
+
+The view is a route (`/app/:workspace/unreads`), so it survives a reload and the back
+button; the routing hook learned not to redirect it to #general. Opening the view marks
+nothing read — the per-channel button and Esc on a focused group do, through the ordinary
+read endpoint, so the badge clears on every device by way of CS-050's `channel.read_state`.
+New messages and read changes refresh the view while it is open.
+
+---
