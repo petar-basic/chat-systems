@@ -50,7 +50,7 @@ services:
         limits:
           memory: 384m
 
-  minio:
+  rustfs:
     deploy:
       resources:
         limits:
@@ -65,7 +65,7 @@ services:
       PUBLIC_URL: https://${DOMAIN:?DOMAIN must be set}
       CORS_ORIGINS: https://${DOMAIN:?DOMAIN must be set}
       STORAGE_BACKEND: s3
-      S3_ENDPOINT: http://minio:9000
+      S3_ENDPOINT: http://rustfs:9000
       S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
       S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set}
       SMTP_HOST: ${SMTP_HOST:?SMTP_HOST must be set for production}
@@ -85,7 +85,7 @@ services:
   worker:
     environment:
       STORAGE_BACKEND: s3
-      S3_ENDPOINT: http://minio:9000
+      S3_ENDPOINT: http://rustfs:9000
       S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
       S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set}
       PUBLIC_URL: https://${DOMAIN:?DOMAIN must be set}
@@ -143,24 +143,28 @@ services:
         limits:
           memory: 128m
 
-  # Mirrors the MinIO bucket (file uploads) alongside the Postgres dumps so a
+  # Copies the object store's bucket (file uploads) alongside the Postgres dumps so a
   # host/volume loss doesn't lose attachments. Only runs with the s3 profile.
-  minio-backup:
-    image: minio/mc:RELEASE.2025-04-08T15-39-49Z
+  storage-backup:
+    image: rclone/rclone:1.75.2
     profiles: ["s3"]
     restart: unless-stopped
     depends_on:
-      minio:
+      rustfs:
         condition: service_healthy
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set}
+      RCLONE_CONFIG_STORE_TYPE: s3
+      RCLONE_CONFIG_STORE_PROVIDER: Other
+      RCLONE_CONFIG_STORE_ENDPOINT: http://rustfs:9000
+      RCLONE_CONFIG_STORE_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
+      RCLONE_CONFIG_STORE_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set}
+      RCLONE_CONFIG_STORE_FORCE_PATH_STYLE: "true"
       BUCKET_NAME: ${S3_BUCKET:-chatsystems}
       BACKUP_INTERVAL_SECS: ${BACKUP_INTERVAL_SECS:-86400}
-    entrypoint: ["/bin/sh", "/minio-backup.sh"]
+    entrypoint: ["/bin/sh", "/storage-backup.sh"]
     volumes:
-      - ./docker/minio-backup.sh:/minio-backup.sh:ro
-      - minio_backups:/backups
+      - ./docker/storage-backup.sh:/storage-backup.sh:ro
+      - storage_backups:/backups
     deploy:
       resources:
         limits:
@@ -187,4 +191,4 @@ volumes:
   caddy_data:
   caddy_config:
   pg_backups:
-  minio_backups:
+  storage_backups:

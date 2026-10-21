@@ -20,7 +20,7 @@ response as soon as possible.
 ## Operator notes (self-hosting)
 
 - Generate strong secrets — `JWT_SECRET` (`openssl rand -hex 32`), and the
-  Postgres / MinIO passwords. The app refuses to start with the insecure
+  Postgres / object-storage passwords. The app refuses to start with the insecure
   default `JWT_SECRET`.
 - Never commit `.env` (it is gitignored). If a secret is ever exposed, rotate
   it; rewriting git history alone does not make a leaked key safe.

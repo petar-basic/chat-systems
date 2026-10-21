@@ -39,17 +39,16 @@ services:
         limits:
           memory: 192m
 
-  minio:
-    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+  rustfs:
+    image: rustfs/rustfs:1.0.3
     restart: unless-stopped
-    command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set}
+      RUSTFS_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      RUSTFS_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set}
     volumes:
-      - minio_data:/data
+      - rustfs_data:/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health/live"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -59,23 +58,26 @@ services:
         limits:
           memory: 320m
 
-  minio-init:
-    image: minio/mc:RELEASE.2025-04-08T15-39-49Z
+  rustfs-init:
+    image: rclone/rclone:1.75.2
     depends_on:
-      minio:
+      rustfs:
         condition: service_started
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set}
+      RCLONE_CONFIG_STORE_TYPE: s3
+      RCLONE_CONFIG_STORE_PROVIDER: Other
+      RCLONE_CONFIG_STORE_ENDPOINT: http://rustfs:9000
+      RCLONE_CONFIG_STORE_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
+      RCLONE_CONFIG_STORE_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set}
+      RCLONE_CONFIG_STORE_FORCE_PATH_STYLE: "true"
       BUCKET_NAME: ${S3_BUCKET:-chatsystems}
-    entrypoint: /bin/sh
-    command: /init.sh
+    entrypoint: ["/bin/sh", "/init.sh"]
     volumes:
-      - ./docker/minio-init.sh:/init.sh:ro
+      - ./docker/storage-init.sh:/init.sh:ro
     restart: "no"
 
   api:
-    image: ghcr.io/petar-basic/chat-systems-backend:${VERSION:-main}
+    image: ghcr.io/petar-basic/chat-systems-backend:${VERSION:-latest}
     pull_policy: always
     restart: unless-stopped
     environment:
@@ -91,7 +93,7 @@ services:
       CORS_ORIGINS: https://${DOMAIN}
       STORAGE_BACKEND: s3
       LOCAL_STORAGE_PATH: /data/files
-      S3_ENDPOINT: http://minio:9000
+      S3_ENDPOINT: http://rustfs:9000
       S3_REGION: ${S3_REGION:-us-east-1}
       S3_BUCKET: ${S3_BUCKET:-chatsystems}
       S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
@@ -135,7 +137,7 @@ services:
   # Background consumers. Redis pub/sub fans out to every subscriber, so a
   # second replica duplicates every notification and every webhook delivery.
   worker:
-    image: ghcr.io/petar-basic/chat-systems-backend:${VERSION:-main}
+    image: ghcr.io/petar-basic/chat-systems-backend:${VERSION:-latest}
     pull_policy: always
     restart: unless-stopped
     environment:
@@ -154,7 +156,7 @@ services:
       SMTP_TLS_MODE: ${SMTP_TLS_MODE:-starttls}
       STORAGE_BACKEND: ${STORAGE_BACKEND:-s3}
       LOCAL_STORAGE_PATH: /data/files
-      S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
+      S3_ENDPOINT: http://rustfs:9000
       S3_REGION: ${S3_REGION:-us-east-1}
       S3_BUCKET: ${S3_BUCKET:-chatsystems}
       S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
@@ -185,7 +187,7 @@ services:
           memory: 128m
 
   realtime:
-    image: ghcr.io/petar-basic/chat-systems-backend:${VERSION:-main}
+    image: ghcr.io/petar-basic/chat-systems-backend:${VERSION:-latest}
     pull_policy: always
     restart: unless-stopped
     environment:
@@ -216,7 +218,7 @@ services:
           memory: 192m
 
   frontend:
-    image: ghcr.io/petar-basic/chat-systems-frontend:${VERSION:-main}
+    image: ghcr.io/petar-basic/chat-systems-frontend:${VERSION:-latest}
     pull_policy: always
     restart: unless-stopped
     expose:
@@ -256,21 +258,25 @@ services:
         limits:
           memory: 96m
 
-  minio-backup:
-    image: minio/mc:RELEASE.2025-04-08T15-39-49Z
+  storage-backup:
+    image: rclone/rclone:1.75.2
     restart: unless-stopped
     depends_on:
-      minio:
+      rustfs:
         condition: service_healthy
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      RCLONE_CONFIG_STORE_TYPE: s3
+      RCLONE_CONFIG_STORE_PROVIDER: Other
+      RCLONE_CONFIG_STORE_ENDPOINT: http://rustfs:9000
+      RCLONE_CONFIG_STORE_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
+      RCLONE_CONFIG_STORE_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      RCLONE_CONFIG_STORE_FORCE_PATH_STYLE: "true"
       BUCKET_NAME: ${S3_BUCKET:-chatsystems}
       BACKUP_INTERVAL_SECS: ${BACKUP_INTERVAL_SECS:-86400}
-    entrypoint: ["/bin/sh", "/minio-backup.sh"]
+    entrypoint: ["/bin/sh", "/storage-backup.sh"]
     volumes:
-      - ./docker/minio-backup.sh:/minio-backup.sh:ro
-      - minio_backups:/backups
+      - ./docker/storage-backup.sh:/storage-backup.sh:ro
+      - storage_backups:/backups
     deploy:
       resources:
         limits:
@@ -293,7 +299,7 @@ services:
 volumes:
   postgres_data:
   redis_data:
-  minio_data:
+  rustfs_data:
   file_data:
   pg_backups:
-  minio_backups:
+  storage_backups:

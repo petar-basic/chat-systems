@@ -67,10 +67,10 @@ cd frontend && npm install && npm run dev
 ### Production (HTTPS, restart policies, backups)
 
 The production override adds a Caddy edge proxy (automatic Let's Encrypt TLS),
-`restart: unless-stopped`, resource limits, S3/MinIO storage, real SMTP, an
+`restart: unless-stopped`, resource limits, S3 storage (RustFS), real SMTP, an
 `autoheal` sidecar that restarts containers Docker marks unhealthy, and two
-backup sidecars — `db-backup` (verified `pg_dump`) and `minio-backup`
-(`mc mirror` of the upload bucket). Point your domain's DNS at the host first.
+backup sidecars — `db-backup` (verified `pg_dump`) and `storage-backup`
+(`rclone copy` of the upload bucket). Point your domain's DNS at the host first.
 
 ```bash
 # Required in .env: DOMAIN, ACME_EMAIL, JWT_SECRET, ADMIN_PASSWORD,
@@ -84,8 +84,8 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml \
 Caddy is the only service that publishes public ports (80/443); everything else
 stays on the docker network. `PUBLIC_URL=https://$DOMAIN` makes auth cookies
 `Secure`; HSTS and other security headers are applied at the edge and in nginx.
-Postgres dumps land in the `pg_backups` volume and the mirrored upload bucket in
-`minio_backups`. For backup, restore, upgrade, and rollback procedures see
+Postgres dumps land in the `pg_backups` volume and the copied upload bucket in
+`storage_backups`. For backup, restore, upgrade, and rollback procedures see
 [RUNBOOK.md](./RUNBOOK.md).
 
 ## Project layout
@@ -100,7 +100,7 @@ backend/
 frontend/
   src/        React SPA (features/, components/, hooks/, stores/, lib/, shared/)
   e2e/        Playwright end-to-end tests
-docker/       Caddyfile, MinIO init, Postgres + MinIO backup scripts
+docker/       Caddyfile, bucket init, Postgres + upload backup scripts, MinIO → RustFS migration
 docs/         this folder
 ```
 
@@ -333,6 +333,14 @@ new images (a manual step, an irreversible migration, a removed route) is a majo
 that is not on `main` or has no dated CHANGELOG section, builds both images from the
 tagged commit, pushes them to GHCR as `X.Y.Z`, `X.Y` and `latest`, and creates the GitHub
 release with that CHANGELOG section as its notes.
+
+Staging follows releases, not `main`:
+[`deploy-staging.yml`](../.github/workflows/deploy-staging.yml) runs when the Release
+workflow succeeds and calls the Coolify deploy webhook, and `docker-compose.coolify.yml`
+runs the `latest` images unless Coolify's `VERSION` pins one. A merge to `main` deploys
+nothing; to put an unreleased build on staging, run the workflow by hand after setting
+`VERSION` in Coolify to an image tag that exists. Coolify still reads the compose file
+from `main` at deploy time, so a compose change takes effect on the next deploy.
 
 ## Commits & PRs
 

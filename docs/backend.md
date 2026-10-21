@@ -93,7 +93,7 @@ in `main.rs`.
   messaging and files routers (120 writes / 60s per user).
 - **Error handling.** `AppError` (`shared/common`) maps to status codes; 500-class errors
   log detail but return an opaque body so internals/SQL never leak (with tests proving it).
-- **Files.** `FileStorage` wraps an `object_store` backend (local disk or S3/MinIO) and
+- **Files.** `FileStorage` wraps an `object_store` backend (local disk or any S3-compatible store; the compose stack runs RustFS) and
   streams multipart uploads; downloads go through the authenticated `/api/files/download`
   route, so the object store stays private and access is gated by channel membership —
   which covers direct messages, since a DM is a channel.
@@ -357,7 +357,7 @@ plus the private/DM channels the caller belongs to.
 
 ### files
 
-File upload and download. Supports both local storage and S3/MinIO.
+File upload and download. Supports both local storage and S3 (RustFS in the compose stack).
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|

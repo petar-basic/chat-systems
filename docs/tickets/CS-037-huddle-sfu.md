@@ -22,7 +22,7 @@ server-side media and no extra infrastructure — so this is an addition, not a 
    it. Most calls never leave the mesh path, which keeps the zero-infrastructure default
    intact for small deployments.
 2. **LiveKit as the SFU**, self-hosted alongside the stack as an optional compose profile,
-   the way `coturn` and MinIO already are. It is Apache-2.0, has a Rust server SDK, and the
+   the way `coturn` and RustFS already are. It is Apache-2.0, has a Rust server SDK, and the
    `huddles` table already carries an unused `livekit_room` column
    ([migration 1, line 192](../../backend/migrations/20240305000001_initial_schema.sql#L192))
    — the schema anticipated this.

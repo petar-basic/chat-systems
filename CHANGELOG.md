@@ -29,6 +29,12 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - Reading or marking a channel unread updates its badge on your other tabs and devices
   straight away; before, they caught up on the next reload.
 
+### Changed
+
+- **RustFS replaces MinIO** for file storage on the `s3` profile, and `rclone` replaces `mc`.
+  MinIO's images can no longer be pulled. Existing uploads have to be copied once with
+  `docker/migrate-minio-to-rustfs.sh`; see the RustFS upgrade note in RUNBOOK.
+
 ## [2.0.0] — 2026-10-21
 
 Everything since 1.0.0: thirteen waves of security, compliance, reliability and product work,
