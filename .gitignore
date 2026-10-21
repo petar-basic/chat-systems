@@ -27,3 +27,4 @@ docker/data/
 # Claude local settings (machine-specific)
 .claude/settings.json
 .claude/settings.local.json
+__pycache__/

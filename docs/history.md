@@ -918,4 +918,31 @@ Retention policies now reach direct messages.
 `auth/service.rs` split by concern, `ChannelSidebar.tsx` into eight components and
 `useWorkspaceController` into four hooks; one shared test `AppConfig` instead of three copies.
 
+### [CS-047] Prove it at import scale ✅ shipped
+The largest dataset the system had run against was about 2,200 messages. A generator now
+writes a synthetic Slack export of 500,000 messages (`generate-slack-export.py`, seeded, 22
+seconds), the real importer loads it, and `measure-scale.py` times search, history and the
+unread counters as a signed-in member. The numbers are in RUNBOOK; the ones that matter:
+
+- **The importer is not the bottleneck.** 500,000 messages in 6 min 50 s, and a second import
+  running alongside live searches costs them 15–25% and nothing else. No maintenance window.
+- **History and unread counters do not notice the size.** 20 ms and 3 ms.
+- **The backfill is fine** at 600,000 rows: 69 s, a third of it its own pauses.
+- **Search is not.** A common word takes 1.6 s, and on a restored copy of the same data the
+  planner chose a per-channel loop that took up to 13 s. That became CS-048 rather than a
+  speculative rewrite here.
+
+**The restore drill found that backups did not restore.** The search functions named
+`unaccent` without a schema; `pg_dump` restores with an empty `search_path`, so recreating the
+trigram index failed — and the documented command had no `ON_ERROR_STOP`, so it reported one
+error, kept going, and left every substring search as a sequential scan on a database whose
+row counts all matched. Migration 46 schema-qualifies the function bodies (not `SET
+search_path`, which would stop them inlining), the runbook restores with `ON_ERROR_STOP` and
+analyzes afterwards, and the upgrade note says what to do with a dump taken before the fix.
+After it: 600,000 messages dumped in 15 s and restored in 18 s, counts and indexes identical.
+
+**Docker's 64 MB `/dev/shm` was too small for Postgres.** A parallel `VACUUM` on the messages
+table failed with `could not resize shared memory segment`; parallel search scans draw on the
+same memory. Postgres now gets `shm_size: 256mb` in both compose files.
+
 ---

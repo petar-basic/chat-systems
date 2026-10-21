@@ -31,6 +31,7 @@ services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
+    shm_size: 256mb
     environment:
       POSTGRES_DB: chatsystems
       POSTGRES_USER: chat

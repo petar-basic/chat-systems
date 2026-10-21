@@ -11,8 +11,9 @@ below it.
 
 **Every wave through 12 is done, bar the SFU in Wave 9.** Wave 12 was the un-ticketed
 architecture review of 2026-09 (written up in [history.md](../history.md)). The E2E suite is
-green — desktop and a phone viewport — and the `e2e` job blocks merges. Next ticket:
-[CS-047](CS-047-prove-it-at-import-scale.md), which measures what the last wave changed.
+green — desktop and a phone viewport — and the `e2e` job blocks merges. CS-047 measured the
+system at 500,000 messages and closed with Wave 12; what its numbers justified is Wave 13.
+Next ticket: [CS-048](CS-048-search-at-scale.md).
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
@@ -150,12 +151,22 @@ CS-041 guest directory · CS-042 guest DM scope · CS-043 announcement channels 
 revocation · CS-045 mention emails · CS-046 huddle consumers · CS-038 the responsive PWA.
 See [ROADMAP.md](../ROADMAP.md#wave-11--guest-containment-operational-readiness-and-mobile--shipped).
 
+### Wave 13 — What the scale measurement found
+
+CS-047 (shipped with Wave 12) loaded 500,000 messages and measured. History, unread
+counters, the importer, the backfill and a restore all held up once the restore was fixed;
+search did not.
+
+| # | Ticket | Area |
+|---|---|---|
+| [CS-048](CS-048-search-at-scale.md) | Search that holds up at 500,000 messages | backend |
+
 ### Still open
 
 | # | Ticket | Area | Why it is not done |
 |---|---|---|---|
 | [CS-037](CS-037-huddle-sfu.md) | SFU for large huddles | backend · frontend | LiveKit is infrastructure of its own; the mesh is right for everything under six people |
-| [CS-047](CS-047-prove-it-at-import-scale.md) | Prove it at import scale | backend · ops | Deferred out of Wave 11 on purpose: it measures what Wave 11 changed, so it runs after it |
+| [CS-048](CS-048-search-at-scale.md) | Search at 500k messages | backend | Next — opened by CS-047 with the numbers in it |
 
 ## Conflict map
 

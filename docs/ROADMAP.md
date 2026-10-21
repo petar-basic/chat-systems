@@ -9,7 +9,7 @@ ticket in [`docs/tickets/`](./tickets/INDEX.md); a ticket's file is deleted when
 
 | Ticket | What | Status |
 |---|---|---|
-| [CS-047](./tickets/CS-047-prove-it-at-import-scale.md) | Prove it at import scale: a 500k-message corpus, ranked-search pagination, the importer, the search backfill and a restore actually executed | **Next.** Cheap, and it finds the unknowns where a migration would otherwise find them |
+| [CS-048](./tickets/CS-048-search-at-scale.md) | Search that holds up at 500k messages: a stable plan, a capped candidate set, fuzzy matching only when exact matching runs short | **Next.** CS-047 measured 1.6 s for a common word and up to 13 s on a restored database |
 | [CS-037](./tickets/CS-037-huddle-sfu.md) | SFU (LiveKit) for huddles above the mesh's six-to-eight ceiling | On request. Adds a media server to the stack; nothing below a 20-person team needs it |
 
 Two decisions were considered on 2026-09-02 and deferred with their reasoning below:
@@ -52,7 +52,7 @@ was pencilled in for it was absorbed into 9 and 11.
 | [Wave 8 — Compliance](./history.md#wave-8--compliance) | CS-029 · CS-030 · CS-031 · CS-032 · CS-033 |
 | [Wave 9 — Product parity](./history.md#wave-9--product-parity) | CS-034 · CS-035 · CS-039 · CS-040 · CS-036 |
 | [Wave 11 — Guest containment, operational readiness and mobile](./history.md#wave-11--guest-containment-operational-readiness-and-mobile) | CS-041 · CS-042 · CS-043 · CS-044 · CS-045 · CS-046 · CS-038 |
-| [Wave 12 — Architecture follow-ups](./history.md#wave-12--architecture-follow-ups--shipped) | durable outbox · generated API and frame contract · sqlx macros · object_store / garde / askama · one message model · god-file splits |
+| [Wave 12 — Architecture follow-ups](./history.md#wave-12--architecture-follow-ups--shipped) | durable outbox · generated API and frame contract · sqlx macros · object_store / garde / askama · one message model · god-file splits · CS-047 |
 
 ---
 
