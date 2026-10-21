@@ -14,7 +14,20 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
-## [Unreleased]
+## [2.2.0] — 2026-10-21
+
+### Upgrading from 2.1.0
+
+- Nothing is required. Migration 48 adds the connected-app tables; Jira, GitHub and Google
+  Drive stay off until a workspace admin sets them up under *Apps* (RUNBOOK → *Connected
+  apps*). Public GitHub links get cards straight away.
+- Before setting an app up, check that `PUBLIC_URL` is the address people open the app at:
+  the callback URL each service is given is built from it.
+- App secrets and everyone's app tokens are encrypted with a key derived from `JWT_SECRET`.
+  Changing `JWT_SECRET` after apps are set up means setting them up again and everyone
+  reconnecting.
+- New optional settings `ATLASSIAN_*_URL`, `GITHUB_*_URL` and `GOOGLE_*_URL` exist only for an
+  egress proxy; leave them unset otherwise.
 
 ### Added
 
