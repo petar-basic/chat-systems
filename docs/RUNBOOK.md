@@ -92,6 +92,53 @@ choose to follow. The two things that actually bite people are skipping the off-
 target — the backup volumes sit on the same host as the live data — and never testing a
 restore until they need one.
 
+### Measured at 500,000 messages
+
+What a company arriving from Slack brings on day one, measured rather than reasoned about
+(`CS-047`, 2026-10-21). The corpus is synthetic and reproducible:
+`./generate-slack-export.py --out export.zip` writes a Slack export of 500,000 messages across
+180 public and 20 private channels, 30 DMs and 10 group DMs, 40 people, two years of history,
+27% of messages in threads, 283,000 reactions and 10,000 file references. It is imported with
+`chat-import --no-files`, then timed with `./measure-scale.py`. The host was Docker Desktop on
+a 10-core Mac with a 12 GB VM and Postgres at its defaults, so treat the numbers as a shape,
+not a promise.
+
+| Operation | Time |
+|---|---|
+| Generate the export (49 MB zip) | 22 s |
+| Import 500,000 messages into an idle instance | 6 min 50 s (~1,200 messages/s) |
+| Import 100,000 messages while the instance serves searches | 1 min 44 s |
+| Search vector backfill, 600,000 rows | 69 s, 24 s of it the deliberate pauses |
+| `pg_dump` + gzip + `gzip -t` (92 MB) | 15 s |
+| Restore that dump into an empty database | 18 s |
+
+Latency per request, one signed-in member of 66 channels, 20 runs each, warm cache; the
+last column is p95 while a second, 100,000-message import runs into another workspace:
+
+| Request | p50 | p95 | During an import |
+|---|---|---|---|
+| Channel history, newest page | 4–22 ms | 6–29 ms | 4 ms |
+| Channel history, page 100 | 3–17 ms | 5–20 ms | 4 ms |
+| Unread counters, channel list | 2–3 ms | 3–6 ms | 3 ms |
+| Search, a word in 21,000 messages | 21 ms | 24 ms | 44 ms |
+| Search, the same word, page 11 | 20 ms | 25 ms | 28 ms |
+| Search, a word in 370 messages | 6 ms | 7 ms | 14 ms |
+| Search, a substring | 137 ms | 158 ms | 165 ms |
+| Search, a word in 334,000 messages | 11 ms | 13 ms | 15 ms |
+
+History and the unread counters do not notice the size (the spread in the history rows is a
+cold versus a warm cache), and an import costs searches a few milliseconds while it runs,
+so it does not need a maintenance window.
+
+Search was the one thing that did not hold up — 1.6 s for a common word, and 2 to 13 s on a
+restored copy of the same data, because the planner's generic plan looped over every
+visible channel. CS-048 ranks only the newest 1,000 exact matches, reaches for fuzzy
+matches only when the exact ones run short, and plans every search for its actual term. The
+same numbers on a restored and analyzed database are within a few milliseconds of the
+table above. **On a database with no statistics at all** — straight after a restore,
+before `ANALYZE` or autovacuum has run — a common word still takes up to 3 s, which is why
+the restore below ends with `vacuumdb --analyze-only`.
+
 ## Upgrade note: Wave 1 expires every outstanding invite
 
 The `20240305000016_invite_lifecycle` migration backfills an expiry onto every invite that
@@ -441,6 +488,22 @@ Migrations 43–45 ship together. **Take a backup first** (see below): 45 is not
   `DATABASE_URL` pointing at a migrated database or the committed `.sqlx/` cache with
   `SQLX_OFFLINE=true`; the Docker build uses the cache.
 
+## Upgrade note: the scale pass makes backups restorable
+
+**Every dump taken before this upgrade restores incompletely.** The search functions called
+`unaccent` without a schema, and `pg_dump` restores with an empty `search_path`, so
+recreating `idx_messages_content_trgm` fails. Without `ON_ERROR_STOP` psql prints one
+error and carries on: the data is all there and every substring search is a sequential
+scan. Migration 46 qualifies the names, so dumps taken after the upgrade restore cleanly.
+**Take a fresh backup right after upgrading** rather than relying on an older one; if an
+older dump is all there is, restore it and then run the step in
+[Restore Postgres](#2-restore-postgres) for older dumps.
+
+`docker-compose.yml` now gives Postgres a 256 MB `shm_size`. Docker's default of 64 MB is
+too small for parallel queries and parallel vacuum on a table this size; they fail with
+`could not resize shared memory segment`. Recreate the container to pick it up:
+`docker compose up -d postgres`.
+
 ## Audit log
 
 `GET /api/workspaces/:ws_id/audit-log` (workspace admin) and `GET /api/admin/audit-log`
@@ -567,8 +630,11 @@ you find the accounts with no email address, the bots, and the replies whose par
 deleted in Slack years ago.
 
 Then the same command without `--dry-run`. It is safe to run twice — a second run finds what
-the first wrote and skips it — which is also what makes it safe to interrupt. A large import
-will take hours; running it under `tmux` or `nohup` costs nothing and saves the afternoon.
+the first wrote and skips it — which is also what makes it safe to interrupt. Without files,
+500,000 messages took under seven minutes ([measured](#measured-at-500000-messages)) and
+the instance stayed usable throughout; with files the time is Slack's download rate times
+the size of your attachments, which can be hours. Running it under `tmux` or `nohup` costs
+nothing either way.
 
 **Attachments and custom emoji need a token — put it in the environment, not the command.**
 `SLACK_TOKEN=xoxb-…` rather than `--slack-token xoxb-…`: an argument is visible in `ps` to
@@ -647,10 +713,26 @@ docker compose ... exec db-backup sh -c 'ls -1 /backups/chatsystems-*.sql.gz | t
 docker compose ... exec db-backup sh -c '
   gzip -t /backups/chatsystems-YYYYMMDD-HHMMSS.sql.gz &&
   gunzip -c /backups/chatsystems-YYYYMMDD-HHMMSS.sql.gz |
-  PGPASSWORD="$POSTGRES_PASSWORD" psql -h postgres -U chat -d chatsystems'
+  PGPASSWORD="$POSTGRES_PASSWORD" psql -h postgres -U chat -d chatsystems -v ON_ERROR_STOP=1 &&
+  PGPASSWORD="$POSTGRES_PASSWORD" vacuumdb -h postgres -U chat -d chatsystems --analyze-only'
 ```
 If restoring into a DB that already has schema, drop/recreate it first:
 `PGPASSWORD=… psql -h postgres -U chat -d postgres -c 'DROP DATABASE chatsystems; CREATE DATABASE chatsystems OWNER chat;'`
+
+`ON_ERROR_STOP` matters: without it psql prints an error and carries on, and a restore
+that skipped an index looks exactly like one that did not. `vacuumdb --analyze-only`
+gives the planner statistics straight away instead of whenever autovacuum gets there.
+At 500,000 messages the restore takes under 20 seconds.
+
+**A dump taken before migration 46** stops at `idx_messages_content_trgm` with
+`text search dictionary "unaccent" does not exist`. Drop and recreate the database, restore
+again without `-v ON_ERROR_STOP=1` (that one error is the only one), start the api so
+migration 46 runs, then build the index the restore skipped:
+```bash
+docker compose ... exec postgres psql -U chat -d chatsystems -c \
+  'CREATE INDEX IF NOT EXISTS idx_messages_content_trgm ON public.messages
+     USING gin (public.search_normalize(content) public.gin_trgm_ops)'
+```
 
 ### 3. Restore MinIO objects
 Mirror the backed-up bucket tree back into MinIO:
@@ -669,7 +751,10 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml \
 curl -fsS http://127.0.0.1:3000/readyz   # api  → "ready"
 curl -fsS http://127.0.0.1:3004/readyz   # realtime → "ready"
 ```
-Then log in and spot-check: a channel with history, an uploaded file opens, a new message broadcasts in real time.
+Then log in and spot-check: a channel with history, an uploaded file opens, a new message
+broadcasts in real time, and a search for a common word returns. Comparing
+`SELECT count(*) FROM messages` with the old host is the quickest proof the data is all
+there.
 
 ---
 

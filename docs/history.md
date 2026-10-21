@@ -918,4 +918,67 @@ Retention policies now reach direct messages.
 `auth/service.rs` split by concern, `ChannelSidebar.tsx` into eight components and
 `useWorkspaceController` into four hooks; one shared test `AppConfig` instead of three copies.
 
+### [CS-047] Prove it at import scale ✅ shipped
+The largest dataset the system had run against was about 2,200 messages. A generator now
+writes a synthetic Slack export of 500,000 messages (`generate-slack-export.py`, seeded, 22
+seconds), the real importer loads it, and `measure-scale.py` times search, history and the
+unread counters as a signed-in member. The numbers are in RUNBOOK; the ones that matter:
+
+- **The importer is not the bottleneck.** 500,000 messages in 6 min 50 s, and a second import
+  running alongside live searches costs them 15–25% and nothing else. No maintenance window.
+- **History and unread counters do not notice the size.** 20 ms and 3 ms.
+- **The backfill is fine** at 600,000 rows: 69 s, a third of it its own pauses.
+- **Search is not.** A common word takes 1.6 s, and on a restored copy of the same data the
+  planner chose a per-channel loop that took up to 13 s. That became CS-048 rather than a
+  speculative rewrite here.
+
+**The restore drill found that backups did not restore.** The search functions named
+`unaccent` without a schema; `pg_dump` restores with an empty `search_path`, so recreating the
+trigram index failed — and the documented command had no `ON_ERROR_STOP`, so it reported one
+error, kept going, and left every substring search as a sequential scan on a database whose
+row counts all matched. Migration 46 schema-qualifies the function bodies (not `SET
+search_path`, which would stop them inlining), the runbook restores with `ON_ERROR_STOP` and
+analyzes afterwards, and the upgrade note says what to do with a dump taken before the fix.
+After it: 600,000 messages dumped in 15 s and restored in 18 s, counts and indexes identical.
+
+**Docker's 64 MB `/dev/shm` was too small for Postgres.** A parallel `VACUUM` on the messages
+table failed with `could not resize shared memory segment`; parallel search scans draw on the
+same memory. Postgres now gets `shm_size: 256mb` in both compose files.
+
+---
+
+## Wave 13 — What the scale measurement found ✅ shipped
+
+### [CS-048] Search that holds up at 500,000 messages
+CS-047 measured search at 1.6 s for a common word and 2–13 s on a restored copy of the same
+data, with three causes visible in `EXPLAIN ANALYZE`. Each got its own change in
+`MessageRepo::search`:
+
+- **Every search is planned for its own term.** sqlx keeps the statement prepared, and after
+  five calls Postgres may switch to a generic plan that cannot see the term; on the restored
+  database that plan looped over all 195 visible channels and scanned both indexes for each.
+  The query now runs in a transaction that sets `plan_cache_mode = force_custom_plan` locally
+  — `set_config(…, true)` in a checked macro rather than `.persistent(false)`, which the
+  macros' return type does not offer.
+- **Only the newest 1,000 exact matches are ranked.** A word in 334,000 messages no longer
+  sorts all of them, spilling to disk, to return twenty. Chat search wants recent results,
+  and page 51 of a common word is not a request anyone makes.
+- **Fuzzy matching runs only when exact matching runs short.** The trigram branch was OR-ed
+  into every search, so a rare word paid for 43,000 trigram candidates after its 370 exact
+  hits had already filled the page. It now runs when the exact matches number fewer than
+  the page reaches, takes the newest 1,000 candidates, and ranks them below every exact
+  match, as before.
+
+| Search, p95 | Before | After |
+|---|---|---|
+| a word in 21,000 messages | 190 ms | 24 ms |
+| a word in 370 messages | 470 ms | 7 ms |
+| a substring | 480 ms | 158 ms |
+| a word in 334,000 messages | 1.7 s | 13 ms |
+| the same, on a restored and analyzed database | 2.0–13.2 s | 6–147 ms |
+
+What it does not fix: a database with **no statistics at all** still plans badly — up to 3 s
+for a common word in the minute between a restore and autovacuum's first `ANALYZE`. The
+restore procedure now ends with `vacuumdb --analyze-only`, which closes that window.
+
 ---

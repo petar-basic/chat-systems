@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:16-alpine
+    shm_size: 256mb
     restart: unless-stopped
     command: >
       postgres -c max_connections=40 -c shared_buffers=96MB
