@@ -324,7 +324,7 @@ mod tests {
         std::fs::remove_dir_all(&dir).ok();
     }
 
-    fn minio_config() -> AppConfig {
+    fn s3_config() -> AppConfig {
         let mut config = crate::http_tests::common::test_config();
         config.storage_backend = StorageBackend::S3;
         config.s3_endpoint =
@@ -338,9 +338,9 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore = "needs a MinIO on S3_ENDPOINT: docker compose up -d minio minio-init"]
+    #[ignore = "needs an S3 store on S3_ENDPOINT: docker compose --profile s3 up -d rustfs rustfs-init"]
     async fn s3_round_trip_including_a_multipart_object() {
-        let storage = FileStorage::from_config(&minio_config()).await.unwrap();
+        let storage = FileStorage::from_config(&s3_config()).await.unwrap();
         let key = format!("test/{}/big.bin", uuid::Uuid::new_v4());
         let chunk = Bytes::from(vec![9u8; 3 * 1024 * 1024]);
 

@@ -27,7 +27,7 @@ integration-test suite and a real CI pipeline.
 - **Keeping things** — saved items, channel bookmarks, message forwarding, and a status you set yourself
 - **Huddles** — WebRTC voice/video with screen sharing (mesh, small groups)
 - **Presence & typing** — live, multi-tab and multi-node aware
-- **File sharing** — uploads served through the authenticated API (local disk or S3/MinIO)
+- **File sharing** — uploads served through the authenticated API (local disk or S3, RustFS in the compose stack)
 - **Multi-workspace** — one instance, many teams; the client can connect to several instances
 - **Role-based access** — Instance Admin, Workspace Owner/Admin, Channel Admin, Member, Guest — guests see only the people they share a channel with
 - **Announcement channels** — read-only to everyone but moderators, while reactions keep working
@@ -82,7 +82,7 @@ process through Redis Streams consumer groups, each event to exactly one replica
 | **Edge (prod)**   | Caddy — automatic HTTPS + reverse proxy                          |
 | **Database**      | PostgreSQL 16                                                    |
 | **Bus**           | Redis 7 — streams with consumer groups, live pub/sub, presence, rate limits |
-| **Storage**       | Local disk, or MinIO / S3                                        |
+| **Storage**       | Local disk, or S3 (RustFS bundled)                               |
 
 ```
 HTTP request → chat-api → PostgreSQL write + outbox row → Redis stream + publish
