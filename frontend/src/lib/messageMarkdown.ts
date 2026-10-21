@@ -15,6 +15,7 @@ const ALLOWED_PROTOCOLS = new Set(['http:', 'https:', 'mailto:']);
  * serialisation — it never reaches storage in the first place.
  */
 const md = new MarkdownIt('zero', { html: false, linkify: true, breaks: false }).enable([
+  'autolink',
   'backticks',
   'blockquote',
   'emphasis',

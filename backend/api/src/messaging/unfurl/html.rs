@@ -43,6 +43,9 @@ pub fn parse(html: &str, page: &reqwest::Url, requested: &str) -> Option<Unfurl>
         .and_then(|image| page.join(image.trim()).ok())
         .filter(|image| matches!(image.scheme(), "http" | "https"))
         .map(|image| image.to_string());
+    if description.is_none() && image_url.is_none() {
+        return None;
+    }
 
     Some(Unfurl {
         url: requested.to_string(),
@@ -257,6 +260,12 @@ mod tests {
     }
 
     #[test]
+    fn nothing_for_a_bare_title() {
+        let html = "<head><title>Jira</title></head>";
+        assert!(parse(html, &page(), "x").is_none());
+    }
+
+    #[test]
     fn nothing_without_a_title() {
         assert!(parse("<html><head></head><body>hi</body></html>", &page(), "x").is_none());
     }
@@ -264,6 +273,7 @@ mod tests {
     #[test]
     fn ignores_non_http_images_and_metadata_lookalikes() {
         let html = r#"<head><metadata name="og:title"><meta data-name="x" property="og:title" content="Real">
+            <meta name="description" content="Something">
             <meta property="og:image" content="javascript:alert(1)"></head>"#;
         let unfurl = parse(html, &page(), "x").expect("unfurl");
         assert_eq!(unfurl.title, "Real");
@@ -273,7 +283,7 @@ mod tests {
     #[test]
     fn clips_long_titles() {
         let long = "word ".repeat(100);
-        let html = format!("<head><title>{long}</title></head>");
+        let html = format!("<head><title>{long}</title><meta name=description content=x></head>");
         let unfurl = parse(&html, &page(), "x").expect("unfurl");
         assert_eq!(unfurl.title.chars().count(), 200);
         assert!(unfurl.title.ends_with('…'));
