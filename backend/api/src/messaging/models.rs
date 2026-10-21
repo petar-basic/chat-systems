@@ -147,6 +147,41 @@ impl SearchScope {
 }
 
 #[derive(Debug, Deserialize, IntoParams)]
+pub struct UnreadsQuery {
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
+#[derive(Debug, Clone)]
+pub struct UnreadChannelRow {
+    pub channel_id: Uuid,
+    pub channel_name: Option<String>,
+    pub channel_type: crate::workspace::models::ChannelType,
+    pub muted: bool,
+    pub unread_count: i32,
+    pub mention_count: i32,
+    pub last_activity_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct UnreadGroup {
+    pub channel_id: Uuid,
+    pub channel_name: Option<String>,
+    pub channel_type: crate::workspace::models::ChannelType,
+    pub muted: bool,
+    pub unread_count: i32,
+    pub mention_count: i32,
+    pub last_activity_at: DateTime<Utc>,
+    pub messages: Vec<Message>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct UnreadsPage {
+    pub data: Vec<UnreadGroup>,
+    pub next_offset: Option<i64>,
+}
+
+#[derive(Debug, Deserialize, IntoParams)]
 pub struct ListMessagesQuery {
     pub limit: Option<i64>,
     pub cursor: Option<Uuid>,

@@ -77,6 +77,25 @@ export function useWorkspaceController() {
     panel,
   });
 
+  const unreadsWorkspaceId = workspaceId ?? currentWorkspace?.id;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.shiftKey && e.altKey && e.code === 'KeyA' && unreadsWorkspaceId) {
+        e.preventDefault();
+        setMobileNavOpen(false);
+        navigate(ROUTES.unreads(unreadsWorkspaceId));
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [navigate, unreadsWorkspaceId]);
+
+  const handleOpenUnreads = useCallback(() => {
+    if (!unreadsWorkspaceId) return;
+    setMobileNavOpen(false);
+    navigate(ROUTES.unreads(unreadsWorkspaceId));
+  }, [navigate, unreadsWorkspaceId]);
+
   const composer = useComposer({
     currentWorkspace,
     currentChannel,
@@ -214,6 +233,8 @@ export function useWorkspaceController() {
     mobileNavOpen,
     setMobileNavOpen,
     urlMessageId: routing.urlMessageId,
+    isUnreadsRoute: routing.isUnreadsRoute,
+    handleOpenUnreads,
     panel,
     handleTargetMessageFound: routing.handleTargetMessageFound,
     handleSelectWorkspace,

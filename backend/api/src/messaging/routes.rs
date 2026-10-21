@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use axum::extract::{Path, Query, State};
@@ -17,12 +18,15 @@ use crate::pagination::PageQuery;
 use crate::state::AppState;
 use crate::workspace::models::WorkspaceRole;
 
+const UNREADS_PER_CHANNEL: i64 = 20;
+
 pub fn router() -> OpenApiRouter<Arc<AppState>> {
     OpenApiRouter::new()
         .routes(routes!(list_messages, send_message))
         .routes(routes!(list_pins))
         .routes(routes!(mark_read))
         .routes(routes!(mark_unread))
+        .routes(routes!(list_unreads))
         .routes(routes!(update_message, delete_message))
         .routes(routes!(hide_unfurls))
         .routes(routes!(message_history))
@@ -619,6 +623,57 @@ async fn mark_read(
         tracing::warn!(channel_id = %ch_id, "failed to announce the read position: {e}");
     }
     Ok(Json(StatusResponse { status: "read" }))
+}
+
+#[utoipa::path(
+    get, path = "/workspaces/{ws_id}/unreads", tag = "messages",
+    params(UnreadsQuery),
+    responses((status = 200, body = UnreadsPage)))]
+async fn list_unreads(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(ws_id): Path<Uuid>,
+    Query(params): Query<UnreadsQuery>,
+) -> AppResult<Json<UnreadsPage>> {
+    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
+    let limit = params.limit.unwrap_or(20).clamp(1, 50);
+    let offset = params.offset.unwrap_or(0).max(0);
+
+    let mut channels = state
+        .message_repo
+        .list_unread_channels(ws_id, auth.user_id, limit + 1, offset)
+        .await?;
+    let next_offset = (channels.len() as i64 > limit).then_some(offset + limit);
+    channels.truncate(limit as usize);
+
+    let ids: Vec<Uuid> = channels.iter().map(|c| c.channel_id).collect();
+    let mut by_channel: HashMap<Uuid, Vec<Message>> = HashMap::new();
+    for message in state
+        .message_repo
+        .newest_unread_messages(&ids, auth.user_id, UNREADS_PER_CHANNEL)
+        .await?
+    {
+        by_channel
+            .entry(message.channel_id)
+            .or_default()
+            .push(message);
+    }
+
+    let data = channels
+        .into_iter()
+        .map(|c| UnreadGroup {
+            messages: by_channel.remove(&c.channel_id).unwrap_or_default(),
+            channel_id: c.channel_id,
+            channel_name: c.channel_name,
+            channel_type: c.channel_type,
+            muted: c.muted,
+            unread_count: c.unread_count,
+            mention_count: c.mention_count,
+            last_activity_at: c.last_activity_at,
+        })
+        .collect();
+
+    Ok(Json(UnreadsPage { data, next_offset }))
 }
 
 #[utoipa::path(

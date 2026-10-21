@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { useNavigate, useParams, useSearchParams } from 'react-router';
+import { useMatch, useNavigate, useParams, useSearchParams } from 'react-router';
+import { ROUTE_PATTERNS } from '@/shared/constants';
 import { useWorkspaceStore, type Message, type Workspace, type Channel } from '@/stores/workspace';
 import type { useRightPanel } from './useRightPanel';
 
@@ -32,6 +33,7 @@ export function useWorkspaceRouting({
     conversationId: routeConversationId,
   } = useParams<{ workspaceId?: string; channelId?: string; messageId?: string; conversationId?: string }>();
   const [searchParams] = useSearchParams();
+  const isUnreadsRoute = useMatch(ROUTE_PATTERNS.unreads) !== null;
   const {
     currentWorkspace,
     currentChannel,
@@ -79,6 +81,10 @@ export function useWorkspaceRouting({
   }, [workspaces, deletedWorkspaces, workspaceId, currentWorkspace, selectWorkspace, navigate]);
 
   useEffect(() => {
+    if (isUnreadsRoute) {
+      if (currentChannel?.id || currentConversationId) selectConversation(null);
+      return;
+    }
     if (!activeWorkspaceId || channels.length === 0) return;
     if (routeConversationId) return;
     if (urlChannelId) {
@@ -95,6 +101,9 @@ export function useWorkspaceRouting({
       navigate(`/app/${activeWorkspaceId}/${general.id}`, { replace: true });
     }
   }, [
+    isUnreadsRoute,
+    currentConversationId,
+    selectConversation,
     routeConversationId,
     urlChannelId,
     channels,
@@ -135,5 +144,5 @@ export function useWorkspaceRouting({
     [searchParams, panel],
   );
 
-  return { urlMessageId, handleTargetMessageFound };
+  return { urlMessageId, handleTargetMessageFound, isUnreadsRoute };
 }

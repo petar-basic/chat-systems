@@ -1,0 +1,115 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT c.id AS channel_id, c.name AS channel_name,\n                   c.channel_type AS \"channel_type: crate::workspace::models::ChannelType\",\n                   cm.muted AS \"muted!\", cm.unread_count, cm.mention_count,\n                   latest.created_at AS \"last_activity_at!\"\n              FROM channel_members cm\n              JOIN channels c ON c.id = cm.channel_id\n              CROSS JOIN LATERAL (\n                  SELECT m.created_at FROM messages m\n                   WHERE m.channel_id = c.id AND m.deleted_at IS NULL\n                   ORDER BY m.created_at DESC\n                   LIMIT 1\n              ) latest\n             WHERE c.workspace_id = $1\n               AND cm.user_id = $2\n               AND cm.unread_count > 0\n               AND c.is_archived = false\n             ORDER BY cm.muted, latest.created_at DESC, c.id\n             LIMIT $3 OFFSET $4\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "channel_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "channels",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "channel_name",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "channels",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "channel_type: crate::workspace::models::ChannelType",
+        "type_info": {
+          "Custom": {
+            "name": "channel_type",
+            "kind": {
+              "Enum": [
+                "public",
+                "private",
+                "dm",
+                "group_dm"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "channels",
+            "name": "channel_type"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "muted!",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "channel_members",
+            "name": "muted"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "unread_count",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "channel_members",
+            "name": "unread_count"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "mention_count",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "channel_members",
+            "name": "mention_count"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "last_activity_at!",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "fc03387653dd21721795bbaf3fbe10072a2ac8d3d58d73979c7470ff10b235ed"
+}

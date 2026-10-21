@@ -115,6 +115,8 @@ def main():
     scenarios["unread: notification count"] = result
     result, _ = timed(client, runs, f"/workspaces/{ws}/channels")
     scenarios["sidebar: channel list"] = result
+    result, payload = timed(client, runs, f"/workspaces/{ws}/unreads", limit=20)
+    scenarios["all unreads: first page"] = {**result, "rows": len(rows(payload))}
 
     width = max(len(label) for label in scenarios)
     print(f"{'scenario'.ljust(width)}  {'p50 ms':>8}  {'p95 ms':>8}  {'max ms':>8}  rows")

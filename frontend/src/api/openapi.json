@@ -4847,6 +4847,60 @@
           }
         }
       }
+    },
+    "/workspaces/{ws_id}/unreads": {
+      "get": {
+        "tags": [
+          "messages"
+        ],
+        "operationId": "list_unreads",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64"
+            }
+          },
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnreadsPage"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -9258,6 +9312,75 @@
         "properties": {
           "unread_count": {
             "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "UnreadGroup": {
+        "type": "object",
+        "required": [
+          "channel_id",
+          "channel_type",
+          "muted",
+          "unread_count",
+          "mention_count",
+          "last_activity_at",
+          "messages"
+        ],
+        "properties": {
+          "channel_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "channel_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "channel_type": {
+            "$ref": "#/components/schemas/ChannelType"
+          },
+          "last_activity_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "mention_count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Message"
+            }
+          },
+          "muted": {
+            "type": "boolean"
+          },
+          "unread_count": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "UnreadsPage": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UnreadGroup"
+            }
+          },
+          "next_offset": {
+            "type": [
+              "integer",
+              "null"
+            ],
             "format": "int64"
           }
         }

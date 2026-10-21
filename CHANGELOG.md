@@ -21,6 +21,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - **Link previews.** Links in a message get a card with the page's title, description, site
   and image, fetched by the worker. The author can remove a message's previews; a workspace
   admin can turn them off in workspace settings.
+- **All unreads**: every channel and DM with new messages on one page, muted ones last, each
+  with its newest messages and a *Mark as read* button. In the sidebar and on Shift+Alt+A;
+  Esc marks the focused channel read.
 - **Mark as unread** from a message's menu, or Alt+click. The channel's badge comes back with
   the right count and stays until you read past that message again.
 
@@ -28,9 +31,6 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 - Reading or marking a channel unread updates its badge on your other tabs and devices
   straight away; before, they caught up on the next reload.
-
-### Changed
-
 - **RustFS replaces MinIO** for file storage on the `s3` profile, and `rclone` replaces `mc`.
   MinIO's images can no longer be pulled. Existing uploads have to be copied once with
   `docker/migrate-minio-to-rustfs.sh`; see the RustFS upgrade note in RUNBOOK.

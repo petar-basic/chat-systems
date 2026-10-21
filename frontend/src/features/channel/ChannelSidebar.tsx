@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { CreateChannelDraft } from '@/models/channel';
 import { useNavigate } from 'react-router';
-import { Compass } from 'lucide-react';
+import { Compass, Inbox } from 'lucide-react';
 import type { Channel, Workspace, WorkspaceMember } from '@/stores/workspace';
 import type { Conversation } from '@/hooks/queries/useConversations';
 import { useCurrentWorkspaceRole } from '@/features/workspace/hooks/useCurrentWorkspaceRole';
@@ -50,6 +50,8 @@ interface Props {
   onOpenReminders: () => void;
   onOpenProfile: () => void;
   onOpenNotifications: () => void;
+  onOpenUnreads: () => void;
+  unreadsActive: boolean;
   onLogout: () => void;
 }
 
@@ -85,6 +87,8 @@ export default function ChannelSidebar({
   onOpenReminders,
   onOpenProfile,
   onOpenNotifications,
+  onOpenUnreads,
+  unreadsActive,
   onLogout,
 }: Props) {
   const { data: unreadNotifCount = 0 } = useUnreadNotificationCount(currentWorkspace?.id ?? null);
@@ -98,6 +102,9 @@ export default function ChannelSidebar({
 
   const { collapsed, toggleSection } = useCollapsedSections();
   const [showNewChannel, setShowNewChannel] = useState(false);
+  const totalUnread =
+    channels.reduce((sum, ch) => sum + (mutedChannels.has(ch.id) ? 0 : (unreadCounts[ch.id] ?? 0)), 0) +
+    unreadConversations.size;
   const [showDmPicker, setShowDmPicker] = useState(false);
   const [showBrowseChannels, setShowBrowseChannels] = useState(false);
 
@@ -126,6 +133,24 @@ export default function ChannelSidebar({
         />
 
         <div className="flex-1 overflow-y-auto py-2">
+          <button
+            type="button"
+            onClick={onOpenUnreads}
+            aria-current={unreadsActive ? 'page' : undefined}
+            title="All unreads (Shift+Alt+A)"
+            data-qa="all-unreads-open"
+            className={`w-full px-3 py-1.5 mb-2 flex items-center gap-2 text-sm transition cursor-pointer ${
+              unreadsActive ? 'bg-purple-600/20 text-fg' : 'text-fg-dim hover:bg-raised/30 hover:text-fg-soft'
+            } ${totalUnread > 0 ? 'font-semibold' : ''}`}
+          >
+            <Inbox className="w-4 h-4 shrink-0" />
+            <span className="truncate">All unreads</span>
+            {totalUnread > 0 && (
+              <span className="ml-auto text-xs px-1.5 rounded-full bg-raised text-fg-soft">
+                {totalUnread > 99 ? '99+' : totalUnread}
+              </span>
+            )}
+          </button>
           <SidebarSectionHeader
             section="channels"
             label="Channels"

@@ -120,6 +120,7 @@ last column is p95 while a second, 100,000-message import runs into another work
 | Channel history, newest page | 4–22 ms | 6–29 ms | 4 ms |
 | Channel history, page 100 | 3–17 ms | 5–20 ms | 4 ms |
 | Unread counters, channel list | 2–3 ms | 3–6 ms | 3 ms |
+| All unreads, first 20 of ~200 unread channels | 6 ms | 8 ms | — |
 | Search, a word in 21,000 messages | 21 ms | 24 ms | 44 ms |
 | Search, the same word, page 11 | 20 ms | 25 ms | 28 ms |
 | Search, a word in 370 messages | 6 ms | 7 ms | 14 ms |

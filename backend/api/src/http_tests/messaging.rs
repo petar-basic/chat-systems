@@ -977,6 +977,151 @@ async fn mark_unread_no_token_unauthorized(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
+async fn join_channel(state: &crate::state::AppState, ch_id: uuid::Uuid, user_id: uuid::Uuid) {
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(ch_id, user_id, &ChannelRole::Member)
+        .await
+        .expect("add channel member");
+}
+
+async fn unreads(
+    app: &axum::Router,
+    token: &str,
+    ws_id: uuid::Uuid,
+    query: &str,
+) -> serde_json::Value {
+    let (status, body) = send(
+        app,
+        "GET",
+        &format!("/api/workspaces/{ws_id}/unreads{query}"),
+        Some(token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    body
+}
+
+fn group_ids(body: &serde_json::Value) -> Vec<String> {
+    body["data"]
+        .as_array()
+        .expect("data")
+        .iter()
+        .map(|g| g["channel_id"].as_str().expect("channel id").to_string())
+        .collect()
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn unreads_group_by_channel_newest_first_and_muted_last(pool: PgPool) {
+    let (app, state, owner, token, ws_id, _ch) = setup_channel(pool).await;
+    let (colleague, _email, colleague_token) =
+        seed_and_login(&app, &state, "colleague", false).await;
+    add_ws_member(&state, ws_id, colleague, "member").await;
+    let mut channels = Vec::new();
+    for name in ["alpha", "beta", "gamma", "delta"] {
+        let ch = seed_channel(&state, ws_id, owner, name, false).await;
+        join_channel(&state, ch, colleague).await;
+        channels.push(ch);
+    }
+    let (alpha, beta, gamma, delta) = (channels[0], channels[1], channels[2], channels[3]);
+
+    create_message(&app, &colleague_token, alpha, "a1").await;
+    create_message(&app, &colleague_token, beta, "b1").await;
+    create_message(&app, &colleague_token, beta, "b2").await;
+    create_message(&app, &token, beta, "mine").await;
+    let read = create_message(&app, &colleague_token, delta, "d1").await;
+    create_message(&app, &colleague_token, gamma, "c1").await;
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{delta}/read"),
+        Some(&token),
+        Some(json!({ "message_id": read })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    sqlx::query("UPDATE channel_members SET muted = true WHERE channel_id = $1 AND user_id = $2")
+        .bind(beta)
+        .bind(owner)
+        .execute(&state.pool)
+        .await
+        .expect("mute");
+
+    let body = unreads(&app, &token, ws_id, "").await;
+    assert_eq!(
+        group_ids(&body),
+        vec![gamma.to_string(), alpha.to_string(), beta.to_string()],
+        "newest activity first, muted last, read channels absent: {body:?}"
+    );
+    let beta_group = &body["data"][2];
+    assert_eq!(beta_group["muted"], json!(true));
+    assert_eq!(beta_group["unread_count"], json!(2));
+    let contents: Vec<&str> = beta_group["messages"]
+        .as_array()
+        .expect("messages")
+        .iter()
+        .map(|m| m["content"].as_str().expect("content"))
+        .collect();
+    assert_eq!(
+        contents,
+        vec!["b1", "b2"],
+        "oldest first, the reader's own message left out"
+    );
+    assert_eq!(body["next_offset"], json!(null));
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn unreads_page_by_channel(pool: PgPool) {
+    let (app, state, owner, token, ws_id, _ch) = setup_channel(pool).await;
+    let (colleague, _email, colleague_token) =
+        seed_and_login(&app, &state, "colleague", false).await;
+    add_ws_member(&state, ws_id, colleague, "member").await;
+    for name in ["one", "two", "three"] {
+        let ch = seed_channel(&state, ws_id, owner, name, false).await;
+        join_channel(&state, ch, colleague).await;
+        create_message(&app, &colleague_token, ch, name).await;
+    }
+
+    let first = unreads(&app, &token, ws_id, "?limit=2").await;
+    assert_eq!(group_ids(&first).len(), 2);
+    assert_eq!(first["next_offset"], json!(2));
+    let second = unreads(&app, &token, ws_id, "?limit=2&offset=2").await;
+    assert_eq!(group_ids(&second).len(), 1);
+    assert_eq!(second["next_offset"], json!(null));
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn unreads_hold_a_guest_to_their_channels(pool: PgPool) {
+    let (app, state, owner, token, ws_id, _ch) = setup_channel(pool).await;
+    let (guest, _email, guest_token) = seed_and_login(&app, &state, "guest", false).await;
+    add_ws_member(&state, ws_id, guest, "guest").await;
+    let shared = seed_channel(&state, ws_id, owner, "shared", false).await;
+    let other = seed_channel(&state, ws_id, owner, "other", false).await;
+    join_channel(&state, shared, guest).await;
+    create_message(&app, &token, shared, "for the guest").await;
+    create_message(&app, &token, other, "not for the guest").await;
+
+    let body = unreads(&app, &guest_token, ws_id, "").await;
+    assert_eq!(group_ids(&body), vec![shared.to_string()], "{body:?}");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn unreads_outsider_forbidden(pool: PgPool) {
+    let (app, state, _owner, _token, ws_id, _ch) = setup_channel(pool).await;
+    let (_outsider, _email, outsider_token) = seed_and_login(&app, &state, "outsider", false).await;
+    let (status, _) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws_id}/unreads"),
+        Some(&outsider_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+}
+
 async fn mark_online(state: &crate::state::AppState, ws_id: uuid::Uuid, user_id: uuid::Uuid) {
     let mut conn = state.redis.clone();
     let expires_at = std::time::SystemTime::now()
