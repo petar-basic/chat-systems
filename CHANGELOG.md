@@ -14,7 +14,7 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
-## [2.0.0] — unreleased
+## [2.0.0] — 2026-10-21
 
 Everything since 1.0.0: thirteen waves of security, compliance, reliability and product work,
 and the first release measured at 500,000 messages.
