@@ -962,6 +962,53 @@ async fn an_exact_match_outranks_a_fuzzy_one(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn exact_matches_that_fill_the_page_leave_no_room_for_fuzzy_ones(pool: PgPool) {
+    let (app, _state, _owner, token, ws_id, ch_id) = setup_channel(pool).await;
+    create_message(&app, &token, ch_id, "something about deploymen and more").await;
+    let first = create_message(&app, &token, ch_id, "deployment one").await;
+    let second = create_message(&app, &token, ch_id, "deployment two").await;
+
+    let (status, body) = send(
+        &app,
+        "GET",
+        &format!("/api/search?q=deployment&workspace_id={ws_id}&limit=2"),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    let mut ids: Vec<String> = body["data"]
+        .as_array()
+        .expect("data array")
+        .iter()
+        .map(|hit| hit["id"].as_str().expect("id").to_string())
+        .collect();
+    ids.sort();
+    let mut expected = vec![first.to_string(), second.to_string()];
+    expected.sort();
+    assert_eq!(ids, expected, "a full page of exact matches: {body:?}");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_term_with_no_exact_match_still_finds_its_fuzzy_one(pool: PgPool) {
+    let (app, _state, _owner, token, ws_id, ch_id) = setup_channel(pool).await;
+    let message = create_message(&app, &token, ch_id, "the deployment pipeline is green").await;
+
+    let (status, body) = send(
+        &app,
+        "GET",
+        &format!("/api/search?q=deploymen&workspace_id={ws_id}"),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    let hits = body["data"].as_array().expect("data array");
+    assert_eq!(hits.len(), 1, "{body:?}");
+    assert_eq!(hits[0]["id"].as_str().expect("id"), message.to_string());
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_dm_is_searchable_by_its_participants_and_nobody_else(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "dm-owner", false).await;

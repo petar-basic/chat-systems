@@ -549,40 +549,67 @@ impl MessageRepo {
     }
 
     pub async fn search(&self, params: MessageSearch<'_>) -> sqlx::Result<Vec<Message>> {
-        sqlx::query_as!(
+        let mut tx = self.pool.begin().await?;
+        sqlx::query_scalar!(
+            r#"SELECT set_config('plan_cache_mode', 'force_custom_plan', true) AS "mode!""#
+        )
+        .fetch_one(&mut *tx)
+        .await?;
+        let messages = sqlx::query_as!(
             Message,
             r#"
-            SELECT m.id, m.channel_id, m.user_id, m.client_message_id, m.content, m.metadata AS "metadata!", m.thread_parent_id, m.reply_count AS "reply_count!", m.is_pinned AS "is_pinned!", m.created_at, m.updated_at, m.deleted_at FROM messages m
-            JOIN channels c ON c.id = m.channel_id
-            WHERE (
-                m.search_vector @@ plainto_tsquery(search_text_config(), search_normalize($1))
-                OR search_normalize($1) <% search_normalize(m.content)
-              )
-              AND c.workspace_id = $2
-              AND m.deleted_at IS NULL
-              AND (
-                EXISTS (
-                  SELECT 1 FROM channel_members cm
-                  WHERE cm.channel_id = c.id AND cm.user_id = $3
+            WITH visible AS MATERIALIZED (
+              SELECT c.id FROM channels c
+              WHERE c.workspace_id = $2
+                AND ($4::uuid IS NULL OR c.id = $4)
+                AND (
+                  EXISTS (
+                    SELECT 1 FROM channel_members cm
+                    WHERE cm.channel_id = c.id AND cm.user_id = $3
+                  )
+                  -- Guests are held to explicit membership everywhere else
+                  -- (`authz::require_channel_access`); search must not be the one
+                  -- door that opens every public channel to them.
+                  OR (NOT $8::bool AND c.channel_type = 'public')
                 )
-                -- Guests are held to explicit membership everywhere else
-                -- (`authz::require_channel_access`); search must not be the one
-                -- door that opens every public channel to them.
-                OR (NOT $8::bool AND c.channel_type = 'public')
-              )
-              AND ($4::uuid IS NULL OR m.channel_id = $4)
-              AND ($5::uuid IS NULL OR m.user_id = $5)
-              AND CASE WHEN c.channel_type IN ('dm', 'group_dm') THEN $9::bool ELSE $10::bool END
-            -- Both signals, not one: the vector answers what was asked for and
-            -- the trigram answers what was meant. `<%` rather than `%` because
-            -- the query is a fragment and the message is a sentence -- whole
-            -- string similarity between the two is near zero however good the
-            -- match is. Ranking keeps every fuzzy hit below every exact one
-            -- instead of interleaving them by score.
-            ORDER BY
-              ts_rank(m.search_vector, plainto_tsquery(search_text_config(), search_normalize($1))) DESC,
-              word_similarity(search_normalize($1), search_normalize(m.content)) DESC,
-              m.created_at DESC
+                AND CASE WHEN c.channel_type IN ('dm', 'group_dm') THEN $9::bool ELSE $10::bool END
+            ),
+            exact AS MATERIALIZED (
+              SELECT m.id, m.created_at,
+                     ts_rank(m.search_vector, plainto_tsquery(search_text_config(), search_normalize($1))) AS rank
+              FROM messages m
+              WHERE m.search_vector @@ plainto_tsquery(search_text_config(), search_normalize($1))
+                AND m.deleted_at IS NULL
+                AND m.channel_id IN (SELECT id FROM visible)
+                AND ($5::uuid IS NULL OR m.user_id = $5)
+              ORDER BY m.created_at DESC
+              LIMIT 1000
+            ),
+            fuzzy AS MATERIALIZED (
+              SELECT recent.id, recent.created_at,
+                     word_similarity(search_normalize($1), search_normalize(recent.content)) AS similarity
+              FROM (
+                SELECT m.id, m.created_at, m.content
+                FROM messages m
+                WHERE (SELECT count(*) FROM exact) < $6::bigint + $7::bigint
+                  AND search_normalize($1) <% search_normalize(m.content)
+                  AND (m.search_vector @@ plainto_tsquery(search_text_config(), search_normalize($1))) IS NOT TRUE
+                  AND m.deleted_at IS NULL
+                  AND m.channel_id IN (SELECT id FROM visible)
+                  AND ($5::uuid IS NULL OR m.user_id = $5)
+                ORDER BY m.created_at DESC
+                LIMIT 1000
+              ) recent
+            ),
+            ranked AS (
+              SELECT id, created_at, 0 AS tier, rank, 0::real AS similarity FROM exact
+              UNION ALL
+              SELECT id, created_at, 1, 0::real, similarity FROM fuzzy
+            )
+            SELECT m.id, m.channel_id, m.user_id, m.client_message_id, m.content, m.metadata AS "metadata!", m.thread_parent_id, m.reply_count AS "reply_count!", m.is_pinned AS "is_pinned!", m.created_at, m.updated_at, m.deleted_at
+            FROM ranked r
+            JOIN messages m ON m.id = r.id
+            ORDER BY r.tier, r.rank DESC, r.similarity DESC, r.created_at DESC
             LIMIT $6 OFFSET $7
             "#,
             params.query,
@@ -596,8 +623,10 @@ impl MessageRepo {
             params.scope.includes_conversations(),
             params.scope.includes_channels()
         )
-        .fetch_all(&self.pool)
-        .await
+        .fetch_all(&mut *tx)
+        .await?;
+        tx.commit().await?;
+        Ok(messages)
     }
 
     pub async fn list_channel_member_ids(&self, channel_id: Uuid) -> sqlx::Result<Vec<Uuid>> {
