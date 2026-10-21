@@ -100,6 +100,17 @@ ADMIN_PASSWORD=... ./seed.sh  # optional: a demo workspace + users
 
 Open **http://localhost:8080** and log in with your `ADMIN_EMAIL` / `ADMIN_PASSWORD`.
 
+To run a published release instead of compiling, add to `.env`:
+
+```bash
+BACKEND_IMAGE=ghcr.io/petar-basic/chat-systems-backend
+FRONTEND_IMAGE=ghcr.io/petar-basic/chat-systems-frontend
+VERSION=2.0.0
+```
+
+then `docker compose --profile frontend pull` and `up -d` without `--build`. What each
+release changed is in **[CHANGELOG.md](CHANGELOG.md)**.
+
 Full setup — local development, production deployment with HTTPS and backups, and
 the contribution workflow — lives in **[docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)**.
 

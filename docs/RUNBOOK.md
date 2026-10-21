@@ -676,17 +676,29 @@ Then log in and spot-check: a channel with history, an uploaded file opens, a ne
 ## Upgrade
 
 The API runs `sqlx` migrations forward on startup; they are **forward-only**.
-Always snapshot before upgrading so a bad migration is recoverable.
+Always snapshot before upgrading so a bad migration is recoverable, and read the release's
+entry in [CHANGELOG.md](../CHANGELOG.md) and any upgrade note above that it points to.
 
 ```bash
-# 1. Snapshot first (on-demand dump, independent of the timer)
+# 1. Snapshot first (on-demand dump, independent of the timer). Dump to a file and
+#    test it: `pg_dump | gzip` reports success even when pg_dump dies halfway.
 docker compose ... exec db-backup sh -c '
-  PGPASSWORD="$POSTGRES_PASSWORD" pg_dump -h postgres -U chat -d chatsystems |
-  gzip > /backups/pre-upgrade-$(date +%Y%m%d-%H%M%S).sql.gz'
+  f=/backups/pre-upgrade-$(date +%Y%m%d-%H%M%S).sql &&
+  PGPASSWORD="$POSTGRES_PASSWORD" pg_dump -h postgres -U chat -d chatsystems > "$f" &&
+  gzip "$f" && gzip -t "$f.gz" && ls -lh "$f.gz"'
 
-# 2. Pull the new code and rebuild tagged images
-git pull
-VERSION=$(git rev-parse --short HEAD) docker compose \
+# 2a. Release images (recommended): set in .env
+#       BACKEND_IMAGE=ghcr.io/petar-basic/chat-systems-backend
+#       FRONTEND_IMAGE=ghcr.io/petar-basic/chat-systems-frontend
+#       VERSION=2.0.0
+docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+  --profile frontend --profile s3 pull api worker realtime frontend
+docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+  --profile frontend --profile s3 up -d
+
+# 2b. Or build from source at a release tag
+git fetch --tags && git checkout v2.0.0
+VERSION=2.0.0 docker compose \
   -f docker-compose.yml -f docker-compose.prod.yml --profile frontend --profile s3 \
   up -d --build
 
@@ -694,15 +706,17 @@ VERSION=$(git rev-parse --short HEAD) docker compose \
 curl -fsS http://127.0.0.1:3000/readyz && curl -fsS http://127.0.0.1:3004/readyz
 ```
 
-`VERSION` tags the `chat-api` / `chat-realtime` / `chat-frontend` images (default
-`latest`). Use the git short SHA (or a release tag) so the previous image stays
-addressable for rollback.
+Release images are built by CI from the tagged commit, so the host only pulls — nothing
+compiles on a 2-core box. Each release is published as `X.Y.Z`, `X.Y` and `latest`; pin
+`VERSION` to `X.Y.Z` so the previous release stays addressable for rollback. Building from
+source tags the local `chat-api` / `chat-worker` / `chat-realtime` / `chat-frontend` images
+with `VERSION` instead.
 
 ## Rollback
 
 ```bash
 # Code-only regression (migrations unchanged): just re-point to the old images
-VERSION=<previous-sha> docker compose \
+VERSION=<previous-version> docker compose \
   -f docker-compose.yml -f docker-compose.prod.yml --profile frontend --profile s3 up -d
 
 # Bad migration: restore the pre-upgrade dump (see "Restore" above) onto the
