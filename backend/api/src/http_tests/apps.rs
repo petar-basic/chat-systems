@@ -650,3 +650,212 @@ async fn a_pull_request_link_to_an_issue_gets_the_issue_card(pool: PgPool) {
         _ => panic!("GitHub serves /pull/N for issues too, and so do we"),
     }
 }
+
+async fn fake_google() -> String {
+    async fn token(
+        axum::Form(form): axum::Form<std::collections::HashMap<String, String>>,
+    ) -> (StatusCode, Json<Value>) {
+        let get = |k: &str| form.get(k).map(String::as_str);
+        match get("grant_type") {
+            Some("authorization_code")
+                if get("code") == Some("good-code")
+                    && get("code_verifier").is_some_and(|v| v.len() >= 43) =>
+            {
+                (
+                    StatusCode::OK,
+                    Json(
+                        json!({ "access_token": "g-1", "refresh_token": "gr-1", "expires_in": 3599 }),
+                    ),
+                )
+            }
+            Some("refresh_token") if get("refresh_token") == Some("gr-1") => (
+                StatusCode::OK,
+                Json(json!({ "access_token": "g-2", "expires_in": 3599 })),
+            ),
+            _ => (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "error": "invalid_grant" })),
+            ),
+        }
+    }
+    fn authorized(headers: &HeaderMap) -> bool {
+        headers
+            .get("authorization")
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|v| v == "Bearer g-1" || v == "Bearer g-2")
+    }
+    async fn about(headers: HeaderMap) -> (StatusCode, Json<Value>) {
+        if !authorized(&headers) {
+            return (StatusCode::UNAUTHORIZED, Json(json!({})));
+        }
+        (
+            StatusCode::OK,
+            Json(json!({ "user": { "displayName": "Ana", "emailAddress": "ana@acme.test" } })),
+        )
+    }
+    async fn file(Path(id): Path<String>, headers: HeaderMap) -> (StatusCode, Json<Value>) {
+        if !authorized(&headers) {
+            return (StatusCode::UNAUTHORIZED, Json(json!({})));
+        }
+        if id != "1AbCdEfGhIjKlMnOp" {
+            return (StatusCode::NOT_FOUND, Json(json!({})));
+        }
+        (
+            StatusCode::OK,
+            Json(json!({
+                "name": "Q4 plan",
+                "mimeType": "application/vnd.google-apps.document",
+                "owners": [{ "displayName": "Ana" }],
+                "modifiedTime": "2026-10-21T09:30:00Z"
+            })),
+        )
+    }
+    let router = Router::new()
+        .route("/token", post(token))
+        .route("/drive/v3/about", get(about))
+        .route("/drive/v3/files/{id}", get(file));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind");
+    let addr = listener.local_addr().expect("addr");
+    tokio::spawn(async move {
+        let _ = axum::serve(listener, router).await;
+    });
+    format!("http://{addr}")
+}
+
+const DOC: &str = "https://docs.google.com/document/d/1AbCdEfGhIjKlMnOp/edit";
+
+async fn google_connected(pool: PgPool) -> Setup {
+    let base = fake_google().await;
+    let config = crate::config::AppConfig {
+        google_accounts_url: base.clone(),
+        google_oauth_url: base.clone(),
+        google_api_url: base,
+        ..test_config()
+    };
+    let (app, state) = app_and_state_with(pool, config).await;
+    let (owner, _email, owner_token) = seed_and_login(&app, &state, "g-owner", false).await;
+    let ws_id = seed_workspace(&state, owner, &format!("ws-{}", uuid::Uuid::new_v4())).await;
+    let s = Setup {
+        app,
+        state,
+        owner,
+        owner_token,
+        ws_id,
+    };
+
+    assert!(matches!(
+        service::unfurl(&s.state, s.ws_id, s.owner, DOC)
+            .await
+            .expect("unfurl"),
+        AppUnfurl::Unclaimed
+    ));
+    let (status, body) = send(
+        &s.app,
+        "PUT",
+        &format!("/api/workspaces/{}/apps/google_drive", s.ws_id),
+        Some(&s.owner_token),
+        Some(json!({ "client_id": "g-client", "client_secret": "shh", "enabled": true })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert!(matches!(
+        service::unfurl(&s.state, s.ws_id, s.owner, DOC)
+            .await
+            .expect("unfurl"),
+        AppUnfurl::Connect(_)
+    ));
+
+    let (status, body) = send(
+        &s.app,
+        "POST",
+        &format!("/api/workspaces/{}/apps/google_drive/connect", s.ws_id),
+        Some(&s.owner_token),
+        Some(json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    let url = reqwest::Url::parse(body["authorize_url"].as_str().expect("url")).expect("parse");
+    assert!(url.path().ends_with("/o/oauth2/v2/auth"));
+    assert!(url
+        .query_pairs()
+        .any(|(k, v)| k == "access_type" && v == "offline"));
+    let oauth_state = url
+        .query_pairs()
+        .find(|(k, _)| k == "state")
+        .map(|(_, v)| v.into_owned())
+        .expect("state");
+    let (status, body) = send(
+        &s.app,
+        "POST",
+        "/api/apps/connections",
+        Some(&s.owner_token),
+        Some(json!({ "code": "good-code", "state": oauth_state })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(body["external_account"], json!("Ana (ana@acme.test)"));
+    s
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_google_doc_needs_setup_and_a_connection_then_gets_a_card(pool: PgPool) {
+    let s = google_connected(pool).await;
+    match service::unfurl(&s.state, s.ws_id, s.owner, DOC)
+        .await
+        .expect("unfurl")
+    {
+        AppUnfurl::Card(card) => {
+            assert_eq!(card.title, "Q4 plan");
+            assert_eq!(card.subtitle.as_deref(), Some("Google Doc"));
+        }
+        _ => panic!("the connected poster's doc is carded"),
+    }
+    assert!(matches!(
+        service::unfurl(
+            &s.state,
+            s.ws_id,
+            s.owner,
+            "https://docs.google.com/document/d/1ZzZzZzZzZzZzZzZz/edit"
+        )
+        .await
+        .expect("unfurl"),
+        AppUnfurl::Unclaimed
+    ));
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_expired_google_token_is_refreshed_and_the_refresh_token_kept(pool: PgPool) {
+    let s = google_connected(pool).await;
+    sqlx::query(
+        "UPDATE app_connections SET expires_at = NOW() - INTERVAL '1 hour' WHERE user_id = $1",
+    )
+    .bind(s.owner)
+    .execute(&s.state.pool)
+    .await
+    .expect("expire");
+
+    assert!(matches!(
+        service::unfurl(&s.state, s.ws_id, s.owner, DOC)
+            .await
+            .expect("unfurl"),
+        AppUnfurl::Card(_)
+    ));
+    let (expires_at, refresh): (Option<chrono::DateTime<chrono::Utc>>, Option<Vec<u8>>) =
+        sqlx::query_as(
+            "SELECT expires_at, refresh_token_encrypted FROM app_connections WHERE user_id = $1",
+        )
+        .bind(s.owner)
+        .fetch_one(&s.state.pool)
+        .await
+        .expect("connection");
+    assert!(
+        expires_at.is_some_and(|at| at > chrono::Utc::now()),
+        "a fresh expiry was stored"
+    );
+    assert!(
+        refresh.is_some(),
+        "Google sends no new refresh token; the old one stays"
+    );
+}

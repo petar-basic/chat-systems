@@ -9,6 +9,7 @@ use uuid::Uuid;
 use shared_common::errors::{AppError, AppResult};
 
 use super::github::{self, Fetched, GitHub};
+use super::google::{self, Google};
 use super::http::TokenSet;
 use super::jira::{self, Atlassian};
 use super::models::*;
@@ -60,6 +61,26 @@ fn github_client(state: &AppState) -> GitHub {
         api_base: state
             .config
             .github_api_url
+            .trim_end_matches('/')
+            .to_string(),
+    }
+}
+
+fn google_client(state: &AppState) -> Google {
+    Google {
+        accounts_base: state
+            .config
+            .google_accounts_url
+            .trim_end_matches('/')
+            .to_string(),
+        oauth_base: state
+            .config
+            .google_oauth_url
+            .trim_end_matches('/')
+            .to_string(),
+        api_base: state
+            .config
+            .google_api_url
             .trim_end_matches('/')
             .to_string(),
     }
@@ -226,6 +247,9 @@ pub async fn start_connection(
         Provider::Github => {
             github_client(state).authorize_url(&app.client_id, &redirect, &oauth_state, &challenge)
         }
+        Provider::GoogleDrive => {
+            google_client(state).authorize_url(&app.client_id, &redirect, &oauth_state, &challenge)
+        }
     })
 }
 
@@ -284,6 +308,20 @@ pub async fn complete_connection(
         }
         Provider::Github => {
             let client = github_client(state);
+            let tokens = client
+                .exchange(
+                    &app.client_id,
+                    &secret,
+                    &req.code,
+                    &redirect,
+                    &pending.code_verifier,
+                )
+                .await?;
+            let account = client.account_name(&tokens.access_token).await?;
+            (tokens, account, serde_json::json!([]))
+        }
+        Provider::GoogleDrive => {
+            let client = google_client(state);
             let tokens = client
                 .exchange(
                     &app.client_id,
@@ -367,6 +405,11 @@ async fn access_token(
                 .refresh(&app.client_id, &secret, &refresh_token)
                 .await?
         }
+        Some(Provider::GoogleDrive) => {
+            google_client(state)
+                .refresh(&app.client_id, &secret, &refresh_token)
+                .await?
+        }
         None => {
             return Err(AppError::Internal(format!(
                 "unknown provider {}",
@@ -405,6 +448,9 @@ pub async fn unfurl(
     }
     if let Some(target) = github::match_url(url) {
         return github_unfurl(state, workspace_id, poster_id, &target, url).await;
+    }
+    if let Some(file_id) = google::match_file(url) {
+        return google_unfurl(state, workspace_id, poster_id, &file_id, url).await;
     }
     Ok(AppUnfurl::Unclaimed)
 }
@@ -487,6 +533,32 @@ async fn github_unfurl(
         Some(_) => AppUnfurl::Connect(Provider::Github),
         None => AppUnfurl::Unclaimed,
     })
+}
+
+async fn google_unfurl(
+    state: &AppState,
+    workspace_id: Uuid,
+    poster_id: Uuid,
+    file_id: &str,
+    url: &str,
+) -> AppResult<AppUnfurl> {
+    let Some(app) = enabled_app(state, workspace_id, Provider::GoogleDrive).await? else {
+        return Ok(AppUnfurl::Unclaimed);
+    };
+    let Some(connection) = state
+        .integration_repo
+        .connection(workspace_id, poster_id, Provider::GoogleDrive.as_str())
+        .await?
+    else {
+        return Ok(AppUnfurl::Connect(Provider::GoogleDrive));
+    };
+    let token = access_token(state, &app, poster_id, &connection).await?;
+    Ok(
+        match google_client(state).file_card(&token, file_id, url).await? {
+            Some(card) => AppUnfurl::Card(Box::new(card)),
+            None => AppUnfurl::Unclaimed,
+        },
+    )
 }
 
 async fn public_github_card(

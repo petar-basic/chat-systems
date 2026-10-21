@@ -1,6 +1,6 @@
 # Roadmap & known limitations
 
-What is not done, why, and in what order it should be built. The shipped work — fourteen
+What is not done, why, and in what order it should be built. The shipped work — fifteen
 waves of it — is written up in [history.md](./history.md); this page keeps what is open,
 the reasoning behind the order, and the things deliberately left out. Every open item is a
 ticket in [`docs/tickets/`](./tickets/INDEX.md); a ticket's file is deleted when it ships.
@@ -9,7 +9,6 @@ ticket in [`docs/tickets/`](./tickets/INDEX.md); a ticket's file is deleted when
 
 | Ticket | What | Status |
 |---|---|---|
-| [CS-053](./tickets/CS-053-app-unfurls.md) | Rich previews from connected apps: Jira, GitHub, Google Drive, set up by an admin and fetched with the poster's account | **In progress.** Framework, Jira and GitHub shipped; Google Drive next |
 | [CS-037](./tickets/CS-037-huddle-sfu.md) | SFU (LiveKit) for huddles above the mesh's six-to-eight ceiling | On request. Adds a media server to the stack; nothing below a 20-person team needs it |
 
 Two decisions were considered on 2026-09-02 and deferred with their reasoning below:
@@ -55,6 +54,7 @@ was pencilled in for it was absorbed into 9 and 11.
 | [Wave 12 — Architecture follow-ups](./history.md#wave-12--architecture-follow-ups--shipped) | durable outbox · generated API and frame contract · sqlx macros · object_store / garde / askama · one message model · god-file splits · CS-047 |
 | [Wave 13 — What the scale measurement found](./history.md#wave-13--what-the-scale-measurement-found--shipped) | CS-048 |
 | [Wave 14 — What a team from Slack misses on day one](./history.md#wave-14--what-a-team-from-slack-misses-on-day-one--shipped) | CS-049 · CS-050 · CS-051 · CS-052 |
+| [Wave 15 — Links people actually paste at work](./history.md#wave-15--links-people-actually-paste-at-work--shipped) | CS-053 |
 
 ---
 

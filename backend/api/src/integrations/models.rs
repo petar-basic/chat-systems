@@ -8,15 +8,17 @@ use uuid::Uuid;
 pub enum Provider {
     Jira,
     Github,
+    GoogleDrive,
 }
 
 impl Provider {
-    pub const ALL: [Provider; 2] = [Provider::Jira, Provider::Github];
+    pub const ALL: [Provider; 3] = [Provider::Jira, Provider::Github, Provider::GoogleDrive];
 
     pub fn as_str(self) -> &'static str {
         match self {
             Provider::Jira => "jira",
             Provider::Github => "github",
+            Provider::GoogleDrive => "google_drive",
         }
     }
 
@@ -28,6 +30,7 @@ impl Provider {
         match self {
             Provider::Jira => "Jira Cloud",
             Provider::Github => "GitHub",
+            Provider::GoogleDrive => "Google Drive",
         }
     }
 
@@ -35,6 +38,7 @@ impl Provider {
         match self {
             Provider::Jira => &["read:jira-work", "read:me", "offline_access"],
             Provider::Github => &[],
+            Provider::GoogleDrive => &[super::google::SCOPE],
         }
     }
 
@@ -42,6 +46,7 @@ impl Provider {
         match self {
             Provider::Jira => "https://developer.atlassian.com/console/myapps/",
             Provider::Github => "https://github.com/settings/apps/new",
+            Provider::GoogleDrive => "https://console.cloud.google.com/apis/credentials",
         }
     }
 
@@ -61,6 +66,13 @@ impl Provider {
                 "Repository permissions: Contents, Issues, Pull requests and Metadata, all Read-only. Nothing else.",
                 "Create the app, choose Generate a new client secret, and copy the Client ID and the secret into the fields below.",
                 "Choose Install App and install it on your organization: private repositories get cards only where it is installed. Public repositories get cards without it.",
+                "Press Connect my account to test it.",
+            ],
+            Provider::GoogleDrive => &[
+                "In the Google Cloud console, create a project for this instance (or pick one) and enable the Google Drive API.",
+                "Configure the OAuth consent screen. Choose Internal if your organization uses Google Workspace — no review needed and only your organization can connect. Add the scope below.",
+                "Credentials → Create credentials → OAuth client ID → Web application, and add the callback URL below under Authorized redirect URIs.",
+                "Copy the Client ID and Client secret into the fields below.",
                 "Press Connect my account to test it.",
             ],
         }

@@ -1074,9 +1074,9 @@ Wave 14 is done with this ticket.
 
 ---
 
-## Wave 15 — Links people actually paste at work
+## Wave 15 — Links people actually paste at work ✅ shipped
 
-### [CS-053] Rich previews from connected apps — framework, Jira and GitHub ✅ shipped (Google Drive to follow)
+### [CS-053] Rich previews from connected apps (Jira, GitHub, Google Drive) ✅ shipped
 The links a team pastes most sit behind a login, so CS-049's anonymous OpenGraph fetch can
 say nothing about them. A Jira link now becomes a card built from Jira's API: issue type and
 key, summary, status (coloured by Jira's status category), priority, assignee, *Open in Jira*
@@ -1108,5 +1108,14 @@ ten minutes per URL because that limit is 60 requests an hour per server and the
 same for everyone. A private link falls through to the poster's connection, then to a
 *Connect* prompt. Checked against the real API: a `/pull/N` that GitHub serves for an issue
 gets the issue card, and an `/issues/N` that is a pull request gets the pull request card.
+
+**Google Drive** came last. It asks for `drive.metadata.readonly` and nothing else — the
+card shows a file's type, owner and last change, and the instance can never read what is in
+a document. Even the account name comes from Drive's `about` endpoint rather than adding
+`openid` and `email` scopes for it. Google has no anonymous API, so every Drive card is the
+poster's; Google's token endpoint returns no new refresh token on refresh, which the
+token store already allowed for by keeping the old one. RUNBOOK says to make the consent
+screen *Internal* where a Workspace organization can: no Google review, and none of the
+seven-day expiry an unverified external app's connections get.
 
 ---

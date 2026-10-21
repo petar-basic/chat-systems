@@ -9331,7 +9331,8 @@
         "type": "string",
         "enum": [
           "jira",
-          "github"
+          "github",
+          "google_drive"
         ]
       },
       "PushKey": {

@@ -597,7 +597,7 @@ a link while only an admin can create a webhook. Results are cached in Redis for
 URL. Preview images load in the reader's browser straight from the linked site. A workspace
 that wants none of this turns previews off under *Workspace settings → Link previews*.
 
-## Connected apps (Jira Cloud, GitHub)
+## Connected apps (Jira Cloud, GitHub, Google Drive)
 
 Links to Jira issues get a card with the issue's type, status, priority and assignee once a
 workspace admin connects Jira and the person posting the link connects their own Atlassian
@@ -653,6 +653,29 @@ read-only and to the repositories it is installed on.
 
 A private link from someone who has not connected gets the same private *Connect GitHub*
 prompt as Jira. `GITHUB_WEB_URL` and `GITHUB_API_URL` exist for an egress proxy.
+
+### Google Drive
+
+Links to Google Docs, Sheets, Slides, Forms, Drawings, Drive files and folders get a card with
+the file's type, owner and when it was last changed. The app asks Google for
+`drive.metadata.readonly` only: it can read names, types, owners and dates, never what is
+inside a document. Google has no anonymous API, so every Drive card needs the poster's
+connection.
+
+1. In the app: workspace menu → **Apps** → *Google Drive* → *Set up*.
+2. In the Google Cloud console (<https://console.cloud.google.com/>), create a project for
+   this instance or pick one, and **enable the Google Drive API** (*APIs & Services →
+   Library*).
+3. **OAuth consent screen**: choose **Internal** if your organization uses Google Workspace —
+   only your organization can connect and Google does not review the app. An *External* app
+   works too, but until Google verifies it, it is limited to test users you list and their
+   connections expire after seven days. Add the `drive.metadata.readonly` scope.
+4. **Credentials → Create credentials → OAuth client ID → Web application**, and add the
+   *Callback URL* from the app under *Authorized redirect URIs*.
+5. Copy the **Client ID** and **Client secret** into the app and save.
+6. Press **Connect my account**.
+
+`GOOGLE_ACCOUNTS_URL`, `GOOGLE_OAUTH_URL` and `GOOGLE_API_URL` exist for an egress proxy.
 
 ## Huddle relay (TURN)
 
