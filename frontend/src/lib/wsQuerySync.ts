@@ -221,6 +221,7 @@ export const useWebSocketQuerySync = () => {
           patchMessageById(cache, message.id, (m) => ({
             ...m,
             content: message.content,
+            metadata: message.metadata,
             updated_at: message.updated_at,
           })),
         );

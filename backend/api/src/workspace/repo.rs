@@ -179,6 +179,7 @@ impl WorkspaceRepo {
         name: Option<&str>,
         description: Option<&str>,
         icon_url: Option<&str>,
+        link_previews: Option<bool>,
     ) -> sqlx::Result<Workspace> {
         sqlx::query_as!(
             Workspace,
@@ -186,6 +187,8 @@ impl WorkspaceRepo {
             UPDATE workspaces
             SET name = COALESCE($2, name),
                 description = COALESCE($3, description),
+                settings = CASE WHEN $5::boolean IS NULL THEN settings
+                                ELSE COALESCE(settings, '{}'::jsonb) || jsonb_build_object('link_previews', $5::boolean) END,
                 -- An empty string clears it. Plain COALESCE could only ever set
                 -- an icon, never take one off, so the remove button had nothing
                 -- to say.
@@ -198,7 +201,8 @@ impl WorkspaceRepo {
             id,
             name,
             description,
-            icon_url
+            icon_url,
+            link_previews
         )
         .fetch_one(&self.pool)
         .await

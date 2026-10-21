@@ -19,7 +19,7 @@ integration-test suite and a real CI pipeline.
 
 ## Features
 
-- **Real-time messaging** — channels, threads, pins, reactions, editing with history, full-text search
+- **Real-time messaging** — channels, threads, pins, reactions, editing with history, link previews, full-text search
 - **Direct messages** — 1:1 and group conversations (up to nine) with threads, reactions and read state
 - **Mentions** — `@person`, `@group`, `@channel` / `@here` / `@everyone`, with custom emoji
 - **Scheduled send** — queue a message for a channel or conversation and send it later
@@ -42,7 +42,7 @@ integration-test suite and a real CI pipeline.
 
 Most of the daily surface is here: public and private channels, threads in channels and in
 DMs, DMs and group DMs (up to nine people), reactions, pins, saved items, channel bookmarks,
-message forwarding, a status you set yourself, editing with history, search across channels
+message forwarding, link previews, a status you set yourself, editing with history, search across channels
 and DMs, file sharing, `@person` / `@group` / `@channel` / `@here` mentions, custom emoji,
 scheduled send, reminders with `/remind`, huddles with screen sharing, slash commands,
 a Slack importer that brings your history with you,

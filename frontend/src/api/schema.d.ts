@@ -841,6 +841,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/messages/{msg_id}/unfurls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["hide_unfurls"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/notifications/dnd": {
         parameters: {
             query?: never;
@@ -2756,6 +2772,8 @@ export interface components {
             /** Format: uuid */
             initiator_id?: string | null;
             kind?: string | null;
+            unfurls?: components["schemas"]["Unfurl"][] | null;
+            unfurls_hidden?: boolean | null;
         };
         MessageWithReactions: components["schemas"]["Message"] & {
             reactions: components["schemas"]["Reaction"][];
@@ -2994,6 +3012,13 @@ export interface components {
             recovery_codes_remaining: number;
             required: boolean;
         };
+        Unfurl: {
+            description?: string | null;
+            image_url?: string | null;
+            site_name?: string | null;
+            title: string;
+            url: string;
+        };
         UnreadChannels: {
             channel_ids: string[];
             counts: components["schemas"]["UnreadCount"][];
@@ -3056,6 +3081,7 @@ export interface components {
         UpdateWorkspaceRequest: {
             description?: string | null;
             icon_url?: string | null;
+            link_previews?: boolean | null;
             name?: string | null;
         };
         UpdatedCount: {
@@ -4522,6 +4548,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DataList_Message"];
+                };
+            };
+        };
+    };
+    hide_unfurls: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                msg_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
                 };
             };
         };

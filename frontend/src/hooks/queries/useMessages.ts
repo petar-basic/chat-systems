@@ -156,6 +156,27 @@ export const useDeleteMessage = () => {
   });
 };
 
+export const useHideLinkPreviews = () => {
+  const queryClient = useQueryClient();
+  const apiClient = useCurrentApi();
+
+  return useMutation({
+    mutationFn: async ({ messageId }: { messageId: string; channelId: string }) =>
+      apiClient.typed((c) =>
+        c.DELETE('/messages/{msg_id}/unfurls', { params: { path: { msg_id: messageId } } }),
+      ),
+    onSuccess: (message, { messageId, channelId }) => {
+      queryClient.setQueryData<MessagesInfiniteData>(QUERY_KEYS.messages(channelId), (old) =>
+        patchMessageById(old, messageId, (m) => ({ ...m, metadata: message.metadata })),
+      );
+    },
+    onError: (err) => {
+      logger.error('useHideLinkPreviews', 'mutationFn', err);
+      toast.error(ErrorLabels.HidePreviewFailed);
+    },
+  });
+};
+
 interface ReactionVars {
   messageId: string;
   channelId: string;

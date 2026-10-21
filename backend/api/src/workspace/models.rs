@@ -214,6 +214,8 @@ pub struct UpdateWorkspaceRequest {
     pub description: Option<String>,
     #[garde(inner(custom(shared_common::validation::rules::icon_url_or_empty)))]
     pub icon_url: Option<String>,
+    #[garde(skip)]
+    pub link_previews: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, garde::Validate, ToSchema)]

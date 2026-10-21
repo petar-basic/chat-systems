@@ -242,6 +242,22 @@ fn spawn_consumers(state: &Arc<AppState>, redis_url: &str) {
 
     {
         let redis_url = redis_url.to_string();
+        let unfurl_state = state.clone();
+        tokio::spawn(async move {
+            supervise("unfurl_consumer", || {
+                let redis_url = redis_url.clone();
+                let unfurl_state = unfurl_state.clone();
+                async move {
+                    messaging::unfurl::consumer::start_unfurl_consumer(&redis_url, unfurl_state)
+                        .await;
+                }
+            })
+            .await;
+        });
+    }
+
+    {
+        let redis_url = redis_url.to_string();
         let huddle_repo = huddle_repo.clone();
         tokio::spawn(async move {
             supervise("huddle_consumer", || {

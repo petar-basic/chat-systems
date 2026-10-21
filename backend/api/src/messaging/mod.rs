@@ -6,3 +6,4 @@ pub mod repo;
 pub mod routes;
 pub mod stream_group;
 pub mod stream_trim;
+pub mod unfurl;

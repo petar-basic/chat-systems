@@ -23,6 +23,7 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(list_pins))
         .routes(routes!(mark_read))
         .routes(routes!(update_message, delete_message))
+        .routes(routes!(hide_unfurls))
         .routes(routes!(message_history))
         .routes(routes!(pin_message, unpin_message))
         .routes(routes!(list_thread))
@@ -217,6 +218,38 @@ async fn update_message(
     crate::files::service::release_unlinked_from_channel_message(&state, &req.content, msg.id)
         .await;
 
+    state.publisher.dispatch(staged).await;
+
+    Ok(Json(msg))
+}
+
+#[utoipa::path(
+    delete, path = "/messages/{msg_id}/unfurls", tag = "messages",
+    responses((status = 200, body = Message)))]
+async fn hide_unfurls(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(msg_id): Path<Uuid>,
+) -> AppResult<Json<Message>> {
+    let existing = state
+        .message_repo
+        .find_by_id(msg_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
+    if existing.user_id != auth.user_id {
+        return Err(AppError::Forbidden(
+            "Only the author can remove a message's previews".into(),
+        ));
+    }
+    let channel = authz::find_channel(&state, existing.channel_id).await?;
+
+    let mut tx = state.pool.begin().await?;
+    let msg = state.message_repo.hide_unfurls_in(&mut tx, msg_id).await?;
+    let staged = state
+        .publisher
+        .stage_message_updated(&mut tx, &msg, channel.workspace_id)
+        .await?;
+    tx.commit().await?;
     state.publisher.dispatch(staged).await;
 
     Ok(Json(msg))

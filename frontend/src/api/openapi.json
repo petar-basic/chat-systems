@@ -2136,6 +2136,36 @@
         }
       }
     },
+    "/messages/{msg_id}/unfurls": {
+      "delete": {
+        "tags": [
+          "messages"
+        ],
+        "operationId": "hide_unfurls",
+        "parameters": [
+          {
+            "name": "msg_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/notifications/dnd": {
       "get": {
         "tags": [
@@ -8309,6 +8339,21 @@
               "string",
               "null"
             ]
+          },
+          "unfurls": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Unfurl"
+            }
+          },
+          "unfurls_hidden": {
+            "type": [
+              "boolean",
+              "null"
+            ]
           }
         }
       },
@@ -9052,6 +9097,39 @@
           }
         }
       },
+      "Unfurl": {
+        "type": "object",
+        "required": [
+          "url",
+          "title"
+        ],
+        "properties": {
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "image_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "site_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
       "UnreadChannels": {
         "type": "object",
         "required": [
@@ -9295,6 +9373,12 @@
           "icon_url": {
             "type": [
               "string",
+              "null"
+            ]
+          },
+          "link_previews": {
+            "type": [
+              "boolean",
               "null"
             ]
           },

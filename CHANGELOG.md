@@ -14,6 +14,14 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
+## [Unreleased]
+
+### Added
+
+- **Link previews.** Links in a message get a card with the page's title, description, site
+  and image, fetched by the worker. The author can remove a message's previews; a workspace
+  admin can turn them off in workspace settings.
+
 ## [2.0.0] — 2026-10-21
 
 Everything since 1.0.0: thirteen waves of security, compliance, reliability and product work,

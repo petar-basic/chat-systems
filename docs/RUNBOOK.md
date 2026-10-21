@@ -551,6 +551,16 @@ setting.
 oversized file never lands in memory. `client_max_body_size` in `docker/nginx.conf` must
 move with it — nginx rejects first, and a mismatch surfaces as a bare 413.
 
+## Link previews
+
+`chat-worker` fetches the pages linked in messages to build preview cards, so the worker
+needs outbound HTTPS, and the sites people link to see requests from the server's address
+with a `Chat-Systems/<version> (link preview)` user agent. Only public addresses are ever
+fetched — `WEBHOOK_ALLOW_PRIVATE_TARGETS` does not apply here, because any member can post
+a link while only an admin can create a webhook. Results are cached in Redis for a day per
+URL. Preview images load in the reader's browser straight from the linked site. A workspace
+that wants none of this turns previews off under *Workspace settings → Link previews*.
+
 ## Huddle relay (TURN)
 
 Huddles are mesh WebRTC. STUN alone only finds a path when neither side sits behind a

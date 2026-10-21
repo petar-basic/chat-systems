@@ -982,3 +982,34 @@ for a common word in the minute between a restore and autovacuum's first `ANALYZ
 restore procedure now ends with `vacuumdb --analyze-only`, which closes that window.
 
 ---
+
+## Wave 14 — What a team from Slack misses on day one
+
+### [CS-049] Link previews ✅ shipped
+A link now arrives with a card. The worker's `unfurl` consumer reads `message.created` and
+`message.updated`, takes the first three links outside code, and fetches each one; the
+result goes into `metadata.unfurls` and out as `message.updated`, so the client needed no
+new event — only the cache patch for that event, which had been copying content and nothing
+else.
+
+- **The fetch connects to the address it checked.** `hooks::ssrf::resolve_outbound` returns
+  the resolved addresses and reqwest is pinned to them, so a DNS answer cannot turn private
+  between the check and the connection; redirects are followed by hand, each hop checked
+  again. Strict mode always: an operator who allows webhooks onto their private network has
+  not thereby let every member point the server at it.
+- **Idempotent without a claims table.** `metadata.unfurls_source` hashes the link list, and
+  the write only happens while the stored source differs and the content is still what was
+  read. A redelivered event, the consumer's own `message.updated`, and an edit that keeps
+  its links all do nothing; an edit racing a fetch loses the fetch, not the edit.
+- **No HTML parser dependency.** A preview needs the `<meta>` tags and `<title>` of the
+  head; a small tokenizer that understands quoting and entities does that without pulling
+  html5ever into the build.
+- **People can say no.** The author removes a message's previews (`DELETE
+  /messages/:id/unfurls`, sticky across edits); a workspace admin turns them off.
+
+Not done as the ticket proposed: the end-to-end test that unfurls a page on the stack
+itself, because a preview never fetches a private address and CI has no public page to
+point at. The fetcher is tested against a local server through its private-address switch
+instead, and the refusal of that same server in strict mode is a test of its own.
+
+---

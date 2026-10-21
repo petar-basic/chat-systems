@@ -548,6 +548,73 @@ impl MessageRepo {
         .await
     }
 
+    pub async fn find_unfurl_target(&self, id: Uuid) -> sqlx::Result<Option<UnfurlTarget>> {
+        sqlx::query_as!(
+            UnfurlTarget,
+            r#"
+            SELECT c.workspace_id, m.content, m.metadata AS "metadata!",
+                   COALESCE((w.settings->>'link_previews')::boolean, true) AS "previews_enabled!"
+              FROM messages m
+              JOIN channels c ON c.id = m.channel_id
+              JOIN workspaces w ON w.id = c.workspace_id
+             WHERE m.id = $1 AND m.deleted_at IS NULL
+            "#,
+            id
+        )
+        .fetch_optional(&self.pool)
+        .await
+    }
+
+    pub async fn store_unfurls_in(
+        &self,
+        conn: &mut PgConnection,
+        id: Uuid,
+        content: &str,
+        source: &str,
+        unfurls: &serde_json::Value,
+    ) -> sqlx::Result<Option<Message>> {
+        sqlx::query_as!(
+            Message,
+            r#"
+            UPDATE messages
+               SET metadata = COALESCE(metadata, '{}'::jsonb)
+                   || jsonb_build_object('unfurls', $4::jsonb, 'unfurls_source', $3::text)
+             WHERE id = $1
+               AND content = $2
+               AND deleted_at IS NULL
+               AND COALESCE(metadata->>'unfurls_source', '') <> $3
+               AND NOT COALESCE((metadata->>'unfurls_hidden')::boolean, false)
+            RETURNING id, channel_id, user_id, client_message_id, content, metadata AS "metadata!", thread_parent_id, reply_count AS "reply_count!", is_pinned AS "is_pinned!", created_at, updated_at, deleted_at
+            "#,
+            id,
+            content,
+            source,
+            unfurls
+        )
+        .fetch_optional(&mut *conn)
+        .await
+    }
+
+    pub async fn hide_unfurls_in(
+        &self,
+        conn: &mut PgConnection,
+        id: Uuid,
+    ) -> sqlx::Result<Message> {
+        sqlx::query_as!(
+            Message,
+            r#"
+            UPDATE messages
+               SET metadata = (COALESCE(metadata, '{}'::jsonb) - 'unfurls')
+                   || '{"unfurls_hidden": true}'::jsonb
+             WHERE id = $1
+            RETURNING id, channel_id, user_id, client_message_id, content, metadata AS "metadata!", thread_parent_id, reply_count AS "reply_count!", is_pinned AS "is_pinned!", created_at, updated_at, deleted_at
+            "#,
+            id
+        )
+        .fetch_one(&mut *conn)
+        .await
+    }
+
     pub async fn search(&self, params: MessageSearch<'_>) -> sqlx::Result<Vec<Message>> {
         let mut tx = self.pool.begin().await?;
         sqlx::query_scalar!(
