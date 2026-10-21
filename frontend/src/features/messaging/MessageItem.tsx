@@ -21,6 +21,7 @@ import RichTextDisplay from '@/components/RichTextDisplay';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { HuddleSystemMessage } from '@/features/huddle/components/HuddleSystemMessage';
 import EmojiPicker from './EmojiPicker';
+import { LinkPreviews } from './LinkPreviews';
 
 /// Reacting is the most common action in the product; a picker turns one tap
 /// into three. Kept to three so the toolbar stays narrow enough not to cover
@@ -49,6 +50,7 @@ interface MessageItemProps {
   onTogglePin: (messageId: string, isPinned: boolean) => void;
   onEdit: (messageId: string, content: string) => Promise<unknown> | void;
   onDelete: (messageId: string) => Promise<unknown> | void;
+  onHidePreviews?: (messageId: string) => void;
   onRetry?: (messageId: string, content: string) => void;
   onCopyLink?: (messageId: string) => void;
   onSave?: (message: Message) => void;
@@ -92,6 +94,7 @@ function MessageItem({
   onTogglePin,
   onEdit,
   onDelete,
+  onHidePreviews,
   onRetry,
   onCopyLink,
   onSave,
@@ -294,6 +297,16 @@ function MessageItem({
         ) : (
           <>
             <RichTextDisplay content={message.content} />
+            {!message.deleted_at && !!message.metadata?.unfurls?.length && (
+              <LinkPreviews
+                unfurls={message.metadata.unfurls}
+                onHide={
+                  onHidePreviews && message.user_id === currentUserId
+                    ? () => onHidePreviews(message.id)
+                    : undefined
+                }
+              />
+            )}
             {grouped && (editedMarker || pinnedMarker) && (
               <div className="flex items-center gap-2">
                 {editedMarker}

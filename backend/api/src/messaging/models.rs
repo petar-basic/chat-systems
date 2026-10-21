@@ -35,6 +35,25 @@ pub struct MessageMetadata {
     pub huddle_id: Option<Uuid>,
     pub initiator_id: Option<Uuid>,
     pub bot: Option<BotIdentity>,
+    pub unfurls: Option<Vec<Unfurl>>,
+    pub unfurls_hidden: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct Unfurl {
+    pub url: String,
+    pub title: String,
+    pub description: Option<String>,
+    pub site_name: Option<String>,
+    pub image_url: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct UnfurlTarget {
+    pub workspace_id: Uuid,
+    pub content: String,
+    pub metadata: serde_json::Value,
+    pub previews_enabled: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

@@ -1,4 +1,4 @@
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use shared_common::errors::{AppError, AppResult};
 
@@ -15,9 +15,16 @@ pub async fn validate_outbound_url(url: &str) -> AppResult<reqwest::Url> {
 /// off unless `WEBHOOK_ALLOW_PRIVATE_TARGETS` is set, and turning it on means
 /// trusting whoever can create a hook with the server's network position.
 pub async fn validate_outbound_url_with(url: &str, allow_private: bool) -> AppResult<reqwest::Url> {
+    if allow_private {
+        return parse_http_url(url);
+    }
+    let (parsed, _) = resolve_outbound(url, false).await?;
+    Ok(parsed)
+}
+
+fn parse_http_url(url: &str) -> AppResult<reqwest::Url> {
     let parsed =
         reqwest::Url::parse(url).map_err(|e| AppError::BadRequest(format!("not a url: {e}")))?;
-
     match parsed.scheme() {
         "http" | "https" => {}
         other => {
@@ -26,47 +33,52 @@ pub async fn validate_outbound_url_with(url: &str, allow_private: bool) -> AppRe
             )));
         }
     }
+    if parsed.host_str().is_none() {
+        return Err(AppError::BadRequest("url has no host".into()));
+    }
+    Ok(parsed)
+}
 
+pub async fn resolve_outbound(
+    url: &str,
+    allow_private: bool,
+) -> AppResult<(reqwest::Url, Vec<SocketAddr>)> {
+    let parsed = parse_http_url(url)?;
     let host = parsed
         .host_str()
-        .ok_or_else(|| AppError::BadRequest("url has no host".into()))?;
-
-    if allow_private {
-        return Ok(parsed);
-    }
+        .ok_or_else(|| AppError::BadRequest("url has no host".into()))?
+        .trim_start_matches('[')
+        .trim_end_matches(']')
+        .to_string();
+    let port = parsed.port_or_known_default().unwrap_or(0);
 
     if let Ok(ip) = host.parse::<IpAddr>() {
-        if !is_public_ip(&ip) {
+        if !allow_private && !is_public_ip(&ip) {
             return Err(AppError::BadRequest(
                 "url points at a disallowed (private/loopback/link-local) address".into(),
             ));
         }
-        return Ok(parsed);
+        return Ok((parsed, vec![SocketAddr::new(ip, port)]));
     }
 
-    let port = parsed.port_or_known_default().unwrap_or(0);
-    let authority = format!("{host}:{port}");
-
-    let mut resolved = tokio::net::lookup_host(&authority)
+    let resolved: Vec<SocketAddr> = tokio::net::lookup_host((host.as_str(), port))
         .await
         .map_err(|e| AppError::BadRequest(format!("host does not resolve: {e}")))?
-        .peekable();
+        .collect();
 
-    if resolved.peek().is_none() {
+    if resolved.is_empty() {
         return Err(AppError::BadRequest(
             "host did not resolve to any address".into(),
         ));
     }
 
-    for addr in resolved {
-        if !is_public_ip(&addr.ip()) {
-            return Err(AppError::BadRequest(
-                "host resolves to a disallowed (private/loopback/link-local) address".into(),
-            ));
-        }
+    if !allow_private && resolved.iter().any(|addr| !is_public_ip(&addr.ip())) {
+        return Err(AppError::BadRequest(
+            "host resolves to a disallowed (private/loopback/link-local) address".into(),
+        ));
     }
 
-    Ok(parsed)
+    Ok((parsed, resolved))
 }
 
 fn is_public_ip(ip: &IpAddr) -> bool {

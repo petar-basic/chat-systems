@@ -2,6 +2,7 @@ export const ErrorLabels = {
   SendFailed: 'Message failed to send',
   EditFailed: "Couldn't save your edit",
   DeleteFailed: "Couldn't delete the message",
+  HidePreviewFailed: "Couldn't remove the preview",
   ReactionFailed: "Couldn't update the reaction",
   PinFailed: "Couldn't update the pin",
   UploadFailed: 'File upload failed',

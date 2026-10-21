@@ -116,6 +116,7 @@ export default function MessageList({
           onTogglePin={actions.togglePin}
           onEdit={actions.editMessage}
           onDelete={actions.deleteMessage}
+          onHidePreviews={actions.hidePreviews}
           onRetry={actions.retryMessage}
           onCopyLink={actions.copyLink}
           onSave={onSave}

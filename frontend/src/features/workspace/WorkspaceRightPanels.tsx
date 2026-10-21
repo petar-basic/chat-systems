@@ -12,6 +12,7 @@ import IntegrationsPanel from '@/components/IntegrationsPanel';
 import CustomEmojiPanel from '@/components/CustomEmojiPanel';
 import UserGroupsPanel from '@/components/UserGroupsPanel';
 import { useCurrentWorkspaceRole } from './hooks/useCurrentWorkspaceRole';
+import { linkPreviewsEnabled } from './linkPreviews';
 import AuditLogPanel from '@/components/AuditLogPanel';
 import ScheduledMessagesPanel from '@/components/ScheduledMessagesPanel';
 import SavedItemsPanel from '@/components/SavedItemsPanel';
@@ -58,6 +59,7 @@ export default function WorkspaceRightPanels({
         currentName={currentWorkspace.name}
         currentIconUrl={currentWorkspace.icon_url}
         currentDescription={currentWorkspace.description ?? null}
+        currentLinkPreviews={linkPreviewsEnabled(currentWorkspace.settings)}
         deletedAt={currentWorkspace.deleted_at}
         onClose={onClose}
       />

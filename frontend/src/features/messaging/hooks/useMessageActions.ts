@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import {
   useEditMessage,
   useDeleteMessage,
+  useHideLinkPreviews,
   useReactToMessage,
   useRemoveReaction,
   usePinMessage,
@@ -19,6 +20,7 @@ export interface MessageActions {
   togglePin: (messageId: string, isPinned: boolean) => void;
   editMessage: (messageId: string, content: string) => Promise<unknown>;
   deleteMessage: (messageId: string) => Promise<unknown>;
+  hidePreviews: (messageId: string) => void;
   retryMessage: (messageId: string, content: string) => void;
   copyLink: (messageId: string) => void;
 }
@@ -29,6 +31,7 @@ export function useMessageActions(channelId: string): MessageActions {
 
   const edit = useEditMessage();
   const del = useDeleteMessage();
+  const hidePreviews = useHideLinkPreviews();
   const react = useReactToMessage();
   const removeReaction = useRemoveReaction();
   const pin = usePinMessage();
@@ -44,6 +47,7 @@ export function useMessageActions(channelId: string): MessageActions {
       togglePin: (messageId, isPinned) => pin.mutate({ messageId, channelId, isPinned }),
       editMessage: (messageId, content) => edit.mutateAsync({ messageId, content, channelId }),
       deleteMessage: (messageId) => del.mutateAsync({ messageId, channelId }),
+      hidePreviews: (messageId) => hidePreviews.mutate({ messageId, channelId }),
       retryMessage: (messageId, content) => send.mutate({ content, id: messageId }),
       copyLink: (messageId) => {
         const ws = useWorkspaceStore.getState().currentWorkspace;
@@ -55,6 +59,6 @@ export function useMessageActions(channelId: string): MessageActions {
           .catch((e) => logger.error('useMessageActions', 'copyLink', e));
       },
     }),
-    [channelId, userId, react, removeReaction, pin, edit, del, send],
+    [channelId, userId, react, removeReaction, pin, edit, del, hidePreviews, send],
   );
 }

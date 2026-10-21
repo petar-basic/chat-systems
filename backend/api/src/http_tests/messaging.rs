@@ -236,6 +236,143 @@ async fn update_message_unknown_not_found(pool: PgPool) {
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
+async fn store_preview(
+    state: &crate::state::AppState,
+    msg_id: uuid::Uuid,
+    content: &str,
+    source: &str,
+) -> bool {
+    let unfurls = json!([{ "url": "https://example.com", "title": "Example" }]);
+    let mut tx = state.pool.begin().await.expect("begin");
+    let stored = state
+        .message_repo
+        .store_unfurls_in(&mut tx, msg_id, content, source, &unfurls)
+        .await
+        .expect("store");
+    tx.commit().await.expect("commit");
+    stored.is_some()
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_preview_is_stored_once_per_set_of_links(pool: PgPool) {
+    let (app, state, _owner, token, _ws, ch_id) = setup_channel(pool).await;
+    let content = "see https://example.com";
+    let msg_id = create_message(&app, &token, ch_id, content).await;
+
+    assert!(store_preview(&state, msg_id, content, "a").await);
+    assert!(
+        !store_preview(&state, msg_id, content, "a").await,
+        "a redelivered event must not write the same previews again"
+    );
+    assert!(
+        !store_preview(&state, msg_id, "edited meanwhile", "b").await,
+        "previews for content that has since changed are discarded"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn hide_unfurls_author_succeeds_and_sticks(pool: PgPool) {
+    let (app, state, _owner, token, _ws, ch_id) = setup_channel(pool).await;
+    let content = "see https://example.com";
+    let msg_id = create_message(&app, &token, ch_id, content).await;
+    assert!(store_preview(&state, msg_id, content, "a").await);
+
+    let (status, body) = send(
+        &app,
+        "DELETE",
+        &format!("/api/messages/{msg_id}/unfurls"),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert!(body["metadata"].get("unfurls").is_none(), "{body:?}");
+    assert_eq!(body["metadata"]["unfurls_hidden"], json!(true));
+    assert!(
+        !store_preview(&state, msg_id, content, "b").await,
+        "a removed preview does not come back on the next unfurl"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn hide_unfurls_non_author_forbidden(pool: PgPool) {
+    let (app, state, _owner, token, ws_id, ch_id) = setup_channel(pool).await;
+    let msg_id = create_message(&app, &token, ch_id, "https://example.com").await;
+    let (other_id, _email, other_token) = seed_and_login(&app, &state, "member", false).await;
+    add_ws_member(&state, ws_id, other_id, "member").await;
+    let (status, _body) = send(
+        &app,
+        "DELETE",
+        &format!("/api/messages/{msg_id}/unfurls"),
+        Some(&other_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn hide_unfurls_no_token_unauthorized(pool: PgPool) {
+    let (app, _state, _owner, token, _ws, ch_id) = setup_channel(pool).await;
+    let msg_id = create_message(&app, &token, ch_id, "https://example.com").await;
+    let (status, _body) = send(
+        &app,
+        "DELETE",
+        &format!("/api/messages/{msg_id}/unfurls"),
+        None,
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn hide_unfurls_unknown_not_found(pool: PgPool) {
+    let (app, _state, _owner, token, _ws, _ch_id) = setup_channel(pool).await;
+    let ghost = uuid::Uuid::new_v4();
+    let (status, _body) = send(
+        &app,
+        "DELETE",
+        &format!("/api/messages/{ghost}/unfurls"),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_workspace_can_turn_previews_off(pool: PgPool) {
+    let (app, state, _owner, token, ws_id, ch_id) = setup_channel(pool).await;
+    let msg_id = create_message(&app, &token, ch_id, "https://example.com").await;
+    let target = state
+        .message_repo
+        .find_unfurl_target(msg_id)
+        .await
+        .expect("target")
+        .expect("message");
+    assert!(target.previews_enabled, "previews are on by default");
+
+    let (status, body) = send(
+        &app,
+        "PATCH",
+        &format!("/api/workspaces/{ws_id}"),
+        Some(&token),
+        Some(json!({ "link_previews": false })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(body["settings"]["link_previews"], json!(false));
+
+    let target = state
+        .message_repo
+        .find_unfurl_target(msg_id)
+        .await
+        .expect("target")
+        .expect("message");
+    assert!(!target.previews_enabled);
+}
+
 #[test_macros::db_test(migrations = "../migrations")]
 async fn delete_message_author_succeeds(pool: PgPool) {
     let (app, _state, _owner, token, _ws, ch_id) = setup_channel(pool).await;

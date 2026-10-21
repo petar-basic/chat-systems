@@ -9,8 +9,7 @@ ticket in [`docs/tickets/`](./tickets/INDEX.md); a ticket's file is deleted when
 
 | Ticket | What | Status |
 |---|---|---|
-| [CS-049](./tickets/CS-049-link-previews.md) | Link previews: OpenGraph cards fetched by the worker behind the SSRF guard | **Next.** The gap a team from Slack notices first |
-| [CS-050](./tickets/CS-050-mark-as-unread.md) | Mark as unread | Wave 14 |
+| [CS-050](./tickets/CS-050-mark-as-unread.md) | Mark as unread | **Next.** Wave 14; CS-049 link previews shipped |
 | [CS-051](./tickets/CS-051-all-unreads.md) | All unreads: every channel's new messages on one page | Wave 14, after CS-050 |
 | [CS-052](./tickets/CS-052-custom-sidebar-sections.md) | Custom sidebar sections that follow you across devices | Wave 14 |
 | [CS-037](./tickets/CS-037-huddle-sfu.md) | SFU (LiveKit) for huddles above the mesh's six-to-eight ceiling | On request. Adds a media server to the stack; nothing below a 20-person team needs it |

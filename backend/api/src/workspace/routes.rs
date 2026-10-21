@@ -116,6 +116,7 @@ async fn update_workspace(
             req.name.as_deref(),
             req.description.as_deref(),
             req.icon_url.as_deref(),
+            req.link_previews,
         )
         .await?;
     Ok(Json(workspace))

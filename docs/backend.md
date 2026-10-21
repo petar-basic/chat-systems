@@ -186,7 +186,7 @@ feature — see `dm` below.)
 | GET | `/workspaces` | — | `{ data: Workspace[] }` |
 | POST | `/workspaces` | `{ name, description? }` | `Workspace` |
 | GET | `/workspaces/:ws_id` | — | `Workspace` |
-| PATCH | `/workspaces/:ws_id` | `{ name?, description?, icon_url? }` | `Workspace` |
+| PATCH | `/workspaces/:ws_id` | `{ name?, description?, icon_url?, link_previews? }` | `Workspace` — `link_previews` is stored in `settings` and defaults to on |
 | DELETE | `/workspaces/:ws_id` | Query: `hard=bool` | `{ status: "soft_deleted" \| "hard_deleted" }` |
 | POST | `/workspaces/:ws_id/restore` | — | `Workspace` |
 | GET | `/workspaces/deleted` | — | `{ data: Workspace[] }` |
@@ -297,6 +297,19 @@ Sends and manages messages, threads, reactions, pins, read tracking, and search.
 | POST | `/channels/:ch_id/messages` | `{ content, thread_parent_id?, client_message_id? }` | `Message` — the one send path; a `thread_parent_id` makes it a reply (one level deep, same channel) and `client_message_id` makes a retry idempotent |
 | PATCH | `/messages/:msg_id` | `{ content }` | `Message` |
 | DELETE | `/messages/:msg_id` | — | `{ status: "deleted" }` |
+| DELETE | `/messages/:msg_id/unfurls` | — | `Message` — the author removes its link previews; they stay removed across edits |
+
+**Link previews.** `chat-worker`'s `unfurl` consumer reads every `message.created` and
+`message.updated`, takes the first three `http(s)` links outside code spans, and fetches
+each through `hooks::ssrf::resolve_outbound` in strict mode — whatever
+`WEBHOOK_ALLOW_PRIVATE_TARGETS` says, since any member can post a link — connecting to the
+addresses it checked, re-checking every redirect hop, with a 3 s timeout, a 512 KB cap and
+`text/html` only. OpenGraph tags, falling back to `<title>` and `<meta name=description>`,
+become `metadata.unfurls`, written only while the content is still the content that was
+read and announced with `message.updated`. `metadata.unfurls_source` (a hash of the link
+list) is what makes a redelivered event and the consumer's own update a no-op, and an edit
+that keeps the links free. Each URL's result is cached in Redis for 24 hours. A workspace
+turns previews off with `PATCH /workspaces/:ws_id { link_previews: false }`.
 
 **Threads:**
 

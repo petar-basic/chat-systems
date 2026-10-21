@@ -17,6 +17,7 @@ interface Props {
   instanceUrl?: string;
   currentName: string;
   currentDescription: string | null;
+  currentLinkPreviews: boolean;
   deletedAt?: string | null;
   onClose: () => void;
 }
@@ -29,6 +30,7 @@ export default function SettingsPanel({
   instanceUrl,
   currentName,
   currentDescription,
+  currentLinkPreviews,
   deletedAt,
   onClose,
 }: Props) {
@@ -38,6 +40,7 @@ export default function SettingsPanel({
   const [uploadingIcon, setUploadingIcon] = useState(false);
   const iconInputRef = useRef<HTMLInputElement>(null);
   const [description, setDescription] = useState(currentDescription || '');
+  const [linkPreviews, setLinkPreviews] = useState(currentLinkPreviews);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,6 +92,7 @@ export default function SettingsPanel({
             icon_url: iconUrl.trim(),
             name: name.trim(),
             description: description.trim() || null,
+            link_previews: linkPreviews,
           },
         }),
       );
@@ -214,6 +218,24 @@ export default function SettingsPanel({
               placeholder="What is this workspace about?"
             />
           </div>
+
+          <label htmlFor="ws-link-previews" className="flex items-start gap-3 cursor-pointer">
+            <input
+              id="ws-link-previews"
+              type="checkbox"
+              checked={linkPreviews}
+              onChange={(e) => setLinkPreviews(e.target.checked)}
+              data-qa="workspace-link-previews"
+              className="mt-0.5 accent-purple-500"
+            />
+            <span>
+              <span className="block text-sm font-medium text-fg-dim">Link previews</span>
+              <span className="block text-xs text-muted">
+                Show a card with the title and image of pages linked in messages. The server fetches each
+                public page to build it.
+              </span>
+            </span>
+          </label>
 
           {error && (
             <div className="text-sm text-danger bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
