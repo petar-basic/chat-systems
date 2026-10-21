@@ -334,6 +334,14 @@ that is not on `main` or has no dated CHANGELOG section, builds both images from
 tagged commit, pushes them to GHCR as `X.Y.Z`, `X.Y` and `latest`, and creates the GitHub
 release with that CHANGELOG section as its notes.
 
+Staging follows releases, not `main`:
+[`deploy-staging.yml`](../.github/workflows/deploy-staging.yml) runs when the Release
+workflow succeeds and calls the Coolify deploy webhook, and `docker-compose.coolify.yml`
+runs the `latest` images unless Coolify's `VERSION` pins one. A merge to `main` deploys
+nothing; to put an unreleased build on staging, run the workflow by hand after setting
+`VERSION` in Coolify to an image tag that exists. Coolify still reads the compose file
+from `main` at deploy time, so a compose change takes effect on the next deploy.
+
 ## Commits & PRs
 
 - Keep commits focused; write a clear subject line describing the *why*.

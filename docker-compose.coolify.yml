@@ -75,7 +75,7 @@ services:
     restart: "no"
 
   api:
-    image: ghcr.io/petar-basic/chat-systems-backend:${VERSION:-main}
+    image: ghcr.io/petar-basic/chat-systems-backend:${VERSION:-latest}
     pull_policy: always
     restart: unless-stopped
     environment:
@@ -135,7 +135,7 @@ services:
   # Background consumers. Redis pub/sub fans out to every subscriber, so a
   # second replica duplicates every notification and every webhook delivery.
   worker:
-    image: ghcr.io/petar-basic/chat-systems-backend:${VERSION:-main}
+    image: ghcr.io/petar-basic/chat-systems-backend:${VERSION:-latest}
     pull_policy: always
     restart: unless-stopped
     environment:
@@ -185,7 +185,7 @@ services:
           memory: 128m
 
   realtime:
-    image: ghcr.io/petar-basic/chat-systems-backend:${VERSION:-main}
+    image: ghcr.io/petar-basic/chat-systems-backend:${VERSION:-latest}
     pull_policy: always
     restart: unless-stopped
     environment:
@@ -216,7 +216,7 @@ services:
           memory: 192m
 
   frontend:
-    image: ghcr.io/petar-basic/chat-systems-frontend:${VERSION:-main}
+    image: ghcr.io/petar-basic/chat-systems-frontend:${VERSION:-latest}
     pull_policy: always
     restart: unless-stopped
     expose:
