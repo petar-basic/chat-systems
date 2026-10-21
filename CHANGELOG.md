@@ -14,7 +14,18 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
-## [Unreleased]
+## [2.1.0] — 2026-10-21
+
+### Upgrading from 2.0.0
+
+- **On the `s3` profile, MinIO is gone and RustFS takes its place.** After the upgrade starts
+  RustFS, copy existing uploads across once with `docker/migrate-minio-to-rustfs.sh`; until
+  you do, attachments uploaded before the upgrade do not open. Nothing is deleted — the old
+  MinIO volume stays where it was. Steps in RUNBOOK → *Upgrade note: RustFS replaces MinIO*.
+  If you set `S3_ENDPOINT=http://minio:9000` yourself, change it to `http://rustfs:9000`.
+- Migration 47 adds the sidebar-section tables and a nullable column; nothing to do.
+- The worker now makes outbound HTTPS requests for link previews. A workspace that does not
+  want that turns previews off in its settings.
 
 ### Added
 

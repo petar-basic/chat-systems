@@ -320,8 +320,10 @@ PRs for cargo (`/backend`), npm (`/frontend`), and github-actions.
 
 ## Releases
 
-Versions follow semver; a release that needs anything from the operator beyond pulling
-new images (a manual step, an irreversible migration, a removed route) is a major one.
+Versions follow semver. A release is major when it breaks something that cannot be put
+back: a removed route or frame a client depends on, or a migration that rewrites data
+irreversibly. A one-time manual step that leaves the data intact — copying uploads to a new
+store, say — is a minor release with an upgrade note at the top of its CHANGELOG entry.
 
 1. In a PR, date the release's section in [CHANGELOG.md](../CHANGELOG.md)
    (`## [X.Y.Z] — YYYY-MM-DD`) and make sure every operator-facing change has an upgrade
