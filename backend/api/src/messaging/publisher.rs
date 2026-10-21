@@ -3,7 +3,7 @@ use sqlx::{PgConnection, PgPool};
 use tracing::{info, warn};
 use uuid::Uuid;
 
-use super::models::{Message, Reaction};
+use super::models::{Message, Reaction, ReadState};
 
 use shared_common::errors::{AppError, AppResult};
 use shared_events::Event;
@@ -250,6 +250,26 @@ impl EventPublisher {
             serde_json::to_value(message).map_err(|e| AppError::Internal(e.to_string()))?;
         self.stage(conn, "message.updated", workspace_id, payload)
             .await
+    }
+
+    pub async fn publish_read_state(
+        &self,
+        user_id: Uuid,
+        workspace_id: Uuid,
+        state: &ReadState,
+    ) -> AppResult<()> {
+        self.publish(
+            "channel.read_state",
+            serde_json::json!({
+                "user_id": user_id,
+                "workspace_id": workspace_id,
+                "channel_id": state.channel_id,
+                "unread_count": state.unread_count,
+                "mention_count": state.mention_count,
+                "last_read_message_id": state.last_read_message_id,
+            }),
+        )
+        .await
     }
 
     pub async fn stage_message_deleted(

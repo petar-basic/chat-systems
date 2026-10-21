@@ -1392,6 +1392,46 @@
         }
       }
     },
+    "/channels/{ch_id}/unread": {
+      "post": {
+        "tags": [
+          "messages"
+        ],
+        "operationId": "mark_unread",
+        "parameters": [
+          {
+            "name": "ch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkReadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadState"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/conversations/{conv_id}/read": {
       "post": {
         "tags": [
@@ -8544,6 +8584,35 @@
           "user_id": {
             "type": "string",
             "format": "uuid"
+          }
+        }
+      },
+      "ReadState": {
+        "type": "object",
+        "required": [
+          "channel_id",
+          "unread_count",
+          "mention_count"
+        ],
+        "properties": {
+          "channel_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "last_read_message_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "mention_count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "unread_count": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },

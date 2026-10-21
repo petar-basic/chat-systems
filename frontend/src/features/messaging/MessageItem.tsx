@@ -9,6 +9,7 @@ import {
   Bookmark,
   Forward,
   MoreHorizontal,
+  MailOpen,
 } from 'lucide-react';
 import { AnchoredPopover } from '@/shared/components/Popover/AnchoredPopover';
 import { HoverCard } from '@/shared/components/Popover/HoverCard';
@@ -51,6 +52,7 @@ interface MessageItemProps {
   onEdit: (messageId: string, content: string) => Promise<unknown> | void;
   onDelete: (messageId: string) => Promise<unknown> | void;
   onHidePreviews?: (messageId: string) => void;
+  onMarkUnread?: (messageId: string) => void;
   onRetry?: (messageId: string, content: string) => void;
   onCopyLink?: (messageId: string) => void;
   onSave?: (message: Message) => void;
@@ -95,6 +97,7 @@ function MessageItem({
   onEdit,
   onDelete,
   onHidePreviews,
+  onMarkUnread,
   onRetry,
   onCopyLink,
   onSave,
@@ -130,6 +133,16 @@ function MessageItem({
       : []),
     ...(onCopyLink
       ? [{ key: 'copy-link', label: 'Copy link', Icon: Link2, onSelect: () => onCopyLink(message.id) }]
+      : []),
+    ...(onMarkUnread && !message.pending
+      ? [
+          {
+            key: 'mark-unread',
+            label: 'Mark unread',
+            Icon: MailOpen,
+            onSelect: () => onMarkUnread(message.id),
+          },
+        ]
       : []),
     ...(onForward
       ? [{ key: 'forward', label: 'Forward', Icon: Forward, onSelect: () => onForward(message) }]
@@ -234,6 +247,11 @@ function MessageItem({
       data-qa={dataQa}
       tabIndex={0}
       {...longPress}
+      onClick={(e) => {
+        if (!e.altKey || !onMarkUnread || message.pending || editing) return;
+        e.preventDefault();
+        onMarkUnread(message.id);
+      }}
       className={`group relative flex items-start gap-3 px-2 rounded-lg transition-colors hover:bg-surface/50 ${grouped ? 'py-0.5' : 'py-1.5'} ${message.pending ? 'opacity-50' : ''} ${isHighlighted ? 'bg-amber-500/10 ring-1 ring-inset ring-amber-500/25' : ''}`}
     >
       {grouped ? (
@@ -482,6 +500,18 @@ function MessageItem({
                 >
                   <Pin className="w-3.5 h-3.5" /> {message.is_pinned ? 'Unpin' : 'Pin'}
                 </button>
+                {onMarkUnread && !message.pending && (
+                  <button
+                    onClick={() => {
+                      onMarkUnread(message.id);
+                      setShowOverflow(false);
+                    }}
+                    data-qa="message-action-mark-unread"
+                    className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2"
+                  >
+                    <MailOpen className="w-3.5 h-3.5" /> Mark unread
+                  </button>
+                )}
                 {onCopyLink && (
                   <button
                     onClick={() => {

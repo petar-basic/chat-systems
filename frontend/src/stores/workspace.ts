@@ -51,6 +51,7 @@ interface WorkspaceState {
     entries: Array<{ channelId: string; huddleId: string; initiatorId: string }>,
   ) => void;
   markChannelRead: (channelId: string) => void;
+  setChannelReadState: (channelId: string, unread: number, mentions: number) => void;
   markConversationRead: (conversationId: string) => void;
   markConversationUnread: (conversationId: string) => void;
   hydrateUnreadConversations: (conversationIds: string[]) => void;
@@ -135,6 +136,30 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       delete unreadCounts[channelId];
       delete mentionCounts[channelId];
       return { unreadChannels: nextUnread, mentionChannels: nextMention, unreadCounts, mentionCounts };
+    });
+  },
+
+  setChannelReadState: (channelId, unread, mentions) => {
+    set((s) => {
+      const unreadChannels = new Set(s.unreadChannels);
+      const mentionChannels = new Set(s.mentionChannels);
+      const unreadCounts = { ...s.unreadCounts };
+      const mentionCounts = { ...s.mentionCounts };
+      if (unread > 0) {
+        unreadChannels.add(channelId);
+        unreadCounts[channelId] = unread;
+      } else {
+        unreadChannels.delete(channelId);
+        delete unreadCounts[channelId];
+      }
+      if (mentions > 0) {
+        mentionChannels.add(channelId);
+        mentionCounts[channelId] = mentions;
+      } else {
+        mentionChannels.delete(channelId);
+        delete mentionCounts[channelId];
+      }
+      return { unreadChannels, mentionChannels, unreadCounts, mentionCounts };
     });
   },
 

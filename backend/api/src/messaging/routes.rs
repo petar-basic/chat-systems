@@ -22,6 +22,7 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(list_messages, send_message))
         .routes(routes!(list_pins))
         .routes(routes!(mark_read))
+        .routes(routes!(mark_unread))
         .routes(routes!(update_message, delete_message))
         .routes(routes!(hide_unfurls))
         .routes(routes!(message_history))
@@ -599,12 +600,51 @@ async fn mark_read(
     Path(ch_id): Path<Uuid>,
     Json(req): Json<MarkReadRequest>,
 ) -> AppResult<Json<StatusResponse>> {
-    authz::require_channel_access(&state, ch_id, auth.user_id).await?;
+    let access = authz::require_channel_access(&state, ch_id, auth.user_id).await?;
     state
         .message_repo
         .mark_read(ch_id, auth.user_id, req.message_id)
         .await?;
+    let read = ReadState {
+        channel_id: ch_id,
+        unread_count: 0,
+        mention_count: 0,
+        last_read_message_id: Some(req.message_id),
+    };
+    if let Err(e) = state
+        .publisher
+        .publish_read_state(auth.user_id, access.channel.workspace_id, &read)
+        .await
+    {
+        tracing::warn!(channel_id = %ch_id, "failed to announce the read position: {e}");
+    }
     Ok(Json(StatusResponse { status: "read" }))
+}
+
+#[utoipa::path(
+    post, path = "/channels/{ch_id}/unread", tag = "messages",
+    request_body = MarkReadRequest,
+    responses((status = 200, body = ReadState)))]
+async fn mark_unread(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(ch_id): Path<Uuid>,
+    Json(req): Json<MarkReadRequest>,
+) -> AppResult<Json<ReadState>> {
+    let access = authz::require_channel_access(&state, ch_id, auth.user_id).await?;
+    let read = state
+        .message_repo
+        .mark_unread(ch_id, auth.user_id, req.message_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Message not found in this channel".into()))?;
+    if let Err(e) = state
+        .publisher
+        .publish_read_state(auth.user_id, access.channel.workspace_id, &read)
+        .await
+    {
+        tracing::warn!(channel_id = %ch_id, "failed to announce the read position: {e}");
+    }
+    Ok(Json(read))
 }
 
 #[utoipa::path(get, path = "/search", tag = "messages",

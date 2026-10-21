@@ -2,7 +2,7 @@
 
 **Wave:** 14 — the daily-use gaps a team arriving from Slack notices first
 **Area:** backend · frontend
-**Blocked by:** CS-050 (a channel marked unread has to appear here)
+**Blocked by:** ~~CS-050~~ ✅ shipped (a channel marked unread has to appear here)
 **Blocks:** —
 
 ## Problem

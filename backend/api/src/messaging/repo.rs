@@ -773,6 +773,59 @@ impl MessageRepo {
         Ok(())
     }
 
+    pub async fn mark_unread(
+        &self,
+        channel_id: Uuid,
+        user_id: Uuid,
+        message_id: Uuid,
+    ) -> sqlx::Result<Option<ReadState>> {
+        sqlx::query_as!(
+            ReadState,
+            r#"
+            WITH target AS (
+                SELECT id, created_at FROM messages
+                 WHERE id = $3 AND channel_id = $1 AND deleted_at IS NULL
+            ),
+            previous AS (
+                SELECT m.id FROM messages m, target t
+                 WHERE m.channel_id = $1
+                   AND m.deleted_at IS NULL
+                   AND (m.created_at, m.id) < (t.created_at, t.id)
+                 ORDER BY m.created_at DESC, m.id DESC
+                 LIMIT 1
+            )
+            UPDATE channel_members cm
+               SET last_read_at = t.created_at - interval '1 microsecond',
+                   last_read_msg = (SELECT id FROM previous),
+                   last_read_message_id = (SELECT id FROM previous),
+                   unread_count = (
+                       SELECT COUNT(*)::int FROM messages m
+                        WHERE m.channel_id = $1
+                          AND m.deleted_at IS NULL
+                          AND m.user_id <> $2
+                          AND m.created_at >= t.created_at
+                   ),
+                   mention_count = (
+                       SELECT COUNT(*)::int FROM notifications n
+                         JOIN messages m ON m.id::text = n.data->>'message_id'
+                        WHERE n.user_id = $2
+                          AND n.notification_type = 'mention'
+                          AND m.channel_id = $1
+                          AND m.deleted_at IS NULL
+                          AND m.created_at >= t.created_at
+                   )
+              FROM target t
+             WHERE cm.channel_id = $1 AND cm.user_id = $2
+            RETURNING cm.channel_id, cm.unread_count AS "unread_count!", cm.mention_count AS "mention_count!", cm.last_read_message_id
+            "#,
+            channel_id,
+            user_id,
+            message_id
+        )
+        .fetch_optional(&self.pool)
+        .await
+    }
+
     /// Deleting a message removes it from the count of everyone who had not read
     /// past it yet. Anyone who had already read it never counted it, so their
     /// badge must not go down.

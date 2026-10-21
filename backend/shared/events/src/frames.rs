@@ -191,6 +191,14 @@ pub enum ServerFrame {
         #[serde(default)]
         initiator_id: Option<Uuid>,
     },
+    #[serde(rename = "channel.read_state")]
+    ChannelReadState {
+        channel_id: Uuid,
+        workspace_id: Option<Uuid>,
+        unread_count: i32,
+        mention_count: i32,
+        last_read_message_id: Option<Uuid>,
+    },
     #[serde(rename = "channel.access_revoked")]
     ChannelAccessRevoked {
         channel_id: Uuid,

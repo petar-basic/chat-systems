@@ -341,6 +341,26 @@ pub(crate) async fn handle_event_for(
                 }
             }
         }
+        "channel.read_state" => {
+            let (Some(uid), Some(channel_id)) = (field("user_id"), field("channel_id")) else {
+                return;
+            };
+            let count = |name: &str| {
+                payload
+                    .get(name)
+                    .and_then(|v| v.as_i64())
+                    .and_then(|v| i32::try_from(v).ok())
+                    .unwrap_or(0)
+            };
+            let frame = ServerFrame::ChannelReadState {
+                channel_id,
+                workspace_id: field("workspace_id"),
+                unread_count: count("unread_count"),
+                mention_count: count("mention_count"),
+                last_read_message_id: field("last_read_message_id"),
+            };
+            cm.send_to_user(audience, uid, &framed(&frame)).await;
+        }
         "channel.member_removed" => {
             let (Some(uid), Some(ch_id)) = (field("user_id"), field("channel_id")) else {
                 return;
