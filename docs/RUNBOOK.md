@@ -112,25 +112,32 @@ not a promise.
 | `pg_dump` + gzip + `gzip -t` (92 MB) | 15 s |
 | Restore that dump into an empty database | 18 s |
 
-Latency per request, one signed-in member of 66 channels, 20 runs each, warm cache:
+Latency per request, one signed-in member of 66 channels, 20 runs each, warm cache; the
+last column is p95 while a second, 100,000-message import runs into another workspace:
 
 | Request | p50 | p95 | During an import |
 |---|---|---|---|
-| Channel history, newest page | 22 ms | 29 ms | 22 ms |
-| Channel history, page 100 | 17 ms | 20 ms | 21 ms |
-| Unread counters, channel list | 2–3 ms | 3–6 ms | unchanged |
-| Search, a word in 21,000 messages | 165 ms | 190 ms | 200 ms |
-| Search, the same word, page 11 | 166 ms | 186 ms | 218 ms |
-| Search, a word in 370 messages | 415 ms | 470 ms | 485 ms |
-| Search, a substring | 350 ms | 480 ms | 430 ms |
-| Search, a word in 334,000 messages | 1.6 s | 1.7 s | 1.8 s |
+| Channel history, newest page | 4–22 ms | 6–29 ms | 4 ms |
+| Channel history, page 100 | 3–17 ms | 5–20 ms | 4 ms |
+| Unread counters, channel list | 2–3 ms | 3–6 ms | 3 ms |
+| Search, a word in 21,000 messages | 21 ms | 24 ms | 44 ms |
+| Search, the same word, page 11 | 20 ms | 25 ms | 28 ms |
+| Search, a word in 370 messages | 6 ms | 7 ms | 14 ms |
+| Search, a substring | 137 ms | 158 ms | 165 ms |
+| Search, a word in 334,000 messages | 11 ms | 13 ms | 15 ms |
 
-History and the unread counters do not notice the size. An import costs searches 15–25%
-while it runs and nothing else, so it does not need a maintenance window. **Search is the
-part that does not hold up**: ranking sorts every match before returning twenty, and the
-query's plan is fragile — on the restored copy of the same data the planner chose a
-per-channel loop and the same searches took 2 to 13 seconds. That is
-[CS-048](tickets/CS-048-search-at-scale.md).
+History and the unread counters do not notice the size (the spread in the history rows is a
+cold versus a warm cache), and an import costs searches a few milliseconds while it runs,
+so it does not need a maintenance window.
+
+Search was the one thing that did not hold up — 1.6 s for a common word, and 2 to 13 s on a
+restored copy of the same data, because the planner's generic plan looped over every
+visible channel. CS-048 ranks only the newest 1,000 exact matches, reaches for fuzzy
+matches only when the exact ones run short, and plans every search for its actual term. The
+same numbers on a restored and analyzed database are within a few milliseconds of the
+table above. **On a database with no statistics at all** — straight after a restore,
+before `ANALYZE` or autovacuum has run — a common word still takes up to 3 s, which is why
+the restore below ends with `vacuumdb --analyze-only`.
 
 ## Upgrade note: Wave 1 expires every outstanding invite
 

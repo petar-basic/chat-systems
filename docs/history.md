@@ -946,3 +946,39 @@ table failed with `could not resize shared memory segment`; parallel search scan
 same memory. Postgres now gets `shm_size: 256mb` in both compose files.
 
 ---
+
+## Wave 13 — What the scale measurement found ✅ shipped
+
+### [CS-048] Search that holds up at 500,000 messages
+CS-047 measured search at 1.6 s for a common word and 2–13 s on a restored copy of the same
+data, with three causes visible in `EXPLAIN ANALYZE`. Each got its own change in
+`MessageRepo::search`:
+
+- **Every search is planned for its own term.** sqlx keeps the statement prepared, and after
+  five calls Postgres may switch to a generic plan that cannot see the term; on the restored
+  database that plan looped over all 195 visible channels and scanned both indexes for each.
+  The query now runs in a transaction that sets `plan_cache_mode = force_custom_plan` locally
+  — `set_config(…, true)` in a checked macro rather than `.persistent(false)`, which the
+  macros' return type does not offer.
+- **Only the newest 1,000 exact matches are ranked.** A word in 334,000 messages no longer
+  sorts all of them, spilling to disk, to return twenty. Chat search wants recent results,
+  and page 51 of a common word is not a request anyone makes.
+- **Fuzzy matching runs only when exact matching runs short.** The trigram branch was OR-ed
+  into every search, so a rare word paid for 43,000 trigram candidates after its 370 exact
+  hits had already filled the page. It now runs when the exact matches number fewer than
+  the page reaches, takes the newest 1,000 candidates, and ranks them below every exact
+  match, as before.
+
+| Search, p95 | Before | After |
+|---|---|---|
+| a word in 21,000 messages | 190 ms | 24 ms |
+| a word in 370 messages | 470 ms | 7 ms |
+| a substring | 480 ms | 158 ms |
+| a word in 334,000 messages | 1.7 s | 13 ms |
+| the same, on a restored and analyzed database | 2.0–13.2 s | 6–147 ms |
+
+What it does not fix: a database with **no statistics at all** still plans badly — up to 3 s
+for a common word in the minute between a restore and autovacuum's first `ANALYZE`. The
+restore procedure now ends with `vacuumdb --analyze-only`, which closes that window.
+
+---
