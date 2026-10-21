@@ -23,6 +23,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   the issue's type, status, priority and assignee. Cards are fetched with the poster's
   account, so nobody sees an issue through a card that they could not open themselves.
   Setup is in RUNBOOK → *Connected apps*.
+- **GitHub cards** for pull requests (open, draft, merged or closed, author, size, labels),
+  issues, commits and repositories. Public repositories need no setup; private ones need a
+  read-only GitHub App that an admin sets up under *Apps*, and each person connects their own
+  GitHub account.
 
 ### Fixed
 

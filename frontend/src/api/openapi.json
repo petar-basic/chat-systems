@@ -9330,7 +9330,8 @@
       "Provider": {
         "type": "string",
         "enum": [
-          "jira"
+          "jira",
+          "github"
         ]
       },
       "PushKey": {

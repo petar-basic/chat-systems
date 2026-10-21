@@ -7,14 +7,16 @@ use uuid::Uuid;
 #[serde(rename_all = "snake_case")]
 pub enum Provider {
     Jira,
+    Github,
 }
 
 impl Provider {
-    pub const ALL: [Provider; 1] = [Provider::Jira];
+    pub const ALL: [Provider; 2] = [Provider::Jira, Provider::Github];
 
     pub fn as_str(self) -> &'static str {
         match self {
             Provider::Jira => "jira",
+            Provider::Github => "github",
         }
     }
 
@@ -25,18 +27,21 @@ impl Provider {
     pub fn name(self) -> &'static str {
         match self {
             Provider::Jira => "Jira Cloud",
+            Provider::Github => "GitHub",
         }
     }
 
     pub fn scopes(self) -> &'static [&'static str] {
         match self {
             Provider::Jira => &["read:jira-work", "read:me", "offline_access"],
+            Provider::Github => &[],
         }
     }
 
     pub fn console_url(self) -> &'static str {
         match self {
             Provider::Jira => "https://developer.atlassian.com/console/myapps/",
+            Provider::Github => "https://github.com/settings/apps/new",
         }
     }
 
@@ -48,6 +53,15 @@ impl Provider {
                 "Under Authorization, choose OAuth 2.0 (3LO) and paste the callback URL below.",
                 "Under Settings, copy the Client ID and the Secret into the fields below and save.",
                 "Press Connect my account to test it: Atlassian asks for consent and you come back connected.",
+            ],
+            Provider::Github => &[
+                "Open GitHub → Settings → Developer settings → GitHub Apps → New GitHub App (under your organization's settings for an app the organization owns).",
+                "Name it, set the Homepage URL to this instance and paste the callback URL below. Keep Expire user authorization tokens ticked.",
+                "Under Webhook, untick Active — cards do not need events.",
+                "Repository permissions: Contents, Issues, Pull requests and Metadata, all Read-only. Nothing else.",
+                "Create the app, choose Generate a new client secret, and copy the Client ID and the secret into the fields below.",
+                "Choose Install App and install it on your organization: private repositories get cards only where it is installed. Public repositories get cards without it.",
+                "Press Connect my account to test it.",
             ],
         }
     }

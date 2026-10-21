@@ -597,7 +597,7 @@ a link while only an admin can create a webhook. Results are cached in Redis for
 URL. Preview images load in the reader's browser straight from the linked site. A workspace
 that wants none of this turns previews off under *Workspace settings → Link previews*.
 
-## Connected apps (Jira Cloud)
+## Connected apps (Jira Cloud, GitHub)
 
 Links to Jira issues get a card with the issue's type, status, priority and assignee once a
 workspace admin connects Jira and the person posting the link connects their own Atlassian
@@ -627,6 +627,32 @@ from `JWT_SECRET`); changing `JWT_SECRET` therefore means setting the app up aga
 everyone reconnecting. Turning the app off stops new cards; **Remove app** also disconnects
 everyone. Suspending or erasing a user deletes their connections. `ATLASSIAN_AUTH_URL` and
 `ATLASSIAN_API_URL` exist for an egress proxy and are otherwise left alone.
+
+### GitHub
+
+**Public repositories need no setup at all.** A link to a public pull request, issue, commit
+or repository gets a card from GitHub's API anonymously. Those requests share GitHub's limit
+of 60 an hour per server address, so each public card is cached for ten minutes.
+
+**Private repositories need a GitHub App**, not an OAuth App. An OAuth App's only scope for
+private code is `repo`, which also grants write access; a GitHub App can be limited to
+read-only and to the repositories it is installed on.
+
+1. In the app: workspace menu → **Apps** → *GitHub* → *Set up*.
+2. On GitHub: **Settings → Developer settings → GitHub Apps → New GitHub App**. Use the
+   organization's settings instead for an app the organization owns.
+3. Name it, set the homepage to your instance, and paste the *Callback URL* from the app.
+   Leave **Expire user authorization tokens** ticked.
+4. **Webhook**: untick *Active*.
+5. **Repository permissions**: *Contents*, *Issues*, *Pull requests* and *Metadata*, all
+   **Read-only**. Nothing else.
+6. Create it, choose **Generate a new client secret**, and copy the **Client ID** and secret
+   into the app.
+7. **Install App** on your organization, for the repositories that should get cards.
+8. Press **Connect my account**.
+
+A private link from someone who has not connected gets the same private *Connect GitHub*
+prompt as Jira. `GITHUB_WEB_URL` and `GITHUB_API_URL` exist for an egress proxy.
 
 ## Huddle relay (TURN)
 

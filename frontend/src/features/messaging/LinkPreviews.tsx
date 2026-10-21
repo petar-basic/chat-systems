@@ -88,6 +88,7 @@ function AppCard({
         {unfurl.title}
       </a>
       {unfurl.subtitle && <div className="text-xs text-fg-dim">{unfurl.subtitle}</div>}
+      {unfurl.description && <p className="mt-1 text-xs text-muted line-clamp-2">{unfurl.description}</p>}
       {unfurl.fields && unfurl.fields.length > 0 && (
         <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2">
           {unfurl.fields.map((field) => (

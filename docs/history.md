@@ -1076,7 +1076,7 @@ Wave 14 is done with this ticket.
 
 ## Wave 15 — Links people actually paste at work
 
-### [CS-053] Rich previews from connected apps — framework and Jira ✅ shipped (GitHub and Google Drive to follow)
+### [CS-053] Rich previews from connected apps — framework, Jira and GitHub ✅ shipped (Google Drive to follow)
 The links a team pastes most sit behind a login, so CS-049's anonymous OpenGraph fetch can
 say nothing about them. A Jira link now becomes a card built from Jira's API: issue type and
 key, summary, status (coloured by Jira's status category), priority, assignee, *Open in Jira*
@@ -1099,5 +1099,14 @@ client secret and tokens sealed like TOTP secrets (`sealed.rs`, its own key purp
 refreshed when they are about to expire, connections deleted when a member leaves the
 workspace (a foreign key on the membership), is suspended or is erased, and every setup and
 connection in the audit log. The client renders every provider's card with one component.
+
+**GitHub** came second, on the same framework with no frontend card code. It is a GitHub
+App, not an OAuth App: an OAuth App's only scope for private code is `repo`, which can also
+write, while a GitHub App is read-only and limited to the repositories it is installed on.
+Public repositories need no setup at all — the card comes from the anonymous API, cached for
+ten minutes per URL because that limit is 60 requests an hour per server and the answer is the
+same for everyone. A private link falls through to the poster's connection, then to a
+*Connect* prompt. Checked against the real API: a `/pull/N` that GitHub serves for an issue
+gets the issue card, and an `/issues/N` that is a pull request gets the pull request card.
 
 ---

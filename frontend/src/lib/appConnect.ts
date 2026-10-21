@@ -5,7 +5,7 @@ export interface PendingAppConnect {
   refreshMessageId?: string;
 }
 
-export const APP_NAMES: Record<string, string> = { jira: 'Jira' };
+export const APP_NAMES: Record<string, string> = { jira: 'Jira', github: 'GitHub' };
 
 export function appName(provider: string): string {
   return APP_NAMES[provider] ?? provider;

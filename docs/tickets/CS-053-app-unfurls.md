@@ -98,8 +98,9 @@ within its rate limit), so a public PR gets a real card for everyone.
 
 1. ~~Framework and Jira~~ ✅ shipped — see history.md. The provider list, tables, sealing,
    OAuth flow, consumer hook, card renderer, *Apps* panel and callback page are in place.
-2. GitHub — a `Provider::Github` variant, its matcher, fetch and card mapping, its setup
-   steps; anonymous cards for public repositories.
+2. ~~GitHub~~ ✅ shipped — a read-only GitHub App for private repositories, anonymous cards
+   for public ones. Check-run and review summaries on pull requests are left out: they cost
+   two more requests per card for a line people rarely read in a preview.
 3. Google Drive — the same, for Docs, Sheets, Slides and Drive files.
 
 ## Acceptance

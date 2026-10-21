@@ -1,26 +1,15 @@
-use std::time::Duration;
-
 use chrono::Utc;
-use serde::Deserialize;
 use serde_json::Value;
 
 use shared_common::errors::{AppError, AppResult};
 
+use super::http::{self, TokenSet};
 use super::models::JiraSite;
 use crate::messaging::models::{Unfurl, UnfurlField};
-
-const TIMEOUT: Duration = Duration::from_secs(5);
 
 pub struct Atlassian {
     pub auth_base: String,
     pub api_base: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct TokenSet {
-    pub access_token: String,
-    pub refresh_token: Option<String>,
-    pub expires_in: Option<i64>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -29,16 +18,8 @@ pub struct IssueRef {
     pub key: String,
 }
 
-fn http() -> AppResult<reqwest::Client> {
-    reqwest::Client::builder()
-        .timeout(TIMEOUT)
-        .redirect(reqwest::redirect::Policy::none())
-        .build()
-        .map_err(|e| AppError::Internal(format!("http client: {e}")))
-}
-
 fn provider_error(what: &str, e: impl std::fmt::Display) -> AppError {
-    AppError::BadRequest(format!("Jira {what} failed: {e}"))
+    http::provider_error("Jira", what, e)
 }
 
 impl Atlassian {
@@ -65,7 +46,7 @@ impl Atlassian {
     }
 
     async fn token(&self, body: Value) -> AppResult<TokenSet> {
-        let response = http()?
+        let response = http::client()?
             .post(format!("{}/oauth/token", self.auth_base))
             .json(&body)
             .send()
@@ -115,7 +96,7 @@ impl Atlassian {
     }
 
     async fn get(&self, path: &str, token: &str) -> AppResult<Option<Value>> {
-        let response = http()?
+        let response = http::client()?
             .get(format!("{}{path}", self.api_base))
             .bearer_auth(token)
             .header(reqwest::header::ACCEPT, "application/json")
