@@ -16,6 +16,14 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ## [Unreleased]
 
+### Added
+
+- **Jira cards.** A workspace admin connects Jira Cloud under *Apps* by following the steps on
+  screen; each person connects their own Atlassian account, and their Jira links then show
+  the issue's type, status, priority and assignee. Cards are fetched with the poster's
+  account, so nobody sees an issue through a card that they could not open themselves.
+  Setup is in RUNBOOK → *Connected apps*.
+
 ### Fixed
 
 - A link written as `<https://…>` — the way Slack and most tools paste one — shows as a link

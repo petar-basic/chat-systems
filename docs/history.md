@@ -1073,3 +1073,31 @@ back to the server's copy if it fails.
 Wave 14 is done with this ticket.
 
 ---
+
+## Wave 15 — Links people actually paste at work
+
+### [CS-053] Rich previews from connected apps — framework and Jira ✅ shipped (GitHub and Google Drive to follow)
+The links a team pastes most sit behind a login, so CS-049's anonymous OpenGraph fetch can
+say nothing about them. A Jira link now becomes a card built from Jira's API: issue type and
+key, summary, status (coloured by Jira's status category), priority, assignee, *Open in Jira*
+and the time it was fetched.
+
+**Whose permission is the design.** The card is fetched with the connected account of the
+person who posted the link, never with a workspace-wide token; everyone in the channel sees
+what the poster could already see and chose to share. A poster who has not connected gets a
+private prompt under their message instead of a card, and connecting refreshes that message.
+
+**Setup is the admin's two minutes, not a deployment.** A self-hosted instance cannot ship
+OAuth credentials, because Atlassian binds them to the redirect URL, so *Apps* shows exactly
+what to paste into Atlassian's console — callback URL, scopes, the steps — and takes the
+client ID and secret back. Connecting your own account is the test.
+
+The framework is provider-shaped so GitHub and Google Drive add a matcher, a fetch and a
+mapping to the same card: `workspace_apps` and `app_connections` (migration 48) with the
+client secret and tokens sealed like TOTP secrets (`sealed.rs`, its own key purpose), OAuth
+2.0 with PKCE whose state lives in Redis for ten minutes and is readable once, tokens
+refreshed when they are about to expire, connections deleted when a member leaves the
+workspace (a foreign key on the membership), is suspended or is erased, and every setup and
+connection in the audit log. The client renders every provider's card with one component.
+
+---

@@ -26,6 +26,10 @@ pub async fn deactivate(
     .await?;
 
     sessions::revoke(state, user_id, SessionScope::All, "deprovisioned").await?;
+    state
+        .integration_repo
+        .delete_user_connections(user_id)
+        .await?;
 
     let workspaces = state
         .workspace_service

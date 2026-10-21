@@ -45,6 +45,7 @@ interface Props {
   onOpenMembers: () => void;
   onOpenSettings: () => void;
   onOpenIntegrations: () => void;
+  onOpenApps: () => void;
   onOpenCustomEmoji: () => void;
   onOpenUserGroups: () => void;
   onOpenAuditLog: () => void;
@@ -82,6 +83,7 @@ export default function ChannelSidebar({
   onOpenMembers,
   onOpenSettings,
   onOpenIntegrations,
+  onOpenApps,
   onOpenCustomEmoji,
   onOpenUserGroups,
   onOpenAuditLog,
@@ -169,6 +171,7 @@ export default function ChannelSidebar({
           onOpenMembers={onOpenMembers}
           onOpenSettings={onOpenSettings}
           onOpenIntegrations={onOpenIntegrations}
+          onOpenApps={onOpenApps}
           onOpenSlackImport={onOpenSlackImport}
           onOpenCustomEmoji={onOpenCustomEmoji}
           onOpenUserGroups={onOpenUserGroups}

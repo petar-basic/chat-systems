@@ -1,0 +1,102 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT external_account, access_token_encrypted, access_token_nonce,\n                    refresh_token_encrypted, refresh_token_nonce, expires_at, resources\n               FROM app_connections WHERE workspace_id = $1 AND user_id = $2 AND provider = $3",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "external_account",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "app_connections",
+            "name": "external_account"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "access_token_encrypted",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "app_connections",
+            "name": "access_token_encrypted"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "access_token_nonce",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "app_connections",
+            "name": "access_token_nonce"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "refresh_token_encrypted",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "app_connections",
+            "name": "refresh_token_encrypted"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "refresh_token_nonce",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "app_connections",
+            "name": "refresh_token_nonce"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "expires_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "app_connections",
+            "name": "expires_at"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "resources",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "app_connections",
+            "name": "resources"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "5f947b16e994c4ae010b320432c15d1bfc1dec8754045f7cf896eb242212db47"
+}

@@ -23,6 +23,7 @@ import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { HuddleSystemMessage } from '@/features/huddle/components/HuddleSystemMessage';
 import EmojiPicker from './EmojiPicker';
 import { LinkPreviews } from './LinkPreviews';
+import { AppConnectPrompt } from './AppConnectPrompt';
 
 /// Reacting is the most common action in the product; a picker turns one tap
 /// into three. Kept to three so the toolbar stays narrow enough not to cover
@@ -52,6 +53,7 @@ interface MessageItemProps {
   onEdit: (messageId: string, content: string) => Promise<unknown> | void;
   onDelete: (messageId: string) => Promise<unknown> | void;
   onHidePreviews?: (messageId: string) => void;
+  onRefreshPreviews?: (messageId: string) => void;
   onMarkUnread?: (messageId: string) => void;
   onRetry?: (messageId: string, content: string) => void;
   onCopyLink?: (messageId: string) => void;
@@ -97,6 +99,7 @@ function MessageItem({
   onEdit,
   onDelete,
   onHidePreviews,
+  onRefreshPreviews,
   onMarkUnread,
   onRetry,
   onCopyLink,
@@ -323,8 +326,18 @@ function MessageItem({
                     ? () => onHidePreviews(message.id)
                     : undefined
                 }
+                onRefresh={
+                  onRefreshPreviews && message.user_id === currentUserId
+                    ? () => onRefreshPreviews(message.id)
+                    : undefined
+                }
               />
             )}
+            {!message.deleted_at &&
+              message.user_id === currentUserId &&
+              !!message.metadata?.app_prompts?.length && (
+                <AppConnectPrompt providers={message.metadata.app_prompts} messageId={message.id} />
+              )}
             {grouped && (editedMarker || pinnedMarker) && (
               <div className="flex items-center gap-2">
                 {editedMarker}

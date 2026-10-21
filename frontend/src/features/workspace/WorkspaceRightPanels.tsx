@@ -9,6 +9,7 @@ import PinnedMessagesPanel from '@/components/PinnedMessagesPanel';
 import ChannelMembersPanel from '@/components/ChannelMembersPanel';
 import NotificationsPanel from '@/components/NotificationsPanel';
 import IntegrationsPanel from '@/components/IntegrationsPanel';
+import AppsPanel from '@/components/AppsPanel';
 import CustomEmojiPanel from '@/components/CustomEmojiPanel';
 import UserGroupsPanel from '@/components/UserGroupsPanel';
 import { useCurrentWorkspaceRole } from './hooks/useCurrentWorkspaceRole';
@@ -142,6 +143,15 @@ export default function WorkspaceRightPanels({
         workspaceId={currentWorkspace.id}
         onClose={onClose}
         onNavigate={(chId, msgId, withThread) => onNavigateToMessage(chId, msgId, withThread)}
+      />
+    );
+  }
+  if (panel.kind === 'apps' && currentWorkspace) {
+    return (
+      <AppsPanel
+        workspaceId={currentWorkspace.id}
+        isAdmin={role === 'admin' || role === 'owner'}
+        onClose={onClose}
       />
     );
   }

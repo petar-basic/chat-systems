@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM app_connections WHERE workspace_id = $1 AND user_id = $2 AND provider = $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a55c5986ca04acfcdad0a91929b403c4ef084a3e03da9a434a1dfa680c61838d"
+}

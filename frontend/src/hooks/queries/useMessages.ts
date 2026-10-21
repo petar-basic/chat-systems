@@ -157,6 +157,17 @@ export const useDeleteMessage = () => {
   });
 };
 
+export const useRefreshLinkPreviews = () => {
+  const apiClient = useCurrentApi();
+  return useMutation({
+    mutationFn: ({ messageId }: { messageId: string }) =>
+      apiClient.typed((c) =>
+        c.POST('/messages/{msg_id}/unfurls/refresh', { params: { path: { msg_id: messageId } } }),
+      ),
+    onError: (err) => logger.error('useRefreshLinkPreviews', 'mutationFn', err),
+  });
+};
+
 export const useHideLinkPreviews = () => {
   const queryClient = useQueryClient();
   const apiClient = useCurrentApi();

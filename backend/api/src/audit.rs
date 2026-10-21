@@ -64,6 +64,10 @@ pub enum AuditAction {
     ScimTokenRotated,
     RetentionChanged,
     RetentionPurge,
+    AppConfigured,
+    AppRemoved,
+    AppConnected,
+    AppDisconnected,
 }
 
 impl AuditAction {
@@ -118,6 +122,10 @@ impl AuditAction {
             Self::ScimTokenRotated => "scim.token_rotated",
             Self::RetentionChanged => "retention.changed",
             Self::RetentionPurge => "retention.purge",
+            Self::AppConfigured => "app.configured",
+            Self::AppRemoved => "app.removed",
+            Self::AppConnected => "app.connected",
+            Self::AppDisconnected => "app.disconnected",
         }
     }
 
@@ -161,6 +169,9 @@ impl AuditAction {
             | Self::TotpRecoveryUsed => "user",
             Self::ScimTokenCreated | Self::ScimTokenRevoked | Self::ScimTokenRotated => "scim",
             Self::RetentionChanged | Self::RetentionPurge => "retention",
+            Self::AppConfigured | Self::AppRemoved | Self::AppConnected | Self::AppDisconnected => {
+                "app"
+            }
             Self::ExportRequested | Self::ExportCompleted => "export",
             Self::SlackImportStarted => "slack_import",
         }

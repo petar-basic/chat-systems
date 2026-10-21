@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE workspace_apps\n                SET client_id = $3, enabled = $4, configured_by = $5, configured_at = NOW()\n              WHERE workspace_id = $1 AND provider = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Bool",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e2b94f60c5b037bec435f8434a9fbf2d09dafe562ec813b051255871987afbe5"
+}

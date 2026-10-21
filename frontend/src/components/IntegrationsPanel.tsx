@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
-import { X, Plug, Trash2, Eye, RefreshCw, Copy, Check, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
+import { CopyField } from '@/shared/components/CopyField/CopyField';
+import { X, Plug, Trash2, Eye, RefreshCw, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
 import type { Channel } from '@/stores/workspace';
 import {
   useHooks,
@@ -24,42 +25,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function configOf(source: { config: unknown }): Record<string, unknown> {
   return isRecord(source.config) ? source.config : {};
-}
-
-function CopyField({ label, value }: { label: string; value: string }) {
-  const [copied, setCopied] = useState(false);
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setCopied(false);
-    }
-  };
-
-  return (
-    <div className="mt-2">
-      <div className="text-[11px] uppercase tracking-wider text-muted mb-1">{label}</div>
-      <div className="flex items-center gap-1.5">
-        <code
-          data-qa="hook-secret-value"
-          className="flex-1 min-w-0 truncate text-xs bg-app/70 border border-line rounded px-2 py-1.5 text-fg-soft"
-        >
-          {value}
-        </code>
-        <button
-          onClick={copy}
-          aria-label={`Copy ${label}`}
-          data-qa="hook-secret-copy"
-          className="p-1.5 rounded text-muted hover:text-fg hover:bg-raised transition cursor-pointer"
-        >
-          {copied ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
-        </button>
-      </div>
-    </div>
-  );
 }
 
 function HookRow({
@@ -161,8 +126,22 @@ function HookRow({
 
       {secrets && (
         <div data-qa="hook-secrets">
-          {secrets.incoming_url && <CopyField label="Webhook URL" value={secrets.incoming_url} />}
-          {typeof signingSecret === 'string' && <CopyField label="Signing secret" value={signingSecret} />}
+          {secrets.incoming_url && (
+            <CopyField
+              valueQa="hook-secret-value"
+              copyQa="hook-secret-copy"
+              label="Webhook URL"
+              value={secrets.incoming_url}
+            />
+          )}
+          {typeof signingSecret === 'string' && (
+            <CopyField
+              valueQa="hook-secret-value"
+              copyQa="hook-secret-copy"
+              label="Signing secret"
+              value={signingSecret}
+            />
+          )}
         </div>
       )}
     </div>

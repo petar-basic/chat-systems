@@ -597,6 +597,37 @@ a link while only an admin can create a webhook. Results are cached in Redis for
 URL. Preview images load in the reader's browser straight from the linked site. A workspace
 that wants none of this turns previews off under *Workspace settings → Link previews*.
 
+## Connected apps (Jira Cloud)
+
+Links to Jira issues get a card with the issue's type, status, priority and assignee once a
+workspace admin connects Jira and the person posting the link connects their own Atlassian
+account. The card is fetched with that person's account, so it only ever shows what they
+can see in Jira.
+
+**Setting it up (an admin, once per workspace, about two minutes):**
+
+1. In the app: workspace menu → **Apps** → *Jira Cloud* → *Set up*. Keep this open; it shows
+   every value you need with a copy button.
+2. Go to <https://developer.atlassian.com/console/myapps/> → **Create** → **OAuth 2.0
+   integration**, and name it after your instance.
+3. **Permissions**: add **Jira API** and grant `read:jira-work`; add **User identity API**
+   (`read:me`).
+4. **Authorization**: choose **OAuth 2.0 (3LO)** and paste the *Callback URL* from the app
+   — `PUBLIC_URL` + `/oauth/apps/callback`. `PUBLIC_URL` has to be the address people open
+   the app at, or Atlassian sends them somewhere else.
+5. **Settings**: copy the **Client ID** and **Secret** into the app, keep *On* ticked, save.
+6. Press **Connect my account**. Atlassian asks for consent and you come back connected —
+   that is the test that the credentials work.
+
+From then on, anyone who posts a Jira link without having connected gets a private *Connect
+Jira to show a preview* under their message; connecting fetches the card for that message.
+
+The client secret and everyone's tokens are stored encrypted (ChaCha20-Poly1305, key derived
+from `JWT_SECRET`); changing `JWT_SECRET` therefore means setting the app up again and
+everyone reconnecting. Turning the app off stops new cards; **Remove app** also disconnects
+everyone. Suspending or erasing a user deletes their connections. `ATLASSIAN_AUTH_URL` and
+`ATLASSIAN_API_URL` exist for an egress proxy and are otherwise left alone.
+
 ## Huddle relay (TURN)
 
 Huddles are mesh WebRTC. STUN alone only finds a path when neither side sits behind a

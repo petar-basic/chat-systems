@@ -156,6 +156,10 @@ async fn suspend_user(
         "account suspended",
     )
     .await?;
+    state
+        .integration_repo
+        .delete_user_connections(user_id)
+        .await?;
 
     let _ = state
         .publisher

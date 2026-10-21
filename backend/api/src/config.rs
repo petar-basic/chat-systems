@@ -66,6 +66,8 @@ pub struct AppConfig {
     pub require_admin_totp: bool,
 
     pub webhook_allow_private_targets: bool,
+    pub atlassian_auth_url: String,
+    pub atlassian_api_url: String,
 
     pub vapid_public_key: String,
     pub vapid_private_key: String,
@@ -164,6 +166,8 @@ impl AppConfig {
             oidc_provisioning: env_or("OIDC_PROVISIONING", "invite_only"),
             oidc_allowed_domains: env_or("OIDC_ALLOWED_DOMAINS", ""),
             webhook_allow_private_targets: parse_env("WEBHOOK_ALLOW_PRIVATE_TARGETS", false),
+            atlassian_auth_url: env_or("ATLASSIAN_AUTH_URL", "https://auth.atlassian.com"),
+            atlassian_api_url: env_or("ATLASSIAN_API_URL", "https://api.atlassian.com"),
             vapid_public_key: env_or("VAPID_PUBLIC_KEY", ""),
             vapid_private_key: env_or("VAPID_PRIVATE_KEY", ""),
             vapid_subject: env_or("VAPID_SUBJECT", "mailto:admin@localhost"),
@@ -305,6 +309,8 @@ impl AppConfig {
             oidc_provisioning: "invite_only".into(),
             oidc_allowed_domains: String::new(),
             webhook_allow_private_targets: true,
+            atlassian_auth_url: "https://auth.atlassian.com".into(),
+            atlassian_api_url: "https://api.atlassian.com".into(),
             vapid_public_key: String::new(),
             vapid_private_key: String::new(),
             vapid_subject: "mailto:test@test.local".into(),

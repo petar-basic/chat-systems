@@ -6,6 +6,7 @@ use tracing::{info, warn};
 use uuid::Uuid;
 
 use super::{fetch, links};
+use crate::integrations::service::{self as apps, AppUnfurl};
 use crate::messaging::models::Unfurl;
 use crate::messaging::stream_group::{Delivery, StreamGroup};
 use crate::state::AppState;
@@ -71,9 +72,21 @@ async fn unfurl_delivery(state: &AppState, delivery: &Delivery) {
     }
 
     let mut unfurls = Vec::new();
+    let mut prompts: Vec<String> = Vec::new();
     for url in &urls {
-        if let Some(unfurl) = cached_or_fetched(state, url).await {
-            unfurls.push(unfurl);
+        match apps::unfurl(state, target.workspace_id, target.poster_id, url).await {
+            Ok(AppUnfurl::Card(card)) => unfurls.push(*card),
+            Ok(AppUnfurl::Connect(provider)) => {
+                if !prompts.iter().any(|p| p == provider.as_str()) {
+                    prompts.push(provider.as_str().to_string());
+                }
+            }
+            Ok(AppUnfurl::Unclaimed) => {
+                if let Some(unfurl) = cached_or_fetched(state, url).await {
+                    unfurls.push(unfurl);
+                }
+            }
+            Err(e) => warn!(message_id = %id, "unfurl: app preview failed: {e}"),
         }
     }
 
@@ -83,6 +96,7 @@ async fn unfurl_delivery(state: &AppState, delivery: &Delivery) {
         &target.content,
         &source,
         &unfurls,
+        &prompts,
         target.workspace_id,
     )
     .await
@@ -97,14 +111,17 @@ async fn store(
     content: &str,
     source: &str,
     unfurls: &[Unfurl],
+    prompts: &[String],
     workspace_id: Uuid,
 ) -> shared_common::errors::AppResult<()> {
     let unfurls = serde_json::to_value(unfurls)
         .map_err(|e| shared_common::errors::AppError::Internal(e.to_string()))?;
+    let prompts = serde_json::to_value(prompts)
+        .map_err(|e| shared_common::errors::AppError::Internal(e.to_string()))?;
     let mut tx = state.pool.begin().await?;
     let Some(message) = state
         .message_repo
-        .store_unfurls_in(&mut tx, id, content, source, &unfurls)
+        .store_unfurls_in(&mut tx, id, content, source, &unfurls, &prompts)
         .await?
     else {
         return Ok(());

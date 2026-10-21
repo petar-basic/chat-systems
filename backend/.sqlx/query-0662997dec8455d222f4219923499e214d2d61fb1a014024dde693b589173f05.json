@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            UPDATE messages\n               SET metadata = COALESCE(metadata, '{}'::jsonb)\n                   || jsonb_build_object('unfurls', $4::jsonb, 'unfurls_source', $3::text)\n             WHERE id = $1\n               AND content = $2\n               AND deleted_at IS NULL\n               AND COALESCE(metadata->>'unfurls_source', '') <> $3\n               AND NOT COALESCE((metadata->>'unfurls_hidden')::boolean, false)\n            RETURNING id, channel_id, user_id, client_message_id, content, metadata AS \"metadata!\", thread_parent_id, reply_count AS \"reply_count!\", is_pinned AS \"is_pinned!\", created_at, updated_at, deleted_at\n            ",
+  "query": "\n            UPDATE messages\n               SET metadata = COALESCE(metadata, '{}'::jsonb) - 'unfurls_source'\n             WHERE id = $1\n            RETURNING id, channel_id, user_id, client_message_id, content, metadata AS \"metadata!\", thread_parent_id, reply_count AS \"reply_count!\", is_pinned AS \"is_pinned!\", created_at, updated_at, deleted_at\n            ",
   "describe": {
     "columns": [
       {
@@ -138,10 +138,7 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Text",
-        "Text",
-        "Jsonb"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -159,5 +156,5 @@
       true
     ]
   },
-  "hash": "981c6ce7f70239dec07794612c6238e714f974f83dbc34f2c7226496082d8a4a"
+  "hash": "0662997dec8455d222f4219923499e214d2d61fb1a014024dde693b589173f05"
 }

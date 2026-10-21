@@ -20,6 +20,7 @@ const CompleteRegistrationPage = lazy(() => import('./pages/CompleteRegistration
 const WorkspacePage = lazy(() => import('./pages/WorkspacePage'));
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
 const InstanceAdminPage = lazy(() => import('./pages/InstanceAdminPage'));
+const AppConnectCallbackPage = lazy(() => import('./pages/AppConnectCallbackPage'));
 
 function SplashScreen() {
   return (
@@ -84,6 +85,14 @@ function AppContent() {
           <Route path="/complete-registration" element={<CompleteRegistrationPage />} />
           <Route path="/forgot-password" element={<ResetPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route
+            path="/oauth/apps/callback"
+            element={
+              <ProtectedRoute>
+                <AppConnectCallbackPage />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/app/admin"
             element={

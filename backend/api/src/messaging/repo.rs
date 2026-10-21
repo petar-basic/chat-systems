@@ -552,7 +552,7 @@ impl MessageRepo {
         sqlx::query_as!(
             UnfurlTarget,
             r#"
-            SELECT c.workspace_id, m.content, m.metadata AS "metadata!",
+            SELECT c.workspace_id, m.user_id AS poster_id, m.content, m.metadata AS "metadata!",
                    COALESCE((w.settings->>'link_previews')::boolean, true) AS "previews_enabled!"
               FROM messages m
               JOIN channels c ON c.id = m.channel_id
@@ -572,13 +572,14 @@ impl MessageRepo {
         content: &str,
         source: &str,
         unfurls: &serde_json::Value,
+        prompts: &serde_json::Value,
     ) -> sqlx::Result<Option<Message>> {
         sqlx::query_as!(
             Message,
             r#"
             UPDATE messages
                SET metadata = COALESCE(metadata, '{}'::jsonb)
-                   || jsonb_build_object('unfurls', $4::jsonb, 'unfurls_source', $3::text)
+                   || jsonb_build_object('unfurls', $4::jsonb, 'unfurls_source', $3::text, 'app_prompts', $5::jsonb)
              WHERE id = $1
                AND content = $2
                AND deleted_at IS NULL
@@ -589,9 +590,29 @@ impl MessageRepo {
             id,
             content,
             source,
-            unfurls
+            unfurls,
+            prompts
         )
         .fetch_optional(&mut *conn)
+        .await
+    }
+
+    pub async fn reset_unfurls_in(
+        &self,
+        conn: &mut PgConnection,
+        id: Uuid,
+    ) -> sqlx::Result<Message> {
+        sqlx::query_as!(
+            Message,
+            r#"
+            UPDATE messages
+               SET metadata = COALESCE(metadata, '{}'::jsonb) - 'unfurls_source'
+             WHERE id = $1
+            RETURNING id, channel_id, user_id, client_message_id, content, metadata AS "metadata!", thread_parent_id, reply_count AS "reply_count!", is_pinned AS "is_pinned!", created_at, updated_at, deleted_at
+            "#,
+            id
+        )
+        .fetch_one(&mut *conn)
         .await
     }
 
