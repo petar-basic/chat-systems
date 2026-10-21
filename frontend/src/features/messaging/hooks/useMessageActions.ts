@@ -3,6 +3,7 @@ import {
   useEditMessage,
   useDeleteMessage,
   useHideLinkPreviews,
+  useRefreshLinkPreviews,
   useMarkUnread,
   useReactToMessage,
   useRemoveReaction,
@@ -22,6 +23,7 @@ export interface MessageActions {
   editMessage: (messageId: string, content: string) => Promise<unknown>;
   deleteMessage: (messageId: string) => Promise<unknown>;
   hidePreviews: (messageId: string) => void;
+  refreshPreviews: (messageId: string) => void;
   markUnread: (messageId: string) => void;
   retryMessage: (messageId: string, content: string) => void;
   copyLink: (messageId: string) => void;
@@ -34,6 +36,7 @@ export function useMessageActions(channelId: string): MessageActions {
   const edit = useEditMessage();
   const del = useDeleteMessage();
   const hidePreviews = useHideLinkPreviews();
+  const refreshPreviews = useRefreshLinkPreviews();
   const markUnread = useMarkUnread();
   const react = useReactToMessage();
   const removeReaction = useRemoveReaction();
@@ -51,6 +54,7 @@ export function useMessageActions(channelId: string): MessageActions {
       editMessage: (messageId, content) => edit.mutateAsync({ messageId, content, channelId }),
       deleteMessage: (messageId) => del.mutateAsync({ messageId, channelId }),
       hidePreviews: (messageId) => hidePreviews.mutate({ messageId, channelId }),
+      refreshPreviews: (messageId) => refreshPreviews.mutate({ messageId }),
       markUnread: (messageId) => markUnread.mutate({ messageId, channelId }),
       retryMessage: (messageId, content) => send.mutate({ content, id: messageId }),
       copyLink: (messageId) => {
@@ -63,6 +67,18 @@ export function useMessageActions(channelId: string): MessageActions {
           .catch((e) => logger.error('useMessageActions', 'copyLink', e));
       },
     }),
-    [channelId, userId, react, removeReaction, pin, edit, del, hidePreviews, markUnread, send],
+    [
+      channelId,
+      userId,
+      react,
+      removeReaction,
+      pin,
+      edit,
+      del,
+      hidePreviews,
+      refreshPreviews,
+      markUnread,
+      send,
+    ],
   );
 }

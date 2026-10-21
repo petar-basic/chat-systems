@@ -117,6 +117,7 @@ export default function MessageList({
           onEdit={actions.editMessage}
           onDelete={actions.deleteMessage}
           onHidePreviews={actions.hidePreviews}
+          onRefreshPreviews={actions.refreshPreviews}
           onMarkUnread={actions.markUnread}
           onRetry={actions.retryMessage}
           onCopyLink={actions.copyLink}

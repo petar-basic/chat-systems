@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT provider, external_account FROM app_connections WHERE workspace_id = $1 AND user_id = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "provider",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "app_connections",
+            "name": "provider"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "external_account",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "app_connections",
+            "name": "external_account"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "2cd3e6308640a811d3300118c6bea1c2bb1e4324f56cafdfbb48de51597b53e3"
+}

@@ -246,7 +246,7 @@ async fn store_preview(
     let mut tx = state.pool.begin().await.expect("begin");
     let stored = state
         .message_repo
-        .store_unfurls_in(&mut tx, msg_id, content, source, &unfurls)
+        .store_unfurls_in(&mut tx, msg_id, content, source, &unfurls, &json!([]))
         .await
         .expect("store");
     tx.commit().await.expect("commit");

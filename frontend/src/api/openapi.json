@@ -429,6 +429,35 @@
         }
       }
     },
+    "/apps/connections": {
+      "post": {
+        "tags": [
+          "apps"
+        ],
+        "operationId": "complete_connection",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteConnectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompleteConnectionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/auth/complete-registration": {
       "post": {
         "tags": [
@@ -2246,6 +2275,36 @@
         }
       }
     },
+    "/messages/{msg_id}/unfurls/refresh": {
+      "post": {
+        "tags": [
+          "messages"
+        ],
+        "operationId": "refresh_unfurls",
+        "parameters": [
+          {
+            "name": "msg_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/notifications/dnd": {
       "get": {
         "tags": [
@@ -3082,6 +3141,206 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DataList_ActiveHuddle"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/apps": {
+      "get": {
+        "tags": [
+          "apps"
+        ],
+        "operationId": "list_apps",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppList"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/apps/{provider}": {
+      "put": {
+        "tags": [
+          "apps"
+        ],
+        "operationId": "configure_app",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigureAppRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "apps"
+        ],
+        "operationId": "remove_app",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/apps/{provider}/connect": {
+      "post": {
+        "tags": [
+          "apps"
+        ],
+        "operationId": "connect_app",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectAppRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectAppResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/apps/{provider}/connection": {
+      "delete": {
+        "tags": [
+          "apps"
+        ],
+        "operationId": "disconnect_app",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
                 }
               }
             }
@@ -5316,6 +5575,77 @@
           }
         }
       },
+      "AppList": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AppStatus"
+            }
+          }
+        }
+      },
+      "AppStatus": {
+        "type": "object",
+        "required": [
+          "provider",
+          "name",
+          "configured",
+          "enabled",
+          "redirect_url",
+          "scopes",
+          "console_url",
+          "setup_steps"
+        ],
+        "properties": {
+          "client_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "configured": {
+            "type": "boolean"
+          },
+          "connected_account": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "console_url": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/Provider"
+          },
+          "redirect_url": {
+            "type": "string"
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "setup_steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "AuditRow": {
         "type": "object",
         "required": [
@@ -5810,6 +6140,90 @@
             "description": "`ephemeral` is seen only by whoever ran it; `in_channel` is posted as a\nmessage from the command."
           },
           "text": {
+            "type": "string"
+          }
+        }
+      },
+      "CompleteConnectionRequest": {
+        "type": "object",
+        "required": [
+          "code",
+          "state"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          }
+        }
+      },
+      "CompleteConnectionResponse": {
+        "type": "object",
+        "required": [
+          "workspace_id",
+          "provider",
+          "external_account"
+        ],
+        "properties": {
+          "external_account": {
+            "type": "string"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/Provider"
+          },
+          "return_to": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "ConfigureAppRequest": {
+        "type": "object",
+        "required": [
+          "client_id",
+          "enabled"
+        ],
+        "properties": {
+          "client_id": {
+            "type": "string"
+          },
+          "client_secret": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ConnectAppRequest": {
+        "type": "object",
+        "properties": {
+          "return_to": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ConnectAppResponse": {
+        "type": "object",
+        "required": [
+          "authorize_url"
+        ],
+        "properties": {
+          "authorize_url": {
             "type": "string"
           }
         }
@@ -8731,6 +9145,15 @@
       "MessageMetadata": {
         "type": "object",
         "properties": {
+          "app_prompts": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
           "bot": {
             "oneOf": [
               {
@@ -8902,6 +9325,12 @@
         "enum": [
           "everyone",
           "moderators"
+        ]
+      },
+      "Provider": {
+        "type": "string",
+        "enum": [
+          "jira"
         ]
       },
       "PushKey": {
@@ -9640,7 +10069,32 @@
               "null"
             ]
           },
+          "fetched_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UnfurlField"
+            }
+          },
           "image_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "provider": {
             "type": [
               "string",
               "null"
@@ -9652,10 +10106,43 @@
               "null"
             ]
           },
+          "subtitle": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "title": {
             "type": "string"
           },
           "url": {
+            "type": "string"
+          }
+        }
+      },
+      "UnfurlField": {
+        "type": "object",
+        "required": [
+          "label",
+          "value"
+        ],
+        "properties": {
+          "avatar_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "tone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "value": {
             "type": "string"
           }
         }
@@ -10413,6 +10900,10 @@
     {
       "name": "sidebar",
       "description": "Per-person sidebar sections"
+    },
+    {
+      "name": "apps",
+      "description": "Connected apps: Jira and others, set up per workspace"
     },
     {
       "name": "scheduled",

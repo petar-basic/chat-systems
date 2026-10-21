@@ -96,8 +96,11 @@ within its rate limit), so a public PR gets a real card for everyone.
 
 ### 5. Order of work
 
-Framework and Jira first — it is the case that prompted this — then GitHub, then Google
-Drive, each landing as its own PR against the same tables and renderer.
+1. ~~Framework and Jira~~ ✅ shipped — see history.md. The provider list, tables, sealing,
+   OAuth flow, consumer hook, card renderer, *Apps* panel and callback page are in place.
+2. GitHub — a `Provider::Github` variant, its matcher, fetch and card mapping, its setup
+   steps; anonymous cards for public repositories.
+3. Google Drive — the same, for Docs, Sheets, Slides and Drive files.
 
 ## Acceptance
 

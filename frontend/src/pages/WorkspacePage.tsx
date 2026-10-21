@@ -72,6 +72,7 @@ export default function WorkspacePage() {
             onOpenMembers={() => panel.toggle('members')}
             onOpenSettings={() => panel.toggle('settings')}
             onOpenIntegrations={() => panel.toggle('integrations')}
+            onOpenApps={() => panel.toggle('apps')}
             onOpenCustomEmoji={() => panel.toggle('customEmoji')}
             onOpenUserGroups={() => panel.toggle('userGroups')}
             onOpenAuditLog={() => panel.toggle('auditLog')}

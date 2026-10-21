@@ -6,6 +6,8 @@ export const ErrorLabels = {
   MarkUnreadFailed: "Couldn't mark the message unread",
   MarkReadFailed: "Couldn't mark the channel read",
   SidebarSaveFailed: "Couldn't save your sidebar",
+  AppSaveFailed: "Couldn't save the app",
+  AppConnectFailed: "Couldn't start connecting the app",
   ReactionFailed: "Couldn't update the reaction",
   PinFailed: "Couldn't update the pin",
   UploadFailed: 'File upload failed',

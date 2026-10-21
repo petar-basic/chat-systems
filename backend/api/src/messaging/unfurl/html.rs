@@ -53,6 +53,7 @@ pub fn parse(html: &str, page: &reqwest::Url, requested: &str) -> Option<Unfurl>
         description,
         site_name,
         image_url,
+        ..Unfurl::default()
     })
 }
 

@@ -14,6 +14,7 @@ mod totp;
 mod validation;
 
 mod admin;
+mod apps;
 mod audit;
 mod auth;
 mod channels;

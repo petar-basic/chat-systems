@@ -37,20 +37,42 @@ pub struct MessageMetadata {
     pub bot: Option<BotIdentity>,
     pub unfurls: Option<Vec<Unfurl>>,
     pub unfurls_hidden: Option<bool>,
+    pub app_prompts: Option<Vec<String>>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct Unfurl {
     pub url: String,
     pub title: String,
     pub description: Option<String>,
     pub site_name: Option<String>,
     pub image_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subtitle: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub fields: Vec<UnfurlField>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fetched_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct UnfurlField {
+    pub label: String,
+    pub value: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tone: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub avatar_url: Option<String>,
 }
 
 #[derive(Debug, Clone)]
 pub struct UnfurlTarget {
     pub workspace_id: Uuid,
+    pub poster_id: Uuid,
     pub content: String,
     pub metadata: serde_json::Value,
     pub previews_enabled: bool,

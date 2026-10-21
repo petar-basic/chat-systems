@@ -9,7 +9,7 @@ ticket in [`docs/tickets/`](./tickets/INDEX.md); a ticket's file is deleted when
 
 | Ticket | What | Status |
 |---|---|---|
-| [CS-053](./tickets/CS-053-app-unfurls.md) | Rich previews from connected apps: Jira, GitHub, Google Drive, set up by an admin and fetched with the poster's account | **Next.** The links teams paste most are behind a login |
+| [CS-053](./tickets/CS-053-app-unfurls.md) | Rich previews from connected apps: Jira, GitHub, Google Drive, set up by an admin and fetched with the poster's account | **In progress.** Framework and Jira shipped; GitHub next, then Google Drive |
 | [CS-037](./tickets/CS-037-huddle-sfu.md) | SFU (LiveKit) for huddles above the mesh's six-to-eight ceiling | On request. Adds a media server to the stack; nothing below a 20-person team needs it |
 
 Two decisions were considered on 2026-09-02 and deferred with their reasoning below:

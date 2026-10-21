@@ -1,5 +1,15 @@
 import { useRef, useState } from 'react';
-import { ChevronDown, Plug, ScrollText, Settings, ShieldCheck, Smile, Upload, Users } from 'lucide-react';
+import {
+  ChevronDown,
+  LayoutGrid,
+  Plug,
+  ScrollText,
+  Settings,
+  ShieldCheck,
+  Smile,
+  Upload,
+  Users,
+} from 'lucide-react';
 import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
 
@@ -10,6 +20,7 @@ interface Props {
   onOpenMembers: () => void;
   onOpenSettings: () => void;
   onOpenIntegrations: () => void;
+  onOpenApps: () => void;
   onOpenSlackImport: () => void;
   onOpenCustomEmoji: () => void;
   onOpenUserGroups: () => void;
@@ -27,6 +38,7 @@ export function WorkspaceMenu({
   onOpenMembers,
   onOpenSettings,
   onOpenIntegrations,
+  onOpenApps,
   onOpenSlackImport,
   onOpenCustomEmoji,
   onOpenUserGroups,
@@ -59,6 +71,9 @@ export function WorkspaceMenu({
           </button>
           <button className={ITEM} onClick={pick(onOpenSettings)}>
             <Settings className="w-4 h-4" /> Settings
+          </button>
+          <button className={ITEM} data-qa="open-apps" onClick={pick(onOpenApps)}>
+            <LayoutGrid className="w-4 h-4" /> Apps
           </button>
           {isWorkspaceAdmin && (
             <button className={ITEM} data-qa="open-integrations" onClick={pick(onOpenIntegrations)}>

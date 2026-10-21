@@ -164,6 +164,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/apps/connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["complete_connection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/complete-registration": {
         parameters: {
             query?: never;
@@ -889,6 +905,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/messages/{msg_id}/unfurls/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["refresh_unfurls"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/notifications/dnd": {
         parameters: {
             query?: never;
@@ -1205,6 +1237,70 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/apps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_apps"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/apps/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["configure_app"];
+        post?: never;
+        delete: operations["remove_app"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/apps/{provider}/connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["connect_app"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/apps/{provider}/connection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["disconnect_app"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1925,6 +2021,21 @@ export interface components {
             owner_id: string;
             slug: string;
         };
+        AppList: {
+            data: components["schemas"]["AppStatus"][];
+        };
+        AppStatus: {
+            client_id?: string | null;
+            configured: boolean;
+            connected_account?: string | null;
+            console_url: string;
+            enabled: boolean;
+            name: string;
+            provider: components["schemas"]["Provider"];
+            redirect_url: string;
+            scopes: string[];
+            setup_steps: string[];
+        };
         AuditRow: {
             action: string;
             actor_display_name?: string | null;
@@ -2065,6 +2176,28 @@ export interface components {
              */
             response_type: string;
             text: string;
+        };
+        CompleteConnectionRequest: {
+            code: string;
+            state: string;
+        };
+        CompleteConnectionResponse: {
+            external_account: string;
+            provider: components["schemas"]["Provider"];
+            return_to?: string | null;
+            /** Format: uuid */
+            workspace_id: string;
+        };
+        ConfigureAppRequest: {
+            client_id: string;
+            client_secret?: string | null;
+            enabled: boolean;
+        };
+        ConnectAppRequest: {
+            return_to?: string | null;
+        };
+        ConnectAppResponse: {
+            authorize_url: string;
         };
         Conversation: {
             /** Format: date-time */
@@ -2909,6 +3042,7 @@ export interface components {
             previous_content: string;
         };
         MessageMetadata: {
+            app_prompts?: string[] | null;
             bot?: components["schemas"]["BotIdentity"] | null;
             /** Format: uuid */
             huddle_id?: string | null;
@@ -2955,6 +3089,8 @@ export interface components {
          * @enum {string}
          */
         PostPolicy: "everyone" | "moderators";
+        /** @enum {string} */
+        Provider: "jira";
         PushKey: {
             enabled: boolean;
             public_key: string;
@@ -3187,10 +3323,22 @@ export interface components {
         };
         Unfurl: {
             description?: string | null;
+            /** Format: date-time */
+            fetched_at?: string | null;
+            fields?: components["schemas"]["UnfurlField"][];
             image_url?: string | null;
+            kind?: string | null;
+            provider?: string | null;
             site_name?: string | null;
+            subtitle?: string | null;
             title: string;
             url: string;
+        };
+        UnfurlField: {
+            avatar_url?: string | null;
+            label: string;
+            tone?: string | null;
+            value: string;
         };
         UnreadChannels: {
             channel_ids: string[];
@@ -3609,6 +3757,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    complete_connection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteConnectionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompleteConnectionResponse"];
                 };
             };
         };
@@ -4819,6 +4990,27 @@ export interface operations {
             };
         };
     };
+    refresh_unfurls: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                msg_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
     get_dnd: {
         parameters: {
             query?: never;
@@ -5428,6 +5620,123 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DataList_ActiveHuddle"];
+                };
+            };
+        };
+    };
+    list_apps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppList"];
+                };
+            };
+        };
+    };
+    configure_app: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfigureAppRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    remove_app: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    connect_app: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConnectAppRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectAppResponse"];
+                };
+            };
+        };
+    };
+    disconnect_app: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
                 };
             };
         };

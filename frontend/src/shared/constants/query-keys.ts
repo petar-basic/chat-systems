@@ -30,6 +30,7 @@ export const QUERY_KEYS = {
   conversations: (workspaceId: string) => ['conversations', workspaceId] as const,
   unreads: (workspaceId: string) => ['unreads', workspaceId] as const,
   sidebar: (workspaceId: string) => ['sidebar', workspaceId] as const,
+  apps: (workspaceId: string) => ['apps', workspaceId] as const,
 
   scheduledMessages: (workspaceId: string) => ['scheduled-messages', workspaceId] as const,
 

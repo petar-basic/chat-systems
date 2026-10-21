@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT c.workspace_id, m.content, m.metadata AS \"metadata!\",\n                   COALESCE((w.settings->>'link_previews')::boolean, true) AS \"previews_enabled!\"\n              FROM messages m\n              JOIN channels c ON c.id = m.channel_id\n              JOIN workspaces w ON w.id = c.workspace_id\n             WHERE m.id = $1 AND m.deleted_at IS NULL\n            ",
+  "query": "\n            SELECT c.workspace_id, m.user_id AS poster_id, m.content, m.metadata AS \"metadata!\",\n                   COALESCE((w.settings->>'link_previews')::boolean, true) AS \"previews_enabled!\"\n              FROM messages m\n              JOIN channels c ON c.id = m.channel_id\n              JOIN workspaces w ON w.id = c.workspace_id\n             WHERE m.id = $1 AND m.deleted_at IS NULL\n            ",
   "describe": {
     "columns": [
       {
@@ -16,6 +16,17 @@
       },
       {
         "ordinal": 1,
+        "name": "poster_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
         "name": "content",
         "type_info": "Text",
         "origin": {
@@ -26,7 +37,7 @@
         }
       },
       {
-        "ordinal": 2,
+        "ordinal": 3,
         "name": "metadata!",
         "type_info": "Jsonb",
         "origin": {
@@ -37,7 +48,7 @@
         }
       },
       {
-        "ordinal": 3,
+        "ordinal": 4,
         "name": "previews_enabled!",
         "type_info": "Bool",
         "origin": "Expression"
@@ -51,9 +62,10 @@
     "nullable": [
       false,
       false,
+      false,
       true,
       null
     ]
   },
-  "hash": "46fa4c11836be9cd03aeb081cdd9bc71fa2860c7ed36f3f02a797c6516285751"
+  "hash": "8c6507b138e64cfeb79ab6262408701e6631368dec88b9bc1b7a5d60be3c8218"
 }

@@ -552,6 +552,27 @@ message routes use, which covers direct messages too.
 
 ---
 
+### integrations (apps)
+
+Per-workspace connected apps — Jira Cloud today — and each person's own connection to them.
+An admin stores the app's OAuth client (`workspace_apps`, secret sealed); a member connects
+through OAuth 2.0 with PKCE, the pending `state` and verifier held in Redis for ten minutes
+and readable once (`GETDEL`), bound to the member who started it. Tokens live sealed in
+`app_connections`, keyed to the workspace membership so leaving the workspace removes them,
+and are refreshed when they are within a minute of expiry. The unfurl consumer asks
+`integrations::service::unfurl` first: a Jira issue link yields an app card fetched with the
+**poster's** connection, a prompt when the poster has none, or nothing when the app is off.
+
+| Method | Route | Input | Output |
+|--------|-------|-------|--------|
+| GET | `/workspaces/:ws_id/apps` | — | `{ data: AppStatus[] }` — setup values (callback URL, scopes, steps) and the caller's own connection |
+| PUT | `/workspaces/:ws_id/apps/:provider` | `{ client_id, client_secret?, enabled }` | `{ status: "saved" }` — admin; the secret is required the first time |
+| DELETE | `/workspaces/:ws_id/apps/:provider` | — | `{ status: "removed" }` — admin; disconnects everyone |
+| POST | `/workspaces/:ws_id/apps/:provider/connect` | `{ return_to? }` | `{ authorize_url }` |
+| POST | `/apps/connections` | `{ code, state }` | `{ workspace_id, provider, external_account, return_to }` |
+| DELETE | `/workspaces/:ws_id/apps/:provider/connection` | — | `{ status: "disconnected" }` |
+| POST | `/messages/:msg_id/unfurls/refresh` | — | `{ status: "refreshing" }` — author; re-runs the previews |
+
 ### sidebar
 
 One person's sidebar layout in one workspace: their own sections, which channel sits in

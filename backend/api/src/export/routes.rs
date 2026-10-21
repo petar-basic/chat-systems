@@ -259,6 +259,10 @@ async fn erase_user_data(
         "account erased",
     )
     .await?;
+    state
+        .integration_repo
+        .delete_user_connections(user_id)
+        .await?;
 
     audit::record(
         &state,
