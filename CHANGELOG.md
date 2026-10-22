@@ -16,6 +16,22 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ## [Unreleased]
 
+### Upgrading from 2.4.0
+
+- Nothing is required. Migration 55 moves saved messages and reminders into the new *Later*
+  list and drops their old tables; delivered reminders arrive as already fired. The
+  `/workspaces/{id}/saved` and `/workspaces/{id}/reminders` routes are replaced by
+  `/workspaces/{id}/later` — anything scripted against them needs the new route.
+
+### Added
+
+- **Later, Slack's to-do list.** Saved messages and reminders are one list with *In progress*,
+  *Completed* and *Archived*: tick an item off, archive it, give it a due time (in 20 minutes,
+  an hour, three hours, tomorrow, next week or any time), and it comes back as a reminder and
+  stays until it is done. *Later* sits under *All unreads* with a count; a message shows when
+  it is saved, and *Remind me about this* saves it with a due time in one step. `/remind`
+  lands there too.
+
 ### Changed
 
 - **Buttons, panels and dialogs look and behave the same everywhere.** One button, icon button,

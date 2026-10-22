@@ -199,6 +199,8 @@ pub enum ServerFrame {
         mention_count: i32,
         last_read_message_id: Option<Uuid>,
     },
+    #[serde(rename = "later.updated")]
+    LaterUpdated { workspace_id: Uuid },
     #[serde(rename = "channel.access_revoked")]
     ChannelAccessRevoked {
         channel_id: Uuid,

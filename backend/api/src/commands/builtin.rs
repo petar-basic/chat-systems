@@ -5,7 +5,7 @@ use shared_common::errors::{AppError, AppResult};
 use chrono::{Duration, Utc};
 
 use crate::authz;
-use crate::hooks::repo::NewReminder;
+use crate::later::repo::NewReminder;
 use crate::state::AppState;
 use crate::workspace::models::{ChannelRole, WorkspaceRole};
 
@@ -136,17 +136,17 @@ pub async fn run(
 
             shared_common::validation::validate_reminder_content(&parsed.content)?;
             state
-                .hook_repo
+                .later_repo
                 .create_reminder(NewReminder {
                     workspace_id: channel.workspace_id,
+                    user_id: target,
                     created_by: user_id,
-                    target_user_id: target,
                     channel_id: Some(channel_id),
-                    message_id: None,
-                    content: &parsed.content,
+                    text: &parsed.content,
                     remind_at,
                 })
                 .await?;
+            crate::later::routes::announce(state, target, channel.workspace_id).await;
 
             let who = if target == user_id {
                 "you".to_string()

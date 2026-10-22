@@ -39,20 +39,6 @@ pub struct HookExecution {
     pub executed_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct Reminder {
-    pub id: Uuid,
-    pub workspace_id: Uuid,
-    pub created_by: Uuid,
-    pub target_user_id: Uuid,
-    pub channel_id: Option<Uuid>,
-    pub message_id: Option<Uuid>,
-    pub content: String,
-    pub remind_at: DateTime<Utc>,
-    pub is_delivered: bool,
-    pub created_at: DateTime<Utc>,
-}
-
 #[derive(Debug, Deserialize, garde::Validate, ToSchema)]
 #[garde(allow_unvalidated)]
 pub struct CreateHookRequest {
@@ -74,17 +60,6 @@ pub struct IncomingWebhookPayload {
     /// different faces, and callers already send these fields.
     pub username: Option<String>,
     pub icon_url: Option<String>,
-}
-
-#[derive(Debug, Deserialize, garde::Validate, ToSchema)]
-#[garde(allow_unvalidated)]
-pub struct CreateReminderRequest {
-    pub target_user_id: Uuid,
-    pub channel_id: Option<Uuid>,
-    pub message_id: Option<Uuid>,
-    #[garde(custom(shared_common::validation::rules::reminder_content))]
-    pub content: String,
-    pub remind_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]

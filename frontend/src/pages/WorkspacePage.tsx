@@ -77,9 +77,9 @@ export default function WorkspacePage() {
             onOpenUserGroups={() => panel.toggle('userGroups')}
             onOpenAuditLog={() => panel.toggle('auditLog')}
             onOpenScheduled={() => panel.toggle('scheduled')}
-            onOpenSaved={() => panel.toggle('saved')}
+            onOpenLater={() => panel.toggle('later')}
+            laterActive={panel.active?.kind === 'later'}
             onOpenSlackImport={() => panel.toggle('slackImport')}
-            onOpenReminders={() => panel.toggle('reminders')}
             onOpenProfile={() => c.setShowProfile(true)}
             onOpenNotifications={() => panel.toggle('notifications')}
             onOpenUnreads={c.handleOpenUnreads}
@@ -259,7 +259,6 @@ export default function WorkspacePage() {
           channels={c.channels}
           conversations={c.conversations}
           onClose={panel.close}
-          currentUserId={user?.id}
           onNavigateToMessage={c.handleNavigateToMessage}
           onOpenConversation={c.handleOpenConversation}
         />

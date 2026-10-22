@@ -11,6 +11,22 @@ use crate::connection_manager::Audience;
 
 use crate::connection_manager::ConnectionManager;
 
+pub const SUBSCRIBED_CHANNELS: [&str; 13] = [
+    "events:message",
+    "events:reaction",
+    "events:notification",
+    "events:workspace",
+    "events:conversation",
+    "events:presence",
+    "events:typing",
+    "events:huddle",
+    "events:huddle-signal",
+    "events:user",
+    "events:session",
+    "events:channel",
+    "events:later",
+];
+
 pub async fn start_event_consumer(
     redis_url: &str,
     cm: Arc<ConnectionManager>,
@@ -32,20 +48,7 @@ pub async fn start_event_consumer(
         }
     };
 
-    let channels = [
-        "events:message",
-        "events:reaction",
-        "events:notification",
-        "events:workspace",
-        "events:conversation",
-        "events:presence",
-        "events:typing",
-        "events:huddle",
-        "events:huddle-signal",
-        "events:user",
-        "events:session",
-        "events:channel",
-    ];
+    let channels = SUBSCRIBED_CHANNELS;
     for ch in &channels {
         if let Err(e) = pubsub.subscribe(ch).await {
             warn!("Failed to subscribe to {}: {}", ch, e);
@@ -359,6 +362,13 @@ pub(crate) async fn handle_event_for(
                 mention_count: count("mention_count"),
                 last_read_message_id: field("last_read_message_id"),
             };
+            cm.send_to_user(audience, uid, &framed(&frame)).await;
+        }
+        "later.updated" => {
+            let (Some(uid), Some(workspace_id)) = (field("user_id"), field("workspace_id")) else {
+                return;
+            };
+            let frame = ServerFrame::LaterUpdated { workspace_id };
             cm.send_to_user(audience, uid, &framed(&frame)).await;
         }
         "channel.member_removed" => {

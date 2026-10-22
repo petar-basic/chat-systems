@@ -30,12 +30,11 @@ use crate::state::AppState;
         (name = "users", description = "The signed-in user's own profile and status"),
         (name = "instance", description = "What this instance says about itself"),
         (name = "hooks", description = "Incoming and outgoing webhooks, bots and slash commands"),
-        (name = "reminders", description = "Reminders"),
         (name = "files", description = "Uploads and their metadata"),
         (name = "huddles", description = "Voice and video huddles"),
         (name = "groups", description = "User groups that can be @-mentioned"),
         (name = "emoji", description = "Custom emoji"),
-        (name = "saved", description = "Saved messages"),
+        (name = "later", description = "Saved messages and reminders: the Later list"),
         (name = "sidebar", description = "Per-person sidebar sections"),
         (name = "apps", description = "Connected apps: Jira and others, set up per workspace"),
         (name = "scheduled", description = "Messages scheduled for later"),
@@ -86,7 +85,7 @@ pub fn typed_routes() -> OpenApiRouter<Arc<AppState>> {
         .merge(crate::huddle::routes::router())
         .merge(crate::groups::routes::router())
         .merge(crate::emoji::routes::router())
-        .merge(crate::saved::routes::router())
+        .merge(crate::later::routes::router())
         .merge(crate::sidebar::routes::router())
         .merge(crate::integrations::routes::router())
         .merge(crate::scheduled::routes::router())

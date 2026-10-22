@@ -16,8 +16,7 @@ export type RightPanel =
   | { kind: 'userGroups' }
   | { kind: 'auditLog' }
   | { kind: 'scheduled' }
-  | { kind: 'saved' }
-  | { kind: 'reminders' }
+  | { kind: 'later' }
   | { kind: 'slackImport' }
   | { kind: 'notifications' }
   | null;
@@ -31,7 +30,7 @@ function panelFromUrl(): RightPanel {
   const requested = new URLSearchParams(window.location.search).get('panel');
   if (!requested) return null;
 
-  const opened = (['search', 'saved', 'reminders', 'scheduled', 'notifications'] as const).find(
+  const opened = (['search', 'later', 'scheduled', 'notifications'] as const).find(
     (kind) => kind === requested,
   );
   if (!opened) return null;

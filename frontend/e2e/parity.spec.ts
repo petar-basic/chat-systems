@@ -11,7 +11,7 @@ async function openWorkspace(page: Page, email: string, workspaceId: string, cha
   await expect(page.locator('[data-qa="channel-header-name"]')).toBeVisible({ timeout: 20_000 });
 }
 
-test('a saved message shows up in the saved panel and can be taken out again', async ({ page }) => {
+test('a message saved for later shows up in Later, can be ticked off and removed', async ({ page }) => {
   const { ctx: admin } = await userContext('admin@dev.local');
   const workspace = await devWorkspace(admin);
   const channels = (await (await admin.get(`${API}/workspaces/${workspace.id}/channels`)).json()).data;
@@ -26,17 +26,23 @@ test('a saved message shows up in the saved panel and can be taken out again', a
     await expect(row).toBeVisible();
     await row.hover();
     await row.locator('[data-qa="message-action-save"]').click();
+    await expect(row.locator('[data-qa="message-action-save"]')).toHaveAttribute('aria-pressed', 'true');
 
-    await page.locator('[data-qa="open-you-menu"]').click();
-    await page.locator('[data-qa="open-saved"]').click();
-
-    const panel = page.locator('[data-qa="saved-panel"]');
+    await page.locator('[data-qa="later-open"]').click();
+    const panel = page.locator('[data-qa="later-panel"]');
     await expect(panel).toBeVisible();
-    const saved = panel.locator('[data-qa="saved-row"]', { hasText: text });
+    const saved = panel.locator('[data-qa="later-row"]', { hasText: text });
     await expect(saved).toBeVisible();
 
-    await saved.locator('[data-qa="saved-remove"]').click();
-    await expect(panel.locator('[data-qa="saved-row"]', { hasText: text })).toHaveCount(0);
+    await saved.locator('[data-qa="later-complete"]').click();
+    await expect(panel.locator('[data-qa="later-row"]', { hasText: text })).toHaveCount(0);
+    await panel.locator('[data-qa="later-tab-completed"]').click();
+    const done = panel.locator('[data-qa="later-row"]', { hasText: text });
+    await expect(done).toBeVisible();
+
+    await done.hover();
+    await done.locator('[data-qa="later-remove"]').click();
+    await expect(panel.locator('[data-qa="later-row"]', { hasText: text })).toHaveCount(0);
   } finally {
     await admin.dispose();
   }
@@ -198,7 +204,7 @@ test('a status set in the profile shows next to your name', async ({ page }) => 
   }
 });
 
-test('a slash reminder turns up in the reminders panel and can be cancelled', async ({ page }) => {
+test('a slash reminder turns up in Later with its due time and can be removed', async ({ page }) => {
   const { ctx: admin } = await userContext('admin@dev.local');
   const workspace = await devWorkspace(admin);
   const channels = (await (await admin.get(`${API}/workspaces/${workspace.id}/channels`)).json()).data;
@@ -211,15 +217,16 @@ test('a slash reminder turns up in the reminders panel and can be cancelled', as
     await send(page, `/remind me in 2h to check ${stamp}`);
     await expect(page.locator('[data-qa="command-response"]')).toContainText('I will remind you');
 
-    await page.locator('[data-qa="open-you-menu"]').click();
-    await page.locator('[data-qa="open-reminders"]').click();
+    await page.locator('[data-qa="later-open"]').click();
 
-    const panel = page.locator('[data-qa="reminders-panel"]');
-    const reminder = panel.locator('[data-qa="reminder-row"]', { hasText: `check ${stamp}` });
+    const panel = page.locator('[data-qa="later-panel"]');
+    const reminder = panel.locator('[data-qa="later-row"]', { hasText: `check ${stamp}` });
     await expect(reminder).toBeVisible();
+    await expect(reminder.locator('[data-qa="later-due"]')).toContainText('Due');
 
-    await reminder.locator('[data-qa="reminder-cancel"]').click();
-    await expect(panel.locator('[data-qa="reminder-row"]', { hasText: `check ${stamp}` })).toHaveCount(0);
+    await reminder.hover();
+    await reminder.locator('[data-qa="later-remove"]').click();
+    await expect(panel.locator('[data-qa="later-row"]', { hasText: `check ${stamp}` })).toHaveCount(0);
   } finally {
     await admin.dispose();
   }

@@ -1,10 +1,9 @@
 import { useCallback, useState } from 'react';
 import type { Channel, Message } from '@/stores/workspace';
 import type { Conversation } from '@/hooks/queries/useConversations';
-import { useSaveMessage } from '@/hooks/queries/useSaved';
+import { useLaterActions } from '@/hooks/queries/useLater';
 import type { ForwardSource } from '@/features/messaging/ForwardMessageModal';
 import { targetLabel } from '@/lib/targetLabel';
-import { toUserMessage } from '@/lib/errors';
 import { toast } from '@/shared/components/Toast';
 
 interface Args {
@@ -16,7 +15,7 @@ interface Args {
   getUser: (id: string) => { display_name: string } | undefined;
 }
 
-/// Saving and forwarding; a direct message is a message in a channel nobody
+/// Saving for later and forwarding; a direct message is a message in a channel nobody
 /// can browse, so the only difference is how its origin is named.
 export function useMessageActions({
   workspaceId,
@@ -26,20 +25,14 @@ export function useMessageActions({
   userId,
   getUser,
 }: Args) {
-  const saveMessage = useSaveMessage(workspaceId ?? '', currentWsInstanceUrl);
+  const later = useLaterActions(workspaceId, currentWsInstanceUrl);
   const [forwarding, setForwarding] = useState<ForwardSource | null>(null);
 
   const handleSaveMessage = useCallback(
     (message: Message) => {
-      saveMessage.mutate(
-        { messageId: message.id },
-        {
-          onSuccess: () => toast.success('Saved'),
-          onError: (err) => toast.error(toUserMessage(err)),
-        },
-      );
+      later.save.mutate({ messageId: message.id }, { onSuccess: () => toast.success('Saved for later') });
     },
-    [saveMessage],
+    [later.save],
   );
 
   const authorNameOf = useCallback((id: string) => getUser(id)?.display_name || 'Somebody', [getUser]);

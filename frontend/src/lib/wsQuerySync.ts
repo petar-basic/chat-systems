@@ -87,6 +87,9 @@ export const useWebSocketQuerySync = () => {
         if (event.workspace_id)
           queryClient.invalidateQueries({ queryKey: QUERY_KEYS.unreads(event.workspace_id) });
       }),
+      globalEventBus.on('later.updated', (event) => {
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.later(event.workspace_id) });
+      }),
       globalEventBus.on('channel.access_revoked', (event) => {
         queryClient.removeQueries({ queryKey: QUERY_KEYS.messages(event.channel_id) });
         queryClient.removeQueries({ queryKey: QUERY_KEYS.channelMembers(event.channel_id) });

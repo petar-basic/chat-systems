@@ -1199,7 +1199,7 @@ alt text and recorded clips.
 
 ---
 
-## Wave 18 — What a Slack user notices in the first hour (in progress)
+## Wave 18 — What a Slack user notices in the first hour ✅ shipped
 
 ### [CS-056] One set of controls ✅ shipped
 The *Browse Channels* dialog's *Close* sat 16 px inside the edge its rows ended on, and at
@@ -1215,4 +1215,20 @@ hand-styled buttons into `<Button>` and the spinners into `<Spinner>`, the six b
 spinner inside became `loading` by hand — and two lint rules keep it from drifting back: a
 `no-restricted-syntax` pattern for the primary-button and spinner classes, and a twenty-line
 local rule for icon-only buttons without a name.
+
+### [CS-057] Later ✅ shipped
+Saved messages and reminders were two panels over two tables, and neither could be finished:
+a saved message only left by being deleted, and a fired reminder vanished. Slack's *Later* is
+the same idea as one list with a status, and that is now the model: `later_items`, an item
+being a saved message, a reminder, or a saved message with a due time, *in progress*,
+*completed* or *archived*. Migration 55 moved both tables over (a reminder on an already saved
+message folds into that item) and dropped them; the saved and reminder routes went with them
+rather than living beside `/later`.
+
+The reminder checker moved from the hooks module to `later`, and it now stamps `reminded_at`
+instead of a `delivered` flag, so a fired reminder stays in the list until it is ticked and a
+new due time re-arms it. Every change sends `later.updated` to the owner's sessions, so the
+sidebar count and the list agree across tabs. On a message, the bookmark shows whether it is
+saved and the *More* menu has *Remind me about this*. Slack's `A` to save the focused message
+waits for keyboard focus on messages, which the list does not have yet.
 

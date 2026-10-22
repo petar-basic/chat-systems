@@ -21,6 +21,14 @@ export const SCHEDULE_PRESETS: SchedulePreset[] = [
   { label: 'Monday at 9:00', at: () => nextMondayMorning(new Date()) },
 ];
 
+export const REMIND_PRESETS: SchedulePreset[] = [
+  { label: 'In 20 minutes', at: () => new Date(Date.now() + 20 * 60 * 1000) },
+  { label: 'In 1 hour', at: () => new Date(Date.now() + 60 * 60 * 1000) },
+  { label: 'In 3 hours', at: () => new Date(Date.now() + 3 * 60 * 60 * 1000) },
+  { label: 'Tomorrow at 9:00', at: () => nextMorning(new Date(), 1) },
+  { label: 'Next week', at: () => nextMondayMorning(new Date()) },
+];
+
 export function toLocalInputValue(at: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}T${pad(at.getHours())}:${pad(at.getMinutes())}`;

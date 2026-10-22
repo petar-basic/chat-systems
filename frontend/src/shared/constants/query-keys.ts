@@ -36,9 +36,9 @@ export const QUERY_KEYS = {
 
   scheduledMessages: (workspaceId: string) => ['scheduled-messages', workspaceId] as const,
 
-  saved: (workspaceId: string) => ['saved', workspaceId] as const,
   slackImports: (workspaceId: string) => ['slack-imports', workspaceId] as const,
-  reminders: (workspaceId: string) => ['reminders', workspaceId] as const,
+  later: (workspaceId: string, status?: string) =>
+    (status ? ['later', workspaceId, status] : ['later', workspaceId]) as readonly string[],
   channelBookmarks: (channelId: string) => ['channels', channelId, 'bookmarks'] as const,
 
   search: (query: string) => ['search', query] as const,

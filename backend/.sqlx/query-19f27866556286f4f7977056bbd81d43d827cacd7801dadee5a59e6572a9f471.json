@@ -1,0 +1,86 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE later_items\n               SET reminded_at = NOW()\n             WHERE id IN (\n                 SELECT id FROM later_items\n                  WHERE remind_at <= NOW() AND reminded_at IS NULL AND status = 'in_progress'\n                  ORDER BY remind_at\n                  FOR UPDATE SKIP LOCKED\n                  LIMIT 100\n             )\n            RETURNING id, workspace_id, user_id, channel_id, message_id, text\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "later_items",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "later_items",
+            "name": "workspace_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "later_items",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "channel_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "later_items",
+            "name": "channel_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "message_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "later_items",
+            "name": "message_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "text",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "later_items",
+            "name": "text"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "19f27866556286f4f7977056bbd81d43d827cacd7801dadee5a59e6572a9f471"
+}

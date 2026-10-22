@@ -61,7 +61,7 @@ make a duplicate mention or call notification impossible, and outgoing webhooks 
 ### Feature-modular layering
 
 Every feature under `api/src/` (`auth`, `workspace`, `conversations`, `messaging`, `files`,
-`hooks`, `notifications`, `scheduled`, `saved`, `groups`, `emoji`, `retention`, `export`,
+`hooks`, `notifications`, `scheduled`, `later`, `groups`, `emoji`, `retention`, `export`,
 `slack_import`, `scim`, `push`, `commands`, `huddle`, `admin`) follows the same shape, with
 files added only where warranted:
 
@@ -406,7 +406,7 @@ is always one safe path segment and keeps its extension. Downloads send both
 
 ### hooks
 
-Incoming/outgoing webhooks, bots, slash commands, and reminders. Background task checks reminders on a schedule and executes hooks from Redis events.
+Incoming/outgoing webhooks, bots and slash commands. A background task executes hooks from Redis events; reminders live in `later`.
 
 **Hooks:**
 
@@ -426,7 +426,7 @@ Built-in commands run before any registered one and never leave the instance: `/
 `/topic`, `/invite`, `/shrug` and `/remind`. `/remind` understands `me in 30m to ship`,
 `me at 15:00 to call back` and `me tomorrow at 9am standup`; clock times are resolved in the
 caller's own timezone and a time already past means tomorrow. Reminding somebody else needs
-workspace admin, the same rule `POST /workspaces/:ws_id/reminders` applies.
+workspace admin, the same rule `POST /workspaces/:ws_id/later` applies. A reminder lands in the person's *Later* list.
 
 `GET`/`POST`/`DELETE` on `/hooks` and `/workspaces/:ws_id/hooks` require a workspace
 admin session; secrets in `config` (`token`, `secret`, …) are redacted on read — `reveal`
@@ -438,10 +438,7 @@ Creating an `incoming_webhook` requires `config.channel_id`, and the server mint
 not a session** (Slack-compatible `{ "text": ... }`); it posts to the bound channel
 as the hook's creator and is rate-limited per token.
 
-**Reminders:**
-
-| Method | Route | Input | Output |
-|--------|-------|-------|--------|
+--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/reminders` | — | `{ data: Reminder[] }` |
 | POST | `/workspaces/:ws_id/reminders` | `{ target_user_id, content, remind_at, channel_id?, message_id? }` | `Reminder` |
 | DELETE | `/workspaces/:ws_id/reminders/:reminder_id` | — | `{ status: "deleted" }` — only the person the reminder is for |
@@ -571,18 +568,24 @@ in silence.
 
 ---
 
-### saved
+### later
 
-One person's own list of kept messages. A row points at one message, and saving is
-idempotent: saving something twice returns the row that already exists rather than a second
-one. Reading a message is what entitles you to save it — the same channel access check the
-message routes use, which covers direct messages too.
+Slack's *Later*: one person's list of saved messages and reminders, each *in progress*,
+*completed* or *archived*. An item is a saved message (`message_id`), a reminder (`text` and
+`remind_at`), or both — a saved message given a due time. Saving a message is idempotent and
+brings a completed or archived one back; reading the message is what entitles you to save it,
+the same channel access check the message routes use. A reminder for somebody else needs
+workspace admin, as `/remind` does. `chat-worker`'s reminder checker claims due items, sends
+the push (unless the person lost the channel it names) and stamps `reminded_at`; the item
+stays *in progress* until it is ticked, and a new `remind_at` re-arms it. Every change sends a
+`later.updated` frame to the owner's sessions. Items go with the workspace membership.
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
-| GET | `/workspaces/:ws_id/saved` | — | `{ data: SavedMessageDetail[] }` — newest first, joined with the message so the panel renders in one round trip |
-| POST | `/workspaces/:ws_id/saved` | `{ message_id, note? }` | `SavedMessage` |
-| DELETE | `/saved/:id` | — | `{ status: "removed" }` — owner only |
+| GET | `/workspaces/:ws_id/later` | Query: `status?` (`in_progress`, default; `completed`; `archived`) | `{ data: LaterItem[] }` — with the message (author, channel, content, attachments) in one round trip; in progress sorted by due time, the rest by last change |
+| POST | `/workspaces/:ws_id/later` | `{ message_id }` or `{ text, remind_at, channel_id?, for_user_id? }`, `remind_at?` on either | `{ id }` |
+| PATCH | `/later/:id` | `{ status?, remind_at?, clear_reminder?, note? }` | `{ status: "updated" }` — owner only |
+| DELETE | `/later/:id` | — | `{ status: "deleted" }` — owner only |
 
 ---
 

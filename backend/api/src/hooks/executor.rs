@@ -2,11 +2,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use hmac::{Hmac, KeyInit, Mac};
-use redis::AsyncCommands;
 use sha2::Sha256;
 use tracing::{info, warn};
 
-use super::models::{Hook, Reminder};
+use super::models::Hook;
 use super::repo::HookRepo;
 use super::ssrf;
 use crate::messaging::stream_group::StreamGroup;
@@ -264,80 +263,4 @@ fn truncate_body(body: &str) -> String {
         end -= 1;
     }
     format!("{}…[truncated]", &body[..end])
-}
-
-/// A reminder names a channel, and the target may have lost access to it since
-/// it was written. Delivering it anyway leaks the channel's existence and, with
-/// a message link, a route into a conversation they can no longer read.
-pub async fn reminder_is_deliverable(state: &crate::state::AppState, reminder: &Reminder) -> bool {
-    let Some(channel_id) = reminder.channel_id else {
-        return true;
-    };
-    crate::authz::require_channel_access(state, channel_id, reminder.target_user_id)
-        .await
-        .is_ok()
-}
-
-pub async fn start_reminder_checker(redis_url: &str, state: Arc<crate::state::AppState>) {
-    let hook_repo = &state.hook_repo;
-    let client = match redis::Client::open(redis_url) {
-        Ok(c) => c,
-        Err(e) => {
-            warn!("Reminder checker: failed to connect Redis: {}", e);
-            return;
-        }
-    };
-
-    let mut conn = match redis::aio::ConnectionManager::new(client).await {
-        Ok(c) => c,
-        Err(e) => {
-            warn!("Reminder checker: failed to get connection: {}", e);
-            return;
-        }
-    };
-
-    info!("Reminder checker started");
-
-    loop {
-        tokio::time::sleep(std::time::Duration::from_secs(30)).await;
-
-        let reminders = match hook_repo.claim_due_reminders().await {
-            Ok(r) => r,
-            Err(e) => {
-                warn!("Failed to claim due reminders: {}", e);
-                continue;
-            }
-        };
-
-        for reminder in reminders {
-            if !reminder_is_deliverable(&state, &reminder).await {
-                warn!(
-                    reminder_id = %reminder.id,
-                    "reminder dropped: the target no longer has access to the channel"
-                );
-                continue;
-            }
-
-            let notif_event = serde_json::json!({
-                "event_type": "notification.push",
-                "payload": {
-                    "user_id": reminder.target_user_id.to_string(),
-                    "channel_id": reminder.channel_id,
-                    "title": "Reminder",
-                    "body": reminder.content,
-                    "priority": "mention",
-                }
-            });
-
-            let json = notif_event.to_string();
-            // The claim already marked it delivered; put it back if it never went
-            // out, so a claim followed by a failure is a retry rather than a loss.
-            if let Err(e) = conn.publish::<_, _, ()>("events:notification", &json).await {
-                warn!("failed to publish reminder notification: {e}");
-                if let Err(e) = hook_repo.release_reminder(reminder.id).await {
-                    warn!("failed to release undelivered reminder: {e}");
-                }
-            }
-        }
-    }
 }
