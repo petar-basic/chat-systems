@@ -92,6 +92,10 @@ test('D. file upload is delivered to the other user', async () => {
     mimeType: 'text/plain',
     buffer: Buffer.from(`hello attachment ${stamp}`),
   });
+  await expect(admin.locator('[data-qa="attachment-tray-item"][data-status="ready"]')).toHaveCount(1, {
+    timeout: 20_000,
+  });
+  await admin.locator('[data-qa="composer-send"]').last().click();
   await expect(admin.locator('[data-qa="attachment-file"], [data-qa="attachment-image"]').last()).toBeVisible(
     {
       timeout: 20_000,

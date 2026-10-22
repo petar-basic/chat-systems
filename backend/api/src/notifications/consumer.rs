@@ -73,10 +73,7 @@ pub async fn notify_mentions(
     let sender_id = event_payload.get("user_id").and_then(|v| v.as_str());
     let channel_id = event_payload.get("channel_id").and_then(|v| v.as_str());
     let message_id = event_payload.get("id").and_then(|v| v.as_str());
-    let content = event_payload
-        .get("content")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+    let content = &preview_text(event_payload);
 
     let workspace_id = event_payload
         .get("workspace_id")
@@ -283,4 +280,23 @@ pub async fn notify_ring(
     });
     let json = serde_json::to_string(&notif_event).unwrap_or_default();
     let _: Result<(), _> = pub_conn.publish("events:notification", &json).await;
+}
+
+fn preview_text(payload: &serde_json::Value) -> String {
+    let content = payload
+        .get("content")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim();
+    if !content.is_empty() {
+        return content.to_string();
+    }
+    let files = crate::files::service::attachments_in(
+        payload.get("metadata").unwrap_or(&serde_json::Value::Null),
+    );
+    match files.as_slice() {
+        [] => String::new(),
+        [only] => format!("📎 {}", only.filename),
+        many => format!("📎 {} files", many.len()),
+    }
 }

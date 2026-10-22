@@ -14,7 +14,9 @@ import FormattingToolbar from '@/components/FormattingToolbar';
 import type { WorkspaceMember, Channel } from '@/stores/workspace';
 import { Clock, Paperclip, Send, SmilePlus, Type } from 'lucide-react';
 import { MENTION_SUGGESTION_LIMIT, DRAFT_SAVE_DEBOUNCE_MS } from '@/shared/constants';
-import { uploadFilesSequentially, transferFiles } from '@/lib/fileUploads';
+import { transferFiles } from '@/lib/fileUploads';
+import { AttachmentTray } from './AttachmentTray';
+import type { ComposerAttachments } from './useComposerAttachments';
 import { useDraftStore } from '@/stores/drafts';
 import { flattenMentions } from '@/lib/mentions';
 import { useScheduleMessage, type ScheduleTarget } from '@/hooks/queries/useScheduledMessages';
@@ -49,11 +51,11 @@ interface Props {
   draftKey?: string;
   initialContent?: string;
   editing?: boolean;
+  allowEmpty?: boolean;
   onSend: (content: string) => Promise<void>;
   onCancel?: () => void;
-  onFileUpload?: (file: File) => Promise<void>;
+  attachments?: ComposerAttachments;
   onTyping?: () => void;
-  uploading?: boolean;
   workspaceId?: string;
   instanceUrl?: string;
   scheduleTarget?: ScheduleTarget;
@@ -68,25 +70,25 @@ export default function MessageInput({
   draftKey,
   initialContent,
   editing = false,
+  allowEmpty = false,
   onSend,
   onCancel,
-  onFileUpload,
+  attachments,
   onTyping,
-  uploading = false,
   workspaceId,
   instanceUrl,
   scheduleTarget,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const uploadRef = useRef(onFileUpload);
+  const attachmentsRef = useRef(attachments);
+  const allowEmptyRef = useRef(allowEmpty);
   useEffect(() => {
-    uploadRef.current = onFileUpload;
+    attachmentsRef.current = attachments;
+    allowEmptyRef.current = allowEmpty;
   });
 
-  const uploadFiles = useCallback(async (files: File[]) => {
-    const upload = uploadRef.current;
-    if (!upload) return;
-    await uploadFilesSequentially(files, upload);
+  const addFiles = useCallback((files: File[]) => {
+    attachmentsRef.current?.add(files);
   }, []);
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sendRef = useRef<() => void>(() => {});
@@ -167,16 +169,16 @@ export default function MessageInput({
     editorProps: {
       handlePaste: (_view, event) => {
         const files = transferFiles(event.clipboardData);
-        if (files.length === 0 || !uploadRef.current) return false;
+        if (files.length === 0 || !attachmentsRef.current) return false;
         event.preventDefault();
-        void uploadFiles(files);
+        addFiles(files);
         return true;
       },
       handleDrop: (_view, event) => {
         const files = transferFiles((event as DragEvent).dataTransfer);
-        if (files.length === 0 || !uploadRef.current) return false;
+        if (files.length === 0 || !attachmentsRef.current) return false;
         event.preventDefault();
-        void uploadFiles(files);
+        addFiles(files);
         return true;
       },
     },
@@ -219,9 +221,20 @@ export default function MessageInput({
     async (sendAt: Date) => {
       if (!editor || !scheduleTarget) return;
       const markdown = editor.storage.markdown.getMarkdown().trim();
-      if (!markdown) return;
+      const files = attachments?.items.filter((item) => item.status === 'ready') ?? [];
+      if (!markdown && files.length === 0) return;
+      if (attachments?.busy) {
+        toast.error('Wait for the files to finish uploading');
+        return;
+      }
       try {
-        await scheduleMessage.mutateAsync({ target: scheduleTarget, content: markdown, sendAt });
+        await scheduleMessage.mutateAsync({
+          target: scheduleTarget,
+          content: markdown,
+          sendAt,
+          attachmentIds: files.map((item) => item.fileId ?? ''),
+        });
+        attachments?.take();
         editor.commands.clearContent();
         if (draftKey) useDraftStore.getState().clearDraft(draftKey);
         setShowSchedule(false);
@@ -232,13 +245,18 @@ export default function MessageInput({
         toast.error(toUserMessage(err, 'Could not schedule that message'));
       }
     },
-    [editor, scheduleTarget, scheduleMessage, draftKey],
+    [editor, scheduleTarget, scheduleMessage, draftKey, attachments],
   );
 
   const handleSend = useCallback(async () => {
     if (!editor) return;
     const markdown = editor.storage.markdown.getMarkdown().trim();
-    if (!markdown) return;
+    const files = attachmentsRef.current;
+    if (!markdown && !files?.hasReady && !allowEmptyRef.current) return;
+    if (files?.busy) {
+      toast.error('Wait for the files to finish uploading');
+      return;
+    }
     editor.commands.clearContent();
     editor.commands.focus();
     if (draftKey) useDraftStore.getState().clearDraft(draftKey);
@@ -261,17 +279,18 @@ export default function MessageInput({
   }, [editing, editor]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    void uploadFiles(Array.from(e.target.files ?? []));
+    addFiles(Array.from(e.target.files ?? []));
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const isEmpty = !editor || editor.isEmpty;
+  const isEmpty = !editor || (editor.isEmpty && !attachments?.hasReady && !allowEmpty);
+  const sendBlocked = isEmpty || !!attachments?.busy;
 
   return (
     // The bottom padding clears the iOS home indicator; without it the send
     // button sits under it and cannot be tapped.
     <div className={editing ? 'mt-1' : 'px-4 pb-4 max-sm:pb-[max(1rem,env(safe-area-inset-bottom))]'}>
-      {onFileUpload && (
+      {attachments && (
         <input
           aria-label="Attach files"
           ref={fileInputRef}
@@ -282,26 +301,22 @@ export default function MessageInput({
         />
       )}
       <div className="@container bg-surface border border-line rounded-xl">
+        {attachments && <AttachmentTray items={attachments.items} onRemove={attachments.remove} />}
         <div className="px-4 pt-3 pb-1">
           <EditorContent editor={editor} className="tiptap-editor" />
         </div>
 
         <div className="flex items-start justify-between gap-1 px-3 pb-2 pt-1">
           <div className="flex flex-wrap items-center gap-0.5 min-w-0">
-            {onFileUpload && (
+            {attachments && (
               <>
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
                   aria-label="Upload file"
                   className="p-1 text-muted hover:text-fg-soft disabled:text-faint transition cursor-pointer rounded hover:bg-raised/60"
                 >
-                  {uploading ? (
-                    <div className="w-3.5 h-3.5 border-2 border-line-strong/30 border-t-slate-400 rounded-full animate-spin" />
-                  ) : (
-                    <Paperclip className="w-3.5 h-3.5" />
-                  )}
+                  <Paperclip className="w-3.5 h-3.5" />
                 </button>
                 <div className="w-px h-4 bg-elevated/60 mx-0.5" />
               </>
@@ -453,7 +468,8 @@ export default function MessageInput({
               <button
                 type="button"
                 onClick={handleSend}
-                disabled={isEmpty}
+                disabled={sendBlocked}
+                data-qa="composer-send"
                 className="p-1 text-accent hover:text-accent-soft disabled:text-faint transition cursor-pointer disabled:cursor-not-allowed rounded hover:bg-raised/60"
                 title="Send (Enter)"
               >

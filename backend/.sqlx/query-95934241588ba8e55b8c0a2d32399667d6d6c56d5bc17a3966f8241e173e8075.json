@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE scheduled_messages SET send_at = $2 WHERE id = $1 RETURNING id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at",
+  "query": "\n            INSERT INTO scheduled_messages (workspace_id, user_id, channel_id, content, send_at, attachment_ids)\n            VALUES ($1, $2, $3, $4, $5, $6)\n            RETURNING id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at, attachment_ids\n            ",
   "describe": {
     "columns": [
       {
@@ -112,12 +112,27 @@
             "name": "created_at"
           }
         }
+      },
+      {
+        "ordinal": 10,
+        "name": "attachment_ids",
+        "type_info": "UuidArray",
+        "origin": {
+          "Table": {
+            "table": "scheduled_messages",
+            "name": "attachment_ids"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
         "Uuid",
-        "Timestamptz"
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Timestamptz",
+        "UuidArray"
       ]
     },
     "nullable": [
@@ -130,8 +145,9 @@
       true,
       true,
       true,
+      false,
       false
     ]
   },
-  "hash": "c58e21406f9486aff4b954082933cb473dc6c1de29d664cb43bb4302e481feaf"
+  "hash": "95934241588ba8e55b8c0a2d32399667d6d6c56d5bc17a3966f8241e173e8075"
 }

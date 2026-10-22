@@ -10,9 +10,11 @@ import { useUserCache } from '@/stores/users';
 import { forwardedBody } from './forwardBody';
 
 export interface ForwardSource {
+  messageId: string;
   content: string;
   authorName: string;
   origin: string;
+  hasAttachments: boolean;
 }
 
 interface Props {
@@ -62,7 +64,11 @@ export default function ForwardMessageModal({
     setError(null);
     try {
       const content = forwardedBody(source, comment);
-      const body = { content, client_message_id: crypto.randomUUID() };
+      const body = {
+        content,
+        client_message_id: crypto.randomUUID(),
+        copy_attachments_from: source.hasAttachments ? source.messageId : null,
+      };
       await getApiForInstance(instanceUrl).typed((c) =>
         c.POST('/channels/{ch_id}/messages', { params: { path: { ch_id: channelId } }, body }),
       );
@@ -83,6 +89,7 @@ export default function ForwardMessageModal({
         <div className="text-sm text-fg-dim line-clamp-3 whitespace-pre-wrap" data-qa="forward-preview">
           {source.content}
         </div>
+        {source.hasAttachments && <div className="mt-1 text-xs text-muted">📎 Files are forwarded too</div>}
       </div>
 
       <div className="px-4 py-3 space-y-2">

@@ -15,6 +15,7 @@ pub struct NewScheduledMessage<'a> {
     pub channel_id: Uuid,
     pub content: &'a str,
     pub send_at: DateTime<Utc>,
+    pub attachment_ids: &'a [Uuid],
 }
 
 impl ScheduledRepo {
@@ -26,15 +27,16 @@ impl ScheduledRepo {
         sqlx::query_as!(
             ScheduledMessage,
             r"
-            INSERT INTO scheduled_messages (workspace_id, user_id, channel_id, content, send_at)
-            VALUES ($1, $2, $3, $4, $5)
-            RETURNING id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at
+            INSERT INTO scheduled_messages (workspace_id, user_id, channel_id, content, send_at, attachment_ids)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at, attachment_ids
             ",
             msg.workspace_id,
             msg.user_id,
             msg.channel_id,
             msg.content,
-            msg.send_at
+            msg.send_at,
+            msg.attachment_ids
         )
         .fetch_one(&self.pool)
         .await
@@ -43,7 +45,7 @@ impl ScheduledRepo {
     pub async fn find_by_id(&self, id: Uuid) -> sqlx::Result<Option<ScheduledMessage>> {
         sqlx::query_as!(
             ScheduledMessage,
-            "SELECT id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at FROM scheduled_messages WHERE id = $1",
+            "SELECT id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at, attachment_ids FROM scheduled_messages WHERE id = $1",
             id
         )
         .fetch_optional(&self.pool)
@@ -58,7 +60,7 @@ impl ScheduledRepo {
         sqlx::query_as!(
             ScheduledMessage,
             r"
-            SELECT id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at FROM scheduled_messages
+            SELECT id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at, attachment_ids FROM scheduled_messages
             WHERE workspace_id = $1 AND user_id = $2 AND canceled_at IS NULL
               AND (sent_at IS NULL OR failure IS NOT NULL)
             ORDER BY send_at
@@ -77,7 +79,7 @@ impl ScheduledRepo {
     ) -> sqlx::Result<ScheduledMessage> {
         sqlx::query_as!(
             ScheduledMessage,
-            "UPDATE scheduled_messages SET send_at = $2 WHERE id = $1 RETURNING id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at",
+            "UPDATE scheduled_messages SET send_at = $2 WHERE id = $1 RETURNING id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at, attachment_ids",
             id,
             send_at
         )
@@ -110,7 +112,7 @@ impl ScheduledRepo {
                 FOR UPDATE SKIP LOCKED
                 LIMIT 100
             )
-            RETURNING id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at
+            RETURNING id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at, attachment_ids
             "
         )
         .fetch_all(&self.pool)

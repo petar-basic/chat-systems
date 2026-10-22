@@ -47,6 +47,8 @@ export function useMessageActions({
   const handleForwardMessage = useCallback(
     (message: Message) => {
       setForwarding({
+        messageId: message.id,
+        hasAttachments: !!message.metadata?.attachments?.length,
         content: message.content,
         authorName: authorNameOf(message.user_id),
         origin: targetLabel(

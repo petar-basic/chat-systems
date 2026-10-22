@@ -1569,6 +1569,14 @@
         "operationId": "upload_file",
         "parameters": [
           {
+            "name": "draft",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
             "name": "ws_id",
             "in": "path",
             "required": true,
@@ -5728,6 +5736,35 @@
           }
         }
       },
+      "Attachment": {
+        "type": "object",
+        "required": [
+          "id",
+          "filename",
+          "mime_type",
+          "size_bytes",
+          "url"
+        ],
+        "properties": {
+          "filename": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mime_type": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
       "AuditRow": {
         "type": "object",
         "required": [
@@ -6631,6 +6668,13 @@
           "send_at"
         ],
         "properties": {
+          "attachment_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           "channel_id": {
             "type": "string",
             "format": "uuid"
@@ -7933,9 +7977,16 @@
                 "channel_id",
                 "author_id",
                 "content",
-                "sent_at"
+                "sent_at",
+                "attachments"
               ],
               "properties": {
+                "attachments": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Attachment"
+                  }
+                },
                 "author_id": {
                   "type": "string",
                   "format": "uuid"
@@ -7995,9 +8046,17 @@
                 "channel_id",
                 "content",
                 "send_at",
-                "created_at"
+                "created_at",
+                "attachment_ids"
               ],
               "properties": {
+                "attachment_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
                 "canceled_at": {
                   "type": [
                     "string",
@@ -8894,7 +8953,8 @@
         "type": "object",
         "required": [
           "name",
-          "sso_enabled"
+          "sso_enabled",
+          "max_upload_bytes"
         ],
         "properties": {
           "icon_url": {
@@ -8902,6 +8962,11 @@
               "string",
               "null"
             ]
+          },
+          "max_upload_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
           },
           "name": {
             "type": "string"
@@ -9244,6 +9309,15 @@
             ],
             "items": {
               "type": "string"
+            }
+          },
+          "attachments": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Attachment"
             }
           },
           "bot": {
@@ -9769,9 +9843,16 @@
           "channel_id",
           "author_id",
           "content",
-          "sent_at"
+          "sent_at",
+          "attachments"
         ],
         "properties": {
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Attachment"
+            }
+          },
           "author_id": {
             "type": "string",
             "format": "uuid"
@@ -9820,9 +9901,17 @@
           "channel_id",
           "content",
           "send_at",
-          "created_at"
+          "created_at",
+          "attachment_ids"
         ],
         "properties": {
+          "attachment_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           "canceled_at": {
             "type": [
               "string",
@@ -9901,6 +9990,13 @@
           "content"
         ],
         "properties": {
+          "attachment_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           "client_message_id": {
             "type": [
               "string",
@@ -9911,6 +10007,13 @@
           },
           "content": {
             "type": "string"
+          },
+          "copy_attachments_from": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
           },
           "thread_parent_id": {
             "type": [
@@ -10486,6 +10589,16 @@
           "content"
         ],
         "properties": {
+          "attachment_ids": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           "content": {
             "type": "string"
           }

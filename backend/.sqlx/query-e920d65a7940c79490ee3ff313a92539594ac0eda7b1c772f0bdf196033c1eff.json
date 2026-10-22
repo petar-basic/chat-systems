@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at FROM scheduled_messages WHERE id = $1",
+  "query": "UPDATE files SET message_id = $2, draft_until = NULL\n              WHERE id = ANY($1) AND workspace_id = $3 AND user_id = $4\n                AND message_id IS NULL AND draft_until IS NOT NULL\n              RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, created_at",
   "describe": {
     "columns": [
       {
@@ -9,19 +9,19 @@
         "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "scheduled_messages",
+            "table": "files",
             "name": "id"
           }
         }
       },
       {
         "ordinal": 1,
-        "name": "workspace_id",
+        "name": "message_id",
         "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "scheduled_messages",
-            "name": "workspace_id"
+            "table": "files",
+            "name": "message_id"
           }
         }
       },
@@ -31,74 +31,74 @@
         "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "scheduled_messages",
+            "table": "files",
             "name": "user_id"
           }
         }
       },
       {
         "ordinal": 3,
-        "name": "channel_id",
+        "name": "workspace_id",
         "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "scheduled_messages",
-            "name": "channel_id"
+            "table": "files",
+            "name": "workspace_id"
           }
         }
       },
       {
         "ordinal": 4,
-        "name": "content",
-        "type_info": "Text",
+        "name": "filename",
+        "type_info": "Varchar",
         "origin": {
           "Table": {
-            "table": "scheduled_messages",
-            "name": "content"
+            "table": "files",
+            "name": "filename"
           }
         }
       },
       {
         "ordinal": 5,
-        "name": "send_at",
-        "type_info": "Timestamptz",
+        "name": "storage_key",
+        "type_info": "Varchar",
         "origin": {
           "Table": {
-            "table": "scheduled_messages",
-            "name": "send_at"
+            "table": "files",
+            "name": "storage_key"
           }
         }
       },
       {
         "ordinal": 6,
-        "name": "sent_at",
-        "type_info": "Timestamptz",
+        "name": "mime_type",
+        "type_info": "Varchar",
         "origin": {
           "Table": {
-            "table": "scheduled_messages",
-            "name": "sent_at"
+            "table": "files",
+            "name": "mime_type"
           }
         }
       },
       {
         "ordinal": 7,
-        "name": "canceled_at",
-        "type_info": "Timestamptz",
+        "name": "size_bytes",
+        "type_info": "Int8",
         "origin": {
           "Table": {
-            "table": "scheduled_messages",
-            "name": "canceled_at"
+            "table": "files",
+            "name": "size_bytes"
           }
         }
       },
       {
         "ordinal": 8,
-        "name": "failure",
-        "type_info": "Text",
+        "name": "thumbnail_key",
+        "type_info": "Varchar",
         "origin": {
           "Table": {
-            "table": "scheduled_messages",
-            "name": "failure"
+            "table": "files",
+            "name": "thumbnail_key"
           }
         }
       },
@@ -108,7 +108,7 @@
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
-            "table": "scheduled_messages",
+            "table": "files",
             "name": "created_at"
           }
         }
@@ -116,21 +116,24 @@
     ],
     "parameters": {
       "Left": [
+        "UuidArray",
+        "Uuid",
+        "Uuid",
         "Uuid"
       ]
     },
     "nullable": [
       false,
-      false,
-      false,
-      false,
-      false,
-      false,
       true,
-      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
       true,
       false
     ]
   },
-  "hash": "eb020f66ec46855cfb2d85ecda03d7f11c59fd641e4cfaee017b85739db84869"
+  "hash": "e920d65a7940c79490ee3ff313a92539594ac0eda7b1c772f0bdf196033c1eff"
 }

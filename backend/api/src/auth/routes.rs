@@ -347,6 +347,7 @@ async fn instance_info(State(state): State<Arc<AppState>>) -> Json<InstanceInfo>
                 &state.config.oidc_allowed_domains,
             )
             .may_sign_in(),
+        max_upload_bytes: state.config.max_upload_bytes,
     })
 }
 

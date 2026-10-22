@@ -13,6 +13,7 @@ use shared_common::errors::{AppError, AppResult};
 use super::models::*;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
+use crate::files::service as files;
 use crate::middleware::AuthUser;
 use crate::pagination::PageQuery;
 use crate::state::AppState;
@@ -107,10 +108,27 @@ async fn send_message(
     Json(req): Json<SendMessageRequest>,
 ) -> AppResult<Json<Message>> {
     req.validate()?;
+    files::check_attachment_ids(&req.attachment_ids)?;
 
     let channel = authz::require_channel_post(&state, ch_id, auth.user_id)
         .await?
         .channel;
+
+    let forwarded = match req.copy_attachments_from {
+        Some(source_id) => forwarded_files(&state, source_id, auth.user_id).await?,
+        None => Vec::new(),
+    };
+    if req.attachment_ids.len() + forwarded.len() > files::MAX_ATTACHMENTS {
+        return Err(AppError::Validation(format!(
+            "A message can carry at most {} files",
+            files::MAX_ATTACHMENTS
+        )));
+    }
+    if req.content.trim().is_empty() && req.attachment_ids.is_empty() && forwarded.is_empty() {
+        return Err(AppError::Validation(
+            "Message content cannot be empty".into(),
+        ));
+    }
 
     let thread_parent_id = match req.thread_parent_id {
         Some(parent_id) => Some(thread_root(&state, ch_id, parent_id).await?),
@@ -120,6 +138,8 @@ async fn send_message(
     // The mention set has to exist before the insert: the unread and mention
     // counters are bumped inside the same transaction that writes the message.
     let mentioned_ids = expand_mentions(&state, ch_id, auth.user_id, &req.content).await;
+
+    let copied = files::copy_objects(&state, forwarded, channel.workspace_id).await?;
 
     let mut tx = state.pool.begin().await?;
     let created = state
@@ -139,6 +159,24 @@ async fn send_message(
 
     let (msg, staged) = match (created, req.client_message_id) {
         (Ok(msg), _) => {
+            let attached = attach_in(
+                &state,
+                &mut tx,
+                msg,
+                &req.attachment_ids,
+                &copied,
+                channel.workspace_id,
+                auth.user_id,
+            )
+            .await;
+            let msg = match attached {
+                Ok(msg) => msg,
+                Err(e) => {
+                    drop(tx);
+                    files::discard_copies(&state, &copied).await;
+                    return Err(e);
+                }
+            };
             let staged = state
                 .publisher
                 .stage_message_created(&mut tx, &msg, channel.workspace_id, &mentioned_ids)
@@ -151,6 +189,7 @@ async fn send_message(
         // landed — in this channel, by definition of the index.
         (Err(ref e), Some(client_id)) if shared_common::errors::is_unique_violation(e) => {
             drop(tx);
+            files::discard_copies(&state, &copied).await;
             let existing = state
                 .message_repo
                 .find_by_client_id(ch_id, client_id)
@@ -158,23 +197,55 @@ async fn send_message(
                 .ok_or_else(|| AppError::Conflict("Message id already in use".into()))?;
             (existing, None)
         }
-        (Err(e), _) => return Err(AppError::Database(e.to_string())),
+        (Err(e), _) => {
+            drop(tx);
+            files::discard_copies(&state, &copied).await;
+            return Err(AppError::Database(e.to_string()));
+        }
     };
-
-    crate::files::service::link_to_channel_message(
-        &state,
-        &req.content,
-        msg.id,
-        channel.workspace_id,
-        auth.user_id,
-    )
-    .await;
 
     if let Some(staged) = staged {
         state.publisher.dispatch(staged).await;
     }
 
     Ok(Json(msg))
+}
+
+async fn forwarded_files(
+    state: &AppState,
+    source_id: Uuid,
+    user_id: Uuid,
+) -> AppResult<Vec<crate::files::models::FileRecord>> {
+    let source = state
+        .message_repo
+        .find_by_id(source_id)
+        .await?
+        .filter(|m| m.deleted_at.is_none())
+        .ok_or_else(|| AppError::NotFound("The forwarded message is gone".into()))?;
+    authz::require_channel_access(state, source.channel_id, user_id).await?;
+    Ok(state.file_repo.for_message(source_id).await?)
+}
+
+pub(crate) async fn attach_in(
+    state: &AppState,
+    conn: &mut sqlx::PgConnection,
+    msg: Message,
+    attachment_ids: &[Uuid],
+    copied: &[files::CopiedObject],
+    workspace_id: Uuid,
+    user_id: Uuid,
+) -> AppResult<Message> {
+    let mut records =
+        files::claim_drafts_in(state, conn, attachment_ids, msg.id, workspace_id, user_id).await?;
+    records
+        .extend(files::record_copies_in(state, conn, copied, msg.id, workspace_id, user_id).await?);
+    if records.is_empty() {
+        return Ok(msg);
+    }
+    Ok(state
+        .message_repo
+        .set_attachments_in(conn, msg.id, &files::attachments_json(state, &records)?)
+        .await?)
 }
 
 #[utoipa::path(patch, path = "/messages/{msg_id}", tag = "messages",
@@ -200,29 +271,50 @@ async fn update_message(
         ));
     }
 
+    let current = files::attachments_in(&existing.metadata);
+    let kept: Option<Vec<crate::files::models::Attachment>> =
+        req.attachment_ids.as_ref().map(|keep| {
+            current
+                .iter()
+                .filter(|a| keep.contains(&a.id))
+                .cloned()
+                .collect()
+        });
+    let remaining = kept.as_ref().map_or(current.len(), Vec::len);
+    if req.content.trim().is_empty() && remaining == 0 {
+        return Err(AppError::Validation(
+            "Message content cannot be empty".into(),
+        ));
+    }
+
     let channel = authz::find_channel(&state, existing.channel_id).await?;
 
     let mut tx = state.pool.begin().await?;
-    let msg = state
+    let mut msg = state
         .message_repo
         .update_message_in(&mut tx, msg_id, &req.content, auth.user_id)
         .await?;
+    let mut removed = Vec::new();
+    if let Some(kept) = kept.filter(|kept| kept.len() != current.len()) {
+        let keep_ids: Vec<Uuid> = kept.iter().map(|a| a.id).collect();
+        removed = state
+            .file_repo
+            .delete_from_message_except_in(&mut tx, msg_id, &keep_ids)
+            .await?;
+        let attachments =
+            serde_json::to_value(&kept).map_err(|e| AppError::Internal(e.to_string()))?;
+        msg = state
+            .message_repo
+            .set_attachments_in(&mut tx, msg_id, &attachments)
+            .await?;
+    }
     let staged = state
         .publisher
         .stage_message_updated(&mut tx, &msg, channel.workspace_id)
         .await?;
     tx.commit().await?;
 
-    crate::files::service::link_to_channel_message(
-        &state,
-        &req.content,
-        msg.id,
-        channel.workspace_id,
-        auth.user_id,
-    )
-    .await;
-    crate::files::service::release_unlinked_from_channel_message(&state, &req.content, msg.id)
-        .await;
+    files::purge_objects(&state, &removed).await;
 
     state.publisher.dispatch(staged).await;
 
@@ -389,7 +481,7 @@ async fn delete_message(
         .await?;
     tx.commit().await?;
 
-    crate::files::service::delete_for_channel_message(&state, msg_id).await;
+    files::delete_for_channel_message(&state, msg_id).await;
     state.publisher.dispatch(staged).await;
 
     audit::record(

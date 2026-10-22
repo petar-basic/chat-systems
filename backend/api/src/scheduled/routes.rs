@@ -59,7 +59,21 @@ async fn create_scheduled(
     Json(req): Json<CreateScheduledMessageRequest>,
 ) -> AppResult<Json<ScheduledMessage>> {
     req.validate()?;
+    crate::files::service::check_attachment_ids(&req.attachment_ids)?;
+    if req.content.trim().is_empty() && req.attachment_ids.is_empty() {
+        return Err(AppError::Validation(
+            "Message content cannot be empty".into(),
+        ));
+    }
     require_target_access(&state, &auth, ws_id, req.channel_id).await?;
+    hold_attachments(
+        &state,
+        &req.attachment_ids,
+        ws_id,
+        auth.user_id,
+        attachments_kept_until(req.send_at),
+    )
+    .await?;
 
     let scheduled = state
         .scheduled_repo
@@ -69,10 +83,33 @@ async fn create_scheduled(
             channel_id: req.channel_id,
             content: &req.content,
             send_at: req.send_at,
+            attachment_ids: &req.attachment_ids,
         })
         .await?;
 
     Ok(Json(scheduled))
+}
+
+async fn hold_attachments(
+    state: &AppState,
+    ids: &[Uuid],
+    workspace_id: Uuid,
+    user_id: Uuid,
+    until: chrono::DateTime<chrono::Utc>,
+) -> AppResult<()> {
+    if ids.is_empty() {
+        return Ok(());
+    }
+    let held = state
+        .file_repo
+        .hold_drafts(ids, workspace_id, user_id, until)
+        .await?;
+    if held != ids.len() as u64 {
+        return Err(AppError::Validation(
+            "Attach only files you uploaded here and have not sent yet".into(),
+        ));
+    }
+    Ok(())
 }
 
 async fn owned_pending(state: &AppState, id: Uuid, user_id: Uuid) -> AppResult<ScheduledMessage> {
@@ -107,7 +144,15 @@ async fn reschedule(
     Json(req): Json<RescheduleRequest>,
 ) -> AppResult<Json<ScheduledMessage>> {
     req.validate()?;
-    owned_pending(&state, id, auth.user_id).await?;
+    let scheduled = owned_pending(&state, id, auth.user_id).await?;
+    hold_attachments(
+        &state,
+        &scheduled.attachment_ids,
+        scheduled.workspace_id,
+        auth.user_id,
+        attachments_kept_until(req.send_at),
+    )
+    .await?;
     let updated = state.scheduled_repo.reschedule(id, req.send_at).await?;
     Ok(Json(updated))
 }
@@ -118,7 +163,18 @@ async fn cancel_scheduled(
     auth: AuthUser,
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<StatusResponse>> {
-    owned_pending(&state, id, auth.user_id).await?;
+    let scheduled = owned_pending(&state, id, auth.user_id).await?;
     state.scheduled_repo.cancel(id).await?;
+    if !scheduled.attachment_ids.is_empty() {
+        state
+            .file_repo
+            .hold_drafts(
+                &scheduled.attachment_ids,
+                scheduled.workspace_id,
+                auth.user_id,
+                crate::files::service::draft_deadline(),
+            )
+            .await?;
+    }
     Ok(Json(StatusResponse::new("canceled")))
 }

@@ -174,4 +174,5 @@ pub struct InstanceInfo {
     pub name: String,
     pub icon_url: Option<String>,
     pub sso_enabled: bool,
+    pub max_upload_bytes: u64,
 }

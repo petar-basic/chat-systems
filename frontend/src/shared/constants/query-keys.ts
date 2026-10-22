@@ -1,5 +1,6 @@
 export const QUERY_KEYS = {
   currentUser: () => ['auth', 'currentUser'] as const,
+  instanceInfo: (instanceUrl: string) => ['instance', 'info', instanceUrl] as const,
   myStatus: (instanceUrl: string) => ['auth', 'status', instanceUrl] as const,
 
   workspaces: () => ['workspaces'] as const,

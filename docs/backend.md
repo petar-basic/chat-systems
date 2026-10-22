@@ -151,7 +151,7 @@ Handles user identity — login, registration, JWT, and profile.
 | POST | `/auth/logout` | refresh cookie | `{ status: "logged_out" }` |
 | POST | `/auth/forgot-password` | `{ email }` | `{ status: "sent" }` |
 | POST | `/auth/reset-password` | `{ token, password }` | `{ status: "reset" }` |
-| GET | `/instance/info` | — | `{ name, icon_url }` |
+| GET | `/instance/info` | — | `{ name, icon_url, sso_enabled, max_upload_bytes }` |
 | GET | `/users/me` | JWT | `UserPublic` |
 | PATCH | `/users/me` | `{ display_name?, avatar_url?, bio?, timezone? }` | `UserPublic` |
 | PATCH | `/users/me/password` | `{ current_password, new_password }` | `{ status: "password_changed" }` |
@@ -273,7 +273,7 @@ capped at 120 days out.
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/scheduled-messages` | — | `{ data: ScheduledMessage[] }` — the caller's pending queue |
-| POST | `/workspaces/:ws_id/scheduled-messages` | `{ channel_id, content, send_at }` | `ScheduledMessage` |
+| POST | `/workspaces/:ws_id/scheduled-messages` | `{ channel_id, content, send_at, attachment_ids? }` | `ScheduledMessage` — the drafts are held until a day after `send_at` and attached at delivery |
 | PATCH | `/scheduled-messages/:id` | `{ send_at }` | `ScheduledMessage` — author only, pending only |
 | DELETE | `/scheduled-messages/:id` | — | `{ status: "canceled" }` — author only, pending only |
 
@@ -294,8 +294,8 @@ Sends and manages messages, threads, reactions, pins, read tracking, and search.
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/channels/:ch_id/messages` | Query: `limit=50, cursor?` | `{ data: Message[] }` |
-| POST | `/channels/:ch_id/messages` | `{ content, thread_parent_id?, client_message_id? }` | `Message` — the one send path; a `thread_parent_id` makes it a reply (one level deep, same channel) and `client_message_id` makes a retry idempotent |
-| PATCH | `/messages/:msg_id` | `{ content }` | `Message` |
+| POST | `/channels/:ch_id/messages` | `{ content, thread_parent_id?, client_message_id?, attachment_ids?, copy_attachments_from? }` | `Message` — the one send path; a `thread_parent_id` makes it a reply (one level deep, same channel) and `client_message_id` makes a retry idempotent. `attachment_ids` (at most 10, the sender's own drafts) are linked in the message's transaction and listed in `metadata.attachments`; `content` may then be empty. `copy_attachments_from` (a forward) copies that message's files, if the sender can read it |
+| PATCH | `/messages/:msg_id` | `{ content, attachment_ids? }` | `Message` — `attachment_ids` is the set of files to keep; the rest are deleted |
 | DELETE | `/messages/:msg_id` | — | `{ status: "deleted" }` |
 | DELETE | `/messages/:msg_id/unfurls` | — | `Message` — the author removes its link previews; they stay removed across edits |
 
@@ -367,10 +367,17 @@ plus the private/DM channels the caller belongs to.
 ### files
 
 File upload and download. Supports both local storage and S3 (RustFS in the compose stack).
+A message's files belong to it through `files.message_id` and are copied into
+`messages.metadata.attachments` when they are linked, so every path that returns a message —
+a page, a thread, search, pins, a realtime frame — carries them without a join. A composer
+uploads with `?draft=true`: the file is the uploader's alone until a send claims it, and
+`chat-worker`'s draft sweeper deletes drafts nobody sent within a day. Avatars and custom
+emoji upload without it and are never swept. Deleting a file that is attached removes it from
+its message and announces the update.
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
-| POST | `/files/upload/:ws_id` | Multipart form (files) | `FileUploadResponse[]` |
+| POST | `/files/upload/:ws_id` | Query: `draft?`; multipart form (files) | `FileUploadResponse[]` |
 | GET | `/files/:file_id` | — | `{ file: FileRecord, url: string }` |
 | GET | `/files/download/*key` | — | Binary file stream |
 | DELETE | `/files/:file_id` | — | `{ status: "deleted" }` |

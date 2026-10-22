@@ -18,3 +18,9 @@ describe('forwardedBody', () => {
     expect(forwardedBody({ ...source, content: 'one\ntwo' }, '')).toBe('> **Ana** in #ops:\n> one\n> two');
   });
 });
+
+describe('forwardedBody for a message that was only files', () => {
+  it('quotes the author and origin without an empty line', () => {
+    expect(forwardedBody({ ...source, content: '' }, 'see these')).toBe('see these\n\n> **Ana** in #ops:');
+  });
+});

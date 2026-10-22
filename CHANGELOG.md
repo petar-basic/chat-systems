@@ -14,6 +14,24 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
+## [Unreleased]
+
+### Upgrading from 2.3.0
+
+- Nothing is required, but migration 52 rewrites old messages: every `[file: …](…)` link that
+  pointed at the message's own upload moves out of the text into the message's attachments.
+  A message that was only a file keeps no text. Quotes of other people's files in forwards
+  stay as links. Take a backup first, as before any upgrade.
+
+### Changed
+
+- **Files go out with the message, like in Slack.** Picking, pasting or dropping files puts
+  them in a tray above the composer with a progress bar each, where they can be removed; Send
+  posts the text and up to ten files as one message. A pasted screenshot is never sent unseen.
+  Several images show as a grid with *+N*, other files as cards with their type and size.
+  Editing can remove a file, forwarding carries the files, a scheduled message can carry them,
+  and the composer's size limit is the server's instead of a fixed 25 MB.
+
 ## [2.3.0] — 2026-10-22
 
 ### Upgrading from 2.2.0

@@ -36,6 +36,10 @@ test('an uploaded image opens a preview instead of downloading', async ({ page }
     mimeType: 'image/png',
     buffer: ONE_PIXEL_PNG,
   });
+  await expect(page.locator('[data-qa="attachment-tray-item"][data-status="ready"]')).toHaveCount(1, {
+    timeout: 20_000,
+  });
+  await page.locator('[data-qa="composer-send"]').last().click();
 
   const thumbnail = page.locator('[data-qa="attachment-image"]').last();
   await expect(thumbnail).toBeVisible({ timeout: 20_000 });

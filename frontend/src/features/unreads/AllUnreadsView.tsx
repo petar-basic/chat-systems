@@ -145,7 +145,10 @@ export function AllUnreadsView({
                           })}
                         </span>
                       </div>
-                      <RichTextDisplay content={message.content} />
+                      <RichTextDisplay
+                        content={message.content}
+                        attachments={message.metadata?.attachments}
+                      />
                     </div>
                   </li>
                 );

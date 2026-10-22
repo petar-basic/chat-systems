@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT s.id,\n                   s.workspace_id,\n                   s.message_id,\n                   s.note,\n                   s.created_at,\n                   m.channel_id,\n                   m.user_id AS author_id,\n                   m.content,\n                   m.created_at AS sent_at\n            FROM saved_messages s\n            JOIN messages m ON m.id = s.message_id AND m.deleted_at IS NULL\n            WHERE s.user_id = $1\n              AND s.workspace_id = $2\n            ORDER BY s.created_at DESC\n            ",
+  "query": "\n            SELECT s.id,\n                   s.workspace_id,\n                   s.message_id,\n                   s.note,\n                   s.created_at,\n                   m.channel_id,\n                   m.user_id AS author_id,\n                   m.content,\n                   m.created_at AS sent_at,\n                   COALESCE(m.metadata->'attachments', '[]'::jsonb) AS \"attachments!: AttachmentList\"\n            FROM saved_messages s\n            JOIN messages m ON m.id = s.message_id AND m.deleted_at IS NULL\n            WHERE s.user_id = $1\n              AND s.workspace_id = $2\n            ORDER BY s.created_at DESC\n            ",
   "describe": {
     "columns": [
       {
@@ -101,6 +101,12 @@
             "name": "created_at"
           }
         }
+      },
+      {
+        "ordinal": 9,
+        "name": "attachments!: AttachmentList",
+        "type_info": "Jsonb",
+        "origin": "Expression"
       }
     ],
     "parameters": {
@@ -118,8 +124,9 @@
       false,
       false,
       false,
-      false
+      false,
+      null
     ]
   },
-  "hash": "3fabd779c1562632c2a122a5547cb86616018f60396e3d72c067d6a62e7d52ea"
+  "hash": "e2dcddb75fc4b8b9ab8733ff63fc31426e67c59c0b849152785672cfe6fe8e50"
 }

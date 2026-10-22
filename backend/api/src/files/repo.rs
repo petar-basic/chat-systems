@@ -1,4 +1,5 @@
-use sqlx::PgPool;
+use chrono::{DateTime, Utc};
+use sqlx::{PgConnection, PgPool};
 use uuid::Uuid;
 
 use super::models::FileRecord;
@@ -11,6 +12,7 @@ pub struct NewFile<'a> {
     pub storage_key: &'a str,
     pub mime_type: &'a str,
     pub size_bytes: i64,
+    pub draft_until: Option<DateTime<Utc>>,
 }
 
 pub struct FileRepo {
@@ -23,11 +25,20 @@ impl FileRepo {
     }
 
     pub async fn create(&self, file: NewFile<'_>) -> sqlx::Result<FileRecord> {
+        let mut conn = self.pool.acquire().await?;
+        self.create_in(&mut conn, file).await
+    }
+
+    pub async fn create_in(
+        &self,
+        conn: &mut PgConnection,
+        file: NewFile<'_>,
+    ) -> sqlx::Result<FileRecord> {
         sqlx::query_as!(
             FileRecord,
             r"
-            INSERT INTO files (user_id, workspace_id, message_id, filename, storage_key, mime_type, size_bytes)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            INSERT INTO files (user_id, workspace_id, message_id, filename, storage_key, mime_type, size_bytes, draft_until)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, created_at
             ",
             file.user_id,
@@ -36,9 +47,98 @@ impl FileRepo {
             file.filename,
             file.storage_key,
             file.mime_type,
-            file.size_bytes
+            file.size_bytes,
+            file.draft_until
         )
-        .fetch_one(&self.pool)
+        .fetch_one(conn)
+        .await
+    }
+
+    pub async fn for_message(&self, message_id: Uuid) -> sqlx::Result<Vec<FileRecord>> {
+        sqlx::query_as!(
+            FileRecord,
+            "SELECT id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, created_at
+               FROM files WHERE message_id = $1 ORDER BY created_at, id",
+            message_id
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn claim_drafts_in(
+        &self,
+        conn: &mut PgConnection,
+        ids: &[Uuid],
+        message_id: Uuid,
+        workspace_id: Uuid,
+        user_id: Uuid,
+    ) -> sqlx::Result<Vec<FileRecord>> {
+        sqlx::query_as!(
+            FileRecord,
+            "UPDATE files SET message_id = $2, draft_until = NULL
+              WHERE id = ANY($1) AND workspace_id = $3 AND user_id = $4
+                AND message_id IS NULL AND draft_until IS NOT NULL
+              RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, created_at",
+            ids,
+            message_id,
+            workspace_id,
+            user_id
+        )
+        .fetch_all(conn)
+        .await
+    }
+
+    pub async fn hold_drafts(
+        &self,
+        ids: &[Uuid],
+        workspace_id: Uuid,
+        user_id: Uuid,
+        until: DateTime<Utc>,
+    ) -> sqlx::Result<u64> {
+        let result = sqlx::query!(
+            "UPDATE files SET draft_until = $4
+              WHERE id = ANY($1) AND workspace_id = $2 AND user_id = $3
+                AND message_id IS NULL AND draft_until IS NOT NULL",
+            ids,
+            workspace_id,
+            user_id,
+            until
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected())
+    }
+
+    pub async fn delete_from_message_except_in(
+        &self,
+        conn: &mut PgConnection,
+        message_id: Uuid,
+        keep: &[Uuid],
+    ) -> sqlx::Result<Vec<FileRecord>> {
+        sqlx::query_as!(
+            FileRecord,
+            "DELETE FROM files WHERE message_id = $1 AND NOT (id = ANY($2))
+              RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, created_at",
+            message_id,
+            keep
+        )
+        .fetch_all(conn)
+        .await
+    }
+
+    pub async fn delete_expired_drafts(&self, limit: i64) -> sqlx::Result<Vec<FileRecord>> {
+        sqlx::query_as!(
+            FileRecord,
+            "DELETE FROM files WHERE id IN (
+                 SELECT id FROM files
+                  WHERE draft_until < NOW() AND message_id IS NULL
+                  ORDER BY draft_until
+                  LIMIT $1
+             )
+             RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, created_at",
+            limit
+        )
+        .fetch_all(&self.pool)
         .await
     }
 
@@ -71,32 +171,6 @@ impl FileRepo {
         )
         .fetch_all(&self.pool)
         .await
-    }
-
-    pub async fn link_to_channel_message(
-        &self,
-        storage_keys: &[String],
-        message_id: Uuid,
-        workspace_id: Uuid,
-        user_id: Uuid,
-    ) -> sqlx::Result<()> {
-        sqlx::query!(
-            r"
-            UPDATE files
-            SET message_id = $1
-            WHERE storage_key = ANY($2)
-              AND workspace_id = $3
-              AND user_id = $4
-              AND message_id IS NULL
-            ",
-            message_id,
-            storage_keys,
-            workspace_id,
-            user_id
-        )
-        .execute(&self.pool)
-        .await?;
-        Ok(())
     }
 
     pub async fn channel_id_for_message(&self, message_id: Uuid) -> sqlx::Result<Option<Uuid>> {
@@ -140,21 +214,6 @@ impl FileRepo {
             FileRecord,
             "DELETE FROM files WHERE message_id = $1 RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, created_at",
             message_id
-        )
-        .fetch_all(&self.pool)
-        .await
-    }
-
-    pub async fn delete_unlinked_from_channel_message(
-        &self,
-        message_id: Uuid,
-        kept_keys: &[String],
-    ) -> sqlx::Result<Vec<FileRecord>> {
-        sqlx::query_as!(
-            FileRecord,
-            "DELETE FROM files WHERE message_id = $1 AND NOT (storage_key = ANY($2)) RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, created_at",
-            message_id,
-            kept_keys
         )
         .fetch_all(&self.pool)
         .await

@@ -13,6 +13,8 @@ pub struct SavedMessage {
     pub created_at: DateTime<Utc>,
 }
 
+pub type AttachmentList = sqlx::types::Json<Vec<crate::files::models::Attachment>>;
+
 /// A saved row plus the message it points at, so the panel can render without a
 /// second round trip per item.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -26,6 +28,8 @@ pub struct SavedMessageDetail {
     pub author_id: Uuid,
     pub content: String,
     pub sent_at: DateTime<Utc>,
+    #[schema(value_type = Vec<crate::files::models::Attachment>)]
+    pub attachments: AttachmentList,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]

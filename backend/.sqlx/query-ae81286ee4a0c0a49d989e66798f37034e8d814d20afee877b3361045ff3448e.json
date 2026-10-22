@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO scheduled_messages (workspace_id, user_id, channel_id, content, send_at)\n            VALUES ($1, $2, $3, $4, $5)\n            RETURNING id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at\n            ",
+  "query": "\n            UPDATE scheduled_messages\n            SET sent_at = NOW()\n            WHERE id IN (\n                SELECT id FROM scheduled_messages\n                WHERE sent_at IS NULL AND canceled_at IS NULL AND send_at <= NOW()\n                ORDER BY send_at\n                FOR UPDATE SKIP LOCKED\n                LIMIT 100\n            )\n            RETURNING id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at, attachment_ids\n            ",
   "describe": {
     "columns": [
       {
@@ -112,16 +112,21 @@
             "name": "created_at"
           }
         }
+      },
+      {
+        "ordinal": 10,
+        "name": "attachment_ids",
+        "type_info": "UuidArray",
+        "origin": {
+          "Table": {
+            "table": "scheduled_messages",
+            "name": "attachment_ids"
+          }
+        }
       }
     ],
     "parameters": {
-      "Left": [
-        "Uuid",
-        "Uuid",
-        "Uuid",
-        "Text",
-        "Timestamptz"
-      ]
+      "Left": []
     },
     "nullable": [
       false,
@@ -133,8 +138,9 @@
       true,
       true,
       true,
+      false,
       false
     ]
   },
-  "hash": "f00c42e90f152769e87503e045d95d1b042158e2a2e50f6f1409d3d1e47e6ef0"
+  "hash": "ae81286ee4a0c0a49d989e66798f37034e8d814d20afee877b3361045ff3448e"
 }

@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE files SET draft_until = $4\n              WHERE id = ANY($1) AND workspace_id = $2 AND user_id = $3\n                AND message_id IS NULL AND draft_until IS NOT NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "Uuid",
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1638fbe9bb0e494ac2bd52c466f0dce7cd7a0e875432ece91b4a54aba6f926e3"
+}

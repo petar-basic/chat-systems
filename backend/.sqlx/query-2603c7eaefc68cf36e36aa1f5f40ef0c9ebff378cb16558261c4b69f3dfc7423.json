@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at FROM scheduled_messages\n            WHERE workspace_id = $1 AND user_id = $2 AND canceled_at IS NULL\n              AND (sent_at IS NULL OR failure IS NOT NULL)\n            ORDER BY send_at\n            ",
+  "query": "\n            INSERT INTO files (user_id, workspace_id, message_id, filename, storage_key, mime_type, size_bytes, draft_until)\n            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)\n            RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, created_at\n            ",
   "describe": {
     "columns": [
       {
@@ -9,19 +9,19 @@
         "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "scheduled_messages",
+            "table": "files",
             "name": "id"
           }
         }
       },
       {
         "ordinal": 1,
-        "name": "workspace_id",
+        "name": "message_id",
         "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "scheduled_messages",
-            "name": "workspace_id"
+            "table": "files",
+            "name": "message_id"
           }
         }
       },
@@ -31,74 +31,74 @@
         "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "scheduled_messages",
+            "table": "files",
             "name": "user_id"
           }
         }
       },
       {
         "ordinal": 3,
-        "name": "channel_id",
+        "name": "workspace_id",
         "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "scheduled_messages",
-            "name": "channel_id"
+            "table": "files",
+            "name": "workspace_id"
           }
         }
       },
       {
         "ordinal": 4,
-        "name": "content",
-        "type_info": "Text",
+        "name": "filename",
+        "type_info": "Varchar",
         "origin": {
           "Table": {
-            "table": "scheduled_messages",
-            "name": "content"
+            "table": "files",
+            "name": "filename"
           }
         }
       },
       {
         "ordinal": 5,
-        "name": "send_at",
-        "type_info": "Timestamptz",
+        "name": "storage_key",
+        "type_info": "Varchar",
         "origin": {
           "Table": {
-            "table": "scheduled_messages",
-            "name": "send_at"
+            "table": "files",
+            "name": "storage_key"
           }
         }
       },
       {
         "ordinal": 6,
-        "name": "sent_at",
-        "type_info": "Timestamptz",
+        "name": "mime_type",
+        "type_info": "Varchar",
         "origin": {
           "Table": {
-            "table": "scheduled_messages",
-            "name": "sent_at"
+            "table": "files",
+            "name": "mime_type"
           }
         }
       },
       {
         "ordinal": 7,
-        "name": "canceled_at",
-        "type_info": "Timestamptz",
+        "name": "size_bytes",
+        "type_info": "Int8",
         "origin": {
           "Table": {
-            "table": "scheduled_messages",
-            "name": "canceled_at"
+            "table": "files",
+            "name": "size_bytes"
           }
         }
       },
       {
         "ordinal": 8,
-        "name": "failure",
-        "type_info": "Text",
+        "name": "thumbnail_key",
+        "type_info": "Varchar",
         "origin": {
           "Table": {
-            "table": "scheduled_messages",
-            "name": "failure"
+            "table": "files",
+            "name": "thumbnail_key"
           }
         }
       },
@@ -108,7 +108,7 @@
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
-            "table": "scheduled_messages",
+            "table": "files",
             "name": "created_at"
           }
         }
@@ -117,21 +117,27 @@
     "parameters": {
       "Left": [
         "Uuid",
-        "Uuid"
+        "Uuid",
+        "Uuid",
+        "Varchar",
+        "Varchar",
+        "Varchar",
+        "Int8",
+        "Timestamptz"
       ]
     },
     "nullable": [
       false,
-      false,
-      false,
-      false,
-      false,
-      false,
       true,
-      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
       true,
       false
     ]
   },
-  "hash": "dd9486adbc97910d7a393b60a9677ce51e295434a166e005fdbb5468fc6a2314"
+  "hash": "2603c7eaefc68cf36e36aa1f5f40ef0c9ebff378cb16558261c4b69f3dfc7423"
 }

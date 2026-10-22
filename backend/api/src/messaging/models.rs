@@ -38,6 +38,7 @@ pub struct MessageMetadata {
     pub unfurls: Option<Vec<Unfurl>>,
     pub unfurls_hidden: Option<bool>,
     pub app_prompts: Option<Vec<String>>,
+    pub attachments: Option<Vec<crate::files::models::Attachment>>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, ToSchema)]
@@ -111,20 +112,24 @@ pub struct Reaction {
 #[derive(Debug, Deserialize, garde::Validate, ToSchema)]
 #[garde(allow_unvalidated)]
 pub struct SendMessageRequest {
-    #[garde(custom(shared_common::validation::rules::message_content))]
+    #[garde(custom(shared_common::validation::rules::message_body))]
     pub content: String,
     pub thread_parent_id: Option<Uuid>,
     /// The sender's own id for this send, used only to make a retry idempotent.
     /// It is not the message id — the server owns that.
     #[garde(inner(custom(shared_common::validation::rules::client_message_id)))]
     pub client_message_id: Option<Uuid>,
+    #[serde(default)]
+    pub attachment_ids: Vec<Uuid>,
+    pub copy_attachments_from: Option<Uuid>,
 }
 
 #[derive(Debug, Deserialize, garde::Validate, ToSchema)]
 #[garde(allow_unvalidated)]
 pub struct UpdateMessageRequest {
-    #[garde(custom(shared_common::validation::rules::message_content))]
+    #[garde(custom(shared_common::validation::rules::message_body))]
     pub content: String,
+    pub attachment_ids: Option<Vec<Uuid>>,
 }
 
 #[derive(Debug, Deserialize, garde::Validate, ToSchema)]
