@@ -8,6 +8,7 @@ pub fn display_name(raw: &str) -> String {
     let basename = raw.rsplit(['/', '\\']).next().unwrap_or("");
     let cleaned: String = basename
         .nfc()
+        .map(|c| if c == '\t' { ' ' } else { c })
         .filter(|c| !c.is_control())
         .map(|c| if c.is_whitespace() { ' ' } else { c })
         .collect();
@@ -49,14 +50,12 @@ pub fn storage_name(display: &str) -> String {
 fn ascii_slug(value: &str) -> String {
     let mut slug = String::with_capacity(value.len());
     for c in value.chars() {
-        let mapped = if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
-            c
-        } else if c == '.' && !slug.ends_with('.') {
-            '.'
-        } else if !slug.ends_with('_') {
-            '_'
-        } else {
-            continue;
+        let mapped = match c {
+            c if c.is_ascii_alphanumeric() || c == '-' || c == '_' => c,
+            '.' if slug.ends_with('.') => continue,
+            '.' => '.',
+            _ if slug.ends_with('_') => continue,
+            _ => '_',
         };
         slug.push(mapped);
     }
