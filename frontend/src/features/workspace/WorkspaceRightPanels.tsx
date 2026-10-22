@@ -6,6 +6,7 @@ import SettingsPanel from '@/components/SettingsPanel';
 import ThreadPanel from '@/components/ThreadPanel';
 import SearchPanel from '@/components/SearchPanel';
 import PinnedMessagesPanel from '@/components/PinnedMessagesPanel';
+import ChannelFilesPanel from '@/components/ChannelFilesPanel';
 import ChannelMembersPanel from '@/components/ChannelMembersPanel';
 import NotificationsPanel from '@/components/NotificationsPanel';
 import IntegrationsPanel from '@/components/IntegrationsPanel';
@@ -121,6 +122,15 @@ export default function WorkspaceRightPanels({
   if (panel.kind === 'pins' && currentChannel) {
     return (
       <PinnedMessagesPanel
+        channelId={currentChannel.id}
+        onClose={onClose}
+        onNavigate={(msgId) => onNavigateToMessage(currentChannel.id, msgId)}
+      />
+    );
+  }
+  if (panel.kind === 'files' && currentChannel) {
+    return (
+      <ChannelFilesPanel
         channelId={currentChannel.id}
         onClose={onClose}
         onNavigate={(msgId) => onNavigateToMessage(currentChannel.id, msgId)}

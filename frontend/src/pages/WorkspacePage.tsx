@@ -157,9 +157,11 @@ export default function WorkspacePage() {
                 channel={currentChannel}
                 showSearch={panel.active?.kind === 'search'}
                 showPins={panel.active?.kind === 'pins'}
+                showFiles={panel.active?.kind === 'files'}
                 showChannelMembers={panel.active?.kind === 'channelMembers'}
                 onToggleSearch={() => panel.toggle('search')}
                 onTogglePins={() => panel.toggle('pins')}
+                onToggleFiles={() => panel.toggle('files')}
                 onToggleChannelMembers={() => panel.toggle('channelMembers')}
                 onOpenNav={() => c.setMobileNavOpen(true)}
               />

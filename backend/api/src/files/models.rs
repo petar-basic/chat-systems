@@ -57,3 +57,40 @@ pub struct FileMeta {
     pub file: FileRecord,
     pub url: String,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum FileKindFilter {
+    Image,
+    Video,
+    Audio,
+    Document,
+}
+
+impl FileKindFilter {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            FileKindFilter::Image => "image",
+            FileKindFilter::Video => "video",
+            FileKindFilter::Audio => "audio",
+            FileKindFilter::Document => "document",
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
+pub struct ChannelFilesQuery {
+    #[param(inline)]
+    pub kind: Option<FileKindFilter>,
+    pub cursor: Option<Uuid>,
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ChannelFile {
+    #[serde(flatten)]
+    pub attachment: Attachment,
+    pub message_id: Uuid,
+    pub user_id: Uuid,
+    pub created_at: DateTime<Utc>,
+}

@@ -8,6 +8,7 @@ export type RightPanel =
   | { kind: 'thread'; message: Message }
   | { kind: 'search' }
   | { kind: 'pins' }
+  | { kind: 'files' }
   | { kind: 'channelMembers' }
   | { kind: 'integrations' }
   | { kind: 'apps' }

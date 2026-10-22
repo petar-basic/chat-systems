@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Hash, Lock, Search, Pin, Users, Menu, Settings, Plug, MoreHorizontal } from 'lucide-react';
+import { Hash, Lock, Search, Pin, Users, Menu, Settings, Plug, MoreHorizontal, Files } from 'lucide-react';
 import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
 import { useChannelMembers, useChannelPins } from '@/hooks/queries/useChannels';
 import { useNavigate } from 'react-router';
@@ -13,9 +13,11 @@ interface Props {
   channel: Channel | null;
   showSearch: boolean;
   showPins: boolean;
+  showFiles: boolean;
   showChannelMembers: boolean;
   onToggleSearch: () => void;
   onTogglePins: () => void;
+  onToggleFiles: () => void;
   onToggleChannelMembers: () => void;
   onOpenNav?: () => void;
 }
@@ -24,9 +26,11 @@ export default function ChannelHeader({
   channel,
   showSearch,
   showPins,
+  showFiles,
   showChannelMembers,
   onToggleSearch,
   onTogglePins,
+  onToggleFiles,
   onToggleChannelMembers,
   onOpenNav,
 }: Props) {
@@ -133,6 +137,15 @@ export default function ChannelHeader({
               <Pin className="w-4 h-4" />
             </button>
             <button
+              onClick={onToggleFiles}
+              aria-label="Files"
+              aria-pressed={showFiles}
+              data-qa="channel-header-files"
+              className={`max-sm:hidden p-1.5 rounded-lg transition ${showFiles ? 'bg-raised text-fg' : 'text-muted hover:text-fg hover:bg-raised/50'}`}
+            >
+              <Files className="w-4 h-4" />
+            </button>
+            <button
               onClick={onToggleSearch}
               aria-label="Search messages"
               aria-pressed={showSearch}
@@ -171,6 +184,15 @@ export default function ChannelHeader({
                     }}
                   >
                     <Pin className="w-4 h-4" /> Pinned
+                  </button>
+                  <button
+                    className="w-full px-4 py-2 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2 cursor-pointer"
+                    onClick={() => {
+                      onToggleFiles();
+                      setOverflowOpen(false);
+                    }}
+                  >
+                    <Files className="w-4 h-4" /> Files
                   </button>
                   {canModerate && (
                     <button

@@ -179,6 +179,45 @@ impl FileRepo {
         .await
     }
 
+    pub async fn for_channel(
+        &self,
+        channel_id: Uuid,
+        kind: Option<&str>,
+        cursor: Option<Uuid>,
+        limit: i64,
+    ) -> sqlx::Result<Vec<FileRecord>> {
+        sqlx::query_as!(
+            FileRecord,
+            r"
+            SELECT f.id, f.message_id, f.user_id, f.workspace_id, f.filename, f.storage_key,
+                   f.mime_type, f.size_bytes, f.thumbnail_key, f.width, f.height, f.created_at
+              FROM files f
+              JOIN messages m ON m.id = f.message_id
+             WHERE m.channel_id = $1
+               AND m.deleted_at IS NULL
+               AND CASE $2::text
+                       WHEN 'image' THEN f.mime_type LIKE 'image/%'
+                       WHEN 'video' THEN f.mime_type LIKE 'video/%'
+                       WHEN 'audio' THEN f.mime_type LIKE 'audio/%'
+                       WHEN 'document' THEN NOT (f.mime_type LIKE 'image/%'
+                                                 OR f.mime_type LIKE 'video/%'
+                                                 OR f.mime_type LIKE 'audio/%')
+                       ELSE TRUE
+                   END
+               AND ($3::uuid IS NULL
+                    OR (f.created_at, f.id) < (SELECT c.created_at, c.id FROM files c WHERE c.id = $3))
+             ORDER BY f.created_at DESC, f.id DESC
+             LIMIT $4
+            ",
+            channel_id,
+            kind,
+            cursor,
+            limit
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
     pub async fn channel_id_for_message(&self, message_id: Uuid) -> sqlx::Result<Option<Uuid>> {
         sqlx::query_scalar!("SELECT channel_id FROM messages WHERE id = $1", message_id)
             .fetch_optional(&self.pool)
