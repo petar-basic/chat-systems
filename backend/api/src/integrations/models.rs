@@ -9,16 +9,23 @@ pub enum Provider {
     Jira,
     Github,
     GoogleDrive,
+    Figma,
 }
 
 impl Provider {
-    pub const ALL: [Provider; 3] = [Provider::Jira, Provider::Github, Provider::GoogleDrive];
+    pub const ALL: [Provider; 4] = [
+        Provider::Jira,
+        Provider::Github,
+        Provider::GoogleDrive,
+        Provider::Figma,
+    ];
 
     pub fn as_str(self) -> &'static str {
         match self {
             Provider::Jira => "jira",
             Provider::Github => "github",
             Provider::GoogleDrive => "google_drive",
+            Provider::Figma => "figma",
         }
     }
 
@@ -31,6 +38,7 @@ impl Provider {
             Provider::Jira => "Jira Cloud",
             Provider::Github => "GitHub",
             Provider::GoogleDrive => "Google Drive",
+            Provider::Figma => "Figma",
         }
     }
 
@@ -39,6 +47,7 @@ impl Provider {
             Provider::Jira => "Issues with their status, priority and assignee",
             Provider::Github => "Pull requests, issues, commits and repositories",
             Provider::GoogleDrive => "Docs, Sheets, Slides and files with their owner",
+            Provider::Figma => "Designs, FigJam boards and Slides with a thumbnail",
         }
     }
 
@@ -47,6 +56,7 @@ impl Provider {
             Provider::Jira => &["read:jira-work", "read:me", "offline_access"],
             Provider::Github => &[],
             Provider::GoogleDrive => &[super::google::SCOPE],
+            Provider::Figma => &super::figma::SCOPES,
         }
     }
 
@@ -55,6 +65,7 @@ impl Provider {
             Provider::Jira => "https://developer.atlassian.com/console/myapps/",
             Provider::Github => "https://github.com/settings/apps/new",
             Provider::GoogleDrive => "https://console.cloud.google.com/apis/credentials",
+            Provider::Figma => "https://www.figma.com/developers/apps",
         }
     }
 
@@ -81,6 +92,13 @@ impl Provider {
                 "Configure the OAuth consent screen. Choose Internal if your organization uses Google Workspace — no review needed and only your organization can connect. Add the scope below.",
                 "Credentials → Create credentials → OAuth client ID → Web application, and add the callback URL below under Authorized redirect URIs.",
                 "Copy the Client ID and Client secret into the fields below.",
+                "Press Connect my account to test it.",
+            ],
+            Provider::Figma => &[
+                "Open Figma's developer apps page and create a new app inside your organization's team.",
+                "Under OAuth credentials, add the callback URL below as a redirect URL and copy the Client ID and Client secret into the fields below.",
+                "Under OAuth scopes, tick the two scopes below and nothing else.",
+                "Under Publish, choose Private: no Figma review, and only people in your organization can connect.",
                 "Press Connect my account to test it.",
             ],
         }
