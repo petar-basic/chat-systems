@@ -9,6 +9,7 @@ ticket in [`docs/tickets/`](./tickets/INDEX.md); a ticket's file is deleted when
 
 | Ticket | What | Status |
 |---|---|---|
+| [CS-055](./tickets/CS-055-files-like-slack.md) | Files and images like Slack: a composer tray, several files with text in one message, thumbnails with reserved sizes, EXIF stripped, real file names, a gallery lightbox, playable video, a channel's files | **Next.** Sending and viewing files is where the product still feels older than Slack |
 | [CS-037](./tickets/CS-037-huddle-sfu.md) | SFU (LiveKit) for huddles above the mesh's six-to-eight ceiling | On request. Adds a media server to the stack; nothing below a 20-person team needs it |
 
 Two decisions were considered on 2026-09-02 and deferred with their reasoning below:
