@@ -10153,6 +10153,16 @@
               "null"
             ]
           },
+          "embed": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/VideoEmbed"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "fetched_at": {
             "type": [
               "string",
@@ -10749,6 +10759,35 @@
           "active",
           "suspended"
         ]
+      },
+      "VideoEmbed": {
+        "type": "object",
+        "required": [
+          "provider",
+          "id"
+        ],
+        "properties": {
+          "hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "start": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          }
+        }
       },
       "Workspace": {
         "type": "object",

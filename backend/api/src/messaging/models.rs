@@ -57,6 +57,18 @@ pub struct Unfurl {
     pub fields: Vec<UnfurlField>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fetched_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub embed: Option<VideoEmbed>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct VideoEmbed {
+    pub provider: String,
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hash: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start: Option<u32>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, ToSchema)]

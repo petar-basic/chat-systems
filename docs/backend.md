@@ -311,6 +311,14 @@ list) is what makes a redelivered event and the consumer's own update a no-op, a
 that keeps the links free. Each URL's result is cached in Redis for 24 hours. A workspace
 turns previews off with `PATCH /workspaces/:ws_id { link_previews: false }`.
 
+YouTube, Vimeo and Loom links (`unfurl::video`) skip the page and ask the service's oEmbed
+endpoint — a fixed host, so no SSRF resolution is involved — about the canonical form of the
+link, which also sidesteps YouTube's consent page. The result is `kind: "video"` with
+`embed: { provider, id, hash?, start? }`; the client builds the player URL from those and
+never renders oEmbed's `html`. The CSP's `frame-src` lists exactly the three player hosts.
+A video oEmbed refuses (private, removed, not embeddable) falls back to the OpenGraph
+fetch.
+
 **Threads:**
 
 | Method | Route | Input | Output |

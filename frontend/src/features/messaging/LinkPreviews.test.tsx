@@ -46,6 +46,32 @@ describe('LinkPreviews', () => {
     expect(screen.queryByTestId('app-preview-image')).not.toBeInTheDocument();
   });
 
+  it('plays a video inline only when asked to', () => {
+    render(
+      <LinkPreviews
+        unfurls={[
+          {
+            url: 'https://youtu.be/dQw4w9WgXcQ?t=90',
+            title: 'Never Gonna Give You Up',
+            description: null,
+            site_name: 'YouTube',
+            image_url: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
+            kind: 'video',
+            subtitle: 'Rick Astley',
+            embed: { provider: 'youtube', id: 'dQw4w9WgXcQ', start: 90 },
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByTestId('video-preview')).toHaveTextContent('Rick Astley');
+    expect(screen.queryByTestId('video-player')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('video-play'));
+    expect(screen.getByTestId('video-player')).toHaveAttribute(
+      'src',
+      'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=1&start=90',
+    );
+  });
+
   it('shows nothing for a page that gave only a title', () => {
     const { container } = render(
       <LinkPreviews
