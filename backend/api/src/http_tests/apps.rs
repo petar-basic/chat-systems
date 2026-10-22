@@ -78,11 +78,78 @@ async fn fake_atlassian() -> String {
             }})),
         )
     }
+    async fn content(
+        Path((cloud, collection, id)): Path<(String, String, String)>,
+        headers: HeaderMap,
+    ) -> (StatusCode, Json<Value>) {
+        if !authorized(&headers) {
+            return (StatusCode::UNAUTHORIZED, Json(json!({})));
+        }
+        let version = json!({ "createdAt": "2026-10-21T09:30:00.000Z", "authorId": "acc-lazar" });
+        match (cloud.as_str(), collection.as_str(), id.as_str()) {
+            ("cloud-1", "pages", "12345") => (
+                StatusCode::OK,
+                Json(json!({
+                    "title": "Onboarding guide",
+                    "spaceId": "777",
+                    "ownerId": "acc-ana",
+                    "authorId": "acc-ana",
+                    "version": version
+                })),
+            ),
+            ("cloud-1", "blogposts", "999") => (
+                StatusCode::OK,
+                Json(json!({
+                    "title": "Release notes",
+                    "spaceId": "777",
+                    "authorId": "acc-ana",
+                    "version": version
+                })),
+            ),
+            _ => (StatusCode::NOT_FOUND, Json(json!({}))),
+        }
+    }
+    async fn space(
+        Path((_cloud, id)): Path<(String, String)>,
+        headers: HeaderMap,
+    ) -> (StatusCode, Json<Value>) {
+        if !authorized(&headers) || id != "777" {
+            return (StatusCode::NOT_FOUND, Json(json!({})));
+        }
+        (
+            StatusCode::OK,
+            Json(json!({ "id": "777", "key": "ENG", "name": "Engineering" })),
+        )
+    }
+    async fn users(headers: HeaderMap, Json(body): Json<Value>) -> (StatusCode, Json<Value>) {
+        if !authorized(&headers) {
+            return (StatusCode::UNAUTHORIZED, Json(json!({})));
+        }
+        let known = [("acc-ana", "Ana"), ("acc-lazar", "Lazar")];
+        let results: Vec<Value> = body["accountIds"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|id| {
+                known
+                    .iter()
+                    .find(|(k, _)| Some(*k) == id.as_str())
+                    .map(|(k, name)| json!({ "accountId": k, "displayName": name }))
+            })
+            .collect();
+        (StatusCode::OK, Json(json!({ "results": results })))
+    }
     let router = Router::new()
         .route("/oauth/token", post(token))
         .route("/oauth/token/accessible-resources", get(sites))
         .route("/me", get(me))
-        .route("/ex/jira/{cloud}/rest/api/3/issue/{key}", get(issue));
+        .route("/ex/jira/{cloud}/rest/api/3/issue/{key}", get(issue))
+        .route("/ex/confluence/{cloud}/wiki/api/v2/spaces/{id}", get(space))
+        .route("/ex/confluence/{cloud}/wiki/api/v2/users-bulk", post(users))
+        .route(
+            "/ex/confluence/{cloud}/wiki/api/v2/{collection}/{id}",
+            get(content),
+        );
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
         .await
         .expect("bind");
@@ -1206,4 +1273,210 @@ async fn an_expired_figma_token_is_refreshed_and_the_refresh_token_kept(pool: Pg
         refresh.is_some(),
         "Figma sends no new refresh token; the old one stays"
     );
+}
+
+const PAGE: &str = "https://acme.atlassian.net/wiki/spaces/ENG/pages/12345/Onboarding+guide";
+
+async fn configure_confluence(s: &Setup, token: &str, body: Value) -> (StatusCode, Value) {
+    send(
+        &s.app,
+        "PUT",
+        &format!("/api/workspaces/{}/apps/confluence", s.ws_id),
+        Some(token),
+        Some(body),
+    )
+    .await
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn confluence_reuses_the_jira_app_without_the_secret_leaving_the_server(pool: PgPool) {
+    let s = setup(pool).await;
+    let reuse = json!({ "client_id": "", "enabled": true, "reuse_from": "jira" });
+    let (status, _) = configure_confluence(&s, &s.owner_token, reuse.clone()).await;
+    assert_eq!(
+        status,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "there is no Jira app to reuse yet"
+    );
+
+    configure(
+        &s,
+        &s.owner_token,
+        json!({ "client_id": "client-1", "client_secret": "shh", "enabled": true }),
+    )
+    .await;
+    let (member, _email, member_token) =
+        seed_and_login(&s.app, &s.state, "apps-member", false).await;
+    add_ws_member(&s.state, s.ws_id, member, "member").await;
+    let (status, _) = configure_confluence(&s, &member_token, reuse.clone()).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+
+    let (status, body) = configure_confluence(&s, &s.owner_token, reuse).await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    let (status, body) = send(
+        &s.app,
+        "GET",
+        &format!("/api/workspaces/{}/apps", s.ws_id),
+        Some(&s.owner_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let confluence = body["data"]
+        .as_array()
+        .expect("apps")
+        .iter()
+        .find(|a| a["provider"] == "confluence")
+        .expect("confluence")
+        .clone();
+    assert_eq!(confluence["configured"], json!(true));
+    assert_eq!(confluence["client_id"], json!("client-1"));
+    assert!(!body.to_string().contains("shh"));
+
+    let secrets: Vec<Vec<u8>> = sqlx::query_scalar(
+        "SELECT client_secret_encrypted FROM workspace_apps WHERE workspace_id = $1 ORDER BY provider",
+    )
+    .bind(s.ws_id)
+    .fetch_all(&s.state.pool)
+    .await
+    .expect("secrets");
+    assert_eq!(secrets.len(), 2);
+    assert_eq!(
+        secrets[0], secrets[1],
+        "the sealed secret is copied as it is"
+    );
+
+    let (status, _) = send(
+        &s.app,
+        "PUT",
+        &format!("/api/workspaces/{}/apps/github", s.ws_id),
+        Some(&s.owner_token),
+        Some(json!({ "client_id": "", "enabled": true, "reuse_from": "jira" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    let (status, _) = configure_confluence(
+        &s,
+        &s.owner_token,
+        json!({ "client_id": "", "enabled": true, "reuse_from": "github" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_confluence_page_needs_its_own_connection_then_gets_a_card(pool: PgPool) {
+    let s = setup(pool).await;
+    configure(
+        &s,
+        &s.owner_token,
+        json!({ "client_id": "client-1", "client_secret": "shh", "enabled": true }),
+    )
+    .await;
+    assert!(matches!(
+        service::unfurl(&s.state, s.ws_id, s.owner, PAGE)
+            .await
+            .expect("unfurl"),
+        AppUnfurl::Unclaimed
+    ));
+    configure_confluence(
+        &s,
+        &s.owner_token,
+        json!({ "client_id": "", "enabled": true, "reuse_from": "jira" }),
+    )
+    .await;
+
+    let jira_state = connect(&s, &s.owner_token).await;
+    assert_eq!(
+        complete(&s, &s.owner_token, &jira_state).await.0,
+        StatusCode::OK
+    );
+    assert!(
+        matches!(
+            service::unfurl(&s.state, s.ws_id, s.owner, PAGE)
+                .await
+                .expect("unfurl"),
+            AppUnfurl::Connect(_)
+        ),
+        "a Jira connection does not read Confluence"
+    );
+
+    let (status, body) = send(
+        &s.app,
+        "POST",
+        &format!("/api/workspaces/{}/apps/confluence/connect", s.ws_id),
+        Some(&s.owner_token),
+        Some(json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    let url = reqwest::Url::parse(body["authorize_url"].as_str().expect("url")).expect("parse");
+    let scope = url
+        .query_pairs()
+        .find(|(k, _)| k == "scope")
+        .map(|(_, v)| v.into_owned())
+        .expect("scope");
+    assert!(scope.contains("read:page:confluence"), "{scope}");
+    assert!(!scope.contains("read:jira-work"), "{scope}");
+    let oauth_state = url
+        .query_pairs()
+        .find(|(k, _)| k == "state")
+        .map(|(_, v)| v.into_owned())
+        .expect("state");
+    assert_eq!(
+        complete(&s, &s.owner_token, &oauth_state).await.0,
+        StatusCode::OK
+    );
+
+    match service::unfurl(&s.state, s.ws_id, s.owner, PAGE)
+        .await
+        .expect("unfurl")
+    {
+        AppUnfurl::Card(card) => {
+            assert_eq!(card.title, "Onboarding guide");
+            assert_eq!(card.provider.as_deref(), Some("confluence"));
+            assert_eq!(card.subtitle.as_deref(), Some("Page in Engineering"));
+            let fields: Vec<(String, String)> = card
+                .fields
+                .iter()
+                .map(|f| (f.label.clone(), f.value.clone()))
+                .collect();
+            assert_eq!(
+                fields,
+                vec![
+                    ("Owner".into(), "Ana".into()),
+                    ("Last updated".into(), "Oct 21, 2026 by Lazar".into())
+                ]
+            );
+        }
+        _ => panic!("the connected poster's page is carded"),
+    }
+    match service::unfurl(
+        &s.state,
+        s.ws_id,
+        s.owner,
+        "https://acme.atlassian.net/wiki/spaces/ENG/blog/2026/10/21/999/Release+notes",
+    )
+    .await
+    .expect("unfurl")
+    {
+        AppUnfurl::Card(card) => {
+            assert_eq!(card.subtitle.as_deref(), Some("Blog post in Engineering"))
+        }
+        _ => panic!("a blog post is carded"),
+    }
+    for unknown in [
+        "https://acme.atlassian.net/wiki/spaces/ENG/pages/55555",
+        "https://other.atlassian.net/wiki/spaces/ENG/pages/12345",
+    ] {
+        assert!(
+            matches!(
+                service::unfurl(&s.state, s.ws_id, s.owner, unknown)
+                    .await
+                    .expect("unfurl"),
+                AppUnfurl::Unclaimed
+            ),
+            "{unknown}"
+        );
+    }
 }

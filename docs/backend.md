@@ -562,7 +562,7 @@ message routes use, which covers direct messages too.
 
 ### integrations (apps)
 
-Per-workspace connected apps — Jira Cloud, GitHub and Google Drive — and each person's own connection to them.
+Per-workspace connected apps — Jira Cloud, Confluence, GitHub, Google Drive and Figma — and each person's own connection to them.
 An admin stores the app's OAuth client (`workspace_apps`, secret sealed); a member connects
 through OAuth 2.0 with PKCE, the pending `state` and verifier held in Redis for ten minutes
 and readable once (`GETDEL`), bound to the member who started it. Tokens live sealed in
@@ -575,12 +575,18 @@ is one, otherwise GitHub's anonymous API for public repositories (cached ten min
 by everyone because it is public), and only then prompts. `/pull/N` that is really an issue,
 and `/issues/N` that is really a pull request, get the right card. A Google Docs, Sheets,
 Slides, Forms, Drawings or Drive link needs the poster's connection, scoped to
-`drive.metadata.readonly`.
+`drive.metadata.readonly`. A Figma file needs the poster's Figma connection
+(`file_metadata:read`, `current_user:read`; client credentials go as HTTP Basic). A
+Confluence page or blog post needs the poster's **Confluence** connection — its own
+provider on the same Atlassian OAuth client, so a Jira connection never reads Confluence —
+and its card joins the page with its space and the owner's and last editor's names
+(`users-bulk`), fetched in parallel. A poster who chose *Never ask me again* for an app
+(`app_prompt_optouts`) gets no prompt and the OpenGraph preview instead.
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/apps` | — | `{ data: AppStatus[] }` — setup values (callback URL, scopes, steps), the caller's own connection and whether they turned the app's prompts off |
-| PUT | `/workspaces/:ws_id/apps/:provider` | `{ client_id, client_secret?, enabled }` | `{ status: "saved" }` — admin; the secret is required the first time |
+| PUT | `/workspaces/:ws_id/apps/:provider` | `{ client_id, client_secret?, enabled, reuse_from? }` | `{ status: "saved" }` — admin; the secret is required the first time. `reuse_from: "jira"` (Confluence only) copies Jira's client ID and sealed secret server-side |
 | DELETE | `/workspaces/:ws_id/apps/:provider` | — | `{ status: "removed" }` — admin; disconnects everyone |
 | POST | `/workspaces/:ws_id/apps/:provider/connect` | `{ return_to? }` | `{ authorize_url }` |
 | POST | `/apps/connections` | `{ code, state }` | `{ workspace_id, provider, external_account, return_to }` |

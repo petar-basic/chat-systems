@@ -36,7 +36,17 @@ export default function AppsPanel({ workspaceId, isAdmin, onClose }: Props) {
         {isLoading && <p className="text-sm text-muted">Loading…</p>}
         {isError && <p className="text-sm text-danger">Couldn't load the apps.</p>}
         {apps.map((app) => (
-          <AppCardSection key={app.provider} workspaceId={workspaceId} app={app} isAdmin={isAdmin} />
+          <AppCardSection
+            key={app.provider}
+            workspaceId={workspaceId}
+            app={app}
+            isAdmin={isAdmin}
+            reusable={
+              app.provider === 'confluence'
+                ? apps.find((other) => other.provider === 'jira' && other.configured)
+                : undefined
+            }
+          />
         ))}
       </div>
     </div>
@@ -47,10 +57,12 @@ function AppCardSection({
   workspaceId,
   app,
   isAdmin,
+  reusable,
 }: {
   workspaceId: string;
   app: AppStatus;
   isAdmin: boolean;
+  reusable?: AppStatus;
 }) {
   const actions = useAppActions(workspaceId);
   const [setupOpen, setSetupOpen] = useState(!app.configured && isAdmin);
@@ -142,7 +154,12 @@ function AppCardSection({
             {setupOpen ? 'Hide setup' : app.configured ? 'Edit setup' : 'Set up'}
           </button>
           {setupOpen && (
-            <AppSetupForm workspaceId={workspaceId} app={app} onDone={() => setSetupOpen(false)} />
+            <AppSetupForm
+              workspaceId={workspaceId}
+              app={app}
+              reusable={reusable}
+              onDone={() => setSetupOpen(false)}
+            />
           )}
         </div>
       )}
@@ -153,10 +170,12 @@ function AppCardSection({
 function AppSetupForm({
   workspaceId,
   app,
+  reusable,
   onDone,
 }: {
   workspaceId: string;
   app: AppStatus;
+  reusable?: AppStatus;
   onDone: () => void;
 }) {
   const actions = useAppActions(workspaceId);
@@ -164,11 +183,14 @@ function AppSetupForm({
   const [clientSecret, setClientSecret] = useState('');
   const [enabled, setEnabled] = useState(app.configured ? app.enabled : true);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const [reuse, setReuse] = useState(!!reusable && (!app.configured || app.client_id === reusable.client_id));
 
   const save = (event: FormEvent) => {
     event.preventDefault();
     actions.configure.mutate(
-      { provider: app.provider, clientId: clientId.trim(), clientSecret: clientSecret.trim(), enabled },
+      reuse && reusable
+        ? { provider: app.provider, clientId: '', clientSecret: '', enabled, reuseFrom: reusable.provider }
+        : { provider: app.provider, clientId: clientId.trim(), clientSecret: clientSecret.trim(), enabled },
       { onSuccess: () => setClientSecret('') },
     );
   };
@@ -191,27 +213,37 @@ function AppSetupForm({
       <CopyField label="Callback URL" value={app.redirect_url} />
       {app.scopes.length > 0 && <CopyField label="Scopes" value={app.scopes.join(' ')} />}
 
-      <label className="block text-xs text-fg-dim">
-        Client ID
-        <input
-          value={clientId}
-          onChange={(e) => setClientId(e.target.value)}
-          required
-          className="mt-1 w-full px-2 py-1.5 text-sm bg-raised/50 border border-line-strong rounded text-fg focus:outline-none focus:ring-2 focus:ring-purple-500"
-        />
-      </label>
-      <label className="block text-xs text-fg-dim">
-        Secret
-        <input
-          type="password"
-          value={clientSecret}
-          onChange={(e) => setClientSecret(e.target.value)}
-          required={!app.configured}
-          placeholder={app.configured ? 'Stored — leave blank to keep it' : ''}
-          autoComplete="off"
-          className="mt-1 w-full px-2 py-1.5 text-sm bg-raised/50 border border-line-strong rounded text-fg focus:outline-none focus:ring-2 focus:ring-purple-500"
-        />
-      </label>
+      {reusable && (
+        <label className="flex items-center gap-2 text-xs text-fg-dim" data-qa="app-reuse">
+          <input type="checkbox" checked={reuse} onChange={(e) => setReuse(e.target.checked)} />
+          Use the {reusable.name} app — add the {app.name} API to it first
+        </label>
+      )}
+      {!reuse && (
+        <>
+          <label className="block text-xs text-fg-dim">
+            Client ID
+            <input
+              value={clientId}
+              onChange={(e) => setClientId(e.target.value)}
+              required
+              className="mt-1 w-full px-2 py-1.5 text-sm bg-raised/50 border border-line-strong rounded text-fg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </label>
+          <label className="block text-xs text-fg-dim">
+            Secret
+            <input
+              type="password"
+              value={clientSecret}
+              onChange={(e) => setClientSecret(e.target.value)}
+              required={!app.configured}
+              placeholder={app.configured ? 'Stored — leave blank to keep it' : ''}
+              autoComplete="off"
+              className="mt-1 w-full px-2 py-1.5 text-sm bg-raised/50 border border-line-strong rounded text-fg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </label>
+        </>
+      )}
       <label className="flex items-center gap-2 text-xs text-fg-dim">
         <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
         On for this workspace

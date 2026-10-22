@@ -4,7 +4,7 @@ use serde_json::Value;
 use shared_common::errors::{AppError, AppResult};
 
 use super::http::{self, TokenSet};
-use super::models::JiraSite;
+use super::models::AtlassianSite;
 use crate::messaging::models::{Unfurl, UnfurlField};
 
 pub struct Atlassian {
@@ -29,13 +29,14 @@ impl Atlassian {
         redirect_uri: &str,
         state: &str,
         challenge: &str,
+        scopes: &[&str],
     ) -> String {
         let mut url = reqwest::Url::parse(&format!("{}/authorize", self.auth_base))
             .expect("the Atlassian auth base is a valid url");
         url.query_pairs_mut()
             .append_pair("audience", "api.atlassian.com")
             .append_pair("client_id", client_id)
-            .append_pair("scope", &super::models::Provider::Jira.scopes().join(" "))
+            .append_pair("scope", &scopes.join(" "))
             .append_pair("redirect_uri", redirect_uri)
             .append_pair("state", state)
             .append_pair("response_type", "code")
@@ -95,7 +96,7 @@ impl Atlassian {
         .await
     }
 
-    async fn get(&self, path: &str, token: &str) -> AppResult<Option<Value>> {
+    pub(super) async fn get(&self, path: &str, token: &str) -> AppResult<Option<Value>> {
         let response = http::client()?
             .get(format!("{}{path}", self.api_base))
             .bearer_auth(token)
@@ -119,7 +120,7 @@ impl Atlassian {
             .map_err(|e| provider_error("response", e))
     }
 
-    pub async fn sites(&self, token: &str) -> AppResult<Vec<JiraSite>> {
+    pub async fn sites(&self, token: &str) -> AppResult<Vec<AtlassianSite>> {
         let sites = self
             .get("/oauth/token/accessible-resources", token)
             .await?
@@ -129,7 +130,7 @@ impl Atlassian {
             .map(|all| {
                 all.iter()
                     .filter_map(|site| {
-                        Some(JiraSite {
+                        Some(AtlassianSite {
                             id: site.get("id")?.as_str()?.to_string(),
                             url: site.get("url")?.as_str()?.trim_end_matches('/').to_string(),
                         })

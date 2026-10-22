@@ -2210,6 +2210,7 @@ export interface components {
             client_id: string;
             client_secret?: string | null;
             enabled: boolean;
+            reuse_from?: components["schemas"]["Provider"] | null;
         };
         ConnectAppRequest: {
             return_to?: string | null;
@@ -3108,7 +3109,7 @@ export interface components {
          */
         PostPolicy: "everyone" | "moderators";
         /** @enum {string} */
-        Provider: "jira" | "github" | "google_drive" | "figma";
+        Provider: "jira" | "github" | "google_drive" | "figma" | "confluence";
         PushKey: {
             enabled: boolean;
             public_key: string;

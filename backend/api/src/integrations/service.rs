@@ -8,6 +8,7 @@ use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
 
+use super::confluence;
 use super::figma::{self, Figma};
 use super::github::{self, Fetched, GitHub};
 use super::google::{self, Google};
@@ -173,6 +174,33 @@ pub async fn configure(
     provider: Provider,
     req: &ConfigureAppRequest,
 ) -> AppResult<()> {
+    if let Some(source) = req.reuse_from {
+        if (source, provider) != (Provider::Jira, Provider::Confluence) {
+            return Err(AppError::Validation(
+                "Only Confluence can reuse another app's credentials, and only Jira's".into(),
+            ));
+        }
+        let jira = state
+            .integration_repo
+            .app(workspace_id, source.as_str())
+            .await?
+            .ok_or_else(|| AppError::Validation("Set Jira up first".into()))?;
+        state
+            .integration_repo
+            .save_app(
+                workspace_id,
+                provider.as_str(),
+                &jira.client_id,
+                &Sealed {
+                    ciphertext: jira.client_secret_encrypted,
+                    nonce: jira.client_secret_nonce,
+                },
+                req.enabled,
+                admin_id,
+            )
+            .await?;
+        return Ok(());
+    }
     let client_id = req.client_id.trim();
     if client_id.is_empty() || client_id.len() > 200 {
         return Err(AppError::Validation("A client ID is required".into()));
@@ -255,9 +283,13 @@ pub async fn start_connection(
     let redirect = redirect_url(state);
     let challenge = challenge(&verifier);
     Ok(match provider {
-        Provider::Jira => {
-            atlassian(state).authorize_url(&app.client_id, &redirect, &oauth_state, &challenge)
-        }
+        Provider::Jira | Provider::Confluence => atlassian(state).authorize_url(
+            &app.client_id,
+            &redirect,
+            &oauth_state,
+            &challenge,
+            provider.scopes(),
+        ),
         Provider::Github => {
             github_client(state).authorize_url(&app.client_id, &redirect, &oauth_state, &challenge)
         }
@@ -306,7 +338,7 @@ pub async fn complete_connection(
     let redirect = redirect_url(state);
     let (tokens, account, resources): (TokenSet, String, serde_json::Value) = match pending.provider
     {
-        Provider::Jira => {
+        Provider::Jira | Provider::Confluence => {
             let client = atlassian(state);
             let tokens = client
                 .exchange(
@@ -430,7 +462,7 @@ async fn access_token(
         &app.client_secret_nonce,
     )?;
     let tokens = match Provider::parse(&app.provider) {
-        Some(Provider::Jira) => {
+        Some(Provider::Jira | Provider::Confluence) => {
             atlassian(state)
                 .refresh(&app.client_id, &secret, &refresh_token)
                 .await?
@@ -513,6 +545,9 @@ async fn provider_unfurl(
     if let Some(file_id) = google::match_file(url) {
         return google_unfurl(state, workspace_id, poster_id, &file_id, url).await;
     }
+    if let Some(content) = confluence::match_content(url) {
+        return confluence_unfurl(state, workspace_id, poster_id, &content, url).await;
+    }
     if let Some(key) = figma::match_file(url) {
         return figma_unfurl(state, workspace_id, poster_id, &key, url).await;
     }
@@ -548,7 +583,7 @@ async fn jira_unfurl(
     else {
         return Ok(AppUnfurl::Connect(Provider::Jira));
     };
-    let sites: Vec<JiraSite> =
+    let sites: Vec<AtlassianSite> =
         serde_json::from_value(connection.resources.clone()).unwrap_or_default();
     let Some(site) = sites
         .iter()
@@ -619,6 +654,43 @@ async fn google_unfurl(
     let token = access_token(state, &app, poster_id, &connection).await?;
     Ok(
         match google_client(state).file_card(&token, file_id, url).await? {
+            Some(card) => AppUnfurl::Card(Box::new(card)),
+            None => AppUnfurl::Unclaimed,
+        },
+    )
+}
+
+async fn confluence_unfurl(
+    state: &AppState,
+    workspace_id: Uuid,
+    poster_id: Uuid,
+    content: &confluence::ContentRef,
+    url: &str,
+) -> AppResult<AppUnfurl> {
+    let Some(app) = enabled_app(state, workspace_id, Provider::Confluence).await? else {
+        return Ok(AppUnfurl::Unclaimed);
+    };
+    let Some(connection) = state
+        .integration_repo
+        .connection(workspace_id, poster_id, Provider::Confluence.as_str())
+        .await?
+    else {
+        return Ok(AppUnfurl::Connect(Provider::Confluence));
+    };
+    let sites: Vec<AtlassianSite> =
+        serde_json::from_value(connection.resources.clone()).unwrap_or_default();
+    let Some(site) = sites
+        .iter()
+        .find(|s| s.url.eq_ignore_ascii_case(&content.site_url))
+    else {
+        return Ok(AppUnfurl::Unclaimed);
+    };
+    let token = access_token(state, &app, poster_id, &connection).await?;
+    Ok(
+        match atlassian(state)
+            .content_card(&token, &site.id, content, url)
+            .await?
+        {
             Some(card) => AppUnfurl::Card(Box::new(card)),
             None => AppUnfurl::Unclaimed,
         },
