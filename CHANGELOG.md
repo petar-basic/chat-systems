@@ -45,6 +45,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - **The image preview is a gallery.** ← / → (or a swipe on a phone) steps through every image in
   the conversation or thread, with who sent it and when, a counter, click to zoom, *Open
   original* and *Download*.
+- **Videos and audio play in the message.** MP4, WebM and the like get a player, voice notes
+  and music an audio player, and both can seek: downloads now stream from storage and answer
+  byte ranges, so a large file no longer costs its own size in server memory per download.
 
 ## [2.3.0] — 2026-10-22
 

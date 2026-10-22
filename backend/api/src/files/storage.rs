@@ -1,23 +1,48 @@
 use std::sync::Arc;
 
 use axum::body::Bytes;
+use futures_util::stream::BoxStream;
 use object_store::aws::AmazonS3Builder;
 use object_store::local::LocalFileSystem;
 use object_store::path::Path as ObjectPath;
 use object_store::{
-    Attribute, Attributes, ObjectStore, ObjectStoreExt, PutMultipartOptions, PutOptions,
-    PutPayload, WriteMultipart,
+    Attribute, Attributes, GetOptions, GetRange, ObjectStore, ObjectStoreExt, PutMultipartOptions,
+    PutOptions, PutPayload, WriteMultipart,
 };
 use tracing::info;
 
 use shared_common::errors::{AppError, AppResult};
 
+use super::ranges::ByteRange;
 use crate::config::{AppConfig, StorageBackend};
+
+fn content_type_of(key: &str, attributes: &Attributes) -> String {
+    attributes
+        .get(&Attribute::ContentType)
+        .map(|v| v.as_ref().to_string())
+        .unwrap_or_else(|| {
+            mime_guess::from_path(key)
+                .first_or_octet_stream()
+                .to_string()
+        })
+}
 
 /// Below this an upload is a single PUT; above it the object is assembled
 /// from parts, so peak memory stays at a few parts rather than one file.
 const PART_SIZE: usize = 8 * 1024 * 1024;
 const PARTS_IN_FLIGHT: usize = 2;
+
+pub struct Opened {
+    pub stream: BoxStream<'static, object_store::Result<Bytes>>,
+    pub total: u64,
+    pub range: std::ops::Range<u64>,
+    pub content_type: String,
+}
+
+pub enum Opening {
+    Ready(Opened),
+    Unsatisfiable { total: u64 },
+}
 
 pub struct FileStorage {
     store: Arc<dyn ObjectStore>,
@@ -98,17 +123,43 @@ impl FileStorage {
             .get(&path)
             .await
             .map_err(|e| storage_error("download", e))?;
-        let content_type = result
-            .attributes
-            .get(&Attribute::ContentType)
-            .map(|v| v.as_ref().to_string())
-            .unwrap_or_else(|| {
-                mime_guess::from_path(key)
-                    .first_or_octet_stream()
-                    .to_string()
-            });
+        let content_type = content_type_of(key, &result.attributes);
         let body = result.bytes().await.map_err(|e| storage_error("read", e))?;
         Ok((body, content_type))
+    }
+
+    pub async fn open(&self, key: &str, requested: Option<ByteRange>) -> AppResult<Opening> {
+        let path = parse_key(key)?;
+        let total = self
+            .store
+            .head(&path)
+            .await
+            .map_err(|e| storage_error("head", e))?
+            .size;
+        let range = match requested {
+            Some(requested) => match requested.resolve(total) {
+                Some(range) => Some(range),
+                None => return Ok(Opening::Unsatisfiable { total }),
+            },
+            None => None,
+        };
+        let options = GetOptions {
+            range: range.map(GetRange::Bounded),
+            ..Default::default()
+        };
+        let result = self
+            .store
+            .get_opts(&path, options)
+            .await
+            .map_err(|e| storage_error("download", e))?;
+        let content_type = content_type_of(key, &result.attributes);
+        let range = result.range.clone();
+        Ok(Opening::Ready(Opened {
+            stream: result.into_stream(),
+            total,
+            range,
+            content_type,
+        }))
     }
 
     pub async fn copy(&self, from: &str, to: &str) -> AppResult<()> {

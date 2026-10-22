@@ -4,7 +4,7 @@ use axum::body::Body;
 use axum::body::Bytes;
 use axum::extract::multipart::Field;
 use axum::extract::{DefaultBodyLimit, Multipart, Path, Query, State};
-use axum::http::header;
+use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::Response;
 use axum::routing::get;
 use axum::{Json, Router};
@@ -17,8 +17,10 @@ use shared_common::errors::{AppError, AppResult};
 use super::imaging;
 use super::models::{FileRecord, FileUploadResponse, UploadQuery};
 use super::names;
+use super::ranges::ByteRange;
 use super::repo::NewFile;
 use super::service;
+use super::storage::Opening;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
 use crate::dto::{DataList, StatusResponse};
@@ -252,6 +254,7 @@ async fn download_file(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(key): Path<String>,
+    headers: HeaderMap,
 ) -> AppResult<Response> {
     let record = state
         .file_repo
@@ -261,22 +264,52 @@ async fn download_file(
 
     require_file_access(&state, &record, auth.user_id).await?;
 
-    let (body, content_type) = state.file_storage.download(&key).await?;
+    let requested = headers
+        .get(header::RANGE)
+        .and_then(|value| value.to_str().ok())
+        .and_then(ByteRange::parse);
+    let opened = match state.file_storage.open(&key, requested).await? {
+        Opening::Ready(opened) => opened,
+        Opening::Unsatisfiable { total } => {
+            return Response::builder()
+                .status(StatusCode::RANGE_NOT_SATISFIABLE)
+                .header(header::CONTENT_RANGE, format!("bytes */{total}"))
+                .header(header::ACCEPT_RANGES, "bytes")
+                .body(Body::empty())
+                .map_err(|e| AppError::Internal(format!("Response build failed: {e}")));
+        }
+    };
 
-    let disposition = names::content_disposition(&record.filename);
-
-    let response = Response::builder()
-        .header(header::CONTENT_TYPE, content_type)
+    let mut response = Response::builder()
+        .header(header::CONTENT_TYPE, opened.content_type)
+        .header(
+            header::CONTENT_LENGTH,
+            opened.range.end - opened.range.start,
+        )
+        .header(header::ACCEPT_RANGES, "bytes")
         .header(
             header::CACHE_CONTROL,
             "private, max-age=31536000, immutable",
         )
         .header(header::X_CONTENT_TYPE_OPTIONS, "nosniff")
-        .header(header::CONTENT_DISPOSITION, disposition)
-        .body(Body::from(body))
-        .map_err(|e| AppError::Internal(format!("Response build failed: {e}")))?;
-
-    Ok(response)
+        .header(
+            header::CONTENT_DISPOSITION,
+            names::content_disposition(&record.filename),
+        );
+    if requested.is_some() {
+        response = response.status(StatusCode::PARTIAL_CONTENT).header(
+            header::CONTENT_RANGE,
+            format!(
+                "bytes {}-{}/{}",
+                opened.range.start,
+                opened.range.end.saturating_sub(1),
+                opened.total
+            ),
+        );
+    }
+    response
+        .body(Body::from_stream(opened.stream))
+        .map_err(|e| AppError::Internal(format!("Response build failed: {e}")))
 }
 
 #[utoipa::path(get, path = "/files/{file_id}", tag = "files", responses((status = 200, body = FileMeta)))]

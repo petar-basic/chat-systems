@@ -89,3 +89,32 @@ describe('MessageAttachments image boxes', () => {
     expect(screen.getByRole('img')).toHaveAttribute('src', image(8).url);
   });
 });
+
+describe('MessageAttachments media', () => {
+  const clip = {
+    id: 'v-1',
+    filename: 'demo.mp4',
+    mime_type: 'video/mp4',
+    size_bytes: 2048,
+    url: 'https://chat.test/api/files/download/ws/v/demo.mp4',
+  };
+  const note = { ...clip, id: 'a-1', filename: 'note.mp3', mime_type: 'audio/mpeg' };
+
+  it('plays what the browser can play', () => {
+    const canPlay = vi.spyOn(HTMLMediaElement.prototype, 'canPlayType').mockReturnValue('maybe');
+    render(<MessageAttachments attachments={[clip, note]} />);
+    expect(screen.getByTestId('attachment-video').querySelector('video')).toHaveAttribute('src', clip.url);
+    expect(screen.getByTestId('attachment-audio').querySelector('audio')).toHaveAttribute('src', note.url);
+    canPlay.mockRestore();
+  });
+
+  it('leaves the rest as a card', () => {
+    const canPlay = vi.spyOn(HTMLMediaElement.prototype, 'canPlayType').mockReturnValue('');
+    render(
+      <MessageAttachments attachments={[{ ...clip, mime_type: 'video/x-msvideo', filename: 'old.avi' }]} />,
+    );
+    expect(screen.queryByTestId('attachment-video')).not.toBeInTheDocument();
+    expect(screen.getByTestId('attachment-file')).toHaveTextContent('old.avi');
+    canPlay.mockRestore();
+  });
+});
