@@ -34,7 +34,13 @@ export function useAppActions(workspaceId: string | undefined) {
   };
 
   const configure = useMutation({
-    mutationFn: (vars: { provider: AppProvider; clientId: string; clientSecret: string; enabled: boolean }) =>
+    mutationFn: (vars: {
+      provider: AppProvider;
+      clientId: string;
+      clientSecret: string;
+      enabled: boolean;
+      reuseFrom?: AppProvider;
+    }) =>
       apiClient.typed((c) =>
         c.PUT('/workspaces/{ws_id}/apps/{provider}', {
           params: { path: { ws_id: ws, provider: vars.provider } },
@@ -42,6 +48,7 @@ export function useAppActions(workspaceId: string | undefined) {
             client_id: vars.clientId,
             client_secret: vars.clientSecret || null,
             enabled: vars.enabled,
+            reuse_from: vars.reuseFrom ?? null,
           },
         }),
       ),

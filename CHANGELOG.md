@@ -14,6 +14,34 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
+## [Unreleased]
+
+### Upgrading from 2.2.0
+
+- Nothing is required. Migrations 49–51 add the prompt opt-outs and allow the Figma and
+  Confluence apps, which stay off until a workspace admin sets them up under *Apps*.
+- The frontend image's Content-Security-Policy gains `frame-src` for the YouTube
+  (`youtube-nocookie.com`), Vimeo and Loom players. A reverse proxy that sets its own CSP
+  needs the same three hosts for inline video.
+- New optional settings `FIGMA_WEB_URL` and `FIGMA_API_URL` exist only for an egress proxy.
+
+### Added
+
+- **Figma cards.** Designs, prototypes, FigJam boards and Slides show their thumbnail, project
+  and last edit, fetched with the poster's Figma account. Setup is a private Figma app; see
+  RUNBOOK → *Connected apps*.
+- **Confluence cards.** Pages and blog posts show their space, owner and last edit. Confluence
+  can reuse the Jira app's credentials, and each person connects it separately, so a Jira
+  connection never reads Confluence.
+- **Videos play inline.** YouTube, Vimeo and Loom links show the video's thumbnail and play in
+  the message on click.
+- **Never ask me again.** The *Connect* prompt under a link now offers *Connect*, *Not now* and
+  *Never ask me again*; the last turns that app's prompts off for you, and *Apps* turns them
+  back on.
+- **Apps as a directory.** Every app shows its icon, what it previews and whether you are
+  connected; cards and prompts carry the same icon, and app cards show a picture when the
+  service has one.
+
 ## [2.2.0] — 2026-10-21
 
 ### Upgrading from 2.1.0

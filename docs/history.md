@@ -1119,3 +1119,41 @@ screen *Internal* where a Workspace organization can: no Google review, and none
 seven-day expiry an unverified external app's connections get.
 
 ---
+
+## Wave 16 — The rest of what a team pastes ✅ shipped
+
+### [CS-054] Slack-grade app previews, Figma and Confluence ✅ shipped
+Put next to Slack, CS-053's cards were missing the small things a member notices: the
+*Connect* prompt had no way to say *never*, cards had no picture, *Apps* was a list of forms,
+a video link was a still image — and a design-and-docs team's two most pasted services were
+not covered. What stays different is the admin's one-time setup per service: Slack's apps
+are hosted by their vendors, and a self-hosted instance cannot ship OAuth credentials.
+Removing that step would mean a broker that every customer's tokens pass through.
+
+**The prompt** offers *Connect*, *Not now* and *Never ask me again*, as Slack's does. The
+last is a row per member and app (`app_prompt_optouts`, keyed on the membership); the
+unfurl service turns that poster's prompt into an ordinary OpenGraph preview, and
+connecting clears it. **Cards** show `image_url` and drop it if it fails to load — provider
+thumbnails are signed and expire, and a snapshot does not justify copying them into our
+storage. **Apps** shows each app's icon (copied from simple-icons rather than adding a 5 MB
+package for eight paths), a line on what it previews and the member's state.
+
+**Video** came before the new apps because it needs none. YouTube, Vimeo and Loom are
+described by their oEmbed endpoints — fixed hosts, so the SSRF guard's resolution path is not
+involved, and no YouTube consent page — and play in the message on click. The client builds
+the player URL from a validated ID and never renders oEmbed's `html`; `frame-src` lists
+exactly the three player hosts.
+
+**Figma** is a private Figma OAuth app — no review, only the organization can authorize it —
+with `file_metadata:read` and `current_user:read`, the narrowest pair that names a file and
+an account. Its token endpoints take client credentials as HTTP Basic, and its refresh
+returns no new refresh token, which the token store already allowed for.
+
+**Confluence** is its own provider, as in Slack, on the same Atlassian OAuth client as Jira:
+each person consents to it separately, so connecting one never widens what the other reads.
+An admin who has Jira set up adds the Confluence API to that app and ticks *Use the Jira app*;
+the client ID and sealed secret are copied on the server and the secret never travels back
+to the browser. The card is the page plus its space and the owner's and last editor's names,
+fetched in parallel; Confluence's v2 API takes only granular scopes.
+
+---

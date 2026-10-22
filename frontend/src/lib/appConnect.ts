@@ -7,6 +7,7 @@ export interface PendingAppConnect {
 
 export const APP_NAMES: Record<string, string> = {
   jira: 'Jira',
+  confluence: 'Confluence',
   github: 'GitHub',
   google_drive: 'Google Drive',
   figma: 'Figma',

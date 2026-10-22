@@ -6285,6 +6285,16 @@
           },
           "enabled": {
             "type": "boolean"
+          },
+          "reuse_from": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Provider"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },
@@ -9415,7 +9425,8 @@
           "jira",
           "github",
           "google_drive",
-          "figma"
+          "figma",
+          "confluence"
         ]
       },
       "PushKey": {

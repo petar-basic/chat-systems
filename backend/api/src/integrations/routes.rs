@@ -58,7 +58,11 @@ async fn configure_app(
         AuditEntry::new(AuditAction::AppConfigured, auth.user_id)
             .workspace(ws_id)
             .ip(&ip)
-            .details(serde_json::json!({ "provider": provider.as_str(), "enabled": req.enabled })),
+            .details(serde_json::json!({
+                "provider": provider.as_str(),
+                "enabled": req.enabled,
+                "reuse_from": req.reuse_from.map(Provider::as_str),
+            })),
     )
     .await;
     Ok(Json(StatusResponse { status: "saved" }))

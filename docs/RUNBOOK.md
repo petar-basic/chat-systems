@@ -597,7 +597,7 @@ a link while only an admin can create a webhook. Results are cached in Redis for
 URL. Preview images load in the reader's browser straight from the linked site. A workspace
 that wants none of this turns previews off under *Workspace settings → Link previews*.
 
-## Connected apps (Jira Cloud, GitHub, Google Drive, Figma)
+## Connected apps (Jira Cloud, Confluence, GitHub, Google Drive, Figma)
 
 Links to Jira issues get a card with the issue's type, status, priority and assignee once a
 workspace admin connects Jira and the person posting the link connects their own Atlassian
@@ -676,6 +676,29 @@ connection.
 6. Press **Connect my account**.
 
 `GOOGLE_ACCOUNTS_URL`, `GOOGLE_OAUTH_URL` and `GOOGLE_API_URL` exist for an egress proxy.
+
+### Confluence
+
+Links to Confluence pages and blog posts get a card with the space, the owner, and who last
+updated it and when. Confluence is its own app with its own connection, like Slack's
+*Confluence Cloud*: a person's Jira connection never reads Confluence, and Atlassian asks
+each person to consent to it separately. The scopes are Confluence's **granular** ones —
+`read:page:confluence`, `read:space:confluence`, `read:user:confluence` — plus `read:me` and
+`offline_access`; Confluence's v2 API refuses the classic scopes.
+
+**If Jira is already set up, reuse its Atlassian app:**
+
+1. Open that app in <https://developer.atlassian.com/console/myapps/> → **Permissions** →
+   add **Confluence API** → *Configure* → **Granular scopes** → add the three scopes above.
+   The callback URL is the same one Jira uses, so *Authorization* needs no change.
+2. In the app: workspace menu → **Apps** → *Confluence* → *Set up*, keep **Use the Jira Cloud
+   app** ticked and save. The client ID and the sealed secret are copied on the server; the
+   secret never comes back to the browser.
+3. Press **Connect my account**.
+
+People already connected to Jira keep working: their tokens carry only Jira's scopes.
+Without Jira, set Confluence up exactly like Jira above, with the Confluence API instead of
+the Jira API, and paste its Client ID and Secret.
 
 ### Figma
 

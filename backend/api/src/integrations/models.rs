@@ -10,11 +10,13 @@ pub enum Provider {
     Github,
     GoogleDrive,
     Figma,
+    Confluence,
 }
 
 impl Provider {
-    pub const ALL: [Provider; 4] = [
+    pub const ALL: [Provider; 5] = [
         Provider::Jira,
+        Provider::Confluence,
         Provider::Github,
         Provider::GoogleDrive,
         Provider::Figma,
@@ -26,6 +28,7 @@ impl Provider {
             Provider::Github => "github",
             Provider::GoogleDrive => "google_drive",
             Provider::Figma => "figma",
+            Provider::Confluence => "confluence",
         }
     }
 
@@ -39,6 +42,7 @@ impl Provider {
             Provider::Github => "GitHub",
             Provider::GoogleDrive => "Google Drive",
             Provider::Figma => "Figma",
+            Provider::Confluence => "Confluence",
         }
     }
 
@@ -48,6 +52,7 @@ impl Provider {
             Provider::Github => "Pull requests, issues, commits and repositories",
             Provider::GoogleDrive => "Docs, Sheets, Slides and files with their owner",
             Provider::Figma => "Designs, FigJam boards and Slides with a thumbnail",
+            Provider::Confluence => "Pages and blog posts with their space, owner and last edit",
         }
     }
 
@@ -57,6 +62,7 @@ impl Provider {
             Provider::Github => &[],
             Provider::GoogleDrive => &[super::google::SCOPE],
             Provider::Figma => &super::figma::SCOPES,
+            Provider::Confluence => &super::confluence::SCOPES,
         }
     }
 
@@ -66,6 +72,7 @@ impl Provider {
             Provider::Github => "https://github.com/settings/apps/new",
             Provider::GoogleDrive => "https://console.cloud.google.com/apis/credentials",
             Provider::Figma => "https://www.figma.com/developers/apps",
+            Provider::Confluence => "https://developer.atlassian.com/console/myapps/",
         }
     }
 
@@ -100,6 +107,12 @@ impl Provider {
                 "Under OAuth scopes, tick the two scopes below and nothing else.",
                 "Under Publish, choose Private: no Figma review, and only people in your organization can connect.",
                 "Press Connect my account to test it.",
+            ],
+            Provider::Confluence => &[
+                "If Jira is set up here, open that same app in the Atlassian developer console. Otherwise create an OAuth 2.0 integration and, under Authorization, paste the callback URL below.",
+                "Under Permissions, add the Confluence API and, on its Granular scopes tab, grant read:page:confluence, read:space:confluence and read:user:confluence. Keep the User identity API (read:me).",
+                "Back here, tick Use the Jira app — or paste the Client ID and Secret of a separate app — and save.",
+                "Press Connect my account to test it: Atlassian asks each person to consent to Confluence separately from Jira.",
             ],
         }
     }
@@ -152,6 +165,8 @@ pub struct ConfigureAppRequest {
     pub client_id: String,
     pub client_secret: Option<String>,
     pub enabled: bool,
+    #[serde(default)]
+    pub reuse_from: Option<Provider>,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -188,7 +203,7 @@ pub struct PendingConnection {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct JiraSite {
+pub struct AtlassianSite {
     pub id: String,
     pub url: String,
 }

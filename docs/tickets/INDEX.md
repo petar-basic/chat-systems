@@ -9,13 +9,13 @@ history and in the docs it changed. A bug found mid-wave gets a suffixed number
 (`CS-005a`) so it lands where it belongs in the order without renumbering everything
 below it.
 
-**Every wave through 15 is done, bar the SFU in Wave 9.** Wave 12 was the un-ticketed
+**Every wave through 16 is done, bar the SFU in Wave 9.** Wave 12 was the un-ticketed
 architecture review of 2026-09 (written up in [history.md](../history.md)). The E2E suite is
 green — desktop and a phone viewport — and the `e2e` job blocks merges. CS-047 measured the
 system at 500,000 messages and closed with Wave 12; what its numbers justified, CS-048, is
 Wave 13 and is shipped too. Wave 14 closes the daily-use gaps a team arriving from Slack
-notices first, and Wave 15 (connected-app previews) is shipped too. Next ticket:
-[CS-054](CS-054-figma-confluence.md).
+notices first, and Waves 15 and 16 (connected-app previews) are shipped too. The only open
+ticket is the on-request SFU.
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
@@ -179,17 +179,16 @@ week and does not find. The activity view a review might add to this list alread
 |---|---|---|
 | CS-053 ✅ | Rich previews from connected apps (Jira, GitHub, Google Drive) | backend · frontend · ops |
 
-### Wave 16 — The rest of what a team pastes
+### Wave 16 — The rest of what a team pastes ✅ done
 
 | # | Ticket | Area |
 |---|---|---|
-| [CS-054](CS-054-figma-confluence.md) | Slack-grade app previews (opt-out, pictures, directory, inline video), Figma and Confluence | backend · frontend · ops |
+| CS-054 ✅ | Slack-grade app previews (opt-out, pictures, directory, inline video), Figma and Confluence | backend · frontend · ops |
 
 ### Still open
 
 | # | Ticket | Area | Why it is not done |
 |---|---|---|---|
-| [CS-054](CS-054-figma-confluence.md) | Figma, Confluence and Slack-grade previews | backend · frontend · ops | Next — written 2026-10-22 |
 | [CS-037](CS-037-huddle-sfu.md) | SFU for large huddles | backend · frontend | LiveKit is infrastructure of its own; the mesh is right for everything under six people |
 
 ## Conflict map
@@ -208,4 +207,4 @@ Tickets that touch the same files, and the order that avoids rework:
 | `frontend/src/features/messaging/` | CS-024 ✅ → CS-025 ✅ → CS-029 ✅ |
 | `messages` table schema | CS-029 ✅ → CS-030 ✅ → CS-034 ✅ |
 | `channel_members` read position and counters | CS-026 ✅ → CS-050 ✅ → CS-051 ✅ → CS-052 ✅ |
-| message metadata and `message.updated` | CS-029 ✅ → CS-049 ✅ → CS-053 ✅ → CS-054 |
+| message metadata and `message.updated` | CS-029 ✅ → CS-049 ✅ → CS-053 ✅ → CS-054 ✅ |
