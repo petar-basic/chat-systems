@@ -9,6 +9,7 @@ ticket in [`docs/tickets/`](./tickets/INDEX.md); a ticket's file is deleted when
 
 | Ticket | What | Status |
 |---|---|---|
+| [CS-058](./tickets/CS-058-getting-around.md) | Keyboard navigation and shortcuts (⌘/), search filters (from, in, has, date), and a *Threads* view with following, unread and reply notifications | **Next.** How a Slack user gets around |
 | [CS-037](./tickets/CS-037-huddle-sfu.md) | SFU (LiveKit) for huddles above the mesh's six-to-eight ceiling | On request. Adds a media server to the stack; nothing below a 20-person team needs it |
 
 Two decisions were considered on 2026-09-02 and deferred with their reasoning below:
