@@ -49,7 +49,7 @@ test('an uploaded image opens a preview instead of downloading', async ({ page }
 
   const lightbox = page.locator('[data-qa="image-lightbox"]');
   await expect(lightbox).toBeVisible();
-  await expect(lightbox.locator('img')).toBeVisible();
+  await expect(lightbox.locator('[data-qa="gallery-image"]')).toBeVisible();
   expect(page.url(), 'the preview must not navigate away').toBe(before);
   expect(downloadStarted, 'clicking the image must not start a download').toBe(false);
 

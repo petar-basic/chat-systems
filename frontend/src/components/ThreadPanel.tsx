@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { X, MessageSquare } from 'lucide-react';
 import { useUserCache } from '@/stores/users';
 import { useWorkspaceStore } from '@/stores/workspace';
@@ -9,6 +9,7 @@ import { useThreadMessages, useSendThreadReply, useThreadReplyActions } from '@/
 import RichTextDisplay from './RichTextDisplay';
 import { MessageInput, MessageItem } from '@/features/messaging';
 import { asAttachments, useComposerAttachments } from '@/features/messaging/useComposerAttachments';
+import { GalleryProvider } from '@/features/messaging/GalleryProvider';
 
 interface Props {
   parentMessage: Message;
@@ -41,89 +42,92 @@ export default function ThreadPanel({ parentMessage, members, channels, onClose 
   const { getUser } = useUserCache();
   const parentSender = getUser(parentMessage.user_id);
   const parentName = displayNameOf(parentSender?.display_name);
+  const threadMessages = useMemo(() => [parentMessage, ...replies], [parentMessage, replies]);
 
   return (
-    <div
-      className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 flex flex-col border-l border-line/50 bg-app lg:bg-app/80"
-      data-qa="thread-panel"
-    >
-      <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">
-        <h3 className="text-sm font-bold text-fg flex items-center gap-2">
-          <MessageSquare className="w-4 h-4" />
-          Thread
-        </h3>
-        <button onClick={onClose} aria-label="Close thread" className="text-muted hover:text-fg transition">
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-
-      <div className="px-4 py-3 border-b border-line/30">
-        <div className="flex items-start gap-2.5">
-          <Avatar userId={parentMessage.user_id} name={parentName} avatarUrl={parentSender?.avatar_url} />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-baseline gap-2">
-              <span className="text-sm font-semibold text-fg-soft">{parentName}</span>
-              <span className="text-xs text-muted">
-                {new Date(parentMessage.created_at).toLocaleTimeString([], {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </span>
-            </div>
-            <RichTextDisplay
-              content={parentMessage.content}
-              attachments={parentMessage.metadata?.attachments}
-            />
-          </div>
+    <GalleryProvider messages={threadMessages}>
+      <div
+        className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 flex flex-col border-l border-line/50 bg-app lg:bg-app/80"
+        data-qa="thread-panel"
+      >
+        <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">
+          <h3 className="text-sm font-bold text-fg flex items-center gap-2">
+            <MessageSquare className="w-4 h-4" />
+            Thread
+          </h3>
+          <button onClick={onClose} aria-label="Close thread" className="text-muted hover:text-fg transition">
+            <X className="w-4 h-4" />
+          </button>
         </div>
-        <div className="mt-2 text-xs text-muted">
-          {replies.length} {replies.length === 1 ? 'reply' : 'replies'}
-        </div>
-      </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-2">
-        {loading ? (
-          <div className="flex justify-center py-4">
-            <div className="w-5 h-5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
-          </div>
-        ) : replies.length === 0 ? (
-          <div className="text-center py-8 text-muted text-sm">No replies yet. Start the conversation!</div>
-        ) : (
-          replies.map((r) => {
-            const sender = getUser(r.user_id);
-            return (
-              <MessageItem
-                key={r.id}
-                message={r}
-                dataQa="thread-reply"
-                currentUserId={currentUserId}
-                senderName={displayNameOf(sender?.display_name)}
-                senderAvatarUrl={sender?.avatar_url}
-                members={members}
-                channels={channels}
-                onToggleReaction={toggleReaction}
-                onTogglePin={togglePin}
-                onEdit={edit}
-                onDelete={remove}
+        <div className="px-4 py-3 border-b border-line/30">
+          <div className="flex items-start gap-2.5">
+            <Avatar userId={parentMessage.user_id} name={parentName} avatarUrl={parentSender?.avatar_url} />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-baseline gap-2">
+                <span className="text-sm font-semibold text-fg-soft">{parentName}</span>
+                <span className="text-xs text-muted">
+                  {new Date(parentMessage.created_at).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </span>
+              </div>
+              <RichTextDisplay
+                content={parentMessage.content}
+                attachments={parentMessage.metadata?.attachments}
               />
-            );
-          })
-        )}
-        <div ref={endRef} />
-      </div>
+            </div>
+          </div>
+          <div className="mt-2 text-xs text-muted">
+            {replies.length} {replies.length === 1 ? 'reply' : 'replies'}
+          </div>
+        </div>
 
-      <div className="border-t border-line/50">
-        <MessageInput
-          key={`thread:${parentMessage.id}`}
-          channelName=""
-          placeholder="Reply…"
-          members={members}
-          channels={channels}
-          draftKey={`thread:${parentMessage.id}`}
-          onSend={handleSend}
-          attachments={attachments}
-        />
+        <div className="flex-1 overflow-y-auto px-4 py-2">
+          {loading ? (
+            <div className="flex justify-center py-4">
+              <div className="w-5 h-5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+            </div>
+          ) : replies.length === 0 ? (
+            <div className="text-center py-8 text-muted text-sm">No replies yet. Start the conversation!</div>
+          ) : (
+            replies.map((r) => {
+              const sender = getUser(r.user_id);
+              return (
+                <MessageItem
+                  key={r.id}
+                  message={r}
+                  dataQa="thread-reply"
+                  currentUserId={currentUserId}
+                  senderName={displayNameOf(sender?.display_name)}
+                  senderAvatarUrl={sender?.avatar_url}
+                  members={members}
+                  channels={channels}
+                  onToggleReaction={toggleReaction}
+                  onTogglePin={togglePin}
+                  onEdit={edit}
+                  onDelete={remove}
+                />
+              );
+            })
+          )}
+          <div ref={endRef} />
+        </div>
+
+        <div className="border-t border-line/50">
+          <MessageInput
+            key={`thread:${parentMessage.id}`}
+            channelName=""
+            placeholder="Reply…"
+            members={members}
+            channels={channels}
+            draftKey={`thread:${parentMessage.id}`}
+            onSend={handleSend}
+            attachments={attachments}
+          />
+        </div>
       </div>
-    </div>
+    </GalleryProvider>
   );
 }

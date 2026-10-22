@@ -4,6 +4,7 @@ import { UnreadDivider } from './UnreadDivider';
 import { MessageSquare } from 'lucide-react';
 import MessageItem from './MessageItem';
 import VirtualMessageList from './VirtualMessageList';
+import { GalleryProvider } from './GalleryProvider';
 import { buildMessageRows, type MessageRow } from './messageRows';
 import { useWorkspaceStore, type Message, type WorkspaceMember, type Channel } from '@/stores/workspace';
 import { useMessages, messagesOldestFirst } from '@/hooks/queries/useMessages';
@@ -143,18 +144,20 @@ export default function MessageList({
         </>
       }
     >
-      <VirtualMessageList
-        rows={rows}
-        renderRow={renderRow}
-        hasOlder={!!hasNextPage}
-        isLoadingOlder={isFetchingNextPage}
-        onLoadOlder={fetchNextPage}
-        scrollToKey={scrollTarget}
-        stickKey={channelId}
-        onScrollToKeyHandled={() => setScrollTarget(undefined)}
-        qa="message-list"
-        ariaLabel="Messages"
-      />
+      <GalleryProvider messages={messages}>
+        <VirtualMessageList
+          rows={rows}
+          renderRow={renderRow}
+          hasOlder={!!hasNextPage}
+          isLoadingOlder={isFetchingNextPage}
+          onLoadOlder={fetchNextPage}
+          scrollToKey={scrollTarget}
+          stickKey={channelId}
+          onScrollToKeyHandled={() => setScrollTarget(undefined)}
+          qa="message-list"
+          ariaLabel="Messages"
+        />
+      </GalleryProvider>
     </QueryState>
   );
 }
