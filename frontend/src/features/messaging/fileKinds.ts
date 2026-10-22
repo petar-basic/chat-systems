@@ -109,3 +109,16 @@ const RENDERABLE_IMAGES = new Set([
 export function isRenderableImage(mimeType: string): boolean {
   return RENDERABLE_IMAGES.has(mimeType.toLowerCase());
 }
+
+export type MediaKind = 'video' | 'audio';
+
+export function playableMedia(mimeType: string): MediaKind | null {
+  const mime = mimeType.toLowerCase();
+  const kind: MediaKind | null = mime.startsWith('video/')
+    ? 'video'
+    : mime.startsWith('audio/')
+      ? 'audio'
+      : null;
+  if (!kind || typeof document === 'undefined') return null;
+  return document.createElement(kind).canPlayType(mime) ? kind : null;
+}

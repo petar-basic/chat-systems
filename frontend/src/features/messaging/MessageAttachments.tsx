@@ -4,7 +4,7 @@ import type { components } from '@/api/schema';
 import { formatBytes } from '@/lib/fileSize';
 import { ImageGallery } from './ImageGallery';
 import { useGallery } from './galleryContext';
-import { fileKind, isRenderableImage } from './fileKinds';
+import { fileKind, isRenderableImage, playableMedia } from './fileKinds';
 
 type Attachment = components['schemas']['Attachment'];
 
@@ -59,13 +59,17 @@ export function MessageAttachments({ attachments, compact = false, onRemove }: P
   return (
     <div className="mt-1 flex flex-col gap-1.5" data-qa="message-attachments">
       {images.length > 0 && <ImageGrid images={images} onOpen={open} />}
-      {files.map((attachment) => (
-        <FileCard
-          key={attachment.id}
-          attachment={attachment}
-          onRemove={onRemove ? () => onRemove(attachment.id) : undefined}
-        />
-      ))}
+      {files.map((attachment) => {
+        const media = onRemove ? null : playableMedia(attachment.mime_type);
+        if (media) return <MediaPlayer key={attachment.id} attachment={attachment} kind={media} />;
+        return (
+          <FileCard
+            key={attachment.id}
+            attachment={attachment}
+            onRemove={onRemove ? () => onRemove(attachment.id) : undefined}
+          />
+        );
+      })}
       {viewing !== null && (
         <ImageGallery
           items={images.map((attachment) => ({ attachment }))}
@@ -134,6 +138,48 @@ function ImageGrid({ images, onOpen }: { images: Attachment[]; onOpen: (image: A
           )}
         </button>
       ))}
+    </div>
+  );
+}
+
+function MediaPlayer({ attachment, kind }: { attachment: Attachment; kind: 'video' | 'audio' }) {
+  const caption = (
+    <div className="flex items-center gap-2 text-xs text-muted">
+      <span className="truncate text-fg-dim" title={attachment.filename}>
+        {attachment.filename}
+      </span>
+      <span className="shrink-0">· {formatBytes(attachment.size_bytes)}</span>
+      <a
+        href={attachment.url}
+        download={attachment.filename}
+        aria-label={`Download ${attachment.filename}`}
+        className="ml-auto shrink-0 rounded p-0.5 hover:bg-raised hover:text-fg-dim"
+      >
+        <Download className="h-3.5 w-3.5" />
+      </a>
+    </div>
+  );
+  if (kind === 'video') {
+    return (
+      <div className="flex w-full max-w-[480px] flex-col gap-1" data-qa="attachment-video">
+        <video
+          src={attachment.url}
+          controls
+          preload="metadata"
+          playsInline
+          className="aspect-video w-full rounded-lg border border-line/60 bg-black"
+        />
+        {caption}
+      </div>
+    );
+  }
+  return (
+    <div
+      className="flex w-full max-w-sm flex-col gap-1 rounded-lg border border-line bg-surface px-3 py-2"
+      data-qa="attachment-audio"
+    >
+      {caption}
+      <audio src={attachment.url} controls preload="metadata" className="w-full" />
     </div>
   );
 }

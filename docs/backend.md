@@ -397,7 +397,7 @@ is always one safe path segment and keeps its extension. Downloads send both
 |--------|-------|-------|--------|
 | POST | `/files/upload/:ws_id` | Query: `draft?`; multipart form (files) | `FileUploadResponse[]` |
 | GET | `/files/:file_id` | — | `{ file: FileRecord, url: string }` |
-| GET | `/files/download/*key` | — | Binary file stream |
+| GET | `/files/download/*key` | Header: `Range?` | The file, streamed from storage — a single `bytes=` range answers `206` with `Content-Range`, an unsatisfiable one `416`, several ranges the whole file; always `Accept-Ranges: bytes` |
 | DELETE | `/files/:file_id` | — | `{ status: "deleted" }` |
 | GET | `/files/workspace/:ws_id` | Query: `limit=50, offset=0` | `{ data: FileRecord[] }` |
 

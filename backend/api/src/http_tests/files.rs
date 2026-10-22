@@ -1470,3 +1470,79 @@ async fn a_file_keeps_the_name_it_was_given(pool: PgPool) {
     .await;
     assert_eq!(traversal[0]["filename"], "passwd");
 }
+
+async fn ranged_get(
+    app: &axum::Router,
+    uri: &str,
+    token: &str,
+    range: Option<&str>,
+) -> (StatusCode, header::HeaderMap, Vec<u8>) {
+    let mut builder = Request::builder()
+        .method("GET")
+        .uri(uri)
+        .header(header::AUTHORIZATION, format!("Bearer {token}"));
+    if let Some(range) = range {
+        builder = builder.header(header::RANGE, range);
+    }
+    let response = app
+        .clone()
+        .oneshot(builder.body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    let status = response.status();
+    let headers = response.headers().clone();
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap()
+        .to_vec();
+    (status, headers, bytes)
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_download_serves_the_range_it_is_asked_for(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "range-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Range WS").await;
+    let (_, uploaded) = upload_request(
+        &app,
+        ws_id,
+        Some(&owner),
+        "clip.mp4",
+        "video/mp4",
+        b"0123456789",
+    )
+    .await;
+    let path = download_path(uploaded[0]["url"].as_str().expect("url")).to_string();
+
+    let (status, headers, body) = ranged_get(&app, &path, &owner, None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body, b"0123456789");
+    assert_eq!(headers[header::ACCEPT_RANGES], "bytes");
+    assert_eq!(headers[header::CONTENT_LENGTH], "10");
+
+    for (range, expected, content_range) in [
+        ("bytes=2-5", &b"2345"[..], "bytes 2-5/10"),
+        ("bytes=7-", &b"789"[..], "bytes 7-9/10"),
+        ("bytes=-3", &b"789"[..], "bytes 7-9/10"),
+        ("bytes=8-50", &b"89"[..], "bytes 8-9/10"),
+    ] {
+        let (status, headers, body) = ranged_get(&app, &path, &owner, Some(range)).await;
+        assert_eq!(status, StatusCode::PARTIAL_CONTENT, "{range}");
+        assert_eq!(body, expected, "{range}");
+        assert_eq!(headers[header::CONTENT_RANGE], content_range, "{range}");
+        assert_eq!(
+            headers[header::CONTENT_LENGTH],
+            expected.len().to_string().as_str(),
+            "{range}"
+        );
+    }
+
+    let (status, headers, body) = ranged_get(&app, &path, &owner, Some("bytes=10-")).await;
+    assert_eq!(status, StatusCode::RANGE_NOT_SATISFIABLE);
+    assert_eq!(headers[header::CONTENT_RANGE], "bytes */10");
+    assert!(body.is_empty());
+
+    let (status, _, body) = ranged_get(&app, &path, &owner, Some("bytes=0-1,4-5")).await;
+    assert_eq!(status, StatusCode::OK, "several ranges get the whole file");
+    assert_eq!(body, b"0123456789");
+}
