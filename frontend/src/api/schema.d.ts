@@ -803,6 +803,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/later/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete_later"];
+        options?: never;
+        head?: never;
+        patch: operations["update_later"];
+        trace?: never;
+    };
     "/messages/{msg_id}": {
         parameters: {
             query?: never;
@@ -1039,22 +1055,6 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/saved/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete: operations["unsave_message"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1695,6 +1695,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{ws_id}/later": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_later"];
+        put?: never;
+        post: operations["create_later"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{ws_id}/members": {
         parameters: {
             query?: never;
@@ -1791,38 +1807,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/workspaces/{ws_id}/reminders": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["list_reminders"];
-        put?: never;
-        post: operations["create_reminder"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/workspaces/{ws_id}/reminders/{reminder_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete: operations["delete_reminder"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/workspaces/{ws_id}/restore": {
         parameters: {
             query?: never;
@@ -1858,22 +1842,6 @@ export interface paths {
          *     who asked for it matters more than usual.
          */
         patch: operations["update_policy"];
-        trace?: never;
-    };
-    "/workspaces/{ws_id}/saved": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["list_saved"];
-        put?: never;
-        post: operations["save_message"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
         trace?: never;
     };
     "/workspaces/{ws_id}/scheduled-messages": {
@@ -2328,16 +2296,16 @@ export interface components {
             max_uses?: number | null;
             role?: components["schemas"]["WorkspaceRole"] | null;
         };
-        CreateReminderRequest: {
+        CreateLaterRequest: {
             /** Format: uuid */
             channel_id?: string | null;
-            content: string;
+            /** Format: uuid */
+            for_user_id?: string | null;
             /** Format: uuid */
             message_id?: string | null;
             /** Format: date-time */
-            remind_at: string;
-            /** Format: uuid */
-            target_user_id: string;
+            remind_at?: string | null;
+            text?: string | null;
         };
         CreateScheduledMessageRequest: {
             attachment_ids?: string[];
@@ -2591,6 +2559,30 @@ export interface components {
                 workspace_id: string;
             }[];
         };
+        DataList_LaterItem: {
+            data: {
+                /** Format: uuid */
+                channel_id?: string | null;
+                /** Format: date-time */
+                completed_at?: string | null;
+                /** Format: date-time */
+                created_at: string;
+                /** Format: uuid */
+                created_by: string;
+                /** Format: uuid */
+                id: string;
+                message?: components["schemas"]["LaterMessage"] | null;
+                note?: string | null;
+                /** Format: date-time */
+                remind_at?: string | null;
+                /** Format: date-time */
+                reminded_at?: string | null;
+                status: components["schemas"]["LaterStatus"];
+                text?: string | null;
+                /** Format: uuid */
+                workspace_id: string;
+            }[];
+        };
         DataList_MemberWithUser: {
             data: {
                 avatar_url?: string | null;
@@ -2689,49 +2681,6 @@ export interface components {
                 message_id: string;
                 /** Format: uuid */
                 user_id: string;
-            }[];
-        };
-        DataList_Reminder: {
-            data: {
-                /** Format: uuid */
-                channel_id?: string | null;
-                content: string;
-                /** Format: date-time */
-                created_at: string;
-                /** Format: uuid */
-                created_by: string;
-                /** Format: uuid */
-                id: string;
-                is_delivered: boolean;
-                /** Format: uuid */
-                message_id?: string | null;
-                /** Format: date-time */
-                remind_at: string;
-                /** Format: uuid */
-                target_user_id: string;
-                /** Format: uuid */
-                workspace_id: string;
-            }[];
-        };
-        DataList_SavedMessageDetail: {
-            data: {
-                attachments: components["schemas"]["Attachment"][];
-                /** Format: uuid */
-                author_id: string;
-                /** Format: uuid */
-                channel_id: string;
-                content: string;
-                /** Format: date-time */
-                created_at: string;
-                /** Format: uuid */
-                id: string;
-                /** Format: uuid */
-                message_id: string;
-                note?: string | null;
-                /** Format: date-time */
-                sent_at: string;
-                /** Format: uuid */
-                workspace_id: string;
             }[];
         };
         DataList_ScheduledMessage: {
@@ -3058,6 +3007,46 @@ export interface components {
             command: string;
             text?: string;
         };
+        LaterCreated: {
+            /** Format: uuid */
+            id: string;
+        };
+        LaterItem: {
+            /** Format: uuid */
+            channel_id?: string | null;
+            /** Format: date-time */
+            completed_at?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            created_by: string;
+            /** Format: uuid */
+            id: string;
+            message?: components["schemas"]["LaterMessage"] | null;
+            note?: string | null;
+            /** Format: date-time */
+            remind_at?: string | null;
+            /** Format: date-time */
+            reminded_at?: string | null;
+            status: components["schemas"]["LaterStatus"];
+            text?: string | null;
+            /** Format: uuid */
+            workspace_id: string;
+        };
+        LaterMessage: {
+            attachments: components["schemas"]["Attachment"][];
+            /** Format: uuid */
+            author_id: string;
+            /** Format: uuid */
+            channel_id: string;
+            content: string;
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            sent_at: string;
+        };
+        /** @enum {string} */
+        LaterStatus: "in_progress" | "completed" | "archived";
         LoginRequest: {
             email: string;
             password: string;
@@ -3216,26 +3205,6 @@ export interface components {
             password: string;
             token: string;
         };
-        Reminder: {
-            /** Format: uuid */
-            channel_id?: string | null;
-            content: string;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: uuid */
-            created_by: string;
-            /** Format: uuid */
-            id: string;
-            is_delivered: boolean;
-            /** Format: uuid */
-            message_id?: string | null;
-            /** Format: date-time */
-            remind_at: string;
-            /** Format: uuid */
-            target_user_id: string;
-            /** Format: uuid */
-            workspace_id: string;
-        };
         ReorderSectionsRequest: {
             section_ids: string[];
         };
@@ -3260,47 +3229,6 @@ export interface components {
             updated_at: string;
             /** Format: uuid */
             updated_by?: string | null;
-            /** Format: uuid */
-            workspace_id: string;
-        };
-        SaveMessageRequest: {
-            /** Format: uuid */
-            message_id: string;
-            note?: string | null;
-        };
-        SavedMessage: {
-            /** Format: date-time */
-            created_at: string;
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            message_id: string;
-            note?: string | null;
-            /** Format: uuid */
-            user_id: string;
-            /** Format: uuid */
-            workspace_id: string;
-        };
-        /**
-         * @description A saved row plus the message it points at, so the panel can render without a
-         *     second round trip per item.
-         */
-        SavedMessageDetail: {
-            attachments: components["schemas"]["Attachment"][];
-            /** Format: uuid */
-            author_id: string;
-            /** Format: uuid */
-            channel_id: string;
-            content: string;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            message_id: string;
-            note?: string | null;
-            /** Format: date-time */
-            sent_at: string;
             /** Format: uuid */
             workspace_id: string;
         };
@@ -3487,6 +3415,13 @@ export interface components {
         };
         UpdateInstanceRoleRequest: {
             is_instance_admin: boolean;
+        };
+        UpdateLaterRequest: {
+            clear_reminder?: boolean;
+            note?: string | null;
+            /** Format: date-time */
+            remind_at?: string | null;
+            status?: components["schemas"]["LaterStatus"] | null;
         };
         UpdateMemberRoleRequest: {
             role: components["schemas"]["WorkspaceRole"];
@@ -4895,6 +4830,52 @@ export interface operations {
             };
         };
     };
+    delete_later: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    update_later: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLaterRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
     messaging_delete_message: {
         parameters: {
             query?: never;
@@ -5325,27 +5306,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DataList_PushSubscriptionView"];
-                };
-            };
-        };
-    };
-    unsave_message: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StatusResponse"];
                 };
             };
         };
@@ -6585,6 +6545,54 @@ export interface operations {
             };
         };
     };
+    list_later: {
+        parameters: {
+            query?: {
+                status?: ("in_progress" | "completed" | "archived") | null;
+            };
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_LaterItem"];
+                };
+            };
+        };
+    };
+    create_later: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLaterRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LaterCreated"];
+                };
+            };
+        };
+    };
     workspace_list_members: {
         parameters: {
             query?: never;
@@ -6720,74 +6728,6 @@ export interface operations {
             };
         };
     };
-    list_reminders: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                ws_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DataList_Reminder"];
-                };
-            };
-        };
-    };
-    create_reminder: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                ws_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateReminderRequest"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Reminder"];
-                };
-            };
-        };
-    };
-    delete_reminder: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                ws_id: string;
-                reminder_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StatusResponse"];
-                };
-            };
-        };
-    };
     restore_workspace: {
         parameters: {
             query?: never;
@@ -6851,52 +6791,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PolicyResponse"];
-                };
-            };
-        };
-    };
-    list_saved: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                ws_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DataList_SavedMessageDetail"];
-                };
-            };
-        };
-    };
-    save_message: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                ws_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SaveMessageRequest"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SavedMessage"];
                 };
             };
         };

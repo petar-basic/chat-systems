@@ -589,3 +589,21 @@ async fn workspace_member_removed_unsubscribes_that_user(pool: PgPool) {
         "a removed member must stop receiving workspace traffic"
     );
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn later_updated_reaches_only_its_owner(pool: PgPool) {
+    let cm = manager(pool).await;
+    let owner = Uuid::new_v4();
+    let other = Uuid::new_v4();
+    let ws = Uuid::new_v4();
+    let (_owner_conn, mut owner_rx) = fake_conn(&cm, owner);
+    let (_other_conn, mut other_rx) = fake_conn(&cm, other);
+
+    let payload = json!({ "user_id": owner.to_string(), "workspace_id": ws.to_string() });
+    crate::event_consumer::handle_event("later.updated", &payload, &cm).await;
+
+    let frame = next_json(&mut owner_rx).expect("the owner hears about it");
+    assert_eq!(frame["type"], "later.updated");
+    assert_eq!(frame["workspace_id"], ws.to_string());
+    assert!(next_json(&mut other_rx).is_none());
+}

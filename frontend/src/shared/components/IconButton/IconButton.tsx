@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { ComponentPropsWithRef, ReactNode } from 'react';
 
 type Tone = 'default' | 'danger' | 'inverse';
 
@@ -14,7 +14,7 @@ const SIZES = {
 };
 
 export interface IconButtonProps extends Omit<
-  ButtonHTMLAttributes<HTMLButtonElement>,
+  ComponentPropsWithRef<'button'>,
   'children' | 'aria-label' | 'title'
 > {
   label: string;

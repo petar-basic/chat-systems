@@ -1,6 +1,6 @@
 # Roadmap & known limitations
 
-What is not done, why, and in what order it should be built. The shipped work — seventeen
+What is not done, why, and in what order it should be built. The shipped work — eighteen
 waves of it — is written up in [history.md](./history.md); this page keeps what is open,
 the reasoning behind the order, and the things deliberately left out. Every open item is a
 ticket in [`docs/tickets/`](./tickets/INDEX.md); a ticket's file is deleted when it ships.
@@ -9,7 +9,6 @@ ticket in [`docs/tickets/`](./tickets/INDEX.md); a ticket's file is deleted when
 
 | Ticket | What | Status |
 |---|---|---|
-| [CS-057](./tickets/CS-057-later.md) | *Later*: saved messages and reminders as one list with *In progress / Completed / Archived* and due times, like Slack's | **Next.** |
 | [CS-037](./tickets/CS-037-huddle-sfu.md) | SFU (LiveKit) for huddles above the mesh's six-to-eight ceiling | On request. Adds a media server to the stack; nothing below a 20-person team needs it |
 
 Two decisions were considered on 2026-09-02 and deferred with their reasoning below:
@@ -58,6 +57,7 @@ was pencilled in for it was absorbed into 9 and 11.
 | [Wave 15 — Links people actually paste at work](./history.md#wave-15--links-people-actually-paste-at-work--shipped) | CS-053 |
 | [Wave 16 — The rest of what a team pastes](./history.md#wave-16--the-rest-of-what-a-team-pastes--shipped) | CS-054 |
 | [Wave 17 — Files and images](./history.md#wave-17--files-and-images--shipped) | CS-055 |
+| [Wave 18 — What a Slack user notices in the first hour](./history.md#wave-18--what-a-slack-user-notices-in-the-first-hour--shipped) | CS-056 · CS-057 |
 
 ---
 

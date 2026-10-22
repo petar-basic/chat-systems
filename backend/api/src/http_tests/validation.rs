@@ -116,11 +116,10 @@ async fn over_long_reminder_content_is_refused(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/reminders"),
+        &format!("/api/workspaces/{ws}/later"),
         Some(&token),
         Some(json!({
-            "target_user_id": owner_id,
-            "content": "x".repeat(4001),
+            "text": "x".repeat(4001),
             "remind_at": "2099-01-01T09:00:00Z"
         })),
     )

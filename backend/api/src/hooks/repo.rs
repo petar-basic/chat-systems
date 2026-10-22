@@ -9,16 +9,6 @@ pub struct HookRepo {
     pool: PgPool,
 }
 
-pub struct NewReminder<'a> {
-    pub workspace_id: Uuid,
-    pub created_by: Uuid,
-    pub target_user_id: Uuid,
-    pub channel_id: Option<Uuid>,
-    pub message_id: Option<Uuid>,
-    pub content: &'a str,
-    pub remind_at: DateTime<Utc>,
-}
-
 impl HookRepo {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
@@ -264,63 +254,6 @@ impl HookRepo {
         .await
     }
 
-    pub async fn create_reminder(&self, reminder: NewReminder<'_>) -> sqlx::Result<Reminder> {
-        sqlx::query_as!(
-            Reminder,
-            r#"
-            INSERT INTO reminders (workspace_id, created_by, target_user_id, channel_id, message_id, content, remind_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-            RETURNING id, workspace_id, created_by, target_user_id, channel_id, message_id, content, remind_at,
-                   is_delivered AS "is_delivered!", created_at
-            "#,
-            reminder.workspace_id,
-            reminder.created_by,
-            reminder.target_user_id,
-            reminder.channel_id,
-            reminder.message_id,
-            reminder.content,
-            reminder.remind_at
-        )
-        .fetch_one(&self.pool)
-        .await
-    }
-
-    pub async fn list_reminders(
-        &self,
-        workspace_id: Uuid,
-        user_id: Uuid,
-    ) -> sqlx::Result<Vec<Reminder>> {
-        sqlx::query_as!(
-            Reminder,
-            r#"SELECT id, workspace_id, created_by, target_user_id, channel_id, message_id, content, remind_at,
-                   is_delivered AS "is_delivered!", created_at
-                 FROM reminders WHERE workspace_id = $1 AND target_user_id = $2 ORDER BY remind_at"#,
-            workspace_id,
-            user_id
-        )
-        .fetch_all(&self.pool)
-        .await
-    }
-
-    pub async fn find_reminder(&self, id: Uuid) -> sqlx::Result<Option<Reminder>> {
-        sqlx::query_as!(
-            Reminder,
-            r#"SELECT id, workspace_id, created_by, target_user_id, channel_id, message_id, content, remind_at,
-                   is_delivered AS "is_delivered!", created_at
-                 FROM reminders WHERE id = $1"#,
-            id
-        )
-        .fetch_optional(&self.pool)
-        .await
-    }
-
-    pub async fn delete_reminder(&self, id: Uuid) -> sqlx::Result<()> {
-        sqlx::query!("DELETE FROM reminders WHERE id = $1", id)
-            .execute(&self.pool)
-            .await?;
-        Ok(())
-    }
-
     /// "at 15:00" means 15:00 where the person is, and Postgres already carries
     /// the IANA database that turns that into an instant. A past time means they
     /// meant tomorrow.
@@ -350,36 +283,5 @@ impl HookRepo {
         )
         .fetch_one(&self.pool)
         .await
-    }
-
-    pub async fn claim_due_reminders(&self) -> sqlx::Result<Vec<Reminder>> {
-        sqlx::query_as!(
-            Reminder,
-            r#"
-            UPDATE reminders
-            SET is_delivered = true
-            WHERE id IN (
-                SELECT id FROM reminders
-                WHERE remind_at <= NOW() AND is_delivered = false
-                ORDER BY remind_at
-                FOR UPDATE SKIP LOCKED
-                LIMIT 100
-            )
-            RETURNING id, workspace_id, created_by, target_user_id, channel_id, message_id, content, remind_at,
-                   is_delivered AS "is_delivered!", created_at
-            "#
-        )
-        .fetch_all(&self.pool)
-        .await
-    }
-
-    pub async fn release_reminder(&self, id: Uuid) -> sqlx::Result<()> {
-        sqlx::query!(
-            "UPDATE reminders SET is_delivered = false WHERE id = $1",
-            id
-        )
-        .execute(&self.pool)
-        .await?;
-        Ok(())
     }
 }

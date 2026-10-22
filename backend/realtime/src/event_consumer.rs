@@ -361,6 +361,13 @@ pub(crate) async fn handle_event_for(
             };
             cm.send_to_user(audience, uid, &framed(&frame)).await;
         }
+        "later.updated" => {
+            let (Some(uid), Some(workspace_id)) = (field("user_id"), field("workspace_id")) else {
+                return;
+            };
+            let frame = ServerFrame::LaterUpdated { workspace_id };
+            cm.send_to_user(audience, uid, &framed(&frame)).await;
+        }
         "channel.member_removed" => {
             let (Some(uid), Some(ch_id)) = (field("user_id"), field("channel_id")) else {
                 return;

@@ -1,5 +1,6 @@
 import { memo, useEffect, useState, useRef } from 'react';
 import {
+  AlarmClock,
   Pencil,
   Trash2,
   MessageSquare,
@@ -31,6 +32,9 @@ import { AppConnectPrompt } from './AppConnectPrompt';
 /// the message it belongs to.
 const QUICK_REACTIONS = ['👍', '✅', '🎉'];
 import MessageInput from './MessageInput';
+import { useLaterActions, useSavedItemId } from '@/hooks/queries/useLater';
+import { REMIND_PRESETS } from './schedulePresets';
+import { useWorkspaceStore } from '@/stores/workspace';
 import EditHistoryPanel from './EditHistoryPanel';
 import { useCurrentWorkspaceRole } from '@/features/workspace/hooks/useCurrentWorkspaceRole';
 import { useUserCache } from '@/stores/users';
@@ -109,6 +113,9 @@ function MessageItem({
   dataQa = 'message-row',
 }: MessageItemProps) {
   const [editing, setEditing] = useState(false);
+  const workspace = useWorkspaceStore((s) => s.currentWorkspace);
+  const savedItemId = useSavedItemId(onSave ? workspace?.id : undefined, message.id, workspace?.instanceUrl);
+  const later = useLaterActions(workspace?.id, workspace?.instanceUrl);
   const [keptAttachments, setKeptAttachments] = useState<string[] | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -134,7 +141,23 @@ function MessageItem({
         ]
       : []),
     ...(onSave
-      ? [{ key: 'save', label: 'Save message', Icon: Bookmark, onSelect: () => onSave(message) }]
+      ? [
+          savedItemId
+            ? {
+                key: 'save',
+                label: 'Remove from Later',
+                Icon: Bookmark,
+                onSelect: () => later.remove.mutate(savedItemId),
+              }
+            : { key: 'save', label: 'Save for later', Icon: Bookmark, onSelect: () => onSave(message) },
+          {
+            key: 'remind',
+            label: 'Remind me in 1 hour',
+            Icon: AlarmClock,
+            onSelect: () =>
+              later.save.mutate({ messageId: message.id, remindAt: new Date(Date.now() + 60 * 60 * 1000) }),
+          },
+        ]
       : []),
     ...(onCopyLink
       ? [{ key: 'copy-link', label: 'Copy link', Icon: Link2, onSelect: () => onCopyLink(message.id) }]
@@ -498,12 +521,13 @@ function MessageItem({
           </div>
           {onSave && (
             <button
-              onClick={() => onSave(message)}
-              aria-label="Save message"
+              onClick={() => (savedItemId ? later.remove.mutate(savedItemId) : onSave(message))}
+              aria-label={savedItemId ? 'Remove from Later' : 'Save for later'}
+              aria-pressed={!!savedItemId}
               data-qa="message-action-save"
-              className="p-1 text-muted hover:text-accent-soft hover:bg-raised rounded transition"
+              className={`p-1 hover:bg-raised rounded transition ${savedItemId ? 'text-accent' : 'text-muted hover:text-accent-soft'}`}
             >
-              <Bookmark className="w-3.5 h-3.5" />
+              <Bookmark className="w-3.5 h-3.5" fill={savedItemId ? 'currentColor' : 'none'} />
             </button>
           )}
 
@@ -560,6 +584,25 @@ function MessageItem({
                   >
                     <Link2 className="w-3.5 h-3.5" /> Copy link
                   </button>
+                )}
+                {onSave && (
+                  <div className="border-y border-line/60 py-1" data-qa="message-action-remind">
+                    <div className="px-3 py-1 text-[11px] uppercase tracking-wide text-subtle">
+                      Remind me about this
+                    </div>
+                    {REMIND_PRESETS.map((preset) => (
+                      <button
+                        key={preset.label}
+                        onClick={() => {
+                          later.save.mutate({ messageId: message.id, remindAt: preset.at() });
+                          setShowOverflow(false);
+                        }}
+                        className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised"
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
                 )}
                 {onForward && (
                   <button

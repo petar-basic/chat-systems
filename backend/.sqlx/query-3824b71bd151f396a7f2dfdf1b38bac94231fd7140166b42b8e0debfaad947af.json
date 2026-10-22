@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE reminders SET is_delivered = false WHERE id = $1",
+  "query": "DELETE FROM later_items WHERE id = $1",
   "describe": {
     "columns": [],
     "parameters": {
@@ -10,5 +10,5 @@
     },
     "nullable": []
   },
-  "hash": "a6c345c141753341314ee6caa7ed6cfab4ea53daee73b37348d9381c61582731"
+  "hash": "3824b71bd151f396a7f2dfdf1b38bac94231fd7140166b42b8e0debfaad947af"
 }

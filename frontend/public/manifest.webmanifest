@@ -37,9 +37,9 @@
       ]
     },
     {
-      "name": "Saved items",
-      "short_name": "Saved",
-      "url": "/app?panel=saved",
+      "name": "Later",
+      "short_name": "Later",
+      "url": "/app?panel=later",
       "icons": [
         {
           "src": "/icons/icon-192.png",

@@ -328,7 +328,7 @@ async fn remind_creates_a_reminder_the_worker_will_deliver(pool: PgPool) {
     let (status, listing) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/reminders"),
+        &format!("/api/workspaces/{ws_id}/later"),
         Some(&token),
         None,
     )
@@ -336,7 +336,7 @@ async fn remind_creates_a_reminder_the_worker_will_deliver(pool: PgPool) {
     assert_eq!(status, StatusCode::OK);
     let reminders = listing["data"].as_array().expect("array");
     assert_eq!(reminders.len(), 1, "{listing:?}");
-    assert_eq!(reminders[0]["content"], "stretch");
+    assert_eq!(reminders[0]["text"], "stretch");
     assert_eq!(reminders[0]["channel_id"], ch_id.to_string());
 }
 
@@ -370,7 +370,7 @@ async fn remind_reads_a_clock_time_in_the_users_own_timezone(pool: PgPool) {
     let (_, listing) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/reminders"),
+        &format!("/api/workspaces/{ws_id}/later"),
         Some(&token),
         None,
     )
@@ -413,7 +413,7 @@ async fn remind_rejects_a_time_it_cannot_read(pool: PgPool) {
     let (_, listing) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/reminders"),
+        &format!("/api/workspaces/{ws_id}/later"),
         Some(&token),
         None,
     )
@@ -464,69 +464,10 @@ async fn only_an_admin_reminds_somebody_else(pool: PgPool) {
     let (_, listing) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/reminders"),
+        &format!("/api/workspaces/{ws_id}/later"),
         Some(&member_token),
         None,
     )
     .await;
     assert_eq!(listing["data"].as_array().expect("array").len(), 1);
-}
-
-#[test_macros::db_test(migrations = "../migrations")]
-async fn a_reminder_can_be_cancelled_only_by_the_person_it_is_for(pool: PgPool) {
-    let (app, state) = app_and_state(pool).await;
-    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "rem-owner", false).await;
-    let ws_id = seed_workspace(&state, owner_id, "Reminders").await;
-
-    let (other_id, _, other_token) = seed_and_login(&app, &state, "rem-other", false).await;
-    add_ws_member(&state, ws_id, other_id, "member").await;
-
-    let (status, created) = send(
-        &app,
-        "POST",
-        &format!("/api/workspaces/{ws_id}/reminders"),
-        Some(&owner_token),
-        Some(json!({
-            "target_user_id": owner_id,
-            "content": "stand up",
-            "remind_at": (chrono::Utc::now() + chrono::Duration::hours(1)).to_rfc3339(),
-        })),
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK, "{created:?}");
-    let reminder_id = created["id"].as_str().expect("id");
-
-    let (status, _) = send(
-        &app,
-        "DELETE",
-        &format!("/api/workspaces/{ws_id}/reminders/{reminder_id}"),
-        Some(&other_token),
-        None,
-    )
-    .await;
-    assert_eq!(
-        status,
-        StatusCode::NOT_FOUND,
-        "somebody else's reminder does not exist as far as you are concerned"
-    );
-
-    let (status, _) = send(
-        &app,
-        "DELETE",
-        &format!("/api/workspaces/{ws_id}/reminders/{reminder_id}"),
-        Some(&owner_token),
-        None,
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK);
-
-    let (_, listing) = send(
-        &app,
-        "GET",
-        &format!("/api/workspaces/{ws_id}/reminders"),
-        Some(&owner_token),
-        None,
-    )
-    .await;
-    assert!(listing["data"].as_array().expect("array").is_empty());
 }

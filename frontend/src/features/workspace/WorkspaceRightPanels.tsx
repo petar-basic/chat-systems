@@ -17,8 +17,7 @@ import { useCurrentWorkspaceRole } from './hooks/useCurrentWorkspaceRole';
 import { linkPreviewsEnabled } from './linkPreviews';
 import AuditLogPanel from '@/components/AuditLogPanel';
 import ScheduledMessagesPanel from '@/components/ScheduledMessagesPanel';
-import SavedItemsPanel from '@/components/SavedItemsPanel';
-import RemindersPanel from '@/components/RemindersPanel';
+import LaterPanel from '@/components/LaterPanel';
 import SlackImportPanel from '@/components/SlackImportPanel';
 
 interface Props {
@@ -28,7 +27,6 @@ interface Props {
   workspaceMembers: WorkspaceMember[];
   channels: Channel[];
   conversations: Conversation[];
-  currentUserId?: string;
   onClose: () => void;
   onNavigateToMessage: (channelId: string, messageId: string, withThread?: boolean) => void;
   onOpenConversation: (conversationId: string) => void;
@@ -41,7 +39,6 @@ export default function WorkspaceRightPanels({
   workspaceMembers,
   channels,
   conversations,
-  currentUserId,
   onClose,
   onNavigateToMessage,
   onOpenConversation,
@@ -77,9 +74,9 @@ export default function WorkspaceRightPanels({
       />
     );
   }
-  if (panel.kind === 'saved' && currentWorkspace) {
+  if (panel.kind === 'later' && currentWorkspace) {
     return (
-      <SavedItemsPanel
+      <LaterPanel
         workspaceId={currentWorkspace.id}
         instanceUrl={currentWorkspace.instanceUrl}
         channels={channels}
@@ -87,17 +84,6 @@ export default function WorkspaceRightPanels({
         onClose={onClose}
         onNavigateToMessage={(chId, msgId) => onNavigateToMessage(chId, msgId)}
         onOpenConversation={onOpenConversation}
-      />
-    );
-  }
-  if (panel.kind === 'reminders' && currentWorkspace && currentUserId) {
-    return (
-      <RemindersPanel
-        workspaceId={currentWorkspace.id}
-        instanceUrl={currentWorkspace.instanceUrl}
-        channels={channels}
-        currentUserId={currentUserId}
-        onClose={onClose}
       />
     );
   }

@@ -2011,6 +2011,74 @@
         }
       }
     },
+    "/later/{id}": {
+      "delete": {
+        "tags": [
+          "later"
+        ],
+        "operationId": "delete_later",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "later"
+        ],
+        "operationId": "update_later",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLaterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/messages/{msg_id}": {
       "delete": {
         "tags": [
@@ -2598,36 +2666,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DataList_PushSubscriptionView"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/saved/{id}": {
-      "delete": {
-        "tags": [
-          "saved"
-        ],
-        "operationId": "unsave_message",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StatusResponse"
                 }
               }
             }
@@ -4660,6 +4698,94 @@
         }
       }
     },
+    "/workspaces/{ws_id}/later": {
+      "get": {
+        "tags": [
+          "later"
+        ],
+        "operationId": "list_later",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "in_progress",
+                    "completed",
+                    "archived"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_LaterItem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "later"
+        ],
+        "operationId": "create_later",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLaterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LaterCreated"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workspaces/{ws_id}/members": {
       "get": {
         "tags": [
@@ -4892,113 +5018,6 @@
         }
       }
     },
-    "/workspaces/{ws_id}/reminders": {
-      "get": {
-        "tags": [
-          "reminders"
-        ],
-        "operationId": "list_reminders",
-        "parameters": [
-          {
-            "name": "ws_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DataList_Reminder"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "reminders"
-        ],
-        "operationId": "create_reminder",
-        "parameters": [
-          {
-            "name": "ws_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateReminderRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Reminder"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/workspaces/{ws_id}/reminders/{reminder_id}": {
-      "delete": {
-        "tags": [
-          "reminders"
-        ],
-        "operationId": "delete_reminder",
-        "parameters": [
-          {
-            "name": "ws_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "reminder_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StatusResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/workspaces/{ws_id}/restore": {
       "post": {
         "tags": [
@@ -5091,74 +5110,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PolicyResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/workspaces/{ws_id}/saved": {
-      "get": {
-        "tags": [
-          "saved"
-        ],
-        "operationId": "list_saved",
-        "parameters": [
-          {
-            "name": "ws_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DataList_SavedMessageDetail"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "saved"
-        ],
-        "operationId": "save_message",
-        "parameters": [
-          {
-            "name": "ws_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SaveMessageRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SavedMessage"
                 }
               }
             }
@@ -6749,13 +6700,8 @@
           }
         }
       },
-      "CreateReminderRequest": {
+      "CreateLaterRequest": {
         "type": "object",
-        "required": [
-          "target_user_id",
-          "content",
-          "remind_at"
-        ],
         "properties": {
           "channel_id": {
             "type": [
@@ -6764,8 +6710,12 @@
             ],
             "format": "uuid"
           },
-          "content": {
-            "type": "string"
+          "for_user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
           },
           "message_id": {
             "type": [
@@ -6775,12 +6725,17 @@
             "format": "uuid"
           },
           "remind_at": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "date-time"
           },
-          "target_user_id": {
-            "type": "string",
-            "format": "uuid"
+          "text": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -7705,6 +7660,98 @@
           }
         }
       },
+      "DataList_LaterItem": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "workspace_id",
+                "created_by",
+                "status",
+                "created_at"
+              ],
+              "properties": {
+                "channel_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid"
+                },
+                "completed_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "created_by": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "message": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/LaterMessage"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "note": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "remind_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "reminded_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "status": {
+                  "$ref": "#/components/schemas/LaterStatus"
+                },
+                "text": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "workspace_id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          }
+        }
+      },
       "DataList_MemberWithUser": {
         "type": "object",
         "required": [
@@ -8058,147 +8105,6 @@
                   "format": "uuid"
                 },
                 "user_id": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              }
-            }
-          }
-        }
-      },
-      "DataList_Reminder": {
-        "type": "object",
-        "required": [
-          "data"
-        ],
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "required": [
-                "id",
-                "workspace_id",
-                "created_by",
-                "target_user_id",
-                "content",
-                "remind_at",
-                "is_delivered",
-                "created_at"
-              ],
-              "properties": {
-                "channel_id": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
-                  "format": "uuid"
-                },
-                "content": {
-                  "type": "string"
-                },
-                "created_at": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "created_by": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "id": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "is_delivered": {
-                  "type": "boolean"
-                },
-                "message_id": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
-                  "format": "uuid"
-                },
-                "remind_at": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "target_user_id": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "workspace_id": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              }
-            }
-          }
-        }
-      },
-      "DataList_SavedMessageDetail": {
-        "type": "object",
-        "required": [
-          "data"
-        ],
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "description": "A saved row plus the message it points at, so the panel can render without a\nsecond round trip per item.",
-              "required": [
-                "id",
-                "workspace_id",
-                "message_id",
-                "created_at",
-                "channel_id",
-                "author_id",
-                "content",
-                "sent_at",
-                "attachments"
-              ],
-              "properties": {
-                "attachments": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/Attachment"
-                  }
-                },
-                "author_id": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "channel_id": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "content": {
-                  "type": "string"
-                },
-                "created_at": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "id": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "message_id": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "note": {
-                  "type": [
-                    "string",
-                    "null"
-                  ]
-                },
-                "sent_at": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "workspace_id": {
                   "type": "string",
                   "format": "uuid"
                 }
@@ -9295,6 +9201,145 @@
           }
         }
       },
+      "LaterCreated": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "LaterItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "workspace_id",
+          "created_by",
+          "status",
+          "created_at"
+        ],
+        "properties": {
+          "channel_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "completed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_by": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "message": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/LaterMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "remind_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "reminded_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "status": {
+            "$ref": "#/components/schemas/LaterStatus"
+          },
+          "text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "LaterMessage": {
+        "type": "object",
+        "required": [
+          "id",
+          "channel_id",
+          "author_id",
+          "content",
+          "attachments",
+          "sent_at"
+        ],
+        "properties": {
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Attachment"
+            }
+          },
+          "author_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "channel_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "content": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sent_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "LaterStatus": {
+        "type": "string",
+        "enum": [
+          "in_progress",
+          "completed",
+          "archived"
+        ]
+      },
       "LoginRequest": {
         "type": "object",
         "required": [
@@ -9839,65 +9884,6 @@
           }
         }
       },
-      "Reminder": {
-        "type": "object",
-        "required": [
-          "id",
-          "workspace_id",
-          "created_by",
-          "target_user_id",
-          "content",
-          "remind_at",
-          "is_delivered",
-          "created_at"
-        ],
-        "properties": {
-          "channel_id": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "uuid"
-          },
-          "content": {
-            "type": "string"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "created_by": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "is_delivered": {
-            "type": "boolean"
-          },
-          "message_id": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "uuid"
-          },
-          "remind_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "target_user_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "workspace_id": {
-            "type": "string",
-            "format": "uuid"
-          }
-        }
-      },
       "ReorderSectionsRequest": {
         "type": "object",
         "required": [
@@ -9981,122 +9967,6 @@
               "null"
             ],
             "format": "uuid"
-          },
-          "workspace_id": {
-            "type": "string",
-            "format": "uuid"
-          }
-        }
-      },
-      "SaveMessageRequest": {
-        "type": "object",
-        "required": [
-          "message_id"
-        ],
-        "properties": {
-          "message_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "note": {
-            "type": [
-              "string",
-              "null"
-            ]
-          }
-        }
-      },
-      "SavedMessage": {
-        "type": "object",
-        "required": [
-          "id",
-          "user_id",
-          "workspace_id",
-          "message_id",
-          "created_at"
-        ],
-        "properties": {
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "message_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "note": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "user_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "workspace_id": {
-            "type": "string",
-            "format": "uuid"
-          }
-        }
-      },
-      "SavedMessageDetail": {
-        "type": "object",
-        "description": "A saved row plus the message it points at, so the panel can render without a\nsecond round trip per item.",
-        "required": [
-          "id",
-          "workspace_id",
-          "message_id",
-          "created_at",
-          "channel_id",
-          "author_id",
-          "content",
-          "sent_at",
-          "attachments"
-        ],
-        "properties": {
-          "attachments": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Attachment"
-            }
-          },
-          "author_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "channel_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "content": {
-            "type": "string"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "message_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "note": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "sent_at": {
-            "type": "string",
-            "format": "date-time"
           },
           "workspace_id": {
             "type": "string",
@@ -10784,6 +10654,37 @@
           }
         }
       },
+      "UpdateLaterRequest": {
+        "type": "object",
+        "properties": {
+          "clear_reminder": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "remind_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "status": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/LaterStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
       "UpdateMemberRoleRequest": {
         "type": "object",
         "required": [
@@ -11334,10 +11235,6 @@
       "description": "Incoming and outgoing webhooks, bots and slash commands"
     },
     {
-      "name": "reminders",
-      "description": "Reminders"
-    },
-    {
       "name": "files",
       "description": "Uploads and their metadata"
     },
@@ -11354,8 +11251,8 @@
       "description": "Custom emoji"
     },
     {
-      "name": "saved",
-      "description": "Saved messages"
+      "name": "later",
+      "description": "Saved messages and reminders: the Later list"
     },
     {
       "name": "sidebar",

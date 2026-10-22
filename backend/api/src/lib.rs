@@ -15,6 +15,7 @@ pub mod health;
 pub mod hooks;
 pub mod huddle;
 pub mod integrations;
+pub mod later;
 pub mod messaging;
 pub mod metrics;
 pub mod middleware;
@@ -26,7 +27,6 @@ pub mod presence;
 pub mod push;
 pub mod rate_limit;
 pub mod retention;
-pub mod saved;
 pub mod scheduled;
 pub mod scim;
 pub mod sealed;
@@ -105,7 +105,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
     let hook_repo = HookRepo::new(pool.clone());
     let notification_repo = NotificationRepo::new(pool.clone());
     let conversation_repo = ConversationRepo::new(pool.clone());
-    let saved_repo = saved::repo::SavedRepo::new(pool.clone());
+    let later_repo = later::repo::LaterRepo::new(pool.clone());
     let sidebar_repo = sidebar::repo::SidebarRepo::new(pool.clone());
     let integration_repo = integrations::repo::IntegrationRepo::new(pool.clone());
     let slack_import_repo = slack_import::repo::SlackImportRepo::new(pool.clone());
@@ -140,7 +140,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
         hook_repo,
         notification_repo,
         conversation_repo,
-        saved_repo,
+        later_repo,
         sidebar_repo,
         integration_repo,
         slack_import_repo,

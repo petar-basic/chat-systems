@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE later_items\n               SET status = COALESCE($2, status),\n                   completed_at = CASE WHEN $2 = 'completed' THEN NOW()\n                                       WHEN $2 IS NOT NULL THEN NULL\n                                       ELSE completed_at END,\n                   remind_at = CASE WHEN $3 THEN $4 ELSE remind_at END,\n                   reminded_at = CASE WHEN $3 THEN NULL ELSE reminded_at END,\n                   note = CASE WHEN $5 THEN $6 ELSE note END,\n                   updated_at = NOW()\n             WHERE id = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Bool",
+        "Timestamptz",
+        "Bool",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4a62ecbac4da8014eb2385ecb85261992ac4e7d96f3e871fca1093e6156c4031"
+}

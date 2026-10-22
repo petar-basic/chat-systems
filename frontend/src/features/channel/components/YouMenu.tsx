@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Bell, BellRing, Bookmark, Clock, LogOut, User } from 'lucide-react';
+import { Bell, Bookmark, Clock, LogOut, User } from 'lucide-react';
 import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { displayNameOf } from '@/lib/userHelpers';
@@ -11,8 +11,7 @@ interface Props {
   unreadNotifCount: number;
   onOpenProfile: () => void;
   onOpenScheduled: () => void;
-  onOpenSaved: () => void;
-  onOpenReminders: () => void;
+  onOpenLater: () => void;
   onOpenNotifications: () => void;
   onLogout: () => void;
 }
@@ -27,8 +26,7 @@ export function YouMenu({
   unreadNotifCount,
   onOpenProfile,
   onOpenScheduled,
-  onOpenSaved,
-  onOpenReminders,
+  onOpenLater,
   onOpenNotifications,
   onLogout,
 }: Props) {
@@ -74,7 +72,7 @@ export function YouMenu({
           <div className="text-xs text-muted truncate">{statusText || user?.email}</div>
         </button>
 
-        {/* Saved, scheduled and reminders follow the person, not the
+        {/* Later and scheduled follow the person, not the
             workspace: they are the same list whichever workspace is open,
             so they belong here rather than under a workspace's name. */}
         {open && (
@@ -89,11 +87,8 @@ export function YouMenu({
             <button className={ITEM} data-qa="open-scheduled" onClick={pick(onOpenScheduled)}>
               <Clock className="w-4 h-4" /> Scheduled
             </button>
-            <button className={ITEM} data-qa="open-saved" onClick={pick(onOpenSaved)}>
-              <Bookmark className="w-4 h-4" /> Saved
-            </button>
-            <button className={ITEM} data-qa="open-reminders" onClick={pick(onOpenReminders)}>
-              <BellRing className="w-4 h-4" /> Reminders
+            <button className={ITEM} data-qa="open-later" onClick={pick(onOpenLater)}>
+              <Bookmark className="w-4 h-4" /> Later
             </button>
           </div>
         )}

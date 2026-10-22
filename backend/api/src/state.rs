@@ -6,10 +6,10 @@ use crate::files::storage::FileStorage;
 use crate::hooks::repo::HookRepo;
 use crate::huddle::repo::HuddleRepo;
 use crate::integrations::repo::IntegrationRepo;
+use crate::later::repo::LaterRepo;
 use crate::messaging::publisher::EventPublisher;
 use crate::messaging::repo::MessageRepo;
 use crate::notifications::repo::NotificationRepo;
-use crate::saved::repo::SavedRepo;
 use crate::scheduled::repo::ScheduledRepo;
 use crate::sidebar::repo::SidebarRepo;
 use crate::slack_import::repo::SlackImportRepo;
@@ -28,7 +28,7 @@ pub struct AppState {
     pub hook_repo: HookRepo,
     pub notification_repo: NotificationRepo,
     pub conversation_repo: ConversationRepo,
-    pub saved_repo: SavedRepo,
+    pub later_repo: LaterRepo,
     pub sidebar_repo: SidebarRepo,
     pub integration_repo: IntegrationRepo,
     pub slack_import_repo: SlackImportRepo,

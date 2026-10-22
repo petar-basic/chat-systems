@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import type { CreateChannelDraft } from '@/models/channel';
 import { useNavigate } from 'react-router';
-import { Compass, FolderPlus, Inbox } from 'lucide-react';
+import { Bookmark, Compass, FolderPlus, Inbox } from 'lucide-react';
+import { useLater } from '@/hooks/queries/useLater';
 import type { Channel, Workspace, WorkspaceMember } from '@/stores/workspace';
 import type { Conversation } from '@/hooks/queries/useConversations';
 import { useCurrentWorkspaceRole } from '@/features/workspace/hooks/useCurrentWorkspaceRole';
@@ -50,9 +51,9 @@ interface Props {
   onOpenUserGroups: () => void;
   onOpenAuditLog: () => void;
   onOpenScheduled: () => void;
-  onOpenSaved: () => void;
+  onOpenLater: () => void;
+  laterActive: boolean;
   onOpenSlackImport: () => void;
-  onOpenReminders: () => void;
   onOpenProfile: () => void;
   onOpenNotifications: () => void;
   onOpenUnreads: () => void;
@@ -88,9 +89,9 @@ export default function ChannelSidebar({
   onOpenUserGroups,
   onOpenAuditLog,
   onOpenScheduled,
-  onOpenSaved,
+  onOpenLater,
+  laterActive,
   onOpenSlackImport,
-  onOpenReminders,
   onOpenProfile,
   onOpenNotifications,
   onOpenUnreads,
@@ -99,6 +100,8 @@ export default function ChannelSidebar({
 }: Props) {
   const { data: unreadNotifCount = 0 } = useUnreadNotificationCount(currentWorkspace?.id ?? null);
   const { data: myStatus } = useMyStatus(currentWorkspace?.instanceUrl);
+  const { data: laterItems } = useLater(currentWorkspace?.id, 'in_progress', currentWorkspace?.instanceUrl);
+  const laterCount = laterItems?.length ?? 0;
   const { role: currentUserRole } = useCurrentWorkspaceRole();
   const navigate = useNavigate();
   const { instances, activeInstanceUrl } = useInstanceStore();
@@ -195,6 +198,26 @@ export default function ChannelSidebar({
             {totalUnread > 0 && (
               <span className="ml-auto text-xs px-1.5 rounded-full bg-raised text-fg-soft">
                 {totalUnread > 99 ? '99+' : totalUnread}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={onOpenLater}
+            aria-pressed={laterActive}
+            data-qa="later-open"
+            className={`w-full px-3 py-1.5 mb-2 -mt-1.5 flex items-center gap-2 text-sm transition cursor-pointer ${
+              laterActive ? 'bg-purple-600/20 text-fg' : 'text-fg-dim hover:bg-raised/30 hover:text-fg-soft'
+            }`}
+          >
+            <Bookmark className="w-4 h-4 shrink-0" />
+            <span className="truncate">Later</span>
+            {laterCount > 0 && (
+              <span
+                className="ml-auto text-xs px-1.5 rounded-full bg-raised text-fg-soft"
+                data-qa="later-count"
+              >
+                {laterCount > 99 ? '99+' : laterCount}
               </span>
             )}
           </button>
@@ -310,8 +333,7 @@ export default function ChannelSidebar({
           unreadNotifCount={unreadNotifCount}
           onOpenProfile={onOpenProfile}
           onOpenScheduled={onOpenScheduled}
-          onOpenSaved={onOpenSaved}
-          onOpenReminders={onOpenReminders}
+          onOpenLater={onOpenLater}
           onOpenNotifications={onOpenNotifications}
           onLogout={onLogout}
         />

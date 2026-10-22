@@ -1,0 +1,205 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT li.id, li.workspace_id, li.created_by, li.channel_id, li.message_id, li.text, li.note,\n                   li.status, li.remind_at, li.reminded_at, li.completed_at, li.created_at,\n                   m.user_id AS \"message_author_id?\",\n                   m.content AS \"message_content?\",\n                   m.created_at AS \"message_sent_at?\",\n                   COALESCE(m.metadata->'attachments', '[]'::jsonb) AS \"message_attachments!: AttachmentList\"\n              FROM later_items li\n              LEFT JOIN messages m ON m.id = li.message_id\n             WHERE li.user_id = $1\n               AND li.workspace_id = $2\n               AND li.status = $3\n               AND (li.message_id IS NULL OR m.deleted_at IS NULL)\n             ORDER BY CASE WHEN $3 = 'in_progress' THEN li.remind_at END ASC NULLS LAST,\n                      li.updated_at DESC\n             LIMIT 500\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "later_items",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "later_items",
+            "name": "workspace_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "created_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "later_items",
+            "name": "created_by"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "channel_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "later_items",
+            "name": "channel_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "message_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "later_items",
+            "name": "message_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "text",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "later_items",
+            "name": "text"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "note",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "later_items",
+            "name": "note"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "later_items",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "remind_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "later_items",
+            "name": "remind_at"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "reminded_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "later_items",
+            "name": "reminded_at"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "completed_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "later_items",
+            "name": "completed_at"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "later_items",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "message_author_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "message_content?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "content"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "message_sent_at?",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "message_attachments!: AttachmentList",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "82de10c3dc24f47ca12ac03f833a1a2bcaae6dff8134699f5c540cbdfd550b70"
+}

@@ -11,7 +11,6 @@ use uuid::Uuid;
 use shared_common::errors::{AppError, AppResult};
 
 use super::models::*;
-use super::repo::NewReminder;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
 use crate::dto::{DataList, StatusResponse};
@@ -27,8 +26,6 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(get_hook, delete_hook))
         .routes(routes!(reveal_hook))
         .routes(routes!(rotate_hook))
-        .routes(routes!(list_reminders, create_reminder))
-        .routes(routes!(delete_reminder))
 }
 
 /// Authenticated by the token in its URL, not a session, so it must not sit
@@ -405,78 +402,6 @@ async fn delete_hook(
     )
     .await;
 
-    Ok(Json(StatusResponse::new("deleted")))
-}
-
-#[utoipa::path(get, path = "/workspaces/{ws_id}/reminders", tag = "reminders", responses((status = 200, body = DataList<Reminder>)))]
-async fn list_reminders(
-    State(state): State<Arc<AppState>>,
-    auth: AuthUser,
-    Path(ws_id): Path<Uuid>,
-) -> AppResult<Json<DataList<Reminder>>> {
-    authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Member).await?;
-    let reminders = state.hook_repo.list_reminders(ws_id, auth.user_id).await?;
-    Ok(Json(reminders.into()))
-}
-
-#[utoipa::path(post, path = "/workspaces/{ws_id}/reminders", tag = "reminders", request_body = CreateReminderRequest, responses((status = 200, body = Reminder)))]
-async fn create_reminder(
-    State(state): State<Arc<AppState>>,
-    auth: AuthUser,
-    Path(ws_id): Path<Uuid>,
-    Json(req): Json<CreateReminderRequest>,
-) -> AppResult<Json<Reminder>> {
-    req.validate()?;
-    let member =
-        authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Member).await?;
-    if req.target_user_id != auth.user_id {
-        if !member.role.has_at_least(&WorkspaceRole::Admin) {
-            return Err(AppError::Forbidden(
-                "Cannot create reminders for other users".into(),
-            ));
-        }
-        state
-            .workspace_service
-            .repo
-            .get_member(ws_id, req.target_user_id)
-            .await?
-            .ok_or_else(|| {
-                AppError::Forbidden("Target user is not a member of this workspace".into())
-            })?;
-    }
-    let reminder = state
-        .hook_repo
-        .create_reminder(NewReminder {
-            workspace_id: ws_id,
-            created_by: auth.user_id,
-            target_user_id: req.target_user_id,
-            channel_id: req.channel_id,
-            message_id: req.message_id,
-            content: &req.content,
-            remind_at: req.remind_at,
-        })
-        .await?;
-    Ok(Json(reminder))
-}
-
-#[utoipa::path(delete, path = "/workspaces/{ws_id}/reminders/{reminder_id}", tag = "reminders", responses((status = 200, body = StatusResponse)))]
-async fn delete_reminder(
-    State(state): State<Arc<AppState>>,
-    auth: AuthUser,
-    Path((ws_id, reminder_id)): Path<(Uuid, Uuid)>,
-) -> AppResult<Json<StatusResponse>> {
-    authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Member).await?;
-
-    let reminder = state
-        .hook_repo
-        .find_reminder(reminder_id)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Reminder not found".into()))?;
-    if reminder.workspace_id != ws_id || reminder.target_user_id != auth.user_id {
-        return Err(AppError::NotFound("Reminder not found".into()));
-    }
-
-    state.hook_repo.delete_reminder(reminder_id).await?;
     Ok(Json(StatusResponse::new("deleted")))
 }
 
