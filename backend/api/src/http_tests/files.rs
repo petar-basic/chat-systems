@@ -1427,3 +1427,46 @@ async fn deleting_an_image_takes_its_thumbnail_with_it(pool: PgPool) {
         "the thumbnail object is gone too"
     );
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_file_keeps_the_name_it_was_given(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "names-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Names WS").await;
+
+    let (status, uploaded) = upload_request(
+        &app,
+        ws_id,
+        Some(&owner),
+        "Izveštaj o radu.pdf",
+        "application/pdf",
+        b"%PDF-1.7",
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{uploaded:?}");
+    assert_eq!(uploaded[0]["filename"], "Izveštaj o radu.pdf");
+    let url = uploaded[0]["url"].as_str().expect("url");
+    let key = storage_key_from_url(url);
+    assert!(
+        key.ends_with("/Izve_taj_o_radu.pdf"),
+        "the storage key stays ASCII: {key}"
+    );
+
+    let (status, headers, _) = raw_get(&app, download_path(url), &owner).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        headers[header::CONTENT_DISPOSITION],
+        "attachment; filename=\"Izve_taj o radu.pdf\"; filename*=UTF-8''Izve%C5%A1taj%20o%20radu.pdf"
+    );
+
+    let (_, traversal) = upload_request(
+        &app,
+        ws_id,
+        Some(&owner),
+        "../../etc/passwd",
+        "text/plain",
+        b"x",
+    )
+    .await;
+    assert_eq!(traversal[0]["filename"], "passwd");
+}

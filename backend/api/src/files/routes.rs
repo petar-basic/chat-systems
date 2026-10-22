@@ -16,6 +16,7 @@ use shared_common::errors::{AppError, AppResult};
 
 use super::imaging;
 use super::models::{FileRecord, FileUploadResponse, UploadQuery};
+use super::names;
 use super::repo::NewFile;
 use super::service;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
@@ -26,27 +27,6 @@ use crate::middleware::AuthUser;
 use crate::pagination::PageQuery;
 use crate::state::AppState;
 use crate::workspace::models::WorkspaceRole;
-
-fn sanitize_filename(name: &str) -> String {
-    let basename = name.rsplit(['/', '\\']).next().unwrap_or("");
-
-    let cleaned: String = basename
-        .chars()
-        .map(|c| {
-            if c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.' {
-                c
-            } else {
-                '_'
-            }
-        })
-        .collect();
-
-    if cleaned.is_empty() || cleaned == "." || cleaned == ".." || cleaned.contains("..") {
-        "file".to_string()
-    } else {
-        cleaned
-    }
-}
 
 pub fn router() -> OpenApiRouter<Arc<AppState>> {
     OpenApiRouter::new()
@@ -79,7 +59,7 @@ async fn upload_file(
         .map_err(|e| AppError::BadRequest(format!("Invalid multipart: {e}")))?
     {
         let raw_filename = field.file_name().unwrap_or("unnamed").to_string();
-        let filename = sanitize_filename(&raw_filename);
+        let filename = names::display_name(&raw_filename);
         let declared_type = field
             .content_type()
             .unwrap_or("application/octet-stream")
@@ -283,7 +263,7 @@ async fn download_file(
 
     let (body, content_type) = state.file_storage.download(&key).await?;
 
-    let disposition = format!("attachment; filename=\"{}\"", record.filename);
+    let disposition = names::content_disposition(&record.filename);
 
     let response = Response::builder()
         .header(header::CONTENT_TYPE, content_type)

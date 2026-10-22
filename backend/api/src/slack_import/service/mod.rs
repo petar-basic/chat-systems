@@ -233,28 +233,6 @@ pub fn attachment_slack_ts(message_ts: &str, index: usize) -> String {
     format!("{base}{suffix}")
 }
 
-/// A filename from an export is somebody else's string. The storage key is built
-/// from it, and while `LocalStorage` refuses traversal on its own, a key should
-/// not depend on another module's guard to be a single path segment.
-pub fn storage_safe_filename(name: &str) -> String {
-    let cleaned: String = name
-        .chars()
-        .map(|c| match c {
-            '/' | '\\' | ':' => '-',
-            c if c.is_control() => '-',
-            c => c,
-        })
-        .filter(|c| !c.is_whitespace() || *c == ' ')
-        .collect();
-    let trimmed = cleaned.trim();
-    // `.` and `..` are the two names that mean something to a filesystem rather
-    // than to a person; every other arrangement of dots is somebody's filename.
-    if trimmed.is_empty() || trimmed == "." || trimmed == ".." {
-        return "attachment".to_string();
-    }
-    trimmed.chars().take(120).collect()
-}
-
 /// Stands in for a storage key during a dry run, where nothing is uploaded but
 /// the alias pass still has to know which names were seen.
 const DRY_RUN_KEY: &str = "";
@@ -377,23 +355,6 @@ mod tests {
         let long = attachment_slack_ts(&"9".repeat(40), 7);
         assert!(long.len() <= 32, "even a ts nobody should send fits");
         assert!(long.ends_with("-f7"), "and keeps what makes it unique");
-    }
-
-    #[test]
-    fn a_filename_becomes_one_path_segment() {
-        assert_eq!(storage_safe_filename("deploy.log"), "deploy.log");
-        assert_eq!(
-            storage_safe_filename("../../etc/passwd"),
-            "..-..-etc-passwd"
-        );
-        assert_eq!(storage_safe_filename("a\\b.png"), "a-b.png");
-        assert_eq!(storage_safe_filename("   "), "attachment");
-        assert_eq!(storage_safe_filename(".."), "attachment");
-        assert_eq!(
-            storage_safe_filename(".hidden.png"),
-            ".hidden.png",
-            "a leading dot is a filename, not an escape"
-        );
     }
 
     #[test]

@@ -387,6 +387,12 @@ orientation. GIFs keep their animation. An image that does not decode, or is lar
 access rule as their file, and every download is `Cache-Control: private, max-age=31536000,
 immutable` because a key never changes content.
 
+**Names.** `files.filename` is the name as uploaded, normalised to NFC, with any path, control
+characters and leading dots removed and at most 200 characters (a long name keeps its
+extension). The storage key uses an ASCII form of it (`files::names::storage_name`), so a key
+is always one safe path segment and keeps its extension. Downloads send both
+`filename="ascii fallback"` and `filename*=UTF-8''…` (RFC 6266 / 5987).
+
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | POST | `/files/upload/:ws_id` | Query: `draft?`; multipart form (files) | `FileUploadResponse[]` |
