@@ -9,6 +9,7 @@ ticket in [`docs/tickets/`](./tickets/INDEX.md); a ticket's file is deleted when
 
 | Ticket | What | Status |
 |---|---|---|
+| [CS-054](./tickets/CS-054-figma-confluence.md) | Figma and Confluence cards, and the rest of Slack's preview UX: *Never ask me again*, pictures on cards, an app directory, inline video | **Next.** A design-and-docs team's links are still plain |
 | [CS-037](./tickets/CS-037-huddle-sfu.md) | SFU (LiveKit) for huddles above the mesh's six-to-eight ceiling | On request. Adds a media server to the stack; nothing below a 20-person team needs it |
 
 Two decisions were considered on 2026-09-02 and deferred with their reasoning below:
