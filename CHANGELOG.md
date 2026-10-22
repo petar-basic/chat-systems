@@ -14,14 +14,17 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
-## [Unreleased]
+## [3.0.0] — 2026-10-22
 
 ### Upgrading from 2.4.0
 
-- Nothing is required. Migration 55 moves saved messages and reminders into the new *Later*
-  list and drops their old tables; delivered reminders arrive as already fired. The
+- **Major release: the saved-message and reminder routes are gone.** Migration 55 moves saved
+  messages and reminders into the new *Later* list and drops their old tables; delivered
+  reminders arrive as already fired, and nothing else is required. The
   `/workspaces/{id}/saved` and `/workspaces/{id}/reminders` routes are replaced by
-  `/workspaces/{id}/later` — anything scripted against them needs the new route.
+  `/workspaces/{id}/later` — anything scripted against them needs the new route. Take a
+  backup first: the old tables do not come back on a downgrade. RUNBOOK → *Upgrade note: Later
+  replaces saved messages and reminders*.
 
 ### Added
 

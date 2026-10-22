@@ -540,6 +540,38 @@ RustFS with `rclone`, verifies the copy with `rclone check`, and removes the hel
 container. Remove the old volumes once uploads open correctly. Under Coolify the volume and
 network names carry the resource UUID — `docker volume ls` shows them.
 
+
+## Upgrade note: files move out of message text (2.4.0)
+
+**Take a backup before upgrading to 2.4.0 or later.** Migration 52 rewrites old messages:
+every `[file: …](…)` link that pointed at the message's own upload moves out of the text into
+`metadata.attachments`, and a message that was only a file is left with no text. Quotes of
+other people's files, as in forwards, stay as links. The text cannot be put back from the
+database alone, so the backup is the way back. Migration 54 builds three indexes on `files`;
+on a large instance the upgrade pauses for them.
+
+Image uploads are processed in the API process (thumbnail, size, EXIF stripped) and hold up to
+30 MB each in memory while they are; size the API's memory limit with that in mind if many
+people upload large photos at once.
+
+## Upgrade note: Later replaces saved messages and reminders (3.0.0)
+
+**This is a major release because two routes are gone.** Migration 55 copies every saved
+message and every reminder into `later_items` and then drops `saved_messages` and
+`reminders`. Nothing is lost — a delivered reminder arrives already fired, a reminder on a
+saved message folds into that item, and only rows of people who had already left the
+workspace are skipped — but the old tables do not come back on a downgrade. Take a backup
+first.
+
+`GET`/`POST /workspaces/{id}/saved`, `DELETE /saved/{id}` and the
+`/workspaces/{id}/reminders` routes are replaced by `/workspaces/{id}/later` and
+`/later/{id}`. The web app moves with them; a script or integration calling the old routes
+needs the new ones (see `docs/backend.md`, *later*). `/remind` keeps working and now writes a
+Later item.
+
+The realtime service subscribes to one more Redis channel, `events:later`; deploy the backend
+and the realtime images together, as always.
+
 ## Audit log
 
 `GET /api/workspaces/:ws_id/audit-log` (workspace admin) and `GET /api/admin/audit-log`
