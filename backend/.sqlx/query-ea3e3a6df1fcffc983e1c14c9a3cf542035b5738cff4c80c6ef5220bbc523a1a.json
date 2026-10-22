@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO files (user_id, workspace_id, message_id, filename, storage_key, mime_type, size_bytes, draft_until)\n            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)\n            RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, created_at\n            ",
+  "query": "DELETE FROM files WHERE id = $1 RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, created_at",
   "describe": {
     "columns": [
       {
@@ -104,6 +104,28 @@
       },
       {
         "ordinal": 9,
+        "name": "width",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "files",
+            "name": "width"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "height",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "files",
+            "name": "height"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -116,14 +138,7 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Uuid",
-        "Uuid",
-        "Varchar",
-        "Varchar",
-        "Varchar",
-        "Int8",
-        "Timestamptz"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -136,8 +151,10 @@
       false,
       false,
       true,
+      true,
+      true,
       false
     ]
   },
-  "hash": "2603c7eaefc68cf36e36aa1f5f40ef0c9ebff378cb16558261c4b69f3dfc7423"
+  "hash": "ea3e3a6df1fcffc983e1c14c9a3cf542035b5738cff4c80c6ef5220bbc523a1a"
 }

@@ -5749,6 +5749,13 @@
           "filename": {
             "type": "string"
           },
+          "height": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
           "id": {
             "type": "string",
             "format": "uuid"
@@ -5760,8 +5767,21 @@
             "type": "integer",
             "format": "int64"
           },
+          "thumbnail_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "url": {
             "type": "string"
+          },
+          "width": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -7357,6 +7377,13 @@
                 "filename": {
                   "type": "string"
                 },
+                "height": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "format": "int32"
+                },
                 "id": {
                   "type": "string",
                   "format": "uuid"
@@ -7387,6 +7414,13 @@
                 "user_id": {
                   "type": "string",
                   "format": "uuid"
+                },
+                "width": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "format": "int32"
                 },
                 "workspace_id": {
                   "type": "string",
@@ -8595,6 +8629,13 @@
           "filename": {
             "type": "string"
           },
+          "height": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
           "id": {
             "type": "string",
             "format": "uuid"
@@ -8626,6 +8667,13 @@
             "type": "string",
             "format": "uuid"
           },
+          "width": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
           "workspace_id": {
             "type": "string",
             "format": "uuid"
@@ -8645,6 +8693,13 @@
           "filename": {
             "type": "string"
           },
+          "height": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
           "id": {
             "type": "string",
             "format": "uuid"
@@ -8656,8 +8711,21 @@
             "type": "integer",
             "format": "int64"
           },
+          "thumbnail_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "url": {
             "type": "string"
+          },
+          "width": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
           }
         }
       },

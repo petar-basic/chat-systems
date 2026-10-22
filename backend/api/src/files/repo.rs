@@ -13,6 +13,9 @@ pub struct NewFile<'a> {
     pub mime_type: &'a str,
     pub size_bytes: i64,
     pub draft_until: Option<DateTime<Utc>>,
+    pub thumbnail_key: Option<&'a str>,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
 }
 
 pub struct FileRepo {
@@ -37,9 +40,9 @@ impl FileRepo {
         sqlx::query_as!(
             FileRecord,
             r"
-            INSERT INTO files (user_id, workspace_id, message_id, filename, storage_key, mime_type, size_bytes, draft_until)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, created_at
+            INSERT INTO files (user_id, workspace_id, message_id, filename, storage_key, mime_type, size_bytes, draft_until, thumbnail_key, width, height)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, created_at
             ",
             file.user_id,
             file.workspace_id,
@@ -48,7 +51,10 @@ impl FileRepo {
             file.storage_key,
             file.mime_type,
             file.size_bytes,
-            file.draft_until
+            file.draft_until,
+            file.thumbnail_key,
+            file.width,
+            file.height
         )
         .fetch_one(conn)
         .await
@@ -57,7 +63,7 @@ impl FileRepo {
     pub async fn for_message(&self, message_id: Uuid) -> sqlx::Result<Vec<FileRecord>> {
         sqlx::query_as!(
             FileRecord,
-            "SELECT id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, created_at
+            "SELECT id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, created_at
                FROM files WHERE message_id = $1 ORDER BY created_at, id",
             message_id
         )
@@ -78,7 +84,7 @@ impl FileRepo {
             "UPDATE files SET message_id = $2, draft_until = NULL
               WHERE id = ANY($1) AND workspace_id = $3 AND user_id = $4
                 AND message_id IS NULL AND draft_until IS NOT NULL
-              RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, created_at",
+              RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, created_at",
             ids,
             message_id,
             workspace_id,
@@ -118,7 +124,7 @@ impl FileRepo {
         sqlx::query_as!(
             FileRecord,
             "DELETE FROM files WHERE message_id = $1 AND NOT (id = ANY($2))
-              RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, created_at",
+              RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, created_at",
             message_id,
             keep
         )
@@ -135,7 +141,7 @@ impl FileRepo {
                   ORDER BY draft_until
                   LIMIT $1
              )
-             RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, created_at",
+             RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, created_at",
             limit
         )
         .fetch_all(&self.pool)
@@ -143,13 +149,13 @@ impl FileRepo {
     }
 
     pub async fn find_by_id(&self, id: Uuid) -> sqlx::Result<Option<FileRecord>> {
-        sqlx::query_as!(FileRecord, "SELECT id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, created_at FROM files WHERE id = $1", id)
+        sqlx::query_as!(FileRecord, "SELECT id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, created_at FROM files WHERE id = $1", id)
             .fetch_optional(&self.pool)
             .await
     }
 
     pub async fn find_by_storage_key(&self, key: &str) -> sqlx::Result<Option<FileRecord>> {
-        sqlx::query_as!(FileRecord, "SELECT id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, created_at FROM files WHERE storage_key = $1", key)
+        sqlx::query_as!(FileRecord, "SELECT id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, created_at FROM files WHERE storage_key = $1 OR thumbnail_key = $1", key)
             .fetch_optional(&self.pool)
             .await
     }
@@ -163,7 +169,7 @@ impl FileRepo {
     ) -> sqlx::Result<Vec<FileRecord>> {
         sqlx::query_as!(
             FileRecord,
-            "SELECT id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, created_at FROM files WHERE workspace_id = $1 AND user_id = $2 ORDER BY created_at DESC LIMIT $3 OFFSET $4",
+            "SELECT id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, created_at FROM files WHERE workspace_id = $1 AND user_id = $2 ORDER BY created_at DESC LIMIT $3 OFFSET $4",
             workspace_id,
             user_id,
             limit,
@@ -197,7 +203,7 @@ impl FileRepo {
     }
 
     pub async fn delete(&self, id: Uuid) -> sqlx::Result<Option<FileRecord>> {
-        sqlx::query_as!(FileRecord, "DELETE FROM files WHERE id = $1 RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, created_at", id)
+        sqlx::query_as!(FileRecord, "DELETE FROM files WHERE id = $1 RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, created_at", id)
             .fetch_optional(&self.pool)
             .await
     }
@@ -212,7 +218,7 @@ impl FileRepo {
     ) -> sqlx::Result<Vec<FileRecord>> {
         sqlx::query_as!(
             FileRecord,
-            "DELETE FROM files WHERE message_id = $1 RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, created_at",
+            "DELETE FROM files WHERE message_id = $1 RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, created_at",
             message_id
         )
         .fetch_all(&self.pool)

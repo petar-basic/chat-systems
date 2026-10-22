@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE files SET message_id = $2, draft_until = NULL\n              WHERE id = ANY($1) AND workspace_id = $3 AND user_id = $4\n                AND message_id IS NULL AND draft_until IS NOT NULL\n              RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, created_at",
+  "query": "DELETE FROM files WHERE message_id = $1 AND NOT (id = ANY($2))\n              RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, created_at",
   "describe": {
     "columns": [
       {
@@ -104,6 +104,28 @@
       },
       {
         "ordinal": 9,
+        "name": "width",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "files",
+            "name": "width"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "height",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "files",
+            "name": "height"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -116,10 +138,8 @@
     ],
     "parameters": {
       "Left": [
-        "UuidArray",
         "Uuid",
-        "Uuid",
-        "Uuid"
+        "UuidArray"
       ]
     },
     "nullable": [
@@ -132,8 +152,10 @@
       false,
       false,
       true,
+      true,
+      true,
       false
     ]
   },
-  "hash": "e920d65a7940c79490ee3ff313a92539594ac0eda7b1c772f0bdf196033c1eff"
+  "hash": "896620bef68a13bfc94700e2fc03d8167bd49d17983540dd468670f966fe26f7"
 }

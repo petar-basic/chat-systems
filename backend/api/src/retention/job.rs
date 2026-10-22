@@ -218,14 +218,16 @@ async fn purge_files(state: &AppState, workspace_id: uuid::Uuid, days: i32, dry_
         }
 
         let mut ids = Vec::with_capacity(batch.len());
-        for (id, storage_key) in batch {
+        for (id, storage_key, thumbnail_key) in batch {
             // A previous run may have removed the object and died before the
             // row; a missing object is expected, not a reason to stop.
-            if let Err(e) = state.file_storage.delete(&storage_key).await {
-                warn!(
-                    "Retention: object {} already gone or unreachable: {}",
-                    storage_key, e
-                );
+            for key in std::iter::once(&storage_key).chain(thumbnail_key.iter()) {
+                if let Err(e) = state.file_storage.delete(key).await {
+                    warn!(
+                        "Retention: object {} already gone or unreachable: {}",
+                        key, e
+                    );
+                }
             }
             ids.push(id);
         }

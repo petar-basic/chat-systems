@@ -14,6 +14,8 @@ pub struct FileRecord {
     pub mime_type: String,
     pub size_bytes: i64,
     pub thumbnail_key: Option<String>,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -24,6 +26,12 @@ pub struct Attachment {
     pub mime_type: String,
     pub size_bytes: i64,
     pub url: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thumbnail_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub width: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub height: Option<i32>,
 }
 
 #[derive(Debug, Deserialize, utoipa::IntoParams)]
@@ -39,6 +47,9 @@ pub struct FileUploadResponse {
     pub filename: String,
     pub mime_type: String,
     pub size_bytes: i64,
+    pub thumbnail_url: Option<String>,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]

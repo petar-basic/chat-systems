@@ -21,6 +21,8 @@ export interface PendingAttachment {
   status: 'uploading' | 'ready' | 'failed';
   fileId: string | null;
   url: string | null;
+  width: number | null;
+  height: number | null;
 }
 
 export interface ComposerAttachments {
@@ -41,6 +43,8 @@ export function asAttachments(items: PendingAttachment[]): Attachment[] {
       mime_type: item.mimeType,
       size_bytes: item.size,
       url: item.previewUrl ?? item.url ?? '',
+      width: item.width,
+      height: item.height,
     }));
 }
 
@@ -88,7 +92,14 @@ export function useComposerAttachments({ workspaceId, instanceUrl, resetKey }: A
           (progress) => patch(localId, { progress }),
           controller.signal,
         );
-        patch(localId, { status: 'ready', progress: 1, fileId: stored.id, url: stored.url });
+        patch(localId, {
+          status: 'ready',
+          progress: 1,
+          fileId: stored.id,
+          url: stored.url,
+          width: stored.width ?? null,
+          height: stored.height ?? null,
+        });
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') return;
         logger.error('useComposerAttachments', 'upload', err);
@@ -126,6 +137,8 @@ export function useComposerAttachments({ workspaceId, instanceUrl, resetKey }: A
           status: 'uploading' as const,
           fileId: null,
           url: null,
+          width: null,
+          height: null,
         },
       }));
       if (fresh.length === 0) return;

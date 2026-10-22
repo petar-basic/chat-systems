@@ -132,10 +132,10 @@ impl RetentionRepo {
         &self,
         workspace_id: Uuid,
         days: i32,
-    ) -> sqlx::Result<Vec<(Uuid, String)>> {
+    ) -> sqlx::Result<Vec<(Uuid, String, Option<String>)>> {
         let rows = sqlx::query!(
             r"
-            SELECT id, storage_key FROM files
+            SELECT id, storage_key, thumbnail_key FROM files
              WHERE workspace_id = $1
                AND created_at < NOW() - make_interval(days => $2)
              LIMIT $3
@@ -146,7 +146,10 @@ impl RetentionRepo {
         )
         .fetch_all(&self.pool)
         .await?;
-        Ok(rows.into_iter().map(|r| (r.id, r.storage_key)).collect())
+        Ok(rows
+            .into_iter()
+            .map(|r| (r.id, r.storage_key, r.thumbnail_key))
+            .collect())
     }
 
     pub async fn delete_file_rows(&self, ids: &[Uuid]) -> sqlx::Result<u64> {

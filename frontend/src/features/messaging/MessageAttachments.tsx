@@ -8,6 +8,18 @@ import { fileKind, isRenderableImage } from './fileKinds';
 type Attachment = components['schemas']['Attachment'];
 
 const GRID_LIMIT = 4;
+const MAX_WIDTH = 360;
+const MAX_HEIGHT = 320;
+
+function displaySize(width?: number | null, height?: number | null) {
+  if (!width || !height) return null;
+  const scale = Math.min(1, MAX_WIDTH / width, MAX_HEIGHT / height);
+  return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)) };
+}
+
+function previewOf(image: Attachment): string {
+  return image.mime_type === 'image/gif' ? image.url : (image.thumbnail_url ?? image.url);
+}
 
 interface Props {
   attachments: Attachment[];
@@ -58,19 +70,23 @@ export function MessageAttachments({ attachments, compact = false, onRemove }: P
 function ImageGrid({ images, onOpen }: { images: Attachment[]; onOpen: (image: Attachment) => void }) {
   if (images.length === 1) {
     const [image] = images;
+    const size = displaySize(image.width, image.height);
     return (
       <button
         type="button"
         onClick={() => onOpen(image)}
         data-qa="attachment-image"
-        className="block w-fit max-w-[360px] cursor-zoom-in"
+        className="block w-fit max-w-full cursor-zoom-in"
         title={image.filename}
       >
         <img
-          src={image.url}
+          src={previewOf(image)}
           alt={image.filename}
           loading="lazy"
-          className="max-h-80 max-w-full rounded-lg border border-line/60"
+          width={size?.width}
+          height={size?.height}
+          style={size ? { width: size.width, aspectRatio: `${size.width} / ${size.height}` } : undefined}
+          className="max-h-80 max-w-full rounded-lg border border-line/60 bg-raised/40 object-cover"
         />
       </button>
     );
@@ -91,7 +107,12 @@ function ImageGrid({ images, onOpen }: { images: Attachment[]; onOpen: (image: A
             shown.length === 3 && index === 0 ? 'row-span-2 aspect-auto' : ''
           }`}
         >
-          <img src={image.url} alt={image.filename} loading="lazy" className="h-full w-full object-cover" />
+          <img
+            src={previewOf(image)}
+            alt={image.filename}
+            loading="lazy"
+            className="h-full w-full object-cover"
+          />
           {hidden > 0 && index === shown.length - 1 && (
             <span
               data-qa="attachment-grid-more"

@@ -2056,12 +2056,17 @@ export interface components {
         };
         Attachment: {
             filename: string;
+            /** Format: int32 */
+            height?: number | null;
             /** Format: uuid */
             id: string;
             mime_type: string;
             /** Format: int64 */
             size_bytes: number;
+            thumbnail_url?: string | null;
             url: string;
+            /** Format: int32 */
+            width?: number | null;
         };
         AuditRow: {
             action: string;
@@ -2495,6 +2500,8 @@ export interface components {
                 /** Format: date-time */
                 created_at: string;
                 filename: string;
+                /** Format: int32 */
+                height?: number | null;
                 /** Format: uuid */
                 id: string;
                 /** Format: uuid */
@@ -2506,6 +2513,8 @@ export interface components {
                 thumbnail_key?: string | null;
                 /** Format: uuid */
                 user_id: string;
+                /** Format: int32 */
+                width?: number | null;
                 /** Format: uuid */
                 workspace_id: string;
             }[];
@@ -2861,6 +2870,8 @@ export interface components {
             /** Format: date-time */
             created_at: string;
             filename: string;
+            /** Format: int32 */
+            height?: number | null;
             /** Format: uuid */
             id: string;
             /** Format: uuid */
@@ -2872,17 +2883,24 @@ export interface components {
             thumbnail_key?: string | null;
             /** Format: uuid */
             user_id: string;
+            /** Format: int32 */
+            width?: number | null;
             /** Format: uuid */
             workspace_id: string;
         };
         FileUploadResponse: {
             filename: string;
+            /** Format: int32 */
+            height?: number | null;
             /** Format: uuid */
             id: string;
             mime_type: string;
             /** Format: int64 */
             size_bytes: number;
+            thumbnail_url?: string | null;
             url: string;
+            /** Format: int32 */
+            width?: number | null;
         };
         ForgotPasswordRequest: {
             email: string;

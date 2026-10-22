@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
 use axum::body::Body;
+use axum::body::Bytes;
+use axum::extract::multipart::Field;
 use axum::extract::{DefaultBodyLimit, Multipart, Path, Query, State};
 use axum::http::header;
 use axum::response::Response;
@@ -12,8 +14,10 @@ use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
 
+use super::imaging;
 use super::models::{FileRecord, FileUploadResponse, UploadQuery};
 use super::repo::NewFile;
+use super::service;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
 use crate::dto::{DataList, StatusResponse};
@@ -76,53 +80,79 @@ async fn upload_file(
     {
         let raw_filename = field.file_name().unwrap_or("unnamed").to_string();
         let filename = sanitize_filename(&raw_filename);
-        let content_type = field
+        let declared_type = field
             .content_type()
             .unwrap_or("application/octet-stream")
             .to_string();
-        let storage_key = format!("{}/{}/{}", ws_id, Uuid::new_v4(), filename);
         let max_bytes = state.config.max_upload_bytes;
 
-        // Stream to storage while counting. Reading the field into memory first
-        // and checking the size afterwards meant the check never rejected
-        // anything the router had already accepted, and a handful of concurrent
-        // uploads could take the process out on memory alone.
-        let mut sink = state
-            .file_storage
-            .begin_upload(&storage_key, &content_type)
-            .await?;
-        let mut written: u64 = 0;
-        loop {
-            let chunk = match field.chunk().await {
-                Ok(Some(chunk)) => chunk,
-                Ok(None) => break,
-                Err(e) => {
-                    let _ = sink.abort().await;
-                    return Err(AppError::BadRequest(format!(
-                        "Failed to read file data: {e}"
-                    )));
+        let mut head = Vec::new();
+        let mut finished = false;
+        while head.len() < SNIFF_BYTES {
+            match next_chunk(&mut field).await? {
+                Some(chunk) => head.extend_from_slice(&chunk),
+                None => {
+                    finished = true;
+                    break;
                 }
-            };
-
-            written += chunk.len() as u64;
-            if written > max_bytes {
-                let _ = sink.abort().await;
-                return Err(AppError::BadRequest(format!(
-                    "File too large (max {max_bytes} bytes)"
-                )));
-            }
-
-            if let Err(e) = sink.write_chunk(chunk).await {
-                let _ = sink.abort().await;
-                return Err(e);
             }
         }
+        refuse_oversized(head.len(), max_bytes)?;
 
-        let size = match sink.finish().await {
-            Ok(size) => size as i64,
-            Err(e) => {
-                let _ = state.file_storage.delete(&storage_key).await;
-                return Err(e);
+        let stored = match imaging::sniff(&head) {
+            Some(kind) => {
+                let mut buffer = head;
+                while !finished && buffer.len() <= imaging::MAX_IMAGE_BYTES {
+                    match next_chunk(&mut field).await? {
+                        Some(chunk) => {
+                            buffer.extend_from_slice(&chunk);
+                            refuse_oversized(buffer.len(), max_bytes)?;
+                        }
+                        None => finished = true,
+                    }
+                }
+                if finished {
+                    service::store_image(&state, ws_id, &filename, kind, buffer.into()).await?
+                } else {
+                    stream_rest(
+                        &state,
+                        ws_id,
+                        &filename,
+                        kind.mime(),
+                        buffer,
+                        &mut field,
+                        max_bytes,
+                    )
+                    .await?
+                }
+            }
+            None if finished => {
+                let storage_key = service::object_key(ws_id, &filename);
+                let size_bytes = head.len() as i64;
+                state
+                    .file_storage
+                    .upload(&storage_key, head, &declared_type)
+                    .await?;
+                service::StoredObject {
+                    storage_key,
+                    mime_type: declared_type,
+                    size_bytes,
+                    thumbnail_key: None,
+                    width: None,
+                    height: None,
+                }
+            }
+            None => {
+                stream_rest(
+                    &state,
+                    ws_id,
+                    &filename,
+                    &declared_type,
+                    head,
+                    &mut field,
+                    max_bytes,
+                )
+                .await?
             }
         };
 
@@ -133,25 +163,109 @@ async fn upload_file(
                 workspace_id: ws_id,
                 message_id: None,
                 filename: &filename,
-                storage_key: &storage_key,
-                mime_type: &content_type,
-                size_bytes: size,
-                draft_until: query.draft.then(super::service::draft_deadline),
+                storage_key: &stored.storage_key,
+                mime_type: &stored.mime_type,
+                size_bytes: stored.size_bytes,
+                draft_until: query.draft.then(service::draft_deadline),
+                thumbnail_key: stored.thumbnail_key.as_deref(),
+                width: stored.width,
+                height: stored.height,
             })
             .await?;
 
-        let url = state.file_storage.public_url(&storage_key);
-
+        let attachment = service::attachment(&state, &record);
         responses.push(FileUploadResponse {
             id: record.id,
-            url,
+            url: attachment.url,
             filename: record.filename,
             mime_type: record.mime_type,
             size_bytes: record.size_bytes,
+            thumbnail_url: attachment.thumbnail_url,
+            width: record.width,
+            height: record.height,
         });
     }
 
     Ok(Json(responses))
+}
+
+const SNIFF_BYTES: usize = 16;
+
+fn refuse_oversized(len: usize, max_bytes: u64) -> AppResult<()> {
+    if len as u64 > max_bytes {
+        return Err(AppError::BadRequest(format!(
+            "File too large (max {max_bytes} bytes)"
+        )));
+    }
+    Ok(())
+}
+
+async fn next_chunk(field: &mut Field<'_>) -> AppResult<Option<Bytes>> {
+    field
+        .chunk()
+        .await
+        .map_err(|e| AppError::BadRequest(format!("Failed to read file data: {e}")))
+}
+
+/// Stream to storage while counting. Reading the field into memory first and
+/// checking the size afterwards meant the check never rejected anything the
+/// router had already accepted, and a handful of concurrent uploads could take
+/// the process out on memory alone.
+async fn stream_rest(
+    state: &AppState,
+    workspace_id: Uuid,
+    filename: &str,
+    content_type: &str,
+    already_read: Vec<u8>,
+    field: &mut Field<'_>,
+    max_bytes: u64,
+) -> AppResult<service::StoredObject> {
+    let storage_key = service::object_key(workspace_id, filename);
+    let mut sink = state
+        .file_storage
+        .begin_upload(&storage_key, content_type)
+        .await?;
+    let mut written = already_read.len() as u64;
+    if let Err(e) = sink.write_chunk(Bytes::from(already_read)).await {
+        let _ = sink.abort().await;
+        return Err(e);
+    }
+    loop {
+        let chunk = match next_chunk(field).await {
+            Ok(Some(chunk)) => chunk,
+            Ok(None) => break,
+            Err(e) => {
+                let _ = sink.abort().await;
+                return Err(e);
+            }
+        };
+        written += chunk.len() as u64;
+        if written > max_bytes {
+            let _ = sink.abort().await;
+            return Err(AppError::BadRequest(format!(
+                "File too large (max {max_bytes} bytes)"
+            )));
+        }
+        if let Err(e) = sink.write_chunk(chunk).await {
+            let _ = sink.abort().await;
+            return Err(e);
+        }
+    }
+    let size_bytes = match sink.finish().await {
+        Ok(size) => size as i64,
+        Err(e) => {
+            let _ = state.file_storage.delete(&storage_key).await;
+            return Err(e);
+        }
+    };
+    Ok(service::StoredObject {
+        storage_key,
+        mime_type: content_type.to_string(),
+        size_bytes,
+        thumbnail_key: None,
+        width: None,
+        height: None,
+    })
 }
 
 async fn download_file(
@@ -173,6 +287,10 @@ async fn download_file(
 
     let response = Response::builder()
         .header(header::CONTENT_TYPE, content_type)
+        .header(
+            header::CACHE_CONTROL,
+            "private, max-age=31536000, immutable",
+        )
         .header(header::X_CONTENT_TYPE_OPTIONS, "nosniff")
         .header(header::CONTENT_DISPOSITION, disposition)
         .body(Body::from(body))
@@ -234,7 +352,7 @@ async fn delete_file(
         require_file_moderator(&state, &record, auth.user_id, &member).await?;
     }
 
-    let _ = state.file_storage.delete(&record.storage_key).await;
+    service::purge_objects(&state, std::slice::from_ref(&record)).await;
 
     state.file_repo.delete(file_id).await?;
 
