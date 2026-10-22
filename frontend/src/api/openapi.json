@@ -9414,7 +9414,8 @@
         "enum": [
           "jira",
           "github",
-          "google_drive"
+          "google_drive",
+          "figma"
         ]
       },
       "PushKey": {

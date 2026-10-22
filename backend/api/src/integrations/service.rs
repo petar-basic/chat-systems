@@ -8,6 +8,7 @@ use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
 
+use super::figma::{self, Figma};
 use super::github::{self, Fetched, GitHub};
 use super::google::{self, Google};
 use super::http::TokenSet;
@@ -83,6 +84,13 @@ fn google_client(state: &AppState) -> Google {
             .google_api_url
             .trim_end_matches('/')
             .to_string(),
+    }
+}
+
+fn figma_client(state: &AppState) -> Figma {
+    Figma {
+        web_base: state.config.figma_web_url.trim_end_matches('/').to_string(),
+        api_base: state.config.figma_api_url.trim_end_matches('/').to_string(),
     }
 }
 
@@ -256,6 +264,9 @@ pub async fn start_connection(
         Provider::GoogleDrive => {
             google_client(state).authorize_url(&app.client_id, &redirect, &oauth_state, &challenge)
         }
+        Provider::Figma => {
+            figma_client(state).authorize_url(&app.client_id, &redirect, &oauth_state, &challenge)
+        }
     })
 }
 
@@ -328,6 +339,20 @@ pub async fn complete_connection(
         }
         Provider::GoogleDrive => {
             let client = google_client(state);
+            let tokens = client
+                .exchange(
+                    &app.client_id,
+                    &secret,
+                    &req.code,
+                    &redirect,
+                    &pending.code_verifier,
+                )
+                .await?;
+            let account = client.account_name(&tokens.access_token).await?;
+            (tokens, account, serde_json::json!([]))
+        }
+        Provider::Figma => {
+            let client = figma_client(state);
             let tokens = client
                 .exchange(
                     &app.client_id,
@@ -420,6 +445,11 @@ async fn access_token(
                 .refresh(&app.client_id, &secret, &refresh_token)
                 .await?
         }
+        Some(Provider::Figma) => {
+            figma_client(state)
+                .refresh(&app.client_id, &secret, &refresh_token)
+                .await?
+        }
         None => {
             return Err(AppError::Internal(format!(
                 "unknown provider {}",
@@ -482,6 +512,9 @@ async fn provider_unfurl(
     }
     if let Some(file_id) = google::match_file(url) {
         return google_unfurl(state, workspace_id, poster_id, &file_id, url).await;
+    }
+    if let Some(key) = figma::match_file(url) {
+        return figma_unfurl(state, workspace_id, poster_id, &key, url).await;
     }
     Ok(AppUnfurl::Unclaimed)
 }
@@ -586,6 +619,32 @@ async fn google_unfurl(
     let token = access_token(state, &app, poster_id, &connection).await?;
     Ok(
         match google_client(state).file_card(&token, file_id, url).await? {
+            Some(card) => AppUnfurl::Card(Box::new(card)),
+            None => AppUnfurl::Unclaimed,
+        },
+    )
+}
+
+async fn figma_unfurl(
+    state: &AppState,
+    workspace_id: Uuid,
+    poster_id: Uuid,
+    key: &str,
+    url: &str,
+) -> AppResult<AppUnfurl> {
+    let Some(app) = enabled_app(state, workspace_id, Provider::Figma).await? else {
+        return Ok(AppUnfurl::Unclaimed);
+    };
+    let Some(connection) = state
+        .integration_repo
+        .connection(workspace_id, poster_id, Provider::Figma.as_str())
+        .await?
+    else {
+        return Ok(AppUnfurl::Connect(Provider::Figma));
+    };
+    let token = access_token(state, &app, poster_id, &connection).await?;
+    Ok(
+        match figma_client(state).file_card(&token, key, url).await? {
             Some(card) => AppUnfurl::Card(Box::new(card)),
             None => AppUnfurl::Unclaimed,
         },

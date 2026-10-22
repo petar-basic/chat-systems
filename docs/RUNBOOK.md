@@ -597,7 +597,7 @@ a link while only an admin can create a webhook. Results are cached in Redis for
 URL. Preview images load in the reader's browser straight from the linked site. A workspace
 that wants none of this turns previews off under *Workspace settings → Link previews*.
 
-## Connected apps (Jira Cloud, GitHub, Google Drive)
+## Connected apps (Jira Cloud, GitHub, Google Drive, Figma)
 
 Links to Jira issues get a card with the issue's type, status, priority and assignee once a
 workspace admin connects Jira and the person posting the link connects their own Atlassian
@@ -676,6 +676,30 @@ connection.
 6. Press **Connect my account**.
 
 `GOOGLE_ACCOUNTS_URL`, `GOOGLE_OAUTH_URL` and `GOOGLE_API_URL` exist for an egress proxy.
+
+### Figma
+
+Links to Figma designs, prototypes, FigJam boards and Slides get a card with the file's
+thumbnail, its project, and who last edited it and when; a branch link previews the branch.
+The app asks Figma for `file_metadata:read` and `current_user:read` only: it can read a
+file's name, project, dates and thumbnail, never its layers or comments. Every card needs
+the poster's connection.
+
+1. In the app: workspace menu → **Apps** → *Figma* → *Set up*.
+2. Go to <https://www.figma.com/developers/apps> and create a new app **inside your
+   organization's team**, named after your instance.
+3. **OAuth credentials**: add the *Callback URL* from the app as a redirect URL, and copy the
+   **Client ID** and **Client secret** into the app.
+4. **OAuth scopes**: tick `file_metadata:read` and `current_user:read`, nothing else.
+5. **Publish**: choose **Private**. A private app needs no Figma review and only people in
+   your organization can authorize it, which is what a self-hosted workspace wants. A
+   draft app works only for you and plan admins.
+6. Save, then press **Connect my account**.
+
+Figma's access tokens last 90 days and are refreshed with the stored refresh token, so
+people do not have to reconnect. Thumbnails are links Figma signs and eventually expires;
+a card whose picture has expired drops it, and the card's refresh button fetches a new one.
+`FIGMA_WEB_URL` and `FIGMA_API_URL` exist for an egress proxy.
 
 ## Huddle relay (TURN)
 

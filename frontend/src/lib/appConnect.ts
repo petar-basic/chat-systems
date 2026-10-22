@@ -9,6 +9,7 @@ export const APP_NAMES: Record<string, string> = {
   jira: 'Jira',
   github: 'GitHub',
   google_drive: 'Google Drive',
+  figma: 'Figma',
 };
 
 export function appName(provider: string): string {

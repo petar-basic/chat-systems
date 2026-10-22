@@ -949,3 +949,261 @@ async fn an_expired_google_token_is_refreshed_and_the_refresh_token_kept(pool: P
         "Google sends no new refresh token; the old one stays"
     );
 }
+
+const FIGMA_KEY: &str = "AbCdEfGhIjKlMnOpQrStUv";
+
+async fn fake_figma() -> String {
+    fn client_authenticated(headers: &HeaderMap) -> bool {
+        use base64::Engine;
+        let expected = format!(
+            "Basic {}",
+            base64::engine::general_purpose::STANDARD.encode("figma-client:shh")
+        );
+        headers
+            .get("authorization")
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|v| v == expected)
+    }
+    async fn token(
+        headers: HeaderMap,
+        axum::Form(form): axum::Form<std::collections::HashMap<String, String>>,
+    ) -> (StatusCode, Json<Value>) {
+        let get = |k: &str| form.get(k).map(String::as_str);
+        if client_authenticated(&headers)
+            && get("grant_type") == Some("authorization_code")
+            && get("code") == Some("good-code")
+            && get("redirect_uri").is_some_and(|u| u.ends_with("/oauth/apps/callback"))
+            && get("code_verifier").is_some_and(|v| v.len() >= 43)
+        {
+            return (
+                StatusCode::OK,
+                Json(json!({
+                    "user_id_string": "42",
+                    "access_token": "f-1",
+                    "token_type": "bearer",
+                    "expires_in": 7_776_000,
+                    "refresh_token": "fr-1"
+                })),
+            );
+        }
+        (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "invalid_grant" })),
+        )
+    }
+    async fn refresh(
+        headers: HeaderMap,
+        axum::Form(form): axum::Form<std::collections::HashMap<String, String>>,
+    ) -> (StatusCode, Json<Value>) {
+        if client_authenticated(&headers)
+            && form.get("refresh_token").map(String::as_str) == Some("fr-1")
+        {
+            return (
+                StatusCode::OK,
+                Json(
+                    json!({ "access_token": "f-2", "token_type": "bearer", "expires_in": 7_776_000 }),
+                ),
+            );
+        }
+        (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "invalid_grant" })),
+        )
+    }
+    fn authorized(headers: &HeaderMap) -> bool {
+        headers
+            .get("authorization")
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|v| v == "Bearer f-1" || v == "Bearer f-2")
+    }
+    async fn me(headers: HeaderMap) -> (StatusCode, Json<Value>) {
+        if !authorized(&headers) {
+            return (StatusCode::FORBIDDEN, Json(json!({})));
+        }
+        (
+            StatusCode::OK,
+            Json(json!({ "id": "42", "handle": "Ana", "email": "ana@acme.test" })),
+        )
+    }
+    async fn meta(Path(key): Path<String>, headers: HeaderMap) -> (StatusCode, Json<Value>) {
+        if !authorized(&headers) {
+            return (StatusCode::FORBIDDEN, Json(json!({})));
+        }
+        if key != FIGMA_KEY {
+            return (StatusCode::NOT_FOUND, Json(json!({})));
+        }
+        (
+            StatusCode::OK,
+            Json(json!({ "file": {
+                "name": "Checkout redesign",
+                "folder_name": "Payments",
+                "editorType": "figma",
+                "last_touched_at": "2026-10-21T09:30:00Z",
+                "last_touched_by": { "handle": "Lazar" },
+                "thumbnail_url": "https://s3.test/thumb.png"
+            }})),
+        )
+    }
+    let router = Router::new()
+        .route("/v1/oauth/token", post(token))
+        .route("/v1/oauth/refresh", post(refresh))
+        .route("/v1/me", get(me))
+        .route("/v1/files/{key}/meta", get(meta));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind");
+    let addr = listener.local_addr().expect("addr");
+    tokio::spawn(async move {
+        let _ = axum::serve(listener, router).await;
+    });
+    format!("http://{addr}")
+}
+
+async fn figma_connected(pool: PgPool) -> Setup {
+    let base = fake_figma().await;
+    let config = crate::config::AppConfig {
+        figma_web_url: base.clone(),
+        figma_api_url: base,
+        ..test_config()
+    };
+    let (app, state) = app_and_state_with(pool, config).await;
+    let (owner, _email, owner_token) = seed_and_login(&app, &state, "f-owner", false).await;
+    let ws_id = seed_workspace(&state, owner, &format!("ws-{}", uuid::Uuid::new_v4())).await;
+    let s = Setup {
+        app,
+        state,
+        owner,
+        owner_token,
+        ws_id,
+    };
+    let design = format!("https://www.figma.com/design/{FIGMA_KEY}/Checkout");
+
+    assert!(matches!(
+        service::unfurl(&s.state, s.ws_id, s.owner, &design)
+            .await
+            .expect("unfurl"),
+        AppUnfurl::Unclaimed
+    ));
+    let (status, body) = send(
+        &s.app,
+        "PUT",
+        &format!("/api/workspaces/{}/apps/figma", s.ws_id),
+        Some(&s.owner_token),
+        Some(json!({ "client_id": "figma-client", "client_secret": "shh", "enabled": true })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert!(matches!(
+        service::unfurl(&s.state, s.ws_id, s.owner, &design)
+            .await
+            .expect("unfurl"),
+        AppUnfurl::Connect(_)
+    ));
+
+    let (status, body) = send(
+        &s.app,
+        "POST",
+        &format!("/api/workspaces/{}/apps/figma/connect", s.ws_id),
+        Some(&s.owner_token),
+        Some(json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    let url = reqwest::Url::parse(body["authorize_url"].as_str().expect("url")).expect("parse");
+    assert_eq!(url.path(), "/oauth");
+    assert!(url
+        .query_pairs()
+        .any(|(k, v)| k == "scope" && v == "file_metadata:read,current_user:read"));
+    assert!(url
+        .query_pairs()
+        .any(|(k, v)| k == "code_challenge_method" && v == "S256"));
+    let oauth_state = url
+        .query_pairs()
+        .find(|(k, _)| k == "state")
+        .map(|(_, v)| v.into_owned())
+        .expect("state");
+    let (status, body) = send(
+        &s.app,
+        "POST",
+        "/api/apps/connections",
+        Some(&s.owner_token),
+        Some(json!({ "code": "good-code", "state": oauth_state })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(body["external_account"], json!("Ana (ana@acme.test)"));
+    s
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_figma_design_gets_a_card_with_its_thumbnail(pool: PgPool) {
+    let s = figma_connected(pool).await;
+    match service::unfurl(
+        &s.state,
+        s.ws_id,
+        s.owner,
+        &format!("https://www.figma.com/design/{FIGMA_KEY}/Checkout?node-id=1-2"),
+    )
+    .await
+    .expect("unfurl")
+    {
+        AppUnfurl::Card(card) => {
+            assert_eq!(card.title, "Checkout redesign");
+            assert_eq!(card.subtitle.as_deref(), Some("Figma design"));
+            assert_eq!(card.provider.as_deref(), Some("figma"));
+            assert_eq!(card.image_url.as_deref(), Some("https://s3.test/thumb.png"));
+        }
+        _ => panic!("the connected poster's design is carded"),
+    }
+    assert!(matches!(
+        service::unfurl(
+            &s.state,
+            s.ws_id,
+            s.owner,
+            "https://www.figma.com/design/ZzZzZzZzZzZzZzZzZzZzZz/Secret"
+        )
+        .await
+        .expect("unfurl"),
+        AppUnfurl::Unclaimed
+    ));
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_expired_figma_token_is_refreshed_and_the_refresh_token_kept(pool: PgPool) {
+    let s = figma_connected(pool).await;
+    sqlx::query(
+        "UPDATE app_connections SET expires_at = NOW() - INTERVAL '1 hour' WHERE user_id = $1",
+    )
+    .bind(s.owner)
+    .execute(&s.state.pool)
+    .await
+    .expect("expire");
+
+    assert!(matches!(
+        service::unfurl(
+            &s.state,
+            s.ws_id,
+            s.owner,
+            &format!("https://www.figma.com/board/{FIGMA_KEY}/Retro"),
+        )
+        .await
+        .expect("unfurl"),
+        AppUnfurl::Card(_)
+    ));
+    let (expires_at, refresh): (Option<chrono::DateTime<chrono::Utc>>, Option<Vec<u8>>) =
+        sqlx::query_as(
+            "SELECT expires_at, refresh_token_encrypted FROM app_connections WHERE user_id = $1",
+        )
+        .bind(s.owner)
+        .fetch_one(&s.state.pool)
+        .await
+        .expect("connection");
+    assert!(
+        expires_at.is_some_and(|at| at > chrono::Utc::now()),
+        "a fresh expiry was stored"
+    );
+    assert!(
+        refresh.is_some(),
+        "Figma sends no new refresh token; the old one stays"
+    );
+}

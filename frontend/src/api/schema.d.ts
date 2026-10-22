@@ -3108,7 +3108,7 @@ export interface components {
          */
         PostPolicy: "everyone" | "moderators";
         /** @enum {string} */
-        Provider: "jira" | "github" | "google_drive";
+        Provider: "jira" | "github" | "google_drive" | "figma";
         PushKey: {
             enabled: boolean;
             public_key: string;
