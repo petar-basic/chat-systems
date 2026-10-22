@@ -15,7 +15,7 @@ use uuid::Uuid;
 use shared_common::errors::{AppError, AppResult};
 
 use super::imaging;
-use super::models::{FileRecord, FileUploadResponse, UploadQuery};
+use super::models::{ChannelFile, ChannelFilesQuery, FileRecord, FileUploadResponse, UploadQuery};
 use super::names;
 use super::ranges::ByteRange;
 use super::repo::NewFile;
@@ -35,6 +35,7 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(upload_file).layer(DefaultBodyLimit::disable()))
         .routes(routes!(get_file_meta, delete_file))
         .routes(routes!(list_files))
+        .routes(routes!(list_channel_files))
 }
 
 /// The one route with a wildcard segment, which the OpenAPI document does not
@@ -344,6 +345,41 @@ async fn list_files(
         .list_by_workspace_for_user(ws_id, auth.user_id, params.limit(), params.offset())
         .await?;
     Ok(Json(files.into()))
+}
+
+#[utoipa::path(
+    operation_id = "files_list_channel_files",
+    get, path = "/channels/{ch_id}/files", tag = "files",
+    params(ChannelFilesQuery),
+    responses((status = 200, body = DataList<ChannelFile>)))]
+async fn list_channel_files(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(ch_id): Path<Uuid>,
+    Query(query): Query<ChannelFilesQuery>,
+) -> AppResult<Json<DataList<ChannelFile>>> {
+    authz::require_channel_access(&state, ch_id, auth.user_id).await?;
+    let records = state
+        .file_repo
+        .for_channel(
+            ch_id,
+            query.kind.map(|kind| kind.as_str()),
+            query.cursor,
+            query.limit.unwrap_or(50).clamp(1, 100),
+        )
+        .await?;
+    let data = records
+        .iter()
+        .filter_map(|record| {
+            Some(ChannelFile {
+                attachment: service::attachment(&state, record),
+                message_id: record.message_id?,
+                user_id: record.user_id,
+                created_at: record.created_at,
+            })
+        })
+        .collect();
+    Ok(Json(DataList { data }))
 }
 
 #[utoipa::path(delete, path = "/files/{file_id}", tag = "files", responses((status = 200, body = StatusResponse)))]

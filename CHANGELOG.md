@@ -24,6 +24,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   stay as links. Take a backup first, as before any upgrade.
 - Migration 53 adds image sizes. Uploads of images now use up to 30 MB of memory each while
   they are processed.
+- Migration 54 adds indexes on `files` that downloads and attachments were missing; on a large
+  instance it takes a moment.
 
 ### Changed
 
@@ -48,6 +50,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - **Videos and audio play in the message.** MP4, WebM and the like get a player, voice notes
   and music an audio player, and both can seek: downloads now stream from storage and answer
   byte ranges, so a large file no longer costs its own size in server memory per download.
+- **A channel's files.** *Files* in the channel header lists everything shared there — images as
+  a grid that opens the gallery, everything else by type with who shared it and when — filtered
+  by kind, each leading back to its message.
 
 ## [2.3.0] — 2026-10-22
 

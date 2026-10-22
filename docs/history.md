@@ -1157,3 +1157,43 @@ to the browser. The card is the page plus its space and the owner's and last edi
 fetched in parallel; Confluence's v2 API takes only granular scopes.
 
 ---
+
+---
+
+## Wave 17 — Files and images ✅ shipped
+
+### [CS-055] Files and images the way Slack does them ✅ shipped
+A file used to leave the moment it was picked, pasted or dropped, as a message of its own whose
+body was `[file: name](url)`. That body *was* the link between a message and its file: the
+server parsed storage keys out of the text to know what to keep and what to delete.
+
+**Attachments belong to the message.** `files.message_id` is now the only link, and the linked
+files are copied into `messages.metadata.attachments` in the message's own transaction, so
+every path that returns or broadcasts a message carries them with no join and no new frame.
+A send takes up to ten of the sender's own *draft* uploads; an edit keeps a subset; a forward
+copies the files under new keys so each message still owns exactly its own; a scheduled
+message holds its drafts until a day after its send time. Drafts nobody sends are swept after
+a day. Migration 52 moved the old links out of message text — only where the file belonged to
+that message, so a forward's quote of someone else's file stayed a link. The composer got
+Slack's tray: files upload with a progress bar each, can be removed, and go out with the text;
+a pasted screenshot is never sent unseen.
+
+**Images.** Uploads are recognised by their bytes. PNG, JPEG, GIF and WebP up to 30 MB are
+processed off the request's thread: absurd canvases are refused before decoding, the upright
+size is stored so a message reserves the picture's box, wide images get a 720 px thumbnail
+(JPEG, or PNG with transparency — `image`'s WebP encoder is lossless only), and EXIF, XMP and
+text chunks are stripped from the original without re-encoding it, keeping a minimal EXIF
+block where orientation needs one. A phone photo's location never reaches storage.
+
+**Names, viewing, playing, finding.** File names keep what people wrote — *Izveštaj o
+radu.pdf* — with an ASCII key underneath and `filename*` on download. The preview became a
+gallery over a conversation's images. Downloads stream from storage and answer byte ranges,
+which is what lets video and audio play and seek in the message, and stops a download costing
+its file's size in memory. A channel's *Files* panel lists what was shared there by kind.
+Building it found that `files` had no index on `message_id`, `storage_key` or
+`thumbnail_key` — every download and every message's attachments had been a scan — which
+migration 54 added.
+
+Left out on purpose: HEIC conversion (libheif), video thumbnails and transcoding (ffmpeg),
+alt text and recorded clips.
+

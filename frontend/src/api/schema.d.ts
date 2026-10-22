@@ -451,6 +451,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/channels/{ch_id}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["files_list_channel_files"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/channels/{ch_id}/join": {
         parameters: {
             query?: never;
@@ -2155,6 +2171,14 @@ export interface components {
             position: number;
             url: string;
         };
+        ChannelFile: components["schemas"]["Attachment"] & {
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            message_id: string;
+            /** Format: uuid */
+            user_id: string;
+        };
         ChannelListing: components["schemas"]["Channel"] & {
             muted: boolean;
         };
@@ -2438,6 +2462,16 @@ export interface components {
                 position: number;
                 url: string;
             }[];
+        };
+        DataList_ChannelFile: {
+            data: (components["schemas"]["Attachment"] & {
+                /** Format: date-time */
+                created_at: string;
+                /** Format: uuid */
+                message_id: string;
+                /** Format: uuid */
+                user_id: string;
+            })[];
         };
         DataList_ChannelListing: {
             data: (components["schemas"]["Channel"] & {
@@ -4262,6 +4296,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CommandResponse"];
+                };
+            };
+        };
+    };
+    files_list_channel_files: {
+        parameters: {
+            query?: {
+                kind?: ("image" | "video" | "audio" | "document") | null;
+                cursor?: string | null;
+                limit?: number | null;
+            };
+            header?: never;
+            path: {
+                ch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_ChannelFile"];
                 };
             };
         };

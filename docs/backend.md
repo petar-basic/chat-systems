@@ -400,6 +400,7 @@ is always one safe path segment and keeps its extension. Downloads send both
 | GET | `/files/download/*key` | Header: `Range?` | The file, streamed from storage — a single `bytes=` range answers `206` with `Content-Range`, an unsatisfiable one `416`, several ranges the whole file; always `Accept-Ranges: bytes` |
 | DELETE | `/files/:file_id` | — | `{ status: "deleted" }` |
 | GET | `/files/workspace/:ws_id` | Query: `limit=50, offset=0` | `{ data: FileRecord[] }` |
+| GET | `/channels/:ch_id/files` | Query: `kind?` (`image`, `video`, `audio`, `document`), `cursor?` (a file id), `limit=50` | `{ data: ChannelFile[] }` — the files of the channel's live messages, newest first, to whoever can read the channel |
 
 ---
 

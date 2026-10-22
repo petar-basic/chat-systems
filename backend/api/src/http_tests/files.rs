@@ -1546,3 +1546,127 @@ async fn a_download_serves_the_range_it_is_asked_for(pool: PgPool) {
     assert_eq!(status, StatusCode::OK, "several ranges get the whole file");
     assert_eq!(body, b"0123456789");
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_channel_lists_its_files_by_kind_newest_first(pool: PgPool) {
+    let mut config = test_config();
+    config.max_upload_bytes = 4 * 1024 * 1024;
+    let (app, state) = app_and_state_with(pool, config).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "chfiles-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Channel Files WS").await;
+    let ch = seed_channel(&state, ws_id, owner_id, "design", true).await;
+    let (_, _, outsider) = {
+        let (id, _, token) = seed_and_login(&app, &state, "chfiles-outsider", false).await;
+        add_ws_member(&state, ws_id, id, "member").await;
+        (id, (), token)
+    };
+
+    let mut post = Vec::new();
+    for (name, ctype, bytes) in [
+        ("first.pdf", "application/pdf", b"%PDF-1.7".to_vec()),
+        ("shot.jpg", "image/jpeg", phone_photo(40, 20)),
+        ("clip.mp4", "video/mp4", b"not really a video".to_vec()),
+        ("notes.txt", "text/plain", b"notes".to_vec()),
+    ] {
+        let (_, uploaded) = upload_request(&app, ws_id, Some(&owner), name, ctype, &bytes).await;
+        let (_, msg) = send(
+            &app,
+            "POST",
+            &format!("/api/channels/{ch}/messages"),
+            Some(&owner),
+            Some(json!({ "content": name, "attachment_ids": [uploaded[0]["id"]] })),
+        )
+        .await;
+        post.push(msg["id"].as_str().expect("id").to_string());
+    }
+    let list = |query: &str| {
+        let app = app.clone();
+        let token = owner.clone();
+        let uri = format!("/api/channels/{ch}/files{query}");
+        async move {
+            let (status, body) = send(&app, "GET", &uri, Some(&token), None).await;
+            assert_eq!(status, StatusCode::OK, "{body:?}");
+            body["data"]
+                .as_array()
+                .expect("data")
+                .iter()
+                .map(|f| f["filename"].as_str().expect("name").to_string())
+                .collect::<Vec<_>>()
+        }
+    };
+
+    assert_eq!(
+        list("").await,
+        vec!["notes.txt", "clip.mp4", "shot.jpg", "first.pdf"]
+    );
+    assert_eq!(list("?kind=image").await, vec!["shot.jpg"]);
+    assert_eq!(list("?kind=video").await, vec!["clip.mp4"]);
+    assert_eq!(list("?kind=document").await, vec!["notes.txt", "first.pdf"]);
+
+    let (_, page) = send(
+        &app,
+        "GET",
+        &format!("/api/channels/{ch}/files?limit=2"),
+        Some(&owner),
+        None,
+    )
+    .await;
+    assert_eq!(page["data"][0]["message_id"], json!(post[3]));
+    let cursor = page["data"][1]["id"].as_str().expect("id");
+    assert_eq!(
+        list(&format!("?limit=2&cursor={cursor}")).await,
+        vec!["shot.jpg", "first.pdf"]
+    );
+
+    let (status, _) = send(
+        &app,
+        "DELETE",
+        &format!("/api/messages/{}", post[0]),
+        Some(&owner),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(list("?kind=document").await, vec!["notes.txt"]);
+
+    let (status, _) = send(
+        &app,
+        "GET",
+        &format!("/api/channels/{ch}/files"),
+        Some(&outsider),
+        None,
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "a private channel's files stay private"
+    );
+    let (status, _) = send(
+        &app,
+        "GET",
+        &format!("/api/channels/{ch}/files"),
+        None,
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    let (status, _) = send(
+        &app,
+        "GET",
+        &format!("/api/channels/{}/files", Uuid::new_v4()),
+        Some(&owner),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _) = send(
+        &app,
+        "GET",
+        &format!("/api/channels/{ch}/files?kind=spreadsheet"),
+        Some(&owner),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
