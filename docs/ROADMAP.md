@@ -9,6 +9,8 @@ ticket in [`docs/tickets/`](./tickets/INDEX.md); a ticket's file is deleted when
 
 | Ticket | What | Status |
 |---|---|---|
+| [CS-056](./tickets/CS-056-ui-primitives.md) | Shared `Button`, `IconButton`, `Spinner`, panel and dialog headers in place of 36 hand-styled buttons, 31 spinners and 12 panel headers; sentence case; a lint rule against drift | **Next.** Misaligned and mis-sized controls are the first thing a new user sees |
+| [CS-057](./tickets/CS-057-later.md) | *Later*: saved messages and reminders as one list with *In progress / Completed / Archived* and due times, like Slack's | After CS-056 |
 | [CS-037](./tickets/CS-037-huddle-sfu.md) | SFU (LiveKit) for huddles above the mesh's six-to-eight ceiling | On request. Adds a media server to the stack; nothing below a 20-person team needs it |
 
 Two decisions were considered on 2026-09-02 and deferred with their reasoning below:
