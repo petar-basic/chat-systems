@@ -26,6 +26,7 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(list_messages, send_message))
         .routes(routes!(list_pins))
         .routes(routes!(mark_read))
+        .routes(routes!(mark_workspace_read))
         .routes(routes!(mark_unread))
         .routes(routes!(list_unreads))
         .routes(routes!(update_message, delete_message))
@@ -748,6 +749,31 @@ async fn mark_read(
         .await
     {
         tracing::warn!(channel_id = %ch_id, "failed to announce the read position: {e}");
+    }
+    Ok(Json(StatusResponse { status: "read" }))
+}
+
+#[utoipa::path(
+    post, path = "/workspaces/{ws_id}/read", tag = "messages",
+    responses((status = 200, body = StatusResponse)))]
+async fn mark_workspace_read(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(ws_id): Path<Uuid>,
+) -> AppResult<Json<StatusResponse>> {
+    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
+    let changed = state
+        .message_repo
+        .mark_workspace_read(ws_id, auth.user_id)
+        .await?;
+    for read in &changed {
+        if let Err(e) = state
+            .publisher
+            .publish_read_state(auth.user_id, ws_id, read)
+            .await
+        {
+            tracing::warn!(channel_id = %read.channel_id, "failed to announce the read position: {e}");
+        }
     }
     Ok(Json(StatusResponse { status: "read" }))
 }

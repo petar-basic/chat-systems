@@ -51,6 +51,7 @@ export default function ThreadPanel({ parentMessage, members, channels, onClose 
       <div
         className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 flex flex-col border-l border-line/50 bg-app lg:bg-app/80"
         data-qa="thread-panel"
+        data-message-pane
       >
         <PanelHeader
           title="Thread"

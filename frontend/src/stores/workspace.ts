@@ -51,6 +51,7 @@ interface WorkspaceState {
     entries: Array<{ channelId: string; huddleId: string; initiatorId: string }>,
   ) => void;
   markChannelRead: (channelId: string) => void;
+  markEverythingRead: () => void;
   setChannelReadState: (channelId: string, unread: number, mentions: number) => void;
   markConversationRead: (conversationId: string) => void;
   markConversationUnread: (conversationId: string) => void;
@@ -138,6 +139,15 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       return { unreadChannels: nextUnread, mentionChannels: nextMention, unreadCounts, mentionCounts };
     });
   },
+
+  markEverythingRead: () =>
+    set({
+      unreadChannels: new Set<string>(),
+      mentionChannels: new Set<string>(),
+      unreadCounts: {},
+      mentionCounts: {},
+      unreadConversations: new Set<string>(),
+    }),
 
   setChannelReadState: (channelId, unread, mentions) => {
     set((s) => {

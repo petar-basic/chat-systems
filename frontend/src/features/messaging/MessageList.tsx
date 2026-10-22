@@ -5,6 +5,7 @@ import { MessageSquare } from 'lucide-react';
 import MessageItem from './MessageItem';
 import VirtualMessageList from './VirtualMessageList';
 import { GalleryProvider } from './GalleryProvider';
+import { RovingContext, createRovingStore } from './rovingFocus';
 import { buildMessageRows, type MessageRow } from './messageRows';
 import { useWorkspaceStore, type Message, type WorkspaceMember, type Channel } from '@/stores/workspace';
 import { useMessages, messagesOldestFirst } from '@/hooks/queries/useMessages';
@@ -78,6 +79,12 @@ export default function MessageList({
 
   const rows = useMemo(() => buildMessageRows(messages, readBoundary), [messages, readBoundary]);
 
+  const [roving] = useState(createRovingStore);
+  const lastMessageId = messages.at(-1)?.id ?? null;
+  useEffect(() => {
+    roving.setFallback(lastMessageId);
+  }, [roving, lastMessageId]);
+
   // A permalink can point at a message older than anything loaded, so keep
   // pulling pages until it turns up; `scrollToKey` does the rest once it does.
   useEffect(() => {
@@ -145,18 +152,20 @@ export default function MessageList({
       }
     >
       <GalleryProvider messages={messages}>
-        <VirtualMessageList
-          rows={rows}
-          renderRow={renderRow}
-          hasOlder={!!hasNextPage}
-          isLoadingOlder={isFetchingNextPage}
-          onLoadOlder={fetchNextPage}
-          scrollToKey={scrollTarget}
-          stickKey={channelId}
-          onScrollToKeyHandled={() => setScrollTarget(undefined)}
-          qa="message-list"
-          ariaLabel="Messages"
-        />
+        <RovingContext value={roving}>
+          <VirtualMessageList
+            rows={rows}
+            renderRow={renderRow}
+            hasOlder={!!hasNextPage}
+            isLoadingOlder={isFetchingNextPage}
+            onLoadOlder={fetchNextPage}
+            scrollToKey={scrollTarget}
+            stickKey={channelId}
+            onScrollToKeyHandled={() => setScrollTarget(undefined)}
+            qa="message-list"
+            ariaLabel="Messages"
+          />
+        </RovingContext>
       </GalleryProvider>
     </QueryState>
   );

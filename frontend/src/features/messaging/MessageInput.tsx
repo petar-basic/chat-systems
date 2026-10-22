@@ -4,6 +4,7 @@ import { toUserMessage } from '@/lib/errors';
 import { formatDateTime } from '@/lib/datetime';
 import { Extension } from '@tiptap/core';
 import { useEditor, EditorContent } from '@tiptap/react';
+import { editLastOwnMessage } from './messageKeys';
 import Placeholder from '@tiptap/extension-placeholder';
 import Mention from '@tiptap/extension-mention';
 import { createEditorExtensions } from '@/lib/tiptapExtensions';
@@ -146,6 +147,10 @@ export default function MessageInput({
               if (mention?.active || emoji?.active) return false;
               sendRef.current();
               return true;
+            },
+            ArrowUp: () => {
+              if (editingRef.current || !this.editor.isEmpty) return false;
+              return editLastOwnMessage(this.editor.view.dom);
             },
             Escape: () => {
               const mention = mentionSuggestionPluginKey.getState(this.editor.state) as
@@ -301,7 +306,10 @@ export default function MessageInput({
           onChange={handleFileChange}
         />
       )}
-      <div className="@container bg-surface border border-line rounded-xl">
+      <div
+        className="@container bg-surface border border-line rounded-xl"
+        data-composer={editing ? undefined : true}
+      >
         {attachments && <AttachmentTray items={attachments.items} onRemove={attachments.remove} />}
         <div className="px-4 pt-3 pb-1">
           <EditorContent editor={editor} className="tiptap-editor" />

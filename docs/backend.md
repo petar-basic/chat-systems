@@ -355,6 +355,7 @@ their own message, and a named user inside a broadcast is notified once, not twi
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | POST | `/channels/:ch_id/read` | `{ message_id }` | `{ status: "read" }` |
+| POST | `/workspaces/:ws_id/read` | — | `{ status: "read" }` — moves the caller to the newest message in every unread channel and conversation of the workspace, one `channel.read_state` per channel |
 | GET | `/workspaces/:ws_id/unreads` | Query: `limit=20 (≤50), offset=0` | `{ data: UnreadGroup[], next_offset }` — every channel and DM the caller has unread messages in, muted last and otherwise newest activity first, each with its newest 20 unread messages (oldest first, the caller's own left out) |
 | POST | `/channels/:ch_id/unread` | `{ message_id }` | `ReadState` — moves the caller's read position to just before that message and recomputes their unread and mention counts for the channel |
 | GET | `/search` | Query: `q, workspace_id, channel_id?, user_id?, limit=20, offset=0` | `{ data: Message[] }` |

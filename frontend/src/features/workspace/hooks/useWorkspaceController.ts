@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import type { CreateChannelDraft } from '@/models/channel';
 import { useNavigate, useParams } from 'react-router';
@@ -14,6 +14,8 @@ import { useRightPanel } from './useRightPanel';
 import { useWorkspaceData } from './useWorkspaceData';
 import { useWorkspaceRouting } from './useWorkspaceRouting';
 import { useComposer } from './useComposer';
+import { useWorkspaceShortcuts } from './useWorkspaceShortcuts';
+import { useMarkWorkspaceRead } from '@/hooks/queries/useUnreads';
 import { useMessageActions } from './useMessageActions';
 
 export function useWorkspaceController() {
@@ -52,17 +54,7 @@ export function useWorkspaceController() {
   const [showAddInstance, setShowAddInstance] = useState(false);
   const [quickSwitcherOpen, setQuickSwitcherOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        setQuickSwitcherOpen((v) => !v);
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   const panel = useRightPanel(currentChannel?.id, currentConversationId);
 
@@ -78,18 +70,6 @@ export function useWorkspaceController() {
   });
 
   const unreadsWorkspaceId = workspaceId ?? currentWorkspace?.id;
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.shiftKey && e.altKey && e.code === 'KeyA' && unreadsWorkspaceId) {
-        e.preventDefault();
-        setMobileNavOpen(false);
-        navigate(ROUTES.unreads(unreadsWorkspaceId));
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [navigate, unreadsWorkspaceId]);
-
   const handleOpenUnreads = useCallback(() => {
     if (!unreadsWorkspaceId) return;
     setMobileNavOpen(false);
@@ -115,27 +95,33 @@ export function useWorkspaceController() {
     [panel, navigate],
   );
 
+  const markChannelReadServer = useCallback(
+    (channelId: string) => {
+      const cached = queryClient.getQueryData<MessagesInfiniteData>(QUERY_KEYS.messages(channelId));
+      const lastPage = cached?.pages[cached.pages.length - 1];
+      const newestMsg = lastPage?.data[lastPage.data.length - 1];
+      if (!newestMsg) return;
+      getApiForInstance(currentWorkspace?.instanceUrl)
+        .typed((c) =>
+          c.POST('/channels/{ch_id}/read', {
+            params: { path: { ch_id: channelId } },
+            body: { message_id: newestMsg.id },
+          }),
+        )
+        .catch(() => {});
+    },
+    [queryClient, currentWorkspace],
+  );
+
   const handleSelectChannel = useCallback(
     (ch: Channel) => {
       setMobileNavOpen(false);
       const wsId = workspaceId || currentWorkspace?.id;
       if (!wsId) return;
       navigate(ROUTES.channel(wsId, ch.id));
-      const cached = queryClient.getQueryData<MessagesInfiniteData>(QUERY_KEYS.messages(ch.id));
-      const lastPage = cached?.pages[cached.pages.length - 1];
-      const newestMsg = lastPage?.data[lastPage.data.length - 1];
-      if (newestMsg) {
-        getApiForInstance(currentWorkspace?.instanceUrl)
-          .typed((c) =>
-            c.POST('/channels/{ch_id}/read', {
-              params: { path: { ch_id: ch.id } },
-              body: { message_id: newestMsg.id },
-            }),
-          )
-          .catch(() => {});
-      }
+      markChannelReadServer(ch.id);
     },
-    [workspaceId, currentWorkspace, navigate, queryClient],
+    [workspaceId, currentWorkspace, navigate, markChannelReadServer],
   );
 
   const handleOpenConversation = useCallback(
@@ -193,6 +179,25 @@ export function useWorkspaceController() {
     [currentWorkspace, createChannelMutation, handleSelectChannel],
   );
 
+  const markWorkspaceRead = useMarkWorkspaceRead(unreadsWorkspaceId);
+  const markChannelRead = useWorkspaceStore((s) => s.markChannelRead);
+  useWorkspaceShortcuts({
+    quickSwitcher: () => setQuickSwitcherOpen((open) => !open),
+    shortcuts: () => setShortcutsOpen((open) => !open),
+    allUnreads: handleOpenUnreads,
+    markChannelRead: () => {
+      if (currentChannel) {
+        markChannelRead(currentChannel.id);
+        markChannelReadServer(currentChannel.id);
+      } else if (currentConversationId) {
+        data.markConversationReadServer(currentConversationId);
+      }
+    },
+    markAllRead: () => {
+      if (unreadsWorkspaceId) markWorkspaceRead.mutate();
+    },
+  });
+
   const actions = useMessageActions({
     workspaceId,
     currentWsInstanceUrl: data.currentWsInstanceUrl,
@@ -232,6 +237,8 @@ export function useWorkspaceController() {
     setQuickSwitcherOpen,
     mobileNavOpen,
     setMobileNavOpen,
+    shortcutsOpen,
+    setShortcutsOpen,
     urlMessageId: routing.urlMessageId,
     isUnreadsRoute: routing.isUnreadsRoute,
     handleOpenUnreads,

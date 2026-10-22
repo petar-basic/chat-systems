@@ -14,6 +14,17 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
+## [Unreleased]
+
+### Added
+
+- **Keyboard shortcuts, as in Slack.** ⌥↑ / ⌥↓ move through the sidebar's channels and
+  conversations, ⌥⇧↑ / ⌥⇧↓ through the unread ones; Esc marks the open channel read and ⇧Esc
+  marks everything in the workspace read (`POST /workspaces/{id}/read`). ↑ in an empty message
+  box edits your last message. Messages are one Tab stop: ↑ / ↓ walk them, and on the focused
+  one `E` edits, `T` or Enter opens the thread, `R` reacts, `A` saves for later, `P` pins and Esc
+  goes back to the message box. ⌘/ (Ctrl+/) lists every shortcut.
+
 ## [3.0.0] — 2026-10-22
 
 ### Upgrading from 2.4.0
