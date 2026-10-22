@@ -8,7 +8,7 @@ import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { useThreadMessages, useSendThreadReply, useThreadReplyActions } from '@/hooks/queries/useThreads';
 import RichTextDisplay from './RichTextDisplay';
 import { MessageInput, MessageItem } from '@/features/messaging';
-import { useAttachmentUpload } from '@/features/messaging/useAttachmentUpload';
+import { asAttachments, useComposerAttachments } from '@/features/messaging/useComposerAttachments';
 
 interface Props {
   parentMessage: Message;
@@ -29,15 +29,14 @@ export default function ThreadPanel({ parentMessage, members, channels, onClose 
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [replies]);
 
-  const handleSend = async (content: string) => {
-    sendReply.mutate({ content, id: crypto.randomUUID() });
-  };
-
-  const { uploading, handleFileUpload } = useAttachmentUpload({
+  const attachments = useComposerAttachments({
     workspaceId: currentWorkspace?.id,
     instanceUrl: currentWorkspace?.instanceUrl,
-    send: (content) => sendReply.mutate({ content, id: crypto.randomUUID() }),
+    resetKey: parentMessage.id,
   });
+  const handleSend = async (content: string) => {
+    sendReply.mutate({ content, id: crypto.randomUUID(), attachments: asAttachments(attachments.take()) });
+  };
 
   const { getUser } = useUserCache();
   const parentSender = getUser(parentMessage.user_id);
@@ -71,7 +70,10 @@ export default function ThreadPanel({ parentMessage, members, channels, onClose 
                 })}
               </span>
             </div>
-            <RichTextDisplay content={parentMessage.content} />
+            <RichTextDisplay
+              content={parentMessage.content}
+              attachments={parentMessage.metadata?.attachments}
+            />
           </div>
         </div>
         <div className="mt-2 text-xs text-muted">
@@ -119,8 +121,7 @@ export default function ThreadPanel({ parentMessage, members, channels, onClose 
           channels={channels}
           draftKey={`thread:${parentMessage.id}`}
           onSend={handleSend}
-          onFileUpload={handleFileUpload}
-          uploading={uploading}
+          attachments={attachments}
         />
       </div>
     </div>

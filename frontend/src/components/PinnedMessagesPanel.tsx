@@ -29,7 +29,7 @@ function PinnedMessageRow({ message, onNavigate }: { message: Message; onNavigat
         </span>
       </div>
       <div className="line-clamp-3">
-        <RichTextDisplay content={message.content} />
+        <RichTextDisplay content={message.content} attachments={message.metadata?.attachments} compact />
       </div>
     </button>
   );

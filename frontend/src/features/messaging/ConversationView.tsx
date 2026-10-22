@@ -11,12 +11,11 @@ import { ConnectionBanner } from '@/shared/components/ConnectionBanner/Connectio
 import { HuddleStartButton } from '@/features/huddle';
 import { useTypingSignal, typingTargetOf } from '@/shared/hooks/useTypingSignal';
 import { FileDropZone } from '@/shared/components/FileDropZone';
-import { uploadFilesSequentially } from '@/lib/fileUploads';
 import PresenceDot from '@/components/PresenceDot';
 import TypingIndicator from '@/components/TypingIndicator';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
-import { useAttachmentUpload } from './useAttachmentUpload';
+import { asAttachments, useComposerAttachments } from './useComposerAttachments';
 
 interface Props {
   workspaceId: string;
@@ -60,22 +59,14 @@ export default function ConversationView({
 
   const sendMutation = useSendMessage(conversation.id, currentUserId);
   const { signalTyping, stopTyping } = useTypingSignal(typingTargetOf(conversation.id), instanceUrl);
+  const attachments = useComposerAttachments({ workspaceId, instanceUrl, resetKey: conversation.id });
   const handleSend = async (content: string) => {
     stopTyping();
-    sendMutation.mutate({ content, id: crypto.randomUUID() });
+    sendMutation.mutate({ content, id: crypto.randomUUID(), attachments: asAttachments(attachments.take()) });
   };
 
-  const { uploading, handleFileUpload } = useAttachmentUpload({
-    workspaceId,
-    instanceUrl,
-    send: (content) => sendMutation.mutate({ content, id: crypto.randomUUID() }),
-  });
-
   return (
-    <FileDropZone
-      className="flex-1 flex min-w-0"
-      onFiles={(files) => void uploadFilesSequentially(files, handleFileUpload)}
-    >
+    <FileDropZone className="flex-1 flex min-w-0" onFiles={attachments.add}>
       <div role="main" aria-label="Direct message" className="flex-1 flex flex-col min-w-0">
         <ConnectionBanner instanceUrl={instanceUrl} />
         <div className="h-12 px-4 flex items-center gap-3 border-b border-line/50 shrink-0">
@@ -151,9 +142,8 @@ export default function ConversationView({
           members={members}
           channels={channels}
           onSend={handleSend}
-          onFileUpload={handleFileUpload}
+          attachments={attachments}
           onTyping={signalTyping}
-          uploading={uploading}
           scheduleTarget={{ channelId: conversation.id }}
           workspaceId={workspaceId}
           instanceUrl={instanceUrl}

@@ -1,4 +1,5 @@
 use super::common::*;
+use crate::workspace::models::ChannelRole;
 use axum::body::Body;
 use axum::http::{header, Request, StatusCode};
 use serde_json::json;
@@ -30,7 +31,7 @@ async fn upload_request(
     data: &[u8],
 ) -> (StatusCode, serde_json::Value) {
     let body = multipart(BOUNDARY, filename, ctype, data);
-    let uri = format!("/api/files/upload/{ws_id}");
+    let uri = format!("/api/files/upload/{ws_id}?draft=true");
     let mut builder = Request::builder().method("POST").uri(uri).header(
         header::CONTENT_TYPE,
         format!("multipart/form-data; boundary={BOUNDARY}"),
@@ -435,8 +436,6 @@ async fn delete_missing_file_is_not_found(pool: PgPool) {
 
 #[test_macros::db_test(migrations = "../migrations")]
 async fn private_channel_attachment_is_gated_to_channel_members(pool: PgPool) {
-    use crate::workspace::models::ChannelRole;
-
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _oemail, owner_token) = seed_and_login(&app, &state, "owner", false).await;
     let ws_id = seed_workspace(&state, owner_id, "files-private-ws").await;
@@ -473,7 +472,7 @@ async fn private_channel_attachment_is_gated_to_channel_members(pool: PgPool) {
         "POST",
         &format!("/api/channels/{ch_id}/messages"),
         Some(&owner_token),
-        Some(serde_json::json!({ "content": format!("[file: leak.txt]({url})") })),
+        Some(serde_json::json!({ "content": "", "attachment_ids": [up_body[0]["id"]] })),
     )
     .await;
     assert_eq!(send_status, StatusCode::OK, "send: {send_body:?}");
@@ -498,14 +497,14 @@ async fn private_channel_attachment_is_gated_to_channel_members(pool: PgPool) {
     );
 }
 
-async fn upload_one(app: &axum::Router, token: &str, ws_id: Uuid, name: &str) -> String {
+async fn upload_one(app: &axum::Router, token: &str, ws_id: Uuid, name: &str) -> (String, String) {
     let boundary = "X-BOUNDARY";
     let body = format!(
         "--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{name}\"\r\nContent-Type: text/plain\r\n\r\nhello\r\n--{boundary}--\r\n"
     );
     let request = axum::http::Request::builder()
         .method("POST")
-        .uri(format!("/api/files/upload/{ws_id}"))
+        .uri(format!("/api/files/upload/{ws_id}?draft=true"))
         .header(axum::http::header::AUTHORIZATION, format!("Bearer {token}"))
         .header(
             axum::http::header::CONTENT_TYPE,
@@ -521,13 +520,15 @@ async fn upload_one(app: &axum::Router, token: &str, ws_id: Uuid, name: &str) ->
         .await
         .unwrap();
     let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-    value[0]["url"]
+    let key = value[0]["url"]
         .as_str()
         .expect("upload response carries a url")
         .split("/api/files/download/")
         .nth(1)
         .expect("url contains a storage key")
-        .to_string()
+        .to_string();
+    let id = value[0]["id"].as_str().expect("file id").to_string();
+    (id, key)
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
@@ -543,7 +544,7 @@ async fn a_dm_attachment_is_readable_by_participants_and_nobody_else(pool: PgPoo
         (id, (), token)
     };
 
-    let key = upload_one(&app, &alice, ws_id, "secret.txt").await;
+    let (file_id, key) = upload_one(&app, &alice, ws_id, "secret.txt").await;
 
     let (status, conv) = send(
         &app,
@@ -561,7 +562,7 @@ async fn a_dm_attachment_is_readable_by_participants_and_nobody_else(pool: PgPoo
         "POST",
         &format!("/api/channels/{conv_id}/messages"),
         Some(&alice),
-        Some(json!({ "content": format!("here it is /api/files/download/{key}") })),
+        Some(json!({ "content": "here it is", "attachment_ids": [file_id] })),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "send dm: {msg:?}");
@@ -586,7 +587,7 @@ async fn an_unposted_upload_belongs_to_whoever_uploaded_it(pool: PgPool) {
     let (bob_id, _, bob) = seed_and_login(&app, &state, "draft-bob", false).await;
     add_ws_member(&state, ws_id, bob_id, "member").await;
 
-    let key = upload_one(&app, &alice, ws_id, "draft.txt").await;
+    let (_, key) = upload_one(&app, &alice, ws_id, "draft.txt").await;
     let download = format!("/api/files/download/{key}");
 
     let (status, _b) = send(&app, "GET", &download, Some(&alice), None).await;
@@ -609,7 +610,7 @@ async fn an_avatar_stays_readable_to_the_workspace(pool: PgPool) {
     add_ws_member(&state, ws_id, bob_id, "member").await;
     let (_, _, outsider) = seed_and_login(&app, &state, "avatar-outsider", false).await;
 
-    let key = upload_one(&app, &alice, ws_id, "face.png").await;
+    let (_, key) = upload_one(&app, &alice, ws_id, "face.png").await;
     let download = format!("/api/files/download/{key}");
 
     // Before it is anybody's avatar it is just a draft.
@@ -695,17 +696,17 @@ async fn a_channel_moderator_can_take_down_somebody_elses_file(pool: PgPool) {
         upload_request(&app, ws_id, Some(&poster), "bad.txt", "text/plain", b"bad").await;
     assert_eq!(status, StatusCode::OK, "upload: {uploaded:?}");
     let file_id = uploaded[0]["id"].as_str().expect("file id").to_string();
-    let url = uploaded[0]["url"].as_str().expect("url").to_string();
 
-    let (status, _) = send(
+    let (status, posted) = send(
         &app,
         "POST",
         &format!("/api/channels/{ch}/messages"),
         Some(&poster),
-        Some(json!({ "content": format!("here [bad]({url})") })),
+        Some(json!({ "content": "here", "attachment_ids": [file_id] })),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
+    let msg_id = posted["id"].as_str().expect("message id").to_string();
 
     let (bystander_id, bystander_email) = seed(&state, "mod-bystander", false).await;
     add_ws_member(&state, ws_id, bystander_id, "member").await;
@@ -746,6 +747,14 @@ async fn a_channel_moderator_can_take_down_somebody_elses_file(pool: PgPool) {
     .await
     .expect("count");
     assert_eq!(audited.0, 1, "taking down somebody's file is audited");
+
+    let left: Option<serde_json::Value> =
+        sqlx::query_scalar("SELECT metadata->'attachments' FROM messages WHERE id = $1")
+            .bind(uuid::Uuid::parse_str(&msg_id).expect("uuid"))
+            .fetch_one(&state.pool)
+            .await
+            .expect("metadata");
+    assert_eq!(left, None, "the message no longer shows the file");
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
@@ -766,7 +775,7 @@ async fn deleting_a_message_takes_its_attachment_with_it(pool: PgPool) {
         "POST",
         &format!("/api/channels/{ch}/messages"),
         Some(&owner),
-        Some(json!({ "content": format!("see [doc]({url})") })),
+        Some(json!({ "content": "see", "attachment_ids": [uploaded[0]["id"]] })),
     )
     .await;
     let msg_id = msg["id"].as_str().expect("message id").to_string();
@@ -824,20 +833,31 @@ async fn editing_a_message_releases_the_attachment_it_drops(pool: PgPool) {
         "POST",
         &format!("/api/channels/{ch}/messages"),
         Some(&owner),
-        Some(json!({ "content": format!("[a]({kept_url}) [b]({dropped_url})") })),
+        Some(
+            json!({ "content": "two files", "attachment_ids": [kept[0]["id"], dropped[0]["id"]] }),
+        ),
     )
     .await;
     let msg_id = msg["id"].as_str().expect("message id").to_string();
+    assert_eq!(
+        msg["metadata"]["attachments"].as_array().map(Vec::len),
+        Some(2)
+    );
 
     let (status, body) = send(
         &app,
         "PATCH",
         &format!("/api/messages/{msg_id}"),
         Some(&owner),
-        Some(json!({ "content": format!("[a]({kept_url})") })),
+        Some(json!({ "content": "one file", "attachment_ids": [kept[0]["id"]] })),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "edit: {body:?}");
+    assert_eq!(body["metadata"]["attachments"][0]["id"], kept[0]["id"]);
+    assert_eq!(
+        body["metadata"]["attachments"].as_array().map(Vec::len),
+        Some(1)
+    );
 
     let dropped_rows: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM files WHERE storage_key = $1")
         .bind(&dropped_key)
@@ -852,4 +872,330 @@ async fn editing_a_message_releases_the_attachment_it_drops(pool: PgPool) {
         .await
         .expect("count");
     assert_eq!(kept_rows, 1, "the attachment still referenced stays");
+}
+
+async fn draft(app: &axum::Router, ws_id: Uuid, token: &str, name: &str) -> serde_json::Value {
+    let (status, body) =
+        upload_request(app, ws_id, Some(token), name, "text/plain", name.as_bytes()).await;
+    assert_eq!(status, StatusCode::OK, "upload: {body:?}");
+    body[0]["id"].clone()
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn files_and_text_go_out_as_one_message(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "one-msg-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "One Message WS").await;
+    let ch = seed_channel(&state, ws_id, owner_id, "main", false).await;
+    let first = draft(&app, ws_id, &owner, "a.txt").await;
+    let second = draft(&app, ws_id, &owner, "b.txt").await;
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch}/messages"),
+        Some(&owner),
+        Some(json!({ "content": "  " })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "no text and no files"
+    );
+
+    let (status, msg) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch}/messages"),
+        Some(&owner),
+        Some(json!({ "content": "", "attachment_ids": [second, first] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{msg:?}");
+    let names: Vec<&str> = msg["metadata"]["attachments"]
+        .as_array()
+        .expect("attachments")
+        .iter()
+        .map(|a| a["filename"].as_str().expect("name"))
+        .collect();
+    assert_eq!(
+        names,
+        vec!["b.txt", "a.txt"],
+        "in the order they were attached"
+    );
+
+    let (_, page) = send(
+        &app,
+        "GET",
+        &format!("/api/channels/{ch}/messages"),
+        Some(&owner),
+        None,
+    )
+    .await;
+    assert_eq!(
+        page["data"][0]["metadata"]["attachments"]
+            .as_array()
+            .map(Vec::len),
+        Some(2),
+        "a listed message carries its files"
+    );
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch}/messages"),
+        Some(&owner),
+        Some(json!({ "content": "again", "attachment_ids": [first] })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "a sent file cannot be attached a second time"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn only_your_own_unsent_drafts_can_be_attached(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "own-drafts-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Own Drafts WS").await;
+    let ch = seed_channel(&state, ws_id, owner_id, "main", false).await;
+    let (bob_id, _, bob) = seed_and_login(&app, &state, "own-drafts-bob", false).await;
+    add_ws_member(&state, ws_id, bob_id, "member").await;
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(ch, bob_id, &ChannelRole::Member)
+        .await
+        .expect("join");
+
+    let owners = draft(&app, ws_id, &owner, "mine.txt").await;
+    let post = |token: String, body: serde_json::Value| {
+        let app = app.clone();
+        async move {
+            send(
+                &app,
+                "POST",
+                &format!("/api/channels/{ch}/messages"),
+                Some(&token),
+                Some(body),
+            )
+            .await
+            .0
+        }
+    };
+
+    assert_eq!(
+        post(
+            bob.clone(),
+            json!({ "content": "x", "attachment_ids": [owners] })
+        )
+        .await,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "somebody else's draft"
+    );
+    assert_eq!(
+        post(
+            owner.clone(),
+            json!({ "content": "x", "attachment_ids": [owners, owners] })
+        )
+        .await,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "the same file twice"
+    );
+    let eleven: Vec<serde_json::Value> = (0..11).map(|_| json!(Uuid::new_v4())).collect();
+    assert_eq!(
+        post(
+            owner.clone(),
+            json!({ "content": "x", "attachment_ids": eleven })
+        )
+        .await,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "more than ten"
+    );
+
+    let boundary = "plain-upload";
+    let request = Request::builder()
+        .method("POST")
+        .uri(format!("/api/files/upload/{ws_id}"))
+        .header(header::AUTHORIZATION, format!("Bearer {owner}"))
+        .header(
+            header::CONTENT_TYPE,
+            format!("multipart/form-data; boundary={boundary}"),
+        )
+        .body(Body::from(multipart(
+            boundary,
+            "avatar.png",
+            "image/png",
+            b"png",
+        )))
+        .unwrap();
+    let response = app.clone().oneshot(request).await.unwrap();
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let plain: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(
+        post(
+            owner.clone(),
+            json!({ "content": "x", "attachment_ids": [plain[0]["id"]] })
+        )
+        .await,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "an upload that is not a draft — an avatar, an emoji — is not an attachment"
+    );
+
+    let left: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM files WHERE message_id IS NOT NULL")
+        .fetch_one(&state.pool)
+        .await
+        .expect("count");
+    assert_eq!(left, 0, "a refused send links nothing");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn forwarding_copies_the_files_into_the_new_message(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "fwd-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Forward WS").await;
+    let source_ch = seed_channel(&state, ws_id, owner_id, "source", true).await;
+    let target_ch = seed_channel(&state, ws_id, owner_id, "target", false).await;
+    let (bob_id, _, bob) = seed_and_login(&app, &state, "fwd-bob", false).await;
+    add_ws_member(&state, ws_id, bob_id, "member").await;
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(target_ch, bob_id, &ChannelRole::Member)
+        .await
+        .expect("join");
+
+    let file = draft(&app, ws_id, &owner, "plan.txt").await;
+    let (_, original) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{source_ch}/messages"),
+        Some(&owner),
+        Some(json!({ "content": "the plan", "attachment_ids": [file] })),
+    )
+    .await;
+    let original_id = original["id"].as_str().expect("id").to_string();
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{target_ch}/messages"),
+        Some(&bob),
+        Some(json!({ "content": "fwd", "copy_attachments_from": original_id })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "forwarding needs read access to the original"
+    );
+
+    let (status, forwarded) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{target_ch}/messages"),
+        Some(&owner),
+        Some(json!({ "content": "", "copy_attachments_from": original_id })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{forwarded:?}");
+    let copy = &forwarded["metadata"]["attachments"][0];
+    assert_eq!(copy["filename"], "plan.txt");
+    assert_ne!(copy["id"], file, "a copy, not the same file");
+    assert_ne!(
+        copy["url"], original["metadata"]["attachments"][0]["url"],
+        "stored under its own key"
+    );
+
+    let (status, _) = send(
+        &app,
+        "DELETE",
+        &format!("/api/messages/{original_id}"),
+        Some(&owner),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let url = copy["url"].as_str().expect("url");
+    let download = &url[url.find("/api/files/download/").expect("marker")..];
+    let (status, _) = send(&app, "GET", download, Some(&bob), None).await;
+    assert_eq!(status, StatusCode::OK, "the forward keeps its own copy");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn abandoned_drafts_are_swept(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "sweep-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Sweep WS").await;
+    let stale = draft(&app, ws_id, &owner, "stale.txt").await;
+    let fresh = draft(&app, ws_id, &owner, "fresh.txt").await;
+    sqlx::query("UPDATE files SET draft_until = NOW() - INTERVAL '1 minute' WHERE id = $1")
+        .bind(Uuid::parse_str(stale.as_str().expect("id")).expect("uuid"))
+        .execute(&state.pool)
+        .await
+        .expect("age");
+
+    assert_eq!(crate::files::service::sweep_expired_drafts(&state).await, 1);
+    let left: Vec<Uuid> = sqlx::query_scalar("SELECT id FROM files")
+        .fetch_all(&state.pool)
+        .await
+        .expect("files");
+    assert_eq!(
+        left,
+        vec![Uuid::parse_str(fresh.as_str().expect("id")).expect("uuid")]
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_scheduled_message_keeps_its_files_until_it_is_sent(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "sched-files-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Scheduled Files WS").await;
+    let ch = seed_channel(&state, ws_id, owner_id, "main", false).await;
+    let file = draft(&app, ws_id, &owner, "later.txt").await;
+    let send_at = chrono::Utc::now() + chrono::Duration::days(3);
+
+    let (status, scheduled) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/scheduled-messages"),
+        Some(&owner),
+        Some(json!({ "channel_id": ch, "content": "", "send_at": send_at, "attachment_ids": [file] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{scheduled:?}");
+    let held: chrono::DateTime<chrono::Utc> =
+        sqlx::query_scalar("SELECT draft_until FROM files WHERE id = $1")
+            .bind(Uuid::parse_str(file.as_str().expect("id")).expect("uuid"))
+            .fetch_one(&state.pool)
+            .await
+            .expect("draft_until");
+    assert!(held > send_at, "the draft outlives the send time");
+
+    sqlx::query("UPDATE scheduled_messages SET send_at = NOW() - INTERVAL '1 second'")
+        .execute(&state.pool)
+        .await
+        .expect("make due");
+    for due in state.scheduled_repo.claim_due().await.expect("claim") {
+        crate::scheduled::executor::deliver_for_test(&state, &due)
+            .await
+            .expect("deliver");
+    }
+    let (_, page) = send(
+        &app,
+        "GET",
+        &format!("/api/channels/{ch}/messages"),
+        Some(&owner),
+        None,
+    )
+    .await;
+    assert_eq!(
+        page["data"][0]["metadata"]["attachments"][0]["filename"],
+        "later.txt"
+    );
 }

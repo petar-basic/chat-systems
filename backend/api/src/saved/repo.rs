@@ -1,7 +1,7 @@
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use super::models::{SavedMessage, SavedMessageDetail};
+use super::models::{AttachmentList, SavedMessage, SavedMessageDetail};
 
 pub struct SavedRepo {
     pool: PgPool,
@@ -83,7 +83,8 @@ impl SavedRepo {
                    m.channel_id,
                    m.user_id AS author_id,
                    m.content,
-                   m.created_at AS sent_at
+                   m.created_at AS sent_at,
+                   COALESCE(m.metadata->'attachments', '[]'::jsonb) AS "attachments!: AttachmentList"
             FROM saved_messages s
             JOIN messages m ON m.id = s.message_id AND m.deleted_at IS NULL
             WHERE s.user_id = $1

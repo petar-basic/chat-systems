@@ -103,7 +103,7 @@ export default function SavedItemsPanel({
                       <span className="truncate">{displayNameOf(author?.display_name)}</span>
                     </div>
                     <div className="text-sm text-fg-soft mt-0.5 line-clamp-3" data-qa="saved-content">
-                      <RichTextDisplay content={item.content} />
+                      <RichTextDisplay content={item.content} attachments={item.attachments} compact />
                     </div>
                     {item.note && (
                       <div className="text-xs text-accent-soft mt-1" data-qa="saved-note">

@@ -1,11 +1,20 @@
 import { useInfiniteQuery, useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import type { Message, Reaction } from '@/stores/workspace';
+import type { components } from '@/api/schema';
+
+type Attachment = components['schemas']['Attachment'];
 import { useCurrentApi } from '@/shared/hooks/useCurrentApi';
 import { applyReadState } from '@/lib/readState';
 import { QUERY_KEYS, MESSAGES_PAGE_SIZE, ErrorLabels } from '@/shared/constants';
 import { upsertMessage, patchMessageById, newestFirst, removeMessageById } from '@/lib/messageCache';
 import { toast } from '@/shared/components/Toast';
 import { logger } from '@/lib/logger';
+
+export interface OutgoingMessage {
+  content: string;
+  id: string;
+  attachments?: Attachment[];
+}
 
 export interface MessagesResponse {
   data: Message[];
@@ -54,17 +63,17 @@ export const useSendMessage = (channelId: string, userId: string) => {
   const key = QUERY_KEYS.messages(channelId);
 
   return useMutation({
-    mutationFn: async ({ content, id }: { content: string; id: string }) => {
+    mutationFn: async ({ content, id, attachments = [] }: OutgoingMessage) => {
       // The server owns the message id; this one only makes a retry of the same
       // send idempotent, and is scoped to this channel.
       return apiClient.typed((c) =>
         c.POST('/channels/{ch_id}/messages', {
           params: { path: { ch_id: channelId } },
-          body: { content, client_message_id: id },
+          body: { content, client_message_id: id, attachment_ids: attachments.map((a) => a.id) },
         }),
       );
     },
-    onMutate: async ({ content, id }) => {
+    onMutate: async ({ content, id, attachments = [] }) => {
       await queryClient.cancelQueries({ queryKey: key });
       const optimistic: Message = {
         id,
@@ -78,6 +87,7 @@ export const useSendMessage = (channelId: string, userId: string) => {
         thread_parent_id: null,
         reply_count: 0,
         is_pinned: false,
+        metadata: attachments.length > 0 ? { attachments } : undefined,
         pending: true,
       };
       queryClient.setQueryData<MessagesInfiniteData>(key, (old) =>
@@ -113,17 +123,40 @@ export const useEditMessage = () => {
   const apiClient = useCurrentApi();
 
   return useMutation({
-    mutationFn: async ({ messageId, content }: { messageId: string; content: string; channelId: string }) => {
+    mutationFn: async ({
+      messageId,
+      content,
+      attachmentIds,
+    }: {
+      messageId: string;
+      content: string;
+      channelId: string;
+      attachmentIds?: string[];
+    }) => {
       return apiClient.typed((c) =>
-        c.PATCH('/messages/{msg_id}', { params: { path: { msg_id: messageId } }, body: { content } }),
+        c.PATCH('/messages/{msg_id}', {
+          params: { path: { msg_id: messageId } },
+          body: { content, attachment_ids: attachmentIds ?? null },
+        }),
       );
     },
-    onMutate: async ({ messageId, content, channelId }) => {
+    onMutate: async ({ messageId, content, channelId, attachmentIds }) => {
       const key = QUERY_KEYS.messages(channelId);
       await queryClient.cancelQueries({ queryKey: key });
       const previous = queryClient.getQueryData<MessagesInfiniteData>(key);
       queryClient.setQueryData<MessagesInfiniteData>(key, (old) =>
-        patchMessageById(old, messageId, (m) => ({ ...m, content, updated_at: new Date().toISOString() })),
+        patchMessageById(old, messageId, (m) => ({
+          ...m,
+          content,
+          updated_at: new Date().toISOString(),
+          metadata:
+            attachmentIds && m.metadata
+              ? {
+                  ...m.metadata,
+                  attachments: (m.metadata.attachments ?? []).filter((a) => attachmentIds.includes(a.id)),
+                }
+              : m.metadata,
+        })),
       );
       return { previous, channelId };
     },

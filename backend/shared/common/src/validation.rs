@@ -89,6 +89,15 @@ pub fn validate_message_content(content: &str) -> AppResult<()> {
     Ok(())
 }
 
+pub fn validate_message_body(content: &str) -> AppResult<()> {
+    if content.len() > 4000 {
+        return Err(AppError::Validation(
+            "Message content must be at most 4000 characters".into(),
+        ));
+    }
+    Ok(())
+}
+
 pub fn validate_avatar_url(url: &str) -> AppResult<()> {
     if url.len() > 500 {
         return Err(AppError::Validation(
@@ -298,6 +307,7 @@ pub mod rules {
     rule!(workspace_name, validate_workspace_name);
     rule!(channel_name, validate_channel_name);
     rule!(message_content, validate_message_content);
+    rule!(message_body, validate_message_body);
     rule!(reaction_emoji, validate_reaction_emoji);
     rule!(reminder_content, validate_reminder_content);
     rule!(channel_topic, validate_channel_topic);

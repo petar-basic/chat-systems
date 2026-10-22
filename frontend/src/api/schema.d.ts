@@ -2054,6 +2054,15 @@ export interface components {
             setup_steps: string[];
             summary: string;
         };
+        Attachment: {
+            filename: string;
+            /** Format: uuid */
+            id: string;
+            mime_type: string;
+            /** Format: int64 */
+            size_bytes: number;
+            url: string;
+        };
         AuditRow: {
             action: string;
             actor_display_name?: string | null;
@@ -2302,6 +2311,7 @@ export interface components {
             target_user_id: string;
         };
         CreateScheduledMessageRequest: {
+            attachment_ids?: string[];
             /** Format: uuid */
             channel_id: string;
             content: string;
@@ -2662,6 +2672,7 @@ export interface components {
         };
         DataList_SavedMessageDetail: {
             data: {
+                attachments: components["schemas"]["Attachment"][];
                 /** Format: uuid */
                 author_id: string;
                 /** Format: uuid */
@@ -2682,6 +2693,7 @@ export interface components {
         };
         DataList_ScheduledMessage: {
             data: {
+                attachment_ids: string[];
                 /** Format: date-time */
                 canceled_at?: string | null;
                 /** Format: uuid */
@@ -2957,6 +2969,8 @@ export interface components {
         };
         InstanceInfo: {
             icon_url?: string | null;
+            /** Format: int64 */
+            max_upload_bytes: number;
             name: string;
             sso_enabled: boolean;
         };
@@ -3062,6 +3076,7 @@ export interface components {
         };
         MessageMetadata: {
             app_prompts?: string[] | null;
+            attachments?: components["schemas"]["Attachment"][] | null;
             bot?: components["schemas"]["BotIdentity"] | null;
             /** Format: uuid */
             huddle_id?: string | null;
@@ -3219,6 +3234,7 @@ export interface components {
          *     second round trip per item.
          */
         SavedMessageDetail: {
+            attachments: components["schemas"]["Attachment"][];
             /** Format: uuid */
             author_id: string;
             /** Format: uuid */
@@ -3237,6 +3253,7 @@ export interface components {
             workspace_id: string;
         };
         ScheduledMessage: {
+            attachment_ids: string[];
             /** Format: date-time */
             canceled_at?: string | null;
             /** Format: uuid */
@@ -3268,6 +3285,7 @@ export interface components {
          */
         SearchScope: "channels" | "conversations" | "all";
         SendMessageRequest: {
+            attachment_ids?: string[];
             /**
              * Format: uuid
              * @description The sender's own id for this send, used only to make a retry idempotent.
@@ -3275,6 +3293,8 @@ export interface components {
              */
             client_message_id?: string | null;
             content: string;
+            /** Format: uuid */
+            copy_attachments_from?: string | null;
             /** Format: uuid */
             thread_parent_id?: string | null;
         };
@@ -3420,6 +3440,7 @@ export interface components {
             role: components["schemas"]["WorkspaceRole"];
         };
         UpdateMessageRequest: {
+            attachment_ids?: string[] | null;
             content: string;
         };
         UpdateProfileRequest: {
@@ -4556,7 +4577,9 @@ export interface operations {
     };
     upload_file: {
         parameters: {
-            query?: never;
+            query?: {
+                draft?: boolean;
+            };
             header?: never;
             path: {
                 ws_id: string;

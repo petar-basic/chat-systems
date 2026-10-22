@@ -15,16 +15,23 @@ pub struct ScheduledMessage {
     pub canceled_at: Option<DateTime<Utc>>,
     pub failure: Option<String>,
     pub created_at: DateTime<Utc>,
+    pub attachment_ids: Vec<Uuid>,
 }
 
 #[derive(Debug, Deserialize, garde::Validate, ToSchema)]
 #[garde(allow_unvalidated)]
 pub struct CreateScheduledMessageRequest {
     pub channel_id: Uuid,
-    #[garde(custom(shared_common::validation::rules::message_content))]
+    #[garde(custom(shared_common::validation::rules::message_body))]
     pub content: String,
     #[garde(custom(send_at_in_window))]
     pub send_at: DateTime<Utc>,
+    #[serde(default)]
+    pub attachment_ids: Vec<Uuid>,
+}
+
+pub fn attachments_kept_until(send_at: DateTime<Utc>) -> DateTime<Utc> {
+    send_at + chrono::Duration::days(1)
 }
 
 #[derive(Debug, Deserialize, garde::Validate, ToSchema)]

@@ -5,7 +5,7 @@ import { logger } from '@/lib/logger';
 import { toast } from '@/shared/components/Toast';
 import { QUERY_KEYS, ErrorLabels } from '@/shared/constants';
 import { patchMessageById, claimReplyCount } from '@/lib/messageCache';
-import type { MessagesInfiniteData } from './useMessages';
+import type { MessagesInfiniteData, OutgoingMessage } from './useMessages';
 
 export const useThreadMessages = (parentMessageId: string) => {
   const apiClient = useCurrentApi();
@@ -27,14 +27,19 @@ export const useSendThreadReply = (parentMessageId: string, channelId: string, u
   const key = QUERY_KEYS.thread(parentMessageId);
 
   return useMutation({
-    mutationFn: async ({ content, id }: { content: string; id: string }) =>
+    mutationFn: async ({ content, id, attachments = [] }: OutgoingMessage) =>
       apiClient.typed((c) =>
         c.POST('/channels/{ch_id}/messages', {
           params: { path: { ch_id: channelId } },
-          body: { content, client_message_id: id, thread_parent_id: parentMessageId },
+          body: {
+            content,
+            client_message_id: id,
+            thread_parent_id: parentMessageId,
+            attachment_ids: attachments.map((a) => a.id),
+          },
         }),
       ),
-    onMutate: async ({ content, id }) => {
+    onMutate: async ({ content, id, attachments = [] }) => {
       await queryClient.cancelQueries({ queryKey: key });
       const optimistic: Message = {
         id,
@@ -48,6 +53,7 @@ export const useSendThreadReply = (parentMessageId: string, channelId: string, u
         thread_parent_id: parentMessageId,
         reply_count: 0,
         is_pinned: false,
+        metadata: attachments.length > 0 ? { attachments } : undefined,
         pending: true,
       };
       queryClient.setQueryData<Message[]>(key, (old = []) => [...old, optimistic]);
@@ -123,9 +129,12 @@ export const useThreadReplyActions = (parentMessageId: string, currentUserId: st
     }
   };
 
-  const edit = async (messageId: string, content: string) => {
+  const edit = async (messageId: string, content: string, attachmentIds?: string[]) => {
     const updated = await apiClient.typed((c) =>
-      c.PATCH('/messages/{msg_id}', { params: { path: { msg_id: messageId } }, body: { content } }),
+      c.PATCH('/messages/{msg_id}', {
+        params: { path: { msg_id: messageId } },
+        body: { content, attachment_ids: attachmentIds ?? null },
+      }),
     );
     patchReply(queryClient, parentMessageId, messageId, (m) => ({ ...m, ...updated }));
   };

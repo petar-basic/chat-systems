@@ -10,7 +10,7 @@ export const NOTIFICATIONS_PAGE_SIZE = 50;
 export const SEARCH_RESULT_LIMIT = 20;
 export const MENTION_SUGGESTION_LIMIT = 8;
 
-export const MAX_UPLOAD_SIZE_BYTES = 25 * 1024 * 1024;
+export const MAX_ATTACHMENTS = 10;
 
 export const PRESENCE_OFFLINE_GRACE_MS = 5000;
 export const PRESENCE_STALE_TTL_MS = 60_000;

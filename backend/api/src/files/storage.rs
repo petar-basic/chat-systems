@@ -111,6 +111,13 @@ impl FileStorage {
         Ok((body, content_type))
     }
 
+    pub async fn copy(&self, from: &str, to: &str) -> AppResult<()> {
+        self.store
+            .copy(&parse_key(from)?, &parse_key(to)?)
+            .await
+            .map_err(|e| storage_error("copy", e))
+    }
+
     pub async fn delete(&self, key: &str) -> AppResult<()> {
         let path = parse_key(key)?;
         self.store

@@ -62,6 +62,12 @@ function ScheduledRow({
           <div className="text-sm text-fg-soft mt-0.5 line-clamp-2" data-qa="scheduled-content">
             {scheduled.content}
           </div>
+          {scheduled.attachment_ids.length > 0 && (
+            <div className="text-xs text-muted mt-0.5" data-qa="scheduled-files">
+              📎{' '}
+              {scheduled.attachment_ids.length === 1 ? '1 file' : `${scheduled.attachment_ids.length} files`}
+            </div>
+          )}
           <div className="text-xs text-accent-soft mt-1" data-qa="scheduled-time">
             {formatDateTime(sendAt)}
           </div>

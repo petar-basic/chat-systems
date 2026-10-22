@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
 
-use super::models::{FileRecord, FileUploadResponse};
+use super::models::{FileRecord, FileUploadResponse, UploadQuery};
 use super::repo::NewFile;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
@@ -57,11 +57,12 @@ pub fn download_router() -> Router<Arc<AppState>> {
     Router::new().route("/files/download/{*key}", get(download_file))
 }
 
-#[utoipa::path(post, path = "/files/upload/{ws_id}", tag = "files", request_body(content = String, content_type = "multipart/form-data", description = "One or more files as multipart fields"), responses((status = 200, body = Vec<FileUploadResponse>)))]
+#[utoipa::path(post, path = "/files/upload/{ws_id}", tag = "files", params(UploadQuery), request_body(content = String, content_type = "multipart/form-data", description = "One or more files as multipart fields"), responses((status = 200, body = Vec<FileUploadResponse>)))]
 async fn upload_file(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
+    Query(query): Query<UploadQuery>,
     mut multipart: Multipart,
 ) -> AppResult<Json<Vec<FileUploadResponse>>> {
     authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
@@ -135,6 +136,7 @@ async fn upload_file(
                 storage_key: &storage_key,
                 mime_type: &content_type,
                 size_bytes: size,
+                draft_until: query.draft.then(super::service::draft_deadline),
             })
             .await?;
 
@@ -236,6 +238,10 @@ async fn delete_file(
 
     state.file_repo.delete(file_id).await?;
 
+    if let Some(message_id) = record.message_id {
+        detach_from_message(&state, message_id, file_id).await?;
+    }
+
     audit::record(
         &state,
         AuditEntry::new(AuditAction::FileDeleted, auth.user_id)
@@ -251,6 +257,31 @@ async fn delete_file(
     .await;
 
     Ok(Json(StatusResponse::new("deleted")))
+}
+
+async fn detach_from_message(state: &AppState, message_id: Uuid, file_id: Uuid) -> AppResult<()> {
+    let Some(message) = state.message_repo.find_by_id(message_id).await? else {
+        return Ok(());
+    };
+    let remaining: Vec<_> = super::service::attachments_in(&message.metadata)
+        .into_iter()
+        .filter(|a| a.id != file_id)
+        .collect();
+    let channel = authz::find_channel(state, message.channel_id).await?;
+    let attachments =
+        serde_json::to_value(&remaining).map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut tx = state.pool.begin().await?;
+    let message = state
+        .message_repo
+        .set_attachments_in(&mut tx, message_id, &attachments)
+        .await?;
+    let staged = state
+        .publisher
+        .stage_message_updated(&mut tx, &message, channel.workspace_id)
+        .await?;
+    tx.commit().await?;
+    state.publisher.dispatch(staged).await;
+    Ok(())
 }
 
 /// Somebody else's file. A workspace admin answers for everything posted in the

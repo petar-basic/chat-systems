@@ -180,6 +180,42 @@ export class ApiClient {
     if (res.status === 204) return undefined as T;
     return res.json() as Promise<T>;
   }
+
+  async uploadWithProgress<T>(
+    path: string,
+    formData: FormData,
+    onProgress: (fraction: number) => void,
+    signal?: AbortSignal,
+    isRetry = false,
+  ): Promise<T> {
+    const { status, body } = await new Promise<{ status: number; body: unknown }>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${this.baseUrl}${path}`);
+      xhr.withCredentials = true;
+      xhr.responseType = 'json';
+      for (const [name, value] of Object.entries(this.getAuthHeaders())) xhr.setRequestHeader(name, value);
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) onProgress(event.loaded / event.total);
+      };
+      xhr.onload = () => resolve({ status: xhr.status, body: xhr.response });
+      xhr.onerror = () => reject(new ApiError(0, 'Upload failed'));
+      xhr.onabort = () => reject(new DOMException('Upload canceled', 'AbortError'));
+      signal?.addEventListener('abort', () => xhr.abort(), { once: true });
+      xhr.send(formData);
+    });
+
+    if (status === 401 && !isRetry) {
+      const refreshed = await this.refresh();
+      if (refreshed) return this.uploadWithProgress<T>(path, formData, onProgress, signal, true);
+      this.onSessionExpired?.();
+      throw new ApiError(401, 'Session expired. Please log in again.');
+    }
+    if (status < 200 || status >= 300) {
+      const err = body as { error?: string; message?: string } | null;
+      throw new ApiError(status, err?.error ?? err?.message ?? 'Upload failed');
+    }
+    return body as T;
+  }
 }
 
 export const api = new ApiClient();

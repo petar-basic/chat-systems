@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "DELETE FROM files WHERE message_id = $1 AND NOT (storage_key = ANY($2)) RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, created_at",
+  "query": "SELECT id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at, attachment_ids FROM scheduled_messages WHERE id = $1",
   "describe": {
     "columns": [
       {
@@ -9,19 +9,19 @@
         "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "files",
+            "table": "scheduled_messages",
             "name": "id"
           }
         }
       },
       {
         "ordinal": 1,
-        "name": "message_id",
+        "name": "workspace_id",
         "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "files",
-            "name": "message_id"
+            "table": "scheduled_messages",
+            "name": "workspace_id"
           }
         }
       },
@@ -31,74 +31,74 @@
         "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "files",
+            "table": "scheduled_messages",
             "name": "user_id"
           }
         }
       },
       {
         "ordinal": 3,
-        "name": "workspace_id",
+        "name": "channel_id",
         "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "files",
-            "name": "workspace_id"
+            "table": "scheduled_messages",
+            "name": "channel_id"
           }
         }
       },
       {
         "ordinal": 4,
-        "name": "filename",
-        "type_info": "Varchar",
+        "name": "content",
+        "type_info": "Text",
         "origin": {
           "Table": {
-            "table": "files",
-            "name": "filename"
+            "table": "scheduled_messages",
+            "name": "content"
           }
         }
       },
       {
         "ordinal": 5,
-        "name": "storage_key",
-        "type_info": "Varchar",
+        "name": "send_at",
+        "type_info": "Timestamptz",
         "origin": {
           "Table": {
-            "table": "files",
-            "name": "storage_key"
+            "table": "scheduled_messages",
+            "name": "send_at"
           }
         }
       },
       {
         "ordinal": 6,
-        "name": "mime_type",
-        "type_info": "Varchar",
+        "name": "sent_at",
+        "type_info": "Timestamptz",
         "origin": {
           "Table": {
-            "table": "files",
-            "name": "mime_type"
+            "table": "scheduled_messages",
+            "name": "sent_at"
           }
         }
       },
       {
         "ordinal": 7,
-        "name": "size_bytes",
-        "type_info": "Int8",
+        "name": "canceled_at",
+        "type_info": "Timestamptz",
         "origin": {
           "Table": {
-            "table": "files",
-            "name": "size_bytes"
+            "table": "scheduled_messages",
+            "name": "canceled_at"
           }
         }
       },
       {
         "ordinal": 8,
-        "name": "thumbnail_key",
-        "type_info": "Varchar",
+        "name": "failure",
+        "type_info": "Text",
         "origin": {
           "Table": {
-            "table": "files",
-            "name": "thumbnail_key"
+            "table": "scheduled_messages",
+            "name": "failure"
           }
         }
       },
@@ -108,30 +108,41 @@
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
-            "table": "files",
+            "table": "scheduled_messages",
             "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "attachment_ids",
+        "type_info": "UuidArray",
+        "origin": {
+          "Table": {
+            "table": "scheduled_messages",
+            "name": "attachment_ids"
           }
         }
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "TextArray"
+        "Uuid"
       ]
     },
     "nullable": [
       false,
-      true,
-      false,
       false,
       false,
       false,
       false,
       false,
       true,
+      true,
+      true,
+      false,
       false
     ]
   },
-  "hash": "2e7f6103ca035b3f61905a4f68c19286cb03069f5f9fd8dc0f90ffa3ebcfc3f0"
+  "hash": "28962ff87d08be4c236068f58fb94e5e0ca0deb4e4966f21d478c863dad8a28a"
 }

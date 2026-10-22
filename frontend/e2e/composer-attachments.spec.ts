@@ -1,4 +1,4 @@
-import { test, expect, type Locator } from '@playwright/test';
+import { test, expect, type Locator, type Page } from '@playwright/test';
 import { API, createChannel, devWorkspace, login, userContext } from './helpers';
 
 const ONE_PIXEL_PNG =
@@ -35,7 +35,14 @@ async function ownChannel(prefix: string) {
   return { alice, workspace, channel };
 }
 
-test('an image pasted into the composer is posted as an attachment', async ({ page }) => {
+async function sendTray(page: Page) {
+  await expect(page.locator('[data-qa="attachment-tray-item"][data-status="ready"]')).toHaveCount(1, {
+    timeout: 20_000,
+  });
+  await page.locator('[data-qa="composer-send"]').last().click();
+}
+
+test('an image pasted into the composer waits in the tray until it is sent', async ({ page }) => {
   test.slow();
   const { alice, workspace, channel } = await ownChannel('paste');
   try {
@@ -47,14 +54,24 @@ test('an image pasted into the composer is posted as an attachment', async ({ pa
     await composer.click();
     await dropFileOn(composer, 'paste');
 
+    await expect(page.locator('[data-qa="attachment-tray-item"][data-status="ready"]')).toHaveCount(1, {
+      timeout: 20_000,
+    });
+    await expect(page.locator('[data-qa="attachment-image"]'), 'a paste is never sent unseen').toHaveCount(0);
+
+    await composer.pressSequentially('the screenshot');
+    await page.locator('[data-qa="composer-send"]').last().click();
+
     await expect(page.locator('[data-qa="attachment-image"]')).toHaveCount(1, { timeout: 20_000 });
+    await expect(page.locator('[data-qa="message-list"]').getByText('the screenshot')).toBeVisible();
+    await expect(page.locator('[data-qa="attachment-tray-item"]')).toHaveCount(0);
   } finally {
     await alice.delete(`${API}/channels/${channel.id}`);
     await alice.dispose();
   }
 });
 
-test('an image dropped on the message list is posted as an attachment', async ({ page }) => {
+test('an image dropped on the message list goes to the tray and out on send', async ({ page }) => {
   test.slow();
   const { alice, workspace, channel } = await ownChannel('drop');
   // An empty channel renders its empty state instead of the list, and the list
@@ -71,6 +88,7 @@ test('an image dropped on the message list is posted as an attachment', async ({
     });
 
     await dropFileOn(page.locator('[data-qa="message-list"]'), 'drop');
+    await sendTray(page);
 
     await expect(page.locator('[data-qa="attachment-image"]')).toHaveCount(1, { timeout: 20_000 });
   } finally {

@@ -12,6 +12,7 @@ use super::{
     attachment_slack_ts, emoji_for, parse_ts, storage_safe_filename, MAX_ATTACHMENT_BYTES,
 };
 use super::{Import, Target};
+use crate::files::models::FileRecord;
 use crate::files::repo::NewFile;
 use crate::messaging::repo::ImportedMessage;
 use chrono::{DateTime, Utc};
@@ -204,6 +205,17 @@ impl Import<'_> {
         Ok(message.id)
     }
 
+    async fn attach(&self, message_id: Uuid, record: &FileRecord) -> AppResult<()> {
+        let attachments =
+            crate::files::service::attachments_json(self.state, std::slice::from_ref(record))?;
+        let mut conn = self.state.pool.acquire().await?;
+        self.state
+            .message_repo
+            .set_attachments_in(&mut conn, message_id, &attachments)
+            .await?;
+        Ok(())
+    }
+
     async fn import_reactions(
         &mut self,
         message_id: Uuid,
@@ -286,13 +298,9 @@ impl Import<'_> {
                 continue;
             }
 
-            // The attachment reads as one the composer produced, which is what
-            // makes it render and what makes CS-009's access rules apply to it.
-            let url = self.state.file_storage.public_url(&storage_key);
-            let content = format!("[file: {filename}]({url})");
             let attachment_ts = attachment_slack_ts(&message.ts, self.report.files_imported);
             let stored_id = match self
-                .write_message(target, user_id, &content, None, &attachment_ts, created_at)
+                .write_message(target, user_id, "", None, &attachment_ts, created_at)
                 .await
             {
                 Ok(id) => id,
@@ -302,7 +310,7 @@ impl Import<'_> {
                 }
             };
 
-            if let Err(e) = self
+            let record = match self
                 .state
                 .file_repo
                 .create(NewFile {
@@ -313,10 +321,18 @@ impl Import<'_> {
                     storage_key: &storage_key,
                     mime_type: &content_type,
                     size_bytes: size,
+                    draft_until: None,
                 })
                 .await
             {
-                warn!("import: failed to record file row for {filename}: {e}");
+                Ok(record) => record,
+                Err(e) => {
+                    warn!("import: failed to record file row for {filename}: {e}");
+                    continue;
+                }
+            };
+            if let Err(e) = self.attach(stored_id, &record).await {
+                warn!("import: failed to attach {filename}: {e}");
                 continue;
             }
 

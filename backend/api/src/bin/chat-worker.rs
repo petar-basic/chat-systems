@@ -203,6 +203,19 @@ fn spawn_consumers(state: &Arc<AppState>, redis_url: &str) {
     }
 
     {
+        let sweeper_state = state.clone();
+        tokio::spawn(async move {
+            supervise("draft_sweeper", || {
+                let sweeper_state = sweeper_state.clone();
+                async move {
+                    chat_api::files::service::start_draft_sweeper(sweeper_state).await;
+                }
+            })
+            .await;
+        });
+    }
+
+    {
         let dispatcher_state = state.clone();
         tokio::spawn(async move {
             supervise("scheduled_dispatcher", || {

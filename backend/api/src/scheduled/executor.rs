@@ -176,21 +176,23 @@ async fn deliver_to_channel(
         )
         .await
         .map_err(internal)?;
+    let message = crate::messaging::routes::attach_in(
+        state,
+        &mut tx,
+        message,
+        &scheduled.attachment_ids,
+        &[],
+        scheduled.workspace_id,
+        scheduled.user_id,
+    )
+    .await
+    .map_err(internal)?;
     let staged = state
         .publisher
         .stage_message_created(&mut tx, &message, scheduled.workspace_id, &mentioned)
         .await
         .map_err(internal)?;
     tx.commit().await.map_err(internal)?;
-
-    crate::files::service::link_to_channel_message(
-        state,
-        &scheduled.content,
-        message.id,
-        scheduled.workspace_id,
-        scheduled.user_id,
-    )
-    .await;
 
     state.publisher.dispatch(staged).await;
 

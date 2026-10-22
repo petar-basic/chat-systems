@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useAttachmentUpload } from '@/features/messaging/useAttachmentUpload';
+import { asAttachments, useComposerAttachments } from '@/features/messaging/useComposerAttachments';
 import type { Channel, Workspace } from '@/stores/workspace';
 import { commandResultText, parseCommand, runCommand } from '@/lib/slashCommands';
 import { toUserMessage } from '@/lib/errors';
@@ -13,10 +13,15 @@ interface Args {
   currentWsInstanceUrl: string | undefined;
 }
 
-/// Sending into the open channel: slash commands, plain messages, file uploads,
+/// Sending into the open channel: slash commands, plain messages, attachments,
 /// and the typing signal that goes with them.
 export function useComposer({ currentWorkspace, currentChannel, userId, currentWsInstanceUrl }: Args) {
   const sendMessageMutation = useSendMessage(currentChannel?.id ?? '', userId ?? '');
+  const attachments = useComposerAttachments({
+    workspaceId: currentChannel ? currentWorkspace?.id : undefined,
+    instanceUrl: currentWorkspace?.instanceUrl,
+    resetKey: currentChannel?.id,
+  });
   const { signalTyping, stopTyping } = useTypingSignal(
     typingTargetOf(currentChannel?.id),
     currentWorkspace?.instanceUrl,
@@ -56,23 +61,16 @@ export function useComposer({ currentWorkspace, currentChannel, userId, currentW
       }
 
       const id = crypto.randomUUID();
-      sendMessageMutation.mutate({ content, id });
+      sendMessageMutation.mutate({ content, id, attachments: asAttachments(attachments.take()) });
     },
-    [currentChannel, userId, stopTyping, sendMessageMutation, currentWsInstanceUrl],
+    [currentChannel, userId, stopTyping, sendMessageMutation, currentWsInstanceUrl, attachments],
   );
-
-  const { uploading, handleFileUpload } = useAttachmentUpload({
-    workspaceId: currentChannel ? currentWorkspace?.id : undefined,
-    instanceUrl: currentWorkspace?.instanceUrl,
-    send: (content) => sendMessageMutation.mutate({ content, id: crypto.randomUUID() }),
-  });
 
   return {
     ephemeral,
     dismissEphemeral: () => setCommandBanner(null),
     handleTyping: signalTyping,
     handleSend,
-    handleFileUpload,
-    uploading,
+    attachments,
   };
 }

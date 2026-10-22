@@ -31,10 +31,12 @@ export const useScheduleMessage = (workspaceId: string, instanceUrl?: string) =>
       target,
       content,
       sendAt,
+      attachmentIds = [],
     }: {
       target: ScheduleTarget;
       content: string;
       sendAt: Date;
+      attachmentIds?: string[];
     }) =>
       getApiForInstance(instanceUrl).typed((c) =>
         c.POST('/workspaces/{ws_id}/scheduled-messages', {
@@ -43,6 +45,7 @@ export const useScheduleMessage = (workspaceId: string, instanceUrl?: string) =>
             channel_id: target.channelId,
             content,
             send_at: sendAt.toISOString(),
+            attachment_ids: attachmentIds,
           },
         }),
       ),

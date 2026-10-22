@@ -17,6 +17,21 @@ pub struct FileRecord {
     pub created_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct Attachment {
+    pub id: Uuid,
+    pub filename: String,
+    pub mime_type: String,
+    pub size_bytes: i64,
+    pub url: String,
+}
+
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
+pub struct UploadQuery {
+    #[serde(default)]
+    pub draft: bool,
+}
+
 #[derive(Debug, Serialize, ToSchema)]
 pub struct FileUploadResponse {
     pub id: Uuid,

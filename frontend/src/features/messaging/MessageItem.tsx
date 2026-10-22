@@ -19,6 +19,7 @@ import MessageActionSheet, { type SheetAction } from './MessageActionSheet';
 import type { Message, WorkspaceMember, Channel } from '@/stores/workspace';
 import { ReactionEmoji } from '@/shared/components/ReactionEmoji';
 import RichTextDisplay from '@/components/RichTextDisplay';
+import { MessageAttachments } from './MessageAttachments';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { HuddleSystemMessage } from '@/features/huddle/components/HuddleSystemMessage';
 import EmojiPicker from './EmojiPicker';
@@ -50,7 +51,7 @@ interface MessageItemProps {
   onThreadOpen?: (msg: Message) => void;
   onToggleReaction: (messageId: string, emoji: string, hasOwn: boolean) => void;
   onTogglePin: (messageId: string, isPinned: boolean) => void;
-  onEdit: (messageId: string, content: string) => Promise<unknown> | void;
+  onEdit: (messageId: string, content: string, attachmentIds?: string[]) => Promise<unknown> | void;
   onDelete: (messageId: string) => Promise<unknown> | void;
   onHidePreviews?: (messageId: string) => void;
   onRefreshPreviews?: (messageId: string) => void;
@@ -108,6 +109,7 @@ function MessageItem({
   dataQa = 'message-row',
 }: MessageItemProps) {
   const [editing, setEditing] = useState(false);
+  const [keptAttachments, setKeptAttachments] = useState<string[] | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const reactBtnRef = useRef<HTMLButtonElement>(null);
@@ -192,9 +194,15 @@ function MessageItem({
   }
   const time = new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+  const attachments = message.metadata?.attachments ?? [];
+  const editingAttachments = attachments.filter((a) => keptAttachments?.includes(a.id) ?? true);
+
   const handleEditSave = async (content: string) => {
-    await onEdit(message.id, content);
+    const kept =
+      keptAttachments && keptAttachments.length !== attachments.length ? keptAttachments : undefined;
+    await onEdit(message.id, content, kept);
     setEditing(false);
+    setKeptAttachments(null);
   };
 
   const handleReactionToggle = (emoji: string) => {
@@ -306,18 +314,34 @@ function MessageItem({
         )}
 
         {editing ? (
-          <MessageInput
-            key={`edit:${message.id}`}
-            editing
-            initialContent={message.content}
-            members={members}
-            channels={channels}
-            onSend={handleEditSave}
-            onCancel={() => setEditing(false)}
-          />
+          <>
+            <MessageInput
+              key={`edit:${message.id}`}
+              editing
+              allowEmpty={editingAttachments.length > 0}
+              initialContent={message.content}
+              members={members}
+              channels={channels}
+              onSend={handleEditSave}
+              onCancel={() => {
+                setEditing(false);
+                setKeptAttachments(null);
+              }}
+            />
+            {editingAttachments.length > 0 && (
+              <MessageAttachments
+                attachments={editingAttachments}
+                onRemove={(id) =>
+                  setKeptAttachments((current) =>
+                    (current ?? attachments.map((a) => a.id)).filter((kept) => kept !== id),
+                  )
+                }
+              />
+            )}
+          </>
         ) : (
           <>
-            <RichTextDisplay content={message.content} />
+            <RichTextDisplay content={message.content} attachments={attachments} />
             {!message.deleted_at && !!message.metadata?.unfurls?.length && (
               <LinkPreviews
                 unfurls={message.metadata.unfurls}

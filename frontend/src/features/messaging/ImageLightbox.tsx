@@ -1,8 +1,9 @@
 import { Download, X } from 'lucide-react';
 import { Modal } from '@/shared/components/Modal/Modal';
-import type { ParsedAttachment } from '@/lib/attachments';
 
-interface ImageLightboxProps extends Pick<ParsedAttachment, 'filename' | 'url'> {
+interface ImageLightboxProps {
+  filename: string;
+  url: string;
   onClose: () => void;
 }
 

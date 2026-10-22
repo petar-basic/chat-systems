@@ -20,7 +20,7 @@ export interface MessageActions {
   currentUserId: string;
   toggleReaction: (messageId: string, emoji: string, hasOwn: boolean) => void;
   togglePin: (messageId: string, isPinned: boolean) => void;
-  editMessage: (messageId: string, content: string) => Promise<unknown>;
+  editMessage: (messageId: string, content: string, attachmentIds?: string[]) => Promise<unknown>;
   deleteMessage: (messageId: string) => Promise<unknown>;
   hidePreviews: (messageId: string) => void;
   refreshPreviews: (messageId: string) => void;
@@ -51,7 +51,8 @@ export function useMessageActions(channelId: string): MessageActions {
           ? removeReaction.mutate({ messageId, channelId, emoji, userId })
           : react.mutate({ messageId, channelId, emoji, userId }),
       togglePin: (messageId, isPinned) => pin.mutate({ messageId, channelId, isPinned }),
-      editMessage: (messageId, content) => edit.mutateAsync({ messageId, content, channelId }),
+      editMessage: (messageId, content, attachmentIds) =>
+        edit.mutateAsync({ messageId, content, channelId, attachmentIds }),
       deleteMessage: (messageId) => del.mutateAsync({ messageId, channelId }),
       hidePreviews: (messageId) => hidePreviews.mutate({ messageId, channelId }),
       refreshPreviews: (messageId) => refreshPreviews.mutate({ messageId }),

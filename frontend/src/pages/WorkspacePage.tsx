@@ -16,7 +16,6 @@ import { useChannelModeration } from '@/features/channel/hooks/useChannelModerat
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
 import { useActiveHuddlesSync } from '@/features/huddle';
 import { FileDropZone } from '@/shared/components/FileDropZone';
-import { uploadFilesSequentially } from '@/lib/fileUploads';
 
 export default function WorkspacePage() {
   const c = useWorkspaceController();
@@ -129,7 +128,7 @@ export default function WorkspacePage() {
           <FileDropZone
             className="flex-1 flex min-w-0"
             disabled={!currentChannel || !canPost}
-            onFiles={(files) => void uploadFilesSequentially(files, c.handleFileUpload)}
+            onFiles={c.attachments.add}
           >
             <main className="flex-1 flex flex-col min-w-0" aria-label="Conversation">
               <ConnectionBanner instanceUrl={currentWorkspace?.instanceUrl} />
@@ -227,9 +226,8 @@ export default function WorkspacePage() {
                   members={c.workspaceMembers}
                   channels={c.channels}
                   onSend={c.handleSend}
-                  onFileUpload={c.handleFileUpload}
+                  attachments={c.attachments}
                   onTyping={c.handleTyping}
-                  uploading={c.uploading}
                 />
               )}
 
