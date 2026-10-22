@@ -170,6 +170,27 @@ Text input with file attachment button and send button.
 
 ## Components
 
+### Shared controls (`shared/components`)
+
+Every screen builds its controls from the same few pieces, so sizes, spacing and focus rings
+line up everywhere:
+
+- **`Button`** — `variant` `primary` · `secondary` · `ghost` · `danger`, `size` `sm` (28 px) ·
+  `md` (36 px), `loading` (spinner, disabled, `aria-busy`), `icon`, `fullWidth`. A link that
+  must look like a button uses `buttonStyles()` from the same folder.
+- **`IconButton`** — a 28 or 32 px target around a 16 px icon; `label` is required and becomes
+  the accessible name and the tooltip; `pressed` for toggles; `tone="inverse"` on dark overlays.
+- **`Spinner`** — `sm` · `md` · `lg`, in the current text colour.
+- **`PanelHeader`** — every right panel's 56 px header: icon, title, optional badge and
+  actions, and a close button labelled *Close {title}*.
+- **`DialogHeader`** / **`DialogFooter`** — a dialog's title with ✕ top-right, and its actions
+  right-aligned on the content edge (`start` for a note on the left).
+
+Titles and labels are sentence case. ESLint enforces the rest outside `shared/components`: a
+hand-styled primary button (`hover:bg-purple-500`) or spinner (`rounded-full animate-spin`)
+fails `no-restricted-syntax`, and an icon-only `<button>` without `aria-label` fails
+`local/icon-button-label` (`eslint-rules/`).
+
 ### `MessageItem`
 Single message row with reactions, edit/delete, thread reply, and pin actions. It does not
 call the API directly — actions go through `useMessageActions`, which wraps the message

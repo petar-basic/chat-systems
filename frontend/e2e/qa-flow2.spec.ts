@@ -157,7 +157,7 @@ test('F. guest is scoped to the channels they were added to', async () => {
   const diana = await ctxD.newPage();
   await login(diana, 'diana@dev.local');
   await diana.screenshot({ path: `${SHOTS}/F-guest-view.png` });
-  await expect(diana.getByRole('button', { name: 'Instance Admin' })).toHaveCount(0);
+  await expect(diana.getByRole('button', { name: 'Instance admin' })).toHaveCount(0);
   await expect(diana.getByRole('button', { name: /^random$/ })).toHaveCount(0);
   const text = `guest posting ${stamp}`;
   await send(diana, text);

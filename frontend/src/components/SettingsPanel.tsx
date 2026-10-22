@@ -1,7 +1,11 @@
 import { useRef, useState, type FormEvent } from 'react';
+import { Spinner } from '@/shared/components/Spinner/Spinner';
+import { Button } from '@/shared/components/Button/Button';
+import { DialogFooter, DialogHeader } from '@/shared/components/Dialog/Dialog';
+import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { useNavigate } from 'react-router';
-import { X, Save, Trash2, AlertTriangle, RotateCcw } from 'lucide-react';
+import { Save, Trash2, AlertTriangle, RotateCcw } from 'lucide-react';
 import { useRestoreWorkspace } from '../hooks/queries/useWorkspaces';
 import { useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
@@ -142,12 +146,7 @@ export default function SettingsPanel({
   return (
     <>
       <div className="w-80 bg-surface/80 border-l border-line/50 flex flex-col h-full">
-        <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">
-          <h2 className="font-semibold text-fg">Workspace Settings</h2>
-          <button onClick={onClose} className="text-muted hover:text-fg transition cursor-pointer">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+        <PanelHeader title="Workspace settings" onClose={onClose} />
 
         <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-4 space-y-4">
           {/* A workspace picks its face the same way a person picks theirs.
@@ -193,7 +192,7 @@ export default function SettingsPanel({
 
           <div>
             <label htmlFor="ws-name" className="block text-sm font-medium text-fg-dim mb-1.5">
-              Workspace Name
+              Workspace name
             </label>
             <input
               id="ws-name"
@@ -249,25 +248,21 @@ export default function SettingsPanel({
             </div>
           )}
 
-          <button
+          <Button
+            variant="primary"
+            fullWidth
             type="submit"
             disabled={saving || !name.trim()}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/50 text-white text-sm font-medium rounded-lg transition cursor-pointer disabled:cursor-not-allowed"
+            loading={saving}
+            icon={<Save className="h-4 w-4" />}
           >
-            {saving ? (
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                Save Changes
-              </>
-            )}
-          </button>
+            Save changes
+          </Button>
 
           <div className="border border-red-500/30 rounded-lg p-4 mt-6">
             <h3 className="text-sm font-semibold text-danger mb-2 flex items-center gap-1.5">
               <AlertTriangle className="w-4 h-4" />
-              Danger Zone
+              Danger zone
             </h3>
             {deletedAt ? (
               <>
@@ -281,11 +276,11 @@ export default function SettingsPanel({
                   className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-green-600/20 hover:bg-green-600/40 border border-green-500/40 text-success text-sm rounded-lg transition cursor-pointer disabled:cursor-not-allowed"
                 >
                   {restoreMutation.isPending ? (
-                    <div className="w-4 h-4 border-2 border-green-400/30 border-t-green-400 rounded-full animate-spin" />
+                    <Spinner size="sm" className="text-success" />
                   ) : (
                     <>
                       <RotateCcw className="w-4 h-4" />
-                      Restore Workspace
+                      Restore workspace
                     </>
                   )}
                 </button>
@@ -301,7 +296,7 @@ export default function SettingsPanel({
                   className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-red-600/20 hover:bg-red-600/40 border border-red-500/40 text-danger text-sm rounded-lg transition cursor-pointer"
                 >
                   <Trash2 className="w-4 h-4" />
-                  Delete Workspace
+                  Delete workspace
                 </button>
               </>
             )}
@@ -319,23 +314,20 @@ export default function SettingsPanel({
           dataQa="delete-workspace-modal"
           className="bg-surface border border-line rounded-2xl p-6 w-full max-w-md shadow-2xl"
         >
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-red-500/20 rounded-full flex items-center justify-center shrink-0">
-              <Trash2 className="w-5 h-5 text-danger" />
-            </div>
-            <div>
-              <h3 className="text-fg font-semibold">Delete "{currentName}"</h3>
-              <p className="text-muted text-sm">Choose how to delete this workspace</p>
-            </div>
-          </div>
+          <DialogHeader
+            title={`Delete “${currentName}”`}
+            description="Choose how to delete this workspace"
+            onClose={() => {
+              setDeleteModal(false);
+              setDeleteError(null);
+            }}
+          />
 
           <div className="space-y-3 mb-5">
             <label
-              className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition"
-              style={{
-                borderColor: deleteType === 'soft' ? 'rgb(168 85 247 / 0.6)' : 'rgb(71 85 105 / 0.5)',
-                background: deleteType === 'soft' ? 'rgb(168 85 247 / 0.1)' : 'transparent',
-              }}
+              className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition ${
+                deleteType === 'soft' ? 'border-purple-500/60 bg-purple-500/10' : 'border-line-strong'
+              }`}
             >
               <input
                 type="radio"
@@ -346,7 +338,7 @@ export default function SettingsPanel({
                 className="mt-0.5"
               />
               <div>
-                <div className="text-fg text-sm font-medium">Soft Delete</div>
+                <div className="text-fg text-sm font-medium">Soft delete</div>
                 <div className="text-muted text-xs mt-0.5">
                   Hides the workspace from members. Only instance admins and workspace admins can see and
                   restore it.
@@ -355,11 +347,9 @@ export default function SettingsPanel({
             </label>
 
             <label
-              className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition"
-              style={{
-                borderColor: deleteType === 'hard' ? 'rgb(239 68 68 / 0.6)' : 'rgb(71 85 105 / 0.5)',
-                background: deleteType === 'hard' ? 'rgb(239 68 68 / 0.1)' : 'transparent',
-              }}
+              className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition ${
+                deleteType === 'hard' ? 'border-red-500/60 bg-red-500/10' : 'border-line-strong'
+              }`}
             >
               <input
                 type="radio"
@@ -370,7 +360,7 @@ export default function SettingsPanel({
                 className="mt-0.5"
               />
               <div>
-                <div className="text-danger text-sm font-medium">Hard Delete</div>
+                <div className="text-danger text-sm font-medium">Delete permanently</div>
                 <div className="text-muted text-xs mt-0.5">
                   Permanently deletes everything: channels, messages, members. This cannot be undone.
                 </div>
@@ -384,32 +374,26 @@ export default function SettingsPanel({
             </div>
           )}
 
-          <div className="flex gap-3">
-            <button
+          <DialogFooter>
+            <Button
+              variant="ghost"
               onClick={() => {
                 setDeleteModal(false);
                 setDeleteError(null);
               }}
               disabled={deleting}
-              className="flex-1 px-4 py-2.5 bg-raised hover:bg-elevated text-fg text-sm rounded-lg transition cursor-pointer disabled:cursor-not-allowed"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="danger"
               onClick={handleDelete}
-              disabled={deleting}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-500 disabled:bg-red-600/50 text-white text-sm rounded-lg transition cursor-pointer disabled:cursor-not-allowed"
+              loading={deleting}
+              icon={<Trash2 className="h-4 w-4" />}
             >
-              {deleting ? (
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  <Trash2 className="w-4 h-4" />
-                  {deleteType === 'hard' ? 'Permanently Delete' : 'Soft Delete'}
-                </>
-              )}
-            </button>
-          </div>
+              {deleteType === 'hard' ? 'Delete permanently' : 'Soft delete'}
+            </Button>
+          </DialogFooter>
         </Modal>
       )}
     </>

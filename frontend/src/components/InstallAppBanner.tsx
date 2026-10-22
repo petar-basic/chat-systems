@@ -1,4 +1,5 @@
 import { Download, Share, X } from 'lucide-react';
+import { Button } from '@/shared/components/Button/Button';
 import { usePwaInstall } from '@/stores/pwaInstall';
 
 export default function InstallAppBanner() {
@@ -30,14 +31,15 @@ export default function InstallAppBanner() {
         </span>
       </div>
       {offer === 'prompt' && (
-        <button
-          type="button"
+        <Button
+          variant="primary"
+          className="shrink-0"
+
           onClick={() => void install()}
           data-qa="install-banner-install"
-          className="px-3 py-1.5 text-sm font-medium bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition cursor-pointer shrink-0"
         >
           Install
-        </button>
+        </Button>
       )}
       <button
         type="button"

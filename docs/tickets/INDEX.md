@@ -15,7 +15,7 @@ green — desktop and a phone viewport — and the `e2e` job blocks merges. CS-0
 system at 500,000 messages and closed with Wave 12; what its numbers justified, CS-048, is
 Wave 13 and is shipped too. Wave 14 closes the daily-use gaps a team arriving from Slack
 notices first, Waves 15 and 16 (connected-app previews) and Wave 17 (files and images) are
-shipped too. Next: Wave 18 — [CS-056](CS-056-ui-primitives.md), then [CS-057](CS-057-later.md).
+shipped too. Wave 18 is under way: CS-056 is shipped, [CS-057](CS-057-later.md) is next.
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
@@ -195,15 +195,14 @@ week and does not find. The activity view a review might add to this list alread
 
 | # | Ticket | Area |
 |---|---|---|
-| [CS-056](CS-056-ui-primitives.md) | One set of controls: buttons, icon buttons, panels, dialogs | frontend |
+| CS-056 ✅ | One set of controls: buttons, icon buttons, panels, dialogs | frontend |
 | [CS-057](CS-057-later.md) | Later: saved messages and reminders as one to-do list | backend · frontend |
 
 ### Still open
 
 | # | Ticket | Area | Why it is not done |
 |---|---|---|---|
-| [CS-056](CS-056-ui-primitives.md) | Shared controls | frontend | Next — written 2026-10-22 |
-| [CS-057](CS-057-later.md) | Later | backend · frontend | After CS-056 |
+| [CS-057](CS-057-later.md) | Later | backend · frontend | Next |
 | [CS-037](CS-037-huddle-sfu.md) | SFU for large huddles | backend · frontend | LiveKit is infrastructure of its own; the mesh is right for everything under six people |
 
 ## Conflict map

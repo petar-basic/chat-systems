@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Button } from '@/shared/components/Button/Button';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ShieldCheck, ShieldOff, Copy, Check } from 'lucide-react';
 import { api } from '../lib/api';
@@ -79,15 +80,15 @@ export default function TwoFactorPanel() {
           </p>
         </div>
         {status && !status.enrolled && !enrolment && (
-          <button
-            type="button"
+          <Button
+            variant="primary"
+
             onClick={() => start.mutate()}
             disabled={start.isPending}
             data-qa="totp-start"
-            className="px-3 py-2 text-sm bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/50 text-white rounded-lg transition cursor-pointer whitespace-nowrap"
           >
             Set up
-          </button>
+          </Button>
         )}
         {status?.enrolled && !disabling && (
           <button
@@ -147,15 +148,15 @@ export default function TwoFactorPanel() {
               data-qa="totp-code"
               className="flex-1 px-3 py-2.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm tracking-widest focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
-            <button
-              type="button"
+            <Button
+              variant="primary"
+
               onClick={() => confirm.mutate()}
               disabled={confirm.isPending || code.length < 6}
               data-qa="totp-confirm"
-              className="px-4 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/50 text-white text-sm rounded-lg transition cursor-pointer disabled:cursor-not-allowed"
             >
               Confirm
-            </button>
+            </Button>
           </div>
         </div>
       )}

@@ -14,6 +14,16 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
+## [Unreleased]
+
+### Changed
+
+- **Buttons, panels and dialogs look and behave the same everywhere.** One button, icon button,
+  spinner, panel header and dialog header replace the dozens of hand-styled copies, so text
+  sizes and edges line up (the *Browse channels* footer among them), every dialog closes from
+  a ✕ top-right, every icon-only button has a name for screen readers and a target large
+  enough for a thumb, and titles are in sentence case.
+
 ## [2.4.0] — 2026-10-22
 
 ### Upgrading from 2.3.0

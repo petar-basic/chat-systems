@@ -246,7 +246,7 @@ test('10. search finds a message', async () => {
 });
 
 test('11. member cannot reach the instance admin area', async () => {
-  await expect(bob.getByRole('button', { name: 'Instance Admin' })).toHaveCount(0);
+  await expect(bob.getByRole('button', { name: 'Instance admin' })).toHaveCount(0);
   await bob.goto('/app/admin');
   // The page renders nothing at all for a member, so there is no element to
   // wait on: the settled network is the signal that the guard has run.

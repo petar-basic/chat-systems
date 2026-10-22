@@ -1,7 +1,10 @@
 import { useState } from 'react';
+import { Spinner } from '@/shared/components/Spinner/Spinner';
+import { Button } from '@/shared/components/Button/Button';
+import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
 import { toUserMessage } from '@/lib/errors';
 import { formatDateTime } from '@/lib/datetime';
-import { X, Clock, Hash, Trash2, MessageSquare } from 'lucide-react';
+import { Clock, Hash, Trash2, MessageSquare } from 'lucide-react';
 import type { Channel } from '@/stores/workspace';
 import type { Conversation } from '@/hooks/queries/useConversations';
 import {
@@ -127,7 +130,9 @@ function ScheduledRow({
             >
               Cancel
             </button>
-            <button
+            <Button
+              variant="primary"
+              size="sm"
               onClick={async () => {
                 const at = new Date(editingTime);
                 if (!editingTime || Number.isNaN(at.getTime())) {
@@ -151,10 +156,9 @@ function ScheduledRow({
               }}
               disabled={saving}
               data-qa="scheduled-reschedule-submit"
-              className="px-3 py-1 text-xs bg-purple-600 hover:bg-purple-500 text-white rounded transition cursor-pointer"
             >
               Move
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -195,22 +199,14 @@ export default function ScheduledMessagesPanel({
       className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-surface border-l border-line/50 flex flex-col"
       data-qa="scheduled-panel"
     >
-      <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">
-        <div className="flex items-center gap-2">
-          <Clock className="w-4 h-4 text-muted" />
-          <span className="font-semibold">Scheduled</span>
-        </div>
-        <button onClick={onClose} className="text-muted hover:text-fg transition cursor-pointer">
-          <X className="w-4 h-4" />
-        </button>
-      </div>
+      <PanelHeader title="Scheduled" icon={<Clock className="h-4 w-4 text-muted" />} onClose={onClose} />
 
       <div className="flex-1 overflow-y-auto">
         {error && <div className="px-4 py-2 text-xs text-danger">{error}</div>}
 
         {isLoading ? (
           <div className="flex justify-center py-8">
-            <div className="w-5 h-5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+            <Spinner className="text-accent" />
           </div>
         ) : scheduled.length === 0 ? (
           <div className="text-center py-10 px-6 text-sm text-muted" data-qa="scheduled-empty">

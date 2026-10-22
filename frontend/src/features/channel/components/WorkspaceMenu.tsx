@@ -101,7 +101,7 @@ export function WorkspaceMenu({
               className="w-full px-4 py-2 text-left text-sm text-accent-soft hover:bg-raised flex items-center gap-2 cursor-pointer border-t border-line"
               onClick={pick(onOpenInstanceAdmin)}
             >
-              <ShieldCheck className="w-4 h-4" /> Instance Admin
+              <ShieldCheck className="w-4 h-4" /> Instance admin
             </button>
           )}
         </div>

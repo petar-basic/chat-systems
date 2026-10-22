@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from 'react';
-import { Archive, Settings } from 'lucide-react';
+import { Button } from '@/shared/components/Button/Button';
+import { DialogHeader } from '@/shared/components/Dialog/Dialog';
+import { Archive } from 'lucide-react';
 import { Modal } from '@/shared/components/Modal/Modal';
 import type { Channel } from '@/stores/workspace';
 import { useUpdateChannel, useArchiveChannel } from '@/hooks/queries/useChannels';
@@ -60,10 +62,7 @@ export default function ChannelSettingsModal({ channel, workspaceId, onClose, on
       dataQa="channel-settings-modal"
       className="bg-surface border border-line rounded-2xl p-6 w-full max-w-md shadow-2xl"
     >
-      <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-        <Settings className="w-4 h-4" />
-        Channel settings
-      </h2>
+      <DialogHeader title="Channel settings" onClose={onClose} />
 
       <form onSubmit={handleSave} className="space-y-4">
         <div>
@@ -136,52 +135,50 @@ export default function ChannelSettingsModal({ channel, workspaceId, onClose, on
           {confirmArchive ? (
             <div className="flex items-center gap-2 text-xs">
               <span className="text-danger">Archive this channel?</span>
-              <button
-                type="button"
+              <Button
+                variant="danger"
+                size="sm"
                 onClick={handleArchive}
-                disabled={archiveChannel.isPending}
+                loading={archiveChannel.isPending}
                 data-qa="channel-settings-archive-confirm"
-                className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded transition cursor-pointer disabled:opacity-50"
               >
                 Archive
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setConfirmArchive(false)}
                 data-qa="channel-settings-archive-cancel"
-                className="text-muted hover:text-fg transition cursor-pointer"
               >
                 Keep channel
-              </button>
+              </Button>
             </div>
           ) : (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={<Archive className="h-3.5 w-3.5" />}
               onClick={() => setConfirmArchive(true)}
               data-qa="channel-settings-archive"
-              className="flex items-center gap-1.5 text-sm text-muted hover:text-danger transition cursor-pointer"
+              className="-ml-2.5 hover:text-danger"
             >
-              <Archive className="w-4 h-4" />
               Archive channel
-            </button>
+            </Button>
           )}
 
           <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm text-muted hover:text-fg transition cursor-pointer"
-            >
+            <Button variant="ghost" onClick={onClose}>
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
-              disabled={updateChannel.isPending || !name.trim()}
+              variant="primary"
+              loading={updateChannel.isPending}
+              disabled={!name.trim()}
               data-qa="channel-settings-save"
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/50 text-white text-sm font-medium rounded-lg transition cursor-pointer disabled:cursor-not-allowed"
             >
               Save
-            </button>
+            </Button>
           </div>
         </div>
       </form>

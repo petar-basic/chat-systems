@@ -114,6 +114,7 @@ export function YouMenu({
         onClick={onLogout}
         className="text-muted hover:text-danger transition cursor-pointer"
         title="Sign out"
+        aria-label="Sign out"
       >
         <LogOut className="w-4 h-4" />
       </button>

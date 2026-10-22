@@ -1,4 +1,6 @@
-import { X, Pin } from 'lucide-react';
+import { Pin } from 'lucide-react';
+import { Spinner } from '@/shared/components/Spinner/Spinner';
+import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
 import type { Message } from '../stores/workspace';
 import { useUserCache } from '../stores/users';
 import { useChannelPins } from '../hooks/queries/useChannels';
@@ -40,20 +42,16 @@ export default function PinnedMessagesPanel({ channelId, onClose, onNavigate }: 
 
   return (
     <div className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-surface border-l border-line/50 flex flex-col">
-      <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">
-        <div className="flex items-center gap-2">
-          <Pin className="w-4 h-4 text-warning" />
-          <span className="font-semibold">Pinned Messages</span>
-        </div>
-        <button onClick={onClose} className="text-muted hover:text-fg transition cursor-pointer">
-          <X className="w-4 h-4" />
-        </button>
-      </div>
+      <PanelHeader
+        title="Pinned messages"
+        icon={<Pin className="h-4 w-4 text-warning" />}
+        onClose={onClose}
+      />
 
       <div className="flex-1 overflow-y-auto">
         {loading ? (
           <div className="flex justify-center py-8">
-            <div className="w-5 h-5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+            <Spinner className="text-accent" />
           </div>
         ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-muted px-4 text-center">

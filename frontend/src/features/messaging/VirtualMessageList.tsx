@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { Spinner } from '@/shared/components/Spinner/Spinner';
+import { Button } from '@/shared/components/Button/Button';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown } from 'lucide-react';
 
@@ -210,19 +212,15 @@ export default function VirtualMessageList<R extends VirtualRow>({
         // content height as it appears and disappears, which is exactly the
         // shift the anchor exists to prevent.
         <div className="absolute top-2 left-1/2 -translate-x-1/2 pointer-events-none">
-          <div className="w-4 h-4 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+          <Spinner size="sm" className="text-accent" />
         </div>
       )}
 
       {hasUnseen && (
-        <button
-          onClick={() => jumpToBottom('smooth')}
-          data-qa="jump-to-latest"
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-600 hover:bg-purple-500 text-white text-xs font-medium shadow-lg transition cursor-pointer"
-        >
+        <Button variant="primary" size="sm" onClick={() => jumpToBottom('smooth')} data-qa="jump-to-latest">
           <ArrowDown className="w-3.5 h-3.5" />
           New messages
-        </button>
+        </Button>
       )}
     </div>
   );

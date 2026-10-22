@@ -1,4 +1,5 @@
 import { useRef, useCallback, useMemo, useEffect, useState } from 'react';
+import { Button } from '@/shared/components/Button/Button';
 import { toUserMessage } from '@/lib/errors';
 import { formatDateTime } from '@/lib/datetime';
 import { Extension } from '@tiptap/core';
@@ -362,15 +363,16 @@ export default function MessageInput({
 
           {editing ? (
             <div className="flex shrink-0 items-center gap-2 text-xs">
-              <button
-                type="button"
+              <Button
+                variant="primary"
+                size="sm"
+
                 onClick={handleSend}
                 disabled={isEmpty}
                 data-qa="message-edit-save"
-                className="rounded bg-purple-600 px-2.5 py-1 font-medium text-white transition hover:bg-purple-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Save
-              </button>
+              </Button>
               <button
                 type="button"
                 onClick={onCancel}
@@ -441,8 +443,11 @@ export default function MessageInput({
                             {scheduleError}
                           </p>
                         )}
-                        <button
-                          type="button"
+                        <Button
+                          variant="primary"
+                          fullWidth
+                          className="mt-2"
+
                           onClick={() => {
                             const at = new Date(customSendAt);
                             if (!customSendAt || Number.isNaN(at.getTime())) {
@@ -456,10 +461,9 @@ export default function MessageInput({
                             void handleSchedule(at);
                           }}
                           data-qa="schedule-custom-submit"
-                          className="mt-2 w-full px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium rounded transition cursor-pointer"
                         >
                           Schedule
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   )}
@@ -472,6 +476,7 @@ export default function MessageInput({
                 data-qa="composer-send"
                 className="p-1 text-accent hover:text-accent-soft disabled:text-faint transition cursor-pointer disabled:cursor-not-allowed rounded hover:bg-raised/60"
                 title="Send (Enter)"
+                aria-label="Send"
               >
                 <Send className="w-3.5 h-3.5" />
               </button>

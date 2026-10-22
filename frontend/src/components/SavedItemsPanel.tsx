@@ -1,4 +1,6 @@
-import { X, Bookmark, Hash, MessageSquare, Trash2 } from 'lucide-react';
+import { Bookmark, Hash, MessageSquare, Trash2 } from 'lucide-react';
+import { Spinner } from '@/shared/components/Spinner/Spinner';
+import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
 import type { Channel } from '@/stores/workspace';
 import type { Conversation } from '@/hooks/queries/useConversations';
 import { useSavedItems, useUnsaveMessage, type SavedItem } from '@/hooks/queries/useSaved';
@@ -53,24 +55,17 @@ export default function SavedItemsPanel({
       className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-surface border-l border-line/50 flex flex-col"
       data-qa="saved-panel"
     >
-      <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">
-        <div className="flex items-center gap-2">
-          <Bookmark className="w-4 h-4 text-muted" />
-          <span className="font-semibold">Saved</span>
-        </div>
-        <button
-          onClick={onClose}
-          aria-label="Close saved items"
-          className="text-muted hover:text-fg transition cursor-pointer"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
+      <PanelHeader
+        title="Saved"
+        icon={<Bookmark className="h-4 w-4 text-muted" />}
+        closeLabel="Close saved items"
+        onClose={onClose}
+      />
 
       <div className="flex-1 overflow-y-auto">
         {isLoading ? (
           <div className="flex justify-center py-8">
-            <div className="w-5 h-5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+            <Spinner className="text-accent" />
           </div>
         ) : items.length === 0 ? (
           <div className="text-center py-10 px-6 text-sm text-muted" data-qa="saved-empty">

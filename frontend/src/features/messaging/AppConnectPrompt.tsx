@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Button } from '@/shared/components/Button/Button';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useAppActions, useApps, type AppProvider } from '@/hooks/queries/useApps';
 import { appName } from '@/lib/appConnect';
@@ -37,9 +38,6 @@ export function AppConnectPrompt({ providers, messageId }: { providers: string[]
     }
   };
 
-  const button =
-    'rounded-md border border-line-strong px-2 py-1 text-xs font-medium transition disabled:opacity-50';
-
   return (
     <div className="mt-1 flex max-w-md flex-col gap-2" data-qa="app-connect-prompt">
       {asking.map((provider) => (
@@ -53,27 +51,26 @@ export function AppConnectPrompt({ providers, messageId }: { providers: string[]
             Connect your {appName(provider)} account to show a preview of this link.
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
-            <button
-              type="button"
+            <Button
+              variant="primary"
+              size="sm"
               onClick={() =>
                 actions.connect.mutate({ provider: provider as AppProvider, refreshMessageId: messageId })
               }
               disabled={actions.connect.isPending}
-              className={`${button} border-purple-600 bg-purple-600 text-white hover:bg-purple-500`}
             >
               Connect {appName(provider)}
-            </button>
-            <button type="button" onClick={notNow} className={`${button} text-fg-dim hover:bg-raised`}>
+            </Button>
+            <Button size="sm" onClick={notNow}>
               Not now
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              size="sm"
               onClick={() => actions.prompts.mutate({ provider: provider as AppProvider, off: true })}
               disabled={actions.prompts.isPending}
-              className={`${button} text-fg-dim hover:bg-raised`}
             >
               Never ask me again
-            </button>
+            </Button>
           </div>
         </div>
       ))}

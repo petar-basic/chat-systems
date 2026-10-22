@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from 'react';
+import { Button } from '@/shared/components/Button/Button';
+import { DialogFooter, DialogHeader } from '@/shared/components/Dialog/Dialog';
 import { Plus, ServerCrash, RefreshCw, Upload } from 'lucide-react';
 import type { Workspace } from '@/stores/workspace';
 import { useInstanceStore } from '@/stores/instances';
@@ -103,6 +105,7 @@ export default function WorkspaceSidebar({
                         onClick={() => instanceManager.get(group.instance.url).ws.connect()}
                         className="text-muted hover:text-fg-dim transition cursor-pointer"
                         title="Retry connection"
+                        aria-label="Retry connection"
                       >
                         <RefreshCw className="w-2.5 h-2.5" />
                       </button>
@@ -163,6 +166,7 @@ export default function WorkspaceSidebar({
                 onClick={() => openCreateModal(group.instance.url)}
                 className="w-10 h-10 rounded-xl flex items-center justify-center bg-surface text-muted hover:bg-raised hover:text-fg transition cursor-pointer"
                 title={`Create workspace on ${instanceLabel(group.instance.url)}`}
+                aria-label={`Create workspace on ${instanceLabel(group.instance.url)}`}
               >
                 <Plus className="w-4 h-4" />
               </button>
@@ -176,16 +180,20 @@ export default function WorkspaceSidebar({
           onClick={onAddInstance}
           className="w-10 h-10 rounded-xl flex items-center justify-center bg-surface text-muted hover:bg-raised hover:text-fg transition cursor-pointer"
           title="Add instance"
+          aria-label="Add instance"
         >
           <ServerCrash className="w-4 h-4" />
         </button>
       </div>
 
       {showNewWs && (
-        <Modal title="Create Workspace" onClose={() => setShowNewWs(false)} dataQa="create-workspace-modal">
+        <Modal title="Create workspace" onClose={() => setShowNewWs(false)} dataQa="create-workspace-modal">
           <form onSubmit={handleCreate}>
-            <h2 className="text-lg font-bold mb-1">Create Workspace</h2>
-            <p className="text-xs text-muted mb-4">{instanceLabel(newWsInstanceUrl)}</p>
+            <DialogHeader
+              title="Create workspace"
+              description={instanceLabel(newWsInstanceUrl)}
+              onClose={() => setShowNewWs(false)}
+            />
 
             {/* The importer can create the workspace itself, and this is where
                 somebody looks for it — not inside the menu of a workspace they
@@ -214,24 +222,17 @@ export default function WorkspaceSidebar({
               value={newWsName}
               onChange={(e) => setNewWsName(e.target.value)}
               placeholder="Workspace name"
-              className="w-full px-4 py-3 bg-raised/50 border border-line-strong rounded-lg text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500 mb-4"
+              className="w-full px-3 py-2 text-sm bg-raised/50 border border-line-strong rounded-lg text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
               required
             />
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowNewWs(false)}
-                className="px-4 py-2 text-muted hover:text-fg transition"
-              >
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setShowNewWs(false)}>
                 Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition"
-              >
+              </Button>
+              <Button type="submit" variant="primary">
                 Create
-              </button>
-            </div>
+              </Button>
+            </DialogFooter>
           </form>
         </Modal>
       )}

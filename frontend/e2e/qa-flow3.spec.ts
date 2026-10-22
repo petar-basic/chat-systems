@@ -18,7 +18,7 @@ test('G. instance admin page renders for the instance admin', async ({ page }) =
   await login(page, 'admin@dev.local');
   await page.goto('/app/admin');
   await expect(page.locator('[data-qa="admin-tab-users"]')).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByRole('heading', { name: 'Instance Admin' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Instance admin' })).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/G-instance-admin.png`, fullPage: true });
 });
 

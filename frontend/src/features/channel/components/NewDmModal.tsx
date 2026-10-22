@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { Button } from '@/shared/components/Button/Button';
+import { DialogFooter, DialogHeader } from '@/shared/components/Dialog/Dialog';
 import { Check } from 'lucide-react';
 import { Modal } from '@/shared/components/Modal/Modal';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
@@ -32,11 +34,12 @@ export function NewDmModal({ members, currentUserId, onStart, onClose }: Props) 
   );
 
   return (
-    <Modal title="New Message" onClose={onClose} dataQa="new-dm-modal">
-      <h2 className="text-lg font-bold mb-1">New message</h2>
-      <p className="text-xs text-muted mb-3">
-        Pick one person for a direct message, or up to eight for a group.
-      </p>
+    <Modal title="New message" onClose={onClose} dataQa="new-dm-modal">
+      <DialogHeader
+        title="New message"
+        description="Pick one person for a direct message, or up to eight for a group."
+        onClose={onClose}
+      />
       <input
         type="text"
         value={search}
@@ -74,28 +77,29 @@ export function NewDmModal({ members, currentUserId, onStart, onClose }: Props) 
           })
         )}
       </div>
-      <div className="mt-4 flex items-center justify-between gap-2">
-        <span className="text-xs text-muted" data-qa="new-dm-selected-count">
-          {selected.length === 0 ? 'Nobody picked yet' : `${selected.length} selected`}
-        </span>
-        <div className="flex gap-2">
-          <button onClick={onClose} className="px-4 py-2 text-muted hover:text-fg transition">
-            Cancel
-          </button>
-          <button
-            onClick={() => {
-              const people = selected;
-              onClose();
-              onStart(people);
-            }}
-            disabled={selected.length === 0}
-            data-qa="new-dm-start"
-            className="px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/50 text-white text-sm font-medium rounded-lg transition cursor-pointer disabled:cursor-not-allowed"
-          >
-            {selected.length > 1 ? 'Start group' : 'Start chat'}
-          </button>
-        </div>
-      </div>
+      <DialogFooter
+        start={
+          <span className="text-xs text-muted" data-qa="new-dm-selected-count">
+            {selected.length === 0 ? 'Nobody picked yet' : `${selected.length} selected`}
+          </span>
+        }
+      >
+        <Button variant="ghost" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button
+          variant="primary"
+          onClick={() => {
+            const people = selected;
+            onClose();
+            onStart(people);
+          }}
+          disabled={selected.length === 0}
+          data-qa="new-dm-start"
+        >
+          {selected.length > 1 ? 'Start group' : 'Start chat'}
+        </Button>
+      </DialogFooter>
     </Modal>
   );
 }

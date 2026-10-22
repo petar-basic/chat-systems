@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from 'react';
+import { buttonStyles } from '@/shared/components/Button/buttonStyles';
+import { Button } from '@/shared/components/Button/Button';
 import { useSearchParams, Link } from 'react-router';
 import { api } from '../lib/api';
 
@@ -36,7 +38,7 @@ function ForgotPasswordForm() {
           <div className="w-12 h-12 rounded-2xl bg-purple-600 flex items-center justify-center text-2xl font-bold text-white mx-auto mb-4">
             C
           </div>
-          <h1 className="text-2xl font-bold text-fg">Reset Password</h1>
+          <h1 className="text-2xl font-bold text-fg">Reset password</h1>
           <p className="text-muted mt-2">Enter your email to receive a reset link</p>
         </div>
 
@@ -61,13 +63,9 @@ function ForgotPasswordForm() {
               required
               autoFocus
             />
-            <button
-              type="submit"
-              disabled={loading || !email.trim()}
-              className="w-full py-3 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/50 text-white font-medium rounded-lg transition cursor-pointer disabled:cursor-not-allowed"
-            >
-              {loading ? 'Sending...' : 'Send Reset Link'}
-            </button>
+            <Button variant="primary" fullWidth type="submit" disabled={loading || !email.trim()}>
+              {loading ? 'Sending…' : 'Send reset link'}
+            </Button>
             <div className="text-center">
               <Link to="/login" className="text-accent hover:text-accent-soft text-sm">
                 Back to Login
@@ -115,17 +113,14 @@ function ResetForm({ token }: { token: string }) {
           <div className="w-12 h-12 rounded-2xl bg-purple-600 flex items-center justify-center text-2xl font-bold text-white mx-auto mb-4">
             C
           </div>
-          <h1 className="text-2xl font-bold text-fg">Set New Password</h1>
+          <h1 className="text-2xl font-bold text-fg">Set new password</h1>
         </div>
 
         {success ? (
           <div className="bg-surface border border-line rounded-2xl p-6 text-center">
             <p className="text-success mb-4">Password has been reset successfully!</p>
-            <Link
-              to="/login"
-              className="inline-block px-6 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition"
-            >
-              Go to Login
+            <Link to="/login" className={buttonStyles({ variant: 'primary' })}>
+              Go to login
             </Link>
           </div>
         ) : (
@@ -152,13 +147,9 @@ function ResetForm({ token }: { token: string }) {
               minLength={8}
             />
             {error && <div className="text-danger text-sm">{error}</div>}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/50 text-white font-medium rounded-lg transition cursor-pointer disabled:cursor-not-allowed"
-            >
-              {loading ? 'Resetting...' : 'Reset Password'}
-            </button>
+            <Button variant="primary" fullWidth type="submit" disabled={loading}>
+              {loading ? 'Resetting…' : 'Reset password'}
+            </Button>
           </form>
         )}
       </div>

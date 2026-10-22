@@ -1,4 +1,5 @@
 import type { components } from '@/api/schema';
+import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { formatDateTime } from '@/lib/datetime';
 
 export type AuditEntry = components['schemas']['AuditRow'];
@@ -84,7 +85,7 @@ export default function AuditLogTable({ entries, loading, showWorkspace = false 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="w-8 h-8 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+        <Spinner size="lg" className="text-accent" />
       </div>
     );
   }

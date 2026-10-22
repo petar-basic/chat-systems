@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from 'react';
-import { X, ServerCrash, LogIn } from 'lucide-react';
+import { Button } from '@/shared/components/Button/Button';
+import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
+import { ServerCrash, LogIn } from 'lucide-react';
 import { useInstanceStore } from '../stores/instances';
 import { isTotpRequired } from '@/lib/errors';
 
@@ -39,15 +41,11 @@ export default function AddInstancePanel({ onClose }: Props) {
       <div className="absolute inset-0 bg-overlay/50 backdrop-blur-sm" onClick={onClose} />
 
       <div className="relative z-10 w-80 bg-surface border-r border-line flex flex-col h-full shadow-2xl">
-        <div className="h-14 px-4 flex items-center justify-between border-b border-line shrink-0">
-          <div className="flex items-center gap-2">
-            <ServerCrash className="w-5 h-5 text-accent" />
-            <h2 className="font-semibold text-fg">Add Instance</h2>
-          </div>
-          <button onClick={onClose} className="text-muted hover:text-fg transition cursor-pointer">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+        <PanelHeader
+          title="Add instance"
+          icon={<ServerCrash className="h-4 w-4 text-accent" />}
+          onClose={onClose}
+        />
 
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 space-y-4">
           <p className="text-xs text-muted">
@@ -150,20 +148,16 @@ export default function AddInstancePanel({ onClose }: Props) {
             />
           </div>
 
-          <button
+          <Button
+            variant="primary"
+            fullWidth
             type="submit"
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/50 text-white text-sm font-medium rounded-lg transition cursor-pointer disabled:cursor-not-allowed"
+            loading={loading}
+            icon={<LogIn className="h-4 w-4" />}
           >
-            {loading ? (
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <>
-                <LogIn className="w-4 h-4" />
-                Connect
-              </>
-            )}
-          </button>
+            Connect
+          </Button>
         </form>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Button } from '@/shared/components/Button/Button';
 import { toUserMessage } from '@/lib/errors';
 import { Plus, X, ExternalLink } from 'lucide-react';
 import {
@@ -112,14 +113,15 @@ export default function ChannelBookmarksBar({ channelId, instanceUrl }: Props) {
             data-qa="channel-bookmark-url"
             className="px-2 py-1 w-56 bg-raised/50 border border-line-strong rounded text-xs text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
-          <button
+          <Button
+            variant="primary"
+            size="sm"
             onClick={submit}
             disabled={createBookmark.isPending}
             data-qa="channel-bookmark-save"
-            className="px-2 py-1 text-xs bg-purple-600 hover:bg-purple-500 text-white rounded transition cursor-pointer disabled:opacity-50"
           >
             Add
-          </button>
+          </Button>
           <button
             onClick={() => {
               setAdding(false);

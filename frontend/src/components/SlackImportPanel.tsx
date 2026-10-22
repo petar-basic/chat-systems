@@ -1,6 +1,9 @@
 import { useRef, useState } from 'react';
+import { Spinner } from '@/shared/components/Spinner/Spinner';
+import { Button } from '@/shared/components/Button/Button';
+import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
 import { toUserMessage } from '@/lib/errors';
-import { X, Upload, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
+import { Upload, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
 import {
   useSlackImports,
   useStartSlackImport,
@@ -134,19 +137,7 @@ export default function SlackImportPanel({ workspaceId, instanceUrl, onClose }: 
       className="w-full lg:w-96 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-surface border-l border-line/50 flex flex-col"
       data-qa="slack-import-panel"
     >
-      <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">
-        <div className="flex items-center gap-2">
-          <Upload className="w-4 h-4 text-muted" />
-          <span className="font-semibold">Slack import</span>
-        </div>
-        <button
-          onClick={onClose}
-          aria-label="Close Slack import"
-          className="text-muted hover:text-fg transition cursor-pointer"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
+      <PanelHeader title="Slack import" icon={<Upload className="h-4 w-4 text-muted" />} onClose={onClose} />
 
       <div className="px-4 py-3 border-b border-line/40 space-y-2">
         <p className="text-xs text-muted">
@@ -210,21 +201,22 @@ export default function SlackImportPanel({ workspaceId, instanceUrl, onClose }: 
         )}
 
         <div className="flex justify-end">
-          <button
+          <Button
+            variant="primary"
+            size="sm"
             onClick={submit}
             disabled={start.isPending}
             data-qa="slack-import-start"
-            className="px-3 py-1 text-xs bg-purple-600 hover:bg-purple-500 text-white rounded transition cursor-pointer disabled:opacity-50"
           >
             {start.isPending ? 'Uploading…' : dryRun ? 'Check the export' : 'Import'}
-          </button>
+          </Button>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">
         {isLoading ? (
           <div className="flex justify-center py-8">
-            <div className="w-5 h-5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+            <Spinner className="text-accent" />
           </div>
         ) : runs.length === 0 ? (
           <div className="text-center py-10 px-6 text-sm text-muted" data-qa="slack-import-empty">

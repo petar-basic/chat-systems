@@ -5,6 +5,7 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
 import { defineConfig, globalIgnores } from 'eslint/config';
+import iconButtonLabel from './eslint-rules/icon-button-label.js';
 
 export default defineConfig([
   globalIgnores([
@@ -31,6 +32,29 @@ export default defineConfig([
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
       'no-console': 'error',
+    },
+  },
+  {
+    files: ['src/**/*.tsx'],
+    ignores: ['src/shared/components/**'],
+    plugins: { local: { rules: { 'icon-button-label': iconButtonLabel } } },
+    rules: {
+      'local/icon-button-label': 'error',
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "JSXAttribute[name.name='className'] Literal[value=/hover:bg-purple-500/]",
+          message: 'Use <Button variant="primary"> (or buttonStyles) from shared/components/Button.',
+        },
+        {
+          selector: "JSXAttribute[name.name='className'] TemplateElement[value.raw=/hover:bg-purple-500/]",
+          message: 'Use <Button variant="primary"> (or buttonStyles) from shared/components/Button.',
+        },
+        {
+          selector: "JSXAttribute[name.name='className'] Literal[value=/rounded-full animate-spin/]",
+          message: 'Use <Spinner /> from shared/components/Spinner.',
+        },
+      ],
     },
   },
   {

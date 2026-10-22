@@ -1197,3 +1197,22 @@ migration 54 added.
 Left out on purpose: HEIC conversion (libheif), video thumbnails and transcoding (ffmpeg),
 alt text and recorded clips.
 
+---
+
+## Wave 18 — What a Slack user notices in the first hour (in progress)
+
+### [CS-056] One set of controls ✅ shipped
+The *Browse Channels* dialog's *Close* sat 16 px inside the edge its rows ended on, and at
+16 px among 14 px text. It was one symptom: with no shared button, every screen hand-styled its
+own, and the copies had drifted — 36 primary buttons, 31 spinners and 17 panel headers, ten of
+them with a close button a screen reader announced as "button".
+
+`shared/components` now has `Button` (with `buttonStyles` for links), `IconButton`, `Spinner`,
+`PanelHeader` and `DialogHeader`/`DialogFooter`, and every modal and panel is built from them;
+the forward dialog, which had no visible title and doubled its padding, got both fixed on the
+way. Titles went to sentence case. The migration was mostly mechanical — a script turned the
+hand-styled buttons into `<Button>` and the spinners into `<Spinner>`, the six buttons with a
+spinner inside became `loading` by hand — and two lint rules keep it from drifting back: a
+`no-restricted-syntax` pattern for the primary-button and spinner classes, and a twenty-line
+local rule for icon-only buttons without a name.
+

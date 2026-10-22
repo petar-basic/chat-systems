@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Download, Files, X } from 'lucide-react';
+import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
+import { Download, Files } from 'lucide-react';
 import { useChannelFiles, type ChannelFile, type FileKindFilter } from '@/hooks/queries/useChannelFiles';
 import { useUserCache } from '@/stores/users';
 import { displayNameOf } from '@/lib/userHelpers';
@@ -41,19 +42,7 @@ export default function ChannelFilesPanel({ channelId, onClose, onNavigate }: Pr
       className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-surface border-l border-line/50 flex flex-col"
       data-qa="channel-files-panel"
     >
-      <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">
-        <div className="flex items-center gap-2">
-          <Files className="w-4 h-4" />
-          <span className="font-semibold">Files</span>
-        </div>
-        <button
-          onClick={onClose}
-          aria-label="Close files"
-          className="text-muted hover:text-fg transition cursor-pointer"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
+      <PanelHeader title="Files" icon={<Files className="h-4 w-4 text-muted" />} onClose={onClose} />
 
       <div className="flex gap-1 overflow-x-auto border-b border-line/50 px-3 py-2" role="tablist">
         {TABS.map((tab) => (
