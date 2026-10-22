@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { ExternalLink, RefreshCw, X } from 'lucide-react';
+import { ExternalLink, Play, RefreshCw, X } from 'lucide-react';
 import type { components } from '@/api/schema';
 import { appName } from '@/lib/appConnect';
 import { AppIcon } from '@/shared/components/AppIcon/AppIcon';
+import { embedSrc } from '@/lib/videoEmbed';
 
 type Unfurl = components['schemas']['Unfurl'];
 type UnfurlField = components['schemas']['UnfurlField'];
@@ -15,7 +16,7 @@ interface LinkPreviewsProps {
 
 export function LinkPreviews({ unfurls, onHide, onRefresh }: LinkPreviewsProps) {
   const worthShowing = unfurls.filter(
-    (unfurl) => unfurl.kind === 'app' || unfurl.description || unfurl.image_url,
+    (unfurl) => unfurl.kind === 'app' || unfurl.kind === 'video' || unfurl.description || unfurl.image_url,
   );
   if (worthShowing.length === 0) return null;
   return (
@@ -23,6 +24,8 @@ export function LinkPreviews({ unfurls, onHide, onRefresh }: LinkPreviewsProps) 
       {worthShowing.map((unfurl) =>
         unfurl.kind === 'app' ? (
           <AppCard key={unfurl.url} unfurl={unfurl} onHide={onHide} onRefresh={onRefresh} />
+        ) : unfurl.kind === 'video' ? (
+          <VideoCard key={unfurl.url} unfurl={unfurl} onHide={onHide} />
         ) : (
           <LinkPreviewCard key={unfurl.url} unfurl={unfurl} onHide={onHide} />
         ),
@@ -144,6 +147,83 @@ function AppCard({
           </button>
         )}
       </div>
+      {onHide && (
+        <button
+          type="button"
+          onClick={onHide}
+          aria-label="Remove preview"
+          title="Remove preview"
+          className="absolute right-1 top-1 rounded p-0.5 text-muted opacity-0 transition hover:bg-raised hover:text-fg-dim focus-visible:opacity-100 group-hover/preview:opacity-100"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function VideoCard({ unfurl, onHide }: { unfurl: Unfurl; onHide?: () => void }) {
+  const [playing, setPlaying] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
+  const src = unfurl.embed ? embedSrc(unfurl.embed) : null;
+  const image = !imageFailed && unfurl.image_url?.startsWith('https://') ? unfurl.image_url : null;
+  return (
+    <div
+      data-qa="video-preview"
+      className="group/preview relative flex max-w-md flex-col gap-1 border-l-4 border-line pl-3 pr-8 py-1"
+    >
+      <div className="flex items-center gap-1.5 text-xs font-semibold text-fg-dim">
+        <AppIcon provider={unfurl.embed?.provider ?? ''} />
+        {unfurl.site_name}
+      </div>
+      <a
+        href={unfurl.url}
+        target="_blank"
+        rel="noopener noreferrer nofollow"
+        className="block text-sm font-semibold text-accent hover:underline line-clamp-2"
+      >
+        {unfurl.title}
+      </a>
+      {unfurl.subtitle && <div className="text-xs text-muted">{unfurl.subtitle}</div>}
+      {playing && src ? (
+        <iframe
+          src={src}
+          title={unfurl.title}
+          allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+          allowFullScreen
+          referrerPolicy="strict-origin-when-cross-origin"
+          data-qa="video-player"
+          className="mt-1 aspect-video w-full rounded-md border border-line/60 bg-black"
+        />
+      ) : (
+        (image || src) && (
+          <button
+            type="button"
+            onClick={() =>
+              src ? setPlaying(true) : window.open(unfurl.url, '_blank', 'noopener,noreferrer')
+            }
+            aria-label={`Play ${unfurl.title}`}
+            data-qa="video-play"
+            className="relative mt-1 block aspect-video w-full overflow-hidden rounded-md border border-line/60 bg-black"
+          >
+            {image && (
+              <img
+                src={image}
+                alt=""
+                loading="lazy"
+                referrerPolicy="no-referrer"
+                onError={() => setImageFailed(true)}
+                className="h-full w-full object-cover"
+              />
+            )}
+            <span className="absolute inset-0 flex items-center justify-center">
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/70 text-white transition hover:bg-black/85">
+                <Play className="h-6 w-6 translate-x-0.5" fill="currentColor" />
+              </span>
+            </span>
+          </button>
+        )
+      )}
       {onHide && (
         <button
           type="button"

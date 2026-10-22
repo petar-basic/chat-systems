@@ -6,10 +6,10 @@ use super::html;
 use crate::hooks::ssrf;
 use crate::messaging::models::Unfurl;
 
-const TIMEOUT: Duration = Duration::from_secs(3);
+pub(super) const TIMEOUT: Duration = Duration::from_secs(3);
 const MAX_BODY: usize = 512 * 1024;
 const MAX_REDIRECTS: usize = 3;
-const USER_AGENT: &str = concat!(
+pub(super) const USER_AGENT: &str = concat!(
     "Chat-Systems/",
     env!("CARGO_PKG_VERSION"),
     " (link preview)"

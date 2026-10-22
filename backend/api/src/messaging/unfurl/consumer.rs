@@ -5,7 +5,7 @@ use sha2::{Digest, Sha256};
 use tracing::{info, warn};
 use uuid::Uuid;
 
-use super::{fetch, links};
+use super::{fetch, links, video};
 use crate::integrations::service::{self as apps, AppUnfurl};
 use crate::messaging::models::Unfurl;
 use crate::messaging::stream_group::{Delivery, StreamGroup};
@@ -136,7 +136,7 @@ async fn store(
 }
 
 async fn cached_or_fetched(state: &AppState, url: &str) -> Option<Unfurl> {
-    let key = format!("unfurl:v1:{}", hex(&Sha256::digest(url.as_bytes())));
+    let key = format!("unfurl:v2:{}", hex(&Sha256::digest(url.as_bytes())));
     let mut redis = state.redis.clone();
     let cached: Option<String> = redis.get(&key).await.unwrap_or_default();
     if let Some(cached) = cached {
@@ -145,7 +145,14 @@ async fn cached_or_fetched(state: &AppState, url: &str) -> Option<Unfurl> {
         }
     }
 
-    let unfurl = fetch::fetch(url, false).await;
+    let described = match video::match_video(url) {
+        Some(found) => video::describe(&found, url).await,
+        None => None,
+    };
+    let unfurl = match described {
+        Some(card) => Some(card),
+        None => fetch::fetch(url, false).await,
+    };
     if let Ok(encoded) = serde_json::to_string(&unfurl) {
         let stored: redis::RedisResult<()> = redis.set_ex(&key, encoded, CACHE_SECONDS).await;
         if let Err(e) = stored {

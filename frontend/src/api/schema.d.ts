@@ -3341,6 +3341,7 @@ export interface components {
         };
         Unfurl: {
             description?: string | null;
+            embed?: components["schemas"]["VideoEmbed"] | null;
             /** Format: date-time */
             fetched_at?: string | null;
             fields?: components["schemas"]["UnfurlField"][];
@@ -3499,6 +3500,13 @@ export interface components {
         };
         /** @enum {string} */
         UserStatus: "pending" | "active" | "suspended";
+        VideoEmbed: {
+            hash?: string | null;
+            id: string;
+            provider: string;
+            /** Format: int32 */
+            start?: number | null;
+        };
         Workspace: {
             /** Format: date-time */
             created_at: string;
