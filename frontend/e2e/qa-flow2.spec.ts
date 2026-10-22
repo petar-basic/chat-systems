@@ -77,10 +77,10 @@ test('C. pin a message and read it back from the pinned panel', async () => {
   await row.hover();
   await row.locator('[data-qa="message-action-more"]').click();
   await admin.locator('[data-qa="message-overflow"] [data-qa="message-action-pin"]').click();
-  await admin.getByLabel('Pinned messages').click();
+  await admin.getByLabel('Pinned messages', { exact: true }).click();
   await expect(admin.getByText(text).last()).toBeVisible({ timeout: 10_000 });
   await admin.screenshot({ path: `${SHOTS}/C-pinned.png` });
-  await admin.getByLabel('Pinned messages').click();
+  await admin.getByLabel('Pinned messages', { exact: true }).click();
 });
 
 test('D. file upload is delivered to the other user', async () => {
