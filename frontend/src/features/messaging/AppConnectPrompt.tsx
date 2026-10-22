@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { LayoutGrid, X } from 'lucide-react';
 import { useWorkspaceStore } from '@/stores/workspace';
-import { useAppActions, type AppProvider } from '@/hooks/queries/useApps';
+import { useAppActions, useApps, type AppProvider } from '@/hooks/queries/useApps';
 import { appName } from '@/lib/appConnect';
+import { AppIcon } from '@/shared/components/AppIcon/AppIcon';
 
 const dismissKey = (messageId: string) => `app-prompt-dismissed:${messageId}`;
 
@@ -17,10 +17,18 @@ function wasDismissed(messageId: string): boolean {
 export function AppConnectPrompt({ providers, messageId }: { providers: string[]; messageId: string }) {
   const workspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id);
   const actions = useAppActions(workspaceId);
+  const { data } = useApps(workspaceId);
   const [dismissed, setDismissed] = useState(() => wasDismissed(messageId));
-  if (dismissed || providers.length === 0) return null;
 
-  const dismiss = () => {
+  const settled = new Set(
+    (data?.data ?? [])
+      .filter((app) => app.prompts_off || app.connected_account)
+      .map((app) => app.provider as string),
+  );
+  const asking = providers.filter((provider) => !settled.has(provider));
+  if (dismissed || asking.length === 0) return null;
+
+  const notNow = () => {
     setDismissed(true);
     try {
       localStorage.setItem(dismissKey(messageId), '1');
@@ -29,26 +37,46 @@ export function AppConnectPrompt({ providers, messageId }: { providers: string[]
     }
   };
 
+  const button =
+    'rounded-md border border-line-strong px-2 py-1 text-xs font-medium transition disabled:opacity-50';
+
   return (
-    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted" data-qa="app-connect-prompt">
-      <LayoutGrid className="h-3.5 w-3.5" />
-      <span>Only you can see this.</span>
-      {providers.map((provider) => (
-        <button
-          key={provider}
-          type="button"
-          onClick={() =>
-            actions.connect.mutate({ provider: provider as AppProvider, refreshMessageId: messageId })
-          }
-          disabled={actions.connect.isPending}
-          className="text-accent hover:underline disabled:opacity-50"
-        >
-          Connect {appName(provider)} to show a preview
-        </button>
+    <div className="mt-1 flex max-w-md flex-col gap-2" data-qa="app-connect-prompt">
+      {asking.map((provider) => (
+        <div key={provider} className="rounded-lg border border-line/70 bg-surface/40 px-3 py-2">
+          <div className="flex items-center gap-1.5 text-xs text-muted">
+            <AppIcon provider={provider} />
+            <span className="font-medium text-fg-dim">{appName(provider)}</span>
+            <span>· Only visible to you</span>
+          </div>
+          <p className="mt-1 text-sm text-fg-soft">
+            Connect your {appName(provider)} account to show a preview of this link.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                actions.connect.mutate({ provider: provider as AppProvider, refreshMessageId: messageId })
+              }
+              disabled={actions.connect.isPending}
+              className={`${button} border-purple-600 bg-purple-600 text-white hover:bg-purple-500`}
+            >
+              Connect {appName(provider)}
+            </button>
+            <button type="button" onClick={notNow} className={`${button} text-fg-dim hover:bg-raised`}>
+              Not now
+            </button>
+            <button
+              type="button"
+              onClick={() => actions.prompts.mutate({ provider: provider as AppProvider, off: true })}
+              disabled={actions.prompts.isPending}
+              className={`${button} text-fg-dim hover:bg-raised`}
+            >
+              Never ask me again
+            </button>
+          </div>
+        </div>
       ))}
-      <button type="button" onClick={dismiss} aria-label="Dismiss" className="rounded p-0.5 hover:bg-raised">
-        <X className="h-3 w-3" />
-      </button>
     </div>
   );
 }

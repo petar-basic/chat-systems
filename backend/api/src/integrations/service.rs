@@ -125,6 +125,10 @@ pub async fn statuses(
         .integration_repo
         .connected_accounts(workspace_id, user_id)
         .await?;
+    let prompts_off = state
+        .integration_repo
+        .prompt_optouts(workspace_id, user_id)
+        .await?;
     Ok(Provider::ALL
         .into_iter()
         .map(|provider| {
@@ -132,6 +136,7 @@ pub async fn statuses(
             AppStatus {
                 provider,
                 name: provider.name().into(),
+                summary: provider.summary().into(),
                 configured: app.is_some(),
                 enabled: app.is_some_and(|a| a.enabled),
                 client_id: app.map(|a| a.client_id.clone()),
@@ -147,6 +152,7 @@ pub async fn statuses(
                     .iter()
                     .find(|(p, _)| p == provider.as_str())
                     .map(|(_, account)| account.clone()),
+                prompts_off: prompts_off.iter().any(|p| p == provider.as_str()),
             }
         })
         .collect())
@@ -354,6 +360,10 @@ pub async fn complete_connection(
             resources: &resources,
         })
         .await?;
+    state
+        .integration_repo
+        .turn_prompts_on(pending.workspace_id, user_id, pending.provider.as_str())
+        .await?;
     let external_account = account;
 
     Ok(CompleteConnectionResponse {
@@ -438,6 +448,27 @@ async fn access_token(
 }
 
 pub async fn unfurl(
+    state: &AppState,
+    workspace_id: Uuid,
+    poster_id: Uuid,
+    url: &str,
+) -> AppResult<AppUnfurl> {
+    Ok(
+        match provider_unfurl(state, workspace_id, poster_id, url).await? {
+            AppUnfurl::Connect(provider)
+                if state
+                    .integration_repo
+                    .prompts_off(workspace_id, poster_id, provider.as_str())
+                    .await? =>
+            {
+                AppUnfurl::Unclaimed
+            }
+            other => other,
+        },
+    )
+}
+
+async fn provider_unfurl(
     state: &AppState,
     workspace_id: Uuid,
     poster_id: Uuid,

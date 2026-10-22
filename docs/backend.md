@@ -571,12 +571,14 @@ Slides, Forms, Drawings or Drive link needs the poster's connection, scoped to
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
-| GET | `/workspaces/:ws_id/apps` | — | `{ data: AppStatus[] }` — setup values (callback URL, scopes, steps) and the caller's own connection |
+| GET | `/workspaces/:ws_id/apps` | — | `{ data: AppStatus[] }` — setup values (callback URL, scopes, steps), the caller's own connection and whether they turned the app's prompts off |
 | PUT | `/workspaces/:ws_id/apps/:provider` | `{ client_id, client_secret?, enabled }` | `{ status: "saved" }` — admin; the secret is required the first time |
 | DELETE | `/workspaces/:ws_id/apps/:provider` | — | `{ status: "removed" }` — admin; disconnects everyone |
 | POST | `/workspaces/:ws_id/apps/:provider/connect` | `{ return_to? }` | `{ authorize_url }` |
 | POST | `/apps/connections` | `{ code, state }` | `{ workspace_id, provider, external_account, return_to }` |
 | DELETE | `/workspaces/:ws_id/apps/:provider/connection` | — | `{ status: "disconnected" }` |
+| PUT | `/workspaces/:ws_id/apps/:provider/prompts` | — | `{ status: "off" }` — *Never ask me again*: the caller's links to that app fall back to the OpenGraph preview; connecting turns prompts back on |
+| DELETE | `/workspaces/:ws_id/apps/:provider/prompts` | — | `{ status: "on" }` |
 | POST | `/messages/:msg_id/unfurls/refresh` | — | `{ status: "refreshing" }` — author; re-runs the previews |
 
 ### sidebar

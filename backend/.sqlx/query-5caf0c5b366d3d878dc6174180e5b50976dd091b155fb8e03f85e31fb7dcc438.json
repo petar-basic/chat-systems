@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT EXISTS (\n                   SELECT 1 FROM app_prompt_optouts\n                    WHERE workspace_id = $1 AND user_id = $2 AND provider = $3\n               ) AS \"off!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "off!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "5caf0c5b366d3d878dc6174180e5b50976dd091b155fb8e03f85e31fb7dcc438"
+}

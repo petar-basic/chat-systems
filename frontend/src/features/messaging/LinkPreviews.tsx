@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { ExternalLink, RefreshCw, X } from 'lucide-react';
 import type { components } from '@/api/schema';
 import { appName } from '@/lib/appConnect';
+import { AppIcon } from '@/shared/components/AppIcon/AppIcon';
 
 type Unfurl = components['schemas']['Unfurl'];
 type UnfurlField = components['schemas']['UnfurlField'];
@@ -65,6 +67,8 @@ function AppCard({
   onRefresh?: () => void;
 }) {
   const provider = appName(unfurl.provider ?? '');
+  const [imageFailed, setImageFailed] = useState(false);
+  const image = !imageFailed && unfurl.image_url?.startsWith('https://') ? unfurl.image_url : null;
   const fetched = unfurl.fetched_at
     ? new Date(unfurl.fetched_at).toLocaleString([], {
         month: 'short',
@@ -78,7 +82,10 @@ function AppCard({
       data-qa="app-preview"
       className="group/preview relative max-w-md rounded-lg border border-line/70 bg-surface/40 px-3 py-2"
     >
-      <div className="text-xs text-muted">{provider}</div>
+      <div className="flex items-center gap-1.5 text-xs text-muted">
+        <AppIcon provider={unfurl.provider ?? ''} />
+        {provider}
+      </div>
       <a
         href={unfurl.url}
         target="_blank"
@@ -100,6 +107,19 @@ function AppCard({
             </div>
           ))}
         </dl>
+      )}
+      {image && (
+        <a href={unfurl.url} target="_blank" rel="noopener noreferrer nofollow" className="mt-2 block">
+          <img
+            src={image}
+            alt=""
+            loading="lazy"
+            referrerPolicy="no-referrer"
+            onError={() => setImageFailed(true)}
+            data-qa="app-preview-image"
+            className="max-h-60 w-full rounded-md border border-line/60 object-cover"
+          />
+        </a>
       )}
       <div className="mt-2 flex items-center gap-3 text-xs text-muted">
         {fetched && <span>As of {fetched}</span>}

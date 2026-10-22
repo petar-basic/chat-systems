@@ -372,6 +372,78 @@ async fn a_disabled_app_previews_nothing_and_cannot_be_connected(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn never_ask_again_silences_the_prompt_until_the_member_connects(pool: PgPool) {
+    let s = setup(pool).await;
+    configure(
+        &s,
+        &s.owner_token,
+        json!({ "client_id": "client-1", "client_secret": "shh", "enabled": true }),
+    )
+    .await;
+    let (member, _email, member_token) =
+        seed_and_login(&s.app, &s.state, "apps-member", false).await;
+    add_ws_member(&s.state, s.ws_id, member, "member").await;
+    let issue = "https://acme.atlassian.net/browse/PT-262";
+    let prompts = format!("/api/workspaces/{}/apps/jira/prompts", s.ws_id);
+
+    let (status, _) = send(&s.app, "PUT", &prompts, Some(&member_token), None).await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _) = send(&s.app, "PUT", &prompts, Some(&member_token), None).await;
+    assert_eq!(status, StatusCode::OK, "turning prompts off twice is fine");
+    assert_eq!(list(&s, &member_token).await["prompts_off"], json!(true));
+    assert_eq!(list(&s, &s.owner_token).await["prompts_off"], json!(false));
+    assert!(matches!(
+        service::unfurl(&s.state, s.ws_id, member, issue)
+            .await
+            .expect("unfurl"),
+        AppUnfurl::Unclaimed
+    ));
+    assert!(matches!(
+        service::unfurl(&s.state, s.ws_id, s.owner, issue)
+            .await
+            .expect("unfurl"),
+        AppUnfurl::Connect(_)
+    ));
+
+    let (status, _) = send(&s.app, "DELETE", &prompts, Some(&member_token), None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(matches!(
+        service::unfurl(&s.state, s.ws_id, member, issue)
+            .await
+            .expect("unfurl"),
+        AppUnfurl::Connect(_)
+    ));
+
+    send(&s.app, "PUT", &prompts, Some(&member_token), None).await;
+    let oauth_state = connect(&s, &member_token).await;
+    assert_eq!(
+        complete(&s, &member_token, &oauth_state).await.0,
+        StatusCode::OK
+    );
+    assert_eq!(
+        list(&s, &member_token).await["prompts_off"],
+        json!(false),
+        "connecting turns the prompts back on"
+    );
+    assert!(matches!(
+        service::unfurl(&s.state, s.ws_id, member, issue)
+            .await
+            .expect("unfurl"),
+        AppUnfurl::Card(_)
+    ));
+
+    let (status, _) = send(
+        &s.app,
+        "PUT",
+        &format!("/api/workspaces/{}/apps/nope/prompts", s.ws_id),
+        Some(&member_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn suspending_a_user_drops_their_connections(pool: PgPool) {
     let s = setup(pool).await;
     configure(
@@ -418,6 +490,24 @@ async fn apps_outsider_forbidden(pool: PgPool) {
     )
     .await;
     assert_eq!(status, StatusCode::FORBIDDEN);
+    let (status, _) = send(
+        &s.app,
+        "PUT",
+        &format!("/api/workspaces/{}/apps/jira/prompts", s.ws_id),
+        Some(&outsider_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let (status, _) = send(
+        &s.app,
+        "PUT",
+        &format!("/api/workspaces/{}/apps/jira/prompts", s.ws_id),
+        None,
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
 async fn fake_github() -> String {
