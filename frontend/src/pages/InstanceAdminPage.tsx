@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { useNavigate } from 'react-router';
 import { UserX, UserCheck, ArrowLeft, RefreshCw } from 'lucide-react';
 import { useInstanceStore } from '../stores/instances';
@@ -74,12 +75,13 @@ export default function InstanceAdminPage() {
       <div className="border-b border-surface px-4 sm:px-6 py-4 flex flex-wrap items-center gap-3 sm:gap-4">
         <button
           onClick={() => navigate('/app')}
+          aria-label="Back to the app"
           className="p-2 text-muted hover:text-fg hover:bg-surface rounded-lg transition cursor-pointer"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-lg font-bold truncate">Instance Admin</h1>
+          <h1 className="text-lg font-bold truncate">Instance admin</h1>
           {instance && <p className="text-xs text-muted truncate">{instanceLabel(instance.url)}</p>}
         </div>
         <div className="flex items-center gap-1 bg-surface rounded-lg p-1 shrink-0">
@@ -119,7 +121,7 @@ export default function InstanceAdminPage() {
           </div>
         ) : loading ? (
           <div className="flex items-center justify-center py-20">
-            <div className="w-8 h-8 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+            <Spinner size="lg" className="text-accent" />
           </div>
         ) : (
           <div className="max-w-4xl mx-auto">
@@ -170,7 +172,7 @@ export default function InstanceAdminPage() {
                         </td>
                         <td className="px-4 py-3">
                           {roleBusy(user) ? (
-                            <div className="w-4 h-4 border border-purple-400/30 border-t-purple-400 rounded-full animate-spin" />
+                            <Spinner size="sm" className="text-accent" />
                           ) : (
                             <select
                               aria-label="Instance role"
@@ -180,7 +182,7 @@ export default function InstanceAdminPage() {
                               className="text-xs bg-raised border border-line-strong rounded px-2 py-1 text-fg focus:outline-none focus:ring-1 focus:ring-purple-500 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                             >
                               <option value="user">User</option>
-                              <option value="admin">Instance Admin</option>
+                              <option value="admin">Instance admin</option>
                             </select>
                           )}
                         </td>
@@ -193,7 +195,7 @@ export default function InstanceAdminPage() {
                               title={user.status === 'active' ? 'Suspend user' : 'Activate user'}
                             >
                               {statusBusy(user) ? (
-                                <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                                <Spinner size="sm" />
                               ) : user.status === 'active' ? (
                                 <UserX className="w-3.5 h-3.5" />
                               ) : (

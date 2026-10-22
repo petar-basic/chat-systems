@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react';
+import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
@@ -28,7 +29,7 @@ function SplashScreen() {
       <div className="w-12 h-12 rounded-2xl bg-purple-600 flex items-center justify-center text-2xl font-bold text-white mb-4">
         C
       </div>
-      <div className="w-6 h-6 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+      <Spinner className="text-accent" />
     </div>
   );
 }

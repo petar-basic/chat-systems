@@ -1,4 +1,7 @@
 import { useMemo, useState } from 'react';
+import { Button } from '@/shared/components/Button/Button';
+import { DialogHeader } from '@/shared/components/Dialog/Dialog';
+import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { toUserMessage } from '@/lib/errors';
 import { Hash, Search } from 'lucide-react';
 import { Modal } from '@/shared/components/Modal/Modal';
@@ -46,31 +49,24 @@ function ChannelRow({
       </div>
       {channel.is_member ? (
         <div className="flex items-center gap-1.5 shrink-0">
-          <button
-            onClick={onOpen}
-            data-qa="browse-channel-open"
-            className="px-2.5 py-1 text-xs font-medium text-fg-soft bg-raised hover:bg-elevated rounded-lg transition cursor-pointer"
-          >
+          <Button size="sm" onClick={onOpen} data-qa="browse-channel-open">
             Open
-          </button>
-          <button
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
             onClick={onLeave}
             disabled={busy}
             data-qa="browse-channel-leave"
-            className="px-2.5 py-1 text-xs text-muted hover:text-danger transition cursor-pointer disabled:opacity-50"
+            className="hover:text-danger"
           >
             Leave
-          </button>
+          </Button>
         </div>
       ) : (
-        <button
-          onClick={onJoin}
-          disabled={busy}
-          data-qa="browse-channel-join"
-          className="px-2.5 py-1 text-xs font-medium text-white bg-purple-600 hover:bg-purple-500 rounded-lg transition cursor-pointer disabled:opacity-50 shrink-0"
-        >
+        <Button size="sm" variant="primary" onClick={onJoin} disabled={busy} data-qa="browse-channel-join">
           Join
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -125,12 +121,12 @@ export default function BrowseChannelsModal({
 
   return (
     <Modal
-      title="Browse Channels"
+      title="Browse channels"
       onClose={onClose}
       dataQa="browse-channels-modal"
       className="bg-surface border border-line rounded-2xl p-6 w-full max-w-lg shadow-2xl"
     >
-      <h2 className="text-lg font-bold mb-4">Browse Channels</h2>
+      <DialogHeader title="Browse channels" onClose={onClose} />
 
       <div className="flex items-center gap-2 bg-raised/50 border border-line-strong rounded-lg px-3 py-2 mb-3">
         <Search className="w-4 h-4 text-muted shrink-0" />
@@ -147,10 +143,10 @@ export default function BrowseChannelsModal({
 
       {error && <div className="mb-2 text-xs text-danger">{error}</div>}
 
-      <div className="max-h-80 overflow-y-auto -mx-1 px-1">
+      <div className="-mx-3 max-h-80 overflow-y-auto">
         {isLoading ? (
-          <div className="flex justify-center py-8">
-            <div className="w-5 h-5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+          <div className="flex justify-center py-8 text-accent">
+            <Spinner />
           </div>
         ) : isError ? (
           <div className="text-center py-8 text-sm text-danger">Failed to load channels</div>
@@ -173,12 +169,6 @@ export default function BrowseChannelsModal({
             />
           ))
         )}
-      </div>
-
-      <div className="mt-4 flex justify-end">
-        <button onClick={onClose} className="px-4 py-2 text-muted hover:text-fg transition">
-          Close
-        </button>
       </div>
     </Modal>
   );

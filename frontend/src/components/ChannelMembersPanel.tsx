@@ -1,6 +1,8 @@
 import { useState } from 'react';
+import { Spinner } from '@/shared/components/Spinner/Spinner';
+import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
-import { X, UserPlus, UserMinus, Hash, ShieldCheck, Shield } from 'lucide-react';
+import { UserPlus, UserMinus, Hash, ShieldCheck, Shield } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useUserCache } from '../stores/users';
@@ -172,20 +174,17 @@ export default function ChannelMembersPanel({ channelId, channelName, channelTyp
       className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-surface border-l border-line/50 flex flex-col"
       data-qa="channel-members-panel"
     >
-      <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">
-        <div className="flex items-center gap-2">
-          <Hash className="w-4 h-4 text-muted" />
-          <span className="font-semibold truncate">{channelName} Members</span>
-        </div>
-        <button onClick={onClose} className="text-muted hover:text-fg transition cursor-pointer">
-          <X className="w-4 h-4" />
-        </button>
-      </div>
+      <PanelHeader
+        title={`${channelName} members`}
+        icon={<Hash className="h-4 w-4 text-muted" />}
+        closeLabel="Close members"
+        onClose={onClose}
+      />
 
       <div className="flex-1 overflow-y-auto">
         {loading ? (
           <div className="flex justify-center py-8">
-            <div className="w-5 h-5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+            <Spinner className="text-accent" />
           </div>
         ) : (
           <>

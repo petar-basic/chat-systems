@@ -1,4 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { Spinner } from '@/shared/components/Spinner/Spinner';
+import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
 import { toUserMessage } from '@/lib/errors';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { useUserCache } from '../stores/users';
@@ -115,15 +117,7 @@ export default function SearchPanel({ onClose, onNavigateToMessage, onNavigateTo
 
   return (
     <div className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 flex flex-col border-l border-line/50 bg-app lg:bg-app/80">
-      <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">
-        <h3 className="text-sm font-bold text-fg flex items-center gap-2">
-          <Search className="w-4 h-4" />
-          Search
-        </h3>
-        <button onClick={onClose} className="text-muted hover:text-fg transition cursor-pointer">
-          <X className="w-4 h-4" />
-        </button>
-      </div>
+      <PanelHeader title="Search" icon={<Search className="h-4 w-4 text-muted" />} onClose={onClose} />
 
       <div className="px-3 py-3 border-b border-line/30">
         <div className="flex items-center gap-2 bg-surface border border-line rounded-lg px-3 py-2">
@@ -139,6 +133,7 @@ export default function SearchPanel({ onClose, onNavigateToMessage, onNavigateTo
           />
           {query && (
             <button
+              aria-label="Clear search"
               onClick={() => {
                 setQuery('');
                 setResults([]);
@@ -155,7 +150,7 @@ export default function SearchPanel({ onClose, onNavigateToMessage, onNavigateTo
       <div className="flex-1 overflow-y-auto px-2 py-2">
         {loading ? (
           <div className="flex justify-center py-8">
-            <div className="w-5 h-5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+            <Spinner className="text-accent" />
           </div>
         ) : error ? (
           <div className="text-center py-8 text-danger text-sm" data-qa="search-error">

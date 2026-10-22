@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Button } from '@/shared/components/Button/Button';
 import { toUserMessage } from '@/lib/errors';
 import { formatDateTime } from '@/lib/datetime';
 import { useMyStatus, useSetStatus } from '@/hooks/queries/useStatus';
@@ -106,15 +107,16 @@ export default function StatusEditor({ instanceUrl, workspaceId }: Props) {
             </option>
           ))}
         </select>
-        <button
-          type="button"
+        <Button
+          variant="primary"
+          size="sm"
+
           onClick={() => save({ emoji: emoji.trim(), text: text.trim(), minutes: duration })}
           disabled={set.isPending || (!emoji.trim() && !text.trim())}
           data-qa="status-save"
-          className="px-3 py-1.5 text-xs bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition cursor-pointer disabled:opacity-50"
         >
           Set status
-        </button>
+        </Button>
         {(status?.status_text || status?.status_emoji) && (
           <button
             type="button"

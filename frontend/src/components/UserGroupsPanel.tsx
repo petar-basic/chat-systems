@@ -1,5 +1,8 @@
 import { useState, type FormEvent } from 'react';
-import { X, Users, Trash2, Plus, Check } from 'lucide-react';
+import { Spinner } from '@/shared/components/Spinner/Spinner';
+import { Button } from '@/shared/components/Button/Button';
+import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
+import { Users, Trash2, Plus, Check } from 'lucide-react';
 import {
   useUserGroups,
   useCreateGroup,
@@ -78,15 +81,7 @@ export default function UserGroupsPanel({ workspaceId, instanceUrl, members, isA
 
   return (
     <div className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 flex flex-col border-l border-line/50 bg-app lg:bg-app/80">
-      <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">
-        <h3 className="text-sm font-bold text-fg flex items-center gap-2">
-          <Users className="w-4 h-4" />
-          User groups
-        </h3>
-        <button onClick={onClose} className="text-muted hover:text-fg transition cursor-pointer">
-          <X className="w-4 h-4" />
-        </button>
-      </div>
+      <PanelHeader title="User groups" icon={<Users className="h-4 w-4 text-muted" />} onClose={onClose} />
 
       {isAdmin && (
         <form onSubmit={handleCreate} className="px-3 py-3 border-b border-line/30 space-y-2">
@@ -100,14 +95,14 @@ export default function UserGroupsPanel({ workspaceId, instanceUrl, members, isA
               data-qa="group-handle"
               className="flex-1 px-3 py-2 bg-surface border border-line rounded-lg text-fg text-sm placeholder-subtle focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
-            <button
+            <Button
+              variant="primary"
               type="submit"
               disabled={createGroup.isPending || !handle.trim()}
               data-qa="group-create"
-              className="px-3 py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/50 text-white rounded-lg transition cursor-pointer disabled:cursor-not-allowed"
             >
               <Plus className="w-4 h-4" />
-            </button>
+            </Button>
           </div>
           {error && <div className="text-xs text-danger">{error}</div>}
         </form>
@@ -116,7 +111,7 @@ export default function UserGroupsPanel({ workspaceId, instanceUrl, members, isA
       <div className="flex-1 overflow-y-auto px-2 py-2">
         {isLoading ? (
           <div className="flex justify-center py-8">
-            <div className="w-5 h-5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+            <Spinner className="text-accent" />
           </div>
         ) : groups && groups.length > 0 ? (
           <ul className="space-y-1">

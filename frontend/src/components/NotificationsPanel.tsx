@@ -1,17 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import {
-  X,
-  Bell,
-  MessageSquare,
-  AtSign,
-  Reply,
-  Smile,
-  Clock,
-  Info,
-  Volume2,
-  VolumeX,
-  Moon,
-} from 'lucide-react';
+import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
+import { IconButton } from '@/shared/components/IconButton/IconButton';
+import { Button } from '@/shared/components/Button/Button';
+import { Bell, MessageSquare, AtSign, Reply, Smile, Clock, Info, Volume2, VolumeX, Moon } from 'lucide-react';
 import {
   useNotifications,
   useUnreadNotificationCount,
@@ -180,86 +171,82 @@ export default function NotificationsPanel({ workspaceId, onClose, onNavigate }:
       className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-surface lg:bg-surface/95 border-l border-line/50 flex flex-col h-full"
       data-qa="notifications-panel"
     >
-      <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">
-        <div className="flex items-center gap-2">
-          <Bell className="w-4 h-4 text-fg-dim" />
-          <h2 className="font-semibold text-fg">Notifications</h2>
-          {unreadCount > 0 && (
+      <PanelHeader
+        title="Notifications"
+        icon={<Bell className="h-4 w-4 text-muted" />}
+        badge={
+          unreadCount > 0 && (
             <span className="px-1.5 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full">
               {unreadCount > 99 ? '99+' : unreadCount}
             </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="relative" ref={dndRef}>
-            <button
-              onClick={() => setDndMenuOpen((v) => !v)}
-              aria-label="Do not disturb"
-              title={dndActive ? 'Do Not Disturb is on' : 'Pause notifications'}
-              className={`transition ${dndActive ? 'text-accent' : 'text-muted hover:text-fg'}`}
-            >
-              <Moon className="w-4 h-4" />
-            </button>
-            {dndMenuOpen && (
-              <div className="absolute right-0 top-full mt-1 w-44 bg-surface border border-line rounded-lg shadow-xl z-10 py-1">
-                {dndActive ? (
-                  <button
-                    onClick={clearDnd}
-                    className="w-full px-3 py-2 text-left text-sm text-accent-soft hover:bg-raised"
-                  >
-                    Turn off Do Not Disturb
-                  </button>
-                ) : (
-                  <>
-                    <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-subtle">
-                      Pause notifications
-                    </div>
-                    {DND_PRESETS.map((p) => (
+          )
+        }
+        onClose={onClose}
+        actions={
+          <>
+            {unreadCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => markAllRead.mutate()}
+                disabled={markAllRead.isPending}
+                className="text-accent"
+              >
+                {ActionLabels.MarkAllRead}
+              </Button>
+            )}
+            <div className="relative" ref={dndRef}>
+              <IconButton
+                label={dndActive ? 'Do not disturb is on' : 'Pause notifications'}
+                icon={<Moon className="h-4 w-4" />}
+                pressed={dndActive}
+                onClick={() => setDndMenuOpen((v) => !v)}
+                className={dndActive ? 'text-accent' : ''}
+              />
+              {dndMenuOpen && (
+                <div className="absolute right-0 top-full mt-1 w-44 bg-surface border border-line rounded-lg shadow-xl z-10 py-1">
+                  {dndActive ? (
+                    <button
+                      onClick={clearDnd}
+                      className="w-full px-3 py-2 text-left text-sm text-accent-soft hover:bg-raised"
+                    >
+                      Turn off Do Not Disturb
+                    </button>
+                  ) : (
+                    <>
+                      <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-subtle">
+                        Pause notifications
+                      </div>
+                      {DND_PRESETS.map((p) => (
+                        <button
+                          key={p.minutes}
+                          onClick={() => snooze(p.minutes)}
+                          className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised"
+                        >
+                          {p.label}
+                        </button>
+                      ))}
                       <button
-                        key={p.minutes}
-                        onClick={() => snooze(p.minutes)}
+                        onClick={snoozeUntilTomorrow}
                         className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised"
                       >
-                        {p.label}
+                        Until tomorrow
                       </button>
-                    ))}
-                    <button
-                      onClick={snoozeUntilTomorrow}
-                      className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised"
-                    >
-                      Until tomorrow
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-          <button
-            onClick={toggleSound}
-            aria-label={soundEnabled ? 'Mute notification sound' : 'Unmute notification sound'}
-            title={soundEnabled ? 'Mute sound' : 'Unmute sound'}
-            className="text-muted hover:text-fg transition"
-          >
-            {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4 text-danger" />}
-          </button>
-          {unreadCount > 0 && (
-            <button
-              onClick={() => markAllRead.mutate()}
-              disabled={markAllRead.isPending}
-              className="text-xs text-accent hover:text-accent-soft transition disabled:opacity-50"
-            >
-              {ActionLabels.MarkAllRead}
-            </button>
-          )}
-          <button
-            onClick={onClose}
-            aria-label="Close notifications"
-            className="text-muted hover:text-fg transition"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+            <IconButton
+              label={soundEnabled ? 'Mute notification sound' : 'Unmute notification sound'}
+              icon={
+                soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4 text-danger" />
+              }
+              onClick={toggleSound}
+            />
+          </>
+        }
+      />
       <div className="flex items-center gap-1 px-3 py-2 border-b border-line/40 shrink-0">
         {FILTERS.map((f) => (
           <button

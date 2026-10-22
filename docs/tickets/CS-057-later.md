@@ -2,7 +2,7 @@
 
 **Wave:** 18 — what a Slack user notices in the first hour
 **Area:** backend · frontend
-**Blocked by:** CS-056 (the panel and its controls)
+**Blocked by:** ~~CS-056~~ ✅ shipped (the panel and its controls)
 **Blocks:** —
 
 ## Problem

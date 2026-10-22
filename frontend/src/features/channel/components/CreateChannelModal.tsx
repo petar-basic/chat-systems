@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from 'react';
+import { Button } from '@/shared/components/Button/Button';
+import { DialogFooter, DialogHeader } from '@/shared/components/Dialog/Dialog';
 import { Modal } from '@/shared/components/Modal/Modal';
 import type { CreateChannelDraft } from '@/models/channel';
 import type { Channel } from '@/stores/workspace';
@@ -46,9 +48,9 @@ export function CreateChannelModal({ channels, onCreate, onClose }: Props) {
   };
 
   return (
-    <Modal title="Create Channel" onClose={onClose} dataQa="create-channel-modal">
+    <Modal title="Create channel" onClose={onClose} dataQa="create-channel-modal">
       <form onSubmit={handleSubmit} noValidate>
-        <h2 className="text-lg font-bold text-fg mb-4">Create Channel</h2>
+        <DialogHeader title="Create channel" onClose={onClose} />
         <input
           aria-label="Channel name"
           type="text"
@@ -116,18 +118,14 @@ export function CreateChannelModal({ channels, onCreate, onClose }: Props) {
           </span>
         </label>
 
-        <div className="flex justify-end gap-2 mt-5">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-muted hover:text-fg transition">
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>
             Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={creating}
-            className="px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/50 text-white rounded-lg transition disabled:cursor-not-allowed"
-          >
-            {creating ? 'Creating…' : 'Create'}
-          </button>
-        </div>
+          </Button>
+          <Button type="submit" variant="primary" loading={creating}>
+            Create
+          </Button>
+        </DialogFooter>
       </form>
     </Modal>
   );

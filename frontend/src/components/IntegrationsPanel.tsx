@@ -1,6 +1,9 @@
 import { useState, type FormEvent } from 'react';
+import { Spinner } from '@/shared/components/Spinner/Spinner';
+import { Button } from '@/shared/components/Button/Button';
+import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
 import { CopyField } from '@/shared/components/CopyField/CopyField';
-import { X, Plug, Trash2, Eye, RefreshCw, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
+import { Plug, Trash2, Eye, RefreshCw, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
 import type { Channel } from '@/stores/workspace';
 import {
   useHooks,
@@ -265,15 +268,7 @@ export default function IntegrationsPanel({ workspaceId, instanceUrl, channels, 
       className="w-full lg:w-96 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-surface border-l border-line/50 flex flex-col"
       data-qa="integrations-panel"
     >
-      <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">
-        <div className="flex items-center gap-2">
-          <Plug className="w-4 h-4 text-muted" />
-          <span className="font-semibold">Integrations</span>
-        </div>
-        <button onClick={onClose} className="text-muted hover:text-fg transition cursor-pointer">
-          <X className="w-4 h-4" />
-        </button>
-      </div>
+      <PanelHeader title="Integrations" icon={<Plug className="h-4 w-4 text-muted" />} onClose={onClose} />
 
       <div className="flex-1 overflow-y-auto">
         {error && <div className="px-4 py-2 text-xs text-danger">{error}</div>}
@@ -289,7 +284,7 @@ export default function IntegrationsPanel({ workspaceId, instanceUrl, channels, 
 
         {isLoading ? (
           <div className="flex justify-center py-6">
-            <div className="w-5 h-5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+            <Spinner className="text-accent" />
           </div>
         ) : (
           incoming.map((hook) => (
@@ -330,14 +325,15 @@ export default function IntegrationsPanel({ workspaceId, instanceUrl, channels, 
               </option>
             ))}
           </select>
-          <button
+          <Button
+            variant="primary"
+            fullWidth
             type="submit"
             disabled={busy || !incomingName.trim() || !incomingChannel}
             data-qa="incoming-hook-create"
-            className="w-full px-3 py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/50 text-white text-sm font-medium rounded-lg transition cursor-pointer disabled:cursor-not-allowed"
           >
             Create incoming webhook
-          </button>
+          </Button>
         </form>
 
         <div className="px-4 py-3 flex items-center gap-2 text-xs font-semibold text-muted uppercase tracking-wider">
@@ -405,14 +401,15 @@ export default function IntegrationsPanel({ workspaceId, instanceUrl, channels, 
               </label>
             ))}
           </div>
-          <button
+          <Button
+            variant="primary"
+            fullWidth
             type="submit"
             disabled={busy || !outgoingName.trim() || !outgoingUrl.trim() || outgoingChannels.length === 0}
             data-qa="outgoing-hook-create"
-            className="w-full px-3 py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/50 text-white text-sm font-medium rounded-lg transition cursor-pointer disabled:cursor-not-allowed"
           >
             Create outgoing webhook
-          </button>
+          </Button>
         </form>
       </div>
     </div>

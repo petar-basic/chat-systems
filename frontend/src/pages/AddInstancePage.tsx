@@ -1,4 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react';
+import { Button } from '@/shared/components/Button/Button';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
@@ -191,20 +192,16 @@ export default function AddInstancePage() {
             </div>
           )}
 
-          <button
+          <Button
+            variant="primary"
+            fullWidth
             type="submit"
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/50 text-white font-medium rounded-lg transition cursor-pointer disabled:cursor-not-allowed"
+            loading={loading}
+            icon={<LogIn className="h-4 w-4" />}
           >
-            {loading ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <>
-                <LogIn className="w-4 h-4" />
-                Connect
-              </>
-            )}
-          </button>
+            Connect
+          </Button>
 
           {instance?.sso_enabled && sameOrigin && (
             <>

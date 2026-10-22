@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from 'react';
-import { ExternalLink, LayoutGrid, X } from 'lucide-react';
+import { Button } from '@/shared/components/Button/Button';
+import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
+import { ExternalLink, LayoutGrid } from 'lucide-react';
 import { CopyField } from '@/shared/components/CopyField/CopyField';
 import { AppIcon } from '@/shared/components/AppIcon/AppIcon';
 import { useApps, useAppActions, type AppStatus } from '@/hooks/queries/useApps';
@@ -16,18 +18,7 @@ export default function AppsPanel({ workspaceId, isAdmin, onClose }: Props) {
 
   return (
     <div className="w-80 bg-surface/80 border-l border-line/50 flex flex-col h-full" data-qa="apps-panel">
-      <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">
-        <h2 className="font-semibold text-fg flex items-center gap-2">
-          <LayoutGrid className="w-4 h-4" /> Apps
-        </h2>
-        <button
-          onClick={onClose}
-          aria-label="Close"
-          className="text-muted hover:text-fg transition cursor-pointer"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
+      <PanelHeader title="Apps" icon={<LayoutGrid className="h-4 w-4 text-muted" />} onClose={onClose} />
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         <p className="text-xs text-muted">
           Connected apps turn links into cards with live details. Each person connects their own account, so a
@@ -112,14 +103,15 @@ function AppCardSection({
               </button>
             </div>
           ) : (
-            <button
+            <Button
+              variant="primary"
+              fullWidth
               onClick={() => actions.connect.mutate({ provider: app.provider })}
               disabled={actions.connect.isPending}
               data-qa="app-connect"
-              className="w-full px-3 py-2 text-sm bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition disabled:opacity-50"
             >
               Connect my account
-            </button>
+            </Button>
           )}
           {app.prompts_off && !app.connected_account && (
             <div
@@ -250,13 +242,9 @@ function AppSetupForm({
       </label>
 
       <div className="flex items-center gap-2">
-        <button
-          type="submit"
-          disabled={actions.configure.isPending}
-          className="px-3 py-1.5 text-sm bg-purple-600 hover:bg-purple-500 text-white rounded-lg disabled:opacity-50"
-        >
+        <Button variant="primary" type="submit" disabled={actions.configure.isPending}>
           Save
-        </button>
+        </Button>
         {app.configured &&
           (confirmRemove ? (
             <button

@@ -1,4 +1,5 @@
 import { Hash, Megaphone } from 'lucide-react';
+import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { ROUTES, EmptyLabels } from '@/shared/constants';
 import { ConnectionBanner } from '@/shared/components/ConnectionBanner/ConnectionBanner';
 import InstallAppBanner from '@/components/InstallAppBanner';
@@ -148,7 +149,7 @@ export default function WorkspacePage() {
                     disabled={c.restoreWorkspace.isPending}
                     className="ml-4 px-3 py-1 text-xs bg-yellow-500/20 hover:bg-yellow-500/40 border border-yellow-500/40 text-warning rounded-lg transition cursor-pointer disabled:opacity-50 shrink-0"
                   >
-                    {c.restoreWorkspace.isPending ? 'Restoring...' : 'Restore Workspace'}
+                    {c.restoreWorkspace.isPending ? 'Restoring…' : 'Restore workspace'}
                   </button>
                 </div>
               )}
@@ -242,7 +243,7 @@ export default function WorkspacePage() {
                       <p className="text-sm">{EmptyLabels.NoChannelsHint}</p>
                     </>
                   ) : (
-                    <div className="w-6 h-6 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+                    <Spinner className="text-accent" />
                   )}
                 </div>
               )}

@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo, type FormEvent } from 'react';
+import { Spinner } from '@/shared/components/Spinner/Spinner';
+import { Button } from '@/shared/components/Button/Button';
 import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { UserPlus, MessageSquare, LogIn } from 'lucide-react';
@@ -106,14 +108,11 @@ export default function CompleteRegistrationPage() {
     return (
       <Shell>
         <div className="bg-surface/50 backdrop-blur-xl border border-line rounded-2xl p-8 shadow-2xl max-w-md text-center">
-          <div className="text-danger text-lg font-medium mb-2">Invalid Invite</div>
+          <div className="text-danger text-lg font-medium mb-2">Invalid invite</div>
           <p className="text-muted">{verifyError}</p>
-          <button
-            onClick={() => navigate('/add-instance')}
-            className="mt-6 px-6 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition cursor-pointer"
-          >
+          <Button variant="primary" className="mt-6" onClick={() => navigate('/add-instance')}>
             Go to Login
-          </button>
+          </Button>
         </div>
       </Shell>
     );
@@ -122,7 +121,7 @@ export default function CompleteRegistrationPage() {
   if (!inviteInfo || !hydrated) {
     return (
       <Shell>
-        <div className="w-8 h-8 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+        <Spinner size="lg" className="text-accent" />
       </Shell>
     );
   }
@@ -146,46 +145,36 @@ export default function CompleteRegistrationPage() {
             )}
 
             {matches ? (
-              <button
+              <Button
+                variant="primary"
+                fullWidth
                 onClick={handleJoin}
                 disabled={joining}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/50 text-white font-medium rounded-lg transition cursor-pointer disabled:cursor-not-allowed"
+                loading={joining}
+                icon={<UserPlus className="h-4 w-4" />}
               >
-                {joining ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <UserPlus className="w-4 h-4" />
-                    Join {workspaceLabel}
-                  </>
-                )}
-              </button>
+                Join {workspaceLabel}
+              </Button>
             ) : signedInAs ? (
               <>
                 <p className="text-muted text-sm mb-6">
                   You're signed in as <span className="text-fg font-medium">{signedInAs}</span>, but this
                   invite was sent to <span className="text-fg font-medium">{inviteInfo.email}</span>.
                 </p>
-                <button
-                  onClick={handleSwitchAccount}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 hover:bg-purple-500 text-white font-medium rounded-lg transition cursor-pointer"
-                >
+                <Button variant="primary" fullWidth onClick={handleSwitchAccount}>
                   <LogIn className="w-4 h-4" />
                   Switch account
-                </button>
+                </Button>
               </>
             ) : (
               <>
                 <p className="text-muted text-sm mb-6">
                   This email already has an account here. Sign in to accept the invite.
                 </p>
-                <button
-                  onClick={handleSignInToJoin}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 hover:bg-purple-500 text-white font-medium rounded-lg transition cursor-pointer"
-                >
+                <Button variant="primary" fullWidth onClick={handleSignInToJoin}>
                   <LogIn className="w-4 h-4" />
                   Sign in to join
-                </button>
+                </Button>
               </>
             )}
           </div>
@@ -201,7 +190,7 @@ export default function CompleteRegistrationPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-600 rounded-2xl mb-4">
             <MessageSquare className="w-8 h-8 text-fg" />
           </div>
-          <h1 className="text-3xl font-bold text-fg">Complete Registration</h1>
+          <h1 className="text-3xl font-bold text-fg">Complete registration</h1>
           <p className="text-muted mt-2">
             You've been invited to <span className="text-accent font-medium">{workspaceLabel}</span>
           </p>
@@ -232,7 +221,7 @@ export default function CompleteRegistrationPage() {
 
           <div className="mb-4">
             <label htmlFor="displayName" className="block text-sm font-medium text-fg-dim mb-2">
-              Display Name
+              Display name
             </label>
             <input
               id="displayName"
@@ -263,7 +252,7 @@ export default function CompleteRegistrationPage() {
 
           <div className="mb-6">
             <label htmlFor="confirmPassword" className="block text-sm font-medium text-fg-dim mb-2">
-              Confirm Password
+              Confirm password
             </label>
             <input
               id="confirmPassword"
@@ -280,20 +269,16 @@ export default function CompleteRegistrationPage() {
             )}
           </div>
 
-          <button
+          <Button
+            variant="primary"
+            fullWidth
             type="submit"
             disabled={completeRegistration.isPending || password !== confirmPassword || password.length < 8}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/50 text-white font-medium rounded-lg transition cursor-pointer disabled:cursor-not-allowed"
+            loading={completeRegistration.isPending}
+            icon={<UserPlus className="h-4 w-4" />}
           >
-            {completeRegistration.isPending ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <>
-                <UserPlus className="w-4 h-4" />
-                Create Account
-              </>
-            )}
-          </button>
+            Create account
+          </Button>
         </form>
       </div>
     </Shell>

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { X, MessageSquare } from 'lucide-react';
+import { Spinner } from '@/shared/components/Spinner/Spinner';
+import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
+import { MessageSquare } from 'lucide-react';
 import { useUserCache } from '@/stores/users';
 import { useWorkspaceStore } from '@/stores/workspace';
 import type { Message, WorkspaceMember, Channel } from '@/stores/workspace';
@@ -50,15 +52,11 @@ export default function ThreadPanel({ parentMessage, members, channels, onClose 
         className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 flex flex-col border-l border-line/50 bg-app lg:bg-app/80"
         data-qa="thread-panel"
       >
-        <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">
-          <h3 className="text-sm font-bold text-fg flex items-center gap-2">
-            <MessageSquare className="w-4 h-4" />
-            Thread
-          </h3>
-          <button onClick={onClose} aria-label="Close thread" className="text-muted hover:text-fg transition">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+        <PanelHeader
+          title="Thread"
+          icon={<MessageSquare className="h-4 w-4 text-muted" />}
+          onClose={onClose}
+        />
 
         <div className="px-4 py-3 border-b border-line/30">
           <div className="flex items-start gap-2.5">
@@ -87,7 +85,7 @@ export default function ThreadPanel({ parentMessage, members, channels, onClose 
         <div className="flex-1 overflow-y-auto px-4 py-2">
           {loading ? (
             <div className="flex justify-center py-4">
-              <div className="w-5 h-5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+              <Spinner className="text-accent" />
             </div>
           ) : replies.length === 0 ? (
             <div className="text-center py-8 text-muted text-sm">No replies yet. Start the conversation!</div>

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { DialogHeader } from '@/shared/components/Dialog/Dialog';
 import { toUserMessage } from '@/lib/errors';
 import { Hash, MessageSquare, Search } from 'lucide-react';
 import { Modal } from '@/shared/components/Modal/Modal';
@@ -81,8 +82,14 @@ export default function ForwardMessageModal({
   };
 
   return (
-    <Modal title="Forward message" onClose={onClose} dataQa="forward-modal">
-      <div className="px-4 py-3 border-b border-line/50">
+    <Modal
+      title="Forward message"
+      onClose={onClose}
+      dataQa="forward-modal"
+      className="bg-surface border border-line rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-md shadow-2xl"
+    >
+      <DialogHeader title="Forward message" onClose={onClose} />
+      <div className="rounded-lg border border-line/60 bg-raised/30 px-3 py-2">
         <div className="text-xs text-muted mb-1">
           From {source.authorName} in {source.origin}
         </div>
@@ -92,7 +99,7 @@ export default function ForwardMessageModal({
         {source.hasAttachments && <div className="mt-1 text-xs text-muted">📎 Files are forwarded too</div>}
       </div>
 
-      <div className="px-4 py-3 space-y-2">
+      <div className="mt-3 space-y-2">
         <input
           value={comment}
           onChange={(e) => setComment(e.target.value)}
@@ -119,7 +126,7 @@ export default function ForwardMessageModal({
         )}
       </div>
 
-      <div className="max-h-72 overflow-y-auto px-2 pb-3">
+      <div className="-mx-3 mt-2 max-h-72 overflow-y-auto">
         {targets.length === 0 ? (
           <p className="px-3 py-6 text-center text-sm text-muted">Nothing matches that.</p>
         ) : (

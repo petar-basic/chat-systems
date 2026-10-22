@@ -43,7 +43,7 @@ export const ActionLabels = {
   Retry: 'Retry',
   Cancel: 'Cancel',
   MarkAllRead: 'Mark all read',
-  CreateChannel: 'Create Channel',
+  CreateChannel: 'Create channel',
   LinkCopied: 'Link copied to clipboard',
 } as const;
 

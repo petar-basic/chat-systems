@@ -1,11 +1,14 @@
 import { useState, type FormEvent } from 'react';
+import { Spinner } from '@/shared/components/Spinner/Spinner';
+import { Button } from '@/shared/components/Button/Button';
+import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { toUserMessage } from '@/lib/errors';
 import type { WorkspaceMember, WorkspaceRole } from '../stores/workspace';
 import { useWorkspaceStore } from '../stores/workspace';
 import { useCurrentWorkspaceRole } from '@/features/workspace/hooks/useCurrentWorkspaceRole';
 import { getUserDisplay } from '../lib/userHelpers';
-import { X, UserPlus, UserMinus, Crown, Shield, User, Mail } from 'lucide-react';
+import { UserPlus, UserMinus, Crown, Shield, User, Mail } from 'lucide-react';
 import PresenceDot from './PresenceDot';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { useWorkspaceMembers } from '../hooks/queries/useWorkspaces';
@@ -218,22 +221,14 @@ export default function MembersPanel({ workspaceId, onClose }: Props) {
 
   return (
     <div className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-surface lg:bg-surface/80 border-l border-line/50 flex flex-col h-full">
-      <div className="h-14 px-4 flex items-center justify-between border-b border-line/50 shrink-0">
-        <h2 className="font-semibold text-fg">Members</h2>
-        <button onClick={onClose} className="text-muted hover:text-fg transition cursor-pointer">
-          <X className="w-5 h-5" />
-        </button>
-      </div>
+      <PanelHeader title="Members" onClose={onClose} />
 
       <div className="px-4 py-3 border-b border-line/50 shrink-0">
         {!showInvite ? (
-          <button
-            onClick={() => setShowInvite(true)}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium rounded-lg transition cursor-pointer"
-          >
+          <Button variant="primary" fullWidth onClick={() => setShowInvite(true)}>
             <UserPlus className="w-4 h-4" />
-            Invite People
-          </button>
+            Invite people
+          </Button>
         ) : (
           <form onSubmit={handleInvite} className="space-y-2">
             <div className="flex items-center gap-2">
@@ -276,13 +271,14 @@ export default function MembersPanel({ workspaceId, onClose }: Props) {
               >
                 Cancel
               </button>
-              <button
+              <Button
+                variant="primary"
+                className="flex-1"
                 type="submit"
                 disabled={inviting || !inviteEmail.trim()}
-                className="flex-1 px-3 py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/50 text-white text-sm font-medium rounded-lg transition cursor-pointer disabled:cursor-not-allowed"
               >
-                {inviting ? 'Sending...' : 'Send Invite'}
-              </button>
+                {inviting ? 'Sending…' : 'Send invite'}
+              </Button>
             </div>
           </form>
         )}
@@ -291,7 +287,7 @@ export default function MembersPanel({ workspaceId, onClose }: Props) {
       <div className="flex-1 overflow-y-auto py-2">
         {loading ? (
           <div className="flex justify-center py-8">
-            <div className="w-5 h-5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+            <Spinner className="text-accent" />
           </div>
         ) : members.length === 0 ? (
           <div className="text-center text-muted text-sm py-8">No members found</div>
