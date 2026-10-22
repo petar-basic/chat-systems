@@ -607,3 +607,11 @@ async fn later_updated_reaches_only_its_owner(pool: PgPool) {
     assert_eq!(frame["workspace_id"], ws.to_string());
     assert!(next_json(&mut other_rx).is_none());
 }
+
+#[test]
+fn the_consumer_listens_where_later_updates_are_published() {
+    assert!(
+        crate::event_consumer::SUBSCRIBED_CHANNELS.contains(&"events:later"),
+        "later.updated is published on events:later"
+    );
+}
