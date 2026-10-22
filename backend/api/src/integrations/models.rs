@@ -34,6 +34,14 @@ impl Provider {
         }
     }
 
+    pub fn summary(self) -> &'static str {
+        match self {
+            Provider::Jira => "Issues with their status, priority and assignee",
+            Provider::Github => "Pull requests, issues, commits and repositories",
+            Provider::GoogleDrive => "Docs, Sheets, Slides and files with their owner",
+        }
+    }
+
     pub fn scopes(self) -> &'static [&'static str] {
         match self {
             Provider::Jira => &["read:jira-work", "read:me", "offline_access"],
@@ -104,6 +112,7 @@ pub struct AppConnection {
 pub struct AppStatus {
     pub provider: Provider,
     pub name: String,
+    pub summary: String,
     pub configured: bool,
     pub enabled: bool,
     pub client_id: Option<String>,
@@ -112,6 +121,7 @@ pub struct AppStatus {
     pub console_url: String,
     pub setup_steps: Vec<String>,
     pub connected_account: Option<String>,
+    pub prompts_off: bool,
 }
 
 #[derive(Debug, Serialize, ToSchema)]

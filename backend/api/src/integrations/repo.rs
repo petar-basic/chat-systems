@@ -235,6 +235,75 @@ impl IntegrationRepo {
         Ok(result.rows_affected() > 0)
     }
 
+    pub async fn prompt_optouts(
+        &self,
+        workspace_id: Uuid,
+        user_id: Uuid,
+    ) -> sqlx::Result<Vec<String>> {
+        sqlx::query_scalar!(
+            "SELECT provider FROM app_prompt_optouts WHERE workspace_id = $1 AND user_id = $2",
+            workspace_id,
+            user_id
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn prompts_off(
+        &self,
+        workspace_id: Uuid,
+        user_id: Uuid,
+        provider: &str,
+    ) -> sqlx::Result<bool> {
+        sqlx::query_scalar!(
+            r#"SELECT EXISTS (
+                   SELECT 1 FROM app_prompt_optouts
+                    WHERE workspace_id = $1 AND user_id = $2 AND provider = $3
+               ) AS "off!""#,
+            workspace_id,
+            user_id,
+            provider
+        )
+        .fetch_one(&self.pool)
+        .await
+    }
+
+    pub async fn turn_prompts_off(
+        &self,
+        workspace_id: Uuid,
+        user_id: Uuid,
+        provider: &str,
+    ) -> sqlx::Result<()> {
+        sqlx::query!(
+            "INSERT INTO app_prompt_optouts (workspace_id, user_id, provider)
+             VALUES ($1, $2, $3)
+             ON CONFLICT DO NOTHING",
+            workspace_id,
+            user_id,
+            provider
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn turn_prompts_on(
+        &self,
+        workspace_id: Uuid,
+        user_id: Uuid,
+        provider: &str,
+    ) -> sqlx::Result<()> {
+        sqlx::query!(
+            "DELETE FROM app_prompt_optouts WHERE workspace_id = $1 AND user_id = $2 AND provider = $3",
+            workspace_id,
+            user_id,
+            provider
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
     pub async fn delete_user_connections(&self, user_id: Uuid) -> sqlx::Result<u64> {
         let result = sqlx::query!("DELETE FROM app_connections WHERE user_id = $1", user_id)
             .execute(&self.pool)

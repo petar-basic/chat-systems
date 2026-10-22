@@ -23,6 +23,7 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(configure_app, remove_app))
         .routes(routes!(connect_app))
         .routes(routes!(disconnect_app))
+        .routes(routes!(turn_prompts_off, turn_prompts_on))
         .routes(routes!(complete_connection))
 }
 
@@ -131,6 +132,36 @@ async fn disconnect_app(
     Ok(Json(StatusResponse {
         status: "disconnected",
     }))
+}
+
+#[utoipa::path(put, path = "/workspaces/{ws_id}/apps/{provider}/prompts", tag = "apps", responses((status = 200, body = StatusResponse)))]
+async fn turn_prompts_off(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path((ws_id, raw)): Path<(Uuid, String)>,
+) -> AppResult<Json<StatusResponse>> {
+    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
+    let provider = provider(&raw)?;
+    state
+        .integration_repo
+        .turn_prompts_off(ws_id, auth.user_id, provider.as_str())
+        .await?;
+    Ok(Json(StatusResponse { status: "off" }))
+}
+
+#[utoipa::path(delete, path = "/workspaces/{ws_id}/apps/{provider}/prompts", tag = "apps", responses((status = 200, body = StatusResponse)))]
+async fn turn_prompts_on(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path((ws_id, raw)): Path<(Uuid, String)>,
+) -> AppResult<Json<StatusResponse>> {
+    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
+    let provider = provider(&raw)?;
+    state
+        .integration_repo
+        .turn_prompts_on(ws_id, auth.user_id, provider.as_str())
+        .await?;
+    Ok(Json(StatusResponse { status: "on" }))
 }
 
 #[utoipa::path(post, path = "/apps/connections", tag = "apps", request_body = CompleteConnectionRequest, responses((status = 200, body = CompleteConnectionResponse)))]

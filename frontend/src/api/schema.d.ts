@@ -1306,6 +1306,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{ws_id}/apps/{provider}/prompts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["turn_prompts_off"];
+        post?: never;
+        delete: operations["turn_prompts_on"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{ws_id}/audit-log": {
         parameters: {
             query?: never;
@@ -2031,10 +2047,12 @@ export interface components {
             console_url: string;
             enabled: boolean;
             name: string;
+            prompts_off: boolean;
             provider: components["schemas"]["Provider"];
             redirect_url: string;
             scopes: string[];
             setup_steps: string[];
+            summary: string;
         };
         AuditRow: {
             action: string;
@@ -5720,6 +5738,50 @@ export interface operations {
         };
     };
     disconnect_app: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    turn_prompts_off: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    turn_prompts_on: {
         parameters: {
             query?: never;
             header?: never;

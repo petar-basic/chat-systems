@@ -92,5 +92,18 @@ export function useAppActions(workspaceId: string | undefined) {
     onError: failed('disconnect', ErrorLabels.AppSaveFailed),
   });
 
-  return { configure, remove, connect, disconnect };
+  const prompts = useMutation({
+    mutationFn: ({ provider, off }: { provider: AppProvider; off: boolean }) => {
+      const params = { params: { path: { ws_id: ws, provider } } };
+      return apiClient.typed((c) =>
+        off
+          ? c.PUT('/workspaces/{ws_id}/apps/{provider}/prompts', params)
+          : c.DELETE('/workspaces/{ws_id}/apps/{provider}/prompts', params),
+      );
+    },
+    onSuccess: refetch,
+    onError: failed('prompts', ErrorLabels.AppSaveFailed),
+  });
+
+  return { configure, remove, connect, disconnect, prompts };
 }
