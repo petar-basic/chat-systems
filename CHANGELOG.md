@@ -22,6 +22,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   pointed at the message's own upload moves out of the text into the message's attachments.
   A message that was only a file keeps no text. Quotes of other people's files in forwards
   stay as links. Take a backup first, as before any upgrade.
+- Migration 53 adds image sizes. Uploads of images now use up to 30 MB of memory each while
+  they are processed.
 
 ### Changed
 
@@ -31,6 +33,11 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   Several images show as a grid with *+N*, other files as cards with their type and size.
   Editing can remove a file, forwarding carries the files, a scheduled message can carry them,
   and the composer's size limit is the server's instead of a fixed 25 MB.
+- **Images load as thumbnails and the list stops jumping.** Uploaded images get a thumbnail and
+  their size, so a message reserves the picture's space before it loads; the original opens in
+  the preview. Photos are stored the right way up and **without their location**: EXIF and
+  other metadata are removed on upload (the pixels are not re-encoded). Images uploaded before
+  this release keep loading in full.
 
 ## [2.3.0] — 2026-10-22
 

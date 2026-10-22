@@ -54,3 +54,38 @@ describe('MessageAttachments', () => {
     expect(onRemove).toHaveBeenCalledWith('img-1');
   });
 });
+
+describe('MessageAttachments image boxes', () => {
+  it('reserves the scaled box and shows the thumbnail before the original', () => {
+    render(
+      <MessageAttachments
+        attachments={[
+          {
+            ...image(7),
+            width: 1600,
+            height: 900,
+            thumbnail_url: 'https://chat.test/api/files/download/ws/t/thumbnail.jpg',
+          },
+        ]}
+      />,
+    );
+    const img = screen.getByRole('img');
+    expect(img).toHaveAttribute('src', 'https://chat.test/api/files/download/ws/t/thumbnail.jpg');
+    expect(img).toHaveAttribute('width', '360');
+    expect(img).toHaveAttribute('height', '203');
+    fireEvent.click(screen.getByTestId('attachment-image'));
+    expect(within(screen.getByTestId('image-lightbox')).getByRole('img')).toHaveAttribute(
+      'src',
+      image(7).url,
+    );
+  });
+
+  it('plays a gif from the original, not its still thumbnail', () => {
+    render(
+      <MessageAttachments
+        attachments={[{ ...image(8), mime_type: 'image/gif', thumbnail_url: 'https://chat.test/still.jpg' }]}
+      />,
+    );
+    expect(screen.getByRole('img')).toHaveAttribute('src', image(8).url);
+  });
+});

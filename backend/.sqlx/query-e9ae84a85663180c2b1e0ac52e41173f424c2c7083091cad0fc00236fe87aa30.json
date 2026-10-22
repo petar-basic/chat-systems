@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "DELETE FROM files WHERE id IN (\n                 SELECT id FROM files\n                  WHERE draft_until < NOW() AND message_id IS NULL\n                  ORDER BY draft_until\n                  LIMIT $1\n             )\n             RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, created_at",
+  "query": "DELETE FROM files WHERE id IN (\n                 SELECT id FROM files\n                  WHERE draft_until < NOW() AND message_id IS NULL\n                  ORDER BY draft_until\n                  LIMIT $1\n             )\n             RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, created_at",
   "describe": {
     "columns": [
       {
@@ -104,6 +104,28 @@
       },
       {
         "ordinal": 9,
+        "name": "width",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "files",
+            "name": "width"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "height",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "files",
+            "name": "height"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -129,8 +151,10 @@
       false,
       false,
       true,
+      true,
+      true,
       false
     ]
   },
-  "hash": "7004c321d286e72c6fa23bca914bb1a4dcfcb6c0d4191f303a9779fcfecce6f9"
+  "hash": "e9ae84a85663180c2b1e0ac52e41173f424c2c7083091cad0fc00236fe87aa30"
 }

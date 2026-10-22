@@ -1199,3 +1199,231 @@ async fn a_scheduled_message_keeps_its_files_until_it_is_sent(pool: PgPool) {
         "later.txt"
     );
 }
+
+fn phone_photo(width: u32, height: u32) -> Vec<u8> {
+    use img_parts::ImageEXIF;
+    let image = image::RgbImage::from_pixel(width, height, image::Rgb([20, 120, 220]));
+    let mut out = std::io::Cursor::new(Vec::new());
+    image
+        .write_to(&mut out, image::ImageFormat::Jpeg)
+        .expect("encode");
+    let mut exif = Vec::new();
+    exif.extend_from_slice(b"II");
+    exif.extend_from_slice(&42u16.to_le_bytes());
+    exif.extend_from_slice(&8u32.to_le_bytes());
+    exif.extend_from_slice(&2u16.to_le_bytes());
+    exif.extend_from_slice(&0x0112u16.to_le_bytes());
+    exif.extend_from_slice(&3u16.to_le_bytes());
+    exif.extend_from_slice(&1u32.to_le_bytes());
+    exif.extend_from_slice(&6u16.to_le_bytes());
+    exif.extend_from_slice(&[0, 0]);
+    exif.extend_from_slice(&0x010Eu16.to_le_bytes());
+    exif.extend_from_slice(&2u16.to_le_bytes());
+    exif.extend_from_slice(&(PHOTO_SECRET.len() as u32).to_le_bytes());
+    exif.extend_from_slice(&38u32.to_le_bytes());
+    exif.extend_from_slice(&0u32.to_le_bytes());
+    exif.extend_from_slice(PHOTO_SECRET);
+    let mut jpeg = img_parts::jpeg::Jpeg::from_bytes(out.into_inner().into()).expect("jpeg");
+    jpeg.set_exif(Some(exif.into()));
+    jpeg.encoder().bytes().to_vec()
+}
+
+const PHOTO_SECRET: &[u8] = b"GPS 44.8125N 20.4612E";
+
+async fn raw_get(
+    app: &axum::Router,
+    uri: &str,
+    token: &str,
+) -> (StatusCode, header::HeaderMap, Vec<u8>) {
+    let request = Request::builder()
+        .method("GET")
+        .uri(uri)
+        .header(header::AUTHORIZATION, format!("Bearer {token}"))
+        .body(Body::empty())
+        .unwrap();
+    let response = app.clone().oneshot(request).await.unwrap();
+    let status = response.status();
+    let headers = response.headers().clone();
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap()
+        .to_vec();
+    (status, headers, bytes)
+}
+
+fn download_path(url: &str) -> &str {
+    &url[url.find("/api/files/download/").expect("marker")..]
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_phone_photo_is_stored_upright_without_its_location_and_with_a_thumbnail(pool: PgPool) {
+    let mut config = test_config();
+    config.max_upload_bytes = 4 * 1024 * 1024;
+    let (app, state) = app_and_state_with(pool, config).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "photo-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Photo WS").await;
+    let ch = seed_channel(&state, ws_id, owner_id, "private-photos", true).await;
+    let (_, _, outsider) = {
+        let (id, _, token) = seed_and_login(&app, &state, "photo-outsider", false).await;
+        add_ws_member(&state, ws_id, id, "member").await;
+        (id, (), token)
+    };
+
+    let photo = phone_photo(1600, 900);
+    let (status, uploaded) = upload_request(
+        &app,
+        ws_id,
+        Some(&owner),
+        "IMG_0042.jpg",
+        "application/octet-stream",
+        &photo,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{uploaded:?}");
+    let file = &uploaded[0];
+    assert_eq!(
+        file["mime_type"], "image/jpeg",
+        "the type comes from the bytes"
+    );
+    assert_eq!(
+        (file["width"].as_i64(), file["height"].as_i64()),
+        (Some(900), Some(1600)),
+        "the size is the upright one"
+    );
+    let thumbnail_url = file["thumbnail_url"]
+        .as_str()
+        .expect("a thumbnail")
+        .to_string();
+
+    let (_, msg) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch}/messages"),
+        Some(&owner),
+        Some(json!({ "content": "", "attachment_ids": [file["id"]] })),
+    )
+    .await;
+    assert_eq!(msg["metadata"]["attachments"][0]["width"], 900);
+    assert_eq!(
+        msg["metadata"]["attachments"][0]["thumbnail_url"],
+        thumbnail_url
+    );
+
+    let original_url = file["url"].as_str().expect("url");
+    let (status, headers, original) = raw_get(&app, download_path(original_url), &owner).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        !original
+            .windows(PHOTO_SECRET.len())
+            .any(|w| w == PHOTO_SECRET),
+        "the location never reaches storage"
+    );
+    assert_eq!(
+        headers[header::CACHE_CONTROL],
+        "private, max-age=31536000, immutable"
+    );
+    let upright = image::load_from_memory(&original).expect("still an image");
+    assert_eq!(
+        (upright.width(), upright.height()),
+        (1600, 900),
+        "pixels untouched"
+    );
+
+    let (status, _, thumbnail) = raw_get(&app, download_path(&thumbnail_url), &owner).await;
+    assert_eq!(status, StatusCode::OK);
+    let thumbnail = image::load_from_memory(&thumbnail).expect("thumbnail");
+    assert_eq!((thumbnail.width(), thumbnail.height()), (720, 1280));
+
+    let (status, _, _) = raw_get(&app, download_path(&thumbnail_url), &outsider).await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "a thumbnail is as private as its file"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_small_image_is_its_own_thumbnail_and_a_pdf_is_left_alone(pool: PgPool) {
+    let mut config = test_config();
+    config.max_upload_bytes = 4 * 1024 * 1024;
+    let (app, state) = app_and_state_with(pool, config).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "small-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Small WS").await;
+
+    let (_, small) = upload_request(
+        &app,
+        ws_id,
+        Some(&owner),
+        "icon.jpg",
+        "image/jpeg",
+        &phone_photo(64, 32),
+    )
+    .await;
+    assert!(small[0]["thumbnail_url"].is_null());
+    assert_eq!(small[0]["width"], 32);
+
+    let (_, pdf) = upload_request(
+        &app,
+        ws_id,
+        Some(&owner),
+        "plan.pdf",
+        "application/pdf",
+        b"%PDF-1.7 not really",
+    )
+    .await;
+    assert_eq!(pdf[0]["mime_type"], "application/pdf");
+    assert!(pdf[0]["width"].is_null());
+
+    let (_, broken) = upload_request(
+        &app,
+        ws_id,
+        Some(&owner),
+        "broken.jpg",
+        "image/jpeg",
+        b"\xFF\xD8\xFF\xE0 this is not a real jpeg",
+    )
+    .await;
+    assert_eq!(
+        broken[0]["size_bytes"], 28,
+        "an image that does not decode is still stored as it came"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn deleting_an_image_takes_its_thumbnail_with_it(pool: PgPool) {
+    let mut config = test_config();
+    config.max_upload_bytes = 4 * 1024 * 1024;
+    let (app, state) = app_and_state_with(pool, config).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "thumb-del-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Thumb Delete WS").await;
+
+    let (_, uploaded) = upload_request(
+        &app,
+        ws_id,
+        Some(&owner),
+        "wide.jpg",
+        "image/jpeg",
+        &phone_photo(1600, 900),
+    )
+    .await;
+    let thumbnail_key = uploaded[0]["thumbnail_url"]
+        .as_str()
+        .expect("thumbnail")
+        .split("/api/files/download/")
+        .nth(1)
+        .expect("key")
+        .to_string();
+    let (status, _) = send(
+        &app,
+        "DELETE",
+        &format!("/api/files/{}", uploaded[0]["id"].as_str().expect("id")),
+        Some(&owner),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        state.file_storage.download(&thumbnail_key).await.is_err(),
+        "the thumbnail object is gone too"
+    );
+}

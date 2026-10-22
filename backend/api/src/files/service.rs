@@ -3,6 +3,7 @@ use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
 
+use super::imaging::{self, ImageKind};
 use super::models::{Attachment, FileRecord};
 use super::repo::NewFile;
 use crate::state::AppState;
@@ -18,7 +19,99 @@ pub fn attachment(state: &AppState, record: &FileRecord) -> Attachment {
         mime_type: record.mime_type.clone(),
         size_bytes: record.size_bytes,
         url: state.file_storage.public_url(&record.storage_key),
+        thumbnail_url: record
+            .thumbnail_key
+            .as_deref()
+            .map(|key| state.file_storage.public_url(key)),
+        width: record.width,
+        height: record.height,
     }
+}
+
+pub struct StoredObject {
+    pub storage_key: String,
+    pub mime_type: String,
+    pub size_bytes: i64,
+    pub thumbnail_key: Option<String>,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
+}
+
+pub fn object_key(workspace_id: Uuid, filename: &str) -> String {
+    format!("{workspace_id}/{}/{filename}", Uuid::new_v4())
+}
+
+pub async fn store_image(
+    state: &AppState,
+    workspace_id: Uuid,
+    filename: &str,
+    kind: ImageKind,
+    bytes: axum::body::Bytes,
+) -> AppResult<StoredObject> {
+    let storage_key = object_key(workspace_id, filename);
+    let input = bytes.clone();
+    let processed = tokio::task::spawn_blocking(move || imaging::process(kind, input)).await;
+    let processed = match processed {
+        Ok(Ok(processed)) => processed,
+        Ok(Err(e)) => {
+            tracing::info!("storing {filename} without processing: {e}");
+            return store_unprocessed(state, storage_key, kind, bytes).await;
+        }
+        Err(e) => {
+            tracing::warn!("image processing for {filename} did not finish: {e}");
+            return store_unprocessed(state, storage_key, kind, bytes).await;
+        }
+    };
+
+    let size_bytes = processed.original.len() as i64;
+    state
+        .file_storage
+        .upload(&storage_key, processed.original, kind.mime())
+        .await?;
+    let thumbnail_key = match processed.thumbnail {
+        Some(thumbnail) => {
+            let key = object_key(workspace_id, &format!("thumbnail.{}", thumbnail.extension));
+            if let Err(e) = state
+                .file_storage
+                .upload(&key, thumbnail.bytes, thumbnail.mime)
+                .await
+            {
+                let _ = state.file_storage.delete(&storage_key).await;
+                return Err(e);
+            }
+            Some(key)
+        }
+        None => None,
+    };
+    Ok(StoredObject {
+        storage_key,
+        mime_type: kind.mime().to_string(),
+        size_bytes,
+        thumbnail_key,
+        width: i32::try_from(processed.width).ok(),
+        height: i32::try_from(processed.height).ok(),
+    })
+}
+
+async fn store_unprocessed(
+    state: &AppState,
+    storage_key: String,
+    kind: ImageKind,
+    bytes: axum::body::Bytes,
+) -> AppResult<StoredObject> {
+    let size_bytes = bytes.len() as i64;
+    state
+        .file_storage
+        .upload(&storage_key, bytes.to_vec(), kind.mime())
+        .await?;
+    Ok(StoredObject {
+        storage_key,
+        mime_type: kind.mime().to_string(),
+        size_bytes,
+        thumbnail_key: None,
+        width: None,
+        height: None,
+    })
 }
 
 pub fn attachments_json(state: &AppState, records: &[FileRecord]) -> AppResult<serde_json::Value> {
@@ -75,6 +168,7 @@ pub async fn claim_drafts_in(
 pub struct CopiedObject {
     pub source: FileRecord,
     pub storage_key: String,
+    pub thumbnail_key: Option<String>,
 }
 
 pub async fn copy_objects(
@@ -84,33 +178,52 @@ pub async fn copy_objects(
 ) -> AppResult<Vec<CopiedObject>> {
     let mut copied: Vec<CopiedObject> = Vec::with_capacity(sources.len());
     for source in sources {
-        let name = source
-            .storage_key
-            .rsplit('/')
-            .next()
-            .unwrap_or("file")
-            .to_string();
-        let storage_key = format!("{workspace_id}/{}/{name}", Uuid::new_v4());
-        if let Err(e) = state
-            .file_storage
-            .copy(&source.storage_key, &storage_key)
-            .await
-        {
-            discard_copies(state, &copied).await;
-            return Err(e);
+        match copy_one(state, &source, workspace_id).await {
+            Ok((storage_key, thumbnail_key)) => copied.push(CopiedObject {
+                source,
+                storage_key,
+                thumbnail_key,
+            }),
+            Err(e) => {
+                discard_copies(state, &copied).await;
+                return Err(e);
+            }
         }
-        copied.push(CopiedObject {
-            source,
-            storage_key,
-        });
     }
     Ok(copied)
 }
 
+fn last_segment(key: &str) -> &str {
+    key.rsplit('/').next().unwrap_or("file")
+}
+
+async fn copy_one(
+    state: &AppState,
+    source: &FileRecord,
+    workspace_id: Uuid,
+) -> AppResult<(String, Option<String>)> {
+    let storage_key = object_key(workspace_id, last_segment(&source.storage_key));
+    state
+        .file_storage
+        .copy(&source.storage_key, &storage_key)
+        .await?;
+    let Some(thumbnail) = source.thumbnail_key.as_deref() else {
+        return Ok((storage_key, None));
+    };
+    let thumbnail_key = object_key(workspace_id, last_segment(thumbnail));
+    if let Err(e) = state.file_storage.copy(thumbnail, &thumbnail_key).await {
+        let _ = state.file_storage.delete(&storage_key).await;
+        return Err(e);
+    }
+    Ok((storage_key, Some(thumbnail_key)))
+}
+
 pub async fn discard_copies(state: &AppState, copied: &[CopiedObject]) {
     for copy in copied {
-        if let Err(e) = state.file_storage.delete(&copy.storage_key).await {
-            tracing::warn!("orphaned copy {}: {}", copy.storage_key, e);
+        for key in std::iter::once(&copy.storage_key).chain(copy.thumbnail_key.iter()) {
+            if let Err(e) = state.file_storage.delete(key).await {
+                tracing::warn!("orphaned copy {}: {}", key, e);
+            }
         }
     }
 }
@@ -139,6 +252,9 @@ pub async fn record_copies_in(
                         mime_type: &copy.source.mime_type,
                         size_bytes: copy.source.size_bytes,
                         draft_until: None,
+                        thumbnail_key: copy.thumbnail_key.as_deref(),
+                        width: copy.source.width,
+                        height: copy.source.height,
                     },
                 )
                 .await?,
@@ -198,8 +314,10 @@ pub fn draft_deadline() -> chrono::DateTime<Utc> {
 
 pub async fn purge_objects(state: &AppState, records: &[FileRecord]) {
     for record in records {
-        if let Err(e) = state.file_storage.delete(&record.storage_key).await {
-            tracing::warn!("orphaned object {}: {}", record.storage_key, e);
+        for key in std::iter::once(&record.storage_key).chain(record.thumbnail_key.iter()) {
+            if let Err(e) = state.file_storage.delete(key).await {
+                tracing::warn!("orphaned object {}: {}", key, e);
+            }
         }
     }
 }

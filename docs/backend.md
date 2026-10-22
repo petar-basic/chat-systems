@@ -375,6 +375,18 @@ uploads with `?draft=true`: the file is the uploader's alone until a send claims
 emoji upload without it and are never swept. Deleting a file that is attached removes it from
 its message and announces the update.
 
+**Images** are recognised by their first bytes (PNG, JPEG, GIF, WebP), not by the client's
+`Content-Type`, and stored with the sniffed type. Up to 30 MB they are buffered and processed
+on a blocking thread (`files::imaging`): a canvas over 50 megapixels or 20,000 px a side is
+refused before decoding; EXIF orientation is applied and the upright `width`/`height` stored;
+an image wider than 720 px gets a thumbnail (JPEG, or PNG when it has transparency) under
+`thumbnail_key`; and the original's EXIF, XMP, comments and PNG text chunks are removed without
+re-encoding its pixels — a JPEG that was not upright keeps an EXIF block holding only its
+orientation. GIFs keep their animation. An image that does not decode, or is larger than
+30 MB, is stored as it came. Thumbnails are served through the download route under the same
+access rule as their file, and every download is `Cache-Control: private, max-age=31536000,
+immutable` because a key never changes content.
+
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | POST | `/files/upload/:ws_id` | Query: `draft?`; multipart form (files) | `FileUploadResponse[]` |

@@ -55,6 +55,9 @@ redis = { workspace = true }
 
 # File storage (local disk or S3)
 object_store = { workspace = true }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
+img-parts = "0.4"
+thiserror = { workspace = true }
 
 # Auth
 jsonwebtoken = { workspace = true }

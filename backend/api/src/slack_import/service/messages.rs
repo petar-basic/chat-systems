@@ -12,8 +12,10 @@ use super::{
     attachment_slack_ts, emoji_for, parse_ts, storage_safe_filename, MAX_ATTACHMENT_BYTES,
 };
 use super::{Import, Target};
+use crate::files::imaging;
 use crate::files::models::FileRecord;
 use crate::files::repo::NewFile;
+use crate::files::service::{object_key, store_image, StoredObject};
 use crate::messaging::repo::ImportedMessage;
 use chrono::{DateTime, Utc};
 use shared_common::errors::is_unique_violation;
@@ -205,6 +207,33 @@ impl Import<'_> {
         Ok(message.id)
     }
 
+    async fn store(
+        &self,
+        filename: &str,
+        content_type: &str,
+        body: Vec<u8>,
+    ) -> AppResult<StoredObject> {
+        let safe_name = storage_safe_filename(filename);
+        if let Some(kind) = imaging::sniff(&body).filter(|_| body.len() <= imaging::MAX_IMAGE_BYTES)
+        {
+            return store_image(self.state, self.workspace_id, &safe_name, kind, body.into()).await;
+        }
+        let storage_key = object_key(self.workspace_id, &safe_name);
+        let size_bytes = body.len() as i64;
+        self.state
+            .file_storage
+            .upload(&storage_key, body, content_type)
+            .await?;
+        Ok(StoredObject {
+            storage_key,
+            mime_type: content_type.to_string(),
+            size_bytes,
+            thumbnail_key: None,
+            width: None,
+            height: None,
+        })
+    }
+
     async fn attach(&self, message_id: Uuid, record: &FileRecord) -> AppResult<()> {
         let attachments =
             crate::files::service::attachments_json(self.state, std::slice::from_ref(record))?;
@@ -279,24 +308,14 @@ impl Import<'_> {
                 .mimetype
                 .clone()
                 .unwrap_or_else(|| "application/octet-stream".to_string());
-            let storage_key = format!(
-                "{}/{}/{}",
-                self.workspace_id,
-                Uuid::new_v4(),
-                storage_safe_filename(&filename)
-            );
-            let size = body.len() as i64;
-
-            if let Err(e) = self
-                .state
-                .file_storage
-                .upload(&storage_key, body, &content_type)
-                .await
-            {
-                self.report
-                    .skip(format!("file {filename} on {}", message.ts), e.to_string());
-                continue;
-            }
+            let stored = match self.store(&filename, &content_type, body).await {
+                Ok(stored) => stored,
+                Err(e) => {
+                    self.report
+                        .skip(format!("file {filename} on {}", message.ts), e.to_string());
+                    continue;
+                }
+            };
 
             let attachment_ts = attachment_slack_ts(&message.ts, self.report.files_imported);
             let stored_id = match self
@@ -318,10 +337,13 @@ impl Import<'_> {
                     workspace_id: self.workspace_id,
                     message_id: Some(stored_id),
                     filename: &filename,
-                    storage_key: &storage_key,
-                    mime_type: &content_type,
-                    size_bytes: size,
+                    storage_key: &stored.storage_key,
+                    mime_type: &stored.mime_type,
+                    size_bytes: stored.size_bytes,
                     draft_until: None,
+                    thumbnail_key: stored.thumbnail_key.as_deref(),
+                    width: stored.width,
+                    height: stored.height,
                 })
                 .await
             {
