@@ -32,6 +32,20 @@ describe('LinkPreviews', () => {
     expect(onRefresh).toHaveBeenCalled();
   });
 
+  it('shows the card picture and drops it when it fails to load', () => {
+    render(<LinkPreviews unfurls={[{ ...jira, image_url: 'https://cdn.test/thumb.png' }]} />);
+    const image = screen.getByTestId('app-preview-image');
+    expect(image).toHaveAttribute('src', 'https://cdn.test/thumb.png');
+    fireEvent.error(image);
+    expect(screen.queryByTestId('app-preview-image')).not.toBeInTheDocument();
+    expect(screen.getByTestId('app-preview')).toHaveTextContent('Focus Axon planning');
+  });
+
+  it('never shows a picture that is not https', () => {
+    render(<LinkPreviews unfurls={[{ ...jira, image_url: 'http://cdn.test/thumb.png' }]} />);
+    expect(screen.queryByTestId('app-preview-image')).not.toBeInTheDocument();
+  });
+
   it('shows nothing for a page that gave only a title', () => {
     const { container } = render(
       <LinkPreviews

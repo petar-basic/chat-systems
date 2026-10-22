@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { ExternalLink, LayoutGrid, X } from 'lucide-react';
 import { CopyField } from '@/shared/components/CopyField/CopyField';
+import { AppIcon } from '@/shared/components/AppIcon/AppIcon';
 import { useApps, useAppActions, type AppStatus } from '@/hooks/queries/useApps';
 
 interface Props {
@@ -53,21 +54,42 @@ function AppCardSection({
 }) {
   const actions = useAppActions(workspaceId);
   const [setupOpen, setSetupOpen] = useState(!app.configured && isAdmin);
-  const status = !app.configured ? 'Not set up' : app.enabled ? 'On' : 'Off';
+  const usable = app.configured && app.enabled;
+  const badge = app.connected_account
+    ? 'Connected'
+    : !app.configured
+      ? 'Not set up'
+      : app.enabled
+        ? null
+        : 'Off';
 
   return (
     <section className="rounded-lg border border-line/60 p-3" data-qa={`app-${app.provider}`}>
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-sm text-fg">{app.name}</h3>
-        <span className="text-xs text-muted">{status}</span>
+      <div className="flex items-start gap-3">
+        <AppIcon provider={app.provider} size="md" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="font-semibold text-sm text-fg">{app.name}</h3>
+            {badge && (
+              <span
+                className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium ${
+                  app.connected_account ? 'bg-green-500/15 text-success' : 'bg-raised text-muted'
+                }`}
+              >
+                {badge}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-muted">{app.summary}</p>
+        </div>
       </div>
 
-      {app.configured && app.enabled && (
-        <div className="mt-2 text-sm">
+      {usable && (
+        <div className="mt-3 space-y-2 text-sm">
           {app.connected_account ? (
             <div className="flex items-center justify-between gap-2">
               <span className="text-fg-dim truncate" title={app.connected_account}>
-                Connected as {app.connected_account}
+                {app.connected_account}
               </span>
               <button
                 onClick={() => actions.disconnect.mutate(app.provider)}
@@ -86,6 +108,21 @@ function AppCardSection({
             >
               Connect my account
             </button>
+          )}
+          {app.prompts_off && !app.connected_account && (
+            <div
+              className="flex items-center justify-between gap-2 text-xs text-muted"
+              data-qa="app-prompts-off"
+            >
+              <span>Prompts off</span>
+              <button
+                onClick={() => actions.prompts.mutate({ provider: app.provider, off: false })}
+                disabled={actions.prompts.isPending}
+                className="text-accent hover:underline"
+              >
+                Turn on
+              </button>
+            </div>
           )}
         </div>
       )}

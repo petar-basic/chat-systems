@@ -3348,6 +3348,80 @@
         }
       }
     },
+    "/workspaces/{ws_id}/apps/{provider}/prompts": {
+      "put": {
+        "tags": [
+          "apps"
+        ],
+        "operationId": "turn_prompts_off",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "apps"
+        ],
+        "operationId": "turn_prompts_on",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workspaces/{ws_id}/audit-log": {
       "get": {
         "tags": [
@@ -5594,12 +5668,14 @@
         "required": [
           "provider",
           "name",
+          "summary",
           "configured",
           "enabled",
           "redirect_url",
           "scopes",
           "console_url",
-          "setup_steps"
+          "setup_steps",
+          "prompts_off"
         ],
         "properties": {
           "client_id": {
@@ -5626,6 +5702,9 @@
           "name": {
             "type": "string"
           },
+          "prompts_off": {
+            "type": "boolean"
+          },
           "provider": {
             "$ref": "#/components/schemas/Provider"
           },
@@ -5643,6 +5722,9 @@
             "items": {
               "type": "string"
             }
+          },
+          "summary": {
+            "type": "string"
           }
         }
       },
