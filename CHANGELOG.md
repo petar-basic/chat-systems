@@ -38,6 +38,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   the preview. Photos are stored the right way up and **without their location**: EXIF and
   other metadata are removed on upload (the pixels are not re-encoded). Images uploaded before
   this release keep loading in full.
+- **File names stay as they were written.** *Izveštaj o radu.pdf* is stored, shown and
+  downloaded under that name instead of *Izve_taj_o_radu.pdf*; names with any letters, spaces
+  and punctuation survive, and a download carries the name in UTF-8. Files uploaded before this
+  release keep the names they were stored with.
 
 ## [2.3.0] — 2026-10-22
 

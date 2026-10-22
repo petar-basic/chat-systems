@@ -38,7 +38,11 @@ pub struct StoredObject {
 }
 
 pub fn object_key(workspace_id: Uuid, filename: &str) -> String {
-    format!("{workspace_id}/{}/{filename}", Uuid::new_v4())
+    format!(
+        "{workspace_id}/{}/{}",
+        Uuid::new_v4(),
+        super::names::storage_name(filename)
+    )
 }
 
 pub async fn store_image(

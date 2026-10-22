@@ -8,9 +8,7 @@ use uuid::Uuid;
 use super::super::models::*;
 use super::super::mrkdwn;
 use super::super::source::{read_json, ExportSource};
-use super::{
-    attachment_slack_ts, emoji_for, parse_ts, storage_safe_filename, MAX_ATTACHMENT_BYTES,
-};
+use super::{attachment_slack_ts, emoji_for, parse_ts, MAX_ATTACHMENT_BYTES};
 use super::{Import, Target};
 use crate::files::imaging;
 use crate::files::models::FileRecord;
@@ -213,12 +211,11 @@ impl Import<'_> {
         content_type: &str,
         body: Vec<u8>,
     ) -> AppResult<StoredObject> {
-        let safe_name = storage_safe_filename(filename);
         if let Some(kind) = imaging::sniff(&body).filter(|_| body.len() <= imaging::MAX_IMAGE_BYTES)
         {
-            return store_image(self.state, self.workspace_id, &safe_name, kind, body.into()).await;
+            return store_image(self.state, self.workspace_id, filename, kind, body.into()).await;
         }
-        let storage_key = object_key(self.workspace_id, &safe_name);
+        let storage_key = object_key(self.workspace_id, filename);
         let size_bytes = body.len() as i64;
         self.state
             .file_storage
@@ -303,7 +300,7 @@ impl Import<'_> {
                 }
             };
 
-            let filename = file.filename().to_string();
+            let filename = crate::files::names::display_name(file.filename());
             let content_type = file
                 .mimetype
                 .clone()
