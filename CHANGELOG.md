@@ -42,6 +42,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   downloaded under that name instead of *Izve_taj_o_radu.pdf*; names with any letters, spaces
   and punctuation survive, and a download carries the name in UTF-8. Files uploaded before this
   release keep the names they were stored with.
+- **The image preview is a gallery.** ← / → (or a swipe on a phone) steps through every image in
+  the conversation or thread, with who sent it and when, a counter, click to zoom, *Open
+  original* and *Download*.
 
 ## [2.3.0] — 2026-10-22
 

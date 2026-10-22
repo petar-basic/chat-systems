@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Download, Paperclip, X } from 'lucide-react';
 import type { components } from '@/api/schema';
 import { formatBytes } from '@/lib/fileSize';
-import { ImageLightbox } from './ImageLightbox';
+import { ImageGallery } from './ImageGallery';
+import { useGallery } from './galleryContext';
 import { fileKind, isRenderableImage } from './fileKinds';
 
 type Attachment = components['schemas']['Attachment'];
@@ -28,7 +29,8 @@ interface Props {
 }
 
 export function MessageAttachments({ attachments, compact = false, onRemove }: Props) {
-  const [viewing, setViewing] = useState<Attachment | null>(null);
+  const gallery = useGallery();
+  const [viewing, setViewing] = useState<number | null>(null);
   if (attachments.length === 0) return null;
 
   if (compact) {
@@ -49,10 +51,14 @@ export function MessageAttachments({ attachments, compact = false, onRemove }: P
 
   const images = onRemove ? [] : attachments.filter((a) => isRenderableImage(a.mime_type));
   const files = attachments.filter((a) => !images.includes(a));
+  const open = (image: Attachment) => {
+    if (gallery) gallery.open(image.id);
+    else setViewing(images.indexOf(image));
+  };
 
   return (
     <div className="mt-1 flex flex-col gap-1.5" data-qa="message-attachments">
-      {images.length > 0 && <ImageGrid images={images} onOpen={setViewing} />}
+      {images.length > 0 && <ImageGrid images={images} onOpen={open} />}
       {files.map((attachment) => (
         <FileCard
           key={attachment.id}
@@ -60,8 +66,13 @@ export function MessageAttachments({ attachments, compact = false, onRemove }: P
           onRemove={onRemove ? () => onRemove(attachment.id) : undefined}
         />
       ))}
-      {viewing && (
-        <ImageLightbox filename={viewing.filename} url={viewing.url} onClose={() => setViewing(null)} />
+      {viewing !== null && (
+        <ImageGallery
+          items={images.map((attachment) => ({ attachment }))}
+          index={viewing}
+          onIndexChange={setViewing}
+          onClose={() => setViewing(null)}
+        />
       )}
     </div>
   );
