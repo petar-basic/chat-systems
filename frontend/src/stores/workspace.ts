@@ -8,7 +8,8 @@ export type Workspace = components['schemas']['Workspace'] & { instanceUrl: stri
 
 export type ChannelSettings = components['schemas']['ChannelSettings'];
 
-export type Channel = components['schemas']['Channel'] & { muted?: boolean };
+export type Channel = components['schemas']['Channel'] &
+  Partial<Pick<components['schemas']['ChannelListing'], 'muted' | 'notify_level' | 'effective_notify_level'>>;
 
 export type Reaction = components['schemas']['Reaction'];
 

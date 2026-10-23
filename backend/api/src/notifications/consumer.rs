@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use redis::AsyncCommands;
@@ -5,7 +6,7 @@ use tracing::{info, warn};
 
 use shared_events::Event;
 
-use super::models::NotificationType;
+use super::models::{NotificationType, NotifyLevel, Recipient};
 use super::repo::NotificationRepo;
 use crate::messaging::stream_group::StreamGroup;
 use crate::push::sender::{PushPayload, PushSender};
@@ -33,15 +34,7 @@ pub async fn start_consumer(
             async {
                 match delivery.event.event_type.as_str() {
                     "message.created" => {
-                        notify_mentions(
-                            &app_state,
-                            &repo,
-                            &push,
-                            &mut pub_conn,
-                            &delivery.event.payload,
-                        )
-                        .await;
-                        notify_thread_followers(
+                        notify_message(
                             &app_state,
                             &repo,
                             &push,
@@ -61,13 +54,14 @@ pub async fn start_consumer(
     }
 }
 
-pub struct Notice<'a> {
-    pub kind: NotificationType,
-    pub title: &'a str,
-    pub priority: &'a str,
+pub struct Notice {
+    pub activity: Option<NotificationType>,
+    pub kind: &'static str,
+    pub title: String,
     pub email: bool,
 }
 
+#[derive(Clone, Copy)]
 pub struct Origin<'a> {
     pub workspace_id: Option<uuid::Uuid>,
     pub channel_id: Option<&'a str>,
@@ -105,10 +99,105 @@ fn mentioned_ids(payload: &serde_json::Value) -> Vec<uuid::Uuid> {
         .unwrap_or_default()
 }
 
-/// Extracted from the loop so the suppression rules can be tested without
-/// driving a stream: everything that decides whether somebody hears about a
-/// mention lives here.
-pub async fn notify_mentions(
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Reason {
+    Mention,
+    Reply,
+    Direct,
+    Message,
+}
+
+pub fn reason_for(
+    recipient: &Recipient,
+    mentioned: bool,
+    following: bool,
+    in_thread: bool,
+) -> Option<Reason> {
+    if recipient.muted || recipient.level == NotifyLevel::Nothing {
+        return None;
+    }
+    if mentioned {
+        return Some(Reason::Mention);
+    }
+    if following {
+        return Some(Reason::Reply);
+    }
+    if recipient.level == NotifyLevel::All && !in_thread {
+        return Some(if recipient.direct {
+            Reason::Direct
+        } else {
+            Reason::Message
+        });
+    }
+    None
+}
+
+struct Names {
+    sender: String,
+    channel: String,
+}
+
+impl Names {
+    async fn of(state: &crate::state::AppState, origin: &Origin<'_>) -> Self {
+        let sender = match origin.sender_id.and_then(|v| v.parse::<uuid::Uuid>().ok()) {
+            Some(id) => state
+                .auth_service
+                .repo()
+                .find_by_id(id)
+                .await
+                .ok()
+                .flatten()
+                .and_then(|u| u.display_name),
+            None => None,
+        };
+        let channel = match origin.channel_uuid {
+            Some(id) => state
+                .workspace_service
+                .repo
+                .find_channel_by_id(id)
+                .await
+                .ok()
+                .flatten()
+                .and_then(|c| c.name),
+            None => None,
+        };
+        Self {
+            sender: sender.unwrap_or_else(|| "Somebody".to_string()),
+            channel: channel.unwrap_or_default(),
+        }
+    }
+
+    fn notice(&self, reason: Reason) -> Notice {
+        match reason {
+            Reason::Mention => Notice {
+                activity: Some(NotificationType::Mention),
+                kind: "mention",
+                title: "You were mentioned".into(),
+                email: true,
+            },
+            Reason::Reply => Notice {
+                activity: Some(NotificationType::Reply),
+                kind: "reply",
+                title: "New reply in a thread".into(),
+                email: false,
+            },
+            Reason::Direct => Notice {
+                activity: Some(NotificationType::Dm),
+                kind: "dm",
+                title: self.sender.clone(),
+                email: true,
+            },
+            Reason::Message => Notice {
+                activity: None,
+                kind: "message",
+                title: format!("{} in #{}", self.sender, self.channel),
+                email: false,
+            },
+        }
+    }
+}
+
+pub async fn notify_message(
     state: &crate::state::AppState,
     repo: &NotificationRepo,
     push: &PushSender,
@@ -117,82 +206,103 @@ pub async fn notify_mentions(
 ) {
     let content = preview_text(event_payload);
     let origin = Origin::of(event_payload, &content);
-    let notice = Notice {
-        kind: NotificationType::Mention,
-        title: "You were mentioned",
-        priority: "mention",
-        email: true,
-    };
-    for uid in mentioned_ids(event_payload) {
-        deliver(state, repo, push, pub_conn, uid, &origin, &notice).await;
-    }
-}
-
-pub async fn notify_thread_followers(
-    state: &crate::state::AppState,
-    repo: &NotificationRepo,
-    push: &PushSender,
-    pub_conn: &mut redis::aio::ConnectionManager,
-    event_payload: &serde_json::Value,
-) {
-    let content = preview_text(event_payload);
-    let reply = Origin::of(event_payload, &content);
-    let origin = Origin {
-        message_id: reply.thread_parent_id,
-        ..reply
-    };
-    let (Some(root), Some(sender)) = (
-        origin
-            .thread_parent_id
-            .and_then(|v| v.parse::<uuid::Uuid>().ok()),
+    let (Some(channel_id), Some(sender)) = (
+        origin.channel_uuid,
         origin.sender_id.and_then(|v| v.parse::<uuid::Uuid>().ok()),
     ) else {
         return;
     };
-    let followers = match state.thread_repo.reply_recipients(root, sender).await {
-        Ok(followers) => followers,
+
+    let mut recipients = match repo.recipients(channel_id, sender).await {
+        Ok(recipients) => recipients,
         Err(e) => {
-            warn!(root_message_id = %root, "Notification consumer: failed to read thread followers: {e}");
+            warn!(channel_id = %channel_id, "Notification consumer: failed to read recipients: {e}");
             return;
         }
     };
-    let mentioned = mentioned_ids(event_payload);
-    let notice = Notice {
-        kind: NotificationType::Reply,
-        title: "New reply in a thread",
-        priority: "reply",
-        email: false,
-    };
-    for uid in followers.into_iter().filter(|uid| !mentioned.contains(uid)) {
-        deliver(state, repo, push, pub_conn, uid, &origin, &notice).await;
-    }
-}
 
-async fn deliver(
-    state: &crate::state::AppState,
-    repo: &NotificationRepo,
-    push: &PushSender,
-    pub_conn: &mut redis::aio::ConnectionManager,
-    uid: uuid::Uuid,
-    origin: &Origin<'_>,
-    notice: &Notice<'_>,
-) {
-    if origin.sender_id == Some(&uid.to_string()) {
+    let root = origin
+        .thread_parent_id
+        .and_then(|v| v.parse::<uuid::Uuid>().ok());
+    let followers: HashSet<uuid::Uuid> = match root {
+        Some(root) => match state.thread_repo.reply_recipients(root, sender).await {
+            Ok(followers) => followers.into_iter().collect(),
+            Err(e) => {
+                warn!(root_message_id = %root, "Notification consumer: failed to read thread followers: {e}");
+                HashSet::new()
+            }
+        },
+        None => HashSet::new(),
+    };
+    let members: HashSet<uuid::Uuid> = recipients.iter().map(|r| r.user_id).collect();
+    recipients.extend(
+        followers
+            .iter()
+            .filter(|uid| !members.contains(uid))
+            .map(|&user_id| Recipient {
+                user_id,
+                level: NotifyLevel::Mentions,
+                muted: false,
+                direct: false,
+            }),
+    );
+
+    let mentioned: HashSet<uuid::Uuid> = mentioned_ids(event_payload).into_iter().collect();
+    let reasons: Vec<(uuid::Uuid, Reason)> = recipients
+        .iter()
+        .filter_map(|r| {
+            reason_for(
+                r,
+                mentioned.contains(&r.user_id),
+                followers.contains(&r.user_id),
+                root.is_some(),
+            )
+            .map(|reason| (r.user_id, reason))
+        })
+        .collect();
+    if reasons.is_empty() {
         return;
     }
 
-    if let Some(ch) = origin.channel_uuid {
-        if repo.is_channel_muted(ch, uid).await.unwrap_or(false) {
-            return;
-        }
+    let names = Names::of(state, &origin).await;
+    let reply_origin = Origin {
+        message_id: origin.thread_parent_id,
+        ..origin
+    };
+    let via = Via { state, repo, push };
+    for (uid, reason) in reasons {
+        let at = if reason == Reason::Reply {
+            &reply_origin
+        } else {
+            &origin
+        };
+        deliver(&via, pub_conn, uid, at, &names, &names.notice(reason)).await;
     }
+}
 
+struct Via<'a> {
+    state: &'a crate::state::AppState,
+    repo: &'a NotificationRepo,
+    push: &'a PushSender,
+}
+
+async fn deliver(
+    via: &Via<'_>,
+    pub_conn: &mut redis::aio::ConnectionManager,
+    uid: uuid::Uuid,
+    origin: &Origin<'_>,
+    names: &Names,
+    notice: &Notice,
+) {
+    let Via { state, repo, push } = *via;
     let channel_id = origin.channel_id;
     let message_id = origin.message_id;
     let content = origin.content;
-    let workspace_id = origin.workspace_id;
+    let Some(ws_id) = origin.workspace_id else {
+        return;
+    };
 
-    if let Some(ws_id) = workspace_id {
+    if let Some(activity) = &notice.activity {
         let data_json = serde_json::json!({
             "channel_id": channel_id,
             "message_id": message_id,
@@ -203,8 +313,8 @@ async fn deliver(
             .create(
                 uid,
                 ws_id,
-                &notice.kind,
-                notice.title,
+                activity,
+                &notice.title,
                 Some(content),
                 &data_json,
             )
@@ -227,24 +337,18 @@ async fn deliver(
         "event_type": "notification.push",
         "payload": {
             "user_id": uid.to_string(),
-            "workspace_id": workspace_id.map(|w| w.to_string()),
+            "workspace_id": ws_id.to_string(),
             "channel_id": channel_id,
             "message_id": message_id,
             "title": notice.title,
             "body": content,
-            "priority": notice.priority,
+            "kind": notice.kind,
         }
     });
 
     let json = serde_json::to_string(&notif_event).unwrap_or_default();
     let _: Result<(), _> = pub_conn.publish("events:notification", &json).await;
 
-    // The in-app notification has already fired for anybody holding a
-    // socket; a second one on their phone for the message they are looking
-    // at is how people turn notifications off altogether.
-    let Some(ws_id) = workspace_id else {
-        return;
-    };
     if crate::presence::is_online(pub_conn, ws_id, uid).await {
         return;
     }
@@ -254,7 +358,7 @@ async fn deliver(
         .send_to_user(
             uid,
             &PushPayload {
-                title: notice.title.into(),
+                title: notice.title.clone(),
                 body: PushPayload::preview(content),
                 workspace_id: Some(ws_id.to_string()),
                 channel_id: channel_id.map(str::to_string),
@@ -264,36 +368,9 @@ async fn deliver(
         )
         .await;
 
-    // No socket, and no device that could be woken. Without this the
-    // mention waits until they next open the app, which for somebody on
-    // holiday is not a notification system.
     if reached || !notice.email {
         return;
     }
-    let channel_name = match origin.channel_uuid {
-        Some(id) => state
-            .workspace_service
-            .repo
-            .find_channel_by_id(id)
-            .await
-            .ok()
-            .flatten()
-            .and_then(|c| c.name)
-            .unwrap_or_default(),
-        None => String::new(),
-    };
-    let sender_name = match origin.sender_id.and_then(|v| v.parse::<uuid::Uuid>().ok()) {
-        Some(id) => state
-            .auth_service
-            .repo()
-            .find_by_id(id)
-            .await
-            .ok()
-            .flatten()
-            .and_then(|u| u.display_name)
-            .unwrap_or_else(|| "Somebody".to_string()),
-        None => "Somebody".to_string(),
-    };
 
     super::email::enqueue(
         state,
@@ -302,8 +379,9 @@ async fn deliver(
             workspace_id: ws_id,
             channel_id: origin.channel_uuid,
             message_id: message_id.and_then(|v| v.parse().ok()),
-            sender_name: &sender_name,
-            channel_name: &channel_name,
+            sender_name: &names.sender,
+            channel_name: &names.channel,
+            direct: notice.activity == Some(NotificationType::Dm),
         },
     )
     .await;
@@ -374,7 +452,7 @@ pub async fn notify_ring(
             "workspace_id": workspace_id.to_string(),
             "title": "Incoming huddle",
             "body": "Someone is starting a huddle",
-            "priority": "call",
+            "kind": "call",
         }
     });
     let json = serde_json::to_string(&notif_event).unwrap_or_default();

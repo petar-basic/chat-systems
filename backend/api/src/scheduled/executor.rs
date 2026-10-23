@@ -233,7 +233,7 @@ async fn notify_author(state: &AppState, scheduled: &ScheduledMessage, failure: 
         "channel_id": scheduled.channel_id,
         "title": "Scheduled message was not delivered",
         "body": failure.author_message(),
-        "priority": "mention",
+        "kind": "system",
     });
     let _ = state.publisher.publish("notification.push", event).await;
 }

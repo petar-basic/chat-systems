@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
+use crate::notifications::models::NotifyLevel;
 use crate::workspace::models::ChannelType;
 
 /// A direct message is the two-person case of a group; both are channels of a
@@ -49,6 +50,8 @@ pub struct ConversationSummary {
     pub last_message_at: DateTime<Utc>,
     pub last_read_at: Option<DateTime<Utc>>,
     pub participant_ids: Vec<Uuid>,
+    pub notify_level: Option<NotifyLevel>,
+    pub effective_notify_level: NotifyLevel,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]

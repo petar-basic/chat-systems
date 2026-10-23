@@ -5,6 +5,7 @@ import { PreferencesModal } from './PreferencesModal';
 vi.mock('@/components/PushNotificationsPanel', () => ({ default: () => <div data-qa="push-panel" /> }));
 vi.mock('@/components/EmailNotificationsPanel', () => ({ default: () => <div data-qa="email-panel" /> }));
 vi.mock('@/components/ThemePicker', () => ({ default: () => <div data-qa="theme-panel" /> }));
+vi.mock('@/features/notifications', () => ({ NotifyDefaultPanel: () => <div data-qa="notify-default" /> }));
 vi.mock('@/components/TwoFactorPanel', () => ({ default: () => <div data-qa="security-panel" /> }));
 
 const selected = () => screen.getByRole('tab', { selected: true });

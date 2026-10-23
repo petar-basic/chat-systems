@@ -226,7 +226,7 @@ the schedule both build on the level's single server-side decision.
 
 | # | Ticket | Area |
 |---|---|---|
-| [CS-060](CS-060-notification-levels.md) | Notification levels per channel and a default per person; DMs that reach your phone | backend · frontend |
+| CS-060 ✅ | Notification levels per channel and a default per person; DMs that reach your phone | backend · frontend |
 | [CS-061](CS-061-keyword-notifications.md) | Keyword notifications | backend · frontend |
 | [CS-062](CS-062-notification-schedule.md) | Notification schedule | backend · frontend |
 
@@ -252,7 +252,7 @@ forms reuse. Lists come before the workflow builder's last part, which writes in
 
 | # | Ticket | Area | Why it is not done |
 |---|---|---|---|
-| [CS-060](CS-060-notification-levels.md) … [CS-067](CS-067-workflow-builder.md) | Waves 21–23 | backend · frontend · ops | Planned 2026-10-23; one at a time, in number order, each before 4.0.0 |
+| [CS-061](CS-061-keyword-notifications.md) … [CS-067](CS-067-workflow-builder.md) | Waves 21–23 | backend · frontend · ops | Planned 2026-10-23; one at a time, in number order, each before 4.0.0 |
 | [CS-037](CS-037-huddle-sfu.md) | SFU for large huddles | backend · frontend · ops | Held for 4.0.0 — it adds a service to the stack, so it ships in a major release |
 
 ## Conflict map
@@ -275,8 +275,8 @@ Tickets that touch the same files, and the order that avoids rework:
 | `files` and the download route | CS-009 ✅ → CS-011 ✅ → CS-020 ✅ → CS-055 ✅ |
 | `frontend/src/shared/components` dialogs and controls | CS-056 ✅ → CS-059 ✅ |
 | huddle join authorization | CS-041 ✅ → CS-037 |
-| notification consumer and `is_dnd_active` | CS-046 ✅ → CS-060 → CS-061 → CS-062 |
-| `NotificationStream` and `wsQuerySync` sound/desktop | CS-060 → CS-061 |
+| notification consumer and `is_dnd_active` | CS-046 ✅ → CS-060 ✅ → CS-061 → CS-062 |
+| `NotificationStream` and `wsQuerySync` sound/desktop | CS-060 ✅ → CS-061 |
 | search visibility CTE in `messaging/repo.rs` | CS-048 ✅ → CS-063 → CS-064 |
 | search panel tabs and filter bar | CS-058 ✅ → CS-063 → CS-064 |
 | `chat-worker` supervised loops | CS-064 → CS-065 → CS-067 |

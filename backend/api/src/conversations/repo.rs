@@ -3,6 +3,7 @@ use sqlx::{PgConnection, PgPool};
 use uuid::Uuid;
 
 use super::models::*;
+use crate::notifications::models::NotifyLevel;
 use crate::workspace::models::ChannelType;
 
 pub struct ConversationRepo {
@@ -38,6 +39,8 @@ struct SummaryRow {
     last_message_at: DateTime<Utc>,
     last_read_at: Option<DateTime<Utc>>,
     participant_ids: Vec<Uuid>,
+    notify_level: Option<NotifyLevel>,
+    effective_notify_level: NotifyLevel,
 }
 
 impl ConversationRepo {
@@ -163,9 +166,13 @@ impl ConversationRepo {
                        SELECT p.user_id FROM channel_members p
                        WHERE p.channel_id = c.id
                        ORDER BY p.joined_at, p.user_id
-                   ) AS "participant_ids!"
+                   ) AS "participant_ids!",
+                   mine.notify_level AS "notify_level: NotifyLevel",
+                   effective_notify_level(mine.notify_level, wm.notify_default, c.channel_type)
+                       AS "effective_notify_level!: NotifyLevel"
               FROM channels c
               JOIN channel_members mine ON mine.channel_id = c.id AND mine.user_id = $2
+              JOIN workspace_members wm ON wm.workspace_id = c.workspace_id AND wm.user_id = $2
              WHERE c.workspace_id = $1 AND c.channel_type IN ('dm', 'group_dm')
              ORDER BY 4 DESC
             "#,
@@ -184,6 +191,8 @@ impl ConversationRepo {
                     last_message_at: r.last_message_at,
                     last_read_at: r.last_read_at,
                     participant_ids: r.participant_ids,
+                    notify_level: r.notify_level,
+                    effective_notify_level: r.effective_notify_level,
                 })
             })
             .collect())

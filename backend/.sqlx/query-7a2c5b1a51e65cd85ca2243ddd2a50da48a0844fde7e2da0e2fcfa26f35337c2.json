@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT p.user_id, p.workspace_id, u.email,\n               COUNT(*) AS \"mentions!\",\n               ARRAY_AGG(DISTINCT COALESCE(p.channel_name, '')) AS \"channels!\",\n               ARRAY_AGG(DISTINCT COALESCE(p.sender_name, '')) AS \"senders!\"\n          FROM pending_mention_emails p\n          JOIN users u ON u.id = p.user_id\n         WHERE p.created_at <= $1\n         GROUP BY p.user_id, p.workspace_id, u.email\n        ",
+  "query": "\n        SELECT p.user_id, p.workspace_id, u.email,\n               COUNT(*) FILTER (WHERE NOT p.direct) AS \"mentions!\",\n               COUNT(*) FILTER (WHERE p.direct) AS \"direct_messages!\",\n               COALESCE(ARRAY_AGG(DISTINCT COALESCE(p.channel_name, '')) FILTER (WHERE NOT p.direct), '{}') AS \"channels!\",\n               ARRAY_AGG(DISTINCT COALESCE(p.sender_name, '')) AS \"senders!\"\n          FROM pending_mention_emails p\n          JOIN users u ON u.id = p.user_id\n         WHERE p.created_at <= $1\n         GROUP BY p.user_id, p.workspace_id, u.email\n        ",
   "describe": {
     "columns": [
       {
@@ -44,12 +44,18 @@
       },
       {
         "ordinal": 4,
+        "name": "direct_messages!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
         "name": "channels!",
         "type_info": "VarcharArray",
         "origin": "Expression"
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "senders!",
         "type_info": "VarcharArray",
         "origin": "Expression"
@@ -66,8 +72,9 @@
       false,
       null,
       null,
+      null,
       null
     ]
   },
-  "hash": "43c4755177388d35b90e7fc44a03b73f325a6a4cfef1d03cae598ac9a8109877"
+  "hash": "7a2c5b1a51e65cd85ca2243ddd2a50da48a0844fde7e2da0e2fcfa26f35337c2"
 }

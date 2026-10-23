@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE channel_members SET role = $3 WHERE channel_id = $1 AND user_id = $2\n               RETURNING channel_id, user_id, role AS \"role: ChannelRole\", last_read_at, last_read_msg,\n                   notifications AS \"notifications!\", is_muted AS \"is_muted!\",\n                   is_starred AS \"is_starred!\", joined_at",
+  "query": "SELECT channel_id, user_id, role AS \"role: ChannelRole\", last_read_at, last_read_msg,\n                   is_starred AS \"is_starred!\", joined_at\n                 FROM channel_members WHERE channel_id = $1 ORDER BY joined_at",
   "describe": {
     "columns": [
       {
@@ -70,28 +70,6 @@
       },
       {
         "ordinal": 5,
-        "name": "notifications!",
-        "type_info": "Varchar",
-        "origin": {
-          "Table": {
-            "table": "channel_members",
-            "name": "notifications"
-          }
-        }
-      },
-      {
-        "ordinal": 6,
-        "name": "is_muted!",
-        "type_info": "Bool",
-        "origin": {
-          "Table": {
-            "table": "channel_members",
-            "name": "is_muted"
-          }
-        }
-      },
-      {
-        "ordinal": 7,
         "name": "is_starred!",
         "type_info": "Bool",
         "origin": {
@@ -102,7 +80,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 6,
         "name": "joined_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -115,19 +93,7 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Uuid",
-        {
-          "Custom": {
-            "name": "channel_role",
-            "kind": {
-              "Enum": [
-                "member",
-                "admin"
-              ]
-            }
-          }
-        }
+        "Uuid"
       ]
     },
     "nullable": [
@@ -137,10 +103,8 @@
       true,
       true,
       true,
-      true,
-      true,
       false
     ]
   },
-  "hash": "c444c52d9739d1d0f73e49613d5e2eab0aacc69bf3beff0158f0a769b6d0536f"
+  "hash": "98ee28e7f6e0fbbb7469ffa46a3826d4016c742e92b32362119a0e1f70c2daec"
 }

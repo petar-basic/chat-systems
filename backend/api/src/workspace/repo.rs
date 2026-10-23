@@ -3,6 +3,7 @@ use sqlx::{PgConnection, PgPool};
 use uuid::Uuid;
 
 use super::models::*;
+use crate::notifications::models::NotifyLevel;
 
 pub struct NewInvite<'a> {
     pub workspace_id: Uuid,
@@ -709,7 +710,6 @@ impl WorkspaceRepo {
             VALUES ($1, $2, $3)
             ON CONFLICT (channel_id, user_id) DO UPDATE SET channel_id = EXCLUDED.channel_id
             RETURNING channel_id, user_id, role AS "role: ChannelRole", last_read_at, last_read_msg,
-                   notifications AS "notifications!", is_muted AS "is_muted!",
                    is_starred AS "is_starred!", joined_at
             "#,
             channel_id,
@@ -733,7 +733,6 @@ impl WorkspaceRepo {
             VALUES ($1, $2, $3)
             ON CONFLICT (channel_id, user_id) DO NOTHING
             RETURNING channel_id, user_id, role AS "role: ChannelRole", last_read_at, last_read_msg,
-                   notifications AS "notifications!", is_muted AS "is_muted!",
                    is_starred AS "is_starred!", joined_at
             "#,
             channel_id,
@@ -754,7 +753,6 @@ impl WorkspaceRepo {
             ChannelMember,
             r#"UPDATE channel_members SET role = $3 WHERE channel_id = $1 AND user_id = $2
                RETURNING channel_id, user_id, role AS "role: ChannelRole", last_read_at, last_read_msg,
-                   notifications AS "notifications!", is_muted AS "is_muted!",
                    is_starred AS "is_starred!", joined_at"#,
             channel_id,
             user_id,
@@ -828,7 +826,6 @@ impl WorkspaceRepo {
         sqlx::query_as!(
             ChannelMember,
             r#"SELECT channel_id, user_id, role AS "role: ChannelRole", last_read_at, last_read_msg,
-                   notifications AS "notifications!", is_muted AS "is_muted!",
                    is_starred AS "is_starred!", joined_at
                  FROM channel_members WHERE channel_id = $1 AND user_id = $2"#,
             channel_id,
@@ -842,7 +839,6 @@ impl WorkspaceRepo {
         sqlx::query_as!(
             ChannelMember,
             r#"SELECT channel_id, user_id, role AS "role: ChannelRole", last_read_at, last_read_msg,
-                   notifications AS "notifications!", is_muted AS "is_muted!",
                    is_starred AS "is_starred!", joined_at
                  FROM channel_members WHERE channel_id = $1 ORDER BY joined_at"#,
             channel_id
@@ -936,8 +932,8 @@ impl WorkspaceRepo {
         channel_id: Uuid,
         user_id: Uuid,
         muted: bool,
-    ) -> sqlx::Result<()> {
-        sqlx::query!(
+    ) -> sqlx::Result<bool> {
+        let result = sqlx::query!(
             "UPDATE channel_members SET muted = $3 WHERE channel_id = $1 AND user_id = $2",
             channel_id,
             user_id,
@@ -945,20 +941,26 @@ impl WorkspaceRepo {
         )
         .execute(&self.pool)
         .await?;
-        Ok(())
+        Ok(result.rows_affected() > 0)
     }
 
-    pub async fn muted_channel_ids(
+    pub async fn channel_preferences(
         &self,
         workspace_id: Uuid,
         user_id: Uuid,
-    ) -> sqlx::Result<Vec<Uuid>> {
-        sqlx::query_scalar!(
-            r"
-            SELECT c.id FROM channels c
-            JOIN channel_members cm ON cm.channel_id = c.id
-            WHERE c.workspace_id = $1 AND cm.user_id = $2 AND cm.muted = true
-            ",
+    ) -> sqlx::Result<Vec<ChannelPreference>> {
+        sqlx::query_as!(
+            ChannelPreference,
+            r#"
+            SELECT c.id AS channel_id, cm.muted AS "muted!",
+                   cm.notify_level AS "notify_level: NotifyLevel",
+                   effective_notify_level(cm.notify_level, wm.notify_default, c.channel_type)
+                       AS "effective_notify_level!: NotifyLevel"
+              FROM channels c
+              JOIN channel_members cm ON cm.channel_id = c.id
+              JOIN workspace_members wm ON wm.workspace_id = c.workspace_id AND wm.user_id = cm.user_id
+             WHERE c.workspace_id = $1 AND cm.user_id = $2
+            "#,
             workspace_id,
             user_id
         )

@@ -236,6 +236,14 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 - 🟠 **Edge:** open the deep link → jumps to the message.
 - 🔴 **Edge — workspace membership:** the workspace-scoped notifications routes now require membership. As a user NOT in workspace W, call `GET /api/workspaces/<W>/notifications` (also `.../notifications/unread-count`, `.../notifications/read-all`, `.../channels/<id>/notifications/read`) → **403** "Not a member of this workspace".
 
+### 8.2 🟢 Notification levels
+- **Steps:** as B, open a channel's bell (header, or the sidebar row on hover) → *Nothing*. A @-mentions B there while B is in another channel.
+- **Expected:** the sidebar row shows a small crossed-out bell; the mention badge still appears; no sound, no desktop notification, no Activity row, no push. Back to *Default (Mentions)* → the next mention notifies as in 8.1.
+- 🟢 **All new messages:** set a channel to *All* → a plain message from A rings and reaches B's phone, but adds nothing to Activity. A thread reply does not ring unless B follows the thread.
+- 🟢 **Default:** *Preferences → Notifications → Notify me about* → *All* changes every channel left on *Default*; one with its own level keeps it.
+- 🟢 **DMs:** A sends B a DM without an `@` while B has no session open → B's phone gets it (title = A's name) and Activity has a DM row; with no push device it is in the next email digest as "a direct message". Under DND only the Activity row appears.
+- 🟠 **Edge:** a mention of somebody who is not in the channel notifies nobody. `PUT /api/channels/<id>/notify-level` as a non-member → **403**.
+
 ---
 
 ## 9. Realtime (presence, typing, live delivery)

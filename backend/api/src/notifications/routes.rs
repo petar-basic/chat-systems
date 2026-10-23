@@ -6,7 +6,7 @@ use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 use uuid::Uuid;
 
-use shared_common::errors::AppResult;
+use shared_common::errors::{AppError, AppResult};
 
 use super::models::*;
 use crate::authz;
@@ -24,6 +24,8 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(unread_count))
         .routes(routes!(get_dnd, set_dnd))
         .routes(routes!(get_email_preference, set_email_preference))
+        .routes(routes!(set_channel_notify_level))
+        .routes(routes!(get_notify_default, set_notify_default))
 }
 
 #[utoipa::path(get, path = "/workspaces/{ws_id}/notifications", tag = "notifications", params(PageQuery), responses((status = 200, body = DataList<Notification>)))]
@@ -162,5 +164,53 @@ async fn set_email_preference(
     Ok(Json(EmailPreference {
         mention_emails: req.mention_emails,
         available: state.auth_service.can_send_email(),
+    }))
+}
+
+#[utoipa::path(put, path = "/channels/{ch_id}/notify-level", tag = "notifications", request_body = SetNotifyLevelRequest, responses((status = 200, body = ChannelNotifyLevel)))]
+async fn set_channel_notify_level(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(ch_id): Path<Uuid>,
+    Json(req): Json<SetNotifyLevelRequest>,
+) -> AppResult<Json<ChannelNotifyLevel>> {
+    authz::find_channel(&state, ch_id).await?;
+    let level = state
+        .notification_repo
+        .set_channel_level(ch_id, auth.user_id, req.level)
+        .await?
+        .ok_or_else(|| AppError::Forbidden("Not a member of this channel".into()))?;
+    Ok(Json(level))
+}
+
+#[utoipa::path(get, path = "/workspaces/{ws_id}/notify-default", tag = "notifications", responses((status = 200, body = NotifyDefault)))]
+async fn get_notify_default(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(ws_id): Path<Uuid>,
+) -> AppResult<Json<NotifyDefault>> {
+    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
+    let notify_default = state
+        .notification_repo
+        .get_default(ws_id, auth.user_id)
+        .await?
+        .ok_or_else(|| AppError::Forbidden("Not a member of this workspace".into()))?;
+    Ok(Json(NotifyDefault { notify_default }))
+}
+
+#[utoipa::path(put, path = "/workspaces/{ws_id}/notify-default", tag = "notifications", request_body = SetNotifyDefaultRequest, responses((status = 200, body = NotifyDefault)))]
+async fn set_notify_default(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(ws_id): Path<Uuid>,
+    Json(req): Json<SetNotifyDefaultRequest>,
+) -> AppResult<Json<NotifyDefault>> {
+    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
+    state
+        .notification_repo
+        .set_default(ws_id, auth.user_id, req.level)
+        .await?;
+    Ok(Json(NotifyDefault {
+        notify_default: req.level,
     }))
 }

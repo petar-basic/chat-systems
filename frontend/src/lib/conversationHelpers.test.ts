@@ -20,6 +20,8 @@ function conversation(over: Partial<Conversation>): Conversation {
     last_message_at: '2026-01-02T10:00:00Z',
     last_read_at: null,
     participant_ids: ['me', 'a'],
+    notify_level: null,
+    effective_notify_level: 'all',
     ...over,
   };
 }

@@ -18,7 +18,7 @@ import {
   useRestoreWorkspace,
 } from '@/hooks/queries/useWorkspaces';
 import { useConversations, useMarkConversationRead } from '@/hooks/queries/useConversations';
-import { useUnreadChannels, useSetChannelMuted } from '@/hooks/queries/useChannels';
+import { useUnreadChannels } from '@/hooks/queries/useChannels';
 import { instanceManager } from '@/lib/instances';
 import { wsClient } from '@/lib/ws';
 import { usePresenceStore } from '@/stores/presence';
@@ -90,10 +90,6 @@ export function useWorkspaceData(workspaceId: string | undefined, currentUserId:
     hydrateMutedChannels(channels.filter((c) => c.muted).map((c) => c.id));
   }, [channels, hydrateMutedChannels]);
 
-  const { mutate: setChannelMuted } = useSetChannelMuted(
-    workspaceId || storeWorkspaceId || '',
-    currentWsInstanceUrl,
-  );
   const { mutate: markChannelNotificationsRead } = useMarkChannelNotificationsRead(
     workspaceId || storeWorkspaceId || null,
   );
@@ -172,7 +168,6 @@ export function useWorkspaceData(workspaceId: string | undefined, currentUserId:
     workspaceMembers,
     conversations,
     restoreWorkspace,
-    setChannelMuted,
     markChannelNotificationsRead,
     markConversationReadServer,
     getUser,

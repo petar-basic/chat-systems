@@ -14,16 +14,16 @@ export function NotificationStream() {
 
   useEffect(() => {
     return globalEventBus.on('notification', (event) => {
-      const { workspace_id, channel_id, message_id, title, body, priority } = event;
-      const isMention = priority === NotificationType.mention;
-      const isReply = priority === NotificationType.reply;
+      const { workspace_id, channel_id, message_id, title, body, kind } = event;
+      const isMention = kind === NotificationType.mention;
+      const isReply = kind === NotificationType.reply;
 
-      if (channel_id && !isReply) {
+      if (channel_id && isMention) {
         useWorkspaceStore.setState((s) => {
           const nextUnread = new Set(s.unreadChannels);
           nextUnread.add(channel_id);
           const nextMention = new Set(s.mentionChannels);
-          if (isMention) nextMention.add(channel_id);
+          nextMention.add(channel_id);
           return { unreadChannels: nextUnread, mentionChannels: nextMention };
         });
       }
@@ -35,21 +35,22 @@ export function NotificationStream() {
       }
 
       const { desktopEnabled } = useNotificationPrefs.getState();
-
+      const { currentChannel, currentConversationId } = useWorkspaceStore.getState();
       const viewing =
-        channel_id && useWorkspaceStore.getState().currentChannel?.id === channel_id && document.hasFocus();
-      if (!viewing) playMessageSound();
+        !!channel_id &&
+        !isReply &&
+        (currentChannel?.id === channel_id || currentConversationId === channel_id) &&
+        document.hasFocus();
+      if (viewing) return;
+      playMessageSound();
 
       if (desktopEnabled) {
-        const onClick =
-          wsId && channel_id
-            ? () =>
-                navigate(
-                  message_id
-                    ? `${ROUTES.message(wsId, channel_id, message_id)}${isReply ? '?thread=1' : ''}`
-                    : ROUTES.channel(wsId, channel_id),
-                )
-            : undefined;
+        const target = (workspaceId: string, channelId: string) => {
+          if (kind === NotificationType.dm) return ROUTES.conversation(workspaceId, channelId);
+          if (!message_id) return ROUTES.channel(workspaceId, channelId);
+          return `${ROUTES.message(workspaceId, channelId, message_id)}${isReply ? '?thread=1' : ''}`;
+        };
+        const onClick = wsId && channel_id ? () => navigate(target(wsId, channel_id)) : undefined;
         showNotification(isMention ? `🔔 ${title}` : title, body ?? '', onClick);
       }
     });

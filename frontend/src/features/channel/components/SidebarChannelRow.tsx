@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react';
-import { Bell, BellOff, Hash, Lock, FolderInput } from 'lucide-react';
+import { useRef, useState, type ReactNode } from 'react';
+import { BellOff, Hash, Lock, FolderInput } from 'lucide-react';
 import { AnchoredPopover } from '@/shared/components/Popover/AnchoredPopover';
 import { CHANNEL_DRAG_TYPE } from './channelDrag';
 import type { Channel } from '@/stores/workspace';
@@ -18,7 +18,7 @@ interface Props {
   unreadCount: number | undefined;
   mentionCount: number | undefined;
   onSelect: (channel: Channel) => void;
-  onToggleMute: (channelId: string, muted: boolean) => void;
+  notifications?: ReactNode;
   moveTargets?: { id: string | null; name: string }[];
   sectionId?: string | null;
   onMove?: (channelId: string, sectionId: string | null) => void;
@@ -33,7 +33,7 @@ export function SidebarChannelRow({
   unreadCount,
   mentionCount,
   onSelect,
-  onToggleMute,
+  notifications,
   moveTargets = [],
   sectionId = null,
   onMove,
@@ -76,7 +76,13 @@ export function SidebarChannelRow({
       >
         {icon}
         <span className="truncate">{channel.name || 'Channel'}</span>
-        {muted && <BellOff className="w-3 h-3 text-faint ml-auto shrink-0" />}
+        {(muted || channel.effective_notify_level === 'nothing') && (
+          <BellOff
+            className="w-3 h-3 text-faint ml-auto shrink-0"
+            aria-label={muted ? 'Muted' : 'Notifications off'}
+            data-qa="sidebar-channel-quiet"
+          />
+        )}
         {!muted && mentioned ? (
           <span
             aria-hidden="true"
@@ -135,14 +141,11 @@ export function SidebarChannelRow({
           ))}
         </AnchoredPopover>
       )}
-      <button
-        onClick={() => onToggleMute(channel.id, !muted)}
-        aria-label={muted ? `Unmute ${channel.name}` : `Mute ${channel.name}`}
-        title={muted ? 'Unmute' : 'Mute'}
-        className="absolute right-1 hidden group-hover:flex p-1 rounded text-muted hover:text-fg hover:bg-raised"
-      >
-        {muted ? <Bell className="w-3 h-3" /> : <BellOff className="w-3 h-3" />}
-      </button>
+      {notifications && (
+        <div className="absolute right-1 hidden group-hover:flex group-focus-within:flex has-[[aria-expanded=true]]:flex">
+          {notifications}
+        </div>
+      )}
     </div>
   );
 }

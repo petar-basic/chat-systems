@@ -16,7 +16,30 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ## [Unreleased]
 
+### Upgrading
+
+- Migration 57 adds the `notify_level` type, `workspace_members.notify_default`,
+  `channel_members.notify_level` and `pending_mention_emails.direct`, and drops
+  `channel_members.notifications` and `channel_members.is_muted`, which nothing read. The
+  `ChannelMember` API shape loses those two fields, and the `notification` frame's
+  `priority` is now `kind`.
+
+### Added
+
+- **Notification levels.** Each channel can notify about *All new messages*, *Mentions* or
+  *Nothing*, from a bell in the channel header and on the sidebar row; every person sets a
+  default per workspace in *Preferences → Notifications*. `PUT /channels/{id}/notify-level`,
+  `GET`/`PUT /workspaces/{id}/notify-default`.
+- **Direct messages reach a phone.** A DM notifies on push, appears in Activity, and is
+  counted in the email digest when no device received it.
+
 ### Changed
+
+- **The server decides what rings.** The browser plays a sound and shows a desktop
+  notification only for a `notification` frame, not for every message it receives, and stays
+  quiet for the conversation on screen.
+- **A mention notifies members only.** Mentioning somebody outside the channel no longer
+  notifies them about a message they cannot open.
 
 - **A huddle holds at most eight people.** Past that a peer-to-peer call degrades for
   everyone in it, so the ninth person to press *Join* is told the huddle is full and no call
