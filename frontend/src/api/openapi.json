@@ -2950,6 +2950,94 @@
         }
       }
     },
+    "/threads/{root_id}/follow": {
+      "put": {
+        "tags": [
+          "threads"
+        ],
+        "operationId": "follow_thread",
+        "parameters": [
+          {
+            "name": "root_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadState"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "threads"
+        ],
+        "operationId": "unfollow_thread",
+        "parameters": [
+          {
+            "name": "root_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadState"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/threads/{root_id}/read": {
+      "post": {
+        "tags": [
+          "threads"
+        ],
+        "operationId": "mark_thread_read",
+        "parameters": [
+          {
+            "name": "root_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadState"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/users/me": {
       "get": {
         "tags": [
@@ -5558,6 +5646,90 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DataItem_ImportRun"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/threads": {
+      "get": {
+        "tags": [
+          "threads"
+        ],
+        "operationId": "list_threads",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64"
+            }
+          },
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadPage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/threads/unread": {
+      "get": {
+        "tags": [
+          "threads"
+        ],
+        "operationId": "unread_threads",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnreadThreads"
                 }
               }
             }
@@ -10358,6 +10530,81 @@
           }
         }
       },
+      "ThreadPage": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ThreadSummary"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "ThreadState": {
+        "type": "object",
+        "required": [
+          "root_message_id",
+          "following",
+          "unread_count"
+        ],
+        "properties": {
+          "following": {
+            "type": "boolean"
+          },
+          "root_message_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "unread_count": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "ThreadSummary": {
+        "type": "object",
+        "required": [
+          "root",
+          "latest_replies",
+          "unread_count",
+          "last_read_at",
+          "last_reply_at"
+        ],
+        "properties": {
+          "last_read_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_reply_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "latest_replies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Message"
+            }
+          },
+          "root": {
+            "$ref": "#/components/schemas/Message"
+          },
+          "unread_count": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
       "TotpConfirmed": {
         "type": "object",
         "required": [
@@ -10620,6 +10867,18 @@
           "unread_count": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "UnreadThreads": {
+        "type": "object",
+        "required": [
+          "count"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },
@@ -11331,6 +11590,10 @@
     {
       "name": "sidebar",
       "description": "Per-person sidebar sections"
+    },
+    {
+      "name": "threads",
+      "description": "Threads you follow and their unread replies"
     },
     {
       "name": "apps",

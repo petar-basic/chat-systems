@@ -11,7 +11,7 @@ use crate::connection_manager::Audience;
 
 use crate::connection_manager::ConnectionManager;
 
-pub const SUBSCRIBED_CHANNELS: [&str; 13] = [
+pub const SUBSCRIBED_CHANNELS: [&str; 14] = [
     "events:message",
     "events:reaction",
     "events:notification",
@@ -25,6 +25,7 @@ pub const SUBSCRIBED_CHANNELS: [&str; 13] = [
     "events:session",
     "events:channel",
     "events:later",
+    "events:thread",
 ];
 
 pub async fn start_event_consumer(
@@ -369,6 +370,29 @@ pub(crate) async fn handle_event_for(
                 return;
             };
             let frame = ServerFrame::LaterUpdated { workspace_id };
+            cm.send_to_user(audience, uid, &framed(&frame)).await;
+        }
+        "thread.read_state" => {
+            let (Some(uid), Some(root_message_id), Some(workspace_id)) = (
+                field("user_id"),
+                field("root_message_id"),
+                field("workspace_id"),
+            ) else {
+                return;
+            };
+            let frame = ServerFrame::ThreadReadState {
+                root_message_id,
+                workspace_id,
+                following: payload
+                    .get("following")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false),
+                unread_count: payload
+                    .get("unread_count")
+                    .and_then(|v| v.as_i64())
+                    .and_then(|v| i32::try_from(v).ok())
+                    .unwrap_or(0),
+            };
             cm.send_to_user(audience, uid, &framed(&frame)).await;
         }
         "channel.member_removed" => {

@@ -90,6 +90,14 @@ export const useWebSocketQuerySync = () => {
       globalEventBus.on('later.updated', (event) => {
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.later(event.workspace_id) });
       }),
+      globalEventBus.on('thread.read_state', (event) => {
+        queryClient.setQueryData(QUERY_KEYS.threadState(event.root_message_id), {
+          root_message_id: event.root_message_id,
+          following: event.following,
+          unread_count: event.unread_count,
+        });
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.followedThreads(event.workspace_id) });
+      }),
       globalEventBus.on('channel.access_revoked', (event) => {
         queryClient.removeQueries({ queryKey: QUERY_KEYS.messages(event.channel_id) });
         queryClient.removeQueries({ queryKey: QUERY_KEYS.channelMembers(event.channel_id) });

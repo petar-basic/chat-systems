@@ -1,0 +1,50 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH saved AS (\n                INSERT INTO thread_follows (user_id, workspace_id, root_message_id, following)\n                VALUES ($1, $2, $3, $4)\n                ON CONFLICT (user_id, root_message_id) DO UPDATE SET following = EXCLUDED.following\n                RETURNING user_id, root_message_id, following, last_read_at\n            )\n            SELECT s.root_message_id, s.following,\n                   CASE WHEN s.following THEN\n                       (SELECT count(*) FROM messages m\n                         WHERE m.thread_parent_id = s.root_message_id AND m.deleted_at IS NULL\n                           AND m.user_id <> s.user_id AND m.created_at > s.last_read_at)\n                   ELSE 0 END AS \"unread_count!\"\n              FROM saved s\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "root_message_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "thread_follows",
+            "name": "root_message_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "following",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "thread_follows",
+            "name": "following"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "unread_count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "3cac7309c8b8623d9f5009bec4e6480cd8ab75d567279630e198c5f62a2663b2"
+}

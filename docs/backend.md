@@ -590,6 +590,30 @@ stays *in progress* until it is ticked, and a new `remind_at` re-arms it. Every 
 
 ---
 
+### threads
+
+The threads a person follows, as Slack's *Threads* view lists them. `thread_follows` holds one
+row per person and thread root: whether they follow it and how far they have read. Replying
+follows the thread and reads it up to the reply; the first reply follows it for the root's
+author, read up to just before it; a mention in a reply follows it for the person mentioned.
+*Unfollow* is a row with `following = false`, so a later reply does not bring it back — only a
+reply of their own or a mention does. A reply from someone else after `last_read_at` is
+unread. A thread drops out of every count and list once its follower can no longer read the
+channel, the same check the message routes use. Every change sends a `thread.read_state`
+frame to the follower's sessions, and `chat-worker` sends followers the `reply` notification
+(in-app and push, never email; mute and DND apply), except the reply's author and anyone it
+mentions, who already have the mention. Rows go with the workspace membership and the root.
+
+| Method | Route | Input | Output |
+|--------|-------|-------|--------|
+| GET | `/workspaces/:ws_id/threads` | Query: `cursor?` (the previous page's `next_cursor`), `limit=20 (≤50)` | `{ data: ThreadSummary[], next_cursor }` — followed threads with replies, newest reply first, each with its root, the latest three replies (oldest first), `unread_count`, `last_read_at` and `last_reply_at` |
+| GET | `/workspaces/:ws_id/threads/unread` | — | `{ count }` — followed threads with an unread reply |
+| POST | `/threads/:root_id/read` | — | `ThreadState` (`{ root_message_id, following, unread_count }`) — a reply's id reads its root |
+| PUT | `/threads/:root_id/follow` | — | `ThreadState` |
+| DELETE | `/threads/:root_id/follow` | — | `ThreadState` |
+
+---
+
 ### integrations (apps)
 
 Per-workspace connected apps — Jira Cloud, Confluence, GitHub, Google Drive and Figma — and each person's own connection to them.
@@ -739,6 +763,7 @@ batch cannot become the flood it replaced.
 | `events:workspace` | `workspace.deleted`, `workspace.restored` |
 | `events:user` | `user.suspended` — consumed by the gateway to close the user's sockets (not pushed to clients) |
 | `events:huddle` | `huddle.started`, `huddle.ended`, `huddle.ring`, `huddle.member_joined`, `huddle.member_left` — lifecycle; also consumed by the API for history + call notifications |
+| `events:thread` | `thread.read_state` — sent only to the follower whose thread state changed (a reply, `/read`, follow or unfollow), with its `following` and `unread_count` |
 | `events:channel` | `channel.read_state` — sent only to the user whose read position moved (by `/read` or `/unread`), so their other tabs and devices update their badges; `channel.member_removed` becomes `channel.access_revoked` for the removed user |
 | `events:huddle-signal` | `huddle.offer`, `huddle.answer`, `huddle.ice`, `huddle.mute`, `huddle.camera`, `huddle.screenshare`, `huddle.hand`, `huddle.reaction` — high-frequency relay, realtime-only (kept off `events:huddle` so the API consumers don't parse every ICE candidate) |
 

@@ -35,6 +35,7 @@ pub mod sessions;
 pub mod sidebar;
 pub mod slack_import;
 pub mod state;
+pub mod threads;
 pub mod workspace;
 
 #[cfg(test)]
@@ -106,6 +107,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
     let notification_repo = NotificationRepo::new(pool.clone());
     let conversation_repo = ConversationRepo::new(pool.clone());
     let later_repo = later::repo::LaterRepo::new(pool.clone());
+    let thread_repo = threads::repo::ThreadRepo::new(pool.clone());
     let sidebar_repo = sidebar::repo::SidebarRepo::new(pool.clone());
     let integration_repo = integrations::repo::IntegrationRepo::new(pool.clone());
     let slack_import_repo = slack_import::repo::SlackImportRepo::new(pool.clone());
@@ -141,6 +143,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
         notification_repo,
         conversation_repo,
         later_repo,
+        thread_repo,
         sidebar_repo,
         integration_repo,
         slack_import_repo,

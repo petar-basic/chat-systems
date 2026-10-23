@@ -16,8 +16,9 @@ export function NotificationStream() {
     return globalEventBus.on('notification', (event) => {
       const { workspace_id, channel_id, message_id, title, body, priority } = event;
       const isMention = priority === NotificationType.mention;
+      const isReply = priority === NotificationType.reply;
 
-      if (channel_id) {
+      if (channel_id && !isReply) {
         useWorkspaceStore.setState((s) => {
           const nextUnread = new Set(s.unreadChannels);
           nextUnread.add(channel_id);
@@ -45,7 +46,7 @@ export function NotificationStream() {
             ? () =>
                 navigate(
                   message_id
-                    ? ROUTES.message(wsId, channel_id, message_id)
+                    ? `${ROUTES.message(wsId, channel_id, message_id)}${isReply ? '?thread=1' : ''}`
                     : ROUTES.channel(wsId, channel_id),
                 )
             : undefined;

@@ -28,4 +28,5 @@ mod messaging;
 mod notifications;
 mod scheduled;
 mod sidebar;
+mod threads;
 mod workspace;

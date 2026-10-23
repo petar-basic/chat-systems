@@ -34,6 +34,7 @@ export function useWorkspaceRouting({
   } = useParams<{ workspaceId?: string; channelId?: string; messageId?: string; conversationId?: string }>();
   const [searchParams] = useSearchParams();
   const isUnreadsRoute = useMatch(ROUTE_PATTERNS.unreads) !== null;
+  const isThreadsRoute = useMatch(ROUTE_PATTERNS.threads) !== null;
   const {
     currentWorkspace,
     currentChannel,
@@ -81,7 +82,7 @@ export function useWorkspaceRouting({
   }, [workspaces, deletedWorkspaces, workspaceId, currentWorkspace, selectWorkspace, navigate]);
 
   useEffect(() => {
-    if (isUnreadsRoute) {
+    if (isUnreadsRoute || isThreadsRoute) {
       if (currentChannel?.id || currentConversationId) selectConversation(null);
       return;
     }
@@ -102,6 +103,7 @@ export function useWorkspaceRouting({
     }
   }, [
     isUnreadsRoute,
+    isThreadsRoute,
     currentConversationId,
     selectConversation,
     routeConversationId,
@@ -144,5 +146,5 @@ export function useWorkspaceRouting({
     [searchParams, panel],
   );
 
-  return { urlMessageId, handleTargetMessageFound, isUnreadsRoute };
+  return { urlMessageId, handleTargetMessageFound, isUnreadsRoute, isThreadsRoute };
 }

@@ -29,6 +29,20 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   turn into chips as they are recognised. `GET /search` gains `has` (`file`, `image`, `link`),
   `after` and `before`, takes a DM in `channel_id`, and runs on filters alone when there are no
   words.
+- **Threads.** A *Threads* entry under *All unreads* lists the threads you follow, newest reply
+  first, each with its root, the latest replies, *N new replies* and a reply box in place; the
+  entry counts the threads with unread replies. You follow a thread when you start it and
+  somebody replies, when you reply, and when you are mentioned in it; the thread panel has
+  *Follow* / *Unfollow*. A reply in a followed thread sends the `reply` notification, in-app
+  and push. New routes: `GET /workspaces/{id}/threads`, `GET /workspaces/{id}/threads/unread`,
+  `POST /threads/{id}/read`, `PUT` / `DELETE /threads/{id}/follow`.
+
+### Upgrading
+
+- Migration 56 follows every existing thread for its root's author and everyone who replied
+  in it, read up to the moment of the upgrade, so nothing arrives unread. The realtime service
+  subscribes to one more Redis channel, `events:thread`; deploy the backend and realtime images
+  together.
 
 ## [3.0.0] — 2026-10-22
 

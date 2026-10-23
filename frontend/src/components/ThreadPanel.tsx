@@ -7,7 +7,14 @@ import { useWorkspaceStore } from '@/stores/workspace';
 import type { Message, WorkspaceMember, Channel } from '@/stores/workspace';
 import { displayNameOf } from '@/lib/userHelpers';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
-import { useThreadMessages, useSendThreadReply, useThreadReplyActions } from '@/hooks/queries/useThreads';
+import {
+  useFollowThread,
+  useThreadMessages,
+  useSendThreadReply,
+  useThreadReplyActions,
+  useThreadState,
+} from '@/hooks/queries/useThreads';
+import { Button } from '@/shared/components/Button/Button';
 import RichTextDisplay from './RichTextDisplay';
 import { MessageInput, MessageItem } from '@/features/messaging';
 import { asAttachments, useComposerAttachments } from '@/features/messaging/useComposerAttachments';
@@ -27,6 +34,15 @@ export default function ThreadPanel({ parentMessage, members, channels, onClose 
   const currentWorkspace = useWorkspaceStore((s) => s.currentWorkspace);
   const { toggleReaction, edit, remove, togglePin } = useThreadReplyActions(parentMessage.id, currentUserId);
   const endRef = useRef<HTMLDivElement>(null);
+  const { data: threadState, refetch: markRead } = useThreadState(parentMessage.id);
+  const follow = useFollowThread(parentMessage.id);
+  const seenReplies = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (loading) return;
+    if (seenReplies.current !== null && replies.length > seenReplies.current) void markRead();
+    seenReplies.current = replies.length;
+  }, [loading, replies.length, markRead]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -56,6 +72,20 @@ export default function ThreadPanel({ parentMessage, members, channels, onClose 
         <PanelHeader
           title="Thread"
           icon={<MessageSquare className="h-4 w-4 text-muted" />}
+          actions={
+            threadState && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => follow.mutate(!threadState.following)}
+                disabled={follow.isPending}
+                aria-pressed={threadState.following}
+                data-qa="thread-follow"
+              >
+                {threadState.following ? 'Unfollow' : 'Follow'}
+              </Button>
+            )
+          }
           onClose={onClose}
         />
 

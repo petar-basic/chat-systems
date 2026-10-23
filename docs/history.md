@@ -1232,3 +1232,37 @@ sidebar count and the list agree across tabs. On a message, the bookmark shows w
 saved and the *More* menu has *Remind me about this*. Slack's `A` to save the focused message
 waits for keyboard focus on messages, which the list does not have yet.
 
+---
+
+## Wave 19 — Getting around ✅ shipped
+
+### [CS-058] Getting around like in Slack ✅ shipped
+A Slack user moves without the mouse, narrows a search in the box and keeps up with their
+conversations from one *Threads* view. Here there were two shortcuts, a search panel with no
+filters, and a reply in your thread was visible only by opening it. Three PRs closed it.
+
+**Keyboard.** One table in `navigation/shortcuts.ts` drives both the handler and the ⌘/
+dialog, so the list cannot drift from what the keys do. ⌥↑/↓ walk the sidebar in its own order
+and ⌥⇧↑/↓ only the unread entries; Esc marks the open channel read and ⇧Esc the whole
+workspace, which needed `POST /workspaces/{id}/read` so it is one request rather than one per
+channel. Messages are a single Tab stop with a roving `tabIndex`: ↑/↓ move the focus, the
+focused row shows its actions, and `E`, `T`, `R`, `A`, `P`, Enter and Esc act on it — which
+also gave *Later* the `A` it had been waiting for. Nothing fires while typing.
+
+**Search filters.** `GET /search` gained `has` (file, image, link — attachments read from the
+message's metadata, links by URL in the text), `after` and `before`, and runs on filters
+alone. The panel has *From*, *In*, *Has* and *Date* chips, and the same modifiers typed into the
+box turn into chips once they are finished (a space or Enter), as in Slack; what it cannot
+place stays as words rather than failing silently.
+
+**Threads.** `thread_follows` records who follows which thread and how far they have read.
+Replying follows and reads it; the first reply follows it for the root's author, read up to
+just before, so that reply is their one unread; a mention follows it for the person named.
+Unfollowing is a row, not a deletion, so a later reply by someone else leaves it unfollowed.
+The `reply` notification type had existed unused since the notifications work; the worker now
+sends it to followers, in-app and push but not email, with mute and DND honoured and the
+mentioned left out because they already have the mention. Migration 56 follows every existing
+thread for its author and repliers, read up to the upgrade, so it arrives quiet. The sidebar's
+*Threads* entry counts threads with unread replies; the view shows each with its root, the
+latest three replies, *N new replies* and a reply box, and reads them as they are shown. A
+`thread.read_state` frame on the new `events:thread` channel keeps tabs in step.
