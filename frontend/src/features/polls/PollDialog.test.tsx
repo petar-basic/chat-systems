@@ -23,7 +23,9 @@ const type = (testId: string, value: string) =>
   fireEvent.change(screen.getByTestId(testId), { target: { value } });
 
 describe('PollDialog', () => {
-  beforeEach(() => create.mockReset());
+  beforeEach(() => {
+    create.mockReset();
+  });
 
   it('creates the poll with the options in the order shown', () => {
     create.mockImplementation((_body, callbacks) => callbacks.onSuccess());
