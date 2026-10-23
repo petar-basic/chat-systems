@@ -78,3 +78,37 @@ test('deleting a message asks first and shows the message', async ({ page }) => 
     await admin.dispose();
   }
 });
+
+test('preferences open from the You menu and show one section at a time', async ({ page }) => {
+  const { ctx: alice } = await userContext('alice@dev.local');
+  const workspace = await devWorkspace(alice);
+
+  try {
+    await login(page, 'alice@dev.local');
+    await page.goto(`/app/${workspace.id}`);
+
+    await page.getByTestId('open-you-menu').click();
+    await page.getByTestId('open-preferences').click();
+    await expect(page.getByTestId('preferences-modal')).toBeVisible();
+
+    const notifications = page.getByRole('tab', { name: 'Notifications' });
+    await expect(notifications).toHaveAttribute('aria-selected', 'true');
+    await expect(notifications).toBeFocused();
+    await expect(page.getByTestId('email-notifications')).toBeVisible();
+
+    await page.keyboard.press('ArrowDown');
+    await expect(page.getByRole('tab', { name: 'Appearance' })).toBeFocused();
+    await expect(page.getByTestId('preferences-panel-appearance')).toBeVisible();
+    await expect(page.getByTestId('email-notifications')).toHaveCount(0);
+
+    await page.getByTestId('theme-option-light').click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    await page.getByTestId('theme-option-dark').click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+
+    await page.getByRole('tab', { name: 'Security' }).click();
+    await expect(page.getByTestId('two-factor')).toBeVisible();
+  } finally {
+    await alice.dispose();
+  }
+});

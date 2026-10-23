@@ -50,7 +50,7 @@ export function useWorkspaceController() {
     })),
   );
 
-  const [showProfile, setShowProfile] = useState(false);
+  const [accountDialog, setAccountDialog] = useState<'profile' | 'preferences' | null>(null);
   const [showAddInstance, setShowAddInstance] = useState(false);
   const [quickSwitcherOpen, setQuickSwitcherOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -234,8 +234,8 @@ export function useWorkspaceController() {
     unreadConversations,
     restoreWorkspace: data.restoreWorkspace,
     setChannelMuted: data.setChannelMuted,
-    showProfile,
-    setShowProfile,
+    accountDialog,
+    setAccountDialog,
     showAddInstance,
     setShowAddInstance,
     quickSwitcherOpen,

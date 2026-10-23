@@ -183,12 +183,24 @@ line up everywhere:
 - **`Spinner`** — `sm` · `md` · `lg`, in the current text colour.
 - **`PanelHeader`** — every right panel's 56 px header: icon, title, optional badge and
   actions, and a close button labelled *Close {title}*.
-- **`DialogHeader`** / **`DialogFooter`** — a dialog's title with ✕ top-right, and its actions
-  right-aligned on the content edge (`start` for a note on the left).
+- **`Modal`** — `size` `sm` (400 px) · `md` (520) · `lg` (720); a fixed header (title,
+  `description`, `headerActions`, ✕) and footer (`footerStart`, `dismissLabel`, `actions`)
+  around a body that is the only scroll area; `onSubmit` makes the whole dialog a form. On a
+  phone it is a sheet from the bottom. **`Overlay`** under it holds the portal, focus trap,
+  initial focus (`data-autofocus`, then the first field in the body) and the exit fade, which
+  runs for the ✕, Escape, the backdrop and the dismiss button.
+- **`ConfirmDialog`** — title, `description`, a slot for what is about to go, and a `danger` or
+  `primary` action that gets focus, shows busy while it runs and keeps the dialog open with the
+  reason if it throws.
+- **Form** (`shared/components/Form`) — `TextInput` (`leading`, `trailing`, `counter`),
+  `TextArea`, `Select`, `Checkbox` (with `description`) and `RadioCards`, all 36 px (`compact`
+  32 px for rows and toolbars), each wired to its label, hint, error and counter by `Field`.
+  `labelHidden` keeps the label for screen readers only.
 
 Titles and labels are sentence case. ESLint enforces the rest outside `shared/components`: a
-hand-styled primary button (`hover:bg-purple-500`) or spinner (`rounded-full animate-spin`)
-fails `no-restricted-syntax`, and an icon-only `<button>` without `aria-label` fails
+hand-styled primary button (`hover:bg-purple-500`), a spinner (`rounded-full animate-spin`)
+or a raw `<input>`, `<textarea>` or `<select>` (file pickers excepted) fails
+`no-restricted-syntax`, and an icon-only `<button>` without `aria-label` fails
 `local/icon-button-label` (`eslint-rules/`).
 
 ### `MessageItem`
@@ -253,10 +265,14 @@ Workspace name, description, and deletion (soft-delete by default; `?hard=true` 
 
 ---
 
-### `UserProfilePanel`
-Edit display name, bio, and avatar (URL or upload).
+### `profile/EditProfileModal` and `profile/PreferencesModal`
+*Edit profile* holds the display name, status (presets and *Clear after*), bio and photo, and
+saves them with one button; the status is sent only when it changed, so an untouched one keeps
+its expiry. *Preferences* is a vertical tab list — *Notifications*, *Appearance*, *Security* —
+over panels that save as they change. Both open from the *You* menu; the sidebar avatar opens
+*Edit profile*.
 
-**API calls:** GET `/users/me`, PATCH `/users/me` `{ display_name, bio, avatar_url }`, POST `/files/upload/avatars` (avatar upload)
+**API calls:** GET `/users/me`, PATCH `/users/me` `{ display_name, bio, avatar_url }`, PUT / DELETE `/users/me/status`, POST `/files/upload/{workspaceId}` (photo upload)
 
 ---
 

@@ -12,7 +12,7 @@ import { AllUnreadsView } from '@/features/unreads';
 import { ThreadsView } from '@/features/threads';
 import ForwardMessageModal from '@/features/messaging/ForwardMessageModal';
 import AddInstancePanel from '../components/AddInstancePanel';
-import UserProfilePanel from '../components/UserProfilePanel';
+import { EditProfileModal, PreferencesModal } from '@/features/profile';
 import TypingIndicator from '../components/TypingIndicator';
 import { useChannelModeration } from '@/features/channel/hooks/useChannelModeration';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
@@ -81,7 +81,8 @@ export default function WorkspacePage() {
             onOpenLater={() => panel.toggle('later')}
             laterActive={panel.active?.kind === 'later'}
             onOpenSlackImport={() => panel.toggle('slackImport')}
-            onOpenProfile={() => c.setShowProfile(true)}
+            onOpenProfile={() => c.setAccountDialog('profile')}
+            onOpenPreferences={() => c.setAccountDialog('preferences')}
             onOpenNotifications={() => panel.toggle('notifications')}
             onOpenUnreads={c.handleOpenUnreads}
             unreadsActive={c.isUnreadsRoute}
@@ -293,7 +294,8 @@ export default function WorkspacePage() {
           />
         )}
 
-        {c.showProfile && <UserProfilePanel onClose={() => c.setShowProfile(false)} />}
+        {c.accountDialog === 'profile' && <EditProfileModal onClose={() => c.setAccountDialog(null)} />}
+        {c.accountDialog === 'preferences' && <PreferencesModal onClose={() => c.setAccountDialog(null)} />}
 
         {c.quickSwitcherOpen && currentWorkspace && (
           <QuickSwitcher

@@ -14,6 +14,28 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
+## [Unreleased]
+
+### Changed
+
+- **Dialogs look finished.** Every dialog is one of three widths, keeps its title and buttons
+  in place while the middle scrolls, and fades in and out (not under *Reduce motion*); on a
+  phone it is a sheet from the bottom. Every field in the app has a label, one height and one
+  text size, and checkboxes and selects look like the app rather than the operating system.
+- **Create channel** chooses public or private from two cards, shows the name with its `#` and
+  a counter to the 80-character limit, and turns spaces into hyphens and capitals into lower
+  case as you type. Existing names are left alone and the API accepts what it did before.
+- **Browse channels** is large, counts what it shows, sorts by name, members or age, has
+  *Create channel* in its header, and gives each row one action, *Join* or *Leave*, on hover or
+  focus.
+- **Confirmations.** Deleting a message shows the message, archiving a channel names it, and
+  deleting an integration names it, each in a small dialog where Enter confirms and Esc
+  cancels.
+- **Profile and Preferences are two dialogs.** *Edit profile* holds your name, status (with
+  presets and *Clear after*), bio and photo, saved with one button. *Preferences* lists
+  *Notifications*, *Appearance* and *Security* on the left and shows one at a time; each
+  setting saves as you change it. The *You* menu has both.
+
 ## [3.1.0] — 2026-10-23
 
 ### Upgrading from 3.0.0
