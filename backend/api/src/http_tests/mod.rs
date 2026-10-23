@@ -28,6 +28,7 @@ mod huddle;
 mod later;
 mod messaging;
 mod notifications;
+mod polls;
 mod scheduled;
 mod sidebar;
 mod threads;

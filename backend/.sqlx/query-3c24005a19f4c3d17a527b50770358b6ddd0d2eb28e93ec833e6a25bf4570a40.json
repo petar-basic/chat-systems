@@ -1,0 +1,143 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT p.id, p.message_id, p.question, p.multiple_choice, p.anonymous,\n                      p.closes_at, p.closed_at, p.created_by,\n                      m.channel_id, c.workspace_id, (m.deleted_at IS NOT NULL) AS \"message_deleted!\"\n                 FROM polls p\n                 JOIN messages m ON m.id = p.message_id\n                 JOIN channels c ON c.id = m.channel_id\n                WHERE p.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "polls",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "message_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "polls",
+            "name": "message_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "question",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "polls",
+            "name": "question"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "multiple_choice",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "polls",
+            "name": "multiple_choice"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "anonymous",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "polls",
+            "name": "anonymous"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "closes_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "polls",
+            "name": "closes_at"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "closed_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "polls",
+            "name": "closed_at"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "created_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "polls",
+            "name": "created_by"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "channel_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "channel_id"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "channels",
+            "name": "workspace_id"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "message_deleted!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "3c24005a19f4c3d17a527b50770358b6ddd0d2eb28e93ec833e6a25bf4570a40"
+}

@@ -244,7 +244,7 @@ forms reuse. Lists come before the workflow builder's last part, which writes in
 
 | # | Ticket | Area |
 |---|---|---|
-| [CS-065](CS-065-polls.md) | Polls | backend · frontend |
+| CS-065 ✅ | Polls | backend · frontend |
 | [CS-066](CS-066-lists.md) | Lists: typed tables in a conversation, with board view and item comments | backend · frontend |
 | [CS-067](CS-067-workflow-builder.md) | Workflow builder | backend · frontend · ops |
 
@@ -252,7 +252,7 @@ forms reuse. Lists come before the workflow builder's last part, which writes in
 
 | # | Ticket | Area | Why it is not done |
 |---|---|---|---|
-| [CS-065](CS-065-polls.md) … [CS-067](CS-067-workflow-builder.md) | Wave 23 | backend · frontend · ops | Planned 2026-10-23; one at a time, in number order, each before 4.0.0 |
+| [CS-066](CS-066-lists.md) … [CS-067](CS-067-workflow-builder.md) | Wave 23 | backend · frontend · ops | Planned 2026-10-23; one at a time, in number order, each before 4.0.0 |
 | [CS-037](CS-037-huddle-sfu.md) | SFU for large huddles | backend · frontend · ops | Held for 4.0.0 — it adds a service to the stack, so it ships in a major release |
 
 ## Conflict map
@@ -271,7 +271,7 @@ Tickets that touch the same files, and the order that avoids rework:
 | `frontend/src/features/messaging/` | CS-024 ✅ → CS-025 ✅ → CS-029 ✅ |
 | `messages` table schema | CS-029 ✅ → CS-030 ✅ → CS-034 ✅ |
 | `channel_members` read position and counters | CS-026 ✅ → CS-050 ✅ → CS-051 ✅ → CS-052 ✅ |
-| message metadata and `message.updated` | CS-029 ✅ → CS-049 ✅ → CS-053 ✅ → CS-054 ✅ → CS-055 ✅ → CS-065 |
+| message metadata and `message.updated` | CS-029 ✅ → CS-049 ✅ → CS-053 ✅ → CS-054 ✅ → CS-055 ✅ → CS-065 ✅ |
 | `files` and the download route | CS-009 ✅ → CS-011 ✅ → CS-020 ✅ → CS-055 ✅ |
 | `frontend/src/shared/components` dialogs and controls | CS-056 ✅ → CS-059 ✅ |
 | huddle join authorization | CS-041 ✅ → CS-037 |
@@ -279,4 +279,4 @@ Tickets that touch the same files, and the order that avoids rework:
 | `NotificationStream` and `wsQuerySync` sound/desktop | CS-060 ✅ → CS-061 ✅ |
 | search visibility (`searchable_channels()`) | CS-048 ✅ → CS-063 ✅ → CS-064 ✅ |
 | search panel tabs and filter bar | CS-058 ✅ → CS-063 ✅ → CS-064 ✅ |
-| `chat-worker` supervised loops | CS-064 ✅ → CS-065 → CS-067 |
+| `chat-worker` supervised loops | CS-064 ✅ → CS-065 ✅ → CS-067 |

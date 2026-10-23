@@ -595,6 +595,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/channels/{ch_id}/polls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["create_poll"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/channels/{ch_id}/read": {
         parameters: {
             query?: never;
@@ -1016,6 +1032,54 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["notifications_mark_read"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/polls/{poll_id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["close_poll"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/polls/{poll_id}/vote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["my_vote"];
+        put: operations["vote"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/polls/{poll_id}/votes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_voters"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2473,6 +2537,16 @@ export interface components {
             remind_at?: string | null;
             text?: string | null;
         };
+        CreatePollRequest: {
+            anonymous?: boolean;
+            /** Format: date-time */
+            closes_at?: string | null;
+            multiple_choice?: boolean;
+            options: string[];
+            question: string;
+            /** Format: uuid */
+            thread_parent_id?: string | null;
+        };
         CreateScheduledMessageRequest: {
             attachment_ids?: string[];
             /** Format: uuid */
@@ -2841,6 +2915,13 @@ export interface components {
                 user_id: string;
                 /** Format: uuid */
                 workspace_id: string;
+            }[];
+        };
+        DataList_OptionVoters: {
+            data: {
+                /** Format: uuid */
+                option_id: string;
+                user_ids: string[];
             }[];
         };
         DataList_PushSubscriptionView: {
@@ -3329,6 +3410,7 @@ export interface components {
             /** Format: uuid */
             initiator_id?: string | null;
             kind?: string | null;
+            poll?: components["schemas"]["PollSummary"] | null;
             unfurls?: components["schemas"]["Unfurl"][] | null;
             unfurls_hidden?: boolean | null;
         };
@@ -3337,6 +3419,9 @@ export interface components {
         };
         MutedResponse: {
             muted: boolean;
+        };
+        MyVote: {
+            option_ids: string[];
         };
         Notification: {
             body?: string | null;
@@ -3369,12 +3454,40 @@ export interface components {
         };
         /** @enum {string} */
         NotifyLevel: "all" | "mentions" | "nothing";
+        OptionVoters: {
+            /** Format: uuid */
+            option_id: string;
+            user_ids: string[];
+        };
         PlaceChannelRequest: {
             /** Format: uuid */
             section_id?: string | null;
         };
         PolicyResponse: {
             policy?: components["schemas"]["RetentionPolicy"] | null;
+        };
+        PollOptionCount: {
+            /** Format: uuid */
+            id: string;
+            label: string;
+            /** Format: int64 */
+            votes: number;
+        };
+        PollSummary: {
+            anonymous: boolean;
+            /** Format: date-time */
+            closed_at?: string | null;
+            /** Format: date-time */
+            closes_at?: string | null;
+            /** Format: uuid */
+            created_by: string;
+            /** Format: uuid */
+            id: string;
+            multiple_choice: boolean;
+            options: components["schemas"]["PollOptionCount"][];
+            question: string;
+            /** Format: int64 */
+            voters: number;
         };
         /**
          * @description Who may post. `everyone` is the default and what every channel that has
@@ -3781,6 +3894,13 @@ export interface components {
             provider: string;
             /** Format: int32 */
             start?: number | null;
+        };
+        VoteRequest: {
+            option_ids: string[];
+        };
+        VoteResponse: {
+            option_ids: string[];
+            poll: components["schemas"]["PollSummary"];
         };
         Workspace: {
             /** Format: date-time */
@@ -4761,6 +4881,31 @@ export interface operations {
             };
         };
     };
+    create_poll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePollRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
     messaging_mark_read: {
         parameters: {
             query?: never;
@@ -5513,6 +5658,94 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UpdatedCount"];
+                };
+            };
+        };
+    };
+    close_poll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                poll_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PollSummary"];
+                };
+            };
+        };
+    };
+    my_vote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                poll_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyVote"];
+                };
+            };
+        };
+    };
+    vote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                poll_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoteRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoteResponse"];
+                };
+            };
+        };
+    };
+    list_voters: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                poll_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_OptionVoters"];
                 };
             };
         };

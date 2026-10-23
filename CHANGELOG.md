@@ -36,6 +36,7 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   configuration. `chat-worker` then reads the text of existing files in the background; see
   [the upgrade note](docs/RUNBOOK.md#upgrade-note-text-inside-files-becomes-searchable) for
   what that costs and how to watch it.
+- Migration 62 adds the `polls`, `poll_options` and `poll_votes` tables.
 
 ### Added
 
@@ -64,6 +65,14 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   Excel and PowerPoint files and plain-text files, and shows the matching line under the
   file name with the words marked. A name match still comes first. Text in images is not
   read. `file_text_backlog` and `file_text_extraction_total` on the worker's metrics.
+- **Polls.** The poll button next to the paperclip, or `/poll`, opens a dialog: a question, 2 to
+  10 options in any order, one answer or any number, anonymous, and an optional closing time.
+  `/poll "Lunch?" "Thursday" "Friday"` skips the dialog. The card shows each option's count and
+  bar, your own choice, and who voted unless the poll is anonymous; a vote shows at once and
+  reaches everybody live. Press a chosen option again to take the vote back. The creator or a
+  channel moderator closes a poll, or it closes itself at its time. Works in channels, DMs and
+  threads; everybody can vote in an announcement channel. `POST /channels/{id}/polls`,
+  `PUT /polls/{id}/vote`, `GET /polls/{id}/votes`, `POST /polls/{id}/close`.
 
 ### Changed
 

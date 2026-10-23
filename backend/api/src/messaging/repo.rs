@@ -664,6 +664,27 @@ impl MessageRepo {
         .await
     }
 
+    pub async fn set_poll_in(
+        &self,
+        conn: &mut PgConnection,
+        id: Uuid,
+        poll: &serde_json::Value,
+    ) -> sqlx::Result<Message> {
+        sqlx::query_as!(
+            Message,
+            r#"
+            UPDATE messages
+               SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('poll', $2::jsonb)
+             WHERE id = $1
+            RETURNING id, channel_id, user_id, client_message_id, content, metadata AS "metadata!", thread_parent_id, reply_count AS "reply_count!", is_pinned AS "is_pinned!", created_at, updated_at, deleted_at
+            "#,
+            id,
+            poll
+        )
+        .fetch_one(&mut *conn)
+        .await
+    }
+
     pub async fn search(&self, params: MessageSearch<'_>) -> sqlx::Result<Vec<Message>> {
         let mut tx = self.pool.begin().await?;
         sqlx::query_scalar!(

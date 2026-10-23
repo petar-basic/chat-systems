@@ -14,7 +14,7 @@ import type { MentionItem } from './MentionDropdown';
 import EmojiPicker from './EmojiPicker';
 import FormattingToolbar from '@/components/FormattingToolbar';
 import type { WorkspaceMember, Channel } from '@/stores/workspace';
-import { Clock, Paperclip, Send, SmilePlus, Type } from 'lucide-react';
+import { BarChart3, Clock, Paperclip, Send, SmilePlus, Type } from 'lucide-react';
 import { MENTION_SUGGESTION_LIMIT, DRAFT_SAVE_DEBOUNCE_MS } from '@/shared/constants';
 import { transferFiles } from '@/lib/fileUploads';
 import { AttachmentTray } from './AttachmentTray';
@@ -31,6 +31,9 @@ import { useUserGroups } from '@/hooks/queries/useUserGroups';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { FilePicker } from '@/shared/components/Form/FilePicker';
+import { PollDialog, type PollTarget } from '@/features/polls/PollDialog';
+import { parsePollCommand } from '@/features/polls/pollCommand';
+import { useCreatePoll } from '@/features/polls/usePolls';
 
 const MentionNode = Mention.extend({
   addStorage() {
@@ -63,6 +66,7 @@ interface Props {
   workspaceId?: string;
   instanceUrl?: string;
   scheduleTarget?: ScheduleTarget;
+  pollTarget?: PollTarget;
 }
 
 export default function MessageInput({
@@ -82,6 +86,7 @@ export default function MessageInput({
   workspaceId,
   instanceUrl,
   scheduleTarget,
+  pollTarget,
 }: Props) {
   const attachmentsRef = useRef(attachments);
   const allowEmptyRef = useRef(allowEmpty);
@@ -255,9 +260,36 @@ export default function MessageInput({
     [editor, scheduleTarget, scheduleMessage, draftKey, attachments],
   );
 
+  const [showPoll, setShowPoll] = useState(false);
+  const createPoll = useCreatePoll(pollTarget?.channelId ?? '', pollTarget?.instanceUrl);
+
   const handleSend = useCallback(async () => {
     if (!editor) return;
     const markdown = editor.storage.markdown.getMarkdown().trim();
+    const pollCommand = pollTarget && !editing ? parsePollCommand(markdown) : null;
+    if (pollCommand?.kind === 'invalid') {
+      toast.error(pollCommand.message);
+      return;
+    }
+    if (pollCommand) {
+      editor.commands.clearContent();
+      if (draftKey) useDraftStore.getState().clearDraft(draftKey);
+      if (pollCommand.kind === 'dialog') {
+        setShowPoll(true);
+        return;
+      }
+      try {
+        await createPoll.mutateAsync({
+          question: pollCommand.question,
+          options: pollCommand.options,
+          thread_parent_id: pollTarget?.threadParentId ?? null,
+        });
+      } catch (err) {
+        editor.commands.setContent(markdown);
+        toast.error(toUserMessage(err, "Couldn't create the poll"));
+      }
+      return;
+    }
     const files = attachmentsRef.current;
     if (!markdown && !files?.hasReady && !allowEmptyRef.current) return;
     if (files?.busy) {
@@ -273,7 +305,7 @@ export default function MessageInput({
       editor.commands.setContent(markdown);
       if (draftKey) useDraftStore.getState().setDraft(draftKey, markdown);
     }
-  }, [editor, onSend, draftKey]);
+  }, [editor, onSend, draftKey, pollTarget, editing, createPoll]);
 
   useEffect(() => {
     sendRef.current = () => {
@@ -304,19 +336,29 @@ export default function MessageInput({
         <div className="flex items-start justify-between gap-1 px-3 pb-2 pt-1">
           <div className="flex flex-wrap items-center gap-0.5 min-w-0">
             {attachments && (
-              <>
-                <FilePicker
-                  label="Upload file"
-                  multiple
-                  onFiles={addFiles}
-                  dataQa="composer-upload"
-                  className="p-1 text-muted hover:text-fg-soft transition rounded hover:bg-raised/60"
-                >
-                  <Paperclip className="w-3.5 h-3.5" />
-                </FilePicker>
-                <div className="w-px h-4 bg-elevated/60 mx-0.5" />
-              </>
+              <FilePicker
+                label="Upload file"
+                multiple
+                onFiles={addFiles}
+                dataQa="composer-upload"
+                className="p-1 text-muted hover:text-fg-soft transition rounded hover:bg-raised/60"
+              >
+                <Paperclip className="w-3.5 h-3.5" />
+              </FilePicker>
             )}
+            {pollTarget && !editing && (
+              <button
+                type="button"
+                onClick={() => setShowPoll(true)}
+                aria-label="Create a poll"
+                title="Create a poll"
+                data-qa="composer-poll"
+                className="p-1 text-muted hover:text-fg-soft transition cursor-pointer rounded hover:bg-raised/60"
+              >
+                <BarChart3 className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {(attachments || (pollTarget && !editing)) && <div className="w-px h-4 bg-elevated/60 mx-0.5" />}
             {/* Twelve formatting buttons in a composer this narrow is more
                 chrome than composer, and markdown shortcuts still work while it
                 is folded away. */}
@@ -473,6 +515,7 @@ export default function MessageInput({
           )}
         </div>
       </div>
+      {showPoll && pollTarget && <PollDialog target={pollTarget} onClose={() => setShowPoll(false)} />}
     </div>
   );
 }

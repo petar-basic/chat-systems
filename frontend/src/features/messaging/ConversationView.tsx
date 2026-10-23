@@ -147,6 +147,7 @@ export default function ConversationView({
           attachments={attachments}
           onTyping={signalTyping}
           scheduleTarget={{ channelId: conversation.id }}
+          pollTarget={{ channelId: conversation.id, instanceUrl }}
           workspaceId={workspaceId}
           instanceUrl={instanceUrl}
         />

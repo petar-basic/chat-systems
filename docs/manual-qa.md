@@ -191,6 +191,13 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - **Steps:** in tab A send to a channel; in tab B (different user) don't open it.
 - **Expected:** tab B shows an unread indicator for that channel; opening it clears the badge.
 
+### 5.9 🟢 Polls
+- **Reach:** the poll button next to the paperclip, or `/poll` in any message box (`POST /api/channels/<id>/polls`).
+- **Steps:** create a poll from the dialog with three options, reorder one by dragging and one with Alt + ↑; send `/poll "Lunch?" "Thursday" "Friday"` in a DM and in a thread. In tab A vote, in tab B (another user) vote for something else; press your chosen option again; switch a single-choice vote; on a multiple-choice poll pick two.
+- **Expected:** each poll appears where it was made; counts and bars move at once in your tab and arrive live in the other; your choice has a check; avatars of who voted show on each option; pressing a chosen option takes the vote back. Focus the poll message and press 2: the second option is voted. The footer reads "N votes", "· closes …" when a closing time was set.
+- 🔴 **Edge — anonymous:** on an anonymous poll no avatars show, and `GET /api/polls/<id>/votes` answers 403 even for its creator.
+- 🟠 **Edge — closing:** *Close poll* shows for the creator only; once closed the rows are disabled and the footer reads "Closed". A poll with a closing time a minute away closes itself (worker reminder loop) and refuses a vote with 409. A poll message has no *Edit*.
+
 ---
 
 ## 6. Files

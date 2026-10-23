@@ -19,6 +19,7 @@ import { useInstanceStore } from '@/stores/instances';
 import { useUserCache } from '@/stores/users';
 import { QUERY_KEYS } from '@/shared/constants';
 import { applyReadState } from './readState';
+import { patchMessageEverywhere } from './messagePatch';
 
 type ChannelMessages = InfiniteData<{ data: Message[] }>;
 
@@ -233,14 +234,12 @@ export const useWebSocketQuerySync = () => {
       globalEventBus.on('message.updated', (event) => {
         const message = event.message;
         if (!message?.channel_id) return;
-        patchChannel(queryClient, message.channel_id, (cache) =>
-          patchMessageById(cache, message.id, (m) => ({
-            ...m,
-            content: message.content,
-            metadata: message.metadata,
-            updated_at: message.updated_at,
-          })),
-        );
+        patchMessageEverywhere(queryClient, message, (m) => ({
+          ...m,
+          content: message.content,
+          metadata: message.metadata,
+          updated_at: message.updated_at,
+        }));
       }),
 
       globalEventBus.on('message.deleted', (event) => {

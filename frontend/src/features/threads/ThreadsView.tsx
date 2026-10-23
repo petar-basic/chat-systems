@@ -257,6 +257,7 @@ function ThreadCard({
           draftKey={`thread:${root.id}`}
           onSend={handleSend}
           attachments={attachments}
+          pollTarget={{ channelId: root.channel_id, threadParentId: root.id, instanceUrl }}
         />
       </div>
     </section>

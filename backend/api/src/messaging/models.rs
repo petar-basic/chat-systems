@@ -39,6 +39,7 @@ pub struct MessageMetadata {
     pub unfurls_hidden: Option<bool>,
     pub app_prompts: Option<Vec<String>>,
     pub attachments: Option<Vec<crate::files::models::Attachment>>,
+    pub poll: Option<crate::polls::models::PollSummary>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, ToSchema)]

@@ -1422,3 +1422,34 @@ nothing. The snippet is `ts_headline` over a copy of `simple` that unaccents eac
 from every text, and the server turns them into `{ text, hit }` parts, so a file's text can
 reach the browser only as text.
 
+
+## Wave 23 — Structured work: polls, lists, workflows
+
+### [CS-065] Polls ✅ shipped
+"Lunch Thursday or Friday?" was answered with reactions and a hand count. A poll is now an
+ordinary message whose content is the question, so search and history find it, and whose
+`metadata.poll` carries the options and their counts, never the voters. A vote rewrites that
+metadata and stages `message.updated`, the same path an unfurl takes, so every client sees
+the counts move without a poll-specific frame.
+
+The ticket asked for a partial unique index to keep a single-choice poll at one vote per
+person under concurrent clicks. An index on `poll_votes` cannot see the poll's
+`multiple_choice`, so each vote row carries `single_choice`, copied from the poll, and the
+index is `(poll_id, user_id) WHERE single_choice`. It is the backstop, not the mechanism: a
+vote locks the poll row first (`FOR UPDATE`), so two clicks serialize, the second replaces
+the first, and the counts written into the message are always the counts in the table. A
+composite foreign key keeps an option of another poll out of the vote.
+
+`/poll` lives in the browser: the message box reads it before sending, opens the dialog for
+`/poll` alone and creates the poll for `/poll "Q" "A" "B"`. The server's slash command list
+names it, and a client that sends it as a command gets a hint, because the server-side
+commands answer with text and cannot open a dialog. Your own choice is
+`GET /polls/{id}/vote`, since the metadata deliberately holds no voters. A poll message
+cannot be edited: its content is the question its votes were cast on. A vote after
+`closes_at` is refused even before the worker has stamped `closed_at`.
+
+The ticket called the vote button a primitive for CS-067's workflow forms. It is built for
+polls; what CS-067 can reuse is the shape: state in its own tables, the summary in
+`metadata`, a locked write that stages `message.updated`. The live `message.updated` handler
+used to patch the channel list only, so a vote in a thread did not move there; it now patches
+the thread cache too.

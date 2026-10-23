@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT to_jsonb(v) - 'single_choice' AS \"row!\" FROM poll_votes v\n          JOIN polls p ON p.id = v.poll_id\n          JOIN messages m ON m.id = p.message_id\n          JOIN channels c ON c.id = m.channel_id\n         WHERE c.workspace_id = $1\n           AND NOT p.anonymous\n           AND ($2::bool OR c.channel_type NOT IN ('dm', 'group_dm'))\n         ORDER BY v.created_at\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "row!",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "3066e15d0b409cee2b686c53123567cbc93815b671296aacf1a4195707c1b251"
+}

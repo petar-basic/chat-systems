@@ -1496,6 +1496,46 @@
         }
       }
     },
+    "/channels/{ch_id}/polls": {
+      "post": {
+        "tags": [
+          "polls"
+        ],
+        "operationId": "create_poll",
+        "parameters": [
+          {
+            "name": "ch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePollRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/channels/{ch_id}/read": {
       "post": {
         "tags": [
@@ -2611,6 +2651,134 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/UpdatedCount"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/polls/{poll_id}/close": {
+      "post": {
+        "tags": [
+          "polls"
+        ],
+        "operationId": "close_poll",
+        "parameters": [
+          {
+            "name": "poll_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PollSummary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/polls/{poll_id}/vote": {
+      "get": {
+        "tags": [
+          "polls"
+        ],
+        "operationId": "my_vote",
+        "parameters": [
+          {
+            "name": "poll_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyVote"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "polls"
+        ],
+        "operationId": "vote",
+        "parameters": [
+          {
+            "name": "poll_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoteResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/polls/{poll_id}/votes": {
+      "get": {
+        "tags": [
+          "polls"
+        ],
+        "operationId": "list_voters",
+        "parameters": [
+          {
+            "name": "poll_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_OptionVoters"
                 }
               }
             }
@@ -7388,6 +7556,44 @@
           }
         }
       },
+      "CreatePollRequest": {
+        "type": "object",
+        "required": [
+          "question",
+          "options"
+        ],
+        "properties": {
+          "anonymous": {
+            "type": "boolean"
+          },
+          "closes_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "multiple_choice": {
+            "type": "boolean"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "question": {
+            "type": "string"
+          },
+          "thread_parent_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
       "CreateScheduledMessageRequest": {
         "type": "object",
         "required": [
@@ -8758,6 +8964,37 @@
                 "workspace_id": {
                   "type": "string",
                   "format": "uuid"
+                }
+              }
+            }
+          }
+        }
+      },
+      "DataList_OptionVoters": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "option_id",
+                "user_ids"
+              ],
+              "properties": {
+                "option_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "user_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
                 }
               }
             }
@@ -10431,6 +10668,16 @@
               "null"
             ]
           },
+          "poll": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PollSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "unfurls": {
             "type": [
               "array",
@@ -10477,6 +10724,21 @@
         "properties": {
           "muted": {
             "type": "boolean"
+          }
+        }
+      },
+      "MyVote": {
+        "type": "object",
+        "required": [
+          "option_ids"
+        ],
+        "properties": {
+          "option_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         }
       },
@@ -10592,6 +10854,26 @@
           "nothing"
         ]
       },
+      "OptionVoters": {
+        "type": "object",
+        "required": [
+          "option_id",
+          "user_ids"
+        ],
+        "properties": {
+          "option_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "user_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
       "PlaceChannelRequest": {
         "type": "object",
         "properties": {
@@ -10616,6 +10898,82 @@
                 "type": "null"
               }
             ]
+          }
+        }
+      },
+      "PollOptionCount": {
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "votes"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "label": {
+            "type": "string"
+          },
+          "votes": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "PollSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "question",
+          "multiple_choice",
+          "anonymous",
+          "created_by",
+          "options",
+          "voters"
+        ],
+        "properties": {
+          "anonymous": {
+            "type": "boolean"
+          },
+          "closed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "closes_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "created_by": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "multiple_choice": {
+            "type": "boolean"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PollOptionCount"
+            }
+          },
+          "question": {
+            "type": "string"
+          },
+          "voters": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },
@@ -12075,6 +12433,40 @@
           }
         }
       },
+      "VoteRequest": {
+        "type": "object",
+        "required": [
+          "option_ids"
+        ],
+        "properties": {
+          "option_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "VoteResponse": {
+        "type": "object",
+        "required": [
+          "option_ids",
+          "poll"
+        ],
+        "properties": {
+          "option_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "poll": {
+            "$ref": "#/components/schemas/PollSummary"
+          }
+        }
+      },
       "Workspace": {
         "type": "object",
         "required": [
@@ -12301,6 +12693,10 @@
     {
       "name": "later",
       "description": "Saved messages and reminders: the Later list"
+    },
+    {
+      "name": "polls",
+      "description": "Polls: the message, its votes and who cast them"
     },
     {
       "name": "sidebar",
