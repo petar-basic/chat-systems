@@ -9,8 +9,7 @@ ticket in [`docs/tickets/`](./tickets/INDEX.md); a ticket's file is deleted when
 
 | Ticket | What | Status |
 |---|---|---|
-| [CS-059](./tickets/CS-059-dialogs.md) | Dialogs that look finished: three sizes, a fixed header and footer, one set of form fields, confirmation dialogs, *Browse channels* as Slack has it, and profile split from preferences | **Next.** Wave 20 |
-| [CS-037](./tickets/CS-037-huddle-sfu.md) | SFU (LiveKit) for huddles above the mesh's six-to-eight ceiling, promoted mid-call without dropping anybody | Wave 20, after CS-059. Adds an optional media server beside the stack |
+| [CS-037](./tickets/CS-037-huddle-sfu.md) | SFU (LiveKit) for huddles above the mesh's six-to-eight ceiling, promoted mid-call without dropping anybody | **Next.** Wave 20, after CS-059 ✅. Adds an optional media server beside the stack |
 
 Two decisions were considered on 2026-09-02 and deferred with their reasoning below:
 versioning the API path and asymmetric JWT signing.
@@ -60,6 +59,7 @@ was pencilled in for it was absorbed into 9 and 11.
 | [Wave 17 — Files and images](./history.md#wave-17--files-and-images--shipped) | CS-055 |
 | [Wave 18 — What a Slack user notices in the first hour](./history.md#wave-18--what-a-slack-user-notices-in-the-first-hour--shipped) | CS-056 · CS-057 |
 | [Wave 19 — Getting around](./history.md#wave-19--getting-around--shipped) | CS-058 |
+| [Wave 20 — Dialogs and large calls](./history.md#wave-20--dialogs-and-large-calls) | CS-059 (CS-037 open) |
 
 ---
 

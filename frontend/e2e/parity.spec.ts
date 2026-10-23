@@ -185,19 +185,25 @@ test('a status set in the profile shows next to your name', async ({ page }) => 
   try {
     await openWorkspace(page, 'admin@dev.local', workspace.id, channel.id);
 
-    await page.locator('[data-qa="sidebar-profile-avatar"]').click();
+    const dialog = page.getByTestId('profile-modal');
     const editor = page.locator('[data-qa="status-editor"]');
+
+    await page.locator('[data-qa="sidebar-profile-avatar"]').click();
     await expect(editor).toBeVisible();
     await editor.locator('[data-qa="status-emoji"]').fill('🍕');
     await editor.locator('[data-qa="status-text"]').fill('at lunch');
-    await editor.locator('[data-qa="status-save"]').click();
+    await page.getByTestId('profile-save').click();
+    await expect(dialog).toBeHidden();
 
-    await expect(editor.locator('[data-qa="status-clear"]')).toBeVisible();
     const me = await (await admin.get(`${API}/users/me`)).json();
     expect(me.status_text).toBe('at lunch');
     expect(me.status_emoji).toBe('🍕');
+    await expect(page.locator('[data-qa="own-status-emoji"]')).toHaveText('🍕');
 
+    await page.locator('[data-qa="sidebar-profile-avatar"]').click();
     await editor.locator('[data-qa="status-clear"]').click();
+    await page.getByTestId('profile-save').click();
+    await expect(dialog).toBeHidden();
     await expect.poll(async () => (await (await admin.get(`${API}/users/me`)).json()).status_text).toBeNull();
   } finally {
     await admin.dispose();

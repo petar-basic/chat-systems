@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { avatarColorFor, initialOf } from '@/lib/userHelpers';
 
-export type AvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+export type AvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
 
 interface AvatarProps {
   userId: string;
@@ -17,6 +17,7 @@ const SIZES: Record<AvatarSize, string> = {
   md: 'w-8 h-8 text-sm',
   lg: 'w-10 h-10 text-sm',
   xl: 'w-16 h-16 text-2xl',
+  '2xl': 'w-28 h-28 text-4xl',
 };
 
 export function Avatar({ userId, name, avatarUrl, size = 'md', className = '' }: AvatarProps) {

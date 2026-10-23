@@ -15,7 +15,7 @@ green — desktop and a phone viewport — and the `e2e` job blocks merges. CS-0
 system at 500,000 messages and closed with Wave 12; what its numbers justified, CS-048, is
 Wave 13 and is shipped too. Wave 14 closes the daily-use gaps a team arriving from Slack
 notices first, Waves 15 and 16 (connected-app previews) and Wave 17 (files and images) are
-shipped too. Waves 18 and 19 are shipped too. Next: Wave 20 — [CS-059](CS-059-dialogs.md), then
+shipped too. Waves 18 and 19 are shipped too. In Wave 20, CS-059 is shipped; next is
 [CS-037](CS-037-huddle-sfu.md).
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
@@ -214,15 +214,14 @@ note.
 
 | # | Ticket | Area |
 |---|---|---|
-| [CS-059](CS-059-dialogs.md) | Dialogs that look finished: sizes, fields, confirmations, profile and preferences | frontend |
+| CS-059 ✅ | Dialogs that look finished: sizes, fields, confirmations, profile and preferences | frontend |
 | [CS-037](CS-037-huddle-sfu.md) | SFU (LiveKit) for huddles above the mesh's ceiling, with promotion mid-call | backend · frontend · ops |
 
 ### Still open
 
 | # | Ticket | Area | Why it is not done |
 |---|---|---|---|
-| [CS-059](CS-059-dialogs.md) | Dialogs that look finished | frontend | Next — written 2026-10-23 |
-| [CS-037](CS-037-huddle-sfu.md) | SFU for large huddles | backend · frontend · ops | After CS-059 — rewritten 2026-10-23 for Wave 20 |
+| [CS-037](CS-037-huddle-sfu.md) | SFU for large huddles | backend · frontend · ops | Next — rewritten 2026-10-23 for Wave 20 |
 
 ## Conflict map
 
@@ -242,5 +241,5 @@ Tickets that touch the same files, and the order that avoids rework:
 | `channel_members` read position and counters | CS-026 ✅ → CS-050 ✅ → CS-051 ✅ → CS-052 ✅ |
 | message metadata and `message.updated` | CS-029 ✅ → CS-049 ✅ → CS-053 ✅ → CS-054 ✅ → CS-055 ✅ |
 | `files` and the download route | CS-009 ✅ → CS-011 ✅ → CS-020 ✅ → CS-055 ✅ |
-| `frontend/src/shared/components` dialogs and controls | CS-056 ✅ → CS-059 |
+| `frontend/src/shared/components` dialogs and controls | CS-056 ✅ → CS-059 ✅ |
 | huddle join authorization | CS-041 ✅ → CS-037 |

@@ -1266,3 +1266,41 @@ thread for its author and repliers, read up to the upgrade, so it arrives quiet.
 *Threads* entry counts threads with unread replies; the view shows each with its root, the
 latest three replies, *N new replies* and a reply box, and reads them as they are shown. A
 `thread.read_state` frame on the new `events:thread` channel keeps tabs in step.
+
+---
+
+## Wave 20 — Dialogs and large calls
+
+### [CS-059] Dialogs that look finished ✅ shipped
+CS-056 had given every dialog the same buttons and close button, but side by side they still
+read as five different hands: each picked its own width, the long ones scrolled their title
+and buttons away, 67 inputs carried 19 class strings in two heights, confirmations were inline
+rows, and one dialog held the profile, the theme, notifications and two-factor with two save
+buttons. Three PRs closed it.
+
+**The pieces.** `Modal` has three sizes (400, 520, 720 px), a fixed header and footer around a
+body that is the only scroll area, hairlines that appear only while there is more to scroll,
+and a 150 ms fade in and 100 ms fade out that `Overlay` runs for the X, Escape, the backdrop
+and the dismiss button; a consumer closing it from code closes at once. `Overlay` also holds
+the portal, the focus trap and where focus starts (`data-autofocus`, then the first field).
+`shared/components/Form` has `Field`, `TextInput`, `TextArea`, `Select`, `Checkbox` and
+`RadioCards`, which wire the label, hint, error and counter for assistive technology once.
+`ConfirmDialog` focuses its action, shows it busy, and stays open with the reason when the
+action fails. The first CI run caught two naming faults the tests had been written for: a
+label wrapping its description made the description part of the checkbox's name, and the space
+before *(optional)* disappeared inside a span.
+
+**Every dialog, and every field.** No compatibility layer was kept, so every field in the app
+moved to the shared controls, sign-in pages and panels included, and a lint rule now refuses a
+raw `<input>`, `<textarea>` or `<select>` anywhere else (file pickers excepted). *Create
+channel* picks public or private from cards and shapes the name as Slack does, on the client
+only. *Browse channels* gained a count, a sort, *Create channel* in the header and one action
+per row. Deleting a message or an integration asks in a `ConfirmDialog`; the message one shows
+the message and sits outside the row, so its keys never reach the row's shortcuts.
+
+**Profile and Preferences.** *Edit profile* puts the fields on the left and the photo on the
+right, and saves the profile and the status with one button: the status is only sent when it
+changed, so an untouched status keeps its expiry. *Preferences* is a vertical tab list —
+arrow keys, Home and End — over the panels that already saved as they changed. The *You*
+menu has both entries.
+

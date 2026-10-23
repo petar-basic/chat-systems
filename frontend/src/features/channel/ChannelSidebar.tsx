@@ -56,6 +56,7 @@ interface Props {
   laterActive: boolean;
   onOpenSlackImport: () => void;
   onOpenProfile: () => void;
+  onOpenPreferences: () => void;
   onOpenNotifications: () => void;
   onOpenUnreads: () => void;
   unreadsActive: boolean;
@@ -96,6 +97,7 @@ export default function ChannelSidebar({
   laterActive,
   onOpenSlackImport,
   onOpenProfile,
+  onOpenPreferences,
   onOpenNotifications,
   onOpenUnreads,
   unreadsActive,
@@ -358,6 +360,7 @@ export default function ChannelSidebar({
           statusText={myStatus?.status_text}
           unreadNotifCount={unreadNotifCount}
           onOpenProfile={onOpenProfile}
+          onOpenPreferences={onOpenPreferences}
           onOpenScheduled={onOpenScheduled}
           onOpenLater={onOpenLater}
           onOpenNotifications={onOpenNotifications}

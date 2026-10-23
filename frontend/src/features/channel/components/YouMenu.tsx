@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Bell, Bookmark, Clock, LogOut, User } from 'lucide-react';
+import { Bell, Bookmark, Clock, LogOut, SlidersHorizontal, User } from 'lucide-react';
 import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { displayNameOf } from '@/lib/userHelpers';
@@ -10,6 +10,7 @@ interface Props {
   statusText: string | null | undefined;
   unreadNotifCount: number;
   onOpenProfile: () => void;
+  onOpenPreferences: () => void;
   onOpenScheduled: () => void;
   onOpenLater: () => void;
   onOpenNotifications: () => void;
@@ -25,6 +26,7 @@ export function YouMenu({
   statusText,
   unreadNotifCount,
   onOpenProfile,
+  onOpenPreferences,
   onOpenScheduled,
   onOpenLater,
   onOpenNotifications,
@@ -81,7 +83,10 @@ export function YouMenu({
             data-qa="you-menu"
           >
             <button className={ITEM} data-qa="open-profile" onClick={pick(onOpenProfile)}>
-              <User className="w-4 h-4 shrink-0" /> Profile &amp; settings
+              <User className="w-4 h-4 shrink-0" /> Profile
+            </button>
+            <button className={ITEM} data-qa="open-preferences" onClick={pick(onOpenPreferences)}>
+              <SlidersHorizontal className="w-4 h-4 shrink-0" /> Preferences
             </button>
             <div className="my-1 h-px bg-raised" />
             <button className={ITEM} data-qa="open-scheduled" onClick={pick(onOpenScheduled)}>

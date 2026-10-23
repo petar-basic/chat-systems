@@ -367,11 +367,11 @@ dialog becomes a sheet from the bottom).
 
 - **Dialogs:** Create channel, Browse channels, Channel settings (and its
   archive confirmation), New message, Forward, Keyboard shortcuts (`?`), Create
-  workspace, Delete workspace, Profile, Incoming call, and the confirmations
+  workspace, Delete workspace, Edit profile, Preferences, Incoming call, and the confirmations
   for deleting a message and an integration.
 - [ ] **Width.** Each is one of three widths (400, 520, 720 px); opening one
       after another, the frame does not jump between two sizes of the same kind.
-- [ ] **Scroll.** In a long one (Profile, Browse channels with many channels,
+- [ ] **Scroll.** In a long one (Edit profile at a phone width, Browse channels with many channels,
       Keyboard shortcuts) only the middle scrolls. The title and the buttons stay
       put, and a hairline appears above or below the middle only while there is
       more to scroll to.
@@ -394,3 +394,6 @@ dialog becomes a sheet from the bottom).
 - [ ] **Confirmations.** Deleting a message shows that message; archiving a
       channel names it; deleting an integration names it. Enter confirms, Escape
       cancels, and a failure keeps the dialog open with the reason.
+- [ ] **Profile and Preferences.** *Edit profile* saves the name, status and bio with one
+      button and closes; a status left untouched keeps its *Clears at*. *Preferences* shows one
+      section at a time, ↑/↓ move between them, and the theme changes the moment it is picked.
