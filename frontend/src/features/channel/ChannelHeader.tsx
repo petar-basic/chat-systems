@@ -219,7 +219,7 @@ export default function ChannelHeader({
                       setOverflowOpen(false);
                     }}
                   >
-                    <Bell className="w-4 h-4" /> Notifications
+                    <Bell className="w-4 h-4" /> Notification settings
                   </button>
                   {canModerate && (
                     <button

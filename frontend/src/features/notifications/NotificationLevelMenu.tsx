@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type RefObject } from 'react';
+import { useRef, useState, type KeyboardEvent, type RefObject } from 'react';
 import { Bell, BellOff, BellRing, Check } from 'lucide-react';
 import { AnchoredPopover } from '@/shared/components/Popover/AnchoredPopover';
 import { IconButton } from '@/shared/components/IconButton/IconButton';
@@ -49,12 +49,6 @@ export function NotificationLevelMenu({ channelId, direct, anchorRef, onClose }:
   const setMuted = useSetChannelMuted(settings.workspaceId, settings.instanceUrl);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const items = menuRef.current?.querySelectorAll<HTMLElement>('[role^="menuitem"]');
-    const checked = menuRef.current?.querySelector<HTMLElement>('[aria-checked="true"]');
-    (checked ?? items?.[0])?.focus();
-  }, []);
-
   const choose = (level: NotifyLevel | null) => {
     setLevel.mutate(
       { channelId, level },
@@ -91,7 +85,7 @@ export function NotificationLevelMenu({ channelId, direct, anchorRef, onClose }:
       dataQa="notification-menu"
       className="w-64 bg-surface border border-line rounded-lg shadow-xl py-1"
     >
-      <div ref={menuRef} role="menu" aria-label="Notifications" onKeyDown={onKeyDown}>
+      <div ref={menuRef} role="menu" aria-label="Notification settings" onKeyDown={onKeyDown}>
         <div className="px-3 py-1 text-xs text-muted" aria-hidden="true">
           Notify me about
         </div>
@@ -104,6 +98,7 @@ export function NotificationLevelMenu({ channelId, direct, anchorRef, onClose }:
               role="menuitemradio"
               aria-checked={checked}
               tabIndex={-1}
+              data-autofocus={checked || undefined}
               onClick={() => choose(level)}
               data-qa={`notify-level-${qa}`}
               className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised focus-visible:bg-raised focus-visible:outline-none flex items-center gap-2 cursor-pointer"
@@ -153,7 +148,7 @@ export function NotificationLevelButton({ channelId, direct, small = false, clas
     <>
       <IconButton
         ref={anchorRef}
-        label="Notifications"
+        label="Notification settings"
         icon={<Icon className={small ? 'w-3 h-3' : 'w-4 h-4'} />}
         aria-haspopup="menu"
         aria-expanded={open}

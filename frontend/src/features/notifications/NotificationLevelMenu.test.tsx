@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useRef } from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { NotificationLevelButton, NotificationLevelMenu } from './NotificationLevelMenu';
 
 const setLevel = vi.fn();
@@ -47,40 +47,48 @@ describe('NotificationLevelMenu', () => {
     muted = false;
   });
 
-  it('marks the default as chosen, names what it is, and sets a level', () => {
+  it('marks the default as chosen, names what it is, and sets a level', async () => {
     render(<Menu />);
 
-    const byDefault = screen.getByRole('menuitemradio', { name: 'Default (Mentions)' });
+    const byDefault = await screen.findByRole('menuitemradio', { name: 'Default (Mentions)' });
     expect(byDefault).toHaveAttribute('aria-checked', 'true');
-    expect(byDefault).toHaveFocus();
+    await waitFor(() => expect(byDefault).toHaveFocus());
 
     fireEvent.click(screen.getByRole('menuitemradio', { name: 'All new messages' }));
     expect(setLevel).toHaveBeenCalledWith({ channelId: 'ch-1', level: 'all' }, expect.anything());
   });
 
-  it('goes back to the default from a level set on the channel', () => {
+  it('goes back to the default from a level set on the channel', async () => {
     channel = { notify_level: 'nothing', effective_notify_level: 'nothing' };
     render(<Menu />);
 
-    expect(screen.getByRole('menuitemradio', { name: 'Nothing' })).toHaveAttribute('aria-checked', 'true');
+    expect(await screen.findByRole('menuitemradio', { name: 'Nothing' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
     fireEvent.click(screen.getByRole('menuitemradio', { name: 'Default (Mentions)' }));
     expect(setLevel).toHaveBeenCalledWith({ channelId: 'ch-1', level: null }, expect.anything());
   });
 
-  it('mutes and unmutes a channel, but offers no mute for a DM', () => {
+  it('mutes and unmutes a channel, but offers no mute for a DM', async () => {
     const { unmount } = render(<Menu />);
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Mute channel' }));
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'Mute channel' }));
     expect(setMuted).toHaveBeenCalledWith({ channelId: 'ch-1', muted: true });
     unmount();
 
     render(<Menu direct channelId="dm-1" />);
-    expect(screen.getByRole('menuitemradio', { name: 'Default (All new messages)' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('menuitemradio', { name: 'Default (All new messages)' }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('menuitemcheckbox')).toBeNull();
   });
 
-  it('moves between items with the arrow keys, Home and End', () => {
+  it('moves between items with the arrow keys, Home and End', async () => {
     render(<Menu />);
-    const menu = screen.getByRole('menu', { name: 'Notifications' });
+    const menu = await screen.findByRole('menu', { name: 'Notification settings' });
+    await waitFor(() =>
+      expect(screen.getByRole('menuitemradio', { name: 'Default (Mentions)' })).toHaveFocus(),
+    );
 
     fireEvent.keyDown(menu, { key: 'ArrowDown' });
     expect(screen.getByRole('menuitemradio', { name: 'All new messages' })).toHaveFocus();
@@ -97,13 +105,13 @@ describe('NotificationLevelButton', () => {
     muted = false;
   });
 
-  it('opens the menu and says whether it is open', () => {
+  it('opens the menu and says whether it is open', async () => {
     render(<NotificationLevelButton channelId="ch-1" direct={false} />);
-    const button = screen.getByRole('button', { name: 'Notifications' });
+    const button = screen.getByRole('button', { name: 'Notification settings' });
 
     expect(button).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(button);
     expect(button).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('menu', { name: 'Notifications' })).toBeInTheDocument();
+    expect(await screen.findByRole('menu', { name: 'Notification settings' })).toBeInTheDocument();
   });
 });

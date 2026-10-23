@@ -40,6 +40,10 @@ export function AnchoredPopover({
   }, [anchorRef, refs]);
 
   useEffect(() => {
+    if (isPositioned) ref.current?.querySelector<HTMLElement>('[data-autofocus]')?.focus();
+  }, [isPositioned]);
+
+  useEffect(() => {
     const onDown = (e: MouseEvent | TouchEvent) => {
       const target = e.target as Node;
       if (ref.current?.contains(target) || anchorRef.current?.contains(target)) return;
