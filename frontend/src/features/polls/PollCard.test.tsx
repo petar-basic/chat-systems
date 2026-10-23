@@ -141,7 +141,7 @@ describe('PollCard', () => {
         }),
       }),
     );
-    expect(countsShown()).toEqual(['1', '2']);
+    await waitFor(() => expect(countsShown()).toEqual(['1', '2']));
   });
 
   it('puts everything back when the vote fails', async () => {

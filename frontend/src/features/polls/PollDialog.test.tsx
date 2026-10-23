@@ -1,22 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { PollDialog } from './PollDialog';
 import { moveRow } from './pollCommand';
 
-const post = vi.fn();
-vi.mock('@/shared/hooks/useCurrentApi', async () => {
-  const { typedApiMock } = await import('@/test/typedApiMock');
-  return { getApiForInstance: () => typedApiMock({ post: (...args) => post(...args) }) };
-});
+interface Callbacks {
+  onSuccess: () => void;
+  onError: (err: Error) => void;
+}
+
+const create = vi.fn<(body: unknown, callbacks: Callbacks) => void>();
+vi.mock('./usePolls', () => ({
+  useCreatePoll: () => ({ mutate: create, isPending: false }),
+}));
 
 function renderDialog(threadParentId?: string) {
   const onClose = vi.fn();
-  render(
-    <QueryClientProvider client={new QueryClient()}>
-      <PollDialog target={{ channelId: 'c-1', threadParentId }} onClose={onClose} />
-    </QueryClientProvider>,
-  );
+  render(<PollDialog target={{ channelId: 'c-1', threadParentId }} onClose={onClose} />);
   return onClose;
 }
 
@@ -24,10 +23,10 @@ const type = (testId: string, value: string) =>
   fireEvent.change(screen.getByTestId(testId), { target: { value } });
 
 describe('PollDialog', () => {
-  beforeEach(() => post.mockReset());
+  beforeEach(() => create.mockReset());
 
-  it('creates the poll with the options in the order shown', async () => {
-    post.mockResolvedValue({ id: 'm-1', channel_id: 'c-1', thread_parent_id: 't-1' });
+  it('creates the poll with the options in the order shown', () => {
+    create.mockImplementation((_body, callbacks) => callbacks.onSuccess());
     const onClose = renderDialog('t-1');
     type('poll-dialog-question', 'Lunch?');
     type('poll-dialog-option-0', 'Thursday');
@@ -39,8 +38,8 @@ describe('PollDialog', () => {
     fireEvent.click(screen.getByTestId('poll-dialog-anonymous'));
     fireEvent.click(screen.getByTestId('poll-dialog-submit'));
 
-    await waitFor(() => expect(onClose).toHaveBeenCalled());
-    expect(post).toHaveBeenCalledWith('/channels/{ch_id}/polls', {
+    expect(onClose).toHaveBeenCalled();
+    expect(create.mock.calls[0][0]).toEqual({
       question: 'Lunch?',
       options: ['Thursday', 'Never', 'Friday'],
       multiple_choice: true,
@@ -58,7 +57,7 @@ describe('PollDialog', () => {
     type('poll-dialog-option-0', 'Thursday');
     fireEvent.click(screen.getByTestId('poll-dialog-submit'));
     expect(screen.getByText('Give at least 2 options.')).toBeInTheDocument();
-    expect(post).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
   });
 
   it('keeps at least two option rows and at most ten', () => {
@@ -71,14 +70,14 @@ describe('PollDialog', () => {
     expect(screen.getAllByTestId('poll-dialog-option')).toHaveLength(9);
   });
 
-  it('shows what the server refused', async () => {
-    post.mockRejectedValue(new Error('"Yes" is listed twice'));
+  it('shows what the server refused', () => {
+    create.mockImplementation((_body, callbacks) => callbacks.onError(new Error('"Yes" is listed twice')));
     const onClose = renderDialog();
     type('poll-dialog-question', 'Q');
     type('poll-dialog-option-0', 'Yes');
     type('poll-dialog-option-1', 'yes');
     fireEvent.click(screen.getByTestId('poll-dialog-submit'));
-    expect(await screen.findByText('"Yes" is listed twice')).toBeInTheDocument();
+    expect(screen.getByText('"Yes" is listed twice')).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
   });
 });
