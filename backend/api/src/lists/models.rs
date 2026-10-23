@@ -194,6 +194,7 @@ pub struct ListColumn {
     pub kind: ColumnKind,
     #[schema(value_type = ColumnOptions)]
     pub options: Json<ColumnOptions>,
+    pub hidden: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -201,7 +202,7 @@ pub struct ListItem {
     pub id: Uuid,
     pub list_id: Uuid,
     pub rank: String,
-    #[schema(value_type = Object)]
+    #[schema(value_type = std::collections::HashMap<String, serde_json::Value>)]
     pub values: serde_json::Value,
     pub created_by: Uuid,
     pub created_at: DateTime<Utc>,
@@ -248,6 +249,7 @@ pub struct UpdateColumnRequest {
     pub name: Option<String>,
     pub kind: Option<ColumnKind>,
     pub options: Option<ColumnOptionsInput>,
+    pub hidden: Option<bool>,
     pub confirm_cleared: Option<i64>,
 }
 
@@ -272,14 +274,14 @@ pub struct ColumnOrder {
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateItemRequest {
     #[serde(default)]
-    #[schema(value_type = Object)]
+    #[schema(value_type = std::collections::HashMap<String, serde_json::Value>)]
     pub values: serde_json::Map<String, serde_json::Value>,
     pub after_id: Option<Uuid>,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdateItemRequest {
-    #[schema(value_type = Object)]
+    #[schema(value_type = std::collections::HashMap<String, serde_json::Value>)]
     pub values: serde_json::Map<String, serde_json::Value>,
 }
 

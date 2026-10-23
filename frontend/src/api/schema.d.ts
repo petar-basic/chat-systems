@@ -2710,7 +2710,9 @@ export interface components {
         CreateItemRequest: {
             /** Format: uuid */
             after_id?: string | null;
-            values?: Record<string, never>;
+            values?: {
+                [key: string]: unknown;
+            };
         };
         CreateLaterRequest: {
             /** Format: uuid */
@@ -3052,6 +3054,7 @@ export interface components {
         };
         DataList_ListColumn: {
             data: {
+                hidden: boolean;
                 /** Format: uuid */
                 id: string;
                 kind: components["schemas"]["ColumnKind"];
@@ -3076,7 +3079,9 @@ export interface components {
                 rank: string;
                 /** Format: date-time */
                 updated_at: string;
-                values: Record<string, never>;
+                values: {
+                    [key: string]: unknown;
+                };
             }[];
         };
         DataList_MemberWithUser: {
@@ -3588,6 +3593,7 @@ export interface components {
             workspace_id: string;
         };
         ListColumn: {
+            hidden: boolean;
             /** Format: uuid */
             id: string;
             kind: components["schemas"]["ColumnKind"];
@@ -3614,7 +3620,9 @@ export interface components {
             rank: string;
             /** Format: date-time */
             updated_at: string;
-            values: Record<string, never>;
+            values: {
+                [key: string]: unknown;
+            };
         };
         LoginRequest: {
             email: string;
@@ -4093,6 +4101,7 @@ export interface components {
         UpdateColumnRequest: {
             /** Format: int64 */
             confirm_cleared?: number | null;
+            hidden?: boolean | null;
             kind?: components["schemas"]["ColumnKind"] | null;
             name?: string | null;
             options?: components["schemas"]["ColumnOptionsInput"] | null;
@@ -4105,7 +4114,9 @@ export interface components {
             is_instance_admin: boolean;
         };
         UpdateItemRequest: {
-            values: Record<string, never>;
+            values: {
+                [key: string]: unknown;
+            };
         };
         UpdateLaterRequest: {
             clear_reminder?: boolean;

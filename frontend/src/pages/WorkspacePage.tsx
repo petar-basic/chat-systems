@@ -10,6 +10,7 @@ import { MessageList, MessageInput } from '@/features/messaging';
 import ConversationView from '@/features/messaging/ConversationView';
 import { AllUnreadsView } from '@/features/unreads';
 import { ThreadsView } from '@/features/threads';
+import { ListView } from '@/features/lists';
 import ForwardMessageModal from '@/features/messaging/ForwardMessageModal';
 import AddInstancePanel from '../components/AddInstancePanel';
 import { EditProfileModal, PreferencesModal } from '@/features/profile';
@@ -129,6 +130,21 @@ export default function WorkspacePage() {
             onOpenConversation={c.handleOpenConversation}
             onOpenNav={() => c.setMobileNavOpen(true)}
           />
+        ) : c.listId && currentWorkspace && user ? (
+          <ListView
+            key={c.listId}
+            workspaceId={currentWorkspace.id}
+            instanceUrl={currentWorkspace.instanceUrl}
+            listId={c.listId}
+            currentUserId={user.id}
+            channels={c.channels}
+            members={c.workspaceMembers}
+            onOpenChannel={(channelId) => {
+              const channel = c.channels.find((ch) => ch.id === channelId);
+              if (channel) c.handleSelectChannel(channel);
+            }}
+            onOpenNav={() => c.setMobileNavOpen(true)}
+          />
         ) : activeConversation && currentWorkspace && user ? (
           <ConversationView
             workspaceId={currentWorkspace.id}
@@ -186,10 +202,12 @@ export default function WorkspacePage() {
                 onOpenNav={() => c.setMobileNavOpen(true)}
               />
 
-              {currentChannel && (
+              {currentChannel && currentWorkspace && (
                 <ChannelBookmarksBar
+                  workspaceId={currentWorkspace.id}
                   channelId={currentChannel.id}
-                  instanceUrl={currentWorkspace?.instanceUrl}
+                  instanceUrl={currentWorkspace.instanceUrl}
+                  canPost={canPost}
                 />
               )}
 

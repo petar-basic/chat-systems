@@ -20,6 +20,7 @@ import { useUserCache } from '@/stores/users';
 import { QUERY_KEYS } from '@/shared/constants';
 import { applyReadState } from './readState';
 import { patchMessageEverywhere } from './messagePatch';
+import { syncListFrames } from '@/features/lists/listSync';
 
 type ChannelMessages = InfiniteData<{ data: Message[] }>;
 
@@ -129,7 +130,7 @@ export const useWebSocketQuerySync = () => {
       }),
     );
 
-    unsubs.push();
+    unsubs.push(...syncListFrames(queryClient));
 
     unsubs.push(
       globalEventBus.on('sync.refetch_required', (event) => {

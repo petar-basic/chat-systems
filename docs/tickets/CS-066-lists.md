@@ -69,7 +69,20 @@ Landed as described, with these differences, which parts 2–4 build on:
 - Channel deletion, retention and the export cover lists. The export writes each list as
   CSV next to the channel's messages.
 
-### 2. The table
+### 2. The table ✅ done
+
+Landed as described, with these differences:
+
+- The **Lists** entry is the first thing in the channel's bookmark bar, which now shows for
+  everyone, not only when there are bookmarks or for moderators. Personal lists have no entry
+  point yet.
+- Hidden columns are shared, not per person: migration 64 adds `list_columns.hidden`, set
+  through `PATCH /list-columns/{id}`. Views in part 3 may take it over.
+- Enter commits an edit and moves down, as a spreadsheet does; Shift + Enter opens the item
+  and Alt + ↑/↓ moves a row, so reordering does not need a mouse. The column headers are the
+  grid's first row, which is how the header menu is reached from the keyboard.
+- The column menu's *Edit column* changes the name, kind and choices in one dialog, with the
+  preview count before a change that clears cells.
 
 - A list opens in the main area at `/app/:workspaceId/lists/:listId`, like a conversation.
   The channel header gets a **Lists** entry beside bookmarks, and a "New list" action with

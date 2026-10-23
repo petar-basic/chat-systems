@@ -198,6 +198,15 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - 🔴 **Edge — anonymous:** on an anonymous poll no avatars show, and `GET /api/polls/<id>/votes` answers 403 even for its creator.
 - 🟠 **Edge — closing:** *Close poll* shows for the creator only; once closed the rows are disabled and the footer reads "Closed". A poll with a closing time a minute away closes itself (worker reminder loop) and refuses a vote with 409. A poll message has no *Edit*.
 
+### 5.10 🟢 Lists, the table
+- **Reach:** *Lists* at the start of the channel's bookmark bar → *New list* (`POST /api/workspaces/<id>/lists`); a list lives at `/app/<workspace>/lists/<list>`.
+- **Steps:** create a *Project tracker*. *New item*, type a task, Enter. Without the mouse: arrows to *Status*, Enter, pick *In progress*; type `b` on *Owner* and pick a person; Enter on *Due* and pick a date; Tab across a row; Escape out of an edit; Delete a cell; Alt + ↓ a row; Shift + Enter to open it. In tab B (another member) open the same list and edit a different cell of the same row.
+- **Expected:** every edit shows at once and arrives live in the other tab; both people's edits to one row stay. The item panel shows every field and edits them; ↑ from the first row lands on the headers and Enter opens the column menu.
+- 🟠 **Edge — columns:** add a *Select* column with three choices; rename one; change a filled *Number* column to *Date* → the dialog says how many cells it clears and saves only on the second press. Hide a column → *1 hidden* in the header shows it again; the item panel still lists it. Move a column left and right; delete one.
+- 🟠 **Edge — size:** with 10,000 items (`INSERT … generate_series` as in `http_tests/lists.rs`) the table scrolls smoothly and Ctrl + End reaches the last row; *New item* is disabled at the limit.
+- 🔴 **Edge — read-only:** in an announcement channel a member who cannot post sees the list but no *New item*, no editors and no column menu; `PATCH /api/list-items/<id>` answers 403.
+- 🟠 **Edge — drag:** drag a row by its grip above another; the line shows where it lands; reload and the order holds.
+
 ---
 
 ## 6. Files

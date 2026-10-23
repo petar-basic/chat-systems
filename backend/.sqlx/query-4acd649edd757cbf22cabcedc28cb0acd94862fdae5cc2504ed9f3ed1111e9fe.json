@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO list_columns (list_id, position, name, kind, options)\n               VALUES ($1,\n                       (SELECT COALESCE(MAX(position) + 1, 0) FROM list_columns WHERE list_id = $1),\n                       $2, $3, $4)\n               RETURNING id, list_id, position, name, kind AS \"kind: ColumnKind\",\n                         options AS \"options: Json<ColumnOptions>\"",
+  "query": "INSERT INTO list_columns (list_id, position, name, kind, options)\n               VALUES ($1,\n                       (SELECT COALESCE(MAX(position) + 1, 0) FROM list_columns WHERE list_id = $1),\n                       $2, $3, $4)\n               RETURNING id, list_id, position, name, kind AS \"kind: ColumnKind\",\n                         options AS \"options: Json<ColumnOptions>\", hidden",
   "describe": {
     "columns": [
       {
@@ -84,6 +84,17 @@
             "name": "options"
           }
         }
+      },
+      {
+        "ordinal": 6,
+        "name": "hidden",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "list_columns",
+            "name": "hidden"
+          }
+        }
       }
     ],
     "parameters": {
@@ -116,8 +127,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "3f9d7bcdd75681f9b6a727973c5b3075a6246bff2a5c2ac93d9642cbec43ae4e"
+  "hash": "4acd649edd757cbf22cabcedc28cb0acd94862fdae5cc2504ed9f3ed1111e9fe"
 }

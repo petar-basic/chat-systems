@@ -9,7 +9,7 @@ ticket in [`docs/tickets/`](./tickets/INDEX.md); a ticket's file is deleted when
 
 | Ticket | What | Status |
 |---|---|---|
-| [CS-066](./tickets/CS-066-lists.md) | Lists: typed tables in a conversation, board view, item comments | Wave 23, next; part 1 of 4 (model, API, live updates) done |
+| [CS-066](./tickets/CS-066-lists.md) | Lists: typed tables in a conversation, board view, item comments | Wave 23, next; parts 1 and 2 of 4 (model, API, live updates; the table) done |
 | [CS-067](./tickets/CS-067-workflow-builder.md) | Workflow builder: schedule, webhook, reaction, member-joined and shortcut triggers; message, DM, form and list steps | Wave 23 |
 | [CS-037](./tickets/CS-037-huddle-sfu.md) | SFU (LiveKit) for huddles above the mesh's six-to-eight ceiling, promoted mid-call without dropping anybody | Held for the next major release (4.0.0), decided 2026-10-23 when 3.2.0 shipped CS-059 alone. Adds an optional media server beside the stack. Until then a huddle is capped at eight people |
 

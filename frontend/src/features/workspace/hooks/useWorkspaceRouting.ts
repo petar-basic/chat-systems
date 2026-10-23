@@ -35,6 +35,7 @@ export function useWorkspaceRouting({
   const [searchParams] = useSearchParams();
   const isUnreadsRoute = useMatch(ROUTE_PATTERNS.unreads) !== null;
   const isThreadsRoute = useMatch(ROUTE_PATTERNS.threads) !== null;
+  const listId = useMatch(ROUTE_PATTERNS.list)?.params.listId ?? null;
   const {
     currentWorkspace,
     currentChannel,
@@ -86,6 +87,7 @@ export function useWorkspaceRouting({
       if (currentChannel?.id || currentConversationId) selectConversation(null);
       return;
     }
+    if (listId) return;
     if (!activeWorkspaceId || channels.length === 0) return;
     if (routeConversationId) return;
     if (urlChannelId) {
@@ -104,6 +106,7 @@ export function useWorkspaceRouting({
   }, [
     isUnreadsRoute,
     isThreadsRoute,
+    listId,
     currentConversationId,
     selectConversation,
     routeConversationId,
@@ -146,5 +149,5 @@ export function useWorkspaceRouting({
     [searchParams, panel],
   );
 
-  return { urlMessageId, handleTargetMessageFound, isUnreadsRoute, isThreadsRoute };
+  return { urlMessageId, handleTargetMessageFound, isUnreadsRoute, isThreadsRoute, listId };
 }

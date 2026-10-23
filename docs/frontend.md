@@ -86,7 +86,9 @@ Main app container, kept thin: it calls `useWorkspaceController()` for all data 
 handlers and renders the layout (sidebars, conversation, right panels). The logic lives
 in the hook, not the view. It is mounted by several routes that all resolve to the same
 page: `/app/:workspaceId?`, `/app/:workspaceId/:channelId`,
-`/app/:workspaceId/:channelId/:messageId`, and `/app/:workspaceId/c/:conversationId`.
+`/app/:workspaceId/:channelId/:messageId`, `/app/:workspaceId/c/:conversationId` and
+`/app/:workspaceId/lists/:listId`, which renders `ListView` in place of the conversation and
+leaves the selected channel as it was.
 A conversation is a channel of type `dm`/`group_dm`, so with a `conversationId` the page
 renders `ConversationView` — a header with the participants over the same `MessageList`,
 `MessageInput`, `TypingIndicator` and `ThreadPanel` a channel uses, keyed on the
@@ -244,6 +246,39 @@ anonymous, and an optional closing time.
 
 **API calls:** POST `/channels/{id}/polls`, GET/PUT `/polls/{id}/vote`, GET `/polls/{id}/votes`,
 POST `/polls/{id}/close`
+
+---
+
+### `lists/ListView`, `ListGrid`, `ItemPanel`
+`ChannelListsMenu` sits first in the channel's bookmark bar: the channel's lists, and *New
+list* (`NewListModal`, a title and a template from `templates.ts`) for whoever may post there.
+`ListView` is the route view: the title (click to rename), the channel it lives in, the item
+count, *N hidden* to show hidden columns again, and *Delete list* for its creator or a channel
+moderator. The open item is `?item=` in the url, so it survives a reload.
+
+`ListGrid` is an ARIA grid that keeps focus on itself and points `aria-activedescendant` at the
+active cell, so the virtualized rows (`@tanstack/react-virtual`, fixed 36 px rows, the header
+as `scrollMargin`) can come and go without losing focus. Arrows, Home/End (with Ctrl, the first
+or last row), PageUp/PageDown move; ↑ from the first row reaches the column headers, where Enter
+opens the column menu. Enter, F2 or a typed character edits; Tab commits and moves right,
+wrapping to the next row, and leaves the grid from the last cell; Escape cancels; Delete
+clears; Alt + ↑/↓ moves the row; Shift + Enter opens the item. The active cell and the cell
+being edited are kept by item and column id, not index, so a row arriving above from somebody
+else never moves an edit to another item. `CellEditor` has an editor per kind: a text field
+(text, number, link, a native date picker for dates), a `Select` for a select, a listbox for a
+multi-select and a member picker for a person, the last two in an `AnchoredPopover`; a
+checkbox toggles without one. `ColumnMenu` edits (`ColumnDialog`: name, kind, choices, and the
+count of cells a change clears from `POST /list-columns/{id}/preview` before it confirms),
+moves, hides, deletes and adds columns. Rows drag by their grip. `ItemPanel` shows every field,
+hidden ones too, with an always-open control per kind, and deletes the item.
+
+`useLists.ts` holds the queries and mutations. A cell edit, a delete and a move are optimistic:
+the move ranks the item locally with the same midpoint the server uses (`rankBetween`) and the
+server's row replaces it. `listSync.ts` applies the `list.*` frames to the cache; an
+`item_upserted` older than the cached row is ignored.
+
+**API calls:** everything under `/workspaces/{id}/lists`, `/lists/{id}`, `/list-columns/{id}`,
+`/list-items/{id}`
 
 ---
 
@@ -575,6 +610,9 @@ typing, and `notification` events are handled separately — by `usePresenceStor
 | `workspace.updated` | Invalidate single workspace + workspaces list |
 | `conversation.created` | Invalidate the conversation list and join the new channel on the socket |
 | `huddle.started` / `huddle.ended` | Set/clear the channel's active-huddle entry in `useWorkspaceStore` |
+| `list.upserted` / `list.deleted` | Patch or refetch the list, refetch the lists menus (`features/lists/listSync.ts`) |
+| `list.columns_changed` | Replace the columns; refetch the items when `items_rewritten` |
+| `list.item_upserted` / `list.item_deleted` | Place the row by rank, or drop it |
 
 ---
 

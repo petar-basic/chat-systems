@@ -42,6 +42,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   `events:list`; deploy the backend and realtime images together. A workspace's message
   retention window now also removes list items nobody has edited within it; see
   [the upgrade note](docs/RUNBOOK.md#upgrade-note-lists).
+- Migration 64 adds `list_columns.hidden`. `ListColumn` gains `hidden`, and `PATCH
+  /list-columns/{id}` takes it.
 
 ### Added
 
@@ -81,9 +83,19 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - **Lists, the API.** A list is a table in a channel or DM, or a personal one: typed columns
   (text, number, select, multi-select, person, date, checkbox, link), up to 30 columns and
   10,000 items, checked on the server, merged per cell when two people edit one row, and sent
-  live to everyone in the conversation. Exports include each list as CSV. The table, board
-  and comments in the app follow. `/workspaces/{id}/lists`, `/lists/{id}`, `/list-columns/{id}`,
+  live to everyone in the conversation. Exports include each list as CSV. The board and
+  comments in the app follow. `/workspaces/{id}/lists`, `/lists/{id}`, `/list-columns/{id}`,
   `/list-items/{id}`.
+- **Lists, the table.** *Lists* at the start of a channel's bookmark bar shows the channel's
+  lists and *New list*, from blank or a template: project tracker, bug intake, on-call rota. A
+  list opens in place of the conversation, at `/app/{workspace}/lists/{list}`. The table is a
+  keyboard grid: the arrows move, Enter or typing edits, Escape cancels, Tab moves right,
+  Delete clears, Alt + ↑/↓ moves a row and Shift + Enter opens it. Each kind has its own
+  editor: a select, a member picker, a date picker, a checkbox that toggles. Rows are
+  virtualized, so 10,000 items scroll smoothly; drag a row by its handle to move it. A column's
+  header menu edits it (name, kind, choices; a change that clears cells says how many first),
+  moves, hides or deletes it. An item opens in a side panel with every field, hidden ones
+  included. Edits from others arrive live.
 
 ### Changed
 

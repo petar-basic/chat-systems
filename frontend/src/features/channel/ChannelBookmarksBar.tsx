@@ -9,13 +9,16 @@ import {
 } from '@/hooks/queries/useChannelBookmarks';
 import { useChannelModeration } from './hooks/useChannelModeration';
 import { TextInput } from '@/shared/components/Form/TextInput';
+import { ChannelListsMenu } from '@/features/lists';
 
 interface Props {
+  workspaceId: string;
   channelId: string;
   instanceUrl?: string;
+  canPost: boolean;
 }
 
-export default function ChannelBookmarksBar({ channelId, instanceUrl }: Props) {
+export default function ChannelBookmarksBar({ workspaceId, channelId, instanceUrl, canPost }: Props) {
   const { data: bookmarks = [] } = useChannelBookmarks(channelId, instanceUrl);
   const { canModerate } = useChannelModeration(channelId);
   const createBookmark = useCreateChannelBookmark(channelId, instanceUrl);
@@ -25,8 +28,6 @@ export default function ChannelBookmarksBar({ channelId, instanceUrl }: Props) {
   const [label, setLabel] = useState('');
   const [url, setUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
-
-  if (bookmarks.length === 0 && !canModerate) return null;
 
   const submit = async () => {
     const trimmedLabel = label.trim();
@@ -48,14 +49,15 @@ export default function ChannelBookmarksBar({ channelId, instanceUrl }: Props) {
 
   return (
     <div
-      // An empty bar still costs a row, and on a phone that row is expensive.
-      // With nothing pinned here, the invitation to add one waits for a wider
-      // screen; the channel settings reach it either way.
-      className={`px-4 py-1.5 flex items-center gap-2 flex-wrap border-b border-line/50 bg-surface/20 shrink-0 ${
-        bookmarks.length === 0 ? 'max-sm:hidden' : ''
-      }`}
+      className="px-4 py-1.5 flex items-center gap-2 flex-wrap border-b border-line/50 bg-surface/20 shrink-0"
       data-qa="channel-bookmarks"
     >
+      <ChannelListsMenu
+        workspaceId={workspaceId}
+        channelId={channelId}
+        instanceUrl={instanceUrl}
+        canCreate={canPost}
+      />
       {bookmarks.map((bookmark) => (
         <span
           key={bookmark.id}

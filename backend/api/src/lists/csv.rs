@@ -91,6 +91,7 @@ mod tests {
             name: name.into(),
             kind,
             options: Json(options),
+            hidden: false,
         }
     }
 

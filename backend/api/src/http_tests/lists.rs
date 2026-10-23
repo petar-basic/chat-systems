@@ -796,6 +796,29 @@ async fn columns_and_items_have_limits_and_columns_keep_an_order(pool: PgPool) {
     .await;
     assert_eq!(status, StatusCode::OK, "{reordered:?}");
     assert_eq!(reordered["data"][0]["id"], json!(order[0]));
+    let (status, hidden) = send(
+        &app,
+        "PATCH",
+        &format!("/api/list-columns/{}", order[0]),
+        Some(&owner),
+        Some(json!({ "hidden": true })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{hidden:?}");
+    assert_eq!(hidden["hidden"], json!(true));
+    let (_, renamed) = send(
+        &app,
+        "PATCH",
+        &format!("/api/list-columns/{}", order[0]),
+        Some(&owner),
+        Some(json!({ "name": "Renamed" })),
+    )
+    .await;
+    assert_eq!(
+        renamed["hidden"],
+        json!(true),
+        "a rename leaves a hidden column hidden"
+    );
     let (status, _) = send(
         &app,
         "PUT",
