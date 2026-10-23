@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Button } from '@/shared/components/Button/Button';
-import { DialogFooter, DialogHeader } from '@/shared/components/Dialog/Dialog';
 import { Check } from 'lucide-react';
 import { Modal } from '@/shared/components/Modal/Modal';
+import { TextInput } from '@/shared/components/Form/TextInput';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import type { WorkspaceMember } from '@/stores/workspace';
 
@@ -34,22 +34,43 @@ export function NewDmModal({ members, currentUserId, onStart, onClose }: Props) 
   );
 
   return (
-    <Modal title="New message" onClose={onClose} dataQa="new-dm-modal">
-      <DialogHeader
-        title="New message"
-        description="Pick one person for a direct message, or up to eight for a group."
-        onClose={onClose}
-      />
-      <input
-        type="text"
+    <Modal
+      title="New message"
+      description="Pick one person for a direct message, or up to eight for a group."
+      onClose={onClose}
+      size="sm"
+      dataQa="new-dm-modal"
+      footerStart={
+        <span className="text-xs text-muted" data-qa="new-dm-selected-count">
+          {selected.length === 0 ? 'Nobody picked yet' : `${selected.length} selected`}
+        </span>
+      }
+      dismissLabel="Cancel"
+      actions={
+        <Button
+          variant="primary"
+          onClick={() => {
+            const people = selected;
+            onClose();
+            onStart(people);
+          }}
+          disabled={selected.length === 0}
+          data-qa="new-dm-start"
+        >
+          {selected.length > 1 ? 'Start group' : 'Start chat'}
+        </Button>
+      }
+    >
+      <TextInput
+        label="Search people"
+        labelHidden
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Search people…"
-        aria-label="Search people"
-        data-qa="new-dm-search"
-        className="w-full px-3 py-2 mb-3 bg-raised/50 border border-line-strong rounded-lg text-sm text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
+        dataQa="new-dm-search"
+        className="mb-3"
       />
-      <div className="flex flex-col gap-1 max-h-64 overflow-y-auto">
+      <div className="flex flex-col gap-1">
         {candidates.length === 0 ? (
           <div className="px-3 py-4 text-sm text-muted text-center">No people found</div>
         ) : (
@@ -77,29 +98,6 @@ export function NewDmModal({ members, currentUserId, onStart, onClose }: Props) 
           })
         )}
       </div>
-      <DialogFooter
-        start={
-          <span className="text-xs text-muted" data-qa="new-dm-selected-count">
-            {selected.length === 0 ? 'Nobody picked yet' : `${selected.length} selected`}
-          </span>
-        }
-      >
-        <Button variant="ghost" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button
-          variant="primary"
-          onClick={() => {
-            const people = selected;
-            onClose();
-            onStart(people);
-          }}
-          disabled={selected.length === 0}
-          data-qa="new-dm-start"
-        >
-          {selected.length > 1 ? 'Start group' : 'Start chat'}
-        </Button>
-      </DialogFooter>
     </Modal>
   );
 }

@@ -1,5 +1,4 @@
 import { Modal } from '@/shared/components/Modal/Modal';
-import { DialogHeader } from '@/shared/components/Dialog/Dialog';
 import { isApplePlatform } from './shortcuts';
 
 type Key = 'mod' | 'alt' | 'shift' | string;
@@ -65,13 +64,7 @@ function keyName(key: Key, apple: boolean): string {
 export function KeyboardShortcutsDialog({ onClose }: { onClose: () => void }) {
   const apple = isApplePlatform();
   return (
-    <Modal
-      title="Keyboard shortcuts"
-      onClose={onClose}
-      dataQa="keyboard-shortcuts"
-      className="bg-surface border border-line rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-lg shadow-2xl"
-    >
-      <DialogHeader title="Keyboard shortcuts" onClose={onClose} />
+    <Modal title="Keyboard shortcuts" onClose={onClose} dataQa="keyboard-shortcuts" size="lg">
       <div className="space-y-5">
         {GROUPS.map((group) => (
           <section key={group.title}>

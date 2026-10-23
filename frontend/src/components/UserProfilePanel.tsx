@@ -1,5 +1,4 @@
 import { useState, useRef, type FormEvent } from 'react';
-import { IconButton } from '@/shared/components/IconButton/IconButton';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { Button } from '@/shared/components/Button/Button';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
@@ -8,7 +7,7 @@ import { useCurrentUser } from '../hooks/queries/useAuth';
 import { useInstanceStore } from '../stores/instances';
 import { useWorkspaceStore } from '../stores/workspace';
 import { api } from '../lib/api';
-import { X, Save, Camera, User } from 'lucide-react';
+import { Save, Camera } from 'lucide-react';
 import { Modal } from '@/shared/components/Modal/Modal';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { displayNameOf } from '@/lib/userHelpers';
@@ -130,22 +129,21 @@ export default function UserProfilePanel({ onClose }: Props) {
       title="Profile settings"
       onClose={onClose}
       dataQa="profile-modal"
-      className="bg-surface border border-line rounded-2xl shadow-2xl w-full max-w-md"
+      dismissLabel="Cancel"
+      actions={
+        <Button
+          variant="primary"
+          type="submit"
+          form="profile-form"
+          disabled={saving || !displayName.trim()}
+          loading={saving}
+          icon={<Save className="h-4 w-4" />}
+        >
+          Save profile
+        </Button>
+      }
     >
-      <div className="px-6 py-4 flex items-center justify-between border-b border-line/50">
-        <h2 className="text-lg font-bold text-fg flex items-center gap-2">
-          <User className="w-5 h-5" />
-          Profile settings
-        </h2>
-        <IconButton
-          label="Close profile"
-          icon={<X className="h-4 w-4" />}
-          onClick={onClose}
-          className="-mr-1.5"
-        />
-      </div>
-
-      <form id="profile-form" onSubmit={handleSave} className="p-6 space-y-5">
+      <form id="profile-form" onSubmit={handleSave} className="space-y-5 pt-1">
         <div className="flex items-center gap-4">
           <div className="relative">
             <Avatar
@@ -236,41 +234,21 @@ export default function UserProfilePanel({ onClose }: Props) {
         )}
       </form>
 
-      <section className="px-6 border-t border-line pt-5 mt-5">
+      <section className="border-t border-line pt-5 mt-5">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-subtle mb-3">Appearance</h3>
         <ThemePicker />
       </section>
 
-      <section className="px-6 border-t border-line pt-5 mt-5 space-y-5">
+      <section className="border-t border-line pt-5 mt-5 space-y-5">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-subtle">Notifications</h3>
         <PushNotificationsPanel />
         <EmailNotificationsPanel />
       </section>
 
-      <section className="px-6 border-t border-line pt-5 mt-5">
+      <section className="border-t border-line pt-5 mt-5">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-subtle mb-3">Security</h3>
         <TwoFactorPanel />
       </section>
-
-      <div className="sticky bottom-0 flex justify-end gap-2 px-6 py-4 mt-5 border-t border-line bg-surface">
-        <button
-          type="button"
-          onClick={onClose}
-          className="px-4 py-2.5 text-sm text-muted hover:text-fg transition cursor-pointer"
-        >
-          Cancel
-        </button>
-        <Button
-          variant="primary"
-          type="submit"
-          form="profile-form"
-          disabled={saving || !displayName.trim()}
-          loading={saving}
-          icon={<Save className="h-4 w-4" />}
-        >
-          Save profile
-        </Button>
-      </div>
     </Modal>
   );
 }

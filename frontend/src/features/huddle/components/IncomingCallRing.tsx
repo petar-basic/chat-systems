@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Phone, PhoneOff } from 'lucide-react';
 import { Modal } from '@/shared/components/Modal/Modal';
+import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { useHuddleStore, type IncomingCall } from '@/stores/huddle';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useUserCache } from '@/stores/users';
@@ -9,7 +10,8 @@ import { playNotificationSound } from '@/lib/notifications';
 
 export function IncomingCallRing({ call }: { call: IncomingCall }) {
   const { getUser } = useUserCache();
-  const callerName = displayNameOf(getUser(call.fromUserId)?.display_name);
+  const caller = getUser(call.fromUserId);
+  const callerName = displayNameOf(caller?.display_name);
 
   useEffect(() => {
     playNotificationSound();
@@ -37,25 +39,34 @@ export function IncomingCallRing({ call }: { call: IncomingCall }) {
   };
 
   return (
-    <Modal title="Incoming huddle" onClose={decline}>
-      <div className="flex flex-col items-center gap-5 py-2">
-        <div className="text-center">
-          <p className="text-lg font-semibold text-fg">{callerName}</p>
-          <p className="text-sm text-muted">is starting a huddle…</p>
-        </div>
-        <div className="flex gap-3">
+    <Modal
+      title="Incoming huddle"
+      onClose={decline}
+      size="sm"
+      dataQa="incoming-call"
+      actions={
+        <>
           <button
             onClick={decline}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-raised text-fg hover:bg-elevated transition cursor-pointer"
+            className="flex h-9 items-center gap-2 rounded-lg bg-raised px-4 text-sm font-medium text-fg transition hover:bg-elevated cursor-pointer"
           >
             <PhoneOff className="w-4 h-4" /> Decline
           </button>
           <button
             onClick={accept}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-green-600 text-white hover:bg-green-500 transition cursor-pointer"
+            data-autofocus
+            className="flex h-9 items-center gap-2 rounded-lg bg-green-600 px-4 text-sm font-medium text-white transition hover:bg-green-500 cursor-pointer"
           >
             <Phone className="w-4 h-4" /> Join
           </button>
+        </>
+      }
+    >
+      <div className="flex items-center gap-3 py-2">
+        <Avatar userId={call.fromUserId} name={callerName} avatarUrl={caller?.avatar_url} size="lg" />
+        <div className="min-w-0">
+          <p className="truncate text-base font-semibold text-fg">{callerName}</p>
+          <p className="text-sm text-muted">is starting a huddle…</p>
         </div>
       </div>
     </Modal>
