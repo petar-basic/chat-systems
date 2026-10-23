@@ -3,6 +3,7 @@ import { Bell, Bookmark, Clock, LogOut, SlidersHorizontal, User } from 'lucide-r
 import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { displayNameOf } from '@/lib/userHelpers';
+import { PauseMenuItems } from '@/features/notifications';
 
 interface Props {
   user: { id: string; display_name: string; email: string; avatar_url: string | null } | null;
@@ -79,7 +80,7 @@ export function YouMenu({
             so they belong here rather than under a workspace's name. */}
         {open && (
           <div
-            className="absolute bottom-full left-0 mb-1 w-52 bg-surface border border-line rounded-lg shadow-xl z-20 py-1"
+            className="absolute bottom-full left-0 mb-1 w-64 bg-surface border border-line rounded-lg shadow-xl z-20 py-1"
             data-qa="you-menu"
           >
             <button className={ITEM} data-qa="open-profile" onClick={pick(onOpenProfile)}>
@@ -95,6 +96,8 @@ export function YouMenu({
             <button className={ITEM} data-qa="open-later" onClick={pick(onOpenLater)}>
               <Bookmark className="w-4 h-4" /> Later
             </button>
+            <div className="my-1 h-px bg-raised" />
+            <PauseMenuItems onDone={() => setOpen(false)} />
           </div>
         )}
       </div>

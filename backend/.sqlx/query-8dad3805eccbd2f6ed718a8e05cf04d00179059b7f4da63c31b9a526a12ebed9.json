@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE users\n                SET dnd_until = $2,\n                    dnd_override_until = CASE WHEN $2::timestamptz IS NULL\n                                              THEN public.schedule_paused_until(id, $3) END\n              WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8dad3805eccbd2f6ed718a8e05cf04d00179059b7f4da63c31b9a526a12ebed9"
+}

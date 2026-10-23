@@ -108,32 +108,109 @@ impl NotificationRepo {
         Ok(result.rows_affected())
     }
 
-    pub async fn get_dnd(&self, user_id: Uuid) -> sqlx::Result<Option<DateTime<Utc>>> {
-        let row = sqlx::query_scalar!("SELECT dnd_until FROM users WHERE id = $1", user_id)
-            .fetch_optional(&self.pool)
-            .await?;
-        Ok(row.flatten())
+    pub async fn dnd_status(&self, user_id: Uuid, at: DateTime<Utc>) -> sqlx::Result<DndStatus> {
+        let row = sqlx::query_as!(
+            DndStatus,
+            r#"SELECT CASE WHEN dnd_until > $2 THEN dnd_until END AS dnd_until,
+                      CASE WHEN dnd_override_until > $2 THEN NULL
+                           ELSE public.schedule_paused_until(id, $2) END AS schedule_paused_until
+                 FROM users WHERE id = $1"#,
+            user_id,
+            at
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row.unwrap_or(DndStatus {
+            dnd_until: None,
+            schedule_paused_until: None,
+        }))
     }
 
     pub async fn set_dnd(&self, user_id: Uuid, until: Option<DateTime<Utc>>) -> sqlx::Result<()> {
+        self.set_dnd_at(user_id, until, Utc::now()).await
+    }
+
+    pub async fn set_dnd_at(
+        &self,
+        user_id: Uuid,
+        until: Option<DateTime<Utc>>,
+        at: DateTime<Utc>,
+    ) -> sqlx::Result<()> {
         sqlx::query!(
-            "UPDATE users SET dnd_until = $2 WHERE id = $1",
+            "UPDATE users
+                SET dnd_until = $2,
+                    dnd_override_until = CASE WHEN $2::timestamptz IS NULL
+                                              THEN public.schedule_paused_until(id, $3) END
+              WHERE id = $1",
             user_id,
-            until
+            until,
+            at
         )
         .execute(&self.pool)
         .await?;
         Ok(())
     }
 
-    pub async fn is_dnd_active(&self, user_id: Uuid) -> sqlx::Result<bool> {
+    pub async fn paused_until(
+        &self,
+        user_id: Uuid,
+        at: DateTime<Utc>,
+    ) -> sqlx::Result<Option<DateTime<Utc>>> {
         let row = sqlx::query_scalar!(
-            r#"SELECT (dnd_until IS NOT NULL AND dnd_until > NOW()) AS "active!" FROM users WHERE id = $1"#,
+            "SELECT public.notifications_paused_until($1, $2)",
+            user_id,
+            at
+        )
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row)
+    }
+
+    pub async fn is_dnd_active(&self, user_id: Uuid) -> sqlx::Result<bool> {
+        Ok(self.paused_until(user_id, Utc::now()).await?.is_some())
+    }
+
+    pub async fn schedule(&self, user_id: Uuid) -> sqlx::Result<NotificationSchedule> {
+        sqlx::query_as!(
+            NotificationSchedule,
+            r#"SELECT COALESCE(s.enabled, FALSE) AS "enabled!",
+                      COALESCE(s.days, ARRAY[1, 2, 3, 4, 5]::SMALLINT[]) AS "days!",
+                      COALESCE(s.start_minute, 540::SMALLINT) AS "start_minute!",
+                      COALESCE(s.end_minute, 1080::SMALLINT) AS "end_minute!",
+                      COALESCE(NULLIF(u.timezone, ''), 'UTC') AS "timezone!"
+                 FROM users u
+                 LEFT JOIN notification_schedules s ON s.user_id = u.id
+                WHERE u.id = $1"#,
             user_id
         )
-        .fetch_optional(&self.pool)
+        .fetch_one(&self.pool)
+        .await
+    }
+
+    pub async fn set_schedule(
+        &self,
+        user_id: Uuid,
+        enabled: bool,
+        days: &[i16],
+        start_minute: i16,
+        end_minute: i16,
+    ) -> sqlx::Result<()> {
+        sqlx::query!(
+            "INSERT INTO notification_schedules (user_id, enabled, days, start_minute, end_minute)
+             VALUES ($1, $2, $3, $4, $5)
+             ON CONFLICT (user_id) DO UPDATE
+                SET enabled = EXCLUDED.enabled, days = EXCLUDED.days,
+                    start_minute = EXCLUDED.start_minute, end_minute = EXCLUDED.end_minute,
+                    updated_at = NOW()",
+            user_id,
+            enabled,
+            days,
+            start_minute,
+            end_minute
+        )
+        .execute(&self.pool)
         .await?;
-        Ok(row.unwrap_or(false))
+        Ok(())
     }
 
     pub async fn recipients(

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT wm.workspace_id, wm.user_id, wm.role AS \"role: WorkspaceRole\", wm.joined_at,\n                   '' AS \"email!\", u.display_name, u.avatar_url,\n                   CASE WHEN u.status_expires_at IS NULL OR u.status_expires_at > NOW()\n                        THEN u.status_emoji END AS \"status_emoji?\",\n                   CASE WHEN u.status_expires_at IS NULL OR u.status_expires_at > NOW()\n                        THEN u.status_text END AS \"status_text?\"\n            FROM workspace_members wm\n            JOIN users u ON u.id = wm.user_id\n            WHERE wm.workspace_id = $1\n              AND (\n                wm.user_id = $2\n                OR EXISTS (\n                  SELECT 1\n                    FROM channel_members mine\n                    JOIN channel_members theirs ON theirs.channel_id = mine.channel_id\n                   WHERE mine.user_id = $2\n                     AND theirs.user_id = wm.user_id\n                )\n              )\n            ORDER BY wm.joined_at\n            ",
+  "query": "\n            SELECT wm.workspace_id, wm.user_id, wm.role AS \"role: WorkspaceRole\", wm.joined_at,\n                   u.email, u.display_name, u.avatar_url,\n                   CASE WHEN u.status_expires_at IS NULL OR u.status_expires_at > NOW()\n                        THEN u.status_emoji END AS \"status_emoji?\",\n                   CASE WHEN u.status_expires_at IS NULL OR u.status_expires_at > NOW()\n                        THEN u.status_text END AS \"status_text?\",\n                   public.notifications_paused_until(u.id, NOW()) AS notifications_paused_until\n            FROM workspace_members wm\n            JOIN users u ON u.id = wm.user_id\n            WHERE wm.workspace_id = $1\n            ORDER BY wm.joined_at\n            ",
   "describe": {
     "columns": [
       {
@@ -61,9 +61,14 @@
       },
       {
         "ordinal": 4,
-        "name": "email!",
-        "type_info": "Text",
-        "origin": "Expression"
+        "name": "email",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "email"
+          }
+        }
       },
       {
         "ordinal": 5,
@@ -98,11 +103,16 @@
         "name": "status_text?",
         "type_info": "Varchar",
         "origin": "Expression"
+      },
+      {
+        "ordinal": 9,
+        "name": "notifications_paused_until",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid",
         "Uuid"
       ]
     },
@@ -111,12 +121,13 @@
       false,
       false,
       false,
+      false,
+      true,
+      true,
       null,
-      true,
-      true,
       null,
       null
     ]
   },
-  "hash": "da21f0ef5c95edcfdef6546d03a2d39fbaeafd4072d1cbfa741d5ddf498e3877"
+  "hash": "54bda699f76cdc09add53c0e86c1d6cedd21b2d5071f3e1e67e8c3b30c56c2ff"
 }

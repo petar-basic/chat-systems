@@ -2507,7 +2507,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DndResponse"
+                  "$ref": "#/components/schemas/DndStatus"
                 }
               }
             }
@@ -2534,7 +2534,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DndResponse"
+                  "$ref": "#/components/schemas/DndStatus"
                 }
               }
             }
@@ -3117,6 +3117,52 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/UserPublic"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/me/notification-schedule": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "operationId": "get_notification_schedule",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSchedule"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "notifications"
+        ],
+        "operationId": "set_notification_schedule",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetScheduleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSchedule"
                 }
               }
             }
@@ -8272,6 +8318,13 @@
                   "type": "string",
                   "format": "date-time"
                 },
+                "notifications_paused_until": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
                 "role": {
                   "$ref": "#/components/schemas/WorkspaceRole"
                 },
@@ -8865,10 +8918,17 @@
           }
         }
       },
-      "DndResponse": {
+      "DndStatus": {
         "type": "object",
         "properties": {
           "dnd_until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "schedule_paused_until": {
             "type": [
               "string",
               "null"
@@ -9927,6 +9987,13 @@
             "type": "string",
             "format": "date-time"
           },
+          "notifications_paused_until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
           "role": {
             "$ref": "#/components/schemas/WorkspaceRole"
           },
@@ -10197,6 +10264,39 @@
           "workspace_id": {
             "type": "string",
             "format": "uuid"
+          }
+        }
+      },
+      "NotificationSchedule": {
+        "type": "object",
+        "required": [
+          "enabled",
+          "days",
+          "start_minute",
+          "end_minute",
+          "timezone"
+        ],
+        "properties": {
+          "days": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "end_minute": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "start_minute": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "timezone": {
+            "type": "string"
           }
         }
       },
@@ -10683,6 +10783,35 @@
                 "type": "null"
               }
             ]
+          }
+        }
+      },
+      "SetScheduleRequest": {
+        "type": "object",
+        "required": [
+          "enabled",
+          "days",
+          "start_minute",
+          "end_minute"
+        ],
+        "properties": {
+          "days": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "end_minute": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "start_minute": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },

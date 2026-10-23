@@ -86,9 +86,11 @@ pub async fn flush_due(state: &AppState) -> usize {
           FROM pending_mention_emails p
           JOIN users u ON u.id = p.user_id
          WHERE p.created_at <= $1
+           AND public.notifications_paused_until(p.user_id, $2) IS NULL
          GROUP BY p.user_id, p.workspace_id, u.email
         "#,
-        cutoff
+        cutoff,
+        chrono::Utc::now()
     )
     .fetch_all(&state.pool)
     .await;

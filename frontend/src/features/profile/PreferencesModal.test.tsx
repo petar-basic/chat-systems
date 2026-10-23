@@ -8,6 +8,7 @@ vi.mock('@/components/ThemePicker', () => ({ default: () => <div data-qa="theme-
 vi.mock('@/features/notifications', () => ({
   NotifyDefaultPanel: () => <div data-qa="notify-default" />,
   KeywordsPanel: () => <div data-qa="notification-keywords" />,
+  ScheduleEditor: () => <div data-qa="notification-schedule" />,
 }));
 vi.mock('@/components/TwoFactorPanel', () => ({ default: () => <div data-qa="security-panel" /> }));
 

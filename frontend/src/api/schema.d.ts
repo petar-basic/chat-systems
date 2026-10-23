@@ -1194,6 +1194,22 @@ export interface paths {
         patch: operations["update_me"];
         trace?: never;
     };
+    "/users/me/notification-schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_notification_schedule"];
+        put: operations["set_notification_schedule"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/users/me/password": {
         parameters: {
             query?: never;
@@ -2726,6 +2742,8 @@ export interface components {
                 email: string;
                 /** Format: date-time */
                 joined_at: string;
+                /** Format: date-time */
+                notifications_paused_until?: string | null;
                 role: components["schemas"]["WorkspaceRole"];
                 status_emoji?: string | null;
                 status_text?: string | null;
@@ -2900,9 +2918,11 @@ export interface components {
                 workspace_id: string;
             }[];
         };
-        DndResponse: {
+        DndStatus: {
             /** Format: date-time */
             dnd_until?: string | null;
+            /** Format: date-time */
+            schedule_paused_until?: string | null;
         };
         EmailPreference: {
             available: boolean;
@@ -3212,6 +3232,8 @@ export interface components {
             email: string;
             /** Format: date-time */
             joined_at: string;
+            /** Format: date-time */
+            notifications_paused_until?: string | null;
             role: components["schemas"]["WorkspaceRole"];
             status_emoji?: string | null;
             status_text?: string | null;
@@ -3286,6 +3308,15 @@ export interface components {
             user_id: string;
             /** Format: uuid */
             workspace_id: string;
+        };
+        NotificationSchedule: {
+            days: number[];
+            enabled: boolean;
+            /** Format: int32 */
+            end_minute: number;
+            /** Format: int32 */
+            start_minute: number;
+            timezone: string;
         };
         /** @enum {string} */
         NotificationType: "mention" | "dm" | "reply" | "reaction" | "call" | "reminder" | "system" | "keyword";
@@ -3437,6 +3468,14 @@ export interface components {
         };
         SetNotifyLevelRequest: {
             level?: components["schemas"]["NotifyLevel"] | null;
+        };
+        SetScheduleRequest: {
+            days: number[];
+            enabled: boolean;
+            /** Format: int32 */
+            end_minute: number;
+            /** Format: int32 */
+            start_minute: number;
         };
         SetStatusRequest: {
             emoji?: string | null;
@@ -5337,7 +5376,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DndResponse"];
+                    "application/json": components["schemas"]["DndStatus"];
                 };
             };
         };
@@ -5360,7 +5399,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DndResponse"];
+                    "application/json": components["schemas"]["DndStatus"];
                 };
             };
         };
@@ -5736,6 +5775,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserPublic"];
+                };
+            };
+        };
+    };
+    get_notification_schedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationSchedule"];
+                };
+            };
+        };
+    };
+    set_notification_schedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetScheduleRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationSchedule"];
                 };
             };
         };

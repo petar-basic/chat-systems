@@ -11,6 +11,8 @@ export type NotificationKind = components['schemas']['NotificationType'];
 
 export type RawNotification = components['schemas']['Notification'];
 
+export type DndStatus = components['schemas']['DndStatus'];
+
 export interface AppNotification {
   id: string;
   workspace_id: string;
@@ -106,8 +108,7 @@ export const useDndStatus = () => {
   return useQuery({
     queryKey: QUERY_KEYS.notificationDnd(),
     queryFn: async () => {
-      const res = await apiClient.typed((c) => c.GET('/notifications/dnd'));
-      return res.dnd_until ?? null;
+      return apiClient.typed((c) => c.GET('/notifications/dnd'));
     },
     staleTime: 1000 * 60,
   });
@@ -120,13 +121,19 @@ export const useSetDnd = () => {
     mutationFn: async (dndUntil: string | null) =>
       apiClient.typed((c) => c.PATCH('/notifications/dnd', { body: { dnd_until: dndUntil } })),
     onMutate: (dndUntil) => {
-      const previous = queryClient.getQueryData<string | null>(QUERY_KEYS.notificationDnd());
-      queryClient.setQueryData(QUERY_KEYS.notificationDnd(), dndUntil);
+      const previous = queryClient.getQueryData<DndStatus>(QUERY_KEYS.notificationDnd());
+      queryClient.setQueryData<DndStatus>(QUERY_KEYS.notificationDnd(), {
+        dnd_until: dndUntil,
+        schedule_paused_until: dndUntil ? (previous?.schedule_paused_until ?? null) : null,
+      });
       return { previous };
+    },
+    onSuccess: (status) => {
+      queryClient.setQueryData(QUERY_KEYS.notificationDnd(), status);
     },
     onError: (err, _vars, ctx) => {
       logger.error('useSetDnd', 'mutationFn', err);
-      if (ctx) queryClient.setQueryData(QUERY_KEYS.notificationDnd(), ctx.previous ?? null);
+      if (ctx) queryClient.setQueryData(QUERY_KEYS.notificationDnd(), ctx.previous);
       toast.error(ErrorLabels.NotFound);
     },
   });

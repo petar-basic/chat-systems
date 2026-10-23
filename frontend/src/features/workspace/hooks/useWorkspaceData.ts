@@ -125,6 +125,7 @@ export function useWorkspaceData(workspaceId: string | undefined, currentUserId:
           avatar_url: m.avatar_url ?? null,
           status_emoji: m.status_emoji,
           status_text: m.status_text,
+          notifications_paused_until: m.notifications_paused_until,
         })),
       );
     }

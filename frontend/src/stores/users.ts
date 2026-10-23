@@ -7,6 +7,7 @@ interface UserInfo {
   avatar_url: string | null;
   status_emoji?: string | null;
   status_text?: string | null;
+  notifications_paused_until?: string | null;
 }
 
 interface UserCacheState {

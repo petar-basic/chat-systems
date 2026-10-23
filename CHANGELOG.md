@@ -25,6 +25,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   `priority` is now `kind`.
 - Migration 58 adds the `keyword` notification type, the `notification_keywords` table and the
   `keyword_pattern()` function.
+- Migration 59 adds `notification_schedules`, `users.dnd_override_until` and the
+  `schedule_paused_until()` / `notifications_paused_until()` functions. `GET`/`PATCH
+  /notifications/dnd` now answer `{ dnd_until, schedule_paused_until }` rather than
+  `{ dnd_until }`.
 
 ### Added
 
@@ -39,6 +43,12 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   notifies you as a mention does (Activity, push, desktop), but without email and without
   moving the mention badge. Case and accents are ignored, whole words only, and the word is
   highlighted in the message for you. `GET`/`PUT /workspaces/{id}/notification-keywords`.
+- **Notification schedule.** *Preferences → Notifications → Notification schedule* sets the
+  days and hours you want to be notified, in your profile's timezone; a window may cross
+  midnight. Outside it, notifications wait in Activity: no push, desktop notification or
+  email. *Resume* lasts until the next window opens. The *You* menu now has the pause
+  controls and says why notifications are paused, and a member's hover card shows when
+  their notifications resume. `GET`/`PUT /users/me/notification-schedule`.
 
 ### Changed
 

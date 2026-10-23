@@ -65,8 +65,9 @@ pub struct UnreadCountResponse {
 }
 
 #[derive(Debug, Serialize, ToSchema)]
-pub struct DndResponse {
+pub struct DndStatus {
     pub dnd_until: Option<DateTime<Utc>>,
+    pub schedule_paused_until: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -122,4 +123,45 @@ pub struct SetKeywordsRequest {
 #[derive(Debug, Serialize, ToSchema)]
 pub struct KeywordList {
     pub keywords: Vec<String>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct NotificationSchedule {
+    pub enabled: bool,
+    pub days: Vec<i16>,
+    pub start_minute: i16,
+    pub end_minute: i16,
+    pub timezone: String,
+}
+
+#[derive(Debug, Deserialize, garde::Validate, ToSchema)]
+pub struct SetScheduleRequest {
+    #[garde(skip)]
+    pub enabled: bool,
+    #[garde(length(min = 1, max = 7), inner(range(min = 1, max = 7)))]
+    pub days: Vec<i16>,
+    #[garde(range(min = 0, max = 1439))]
+    pub start_minute: i16,
+    #[garde(range(min = 0, max = 1439), custom(differs_from(&self.start_minute)))]
+    pub end_minute: i16,
+}
+
+fn differs_from(start: &i16) -> impl FnOnce(&i16, &()) -> garde::Result + '_ {
+    move |end, _| {
+        if end == start {
+            return Err(garde::Error::new(
+                "The schedule must end at a different time than it starts",
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl SetScheduleRequest {
+    pub fn days(&self) -> Vec<i16> {
+        let mut days = self.days.clone();
+        days.sort_unstable();
+        days.dedup();
+        days
+    }
 }
