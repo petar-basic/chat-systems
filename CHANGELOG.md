@@ -14,7 +14,14 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
-## [Unreleased]
+## [3.2.0] — 2026-10-23
+
+### Upgrading from 3.1.0
+
+- Nothing is required: there are no migrations and the API is unchanged, so only the frontend
+  image differs in behaviour. The sign-in fields no longer carry the ids `email` and
+  `password`; a script that signs in through the page should select
+  `[data-qa="login-email"]` and `[data-qa="login-password"]` instead.
 
 ### Changed
 
