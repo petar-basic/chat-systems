@@ -205,6 +205,12 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - 🔴 **Edge — content sniffing / stored XSS:** upload an `.html` file containing `<script>` and then open its download URL directly in the browser → it must download as an **attachment** (`Content-Disposition: attachment`, `X-Content-Type-Options: nosniff`), NOT render/execute.
 - 🔴 **Edge — path traversal:** upload a file whose filename is `../../evil.txt` (use a tool/curl to set the multipart filename) → the server sanitizes it; nothing is written outside the data dir. (API-level: the upload still succeeds with a safe stored name.)
 
+### 6.2 🟢 Finding a file by name
+- **Steps:** post `Q3 budget.xlsx` with no text. Open search → *Files*, type `budg`.
+- **Expected:** the file is listed with a spreadsheet icon, `budg` marked in its name, its size, uploader, channel and date. Clicking it jumps to its message; an image opens the gallery; the download icon appears on hover. `type:pdf` in the box switches to *Files* and sets *Type*.
+- 🟢 **Channel panel:** the channel's *Files* panel → *Filter by name* `budg` → only matching files, and the kind tabs still narrow them.
+- 🔴 **Edge — visibility:** as a member outside a private channel, or a guest outside a public one, a file posted there is not found; neither is a file whose message was deleted, or an upload never sent.
+
 ### How to send a raw upload for the edge cases (curl)
 ```bash
 # get a token by logging in via the UI (devtools → copy access_token) or:
@@ -340,7 +346,7 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 ## 12. Known limitations to verify *don't* regress (not bugs)
 - Presence is eventually-consistent across nodes (≤60s TTL on hard node crash) — a clean disconnect is immediate.
 - Webhook dispatch validates DNS at request time (DNS-rebinding is out of scope); redirects are disabled.
-- Search is Postgres full-text (English) — stemming/relevance, not fuzzy.
+- Search matches message text and file names, not what is inside a file (CS-064).
 - A huddle holds at most eight people until the SFU (CS-037): a ninth person who presses *Join* gets "This huddle is full" and no call starts; the eight already in it see nobody join or leave.
 
 ---

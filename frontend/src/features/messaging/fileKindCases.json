@@ -1,0 +1,36 @@
+[
+  { "mime": "application/pdf", "name": "contract", "kind": "pdf" },
+  { "mime": "application/octet-stream", "name": "Scan.PDF", "kind": "pdf" },
+  { "mime": "image/png", "name": "shot.png", "kind": "image" },
+  { "mime": "image/svg+xml", "name": "logo.svg", "kind": "image" },
+  { "mime": "video/mp4", "name": "demo.mp4", "kind": "video" },
+  { "mime": "audio/mpeg", "name": "call.mp3", "kind": "audio" },
+  {
+    "mime": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "name": "Q3 budget.xlsx",
+    "kind": "spreadsheet"
+  },
+  { "mime": "application/octet-stream", "name": "numbers.csv", "kind": "spreadsheet" },
+  { "mime": "application/vnd.ms-excel", "name": "old", "kind": "spreadsheet" },
+  {
+    "mime": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "name": "deck.pptx",
+    "kind": "presentation"
+  },
+  { "mime": "application/octet-stream", "name": "talk.key", "kind": "presentation" },
+  {
+    "mime": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "name": "brief.docx",
+    "kind": "document"
+  },
+  { "mime": "application/vnd.oasis.opendocument.text", "name": "brief", "kind": "document" },
+  { "mime": "application/octet-stream", "name": "letter.rtf", "kind": "document" },
+  { "mime": "application/zip", "name": "bundle.zip", "kind": "archive" },
+  { "mime": "application/x-compressed-tar", "name": "src", "kind": "archive" },
+  { "mime": "application/octet-stream", "name": "backup.tar.gz", "kind": "archive" },
+  { "mime": "text/plain", "name": "notes.txt", "kind": "text" },
+  { "mime": "application/json", "name": "data", "kind": "text" },
+  { "mime": "application/octet-stream", "name": "main.rs", "kind": "text" },
+  { "mime": "application/octet-stream", "name": "README", "kind": "other" },
+  { "mime": "application/octet-stream", "name": "setup.dmg", "kind": "other" }
+]

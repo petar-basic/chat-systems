@@ -1,11 +1,15 @@
 import { displayNameOf } from '@/lib/userHelpers';
+import { FILE_KINDS, type FileKindName } from '@/features/messaging/fileKinds';
 
 export type HasFilter = 'file' | 'image' | 'link';
+
+export type SearchTab = 'messages' | 'files';
 
 export interface SearchFilters {
   from?: string;
   in?: string;
   has?: HasFilter;
+  kind?: FileKindName;
   on?: string;
   after?: string;
   before?: string;
@@ -23,11 +27,12 @@ export interface SearchParams {
   user_id?: string;
   channel_id?: string;
   has?: HasFilter;
+  kind?: FileKindName;
   after?: string;
   before?: string;
 }
 
-const MODIFIER = /^(from|in|has|on|before|after):(.+)$/i;
+const MODIFIER = /^(from|in|has|type|on|before|after):(.+)$/i;
 
 const HAS: Record<string, HasFilter> = {
   file: 'file',
@@ -37,6 +42,13 @@ const HAS: Record<string, HasFilter> = {
   link: 'link',
   links: 'link',
 };
+
+const KINDS = new Map(
+  (Object.keys(FILE_KINDS) as FileKindName[]).flatMap((kind) => [
+    [kind, kind],
+    [`${kind}s`, kind],
+  ]),
+);
 
 export const HAS_LABELS: Record<HasFilter, string> = { file: 'Files', image: 'Images', link: 'Links' };
 
@@ -112,6 +124,10 @@ function resolve(key: string, value: string, ctx: FilterContext): SearchFilters 
       const has = HAS[value.toLowerCase()];
       return has ? { has } : null;
     }
+    case 'type': {
+      const kind = KINDS.get(value.toLowerCase());
+      return kind ? { kind } : null;
+    }
     default: {
       const day = resolveDay(value, ctx.today);
       if (!day) return null;
@@ -156,6 +172,15 @@ export function setDate(
   return { ...filters, on: undefined, ...date };
 }
 
+export function kindLabel(kind: FileKindName): string {
+  return kind === 'other' ? 'Other' : FILE_KINDS[kind].label;
+}
+
+export function forTab(filters: SearchFilters, tab: SearchTab): SearchFilters {
+  const { has, kind, ...shared } = filters;
+  return tab === 'files' ? { ...shared, kind } : { ...shared, has };
+}
+
 export function hasFilters(filters: SearchFilters): boolean {
   return Object.values(filters).some(Boolean);
 }
@@ -167,6 +192,7 @@ export function searchParams(filters: SearchFilters): SearchParams {
   if (filters.from) params.user_id = filters.from;
   if (filters.in) params.channel_id = filters.in;
   if (filters.has) params.has = filters.has;
+  if (filters.kind) params.kind = filters.kind;
   if (filters.on) {
     params.after = startOf(filters.on);
     params.before = startOf(shiftDay(filters.on, 1));

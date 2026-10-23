@@ -1108,6 +1108,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/search/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["search_files"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/slack-imports": {
         parameters: {
             query?: never;
@@ -2673,6 +2689,19 @@ export interface components {
                 workspace_id: string;
             }[];
         };
+        DataList_FileSearchHit: {
+            data: (components["schemas"]["Attachment"] & {
+                /** Format: uuid */
+                channel_id: string;
+                /** Format: date-time */
+                created_at: string;
+                kind: components["schemas"]["FileKind"];
+                /** Format: uuid */
+                message_id: string;
+                /** Format: uuid */
+                user_id: string;
+            })[];
+        };
         DataList_Hook: {
             data: {
                 config: unknown;
@@ -3001,6 +3030,8 @@ export interface components {
         ExportScope: "workspace" | "user";
         /** @enum {string} */
         ExportStatus: "pending" | "running" | "complete" | "failed";
+        /** @enum {string} */
+        FileKind: "pdf" | "image" | "video" | "audio" | "spreadsheet" | "presentation" | "document" | "archive" | "text" | "other";
         FileMeta: {
             file: components["schemas"]["FileRecord"];
             url: string;
@@ -3026,6 +3057,17 @@ export interface components {
             width?: number | null;
             /** Format: uuid */
             workspace_id: string;
+        };
+        FileSearchHit: components["schemas"]["Attachment"] & {
+            /** Format: uuid */
+            channel_id: string;
+            /** Format: date-time */
+            created_at: string;
+            kind: components["schemas"]["FileKind"];
+            /** Format: uuid */
+            message_id: string;
+            /** Format: uuid */
+            user_id: string;
         };
         FileUploadResponse: {
             filename: string;
@@ -5625,6 +5667,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SearchResponse"];
+                };
+            };
+        };
+    };
+    search_files: {
+        parameters: {
+            query: {
+                q?: string | null;
+                workspace_id: string;
+                channel_id?: string | null;
+                user_id?: string | null;
+                kind?: ("pdf" | "image" | "video" | "audio" | "spreadsheet" | "presentation" | "document" | "archive" | "text" | "other") | null;
+                after?: string | null;
+                before?: string | null;
+                limit?: number | null;
+                offset?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_FileSearchHit"];
                 };
             };
         };

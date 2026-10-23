@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { SearchFilterBar } from './SearchFilterBar';
-import type { FilterContext, SearchFilters } from './searchFilters';
+import type { FilterContext, SearchFilters, SearchTab } from './searchFilters';
 
 const context: FilterContext = {
   members: [
@@ -14,9 +14,9 @@ const context: FilterContext = {
   today: new Date(2026, 9, 22),
 };
 
-function renderBar(filters: SearchFilters = {}) {
+function renderBar(filters: SearchFilters = {}, tab: SearchTab = 'messages') {
   const onChange = vi.fn();
-  render(<SearchFilterBar filters={filters} onChange={onChange} context={context} />);
+  render(<SearchFilterBar filters={filters} onChange={onChange} context={context} tab={tab} />);
   return onChange;
 }
 
@@ -49,6 +49,14 @@ describe('SearchFilterBar', () => {
     fireEvent.click(screen.getByTestId('search-filter-has'));
     fireEvent.click(screen.getByText('Links'));
     expect(onChange).toHaveBeenCalledWith({ has: 'link' });
+  });
+
+  it('on the Files tab picks a type instead of what a message has', () => {
+    const onChange = renderBar({ has: 'link' }, 'files');
+    expect(screen.queryByTestId('search-filter-has')).toBeNull();
+    fireEvent.click(screen.getByTestId('search-filter-type'));
+    fireEvent.click(screen.getByText('Spreadsheet'));
+    expect(onChange).toHaveBeenCalledWith({ has: 'link', kind: 'spreadsheet' });
   });
 
   it('picks a date preset and a custom range', () => {

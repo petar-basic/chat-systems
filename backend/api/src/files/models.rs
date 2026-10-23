@@ -94,3 +94,54 @@ pub struct ChannelFile {
     pub user_id: Uuid,
     pub created_at: DateTime<Utc>,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type, ToSchema)]
+#[sqlx(type_name = "file_kind", rename_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
+pub enum FileKind {
+    Pdf,
+    Image,
+    Video,
+    Audio,
+    Spreadsheet,
+    Presentation,
+    Document,
+    Archive,
+    Text,
+    Other,
+}
+
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
+pub struct FileSearchQuery {
+    pub q: Option<String>,
+    pub workspace_id: Uuid,
+    pub channel_id: Option<Uuid>,
+    pub user_id: Option<Uuid>,
+    #[param(inline)]
+    pub kind: Option<FileKind>,
+    pub after: Option<DateTime<Utc>>,
+    pub before: Option<DateTime<Utc>>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
+impl FileSearchQuery {
+    pub fn has_filter(&self) -> bool {
+        self.channel_id.is_some()
+            || self.user_id.is_some()
+            || self.kind.is_some()
+            || self.after.is_some()
+            || self.before.is_some()
+    }
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct FileSearchHit {
+    #[serde(flatten)]
+    pub attachment: Attachment,
+    pub kind: FileKind,
+    pub message_id: Uuid,
+    pub channel_id: Uuid,
+    pub user_id: Uuid,
+    pub created_at: DateTime<Utc>,
+}

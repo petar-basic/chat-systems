@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use sqlx::{PgConnection, PgPool};
 use uuid::Uuid;
 
-use super::models::FileRecord;
+use super::models::{FileKind, FileRecord};
 
 pub struct NewFile<'a> {
     pub user_id: Uuid,
@@ -16,6 +16,27 @@ pub struct NewFile<'a> {
     pub thumbnail_key: Option<&'a str>,
     pub width: Option<i32>,
     pub height: Option<i32>,
+}
+
+pub struct FileSearch<'a> {
+    pub query: &'a str,
+    pub workspace_id: Uuid,
+    pub requester_id: Uuid,
+    pub requester_is_guest: bool,
+    pub channel_id: Option<Uuid>,
+    pub uploader_id: Option<Uuid>,
+    pub kind: Option<FileKind>,
+    pub after: Option<DateTime<Utc>>,
+    pub before: Option<DateTime<Utc>>,
+    pub limit: i64,
+    pub offset: i64,
+}
+
+pub struct FileMatch {
+    pub record: FileRecord,
+    pub message_id: Uuid,
+    pub channel_id: Uuid,
+    pub kind: FileKind,
 }
 
 pub struct FileRepo {
@@ -216,6 +237,81 @@ impl FileRepo {
         )
         .fetch_all(&self.pool)
         .await
+    }
+
+    pub async fn search(&self, params: FileSearch<'_>) -> sqlx::Result<Vec<FileMatch>> {
+        let mut tx = self.pool.begin().await?;
+        sqlx::query_scalar!(
+            r#"SELECT set_config('plan_cache_mode', 'force_custom_plan', true) AS "mode!""#
+        )
+        .fetch_one(&mut *tx)
+        .await?;
+        let rows = sqlx::query!(
+            r#"
+            WITH visible AS MATERIALIZED (
+              SELECT id FROM public.searchable_channels($2, $3, $4, $5, TRUE, TRUE) AS id
+            ),
+            wanted AS (
+              SELECT public.search_normalize($1) AS term,
+                     '%' || replace(replace(replace(public.search_normalize($1), '\', '\\'), '%', '\%'), '_', '\_') || '%' AS pattern
+            )
+            SELECT f.id, f.user_id, f.workspace_id, f.filename, f.storage_key, f.mime_type,
+                   f.size_bytes, f.thumbnail_key, f.width, f.height, f.created_at,
+                   m.id AS message_id, m.channel_id,
+                   public.file_kind_of(f.mime_type, f.filename) AS "kind!: FileKind"
+              FROM files f
+              JOIN messages m ON m.id = f.message_id
+              CROSS JOIN wanted w
+             WHERE f.workspace_id = $2
+               AND m.deleted_at IS NULL
+               AND m.channel_id IN (SELECT id FROM visible)
+               AND ($1 = '' OR f.search_name ILIKE w.pattern OR w.term <% f.search_name)
+               AND ($6::uuid IS NULL OR f.user_id = $6)
+               AND ($7::file_kind IS NULL OR public.file_kind_of(f.mime_type, f.filename) = $7)
+               AND ($8::timestamptz IS NULL OR f.created_at >= $8)
+               AND ($9::timestamptz IS NULL OR f.created_at < $9)
+             ORDER BY ($1 <> '' AND f.search_name ILIKE w.pattern) DESC,
+                      word_similarity(w.term, f.search_name) DESC,
+                      f.created_at DESC, f.id DESC
+             LIMIT $10 OFFSET $11
+            "#,
+            params.query,
+            params.workspace_id,
+            params.requester_id,
+            params.channel_id,
+            params.requester_is_guest,
+            params.uploader_id,
+            params.kind as Option<FileKind>,
+            params.after,
+            params.before,
+            params.limit,
+            params.offset
+        )
+        .fetch_all(&mut *tx)
+        .await?;
+        tx.commit().await?;
+        Ok(rows
+            .into_iter()
+            .map(|row| FileMatch {
+                message_id: row.message_id,
+                channel_id: row.channel_id,
+                kind: row.kind,
+                record: FileRecord {
+                    id: row.id,
+                    message_id: Some(row.message_id),
+                    user_id: row.user_id,
+                    workspace_id: row.workspace_id,
+                    filename: row.filename,
+                    storage_key: row.storage_key,
+                    mime_type: row.mime_type,
+                    size_bytes: row.size_bytes,
+                    thumbnail_key: row.thumbnail_key,
+                    width: row.width,
+                    height: row.height,
+                    created_at: row.created_at,
+                },
+            })
+            .collect())
     }
 
     pub async fn channel_id_for_message(&self, message_id: Uuid) -> sqlx::Result<Option<Uuid>> {

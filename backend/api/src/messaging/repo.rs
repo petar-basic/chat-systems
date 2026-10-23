@@ -675,20 +675,7 @@ impl MessageRepo {
             Message,
             r#"
             WITH visible AS MATERIALIZED (
-              SELECT c.id FROM channels c
-              WHERE c.workspace_id = $2
-                AND ($4::uuid IS NULL OR c.id = $4)
-                AND (
-                  EXISTS (
-                    SELECT 1 FROM channel_members cm
-                    WHERE cm.channel_id = c.id AND cm.user_id = $3
-                  )
-                  -- Guests are held to explicit membership everywhere else
-                  -- (`authz::require_channel_access`); search must not be the one
-                  -- door that opens every public channel to them.
-                  OR (NOT $8::bool AND c.channel_type = 'public')
-                )
-                AND CASE WHEN c.channel_type IN ('dm', 'group_dm') THEN $9::bool ELSE $10::bool END
+              SELECT id FROM public.searchable_channels($2, $3, $4, $8, $9, $10) AS id
             ),
             exact AS MATERIALIZED (
               SELECT m.id, m.created_at,

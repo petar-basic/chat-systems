@@ -56,7 +56,7 @@ What a team moving from Slack should expect to be missing or different:
 | **No native mobile app.** The web app is responsive and installs as a PWA with push, but there is nothing in an app store. | Deliberate — see [ROADMAP.md](docs/ROADMAP.md#wave-11--guest-containment-operational-readiness-and-mobile--shipped); React Native only if push reliability or call ringing proves to be the blocker |
 | **Huddles are peer-to-peer mesh**, capped at eight people; not a 30-person all-hands. No recording. | SFU held for 4.0.0 ([CS-037](docs/tickets/CS-037-huddle-sfu.md)); recording deliberately out of scope |
 | **Presence is derived, not declared.** Online / away / offline follows whether you hold a connection; there is no manual "away". A custom status ("In a meeting 🍕") is the separate thing, and that you do set yourself. | Deliberate |
-| **Search covers message text**, not file names or file contents. | Planned: names ([CS-063](docs/tickets/CS-063-file-name-search.md)), then contents ([CS-064](docs/tickets/CS-064-file-content-search.md)) |
+| **Search covers message text and file names**, not what is inside a file. | Planned: contents ([CS-064](docs/tickets/CS-064-file-content-search.md)) |
 | **No workflow builder, lists or polls yet.** | Planned: [CS-065](docs/tickets/CS-065-polls.md), [CS-066](docs/tickets/CS-066-lists.md), [CS-067](docs/tickets/CS-067-workflow-builder.md) |
 | **No app directory or shared channels across organisations.** | Not planned |
 
@@ -149,7 +149,7 @@ Honest about the edges, since this is a reference codebase:
   capped at eight; large all-hands calls need the SFU planned for 4.0.0.
 - **One instance is one trust domain.** SSO, TOTP and SCIM are per instance, not per
   workspace, and there is no cross-organisation sharing.
-- **Search covers message text**, not file names or contents.
+- **Search covers message text and file names**, not what is inside a file.
 
 The full prioritized list lives in **[docs/ROADMAP.md](docs/ROADMAP.md)**.
 

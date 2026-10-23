@@ -165,8 +165,9 @@ export default function ChannelHeader({
             </button>
             <button
               onClick={onToggleSearch}
-              aria-label="Search messages"
+              aria-label="Search"
               aria-pressed={showSearch}
+              data-qa="channel-header-search"
               className={`p-1.5 rounded-lg transition ${showSearch ? 'bg-raised text-fg' : 'text-muted hover:text-fg hover:bg-raised/50'}`}
             >
               <Search className="w-4 h-4" />

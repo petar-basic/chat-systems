@@ -2929,6 +2929,146 @@
         }
       }
     },
+    "/search/files": {
+      "get": {
+        "tags": [
+          "files"
+        ],
+        "operationId": "search_files",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "channel_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "pdf",
+                    "image",
+                    "video",
+                    "audio",
+                    "spreadsheet",
+                    "presentation",
+                    "document",
+                    "archive",
+                    "text",
+                    "other"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_FileSearchHit"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/slack-imports": {
       "post": {
         "tags": [
@@ -8059,6 +8199,55 @@
           }
         }
       },
+      "DataList_FileSearchHit": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Attachment"
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "message_id",
+                    "channel_id",
+                    "user_id",
+                    "created_at"
+                  ],
+                  "properties": {
+                    "channel_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "kind": {
+                      "$ref": "#/components/schemas/FileKind"
+                    },
+                    "message_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "user_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
       "DataList_Hook": {
         "type": "object",
         "required": [
@@ -9187,6 +9376,21 @@
           "failed"
         ]
       },
+      "FileKind": {
+        "type": "string",
+        "enum": [
+          "pdf",
+          "image",
+          "video",
+          "audio",
+          "spreadsheet",
+          "presentation",
+          "document",
+          "archive",
+          "text",
+          "other"
+        ]
+      },
       "FileMeta": {
         "type": "object",
         "required": [
@@ -9272,6 +9476,44 @@
             "format": "uuid"
           }
         }
+      },
+      "FileSearchHit": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Attachment"
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind",
+              "message_id",
+              "channel_id",
+              "user_id",
+              "created_at"
+            ],
+            "properties": {
+              "channel_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "kind": {
+                "$ref": "#/components/schemas/FileKind"
+              },
+              "message_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "user_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
+        ]
       },
       "FileUploadResponse": {
         "type": "object",

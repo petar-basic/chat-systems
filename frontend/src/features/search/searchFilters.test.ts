@@ -3,6 +3,7 @@ import {
   dateLabel,
   extractFilters,
   findMember,
+  forTab,
   placeName,
   searchParams,
   setDate,
@@ -59,8 +60,17 @@ describe('extractFilters', () => {
     });
   });
 
+  it('reads a file type, singular or plural', () => {
+    expect(extractFilters('budget type:spreadsheets ', ctx, false)).toEqual({
+      text: 'budget ',
+      filters: { kind: 'spreadsheet' },
+    });
+    expect(extractFilters('type:PDF', ctx, true)).toEqual({ text: '', filters: { kind: 'pdf' } });
+  });
+
   it('leaves what it cannot place as words', () => {
     expect(extractFilters('in:#nowhere has:gif ', ctx, false)).toBeNull();
+    expect(extractFilters('type:gif ', ctx, false)).toBeNull();
     expect(extractFilters('in:#nowhere from:me ', ctx, false)).toEqual({
       text: 'in:#nowhere ',
       filters: { from: 'u-me' },
@@ -93,6 +103,12 @@ describe('searchParams', () => {
       channel_id: 'c-design',
       has: 'link',
     });
+  });
+
+  it('keeps has: to messages and type: to files', () => {
+    const filters = { from: 'u-ana', has: 'file' as const, kind: 'pdf' as const };
+    expect(searchParams(forTab(filters, 'messages'))).toEqual({ user_id: 'u-ana', has: 'file' });
+    expect(searchParams(forTab(filters, 'files'))).toEqual({ user_id: 'u-ana', kind: 'pdf' });
   });
 
   it('reads after and before as Slack does, both excluding the day named', () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import ChannelFilesPanel from './ChannelFilesPanel';
 
 const file = (id: string, filename: string, mime_type: string) => ({
@@ -14,7 +14,21 @@ const file = (id: string, filename: string, mime_type: string) => ({
 });
 
 const kinds: (string | null)[] = [];
+const names: string[] = [];
 vi.mock('@/hooks/queries/useChannelFiles', () => ({
+  useChannelFileSearch: (_workspaceId: string | undefined, _channelId: string, name: string) => {
+    names.push(name);
+    return {
+      data: name
+        ? [
+            { ...file('3', 'Q3 budget.xlsx', 'application/vnd.ms-excel'), kind: 'spreadsheet' },
+            { ...file('4', 'budget-chart.png', 'image/png'), kind: 'image' },
+          ]
+        : undefined,
+      isLoading: false,
+      isError: false,
+    };
+  },
   useChannelFiles: (_channelId: string, kind: string | null) => {
     kinds.push(kind);
     return {
@@ -33,6 +47,7 @@ vi.mock('@/hooks/queries/useChannelFiles', () => ({
 describe('ChannelFilesPanel', () => {
   beforeEach(() => {
     kinds.length = 0;
+    names.length = 0;
   });
 
   it('shows images as a grid and other files as rows that lead back to the message', () => {
@@ -52,5 +67,17 @@ describe('ChannelFilesPanel', () => {
     expect(kinds.at(-1)).toBe('document');
     fireEvent.click(screen.getByTitle('shot.png'));
     expect(screen.getByTestId('image-lightbox')).toBeInTheDocument();
+  });
+
+  it('filters by name through search and keeps the kind tab', async () => {
+    render(<ChannelFilesPanel channelId="ch" onClose={vi.fn()} onNavigate={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('Filter files by name'), { target: { value: ' budg ' } });
+    await waitFor(() => expect(names.at(-1)).toBe('budg'));
+    expect(screen.getByTestId('channel-file-row')).toHaveTextContent('Q3 budget.xlsx');
+    expect(screen.getByTitle('budget-chart.png')).toBeInTheDocument();
+    expect(screen.queryByText('plan.pdf')).toBeNull();
+    fireEvent.click(screen.getByTestId('channel-files-tab-document'));
+    expect(screen.queryByTitle('budget-chart.png')).toBeNull();
+    expect(screen.getByTestId('channel-file-row')).toHaveTextContent('Q3 budget.xlsx');
   });
 });
