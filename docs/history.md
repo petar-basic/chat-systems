@@ -1307,7 +1307,7 @@ menu has both entries.
 
 ---
 
-## Wave 21 — Notifications that fit how a team works
+## Wave 21 — Notifications that fit how a team works ✅ shipped
 
 ### [CS-060] Notification levels ✅ shipped
 A channel was muted or it was not, and the decision of what rang was split between the
@@ -1348,3 +1348,22 @@ client folds the same way to highlight the word in the message, from a store rat
 query per message. The mention badge deliberately does not move for a keyword — the
 counters are written with the message, and a per-member regex scan does not belong on the
 send path — and `docs/frontend.md` says so before somebody files it as a bug.
+
+### [CS-062] Notification schedule ✅ shipped
+Do not disturb was a timer, so a working day had to be set by hand every evening, and in
+practice people got pushes at 23:00 or turned push off. A person now keeps one window — the
+same start and end on the days they pick, in their profile's timezone, possibly across
+midnight — and outside it notifications wait in Activity.
+
+"Paused" has one definition, `notifications_paused_until(user, at)` in SQL: the later of the
+timer and the schedule's next opening. The push path, the email digest, the `/dnd` status
+and the member list all ask it, and every caller passes the instant in, so tests pin the
+clock instead of trusting the database's (a Docker VM's clock drifts). The window is
+compared in local wall time, which keeps 9:00 at 9:00 on the mornings the clocks change.
+*Resume* during a scheduled pause stores when the next window opens and ignores the
+schedule until then, as Slack does.
+
+The ticket assumed a pause already shown on the profile card and in the *You* menu; neither
+existed, the only control being the Activity panel's moon. The pause controls became one
+component used in both places, saying whether the schedule or a timer is the reason, and the
+member list carries each person's `notifications_paused_until` for the hover card.

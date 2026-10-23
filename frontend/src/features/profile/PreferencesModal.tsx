@@ -5,7 +5,7 @@ import PushNotificationsPanel from '@/components/PushNotificationsPanel';
 import EmailNotificationsPanel from '@/components/EmailNotificationsPanel';
 import ThemePicker from '@/components/ThemePicker';
 import TwoFactorPanel from '@/components/TwoFactorPanel';
-import { KeywordsPanel, NotifyDefaultPanel } from '@/features/notifications';
+import { KeywordsPanel, NotifyDefaultPanel, ScheduleEditor } from '@/features/notifications';
 
 export type PreferencesSection = 'notifications' | 'appearance' | 'security';
 
@@ -95,6 +95,7 @@ export function PreferencesModal({ initial = 'notifications', onClose }: Props) 
             <>
               <NotifyDefaultPanel />
               <KeywordsPanel />
+              <ScheduleEditor />
               <PushNotificationsPanel />
               <EmailNotificationsPanel />
             </>

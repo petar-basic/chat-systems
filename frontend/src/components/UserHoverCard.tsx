@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
-import { MessageSquare, Phone } from 'lucide-react';
+import { MessageSquare, Moon, Phone } from 'lucide-react';
 import { HoverCard } from '@/shared/components/Popover/HoverCard';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import PresenceDot from '@/components/PresenceDot';
@@ -12,6 +12,7 @@ import { useCurrentUser } from '@/hooks/queries/useAuth';
 import { useOpenConversation } from '@/hooks/queries/useConversations';
 import { useStartHuddle } from '@/hooks/queries/useHuddle';
 import { displayNameOf } from '@/lib/userHelpers';
+import { currentPause, formatResume } from '@/lib/pause';
 import { logger } from '@/lib/logger';
 import { ROUTES } from '@/shared/constants';
 
@@ -77,6 +78,7 @@ function UserCardBody({
   const displayName = displayNameOf(cached?.display_name ?? name);
   const statusText = cached?.status_text?.trim();
   const statusEmoji = cached?.status_emoji?.trim();
+  const paused = currentPause({ dnd_until: cached?.notifications_paused_until });
 
   const onMessage = async () => {
     if (busy) return;
@@ -120,6 +122,12 @@ function UserCardBody({
             <PresenceDot userId={userId} className="w-2 h-2" />
             <span className="text-xs text-muted">{PRESENCE_LABEL[presence]}</span>
           </div>
+          {paused && (
+            <div className="flex items-center gap-1 text-xs text-muted mt-1" data-qa="hover-card-paused">
+              <Moon className="w-3 h-3 shrink-0" />
+              Notifications paused until {formatResume(paused.until)}
+            </div>
+          )}
           {(statusEmoji || statusText) && (
             <div className="text-xs text-fg-dim mt-1 truncate">
               {statusEmoji && <span className="mr-1">{statusEmoji}</span>}

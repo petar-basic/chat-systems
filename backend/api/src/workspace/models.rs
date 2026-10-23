@@ -70,6 +70,7 @@ pub struct MemberWithUser {
     pub avatar_url: Option<String>,
     pub status_emoji: Option<String>,
     pub status_text: Option<String>,
+    pub notifications_paused_until: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

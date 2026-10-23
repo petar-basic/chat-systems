@@ -283,6 +283,16 @@ messages*, *Mentions*, *Nothing* — and, for a channel, *Mute channel*. It is a
 `BellOff` for nothing or muted; a sidebar row on nothing or muted carries a small `BellOff`.
 On a phone the header's overflow menu opens the same menu.
 
+### `notifications/ScheduleEditor` and `PauseMenuItems`
+*Notification schedule* in *Preferences → Notifications*: a switch, day chips (with
+*Weekdays* and *Every day*), and *From*/*To* selects in 30-minute steps, saved as they change;
+*To* never offers the start time, and moving *From* onto the end pushes the end 30 minutes on.
+The hours are in the profile's timezone, which the editor names. `PauseMenuItems` is the pause
+section of the *You* menu and the Activity panel's moon: presets while notifications are on,
+and "Paused by your schedule until 9:00" or "Paused until 14:30" with *Resume* while they are
+not (`lib/pause.ts` decides which). The profile hover card shows a member's pause from
+`notifications_paused_until` in the member list.
+
 ### `notifications/KeywordsPanel`
 *My keywords* in *Preferences → Notifications*: a field that adds a chip on Enter or a comma,
 and a remove button per chip; every change saves the whole list. `lib/keywords.ts` refuses
@@ -450,9 +460,10 @@ use the channel hooks above with the conversation id as `channelId`.
 | `useMarkNotificationsRead(wsId)` | POST `/notifications/read` `{ notification_ids }` | Mark specific read (optimistic) |
 | `useMarkChannelNotificationsRead(wsId)` | POST `/workspaces/{id}/channels/{channelId}/notifications/read` | Mark a channel's notifications read |
 | `useMarkAllNotificationsRead(wsId)` | POST `/workspaces/{id}/notifications/read-all` | Mark all read |
-| `useDndStatus()` / `useSetDnd()` | GET/PATCH `/notifications/dnd` | Do-not-disturb window |
+| `useDndStatus()` / `useSetDnd()` | GET/PATCH `/notifications/dnd` | `{ dnd_until, schedule_paused_until }`; setting `null` resumes, including during a scheduled pause |
 | `useNotifyDefault(wsId)` / `useSetNotifyDefault(wsId)` | GET/PUT `/workspaces/{id}/notify-default` | The caller's default level (optimistic); a change refetches channels and conversations |
 | `useSetNotifyLevel(wsId)` | PUT `/channels/{id}/notify-level` `{ level }` | One channel's or DM's level; the answer is merged into the channels and conversations caches |
+| `useNotificationSchedule()` / `useSetNotificationSchedule()` | GET/PUT `/users/me/notification-schedule` | The caller's schedule (optimistic); a change refetches the DND status |
 | `useNotificationKeywords(wsId)` / `useSetNotificationKeywords(wsId)` | GET/PUT `/workspaces/{id}/notification-keywords` | The caller's keywords; a change is optimistic and rolls back on error |
 
 ### Huddles (`hooks/queries/useHuddle.ts`)

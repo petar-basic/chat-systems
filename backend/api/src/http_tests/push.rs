@@ -1045,3 +1045,46 @@ async fn a_keyword_under_dnd_waits_in_activity(pool: PgPool) {
     assert_eq!(s.post(s.ch_id, "deploy done", false, None).await, 0);
     assert_eq!(s.activity().await, vec!["keyword"]);
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn the_digest_waits_while_the_schedule_pauses_notifications(pool: PgPool) {
+    let s = scene(pool).await;
+    sqlx::query(
+        "INSERT INTO pending_mention_emails \
+           (user_id, workspace_id, sender_name, channel_name, created_at) \
+         VALUES ($1, $2, 'Ana', 'general', NOW() - INTERVAL '10 minutes')",
+    )
+    .bind(s.target)
+    .bind(s.ws_id)
+    .execute(&s.state.pool)
+    .await
+    .expect("queue");
+    let now = chrono::Utc::now();
+    let minute = |offset: i64| (((now.timestamp() / 60 + offset) % 1440 + 1440) % 1440) as i16;
+    s.state
+        .notification_repo
+        .set_schedule(
+            s.target,
+            true,
+            &[1, 2, 3, 4, 5, 6, 7],
+            minute(120),
+            minute(180),
+        )
+        .await
+        .expect("schedule");
+
+    assert_eq!(crate::notifications::email::flush_due(&s.state).await, 0);
+
+    s.state
+        .notification_repo
+        .set_schedule(
+            s.target,
+            false,
+            &[1, 2, 3, 4, 5, 6, 7],
+            minute(120),
+            minute(180),
+        )
+        .await
+        .expect("schedule off");
+    assert_eq!(crate::notifications::email::flush_due(&s.state).await, 1);
+}

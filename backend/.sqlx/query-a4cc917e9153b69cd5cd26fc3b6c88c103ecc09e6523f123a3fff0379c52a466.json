@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO notification_schedules (user_id, enabled, days, start_minute, end_minute)\n             VALUES ($1, $2, $3, $4, $5)\n             ON CONFLICT (user_id) DO UPDATE\n                SET enabled = EXCLUDED.enabled, days = EXCLUDED.days,\n                    start_minute = EXCLUDED.start_minute, end_minute = EXCLUDED.end_minute,\n                    updated_at = NOW()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool",
+        "Int2Array",
+        "Int2",
+        "Int2"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a4cc917e9153b69cd5cd26fc3b6c88c103ecc09e6523f123a3fff0379c52a466"
+}

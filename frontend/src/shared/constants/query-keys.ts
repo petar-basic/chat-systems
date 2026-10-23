@@ -30,6 +30,7 @@ export const QUERY_KEYS = {
   notifications: (workspaceId: string) => ['notifications', workspaceId] as const,
   notificationUnreadCount: (workspaceId: string) => ['notifications', workspaceId, 'unread-count'] as const,
   notificationDnd: () => ['notifications', 'dnd'] as const,
+  notificationSchedule: () => ['notifications', 'schedule'] as const,
   notifyDefault: (workspaceId: string) => ['notify-default', workspaceId] as const,
   notificationKeywords: (workspaceId: string) => ['notification-keywords', workspaceId] as const,
 

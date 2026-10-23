@@ -24,6 +24,10 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(mark_channel_read))
         .routes(routes!(unread_count))
         .routes(routes!(get_dnd, set_dnd))
+        .routes(routes!(
+            get_notification_schedule,
+            set_notification_schedule
+        ))
         .routes(routes!(get_email_preference, set_email_preference))
         .routes(routes!(set_channel_notify_level))
         .routes(routes!(get_notify_default, set_notify_default))
@@ -104,28 +108,59 @@ async fn unread_count(
     }))
 }
 
-#[utoipa::path(get, path = "/notifications/dnd", tag = "notifications", responses((status = 200, body = DndResponse)))]
-async fn get_dnd(
-    State(state): State<Arc<AppState>>,
-    auth: AuthUser,
-) -> AppResult<Json<DndResponse>> {
-    let dnd_until = state.notification_repo.get_dnd(auth.user_id).await?;
-    Ok(Json(DndResponse { dnd_until }))
+#[utoipa::path(get, path = "/notifications/dnd", tag = "notifications", responses((status = 200, body = DndStatus)))]
+async fn get_dnd(State(state): State<Arc<AppState>>, auth: AuthUser) -> AppResult<Json<DndStatus>> {
+    let status = state
+        .notification_repo
+        .dnd_status(auth.user_id, chrono::Utc::now())
+        .await?;
+    Ok(Json(status))
 }
 
-#[utoipa::path(patch, path = "/notifications/dnd", tag = "notifications", request_body = SetDndRequest, responses((status = 200, body = DndResponse)))]
+#[utoipa::path(patch, path = "/notifications/dnd", tag = "notifications", request_body = SetDndRequest, responses((status = 200, body = DndStatus)))]
 async fn set_dnd(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Json(req): Json<SetDndRequest>,
-) -> AppResult<Json<DndResponse>> {
+) -> AppResult<Json<DndStatus>> {
+    let now = chrono::Utc::now();
     state
         .notification_repo
-        .set_dnd(auth.user_id, req.dnd_until)
+        .set_dnd_at(auth.user_id, req.dnd_until, now)
         .await?;
-    Ok(Json(DndResponse {
-        dnd_until: req.dnd_until,
-    }))
+    let status = state
+        .notification_repo
+        .dnd_status(auth.user_id, now)
+        .await?;
+    Ok(Json(status))
+}
+
+#[utoipa::path(get, path = "/users/me/notification-schedule", tag = "notifications", responses((status = 200, body = NotificationSchedule)))]
+async fn get_notification_schedule(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+) -> AppResult<Json<NotificationSchedule>> {
+    Ok(Json(state.notification_repo.schedule(auth.user_id).await?))
+}
+
+#[utoipa::path(put, path = "/users/me/notification-schedule", tag = "notifications", request_body = SetScheduleRequest, responses((status = 200, body = NotificationSchedule)))]
+async fn set_notification_schedule(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Json(req): Json<SetScheduleRequest>,
+) -> AppResult<Json<NotificationSchedule>> {
+    req.validate()?;
+    state
+        .notification_repo
+        .set_schedule(
+            auth.user_id,
+            req.enabled,
+            &req.days(),
+            req.start_minute,
+            req.end_minute,
+        )
+        .await?;
+    Ok(Json(state.notification_repo.schedule(auth.user_id).await?))
 }
 
 /// Whether to email a mention that reached nobody. On by default: somebody who

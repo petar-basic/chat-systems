@@ -21,21 +21,16 @@ import {
   useMarkAllNotificationsRead,
   useMarkNotificationsRead,
   useDndStatus,
-  useSetDnd,
   type AppNotification,
   type NotificationKind,
 } from '../hooks/queries/useNotifications';
 import { flattenMentions } from '@/lib/mentions';
+import { currentPause, pauseLabel } from '@/lib/pause';
+import { PauseMenuItems } from '@/features/notifications';
 import { useNotificationPrefs } from '@/stores/notificationPrefs';
 import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
 import { QueryState } from '@/shared/components/QueryState/QueryState';
 import { ActionLabels, EmptyLabels, RELATIVE_TIME_TICK_MS } from '@/shared/constants';
-
-const DND_PRESETS: { label: string; minutes: number }[] = [
-  { label: 'For 30 minutes', minutes: 30 },
-  { label: 'For 1 hour', minutes: 60 },
-  { label: 'For 2 hours', minutes: 120 },
-];
 
 interface Props {
   workspaceId: string;
@@ -68,21 +63,6 @@ function notificationIcon(type: NotificationKind) {
     default:
       return <Info className="w-3.5 h-3.5 text-muted" />;
   }
-}
-
-function isDndActive(dndUntil: string | null | undefined): boolean {
-  return !!dndUntil && new Date(dndUntil).getTime() > Date.now();
-}
-
-function snoozeUntilIso(minutes: number): string {
-  return new Date(Date.now() + minutes * 60000).toISOString();
-}
-
-function tomorrowMorningIso(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  d.setHours(8, 0, 0, 0);
-  return d.toISOString();
 }
 
 function formatRelativeTime(iso: string) {
@@ -147,25 +127,11 @@ export default function NotificationsPanel({ workspaceId, onClose, onNavigate }:
   const markAllRead = useMarkAllNotificationsRead(workspaceId);
   const { soundEnabled, toggleSound } = useNotificationPrefs();
 
-  const { data: dndUntil } = useDndStatus();
-  const setDnd = useSetDnd();
-  const dndActive = isDndActive(dndUntil);
+  const { data: dndStatus } = useDndStatus();
+  const pause = currentPause(dndStatus);
   const [dndMenuOpen, setDndMenuOpen] = useState(false);
   const dndRef = useRef<HTMLDivElement>(null);
   useOnClickOutside(dndRef, () => setDndMenuOpen(false), dndMenuOpen);
-
-  const snooze = (minutes: number) => {
-    setDnd.mutate(snoozeUntilIso(minutes));
-    setDndMenuOpen(false);
-  };
-  const snoozeUntilTomorrow = () => {
-    setDnd.mutate(tomorrowMorningIso());
-    setDndMenuOpen(false);
-  };
-  const clearDnd = () => {
-    setDnd.mutate(null);
-    setDndMenuOpen(false);
-  };
 
   const [filter, setFilter] = useState<Filter>('all');
   const [, setTick] = useState(0);
@@ -211,43 +177,15 @@ export default function NotificationsPanel({ workspaceId, onClose, onNavigate }:
             )}
             <div className="relative" ref={dndRef}>
               <IconButton
-                label={dndActive ? 'Do not disturb is on' : 'Pause notifications'}
+                label={pause ? pauseLabel(pause) : 'Pause notifications'}
                 icon={<Moon className="h-4 w-4" />}
-                pressed={dndActive}
+                pressed={!!pause}
                 onClick={() => setDndMenuOpen((v) => !v)}
-                className={dndActive ? 'text-accent' : ''}
+                className={pause ? 'text-accent' : ''}
               />
               {dndMenuOpen && (
-                <div className="absolute right-0 top-full mt-1 w-44 bg-surface border border-line rounded-lg shadow-xl z-10 py-1">
-                  {dndActive ? (
-                    <button
-                      onClick={clearDnd}
-                      className="w-full px-3 py-2 text-left text-sm text-accent-soft hover:bg-raised"
-                    >
-                      Turn off Do Not Disturb
-                    </button>
-                  ) : (
-                    <>
-                      <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-subtle">
-                        Pause notifications
-                      </div>
-                      {DND_PRESETS.map((p) => (
-                        <button
-                          key={p.minutes}
-                          onClick={() => snooze(p.minutes)}
-                          className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised"
-                        >
-                          {p.label}
-                        </button>
-                      ))}
-                      <button
-                        onClick={snoozeUntilTomorrow}
-                        className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised"
-                      >
-                        Until tomorrow
-                      </button>
-                    </>
-                  )}
+                <div className="absolute right-0 top-full mt-1 w-56 bg-surface border border-line rounded-lg shadow-xl z-10 py-1">
+                  <PauseMenuItems onDone={() => setDndMenuOpen(false)} />
                 </div>
               )}
             </div>

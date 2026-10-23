@@ -689,3 +689,262 @@ async fn keywords_belong_to_a_member_of_the_workspace(pool: PgPool) {
     let (status, _) = send(&app, "PUT", &route, None, Some(body)).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
+
+async fn schedule_for(
+    state: &crate::state::AppState,
+    user_id: uuid::Uuid,
+    timezone: &str,
+    days: &[i16],
+    start_minute: i16,
+    end_minute: i16,
+) {
+    sqlx::query("UPDATE users SET timezone = $2 WHERE id = $1")
+        .bind(user_id)
+        .bind(timezone)
+        .execute(&state.pool)
+        .await
+        .expect("timezone");
+    state
+        .notification_repo
+        .set_schedule(user_id, true, days, start_minute, end_minute)
+        .await
+        .expect("schedule");
+}
+
+fn at(instant: &str) -> chrono::DateTime<chrono::Utc> {
+    instant.parse().expect("instant")
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_schedule_is_stored_and_refused_when_it_cannot_mean_anything(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (_uid, _email, token) = seed_and_login(&app, &state, "schedule-owner", false).await;
+    let route = "/api/users/me/notification-schedule";
+
+    let (status, body) = send(&app, "GET", route, Some(&token), None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        body,
+        json!({ "enabled": false, "days": [1, 2, 3, 4, 5], "start_minute": 540, "end_minute": 1080, "timezone": "UTC" })
+    );
+
+    let (status, body) = send(
+        &app,
+        "PUT",
+        route,
+        Some(&token),
+        Some(json!({ "enabled": true, "days": [5, 1, 1, 3], "start_minute": 1320, "end_minute": 420 })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(body["days"], json!([1, 3, 5]));
+    assert_eq!(
+        body["start_minute"],
+        json!(1320),
+        "a window may cross midnight"
+    );
+
+    for refused in [
+        json!({ "enabled": true, "days": [1], "start_minute": 540, "end_minute": 540 }),
+        json!({ "enabled": true, "days": [0], "start_minute": 540, "end_minute": 1080 }),
+        json!({ "enabled": true, "days": [8], "start_minute": 540, "end_minute": 1080 }),
+        json!({ "enabled": true, "days": [], "start_minute": 540, "end_minute": 1080 }),
+        json!({ "enabled": true, "days": [1], "start_minute": 540, "end_minute": 1440 }),
+    ] {
+        let (status, _) = send(&app, "PUT", route, Some(&token), Some(refused.clone())).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
+    }
+    let (_, body) = send(&app, "GET", route, Some(&token), None).await;
+    assert_eq!(body["days"], json!([1, 3, 5]), "a refusal changes nothing");
+
+    let (status, _) = send(&app, "GET", route, None, None).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn the_schedule_pauses_outside_its_window_in_the_persons_timezone(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (uid, _email, _token) = seed_and_login(&app, &state, "schedule-belgrade", false).await;
+    let repo = &state.notification_repo;
+    schedule_for(&state, uid, "Europe/Belgrade", &[1, 2, 3, 4, 5], 540, 1080).await;
+
+    let cases = [
+        ("2026-10-21T08:00:00Z", None, "Wednesday 10:00 in Belgrade"),
+        (
+            "2026-10-21T06:30:00Z",
+            Some("2026-10-21T07:00:00Z"),
+            "Wednesday 08:30, before the window",
+        ),
+        (
+            "2026-10-21T18:00:00Z",
+            Some("2026-10-22T07:00:00Z"),
+            "Wednesday 20:00, after it",
+        ),
+        (
+            "2026-10-23T17:00:00Z",
+            Some("2026-10-26T08:00:00Z"),
+            "Friday evening waits for Monday, after the clocks go back",
+        ),
+    ];
+    for (now, expected, case) in cases {
+        assert_eq!(
+            repo.paused_until(uid, at(now)).await.expect("paused"),
+            expected.map(at),
+            "{case}"
+        );
+    }
+
+    schedule_for(
+        &state,
+        uid,
+        "Europe/Belgrade",
+        &[1, 2, 3, 4, 5, 6, 7],
+        540,
+        1080,
+    )
+    .await;
+    assert_eq!(
+        repo.paused_until(uid, at("2026-03-29T07:30:00Z"))
+            .await
+            .expect("paused"),
+        None,
+        "09:30 on the morning the clocks went forward is inside the window"
+    );
+    assert_eq!(
+        repo.paused_until(uid, at("2026-03-29T06:30:00Z"))
+            .await
+            .expect("paused"),
+        Some(at("2026-03-29T07:00:00Z")),
+        "and 08:30 that morning waits for 09:00 summer time"
+    );
+
+    schedule_for(
+        &state,
+        uid,
+        "America/New_York",
+        &[1, 2, 3, 4, 5, 6, 7],
+        1320,
+        420,
+    )
+    .await;
+    for (now, expected, case) in [
+        (
+            "2026-10-22T03:30:00Z",
+            None,
+            "23:30 in New York, inside a night window",
+        ),
+        (
+            "2026-10-22T10:30:00Z",
+            None,
+            "06:30 the next morning, still inside",
+        ),
+        (
+            "2026-10-22T16:00:00Z",
+            Some("2026-10-23T02:00:00Z"),
+            "noon waits for 22:00",
+        ),
+    ] {
+        assert_eq!(
+            repo.paused_until(uid, at(now)).await.expect("paused"),
+            expected.map(at),
+            "{case}"
+        );
+    }
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn resuming_during_a_scheduled_pause_lasts_until_the_window_opens(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (uid, _email, _token) = seed_and_login(&app, &state, "schedule-resume", false).await;
+    let repo = &state.notification_repo;
+    schedule_for(&state, uid, "Europe/Belgrade", &[1, 2, 3, 4, 5], 540, 1080).await;
+    let evening = at("2026-10-21T18:00:00Z");
+
+    repo.set_dnd_at(uid, None, evening).await.expect("resume");
+    assert_eq!(repo.paused_until(uid, evening).await.expect("paused"), None);
+    assert_eq!(
+        repo.paused_until(uid, at("2026-10-22T06:59:00Z"))
+            .await
+            .expect("paused"),
+        None,
+        "on through the night"
+    );
+    assert_eq!(
+        repo.paused_until(uid, at("2026-10-22T17:00:00Z"))
+            .await
+            .expect("paused"),
+        Some(at("2026-10-23T07:00:00Z")),
+        "and the schedule is back after the next window"
+    );
+
+    let timer = at("2026-10-21T19:00:00Z");
+    repo.set_dnd_at(uid, Some(timer), evening)
+        .await
+        .expect("pause");
+    assert_eq!(
+        repo.paused_until(uid, evening).await.expect("paused"),
+        Some(at("2026-10-22T07:00:00Z")),
+        "a timer ends the resume, and the schedule outlasts a short timer"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_scheduled_pause_is_reported_to_its_owner_and_to_the_workspace(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (uid, _email, token) = seed_and_login(&app, &state, "schedule-report", false).await;
+    let ws = seed_workspace(&state, uid, "Schedule WS").await;
+    let now = chrono::Utc::now();
+    let minute = |offset: i64| (((now.timestamp() / 60 + offset) % 1440 + 1440) % 1440) as i16;
+    schedule_for(
+        &state,
+        uid,
+        "UTC",
+        &[1, 2, 3, 4, 5, 6, 7],
+        minute(120),
+        minute(180),
+    )
+    .await;
+
+    let (status, body) = send(&app, "GET", "/api/notifications/dnd", Some(&token), None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["dnd_until"], json!(null));
+    let resumes: chrono::DateTime<chrono::Utc> = body["schedule_paused_until"]
+        .as_str()
+        .expect("paused by the schedule")
+        .parse()
+        .expect("instant");
+    assert!(
+        resumes > now + chrono::Duration::minutes(110)
+            && resumes < now + chrono::Duration::minutes(130)
+    );
+
+    let (_, members) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws}/members"),
+        Some(&token),
+        None,
+    )
+    .await;
+    let me = members["data"]
+        .as_array()
+        .expect("data")
+        .iter()
+        .find(|m| m["user_id"] == json!(uid))
+        .expect("listed");
+    assert!(me["notifications_paused_until"].is_string(), "{me}");
+
+    let (status, body) = send(
+        &app,
+        "PATCH",
+        "/api/notifications/dnd",
+        Some(&token),
+        Some(json!({ "dnd_until": null })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        body,
+        json!({ "dnd_until": null, "schedule_paused_until": null })
+    );
+}

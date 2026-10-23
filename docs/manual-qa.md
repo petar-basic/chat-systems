@@ -251,6 +251,13 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 - 🟢 **One per message:** "@B can you deploy?" gives one mention, not a mention and a keyword.
 - 🟠 **Edge:** a channel on *Nothing* or muted never notifies for keywords; nor does a private channel B is not in, nor A's own keyword in A's message. `Deplóy` next to `deploy` is refused as a duplicate; a 51st keyword, `a`, `@ana` and `#general` are refused.
 
+### 8.4 🟢 Notification schedule
+- **Steps:** as B, *Preferences → Notifications → Notification schedule* on, pick days and *From*/*To* so that now is outside the window. A mentions B.
+- **Expected:** the mention lands in Activity, but no push, sound, desktop notification or email. The *You* menu and the Activity panel's moon say "Paused by your schedule until …"; A's hover card on B says "Notifications paused until …".
+- 🟢 **Resume:** *Resume notifications* during the pause → mentions notify again until the next window starts; after that window ends the schedule pauses again.
+- 🟢 **Night window:** *From* 22:00 *To* 07:00 — notifications on at 23:30 and 06:30, paused at noon.
+- 🟠 **Edge:** the hours follow the timezone in *Edit profile*; changing it moves the window. `PUT /api/users/me/notification-schedule` with start = end, day 0 or 8, or no days → **422**.
+
 ---
 
 ## 9. Realtime (presence, typing, live delivery)

@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT CASE WHEN dnd_until > $2 THEN dnd_until END AS dnd_until,\n                      CASE WHEN dnd_override_until > $2 THEN NULL\n                           ELSE public.schedule_paused_until(id, $2) END AS schedule_paused_until\n                 FROM users WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "dnd_until",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "schedule_paused_until",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "5771657d9ee9e69c57b8c65e438e5c5319baebc6e08aede4ab0dfb4438b9f1e2"
+}
