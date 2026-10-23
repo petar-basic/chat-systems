@@ -20,6 +20,7 @@ import MessageActionSheet, { type SheetAction } from './MessageActionSheet';
 import type { Message, WorkspaceMember, Channel } from '@/stores/workspace';
 import { ReactionEmoji } from '@/shared/components/ReactionEmoji';
 import RichTextDisplay from '@/components/RichTextDisplay';
+import { PollCard, type PollKeyVote } from '@/features/polls/PollCard';
 import { MessageAttachments } from './MessageAttachments';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { HuddleSystemMessage } from '@/features/huddle/components/HuddleSystemMessage';
@@ -134,6 +135,9 @@ function MessageItem({
   const reactionGroups = groupReactions(message, currentUserId);
   const isOwn = currentUserId === message.user_id;
   const isEdited = message.updated_at !== message.created_at;
+  const poll = message.metadata?.poll ?? null;
+  const canEdit = isOwn && !poll;
+  const pollKeyVote = useRef<PollKeyVote | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const rowRef = useRef<HTMLDivElement>(null);
   const isTabStop = useIsTabStop(message.id);
@@ -193,9 +197,11 @@ function MessageItem({
       Icon: Pin,
       onSelect: () => onTogglePin(message.id, message.is_pinned),
     },
+    ...(canEdit
+      ? [{ key: 'edit', label: 'Edit message', Icon: Pencil, onSelect: () => setEditing(true) }]
+      : []),
     ...(isOwn
       ? [
-          { key: 'edit', label: 'Edit message', Icon: Pencil, onSelect: () => setEditing(true) },
           {
             key: 'delete',
             label: 'Delete message',
@@ -209,14 +215,14 @@ function MessageItem({
 
   useEffect(() => {
     const row = rowRef.current;
-    if (!row || !isOwn || message.pending) return undefined;
+    if (!row || !canEdit || message.pending) return undefined;
     const onEdit = (event: Event) => {
       event.preventDefault();
       setEditing(true);
     };
     row.addEventListener(EDIT_MESSAGE_EVENT, onEdit);
     return () => row.removeEventListener(EDIT_MESSAGE_EVENT, onEdit);
-  }, [isOwn, message.pending]);
+  }, [canEdit, message.pending]);
 
   useEffect(() => {
     if (!editing) return;
@@ -258,7 +264,7 @@ function MessageItem({
   };
 
   const keyHandlers: Partial<Record<MessageKeyAction, () => void>> = {
-    edit: isOwn && !message.pending ? () => setEditing(true) : undefined,
+    edit: canEdit && !message.pending ? () => setEditing(true) : undefined,
     thread: onThreadOpen ? () => onThreadOpen(message) : undefined,
     react: () => setShowEmojiPicker(true),
     later: onSave
@@ -273,6 +279,12 @@ function MessageItem({
   const handleRowKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.target !== e.currentTarget || editing || e.nativeEvent.isComposing) return;
     const row = e.currentTarget;
+    const pollIndex = /^[1-9]$/.test(e.key) && !e.metaKey && !e.ctrlKey && !e.altKey ? Number(e.key) - 1 : -1;
+    if (pollIndex >= 0 && pollKeyVote.current) {
+      pollKeyVote.current(pollIndex);
+      e.preventDefault();
+      return;
+    }
     const action = messageKeyAction(e);
     if (!action) return;
     let handled: boolean;
@@ -433,7 +445,16 @@ function MessageItem({
             </>
           ) : (
             <>
-              <RichTextDisplay content={message.content} attachments={attachments} />
+              {poll ? (
+                <PollCard
+                  message={message}
+                  poll={poll}
+                  currentUserId={currentUserId}
+                  keyVoteRef={pollKeyVote}
+                />
+              ) : (
+                <RichTextDisplay content={message.content} attachments={attachments} />
+              )}
               {!message.deleted_at && !!message.metadata?.unfurls?.length && (
                 <LinkPreviews
                   unfurls={message.metadata.unfurls}
@@ -663,7 +684,7 @@ function MessageItem({
                       <Forward className="w-3.5 h-3.5" /> Forward
                     </button>
                   )}
-                  {isOwn && (
+                  {canEdit && (
                     <button
                       onClick={() => {
                         setEditing(true);

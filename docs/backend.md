@@ -701,6 +701,32 @@ mentions, who already have the mention. Rows go with the workspace membership an
 
 ---
 
+### polls
+
+A poll is a message: its content is the question, so search finds it, and `metadata.poll`
+carries the question, the options with their counts, `voters`, `closes_at`, `closed_at` and
+`created_by`, never who voted. `polls`, `poll_options` (2–10, in order) and `poll_votes` hold
+it; `poll_votes` has one row per option a person picked, keyed `(option_id, user_id)`, and a
+partial unique index keeps a single-choice poll at one row per person. A vote locks the poll
+row, replaces the caller's choice, recounts and rewrites `metadata.poll` in one transaction,
+then stages `message.updated` through the outbox, so every client sees the new counts. A
+closed poll refuses votes; `chat-worker`'s reminder checker closes a poll at its `closes_at`.
+Creating needs the right to post in the channel (`require_channel_post`), voting needs only
+read access, so everybody votes in an announcement channel; closing is for the creator or a
+channel moderator. Voters of an anonymous poll are refused to everybody, its creator
+included. A poll message cannot be edited. Workspace export writes `polls.jsonl` with counts
+and `poll_votes.jsonl` for polls that are not anonymous.
+
+| Method | Route | Input | Output |
+|--------|-------|-------|--------|
+| POST | `/channels/:ch_id/polls` | `{ question, options[], multiple_choice?, anonymous?, closes_at?, thread_parent_id? }` | `Message` — the poll message, in a thread when `thread_parent_id` is set |
+| GET | `/polls/:poll_id/vote` | — | `{ option_ids }` — the caller's own choice |
+| PUT | `/polls/:poll_id/vote` | `{ option_ids }` — an empty list withdraws the vote | `{ option_ids, poll }` — 409 when closed, 422 for an unknown option or two on a single-choice poll |
+| GET | `/polls/:poll_id/votes` | — | `{ data: [{ option_id, user_ids }] }` — 403 on an anonymous poll |
+| POST | `/polls/:poll_id/close` | — | `PollSummary` — creator or channel moderator; 409 when already closed |
+
+---
+
 ### integrations (apps)
 
 Per-workspace connected apps — Jira Cloud, Confluence, GitHub, Google Drive and Figma — and each person's own connection to them.

@@ -154,6 +154,11 @@ export default function ThreadPanel({ parentMessage, members, channels, onClose 
             draftKey={`thread:${parentMessage.id}`}
             onSend={handleSend}
             attachments={attachments}
+            pollTarget={{
+              channelId: parentMessage.channel_id,
+              threadParentId: parentMessage.id,
+              instanceUrl: currentWorkspace?.instanceUrl,
+            }}
           />
         </div>
       </div>

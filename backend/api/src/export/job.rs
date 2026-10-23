@@ -119,6 +119,8 @@ async fn export_workspace(
         "reactions.jsonl",
         "members.jsonl",
         "files.jsonl",
+        "polls.jsonl",
+        "poll_votes.jsonl",
         "audit_log.jsonl",
     ] {
         archive.declare(file);
@@ -221,6 +223,52 @@ async fn export_workspace(
     .map_err(|e| e.to_string())?;
     for row in rows {
         archive.append("files.jsonl", &row);
+    }
+
+    let rows: Vec<serde_json::Value> = sqlx::query_scalar!(
+        r#"
+        SELECT to_jsonb(p) || jsonb_build_object('options', (
+                 SELECT jsonb_agg(jsonb_build_object(
+                          'id', o.id, 'position', o.position, 'label', o.label,
+                          'votes', (SELECT COUNT(*) FROM poll_votes v WHERE v.option_id = o.id))
+                        ORDER BY o.position)
+                   FROM poll_options o WHERE o.poll_id = p.id)) AS "row!"
+          FROM polls p
+          JOIN messages m ON m.id = p.message_id
+          JOIN channels c ON c.id = m.channel_id
+         WHERE c.workspace_id = $1
+           AND ($2::bool OR c.channel_type NOT IN ('dm', 'group_dm'))
+         ORDER BY p.created_at
+        "#,
+        workspace_id,
+        job.include_dms
+    )
+    .fetch_all(&state.pool)
+    .await
+    .map_err(|e| e.to_string())?;
+    for row in rows {
+        archive.append("polls.jsonl", &row);
+    }
+
+    let rows: Vec<serde_json::Value> = sqlx::query_scalar!(
+        r#"
+        SELECT to_jsonb(v) - 'single_choice' AS "row!" FROM poll_votes v
+          JOIN polls p ON p.id = v.poll_id
+          JOIN messages m ON m.id = p.message_id
+          JOIN channels c ON c.id = m.channel_id
+         WHERE c.workspace_id = $1
+           AND NOT p.anonymous
+           AND ($2::bool OR c.channel_type NOT IN ('dm', 'group_dm'))
+         ORDER BY v.created_at
+        "#,
+        workspace_id,
+        job.include_dms
+    )
+    .fetch_all(&state.pool)
+    .await
+    .map_err(|e| e.to_string())?;
+    for row in rows {
+        archive.append("poll_votes.jsonl", &row);
     }
 
     let rows: Vec<serde_json::Value> = sqlx::query_scalar!(

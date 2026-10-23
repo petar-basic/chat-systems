@@ -88,7 +88,11 @@ async fn list_messages(
 /// Threads are one level deep and stay in their channel: replying to a reply
 /// joins the root's thread, and a parent from elsewhere is refused rather than
 /// letting a message hang off something its readers cannot see.
-async fn thread_root(state: &AppState, channel_id: Uuid, parent_id: Uuid) -> AppResult<Message> {
+pub(crate) async fn thread_root(
+    state: &AppState,
+    channel_id: Uuid,
+    parent_id: Uuid,
+) -> AppResult<Message> {
     let not_here = || AppError::Validation("Thread parent is not in this channel".into());
     let parent = state
         .message_repo
@@ -299,6 +303,9 @@ async fn update_message(
         return Err(AppError::Forbidden(
             "Can only edit your own messages".into(),
         ));
+    }
+    if existing.metadata.get("poll").is_some() {
+        return Err(AppError::Validation("A poll cannot be edited".into()));
     }
 
     let current = files::attachments_in(&existing.metadata);

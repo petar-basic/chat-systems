@@ -33,6 +33,10 @@ pub async fn start_checker(state: Arc<AppState>) {
         for reminder in due {
             deliver(&state, &reminder).await;
         }
+        let closed = crate::polls::service::close_due(&state).await;
+        if closed > 0 {
+            info!(closed, "Closed polls that reached their closing time");
+        }
     }
 }
 

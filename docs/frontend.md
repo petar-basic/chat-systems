@@ -168,6 +168,11 @@ Text input with file attachment button and send button.
 **Reads:** channel name
 **Emits:** `onSend(content)`, `onFileUpload(file)`, `onTyping()` on each keystroke
 
+Given a `pollTarget` (the channel, DM or thread it writes to), it has a poll button next to the
+paperclip and reads `/poll` before sending: `/poll` alone opens `PollDialog`,
+`/poll "Q" "A" "B"` creates the poll straight away (`parsePollCommand` in
+`features/polls/pollCommand.ts`), and a malformed one is a toast, not a message.
+
 ---
 
 ## Components
@@ -221,6 +226,24 @@ mutation hooks (`useEditMessage`, `useDeleteMessage`, `useReactToMessage`,
 - POST `/messages/{id}/reactions` — add reaction
 - DELETE `/messages/{id}/reactions/{emoji}` — remove reaction
 - POST `/messages/{id}/pin` (pin) / DELETE `/messages/{id}/pin` (unpin)
+
+A message with `metadata.poll` renders `PollCard` instead of its text and cannot be edited;
+digit keys 1–9 on the focused row vote for that option.
+
+---
+
+### `polls/PollCard` and `polls/PollDialog`
+`PollCard` draws a poll message: the question, one `aria-pressed` button per option with its
+bar, count and your own choice, up to three voter avatars unless the poll is anonymous, and a
+footer with the vote count and *closes …* or *Closed*; the creator gets *Close poll*. A vote is
+optimistic: `useVote` moves your choice and the counts in every cache that holds the message,
+and puts both back if the server refuses. Your own choice is `GET /polls/{id}/vote`, the
+avatars `GET /polls/{id}/votes`, refetched when the counts change. `PollDialog` is a CS-059
+`Modal`: question, 2–10 options (drag, or Alt + ↑/↓, to reorder), one answer or any number,
+anonymous, and an optional closing time.
+
+**API calls:** POST `/channels/{id}/polls`, GET/PUT `/polls/{id}/vote`, GET `/polls/{id}/votes`,
+POST `/polls/{id}/close`
 
 ---
 
@@ -539,7 +562,7 @@ typing, and `notification` events are handled separately — by `usePresenceStor
 | Event | Cache action |
 |-------|-------------|
 | `message.new` | Upsert into message list (confirm optimistic / append); if thread reply, append to thread cache + increment `reply_count` on parent; for a channel, mark unread unless current/muted; for a conversation, reorder the conversation list and mark it unread if incoming and not open; sound and desktop notifications come from the `notification` frame instead |
-| `message.updated` | Patch content/updated_at in cached message |
+| `message.updated` | Patch the cached message (content, `updated_at`, `metadata` — a poll's counts) in the channel list and in the thread it belongs to |
 | `message.deleted` | Soft-delete: set `deleted_at` on cached message |
 | `message.pinned` | Invalidate pins query + patch `is_pinned` on cached message |
 | `reaction.added` / `reaction.removed` | Patch reactions array on cached message |

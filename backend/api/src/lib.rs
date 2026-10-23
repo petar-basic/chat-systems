@@ -23,6 +23,7 @@ pub mod net;
 pub mod notifications;
 pub mod openapi;
 pub mod pagination;
+pub mod polls;
 pub mod presence;
 pub mod push;
 pub mod rate_limit;
@@ -107,6 +108,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
     let notification_repo = NotificationRepo::new(pool.clone());
     let conversation_repo = ConversationRepo::new(pool.clone());
     let later_repo = later::repo::LaterRepo::new(pool.clone());
+    let poll_repo = polls::repo::PollRepo::new(pool.clone());
     let thread_repo = threads::repo::ThreadRepo::new(pool.clone());
     let sidebar_repo = sidebar::repo::SidebarRepo::new(pool.clone());
     let integration_repo = integrations::repo::IntegrationRepo::new(pool.clone());
@@ -143,6 +145,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
         notification_repo,
         conversation_repo,
         later_repo,
+        poll_repo,
         thread_repo,
         sidebar_repo,
         integration_repo,

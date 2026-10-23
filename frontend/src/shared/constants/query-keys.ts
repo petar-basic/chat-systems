@@ -59,6 +59,9 @@ export const QUERY_KEYS = {
 
   editHistory: (messageId: string) => ['edit-history', messageId] as const,
 
+  pollVote: (pollId: string) => ['polls', pollId, 'vote'] as const,
+  pollVoters: (pollId: string, tally: string) => ['polls', pollId, 'voters', tally] as const,
+
   huddlesActive: () => ['huddles', 'active'] as const,
   workspaceActiveHuddles: (workspaceId: string) => ['huddles', 'active', workspaceId] as const,
 } as const;

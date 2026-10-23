@@ -21,6 +21,10 @@ pub const BUILTIN_COMMANDS: &[(&str, &str)] = &[
     ("invite", "/invite @user — add somebody to this channel"),
     ("shrug", "/shrug [text] — ¯\\_(ツ)_/¯"),
     (
+        "poll",
+        "/poll \"Lunch?\" \"Thursday\" \"Friday\" — or /poll alone for the dialog",
+    ),
+    (
         "remind",
         "/remind me in 30m to ship — also `at 15:00` or `tomorrow at 9am`",
     ),
@@ -42,6 +46,10 @@ pub async fn run(
     match command {
         "shrug" => Ok(Some(CommandResponse::in_channel(
             format!("{text} ¯\\_(ツ)_/¯").trim().to_string(),
+        ))),
+
+        "poll" => Ok(Some(CommandResponse::ephemeral(
+            "Polls are made in the app's message box, or with POST /channels/{id}/polls.",
         ))),
 
         "dnd" => {

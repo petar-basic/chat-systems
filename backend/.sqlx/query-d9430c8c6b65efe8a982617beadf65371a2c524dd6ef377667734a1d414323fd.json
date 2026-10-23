@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT v.option_id FROM poll_votes v\n               JOIN poll_options o ON o.id = v.option_id\n              WHERE v.poll_id = $1 AND v.user_id = $2\n              ORDER BY o.position",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "option_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "poll_votes",
+            "name": "option_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "d9430c8c6b65efe8a982617beadf65371a2c524dd6ef377667734a1d414323fd"
+}
