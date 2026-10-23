@@ -462,6 +462,8 @@ In-app notifications for mentions, DMs, replies, reactions, calls, reminders, an
 | PUT | `/channels/:ch_id/notify-level` | `{ level: "all" \| "mentions" \| "nothing" \| null }` | `{ notify_level, effective_notify_level }` — members only; `null` returns the channel to the default |
 | GET | `/workspaces/:ws_id/notify-default` | — | `{ notify_default }` |
 | PUT | `/workspaces/:ws_id/notify-default` | `{ level: "all" \| "mentions" \| "nothing" }` | `{ notify_default }` |
+| GET | `/workspaces/:ws_id/notification-keywords` | — | `{ keywords: string[] }` |
+| PUT | `/workspaces/:ws_id/notification-keywords` | `{ keywords: string[] }` | `{ keywords }` — replaces the list; each 2–64 characters, not starting with `@` or `#`, at most 50 (422 otherwise); a keyword equal to an earlier one after normalization is dropped |
 
 All workspace-scoped routes require workspace membership.
 
@@ -477,7 +479,16 @@ consumer decides each recipient's reason for one `message.created`:
 | Mention | named or broadcast, level is not `nothing` | yes | `mention` | yes | yes |
 | Reply | follows the thread, level is not `nothing` | yes | `reply` | yes | no |
 | Direct | DM on `all`, not a thread reply | yes (`dm`) | `dm` | yes | yes |
+| Keyword | one of the person's keywords is in the text | yes (`keyword`) | `keyword` | yes | no |
 | Message | channel on `all`, not a thread reply | no | `message` | yes | no |
+
+The first row that applies wins, so a message is one notification per person. Keywords live
+in `notification_keywords`, stored with `normalized = lower(search_normalize(keyword))`, the
+same folding search uses. One query per message finds the channel members whose keyword
+appears in `lower(search_normalize(content))` as a whole word: `keyword_pattern()` escapes the
+regex characters and requires a non-word character or the text's edge on both sides, so
+`deploy` matches "Deploy!" and "deploý" but not "redeployed", and `c++` matches literally.
+A keyword does not bump the unread or mention counters, which are written with the message.
 
 Muted and `nothing` mean no reason at all. DND keeps the Activity row and drops the rest; a
 frame goes to every session, push only when the person has none, and email only when push

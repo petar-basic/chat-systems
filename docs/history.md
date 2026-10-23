@@ -1332,3 +1332,19 @@ dead `notifications` and `is_muted` columns on `channel_members` went with migra
 
 The bell sits in the channel header, the DM header and on a sidebar row's hover, and the
 default is the first panel of *Preferences → Notifications*.
+
+### [CS-061] Keyword notifications ✅ shipped
+The words a person cares about more than any channel — the product's name, *outage*, a
+customer — could only be heard by setting every channel to *All*. *My keywords* in
+*Preferences* holds up to 50 per workspace, and a message containing one notifies its
+reader as a mention does, through the same single decision CS-060 introduced: a keyword is
+one more reason, after a mention, a followed reply and a DM, so a message is still one
+notification per person, and *Nothing* and mute silence it like the rest.
+
+Matching is one query per message, in the database, next to the `search_normalize` that
+search already uses, so "the same word" has one definition: case and diacritics are folded,
+the keyword's regex characters are escaped, and it has to stand as a whole word. The
+client folds the same way to highlight the word in the message, from a store rather than a
+query per message. The mention badge deliberately does not move for a keyword — the
+counters are written with the message, and a per-member regex scan does not belong on the
+send path — and `docs/frontend.md` says so before somebody files it as a bug.

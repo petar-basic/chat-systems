@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use axum::extract::{Path, Query, State};
 use axum::Json;
+use garde::Validate;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 use uuid::Uuid;
@@ -26,6 +27,7 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(get_email_preference, set_email_preference))
         .routes(routes!(set_channel_notify_level))
         .routes(routes!(get_notify_default, set_notify_default))
+        .routes(routes!(get_keywords, set_keywords))
 }
 
 #[utoipa::path(get, path = "/workspaces/{ws_id}/notifications", tag = "notifications", params(PageQuery), responses((status = 200, body = DataList<Notification>)))]
@@ -213,4 +215,34 @@ async fn set_notify_default(
     Ok(Json(NotifyDefault {
         notify_default: req.level,
     }))
+}
+
+#[utoipa::path(get, path = "/workspaces/{ws_id}/notification-keywords", tag = "notifications", responses((status = 200, body = KeywordList)))]
+async fn get_keywords(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(ws_id): Path<Uuid>,
+) -> AppResult<Json<KeywordList>> {
+    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
+    let keywords = state
+        .notification_repo
+        .keywords(ws_id, auth.user_id)
+        .await?;
+    Ok(Json(KeywordList { keywords }))
+}
+
+#[utoipa::path(put, path = "/workspaces/{ws_id}/notification-keywords", tag = "notifications", request_body = SetKeywordsRequest, responses((status = 200, body = KeywordList)))]
+async fn set_keywords(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(ws_id): Path<Uuid>,
+    Json(req): Json<SetKeywordsRequest>,
+) -> AppResult<Json<KeywordList>> {
+    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
+    req.validate()?;
+    let keywords = state
+        .notification_repo
+        .set_keywords(ws_id, auth.user_id, &req.keywords)
+        .await?;
+    Ok(Json(KeywordList { keywords }))
 }

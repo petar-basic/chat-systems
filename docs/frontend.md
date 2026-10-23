@@ -283,6 +283,20 @@ messages*, *Mentions*, *Nothing* — and, for a channel, *Mute channel*. It is a
 `BellOff` for nothing or muted; a sidebar row on nothing or muted carries a small `BellOff`.
 On a phone the header's overflow menu opens the same menu.
 
+### `notifications/KeywordsPanel`
+*My keywords* in *Preferences → Notifications*: a field that adds a chip on Enter or a comma,
+and a remove button per chip; every change saves the whole list. `lib/keywords.ts` refuses
+what the server would (length, a leading `@` or `#`, a duplicate after folding, the limit of
+50) before it is sent. The list is held in `useKeywordStore`, populated by
+`useWorkspaceData`, so `MessageContent` marks a keyword with `<mark class="keyword-match">`
+(the self-mention background, no pill) without a query per message. Matching folds case and
+diacritics and needs a non-letter on both sides, as the server does.
+
+A keyword notification does **not** move the sidebar's mention badge or unread count: those
+counters are written with the message, and matching every member's keywords there would put a
+regex scan on the send path. It shows up in Activity, as a push and as a desktop
+notification. This is intended.
+
 **API calls:** GET `/users/me`, PATCH `/users/me` `{ display_name, bio, avatar_url }`, PUT / DELETE `/users/me/status`, POST `/files/upload/{workspaceId}` (photo upload)
 
 ---
@@ -439,6 +453,7 @@ use the channel hooks above with the conversation id as `channelId`.
 | `useDndStatus()` / `useSetDnd()` | GET/PATCH `/notifications/dnd` | Do-not-disturb window |
 | `useNotifyDefault(wsId)` / `useSetNotifyDefault(wsId)` | GET/PUT `/workspaces/{id}/notify-default` | The caller's default level (optimistic); a change refetches channels and conversations |
 | `useSetNotifyLevel(wsId)` | PUT `/channels/{id}/notify-level` `{ level }` | One channel's or DM's level; the answer is merged into the channels and conversations caches |
+| `useNotificationKeywords(wsId)` / `useSetNotificationKeywords(wsId)` | GET/PUT `/workspaces/{id}/notification-keywords` | The caller's keywords; a change is optimistic and rolls back on error |
 
 ### Huddles (`hooks/queries/useHuddle.ts`)
 `useActiveHuddles(wsId, instanceUrl?)` backfills currently-active huddles for the workspace.

@@ -696,6 +696,15 @@ impl Scene {
             .expect("the target is a member");
     }
 
+    async fn keywords(&self, user_id: Uuid, keywords: &[&str]) {
+        let keywords: Vec<String> = keywords.iter().map(|k| k.to_string()).collect();
+        self.state
+            .notification_repo
+            .set_keywords(self.ws_id, user_id, &keywords)
+            .await
+            .expect("keywords");
+    }
+
     async fn activity(&self) -> Vec<String> {
         sqlx::query_scalar("SELECT notification_type::text FROM notifications WHERE user_id = $1 ORDER BY created_at")
             .bind(self.target)
@@ -907,4 +916,132 @@ async fn the_digest_counts_mentions_and_direct_messages_apart(pool: PgPool) {
         body.starts_with("You have 2 mentions and 1 direct message while you were away."),
         "{body}"
     );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_keyword_matches_whole_words_whatever_the_case_or_accents(pool: PgPool) {
+    let s = scene(pool).await;
+    s.keywords(s.target, &["deploy", "c++", "a.b", "Čačak", "on call"])
+        .await;
+
+    let cases = [
+        ("Deploy!", 1),
+        ("deploý tonight", 1),
+        ("we redeployed it", 0),
+        ("deploy_script ran", 0),
+        ("I love C++.", 1),
+        ("cpp is not it", 0),
+        ("a.b works", 1),
+        ("axb does not", 0),
+        ("vidimo se u cacak", 1),
+        ("who is On Call?", 1),
+    ];
+    let mut expected = 0;
+    for (content, hits) in cases {
+        assert_eq!(
+            s.post(s.ch_id, content, false, None).await,
+            hits,
+            "{content}"
+        );
+        expected += hits;
+    }
+
+    let activity = s.activity().await;
+    assert_eq!(activity.len(), expected);
+    assert!(activity.iter().all(|kind| kind == "keyword"));
+    let title: String = sqlx::query_scalar(
+        "SELECT title FROM notifications WHERE user_id = $1 ORDER BY created_at LIMIT 1",
+    )
+    .bind(s.target)
+    .fetch_one(&s.state.pool)
+    .await
+    .expect("title");
+    assert_eq!(title, "Matched \"deploy\" in #levels");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_mention_that_also_matches_a_keyword_is_one_mention(pool: PgPool) {
+    let s = scene(pool).await;
+    s.keywords(s.target, &["deploy"]).await;
+
+    assert_eq!(s.post(s.ch_id, "can you deploy?", true, None).await, 1);
+    assert_eq!(s.activity().await, vec!["mention"]);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_keyword_in_a_thread_notifies_even_somebody_who_does_not_follow_it(pool: PgPool) {
+    let s = scene(pool).await;
+    s.keywords(s.target, &["outage"]).await;
+
+    assert_eq!(
+        s.post(
+            s.ch_id,
+            "this looks like an outage",
+            false,
+            Some(Uuid::new_v4())
+        )
+        .await,
+        1
+    );
+    assert_eq!(s.activity().await, vec!["keyword"]);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn muted_and_nothing_channels_never_notify_for_keywords(pool: PgPool) {
+    let s = scene(pool).await;
+    s.keywords(s.target, &["deploy"]).await;
+
+    s.set_level(s.ch_id, Some(NotifyLevel::Nothing)).await;
+    assert_eq!(s.post(s.ch_id, "deploy now", false, None).await, 0);
+
+    s.set_level(s.ch_id, None).await;
+    sqlx::query("UPDATE channel_members SET muted = TRUE WHERE channel_id = $1 AND user_id = $2")
+        .bind(s.ch_id)
+        .bind(s.target)
+        .execute(&s.state.pool)
+        .await
+        .expect("mute");
+    assert_eq!(s.post(s.ch_id, "deploy again", false, None).await, 0);
+    assert!(s.activity().await.is_empty());
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn nobody_hears_their_own_keyword_or_one_in_a_channel_they_are_not_in(pool: PgPool) {
+    let s = scene(pool).await;
+    s.keywords(s.author, &["deploy"]).await;
+    s.keywords(s.target, &["deploy"]).await;
+    let private = seed_channel(&s.state, s.ws_id, s.author, "ops-private", true).await;
+
+    assert_eq!(
+        s.post(private, "deploy in the private room", false, None)
+            .await,
+        0
+    );
+    assert!(
+        s.activity().await.is_empty(),
+        "the target is not in that channel"
+    );
+
+    s.post(s.ch_id, "deploy here", false, None).await;
+    let authors: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM notifications WHERE user_id = $1")
+        .bind(s.author)
+        .fetch_one(&s.state.pool)
+        .await
+        .expect("count");
+    assert_eq!(authors, 0, "the author wrote the word");
+    assert_eq!(s.activity().await, vec!["keyword"]);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_keyword_under_dnd_waits_in_activity(pool: PgPool) {
+    let s = scene(pool).await;
+    s.keywords(s.target, &["deploy"]).await;
+    sqlx::query("UPDATE users SET dnd_until = NOW() + INTERVAL '1 hour' WHERE id = $1")
+        .bind(s.target)
+        .execute(&s.state.pool)
+        .await
+        .expect("dnd");
+
+    assert_eq!(s.post(s.ch_id, "deploy done", false, None).await, 0);
+    assert_eq!(s.activity().await, vec!["keyword"]);
 }

@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use redis::AsyncCommands;
@@ -104,32 +104,36 @@ pub enum Reason {
     Mention,
     Reply,
     Direct,
+    Keyword,
     Message,
 }
 
-pub fn reason_for(
-    recipient: &Recipient,
-    mentioned: bool,
-    following: bool,
-    in_thread: bool,
-) -> Option<Reason> {
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Signals {
+    pub mentioned: bool,
+    pub following: bool,
+    pub keyword: bool,
+    pub in_thread: bool,
+}
+
+pub fn reason_for(recipient: &Recipient, signals: Signals) -> Option<Reason> {
     if recipient.muted || recipient.level == NotifyLevel::Nothing {
         return None;
     }
-    if mentioned {
-        return Some(Reason::Mention);
+    let everything = recipient.level == NotifyLevel::All && !signals.in_thread;
+    if signals.mentioned {
+        Some(Reason::Mention)
+    } else if signals.following {
+        Some(Reason::Reply)
+    } else if everything && recipient.direct {
+        Some(Reason::Direct)
+    } else if signals.keyword {
+        Some(Reason::Keyword)
+    } else if everything {
+        Some(Reason::Message)
+    } else {
+        None
     }
-    if following {
-        return Some(Reason::Reply);
-    }
-    if recipient.level == NotifyLevel::All && !in_thread {
-        return Some(if recipient.direct {
-            Reason::Direct
-        } else {
-            Reason::Message
-        });
-    }
-    None
 }
 
 struct Names {
@@ -167,7 +171,7 @@ impl Names {
         }
     }
 
-    fn notice(&self, reason: Reason) -> Notice {
+    fn notice(&self, reason: Reason, keyword: Option<&str>) -> Notice {
         match reason {
             Reason::Mention => Notice {
                 activity: Some(NotificationType::Mention),
@@ -186,6 +190,15 @@ impl Names {
                 kind: "dm",
                 title: self.sender.clone(),
                 email: true,
+            },
+            Reason::Keyword => Notice {
+                activity: Some(NotificationType::Keyword),
+                kind: "keyword",
+                title: match (keyword.unwrap_or_default(), self.channel.as_str()) {
+                    (word, "") => format!("Matched \"{word}\""),
+                    (word, channel) => format!("Matched \"{word}\" in #{channel}"),
+                },
+                email: false,
             },
             Reason::Message => Notice {
                 activity: None,
@@ -248,16 +261,17 @@ pub async fn notify_message(
     );
 
     let mentioned: HashSet<uuid::Uuid> = mentioned_ids(event_payload).into_iter().collect();
+    let keywords = keyword_matches(repo, channel_id, sender, event_payload).await;
     let reasons: Vec<(uuid::Uuid, Reason)> = recipients
         .iter()
         .filter_map(|r| {
-            reason_for(
-                r,
-                mentioned.contains(&r.user_id),
-                followers.contains(&r.user_id),
-                root.is_some(),
-            )
-            .map(|reason| (r.user_id, reason))
+            let signals = Signals {
+                mentioned: mentioned.contains(&r.user_id),
+                following: followers.contains(&r.user_id),
+                keyword: keywords.contains_key(&r.user_id),
+                in_thread: root.is_some(),
+            };
+            reason_for(r, signals).map(|reason| (r.user_id, reason))
         })
         .collect();
     if reasons.is_empty() {
@@ -276,7 +290,33 @@ pub async fn notify_message(
         } else {
             &origin
         };
-        deliver(&via, pub_conn, uid, at, &names, &names.notice(reason)).await;
+        let notice = names.notice(reason, keywords.get(&uid).map(String::as_str));
+        deliver(&via, pub_conn, uid, at, &names, &notice).await;
+    }
+}
+
+async fn keyword_matches(
+    repo: &NotificationRepo,
+    channel_id: uuid::Uuid,
+    sender: uuid::Uuid,
+    payload: &serde_json::Value,
+) -> HashMap<uuid::Uuid, String> {
+    let content = payload
+        .get("content")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    if content.trim().is_empty() {
+        return HashMap::new();
+    }
+    match repo.keyword_matches(channel_id, sender, content).await {
+        Ok(matches) => matches
+            .into_iter()
+            .map(|m| (m.user_id, m.keyword))
+            .collect(),
+        Err(e) => {
+            warn!(channel_id = %channel_id, "Notification consumer: failed to match keywords: {e}");
+            HashMap::new()
+        }
     }
 }
 

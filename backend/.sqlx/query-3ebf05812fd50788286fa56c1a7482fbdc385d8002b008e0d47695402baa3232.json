@@ -50,7 +50,8 @@
                 "reaction",
                 "call",
                 "reminder",
-                "system"
+                "system",
+                "keyword"
               ]
             }
           }
@@ -133,7 +134,8 @@
                 "reaction",
                 "call",
                 "reminder",
-                "system"
+                "system",
+                "keyword"
               ]
             }
           }

@@ -1,3 +1,5 @@
+import { keywordRanges } from './keywords';
+
 export interface MentionRef {
   label: string;
   id: string;
@@ -5,7 +7,7 @@ export interface MentionRef {
 
 export interface MentionSpan {
   text: string;
-  mention: 'self' | 'other' | null;
+  mention: 'self' | 'other' | 'keyword' | null;
 }
 
 const BROADCAST_MENTIONS = ['here', 'everyone', 'channel'];
@@ -29,13 +31,15 @@ export function highlightMentions(
   selfId: string | undefined,
   mentions: MentionRef[],
   selfGroupIds?: Set<string>,
+  keywords: string[] = [],
 ): MentionSpan[] {
-  if (!text.includes('@')) return [{ text, mention: null }];
+  if (!text.includes('@') && keywords.length === 0) return [{ text, mention: null }];
 
-  const taken: Array<[number, number, 'self' | 'other']> = [];
+  type Kind = NonNullable<MentionSpan['mention']>;
+  const taken: Array<[number, number, Kind]> = [];
   const overlaps = (start: number, end: number) => taken.some(([ts, te]) => start < te && end > ts);
 
-  const claim = (start: number, len: number, kind: 'self' | 'other') => {
+  const claim = (start: number, len: number, kind: Kind) => {
     const end = start + len;
     if (overlaps(start, end)) return;
     taken.push([start, end, kind]);
@@ -67,6 +71,8 @@ export function highlightMentions(
       idx = text.indexOf(needle, idx + needle.length);
     }
   }
+
+  for (const [start, end] of keywordRanges(text, keywords)) claim(start, end - start, 'keyword');
 
   if (taken.length === 0) return [{ text, mention: null }];
 

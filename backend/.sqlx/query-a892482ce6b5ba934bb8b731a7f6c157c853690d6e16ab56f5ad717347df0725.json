@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT keyword FROM notification_keywords\n              WHERE workspace_id = $1 AND user_id = $2\n              ORDER BY position",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "keyword",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "notification_keywords",
+            "name": "keyword"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "a892482ce6b5ba934bb8b731a7f6c157c853690d6e16ab56f5ad717347df0725"
+}

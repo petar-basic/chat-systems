@@ -5,6 +5,7 @@ export enum NotificationType {
   reaction = 'reaction',
   reminder = 'reminder',
   system = 'system',
+  keyword = 'keyword',
 }
 
 export enum WorkspaceRole {

@@ -23,6 +23,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   `channel_members.notifications` and `channel_members.is_muted`, which nothing read. The
   `ChannelMember` API shape loses those two fields, and the `notification` frame's
   `priority` is now `kind`.
+- Migration 58 adds the `keyword` notification type, the `notification_keywords` table and the
+  `keyword_pattern()` function.
 
 ### Added
 
@@ -32,6 +34,11 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   `GET`/`PUT /workspaces/{id}/notify-default`.
 - **Direct messages reach a phone.** A DM notifies on push, appears in Activity, and is
   counted in the email digest when no device received it.
+- **Keyword notifications.** *Preferences → Notifications → My keywords* lists up to 50 words
+  or short phrases per workspace. A message with one of them, in a channel you are in,
+  notifies you as a mention does (Activity, push, desktop), but without email and without
+  moving the mention badge. Case and accents are ignored, whole words only, and the word is
+  highlighted in the message for you. `GET`/`PUT /workspaces/{id}/notification-keywords`.
 
 ### Changed
 

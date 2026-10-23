@@ -2,7 +2,19 @@ import { useEffect, useRef, useState } from 'react';
 import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
 import { IconButton } from '@/shared/components/IconButton/IconButton';
 import { Button } from '@/shared/components/Button/Button';
-import { Bell, MessageSquare, AtSign, Reply, Smile, Clock, Info, Volume2, VolumeX, Moon } from 'lucide-react';
+import {
+  Bell,
+  MessageSquare,
+  AtSign,
+  Reply,
+  Smile,
+  Clock,
+  Info,
+  Volume2,
+  VolumeX,
+  Moon,
+  Tag,
+} from 'lucide-react';
 import {
   useNotifications,
   useUnreadNotificationCount,
@@ -51,6 +63,8 @@ function notificationIcon(type: NotificationKind) {
       return <Smile className="w-3.5 h-3.5 text-warning" />;
     case 'reminder':
       return <Clock className="w-3.5 h-3.5 text-success" />;
+    case 'keyword':
+      return <Tag className="w-3.5 h-3.5 text-warning" />;
     default:
       return <Info className="w-3.5 h-3.5 text-muted" />;
   }
