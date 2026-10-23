@@ -236,7 +236,7 @@ Side panel showing thread replies for a parent message.
 Debounced search with **Messages | Files** tabs over one query and filter bar. On *Files*
 the *Has* chip gives way to *Type* (`type:pdf` typed in the box does the same and switches to
 *Files*). A file result (`features/search/FileHit`) shows the thumbnail or kind icon, the name
-with the typed fragment marked, size, uploader, place and date; an image opens the gallery,
+with the typed fragment marked, size, uploader, place and date, and for a match inside the file the server's snippet under the name, its matched words in `<mark>` (the snippet arrives as `{ text, hit }` parts and is rendered as text, never as HTML); an image opens the gallery,
 anything else its message, and download is a hover action. The channel files panel's *Filter
 by name* box asks the same route with `channel_id`.
 

@@ -8,6 +8,7 @@ import { fragmentRange } from '@/lib/fold';
 import { FILE_KINDS, isRenderableImage } from '@/features/messaging/fileKinds';
 
 export type FileSearchHit = components['schemas']['FileSearchHit'];
+type SnippetPart = components['schemas']['SnippetPart'];
 
 interface Props {
   hit: FileSearchHit;
@@ -28,6 +29,22 @@ function HighlightedName({ name, query }: { name: string; query: string }) {
       </mark>
       {name.slice(end)}
     </>
+  );
+}
+
+function Snippet({ parts }: { parts: SnippetPart[] }) {
+  return (
+    <span className="mt-0.5 line-clamp-2 text-xs text-fg-dim" data-qa="file-hit-snippet">
+      {parts.map((part, index) =>
+        part.hit ? (
+          <mark key={index} className="bg-warning/25 text-fg rounded-sm" data-qa="file-hit-snippet-match">
+            {part.text}
+          </mark>
+        ) : (
+          <span key={index}>{part.text}</span>
+        ),
+      )}
+    </span>
   );
 }
 
@@ -71,6 +88,7 @@ export function FileHit({ hit, query, context, onOpen }: Props) {
           <span className="block truncate text-sm text-fg-soft">
             <HighlightedName name={hit.filename} query={query} />
           </span>
+          {hit.snippet && hit.snippet.length > 0 && <Snippet parts={hit.snippet} />}
           <span className="block truncate text-xs text-muted">{meta.join(' · ')}</span>
         </span>
       </button>

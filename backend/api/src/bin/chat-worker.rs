@@ -215,6 +215,19 @@ fn spawn_consumers(state: &Arc<AppState>, redis_url: &str) {
     }
 
     {
+        let extractor_state = state.clone();
+        tokio::spawn(async move {
+            supervise("file_text_extractor", || {
+                let extractor_state = extractor_state.clone();
+                async move {
+                    chat_api::files::extractor::start_text_extractor(extractor_state).await;
+                }
+            })
+            .await;
+        });
+    }
+
+    {
         let dispatcher_state = state.clone();
         tokio::spawn(async move {
             supervise("scheduled_dispatcher", || {

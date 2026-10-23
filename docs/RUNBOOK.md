@@ -582,6 +582,38 @@ large instance the upgrade pauses while it reads every reply once.
 The realtime service subscribes to one more Redis channel, `events:thread`; deploy the backend
 and the realtime images together.
 
+## Upgrade note: text inside files becomes searchable
+
+Migration 61 only creates the `file_texts` table and returns at once. The text is filled in
+by `chat-worker`'s `file_text_extractor`, which starts at boot, reads every file attached to
+a message once, newest first, 20 at a time, and then keeps up with new uploads; until it
+reaches a file, that file is found by its name only. Nothing needs to be run by hand.
+
+**What the backfill costs.** Only PDFs, Office documents and text files are downloaded;
+images, video, audio and archives are recorded as `unsupported` without being read, so the
+cost follows the documents, not the bucket. One worker reads one file at a time on one
+core. Measured on a laptop core: PDFs take about 0.35 s per MB (a 2.8 MB licence in under a
+second), Office and text files a few milliseconds each, so 10 GB of PDFs is roughly an hour
+of one core and 10 GB read from the object store. Text-heavy PDFs yield about half their size
+in text, capped at 1 MB a file, and the GIN index adds about as much again; scans and slide
+decks yield almost none. A second worker replica shares the work without reading any file
+twice.
+
+**How to watch it.** On the worker's `/metrics` (`:3005`): `file_text_backlog` is the number
+of files still to read (refreshed every minute) and falls to 0 when the backfill is done;
+`file_text_extraction_total{status=…}` counts `done`, `empty`, `unsupported`, `too_large`,
+`failed` and `abandoned` (a claim given up on after three crashed attempts). A steady rise
+in `failed` is worth a look in the worker log, which names the file id and the reason. To
+see the same from SQL:
+
+```sql
+SELECT status, COUNT(*) FROM file_texts GROUP BY status;
+```
+
+A file is read once. To read one again, for instance after an upgrade that teaches the
+extractor a new format, delete its row (`DELETE FROM file_texts WHERE status = 'unsupported'`)
+and the worker picks it up.
+
 ## Audit log
 
 `GET /api/workspaces/:ws_id/audit-log` (workspace admin) and `GET /api/admin/audit-log`
@@ -1037,7 +1069,10 @@ on `:3004`). At minimum, alert on:
 
 Useful series exposed today: `http_requests_total`,
 `http_request_duration_seconds` (api); `realtime_ws_connections`,
-`realtime_consumer_heartbeat_age_seconds`, `realtime_events_total` (realtime).
+`realtime_consumer_heartbeat_age_seconds`, `realtime_events_total` (realtime);
+`file_text_backlog`, `file_text_extraction_total` (worker, on `:3005`). A
+`file_text_backlog` that stops falling while files are being posted means the
+extractor is stuck.
 A rising `realtime_consumer_heartbeat_age_seconds` is the early signal that
 real-time delivery is wedged even while the process is still alive.
 

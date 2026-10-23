@@ -20,6 +20,7 @@ mod auth;
 mod channels;
 mod commands;
 mod conversations;
+mod file_content_search;
 mod file_search;
 mod files;
 mod hooks;

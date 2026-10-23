@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE file_texts SET status = $2, content = $3, extracted_at = NOW()\n              WHERE file_id = $1 AND status = 'pending'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        {
+          "Custom": {
+            "name": "file_text_status",
+            "kind": {
+              "Enum": [
+                "pending",
+                "done",
+                "empty",
+                "unsupported",
+                "too_large",
+                "failed"
+              ]
+            }
+          }
+        },
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5a2b7672fcef02b5e29379e36ce66f163f7792044cbcf5ff1fa121b1d2882dea"
+}

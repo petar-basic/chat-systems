@@ -2698,6 +2698,7 @@ export interface components {
                 kind: components["schemas"]["FileKind"];
                 /** Format: uuid */
                 message_id: string;
+                snippet?: components["schemas"]["SnippetPart"][] | null;
                 /** Format: uuid */
                 user_id: string;
             })[];
@@ -3066,6 +3067,7 @@ export interface components {
             kind: components["schemas"]["FileKind"];
             /** Format: uuid */
             message_id: string;
+            snippet?: components["schemas"]["SnippetPart"][] | null;
             /** Format: uuid */
             user_id: string;
         };
@@ -3537,6 +3539,10 @@ export interface components {
             name: string;
             /** Format: int32 */
             position: number;
+        };
+        SnippetPart: {
+            hit: boolean;
+            text: string;
         };
         StartHuddleRequest: {
             /** Format: uuid */

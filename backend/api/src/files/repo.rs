@@ -2,7 +2,8 @@ use chrono::{DateTime, Utc};
 use sqlx::{PgConnection, PgPool};
 use uuid::Uuid;
 
-use super::models::{FileKind, FileRecord};
+use super::models::{FileKind, FileRecord, FileTextStatus, TextJob};
+use super::text::{snippet_parts, SnippetPart};
 
 pub struct NewFile<'a> {
     pub user_id: Uuid,
@@ -37,6 +38,7 @@ pub struct FileMatch {
     pub message_id: Uuid,
     pub channel_id: Uuid,
     pub kind: FileKind,
+    pub snippet: Option<Vec<SnippetPart>>,
 }
 
 pub struct FileRepo {
@@ -253,27 +255,58 @@ impl FileRepo {
             ),
             wanted AS (
               SELECT public.search_normalize($1) AS term,
-                     '%' || replace(replace(replace(public.search_normalize($1), '\', '\\'), '%', '\%'), '_', '\_') || '%' AS pattern
+                     '%' || replace(replace(replace(public.search_normalize($1), '\', '\\'), '%', '\%'), '_', '\_') || '%' AS pattern,
+                     plainto_tsquery(public.search_text_config(), public.search_normalize($1)) AS terms
+            ),
+            candidates AS (
+              SELECT f.id FROM files f CROSS JOIN wanted w
+               WHERE f.workspace_id = $2
+                 AND ($1 = '' OR f.search_name ILIKE w.pattern OR w.term <% f.search_name)
+              UNION
+              SELECT t.file_id FROM file_texts t CROSS JOIN wanted w
+               WHERE $1 <> '' AND t.status = 'done' AND t.search_vector @@ w.terms
+            ),
+            ranked AS (
+              SELECT f.id, f.user_id, f.workspace_id, f.filename, f.storage_key, f.mime_type,
+                     f.size_bytes, f.thumbnail_key, f.width, f.height, f.created_at,
+                     m.id AS message_id, m.channel_id,
+                     public.file_kind_of(f.mime_type, f.filename) AS kind,
+                     ($1 <> '' AND f.search_name ILIKE w.pattern) AS near,
+                     ($1 <> '' AND (f.search_name ILIKE w.pattern OR w.term <% f.search_name)) AS named,
+                     word_similarity(w.term, f.search_name) AS similarity,
+                     COALESCE(t.search_vector @@ w.terms, FALSE) AS inside,
+                     COALESCE(ts_rank(t.search_vector, w.terms), 0) AS relevance,
+                     t.content, w.terms
+                FROM candidates c
+                JOIN files f ON f.id = c.id
+                JOIN messages m ON m.id = f.message_id
+                CROSS JOIN wanted w
+                LEFT JOIN file_texts t ON t.file_id = f.id AND t.status = 'done' AND $1 <> ''
+               WHERE f.workspace_id = $2
+                 AND m.deleted_at IS NULL
+                 AND m.channel_id IN (SELECT id FROM visible)
+                 AND ($6::uuid IS NULL OR f.user_id = $6)
+                 AND ($7::file_kind IS NULL OR public.file_kind_of(f.mime_type, f.filename) = $7)
+                 AND ($8::timestamptz IS NULL OR f.created_at >= $8)
+                 AND ($9::timestamptz IS NULL OR f.created_at < $9)
+               ORDER BY near DESC, named DESC, similarity DESC, relevance DESC,
+                        f.created_at DESC, f.id DESC
+               LIMIT $10 OFFSET $11
             )
-            SELECT f.id, f.user_id, f.workspace_id, f.filename, f.storage_key, f.mime_type,
-                   f.size_bytes, f.thumbnail_key, f.width, f.height, f.created_at,
-                   m.id AS message_id, m.channel_id,
-                   public.file_kind_of(f.mime_type, f.filename) AS "kind!: FileKind"
-              FROM files f
-              JOIN messages m ON m.id = f.message_id
-              CROSS JOIN wanted w
-             WHERE f.workspace_id = $2
-               AND m.deleted_at IS NULL
-               AND m.channel_id IN (SELECT id FROM visible)
-               AND ($1 = '' OR f.search_name ILIKE w.pattern OR w.term <% f.search_name)
-               AND ($6::uuid IS NULL OR f.user_id = $6)
-               AND ($7::file_kind IS NULL OR public.file_kind_of(f.mime_type, f.filename) = $7)
-               AND ($8::timestamptz IS NULL OR f.created_at >= $8)
-               AND ($9::timestamptz IS NULL OR f.created_at < $9)
-             ORDER BY ($1 <> '' AND f.search_name ILIKE w.pattern) DESC,
-                      word_similarity(w.term, f.search_name) DESC,
-                      f.created_at DESC, f.id DESC
-             LIMIT $10 OFFSET $11
+            SELECT id AS "id!", user_id AS "user_id!", workspace_id AS "workspace_id!",
+                   filename AS "filename!", storage_key AS "storage_key!",
+                   mime_type AS "mime_type!", size_bytes AS "size_bytes!",
+                   thumbnail_key, width, height, created_at AS "created_at!",
+                   message_id AS "message_id!", channel_id AS "channel_id!",
+                   kind AS "kind!: FileKind",
+                   CASE WHEN inside THEN ts_headline(
+                     'public.search_headline', content, terms,
+                     'StartSel=' || chr(2) || ', StopSel=' || chr(3)
+                       || ', MaxWords=24, MinWords=8, MaxFragments=2, FragmentDelimiter=" … "'
+                   ) END AS headline
+              FROM ranked
+             ORDER BY near DESC, named DESC, similarity DESC, relevance DESC,
+                      created_at DESC, id DESC
             "#,
             params.query,
             params.workspace_id,
@@ -296,6 +329,7 @@ impl FileRepo {
                 message_id: row.message_id,
                 channel_id: row.channel_id,
                 kind: row.kind,
+                snippet: row.headline.as_deref().map(snippet_parts),
                 record: FileRecord {
                     id: row.id,
                     message_id: Some(row.message_id),
@@ -312,6 +346,111 @@ impl FileRepo {
                 },
             })
             .collect())
+    }
+
+    pub async fn give_up_stale_texts(
+        &self,
+        stale_after_secs: f64,
+        max_attempts: i32,
+    ) -> sqlx::Result<u64> {
+        let done = sqlx::query!(
+            "UPDATE file_texts SET status = 'failed', extracted_at = NOW()
+              WHERE status = 'pending'
+                AND claimed_at < NOW() - make_interval(secs => $1)
+                AND attempts >= $2",
+            stale_after_secs,
+            max_attempts
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(done.rows_affected())
+    }
+
+    pub async fn reclaim_stale_texts(
+        &self,
+        limit: i64,
+        stale_after_secs: f64,
+        max_attempts: i32,
+    ) -> sqlx::Result<Vec<TextJob>> {
+        sqlx::query_as!(
+            TextJob,
+            r#"
+            WITH claimed AS (
+              UPDATE file_texts t SET attempts = t.attempts + 1, claimed_at = NOW()
+               WHERE t.file_id IN (
+                 SELECT file_id FROM file_texts
+                  WHERE status = 'pending' AND claimed_at < NOW() - make_interval(secs => $2)
+                    AND attempts < $3
+                  ORDER BY claimed_at
+                  LIMIT $1
+                  FOR UPDATE SKIP LOCKED
+               )
+              RETURNING t.file_id
+            )
+            SELECT f.id AS file_id, f.storage_key, f.filename, f.mime_type, f.size_bytes,
+                   public.file_kind_of(f.mime_type, f.filename) AS "kind!: FileKind"
+              FROM claimed c JOIN files f ON f.id = c.file_id
+            "#,
+            limit,
+            stale_after_secs,
+            max_attempts
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn claim_new_texts(&self, limit: i64) -> sqlx::Result<Vec<TextJob>> {
+        sqlx::query_as!(
+            TextJob,
+            r#"
+            WITH claimed AS (
+              INSERT INTO file_texts (file_id)
+              SELECT f.id FROM files f
+               WHERE f.message_id IS NOT NULL
+                 AND NOT EXISTS (SELECT 1 FROM file_texts t WHERE t.file_id = f.id)
+               ORDER BY f.created_at DESC
+               LIMIT $1
+               FOR UPDATE OF f SKIP LOCKED
+              ON CONFLICT (file_id) DO NOTHING
+              RETURNING file_id
+            )
+            SELECT f.id AS file_id, f.storage_key, f.filename, f.mime_type, f.size_bytes,
+                   public.file_kind_of(f.mime_type, f.filename) AS "kind!: FileKind"
+              FROM claimed c JOIN files f ON f.id = c.file_id
+            "#,
+            limit
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn finish_text(
+        &self,
+        file_id: Uuid,
+        status: FileTextStatus,
+        content: Option<&str>,
+    ) -> sqlx::Result<()> {
+        sqlx::query!(
+            "UPDATE file_texts SET status = $2, content = $3, extracted_at = NOW()
+              WHERE file_id = $1 AND status = 'pending'",
+            file_id,
+            status as FileTextStatus,
+            content
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn text_backlog(&self) -> sqlx::Result<i64> {
+        sqlx::query_scalar!(
+            r#"SELECT (SELECT COUNT(*) FROM files f
+                        WHERE f.message_id IS NOT NULL
+                          AND NOT EXISTS (SELECT 1 FROM file_texts t WHERE t.file_id = f.id))
+                    + (SELECT COUNT(*) FROM file_texts WHERE status = 'pending') AS "backlog!""#
+        )
+        .fetch_one(&self.pool)
+        .await
     }
 
     pub async fn channel_id_for_message(&self, message_id: Uuid) -> sqlx::Result<Option<Uuid>> {

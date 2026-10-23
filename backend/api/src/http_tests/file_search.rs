@@ -9,11 +9,22 @@ use uuid::Uuid;
 const BOUNDARY: &str = "----filesearchboundary";
 
 async fn upload(app: &axum::Router, ws_id: Uuid, token: &str, name: &str, ctype: &str) -> Value {
+    upload_bytes(app, ws_id, token, name, ctype, b"contents").await
+}
+
+pub(super) async fn upload_bytes(
+    app: &axum::Router,
+    ws_id: Uuid,
+    token: &str,
+    name: &str,
+    ctype: &str,
+    contents: &[u8],
+) -> Value {
     let mut body = format!(
         "--{BOUNDARY}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{name}\"\r\nContent-Type: {ctype}\r\n\r\n"
     )
     .into_bytes();
-    body.extend_from_slice(b"contents");
+    body.extend_from_slice(contents);
     body.extend_from_slice(format!("\r\n--{BOUNDARY}--\r\n").as_bytes());
     let request = Request::builder()
         .method("POST")
@@ -42,7 +53,19 @@ async fn post_file(
     name: &str,
     ctype: &str,
 ) -> String {
-    let file_id = upload(app, ws_id, token, name, ctype).await;
+    post_bytes(app, ws_id, channel_id, token, name, ctype, b"contents").await
+}
+
+pub(super) async fn post_bytes(
+    app: &axum::Router,
+    ws_id: Uuid,
+    channel_id: &str,
+    token: &str,
+    name: &str,
+    ctype: &str,
+    contents: &[u8],
+) -> String {
+    let file_id = upload_bytes(app, ws_id, token, name, ctype, contents).await;
     let (status, msg) = send(
         app,
         "POST",
@@ -55,7 +78,12 @@ async fn post_file(
     msg["id"].as_str().expect("message id").to_string()
 }
 
-async fn found(app: &axum::Router, token: &str, ws_id: Uuid, query: &str) -> Vec<String> {
+pub(super) async fn found(
+    app: &axum::Router,
+    token: &str,
+    ws_id: Uuid,
+    query: &str,
+) -> Vec<String> {
     let (status, body) = send(
         app,
         "GET",
@@ -73,7 +101,7 @@ async fn found(app: &axum::Router, token: &str, ws_id: Uuid, query: &str) -> Vec
         .collect()
 }
 
-fn q(term: &str) -> String {
+pub(super) fn q(term: &str) -> String {
     format!("q={}", urlencode(term))
 }
 

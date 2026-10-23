@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE file_texts SET status = 'failed', extracted_at = NOW()\n              WHERE status = 'pending'\n                AND claimed_at < NOW() - make_interval(secs => $1)\n                AND attempts >= $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Float8",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f544061ad60f994185bd33d16ec42c6df0fc72a4ffc1128c27864d98662c175f"
+}

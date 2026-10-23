@@ -79,6 +79,29 @@ describe('SearchPanel', () => {
     expect(screen.getByLabelText('Download Q3 budget.pdf')).toHaveAttribute('href', files[0].url);
   });
 
+  it('shows the words found inside a file, marked but never as markup', async () => {
+    get.mockImplementation(async () => ({
+      data: [
+        {
+          ...hit('3', 'Agreement_v7.pdf', 'application/pdf', 'pdf'),
+          snippet: [
+            { text: 'Klijent: <b>Đorđe</b> ', hit: false },
+            { text: 'Šćepanović', hit: true },
+            { text: ', Čačak', hit: false },
+          ],
+        },
+      ],
+    }));
+    renderPanel();
+    fireEvent.click(screen.getByTestId('search-tab-files'));
+    typeAndSubmit('scepanovic');
+    const snippet = await screen.findByTestId('file-hit-snippet');
+    expect(snippet).toHaveTextContent('Klijent: <b>Đorđe</b> Šćepanović, Čačak');
+    expect(snippet.querySelector('b')).toBeNull();
+    expect(screen.getByTestId('file-hit-snippet-match')).toHaveTextContent('Šćepanović');
+    expect(screen.queryByTestId('file-hit-match')).toBeNull();
+  });
+
   it('switches to Files when type: is typed', async () => {
     renderPanel();
     typeAndSubmit('budget type:pdf');

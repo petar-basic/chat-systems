@@ -32,6 +32,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - Migration 60 adds `files.search_name` (generated) with a trigram index, the `file_kind`
   type and `file_kind_of()`, and `searchable_channels()`, which message search now uses too.
   `idx_files_workspace` becomes `idx_files_workspace_created`.
+- Migration 61 adds the `file_texts` table and the `search_headline` text search
+  configuration. `chat-worker` then reads the text of existing files in the background; see
+  [the upgrade note](docs/RUNBOOK.md#upgrade-note-text-inside-files-becomes-searchable) for
+  what that costs and how to watch it.
 
 ### Added
 
@@ -56,6 +60,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   ignoring case and accents, in every channel and DM you can read. Narrow by person, place,
   date and *Type* (`type:pdf`). An image opens in the gallery, any other file at its message.
   The channel's *Files* panel filters by name. `GET /search/files`.
+- **Find a file by what is inside it.** File search also reads the text of PDFs, Word,
+  Excel and PowerPoint files and plain-text files, and shows the matching line under the
+  file name with the words marked. A name match still comes first. Text in images is not
+  read. `file_text_backlog` and `file_text_extraction_total` on the worker's metrics.
 
 ### Changed
 

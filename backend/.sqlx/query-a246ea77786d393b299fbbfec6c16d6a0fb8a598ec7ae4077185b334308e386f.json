@@ -1,0 +1,103 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH claimed AS (\n              UPDATE file_texts t SET attempts = t.attempts + 1, claimed_at = NOW()\n               WHERE t.file_id IN (\n                 SELECT file_id FROM file_texts\n                  WHERE status = 'pending' AND claimed_at < NOW() - make_interval(secs => $2)\n                    AND attempts < $3\n                  ORDER BY claimed_at\n                  LIMIT $1\n                  FOR UPDATE SKIP LOCKED\n               )\n              RETURNING t.file_id\n            )\n            SELECT f.id AS file_id, f.storage_key, f.filename, f.mime_type, f.size_bytes,\n                   public.file_kind_of(f.mime_type, f.filename) AS \"kind!: FileKind\"\n              FROM claimed c JOIN files f ON f.id = c.file_id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "file_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "files",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "storage_key",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "files",
+            "name": "storage_key"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "filename",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "files",
+            "name": "filename"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "mime_type",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "files",
+            "name": "mime_type"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "size_bytes",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "files",
+            "name": "size_bytes"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "kind!: FileKind",
+        "type_info": {
+          "Custom": {
+            "name": "file_kind",
+            "kind": {
+              "Enum": [
+                "pdf",
+                "image",
+                "video",
+                "audio",
+                "spreadsheet",
+                "presentation",
+                "document",
+                "archive",
+                "text",
+                "other"
+              ]
+            }
+          }
+        },
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Float8",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "a246ea77786d393b299fbbfec6c16d6a0fb8a598ec7ae4077185b334308e386f"
+}

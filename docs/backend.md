@@ -6,7 +6,7 @@ the crates under `shared/`:
 | Process | Port | Role | Replicas |
 |---|---|---|---|
 | **`chat-api`** | 3000 | Stateless REST API. Owns the migrations, applied at startup. | scale freely |
-| **`chat-worker`** | 3005 | Background consumers: outgoing webhooks, reminders, notifications, huddle history, call ringing, scheduled messages, email delivery, event outbox relay. Serves only `/livez`, `/readyz`, `/metrics`. | scale freely |
+| **`chat-worker`** | 3005 | Background consumers: outgoing webhooks, reminders, notifications, huddle history, call ringing, scheduled messages, email delivery, event outbox relay, text extraction from files. Serves only `/livez`, `/readyz`, `/metrics`. | scale freely |
 | **`chat-realtime`** | 3004 | WebSocket gateway. | scale freely |
 
 `chat-api` serves an OpenAPI document at `/api/openapi.json`, generated from the handlers
@@ -359,7 +359,7 @@ their own message, and a named user inside a broadcast is notified once, not twi
 | GET | `/workspaces/:ws_id/unreads` | Query: `limit=20 (≤50), offset=0` | `{ data: UnreadGroup[], next_offset }` — every channel and DM the caller has unread messages in, muted last and otherwise newest activity first, each with its newest 20 unread messages (oldest first, the caller's own left out) |
 | POST | `/channels/:ch_id/unread` | `{ message_id }` | `ReadState` — moves the caller's read position to just before that message and recomputes their unread and mention counts for the channel |
 | GET | `/search` | Query: `q?, workspace_id, channel_id?, user_id?, has? (file \| image \| link), after?, before?, scope?, limit=20, offset=0` | `{ data: Message[] }` — `q` may be empty when a filter is set (newest first); `channel_id` takes a channel or a conversation; `after` is inclusive and `before` exclusive (RFC 3339 instants); `has=file` counts images too |
-| GET | `/search/files` | Query: `q?, workspace_id, channel_id?, user_id?, kind?, after?, before?, limit=20, offset=0` | `{ data: FileSearchHit[] }` — attachment fields plus `kind`, `message_id`, `channel_id`, `user_id`, `created_at`. Any fragment of the name matches, ignoring case and accents (a near miss also matches, ranked after); then newest first. `q` may be empty when a filter is set. `kind` is one of `pdf, image, video, audio, spreadsheet, presentation, document, archive, text, other`. Only files of live messages in channels the caller can search: the same `searchable_channels()` set as `/search` |
+| GET | `/search/files` | Query: `q?, workspace_id, channel_id?, user_id?, kind?, after?, before?, limit=20, offset=0` | `{ data: FileSearchHit[] }` — attachment fields plus `kind`, `message_id`, `channel_id`, `user_id`, `created_at` and `snippet`. Any fragment of the name matches, ignoring case and accents (a near miss also matches, ranked after), and so does a file whose extracted text holds every word of `q`, ranked after every name match by `ts_rank`; then newest first. A content match carries `snippet: { text, hit }[]`, up to two fragments of the text around the words, with `hit` on the words themselves — parts, never markup, so the client cannot render the file's text as HTML. `q` may be empty when a filter is set. `kind` is one of `pdf, image, video, audio, spreadsheet, presentation, document, archive, text, other`. Only files of live messages in channels the caller can search: the same `searchable_channels()` set as `/search` |
 
 Search is access-scoped: results come only from public channels in the workspace
 plus the private/DM channels the caller belongs to.
@@ -403,6 +403,44 @@ is always one safe path segment and keeps its extension. Downloads send both
 | DELETE | `/files/:file_id` | — | `{ status: "deleted" }` |
 | GET | `/files/workspace/:ws_id` | Query: `limit=50, offset=0` | `{ data: FileRecord[] }` |
 | GET | `/channels/:ch_id/files` | Query: `kind?` (`image`, `video`, `audio`, `document`), `cursor?` (a file id), `limit=50` | `{ data: ChannelFile[] }` — the files of the channel's live messages, newest first, to whoever can read the channel |
+
+**Text inside files.** `chat-worker`'s `file_text_extractor` (`files::extractor`) reads every
+file attached to a message once and writes `file_texts` (`file_id` → `status`, `content`,
+generated `search_vector`), a table of its own so the hot `files` row stays small. It claims
+up to 20 files with no row by inserting `pending` rows (`FOR UPDATE SKIP LOCKED`, `ON CONFLICT
+DO NOTHING`, newest first), so two workers never read the same file, and the same loop is the
+backfill for files that existed before migration 61. A claim older than ten minutes is a
+worker that died mid-file: it is taken again, and after three attempts it is `failed`.
+Every other outcome is final — `done`, `empty`, `unsupported`, `too_large` or `failed` — so
+a file that cannot be read is never retried. Deleting the file, by hand, by retention or with
+its channel, cascades to its text; the export leaves it out, being derived data.
+
+`files::text::extract` picks the format from `file_kind_of()` and the extension: PDF with
+`pdf-extract`; DOCX (body, headers, footers, notes), XLSX (shared and inline strings) and PPTX
+(slides in order, then speaker notes) by reading their XML parts with `zip` and `quick-xml`;
+plain text, Markdown, CSV and source code as UTF-8. Images, media, archives and the old
+binary Office formats are `unsupported` and never downloaded. The text is NFKC-normalised
+(ligatures such as `ﬁ` become `fi`), control characters become spaces and whitespace is
+collapsed. Because these are untrusted files: an object over 25 MB is `too_large` before it
+is downloaded; a zip with more than 10,000 entries, or whose XML parts would inflate past
+64 MB, is `too_large`, checked against the declared size and again while reading; text stops
+at 1 MB on a character boundary; each extraction runs on a blocking thread inside
+`catch_unwind` under a 30 s timeout, so a parser that panics or loops costs one `failed` row,
+not the worker. A password-protected PDF is `unsupported`. If Postgres refuses the
+`tsvector` as too long, the text is halved until it fits.
+
+**Why `pdf-extract`.** Both candidates were run over thirteen real PDFs (licences, manuals,
+papers, a Serbian contract, an encrypted file, truncated and garbage input). `lopdf`'s own
+text extraction is three to nine times faster (197 ms against 966 ms for a 2.8 MB licence)
+but drops the space between words wherever the PDF positions them instead of writing one —
+14 % of the word breaks in one paper were lost, joining words into tokens nobody searches
+for. `pdf-extract` (built on `lopdf`) keeps them, reports an encrypted file as a decryption
+error where `lopdf` returned empty text, and rejected every malformed file without panicking.
+Search is what the text is for, so correct word breaks won over speed on a background path.
+
+The snippet is `ts_headline` with `public.search_headline`, a copy of `simple` that passes
+words through `unaccent` first: the query is matched without accents while the fragment keeps
+the original spelling (`Čačak` is marked for `cacak`). It runs only on the page of results.
 
 ---
 

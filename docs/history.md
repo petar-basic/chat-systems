@@ -1370,7 +1370,7 @@ member list carries each person's `notifications_paused_until` for the hover car
 
 ---
 
-## Wave 22 — Finding files
+## Wave 22 — Finding files ✅ shipped
 
 ### [CS-063] Search finds files by name ✅ shipped
 Search read message text only, so a file posted without a caption, the usual way, could not
@@ -1395,3 +1395,30 @@ the icon already said. The route is `GET /search/files` with the query parameter
 `/search` (`workspace_id`, `channel_id`, `user_id`, `kind` for `type:`), not a path under the
 workspace, so the panel builds both requests the same way. The gallery shows images only, so
 a video opens at its message, where it plays.
+
+### [CS-064] Search inside files ✅ shipped
+A contract named `Agreement_v7.pdf` is now found by the client's name written in it. The
+worker reads each attached file once into `file_texts`, a table of its own so the `files` row
+every message query touches stays small, and the files search matches the name or the text,
+ranking every name match above every content match and returning a snippet of the text with
+the words marked.
+
+The PDF crate was chosen by measurement, as the ticket asked: over thirteen real PDFs `lopdf`
+was three to nine times faster but lost the spaces a PDF expresses by position, joining words
+(14 % of the breaks in one paper), while `pdf-extract` kept them and called an encrypted file
+an error rather than empty. Office files needed no library of their own: they are zip
+archives of XML, and reading the `t` elements with `quick-xml` in part order gives the text,
+with a break at every paragraph, cell and slide so runs split mid-word (`Konfe` + `rencija`)
+join and neighbours do not.
+
+The ticket's status list had no state for a file being read. Claiming by inserting a
+`pending` row (`FOR UPDATE SKIP LOCKED`, `ON CONFLICT DO NOTHING`) is what makes two workers
+never read the same file, and `attempts` with `claimed_at` let a claim left by a worker that
+died mid-file be taken again, up to three times, before it is `failed`. A password-protected
+PDF is `unsupported` rather than `failed`: it is not broken, the server just cannot read it.
+Formats are checked before downloading, so the backfill of an instance full of photos costs
+nothing. The snippet is `ts_headline` over a copy of `simple` that unaccents each word, so
+`cacak` marks `Čačak` as written; its markers are control characters the extractor strips
+from every text, and the server turns them into `{ text, hit }` parts, so a file's text can
+reach the browser only as text.
+
