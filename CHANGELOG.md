@@ -69,6 +69,16 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   everyone in it, so the ninth person to press *Join* is told the huddle is full and no call
   starts. Larger calls wait for the SFU in 4.0.0.
 
+### Fixed
+
+- **Uploading from a phone.** *Upload photo* in *Edit profile*, *Upload icon* in workspace
+  settings and the composer's paperclip did nothing in the installed app on a phone: they
+  opened a hidden file input from script, which an iOS home-screen app ignores. Each is now a
+  label the tap goes through to the input itself.
+- CI actions: `actions/cache` 6 and `docker/build-push-action` 7. Dependabot no longer
+  proposes `dtolnay/rust-toolchain` versions, which it offered before they exist (1.120.0);
+  the toolchain moves by hand with `rust-version` and the build image.
+
 ## [3.2.0] — 2026-10-23
 
 ### Upgrading from 3.1.0

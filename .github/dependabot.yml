@@ -31,3 +31,9 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      # dtolnay/rust-toolchain publishes a branch for every future Rust release
+      # (1.120.0 existed in October 2026, two years early), so Dependabot offers
+      # toolchains that cannot be installed. The version moves by hand, together
+      # with `rust-version` in backend/Cargo.toml and the cargo-chef image.
+      - dependency-name: dtolnay/rust-toolchain

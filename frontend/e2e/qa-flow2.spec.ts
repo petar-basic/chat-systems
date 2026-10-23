@@ -85,7 +85,7 @@ test('C. pin a message and read it back from the pinned panel', async () => {
 
 test('D. file upload is delivered to the other user', async () => {
   const chooser = admin.waitForEvent('filechooser');
-  await admin.getByLabel('Upload file').click();
+  await admin.locator('[data-qa="composer-upload"]').last().click();
   const fc = await chooser;
   await fc.setFiles({
     name: `qa-${stamp}.txt`,

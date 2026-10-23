@@ -30,6 +30,7 @@ import { buildMentionItems } from './mentionItems';
 import { useUserGroups } from '@/hooks/queries/useUserGroups';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { TextInput } from '@/shared/components/Form/TextInput';
+import { FilePicker } from '@/shared/components/Form/FilePicker';
 
 const MentionNode = Mention.extend({
   addStorage() {
@@ -82,7 +83,6 @@ export default function MessageInput({
   instanceUrl,
   scheduleTarget,
 }: Props) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const attachmentsRef = useRef(attachments);
   const allowEmptyRef = useRef(allowEmpty);
   useEffect(() => {
@@ -285,11 +285,6 @@ export default function MessageInput({
     if (editing && editor) editor.commands.focus('end');
   }, [editing, editor]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    addFiles(Array.from(e.target.files ?? []));
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
   const isEmpty = !editor || (editor.isEmpty && !attachments?.hasReady && !allowEmpty);
   const sendBlocked = isEmpty || !!attachments?.busy;
 
@@ -297,16 +292,6 @@ export default function MessageInput({
     // The bottom padding clears the iOS home indicator; without it the send
     // button sits under it and cannot be tapped.
     <div className={editing ? 'mt-1' : 'px-4 pb-4 max-sm:pb-[max(1rem,env(safe-area-inset-bottom))]'}>
-      {attachments && (
-        <input
-          aria-label="Attach files"
-          ref={fileInputRef}
-          type="file"
-          multiple
-          className="hidden"
-          onChange={handleFileChange}
-        />
-      )}
       <div
         className="@container bg-surface border border-line rounded-xl"
         data-composer={editing ? undefined : true}
@@ -320,14 +305,15 @@ export default function MessageInput({
           <div className="flex flex-wrap items-center gap-0.5 min-w-0">
             {attachments && (
               <>
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  aria-label="Upload file"
-                  className="p-1 text-muted hover:text-fg-soft disabled:text-faint transition cursor-pointer rounded hover:bg-raised/60"
+                <FilePicker
+                  label="Upload file"
+                  multiple
+                  onFiles={addFiles}
+                  dataQa="composer-upload"
+                  className="p-1 text-muted hover:text-fg-soft transition rounded hover:bg-raised/60"
                 >
                   <Paperclip className="w-3.5 h-3.5" />
-                </button>
+                </FilePicker>
                 <div className="w-px h-4 bg-elevated/60 mx-0.5" />
               </>
             )}

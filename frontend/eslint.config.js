@@ -59,6 +59,11 @@ export default defineConfig([
             "JSXOpeningElement[name.name=/^(input|textarea|select)$/]:not(:has(JSXAttribute[name.name='type'][value.value='file']))",
           message: 'Use TextInput, TextArea, Select, Checkbox or RadioCards from shared/components/Form.',
         },
+        {
+          selector: "CallExpression[callee.property.name='click'][callee.object.property.name='current']",
+          message:
+            'A hidden file input opened with .click() does nothing in an iOS home-screen app; use FilePicker from shared/components/Form.',
+        },
       ],
     },
   },

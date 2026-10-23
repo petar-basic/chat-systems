@@ -28,7 +28,7 @@ test('an uploaded image opens a preview instead of downloading', async ({ page }
   await expect(page.locator('[data-qa="channel-header-name"]')).toHaveText('general');
 
   const chooser = page.waitForEvent('filechooser');
-  await page.getByLabel('Upload file').click();
+  await page.locator('[data-qa="composer-upload"]').last().click();
   await (
     await chooser
   ).setFiles({
