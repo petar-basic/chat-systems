@@ -15,10 +15,13 @@ use uuid::Uuid;
 use shared_common::errors::{AppError, AppResult};
 
 use super::imaging;
-use super::models::{ChannelFile, ChannelFilesQuery, FileRecord, FileUploadResponse, UploadQuery};
+use super::models::{
+    ChannelFile, ChannelFilesQuery, FileRecord, FileSearchHit, FileSearchQuery, FileUploadResponse,
+    UploadQuery,
+};
 use super::names;
 use super::ranges::ByteRange;
-use super::repo::NewFile;
+use super::repo::{FileSearch, NewFile};
 use super::service;
 use super::storage::Opening;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
@@ -36,6 +39,7 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(get_file_meta, delete_file))
         .routes(routes!(list_files))
         .routes(routes!(list_channel_files))
+        .routes(routes!(search_files))
 }
 
 /// The one route with a wildcard segment, which the OpenAPI document does not
@@ -377,6 +381,56 @@ async fn list_channel_files(
                 user_id: record.user_id,
                 created_at: record.created_at,
             })
+        })
+        .collect();
+    Ok(Json(DataList { data }))
+}
+
+#[utoipa::path(get, path = "/search/files", tag = "files",
+    params(FileSearchQuery),
+    responses((status = 200, body = DataList<FileSearchHit>)))]
+async fn search_files(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Query(params): Query<FileSearchQuery>,
+) -> AppResult<Json<DataList<FileSearchHit>>> {
+    let query = params.q.as_deref().unwrap_or_default().trim().to_string();
+    if query.is_empty() && !params.has_filter() {
+        return Err(AppError::Validation(
+            "Search needs words or at least one filter".into(),
+        ));
+    }
+
+    let member = authz::require_workspace_member(&state, params.workspace_id, auth.user_id).await?;
+    if let Some(ch_id) = params.channel_id {
+        authz::require_channel_access(&state, ch_id, auth.user_id).await?;
+    }
+
+    let matches = state
+        .file_repo
+        .search(FileSearch {
+            query: &query,
+            workspace_id: params.workspace_id,
+            requester_id: auth.user_id,
+            requester_is_guest: member.role == WorkspaceRole::Guest,
+            channel_id: params.channel_id,
+            uploader_id: params.user_id,
+            kind: params.kind,
+            after: params.after,
+            before: params.before,
+            limit: params.limit.unwrap_or(20).clamp(1, 100),
+            offset: params.offset.unwrap_or(0).max(0),
+        })
+        .await?;
+    let data = matches
+        .into_iter()
+        .map(|found| FileSearchHit {
+            attachment: service::attachment(&state, &found.record),
+            kind: found.kind,
+            message_id: found.message_id,
+            channel_id: found.channel_id,
+            user_id: found.record.user_id,
+            created_at: found.record.created_at,
         })
         .collect();
     Ok(Json(DataList { data }))

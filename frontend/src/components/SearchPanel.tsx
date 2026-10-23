@@ -9,11 +9,16 @@ import type { Message, WorkspaceMember } from '../stores/workspace';
 import { SearchFilterBar } from '@/features/search/SearchFilterBar';
 import {
   extractFilters,
+  forTab,
   hasFilters,
   searchParams,
   type FilterContext,
   type SearchFilters,
+  type SearchTab,
 } from '@/features/search/searchFilters';
+import { FileHit, type FileSearchHit } from '@/features/search/FileHit';
+import { isRenderableImage } from '@/features/messaging/fileKinds';
+import { ImageGallery } from '@/features/messaging/ImageGallery';
 import { X, Search } from 'lucide-react';
 import { IconButton } from '@/shared/components/IconButton/IconButton';
 import { displayNameOf } from '@/lib/userHelpers';
@@ -31,6 +36,13 @@ interface Props {
   onNavigateToMessage?: (channelId: string, messageId: string) => void;
   onNavigateToConversation?: (conversationId: string) => void;
 }
+
+const TABS: { tab: SearchTab; label: string }[] = [
+  { tab: 'messages', label: 'Messages' },
+  { tab: 'files', label: 'Files' },
+];
+
+const LIMIT = 20;
 
 function Hit({
   userId,
@@ -83,7 +95,10 @@ export default function SearchPanel({
   useEscapeToClose(onClose);
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState<SearchFilters>({});
+  const [tab, setTab] = useState<SearchTab>('messages');
   const [results, setResults] = useState<Message[]>([]);
+  const [files, setFiles] = useState<FileSearchHit[]>([]);
+  const [viewing, setViewing] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -105,10 +120,12 @@ export default function SearchPanel({
   }, []);
 
   const doSearch = useCallback(
-    async (q: string, active: SearchFilters) => {
+    async (q: string, all: SearchFilters, on: SearchTab) => {
       const request = ++requestRef.current;
+      const active = forTab(all, on);
       if ((!q.trim() && !hasFilters(active)) || !workspaceId) {
         setResults([]);
+        setFiles([]);
         setSearched(false);
         setError(null);
         setLoading(false);
@@ -117,18 +134,20 @@ export default function SearchPanel({
       setLoading(true);
       setSearched(true);
       setError(null);
+      const params = { q: q.trim(), workspace_id: workspaceId, limit: LIMIT, ...searchParams(active) };
+      const api = getApiForInstance(instanceUrl);
       try {
-        const res = await getApiForInstance(instanceUrl).typed((c) =>
-          c.GET('/search', {
-            params: {
-              query: { q: q.trim(), workspace_id: workspaceId, limit: 20, ...searchParams(active) },
-            },
-          }),
-        );
-        if (request === requestRef.current) setResults(res.data);
+        if (on === 'files') {
+          const res = await api.typed((c) => c.GET('/search/files', { params: { query: params } }));
+          if (request === requestRef.current) setFiles(res.data);
+        } else {
+          const res = await api.typed((c) => c.GET('/search', { params: { query: params } }));
+          if (request === requestRef.current) setResults(res.data);
+        }
       } catch (err: unknown) {
         if (request !== requestRef.current) return;
         setResults([]);
+        setFiles([]);
         setError(toUserMessage(err, 'Search failed'));
       } finally {
         if (request === requestRef.current) setLoading(false);
@@ -137,18 +156,20 @@ export default function SearchPanel({
     [workspaceId, instanceUrl],
   );
 
-  const search = (text: string, active: SearchFilters, delay: number) => {
+  const search = (text: string, active: SearchFilters, delay: number, on: SearchTab = tab) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => void doSearch(text, active), delay);
+    debounceRef.current = setTimeout(() => void doSearch(text, active, on), delay);
   };
 
   const apply = (text: string, final: boolean) => {
     const extracted = extractFilters(text, context, final);
     const nextText = extracted?.text ?? text;
     const nextFilters = extracted ? { ...filters, ...extracted.filters } : filters;
+    const nextTab = extracted?.filters.kind ? 'files' : tab;
     setQuery(nextText);
     if (extracted) setFilters(nextFilters);
-    search(nextText, nextFilters, final || extracted ? 0 : 400);
+    setTab(nextTab);
+    search(nextText, nextFilters, final || extracted ? 0 : 400, nextTab);
   };
 
   const changeFilters = (next: SearchFilters) => {
@@ -156,15 +177,53 @@ export default function SearchPanel({
     search(query, next, 0);
   };
 
-  const filtered = hasFilters(filters);
+  const changeTab = (next: SearchTab) => {
+    setTab(next);
+    search(query, filters, 0, next);
+  };
+
+  const filtered = hasFilters(forTab(filters, tab));
+  const noun = tab === 'files' ? 'files' : 'messages';
+  const count = tab === 'files' ? files.length : results.length;
+  const images = files.filter((file) => isRenderableImage(file.mime_type));
+  const placeOf = (channelId: string) =>
+    channelNames.has(channelId)
+      ? `#${channelNames.get(channelId)}`
+      : conversationIds.has(channelId)
+        ? 'Direct message'
+        : undefined;
+  const openFile = (file: FileSearchHit) => {
+    if (isRenderableImage(file.mime_type)) return () => setViewing(images.indexOf(file));
+    if (conversationIds.has(file.channel_id)) {
+      return onNavigateToConversation ? () => onNavigateToConversation(file.channel_id) : undefined;
+    }
+    return onNavigateToMessage ? () => onNavigateToMessage(file.channel_id, file.message_id) : undefined;
+  };
 
   return (
     <div className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 flex flex-col border-l border-line/50 bg-app lg:bg-app/80">
       <PanelHeader title="Search" icon={<Search className="h-4 w-4 text-muted" />} onClose={onClose} />
 
       <div className="px-3 py-3 border-b border-line/30 space-y-2">
+        <div className="flex gap-1" role="tablist">
+          {TABS.map((t) => (
+            <button
+              key={t.tab}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.tab}
+              data-qa={`search-tab-${t.tab}`}
+              onClick={() => changeTab(t.tab)}
+              className={`rounded-full px-2.5 py-1 text-xs transition ${
+                tab === t.tab ? 'bg-purple-600 text-white' : 'text-fg-dim hover:bg-raised'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
         <TextInput
-          label="Search messages"
+          label={`Search ${noun}`}
           labelHidden
           ref={inputRef}
           value={query}
@@ -172,8 +231,8 @@ export default function SearchPanel({
           onKeyDown={(e) => {
             if (e.key === 'Enter') apply(query, true);
           }}
-          placeholder="Search messages..."
-          title="Narrow with from:@name in:#channel has:file before:2026-10-01 after: on:"
+          placeholder={`Search ${noun}...`}
+          title={`Narrow with from:@name in:#channel ${tab === 'files' ? 'type:pdf' : 'has:file'} before:2026-10-01 after: on:`}
           leading={<Search className="w-4 h-4" />}
           trailing={
             query && (
@@ -188,7 +247,7 @@ export default function SearchPanel({
             )
           }
         />
-        <SearchFilterBar filters={filters} onChange={changeFilters} context={context} />
+        <SearchFilterBar filters={filters} onChange={changeFilters} context={context} tab={tab} />
       </div>
 
       {searched && !loading && !error && (
@@ -197,7 +256,7 @@ export default function SearchPanel({
           data-qa="search-summary"
         >
           <span>
-            {results.length === 20 ? '20+' : results.length} {results.length === 1 ? 'result' : 'results'}
+            {count === LIMIT ? `${LIMIT}+` : count} {count === 1 ? 'result' : 'results'}
           </span>
           {filtered && (
             <button
@@ -221,17 +280,29 @@ export default function SearchPanel({
           <div className="text-center py-8 text-danger text-sm" data-qa="search-error">
             {error}
           </div>
-        ) : searched && results.length === 0 ? (
+        ) : searched && count === 0 ? (
           <div className="text-center py-8 text-muted text-sm">
             {query.trim() ? (
               <>
-                No messages found for &ldquo;{query.trim()}&rdquo;{filtered && ' with these filters'}
+                No {noun} found for &ldquo;{query.trim()}&rdquo;{filtered && ' with these filters'}
               </>
             ) : (
-              'No messages match these filters'
+              `No ${noun} match these filters`
             )}
           </div>
-        ) : results.length > 0 ? (
+        ) : tab === 'files' && files.length > 0 ? (
+          <div className="space-y-1" data-qa="file-results">
+            {files.map((file) => (
+              <FileHit
+                key={file.id}
+                hit={file}
+                query={query}
+                context={placeOf(file.channel_id)}
+                onOpen={openFile(file)}
+              />
+            ))}
+          </div>
+        ) : tab === 'messages' && results.length > 0 ? (
           <div className="space-y-1">
             {results.map((msg) => {
               const conversation = conversationIds.has(msg.channel_id);
@@ -242,13 +313,7 @@ export default function SearchPanel({
                   userId={msg.user_id}
                   content={msg.content}
                   createdAt={msg.created_at}
-                  context={
-                    channelNames.has(msg.channel_id)
-                      ? `#${channelNames.get(msg.channel_id)}`
-                      : conversation
-                        ? 'Direct message'
-                        : undefined
-                  }
+                  context={placeOf(msg.channel_id)}
                   onClick={
                     conversation
                       ? onNavigateToConversation
@@ -264,14 +329,31 @@ export default function SearchPanel({
           </div>
         ) : (
           <div className="px-4 py-8 text-center text-sm text-muted space-y-1">
-            <p>Search across all messages in this workspace</p>
+            <p>
+              {tab === 'files'
+                ? 'Find a file by any part of its name'
+                : 'Search across all messages in this workspace'}
+            </p>
             <p className="text-xs text-subtle">
               Narrow it with the filters, or type <code>from:@name</code>, <code>in:#channel</code>,{' '}
-              <code>has:file</code> or <code>after:2026-10-01</code>
+              <code>{tab === 'files' ? 'type:pdf' : 'has:file'}</code> or <code>after:2026-10-01</code>
             </p>
           </div>
         )}
       </div>
+
+      {viewing !== null && (
+        <ImageGallery
+          items={images.map((image) => ({
+            attachment: image,
+            userId: image.user_id,
+            createdAt: image.created_at,
+          }))}
+          index={viewing}
+          onIndexChange={setViewing}
+          onClose={() => setViewing(null)}
+        />
+      )}
     </div>
   );
 }

@@ -230,9 +230,18 @@ Side panel showing thread replies for a parent message.
 ---
 
 ### `SearchPanel`
-Debounced full-text search across messages.
+Debounced search with **Messages | Files** tabs over one query and filter bar. On *Files*
+the *Has* chip gives way to *Type* (`type:pdf` typed in the box does the same and switches to
+*Files*). A file result (`features/search/FileHit`) shows the thumbnail or kind icon, the name
+with the typed fragment marked, size, uploader, place and date; an image opens the gallery,
+anything else its message, and download is a hover action. The channel files panel's *Filter
+by name* box asks the same route with `channel_id`.
 
-**API calls:** GET `/search?q=...&limit=20`
+**API calls:** GET `/search?q=...&limit=20`, GET `/search/files?q=...&limit=20`
+
+`fileKinds.ts` holds the icon and tone per server `kind` (`FILE_KINDS`) and `kindOf()`, the
+same rules as the database's `file_kind_of()` for files that have no server kind yet (the
+composer tray, message attachments). Both are tested against `fileKindCases.json`.
 
 ---
 

@@ -236,7 +236,7 @@ test('9. direct message is delivered live', async () => {
 test('10. search finds a message', async () => {
   await bob.goto(`/app/${workspaceId}`);
   await expect(bob.locator('[data-qa="message-list"]')).toBeVisible({ timeout: 20_000 });
-  await bob.getByLabel('Search messages').click();
+  await bob.locator('[data-qa="channel-header-search"]').click();
   await bob
     .getByPlaceholder(/Search/i)
     .first()

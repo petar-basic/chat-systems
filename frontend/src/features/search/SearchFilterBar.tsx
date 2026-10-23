@@ -7,6 +7,7 @@ import {
   HAS_LABELS,
   dateLabel,
   dayKey,
+  kindLabel,
   memberName,
   placeName,
   setDate,
@@ -14,15 +15,18 @@ import {
   type FilterContext,
   type HasFilter,
   type SearchFilters,
+  type SearchTab,
 } from './searchFilters';
 import { TextInput } from '@/shared/components/Form/TextInput';
+import { FILE_KINDS, type FileKindName } from '@/features/messaging/fileKinds';
 
-type Picker = 'from' | 'in' | 'has' | 'date';
+type Picker = 'from' | 'in' | 'has' | 'type' | 'date';
 
 interface Props {
   filters: SearchFilters;
   onChange: (filters: SearchFilters) => void;
   context: FilterContext;
+  tab: SearchTab;
 }
 
 const LIST_LIMIT = 8;
@@ -227,12 +231,13 @@ function DateChoices({
   );
 }
 
-export function SearchFilterBar({ filters, onChange, context }: Props) {
+export function SearchFilterBar({ filters, onChange, context, tab }: Props) {
   const [open, setOpen] = useState<Picker | null>(null);
   const anchors = {
     from: useRef<HTMLButtonElement>(null),
     in: useRef<HTMLButtonElement>(null),
     has: useRef<HTMLButtonElement>(null),
+    type: useRef<HTMLButtonElement>(null),
     date: useRef<HTMLButtonElement>(null),
   };
   const toggle = (picker: Picker) => setOpen((current) => (current === picker ? null : picker));
@@ -254,12 +259,19 @@ export function SearchFilterBar({ filters, onChange, context }: Props) {
       value: filters.in ? placeName(context, filters.in) : null,
       clear: { ...filters, in: undefined },
     },
-    {
-      picker: 'has',
-      label: 'Has',
-      value: filters.has ? HAS_LABELS[filters.has] : null,
-      clear: { ...filters, has: undefined },
-    },
+    tab === 'files'
+      ? {
+          picker: 'type',
+          label: 'Type',
+          value: filters.kind ? kindLabel(filters.kind) : null,
+          clear: { ...filters, kind: undefined },
+        }
+      : {
+          picker: 'has',
+          label: 'Has',
+          value: filters.has ? HAS_LABELS[filters.has] : null,
+          clear: { ...filters, has: undefined },
+        },
     {
       picker: 'date',
       label: 'Date',
@@ -296,6 +308,12 @@ export function SearchFilterBar({ filters, onChange, context }: Props) {
             (Object.keys(HAS_LABELS) as HasFilter[]).map((has) => (
               <Option key={has} onSelect={() => pick({ ...filters, has })}>
                 {HAS_LABELS[has]}
+              </Option>
+            ))}
+          {open === 'type' &&
+            (Object.keys(FILE_KINDS) as FileKindName[]).map((kind) => (
+              <Option key={kind} onSelect={() => pick({ ...filters, kind })}>
+                {kindLabel(kind)}
               </Option>
             ))}
           {open === 'date' && (

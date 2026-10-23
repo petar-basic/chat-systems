@@ -29,6 +29,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   `schedule_paused_until()` / `notifications_paused_until()` functions. `GET`/`PATCH
   /notifications/dnd` now answer `{ dnd_until, schedule_paused_until }` rather than
   `{ dnd_until }`.
+- Migration 60 adds `files.search_name` (generated) with a trigram index, the `file_kind`
+  type and `file_kind_of()`, and `searchable_channels()`, which message search now uses too.
+  `idx_files_workspace` becomes `idx_files_workspace_created`.
 
 ### Added
 
@@ -49,6 +52,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   email. *Resume* lasts until the next window opens. The *You* menu now has the pause
   controls and says why notifications are paused, and a member's hover card shows when
   their notifications resume. `GET`/`PUT /users/me/notification-schedule`.
+- **Find a file by its name.** Search has a *Files* tab: any part of a file's name finds it,
+  ignoring case and accents, in every channel and DM you can read. Narrow by person, place,
+  date and *Type* (`type:pdf`). An image opens in the gallery, any other file at its message.
+  The channel's *Files* panel filters by name. `GET /search/files`.
 
 ### Changed
 

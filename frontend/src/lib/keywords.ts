@@ -1,10 +1,11 @@
+import { fold, foldWithOffsets } from './fold';
+
 const WORD = /[\p{L}\p{N}_]/u;
-const MARKS = /\p{M}/gu;
 
 export const KEYWORD_LIMIT = 50;
 
 export function foldKeyword(keyword: string): string {
-  return keyword.trim().normalize('NFD').replace(MARKS, '').toLowerCase();
+  return fold(keyword.trim());
 }
 
 export function keywordProblem(keyword: string, listed: string[]): string | null {
@@ -20,16 +21,7 @@ export function keywordProblem(keyword: string, listed: string[]): string | null
 
 export function keywordRanges(text: string, keywords: string[]): Array<[number, number]> {
   if (keywords.length === 0) return [];
-  const offsets: number[] = [];
-  let folded = '';
-  let position = 0;
-  for (const ch of text) {
-    const part = ch.normalize('NFD').replace(MARKS, '').toLowerCase();
-    for (let i = 0; i < part.length; i++) offsets.push(position);
-    folded += part;
-    position += ch.length;
-  }
-  offsets.push(text.length);
+  const { folded, offsets } = foldWithOffsets(text);
 
   const ranges: Array<[number, number]> = [];
   for (const keyword of keywords) {
