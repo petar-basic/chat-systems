@@ -1,84 +1,162 @@
-import { useEffect, useRef, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
-import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { X } from 'lucide-react';
+import { Button } from '../Button/Button';
+import { IconButton } from '../IconButton/IconButton';
+import { Overlay } from './Overlay';
+import { useDismiss } from './dismiss';
+
+export type ModalSize = 'sm' | 'md' | 'lg';
+
+const WIDTHS: Record<ModalSize, string> = {
+  sm: 'sm:max-w-[400px]',
+  md: 'sm:max-w-[520px]',
+  lg: 'sm:max-w-[720px]',
+};
 
 interface ModalProps {
   title: string;
+  description?: ReactNode;
   onClose: () => void;
-  children: ReactNode;
-  className?: string;
-  backdropClassName?: string;
+  size?: ModalSize;
+  actions?: ReactNode;
+  footerStart?: ReactNode;
+  dismissLabel?: string;
+  onSubmit?: (e: FormEvent<HTMLFormElement>) => void;
   dataQa?: string;
+  children: ReactNode;
 }
 
-const FOCUSABLE =
-  'a[href],button:not([disabled]),textarea:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
+export function Modal({
+  title,
+  description,
+  onClose,
+  size = 'md',
+  actions,
+  footerStart,
+  dismissLabel,
+  onSubmit,
+  dataQa,
+  children,
+}: ModalProps) {
+  const hasFooter = !!(actions || footerStart || dismissLabel);
+  const content = (
+    <ModalLayout
+      title={title}
+      description={description}
+      footer={hasFooter && <ModalFooter start={footerStart} dismissLabel={dismissLabel} actions={actions} />}
+    >
+      {children}
+    </ModalLayout>
+  );
 
-export function Modal({ title, onClose, children, className, backdropClassName, dataQa }: ModalProps) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEscapeToClose(onClose);
+  return (
+    <Overlay
+      label={title}
+      onClose={onClose}
+      dataQa={dataQa}
+      className={`flex max-h-[90dvh] w-full flex-col rounded-t-2xl border border-line bg-surface pb-[env(safe-area-inset-bottom)] shadow-2xl sm:rounded-2xl sm:pb-0 ${WIDTHS[size]}`}
+    >
+      {onSubmit ? (
+        <form onSubmit={onSubmit} noValidate className="flex min-h-0 flex-1 flex-col">
+          {content}
+        </form>
+      ) : (
+        content
+      )}
+    </Overlay>
+  );
+}
 
-  useEffect(() => {
-    const previouslyFocused = document.activeElement as HTMLElement | null;
-    const node = ref.current;
-    const focusables = () =>
-      node
-        ? Array.from(node.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((el) => el.offsetParent !== null)
-        : [];
+function ModalLayout({
+  title,
+  description,
+  footer,
+  children,
+}: {
+  title: string;
+  description?: ReactNode;
+  footer: ReactNode;
+  children: ReactNode;
+}) {
+  const dismiss = useDismiss();
+  const body = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ above: false, below: false });
 
-    focusables()[0]?.focus();
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'Tab') return;
-      const f = focusables();
-      if (f.length === 0) return;
-      const first = f[0];
-      const last = f[f.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    };
-
-    node?.addEventListener('keydown', onKeyDown);
-    return () => {
-      node?.removeEventListener('keydown', onKeyDown);
-      previouslyFocused?.focus?.();
-    };
+  const measure = useCallback(() => {
+    const node = body.current;
+    if (!node) return;
+    const above = node.scrollTop > 0;
+    const below = node.scrollTop + node.clientHeight < node.scrollHeight - 1;
+    setEdges((prev) => (prev.above === above && prev.below === below ? prev : { above, below }));
   }, []);
 
-  // Rendered at the document root rather than in place. The mobile navigation
-  // drawer animates with `translate-x`, and a transformed ancestor becomes the
-  // containing block for `position: fixed` — so any dialog opened from the
-  // sidebar was laid out inside the drawer's 304px instead of over the screen.
-  return createPortal(
-    <div
-      className={
-        backdropClassName ??
-        'fixed inset-0 bg-overlay/50 flex items-end justify-center z-50 sm:items-center sm:p-4'
-      }
-      onMouseDown={onClose}
-    >
-      <div
-        ref={ref}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        data-qa={dataQa}
-        onMouseDown={(e) => e.stopPropagation()}
-        // A phone gets a sheet that reaches the bottom edge and can grow to the
-        // full height; anything wider keeps the centred dialog.
-        className={`max-h-[90dvh] overflow-y-auto pb-[env(safe-area-inset-bottom)] sm:pb-0 ${
-          className ??
-          'bg-surface border border-line rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-sm shadow-2xl'
+  useEffect(() => {
+    const node = body.current;
+    if (!node || typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    for (const child of Array.from(node.children)) observer.observe(child);
+    return () => observer.disconnect();
+  }, [measure]);
+
+  return (
+    <>
+      <header
+        className={`flex shrink-0 items-start justify-between gap-4 border-b px-6 pt-5 pb-4 transition-colors ${
+          edges.above ? 'border-line/60' : 'border-transparent'
         }`}
+      >
+        <div className="min-w-0">
+          <h2 className="text-lg font-semibold text-fg">{title}</h2>
+          {description && <p className="mt-1 text-sm text-muted">{description}</p>}
+        </div>
+        <IconButton
+          label="Close"
+          icon={<X className="h-4 w-4" />}
+          onClick={dismiss}
+          className="-mr-1.5 -mt-0.5"
+        />
+      </header>
+      <div
+        ref={body}
+        onScroll={measure}
+        data-modal-body
+        className={`min-h-0 flex-1 overflow-y-auto px-6 py-1 ${footer ? '' : 'pb-6'}`}
       >
         {children}
       </div>
-    </div>,
-    document.body,
+      {footer && (
+        <footer
+          className={`shrink-0 border-t px-6 pt-4 pb-5 transition-colors ${
+            edges.below ? 'border-line/60' : 'border-transparent'
+          }`}
+        >
+          {footer}
+        </footer>
+      )}
+    </>
+  );
+}
+
+function ModalFooter({
+  start,
+  dismissLabel,
+  actions,
+}: {
+  start?: ReactNode;
+  dismissLabel?: string;
+  actions?: ReactNode;
+}) {
+  const dismiss = useDismiss();
+  return (
+    <div className="flex items-center justify-end gap-2">
+      {start && <div className="mr-auto min-w-0">{start}</div>}
+      {dismissLabel && (
+        <Button variant="ghost" onClick={dismiss}>
+          {dismissLabel}
+        </Button>
+      )}
+      {actions}
+    </div>
   );
 }

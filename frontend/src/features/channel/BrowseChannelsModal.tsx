@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Button } from '@/shared/components/Button/Button';
-import { DialogHeader } from '@/shared/components/Dialog/Dialog';
+import { TextInput } from '@/shared/components/Form/TextInput';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { toUserMessage } from '@/lib/errors';
 import { Hash, Search } from 'lucide-react';
@@ -120,30 +120,21 @@ export default function BrowseChannelsModal({
   const busy = join.isPending || leave.isPending;
 
   return (
-    <Modal
-      title="Browse channels"
-      onClose={onClose}
-      dataQa="browse-channels-modal"
-      className="bg-surface border border-line rounded-2xl p-6 w-full max-w-lg shadow-2xl"
-    >
-      <DialogHeader title="Browse channels" onClose={onClose} />
-
-      <div className="flex items-center gap-2 bg-raised/50 border border-line-strong rounded-lg px-3 py-2 mb-3">
-        <Search className="w-4 h-4 text-muted shrink-0" />
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search channels…"
-          aria-label="Search channels"
-          data-qa="browse-channels-search"
-          className="flex-1 bg-transparent text-fg text-sm placeholder-muted focus:outline-none"
-        />
-      </div>
+    <Modal title="Browse channels" onClose={onClose} dataQa="browse-channels-modal" size="lg">
+      <TextInput
+        label="Search channels"
+        labelHidden
+        leading={<Search className="h-4 w-4" />}
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search channels…"
+        dataQa="browse-channels-search"
+        className="mb-3"
+      />
 
       {error && <div className="mb-2 text-xs text-danger">{error}</div>}
 
-      <div className="-mx-3 max-h-80 overflow-y-auto">
+      <div className="-mx-3">
         {isLoading ? (
           <div className="flex justify-center py-8 text-accent">
             <Spinner />

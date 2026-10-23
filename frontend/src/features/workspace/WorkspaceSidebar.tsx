@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Button } from '@/shared/components/Button/Button';
-import { DialogFooter, DialogHeader } from '@/shared/components/Dialog/Dialog';
+import { TextInput } from '@/shared/components/Form/TextInput';
 import { Plus, ServerCrash, RefreshCw, Upload } from 'lucide-react';
 import type { Workspace } from '@/stores/workspace';
 import { useInstanceStore } from '@/stores/instances';
@@ -187,53 +187,47 @@ export default function WorkspaceSidebar({
       </div>
 
       {showNewWs && (
-        <Modal title="Create workspace" onClose={() => setShowNewWs(false)} dataQa="create-workspace-modal">
-          <form onSubmit={handleCreate}>
-            <DialogHeader
-              title="Create workspace"
-              description={instanceLabel(newWsInstanceUrl)}
-              onClose={() => setShowNewWs(false)}
-            />
+        <Modal
+          title="Create workspace"
+          description={instanceLabel(newWsInstanceUrl)}
+          onClose={() => setShowNewWs(false)}
+          size="sm"
+          dataQa="create-workspace-modal"
+          onSubmit={handleCreate}
+          dismissLabel="Cancel"
+          actions={
+            <Button type="submit" variant="primary">
+              Create
+            </Button>
+          }
+        >
+          {/* The importer can create the workspace itself, and this is where
+              somebody looks for it — not inside the menu of a workspace they
+              have not made yet. */}
+          <button
+            type="button"
+            onClick={() => {
+              setShowNewWs(false);
+              onImportFromSlack(newWsInstanceUrl);
+            }}
+            data-qa="create-workspace-import"
+            className="w-full mb-4 flex items-center gap-3 px-3 py-2.5 rounded-lg border border-line hover:border-line-strong hover:bg-raised/40 text-left transition cursor-pointer"
+          >
+            <Upload className="w-4 h-4 text-accent shrink-0" />
+            <span>
+              <span className="block text-sm text-fg-soft">Import from Slack instead</span>
+              <span className="block text-xs text-muted">Bring a workspace export in, with its history</span>
+            </span>
+          </button>
 
-            {/* The importer can create the workspace itself, and this is where
-                somebody looks for it — not inside the menu of a workspace they
-                have not made yet. */}
-            <button
-              type="button"
-              onClick={() => {
-                setShowNewWs(false);
-                onImportFromSlack(newWsInstanceUrl);
-              }}
-              data-qa="create-workspace-import"
-              className="w-full mb-4 flex items-center gap-3 px-3 py-2.5 rounded-lg border border-line hover:border-line-strong hover:bg-raised/40 text-left transition cursor-pointer"
-            >
-              <Upload className="w-4 h-4 text-accent shrink-0" />
-              <span>
-                <span className="block text-sm text-fg-soft">Import from Slack instead</span>
-                <span className="block text-xs text-muted">
-                  Bring a workspace export in, with its history
-                </span>
-              </span>
-            </button>
-
-            <input
-              aria-label="Workspace name"
-              type="text"
-              value={newWsName}
-              onChange={(e) => setNewWsName(e.target.value)}
-              placeholder="Workspace name"
-              className="w-full px-3 py-2 text-sm bg-raised/50 border border-line-strong rounded-lg text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
-              required
-            />
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => setShowNewWs(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" variant="primary">
-                Create
-              </Button>
-            </DialogFooter>
-          </form>
+          <TextInput
+            label="Workspace name"
+            value={newWsName}
+            onChange={(e) => setNewWsName(e.target.value)}
+            placeholder="e.g. Acme"
+            required
+            data-autofocus
+          />
         </Modal>
       )}
     </>

@@ -336,3 +336,68 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+@keyframes dialog-out {
+  to {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(24px);
+  }
+}
+
+@keyframes sheet-out {
+  to {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
+
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes backdrop-out {
+  to {
+    opacity: 0;
+  }
+}
+
+.backdrop-enter {
+  animation: backdrop-in 150ms ease-out;
+}
+
+.backdrop-exit {
+  animation: backdrop-out 100ms ease-in forwards;
+}
+
+.dialog-enter {
+  animation: sheet-in 150ms ease-out;
+}
+
+.dialog-exit {
+  animation: sheet-out 100ms ease-in forwards;
+}
+
+@media (min-width: 640px) {
+  .dialog-enter {
+    animation: dialog-in 150ms ease-out;
+  }
+
+  .dialog-exit {
+    animation: dialog-out 100ms ease-in forwards;
+  }
+}

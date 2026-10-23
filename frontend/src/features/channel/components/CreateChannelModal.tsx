@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from 'react';
 import { Button } from '@/shared/components/Button/Button';
-import { DialogFooter, DialogHeader } from '@/shared/components/Dialog/Dialog';
 import { Modal } from '@/shared/components/Modal/Modal';
 import type { CreateChannelDraft } from '@/models/channel';
 import type { Channel } from '@/stores/workspace';
@@ -48,85 +47,85 @@ export function CreateChannelModal({ channels, onCreate, onClose }: Props) {
   };
 
   return (
-    <Modal title="Create channel" onClose={onClose} dataQa="create-channel-modal">
-      <form onSubmit={handleSubmit} noValidate>
-        <DialogHeader title="Create channel" onClose={onClose} />
+    <Modal
+      title="Create channel"
+      onClose={onClose}
+      size="sm"
+      dataQa="create-channel-modal"
+      onSubmit={handleSubmit}
+      dismissLabel="Cancel"
+      actions={
+        <Button type="submit" variant="primary" loading={creating}>
+          Create
+        </Button>
+      }
+    >
+      <input
+        aria-label="Channel name"
+        type="text"
+        value={name}
+        onChange={(e) => {
+          setName(e.target.value);
+          if (error) setError(null);
+        }}
+        placeholder="Channel name"
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? 'create-channel-error' : undefined}
+        data-qa="create-channel-name"
+        className={`w-full px-4 py-3 bg-raised/50 border rounded-lg text-fg placeholder-muted focus:outline-none focus:ring-2 ${
+          error ? 'border-red-500/60 focus:ring-red-500' : 'border-line-strong focus:ring-purple-500'
+        }`}
+      />
+      {error && (
+        <p id="create-channel-error" data-qa="create-channel-error" className="mt-2 text-sm text-danger">
+          {error}
+        </p>
+      )}
+      <label
+        htmlFor="create-channel-description"
+        className="mt-4 block text-sm font-medium text-fg-dim mb-1.5"
+      >
+        Description <span className="text-muted font-normal">(optional)</span>
+      </label>
+      <textarea
+        id="create-channel-description"
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        rows={2}
+        placeholder="What is this channel for?"
+        data-qa="create-channel-description"
+        className="w-full px-4 py-2.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+      />
+
+      <label className="mt-4 flex items-start gap-3 cursor-pointer" data-qa="create-channel-private">
         <input
-          aria-label="Channel name"
-          type="text"
-          value={name}
-          onChange={(e) => {
-            setName(e.target.value);
-            if (error) setError(null);
-          }}
-          placeholder="Channel name"
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error ? 'create-channel-error' : undefined}
-          data-qa="create-channel-name"
-          className={`w-full px-4 py-3 bg-raised/50 border rounded-lg text-fg placeholder-muted focus:outline-none focus:ring-2 ${
-            error ? 'border-red-500/60 focus:ring-red-500' : 'border-line-strong focus:ring-purple-500'
-          }`}
+          type="checkbox"
+          checked={isPrivate}
+          onChange={(e) => setIsPrivate(e.target.checked)}
+          className="mt-0.5 w-4 h-4 accent-purple-500"
         />
-        {error && (
-          <p id="create-channel-error" data-qa="create-channel-error" className="mt-2 text-sm text-danger">
-            {error}
-          </p>
-        )}
-        <label
-          htmlFor="create-channel-description"
-          className="mt-4 block text-sm font-medium text-fg-dim mb-1.5"
-        >
-          Description <span className="text-muted font-normal">(optional)</span>
-        </label>
-        <textarea
-          id="create-channel-description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={2}
-          placeholder="What is this channel for?"
-          data-qa="create-channel-description"
-          className="w-full px-4 py-2.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+        <span>
+          <span className="block text-sm font-medium text-fg-dim">Private channel</span>
+          <span className="block text-xs text-muted">
+            Only people who are invited can find it or read it.
+          </span>
+        </span>
+      </label>
+
+      <label className="mt-3 flex items-start gap-3 cursor-pointer" data-qa="create-channel-announcement">
+        <input
+          type="checkbox"
+          checked={announcementOnly}
+          onChange={(e) => setAnnouncementOnly(e.target.checked)}
+          className="mt-0.5 w-4 h-4 accent-purple-500"
         />
-
-        <label className="mt-4 flex items-start gap-3 cursor-pointer" data-qa="create-channel-private">
-          <input
-            type="checkbox"
-            checked={isPrivate}
-            onChange={(e) => setIsPrivate(e.target.checked)}
-            className="mt-0.5 w-4 h-4 accent-purple-500"
-          />
-          <span>
-            <span className="block text-sm font-medium text-fg-dim">Private channel</span>
-            <span className="block text-xs text-muted">
-              Only people who are invited can find it or read it.
-            </span>
+        <span>
+          <span className="block text-sm font-medium text-fg-dim">Announcement channel</span>
+          <span className="block text-xs text-muted">
+            Only admins can post. Everyone else can still read and react.
           </span>
-        </label>
-
-        <label className="mt-3 flex items-start gap-3 cursor-pointer" data-qa="create-channel-announcement">
-          <input
-            type="checkbox"
-            checked={announcementOnly}
-            onChange={(e) => setAnnouncementOnly(e.target.checked)}
-            className="mt-0.5 w-4 h-4 accent-purple-500"
-          />
-          <span>
-            <span className="block text-sm font-medium text-fg-dim">Announcement channel</span>
-            <span className="block text-xs text-muted">
-              Only admins can post. Everyone else can still read and react.
-            </span>
-          </span>
-        </label>
-
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" variant="primary" loading={creating}>
-            Create
-          </Button>
-        </DialogFooter>
-      </form>
+        </span>
+      </label>
     </Modal>
   );
 }

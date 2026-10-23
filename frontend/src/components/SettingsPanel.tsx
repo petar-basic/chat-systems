@@ -1,7 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { Button } from '@/shared/components/Button/Button';
-import { DialogFooter, DialogHeader } from '@/shared/components/Dialog/Dialog';
+import { RadioCards } from '@/shared/components/Form/RadioCards';
 import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { useNavigate } from 'react-router';
@@ -306,85 +306,16 @@ export default function SettingsPanel({
 
       {deleteModal && (
         <Modal
-          title={`Delete ${currentName}`}
+          title={`Delete “${currentName}”`}
+          description="Choose how to delete this workspace"
           onClose={() => {
             setDeleteModal(false);
             setDeleteError(null);
           }}
+          size="sm"
           dataQa="delete-workspace-modal"
-          className="bg-surface border border-line rounded-2xl p-6 w-full max-w-md shadow-2xl"
-        >
-          <DialogHeader
-            title={`Delete “${currentName}”`}
-            description="Choose how to delete this workspace"
-            onClose={() => {
-              setDeleteModal(false);
-              setDeleteError(null);
-            }}
-          />
-
-          <div className="space-y-3 mb-5">
-            <label
-              className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition ${
-                deleteType === 'soft' ? 'border-purple-500/60 bg-purple-500/10' : 'border-line-strong'
-              }`}
-            >
-              <input
-                type="radio"
-                name="deleteType"
-                value="soft"
-                checked={deleteType === 'soft'}
-                onChange={() => setDeleteType('soft')}
-                className="mt-0.5"
-              />
-              <div>
-                <div className="text-fg text-sm font-medium">Soft delete</div>
-                <div className="text-muted text-xs mt-0.5">
-                  Hides the workspace from members. Only instance admins and workspace admins can see and
-                  restore it.
-                </div>
-              </div>
-            </label>
-
-            <label
-              className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition ${
-                deleteType === 'hard' ? 'border-red-500/60 bg-red-500/10' : 'border-line-strong'
-              }`}
-            >
-              <input
-                type="radio"
-                name="deleteType"
-                value="hard"
-                checked={deleteType === 'hard'}
-                onChange={() => setDeleteType('hard')}
-                className="mt-0.5"
-              />
-              <div>
-                <div className="text-danger text-sm font-medium">Delete permanently</div>
-                <div className="text-muted text-xs mt-0.5">
-                  Permanently deletes everything: channels, messages, members. This cannot be undone.
-                </div>
-              </div>
-            </label>
-          </div>
-
-          {deleteError && (
-            <div className="text-sm text-danger bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2 mb-4">
-              {deleteError}
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setDeleteModal(false);
-                setDeleteError(null);
-              }}
-              disabled={deleting}
-            >
-              Cancel
-            </Button>
+          dismissLabel="Cancel"
+          actions={
             <Button
               variant="danger"
               onClick={handleDelete}
@@ -393,7 +324,35 @@ export default function SettingsPanel({
             >
               {deleteType === 'hard' ? 'Delete permanently' : 'Soft delete'}
             </Button>
-          </DialogFooter>
+          }
+        >
+          <RadioCards
+            label="How to delete"
+            labelHidden
+            value={deleteType}
+            onChange={setDeleteType}
+            options={[
+              {
+                value: 'soft',
+                label: 'Soft delete',
+                description:
+                  'Hides the workspace from members. Only instance admins and workspace admins can see and restore it.',
+              },
+              {
+                value: 'hard',
+                label: 'Delete permanently',
+                description:
+                  'Permanently deletes everything: channels, messages, members. This cannot be undone.',
+              },
+            ]}
+            columns={1}
+          />
+
+          {deleteError && (
+            <p role="alert" className="mt-3 text-sm text-danger">
+              {deleteError}
+            </p>
+          )}
         </Modal>
       )}
     </>

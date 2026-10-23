@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { DialogHeader } from '@/shared/components/Dialog/Dialog';
+import { TextInput } from '@/shared/components/Form/TextInput';
 import { toUserMessage } from '@/lib/errors';
 import { Hash, MessageSquare, Search } from 'lucide-react';
 import { Modal } from '@/shared/components/Modal/Modal';
@@ -82,13 +82,7 @@ export default function ForwardMessageModal({
   };
 
   return (
-    <Modal
-      title="Forward message"
-      onClose={onClose}
-      dataQa="forward-modal"
-      className="bg-surface border border-line rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-md shadow-2xl"
-    >
-      <DialogHeader title="Forward message" onClose={onClose} />
+    <Modal title="Forward message" onClose={onClose} dataQa="forward-modal">
       <div className="rounded-lg border border-line/60 bg-raised/30 px-3 py-2">
         <div className="text-xs text-muted mb-1">
           From {source.authorName} in {source.origin}
@@ -100,25 +94,23 @@ export default function ForwardMessageModal({
       </div>
 
       <div className="mt-3 space-y-2">
-        <input
+        <TextInput
+          label="Comment"
+          labelHidden
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           placeholder="Add a comment (optional)"
-          aria-label="Comment"
-          data-qa="forward-comment"
-          className="w-full px-3 py-2 bg-raised/50 border border-line-strong rounded-lg text-sm text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
+          dataQa="forward-comment"
         />
-        <div className="relative">
-          <Search className="w-4 h-4 text-muted absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search channels and people"
-            aria-label="Search for somewhere to forward to"
-            data-qa="forward-search"
-            className="w-full pl-9 pr-3 py-2 bg-raised/50 border border-line-strong rounded-lg text-sm text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
-          />
-        </div>
+        <TextInput
+          label="Search for somewhere to forward to"
+          labelHidden
+          leading={<Search className="h-4 w-4" />}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search channels and people"
+          dataQa="forward-search"
+        />
         {error && (
           <p className="text-xs text-danger" data-qa="forward-error">
             {error}
@@ -126,7 +118,7 @@ export default function ForwardMessageModal({
         )}
       </div>
 
-      <div className="-mx-3 mt-2 max-h-72 overflow-y-auto">
+      <div className="-mx-3 mt-2">
         {targets.length === 0 ? (
           <p className="px-3 py-6 text-center text-sm text-muted">Nothing matches that.</p>
         ) : (

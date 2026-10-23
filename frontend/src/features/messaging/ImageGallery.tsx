@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Download, ExternalLink, X } from 'lucide-react';
-import { Modal } from '@/shared/components/Modal/Modal';
+import { Overlay } from '@/shared/components/Modal/Overlay';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { useUserCache } from '@/stores/users';
 import { displayNameOf } from '@/lib/userHelpers';
@@ -43,8 +43,8 @@ export function ImageGallery({ items, index, onIndexChange, onClose }: Props) {
     'absolute top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white transition hover:bg-black/80';
 
   return (
-    <Modal
-      title={attachment.filename}
+    <Overlay
+      label={attachment.filename}
       onClose={onClose}
       dataQa="image-lightbox"
       backdropClassName="fixed inset-0 bg-overlay/95 flex items-center justify-center z-50 p-2 sm:p-6"
@@ -157,6 +157,6 @@ export function ImageGallery({ items, index, onIndexChange, onClose }: Props) {
           </button>
         )}
       </div>
-    </Modal>
+    </Overlay>
   );
 }
