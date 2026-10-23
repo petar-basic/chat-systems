@@ -32,7 +32,6 @@ interface Props {
 }
 
 interface Seen {
-  highlightAfter: string;
   readAt: string;
   fresh: number;
 }
@@ -66,7 +65,6 @@ export function ThreadsView({
       for (const t of arrived) {
         const before = prev[t.root.id];
         next[t.root.id] = {
-          highlightAfter: before?.highlightAfter ?? t.last_read_at,
           readAt: t.last_read_at,
           fresh: (before?.fresh ?? 0) + t.unread_count,
         };
@@ -199,6 +197,8 @@ function ThreadCard({
   const attachments = useComposerAttachments({ workspaceId, instanceUrl, resetKey: root.id });
   const earlier = root.reply_count - replies.length;
   const fresh = seen?.fresh ?? 0;
+  const others = replies.filter((reply) => reply.user_id !== currentUserId);
+  const newIds = new Set(fresh > 0 ? others.slice(-fresh).map((reply) => reply.id) : []);
 
   const handleSend = async (content: string) => {
     sendReply.mutate(
@@ -245,16 +245,7 @@ function ThreadCard({
           </li>
         )}
         {replies.map((reply) => (
-          <ThreadLine
-            key={reply.id}
-            message={reply}
-
-            highlighted={
-              !!seen &&
-              reply.user_id !== currentUserId &&
-              Date.parse(reply.created_at) > Date.parse(seen.highlightAfter)
-            }
-          />
+          <ThreadLine key={reply.id} message={reply} highlighted={newIds.has(reply.id)} />
         ))}
       </ol>
       <div className="border-t border-line/50" data-qa="thread-card-reply">
