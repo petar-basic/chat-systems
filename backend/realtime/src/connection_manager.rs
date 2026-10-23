@@ -31,6 +31,8 @@ pub const BACKPRESSURE_CLOSE_CODE: u16 = 4003;
 
 pub const HUDDLE_TTL_SECS: i64 = 120;
 
+pub const HUDDLE_MAX_PARTICIPANTS: usize = 8;
+
 pub const SESSION_REVOKED_CLOSE_CODE: u16 = 4001;
 
 /// Mirrors the API's `RevocationRecord`: a revocation invalidates every token
@@ -713,10 +715,46 @@ impl ConnectionManager {
         let _: redis::RedisResult<()> = conn.expire(&key, HUDDLE_TTL_SECS).await;
     }
 
-    pub async fn huddle_redis_leave(&self, huddle_id: Uuid, user_id: Uuid) {
+    pub async fn huddle_redis_try_join(&self, huddle_id: Uuid, user_id: Uuid) -> bool {
+        let script = redis::Script::new(
+            r"
+            if redis.call('SISMEMBER', KEYS[1], ARGV[1]) == 0
+                and redis.call('SCARD', KEYS[1]) >= tonumber(ARGV[2]) then
+                return 0
+            end
+            redis.call('SADD', KEYS[1], ARGV[1])
+            redis.call('EXPIRE', KEYS[1], tonumber(ARGV[3]))
+            return 1
+            ",
+        );
+        let mut conn = self.redis.clone();
+        let joined: redis::RedisResult<i64> = script
+            .key(Self::huddle_members_key(&huddle_id))
+            .arg(user_id.to_string())
+            .arg(HUDDLE_MAX_PARTICIPANTS)
+            .arg(HUDDLE_TTL_SECS)
+            .invoke_async(&mut conn)
+            .await;
+        match joined {
+            Ok(joined) => joined == 1,
+            Err(e) => {
+                warn!("huddle_redis_try_join redis error huddle={huddle_id}: {e}");
+                true
+            }
+        }
+    }
+
+    pub async fn huddle_redis_leave(&self, huddle_id: Uuid, user_id: Uuid) -> bool {
         let mut conn = self.redis.clone();
         let key = Self::huddle_members_key(&huddle_id);
-        let _: redis::RedisResult<()> = conn.srem(&key, user_id.to_string()).await;
+        let removed: redis::RedisResult<i64> = conn.srem(&key, user_id.to_string()).await;
+        match removed {
+            Ok(removed) => removed > 0,
+            Err(e) => {
+                warn!("huddle_redis_leave redis error huddle={huddle_id}: {e}");
+                true
+            }
+        }
     }
 
     pub async fn huddle_redis_is_member(&self, huddle_id: Uuid, user_id: Uuid) -> bool {

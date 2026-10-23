@@ -319,6 +319,7 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 - Presence is eventually-consistent across nodes (≤60s TTL on hard node crash) — a clean disconnect is immediate.
 - Webhook dispatch validates DNS at request time (DNS-rebinding is out of scope); redirects are disabled.
 - Search is Postgres full-text (English) — stemming/relevance, not fuzzy.
+- A huddle holds at most eight people until the SFU (CS-037): a ninth person who presses *Join* gets "This huddle is full" and no call starts; the eight already in it see nobody join or leave.
 
 ---
 

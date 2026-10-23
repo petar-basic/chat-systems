@@ -306,3 +306,70 @@ async fn huddle_join_non_member_denied_no_snapshot(pool: PgPool) {
         "non-member huddle.join must NOT return a snapshot, got: {frames:?}"
     );
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn full_huddle_turns_away_the_next_person_but_not_a_member(pool: PgPool) {
+    let cm = manager(pool).await;
+    let (first, ws, ch) = seed_member_in_channel(cm.db()).await;
+    let huddle = Uuid::new_v4();
+
+    cm.huddle_redis_join(huddle, first).await;
+    for _ in 1..crate::connection_manager::HUDDLE_MAX_PARTICIPANTS {
+        let member = seed_user(cm.db()).await;
+        cm.huddle_redis_join(huddle, member).await;
+    }
+
+    let late = seed_user(cm.db()).await;
+    add_ws_member(cm.db(), ws, late).await;
+    add_ch_member(cm.db(), ch, late).await;
+    let (late_conn, mut late_rx) = fake_conn(&cm, late);
+    let join = json!({ "type": "huddle.join", "huddle_id": huddle, "channel_id": ch }).to_string();
+
+    let lifecycle = tokio::spawn(collect_on(
+        "events:huddle",
+        huddle,
+        Duration::from_millis(300),
+    ));
+    settle().await;
+
+    crate::ws_handler::handle_client_message(&join, &late_conn, late, &cm, &mut inbound()).await;
+    let leave = json!({ "type": "huddle.leave", "huddle_id": huddle }).to_string();
+    crate::ws_handler::handle_client_message(&leave, &late_conn, late, &cm, &mut inbound()).await;
+
+    let frames = drain_json(&mut late_rx);
+    let full = frames
+        .iter()
+        .find(|f| f.get("type").and_then(|v| v.as_str()) == Some("huddle.full"))
+        .unwrap_or_else(|| {
+            panic!("the ninth person should be told the huddle is full, got: {frames:?}")
+        });
+    assert_eq!(
+        full.get("limit").and_then(|v| v.as_u64()),
+        Some(crate::connection_manager::HUDDLE_MAX_PARTICIPANTS as u64)
+    );
+    assert!(!cm.huddle_redis_is_member(huddle, late).await);
+    assert_eq!(
+        cm.huddle_redis_members(huddle).await.len(),
+        crate::connection_manager::HUDDLE_MAX_PARTICIPANTS
+    );
+
+    let events = lifecycle.await.expect("lifecycle task");
+    assert!(
+        !has_event(&events, "huddle.member_joined") && !has_event(&events, "huddle.member_left"),
+        "a person turned away must not appear to join or leave, got: {events:?}"
+    );
+
+    let (first_conn, mut first_rx) = fake_conn(&cm, first);
+    crate::ws_handler::handle_client_message(&join, &first_conn, first, &cm, &mut inbound()).await;
+    let frames = drain_json(&mut first_rx);
+    assert!(
+        frames
+            .iter()
+            .any(|f| f.get("type").and_then(|v| v.as_str()) == Some("huddle.members")),
+        "a member rejoining a full huddle keeps their place, got: {frames:?}"
+    );
+
+    for member in cm.huddle_redis_members(huddle).await {
+        cm.huddle_redis_leave(huddle, member).await;
+    }
+}

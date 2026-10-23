@@ -748,7 +748,7 @@ batch cannot become the flood it replaced.
 { "type": "huddle.reaction", "huddle_id": "...", "emoji": "👍" }
 ```
 
-`offer`/`answer`/`ice` are relayed only to `to_user_id` (and only when both users are current room members); the rest broadcast to the room. On join the caller gets a `huddle.members` snapshot. Disconnect removes the user and, when a room empties, the API consumer emits `huddle.ended`.
+`offer`/`answer`/`ice` are relayed only to `to_user_id` (and only when both users are current room members); the rest broadcast to the room. On join the caller gets a `huddle.members` snapshot. A huddle holds at most eight people (`HUDDLE_MAX_PARTICIPANTS`), the mesh's ceiling: the check and the insert are one Lua script on the room's Redis set, so two people racing for the last place cannot both get it, and a ninth joiner gets `huddle.full { limit }` on their own socket and is not added. Someone already in the room rejoining after a reconnect always keeps their place. `huddle.member_left` is published only for a user the room actually held. Disconnect removes the user and, when a room empties, the API consumer emits `huddle.ended`.
 
 **Outgoing events pushed to client** (live copies arrive on these pub/sub channels; the durable ones are also on `stream:ws:{id}` for replay):
 

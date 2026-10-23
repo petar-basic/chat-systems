@@ -148,6 +148,12 @@ export function HuddleController() {
     const offReconnect = ws.addReconnectListener(() => rejoinRef.current?.());
 
     const unsubs = [
+      globalEventBus.on('huddle.full', (event) => {
+        if (event.huddle_id !== active.huddleId) return;
+        joinedRef.current = false;
+        toast.error(ErrorLabels.huddleFull(event.limit));
+        useHuddleStore.getState().setActive(null);
+      }),
       globalEventBus.on('huddle.members', (event) => {
         if (event.huddle_id !== active.huddleId) return;
         for (const uid of event.user_ids) {
@@ -205,10 +211,11 @@ export function HuddleController() {
 
     return () => {
       cancelled = true;
+      const joined = joinedRef.current;
       joinedRef.current = false;
       offReconnect();
       for (const off of unsubs) off();
-      send({ type: 'huddle.leave', huddle_id: active.huddleId });
+      if (joined) send({ type: 'huddle.leave', huddle_id: active.huddleId });
       meshRef.current?.close();
       meshRef.current = null;
       bgProcessorRef.current?.stop();
