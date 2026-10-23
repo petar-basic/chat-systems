@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO thread_follows (user_id, workspace_id, root_message_id, following, last_read_at)\n            SELECT $1, $2, $3, TRUE, $4\n              FROM workspace_members WHERE workspace_id = $2 AND user_id = $1\n            ON CONFLICT (user_id, root_message_id) DO UPDATE\n               SET following = TRUE,\n                   last_read_at = GREATEST(thread_follows.last_read_at, EXCLUDED.last_read_at)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bac0398c7387fc15dae6ff289013bf1bfca5d496a1ab7942454c27ce67f5bbbe"
+}

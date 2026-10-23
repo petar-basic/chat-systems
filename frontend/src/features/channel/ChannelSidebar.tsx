@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import type { CreateChannelDraft } from '@/models/channel';
 import { useNavigate } from 'react-router';
-import { Bookmark, Compass, FolderPlus, Inbox } from 'lucide-react';
+import { Bookmark, Compass, FolderPlus, Inbox, MessagesSquare } from 'lucide-react';
 import { useLater } from '@/hooks/queries/useLater';
+import { useUnreadThreadCount } from '@/hooks/queries/useThreads';
 import type { Channel, Workspace, WorkspaceMember } from '@/stores/workspace';
 import type { Conversation } from '@/hooks/queries/useConversations';
 import { useCurrentWorkspaceRole } from '@/features/workspace/hooks/useCurrentWorkspaceRole';
@@ -58,6 +59,8 @@ interface Props {
   onOpenNotifications: () => void;
   onOpenUnreads: () => void;
   unreadsActive: boolean;
+  onOpenThreads: () => void;
+  threadsActive: boolean;
   onLogout: () => void;
 }
 
@@ -96,12 +99,15 @@ export default function ChannelSidebar({
   onOpenNotifications,
   onOpenUnreads,
   unreadsActive,
+  onOpenThreads,
+  threadsActive,
   onLogout,
 }: Props) {
   const { data: unreadNotifCount = 0 } = useUnreadNotificationCount(currentWorkspace?.id ?? null);
   const { data: myStatus } = useMyStatus(currentWorkspace?.instanceUrl);
   const { data: laterItems } = useLater(currentWorkspace?.id, 'in_progress', currentWorkspace?.instanceUrl);
   const laterCount = laterItems?.length ?? 0;
+  const { data: unreadThreads = 0 } = useUnreadThreadCount(currentWorkspace?.id);
   const { role: currentUserRole } = useCurrentWorkspaceRole();
   const navigate = useNavigate();
   const { instances, activeInstanceUrl } = useInstanceStore();
@@ -198,6 +204,26 @@ export default function ChannelSidebar({
             {totalUnread > 0 && (
               <span className="ml-auto text-xs px-1.5 rounded-full bg-raised text-fg-soft">
                 {totalUnread > 99 ? '99+' : totalUnread}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={onOpenThreads}
+            aria-current={threadsActive ? 'page' : undefined}
+            data-qa="threads-open"
+            className={`w-full px-3 py-1.5 mb-2 -mt-1.5 flex items-center gap-2 text-sm transition cursor-pointer ${
+              threadsActive ? 'bg-purple-600/20 text-fg' : 'text-fg-dim hover:bg-raised/30 hover:text-fg-soft'
+            } ${unreadThreads > 0 ? 'font-semibold' : ''}`}
+          >
+            <MessagesSquare className="w-4 h-4 shrink-0" />
+            <span className="truncate">Threads</span>
+            {unreadThreads > 0 && (
+              <span
+                className="ml-auto text-xs px-1.5 rounded-full bg-raised text-fg-soft"
+                data-qa="threads-count"
+              >
+                {unreadThreads > 99 ? '99+' : unreadThreads}
               </span>
             )}
           </button>

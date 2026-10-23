@@ -1,4 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { components } from '@/api/schema';
 import type { Message } from '@/stores/workspace';
 import { useCurrentApi } from '@/shared/hooks/useCurrentApi';
 import { logger } from '@/lib/logger';
@@ -6,6 +7,79 @@ import { toast } from '@/shared/components/Toast';
 import { QUERY_KEYS, ErrorLabels } from '@/shared/constants';
 import { patchMessageById, claimReplyCount } from '@/lib/messageCache';
 import type { MessagesInfiniteData, OutgoingMessage } from './useMessages';
+
+export type ThreadSummary = components['schemas']['ThreadSummary'];
+export type ThreadState = components['schemas']['ThreadState'];
+type ThreadPage = components['schemas']['ThreadPage'];
+
+export const useFollowedThreads = (workspaceId: string | undefined) => {
+  const apiClient = useCurrentApi();
+  return useInfiniteQuery({
+    queryKey: QUERY_KEYS.followedThreads(workspaceId ?? ''),
+    enabled: !!workspaceId,
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam }): Promise<ThreadPage> =>
+      apiClient.typed((c) =>
+        c.GET('/workspaces/{ws_id}/threads', {
+          params: { path: { ws_id: workspaceId ?? '' }, query: { cursor: pageParam } },
+        }),
+      ),
+    getNextPageParam: (page) => page.next_cursor ?? undefined,
+  });
+};
+
+export const useUnreadThreadCount = (workspaceId: string | undefined) => {
+  const apiClient = useCurrentApi();
+  return useQuery({
+    queryKey: QUERY_KEYS.unreadThreads(workspaceId ?? ''),
+    enabled: !!workspaceId,
+    queryFn: async () => {
+      const res = await apiClient.typed((c) =>
+        c.GET('/workspaces/{ws_id}/threads/unread', { params: { path: { ws_id: workspaceId ?? '' } } }),
+      );
+      return res.count;
+    },
+  });
+};
+
+export const useThreadState = (rootId: string) => {
+  const apiClient = useCurrentApi();
+  return useQuery({
+    queryKey: QUERY_KEYS.threadState(rootId),
+    queryFn: (): Promise<ThreadState> =>
+      apiClient.typed((c) => c.POST('/threads/{root_id}/read', { params: { path: { root_id: rootId } } })),
+    staleTime: Infinity,
+  });
+};
+
+export const useMarkThreadRead = () => {
+  const queryClient = useQueryClient();
+  const apiClient = useCurrentApi();
+  return useMutation({
+    mutationFn: (rootId: string) =>
+      apiClient.typed((c) => c.POST('/threads/{root_id}/read', { params: { path: { root_id: rootId } } })),
+    onSuccess: (state) => queryClient.setQueryData(QUERY_KEYS.threadState(state.root_message_id), state),
+    onError: (err) => logger.error('useMarkThreadRead', 'mutationFn', err),
+  });
+};
+
+export const useFollowThread = (rootId: string) => {
+  const queryClient = useQueryClient();
+  const apiClient = useCurrentApi();
+  return useMutation({
+    mutationFn: (following: boolean) => {
+      const params = { params: { path: { root_id: rootId } } };
+      return following
+        ? apiClient.typed((c) => c.PUT('/threads/{root_id}/follow', params))
+        : apiClient.typed((c) => c.DELETE('/threads/{root_id}/follow', params));
+    },
+    onSuccess: (state) => queryClient.setQueryData(QUERY_KEYS.threadState(rootId), state),
+    onError: (err) => {
+      logger.error('useFollowThread', 'mutationFn', err);
+      toast.error(ErrorLabels.FollowFailed);
+    },
+  });
+};
 
 export const useThreadMessages = (parentMessageId: string) => {
   const apiClient = useCurrentApi();

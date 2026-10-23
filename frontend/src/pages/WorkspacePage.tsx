@@ -9,6 +9,7 @@ import { ChannelSidebar, ChannelHeader, ChannelBookmarksBar } from '@/features/c
 import { MessageList, MessageInput } from '@/features/messaging';
 import ConversationView from '@/features/messaging/ConversationView';
 import { AllUnreadsView } from '@/features/unreads';
+import { ThreadsView } from '@/features/threads';
 import ForwardMessageModal from '@/features/messaging/ForwardMessageModal';
 import AddInstancePanel from '../components/AddInstancePanel';
 import UserProfilePanel from '../components/UserProfilePanel';
@@ -84,6 +85,8 @@ export default function WorkspacePage() {
             onOpenNotifications={() => panel.toggle('notifications')}
             onOpenUnreads={c.handleOpenUnreads}
             unreadsActive={c.isUnreadsRoute}
+            onOpenThreads={c.handleOpenThreads}
+            threadsActive={c.isThreadsRoute}
             onLogout={() => c.logout.mutate()}
           />
         </div>
@@ -103,6 +106,22 @@ export default function WorkspacePage() {
             workspaceId={currentWorkspace.id}
             currentUserId={user.id}
             conversations={c.conversations}
+            onOpenChannel={(channelId) => {
+              const channel = c.channels.find((ch) => ch.id === channelId);
+              if (channel) c.handleSelectChannel(channel);
+            }}
+            onOpenConversation={c.handleOpenConversation}
+            onOpenNav={() => c.setMobileNavOpen(true)}
+          />
+        ) : c.isThreadsRoute && currentWorkspace && user ? (
+          <ThreadsView
+            workspaceId={currentWorkspace.id}
+            instanceUrl={currentWorkspace.instanceUrl}
+            currentUserId={user.id}
+            channels={c.channels}
+            conversations={c.conversations}
+            members={c.workspaceMembers}
+            onOpenThread={panel.openThread}
             onOpenChannel={(channelId) => {
               const channel = c.channels.find((ch) => ch.id === channelId);
               if (channel) c.handleSelectChannel(channel);

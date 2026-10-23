@@ -615,3 +615,38 @@ fn the_consumer_listens_where_later_updates_are_published() {
         "later.updated is published on events:later"
     );
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn thread_read_state_reaches_only_its_follower(pool: PgPool) {
+    let cm = manager(pool).await;
+    let follower = Uuid::new_v4();
+    let other = Uuid::new_v4();
+    let ws = Uuid::new_v4();
+    let root = Uuid::new_v4();
+    let (_follower_conn, mut follower_rx) = fake_conn(&cm, follower);
+    let (_other_conn, mut other_rx) = fake_conn(&cm, other);
+
+    let payload = json!({
+        "user_id": follower.to_string(),
+        "workspace_id": ws.to_string(),
+        "root_message_id": root.to_string(),
+        "following": true,
+        "unread_count": 2,
+    });
+    crate::event_consumer::handle_event("thread.read_state", &payload, &cm).await;
+
+    let frame = next_json(&mut follower_rx).expect("the follower hears about it");
+    assert_eq!(frame["type"], "thread.read_state");
+    assert_eq!(frame["root_message_id"], root.to_string());
+    assert_eq!(frame["following"], true);
+    assert_eq!(frame["unread_count"], 2);
+    assert!(next_json(&mut other_rx).is_none());
+}
+
+#[test]
+fn the_consumer_listens_where_thread_states_are_published() {
+    assert!(
+        crate::event_consumer::SUBSCRIBED_CHANNELS.contains(&"events:thread"),
+        "thread.read_state is published on events:thread"
+    );
+}

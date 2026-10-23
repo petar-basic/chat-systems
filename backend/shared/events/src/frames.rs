@@ -201,6 +201,13 @@ pub enum ServerFrame {
     },
     #[serde(rename = "later.updated")]
     LaterUpdated { workspace_id: Uuid },
+    #[serde(rename = "thread.read_state")]
+    ThreadReadState {
+        root_message_id: Uuid,
+        workspace_id: Uuid,
+        following: bool,
+        unread_count: i32,
+    },
     #[serde(rename = "channel.access_revoked")]
     ChannelAccessRevoked {
         channel_id: Uuid,

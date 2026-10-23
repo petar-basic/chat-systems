@@ -1130,6 +1130,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/threads/{root_id}/follow": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["follow_thread"];
+        post?: never;
+        delete: operations["unfollow_thread"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/threads/{root_id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["mark_thread_read"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/users/me": {
         parameters: {
             query?: never;
@@ -1970,6 +2002,38 @@ export interface paths {
          *     result: an import takes minutes to hours, and the client watches the row.
          */
         post: operations["start_import"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/threads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_threads"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/threads/unread": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["unread_threads"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3342,6 +3406,28 @@ export interface components {
             auth: string;
             p256dh: string;
         };
+        ThreadPage: {
+            data: components["schemas"]["ThreadSummary"][];
+            /** Format: date-time */
+            next_cursor?: string | null;
+        };
+        ThreadState: {
+            following: boolean;
+            /** Format: uuid */
+            root_message_id: string;
+            /** Format: int64 */
+            unread_count: number;
+        };
+        ThreadSummary: {
+            /** Format: date-time */
+            last_read_at: string;
+            /** Format: date-time */
+            last_reply_at: string;
+            latest_replies: components["schemas"]["Message"][];
+            root: components["schemas"]["Message"];
+            /** Format: int64 */
+            unread_count: number;
+        };
         TotpConfirmed: {
             recovery_codes: string[];
             status: string;
@@ -3407,6 +3493,10 @@ export interface components {
             muted: boolean;
             /** Format: int32 */
             unread_count: number;
+        };
+        UnreadThreads: {
+            /** Format: int64 */
+            count: number;
         };
         UnreadsPage: {
             data: components["schemas"]["UnreadGroup"][];
@@ -5447,6 +5537,69 @@ export interface operations {
             };
         };
     };
+    follow_thread: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                root_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ThreadState"];
+                };
+            };
+        };
+    };
+    unfollow_thread: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                root_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ThreadState"];
+                };
+            };
+        };
+    };
+    mark_thread_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                root_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ThreadState"];
+                };
+            };
+        };
+    };
     get_me: {
         parameters: {
             query?: never;
@@ -7068,6 +7221,51 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DataItem_ImportRun"];
+                };
+            };
+        };
+    };
+    list_threads: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number | null;
+            };
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ThreadPage"];
+                };
+            };
+        };
+    };
+    unread_threads: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnreadThreads"];
                 };
             };
         };

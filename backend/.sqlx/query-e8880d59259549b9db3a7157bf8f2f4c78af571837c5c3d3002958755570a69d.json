@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT count(*) AS \"count!\"\n              FROM thread_follows f\n              JOIN messages r ON r.id = f.root_message_id AND r.deleted_at IS NULL\n              JOIN channels c ON c.id = r.channel_id\n              JOIN workspace_members wm ON wm.workspace_id = f.workspace_id AND wm.user_id = f.user_id\n             WHERE f.user_id = $1\n               AND f.workspace_id = $2\n               AND f.following\n               AND EXISTS (SELECT 1 FROM messages m\n                            WHERE m.thread_parent_id = f.root_message_id AND m.deleted_at IS NULL\n                              AND m.user_id <> f.user_id AND m.created_at > f.last_read_at)\n               AND (EXISTS (SELECT 1 FROM channel_members cm\n                             WHERE cm.channel_id = r.channel_id AND cm.user_id = f.user_id)\n                    OR (c.channel_type = 'public' AND wm.role <> 'guest'))\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "e8880d59259549b9db3a7157bf8f2f4c78af571837c5c3d3002958755570a69d"
+}

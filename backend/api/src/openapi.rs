@@ -36,6 +36,7 @@ use crate::state::AppState;
         (name = "emoji", description = "Custom emoji"),
         (name = "later", description = "Saved messages and reminders: the Later list"),
         (name = "sidebar", description = "Per-person sidebar sections"),
+        (name = "threads", description = "Threads you follow and their unread replies"),
         (name = "apps", description = "Connected apps: Jira and others, set up per workspace"),
         (name = "scheduled", description = "Messages scheduled for later"),
         (name = "admin", description = "Instance administration"),
@@ -86,6 +87,7 @@ pub fn typed_routes() -> OpenApiRouter<Arc<AppState>> {
         .merge(crate::groups::routes::router())
         .merge(crate::emoji::routes::router())
         .merge(crate::later::routes::router())
+        .merge(crate::threads::routes::router())
         .merge(crate::sidebar::routes::router())
         .merge(crate::integrations::routes::router())
         .merge(crate::scheduled::routes::router())

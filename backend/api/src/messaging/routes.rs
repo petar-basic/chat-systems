@@ -17,6 +17,7 @@ use crate::files::service as files;
 use crate::middleware::AuthUser;
 use crate::pagination::PageQuery;
 use crate::state::AppState;
+use crate::threads::{self, repo::ReplyFollows};
 use crate::workspace::models::WorkspaceRole;
 
 const UNREADS_PER_CHANNEL: i64 = 20;
@@ -87,14 +88,22 @@ async fn list_messages(
 /// Threads are one level deep and stay in their channel: replying to a reply
 /// joins the root's thread, and a parent from elsewhere is refused rather than
 /// letting a message hang off something its readers cannot see.
-async fn thread_root(state: &AppState, channel_id: Uuid, parent_id: Uuid) -> AppResult<Uuid> {
+async fn thread_root(state: &AppState, channel_id: Uuid, parent_id: Uuid) -> AppResult<Message> {
+    let not_here = || AppError::Validation("Thread parent is not in this channel".into());
     let parent = state
         .message_repo
         .find_by_id(parent_id)
         .await?
         .filter(|parent| parent.channel_id == channel_id)
-        .ok_or_else(|| AppError::Validation("Thread parent is not in this channel".into()))?;
-    Ok(parent.thread_parent_id.unwrap_or(parent.id))
+        .ok_or_else(not_here)?;
+    match parent.thread_parent_id {
+        Some(root_id) => state
+            .message_repo
+            .find_by_id(root_id)
+            .await?
+            .ok_or_else(not_here),
+        None => Ok(parent),
+    }
 }
 
 #[utoipa::path(
@@ -131,10 +140,11 @@ async fn send_message(
         ));
     }
 
-    let thread_parent_id = match req.thread_parent_id {
+    let thread_root = match req.thread_parent_id {
         Some(parent_id) => Some(thread_root(&state, ch_id, parent_id).await?),
         None => None,
     };
+    let thread_parent_id = thread_root.as_ref().map(|root| root.id);
 
     // The mention set has to exist before the insert: the unread and mention
     // counters are bumped inside the same transaction that writes the message.
@@ -178,6 +188,22 @@ async fn send_message(
                     return Err(e);
                 }
             };
+            if let Some(root) = &thread_root {
+                state
+                    .thread_repo
+                    .follow_on_reply_in(
+                        &mut tx,
+                        ReplyFollows {
+                            root_message_id: root.id,
+                            workspace_id: channel.workspace_id,
+                            replier_id: auth.user_id,
+                            root_author_id: root.user_id,
+                            mentioned: &mentioned_ids,
+                            replied_at: msg.created_at,
+                        },
+                    )
+                    .await?;
+            }
             let staged = state
                 .publisher
                 .stage_message_created(&mut tx, &msg, channel.workspace_id, &mentioned_ids)
@@ -207,6 +233,9 @@ async fn send_message(
 
     if let Some(staged) = staged {
         state.publisher.dispatch(staged).await;
+        if let Some(root) = &thread_root {
+            threads::routes::announce_reply(&state, root.id, channel.workspace_id).await;
+        }
     }
 
     Ok(Json(msg))
