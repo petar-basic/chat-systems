@@ -21,8 +21,8 @@ vi.mock('@/features/workspace/hooks/useCurrentWorkspaceRole', () => ({
 vi.mock('@/components/UserHoverCard', () => ({
   UserHoverCard: ({ children }: { children: ReactNode }) => children,
 }));
-vi.mock('./EmojiPicker', () => ({ default: () => <div data-testid="emoji-picker" /> }));
-vi.mock('./MessageInput', () => ({ default: () => <div data-testid="edit-box" /> }));
+vi.mock('./EmojiPicker', () => ({ default: () => <div data-qa="emoji-picker" /> }));
+vi.mock('./MessageInput', () => ({ default: () => <div data-qa="edit-box" /> }));
 
 function message(id: string, userId: string, extra: Partial<Message> = {}): Message {
   return {
@@ -65,7 +65,7 @@ function renderPane(messages: Message[]) {
           />
         ))}
         <div data-composer>
-          <div contentEditable="true" tabIndex={0} data-testid="composer" />
+          <div contentEditable="true" tabIndex={0} data-qa="composer" />
         </div>
       </div>
     </RovingContext>,
