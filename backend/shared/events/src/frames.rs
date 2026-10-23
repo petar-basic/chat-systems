@@ -237,6 +237,13 @@ pub enum ServerFrame {
         columns: serde_json::Value,
         items_rewritten: bool,
     },
+    #[serde(rename = "list.views_changed")]
+    ListViewsChanged {
+        list_id: Uuid,
+        channel_id: Option<Uuid>,
+        #[ts(type = "ListView[]")]
+        views: serde_json::Value,
+    },
     #[serde(rename = "list.item_upserted")]
     ListItemUpserted {
         list_id: Uuid,
@@ -280,7 +287,8 @@ impl ServerFrame {
              type Reaction = components['schemas']['Reaction'];\n\
              type List = components['schemas']['List'];\n\
              type ListColumn = components['schemas']['ListColumn'];\n\
-             type ListItem = components['schemas']['ListItem'];\n\n\
+             type ListItem = components['schemas']['ListItem'];\n\
+             type ListView = components['schemas']['ListView'];\n\n\
              export {decl}\n"
         )
     }

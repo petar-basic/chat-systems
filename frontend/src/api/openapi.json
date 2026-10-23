@@ -2375,6 +2375,74 @@
         }
       }
     },
+    "/list-views/{view_id}": {
+      "delete": {
+        "tags": [
+          "lists"
+        ],
+        "operationId": "delete_list_view",
+        "parameters": [
+          {
+            "name": "view_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "lists"
+        ],
+        "operationId": "update_list_view",
+        "parameters": [
+          {
+            "name": "view_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateViewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/lists/{list_id}": {
       "get": {
         "tags": [
@@ -2612,6 +2680,86 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ListItem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lists/{list_id}/view-order": {
+      "put": {
+        "tags": [
+          "lists"
+        ],
+        "operationId": "reorder_list_views",
+        "parameters": [
+          {
+            "name": "list_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ViewOrder"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_ListView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lists/{list_id}/views": {
+      "post": {
+        "tags": [
+          "lists"
+        ],
+        "operationId": "create_list_view",
+        "parameters": [
+          {
+            "name": "list_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateViewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListView"
                 }
               }
             }
@@ -8374,6 +8522,24 @@
           }
         }
       },
+      "CreateViewRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "kind"
+        ],
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/ViewConfig"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ViewKind"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "CreateWorkspaceRequest": {
         "type": "object",
         "required": [
@@ -9588,6 +9754,66 @@
           }
         }
       },
+      "DataList_ListView": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "list_id",
+                "position",
+                "name",
+                "kind",
+                "config",
+                "created_by",
+                "created_at",
+                "updated_at"
+              ],
+              "properties": {
+                "config": {
+                  "$ref": "#/components/schemas/ViewConfig"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "created_by": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "kind": {
+                  "$ref": "#/components/schemas/ViewKind"
+                },
+                "list_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "position": {
+                  "type": "integer",
+                  "format": "int32"
+                },
+                "updated_at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          }
+        }
+      },
       "DataList_MemberWithUser": {
         "type": "object",
         "required": [
@@ -10722,6 +10948,39 @@
           }
         }
       },
+      "FilterOp": {
+        "type": "string",
+        "enum": [
+          "contains",
+          "is",
+          "is_not",
+          "lt",
+          "gt",
+          "this_week",
+          "overdue",
+          "empty",
+          "not_empty",
+          "checked",
+          "unchecked"
+        ]
+      },
+      "FilterRule": {
+        "type": "object",
+        "required": [
+          "column_id",
+          "op"
+        ],
+        "properties": {
+          "column_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "op": {
+            "$ref": "#/components/schemas/FilterOp"
+          },
+          "value": {}
+        }
+      },
       "ForgotPasswordRequest": {
         "type": "object",
         "required": [
@@ -11386,7 +11645,8 @@
         "type": "object",
         "required": [
           "list",
-          "columns"
+          "columns",
+          "views"
         ],
         "properties": {
           "columns": {
@@ -11397,6 +11657,12 @@
           },
           "list": {
             "$ref": "#/components/schemas/List"
+          },
+          "views": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ListView"
+            }
           }
         }
       },
@@ -11441,6 +11707,55 @@
             "propertyNames": {
               "type": "string"
             }
+          }
+        }
+      },
+      "ListView": {
+        "type": "object",
+        "required": [
+          "id",
+          "list_id",
+          "position",
+          "name",
+          "kind",
+          "config",
+          "created_by",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/ViewConfig"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_by": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ViewKind"
+          },
+          "list_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "position": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
@@ -12632,6 +12947,28 @@
           }
         }
       },
+      "SortDirection": {
+        "type": "string",
+        "enum": [
+          "asc",
+          "desc"
+        ]
+      },
+      "SortRule": {
+        "type": "object",
+        "required": [
+          "column_id"
+        ],
+        "properties": {
+          "column_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "direction": {
+            "$ref": "#/components/schemas/SortDirection"
+          }
+        }
+      },
       "StartHuddleRequest": {
         "type": "object",
         "properties": {
@@ -13385,6 +13722,37 @@
           }
         }
       },
+      "UpdateViewRequest": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ViewConfig"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ViewKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
       "UpdateWorkspaceRequest": {
         "type": "object",
         "properties": {
@@ -13613,6 +13981,52 @@
             ],
             "format": "int32",
             "minimum": 0
+          }
+        }
+      },
+      "ViewConfig": {
+        "type": "object",
+        "properties": {
+          "filters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FilterRule"
+            }
+          },
+          "group_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "sort": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SortRule"
+            }
+          }
+        }
+      },
+      "ViewKind": {
+        "type": "string",
+        "enum": [
+          "table",
+          "board"
+        ]
+      },
+      "ViewOrder": {
+        "type": "object",
+        "required": [
+          "view_ids"
+        ],
+        "properties": {
+          "view_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         }
       },

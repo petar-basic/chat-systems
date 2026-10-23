@@ -5,3 +5,4 @@ pub mod rank;
 pub mod repo;
 pub mod routes;
 pub mod service;
+pub mod views;

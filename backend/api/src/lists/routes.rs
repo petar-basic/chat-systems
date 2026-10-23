@@ -14,6 +14,7 @@ use super::models::{
     UpdateItemRequest, UpdateListRequest,
 };
 use super::service;
+use super::views::{CreateViewRequest, ListView, UpdateViewRequest, ViewOrder};
 use crate::dto::{DataList, StatusResponse};
 use crate::middleware::AuthUser;
 use crate::state::AppState;
@@ -29,6 +30,9 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(preview_list_column))
         .routes(routes!(update_list_item, delete_list_item))
         .routes(routes!(move_list_item))
+        .routes(routes!(create_list_view))
+        .routes(routes!(reorder_list_views))
+        .routes(routes!(update_list_view, delete_list_view))
 }
 
 #[utoipa::path(
@@ -236,4 +240,60 @@ async fn move_list_item(
     Ok(Json(
         service::move_item(&state, auth.user_id, item_id, req.after_id).await?,
     ))
+}
+
+#[utoipa::path(
+    post, path = "/lists/{list_id}/views", tag = "lists",
+    request_body = CreateViewRequest,
+    responses((status = 200, body = ListView)))]
+async fn create_list_view(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(list_id): Path<Uuid>,
+    Json(req): Json<CreateViewRequest>,
+) -> AppResult<Json<ListView>> {
+    Ok(Json(
+        service::create_view(&state, auth.user_id, list_id, &req).await?,
+    ))
+}
+
+#[utoipa::path(
+    put, path = "/lists/{list_id}/view-order", tag = "lists",
+    request_body = ViewOrder,
+    responses((status = 200, body = DataList<ListView>)))]
+async fn reorder_list_views(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(list_id): Path<Uuid>,
+    Json(req): Json<ViewOrder>,
+) -> AppResult<Json<DataList<ListView>>> {
+    let views = service::reorder_views(&state, auth.user_id, list_id, &req.view_ids).await?;
+    Ok(Json(views.into()))
+}
+
+#[utoipa::path(
+    patch, path = "/list-views/{view_id}", tag = "lists",
+    request_body = UpdateViewRequest,
+    responses((status = 200, body = ListView)))]
+async fn update_list_view(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(view_id): Path<Uuid>,
+    Json(req): Json<UpdateViewRequest>,
+) -> AppResult<Json<ListView>> {
+    Ok(Json(
+        service::update_view(&state, auth.user_id, view_id, &req).await?,
+    ))
+}
+
+#[utoipa::path(
+    delete, path = "/list-views/{view_id}", tag = "lists",
+    responses((status = 200, body = StatusResponse)))]
+async fn delete_list_view(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(view_id): Path<Uuid>,
+) -> AppResult<Json<StatusResponse>> {
+    service::delete_view(&state, auth.user_id, view_id).await?;
+    Ok(Json(StatusResponse::new("deleted")))
 }

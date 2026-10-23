@@ -207,6 +207,14 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - 🔴 **Edge — read-only:** in an announcement channel a member who cannot post sees the list but no *New item*, no editors and no column menu; `PATCH /api/list-items/<id>` answers 403.
 - 🟠 **Edge — drag:** drag a row by its grip above another; the line shows where it lands; reload and the order holds.
 
+### 5.11 🟢 Lists, views
+- **Reach:** the tabs under a list's title; *+* → *Board*.
+- **Steps:** on a *Project tracker* with a few items, add a *Board*. Drag a card from *Not started* to *Done*; on another card press Alt + → twice. *New* in a lane, type a title in the panel. *Sort* → *Due*, *Descending*; *Filter* → *Only mine*, then *Due this week*. Rename the view from its menu; add a second table and move it left. In tab B (another member) open the same list.
+- **Expected:** tab B has the same tabs, the board shows the same lanes and moves arrive live; the filter count shows on *Filter*, and *Only mine* shows each person their own items. The header says *N of M items* while a filter hides some.
+- 🟠 **Edge — columns go:** filter a board by a choice, then delete that choice, then delete the *Status* column → the filter goes, then the board asks for a column to group by; no error.
+- 🟠 **Edge — sorted table:** sort a table → no row grips, Alt + ↓ does nothing; *New item* adds a row that stays visible even if the filter would hide it, until reload.
+- 🔴 **Edge — read-only:** in an announcement channel a member who cannot post sees the views and their rules but cannot change them or drag cards; `POST /api/lists/<id>/views` answers 403. Deleting the last view is refused (422).
+
 ---
 
 ## 6. Files

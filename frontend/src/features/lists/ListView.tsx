@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { Eye, Hash, Lock, Menu, MoreHorizontal, Table2, Trash2 } from 'lucide-react';
 import type { Channel, WorkspaceMember } from '@/stores/workspace';
@@ -12,8 +12,19 @@ import { useChannelModeration } from '@/features/channel/hooks/useChannelModerat
 import { ListGrid } from './ListGrid';
 import { ItemPanel } from './ItemPanel';
 import { ColumnDialog } from './ColumnDialog';
-import { MAX_COLUMNS, type ListColumn } from './listModel';
+import { ListBoard } from './ListBoard';
+import { ViewTabs } from './ViewTabs';
+import { ViewControls } from './ViewControls';
+import { MAX_COLUMNS, MAX_ITEMS, type CellValues, type ListColumn } from './listModel';
 import { peopleFrom } from './people';
+import {
+  applyView,
+  nextViewName,
+  usableConfig,
+  type SavedView,
+  type ViewConfig,
+  type ViewKind,
+} from './viewModel';
 import {
   useColumnActions,
   useDeleteList,
@@ -21,6 +32,7 @@ import {
   useListDetail,
   useListItems,
   useRenameList,
+  useViewActions,
 } from './useLists';
 
 interface Props {
@@ -61,6 +73,7 @@ export function ListView({
 
   const columnActions = useColumnActions(listId, instanceUrl);
   const itemActions = useItemActions(listId, instanceUrl);
+  const viewActions = useViewActions(listId, instanceUrl);
   const rename = useRenameList(listId, instanceUrl);
   const deleteList = useDeleteList(listId, workspaceId, instanceUrl);
 
@@ -70,20 +83,27 @@ export function ListView({
   const [confirmDeleteList, setConfirmDeleteList] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [hiddenOpen, setHiddenOpen] = useState(false);
+  const [deletingView, setDeletingView] = useState<SavedView | null>(null);
+  const [created, setCreated] = useState<ReadonlySet<string>>(() => new Set());
+  const [today] = useState(() => new Date());
+  const viewsId = useId();
   const menuRef = useRef<HTMLDivElement>(null);
   const hiddenRef = useRef<HTMLButtonElement>(null);
 
   const openItemId = searchParams.get('item');
-  const setOpenItem = (itemId: string | null) =>
+  const setParam = (key: 'item' | 'view', value: string | null) =>
     setSearchParams(
       (params) => {
         const next = new URLSearchParams(params);
-        if (itemId) next.set('item', itemId);
-        else next.delete('item');
+        if (value) next.set(key, value);
+        else next.delete(key);
         return next;
       },
       { replace: true },
     );
+  const setOpenItem = (itemId: string | null) => setParam('item', itemId);
+  const selectView = (viewId: string) => setParam('view', viewId);
+  const remember = (itemId: string) => setCreated((ids) => new Set(ids).add(itemId));
   const openItem = items.data?.find((item) => item.id === openItemId) ?? null;
   useEscapeToClose(() => setOpenItem(null), !!openItem && !columnDialog && !deletingColumn);
 
@@ -112,6 +132,52 @@ export function ListView({
   const columns = [...detail.data.columns].sort((a, b) => a.position - b.position);
   const visible = columns.filter((column) => !column.hidden);
   const hidden = columns.filter((column) => column.hidden);
+  const views = [...detail.data.views].sort((a, b) => a.position - b.position);
+  const view = views.find((v) => v.id === searchParams.get('view')) ?? views[0];
+  const config = usableConfig(view.config, view.kind, columns);
+  const shown = applyView(
+    items.data,
+    columns,
+    config,
+    { me: currentUserId, today, nameOf: people.nameOf },
+    created,
+  );
+  const group = columns.find((column) => column.id === config.group_by) ?? null;
+  const total = items.data.length;
+  const canAddItem = total < MAX_ITEMS;
+  const tabId = (viewId: string) => `${viewsId}-tab-${viewId}`;
+  const panelId = `${viewsId}-panel`;
+
+  const addItem = async (values: CellValues, afterId: string | null) => {
+    const item = await itemActions.create.mutateAsync({ values, after_id: afterId }).catch(() => undefined);
+    if (item) remember(item.id);
+    return item;
+  };
+
+  const createView = (kind: ViewKind) => {
+    const firstSelect = columns.find((column) => column.kind === 'select');
+    viewActions.create.mutate(
+      {
+        name: nextViewName(views, kind),
+        kind,
+        config: kind === 'board' && firstSelect ? { group_by: firstSelect.id } : {},
+      },
+      { onSuccess: (created) => selectView(created.id) },
+    );
+  };
+
+  const moveView = (viewId: string, delta: -1 | 1) => {
+    const order = views.map((v) => v.id);
+    const from = order.indexOf(viewId);
+    const to = from + delta;
+    if (to < 0 || to >= order.length) return;
+    order.splice(from, 1);
+    order.splice(to, 0, viewId);
+    viewActions.reorder.mutate(order);
+  };
+
+  const changeConfig = (next: ViewConfig) =>
+    viewActions.update.mutate({ viewId: view.id, body: { config: next } });
 
   const commitTitle = () => {
     const title = renaming?.trim();
@@ -195,7 +261,8 @@ export function ListView({
             </button>
           )}
           <span className="text-xs text-subtle tabular-nums shrink-0" data-qa="list-count">
-            {items.data.length} {items.data.length === 1 ? 'item' : 'items'}
+            {shown.length === total ? '' : `${shown.length} of `}
+            {total} {total === 1 ? 'item' : 'items'}
           </span>
 
           <div className="ml-auto flex items-center gap-1">
@@ -225,31 +292,88 @@ export function ListView({
           </div>
         </div>
 
-        <ListGrid
-          key={listId}
-          label={list.title}
-          columns={visible}
-          items={items.data}
-          canEdit={canEdit}
-          people={people}
-          openItemId={openItemId}
-          columnActions={{
-            onEdit: (column) => setColumnDialog({ column }),
-            onMove: moveColumn,
-            onHide: (column) => columnActions.setHidden.mutate({ columnId: column.id, hidden: true }),
-            onDelete: setDeletingColumn,
-            onAdd: () => setColumnDialog({ column: null }),
-            canAdd: columns.length < MAX_COLUMNS,
-          }}
-          onEditCell={(itemId, columnId, value) =>
-            itemActions.update.mutate({ itemId, values: { [columnId]: value } })
-          }
-          onAddItem={(afterId) =>
-            itemActions.create.mutateAsync({ after_id: afterId }).catch(() => undefined)
-          }
-          onOpenItem={setOpenItem}
-          onMoveItem={(itemId, afterId) => itemActions.move.mutate({ itemId, afterId })}
-        />
+        <div className="min-h-11 px-3 py-1 flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-line/50 shrink-0">
+          <ViewTabs
+            views={views}
+            activeId={view.id}
+            canEdit={canEdit}
+            tabId={tabId}
+            panelId={panelId}
+            onSelect={selectView}
+            onCreate={createView}
+            onRename={(viewId, name) => viewActions.update.mutate({ viewId, body: { name } })}
+            onMove={moveView}
+            onDelete={(viewId) => setDeletingView(views.find((v) => v.id === viewId) ?? null)}
+          />
+          <div className="ml-auto">
+            <ViewControls
+              key={view.id}
+              kind={view.kind}
+              config={config}
+              columns={columns}
+              people={people}
+              canEdit={canEdit}
+              onChange={changeConfig}
+            />
+          </div>
+        </div>
+
+        <div
+          id={panelId}
+          role="tabpanel"
+          aria-labelledby={tabId(view.id)}
+          className="flex min-h-0 flex-1 flex-col"
+        >
+          {view.kind === 'board' ? (
+            <ListBoard
+              label={list.title}
+              group={group}
+              columns={visible}
+              items={shown}
+              canEdit={canEdit}
+              canAdd={canAddItem}
+              hasGroupable={columns.some((column) => column.kind === 'select')}
+              people={people}
+              openItemId={openItemId}
+              onOpenItem={setOpenItem}
+              onSetGroup={(itemId, choiceId) =>
+                group && itemActions.update.mutate({ itemId, values: { [group.id]: choiceId } })
+              }
+              onAddItem={async (choiceId) => {
+                const values: CellValues = group && choiceId ? { [group.id]: choiceId } : {};
+                const item = await addItem(values, items.data?.at(-1)?.id ?? null);
+                if (item) setOpenItem(item.id);
+              }}
+            />
+          ) : (
+            <ListGrid
+              key={view.id}
+              label={list.title}
+              columns={visible}
+              items={shown}
+              canEdit={canEdit}
+              reorderable={config.sort.length === 0 && config.filters.length === 0}
+              canAdd={canAddItem}
+              emptyText={total === 0 ? 'No items yet.' : 'No items match this view.'}
+              people={people}
+              openItemId={openItemId}
+              columnActions={{
+                onEdit: (column) => setColumnDialog({ column }),
+                onMove: moveColumn,
+                onHide: (column) => columnActions.setHidden.mutate({ columnId: column.id, hidden: true }),
+                onDelete: setDeletingColumn,
+                onAdd: () => setColumnDialog({ column: null }),
+                canAdd: columns.length < MAX_COLUMNS,
+              }}
+              onEditCell={(itemId, columnId, value) =>
+                itemActions.update.mutate({ itemId, values: { [columnId]: value } })
+              }
+              onAddItem={(afterId) => addItem({}, afterId)}
+              onOpenItem={setOpenItem}
+              onMoveItem={(itemId, afterId) => itemActions.move.mutate({ itemId, afterId })}
+            />
+          )}
+        </div>
       </main>
 
       {openItem && (
@@ -330,6 +454,22 @@ export function ListView({
           onConfirm={() => columnActions.remove.mutateAsync(deletingColumn.id).then(() => undefined)}
           onClose={() => setDeletingColumn(null)}
           dataQa="list-column-delete-confirm"
+        />
+      )}
+
+      {deletingView && (
+        <ConfirmDialog
+          title={`Delete the ${deletingView.name} view?`}
+          description="The view is removed for everyone. Items stay in the list."
+          confirmLabel="Delete view"
+          onConfirm={async () => {
+            if (deletingView.id === view.id) {
+              selectView(views.find((v) => v.id !== deletingView.id)?.id ?? '');
+            }
+            await viewActions.remove.mutateAsync(deletingView.id);
+          }}
+          onClose={() => setDeletingView(null)}
+          dataQa="list-view-delete-confirm"
         />
       )}
 

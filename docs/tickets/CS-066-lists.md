@@ -93,7 +93,23 @@ Landed as described, with these differences:
 - Add, rename, reorder, hide and delete columns from the header cell's menu. Drag rows to
   reorder. An item opens in a side panel with every field.
 
-### 3. Views: board, filter, sort
+### 3. Views: board, filter, sort ✅ done
+
+Landed as described, with these differences:
+
+- A view has a `name`, and a list always has at least one: a new list starts with "Table",
+  migration 65 gives every existing list one, and the last view cannot be deleted. At most 20
+  views, 3 sort rules and 10 filters a view.
+- Filtering and sorting run in the client over the items it already holds (at most 10,000);
+  the server stores and checks the rules. A rule is checked against its column's kind when
+  saved, and a column change or deletion prunes every view in the same transaction, so a
+  saved view never points at a column, choice or kind that is gone.
+- `"me"` in a person filter is whoever looks, so one shared *Only mine* view shows each
+  person their own items.
+- Hidden columns stay on the list, shared, as part 2 left them; a view does not hide its own.
+- Dragging a card between lanes changes its value but not its order: a lane follows the
+  view's sort, or rank without one. While a table is sorted or filtered, rows cannot be
+  dragged or moved with Alt + ↑/↓.
 
 - **Board view** groups by any `select` column; dragging a card between columns sets the
   value. **Table view** sorts and filters by any column.

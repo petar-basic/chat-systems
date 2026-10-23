@@ -6,6 +6,8 @@ use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
 
+use super::views::ListView;
+
 pub const MAX_COLUMNS: usize = 30;
 pub const MAX_ITEMS: i64 = 10_000;
 pub const MAX_CHOICES: usize = 50;
@@ -213,6 +215,7 @@ pub struct ListItem {
 pub struct ListDetail {
     pub list: List,
     pub columns: Vec<ListColumn>,
+    pub views: Vec<ListView>,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]

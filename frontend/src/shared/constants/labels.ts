@@ -15,6 +15,7 @@ export const ErrorLabels = {
   ListItemFailed: "Couldn't change that item",
   ListColumnFailed: "Couldn't change that column",
   ListFailed: "Couldn't change the list",
+  ListViewFailed: "Couldn't change that view",
   FollowFailed: "Couldn't update the thread",
   AppConnectFailed: "Couldn't start connecting the app",
   ReactionFailed: "Couldn't update the reaction",
