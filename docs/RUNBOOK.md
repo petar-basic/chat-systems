@@ -572,7 +572,7 @@ Later item.
 The realtime service subscribes to one more Redis channel, `events:later`; deploy the backend
 and the realtime images together, as always.
 
-## Upgrade note: followed threads (next release)
+## Upgrade note: followed threads (3.1.0)
 
 Migration 56 creates `thread_follows` and fills it: every thread with a reply is followed by
 its root's author and by everyone who replied, read up to the moment the migration runs, so

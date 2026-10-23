@@ -14,7 +14,14 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
-## [Unreleased]
+## [3.1.0] — 2026-10-23
+
+### Upgrading from 3.0.0
+
+- Migration 56 follows every existing thread for its root's author and everyone who replied
+  in it, read up to the moment of the upgrade, so nothing arrives unread. The realtime service
+  subscribes to one more Redis channel, `events:thread`; deploy the backend and realtime images
+  together. RUNBOOK → *Upgrade note: followed threads*.
 
 ### Added
 
@@ -36,13 +43,6 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   *Follow* / *Unfollow*. A reply in a followed thread sends the `reply` notification, in-app
   and push. New routes: `GET /workspaces/{id}/threads`, `GET /workspaces/{id}/threads/unread`,
   `POST /threads/{id}/read`, `PUT` / `DELETE /threads/{id}/follow`.
-
-### Upgrading
-
-- Migration 56 follows every existing thread for its root's author and everyone who replied
-  in it, read up to the moment of the upgrade, so nothing arrives unread. The realtime service
-  subscribes to one more Redis channel, `events:thread`; deploy the backend and realtime images
-  together.
 
 ## [3.0.0] — 2026-10-22
 
