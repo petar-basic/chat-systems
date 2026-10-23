@@ -49,6 +49,11 @@ impl ExportArchive {
         self.files.insert(path.to_string(), bytes);
     }
 
+    pub fn put_table(&mut self, path: &str, bytes: Vec<u8>, rows: usize) {
+        self.files.insert(path.to_string(), bytes);
+        self.counts.insert(path.to_string(), rows);
+    }
+
     pub fn rows(&self, file: &str) -> usize {
         self.counts.get(file).copied().unwrap_or(0)
     }

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE list_items SET \"values\" = \"values\" - $2::text\n                WHERE list_id = $1 AND \"values\" ? $2::text",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9b3c9eba253db866d60c008e216cc33fb58dcca3477ae37edc54f47005261265"
+}

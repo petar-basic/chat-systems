@@ -614,6 +614,18 @@ A file is read once. To read one again, for instance after an upgrade that teach
 extractor a new format, delete its row (`DELETE FROM file_texts WHERE status = 'unsupported'`)
 and the worker picks it up.
 
+## Upgrade note: lists
+
+Migration 63 creates the list tables empty. The realtime service subscribes to `events:list`;
+deploy the backend and realtime images together, as always.
+
+A workspace with a message retention window now loses list items nobody has edited within
+that window, and lists deleted longer ago than it, on the same nightly pass as messages: a
+list kept in a conversation is that conversation's content. A launch checklist that is
+still wanted but untouched for longer than the window goes too. Run a pass with
+`RETENTION_DRY_RUN=true` first; `retention_rows_deleted_total{table="list_items"}` and
+`{table="lists"}` count what it would remove.
+
 ## Audit log
 
 `GET /api/workspaces/:ws_id/audit-log` (workspace admin) and `GET /api/admin/audit-log`

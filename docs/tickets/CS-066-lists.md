@@ -20,7 +20,26 @@ Canvases (free-form documents) are a separate decision and not part of this tick
 
 Four parts, each its own PR, in this order.
 
-### 1. The model, the API and live updates
+### 1. The model, the API and live updates ✅ done
+
+Landed as described, with these differences, which parts 2–4 build on:
+
+- Two more frames: `list.upserted` (a list created, renamed or redescribed) beside the four
+  named, and `list.columns_changed` carries `items_rewritten`, set when a kind change or a
+  dropped column rewrote cells, so a client refetches the items instead of the server
+  sending up to 10,000 rows. Every payload has `owner_id`; a personal list's frames go to
+  its owner's sessions.
+- The kind change's confirmation is a number, not a flag: `PATCH` with a lossy change is 409
+  "This change clears N cells" until `confirm_cleared` is that N, so a confirmation shown
+  before somebody else filled more cells does not clear them. `POST
+  /list-columns/{id}/preview` gives `{ converted, cleared }` for the dialog. Removing or
+  renaming a choice goes through the same check.
+- Channels are archived, not deleted; a hard delete (the workspace purge) cascades to its
+  lists. Retention uses the message window: items not edited within it, and lists deleted
+  longer ago, go on the nightly pass. The export writes `lists.jsonl` plus
+  `lists/<id>.csv`; a DM's list and personal lists only when DMs are included.
+- A person cell holds one person. Hidden columns are left to part 2 or to views in part 3.
+
 
 - **Where a list lives decides who sees it.** A list belongs to one conversation (a
   channel, DM or group DM), and access is that conversation's access through

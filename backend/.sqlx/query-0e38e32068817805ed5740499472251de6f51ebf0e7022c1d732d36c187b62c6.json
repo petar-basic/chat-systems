@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT rank FROM list_items\n                WHERE list_id = $1 AND deleted_at IS NULL\n                  AND ($2::text IS NULL OR rank > $2)\n                  AND ($3::uuid IS NULL OR id <> $3)\n                  AND ($4::uuid IS NULL OR id <> $4)\n                ORDER BY rank, id LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "rank",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "list_items",
+            "name": "rank"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "0e38e32068817805ed5740499472251de6f51ebf0e7022c1d732d36c187b62c6"
+}

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -5,6 +6,7 @@ use tracing::{info, warn};
 use uuid::Uuid;
 
 use crate::audit::{self, AuditAction, AuditEntry};
+use crate::lists;
 use crate::state::AppState;
 
 use super::repo::{ExportJob, ExportScope};
@@ -121,6 +123,7 @@ async fn export_workspace(
         "files.jsonl",
         "polls.jsonl",
         "poll_votes.jsonl",
+        "lists.jsonl",
         "audit_log.jsonl",
     ] {
         archive.declare(file);
@@ -271,6 +274,8 @@ async fn export_workspace(
         archive.append("poll_votes.jsonl", &row);
     }
 
+    export_lists(state, workspace_id, job.include_dms, archive).await?;
+
     let rows: Vec<serde_json::Value> = sqlx::query_scalar!(
         r#"SELECT to_jsonb(a) AS "row!" FROM audit_log a WHERE a.workspace_id = $1"#,
         workspace_id
@@ -282,6 +287,49 @@ async fn export_workspace(
         archive.append("audit_log.jsonl", &row);
     }
 
+    Ok(())
+}
+
+async fn export_lists(
+    state: &AppState,
+    workspace_id: Uuid,
+    include_private: bool,
+    archive: &mut ExportArchive,
+) -> Result<(), String> {
+    let lists = state
+        .list_repo
+        .exportable(workspace_id, include_private)
+        .await
+        .map_err(|e| e.to_string())?;
+    for list in lists {
+        let columns = state
+            .list_repo
+            .columns(list.id)
+            .await
+            .map_err(|e| e.to_string())?;
+        let items = state
+            .list_repo
+            .items(list.id)
+            .await
+            .map_err(|e| e.to_string())?;
+        let people: HashMap<Uuid, String> = state
+            .list_repo
+            .names(&lists::csv::people_in(&columns, &items))
+            .await
+            .map_err(|e| e.to_string())?
+            .into_iter()
+            .collect();
+        let path = format!("lists/{}.csv", list.id);
+        archive.append(
+            "lists.jsonl",
+            &serde_json::json!({ "list": list, "columns": columns, "items": path }),
+        );
+        archive.put_table(
+            &path,
+            lists::csv::table(&columns, &items, &people),
+            items.len(),
+        );
+    }
     Ok(())
 }
 

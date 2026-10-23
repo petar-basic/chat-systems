@@ -1,0 +1,123 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO list_columns (list_id, position, name, kind, options)\n               VALUES ($1,\n                       (SELECT COALESCE(MAX(position) + 1, 0) FROM list_columns WHERE list_id = $1),\n                       $2, $3, $4)\n               RETURNING id, list_id, position, name, kind AS \"kind: ColumnKind\",\n                         options AS \"options: Json<ColumnOptions>\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "list_columns",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "list_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "list_columns",
+            "name": "list_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "position",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "list_columns",
+            "name": "position"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "list_columns",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "kind: ColumnKind",
+        "type_info": {
+          "Custom": {
+            "name": "list_column_kind",
+            "kind": {
+              "Enum": [
+                "text",
+                "number",
+                "select",
+                "multi_select",
+                "person",
+                "date",
+                "checkbox",
+                "link"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "list_columns",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "options: Json<ColumnOptions>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "list_columns",
+            "name": "options"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        {
+          "Custom": {
+            "name": "list_column_kind",
+            "kind": {
+              "Enum": [
+                "text",
+                "number",
+                "select",
+                "multi_select",
+                "person",
+                "date",
+                "checkbox",
+                "link"
+              ]
+            }
+          }
+        },
+        "Jsonb"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "3f9d7bcdd75681f9b6a727973c5b3075a6246bff2a5c2ac93d9642cbec43ae4e"
+}

@@ -33,7 +33,7 @@ fn is_durable(event_type: &str) -> bool {
 
     matches!(
         event_type.split('.').next(),
-        Some("message" | "reaction" | "workspace" | "conversation")
+        Some("message" | "reaction" | "workspace" | "conversation" | "list")
     )
 }
 

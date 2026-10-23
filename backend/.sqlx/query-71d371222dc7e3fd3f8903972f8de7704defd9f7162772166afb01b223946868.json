@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT i.list_id FROM list_items i\n               JOIN lists l ON l.id = i.list_id\n              WHERE i.id = $1 AND i.deleted_at IS NULL AND l.deleted_at IS NULL",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "list_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "list_items",
+            "name": "list_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "71d371222dc7e3fd3f8903972f8de7704defd9f7162772166afb01b223946868"
+}
