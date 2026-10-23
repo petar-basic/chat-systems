@@ -10,6 +10,7 @@ import { useCurrentWorkspaceRole } from '@/features/workspace/hooks/useCurrentWo
 import { useInstanceStore } from '@/stores/instances';
 import { useUnreadNotificationCount } from '@/hooks/queries/useNotifications';
 import { useMyStatus } from '@/hooks/queries/useStatus';
+import { NotificationLevelButton } from '@/features/notifications';
 import BrowseChannelsModal from './BrowseChannelsModal';
 import { useCollapsedSections } from './hooks/useCollapsedSections';
 import { SidebarSectionHeader } from './components/SidebarSectionHeader';
@@ -41,7 +42,6 @@ interface Props {
   unreadConversations: Set<string>;
   onSelectChannel: (ch: Channel) => void;
   onCreateChannel: (draft: CreateChannelDraft) => Promise<void>;
-  onToggleMute: (channelId: string, muted: boolean) => void;
   onOpenConversation: (conversationId: string) => void;
   onOpenWith: (participantIds: string[]) => Promise<void>;
   onOpenMembers: () => void;
@@ -82,7 +82,6 @@ export default function ChannelSidebar({
   unreadConversations,
   onSelectChannel,
   onCreateChannel,
-  onToggleMute,
   onOpenConversation,
   onOpenWith,
   onOpenMembers,
@@ -152,7 +151,7 @@ export default function ChannelSidebar({
       unreadCount={unreadCounts[ch.id]}
       mentionCount={mentionCounts[ch.id]}
       onSelect={onSelectChannel}
-      onToggleMute={onToggleMute}
+      notifications={<NotificationLevelButton channelId={ch.id} direct={false} small />}
       moveTargets={moveTargets}
       sectionId={placement.get(ch.id) ?? null}
       onMove={moveChannel}

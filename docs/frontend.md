@@ -53,7 +53,9 @@ reconciles them into the Query cache.
 - **Installable PWA** — `public/manifest.webmanifest` + icons make the SPA installable
   (standalone window); unread counts go to the app icon via the Badging API
   (`navigator.setAppBadge`) and to the favicon, and desktop notifications use the
-  Notification API.
+  Notification API. The server decides who is notified: the client rings and shows a desktop
+  notification only for a `notification` frame, and only when the person is not already
+  looking at that channel or conversation.
 
 ## Authentication Model
 
@@ -269,8 +271,17 @@ Workspace name, description, and deletion (soft-delete by default; `?hard=true` 
 *Edit profile* holds the display name, status (presets and *Clear after*), bio and photo, and
 saves them with one button; the status is sent only when it changed, so an untouched one keeps
 its expiry. *Preferences* is a vertical tab list — *Notifications*, *Appearance*, *Security* —
-over panels that save as they change. Both open from the *You* menu; the sidebar avatar opens
-*Edit profile*.
+over panels that save as they change. *Notifications* opens with `NotifyDefaultPanel`, the
+workspace default level (*All new messages*, *Mentions*, *Nothing*). Both open from the *You*
+menu; the sidebar avatar opens *Edit profile*.
+
+### `notifications/NotificationLevelMenu`
+`NotificationLevelButton` is the bell in the channel header, in a DM's header and on a sidebar
+row's hover. Its menu sets the caller's level for that channel — *Default (…)*, *All new
+messages*, *Mentions*, *Nothing* — and, for a channel, *Mute channel*. It is a keyboard menu
+(`menuitemradio`, arrows, Home/End). The bell shows the effective level: `BellRing` for all,
+`BellOff` for nothing or muted; a sidebar row on nothing or muted carries a small `BellOff`.
+On a phone the header's overflow menu opens the same menu.
 
 **API calls:** GET `/users/me`, PATCH `/users/me` `{ display_name, bio, avatar_url }`, PUT / DELETE `/users/me/status`, POST `/files/upload/{workspaceId}` (photo upload)
 
@@ -426,6 +437,8 @@ use the channel hooks above with the conversation id as `channelId`.
 | `useMarkChannelNotificationsRead(wsId)` | POST `/workspaces/{id}/channels/{channelId}/notifications/read` | Mark a channel's notifications read |
 | `useMarkAllNotificationsRead(wsId)` | POST `/workspaces/{id}/notifications/read-all` | Mark all read |
 | `useDndStatus()` / `useSetDnd()` | GET/PATCH `/notifications/dnd` | Do-not-disturb window |
+| `useNotifyDefault(wsId)` / `useSetNotifyDefault(wsId)` | GET/PUT `/workspaces/{id}/notify-default` | The caller's default level (optimistic); a change refetches channels and conversations |
+| `useSetNotifyLevel(wsId)` | PUT `/channels/{id}/notify-level` `{ level }` | One channel's or DM's level; the answer is merged into the channels and conversations caches |
 
 ### Huddles (`hooks/queries/useHuddle.ts`)
 `useActiveHuddles(wsId, instanceUrl?)` backfills currently-active huddles for the workspace.
@@ -487,7 +500,7 @@ typing, and `notification` events are handled separately — by `usePresenceStor
 
 | Event | Cache action |
 |-------|-------------|
-| `message.new` | Upsert into message list (confirm optimistic / append); if thread reply, append to thread cache + increment `reply_count` on parent; for a channel, mark unread unless current/muted; for a conversation, reorder the conversation list and mark it unread / notify if incoming and not open |
+| `message.new` | Upsert into message list (confirm optimistic / append); if thread reply, append to thread cache + increment `reply_count` on parent; for a channel, mark unread unless current/muted; for a conversation, reorder the conversation list and mark it unread if incoming and not open; sound and desktop notifications come from the `notification` frame instead |
 | `message.updated` | Patch content/updated_at in cached message |
 | `message.deleted` | Soft-delete: set `deleted_at` on cached message |
 | `message.pinned` | Invalidate pins query + patch `is_pinned` on cached message |
@@ -535,7 +548,7 @@ typing, and `notification` events are handled separately — by `usePresenceStor
 |-------|------|-------------|
 | Current workspace / channel | Zustand | User click |
 | Messages list | React Query | API + WS events |
-| Unread / mention markers | Zustand | WS notification events |
+| Unread / mention markers | Zustand | WS `channel.read_state` and `notification` (`kind: mention`) events |
 | User presence | Zustand | WS presence events |
 | Workspace list | React Query | API + WS workspace events |
 | Workspace members | React Query | API + WS member events |

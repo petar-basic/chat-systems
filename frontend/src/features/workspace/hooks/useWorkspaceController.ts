@@ -233,7 +233,6 @@ export function useWorkspaceController() {
     currentConversationId,
     unreadConversations,
     restoreWorkspace: data.restoreWorkspace,
-    setChannelMuted: data.setChannelMuted,
     accountDialog,
     setAccountDialog,
     showAddInstance,

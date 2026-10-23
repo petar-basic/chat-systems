@@ -1,5 +1,17 @@
 import { useRef, useState } from 'react';
-import { Hash, Lock, Search, Pin, Users, Menu, Settings, Plug, MoreHorizontal, Files } from 'lucide-react';
+import {
+  Hash,
+  Lock,
+  Search,
+  Pin,
+  Users,
+  Menu,
+  Settings,
+  Plug,
+  MoreHorizontal,
+  Files,
+  Bell,
+} from 'lucide-react';
 import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
 import { useChannelMembers, useChannelPins } from '@/hooks/queries/useChannels';
 import { useNavigate } from 'react-router';
@@ -8,6 +20,7 @@ import { HuddleBar } from '@/features/huddle';
 import { useChannelModeration } from './hooks/useChannelModeration';
 import { useHookedChannels } from '@/hooks/queries/useHooks';
 import ChannelSettingsModal from './ChannelSettingsModal';
+import { NotificationLevelButton, NotificationLevelMenu } from '@/features/notifications';
 
 interface Props {
   channel: Channel | null;
@@ -43,12 +56,16 @@ export default function ChannelHeader({
   const memberCount = members?.length;
   const pinCount = pins?.length ?? 0;
   const [overflowOpen, setOverflowOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const overflowRef = useRef<HTMLDivElement>(null);
   useOnClickOutside(overflowRef, () => setOverflowOpen(false), overflowOpen);
   const isForwarded = !!channel && !!hookedChannels?.has(channel.id);
 
   return (
-    <div className="h-14 px-4 flex items-center gap-2 border-b border-line/50 bg-surface/30 shrink-0">
+    <div
+      className="h-14 px-4 flex items-center gap-2 border-b border-line/50 bg-surface/30 shrink-0"
+      data-qa="channel-header"
+    >
       {onOpenNav && (
         <button
           onClick={onOpenNav}
@@ -110,6 +127,7 @@ export default function ChannelHeader({
 
           <div className="ml-auto flex items-center gap-1">
             <HuddleBar channelId={channel.id} />
+            <NotificationLevelButton channelId={channel.id} direct={false} className="max-sm:hidden" />
             {canModerate && (
               <button
                 onClick={() => setShowSettings(true)}
@@ -194,6 +212,15 @@ export default function ChannelHeader({
                   >
                     <Files className="w-4 h-4" /> Files
                   </button>
+                  <button
+                    className="w-full px-4 py-2 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2 cursor-pointer"
+                    onClick={() => {
+                      setNotificationsOpen(true);
+                      setOverflowOpen(false);
+                    }}
+                  >
+                    <Bell className="w-4 h-4" /> Notification settings
+                  </button>
                   {canModerate && (
                     <button
                       className="w-full px-4 py-2 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2 cursor-pointer"
@@ -209,6 +236,15 @@ export default function ChannelHeader({
               )}
             </div>
           </div>
+
+          {notificationsOpen && (
+            <NotificationLevelMenu
+              channelId={channel.id}
+              direct={false}
+              anchorRef={overflowRef}
+              onClose={() => setNotificationsOpen(false)}
+            />
+          )}
 
           {showSettings && (
             <ChannelSettingsModal

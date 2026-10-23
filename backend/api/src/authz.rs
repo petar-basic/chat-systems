@@ -226,8 +226,6 @@ mod tests {
                 role: ChannelRole::Admin,
                 last_read_at: None,
                 last_read_msg: None,
-                notifications: "default".into(),
-                is_muted: false,
                 is_starred: false,
                 joined_at: chrono::Utc::now(),
             }),

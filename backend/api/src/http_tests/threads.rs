@@ -4,7 +4,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use super::common::*;
-use crate::notifications::consumer::notify_thread_followers;
+use crate::notifications::consumer::notify_message;
 use crate::push::sender::{PushSender, VapidKeys};
 use crate::state::AppState;
 use crate::workspace::models::ChannelRole;
@@ -325,7 +325,7 @@ async fn followers_hear_about_a_reply_and_the_mentioned_hear_it_once(pool: PgPoo
     payload["workspace_id"] = json!(room.ws_id);
     payload["mentioned_user_ids"] = json!([room.third.0]);
     let mut conn = room.state.redis.clone();
-    notify_thread_followers(
+    notify_message(
         &room.state,
         &room.state.notification_repo,
         &sender,
@@ -351,8 +351,9 @@ async fn followers_hear_about_a_reply_and_the_mentioned_hear_it_once(pool: PgPoo
         vec![("reply".to_string(), Some(root.to_string()))],
         "the root's author hears about the reply, pointed at the thread"
     );
-    assert!(
-        kinds(room.third.0).await.is_empty(),
+    assert_eq!(
+        kinds(room.third.0).await,
+        vec![("mention".to_string(), Some(id_of(&reply).to_string()))],
         "the mentioned person hears about it as a mention, not twice"
     );
     assert!(

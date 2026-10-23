@@ -1,0 +1,66 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT cm.user_id,\n                   effective_notify_level(cm.notify_level, wm.notify_default, c.channel_type)\n                       AS \"level!: NotifyLevel\",\n                   cm.muted AS \"muted!\",\n                   (c.channel_type IN ('dm', 'group_dm')) AS \"direct!\"\n              FROM channel_members cm\n              JOIN channels c ON c.id = cm.channel_id\n              JOIN workspace_members wm\n                ON wm.workspace_id = c.workspace_id AND wm.user_id = cm.user_id\n             WHERE cm.channel_id = $1 AND cm.user_id <> $2\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "channel_members",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "level!: NotifyLevel",
+        "type_info": {
+          "Custom": {
+            "name": "notify_level",
+            "kind": {
+              "Enum": [
+                "all",
+                "mentions",
+                "nothing"
+              ]
+            }
+          }
+        },
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "muted!",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "channel_members",
+            "name": "muted"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "direct!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      false,
+      null
+    ]
+  },
+  "hash": "a4fdfe050ab226290eb137ddb51a9fe0e06fac69818711f87c5c7ff18adffc3b"
+}

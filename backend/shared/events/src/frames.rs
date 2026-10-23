@@ -86,7 +86,7 @@ pub enum ServerFrame {
         message_id: Option<Uuid>,
         title: String,
         body: Option<String>,
-        priority: Option<String>,
+        kind: Option<String>,
     },
     #[serde(rename = "conversation.created")]
     ConversationCreated {

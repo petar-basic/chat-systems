@@ -563,6 +563,22 @@ export interface paths {
         patch: operations["set_channel_notifications"];
         trace?: never;
     };
+    "/channels/{ch_id}/notify-level": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["set_channel_notify_level"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/channels/{ch_id}/pins": {
         parameters: {
             query?: never;
@@ -1839,6 +1855,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{ws_id}/notify-default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_notify_default"];
+        put: operations["set_notify_default"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{ws_id}/read": {
         parameters: {
             query?: never;
@@ -2228,12 +2260,13 @@ export interface components {
             user_id: string;
         };
         ChannelListing: components["schemas"]["Channel"] & {
+            effective_notify_level: components["schemas"]["NotifyLevel"];
             muted: boolean;
+            notify_level?: components["schemas"]["NotifyLevel"] | null;
         };
         ChannelMember: {
             /** Format: uuid */
             channel_id: string;
-            is_muted: boolean;
             is_starred: boolean;
             /** Format: date-time */
             joined_at: string;
@@ -2241,10 +2274,13 @@ export interface components {
             last_read_at?: string | null;
             /** Format: uuid */
             last_read_msg?: string | null;
-            notifications: string;
             role: components["schemas"]["ChannelRole"];
             /** Format: uuid */
             user_id: string;
+        };
+        ChannelNotifyLevel: {
+            effective_notify_level: components["schemas"]["NotifyLevel"];
+            notify_level?: components["schemas"]["NotifyLevel"] | null;
         };
         ChannelPlacement: {
             /** Format: uuid */
@@ -2324,6 +2360,7 @@ export interface components {
          */
         ConversationKind: "direct" | "group";
         ConversationSummary: {
+            effective_notify_level: components["schemas"]["NotifyLevel"];
             /** Format: uuid */
             id: string;
             kind: components["schemas"]["ConversationKind"];
@@ -2331,6 +2368,7 @@ export interface components {
             last_message_at: string;
             /** Format: date-time */
             last_read_at?: string | null;
+            notify_level?: components["schemas"]["NotifyLevel"] | null;
             participant_ids: string[];
             /** Format: uuid */
             workspace_id: string;
@@ -2523,14 +2561,15 @@ export interface components {
         };
         DataList_ChannelListing: {
             data: (components["schemas"]["Channel"] & {
+                effective_notify_level: components["schemas"]["NotifyLevel"];
                 muted: boolean;
+                notify_level?: components["schemas"]["NotifyLevel"] | null;
             })[];
         };
         DataList_ChannelMember: {
             data: {
                 /** Format: uuid */
                 channel_id: string;
-                is_muted: boolean;
                 is_starred: boolean;
                 /** Format: date-time */
                 joined_at: string;
@@ -2538,7 +2577,6 @@ export interface components {
                 last_read_at?: string | null;
                 /** Format: uuid */
                 last_read_msg?: string | null;
-                notifications: string;
                 role: components["schemas"]["ChannelRole"];
                 /** Format: uuid */
                 user_id: string;
@@ -2553,6 +2591,7 @@ export interface components {
         };
         DataList_ConversationSummary: {
             data: {
+                effective_notify_level: components["schemas"]["NotifyLevel"];
                 /** Format: uuid */
                 id: string;
                 kind: components["schemas"]["ConversationKind"];
@@ -2560,6 +2599,7 @@ export interface components {
                 last_message_at: string;
                 /** Format: date-time */
                 last_read_at?: string | null;
+                notify_level?: components["schemas"]["NotifyLevel"] | null;
                 participant_ids: string[];
                 /** Format: uuid */
                 workspace_id: string;
@@ -3230,6 +3270,11 @@ export interface components {
         };
         /** @enum {string} */
         NotificationType: "mention" | "dm" | "reply" | "reaction" | "call" | "reminder" | "system";
+        NotifyDefault: {
+            notify_default: components["schemas"]["NotifyLevel"];
+        };
+        /** @enum {string} */
+        NotifyLevel: "all" | "mentions" | "nothing";
         PlaceChannelRequest: {
             /** Format: uuid */
             section_id?: string | null;
@@ -3364,6 +3409,12 @@ export interface components {
         SetDndRequest: {
             /** Format: date-time */
             dnd_until?: string | null;
+        };
+        SetNotifyDefaultRequest: {
+            level: components["schemas"]["NotifyLevel"];
+        };
+        SetNotifyLevelRequest: {
+            level?: components["schemas"]["NotifyLevel"] | null;
         };
         SetStatusRequest: {
             emoji?: string | null;
@@ -4551,6 +4602,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MutedResponse"];
+                };
+            };
+        };
+    };
+    set_channel_notify_level: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetNotifyLevelRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChannelNotifyLevel"];
                 };
             };
         };
@@ -6896,6 +6972,52 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UnreadCountResponse"];
+                };
+            };
+        };
+    };
+    get_notify_default: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotifyDefault"];
+                };
+            };
+        };
+    };
+    set_notify_default: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetNotifyDefaultRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotifyDefault"];
                 };
             };
         };

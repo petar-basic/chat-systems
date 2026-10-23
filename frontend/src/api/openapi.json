@@ -1426,6 +1426,46 @@
         }
       }
     },
+    "/channels/{ch_id}/notify-level": {
+      "put": {
+        "tags": [
+          "notifications"
+        ],
+        "operationId": "set_channel_notify_level",
+        "parameters": [
+          {
+            "name": "ch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetNotifyLevelRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelNotifyLevel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/channels/{ch_id}/pins": {
       "get": {
         "tags": [
@@ -5150,6 +5190,74 @@
         }
       }
     },
+    "/workspaces/{ws_id}/notify-default": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "operationId": "get_notify_default",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotifyDefault"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "notifications"
+        ],
+        "operationId": "set_notify_default",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetNotifyDefaultRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotifyDefault"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workspaces/{ws_id}/read": {
       "post": {
         "tags": [
@@ -6404,11 +6512,25 @@
           {
             "type": "object",
             "required": [
-              "muted"
+              "muted",
+              "effective_notify_level"
             ],
             "properties": {
+              "effective_notify_level": {
+                "$ref": "#/components/schemas/NotifyLevel"
+              },
               "muted": {
                 "type": "boolean"
+              },
+              "notify_level": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/NotifyLevel"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             }
           }
@@ -6420,8 +6542,6 @@
           "channel_id",
           "user_id",
           "role",
-          "notifications",
-          "is_muted",
           "is_starred",
           "joined_at"
         ],
@@ -6429,9 +6549,6 @@
           "channel_id": {
             "type": "string",
             "format": "uuid"
-          },
-          "is_muted": {
-            "type": "boolean"
           },
           "is_starred": {
             "type": "boolean"
@@ -6454,15 +6571,33 @@
             ],
             "format": "uuid"
           },
-          "notifications": {
-            "type": "string"
-          },
           "role": {
             "$ref": "#/components/schemas/ChannelRole"
           },
           "user_id": {
             "type": "string",
             "format": "uuid"
+          }
+        }
+      },
+      "ChannelNotifyLevel": {
+        "type": "object",
+        "required": [
+          "effective_notify_level"
+        ],
+        "properties": {
+          "effective_notify_level": {
+            "$ref": "#/components/schemas/NotifyLevel"
+          },
+          "notify_level": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NotifyLevel"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },
@@ -6731,9 +6866,13 @@
           "workspace_id",
           "kind",
           "last_message_at",
-          "participant_ids"
+          "participant_ids",
+          "effective_notify_level"
         ],
         "properties": {
+          "effective_notify_level": {
+            "$ref": "#/components/schemas/NotifyLevel"
+          },
           "id": {
             "type": "string",
             "format": "uuid"
@@ -6751,6 +6890,16 @@
               "null"
             ],
             "format": "date-time"
+          },
+          "notify_level": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NotifyLevel"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "participant_ids": {
             "type": "array",
@@ -7493,11 +7642,25 @@
                 {
                   "type": "object",
                   "required": [
-                    "muted"
+                    "muted",
+                    "effective_notify_level"
                   ],
                   "properties": {
+                    "effective_notify_level": {
+                      "$ref": "#/components/schemas/NotifyLevel"
+                    },
                     "muted": {
                       "type": "boolean"
+                    },
+                    "notify_level": {
+                      "oneOf": [
+                        {
+                          "$ref": "#/components/schemas/NotifyLevel"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   }
                 }
@@ -7520,8 +7683,6 @@
                 "channel_id",
                 "user_id",
                 "role",
-                "notifications",
-                "is_muted",
                 "is_starred",
                 "joined_at"
               ],
@@ -7529,9 +7690,6 @@
                 "channel_id": {
                   "type": "string",
                   "format": "uuid"
-                },
-                "is_muted": {
-                  "type": "boolean"
                 },
                 "is_starred": {
                   "type": "boolean"
@@ -7553,9 +7711,6 @@
                     "null"
                   ],
                   "format": "uuid"
-                },
-                "notifications": {
-                  "type": "string"
                 },
                 "role": {
                   "$ref": "#/components/schemas/ChannelRole"
@@ -7616,9 +7771,13 @@
                 "workspace_id",
                 "kind",
                 "last_message_at",
-                "participant_ids"
+                "participant_ids",
+                "effective_notify_level"
               ],
               "properties": {
+                "effective_notify_level": {
+                  "$ref": "#/components/schemas/NotifyLevel"
+                },
                 "id": {
                   "type": "string",
                   "format": "uuid"
@@ -7636,6 +7795,16 @@
                     "null"
                   ],
                   "format": "date-time"
+                },
+                "notify_level": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/NotifyLevel"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "participant_ids": {
                   "type": "array",
@@ -9961,6 +10130,25 @@
           "system"
         ]
       },
+      "NotifyDefault": {
+        "type": "object",
+        "required": [
+          "notify_default"
+        ],
+        "properties": {
+          "notify_default": {
+            "$ref": "#/components/schemas/NotifyLevel"
+          }
+        }
+      },
+      "NotifyLevel": {
+        "type": "string",
+        "enum": [
+          "all",
+          "mentions",
+          "nothing"
+        ]
+      },
       "PlaceChannelRequest": {
         "type": "object",
         "properties": {
@@ -10372,6 +10560,32 @@
               "null"
             ],
             "format": "date-time"
+          }
+        }
+      },
+      "SetNotifyDefaultRequest": {
+        "type": "object",
+        "required": [
+          "level"
+        ],
+        "properties": {
+          "level": {
+            "$ref": "#/components/schemas/NotifyLevel"
+          }
+        }
+      },
+      "SetNotifyLevelRequest": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NotifyLevel"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },

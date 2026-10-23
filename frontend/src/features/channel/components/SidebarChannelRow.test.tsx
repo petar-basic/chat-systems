@@ -18,7 +18,6 @@ describe('SidebarChannelRow', () => {
         unreadCount={undefined}
         mentionCount={undefined}
         onSelect={vi.fn()}
-        onToggleMute={vi.fn()}
         moveTargets={[
           { id: null, name: 'Channels' },
           { id: 'sec-1', name: 'Projects' },

@@ -56,7 +56,7 @@ async fn deliver(state: &AppState, reminder: &DueReminder) {
         "later_id": reminder.id,
         "title": "Reminder",
         "body": body,
-        "priority": "mention",
+        "kind": "reminder",
     });
     // The claim already stamped it; put it back if it never went out, so a
     // claim followed by a failure is a retry rather than a loss.

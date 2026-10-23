@@ -257,7 +257,7 @@ pub(crate) async fn handle_event_for(
                     message_id: field("message_id"),
                     title: text("title").unwrap_or_default(),
                     body: text("body"),
-                    priority: text("priority"),
+                    kind: text("kind"),
                 };
                 cm.send_to_user(audience, uid, &framed(&frame)).await;
             }

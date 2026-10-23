@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO channel_members (channel_id, user_id, role)\n            VALUES ($1, $2, $3)\n            ON CONFLICT (channel_id, user_id) DO UPDATE SET channel_id = EXCLUDED.channel_id\n            RETURNING channel_id, user_id, role AS \"role: ChannelRole\", last_read_at, last_read_msg,\n                   notifications AS \"notifications!\", is_muted AS \"is_muted!\",\n                   is_starred AS \"is_starred!\", joined_at\n            ",
+  "query": "\n            INSERT INTO channel_members (channel_id, user_id, role)\n            VALUES ($1, $2, $3)\n            ON CONFLICT (channel_id, user_id) DO NOTHING\n            RETURNING channel_id, user_id, role AS \"role: ChannelRole\", last_read_at, last_read_msg,\n                   is_starred AS \"is_starred!\", joined_at\n            ",
   "describe": {
     "columns": [
       {
@@ -70,28 +70,6 @@
       },
       {
         "ordinal": 5,
-        "name": "notifications!",
-        "type_info": "Varchar",
-        "origin": {
-          "Table": {
-            "table": "channel_members",
-            "name": "notifications"
-          }
-        }
-      },
-      {
-        "ordinal": 6,
-        "name": "is_muted!",
-        "type_info": "Bool",
-        "origin": {
-          "Table": {
-            "table": "channel_members",
-            "name": "is_muted"
-          }
-        }
-      },
-      {
-        "ordinal": 7,
         "name": "is_starred!",
         "type_info": "Bool",
         "origin": {
@@ -102,7 +80,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 6,
         "name": "joined_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -137,10 +115,8 @@
       true,
       true,
       true,
-      true,
-      true,
       false
     ]
   },
-  "hash": "b061ae3a802260d7a95a8c428c2d76c3f0d1025e7daaf8f2803934ffbdd9a83d"
+  "hash": "2bfde717276ca3bdafaa9c0083b91fc376fdf866b2fd3493a04d9e6af40cdcfa"
 }

@@ -4,6 +4,8 @@ use shared_common::errors::{AppError, AppResult};
 use utoipa::{IntoParams, ToSchema};
 use uuid::Uuid;
 
+use crate::notifications::models::NotifyLevel;
+
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct Workspace {
     pub id: Uuid,
@@ -148,6 +150,16 @@ pub struct ChannelListing {
     #[serde(flatten)]
     pub channel: Channel,
     pub muted: bool,
+    pub notify_level: Option<NotifyLevel>,
+    pub effective_notify_level: NotifyLevel,
+}
+
+#[derive(Debug, Clone)]
+pub struct ChannelPreference {
+    pub channel_id: Uuid,
+    pub muted: bool,
+    pub notify_level: Option<NotifyLevel>,
+    pub effective_notify_level: NotifyLevel,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -190,8 +202,6 @@ pub struct ChannelMember {
     pub role: ChannelRole,
     pub last_read_at: Option<DateTime<Utc>>,
     pub last_read_msg: Option<Uuid>,
-    pub notifications: String,
-    pub is_muted: bool,
     pub is_starred: bool,
     pub joined_at: DateTime<Utc>,
 }

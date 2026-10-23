@@ -386,3 +386,174 @@ async fn mark_all_read_without_token_is_401(pool: PgPool) {
     .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED, "no token must be 401");
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_member_sets_and_clears_a_channel_notify_level(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (uid, _email, token) = seed_and_login(&app, &state, "level-owner", false).await;
+    let ws = seed_workspace(&state, uid, "Levels WS").await;
+    let ch = seed_channel(&state, ws, uid, "incidents", false).await;
+    let route = format!("/api/channels/{ch}/notify-level");
+
+    let (status, body) = send(
+        &app,
+        "PUT",
+        &route,
+        Some(&token),
+        Some(json!({ "level": "all" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(
+        body,
+        json!({ "notify_level": "all", "effective_notify_level": "all" })
+    );
+
+    let (status, listed) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws}/channels"),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let row = listed["data"]
+        .as_array()
+        .expect("data")
+        .iter()
+        .find(|c| c["id"] == json!(ch))
+        .expect("the channel is listed");
+    assert_eq!(row["notify_level"], json!("all"));
+    assert_eq!(row["effective_notify_level"], json!("all"));
+
+    let (status, body) = send(
+        &app,
+        "PUT",
+        &route,
+        Some(&token),
+        Some(json!({ "level": null })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        body,
+        json!({ "notify_level": null, "effective_notify_level": "mentions" }),
+        "back to the default"
+    );
+
+    let (status, _) = send(
+        &app,
+        "PUT",
+        &route,
+        Some(&token),
+        Some(json!({ "level": "loud" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn only_a_member_sets_a_channel_notify_level(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner, _email, _token) = seed_and_login(&app, &state, "level-owner", false).await;
+    let (outsider, _email, outsider_token) =
+        seed_and_login(&app, &state, "level-outsider", false).await;
+    let ws = seed_workspace(&state, owner, "Levels WS").await;
+    add_ws_member(&state, ws, outsider, "member").await;
+    let ch = seed_channel(&state, ws, owner, "private-ish", false).await;
+    let body = Some(json!({ "level": "nothing" }));
+
+    let (status, _) = send(
+        &app,
+        "PUT",
+        &format!("/api/channels/{ch}/notify-level"),
+        Some(&outsider_token),
+        body.clone(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+
+    let (status, _) = send(
+        &app,
+        "PUT",
+        &format!("/api/channels/{ch}/notify-level"),
+        None,
+        body.clone(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+
+    let (status, _) = send(
+        &app,
+        "PUT",
+        &format!("/api/channels/{}/notify-level", uuid::Uuid::new_v4()),
+        Some(&outsider_token),
+        body,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    let (status, _) = send(
+        &app,
+        "PATCH",
+        &format!("/api/channels/{ch}/notifications"),
+        Some(&outsider_token),
+        Some(json!({ "muted": true })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "nor mutes a channel they are not in"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn the_workspace_default_is_per_member_and_drives_the_effective_level(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (uid, _email, token) = seed_and_login(&app, &state, "default-owner", false).await;
+    let (outsider, _email, outsider_token) =
+        seed_and_login(&app, &state, "default-outsider", false).await;
+    let ws = seed_workspace(&state, uid, "Default WS").await;
+    let ch = seed_channel(&state, ws, uid, "general-ish", false).await;
+    let route = format!("/api/workspaces/{ws}/notify-default");
+    let _ = outsider;
+
+    let (status, body) = send(&app, "GET", &route, Some(&token), None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body, json!({ "notify_default": "mentions" }));
+
+    let (status, body) = send(
+        &app,
+        "PUT",
+        &route,
+        Some(&token),
+        Some(json!({ "level": "nothing" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body, json!({ "notify_default": "nothing" }));
+
+    let (_, listed) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws}/channels"),
+        Some(&token),
+        None,
+    )
+    .await;
+    let row = listed["data"]
+        .as_array()
+        .expect("data")
+        .iter()
+        .find(|c| c["id"] == json!(ch))
+        .expect("listed");
+    assert_eq!(row["notify_level"], json!(null));
+    assert_eq!(row["effective_notify_level"], json!("nothing"));
+
+    let (status, _) = send(&app, "GET", &route, Some(&outsider_token), None).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let (status, _) = send(&app, "PUT", &route, None, Some(json!({ "level": "all" }))).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+}

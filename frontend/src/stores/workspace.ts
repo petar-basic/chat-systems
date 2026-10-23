@@ -8,7 +8,8 @@ export type Workspace = components['schemas']['Workspace'] & { instanceUrl: stri
 
 export type ChannelSettings = components['schemas']['ChannelSettings'];
 
-export type Channel = components['schemas']['Channel'] & { muted?: boolean };
+export type Channel = components['schemas']['Channel'] &
+  Partial<Pick<components['schemas']['ChannelListing'], 'muted' | 'notify_level' | 'effective_notify_level'>>;
 
 export type Reaction = components['schemas']['Reaction'];
 
@@ -179,6 +180,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       mentionCounts: isMention
         ? { ...s.mentionCounts, [channelId]: (s.mentionCounts[channelId] ?? 0) + 1 }
         : s.mentionCounts,
+      mentionChannels: isMention ? new Set(s.mentionChannels).add(channelId) : s.mentionChannels,
     }));
   },
 
@@ -186,11 +188,15 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     set(() => {
       const unreadCounts: Record<string, number> = {};
       const mentionCounts: Record<string, number> = {};
+      const mentionChannels = new Set<string>();
       for (const row of counts) {
         if (row.unread_count > 0) unreadCounts[row.channel_id] = row.unread_count;
-        if (row.mention_count > 0) mentionCounts[row.channel_id] = row.mention_count;
+        if (row.mention_count > 0) {
+          mentionCounts[row.channel_id] = row.mention_count;
+          mentionChannels.add(row.channel_id);
+        }
       }
-      return { unreadCounts, mentionCounts };
+      return { unreadCounts, mentionCounts, mentionChannels };
     });
   },
 

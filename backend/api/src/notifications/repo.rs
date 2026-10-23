@@ -136,15 +136,89 @@ impl NotificationRepo {
         Ok(row.unwrap_or(false))
     }
 
-    pub async fn is_channel_muted(&self, channel_id: Uuid, user_id: Uuid) -> sqlx::Result<bool> {
-        let row = sqlx::query_scalar!(
-            "SELECT muted FROM channel_members WHERE channel_id = $1 AND user_id = $2",
+    pub async fn recipients(
+        &self,
+        channel_id: Uuid,
+        author_id: Uuid,
+    ) -> sqlx::Result<Vec<Recipient>> {
+        sqlx::query_as!(
+            Recipient,
+            r#"
+            SELECT cm.user_id,
+                   effective_notify_level(cm.notify_level, wm.notify_default, c.channel_type)
+                       AS "level!: NotifyLevel",
+                   cm.muted AS "muted!",
+                   (c.channel_type IN ('dm', 'group_dm')) AS "direct!"
+              FROM channel_members cm
+              JOIN channels c ON c.id = cm.channel_id
+              JOIN workspace_members wm
+                ON wm.workspace_id = c.workspace_id AND wm.user_id = cm.user_id
+             WHERE cm.channel_id = $1 AND cm.user_id <> $2
+            "#,
             channel_id,
+            author_id
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn set_channel_level(
+        &self,
+        channel_id: Uuid,
+        user_id: Uuid,
+        level: Option<NotifyLevel>,
+    ) -> sqlx::Result<Option<ChannelNotifyLevel>> {
+        sqlx::query_as!(
+            ChannelNotifyLevel,
+            r#"
+            UPDATE channel_members cm
+               SET notify_level = $3
+              FROM channels c, workspace_members wm
+             WHERE cm.channel_id = $1 AND cm.user_id = $2
+               AND c.id = cm.channel_id
+               AND wm.workspace_id = c.workspace_id AND wm.user_id = cm.user_id
+            RETURNING cm.notify_level AS "notify_level: NotifyLevel",
+                      effective_notify_level(cm.notify_level, wm.notify_default, c.channel_type)
+                          AS "effective_notify_level!: NotifyLevel"
+            "#,
+            channel_id,
+            user_id,
+            level as Option<NotifyLevel>
+        )
+        .fetch_optional(&self.pool)
+        .await
+    }
+
+    pub async fn get_default(
+        &self,
+        workspace_id: Uuid,
+        user_id: Uuid,
+    ) -> sqlx::Result<Option<NotifyLevel>> {
+        sqlx::query_scalar!(
+            r#"SELECT notify_default AS "notify_default: NotifyLevel"
+                 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2"#,
+            workspace_id,
             user_id
         )
         .fetch_optional(&self.pool)
+        .await
+    }
+
+    pub async fn set_default(
+        &self,
+        workspace_id: Uuid,
+        user_id: Uuid,
+        level: NotifyLevel,
+    ) -> sqlx::Result<()> {
+        sqlx::query!(
+            "UPDATE workspace_members SET notify_default = $3 WHERE workspace_id = $1 AND user_id = $2",
+            workspace_id,
+            user_id,
+            level as NotifyLevel
+        )
+        .execute(&self.pool)
         .await?;
-        Ok(row.unwrap_or(false))
+        Ok(())
     }
 
     pub async fn unread_count(&self, user_id: Uuid, workspace_id: Uuid) -> sqlx::Result<i64> {

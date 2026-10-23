@@ -9,6 +9,7 @@ import { displayNameOf } from '@/lib/userHelpers';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { ConnectionBanner } from '@/shared/components/ConnectionBanner/ConnectionBanner';
 import { HuddleStartButton } from '@/features/huddle';
+import { NotificationLevelButton } from '@/features/notifications';
 import { useTypingSignal, typingTargetOf } from '@/shared/hooks/useTypingSignal';
 import { FileDropZone } from '@/shared/components/FileDropZone';
 import PresenceDot from '@/components/PresenceDot';
@@ -110,16 +111,17 @@ export default function ConversationView({
           </span>
           {!isDirect && <span className="text-xs text-muted shrink-0">{participantIds.length} people</span>}
           {isDirect && status === 'online' && <span className="text-xs text-muted">Active now</span>}
-          {isDirect && (
-            <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-1">
+            <NotificationLevelButton channelId={conversation.id} direct />
+            {isDirect && (
               <HuddleStartButton
                 workspaceId={workspaceId}
                 instanceUrl={instanceUrl}
                 partnerId={partnerId}
                 currentUserId={currentUserId}
               />
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         <MessageList

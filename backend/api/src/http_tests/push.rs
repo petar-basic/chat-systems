@@ -7,7 +7,8 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use super::common::*;
-use crate::notifications::consumer::notify_mentions;
+use crate::notifications::consumer::notify_message;
+use crate::notifications::models::NotifyLevel;
 use crate::push::sender::{PushSender, VapidKeys};
 use crate::state::AppState;
 
@@ -58,6 +59,19 @@ fn sender_for(state: &AppState) -> PushSender {
             subject: "mailto:ops@test.local".into(),
         },
     )
+}
+
+async fn join_channel(state: &AppState, ch_id: Uuid, user_id: Uuid) {
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(
+            ch_id,
+            user_id,
+            &crate::workspace::models::ChannelRole::Member,
+        )
+        .await
+        .expect("add the user to the channel");
 }
 
 async fn subscribe(state: &AppState, user_id: Uuid, endpoint: &str) {
@@ -213,6 +227,7 @@ async fn a_mention_reaches_every_registered_device(pool: PgPool) {
     let ws_id = seed_workspace(&state, author, "Push WS").await;
     add_ws_member(&state, ws_id, target, "member").await;
     let ch_id = seed_channel(&state, ws_id, author, "pushes", false).await;
+    join_channel(&state, ch_id, target).await;
     let _ = author_token;
 
     let service = fake_push_service(StatusCode::CREATED).await;
@@ -220,7 +235,7 @@ async fn a_mention_reaches_every_registered_device(pool: PgPool) {
     subscribe(&state, target, &format!("{}/push/phone", service.address)).await;
 
     let mut conn = state.redis.clone();
-    notify_mentions(
+    notify_message(
         &state,
         &state.notification_repo,
         &sender_for(&state),
@@ -256,6 +271,7 @@ async fn nothing_is_pushed_under_dnd_a_mute_or_a_live_socket(pool: PgPool) {
     let ws_id = seed_workspace(&state, author, "Quiet WS").await;
     add_ws_member(&state, ws_id, target, "member").await;
     let ch_id = seed_channel(&state, ws_id, author, "quiet", false).await;
+    join_channel(&state, ch_id, target).await;
     state
         .workspace_service
         .repo
@@ -286,7 +302,7 @@ async fn nothing_is_pushed_under_dnd_a_mute_or_a_live_socket(pool: PgPool) {
         .execute(&state.pool)
         .await
         .expect("mute the channel");
-    notify_mentions(
+    notify_message(
         &state,
         &state.notification_repo,
         &sender_for(&state),
@@ -314,7 +330,7 @@ async fn nothing_is_pushed_under_dnd_a_mute_or_a_live_socket(pool: PgPool) {
         )
         .await
         .expect("set dnd");
-    notify_mentions(
+    notify_message(
         &state,
         &state.notification_repo,
         &sender_for(&state),
@@ -342,7 +358,7 @@ async fn nothing_is_pushed_under_dnd_a_mute_or_a_live_socket(pool: PgPool) {
     )
     .await
     .expect("mark them online");
-    notify_mentions(
+    notify_message(
         &state,
         &state.notification_repo,
         &sender_for(&state),
@@ -359,7 +375,7 @@ async fn nothing_is_pushed_under_dnd_a_mute_or_a_live_socket(pool: PgPool) {
     let _: () = redis::AsyncCommands::del(&mut conn, format!("presence:ws:{ws_id}"))
         .await
         .expect("clear presence");
-    notify_mentions(
+    notify_message(
         &state,
         &state.notification_repo,
         &sender_for(&state),
@@ -421,6 +437,7 @@ async fn a_mention_that_reached_nobody_is_queued_for_email(pool: PgPool) {
     let ws_id = seed_workspace(&state, author, "Mail WS").await;
     add_ws_member(&state, ws_id, target, "member").await;
     let ch_id = seed_channel(&state, ws_id, author, "quiet", false).await;
+    join_channel(&state, ch_id, target).await;
 
     let mut conn = state.redis.clone();
     let event = json!({
@@ -432,7 +449,7 @@ async fn a_mention_that_reached_nobody_is_queued_for_email(pool: PgPool) {
         "mentioned_user_ids": [target.to_string()],
     });
 
-    notify_mentions(
+    notify_message(
         &state,
         &state.notification_repo,
         &sender_for(&state),
@@ -463,12 +480,13 @@ async fn nothing_is_queued_for_somebody_a_push_reached(pool: PgPool) {
     let ws_id = seed_workspace(&state, author, "Mail WS").await;
     add_ws_member(&state, ws_id, target, "member").await;
     let ch_id = seed_channel(&state, ws_id, author, "quiet", false).await;
+    join_channel(&state, ch_id, target).await;
 
     let service = fake_push_service(StatusCode::CREATED).await;
     subscribe(&state, target, &format!("{}/push/laptop", service.address)).await;
 
     let mut conn = state.redis.clone();
-    notify_mentions(
+    notify_message(
         &state,
         &state.notification_repo,
         &sender_for(&state),
@@ -502,6 +520,7 @@ async fn somebody_who_turned_mention_emails_off_is_not_queued(pool: PgPool) {
     let ws_id = seed_workspace(&state, author, "Mail WS").await;
     add_ws_member(&state, ws_id, target, "member").await;
     let ch_id = seed_channel(&state, ws_id, author, "quiet", false).await;
+    join_channel(&state, ch_id, target).await;
 
     let (status, body) = send(
         &app,
@@ -525,7 +544,7 @@ async fn somebody_who_turned_mention_emails_off_is_not_queued(pool: PgPool) {
     assert_eq!(status, StatusCode::OK);
 
     let mut conn = state.redis.clone();
-    notify_mentions(
+    notify_message(
         &state,
         &state.notification_repo,
         &sender_for(&state),
@@ -599,4 +618,293 @@ async fn coming_online_inside_the_window_cancels_the_email(pool: PgPool) {
     let _: () = redis::AsyncCommands::del(&mut conn, format!("presence:ws:{ws_id}"))
         .await
         .expect("clear presence");
+}
+
+struct Scene {
+    app: axum::Router,
+    state: Arc<AppState>,
+    author: Uuid,
+    author_token: String,
+    target: Uuid,
+    ws_id: Uuid,
+    ch_id: Uuid,
+    service: FakePushService,
+}
+
+async fn scene(pool: PgPool) -> Scene {
+    let (app, state) = app_and_state(pool).await;
+    let (author, _, author_token) = seed_and_login(&app, &state, "level-author", false).await;
+    let (target, _, _) = seed_and_login(&app, &state, "level-target", false).await;
+    let ws_id = seed_workspace(&state, author, "Levels WS").await;
+    add_ws_member(&state, ws_id, target, "member").await;
+    let ch_id = seed_channel(&state, ws_id, author, "levels", false).await;
+    join_channel(&state, ch_id, target).await;
+    let service = fake_push_service(StatusCode::CREATED).await;
+    subscribe(&state, target, &format!("{}/push/phone", service.address)).await;
+    Scene {
+        app,
+        state,
+        author,
+        author_token,
+        target,
+        ws_id,
+        ch_id,
+        service,
+    }
+}
+
+impl Scene {
+    async fn post(
+        &self,
+        channel_id: Uuid,
+        content: &str,
+        mention: bool,
+        thread: Option<Uuid>,
+    ) -> usize {
+        let before = self.service.hits.load(Ordering::SeqCst);
+        let mentioned: Vec<String> = if mention {
+            vec![self.target.to_string()]
+        } else {
+            Vec::new()
+        };
+        let mut conn = self.state.redis.clone();
+        notify_message(
+            &self.state,
+            &self.state.notification_repo,
+            &sender_for(&self.state),
+            &mut conn,
+            &json!({
+                "user_id": self.author.to_string(),
+                "workspace_id": self.ws_id.to_string(),
+                "channel_id": channel_id.to_string(),
+                "id": Uuid::new_v4().to_string(),
+                "thread_parent_id": thread.map(|t| t.to_string()),
+                "content": content,
+                "mentioned_user_ids": mentioned,
+            }),
+        )
+        .await;
+        self.service.hits.load(Ordering::SeqCst) - before
+    }
+
+    async fn set_level(&self, channel_id: Uuid, level: Option<NotifyLevel>) {
+        self.state
+            .notification_repo
+            .set_channel_level(channel_id, self.target, level)
+            .await
+            .expect("set level")
+            .expect("the target is a member");
+    }
+
+    async fn activity(&self) -> Vec<String> {
+        sqlx::query_scalar("SELECT notification_type::text FROM notifications WHERE user_id = $1 ORDER BY created_at")
+            .bind(self.target)
+            .fetch_all(&self.state.pool)
+            .await
+            .expect("notifications")
+    }
+
+    async fn direct_conversation(&self) -> Uuid {
+        let (status, body) = send(
+            &self.app,
+            "POST",
+            &format!("/api/workspaces/{}/conversations", self.ws_id),
+            Some(&self.author_token),
+            Some(json!({ "participant_ids": [self.target] })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body:?}");
+        body["id"].as_str().expect("id").parse().expect("uuid")
+    }
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn each_level_decides_what_reaches_the_phone(pool: PgPool) {
+    let s = scene(pool).await;
+    let cases = [
+        (NotifyLevel::All, false, 1),
+        (NotifyLevel::All, true, 1),
+        (NotifyLevel::Mentions, false, 0),
+        (NotifyLevel::Mentions, true, 1),
+        (NotifyLevel::Nothing, false, 0),
+        (NotifyLevel::Nothing, true, 0),
+    ];
+    for (level, mention, expected) in cases {
+        s.set_level(s.ch_id, Some(level)).await;
+        assert_eq!(
+            s.post(s.ch_id, "standup in five", mention, None).await,
+            expected,
+            "{level:?}, mention: {mention}"
+        );
+    }
+
+    s.set_level(s.ch_id, Some(NotifyLevel::All)).await;
+    sqlx::query("UPDATE channel_members SET muted = TRUE WHERE channel_id = $1 AND user_id = $2")
+        .bind(s.ch_id)
+        .bind(s.target)
+        .execute(&s.state.pool)
+        .await
+        .expect("mute");
+    assert_eq!(
+        s.post(s.ch_id, "anyone?", true, None).await,
+        0,
+        "mute overrides every level"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn every_message_on_all_reaches_the_phone_but_not_the_activity_panel(pool: PgPool) {
+    let s = scene(pool).await;
+    s.set_level(s.ch_id, Some(NotifyLevel::All)).await;
+
+    assert_eq!(s.post(s.ch_id, "deploy finished", false, None).await, 1);
+    assert!(
+        s.activity().await.is_empty(),
+        "Activity is for what is addressed to you"
+    );
+    assert_eq!(
+        s.post(s.ch_id, "reply in a thread", false, Some(Uuid::new_v4()))
+            .await,
+        0,
+        "a thread reply is not a new message in the channel"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn the_workspace_default_applies_until_a_channel_sets_its_own(pool: PgPool) {
+    let s = scene(pool).await;
+    assert_eq!(
+        s.post(s.ch_id, "hello", false, None).await,
+        0,
+        "mentions by default"
+    );
+
+    s.state
+        .notification_repo
+        .set_default(s.ws_id, s.target, NotifyLevel::All)
+        .await
+        .expect("set default");
+    assert_eq!(s.post(s.ch_id, "hello", false, None).await, 1);
+
+    s.set_level(s.ch_id, Some(NotifyLevel::Mentions)).await;
+    assert_eq!(
+        s.post(s.ch_id, "hello", false, None).await,
+        0,
+        "a level set on the channel wins"
+    );
+
+    s.set_level(s.ch_id, None).await;
+    assert_eq!(
+        s.post(s.ch_id, "hello", false, None).await,
+        1,
+        "back to the default"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_direct_message_reaches_the_phone_and_the_activity_panel(pool: PgPool) {
+    let s = scene(pool).await;
+    s.state
+        .notification_repo
+        .set_default(s.ws_id, s.target, NotifyLevel::Nothing)
+        .await
+        .expect("set default");
+    let dm = s.direct_conversation().await;
+
+    assert_eq!(
+        s.post(dm, "lunch?", false, None).await,
+        1,
+        "a DM is addressed to you whatever the workspace default"
+    );
+    assert_eq!(s.activity().await, vec!["dm".to_string()]);
+
+    s.set_level(dm, Some(NotifyLevel::Mentions)).await;
+    assert_eq!(
+        s.post(dm, "lunch??", false, None).await,
+        0,
+        "unless you said otherwise"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_direct_message_under_dnd_waits_in_activity(pool: PgPool) {
+    let s = scene(pool).await;
+    let dm = s.direct_conversation().await;
+    s.state
+        .notification_repo
+        .set_dnd(
+            s.target,
+            Some(chrono::Utc::now() + chrono::Duration::hours(1)),
+        )
+        .await
+        .expect("set dnd");
+
+    assert_eq!(s.post(dm, "lunch?", false, None).await, 0);
+    assert_eq!(s.activity().await, vec!["dm".to_string()]);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_direct_message_that_reached_nobody_is_queued_for_email(pool: PgPool) {
+    let s = scene(pool).await;
+    s.state
+        .push_repo
+        .delete(s.target, &format!("{}/push/phone", s.service.address))
+        .await
+        .expect("unsubscribe");
+    let dm = s.direct_conversation().await;
+
+    s.post(dm, "call me", false, None).await;
+
+    let direct: Vec<bool> =
+        sqlx::query_scalar("SELECT direct FROM pending_mention_emails WHERE user_id = $1")
+            .bind(s.target)
+            .fetch_all(&s.state.pool)
+            .await
+            .expect("pending");
+    assert_eq!(direct, vec![true]);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_mention_of_somebody_outside_the_channel_reaches_nobody(pool: PgPool) {
+    let s = scene(pool).await;
+    sqlx::query("DELETE FROM channel_members WHERE channel_id = $1 AND user_id = $2")
+        .bind(s.ch_id)
+        .bind(s.target)
+        .execute(&s.state.pool)
+        .await
+        .expect("leave");
+
+    assert_eq!(s.post(s.ch_id, "ping", true, None).await, 0);
+    assert!(s.activity().await.is_empty());
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn the_digest_counts_mentions_and_direct_messages_apart(pool: PgPool) {
+    let s = scene(pool).await;
+    for direct in [false, false, true] {
+        sqlx::query(
+            "INSERT INTO pending_mention_emails \
+               (user_id, workspace_id, sender_name, channel_name, direct, created_at) \
+             VALUES ($1, $2, 'Ana', 'general', $3, NOW() - INTERVAL '10 minutes')",
+        )
+        .bind(s.target)
+        .bind(s.ws_id)
+        .bind(direct)
+        .execute(&s.state.pool)
+        .await
+        .expect("queue");
+    }
+
+    assert_eq!(crate::notifications::email::flush_due(&s.state).await, 1);
+    let (subject, body): (String, String) = sqlx::query_as(
+        "SELECT subject, text_body FROM outbound_emails ORDER BY created_at DESC LIMIT 1",
+    )
+    .fetch_one(&s.state.pool)
+    .await
+    .expect("email");
+    assert_eq!(subject, "You have 2 mentions and 1 direct message");
+    assert!(
+        body.starts_with("You have 2 mentions and 1 direct message while you were away."),
+        "{body}"
+    );
 }

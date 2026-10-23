@@ -470,18 +470,24 @@ async fn list_channels(
         .repo
         .list_user_channels(ws_id, auth.user_id)
         .await?;
-    let muted: std::collections::HashSet<Uuid> = state
+    let mut preferences: std::collections::HashMap<Uuid, ChannelPreference> = state
         .workspace_service
         .repo
-        .muted_channel_ids(ws_id, auth.user_id)
+        .channel_preferences(ws_id, auth.user_id)
         .await?
         .into_iter()
+        .map(|p| (p.channel_id, p))
         .collect();
     let data: Vec<ChannelListing> = channels
         .into_iter()
-        .map(|channel| ChannelListing {
-            muted: muted.contains(&channel.id),
-            channel,
+        .filter_map(|channel| {
+            let preference = preferences.remove(&channel.id)?;
+            Some(ChannelListing {
+                muted: preference.muted,
+                notify_level: preference.notify_level,
+                effective_notify_level: preference.effective_notify_level,
+                channel,
+            })
         })
         .collect();
     Ok(Json(DataList { data }))
@@ -494,11 +500,15 @@ async fn set_channel_notifications(
     Path(ch_id): Path<Uuid>,
     Json(req): Json<SetChannelNotificationsRequest>,
 ) -> AppResult<Json<MutedResponse>> {
-    state
+    authz::find_channel(&state, ch_id).await?;
+    let updated = state
         .workspace_service
         .repo
         .set_channel_muted(ch_id, auth.user_id, req.muted)
         .await?;
+    if !updated {
+        return Err(AppError::Forbidden("Not a member of this channel".into()));
+    }
     Ok(Json(MutedResponse { muted: req.muted }))
 }
 

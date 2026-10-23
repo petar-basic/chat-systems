@@ -5,6 +5,7 @@ import PushNotificationsPanel from '@/components/PushNotificationsPanel';
 import EmailNotificationsPanel from '@/components/EmailNotificationsPanel';
 import ThemePicker from '@/components/ThemePicker';
 import TwoFactorPanel from '@/components/TwoFactorPanel';
+import { NotifyDefaultPanel } from '@/features/notifications';
 
 export type PreferencesSection = 'notifications' | 'appearance' | 'security';
 
@@ -92,6 +93,7 @@ export function PreferencesModal({ initial = 'notifications', onClose }: Props) 
           <h3 className="text-base font-semibold text-fg">{section.label}</h3>
           {active === 'notifications' && (
             <>
+              <NotifyDefaultPanel />
               <PushNotificationsPanel />
               <EmailNotificationsPanel />
             </>

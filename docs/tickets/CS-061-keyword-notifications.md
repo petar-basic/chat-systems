@@ -2,7 +2,7 @@
 
 **Wave:** 21 — notifications that fit how a team works
 **Area:** backend · frontend
-**Blocked by:** CS-060
+**Blocked by:** CS-060 ✅
 **Blocks:** —
 
 ## Problem

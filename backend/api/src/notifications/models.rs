@@ -16,6 +16,15 @@ pub enum NotificationType {
     System,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, sqlx::Type, PartialEq, Eq, ToSchema)]
+#[sqlx(type_name = "notify_level", rename_all = "lowercase")]
+#[serde(rename_all = "lowercase")]
+pub enum NotifyLevel {
+    All,
+    Mentions,
+    Nothing,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct Notification {
     pub id: Uuid,
@@ -63,4 +72,33 @@ pub struct DndResponse {
 pub struct EmailPreference {
     pub mention_emails: bool,
     pub available: bool,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct SetNotifyLevelRequest {
+    pub level: Option<NotifyLevel>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ChannelNotifyLevel {
+    pub notify_level: Option<NotifyLevel>,
+    pub effective_notify_level: NotifyLevel,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct SetNotifyDefaultRequest {
+    pub level: NotifyLevel,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct NotifyDefault {
+    pub notify_default: NotifyLevel,
+}
+
+#[derive(Debug, Clone)]
+pub struct Recipient {
+    pub user_id: Uuid,
+    pub level: NotifyLevel,
+    pub muted: bool,
+    pub direct: bool,
 }

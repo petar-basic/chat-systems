@@ -17,6 +17,7 @@ pub struct PendingMention<'a> {
     pub message_id: Option<Uuid>,
     pub sender_name: &'a str,
     pub channel_name: &'a str,
+    pub direct: bool,
 }
 
 /// Called only when nothing else could have reached them: no live socket, no
@@ -39,15 +40,16 @@ pub async fn enqueue(state: &AppState, pending: PendingMention<'_>) {
     let result = sqlx::query!(
         r"
         INSERT INTO pending_mention_emails
-            (user_id, workspace_id, channel_id, message_id, sender_name, channel_name)
-        VALUES ($1, $2, $3, $4, $5, $6)
+            (user_id, workspace_id, channel_id, message_id, sender_name, channel_name, direct)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         ",
         pending.user_id,
         pending.workspace_id,
         pending.channel_id,
         pending.message_id,
         pending.sender_name,
-        pending.channel_name
+        pending.channel_name,
+        pending.direct
     )
     .execute(&state.pool)
     .await;
@@ -63,6 +65,7 @@ struct DueDigest {
     workspace_id: Uuid,
     email: String,
     mentions: i64,
+    direct_messages: i64,
     channels: Vec<String>,
     senders: Vec<String>,
 }
@@ -76,8 +79,9 @@ pub async fn flush_due(state: &AppState) -> usize {
         DueDigest,
         r#"
         SELECT p.user_id, p.workspace_id, u.email,
-               COUNT(*) AS "mentions!",
-               ARRAY_AGG(DISTINCT COALESCE(p.channel_name, '')) AS "channels!",
+               COUNT(*) FILTER (WHERE NOT p.direct) AS "mentions!",
+               COUNT(*) FILTER (WHERE p.direct) AS "direct_messages!",
+               COALESCE(ARRAY_AGG(DISTINCT COALESCE(p.channel_name, '')) FILTER (WHERE NOT p.direct), '{}') AS "channels!",
                ARRAY_AGG(DISTINCT COALESCE(p.sender_name, '')) AS "senders!"
           FROM pending_mention_emails p
           JOIN users u ON u.id = p.user_id
@@ -106,10 +110,7 @@ pub async fn flush_due(state: &AppState) -> usize {
             crate::presence::is_online(&mut conn, digest.workspace_id, digest.user_id).await;
 
         if !online {
-            let subject = match digest.mentions {
-                1 => "You were mentioned".to_string(),
-                n => format!("You were mentioned {n} times"),
-            };
+            let subject = subject_for(&digest);
             let body = body_for(&digest, &state.config.public_url);
 
             let queued = outbox::enqueue(
@@ -148,6 +149,37 @@ pub async fn flush_due(state: &AppState) -> usize {
     sent
 }
 
+fn counted(n: i64, one: &str, many: &str) -> String {
+    match n {
+        1 => format!("1 {one}"),
+        n => format!("{n} {many}"),
+    }
+}
+
+fn what_happened(digest: &DueDigest) -> String {
+    match (digest.mentions, digest.direct_messages) {
+        (0, dms) => format!(
+            "You have {}",
+            counted(dms, "direct message", "direct messages")
+        ),
+        (mentions, 0) => format!("You have {}", counted(mentions, "mention", "mentions")),
+        (mentions, dms) => format!(
+            "You have {} and {}",
+            counted(mentions, "mention", "mentions"),
+            counted(dms, "direct message", "direct messages")
+        ),
+    }
+}
+
+fn subject_for(digest: &DueDigest) -> String {
+    match (digest.mentions, digest.direct_messages) {
+        (1, 0) => "You were mentioned".to_string(),
+        (n, 0) => format!("You were mentioned {n} times"),
+        (0, 1) => "You have a direct message".to_string(),
+        _ => what_happened(digest),
+    }
+}
+
 /// Who, where, and a link. Not what was said: mail sits in an inbox on somebody
 /// else's server indefinitely, and is the least private transport this product
 /// touches.
@@ -165,11 +197,7 @@ fn body_for(digest: &DueDigest, public_url: &str) -> String {
         .map(|c| format!("#{c}"))
         .collect();
 
-    let mut lines = Vec::new();
-    lines.push(match digest.mentions {
-        1 => "Somebody mentioned you while you were away.".to_string(),
-        n => format!("You were mentioned {n} times while you were away."),
-    });
+    let mut lines = vec![format!("{} while you were away.", what_happened(digest))];
     if !people.is_empty() {
         lines.push(format!("From: {}", people.join(", ")));
     }

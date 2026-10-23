@@ -212,14 +212,14 @@ feature — see `dm` below.)
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
-| GET | `/workspaces/:ws_id/channels` | — | `{ data: Channel[] }` (each augmented with `muted`) |
+| GET | `/workspaces/:ws_id/channels` | — | `{ data: ChannelListing[] }` — each channel with the caller's `muted`, `notify_level` (`null` when it follows the default) and `effective_notify_level` |
 | GET | `/workspaces/:ws_id/channels/unread` | — | `{ channel_ids: string[] }` |
 | GET | `/workspaces/:ws_id/channels/browse` | — | `{ data: BrowsableChannel[] }` — every public, unarchived channel with `member_count` and `is_member` (Members and up; Guests are refused) |
 | POST | `/workspaces/:ws_id/channels` | `{ name, channel_type?, description?, is_default? }` | `Channel` |
 | GET | `/channels/:ch_id` | — | `Channel` |
 | PATCH | `/channels/:ch_id` | `{ name?, topic?, description? }` | `Channel` |
 | DELETE | `/channels/:ch_id` | — | `{ status: "archived" }` |
-| PATCH | `/channels/:ch_id/notifications` | `{ muted }` | `{ muted: bool }` |
+| PATCH | `/channels/:ch_id/notifications` | `{ muted }` | `{ muted: bool }` — members only (403 otherwise) |
 
 **Channel members:**
 
@@ -327,8 +327,8 @@ fetch.
 
 **Mentions.** Sending a channel message or thread reply expands the mentions in its body
 into the `mentioned_user_ids` carried by `message.created`, which the notifications
-consumer turns into per-user notifications (still subject to that user's channel mute and
-DND). A mention is either a picked token (`@[Label](uuid)`) or one of the broadcasts —
+consumer turns into per-user notifications for the channel's members (still subject to
+their notification level, channel mute and DND; a mentioned non-member gets nothing). A mention is either a picked token (`@[Label](uuid)`) or one of the broadcasts —
 `@channel` / `@everyone` (every channel member) and `@here` (channel members with a live
 `presence:*` key in Redis). Broadcasts count whether the author picked them from the
 composer (`@[channel](channel)`) or simply typed the word; the author is never notified of
@@ -459,8 +459,32 @@ In-app notifications for mentions, DMs, replies, reactions, calls, reminders, an
 | GET | `/workspaces/:ws_id/notifications/unread-count` | — | `{ unread_count: number }` |
 | GET | `/notifications/dnd` | — | `{ dnd_until: timestamp \| null }` |
 | PATCH | `/notifications/dnd` | `{ dnd_until: timestamp \| null }` | `{ dnd_until: timestamp \| null }` |
+| PUT | `/channels/:ch_id/notify-level` | `{ level: "all" \| "mentions" \| "nothing" \| null }` | `{ notify_level, effective_notify_level }` — members only; `null` returns the channel to the default |
+| GET | `/workspaces/:ws_id/notify-default` | — | `{ notify_default }` |
+| PUT | `/workspaces/:ws_id/notify-default` | `{ level: "all" \| "mentions" \| "nothing" }` | `{ notify_default }` |
 
 All workspace-scoped routes require workspace membership.
+
+**Notification levels.** Every channel member has a `notify_level` on `channel_members`
+(`all`, `mentions`, `nothing`, or `NULL` to follow the default), and every workspace member a
+`notify_default` on `workspace_members` (`mentions` unless changed). The SQL function
+`effective_notify_level(stored, default, channel_type)` resolves them: a stored level wins, a
+DM or group DM otherwise means `all`, and a channel otherwise takes the workspace default. The
+consumer decides each recipient's reason for one `message.created`:
+
+| Reason | When | Activity row | Frame `kind` | Push | Email |
+|--------|------|--------------|--------------|------|-------|
+| Mention | named or broadcast, level is not `nothing` | yes | `mention` | yes | yes |
+| Reply | follows the thread, level is not `nothing` | yes | `reply` | yes | no |
+| Direct | DM on `all`, not a thread reply | yes (`dm`) | `dm` | yes | yes |
+| Message | channel on `all`, not a thread reply | no | `message` | yes | no |
+
+Muted and `nothing` mean no reason at all. DND keeps the Activity row and drops the rest; a
+frame goes to every session, push only when the person has none, and email only when push
+reached no device. The frame's `kind` also carries `reaction`, `call`, `reminder` and
+`system` from the other producers; the client rings and counts on it rather than deciding
+for itself. Channel listings and conversation summaries carry the caller's `notify_level` and
+`effective_notify_level`.
 
 ---
 

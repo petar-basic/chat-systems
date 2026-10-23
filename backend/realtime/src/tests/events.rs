@@ -325,7 +325,7 @@ async fn notification_push_delivers_to_target_user(pool: PgPool) {
         "channel_id": Uuid::new_v4().to_string(),
         "title": "New message",
         "body": "you've got mail",
-        "priority": "normal",
+        "kind": "mention",
     });
     crate::event_consumer::handle_event("notification.push", &payload, &cm).await;
 
@@ -342,6 +342,7 @@ async fn notification_push_delivers_to_target_user(pool: PgPool) {
         frame.get("body").and_then(|b| b.as_str()),
         Some("you've got mail")
     );
+    assert_eq!(frame.get("kind").and_then(|k| k.as_str()), Some("mention"));
 
     assert!(next_json(&mut other_rx).is_none());
 }

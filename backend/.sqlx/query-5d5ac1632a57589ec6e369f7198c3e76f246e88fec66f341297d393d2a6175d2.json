@@ -1,0 +1,70 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE channel_members cm\n               SET notify_level = $3\n              FROM channels c, workspace_members wm\n             WHERE cm.channel_id = $1 AND cm.user_id = $2\n               AND c.id = cm.channel_id\n               AND wm.workspace_id = c.workspace_id AND wm.user_id = cm.user_id\n            RETURNING cm.notify_level AS \"notify_level: NotifyLevel\",\n                      effective_notify_level(cm.notify_level, wm.notify_default, c.channel_type)\n                          AS \"effective_notify_level!: NotifyLevel\"\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "notify_level: NotifyLevel",
+        "type_info": {
+          "Custom": {
+            "name": "notify_level",
+            "kind": {
+              "Enum": [
+                "all",
+                "mentions",
+                "nothing"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "channel_members",
+            "name": "notify_level"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "effective_notify_level!: NotifyLevel",
+        "type_info": {
+          "Custom": {
+            "name": "notify_level",
+            "kind": {
+              "Enum": [
+                "all",
+                "mentions",
+                "nothing"
+              ]
+            }
+          }
+        },
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        {
+          "Custom": {
+            "name": "notify_level",
+            "kind": {
+              "Enum": [
+                "all",
+                "mentions",
+                "nothing"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "nullable": [
+      true,
+      null
+    ]
+  },
+  "hash": "5d5ac1632a57589ec6e369f7198c3e76f246e88fec66f341297d393d2a6175d2"
+}

@@ -1304,3 +1304,31 @@ changed, so an untouched status keeps its expiry. *Preferences* is a vertical ta
 arrow keys, Home and End — over the panels that already saved as they changed. The *You*
 menu has both entries.
 
+
+---
+
+## Wave 21 — Notifications that fit how a team works
+
+### [CS-060] Notification levels ✅ shipped
+A channel was muted or it was not, and the decision of what rang was split between the
+server, which wrote a row for a mention, and the browser, which played a sound for any
+message it happened to see. A direct message without an `@` never reached a phone: push and
+email only knew about mentions.
+
+Every channel member now has a level, *All new messages*, *Mentions* or *Nothing*, and every
+workspace member a default that a channel follows until it sets its own. One SQL function,
+`effective_notify_level`, resolves the two, with DMs falling back to *All*, and the
+notification consumer asks it once per message for every member. The answer is a reason —
+mention, reply, direct, or a plain message on *All* — and the reason alone decides the rest:
+an Activity row, the frame's new `kind`, push, and email for mentions and DMs that reached
+no device. The digest counts mentions and direct messages apart. The browser no longer rings
+on `message.new`; it rings on the `notification` frame, and stays quiet for the conversation
+it is looking at.
+
+Two behaviours changed on purpose. A mention of someone outside the channel used to notify
+them about a message they could not open; only members (and thread followers) are notified
+now. And *Nothing* is quieter than a mention, as in Slack: no row, no frame, no push. The
+dead `notifications` and `is_muted` columns on `channel_members` went with migration 57.
+
+The bell sits in the channel header, the DM header and on a sidebar row's hover, and the
+default is the first panel of *Preferences → Notifications*.

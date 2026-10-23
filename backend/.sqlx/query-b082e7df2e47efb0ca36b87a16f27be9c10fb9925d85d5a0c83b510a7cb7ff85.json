@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT channel_id, user_id, role AS \"role: ChannelRole\", last_read_at, last_read_msg,\n                   notifications AS \"notifications!\", is_muted AS \"is_muted!\",\n                   is_starred AS \"is_starred!\", joined_at\n                 FROM channel_members WHERE channel_id = $1 AND user_id = $2",
+  "query": "\n            INSERT INTO channel_members (channel_id, user_id, role)\n            VALUES ($1, $2, $3)\n            ON CONFLICT (channel_id, user_id) DO UPDATE SET channel_id = EXCLUDED.channel_id\n            RETURNING channel_id, user_id, role AS \"role: ChannelRole\", last_read_at, last_read_msg,\n                   is_starred AS \"is_starred!\", joined_at\n            ",
   "describe": {
     "columns": [
       {
@@ -70,28 +70,6 @@
       },
       {
         "ordinal": 5,
-        "name": "notifications!",
-        "type_info": "Varchar",
-        "origin": {
-          "Table": {
-            "table": "channel_members",
-            "name": "notifications"
-          }
-        }
-      },
-      {
-        "ordinal": 6,
-        "name": "is_muted!",
-        "type_info": "Bool",
-        "origin": {
-          "Table": {
-            "table": "channel_members",
-            "name": "is_muted"
-          }
-        }
-      },
-      {
-        "ordinal": 7,
         "name": "is_starred!",
         "type_info": "Bool",
         "origin": {
@@ -102,7 +80,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 6,
         "name": "joined_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -116,7 +94,18 @@
     "parameters": {
       "Left": [
         "Uuid",
-        "Uuid"
+        "Uuid",
+        {
+          "Custom": {
+            "name": "channel_role",
+            "kind": {
+              "Enum": [
+                "member",
+                "admin"
+              ]
+            }
+          }
+        }
       ]
     },
     "nullable": [
@@ -126,10 +115,8 @@
       true,
       true,
       true,
-      true,
-      true,
       false
     ]
   },
-  "hash": "84f615b9f4c3f8f38d4ddc7e839b1ceced0f3137ecf745cc33a0e204afd757d8"
+  "hash": "b082e7df2e47efb0ca36b87a16f27be9c10fb9925d85d5a0c83b510a7cb7ff85"
 }

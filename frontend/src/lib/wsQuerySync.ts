@@ -10,7 +10,6 @@ import {
   claimReplyCount,
   removeMessageById,
 } from './messageCache';
-import { showNotification, playMessageSound } from './notifications';
 import type { Message, WorkspaceMember } from '@/stores/workspace';
 import type { Conversation } from '@/hooks/queries/useConversations';
 import { instanceManager } from './instances';
@@ -206,9 +205,6 @@ export const useWebSocketQuerySync = () => {
           ]);
           if (isIncoming && currentConversationId !== message.channel_id) {
             markConversationUnread(message.channel_id);
-            playMessageSound();
-            const sender = useUserCache.getState().getUser(message.user_id)?.display_name || 'New message';
-            showNotification(sender, message.content);
           }
           return;
         }
@@ -227,7 +223,6 @@ export const useWebSocketQuerySync = () => {
           // trip back to the channel list.
           const mentionedIds = (event.mentioned_user_ids ?? []) as string[];
           bumpChannelUnread(message.channel_id, mentionedIds.includes(currentUserId ?? ''));
-          playMessageSound();
         }
       }),
 
