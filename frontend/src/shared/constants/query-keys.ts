@@ -62,6 +62,11 @@ export const QUERY_KEYS = {
   pollVote: (pollId: string) => ['polls', pollId, 'vote'] as const,
   pollVoters: (pollId: string, tally: string) => ['polls', pollId, 'voters', tally] as const,
 
+  channelLists: (workspaceId: string, channelId: string) => ['lists', 'of', workspaceId, channelId] as const,
+  listsOf: (workspaceId: string) => ['lists', 'of', workspaceId] as const,
+  list: (listId: string) => ['lists', listId, 'detail'] as const,
+  listItems: (listId: string) => ['lists', listId, 'items'] as const,
+
   huddlesActive: () => ['huddles', 'active'] as const,
   workspaceActiveHuddles: (workspaceId: string) => ['huddles', 'active', workspaceId] as const,
 } as const;

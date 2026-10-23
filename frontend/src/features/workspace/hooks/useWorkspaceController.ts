@@ -248,6 +248,7 @@ export function useWorkspaceController() {
     handleOpenUnreads,
     isThreadsRoute: routing.isThreadsRoute,
     handleOpenThreads,
+    listId: routing.listId,
     panel,
     handleTargetMessageFound: routing.handleTargetMessageFound,
     handleSelectWorkspace,

@@ -143,7 +143,7 @@ impl ListRepo {
         sqlx::query_as!(
             ListColumn,
             r#"SELECT id, list_id, position, name, kind AS "kind: ColumnKind",
-                      options AS "options: Json<ColumnOptions>"
+                      options AS "options: Json<ColumnOptions>", hidden
                  FROM list_columns WHERE list_id = $1
                 ORDER BY position, id"#,
             list_id
@@ -179,7 +179,7 @@ impl ListRepo {
                        (SELECT COALESCE(MAX(position) + 1, 0) FROM list_columns WHERE list_id = $1),
                        $2, $3, $4)
                RETURNING id, list_id, position, name, kind AS "kind: ColumnKind",
-                         options AS "options: Json<ColumnOptions>""#,
+                         options AS "options: Json<ColumnOptions>", hidden"#,
             list_id,
             name,
             kind as ColumnKind,
@@ -196,14 +196,16 @@ impl ListRepo {
         name: &str,
         kind: ColumnKind,
         options: &ColumnOptions,
+        hidden: bool,
     ) -> sqlx::Result<()> {
         let options = serde_json::to_value(options).unwrap_or_default();
         sqlx::query!(
-            "UPDATE list_columns SET name = $2, kind = $3, options = $4 WHERE id = $1",
+            "UPDATE list_columns SET name = $2, kind = $3, options = $4, hidden = $5 WHERE id = $1",
             id,
             name,
             kind as ColumnKind,
-            options
+            options,
+            hidden
         )
         .execute(conn)
         .await?;

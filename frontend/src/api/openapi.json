@@ -8223,7 +8223,11 @@
             "format": "uuid"
           },
           "values": {
-            "type": "object"
+            "type": "object",
+            "additionalProperties": {},
+            "propertyNames": {
+              "type": "string"
+            }
           }
         }
       },
@@ -9496,9 +9500,13 @@
                 "position",
                 "name",
                 "kind",
-                "options"
+                "options",
+                "hidden"
               ],
               "properties": {
+                "hidden": {
+                  "type": "boolean"
+                },
                 "id": {
                   "type": "string",
                   "format": "uuid"
@@ -9569,7 +9577,11 @@
                   "format": "date-time"
                 },
                 "values": {
-                  "type": "object"
+                  "type": "object",
+                  "additionalProperties": {},
+                  "propertyNames": {
+                    "type": "string"
+                  }
                 }
               }
             }
@@ -11340,9 +11352,13 @@
           "position",
           "name",
           "kind",
-          "options"
+          "options",
+          "hidden"
         ],
         "properties": {
+          "hidden": {
+            "type": "boolean"
+          },
           "id": {
             "type": "string",
             "format": "uuid"
@@ -11420,7 +11436,11 @@
             "format": "date-time"
           },
           "values": {
-            "type": "object"
+            "type": "object",
+            "additionalProperties": {},
+            "propertyNames": {
+              "type": "string"
+            }
           }
         }
       },
@@ -13129,6 +13149,12 @@
             ],
             "format": "int64"
           },
+          "hidden": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
           "kind": {
             "oneOf": [
               {
@@ -13192,7 +13218,11 @@
         ],
         "properties": {
           "values": {
-            "type": "object"
+            "type": "object",
+            "additionalProperties": {},
+            "propertyNames": {
+              "type": "string"
+            }
           }
         }
       },

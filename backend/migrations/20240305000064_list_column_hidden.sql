@@ -1,0 +1,1 @@
+ALTER TABLE list_columns ADD COLUMN hidden BOOLEAN NOT NULL DEFAULT false;

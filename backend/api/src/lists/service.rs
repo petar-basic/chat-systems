@@ -416,7 +416,14 @@ pub async fn update_column(
     }
     state
         .list_repo
-        .update_column_in(&mut tx, column_id, &name, kind, &options)
+        .update_column_in(
+            &mut tx,
+            column_id,
+            &name,
+            kind,
+            &options,
+            req.hidden.unwrap_or(column.hidden),
+        )
         .await?;
     let rewritten = !conversion.cells.is_empty();
     if rewritten {

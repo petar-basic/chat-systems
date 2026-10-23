@@ -127,6 +127,14 @@ function AppContent() {
             }
           />
           <Route
+            path="/app/:workspaceId/lists/:listId"
+            element={
+              <ProtectedRoute>
+                <WorkspacePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/app/:workspaceId/:channelId/:messageId"
             element={
               <ProtectedRoute>

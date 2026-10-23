@@ -737,7 +737,8 @@ posters; there is no permission system of its own. Deleting a list is for its cr
 channel moderator. `list_columns` (at most 30) have a kind — `text`, `number`, `select`,
 `multi_select`, `person`, `date`, `checkbox`, `link` — and `options`: a select's `choices`
 (`{ id, label, color }`) and a number's `number` format (`plain`, `percent`, `currency` with a
-three-letter code, 0–6 decimals). `list_items` (at most 10,000) keep `values` keyed by column
+three-letter code, 0–6 decimals), and `hidden`, which hides the column from the table for
+everyone who sees the list. `list_items` (at most 10,000) keep `values` keyed by column
 id and a `rank`, a fractional index, so moving an item rewrites that one row.
 
 Every cell is checked against its column on the server: a select takes one of its choice ids,
@@ -771,7 +772,7 @@ list as `lists/<id>.csv`, a DM's list and personal lists only when DMs are inclu
 | POST | `/lists/:list_id/items` | `{ values?, after_id? }` — at the end unless `after_id` | `ListItem` |
 | POST | `/lists/:list_id/columns` | `{ name, kind, options? }` | `ListColumn` |
 | PUT | `/lists/:list_id/column-order` | `{ column_ids }` — every column once | `{ data: ListColumn[] }` |
-| PATCH | `/list-columns/:column_id` | `{ name?, kind?, options?, confirm_cleared? }` | `ListColumn` — 409 when cells would be cleared unconfirmed |
+| PATCH | `/list-columns/:column_id` | `{ name?, kind?, options?, hidden?, confirm_cleared? }` | `ListColumn` — 409 when cells would be cleared unconfirmed |
 | POST | `/list-columns/:column_id/preview` | `{ kind, options? }` | `{ converted, cleared }` |
 | DELETE | `/list-columns/:column_id` | — | `{ status: "deleted" }` — its cells go too |
 | PATCH | `/list-items/:item_id` | `{ values }` — only the cells named | `ListItem` |
