@@ -5,6 +5,8 @@ import { ExternalLink, LayoutGrid } from 'lucide-react';
 import { CopyField } from '@/shared/components/CopyField/CopyField';
 import { AppIcon } from '@/shared/components/AppIcon/AppIcon';
 import { useApps, useAppActions, type AppStatus } from '@/hooks/queries/useApps';
+import { TextInput } from '@/shared/components/Form/TextInput';
+import { Checkbox } from '@/shared/components/Form/Checkbox';
 
 interface Props {
   workspaceId: string;
@@ -206,40 +208,36 @@ function AppSetupForm({
       {app.scopes.length > 0 && <CopyField label="Scopes" value={app.scopes.join(' ')} />}
 
       {reusable && (
-        <label className="flex items-center gap-2 text-xs text-fg-dim" data-qa="app-reuse">
-          <input type="checkbox" checked={reuse} onChange={(e) => setReuse(e.target.checked)} />
-          Use the {reusable.name} app — add the {app.name} API to it first
-        </label>
+        <Checkbox
+          label={`Use the ${reusable.name} app`}
+          description={`Add the ${app.name} API to it first.`}
+          checked={reuse}
+          onChange={setReuse}
+          dataQa="app-reuse"
+        />
       )}
       {!reuse && (
         <>
-          <label className="block text-xs text-fg-dim">
-            Client ID
-            <input
-              value={clientId}
-              onChange={(e) => setClientId(e.target.value)}
-              required
-              className="mt-1 w-full px-2 py-1.5 text-sm bg-raised/50 border border-line-strong rounded text-fg focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </label>
-          <label className="block text-xs text-fg-dim">
-            Secret
-            <input
-              type="password"
-              value={clientSecret}
-              onChange={(e) => setClientSecret(e.target.value)}
-              required={!app.configured}
-              placeholder={app.configured ? 'Stored — leave blank to keep it' : ''}
-              autoComplete="off"
-              className="mt-1 w-full px-2 py-1.5 text-sm bg-raised/50 border border-line-strong rounded text-fg focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </label>
+          <TextInput
+            label="Client ID"
+            compact
+            value={clientId}
+            onChange={(e) => setClientId(e.target.value)}
+            required
+          />
+          <TextInput
+            label="Secret"
+            compact
+            type="password"
+            value={clientSecret}
+            onChange={(e) => setClientSecret(e.target.value)}
+            required={!app.configured}
+            placeholder={app.configured ? 'Stored — leave blank to keep it' : ''}
+            autoComplete="off"
+          />
         </>
       )}
-      <label className="flex items-center gap-2 text-xs text-fg-dim">
-        <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
-        On for this workspace
-      </label>
+      <Checkbox label="On for this workspace" checked={enabled} onChange={setEnabled} />
 
       <div className="flex items-center gap-2">
         <Button variant="primary" type="submit" disabled={actions.configure.isPending}>

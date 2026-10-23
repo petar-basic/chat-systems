@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { buttonStyles } from '@/shared/components/Button/buttonStyles';
 import { Button } from '@/shared/components/Button/Button';
+import { TextInput } from '@/shared/components/Form/TextInput';
 import { useSearchParams, Link } from 'react-router';
 import { api } from '../lib/api';
 
@@ -53,13 +54,13 @@ function ForgotPasswordForm() {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="bg-surface border border-line rounded-2xl p-6 space-y-4">
-            <input
-              aria-label="Email address"
+            <TextInput
+              label="Email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="Email address"
-              className="w-full px-4 py-3 bg-raised/50 border border-line-strong rounded-lg text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
+              placeholder="you@company.com"
+              autoComplete="email"
               required
               autoFocus
             />
@@ -125,28 +126,31 @@ function ResetForm({ token }: { token: string }) {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="bg-surface border border-line rounded-2xl p-6 space-y-4">
-            <input
-              aria-label="New password"
+            <TextInput
+              label="New password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="New password"
-              className="w-full px-4 py-3 bg-raised/50 border border-line-strong rounded-lg text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
+              hint="At least 8 characters."
+              autoComplete="new-password"
               required
               minLength={8}
               autoFocus
             />
-            <input
-              aria-label="Confirm new password"
+            <TextInput
+              label="Confirm new password"
               type="password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
-              placeholder="Confirm new password"
-              className="w-full px-4 py-3 bg-raised/50 border border-line-strong rounded-lg text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
+              autoComplete="new-password"
               required
               minLength={8}
             />
-            {error && <div className="text-danger text-sm">{error}</div>}
+            {error && (
+              <p role="alert" className="text-danger text-sm">
+                {error}
+              </p>
+            )}
             <Button variant="primary" fullWidth type="submit" disabled={loading}>
               {loading ? 'Resetting…' : 'Reset password'}
             </Button>

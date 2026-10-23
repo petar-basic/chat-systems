@@ -24,13 +24,13 @@ export function Checkbox({
   return (
     <label
       htmlFor={id}
-      data-qa={dataQa}
       className={`flex items-start gap-3 ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${className}`}
     >
       <span className="relative mt-0.5 flex h-4 w-4 shrink-0">
         <input
           id={id}
           type="checkbox"
+          data-qa={dataQa}
           checked={checked}
           disabled={disabled}
           aria-labelledby={`${id}-label`}

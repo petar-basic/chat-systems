@@ -54,6 +54,11 @@ export default defineConfig([
           selector: "JSXAttribute[name.name='className'] Literal[value=/rounded-full animate-spin/]",
           message: 'Use <Spinner /> from shared/components/Spinner.',
         },
+        {
+          selector:
+            "JSXOpeningElement[name.name=/^(input|textarea|select)$/]:not(:has(JSXAttribute[name.name='type'][value.value='file']))",
+          message: 'Use TextInput, TextArea, Select, Checkbox or RadioCards from shared/components/Form.',
+        },
       ],
     },
   },

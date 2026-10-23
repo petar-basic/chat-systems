@@ -9,7 +9,9 @@ type InputProps = Omit<
 
 export interface TextInputProps extends FieldProps, InputProps {
   leading?: ReactNode;
+  trailing?: ReactNode;
   counter?: boolean;
+  compact?: boolean;
   dataQa?: string;
 }
 
@@ -21,7 +23,9 @@ export function TextInput({
   error,
   className,
   leading,
+  trailing,
   counter = false,
+  compact = false,
   dataQa,
   type = 'text',
   ...input
@@ -52,8 +56,9 @@ export function TextInput({
             {...control}
             type={type}
             data-qa={dataQa}
-            className={`h-9 ${fieldStyles({ invalid: !!error, leading: !!leading })}`}
+            className={`${compact ? 'h-8' : 'h-9'} ${fieldStyles({ invalid: !!error, leading: !!leading, trailing: !!trailing })}`}
           />
+          {trailing && <span className="absolute inset-y-0 right-1 flex items-center">{trailing}</span>}
         </div>
       )}
     </Field>

@@ -143,7 +143,8 @@ describe('IntegrationsPanel', () => {
     fireEvent.click(screen.getByTestId('hook-delete'));
     expect(deleteMutate).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByTestId('hook-delete-confirm'));
+    expect(screen.getByRole('dialog', { name: 'Delete CI alerts?' })).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('hook-delete-dialog-confirm'));
     await waitFor(() => expect(deleteMutate).toHaveBeenCalledWith('hook-1'));
   });
 

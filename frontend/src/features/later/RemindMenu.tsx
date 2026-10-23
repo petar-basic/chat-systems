@@ -3,6 +3,7 @@ import { AlarmClock } from 'lucide-react';
 import { AnchoredPopover } from '@/shared/components/Popover/AnchoredPopover';
 import { IconButton } from '@/shared/components/IconButton/IconButton';
 import { REMIND_PRESETS, formatScheduleHint, toLocalInputValue } from '@/features/messaging/schedulePresets';
+import { TextInput } from '@/shared/components/Form/TextInput';
 
 interface Props {
   label?: string;
@@ -50,13 +51,14 @@ export function RemindMenu({ label = 'Remind me', onPick, onClear, dataQa }: Pro
             </button>
           ))}
           <div className="mt-1 border-t border-line/70 px-3 py-2">
-            <input
+            <TextInput
+              label="Custom reminder time"
+              labelHidden
+              compact
               type="datetime-local"
               value={custom}
               min={earliest}
               onChange={(e) => setCustom(e.target.value)}
-              aria-label="Custom reminder time"
-              className="w-full px-2 py-1 bg-raised/50 border border-line-strong rounded text-sm text-fg focus:outline-none focus:ring-2 focus:ring-purple-500 [color-scheme:dark]"
             />
             <button
               type="button"

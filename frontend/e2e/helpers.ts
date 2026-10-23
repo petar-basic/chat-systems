@@ -74,8 +74,8 @@ export async function createChannel(ctx: APIRequestContext, workspaceId: string,
 
 export async function login(page: Page, email: string) {
   await page.goto('/');
-  await page.locator('#email').fill(email);
-  await page.locator('#password').fill(PASSWORD);
+  await page.locator('[data-qa="login-email"]').fill(email);
+  await page.locator('[data-qa="login-password"]').fill(PASSWORD);
 
   // Wait on the sign-in response, not just on the composer appearing. A 429 from
   // the login limiter or a 502 from a stale proxy used to spend the full 20s

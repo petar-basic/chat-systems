@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Button } from '@/shared/components/Button/Button';
+import { TextInput } from '@/shared/components/Form/TextInput';
 import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
 import { ServerCrash, LogIn } from 'lucide-react';
 import { useInstanceStore } from '../stores/instances';
@@ -59,38 +60,25 @@ export default function AddInstancePanel({ onClose }: Props) {
           )}
 
           {needsTotp && (
-            <div>
-              <label htmlFor="instance-totp" className="block text-sm font-medium text-fg-dim mb-1.5">
-                Authentication code
-              </label>
-              <input
-                id="instance-totp"
-                type="text"
-                inputMode="text"
-                autoComplete="one-time-code"
-                value={totpCode}
-                onChange={(e) => setTotpCode(e.target.value.trim())}
-                className="w-full px-3 py-2.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm tracking-widest focus:outline-none focus:ring-2 focus:ring-purple-500"
-                placeholder="123456"
-                required
-              />
-            </div>
-          )}
-
-          <div>
-            <label htmlFor="instance-url" className="block text-sm font-medium text-fg-dim mb-1.5">
-              Server URL
-            </label>
-            <input
-              id="instance-url"
-              type="url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              className="w-full px-3 py-2.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
-              placeholder="https://chat.yourcompany.com"
+            <TextInput
+              label="Authentication code"
+              inputMode="text"
+              autoComplete="one-time-code"
+              value={totpCode}
+              onChange={(e) => setTotpCode(e.target.value.trim())}
+              placeholder="123456"
               required
             />
-          </div>
+          )}
+
+          <TextInput
+            label="Server URL"
+            type="url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://chat.yourcompany.com"
+            required
+          />
 
           <div>
             <button
@@ -101,52 +89,37 @@ export default function AddInstancePanel({ onClose }: Props) {
               <span>{showAdvanced ? '▾' : '▸'}</span> Advanced options
             </button>
             {showAdvanced && (
-              <div className="mt-2">
-                <label htmlFor="instance-ws-url" className="block text-sm font-medium text-fg-dim mb-1.5">
-                  WebSocket URL
-                  <span className="ml-2 text-xs text-muted font-normal">(optional)</span>
-                </label>
-                <input
-                  id="instance-ws-url"
-                  type="url"
-                  value={wsUrl}
-                  onChange={(e) => setWsUrl(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  placeholder="ws://localhost:3004"
-                />
-              </div>
+              <TextInput
+                label="WebSocket URL"
+                optional
+                type="url"
+                value={wsUrl}
+                onChange={(e) => setWsUrl(e.target.value)}
+                placeholder="ws://localhost:3004"
+                className="mt-2"
+              />
             )}
           </div>
 
-          <div>
-            <label htmlFor="instance-email" className="block text-sm font-medium text-fg-dim mb-1.5">
-              Email
-            </label>
-            <input
-              id="instance-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
-              placeholder="you@company.com"
-              required
-            />
-          </div>
+          <TextInput
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@company.com"
+            autoComplete="email"
+            required
+          />
 
-          <div>
-            <label htmlFor="instance-password" className="block text-sm font-medium text-fg-dim mb-1.5">
-              Password
-            </label>
-            <input
-              id="instance-password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
-              placeholder="Enter your password"
-              required
-            />
-          </div>
+          <TextInput
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Enter your password"
+            autoComplete="current-password"
+            required
+          />
 
           <Button
             variant="primary"

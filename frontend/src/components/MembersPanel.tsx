@@ -14,6 +14,8 @@ import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { useWorkspaceMembers } from '../hooks/queries/useWorkspaces';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/shared/constants';
+import { TextInput } from '@/shared/components/Form/TextInput';
+import { Select } from '@/shared/components/Form/Select';
 
 interface Props {
   workspaceId: string;
@@ -109,23 +111,25 @@ function MemberRow({
       </div>
       {canManage ? (
         <div className="flex items-center gap-1.5 shrink-0">
-          <select
+          <Select
+            label={`Role for ${displayName}`}
+            labelHidden
+            compact
             value={member.role}
             disabled={busy}
             onChange={(e) => {
               const role = grantable.find((r) => r === e.target.value);
               if (role) onChangeRole(member.user_id, role);
             }}
-            aria-label={`Role for ${displayName}`}
-            data-qa="member-role-select"
-            className="bg-raised/50 border border-line-strong rounded-md px-1.5 py-1 text-xs text-fg-soft focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50 cursor-pointer"
+            dataQa="member-role-select"
+            className="w-28"
           >
             {grantable.map((r) => (
               <option key={r} value={r}>
                 {r.charAt(0).toUpperCase() + r.slice(1)}
               </option>
             ))}
-          </select>
+          </Select>
           <button
             onClick={() => setConfirmRemove(true)}
             disabled={busy}
@@ -231,32 +235,30 @@ export default function MembersPanel({ workspaceId, onClose }: Props) {
           </Button>
         ) : (
           <form onSubmit={handleInvite} className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Mail className="w-4 h-4 text-muted shrink-0" />
-              <input
-                aria-label="Email address to invite"
-                type="email"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="user@example.com"
-                className="flex-1 px-3 py-2 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
-                autoFocus
-                required
-              />
-            </div>
-            <select
-              aria-label="Invite role"
+            <TextInput
+              label="Email address to invite"
+              labelHidden
+              type="email"
+              leading={<Mail className="w-4 h-4" />}
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="user@example.com"
+              autoFocus
+              required
+            />
+            <Select
+              label="Invite role"
+              labelHidden
               value={inviteRole}
               onChange={(e) => {
                 const role = ASSIGNABLE_ROLES.find((r) => r === e.target.value);
                 if (role) setInviteRole(role);
               }}
-              className="w-full px-3 py-2 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
             >
               <option value="member">Member</option>
               <option value="admin">Admin</option>
               <option value="guest">Guest</option>
-            </select>
+            </Select>
             {inviteError && <div className="text-xs text-danger px-1">{inviteError}</div>}
             {inviteResult && <div className="text-xs text-success px-1">{inviteResult}</div>}
             <div className="flex gap-2">

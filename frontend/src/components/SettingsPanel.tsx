@@ -14,6 +14,9 @@ import { toast } from '@/shared/components/Toast';
 import { ErrorLabels, QUERY_KEYS } from '@/shared/constants';
 import { toUserMessage } from '@/lib/errors';
 import { Modal } from '@/shared/components/Modal/Modal';
+import { TextInput } from '@/shared/components/Form/TextInput';
+import { TextArea } from '@/shared/components/Form/TextArea';
+import { Checkbox } from '@/shared/components/Form/Checkbox';
 
 interface Props {
   workspaceId: string;
@@ -190,51 +193,23 @@ export default function SettingsPanel({
             />
           </div>
 
-          <div>
-            <label htmlFor="ws-name" className="block text-sm font-medium text-fg-dim mb-1.5">
-              Workspace name
-            </label>
-            <input
-              id="ws-name"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
-              required
-            />
-          </div>
+          <TextInput label="Workspace name" value={name} onChange={(e) => setName(e.target.value)} required />
 
-          <div>
-            <label htmlFor="ws-description" className="block text-sm font-medium text-fg-dim mb-1.5">
-              Description
-            </label>
-            <textarea
-              id="ws-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              className="w-full px-3 py-2.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
-              placeholder="What is this workspace about?"
-            />
-          </div>
+          <TextArea
+            label="Description"
+            optional
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="What is this workspace about?"
+          />
 
-          <label htmlFor="ws-link-previews" className="flex items-start gap-3 cursor-pointer">
-            <input
-              id="ws-link-previews"
-              type="checkbox"
-              checked={linkPreviews}
-              onChange={(e) => setLinkPreviews(e.target.checked)}
-              data-qa="workspace-link-previews"
-              className="mt-0.5 accent-purple-500"
-            />
-            <span>
-              <span className="block text-sm font-medium text-fg-dim">Link previews</span>
-              <span className="block text-xs text-muted">
-                Show a card with the title and image of pages linked in messages. The server fetches each
-                public page to build it.
-              </span>
-            </span>
-          </label>
+          <Checkbox
+            label="Link previews"
+            description="Show a card with the title and image of pages linked in messages. The server fetches each public page to build it."
+            checked={linkPreviews}
+            onChange={setLinkPreviews}
+            dataQa="workspace-link-previews"
+          />
 
           {error && (
             <div className="text-sm text-danger bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">

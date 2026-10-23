@@ -15,6 +15,7 @@ import {
   type SearchFilters,
 } from '@/features/search/searchFilters';
 import { X, Search } from 'lucide-react';
+import { IconButton } from '@/shared/components/IconButton/IconButton';
 import { displayNameOf } from '@/lib/userHelpers';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
@@ -22,6 +23,7 @@ import { useWorkspaceChannels } from '@/hooks/queries/useWorkspaces';
 import { useConversations } from '@/hooks/queries/useConversations';
 import { toPlainText } from '@/lib/plainText';
 import { formatDateTime } from '@/lib/datetime';
+import { TextInput } from '@/shared/components/Form/TextInput';
 
 interface Props {
   members: WorkspaceMember[];
@@ -161,34 +163,31 @@ export default function SearchPanel({
       <PanelHeader title="Search" icon={<Search className="h-4 w-4 text-muted" />} onClose={onClose} />
 
       <div className="px-3 py-3 border-b border-line/30 space-y-2">
-        <div className="flex items-center gap-2 bg-surface border border-line rounded-lg px-3 py-2">
-          <Search className="w-4 h-4 text-muted shrink-0" />
-          <input
-            ref={inputRef}
-            type="text"
-            value={query}
-            onChange={(e) => apply(e.target.value, false)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') apply(query, true);
-            }}
-            placeholder="Search messages..."
-            aria-label="Search messages"
-            title="Narrow with from:@name in:#channel has:file before:2026-10-01 after: on:"
-            className="flex-1 bg-transparent text-fg placeholder-subtle focus:outline-none text-sm"
-          />
-          {query && (
-            <button
-              aria-label="Clear search"
-              onClick={() => {
-                setQuery('');
-                search('', filters, 0);
-              }}
-              className="text-muted hover:text-fg-dim transition cursor-pointer"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
+        <TextInput
+          label="Search messages"
+          labelHidden
+          ref={inputRef}
+          value={query}
+          onChange={(e) => apply(e.target.value, false)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') apply(query, true);
+          }}
+          placeholder="Search messages..."
+          title="Narrow with from:@name in:#channel has:file before:2026-10-01 after: on:"
+          leading={<Search className="w-4 h-4" />}
+          trailing={
+            query && (
+              <IconButton
+                label="Clear search"
+                icon={<X className="w-3.5 h-3.5" />}
+                onClick={() => {
+                  setQuery('');
+                  search('', filters, 0);
+                }}
+              />
+            )
+          }
+        />
         <SearchFilterBar filters={filters} onChange={changeFilters} context={context} />
       </div>
 

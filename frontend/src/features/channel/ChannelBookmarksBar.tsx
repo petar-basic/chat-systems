@@ -8,6 +8,7 @@ import {
   useDeleteChannelBookmark,
 } from '@/hooks/queries/useChannelBookmarks';
 import { useChannelModeration } from './hooks/useChannelModeration';
+import { TextInput } from '@/shared/components/Form/TextInput';
 
 interface Props {
   channelId: string;
@@ -97,21 +98,26 @@ export default function ChannelBookmarksBar({ channelId, instanceUrl }: Props) {
 
       {adding && (
         <div className="flex items-center gap-1.5 flex-wrap">
-          <input
+          <TextInput
+            label="Bookmark label"
+            labelHidden
+            compact
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             placeholder="Label"
-            aria-label="Bookmark label"
-            data-qa="channel-bookmark-label"
-            className="px-2 py-1 w-32 bg-raised/50 border border-line-strong rounded text-xs text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
+            dataQa="channel-bookmark-label"
+            className="w-32"
           />
-          <input
+          <TextInput
+            label="Bookmark link"
+            labelHidden
+            compact
+            type="url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder="https://…"
-            aria-label="Bookmark link"
-            data-qa="channel-bookmark-url"
-            className="px-2 py-1 w-56 bg-raised/50 border border-line-strong rounded text-xs text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
+            dataQa="channel-bookmark-url"
+            className="w-56"
           />
           <Button
             variant="primary"

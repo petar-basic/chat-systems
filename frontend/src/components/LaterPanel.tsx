@@ -13,6 +13,7 @@ import { displayNameOf } from '@/lib/userHelpers';
 import { useUserCache } from '@/stores/users';
 import { useWorkspaceStore } from '@/stores/workspace';
 import RichTextDisplay from './RichTextDisplay';
+import { TextInput } from '@/shared/components/Form/TextInput';
 
 const TABS: { status: LaterStatus; label: string }[] = [
   { status: 'in_progress', label: 'In progress' },
@@ -85,13 +86,15 @@ export default function LaterPanel({
 
       {status === 'in_progress' && (
         <div className="flex items-center gap-1.5 border-b border-line/40 px-3 py-2">
-          <input
+          <TextInput
+            label="New reminder"
+            labelHidden
+            compact
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Remind me to…"
-            aria-label="New reminder"
-            data-qa="later-new-text"
-            className="min-w-0 flex-1 px-2 py-1.5 bg-raised/50 border border-line-strong rounded text-sm text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
+            dataQa="later-new-text"
+            className="min-w-0 flex-1"
           />
           {text.trim() && (
             <RemindMenu

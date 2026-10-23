@@ -49,6 +49,7 @@ import { useCurrentWorkspaceRole } from '@/features/workspace/hooks/useCurrentWo
 import { useUserCache } from '@/stores/users';
 import { displayNameOf } from '@/lib/userHelpers';
 import { joinReactors, reactorNames, type ReactionGroup } from './reactionSummary';
+import { ConfirmDialog } from '@/shared/components/ConfirmDialog/ConfirmDialog';
 
 interface MessageItemProps {
   message: Message;
@@ -218,9 +219,9 @@ function MessageItem({
   }, [isOwn, message.pending]);
 
   useEffect(() => {
-    if (!editing && !confirmDelete) return;
+    if (!editing) return;
     rowRef.current?.scrollIntoView({ block: 'nearest' });
-  }, [editing, confirmDelete]);
+  }, [editing]);
   const [showOverflow, setShowOverflow] = useState(false);
   const overflowAnchorRef = useRef<HTMLButtonElement>(null);
   // The marker becomes a control only for people entitled to what is behind it;
@@ -334,389 +335,397 @@ function MessageItem({
     ) : null;
 
   return (
-    <div
-      ref={rowRef}
-      data-message-id={message.id}
-      data-message-row
-      data-own={isOwn && !message.pending}
-      data-qa={dataQa}
-      tabIndex={isTabStop ? 0 : -1}
-      onFocus={(e) => {
-        if (e.target === e.currentTarget) focusRow(message.id);
-      }}
-      onKeyDown={handleRowKey}
-      {...longPress}
-      onClick={(e) => {
-        if (!e.altKey || !onMarkUnread || message.pending || editing) return;
-        e.preventDefault();
-        onMarkUnread(message.id);
-      }}
-      className={`group relative flex items-start gap-3 px-2 rounded-lg transition-colors hover:bg-surface/50 focus-visible:outline-none focus-visible:bg-surface/50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500 ${grouped ? 'py-0.5' : 'py-1.5'} ${message.pending ? 'opacity-50' : ''} ${isHighlighted ? 'bg-amber-500/10 ring-1 ring-inset ring-amber-500/25' : ''}`}
-    >
-      {grouped ? (
-        <div className="w-8 shrink-0 flex justify-end pr-0.5">
-          <span className="text-[10px] leading-5 text-muted opacity-0 group-hover:opacity-100 tabular-nums">
-            {time}
-          </span>
-        </div>
-      ) : (
-        <UserHoverCard
-          userId={message.user_id}
-          name={senderName}
-          avatarUrl={senderAvatarUrl}
-          triggerClassName="inline-flex shrink-0 cursor-pointer"
-        >
-          <Avatar userId={message.user_id} name={senderName} avatarUrl={senderAvatarUrl} className="mt-0.5" />
-        </UserHoverCard>
-      )}
-      <div className="flex-1 min-w-0">
-        {!grouped && (
-          <div className="flex items-baseline gap-2">
-            <UserHoverCard userId={message.user_id} name={senderName} avatarUrl={senderAvatarUrl}>
-              <button
-                type="button"
-                data-qa="message-sender"
-                className="text-sm font-semibold text-fg-soft hover:underline cursor-pointer"
-              >
-                {senderName}
-              </button>
-            </UserHoverCard>
-            {senderStatusEmoji && (
-              <span data-qa="message-status-emoji" title={senderStatusText ?? undefined}>
-                {senderStatusEmoji}
-              </span>
-            )}
-            {message.metadata?.bot && (
-              <span
-                data-qa="bot-tag"
-                className="px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-raised text-fg-dim rounded"
-              >
-                Bot
-              </span>
-            )}
-            <span className="text-xs text-muted">{time}</span>
-            {message.pending && <span className="text-xs text-muted italic">Sending…</span>}
-            {editedMarker}
-            {pinnedMarker}
-          </div>
-        )}
-
-        {editing ? (
-          <>
-            <MessageInput
-              key={`edit:${message.id}`}
-              editing
-              allowEmpty={editingAttachments.length > 0}
-              initialContent={message.content}
-              members={members}
-              channels={channels}
-              onSend={handleEditSave}
-              onCancel={finishEditing}
-            />
-            {editingAttachments.length > 0 && (
-              <MessageAttachments
-                attachments={editingAttachments}
-                onRemove={(id) =>
-                  setKeptAttachments((current) =>
-                    (current ?? attachments.map((a) => a.id)).filter((kept) => kept !== id),
-                  )
-                }
-              />
-            )}
-          </>
-        ) : (
-          <>
-            <RichTextDisplay content={message.content} attachments={attachments} />
-            {!message.deleted_at && !!message.metadata?.unfurls?.length && (
-              <LinkPreviews
-                unfurls={message.metadata.unfurls}
-                onHide={
-                  onHidePreviews && message.user_id === currentUserId
-                    ? () => onHidePreviews(message.id)
-                    : undefined
-                }
-                onRefresh={
-                  onRefreshPreviews && message.user_id === currentUserId
-                    ? () => onRefreshPreviews(message.id)
-                    : undefined
-                }
-              />
-            )}
-            {!message.deleted_at &&
-              message.user_id === currentUserId &&
-              !!message.metadata?.app_prompts?.length && (
-                <AppConnectPrompt providers={message.metadata.app_prompts} messageId={message.id} />
-              )}
-            {grouped && (editedMarker || pinnedMarker) && (
-              <div className="flex items-center gap-2">
-                {editedMarker}
-                {pinnedMarker}
-              </div>
-            )}
-          </>
-        )}
-
-        {showHistory && (
-          <EditHistoryPanel
-            messageId={message.id}
-            currentContent={message.content}
-            onClose={() => setShowHistory(false)}
-          />
-        )}
-
-        {message.failed && (
-          <div className="mt-1 flex items-center gap-2 text-xs text-danger" data-qa="message-failed">
-            <span>Failed to send.</span>
-            {onRetry && (
-              <button
-                onClick={() => onRetry(message.id, message.content)}
-                data-qa="message-retry"
-                className="font-semibold text-danger hover:text-danger underline"
-              >
-                Retry
-              </button>
-            )}
-          </div>
-        )}
-
-        {message.reply_count > 0 && onThreadOpen && (
-          <button
-            onClick={() => onThreadOpen(message)}
-            data-qa="message-thread-open"
-            className="mt-1 flex items-center gap-1.5 text-xs text-accent hover:text-accent-soft transition group/thread"
-          >
-            <MessageSquare className="w-3.5 h-3.5" />
-            <span className="font-medium">
-              {message.reply_count} {message.reply_count === 1 ? 'reply' : 'replies'}
+    <>
+      <div
+        ref={rowRef}
+        data-message-id={message.id}
+        data-message-row
+        data-own={isOwn && !message.pending}
+        data-qa={dataQa}
+        tabIndex={isTabStop ? 0 : -1}
+        onFocus={(e) => {
+          if (e.target === e.currentTarget) focusRow(message.id);
+        }}
+        onKeyDown={handleRowKey}
+        {...longPress}
+        onClick={(e) => {
+          if (!e.altKey || !onMarkUnread || message.pending || editing) return;
+          e.preventDefault();
+          onMarkUnread(message.id);
+        }}
+        className={`group relative flex items-start gap-3 px-2 rounded-lg transition-colors hover:bg-surface/50 focus-visible:outline-none focus-visible:bg-surface/50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500 ${grouped ? 'py-0.5' : 'py-1.5'} ${message.pending ? 'opacity-50' : ''} ${isHighlighted ? 'bg-amber-500/10 ring-1 ring-inset ring-amber-500/25' : ''}`}
+      >
+        {grouped ? (
+          <div className="w-8 shrink-0 flex justify-end pr-0.5">
+            <span className="text-[10px] leading-5 text-muted opacity-0 group-hover:opacity-100 tabular-nums">
+              {time}
             </span>
-            <span className="text-muted group-hover/thread:text-accent transition">View thread</span>
-          </button>
+          </div>
+        ) : (
+          <UserHoverCard
+            userId={message.user_id}
+            name={senderName}
+            avatarUrl={senderAvatarUrl}
+            triggerClassName="inline-flex shrink-0 cursor-pointer"
+          >
+            <Avatar
+              userId={message.user_id}
+              name={senderName}
+              avatarUrl={senderAvatarUrl}
+              className="mt-0.5"
+            />
+          </UserHoverCard>
         )}
+        <div className="flex-1 min-w-0">
+          {!grouped && (
+            <div className="flex items-baseline gap-2">
+              <UserHoverCard userId={message.user_id} name={senderName} avatarUrl={senderAvatarUrl}>
+                <button
+                  type="button"
+                  data-qa="message-sender"
+                  className="text-sm font-semibold text-fg-soft hover:underline cursor-pointer"
+                >
+                  {senderName}
+                </button>
+              </UserHoverCard>
+              {senderStatusEmoji && (
+                <span data-qa="message-status-emoji" title={senderStatusText ?? undefined}>
+                  {senderStatusEmoji}
+                </span>
+              )}
+              {message.metadata?.bot && (
+                <span
+                  data-qa="bot-tag"
+                  className="px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-raised text-fg-dim rounded"
+                >
+                  Bot
+                </span>
+              )}
+              <span className="text-xs text-muted">{time}</span>
+              {message.pending && <span className="text-xs text-muted italic">Sending…</span>}
+              {editedMarker}
+              {pinnedMarker}
+            </div>
+          )}
 
-        {reactionGroups.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1">
-            {reactionGroups.map((g) => (
-              <ReactionPill
-                key={g.emoji}
-                group={g}
-                currentUserId={currentUserId}
-                onToggle={handleReactionToggle}
+          {editing ? (
+            <>
+              <MessageInput
+                key={`edit:${message.id}`}
+                editing
+                allowEmpty={editingAttachments.length > 0}
+                initialContent={message.content}
+                members={members}
+                channels={channels}
+                onSend={handleEditSave}
+                onCancel={finishEditing}
               />
-            ))}
-          </div>
-        )}
+              {editingAttachments.length > 0 && (
+                <MessageAttachments
+                  attachments={editingAttachments}
+                  onRemove={(id) =>
+                    setKeptAttachments((current) =>
+                      (current ?? attachments.map((a) => a.id)).filter((kept) => kept !== id),
+                    )
+                  }
+                />
+              )}
+            </>
+          ) : (
+            <>
+              <RichTextDisplay content={message.content} attachments={attachments} />
+              {!message.deleted_at && !!message.metadata?.unfurls?.length && (
+                <LinkPreviews
+                  unfurls={message.metadata.unfurls}
+                  onHide={
+                    onHidePreviews && message.user_id === currentUserId
+                      ? () => onHidePreviews(message.id)
+                      : undefined
+                  }
+                  onRefresh={
+                    onRefreshPreviews && message.user_id === currentUserId
+                      ? () => onRefreshPreviews(message.id)
+                      : undefined
+                  }
+                />
+              )}
+              {!message.deleted_at &&
+                message.user_id === currentUserId &&
+                !!message.metadata?.app_prompts?.length && (
+                  <AppConnectPrompt providers={message.metadata.app_prompts} messageId={message.id} />
+                )}
+              {grouped && (editedMarker || pinnedMarker) && (
+                <div className="flex items-center gap-2">
+                  {editedMarker}
+                  {pinnedMarker}
+                </div>
+              )}
+            </>
+          )}
 
-        {confirmDelete && (
-          <div className="mt-2 flex items-center gap-2 text-xs">
-            <span className="text-danger">Delete this message?</span>
-            <button
-              onClick={async () => {
-                await onDelete(message.id);
-                setConfirmDelete(false);
-              }}
-              data-qa="message-delete-confirm"
-              className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded transition"
-            >
-              Delete
-            </button>
-            <button
-              onClick={() => setConfirmDelete(false)}
-              className="px-2 py-1 text-muted hover:text-fg transition"
-            >
-              Cancel
-            </button>
-          </div>
-        )}
-      </div>
+          {showHistory && (
+            <EditHistoryPanel
+              messageId={message.id}
+              currentContent={message.content}
+              onClose={() => setShowHistory(false)}
+            />
+          )}
 
-      {!editing && !confirmDelete && (
-        <div
-          className={`message-actions absolute -top-3 right-2 flex items-center gap-0.5 bg-surface border border-line rounded-lg px-1 py-0.5 shadow-lg opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto ${
-            showOverflow ? 'opacity-100 pointer-events-auto' : ''
-          }`}
-        >
-          {/* Slack surfaces a few emoji inline because reacting is the most
-              common action in the product, and a picker turns one tap into
-              three. These are the three this instance uses most. */}
-          {QUICK_REACTIONS.map((emoji) => (
-            <button
-              key={emoji}
-              onClick={() => handleReactionToggle(emoji)}
-              aria-label={`React with ${emoji}`}
-              data-qa="message-quick-reaction"
-              className="px-1 py-0.5 text-sm leading-none hover:bg-raised rounded transition"
-            >
-              {emoji}
-            </button>
-          ))}
-          <div className="w-px h-4 bg-raised mx-0.5" />
-          {onThreadOpen && (
+          {message.failed && (
+            <div className="mt-1 flex items-center gap-2 text-xs text-danger" data-qa="message-failed">
+              <span>Failed to send.</span>
+              {onRetry && (
+                <button
+                  onClick={() => onRetry(message.id, message.content)}
+                  data-qa="message-retry"
+                  className="font-semibold text-danger hover:text-danger underline"
+                >
+                  Retry
+                </button>
+              )}
+            </div>
+          )}
+
+          {message.reply_count > 0 && onThreadOpen && (
             <button
               onClick={() => onThreadOpen(message)}
-              aria-label="Reply in thread"
-              data-qa="message-action-thread"
-              className="p-1 text-muted hover:text-fg hover:bg-raised rounded transition"
+              data-qa="message-thread-open"
+              className="mt-1 flex items-center gap-1.5 text-xs text-accent hover:text-accent-soft transition group/thread"
             >
               <MessageSquare className="w-3.5 h-3.5" />
-            </button>
-          )}
-          <div className="relative">
-            <button
-              ref={reactBtnRef}
-              onClick={() => setShowEmojiPicker((v) => !v)}
-              aria-label="Add reaction"
-              data-qa="message-action-react"
-              className="p-1 text-muted hover:text-fg hover:bg-raised rounded transition"
-            >
-              <SmilePlus className="w-3.5 h-3.5" />
-            </button>
-            {showEmojiPicker && (
-              <EmojiPicker
-                anchorRef={reactBtnRef}
-                onSelect={(emoji) => {
-                  handleReactionToggle(emoji);
-                  setShowEmojiPicker(false);
-                }}
-                onClose={() => setShowEmojiPicker(false)}
-              />
-            )}
-          </div>
-          {onSave && (
-            <button
-              onClick={() => (savedItemId ? later.remove.mutate(savedItemId) : onSave(message))}
-              aria-label={savedItemId ? 'Remove from Later' : 'Save for later'}
-              aria-pressed={!!savedItemId}
-              data-qa="message-action-save"
-              className={`p-1 hover:bg-raised rounded transition ${savedItemId ? 'text-accent' : 'text-muted hover:text-accent-soft'}`}
-            >
-              <Bookmark className="w-3.5 h-3.5" fill={savedItemId ? 'currentColor' : 'none'} />
+              <span className="font-medium">
+                {message.reply_count} {message.reply_count === 1 ? 'reply' : 'replies'}
+              </span>
+              <span className="text-muted group-hover/thread:text-accent transition">View thread</span>
             </button>
           )}
 
-          {/* The toolbar sits over the message, so it has to stay short. The
-              four that get used live here; the rest are one click further. */}
-          <div className="relative">
-            <button
-              ref={overflowAnchorRef}
-              onClick={() => setShowOverflow((open) => !open)}
-              aria-label="More actions"
-              aria-expanded={showOverflow}
-              data-qa="message-action-more"
-              className="p-1 text-muted hover:text-fg hover:bg-raised rounded transition"
-            >
-              <MoreHorizontal className="w-3.5 h-3.5" />
-            </button>
-            {showOverflow && (
-              <AnchoredPopover
-                anchorRef={overflowAnchorRef}
-                onClose={() => setShowOverflow(false)}
-                dataQa="message-overflow"
-                className="w-44 bg-surface border border-line rounded-lg shadow-xl py-1"
-              >
-                <button
-                  onClick={() => {
-                    onTogglePin(message.id, message.is_pinned);
-                    setShowOverflow(false);
-                  }}
-                  data-qa="message-action-pin"
-                  className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2"
-                >
-                  <Pin className="w-3.5 h-3.5" /> {message.is_pinned ? 'Unpin' : 'Pin'}
-                </button>
-                {onMarkUnread && !message.pending && (
-                  <button
-                    onClick={() => {
-                      onMarkUnread(message.id);
-                      setShowOverflow(false);
-                    }}
-                    data-qa="message-action-mark-unread"
-                    className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2"
-                  >
-                    <MailOpen className="w-3.5 h-3.5" /> Mark unread
-                  </button>
-                )}
-                {onCopyLink && (
-                  <button
-                    onClick={() => {
-                      onCopyLink(message.id);
-                      setShowOverflow(false);
-                    }}
-                    data-qa="message-action-copy-link"
-                    className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2"
-                  >
-                    <Link2 className="w-3.5 h-3.5" /> Copy link
-                  </button>
-                )}
-                {onSave && (
-                  <div className="border-y border-line/60 py-1" data-qa="message-action-remind">
-                    <div className="px-3 py-1 text-[11px] uppercase tracking-wide text-subtle">
-                      Remind me about this
-                    </div>
-                    {REMIND_PRESETS.map((preset) => (
-                      <button
-                        key={preset.label}
-                        onClick={() => {
-                          later.save.mutate({ messageId: message.id, remindAt: preset.at() });
-                          setShowOverflow(false);
-                        }}
-                        className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised"
-                      >
-                        {preset.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {onForward && (
-                  <button
-                    onClick={() => {
-                      onForward(message);
-                      setShowOverflow(false);
-                    }}
-                    data-qa="message-action-forward"
-                    className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2"
-                  >
-                    <Forward className="w-3.5 h-3.5" /> Forward
-                  </button>
-                )}
-                {isOwn && (
-                  <button
-                    onClick={() => {
-                      setEditing(true);
-                      setShowOverflow(false);
-                    }}
-                    data-qa="message-action-edit"
-                    className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2"
-                  >
-                    <Pencil className="w-3.5 h-3.5" /> Edit
-                  </button>
-                )}
-                {isOwn && (
-                  <button
-                    onClick={() => {
-                      setConfirmDelete(true);
-                      setShowOverflow(false);
-                    }}
-                    data-qa="message-action-delete"
-                    className="w-full px-3 py-1.5 text-left text-sm text-danger hover:bg-raised flex items-center gap-2"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" /> Delete
-                  </button>
-                )}
-              </AnchoredPopover>
-            )}
-          </div>
+          {reactionGroups.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {reactionGroups.map((g) => (
+                <ReactionPill
+                  key={g.emoji}
+                  group={g}
+                  currentUserId={currentUserId}
+                  onToggle={handleReactionToggle}
+                />
+              ))}
+            </div>
+          )}
         </div>
-      )}
 
-      {sheetOpen && (
-        <MessageActionSheet
-          quickReactions={QUICK_REACTIONS}
-          onReact={(emoji) => handleReactionToggle(emoji)}
-          actions={sheetActions}
-          onClose={() => setSheetOpen(false)}
-        />
+        {!editing && !confirmDelete && (
+          <div
+            className={`message-actions absolute -top-3 right-2 flex items-center gap-0.5 bg-surface border border-line rounded-lg px-1 py-0.5 shadow-lg opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto ${
+              showOverflow ? 'opacity-100 pointer-events-auto' : ''
+            }`}
+          >
+            {/* Slack surfaces a few emoji inline because reacting is the most
+              common action in the product, and a picker turns one tap into
+              three. These are the three this instance uses most. */}
+            {QUICK_REACTIONS.map((emoji) => (
+              <button
+                key={emoji}
+                onClick={() => handleReactionToggle(emoji)}
+                aria-label={`React with ${emoji}`}
+                data-qa="message-quick-reaction"
+                className="px-1 py-0.5 text-sm leading-none hover:bg-raised rounded transition"
+              >
+                {emoji}
+              </button>
+            ))}
+            <div className="w-px h-4 bg-raised mx-0.5" />
+            {onThreadOpen && (
+              <button
+                onClick={() => onThreadOpen(message)}
+                aria-label="Reply in thread"
+                data-qa="message-action-thread"
+                className="p-1 text-muted hover:text-fg hover:bg-raised rounded transition"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <div className="relative">
+              <button
+                ref={reactBtnRef}
+                onClick={() => setShowEmojiPicker((v) => !v)}
+                aria-label="Add reaction"
+                data-qa="message-action-react"
+                className="p-1 text-muted hover:text-fg hover:bg-raised rounded transition"
+              >
+                <SmilePlus className="w-3.5 h-3.5" />
+              </button>
+              {showEmojiPicker && (
+                <EmojiPicker
+                  anchorRef={reactBtnRef}
+                  onSelect={(emoji) => {
+                    handleReactionToggle(emoji);
+                    setShowEmojiPicker(false);
+                  }}
+                  onClose={() => setShowEmojiPicker(false)}
+                />
+              )}
+            </div>
+            {onSave && (
+              <button
+                onClick={() => (savedItemId ? later.remove.mutate(savedItemId) : onSave(message))}
+                aria-label={savedItemId ? 'Remove from Later' : 'Save for later'}
+                aria-pressed={!!savedItemId}
+                data-qa="message-action-save"
+                className={`p-1 hover:bg-raised rounded transition ${savedItemId ? 'text-accent' : 'text-muted hover:text-accent-soft'}`}
+              >
+                <Bookmark className="w-3.5 h-3.5" fill={savedItemId ? 'currentColor' : 'none'} />
+              </button>
+            )}
+
+            {/* The toolbar sits over the message, so it has to stay short. The
+              four that get used live here; the rest are one click further. */}
+            <div className="relative">
+              <button
+                ref={overflowAnchorRef}
+                onClick={() => setShowOverflow((open) => !open)}
+                aria-label="More actions"
+                aria-expanded={showOverflow}
+                data-qa="message-action-more"
+                className="p-1 text-muted hover:text-fg hover:bg-raised rounded transition"
+              >
+                <MoreHorizontal className="w-3.5 h-3.5" />
+              </button>
+              {showOverflow && (
+                <AnchoredPopover
+                  anchorRef={overflowAnchorRef}
+                  onClose={() => setShowOverflow(false)}
+                  dataQa="message-overflow"
+                  className="w-44 bg-surface border border-line rounded-lg shadow-xl py-1"
+                >
+                  <button
+                    onClick={() => {
+                      onTogglePin(message.id, message.is_pinned);
+                      setShowOverflow(false);
+                    }}
+                    data-qa="message-action-pin"
+                    className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2"
+                  >
+                    <Pin className="w-3.5 h-3.5" /> {message.is_pinned ? 'Unpin' : 'Pin'}
+                  </button>
+                  {onMarkUnread && !message.pending && (
+                    <button
+                      onClick={() => {
+                        onMarkUnread(message.id);
+                        setShowOverflow(false);
+                      }}
+                      data-qa="message-action-mark-unread"
+                      className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2"
+                    >
+                      <MailOpen className="w-3.5 h-3.5" /> Mark unread
+                    </button>
+                  )}
+                  {onCopyLink && (
+                    <button
+                      onClick={() => {
+                        onCopyLink(message.id);
+                        setShowOverflow(false);
+                      }}
+                      data-qa="message-action-copy-link"
+                      className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2"
+                    >
+                      <Link2 className="w-3.5 h-3.5" /> Copy link
+                    </button>
+                  )}
+                  {onSave && (
+                    <div className="border-y border-line/60 py-1" data-qa="message-action-remind">
+                      <div className="px-3 py-1 text-[11px] uppercase tracking-wide text-subtle">
+                        Remind me about this
+                      </div>
+                      {REMIND_PRESETS.map((preset) => (
+                        <button
+                          key={preset.label}
+                          onClick={() => {
+                            later.save.mutate({ messageId: message.id, remindAt: preset.at() });
+                            setShowOverflow(false);
+                          }}
+                          className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised"
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {onForward && (
+                    <button
+                      onClick={() => {
+                        onForward(message);
+                        setShowOverflow(false);
+                      }}
+                      data-qa="message-action-forward"
+                      className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2"
+                    >
+                      <Forward className="w-3.5 h-3.5" /> Forward
+                    </button>
+                  )}
+                  {isOwn && (
+                    <button
+                      onClick={() => {
+                        setEditing(true);
+                        setShowOverflow(false);
+                      }}
+                      data-qa="message-action-edit"
+                      className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2"
+                    >
+                      <Pencil className="w-3.5 h-3.5" /> Edit
+                    </button>
+                  )}
+                  {isOwn && (
+                    <button
+                      onClick={() => {
+                        setConfirmDelete(true);
+                        setShowOverflow(false);
+                      }}
+                      data-qa="message-action-delete"
+                      className="w-full px-3 py-1.5 text-left text-sm text-danger hover:bg-raised flex items-center gap-2"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Delete
+                    </button>
+                  )}
+                </AnchoredPopover>
+              )}
+            </div>
+          </div>
+        )}
+
+        {sheetOpen && (
+          <MessageActionSheet
+            quickReactions={QUICK_REACTIONS}
+            onReact={(emoji) => handleReactionToggle(emoji)}
+            actions={sheetActions}
+            onClose={() => setSheetOpen(false)}
+          />
+        )}
+      </div>
+      {confirmDelete && (
+        <ConfirmDialog
+          title="Delete message?"
+          description="This can't be undone."
+          confirmLabel="Delete"
+          onConfirm={async () => {
+            await onDelete(message.id);
+          }}
+          onClose={() => setConfirmDelete(false)}
+          dataQa="message-delete"
+        >
+          <div
+            className="rounded-lg border border-line bg-raised/30 px-3 py-2.5"
+            data-qa="message-delete-preview"
+          >
+            <div className="mb-1 flex items-baseline gap-2">
+              <span className="text-sm font-semibold text-fg">{senderName}</span>
+              <span className="text-xs text-muted">{time}</span>
+            </div>
+            <RichTextDisplay content={message.content} attachments={attachments} />
+          </div>
+        </ConfirmDialog>
       )}
-    </div>
+    </>
   );
 }
 

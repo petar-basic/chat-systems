@@ -17,6 +17,7 @@ import { targetLabel } from '@/lib/targetLabel';
 import { toLocalInputValue } from '@/features/messaging/schedulePresets';
 import { useUserCache } from '@/stores/users';
 import { useWorkspaceStore } from '@/stores/workspace';
+import { TextInput } from '@/shared/components/Form/TextInput';
 
 interface Props {
   workspaceId: string;
@@ -106,7 +107,10 @@ function ScheduledRow({
 
       {editingTime !== null && (
         <div className="mt-2">
-          <input
+          <TextInput
+            label="New time"
+            labelHidden
+            compact
             type="datetime-local"
             value={editingTime}
             min={earliest}
@@ -114,9 +118,7 @@ function ScheduledRow({
               setEditingTime(e.target.value);
               setError(null);
             }}
-            aria-label="New time"
-            data-qa="scheduled-reschedule-input"
-            className="w-full px-2 py-1.5 bg-raised/50 border border-line-strong rounded text-sm text-fg focus:outline-none focus:ring-2 focus:ring-purple-500 [color-scheme:dark]"
+            dataQa="scheduled-reschedule-input"
           />
           {error && (
             <p className="mt-1 text-[11px] text-danger" data-qa="scheduled-reschedule-error">
