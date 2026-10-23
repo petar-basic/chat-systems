@@ -67,7 +67,7 @@ export default function ConversationView({
 
   return (
     <FileDropZone className="flex-1 flex min-w-0" onFiles={attachments.add}>
-      <div role="main" aria-label="Direct message" className="flex-1 flex flex-col min-w-0">
+      <div role="main" aria-label="Direct message" className="flex-1 flex flex-col min-w-0" data-message-pane>
         <ConnectionBanner instanceUrl={instanceUrl} />
         <div className="h-12 px-4 flex items-center gap-3 border-b border-line/50 shrink-0">
           {onOpenNav && (

@@ -32,6 +32,15 @@ import { AppConnectPrompt } from './AppConnectPrompt';
 /// the message it belongs to.
 const QUICK_REACTIONS = ['👍', '✅', '🎉'];
 import MessageInput from './MessageInput';
+import {
+  EDIT_MESSAGE_EVENT,
+  focusComposer,
+  messageKeyAction,
+  moveFocus,
+  stepMessage,
+  type MessageKeyAction,
+} from './messageKeys';
+import { useIsTabStop, useRovingFocus } from './rovingFocus';
 import { useLaterActions, useSavedItemId } from '@/hooks/queries/useLater';
 import { REMIND_PRESETS } from './schedulePresets';
 import { useWorkspaceStore } from '@/stores/workspace';
@@ -126,6 +135,8 @@ function MessageItem({
   const isEdited = message.updated_at !== message.created_at;
   const [showHistory, setShowHistory] = useState(false);
   const rowRef = useRef<HTMLDivElement>(null);
+  const isTabStop = useIsTabStop(message.id);
+  const focusRow = useRovingFocus();
   const [sheetOpen, setSheetOpen] = useState(false);
   const longPress = useLongPress(() => setSheetOpen(true), !editing && !confirmDelete);
 
@@ -196,6 +207,17 @@ function MessageItem({
   ];
 
   useEffect(() => {
+    const row = rowRef.current;
+    if (!row || !isOwn || message.pending) return undefined;
+    const onEdit = (event: Event) => {
+      event.preventDefault();
+      setEditing(true);
+    };
+    row.addEventListener(EDIT_MESSAGE_EVENT, onEdit);
+    return () => row.removeEventListener(EDIT_MESSAGE_EVENT, onEdit);
+  }, [isOwn, message.pending]);
+
+  useEffect(() => {
     if (!editing && !confirmDelete) return;
     rowRef.current?.scrollIntoView({ block: 'nearest' });
   }, [editing, confirmDelete]);
@@ -220,12 +242,49 @@ function MessageItem({
   const attachments = message.metadata?.attachments ?? [];
   const editingAttachments = attachments.filter((a) => keptAttachments?.includes(a.id) ?? true);
 
+  const finishEditing = () => {
+    const row = rowRef.current;
+    if (row?.contains(document.activeElement)) focusComposer(row);
+    setEditing(false);
+    setKeptAttachments(null);
+  };
+
   const handleEditSave = async (content: string) => {
     const kept =
       keptAttachments && keptAttachments.length !== attachments.length ? keptAttachments : undefined;
     await onEdit(message.id, content, kept);
-    setEditing(false);
-    setKeptAttachments(null);
+    finishEditing();
+  };
+
+  const keyHandlers: Partial<Record<MessageKeyAction, () => void>> = {
+    edit: isOwn && !message.pending ? () => setEditing(true) : undefined,
+    thread: onThreadOpen ? () => onThreadOpen(message) : undefined,
+    react: () => setShowEmojiPicker(true),
+    later: onSave
+      ? () => {
+          if (savedItemId) later.remove.mutate(savedItemId);
+          else onSave(message);
+        }
+      : undefined,
+    pin: message.pending ? undefined : () => onTogglePin(message.id, message.is_pinned),
+  };
+
+  const handleRowKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget || editing || e.nativeEvent.isComposing) return;
+    const row = e.currentTarget;
+    const action = messageKeyAction(e);
+    if (!action) return;
+    let handled: boolean;
+    if (action === 'previous' || action === 'next') {
+      handled = moveFocus(stepMessage(row, action === 'next' ? 1 : -1));
+    } else if (action === 'composer') {
+      handled = focusComposer(row);
+    } else {
+      const handler = keyHandlers[action];
+      handler?.();
+      handled = !!handler;
+    }
+    if (handled) e.preventDefault();
   };
 
   const handleReactionToggle = (emoji: string) => {
@@ -278,15 +337,21 @@ function MessageItem({
     <div
       ref={rowRef}
       data-message-id={message.id}
+      data-message-row
+      data-own={isOwn && !message.pending}
       data-qa={dataQa}
-      tabIndex={0}
+      tabIndex={isTabStop ? 0 : -1}
+      onFocus={(e) => {
+        if (e.target === e.currentTarget) focusRow(message.id);
+      }}
+      onKeyDown={handleRowKey}
       {...longPress}
       onClick={(e) => {
         if (!e.altKey || !onMarkUnread || message.pending || editing) return;
         e.preventDefault();
         onMarkUnread(message.id);
       }}
-      className={`group relative flex items-start gap-3 px-2 rounded-lg transition-colors hover:bg-surface/50 ${grouped ? 'py-0.5' : 'py-1.5'} ${message.pending ? 'opacity-50' : ''} ${isHighlighted ? 'bg-amber-500/10 ring-1 ring-inset ring-amber-500/25' : ''}`}
+      className={`group relative flex items-start gap-3 px-2 rounded-lg transition-colors hover:bg-surface/50 focus-visible:outline-none focus-visible:bg-surface/50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500 ${grouped ? 'py-0.5' : 'py-1.5'} ${message.pending ? 'opacity-50' : ''} ${isHighlighted ? 'bg-amber-500/10 ring-1 ring-inset ring-amber-500/25' : ''}`}
     >
       {grouped ? (
         <div className="w-8 shrink-0 flex justify-end pr-0.5">
@@ -346,10 +411,7 @@ function MessageItem({
               members={members}
               channels={channels}
               onSend={handleEditSave}
-              onCancel={() => {
-                setEditing(false);
-                setKeptAttachments(null);
-              }}
+              onCancel={finishEditing}
             />
             {editingAttachments.length > 0 && (
               <MessageAttachments

@@ -3,7 +3,7 @@ import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { ROUTES, EmptyLabels } from '@/shared/constants';
 import { ConnectionBanner } from '@/shared/components/ConnectionBanner/ConnectionBanner';
 import InstallAppBanner from '@/components/InstallAppBanner';
-import { QuickSwitcher } from '@/features/navigation';
+import { QuickSwitcher, KeyboardShortcutsDialog } from '@/features/navigation';
 import { WorkspaceSidebar, WorkspaceRightPanels, useWorkspaceController } from '@/features/workspace';
 import { ChannelSidebar, ChannelHeader, ChannelBookmarksBar } from '@/features/channel';
 import { MessageList, MessageInput } from '@/features/messaging';
@@ -131,7 +131,7 @@ export default function WorkspacePage() {
             disabled={!currentChannel || !canPost}
             onFiles={c.attachments.add}
           >
-            <main className="flex-1 flex flex-col min-w-0" aria-label="Conversation">
+            <main className="flex-1 flex flex-col min-w-0" aria-label="Conversation" data-message-pane>
               <ConnectionBanner instanceUrl={currentWorkspace?.instanceUrl} />
               {currentWorkspace?.deleted_at && (
                 <div className="bg-yellow-500/10 border-b border-yellow-500/30 px-4 py-2 flex items-center justify-between shrink-0">
@@ -286,6 +286,8 @@ export default function WorkspacePage() {
             onClose={() => c.setQuickSwitcherOpen(false)}
           />
         )}
+
+        {c.shortcutsOpen && <KeyboardShortcutsDialog onClose={() => c.setShortcutsOpen(false)} />}
       </div>
     </div>
   );

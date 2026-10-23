@@ -832,6 +832,53 @@ async fn mark_read_no_token_unauthorized(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
+#[test_macros::db_test(migrations = "../migrations")]
+async fn mark_workspace_read_clears_every_channel(pool: PgPool) {
+    let (app, state, owner, token, ws_id, ch_id) = setup_channel(pool).await;
+    let (colleague, colleague_token) = colleague_in_channel(&app, &state, ws_id, ch_id).await;
+    let other = seed_channel(&state, ws_id, owner, "elsewhere", false).await;
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(other, colleague, &ChannelRole::Member)
+        .await
+        .expect("add channel member");
+    create_message(&app, &colleague_token, ch_id, "one").await;
+    create_message(&app, &colleague_token, other, "two").await;
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/read"),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+
+    let (status, body) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws_id}/channels/unread"),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(body["channel_ids"], json!([]));
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn mark_workspace_read_access(pool: PgPool) {
+    let (app, state, _owner, _token, ws_id, _ch_id) = setup_channel(pool).await;
+    let (_outsider, _email, outsider_token) = seed_and_login(&app, &state, "outsider", false).await;
+    let path = format!("/api/workspaces/{ws_id}/read");
+    let (status, _) = send(&app, "POST", &path, Some(&outsider_token), None).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let (status, _) = send(&app, "POST", &path, None, None).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+}
+
 async fn colleague_in_channel(
     app: &axum::Router,
     state: &crate::state::AppState,

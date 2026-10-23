@@ -819,6 +819,45 @@ impl MessageRepo {
         Ok(())
     }
 
+    pub async fn mark_workspace_read(
+        &self,
+        workspace_id: Uuid,
+        user_id: Uuid,
+    ) -> sqlx::Result<Vec<ReadState>> {
+        sqlx::query_as!(
+            ReadState,
+            r#"
+            WITH newest AS (
+                SELECT cm.channel_id,
+                       (SELECT m.id FROM messages m
+                         WHERE m.channel_id = cm.channel_id AND m.deleted_at IS NULL
+                         ORDER BY m.created_at DESC, m.id DESC
+                         LIMIT 1) AS message_id
+                  FROM channel_members cm
+                  JOIN channels c ON c.id = cm.channel_id
+                 WHERE cm.user_id = $2
+                   AND c.workspace_id = $1
+                   AND (cm.unread_count > 0 OR cm.mention_count > 0)
+            )
+            UPDATE channel_members cm
+               SET last_read_at = NOW(),
+                   last_read_msg = n.message_id,
+                   last_read_message_id = n.message_id,
+                   unread_count = 0,
+                   mention_count = 0
+              FROM newest n
+             WHERE cm.channel_id = n.channel_id
+               AND cm.user_id = $2
+               AND n.message_id IS NOT NULL
+            RETURNING cm.channel_id, cm.unread_count AS "unread_count!", cm.mention_count AS "mention_count!", cm.last_read_message_id
+            "#,
+            workspace_id,
+            user_id
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
     pub async fn mark_unread(
         &self,
         channel_id: Uuid,

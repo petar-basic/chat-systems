@@ -60,6 +60,10 @@ export function SidebarChannelRow({
     >
       <button
         onClick={() => onSelect(channel)}
+        data-nav-item
+        data-nav-active={active}
+        data-nav-unread={showUnread}
+        aria-current={active ? 'page' : undefined}
         className={`flex-1 min-w-0 px-3 py-1.5 flex items-center gap-2 text-sm transition ${
           active
             ? 'bg-purple-600/20 text-fg'

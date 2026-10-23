@@ -45,6 +45,10 @@ export function ConversationRow({
       onClick={() => onSelect(conversation.id)}
       data-qa="conversation-row"
       data-conversation-id={conversation.id}
+      data-nav-item
+      data-nav-active={isActive}
+      data-nav-unread={isUnread}
+      aria-current={isActive ? 'page' : undefined}
       className={`w-full px-3 py-1.5 flex items-center gap-2 text-sm transition cursor-pointer ${
         isActive
           ? 'bg-purple-600/20 text-fg'

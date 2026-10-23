@@ -5,6 +5,7 @@ export const ErrorLabels = {
   HidePreviewFailed: "Couldn't remove the preview",
   MarkUnreadFailed: "Couldn't mark the message unread",
   MarkReadFailed: "Couldn't mark the channel read",
+  MarkAllReadFailed: "Couldn't mark everything read",
   SidebarSaveFailed: "Couldn't save your sidebar",
   AppSaveFailed: "Couldn't save the app",
   LaterFailed: "Couldn't update Later",
@@ -44,6 +45,7 @@ export const ActionLabels = {
   Retry: 'Retry',
   Cancel: 'Cancel',
   MarkAllRead: 'Mark all read',
+  MarkedAllRead: 'Everything is marked read',
   CreateChannel: 'Create channel',
   LinkCopied: 'Link copied to clipboard',
 } as const;
