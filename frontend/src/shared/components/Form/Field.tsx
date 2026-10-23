@@ -37,7 +37,12 @@ export function Field({
       <div className={labelHidden ? 'sr-only' : 'mb-1.5 flex items-baseline justify-between gap-3'}>
         <label htmlFor={id} className="text-sm font-medium text-fg-dim">
           {label}
-          {optional && <span className="font-normal text-muted"> (optional)</span>}
+          {optional && (
+            <>
+              {' '}
+              <span className="font-normal text-muted">(optional)</span>
+            </>
+          )}
         </label>
         {count && !labelHidden && (
           <span className={`text-xs tabular-nums ${over ? 'text-danger' : 'text-muted'}`} aria-hidden>

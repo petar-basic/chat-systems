@@ -99,8 +99,8 @@ describe('RadioCards', () => {
         value="public"
         onChange={onChange}
         options={[
-          { value: 'public', label: 'Public' },
-          { value: 'private', label: 'Private' },
+          { value: 'public', label: 'Public', description: 'Anyone can join' },
+          { value: 'private', label: 'Private', description: 'Invite only' },
         ]}
       />,
     );
@@ -109,6 +109,7 @@ describe('RadioCards', () => {
     expect(group).toContainElement(radios[0]);
     expect(new Set(radios.map((r) => r.getAttribute('name'))).size).toBe(1);
     expect(screen.getByRole('radio', { name: 'Public' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Private' })).toHaveAccessibleDescription('Invite only');
     fireEvent.click(screen.getByRole('radio', { name: 'Private' }));
     expect(onChange).toHaveBeenCalledWith('private');
   });

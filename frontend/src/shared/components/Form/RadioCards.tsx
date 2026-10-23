@@ -34,6 +34,7 @@ export function RadioCards<T extends string>({
       <div className={`grid gap-2 ${columns === 2 ? 'sm:grid-cols-2' : ''}`}>
         {options.map((option) => {
           const checked = option.value === value;
+          const optionId = `${name}-${option.value}`;
           return (
             <label
               key={option.value}
@@ -48,6 +49,8 @@ export function RadioCards<T extends string>({
                 value={option.value}
                 checked={checked}
                 onChange={() => onChange(option.value)}
+                aria-labelledby={`${optionId}-label`}
+                aria-describedby={option.description ? `${optionId}-description` : undefined}
                 className="sr-only"
               />
               {option.icon && (
@@ -56,9 +59,13 @@ export function RadioCards<T extends string>({
                 </span>
               )}
               <span className="min-w-0">
-                <span className="block text-sm font-medium text-fg">{option.label}</span>
+                <span id={`${optionId}-label`} className="block text-sm font-medium text-fg">
+                  {option.label}
+                </span>
                 {option.description && (
-                  <span className="mt-0.5 block text-xs text-muted">{option.description}</span>
+                  <span id={`${optionId}-description`} className="mt-0.5 block text-xs text-muted">
+                    {option.description}
+                  </span>
                 )}
               </span>
             </label>

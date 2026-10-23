@@ -33,6 +33,7 @@ export function Checkbox({
           type="checkbox"
           checked={checked}
           disabled={disabled}
+          aria-labelledby={`${id}-label`}
           aria-describedby={description ? `${id}-description` : undefined}
           onChange={(e) => onChange(e.target.checked)}
           className="peer h-4 w-4 cursor-[inherit] appearance-none rounded border border-line-strong bg-raised/50 transition checked:border-purple-600 checked:bg-purple-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
@@ -43,7 +44,9 @@ export function Checkbox({
         />
       </span>
       <span className="min-w-0">
-        <span className="block text-sm font-medium text-fg-dim">{label}</span>
+        <span id={`${id}-label`} className="block text-sm font-medium text-fg-dim">
+          {label}
+        </span>
         {description && (
           <span id={`${id}-description`} className="block text-xs text-muted">
             {description}
