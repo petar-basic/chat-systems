@@ -283,6 +283,27 @@ pub fn validate_status_emoji(emoji: &str) -> AppResult<()> {
     Ok(())
 }
 
+pub fn validate_notification_keyword(keyword: &str) -> AppResult<()> {
+    let trimmed = keyword.trim();
+    let length = trimmed.chars().count();
+    if !(2..=64).contains(&length) {
+        return Err(AppError::Validation(
+            "A keyword must be 2 to 64 characters".into(),
+        ));
+    }
+    if trimmed.starts_with('@') || trimmed.starts_with('#') {
+        return Err(AppError::Validation(
+            "A keyword cannot start with @ or #".into(),
+        ));
+    }
+    if trimmed.chars().any(char::is_control) {
+        return Err(AppError::Validation(
+            "A keyword cannot contain control characters".into(),
+        ));
+    }
+    Ok(())
+}
+
 pub mod rules {
     use super::*;
 
@@ -317,6 +338,7 @@ pub mod rules {
     rule!(timezone, validate_timezone);
     rule!(bookmark_label, validate_bookmark_label);
     rule!(bookmark_url, validate_bookmark_url);
+    rule!(notification_keyword, validate_notification_keyword);
 
     pub fn avatar_url_or_empty(value: &str, _: &()) -> garde::Result {
         if value.is_empty() {

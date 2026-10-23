@@ -5076,6 +5076,74 @@
         }
       }
     },
+    "/workspaces/{ws_id}/notification-keywords": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "operationId": "get_keywords",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeywordList"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "notifications"
+        ],
+        "operationId": "set_keywords",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetKeywordsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeywordList"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workspaces/{ws_id}/notifications": {
       "get": {
         "tags": [
@@ -9616,6 +9684,20 @@
           }
         }
       },
+      "KeywordList": {
+        "type": "object",
+        "required": [
+          "keywords"
+        ],
+        "properties": {
+          "keywords": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "LaterCreated": {
         "type": "object",
         "required": [
@@ -10127,7 +10209,8 @@
           "reaction",
           "call",
           "reminder",
-          "system"
+          "system",
+          "keyword"
         ]
       },
       "NotifyDefault": {
@@ -10560,6 +10643,20 @@
               "null"
             ],
             "format": "date-time"
+          }
+        }
+      },
+      "SetKeywordsRequest": {
+        "type": "object",
+        "required": [
+          "keywords"
+        ],
+        "properties": {
+          "keywords": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },

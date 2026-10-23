@@ -8,6 +8,7 @@ import { useCurrentUser } from '@/hooks/queries/useAuth';
 import type { CustomEmoji } from '@/hooks/queries/useCustomEmoji';
 import { useCustomEmojiStore } from '@/stores/customEmoji';
 import { useUserGroupStore } from '@/stores/userGroups';
+import { useKeywordStore } from '@/stores/keywords';
 
 interface Props {
   content: string;
@@ -19,6 +20,7 @@ interface RenderContext {
   mentions: MentionRef[];
   emoji: Map<string, CustomEmoji>;
   selfGroupIds: Set<string>;
+  keywords: string[];
 }
 
 function renderUnicodeEmoji(text: string, key: string): ReactNode {
@@ -55,11 +57,15 @@ function renderPlain(text: string, ctx: RenderContext, key: string): ReactNode {
 }
 
 function renderText(text: string, ctx: RenderContext, key: string): ReactNode {
-  const spans = highlightMentions(text, ctx.selfId, ctx.mentions, ctx.selfGroupIds);
+  const spans = highlightMentions(text, ctx.selfId, ctx.mentions, ctx.selfGroupIds, ctx.keywords);
   if (spans.length === 1 && spans[0].mention === null) return renderPlain(spans[0].text, ctx, key);
   return spans.map((span, i) =>
     span.mention === null ? (
       <span key={`${key}-${i}`}>{renderPlain(span.text, ctx, `${key}-${i}`)}</span>
+    ) : span.mention === 'keyword' ? (
+      <mark key={`${key}-${i}`} className="keyword-match" data-qa="keyword-match">
+        {renderPlain(span.text, ctx, `${key}-${i}`)}
+      </mark>
     ) : (
       <span key={`${key}-${i}`} className={`mention mention-${span.mention}`}>
         {span.text}
@@ -134,13 +140,14 @@ function MessageContent({ content, className }: Props) {
 
   const emoji = useCustomEmojiStore((s) => s.byName);
   const selfGroupIds = useUserGroupStore((s) => s.selfGroupIds);
+  const keywords = useKeywordStore((s) => s.folded);
 
   const nodes = useMemo(() => parseMessage(flattenMentions(content)), [content]);
   const mentions = useMemo(() => parseMentions(content), [content]);
 
   const rendered = useMemo(
-    () => renderNodes(nodes, { selfId, mentions, emoji, selfGroupIds }, 'n'),
-    [nodes, selfId, mentions, emoji, selfGroupIds],
+    () => renderNodes(nodes, { selfId, mentions, emoji, selfGroupIds, keywords }, 'n'),
+    [nodes, selfId, mentions, emoji, selfGroupIds, keywords],
   );
 
   const jumbo = useMemo(() => isJumboEmoji(content, emoji), [content, emoji]);

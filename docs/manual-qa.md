@@ -244,6 +244,13 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 - 🟢 **DMs:** A sends B a DM without an `@` while B has no session open → B's phone gets it (title = A's name) and Activity has a DM row; with no push device it is in the next email digest as "a direct message". Under DND only the Activity row appears.
 - 🟠 **Edge:** a mention of somebody who is not in the channel notifies nobody. `PUT /api/channels/<id>/notify-level` as a non-member → **403**.
 
+### 8.3 🟢 Keyword notifications
+- **Steps:** as B, *Preferences → Notifications → My keywords* → type `deploy`, Enter (and `c++`, comma). A writes "Deploy!" in a channel B is in, while B is elsewhere or offline.
+- **Expected:** one Activity row "Matched "deploy" in #channel" with a tag icon, a push when B has no session, a desktop notification when B has one. The word is highlighted in the message for B only. The sidebar mention badge does not change (intended).
+- 🟢 **Matching:** "deploý" notifies; "redeployed" does not; "C++" matches `c++` literally.
+- 🟢 **One per message:** "@B can you deploy?" gives one mention, not a mention and a keyword.
+- 🟠 **Edge:** a channel on *Nothing* or muted never notifies for keywords; nor does a private channel B is not in, nor A's own keyword in A's message. `Deplóy` next to `deploy` is refused as a duplicate; a 51st keyword, `a`, `@ana` and `#general` are refused.
+
 ---
 
 ## 9. Realtime (presence, typing, live delivery)

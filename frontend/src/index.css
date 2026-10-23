@@ -312,6 +312,12 @@
   color: var(--mention-self-fg);
 }
 
+.tiptap-content .keyword-match {
+  background: var(--mention-self-bg);
+  color: inherit;
+  border-radius: 2px;
+}
+
 /* ── Editor (input) specific ──────────────────────────────────── */
 .tiptap-editor .tiptap {
   outline: none;

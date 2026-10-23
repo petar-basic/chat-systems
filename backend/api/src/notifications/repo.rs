@@ -221,6 +221,70 @@ impl NotificationRepo {
         Ok(())
     }
 
+    pub async fn keywords(&self, workspace_id: Uuid, user_id: Uuid) -> sqlx::Result<Vec<String>> {
+        sqlx::query_scalar!(
+            "SELECT keyword FROM notification_keywords
+              WHERE workspace_id = $1 AND user_id = $2
+              ORDER BY position",
+            workspace_id,
+            user_id
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn set_keywords(
+        &self,
+        workspace_id: Uuid,
+        user_id: Uuid,
+        keywords: &[String],
+    ) -> sqlx::Result<Vec<String>> {
+        let mut tx = self.pool.begin().await?;
+        sqlx::query!(
+            "DELETE FROM notification_keywords WHERE workspace_id = $1 AND user_id = $2",
+            workspace_id,
+            user_id
+        )
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query!(
+            r#"INSERT INTO notification_keywords (user_id, workspace_id, keyword, normalized, position)
+               SELECT $2, $1, btrim(t.k), lower(public.search_normalize(btrim(t.k))), t.ord::int
+                 FROM unnest($3::text[]) WITH ORDINALITY AS t(k, ord)
+               ON CONFLICT DO NOTHING"#,
+            workspace_id,
+            user_id,
+            keywords
+        )
+        .execute(&mut *tx)
+        .await?;
+        tx.commit().await?;
+        self.keywords(workspace_id, user_id).await
+    }
+
+    pub async fn keyword_matches(
+        &self,
+        channel_id: Uuid,
+        author_id: Uuid,
+        content: &str,
+    ) -> sqlx::Result<Vec<KeywordMatch>> {
+        sqlx::query_as!(
+            KeywordMatch,
+            r#"SELECT DISTINCT ON (k.user_id) k.user_id AS "user_id!", k.keyword AS "keyword!"
+                 FROM notification_keywords k
+                 JOIN channels c ON c.id = $1 AND c.workspace_id = k.workspace_id
+                 JOIN channel_members cm ON cm.channel_id = c.id AND cm.user_id = k.user_id
+                WHERE k.user_id <> $2
+                  AND lower(public.search_normalize($3::text)) ~ public.keyword_pattern(k.normalized)
+                ORDER BY k.user_id, k.position"#,
+            channel_id,
+            author_id,
+            content
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
     pub async fn unread_count(&self, user_id: Uuid, workspace_id: Uuid) -> sqlx::Result<i64> {
         sqlx::query_scalar!(
             r#"SELECT COUNT(*) AS "count!" FROM notifications WHERE user_id = $1 AND workspace_id = $2 AND is_read = false"#,

@@ -1807,6 +1807,22 @@ export interface paths {
         patch: operations["update_member_role"];
         trace?: never;
     };
+    "/workspaces/{ws_id}/notification-keywords": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_keywords"];
+        put: operations["set_keywords"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{ws_id}/notifications": {
         parameters: {
             query?: never;
@@ -3127,6 +3143,9 @@ export interface components {
             command: string;
             text?: string;
         };
+        KeywordList: {
+            keywords: string[];
+        };
         LaterCreated: {
             /** Format: uuid */
             id: string;
@@ -3269,7 +3288,7 @@ export interface components {
             workspace_id: string;
         };
         /** @enum {string} */
-        NotificationType: "mention" | "dm" | "reply" | "reaction" | "call" | "reminder" | "system";
+        NotificationType: "mention" | "dm" | "reply" | "reaction" | "call" | "reminder" | "system" | "keyword";
         NotifyDefault: {
             notify_default: components["schemas"]["NotifyLevel"];
         };
@@ -3409,6 +3428,9 @@ export interface components {
         SetDndRequest: {
             /** Format: date-time */
             dnd_until?: string | null;
+        };
+        SetKeywordsRequest: {
+            keywords: string[];
         };
         SetNotifyDefaultRequest: {
             level: components["schemas"]["NotifyLevel"];
@@ -6906,6 +6928,52 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkspaceMember"];
+                };
+            };
+        };
+    };
+    get_keywords: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KeywordList"];
+                };
+            };
+        };
+    };
+    set_keywords: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetKeywordsRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KeywordList"];
                 };
             };
         };

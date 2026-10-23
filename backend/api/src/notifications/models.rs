@@ -14,6 +14,7 @@ pub enum NotificationType {
     Call,
     Reminder,
     System,
+    Keyword,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, sqlx::Type, PartialEq, Eq, ToSchema)]
@@ -101,4 +102,24 @@ pub struct Recipient {
     pub level: NotifyLevel,
     pub muted: bool,
     pub direct: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct KeywordMatch {
+    pub user_id: Uuid,
+    pub keyword: String,
+}
+
+#[derive(Debug, Deserialize, garde::Validate, ToSchema)]
+pub struct SetKeywordsRequest {
+    #[garde(
+        length(max = 50),
+        inner(custom(shared_common::validation::rules::notification_keyword))
+    )]
+    pub keywords: Vec<String>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct KeywordList {
+    pub keywords: Vec<String>,
 }

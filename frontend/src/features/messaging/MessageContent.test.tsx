@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render } from '@testing-library/react';
 import MessageContent from './MessageContent';
+import { useKeywordStore } from '@/stores/keywords';
 
 const SELF_ID = 'user-self';
 
@@ -101,5 +102,18 @@ describe('MessageContent', () => {
     expect(container.querySelector('.mention-other')).toHaveTextContent('@frontend');
 
     useUserGroupStore.getState().populate([]);
+  });
+
+  it('marks a listed keyword without making it a mention', () => {
+    useKeywordStore.getState().populate(['deploy', 'C++']);
+    const root = renderContent('**Deploy!** then we redeployed @[Ana](user-ana) with C++');
+    const marks = [...root.querySelectorAll('[data-qa="keyword-match"]')].map((m) => m.textContent);
+    expect(marks).toEqual(['Deploy', 'C++']);
+    expect(root.querySelector('.mention')).toHaveTextContent('@Ana');
+    useKeywordStore.getState().populate([]);
+  });
+
+  it('marks nothing for somebody with no keywords', () => {
+    expect(renderContent('deploy now').querySelector('[data-qa="keyword-match"]')).toBeNull();
   });
 });

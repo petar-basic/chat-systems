@@ -557,3 +557,135 @@ async fn the_workspace_default_is_per_member_and_drives_the_effective_level(pool
     let (status, _) = send(&app, "PUT", &route, None, Some(json!({ "level": "all" }))).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn keywords_are_one_list_replaced_whole(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (uid, _email, token) = seed_and_login(&app, &state, "keyword-owner", false).await;
+    let ws = seed_workspace(&state, uid, "Keyword WS").await;
+    let route = format!("/api/workspaces/{ws}/notification-keywords");
+
+    let (status, body) = send(&app, "GET", &route, Some(&token), None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body, json!({ "keywords": [] }));
+
+    let (status, body) = send(
+        &app,
+        "PUT",
+        &route,
+        Some(&token),
+        Some(json!({ "keywords": ["deploy", " outage ", "Deploy", "Čačak", "cacak", "on call"] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(
+        body,
+        json!({ "keywords": ["deploy", "outage", "Čačak", "on call"] }),
+        "a keyword that normalizes to one already listed is the same keyword"
+    );
+
+    let (_, body) = send(&app, "GET", &route, Some(&token), None).await;
+    assert_eq!(
+        body,
+        json!({ "keywords": ["deploy", "outage", "Čačak", "on call"] })
+    );
+
+    let (status, body) = send(
+        &app,
+        "PUT",
+        &route,
+        Some(&token),
+        Some(json!({ "keywords": ["incident"] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body, json!({ "keywords": ["incident"] }));
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_keyword_list_is_refused_whole_when_one_keyword_is_wrong(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (uid, _email, token) = seed_and_login(&app, &state, "keyword-strict", false).await;
+    let ws = seed_workspace(&state, uid, "Strict WS").await;
+    let route = format!("/api/workspaces/{ws}/notification-keywords");
+    send(
+        &app,
+        "PUT",
+        &route,
+        Some(&token),
+        Some(json!({ "keywords": ["deploy"] })),
+    )
+    .await;
+
+    let too_many: Vec<String> = (0..51).map(|i| format!("word{i}")).collect();
+    for keywords in [
+        json!(["deploy", "a"]),
+        json!(["@ana"]),
+        json!(["#general"]),
+        json!(["x".repeat(65)]),
+        json!(too_many),
+    ] {
+        let (status, _) = send(
+            &app,
+            "PUT",
+            &route,
+            Some(&token),
+            Some(json!({ "keywords": keywords })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{keywords}");
+    }
+
+    let (_, body) = send(&app, "GET", &route, Some(&token), None).await;
+    assert_eq!(
+        body,
+        json!({ "keywords": ["deploy"] }),
+        "nothing was replaced"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn keywords_belong_to_a_member_of_the_workspace(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (uid, _email, token) = seed_and_login(&app, &state, "keyword-member", false).await;
+    let (guest, _email, guest_token) = seed_and_login(&app, &state, "keyword-guest", false).await;
+    let (_outsider, _email, outsider_token) =
+        seed_and_login(&app, &state, "keyword-outsider", false).await;
+    let ws = seed_workspace(&state, uid, "Members WS").await;
+    add_ws_member(&state, ws, guest, "guest").await;
+    let route = format!("/api/workspaces/{ws}/notification-keywords");
+    let body = json!({ "keywords": ["deploy"] });
+
+    let (status, _) = send(&app, "PUT", &route, Some(&token), Some(body.clone())).await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, mine) = send(
+        &app,
+        "PUT",
+        &route,
+        Some(&guest_token),
+        Some(json!({ "keywords": ["outage"] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "a guest keeps their own list");
+    assert_eq!(mine, json!({ "keywords": ["outage"] }));
+    let (_, theirs) = send(&app, "GET", &route, Some(&token), None).await;
+    assert_eq!(
+        theirs,
+        json!({ "keywords": ["deploy"] }),
+        "and it is theirs alone"
+    );
+
+    let (status, _) = send(&app, "GET", &route, Some(&outsider_token), None).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let (status, _) = send(
+        &app,
+        "PUT",
+        &route,
+        Some(&outsider_token),
+        Some(body.clone()),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let (status, _) = send(&app, "PUT", &route, None, Some(body)).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+}

@@ -6,6 +6,8 @@ import { useCustomEmojiStore } from '@/stores/customEmoji';
 import { useCustomEmoji } from '@/hooks/queries/useCustomEmoji';
 import { useUserGroupStore } from '@/stores/userGroups';
 import { useUserGroups } from '@/hooks/queries/useUserGroups';
+import { useKeywordStore } from '@/stores/keywords';
+import { useNotificationKeywords } from '@/hooks/queries/useNotificationKeywords';
 import { useInstanceStore } from '@/stores/instances';
 import { useDocumentTitle } from '@/shared/hooks/useDocumentTitle';
 import { useFaviconBadge } from '@/shared/hooks/useFaviconBadge';
@@ -137,6 +139,12 @@ export function useWorkspaceData(workspaceId: string | undefined, currentUserId:
   useEffect(() => {
     populateSelfGroups((userGroups ?? []).filter((g) => g.is_member).map((g) => `group:${g.id}`));
   }, [userGroups, populateSelfGroups]);
+
+  const populateKeywords = useKeywordStore((s) => s.populate);
+  const { data: keywords } = useNotificationKeywords(workspaceId || null, currentWsInstanceUrl);
+  useEffect(() => {
+    populateKeywords(keywords ?? []);
+  }, [keywords, populateKeywords]);
 
   useEffect(() => {
     setCurrentUserId(currentUserId ?? null);
