@@ -15,8 +15,8 @@ green — desktop and a phone viewport — and the `e2e` job blocks merges. CS-0
 system at 500,000 messages and closed with Wave 12; what its numbers justified, CS-048, is
 Wave 13 and is shipped too. Wave 14 closes the daily-use gaps a team arriving from Slack
 notices first, Waves 15 and 16 (connected-app previews) and Wave 17 (files and images) are
-shipped too. Waves 18 and 19 are shipped too. In Wave 20, CS-059 is shipped; next is
-[CS-037](CS-037-huddle-sfu.md).
+shipped too. Waves 18 and 19 are shipped too. In Wave 20, CS-059 shipped in 3.2.0;
+[CS-037](CS-037-huddle-sfu.md) is held for the next major release.
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
@@ -221,7 +221,7 @@ note.
 
 | # | Ticket | Area | Why it is not done |
 |---|---|---|---|
-| [CS-037](CS-037-huddle-sfu.md) | SFU for large huddles | backend · frontend · ops | Next — rewritten 2026-10-23 for Wave 20 |
+| [CS-037](CS-037-huddle-sfu.md) | SFU for large huddles | backend · frontend · ops | Held for 4.0.0 — it adds a service to the stack, so it ships in a major release |
 
 ## Conflict map
 
