@@ -1230,7 +1230,7 @@ instead of a `delivered` flag, so a fired reminder stays in the list until it is
 new due time re-arms it. Every change sends `later.updated` to the owner's sessions, so the
 sidebar count and the list agree across tabs. On a message, the bookmark shows whether it is
 saved and the *More* menu has *Remind me about this*. Slack's `A` to save the focused message
-waits for keyboard focus on messages, which the list does not have yet.
+waited for keyboard focus on messages, which [Wave 19](#wave-19--getting-around--shipped) added.
 
 ---
 

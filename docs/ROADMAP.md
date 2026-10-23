@@ -9,10 +9,19 @@ ticket in [`docs/tickets/`](./tickets/INDEX.md); a ticket's file is deleted when
 
 | Ticket | What | Status |
 |---|---|---|
-| [CS-037](./tickets/CS-037-huddle-sfu.md) | SFU (LiveKit) for huddles above the mesh's six-to-eight ceiling, promoted mid-call without dropping anybody | Held for the next major release (4.0.0), decided 2026-10-23 when 3.2.0 shipped CS-059 alone. Adds an optional media server beside the stack |
+| [CS-060](./tickets/CS-060-notification-levels.md) | Notification levels per channel (all / mentions / nothing) and a default per person; DMs reach a phone | Wave 21, next |
+| [CS-061](./tickets/CS-061-keyword-notifications.md) | Keyword notifications | Wave 21 |
+| [CS-062](./tickets/CS-062-notification-schedule.md) | Notification schedule: pause outside working hours, in the person's timezone | Wave 21 |
+| [CS-063](./tickets/CS-063-file-name-search.md) | Search finds files by name, with a Files tab | Wave 22 |
+| [CS-064](./tickets/CS-064-file-content-search.md) | Search inside PDF, Office and text files, extracted in the worker | Wave 22 |
+| [CS-065](./tickets/CS-065-polls.md) | Polls, and the message with server-owned buttons | Wave 23 |
+| [CS-066](./tickets/CS-066-lists.md) | Lists: typed tables in a conversation, board view, item comments | Wave 23 |
+| [CS-067](./tickets/CS-067-workflow-builder.md) | Workflow builder: schedule, webhook, reaction, member-joined and shortcut triggers; message, DM, form and list steps | Wave 23 |
+| [CS-037](./tickets/CS-037-huddle-sfu.md) | SFU (LiveKit) for huddles above the mesh's six-to-eight ceiling, promoted mid-call without dropping anybody | Held for the next major release (4.0.0), decided 2026-10-23 when 3.2.0 shipped CS-059 alone. Adds an optional media server beside the stack. Until then a huddle is capped at eight people |
 
-Two decisions were considered on 2026-09-02 and deferred with their reasoning below:
-versioning the API path and asymmetric JWT signing.
+Waves 21–23 were chosen in the 2026-10-23 review and all ship in 3.x minor releases, one
+ticket at a time, before 4.0.0. Two decisions were considered on 2026-09-02 and deferred
+with their reasoning below: versioning the API path and asymmetric JWT signing.
 
 ## How the order was chosen
 
@@ -75,6 +84,11 @@ was pencilled in for it was absorbed into 9 and 11.
   near. Revisit when a metric says so, not before.
 - **Server-side huddle recording.** A compliance feature with its own consent and retention
   requirements; it does not belong inside CS-037.
+- **Canvases.** Undecided as of 2026-10-23. Lists (CS-066) cover the structured half of
+  what a canvas is used for; revisit once they ship and a team asks for free-form
+  documents in the app.
+- **OCR of images in file search.** CS-064 reads text that is in the file; reading text
+  out of pictures needs a model beside the stack, and is a different feature.
 - **Cyrillic ↔ Latin transliteration in search.** A separate feature from CS-034's
   diacritic folding, and it should not be smuggled in with it.
 - **SCIM `/Groups`.** `/Users` delivers the whole offboarding value; groups are where SCIM
