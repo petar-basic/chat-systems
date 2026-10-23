@@ -16,7 +16,8 @@ system at 500,000 messages and closed with Wave 12; what its numbers justified, 
 Wave 13 and is shipped too. Wave 14 closes the daily-use gaps a team arriving from Slack
 notices first, Waves 15 and 16 (connected-app previews) and Wave 17 (files and images) are
 shipped too. Waves 18 and 19 are shipped too. In Wave 20, CS-059 shipped in 3.2.0;
-[CS-037](CS-037-huddle-sfu.md) is held for the next major release.
+[CS-037](CS-037-huddle-sfu.md) is held for the next major release, 4.0.0. Waves 21–23,
+chosen in the 2026-10-23 review, all land before it.
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
@@ -217,10 +218,41 @@ note.
 | CS-059 ✅ | Dialogs that look finished: sizes, fields, confirmations, profile and preferences | frontend |
 | [CS-037](CS-037-huddle-sfu.md) | SFU (LiveKit) for huddles above the mesh's ceiling, with promotion mid-call | backend · frontend · ops |
 
+### Wave 21 — Notifications that fit how a team works
+
+Chosen in the 2026-10-23 review, after 3.2.0. A direct message that never reaches a phone is
+the gap a team notices first, and the per-channel level is where it gets fixed. Keywords and
+the schedule both build on the level's single server-side decision.
+
+| # | Ticket | Area |
+|---|---|---|
+| [CS-060](CS-060-notification-levels.md) | Notification levels per channel and a default per person; DMs that reach your phone | backend · frontend |
+| [CS-061](CS-061-keyword-notifications.md) | Keyword notifications | backend · frontend |
+| [CS-062](CS-062-notification-schedule.md) | Notification schedule | backend · frontend |
+
+### Wave 22 — Finding files
+
+| # | Ticket | Area |
+|---|---|---|
+| [CS-063](CS-063-file-name-search.md) | Search finds files by name | backend · frontend |
+| [CS-064](CS-064-file-content-search.md) | Search inside files (PDF, Office, text) | backend · frontend · ops |
+
+### Wave 23 — Structured work: polls, lists, workflows
+
+Polls come first because they introduce the message with server-owned buttons that workflow
+forms reuse. Lists come before the workflow builder's last part, which writes into them.
+
+| # | Ticket | Area |
+|---|---|---|
+| [CS-065](CS-065-polls.md) | Polls | backend · frontend |
+| [CS-066](CS-066-lists.md) | Lists: typed tables in a conversation, with board view and item comments | backend · frontend |
+| [CS-067](CS-067-workflow-builder.md) | Workflow builder | backend · frontend · ops |
+
 ### Still open
 
 | # | Ticket | Area | Why it is not done |
 |---|---|---|---|
+| [CS-060](CS-060-notification-levels.md) … [CS-067](CS-067-workflow-builder.md) | Waves 21–23 | backend · frontend · ops | Planned 2026-10-23; one at a time, in number order, each before 4.0.0 |
 | [CS-037](CS-037-huddle-sfu.md) | SFU for large huddles | backend · frontend · ops | Held for 4.0.0 — it adds a service to the stack, so it ships in a major release |
 
 ## Conflict map
@@ -239,7 +271,12 @@ Tickets that touch the same files, and the order that avoids rework:
 | `frontend/src/features/messaging/` | CS-024 ✅ → CS-025 ✅ → CS-029 ✅ |
 | `messages` table schema | CS-029 ✅ → CS-030 ✅ → CS-034 ✅ |
 | `channel_members` read position and counters | CS-026 ✅ → CS-050 ✅ → CS-051 ✅ → CS-052 ✅ |
-| message metadata and `message.updated` | CS-029 ✅ → CS-049 ✅ → CS-053 ✅ → CS-054 ✅ → CS-055 ✅ |
+| message metadata and `message.updated` | CS-029 ✅ → CS-049 ✅ → CS-053 ✅ → CS-054 ✅ → CS-055 ✅ → CS-065 |
 | `files` and the download route | CS-009 ✅ → CS-011 ✅ → CS-020 ✅ → CS-055 ✅ |
 | `frontend/src/shared/components` dialogs and controls | CS-056 ✅ → CS-059 ✅ |
 | huddle join authorization | CS-041 ✅ → CS-037 |
+| notification consumer and `is_dnd_active` | CS-046 ✅ → CS-060 → CS-061 → CS-062 |
+| `NotificationStream` and `wsQuerySync` sound/desktop | CS-060 → CS-061 |
+| search visibility CTE in `messaging/repo.rs` | CS-048 ✅ → CS-063 → CS-064 |
+| search panel tabs and filter bar | CS-058 ✅ → CS-063 → CS-064 |
+| `chat-worker` supervised loops | CS-064 → CS-065 → CS-067 |

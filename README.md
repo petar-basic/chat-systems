@@ -56,8 +56,10 @@ What a team moving from Slack should expect to be missing or different:
 | **No native mobile app.** The web app is responsive and installs as a PWA with push, but there is nothing in an app store. | Deliberate — see [ROADMAP.md](docs/ROADMAP.md#wave-11--guest-containment-operational-readiness-and-mobile--shipped); React Native only if push reliability or call ringing proves to be the blocker |
 | **Huddles are peer-to-peer mesh** — comfortable to six or eight people, not a 30-person all-hands. No recording. | SFU planned ([CS-037](docs/tickets/CS-037-huddle-sfu.md)); recording deliberately out of scope |
 | **Presence is derived, not declared.** Online / away / offline follows whether you hold a connection; there is no manual "away". A custom status ("In a meeting 🍕") is the separate thing, and that you do set yourself. | Deliberate |
-| **Search covers message text**, not file names or file contents. | Not planned yet |
-| **No app directory, workflow builder, or shared channels across organisations.** | Not planned |
+| **Notifications are per channel on or off.** A channel is muted or not; there are no per-channel levels, keywords or working hours, and a DM without an `@` reaches you only while the app is open. | Planned: [CS-060](docs/tickets/CS-060-notification-levels.md), [CS-061](docs/tickets/CS-061-keyword-notifications.md), [CS-062](docs/tickets/CS-062-notification-schedule.md) |
+| **Search covers message text**, not file names or file contents. | Planned: names ([CS-063](docs/tickets/CS-063-file-name-search.md)), then contents ([CS-064](docs/tickets/CS-064-file-content-search.md)) |
+| **No workflow builder, lists or polls yet.** | Planned: [CS-065](docs/tickets/CS-065-polls.md), [CS-066](docs/tickets/CS-066-lists.md), [CS-067](docs/tickets/CS-067-workflow-builder.md) |
+| **No app directory or shared channels across organisations.** | Not planned |
 
 The trade for all of that: every message, file and audit row stays on hardware you control,
 and the whole thing is one `docker compose` command. See
