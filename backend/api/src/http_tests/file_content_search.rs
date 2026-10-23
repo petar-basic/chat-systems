@@ -1,5 +1,6 @@
 use super::common::*;
 use super::file_search::{found, post_bytes, q};
+use crate::config::AppConfig;
 use crate::files::extractor;
 use crate::state::AppState;
 use axum::http::StatusCode;
@@ -19,6 +20,14 @@ fn fixture(name: &str) -> Vec<u8> {
         env!("CARGO_MANIFEST_DIR")
     ))
     .expect("fixture")
+}
+
+async fn app_with_room(pool: PgPool) -> (axum::Router, std::sync::Arc<AppState>) {
+    let config = AppConfig {
+        max_upload_bytes: 1024 * 1024,
+        ..test_config()
+    };
+    app_and_state_with(pool, config).await
 }
 
 async fn drain(state: &AppState) {
@@ -68,7 +77,7 @@ async fn status_of(state: &AppState, filename: &str) -> String {
 
 #[test_macros::db_test(migrations = "../migrations")]
 async fn text_inside_documents_is_found_with_a_snippet(pool: PgPool) {
-    let (app, state) = app_and_state(pool).await;
+    let (app, state) = app_with_room(pool).await;
     let (owner_id, _, owner) = seed_and_login(&app, &state, "fcontent-find", false).await;
     let ws_id = seed_workspace(&state, owner_id, "File Content WS").await;
     let ch = seed_channel(&state, ws_id, owner_id, "legal", false)
@@ -140,7 +149,7 @@ async fn text_inside_documents_is_found_with_a_snippet(pool: PgPool) {
 
 #[test_macros::db_test(migrations = "../migrations")]
 async fn a_name_match_ranks_above_a_content_match(pool: PgPool) {
-    let (app, state) = app_and_state(pool).await;
+    let (app, state) = app_with_room(pool).await;
     let (owner_id, _, owner) = seed_and_login(&app, &state, "fcontent-rank", false).await;
     let ws_id = seed_workspace(&state, owner_id, "File Rank WS").await;
     let ch = seed_channel(&state, ws_id, owner_id, "travel", false)
@@ -183,7 +192,7 @@ async fn a_name_match_ranks_above_a_content_match(pool: PgPool) {
 
 #[test_macros::db_test(migrations = "../migrations")]
 async fn content_is_searched_under_the_same_visibility(pool: PgPool) {
-    let (app, state) = app_and_state(pool).await;
+    let (app, state) = app_with_room(pool).await;
     let (owner_id, _, owner) = seed_and_login(&app, &state, "fcontent-vis-owner", false).await;
     let ws_id = seed_workspace(&state, owner_id, "File Content Vis WS").await;
     let (member_id, _, member) = seed_and_login(&app, &state, "fcontent-vis-member", false).await;
@@ -245,7 +254,7 @@ async fn content_is_searched_under_the_same_visibility(pool: PgPool) {
 
 #[test_macros::db_test(migrations = "../migrations")]
 async fn unreadable_files_are_recorded_once_and_deleting_a_file_drops_its_text(pool: PgPool) {
-    let (app, state) = app_and_state(pool).await;
+    let (app, state) = app_with_room(pool).await;
     let (owner_id, _, owner) = seed_and_login(&app, &state, "fcontent-status", false).await;
     let ws_id = seed_workspace(&state, owner_id, "File Status WS").await;
     let ch = seed_channel(&state, ws_id, owner_id, "inbox", false)
@@ -306,7 +315,7 @@ async fn unreadable_files_are_recorded_once_and_deleting_a_file_drops_its_text(p
 
 #[test_macros::db_test(migrations = "../migrations")]
 async fn two_claimers_never_take_the_same_file(pool: PgPool) {
-    let (app, state) = app_and_state(pool).await;
+    let (app, state) = app_with_room(pool).await;
     let (owner_id, _, owner) = seed_and_login(&app, &state, "fcontent-claim", false).await;
     let ws_id = seed_workspace(&state, owner_id, "File Claim WS").await;
     let ch = seed_channel(&state, ws_id, owner_id, "bulk", false)
