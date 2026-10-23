@@ -2830,6 +2830,50 @@
                 }
               ]
             }
+          },
+          {
+            "name": "has",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "file",
+                    "image",
+                    "link"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            }
           }
         ],
         "responses": {
@@ -10089,7 +10133,7 @@
       },
       "SearchScope": {
         "type": "string",
-        "description": "A direct message is a channel too, but somebody searching \"the channels\" is\nnot asking to see their private threads next to them, so the scope picks\nwhich channel types the hits may come from. Filtering by channel is asking\nabout channels, whatever the scope says.",
+        "description": "A direct message is a channel too, but somebody searching \"the channels\" is\nnot asking to see their private threads next to them, so the scope picks\nwhich channel types the hits may come from. Filtering by one channel or\nconversation names the place, whatever the scope says.",
         "enum": [
           "channels",
           "conversations",

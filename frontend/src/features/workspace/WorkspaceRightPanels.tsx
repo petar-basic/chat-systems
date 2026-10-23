@@ -99,6 +99,7 @@ export default function WorkspaceRightPanels({
   if (panel.kind === 'search' && currentWorkspace) {
     return (
       <SearchPanel
+        members={workspaceMembers}
         onClose={onClose}
         onNavigateToMessage={(chId, msgId) => onNavigateToMessage(chId, msgId)}
         onNavigateToConversation={onOpenConversation}

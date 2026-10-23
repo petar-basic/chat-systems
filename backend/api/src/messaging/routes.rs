@@ -863,9 +863,11 @@ async fn search_messages(
     auth: AuthUser,
     Query(params): Query<SearchQuery>,
 ) -> AppResult<Json<SearchResponse>> {
-    let query = params.q.clone().unwrap_or_default();
-    if query.is_empty() {
-        return Err(AppError::Validation("Search query is required".into()));
+    let query = params.q.as_deref().unwrap_or_default().trim().to_string();
+    if query.is_empty() && !params.has_filter() {
+        return Err(AppError::Validation(
+            "Search needs words or at least one filter".into(),
+        ));
     }
 
     let member = authz::require_workspace_member(&state, params.workspace_id, auth.user_id).await?;
@@ -877,9 +879,8 @@ async fn search_messages(
     let limit = params.limit.unwrap_or(20).clamp(1, 100);
     let offset = params.offset.unwrap_or(0).max(0);
 
-    // Asking for one channel is asking about channels, whatever the scope says.
     let scope = match params.channel_id {
-        Some(_) => SearchScope::Channels,
+        Some(_) => SearchScope::All,
         None => params.scope.unwrap_or(SearchScope::All),
     };
 
@@ -892,6 +893,9 @@ async fn search_messages(
             requester_is_guest: member.role == WorkspaceRole::Guest,
             channel_id: params.channel_id,
             author_id: params.user_id,
+            has: params.has,
+            after: params.after,
+            before: params.before,
             scope,
             limit,
             offset,

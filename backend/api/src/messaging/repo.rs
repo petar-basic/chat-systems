@@ -28,6 +28,9 @@ pub struct MessageSearch<'a> {
     pub requester_is_guest: bool,
     pub channel_id: Option<Uuid>,
     pub author_id: Option<Uuid>,
+    pub has: Option<SearchHas>,
+    pub after: Option<DateTime<Utc>>,
+    pub before: Option<DateTime<Utc>>,
     pub scope: SearchScope,
     pub limit: i64,
     pub offset: i64,
@@ -689,12 +692,21 @@ impl MessageRepo {
             ),
             exact AS MATERIALIZED (
               SELECT m.id, m.created_at,
-                     ts_rank(m.search_vector, plainto_tsquery(search_text_config(), search_normalize($1))) AS rank
+                     CASE WHEN $1 = '' THEN 0::real
+                          ELSE ts_rank(m.search_vector, plainto_tsquery(search_text_config(), search_normalize($1)))
+                     END AS rank
               FROM messages m
-              WHERE m.search_vector @@ plainto_tsquery(search_text_config(), search_normalize($1))
+              WHERE ($1 = '' OR m.search_vector @@ plainto_tsquery(search_text_config(), search_normalize($1)))
                 AND m.deleted_at IS NULL
                 AND m.channel_id IN (SELECT id FROM visible)
-                AND ($5::uuid IS NULL OR m.user_id = $5)
+              AND ($5::uuid IS NULL OR m.user_id = $5)
+              AND ($11::text IS NULL OR CASE $11
+                      WHEN 'file' THEN jsonb_path_exists(m.metadata, '$.attachments[*]')
+                      WHEN 'image' THEN jsonb_path_exists(m.metadata, '$.attachments[*] ? (@.mime_type starts with "image/")')
+                      ELSE m.content ~* 'https?://'
+                    END)
+              AND ($12::timestamptz IS NULL OR m.created_at >= $12)
+              AND ($13::timestamptz IS NULL OR m.created_at < $13)
               ORDER BY m.created_at DESC
               LIMIT 1000
             ),
@@ -704,12 +716,20 @@ impl MessageRepo {
               FROM (
                 SELECT m.id, m.created_at, m.content
                 FROM messages m
-                WHERE (SELECT count(*) FROM exact) < $6::bigint + $7::bigint
+                WHERE $1 <> ''
+                  AND (SELECT count(*) FROM exact) < $6::bigint + $7::bigint
                   AND search_normalize($1) <% search_normalize(m.content)
                   AND (m.search_vector @@ plainto_tsquery(search_text_config(), search_normalize($1))) IS NOT TRUE
                   AND m.deleted_at IS NULL
                   AND m.channel_id IN (SELECT id FROM visible)
                   AND ($5::uuid IS NULL OR m.user_id = $5)
+                  AND ($11::text IS NULL OR CASE $11
+                      WHEN 'file' THEN jsonb_path_exists(m.metadata, '$.attachments[*]')
+                      WHEN 'image' THEN jsonb_path_exists(m.metadata, '$.attachments[*] ? (@.mime_type starts with "image/")')
+                      ELSE m.content ~* 'https?://'
+                    END)
+                  AND ($12::timestamptz IS NULL OR m.created_at >= $12)
+                  AND ($13::timestamptz IS NULL OR m.created_at < $13)
                 ORDER BY m.created_at DESC
                 LIMIT 1000
               ) recent
@@ -734,7 +754,10 @@ impl MessageRepo {
             params.offset,
             params.requester_is_guest,
             params.scope.includes_conversations(),
-            params.scope.includes_channels()
+            params.scope.includes_channels(),
+            params.has.map(SearchHas::as_str),
+            params.after,
+            params.before
         )
         .fetch_all(&mut *tx)
         .await?;
