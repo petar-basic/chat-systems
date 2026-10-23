@@ -356,3 +356,41 @@ HTTPS deployment rather than `http://192.168.x.x`.
       for the installed PWA.
 - [ ] **Huddle.** Joining is audio-only and says so; the call survives the screen
       locking.
+
+---
+
+## 13. Dialogs, in light, dark and at a phone width
+
+Every dialog shares one frame, so a fault in one usually shows in all of them.
+Open each below three times: light theme, dark theme, and a phone width (the
+dialog becomes a sheet from the bottom).
+
+- **Dialogs:** Create channel, Browse channels, Channel settings (and its
+  archive confirmation), New message, Forward, Keyboard shortcuts (`?`), Create
+  workspace, Delete workspace, Profile, Incoming call, and the confirmations
+  for deleting a message and an integration.
+- [ ] **Width.** Each is one of three widths (400, 520, 720 px); opening one
+      after another, the frame does not jump between two sizes of the same kind.
+- [ ] **Scroll.** In a long one (Profile, Browse channels with many channels,
+      Keyboard shortcuts) only the middle scrolls. The title and the buttons stay
+      put, and a hairline appears above or below the middle only while there is
+      more to scroll to.
+- [ ] **Fields.** Every field has a label, the same 36 px height and the same
+      text size; checkboxes and selects look like the app, not the operating
+      system, in both themes.
+- [ ] **Errors.** Submitting Create channel with a name that exists marks the
+      field red and says why under it; Channel settings does the same.
+- [ ] **Closing.** The X, Cancel, Escape and a click on the backdrop each close
+      it with a short fade; with *Reduce motion* on in the OS, it closes at once.
+- [ ] **Focus.** Opening puts the cursor in the first field (or on the action of
+      a confirmation); Tab stays inside; closing returns focus to what opened it.
+- [ ] **Create channel.** Typing `Plan Budget` shows `plan-budget`; the counter
+      counts down from 80; the Public / Private cards switch with a click and
+      with the arrow keys.
+- [ ] **Browse channels.** The count follows the search; the sort reorders by
+      name, by members and by age; *Create channel* in the header opens the
+      create dialog; Join or Leave appears on the row under the pointer and on
+      the row that has keyboard focus, and on a phone on every row.
+- [ ] **Confirmations.** Deleting a message shows that message; archiving a
+      channel names it; deleting an integration names it. Enter confirms, Escape
+      cancels, and a failure keeps the dialog open with the reason.

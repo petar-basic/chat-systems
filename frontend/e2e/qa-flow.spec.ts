@@ -175,7 +175,8 @@ test('7. edit and delete propagate live', async () => {
   await row2.hover();
   await row2.locator('[data-qa="message-action-more"]').click();
   await admin.locator('[data-qa="message-overflow"] [data-qa="message-action-delete"]').click();
-  await row2.locator('[data-qa="message-delete-confirm"]').click();
+  await expect(admin.locator('[data-qa="message-delete-preview"]')).toContainText(`edited ${stamp}`);
+  await admin.locator('[data-qa="message-delete-confirm"]').click();
   await expect(bob.getByText(`edited ${stamp}`)).toHaveCount(0, { timeout: 10_000 });
   await bob.screenshot({ path: `${SHOTS}/07-after-edit-delete.png` });
 });
@@ -275,7 +276,7 @@ test('12. suspending a user kills their live session', async () => {
   // No reload: the gateway pushes the revocation and the client drops the
   // instance on it. Waiting for the login screen to arrive on its own is the
   // difference between "the session was killed" and "the page was refreshed".
-  await expect(bob.locator('#email')).toBeVisible({ timeout: 20_000 });
+  await expect(bob.locator('[data-qa="login-email"]')).toBeVisible({ timeout: 20_000 });
   await bob.screenshot({ path: `${SHOTS}/12-bob-suspended.png` });
 
   await api.post(`http://localhost:3000/api/admin/users/${bobId}/activate`, { headers: auth });

@@ -6,6 +6,7 @@ import { api } from '../lib/api';
 import { toUserMessage } from '@/lib/errors';
 import { toast } from '@/shared/components/Toast';
 import type { components } from '@/api/schema';
+import { TextInput } from '@/shared/components/Form/TextInput';
 
 type Enrolment = components['schemas']['TotpEnrolment'];
 
@@ -137,16 +138,16 @@ export default function TwoFactorPanel() {
             Open in your authenticator app
           </a>
           <div className="flex gap-2">
-            <input
-              aria-label="Authenticator code"
-              type="text"
+            <TextInput
+              label="Authenticator code"
+              labelHidden
               inputMode="numeric"
               autoComplete="one-time-code"
               value={code}
               onChange={(e) => setCode(e.target.value.trim())}
               placeholder="123456"
-              data-qa="totp-code"
-              className="flex-1 px-3 py-2.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm tracking-widest focus:outline-none focus:ring-2 focus:ring-purple-500"
+              dataQa="totp-code"
+              className="flex-1"
             />
             <Button
               variant="primary"
@@ -189,16 +190,16 @@ export default function TwoFactorPanel() {
 
       {disabling && (
         <div className="flex gap-2">
-          <input
-            aria-label="Current authenticator code"
-            type="text"
+          <TextInput
+            label="Current authenticator code"
+            labelHidden
             inputMode="numeric"
             autoComplete="one-time-code"
             value={code}
             onChange={(e) => setCode(e.target.value.trim())}
             placeholder="Current code"
-            data-qa="totp-disable-code"
-            className="flex-1 px-3 py-2.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm tracking-widest focus:outline-none focus:ring-2 focus:ring-purple-500"
+            dataQa="totp-disable-code"
+            className="flex-1"
           />
           <button
             type="button"

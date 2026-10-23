@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { TextInput } from '@/shared/components/Form/TextInput';
 
 interface Props {
   initial?: string;
@@ -23,9 +24,11 @@ export function SectionNameInput({ initial = '', label, onSubmit, onCancel }: Pr
     else onCancel();
   };
   return (
-    <input
+    <TextInput
+      label={label}
+      labelHidden
+      compact
       autoFocus
-      aria-label={label}
       value={value}
       maxLength={80}
       onChange={(e) => setValue(e.target.value)}
@@ -40,8 +43,7 @@ export function SectionNameInput({ initial = '', label, onSubmit, onCancel }: Pr
           cancel();
         }
       }}
-      data-qa="sidebar-section-name-input"
-      className="w-full px-2 py-1 text-sm bg-raised/50 border border-line-strong rounded text-fg focus:outline-none focus:ring-2 focus:ring-purple-500"
+      dataQa="sidebar-section-name-input"
     />
   );
 }

@@ -16,6 +16,7 @@ const WIDTHS: Record<ModalSize, string> = {
 interface ModalProps {
   title: string;
   description?: ReactNode;
+  headerActions?: ReactNode;
   onClose: () => void;
   size?: ModalSize;
   actions?: ReactNode;
@@ -29,6 +30,7 @@ interface ModalProps {
 export function Modal({
   title,
   description,
+  headerActions,
   onClose,
   size = 'md',
   actions,
@@ -43,6 +45,7 @@ export function Modal({
     <ModalLayout
       title={title}
       description={description}
+      headerActions={headerActions}
       footer={hasFooter && <ModalFooter start={footerStart} dismissLabel={dismissLabel} actions={actions} />}
     >
       {children}
@@ -70,11 +73,13 @@ export function Modal({
 function ModalLayout({
   title,
   description,
+  headerActions,
   footer,
   children,
 }: {
   title: string;
   description?: ReactNode;
+  headerActions?: ReactNode;
   footer: ReactNode;
   children: ReactNode;
 }) {
@@ -110,12 +115,10 @@ function ModalLayout({
           <h2 className="text-lg font-semibold text-fg">{title}</h2>
           {description && <p className="mt-1 text-sm text-muted">{description}</p>}
         </div>
-        <IconButton
-          label="Close"
-          icon={<X className="h-4 w-4" />}
-          onClick={dismiss}
-          className="-mr-1.5 -mt-0.5"
-        />
+        <div className="-mr-1.5 -mt-0.5 flex shrink-0 items-center gap-2">
+          {headerActions}
+          <IconButton label="Close" icon={<X className="h-4 w-4" />} onClick={dismiss} />
+        </div>
       </header>
       <div
         ref={body}

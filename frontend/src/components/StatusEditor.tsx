@@ -3,6 +3,8 @@ import { Button } from '@/shared/components/Button/Button';
 import { toUserMessage } from '@/lib/errors';
 import { formatDateTime } from '@/lib/datetime';
 import { useMyStatus, useSetStatus } from '@/hooks/queries/useStatus';
+import { TextInput } from '@/shared/components/Form/TextInput';
+import { Select } from '@/shared/components/Form/Select';
 
 interface Props {
   instanceUrl?: string;
@@ -57,21 +59,23 @@ export default function StatusEditor({ instanceUrl, workspaceId }: Props) {
     <div data-qa="status-editor">
       <span className="block text-sm font-medium text-fg-dim mb-1.5">Status</span>
       <div className="flex items-center gap-2">
-        <input
+        <TextInput
+          label="Status emoji"
+          labelHidden
           value={emoji}
           onChange={(e) => setEmoji(e.target.value)}
           placeholder="🙂"
-          aria-label="Status emoji"
-          data-qa="status-emoji"
-          className="w-14 px-2 py-2.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm text-center focus:outline-none focus:ring-2 focus:ring-purple-500"
+          dataQa="status-emoji"
+          className="w-14 shrink-0"
         />
-        <input
+        <TextInput
+          label="Status"
+          labelHidden
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="What's happening?"
-          aria-label="Status"
-          data-qa="status-text"
-          className="flex-1 px-3 py-2.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
+          dataQa="status-text"
+          className="flex-1"
         />
       </div>
 
@@ -94,19 +98,20 @@ export default function StatusEditor({ instanceUrl, workspaceId }: Props) {
       </div>
 
       <div className="mt-2 flex items-center gap-2">
-        <select
+        <Select
+          label="Clear status after"
+          labelHidden
+          compact
           value={duration === null ? '' : String(duration)}
           onChange={(e) => setDuration(e.target.value === '' ? null : Number(e.target.value))}
-          aria-label="Clear status after"
-          data-qa="status-duration"
-          className="px-2 py-1.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-xs focus:outline-none focus:ring-2 focus:ring-purple-500"
+          dataQa="status-duration"
         >
           {DURATIONS.map((option) => (
             <option key={option.label} value={option.minutes === null ? '' : String(option.minutes)}>
               {option.label}
             </option>
           ))}
-        </select>
+        </Select>
         <Button
           variant="primary"
           size="sm"

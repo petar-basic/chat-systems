@@ -12,6 +12,8 @@ import {
   type SlackImportReport,
   reportOf,
 } from '@/hooks/queries/useSlackImport';
+import { Checkbox } from '@/shared/components/Form/Checkbox';
+import { TextInput } from '@/shared/components/Form/TextInput';
 
 interface Props {
   workspaceId: string;
@@ -161,38 +163,31 @@ export default function SlackImportPanel({ workspaceId, instanceUrl, onClose }: 
           className="w-full text-xs text-fg-dim file:mr-2 file:px-2 file:py-1 file:rounded file:border-0 file:bg-raised file:text-fg-soft hover:file:bg-elevated file:cursor-pointer"
         />
 
-        <label className="flex items-center gap-2 text-xs text-fg-dim">
-          <input
-            type="checkbox"
-            checked={intoNew}
-            onChange={(e) => setIntoNew(e.target.checked)}
-            data-qa="slack-import-into-new"
-            className="accent-purple-500"
-          />
-          Import into a new workspace
-        </label>
+        <Checkbox
+          label="Import into a new workspace"
+          checked={intoNew}
+          onChange={setIntoNew}
+          dataQa="slack-import-into-new"
+        />
 
         {intoNew && (
-          <input
+          <TextInput
+            label="New workspace name"
+            labelHidden
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="Workspace name"
-            aria-label="New workspace name"
-            data-qa="slack-import-workspace-name"
-            className="w-full px-2 py-1.5 bg-raised/50 border border-line-strong rounded text-sm text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
+            dataQa="slack-import-workspace-name"
           />
         )}
 
-        <label className="flex items-center gap-2 text-xs text-fg-dim">
-          <input
-            type="checkbox"
-            checked={dryRun}
-            onChange={(e) => setDryRun(e.target.checked)}
-            data-qa="slack-import-dry-run"
-            className="accent-purple-500"
-          />
-          Dry run — report what would happen, write nothing
-        </label>
+        <Checkbox
+          label="Dry run"
+          description="Report what would happen, write nothing."
+          checked={dryRun}
+          onChange={setDryRun}
+          dataQa="slack-import-dry-run"
+        />
 
         {error && (
           <p className="text-[11px] text-danger" data-qa="slack-import-form-error">

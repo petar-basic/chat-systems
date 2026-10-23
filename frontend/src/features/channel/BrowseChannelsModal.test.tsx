@@ -26,7 +26,7 @@ const channels: BrowsableChannel[] = [
     topic: null,
     description: null,
     is_default: true,
-    created_at: '2026-01-01T00:00:00Z',
+    created_at: '2026-02-01T00:00:00Z',
     member_count: 1,
     is_member: true,
   },
@@ -67,6 +67,27 @@ describe('BrowseChannelsModal', () => {
     expect(screen.getByTestId('browse-channel-leave')).toBeInTheDocument();
     expect(screen.getByText(/3 members/)).toBeInTheDocument();
     expect(screen.getByText(/1 member/)).toBeInTheDocument();
+  });
+
+  it('counts, sorts by name, members and age, and offers to create one', () => {
+    const props = renderModal({ onCreateChannel: vi.fn() });
+    const names = () =>
+      screen.getAllByTestId('browse-channel-row').map((row) => row.getAttribute('data-channel-id'));
+
+    expect(screen.getByTestId('browse-channels-count')).toHaveTextContent('2 channels');
+    expect(names()).toEqual(['ch-open', 'ch-joined']);
+
+    fireEvent.change(screen.getByLabelText('Sort channels'), { target: { value: 'members' } });
+    expect(names()).toEqual(['ch-open', 'ch-joined']);
+
+    fireEvent.change(screen.getByLabelText('Sort channels'), { target: { value: 'newest' } });
+    expect(names()).toEqual(['ch-joined', 'ch-open']);
+
+    fireEvent.change(screen.getByLabelText('Search channels'), { target: { value: 'gen' } });
+    expect(screen.getByTestId('browse-channels-count')).toHaveTextContent('1 channel');
+
+    fireEvent.click(screen.getByTestId('browse-channels-create'));
+    expect(props.onCreateChannel).toHaveBeenCalled();
   });
 
   it('filters by name and topic', () => {

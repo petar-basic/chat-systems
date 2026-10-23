@@ -3,6 +3,10 @@ import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { Button } from '@/shared/components/Button/Button';
 import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
 import { CopyField } from '@/shared/components/CopyField/CopyField';
+import { ConfirmDialog } from '@/shared/components/ConfirmDialog/ConfirmDialog';
+import { TextInput } from '@/shared/components/Form/TextInput';
+import { Select } from '@/shared/components/Form/Select';
+import { Checkbox } from '@/shared/components/Form/Checkbox';
 import { Plug, Trash2, Eye, RefreshCw, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
 import type { Channel } from '@/stores/workspace';
 import {
@@ -47,7 +51,7 @@ function HookRow({
   busy: boolean;
   onReveal: () => void;
   onRotate: () => void;
-  onDelete: () => void;
+  onDelete: () => Promise<void>;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const isIncoming = hook.hook_type === 'incoming_webhook';
@@ -106,25 +110,18 @@ function HookRow({
       </div>
 
       {confirmDelete && (
-        <div className="mt-2 flex items-center gap-2 text-xs">
-          <span className="text-danger">Delete this integration?</span>
-          <button
-            onClick={() => {
-              onDelete();
-              setConfirmDelete(false);
-            }}
-            data-qa="hook-delete-confirm"
-            className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded transition cursor-pointer"
-          >
-            Delete
-          </button>
-          <button
-            onClick={() => setConfirmDelete(false)}
-            className="text-muted hover:text-fg transition cursor-pointer"
-          >
-            Cancel
-          </button>
-        </div>
+        <ConfirmDialog
+          title={`Delete ${hook.name}?`}
+          description={
+            isIncoming
+              ? 'Anything still posting to its URL will be refused.'
+              : 'Messages stop being sent to its URL.'
+          }
+          confirmLabel="Delete integration"
+          onConfirm={onDelete}
+          onClose={() => setConfirmDelete(false)}
+          dataQa="hook-delete-dialog"
+        />
       )}
 
       {secrets && (
@@ -248,20 +245,13 @@ export default function IntegrationsPanel({ workspaceId, instanceUrl, channels, 
 
   const handleDelete = async (hookId: string) => {
     setError(null);
-    try {
-      await deleteHook.mutateAsync(hookId);
-      setSecretsByHook((prev) => {
-        const next = { ...prev };
-        delete next[hookId];
-        return next;
-      });
-    } catch (err: unknown) {
-      failWith('Failed to delete the integration')(err);
-    }
+    await deleteHook.mutateAsync(hookId);
+    setSecretsByHook((prev) => {
+      const next = { ...prev };
+      delete next[hookId];
+      return next;
+    });
   };
-
-  const inputClass =
-    'w-full px-3 py-2 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500';
 
   return (
     <div
@@ -296,27 +286,26 @@ export default function IntegrationsPanel({ workspaceId, instanceUrl, channels, 
               busy={busy}
               onReveal={() => void handleReveal(hook.id)}
               onRotate={() => void handleRotate(hook.id)}
-              onDelete={() => void handleDelete(hook.id)}
+              onDelete={() => handleDelete(hook.id)}
             />
           ))
         )}
 
         <form onSubmit={handleCreateIncoming} className="px-4 py-3 space-y-2 border-b border-line/50">
-          <input
-            type="text"
+          <TextInput
+            label="Incoming webhook name"
+            labelHidden
             value={incomingName}
             onChange={(e) => setIncomingName(e.target.value)}
             placeholder="Name, e.g. CI alerts"
-            aria-label="Incoming webhook name"
-            data-qa="incoming-hook-name"
-            className={inputClass}
+            dataQa="incoming-hook-name"
           />
-          <select
+          <Select
+            label="Incoming webhook channel"
+            labelHidden
             value={incomingChannel}
             onChange={(e) => setIncomingChannel(e.target.value)}
-            aria-label="Incoming webhook channel"
-            data-qa="incoming-hook-channel"
-            className={inputClass}
+            dataQa="incoming-hook-channel"
           >
             <option value="">Post to channel…</option>
             {postable.map((c) => (
@@ -324,7 +313,7 @@ export default function IntegrationsPanel({ workspaceId, instanceUrl, channels, 
                 #{c.name}
               </option>
             ))}
-          </select>
+          </Select>
           <Button
             variant="primary"
             fullWidth
@@ -355,28 +344,27 @@ export default function IntegrationsPanel({ workspaceId, instanceUrl, channels, 
             busy={busy}
             onReveal={() => void handleReveal(hook.id)}
             onRotate={() => void handleRotate(hook.id)}
-            onDelete={() => void handleDelete(hook.id)}
+            onDelete={() => handleDelete(hook.id)}
           />
         ))}
 
         <form onSubmit={handleCreateOutgoing} className="px-4 py-3 space-y-2">
-          <input
-            type="text"
+          <TextInput
+            label="Outgoing webhook name"
+            labelHidden
             value={outgoingName}
             onChange={(e) => setOutgoingName(e.target.value)}
             placeholder="Name, e.g. Deploy bot"
-            aria-label="Outgoing webhook name"
-            data-qa="outgoing-hook-name"
-            className={inputClass}
+            dataQa="outgoing-hook-name"
           />
-          <input
+          <TextInput
+            label="Outgoing webhook URL"
+            labelHidden
             type="url"
             value={outgoingUrl}
             onChange={(e) => setOutgoingUrl(e.target.value)}
             placeholder="https://example.com/hooks/chat"
-            aria-label="Outgoing webhook URL"
-            data-qa="outgoing-hook-url"
-            className={inputClass}
+            dataQa="outgoing-hook-url"
           />
           <div
             className="max-h-40 overflow-y-auto rounded-lg border border-line-strong bg-raised/50 divide-y divide-line-strong/50"
@@ -386,19 +374,14 @@ export default function IntegrationsPanel({ workspaceId, instanceUrl, channels, 
               <div className="px-3 py-2 text-xs text-muted">No channels to forward.</div>
             )}
             {postable.map((c) => (
-              <label
+              <Checkbox
                 key={c.id}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-fg cursor-pointer hover:bg-raised"
-              >
-                <input
-                  type="checkbox"
-                  checked={outgoingChannels.includes(c.id)}
-                  onChange={() => toggleOutgoingChannel(c.id)}
-                  data-qa={`outgoing-hook-channel-${c.id}`}
-                  className="accent-purple-500"
-                />
-                #{c.name}
-              </label>
+                label={`#${c.name}`}
+                checked={outgoingChannels.includes(c.id)}
+                onChange={() => toggleOutgoingChannel(c.id)}
+                dataQa={`outgoing-hook-channel-${c.id}`}
+                className="px-3 py-2 hover:bg-raised"
+              />
             ))}
           </div>
           <Button

@@ -29,6 +29,7 @@ import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
 import { buildMentionItems } from './mentionItems';
 import { useUserGroups } from '@/hooks/queries/useUserGroups';
 import { useWorkspaceStore } from '@/stores/workspace';
+import { TextInput } from '@/shared/components/Form/TextInput';
 
 const MentionNode = Mention.extend({
   addStorage() {
@@ -428,14 +429,9 @@ export default function MessageInput({
                       ))}
 
                       <div className="mt-1 border-t border-line/70 px-3 py-2">
-                        <label
-                          htmlFor={`schedule-custom-${draftKey ?? 'composer'}`}
-                          className="block text-[11px] uppercase tracking-wider text-muted mb-1"
-                        >
-                          Pick a time
-                        </label>
-                        <input
-                          id={`schedule-custom-${draftKey ?? 'composer'}`}
+                        <TextInput
+                          label="Pick a time"
+                          compact
                           type="datetime-local"
                           value={customSendAt}
                           min={earliestSendAt}
@@ -443,8 +439,7 @@ export default function MessageInput({
                             setCustomSendAt(e.target.value);
                             setScheduleError(null);
                           }}
-                          data-qa="schedule-custom-input"
-                          className="w-full px-2 py-1.5 bg-raised/50 border border-line-strong rounded text-sm text-fg focus:outline-none focus:ring-2 focus:ring-purple-500 [color-scheme:dark]"
+                          dataQa="schedule-custom-input"
                         />
                         {scheduleError && (
                           <p className="mt-1 text-[11px] text-danger" data-qa="schedule-error">

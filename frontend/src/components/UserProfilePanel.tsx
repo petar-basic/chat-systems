@@ -17,6 +17,8 @@ import TwoFactorPanel from './TwoFactorPanel';
 import PushNotificationsPanel from './PushNotificationsPanel';
 import EmailNotificationsPanel from './EmailNotificationsPanel';
 import ThemePicker from './ThemePicker';
+import { TextInput } from '@/shared/components/Form/TextInput';
+import { TextArea } from '@/shared/components/Form/TextArea';
 
 interface Props {
   onClose: () => void;
@@ -191,35 +193,22 @@ export default function UserProfilePanel({ onClose }: Props) {
           </div>
         </div>
 
-        <div>
-          <label htmlFor="profile-display-name" className="block text-sm font-medium text-fg-dim mb-1.5">
-            Display name
-          </label>
-          <input
-            id="profile-display-name"
-            type="text"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            className="w-full px-3 py-2.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500"
-            required
-          />
-        </div>
+        <TextInput
+          label="Display name"
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          required
+        />
 
         <StatusEditor instanceUrl={activeInstanceUrl ?? undefined} workspaceId={currentWorkspace?.id} />
 
-        <div>
-          <label htmlFor="profile-bio" className="block text-sm font-medium text-fg-dim mb-1.5">
-            Bio
-          </label>
-          <textarea
-            id="profile-bio"
-            value={bio}
-            onChange={(e) => setBio(e.target.value)}
-            rows={3}
-            className="w-full px-3 py-2.5 bg-raised/50 border border-line-strong rounded-lg text-fg text-sm placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
-            placeholder="Tell others about yourself..."
-          />
-        </div>
+        <TextArea
+          label="Bio"
+          optional
+          value={bio}
+          onChange={(e) => setBio(e.target.value)}
+          placeholder="Tell others about yourself..."
+        />
 
         {error && (
           <div className="text-sm text-danger bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">

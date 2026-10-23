@@ -15,6 +15,7 @@ import {
   type HasFilter,
   type SearchFilters,
 } from './searchFilters';
+import { TextInput } from '@/shared/components/Form/TextInput';
 
 type Picker = 'from' | 'in' | 'has' | 'date';
 
@@ -101,13 +102,15 @@ function FilterInput({
   label: string;
 }) {
   return (
-    <input
+    <TextInput
+      label={label}
+      labelHidden
+      compact
       autoFocus
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={label}
-      aria-label={label}
-      className="mx-2 mb-1 w-[calc(100%-1rem)] rounded-md border border-line bg-app px-2 py-1 text-sm text-fg placeholder-subtle focus:outline-none"
+      className="mx-2 mb-1"
     />
   );
 }
@@ -201,24 +204,23 @@ function DateChoices({
       ))}
       <div className="mt-1 space-y-1.5 border-t border-line/60 px-3 pb-1 pt-2">
         {fields.map((field) => (
-          <label key={field.key} className="flex items-center justify-between gap-2 text-xs text-muted">
-            {field.label}
-            <input
-              type="date"
-              value={filters[field.key] ?? ''}
-              max={now}
-              data-qa={`search-filter-date-${field.key}`}
-              onChange={(e) => {
-                const day = e.target.value || undefined;
-                onCustom(
-                  field.key === 'on'
-                    ? { on: day }
-                    : { after: filters.after, before: filters.before, [field.key]: day },
-                );
-              }}
-              className="rounded-md border border-line bg-app px-1.5 py-0.5 text-xs text-fg focus:outline-none"
-            />
-          </label>
+          <TextInput
+            key={field.key}
+            label={field.label}
+            compact
+            type="date"
+            value={filters[field.key] ?? ''}
+            max={now}
+            dataQa={`search-filter-date-${field.key}`}
+            onChange={(e) => {
+              const day = e.target.value || undefined;
+              onCustom(
+                field.key === 'on'
+                  ? { on: day }
+                  : { after: filters.after, before: filters.before, [field.key]: day },
+              );
+            }}
+          />
         ))}
       </div>
     </>

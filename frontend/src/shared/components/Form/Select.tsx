@@ -9,6 +9,7 @@ type NativeSelectProps = Omit<
 >;
 
 export interface SelectProps extends FieldProps, NativeSelectProps {
+  compact?: boolean;
   dataQa?: string;
 }
 
@@ -19,6 +20,7 @@ export function Select({
   hint,
   error,
   className,
+  compact = false,
   dataQa,
   children,
   ...select
@@ -38,7 +40,7 @@ export function Select({
             {...select}
             {...control}
             data-qa={dataQa}
-            className={`h-9 cursor-pointer appearance-none ${fieldStyles({ invalid: !!error, trailing: true })}`}
+            className={`${compact ? 'h-8' : 'h-9'} cursor-pointer appearance-none ${fieldStyles({ invalid: !!error, trailing: true })}`}
           >
             {children}
           </select>

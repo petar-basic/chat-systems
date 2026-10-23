@@ -28,6 +28,7 @@ import { useSpeaking } from '../hooks/useSpeaking';
 import { useMediaDevices } from '../hooks/useMediaDevices';
 import type { HuddleControls } from '../HuddleController';
 import { logger } from '@/lib/logger';
+import { Select } from '@/shared/components/Form/Select';
 
 type Layout = 'grid' | 'focus';
 
@@ -625,20 +626,18 @@ interface DeviceSelectProps {
 
 function DeviceSelect({ label, options, value, onChange }: DeviceSelectProps) {
   return (
-    <label className="flex flex-col gap-1 text-xs text-fg-dim">
-      <span>{label}</span>
-      <select
-        value={value ?? options[0]?.deviceId ?? ''}
-        onChange={(e) => onChange(e.target.value)}
-        className="bg-surface border border-line rounded-lg px-2 py-1.5 text-fg text-xs"
-      >
-        {options.length === 0 && <option value="">No devices</option>}
-        {options.map((d, i) => (
-          <option key={d.deviceId} value={d.deviceId}>
-            {d.label || `${label} ${i + 1}`}
-          </option>
-        ))}
-      </select>
-    </label>
+    <Select
+      label={label}
+      compact
+      value={value ?? options[0]?.deviceId ?? ''}
+      onChange={(e) => onChange(e.target.value)}
+    >
+      {options.length === 0 && <option value="">No devices</option>}
+      {options.map((d, i) => (
+        <option key={d.deviceId} value={d.deviceId}>
+          {d.label || `${label} ${i + 1}`}
+        </option>
+      ))}
+    </Select>
   );
 }

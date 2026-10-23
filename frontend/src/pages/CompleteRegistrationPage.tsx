@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, type FormEvent } from 'react';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { Button } from '@/shared/components/Button/Button';
+import { TextInput } from '@/shared/components/Form/TextInput';
 import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { UserPlus, MessageSquare, LogIn } from 'lucide-react';
@@ -208,65 +209,37 @@ export default function CompleteRegistrationPage() {
             </div>
           )}
 
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-fg-dim mb-2">Email</label>
-            <input
-              aria-label="Email address"
-              type="email"
-              value={inviteInfo.email}
-              disabled
-              className="w-full px-4 py-3 bg-raised/30 border border-line-strong/50 rounded-lg text-muted cursor-not-allowed"
-            />
-          </div>
-
-          <div className="mb-4">
-            <label htmlFor="displayName" className="block text-sm font-medium text-fg-dim mb-2">
-              Display name
-            </label>
-            <input
-              id="displayName"
-              type="text"
+          <div className="space-y-4 mb-6">
+            <TextInput label="Email" type="email" value={inviteInfo.email} disabled readOnly />
+            <TextInput
+              label="Display name"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              className="w-full px-4 py-3 bg-raised/50 border border-line-strong rounded-lg text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
               placeholder="John Doe"
+              autoComplete="name"
               required
             />
-          </div>
-
-          <div className="mb-4">
-            <label htmlFor="password" className="block text-sm font-medium text-fg-dim mb-2">
-              Password
-            </label>
-            <input
-              id="password"
+            <TextInput
+              label="Password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 bg-raised/50 border border-line-strong rounded-lg text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
               placeholder="Min 8 characters"
+              autoComplete="new-password"
               minLength={8}
               required
             />
-          </div>
-
-          <div className="mb-6">
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-fg-dim mb-2">
-              Confirm password
-            </label>
-            <input
-              id="confirmPassword"
+            <TextInput
+              label="Confirm password"
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full px-4 py-3 bg-raised/50 border border-line-strong rounded-lg text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
               placeholder="Confirm your password"
+              autoComplete="new-password"
               minLength={8}
+              error={confirmPassword && password !== confirmPassword ? 'Passwords do not match' : null}
               required
             />
-            {confirmPassword && password !== confirmPassword && (
-              <p className="text-danger text-xs mt-1">Passwords do not match</p>
-            )}
           </div>
 
           <Button

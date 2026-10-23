@@ -13,6 +13,7 @@ import {
 } from '../hooks/queries/useAdmin';
 import AuditLogTable from '../features/workspace/components/AuditLogTable';
 import { toUserMessage } from '@/lib/errors';
+import { Select } from '@/shared/components/Form/Select';
 
 type AdminTab = 'users' | 'audit';
 
@@ -174,16 +175,18 @@ export default function InstanceAdminPage() {
                           {roleBusy(user) ? (
                             <Spinner size="sm" className="text-accent" />
                           ) : (
-                            <select
-                              aria-label="Instance role"
+                            <Select
+                              label={`Instance role for ${user.display_name || user.email}`}
+                              labelHidden
+                              compact
                               value={user.is_instance_admin ? 'admin' : 'user'}
                               onChange={(e) => handleRoleChange(user, e.target.value === 'admin')}
                               disabled={isSelf}
-                              className="text-xs bg-raised border border-line-strong rounded px-2 py-1 text-fg focus:outline-none focus:ring-1 focus:ring-purple-500 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                              className="w-40"
                             >
                               <option value="user">User</option>
                               <option value="admin">Instance admin</option>
-                            </select>
+                            </Select>
                           )}
                         </td>
                         <td className="px-4 py-3">

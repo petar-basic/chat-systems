@@ -3,6 +3,7 @@ import { Hash, Lock, MessageSquare, Search } from 'lucide-react';
 import type { Channel, WorkspaceMember } from '@/stores/workspace';
 import { displayNameOf } from '@/lib/userHelpers';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
+import { TextInput } from '@/shared/components/Form/TextInput';
 
 interface QuickSwitcherProps {
   channels: Channel[];
@@ -101,16 +102,16 @@ export function QuickSwitcher({
         aria-label="Quick switcher"
         data-qa="quick-switcher"
       >
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-line">
-          <Search className="w-4 h-4 text-muted shrink-0" />
-          <input
+        <div className="px-3 py-3 border-b border-line">
+          <TextInput
+            label="Search channels and people"
+            labelHidden
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
             placeholder="Jump to a channel or person…"
-            aria-label="Search channels and people"
-            className="flex-1 bg-transparent text-fg placeholder-subtle focus:outline-none text-sm"
+            leading={<Search className="w-4 h-4" />}
           />
         </div>
         <div className="max-h-80 overflow-y-auto py-1">

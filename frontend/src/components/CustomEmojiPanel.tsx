@@ -8,6 +8,7 @@ import { Smile, Trash2, Upload } from 'lucide-react';
 import { useCustomEmoji, customEmojiKey } from '@/hooks/queries/useCustomEmoji';
 import { toUserMessage } from '@/lib/errors';
 import { toast } from '@/shared/components/Toast';
+import { TextInput } from '@/shared/components/Form/TextInput';
 
 interface Props {
   workspaceId: string;
@@ -82,14 +83,13 @@ export default function CustomEmojiPanel({ workspaceId, instanceUrl, onClose }: 
       <PanelHeader title="Custom emoji" icon={<Smile className="h-4 w-4 text-muted" />} onClose={onClose} />
 
       <form onSubmit={handleUpload} className="px-3 py-3 border-b border-line/30 space-y-2">
-        <input
-          aria-label="Emoji name"
-          type="text"
+        <TextInput
+          label="Emoji name"
+          labelHidden
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="name (used as :name:)"
-          data-qa="emoji-name"
-          className="w-full px-3 py-2 bg-surface border border-line rounded-lg text-fg text-sm placeholder-subtle focus:outline-none focus:ring-2 focus:ring-purple-500"
+          dataQa="emoji-name"
         />
         <input
           aria-label="Emoji image"

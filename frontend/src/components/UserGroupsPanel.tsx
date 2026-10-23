@@ -13,6 +13,7 @@ import type { WorkspaceMember } from '@/stores/workspace';
 import { toUserMessage } from '@/lib/errors';
 import { toast } from '@/shared/components/Toast';
 import { displayNameOf } from '@/lib/userHelpers';
+import { TextInput } from '@/shared/components/Form/TextInput';
 
 interface Props {
   workspaceId: string;
@@ -86,14 +87,14 @@ export default function UserGroupsPanel({ workspaceId, instanceUrl, members, isA
       {isAdmin && (
         <form onSubmit={handleCreate} className="px-3 py-3 border-b border-line/30 space-y-2">
           <div className="flex gap-2">
-            <input
-              aria-label="Group handle"
-              type="text"
+            <TextInput
+              label="Group handle"
+              labelHidden
               value={handle}
               onChange={(e) => setHandle(e.target.value)}
               placeholder="handle (used as @handle)"
-              data-qa="group-handle"
-              className="flex-1 px-3 py-2 bg-surface border border-line rounded-lg text-fg text-sm placeholder-subtle focus:outline-none focus:ring-2 focus:ring-purple-500"
+              dataQa="group-handle"
+              className="flex-1"
             />
             <Button
               variant="primary"

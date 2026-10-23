@@ -389,6 +389,10 @@ export default function ChannelSidebar({
           currentUserId={currentUserId}
           onClose={() => setShowBrowseChannels(false)}
           onOpenChannel={(channelId) => navigate(`/app/${currentWorkspace.id}/${channelId}`)}
+          onCreateChannel={() => {
+            setShowBrowseChannels(false);
+            setShowNewChannel(true);
+          }}
         />
       )}
     </>

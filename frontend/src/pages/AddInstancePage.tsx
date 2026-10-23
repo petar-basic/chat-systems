@@ -1,5 +1,6 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { Button } from '@/shared/components/Button/Button';
+import { TextInput } from '@/shared/components/Form/TextInput';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
@@ -98,99 +99,74 @@ export default function AddInstancePage() {
             </div>
           )}
 
-          <div className="mb-5">
-            <label htmlFor="url" className="block text-sm font-medium text-fg-dim mb-2">
-              Server URL
-            </label>
-            <input
-              id="url"
+          <div className="space-y-5 mb-6">
+            <TextInput
+              label="Server URL"
               type="url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              className="w-full px-4 py-3 bg-raised/50 border border-line-strong rounded-lg text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
               placeholder="https://chat.yourcompany.com"
               required
             />
-          </div>
 
-          <div className="mb-5">
-            <button
-              type="button"
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className="text-xs text-muted hover:text-fg-dim transition flex items-center gap-1"
-            >
-              <span>{showAdvanced ? '▾' : '▸'}</span> Advanced options
-            </button>
-            {showAdvanced && (
-              <div className="mt-3">
-                <label htmlFor="wsUrl" className="block text-sm font-medium text-fg-dim mb-2">
-                  WebSocket URL
-                  <span className="ml-2 text-xs text-muted font-normal">
-                    (optional — only needed if WS runs on a different port)
-                  </span>
-                </label>
-                <input
-                  id="wsUrl"
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="text-xs text-muted hover:text-fg-dim transition flex items-center gap-1"
+              >
+                <span>{showAdvanced ? '▾' : '▸'}</span> Advanced options
+              </button>
+              {showAdvanced && (
+                <TextInput
+                  label="WebSocket URL"
+                  optional
+                  hint="Only needed if the WebSocket server runs on a different port."
                   type="url"
                   value={wsUrl}
                   onChange={(e) => setWsUrl(e.target.value)}
-                  className="w-full px-4 py-3 bg-raised/50 border border-line-strong rounded-lg text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
                   placeholder="ws://localhost:3004"
+                  className="mt-3"
                 />
-              </div>
-            )}
-          </div>
+              )}
+            </div>
 
-          <div className="mb-5">
-            <label htmlFor="email" className="block text-sm font-medium text-fg-dim mb-2">
-              Email
-            </label>
-            <input
-              id="email"
+            <TextInput
+              label="Email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 bg-raised/50 border border-line-strong rounded-lg text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
               placeholder="you@company.com"
+              autoComplete="email"
+              dataQa="login-email"
               required
             />
-          </div>
 
-          <div className="mb-6">
-            <label htmlFor="password" className="block text-sm font-medium text-fg-dim mb-2">
-              Password
-            </label>
-            <input
-              id="password"
+            <TextInput
+              label="Password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 bg-raised/50 border border-line-strong rounded-lg text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
               placeholder="Enter your password"
+              autoComplete="current-password"
+              dataQa="login-password"
               required
             />
-          </div>
 
-          {needsTotp && (
-            <div className="mb-6">
-              <label htmlFor="totp" className="block text-sm font-medium text-fg-dim mb-2">
-                Authentication code
-              </label>
-              <input
-                id="totp"
-                type="text"
+            {needsTotp && (
+              <TextInput
+                label="Authentication code"
                 inputMode="text"
                 autoComplete="one-time-code"
                 autoFocus
                 value={totpCode}
                 onChange={(e) => setTotpCode(e.target.value.trim())}
-                data-qa="login-totp"
-                className="w-full px-4 py-3 bg-raised/50 border border-line-strong rounded-lg text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition tracking-widest"
+                dataQa="login-totp"
                 placeholder="123456"
                 required
               />
-            </div>
-          )}
+            )}
+          </div>
 
           <Button
             variant="primary"
