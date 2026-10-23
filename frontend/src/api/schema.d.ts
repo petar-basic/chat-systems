@@ -3275,8 +3275,8 @@ export interface components {
         /**
          * @description A direct message is a channel too, but somebody searching "the channels" is
          *     not asking to see their private threads next to them, so the scope picks
-         *     which channel types the hits may come from. Filtering by channel is asking
-         *     about channels, whatever the scope says.
+         *     which channel types the hits may come from. Filtering by one channel or
+         *     conversation names the place, whatever the scope says.
          * @enum {string}
          */
         SearchScope: "channels" | "conversations" | "all";
@@ -5382,6 +5382,9 @@ export interface operations {
                 limit?: number | null;
                 offset?: number | null;
                 scope?: components["schemas"]["SearchScope"] | null;
+                has?: ("file" | "image" | "link") | null;
+                after?: string | null;
+                before?: string | null;
             };
             header?: never;
             path?: never;

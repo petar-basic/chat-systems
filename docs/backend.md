@@ -358,7 +358,7 @@ their own message, and a named user inside a broadcast is notified once, not twi
 | POST | `/workspaces/:ws_id/read` | — | `{ status: "read" }` — moves the caller to the newest message in every unread channel and conversation of the workspace, one `channel.read_state` per channel |
 | GET | `/workspaces/:ws_id/unreads` | Query: `limit=20 (≤50), offset=0` | `{ data: UnreadGroup[], next_offset }` — every channel and DM the caller has unread messages in, muted last and otherwise newest activity first, each with its newest 20 unread messages (oldest first, the caller's own left out) |
 | POST | `/channels/:ch_id/unread` | `{ message_id }` | `ReadState` — moves the caller's read position to just before that message and recomputes their unread and mention counts for the channel |
-| GET | `/search` | Query: `q, workspace_id, channel_id?, user_id?, limit=20, offset=0` | `{ data: Message[] }` |
+| GET | `/search` | Query: `q?, workspace_id, channel_id?, user_id?, has? (file \| image \| link), after?, before?, scope?, limit=20, offset=0` | `{ data: Message[] }` — `q` may be empty when a filter is set (newest first); `channel_id` takes a channel or a conversation; `after` is inclusive and `before` exclusive (RFC 3339 instants); `has=file` counts images too |
 
 Search is access-scoped: results come only from public channels in the workspace
 plus the private/DM channels the caller belongs to.

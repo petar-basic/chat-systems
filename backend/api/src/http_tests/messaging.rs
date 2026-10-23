@@ -1608,6 +1608,164 @@ async fn scope_decides_which_half_of_the_search_runs(pool: PgPool) {
     }
 }
 
+async fn search_contents(
+    app: &axum::Router,
+    token: &str,
+    ws_id: uuid::Uuid,
+    query: &str,
+) -> Vec<String> {
+    let (status, body) = send(
+        app,
+        "GET",
+        &format!("/api/search?workspace_id={ws_id}{query}"),
+        Some(token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{query}: {body:?}");
+    body["data"]
+        .as_array()
+        .expect("data")
+        .iter()
+        .map(|hit| hit["content"].as_str().expect("content").to_string())
+        .collect()
+}
+
+async fn attach(state: &crate::state::AppState, message_id: uuid::Uuid, mime_type: &str) {
+    sqlx::query(
+        "UPDATE messages SET metadata = metadata || jsonb_build_object('attachments', jsonb_build_array(jsonb_build_object('id', gen_random_uuid(), 'filename', 'f', 'mime_type', $2::text, 'size_bytes', 1, 'url', '/f'))) WHERE id = $1",
+    )
+    .bind(message_id)
+    .bind(mime_type)
+    .execute(&state.pool)
+    .await
+    .expect("attach");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn search_narrows_by_what_a_message_has(pool: PgPool) {
+    let (app, state, _owner, token, ws_id, ch_id) = setup_channel(pool).await;
+    create_message(&app, &token, ch_id, "quarterly plain").await;
+    create_message(&app, &token, ch_id, "quarterly see https://example.com/q").await;
+    let file = create_message(&app, &token, ch_id, "quarterly report attached").await;
+    attach(&state, file, "application/pdf").await;
+    let photo = create_message(&app, &token, ch_id, "quarterly photo attached").await;
+    attach(&state, photo, "image/png").await;
+
+    let mut files = search_contents(&app, &token, ws_id, "&q=quarterly&has=file").await;
+    files.sort();
+    assert_eq!(
+        files,
+        vec!["quarterly photo attached", "quarterly report attached"]
+    );
+    assert_eq!(
+        search_contents(&app, &token, ws_id, "&q=quarterly&has=image").await,
+        vec!["quarterly photo attached"]
+    );
+    assert_eq!(
+        search_contents(&app, &token, ws_id, "&q=quarterly&has=link").await,
+        vec!["quarterly see https://example.com/q"]
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn search_narrows_by_date(pool: PgPool) {
+    let (app, state, _owner, token, ws_id, ch_id) = setup_channel(pool).await;
+    for (content, at) in [
+        ("budget january", "2026-01-10T12:00:00Z"),
+        ("budget february", "2026-02-10T12:00:00Z"),
+        ("budget march", "2026-03-10T12:00:00Z"),
+    ] {
+        let id = create_message(&app, &token, ch_id, content).await;
+        sqlx::query("UPDATE messages SET created_at = $2::timestamptz WHERE id = $1")
+            .bind(id)
+            .bind(at)
+            .execute(&state.pool)
+            .await
+            .expect("backdate");
+    }
+
+    let after = "&after=2026-02-01T00:00:00Z";
+    let before = "&before=2026-03-01T00:00:00Z";
+    assert_eq!(
+        search_contents(&app, &token, ws_id, &format!("&q=budget{after}")).await,
+        vec!["budget march", "budget february"]
+    );
+    assert_eq!(
+        search_contents(&app, &token, ws_id, &format!("&q=budget{before}")).await,
+        vec!["budget february", "budget january"]
+    );
+    assert_eq!(
+        search_contents(&app, &token, ws_id, &format!("&q=budget{after}{before}")).await,
+        vec!["budget february"]
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn search_runs_on_filters_alone(pool: PgPool) {
+    let (app, state, _owner, token, ws_id, ch_id) = setup_channel(pool).await;
+    let (colleague, colleague_token) = colleague_in_channel(&app, &state, ws_id, ch_id).await;
+    create_message(&app, &token, ch_id, "from the owner").await;
+    create_message(&app, &colleague_token, ch_id, "first from the colleague").await;
+    create_message(&app, &colleague_token, ch_id, "second from the colleague").await;
+
+    assert_eq!(
+        search_contents(&app, &token, ws_id, &format!("&user_id={colleague}")).await,
+        vec!["second from the colleague", "first from the colleague"]
+    );
+    assert_eq!(
+        search_contents(&app, &token, ws_id, &format!("&q=%20&user_id={colleague}")).await,
+        vec!["second from the colleague", "first from the colleague"]
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn search_in_one_conversation(pool: PgPool) {
+    let (app, state, _owner, token, ws_id, ch_id) = setup_channel(pool).await;
+    let (partner, _, _) = seed_and_login(&app, &state, "search-partner", false).await;
+    add_ws_member(&state, ws_id, partner, "member").await;
+    let (outsider, _, outsider_token) =
+        seed_and_login(&app, &state, "search-outsider", false).await;
+    add_ws_member(&state, ws_id, outsider, "member").await;
+    let (_, conversation) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/conversations"),
+        Some(&token),
+        Some(json!({ "participant_ids": [partner] })),
+    )
+    .await;
+    let conversation_id = conversation["id"].as_str().expect("conversation id");
+    create_message(&app, &token, ch_id, "lunch in the channel").await;
+    create_message(
+        &app,
+        &token,
+        conversation_id.parse().expect("uuid"),
+        "lunch in the DM",
+    )
+    .await;
+
+    assert_eq!(
+        search_contents(
+            &app,
+            &token,
+            ws_id,
+            &format!("&q=lunch&channel_id={conversation_id}")
+        )
+        .await,
+        vec!["lunch in the DM"]
+    );
+    let (status, _) = send(
+        &app,
+        "GET",
+        &format!("/api/search?workspace_id={ws_id}&q=lunch&channel_id={conversation_id}"),
+        Some(&outsider_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+}
+
 fn urlencode(value: &str) -> String {
     value
         .bytes()

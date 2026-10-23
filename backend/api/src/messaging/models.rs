@@ -161,12 +161,44 @@ pub struct SearchQuery {
     pub limit: Option<i64>,
     pub offset: Option<i64>,
     pub scope: Option<SearchScope>,
+    #[param(inline)]
+    pub has: Option<SearchHas>,
+    pub after: Option<DateTime<Utc>>,
+    pub before: Option<DateTime<Utc>>,
+}
+
+impl SearchQuery {
+    pub fn has_filter(&self) -> bool {
+        self.channel_id.is_some()
+            || self.user_id.is_some()
+            || self.has.is_some()
+            || self.after.is_some()
+            || self.before.is_some()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, ToSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum SearchHas {
+    File,
+    Image,
+    Link,
+}
+
+impl SearchHas {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::File => "file",
+            Self::Image => "image",
+            Self::Link => "link",
+        }
+    }
 }
 
 /// A direct message is a channel too, but somebody searching "the channels" is
 /// not asking to see their private threads next to them, so the scope picks
-/// which channel types the hits may come from. Filtering by channel is asking
-/// about channels, whatever the scope says.
+/// which channel types the hits may come from. Filtering by one channel or
+/// conversation names the place, whatever the scope says.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum SearchScope {

@@ -5,7 +5,15 @@ import { toUserMessage } from '@/lib/errors';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { useUserCache } from '../stores/users';
 import { useWorkspaceStore } from '../stores/workspace';
-import type { Message } from '../stores/workspace';
+import type { Message, WorkspaceMember } from '../stores/workspace';
+import { SearchFilterBar } from '@/features/search/SearchFilterBar';
+import {
+  extractFilters,
+  hasFilters,
+  searchParams,
+  type FilterContext,
+  type SearchFilters,
+} from '@/features/search/searchFilters';
 import { X, Search } from 'lucide-react';
 import { displayNameOf } from '@/lib/userHelpers';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
@@ -16,6 +24,7 @@ import { toPlainText } from '@/lib/plainText';
 import { formatDateTime } from '@/lib/datetime';
 
 interface Props {
+  members: WorkspaceMember[];
   onClose: () => void;
   onNavigateToMessage?: (channelId: string, messageId: string) => void;
   onNavigateToConversation?: (conversationId: string) => void;
@@ -63,32 +72,44 @@ function Hit({
   );
 }
 
-export default function SearchPanel({ onClose, onNavigateToMessage, onNavigateToConversation }: Props) {
+export default function SearchPanel({
+  members,
+  onClose,
+  onNavigateToMessage,
+  onNavigateToConversation,
+}: Props) {
   useEscapeToClose(onClose);
   const [query, setQuery] = useState('');
+  const [filters, setFilters] = useState<SearchFilters>({});
   const [results, setResults] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const workspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id);
   const instanceUrl = useWorkspaceStore((s) => s.currentWorkspace?.instanceUrl);
+  const currentUserId = useWorkspaceStore((s) => s.currentUserId);
   const { data: channels = [] } = useWorkspaceChannels(workspaceId ?? null, instanceUrl);
   const { data: conversations = [] } = useConversations(workspaceId ?? null, instanceUrl);
+  const [today] = useState(() => new Date());
+  const context: FilterContext = { members, channels, conversations, currentUserId, today };
   const channelNames = new Map(channels.map((ch) => [ch.id, ch.name]));
   const conversationIds = new Set(conversations.map((c) => c.id));
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestRef = useRef(0);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
   const doSearch = useCallback(
-    async (q: string) => {
-      if (!q.trim() || !workspaceId) {
+    async (q: string, active: SearchFilters) => {
+      const request = ++requestRef.current;
+      if ((!q.trim() && !hasFilters(active)) || !workspaceId) {
         setResults([]);
         setSearched(false);
         setError(null);
+        setLoading(false);
         return;
       }
       setLoading(true);
@@ -96,39 +117,63 @@ export default function SearchPanel({ onClose, onNavigateToMessage, onNavigateTo
       setError(null);
       try {
         const res = await getApiForInstance(instanceUrl).typed((c) =>
-          c.GET('/search', { params: { query: { q: q.trim(), workspace_id: workspaceId, limit: 20 } } }),
+          c.GET('/search', {
+            params: {
+              query: { q: q.trim(), workspace_id: workspaceId, limit: 20, ...searchParams(active) },
+            },
+          }),
         );
-        setResults(res.data);
+        if (request === requestRef.current) setResults(res.data);
       } catch (err: unknown) {
+        if (request !== requestRef.current) return;
         setResults([]);
         setError(toUserMessage(err, 'Search failed'));
       } finally {
-        setLoading(false);
+        if (request === requestRef.current) setLoading(false);
       }
     },
     [workspaceId, instanceUrl],
   );
 
-  const handleChange = (value: string) => {
-    setQuery(value);
+  const search = (text: string, active: SearchFilters, delay: number) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => doSearch(value), 400);
+    debounceRef.current = setTimeout(() => void doSearch(text, active), delay);
   };
+
+  const apply = (text: string, final: boolean) => {
+    const extracted = extractFilters(text, context, final);
+    const nextText = extracted?.text ?? text;
+    const nextFilters = extracted ? { ...filters, ...extracted.filters } : filters;
+    setQuery(nextText);
+    if (extracted) setFilters(nextFilters);
+    search(nextText, nextFilters, final || extracted ? 0 : 400);
+  };
+
+  const changeFilters = (next: SearchFilters) => {
+    setFilters(next);
+    search(query, next, 0);
+  };
+
+  const filtered = hasFilters(filters);
 
   return (
     <div className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 flex flex-col border-l border-line/50 bg-app lg:bg-app/80">
       <PanelHeader title="Search" icon={<Search className="h-4 w-4 text-muted" />} onClose={onClose} />
 
-      <div className="px-3 py-3 border-b border-line/30">
+      <div className="px-3 py-3 border-b border-line/30 space-y-2">
         <div className="flex items-center gap-2 bg-surface border border-line rounded-lg px-3 py-2">
           <Search className="w-4 h-4 text-muted shrink-0" />
           <input
             ref={inputRef}
             type="text"
             value={query}
-            onChange={(e) => handleChange(e.target.value)}
+            onChange={(e) => apply(e.target.value, false)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') apply(query, true);
+            }}
             placeholder="Search messages..."
             aria-label="Search messages"
+            title="Narrow with from:@name in:#channel has:file before:2026-10-01 after: on:"
             className="flex-1 bg-transparent text-fg placeholder-subtle focus:outline-none text-sm"
           />
           {query && (
@@ -136,8 +181,7 @@ export default function SearchPanel({ onClose, onNavigateToMessage, onNavigateTo
               aria-label="Clear search"
               onClick={() => {
                 setQuery('');
-                setResults([]);
-                setSearched(false);
+                search('', filters, 0);
               }}
               className="text-muted hover:text-fg-dim transition cursor-pointer"
             >
@@ -145,7 +189,29 @@ export default function SearchPanel({ onClose, onNavigateToMessage, onNavigateTo
             </button>
           )}
         </div>
+        <SearchFilterBar filters={filters} onChange={changeFilters} context={context} />
       </div>
+
+      {searched && !loading && !error && (
+        <div
+          className="flex items-center justify-between px-4 pt-2 text-xs text-muted"
+          data-qa="search-summary"
+        >
+          <span>
+            {results.length === 20 ? '20+' : results.length} {results.length === 1 ? 'result' : 'results'}
+          </span>
+          {filtered && (
+            <button
+              type="button"
+              onClick={() => changeFilters({})}
+              data-qa="search-clear-filters"
+              className="text-accent hover:text-accent-soft cursor-pointer"
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto px-2 py-2">
         {loading ? (
@@ -158,7 +224,13 @@ export default function SearchPanel({ onClose, onNavigateToMessage, onNavigateTo
           </div>
         ) : searched && results.length === 0 ? (
           <div className="text-center py-8 text-muted text-sm">
-            No messages found for &ldquo;{query}&rdquo;
+            {query.trim() ? (
+              <>
+                No messages found for &ldquo;{query.trim()}&rdquo;{filtered && ' with these filters'}
+              </>
+            ) : (
+              'No messages match these filters'
+            )}
           </div>
         ) : results.length > 0 ? (
           <div className="space-y-1">
@@ -192,8 +264,12 @@ export default function SearchPanel({ onClose, onNavigateToMessage, onNavigateTo
             })}
           </div>
         ) : (
-          <div className="text-center py-8 text-muted text-sm">
-            Search across all messages in this workspace
+          <div className="px-4 py-8 text-center text-sm text-muted space-y-1">
+            <p>Search across all messages in this workspace</p>
+            <p className="text-xs text-subtle">
+              Narrow it with the filters, or type <code>from:@name</code>, <code>in:#channel</code>,{' '}
+              <code>has:file</code> or <code>after:2026-10-01</code>
+            </p>
           </div>
         )}
       </div>

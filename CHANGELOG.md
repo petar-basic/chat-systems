@@ -24,6 +24,11 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   box edits your last message. Messages are one Tab stop: ↑ / ↓ walk them, and on the focused
   one `E` edits, `T` or Enter opens the thread, `R` reacts, `A` saves for later, `P` pins and Esc
   goes back to the message box. ⌘/ (Ctrl+/) lists every shortcut.
+- **Search filters.** The search panel has *From*, *In*, *Has* and *Date* chips, and the same
+  filters typed into the box (`from:@ana in:#design has:file before:2026-10-01 after:… on:…`)
+  turn into chips as they are recognised. `GET /search` gains `has` (`file`, `image`, `link`),
+  `after` and `before`, takes a DM in `channel_id`, and runs on filters alone when there are no
+  words.
 
 ## [3.0.0] — 2026-10-22
 
