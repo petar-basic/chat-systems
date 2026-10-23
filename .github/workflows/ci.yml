@@ -226,7 +226,7 @@ jobs:
       # Layer caching is the point: without it every run recompiles the whole
       # release build, which was 71% of this job.
       - name: Build the backend image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./backend
           load: true
@@ -235,7 +235,7 @@ jobs:
           cache-to: ${{ github.ref == 'refs/heads/main' && 'type=gha,scope=backend,mode=max' || '' }}
 
       - name: Build the frontend image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./frontend
           load: true
