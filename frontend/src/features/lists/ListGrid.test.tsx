@@ -244,11 +244,12 @@ describe('ListGrid cell editors', () => {
     const grid = renderGrid();
     goTo(grid, 3);
     press(grid, 'Enter');
-    const listbox = screen.getByRole('listbox', { name: 'Tags' });
+    const listbox = editor();
+    expect(listbox).toHaveAttribute('aria-label', 'Tags');
     press(listbox, ' ');
     press(listbox, 'ArrowDown');
     press(listbox, ' ');
-    expect(screen.getAllByRole('option').map((o) => o.getAttribute('aria-selected'))).toEqual([
+    expect(screen.getAllByTestId('cell-editor-choice').map((o) => o.getAttribute('aria-selected'))).toEqual([
       'true',
       'true',
     ]);
