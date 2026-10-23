@@ -235,7 +235,7 @@ the schedule both build on the level's single server-side decision.
 | # | Ticket | Area |
 |---|---|---|
 | CS-063 ✅ | Search finds files by name | backend · frontend |
-| [CS-064](CS-064-file-content-search.md) | Search inside files (PDF, Office, text) | backend · frontend · ops |
+| CS-064 ✅ | Search inside files (PDF, Office, text) | backend · frontend · ops |
 
 ### Wave 23 — Structured work: polls, lists, workflows
 
@@ -252,7 +252,7 @@ forms reuse. Lists come before the workflow builder's last part, which writes in
 
 | # | Ticket | Area | Why it is not done |
 |---|---|---|---|
-| [CS-064](CS-064-file-content-search.md) … [CS-067](CS-067-workflow-builder.md) | Waves 22–23 | backend · frontend · ops | Planned 2026-10-23; one at a time, in number order, each before 4.0.0 |
+| [CS-065](CS-065-polls.md) … [CS-067](CS-067-workflow-builder.md) | Wave 23 | backend · frontend · ops | Planned 2026-10-23; one at a time, in number order, each before 4.0.0 |
 | [CS-037](CS-037-huddle-sfu.md) | SFU for large huddles | backend · frontend · ops | Held for 4.0.0 — it adds a service to the stack, so it ships in a major release |
 
 ## Conflict map
@@ -277,6 +277,6 @@ Tickets that touch the same files, and the order that avoids rework:
 | huddle join authorization | CS-041 ✅ → CS-037 |
 | notification consumer and `is_dnd_active` | CS-046 ✅ → CS-060 ✅ → CS-061 ✅ → CS-062 ✅ |
 | `NotificationStream` and `wsQuerySync` sound/desktop | CS-060 ✅ → CS-061 ✅ |
-| search visibility (`searchable_channels()`) | CS-048 ✅ → CS-063 ✅ → CS-064 |
-| search panel tabs and filter bar | CS-058 ✅ → CS-063 ✅ → CS-064 |
-| `chat-worker` supervised loops | CS-064 → CS-065 → CS-067 |
+| search visibility (`searchable_channels()`) | CS-048 ✅ → CS-063 ✅ → CS-064 ✅ |
+| search panel tabs and filter bar | CS-058 ✅ → CS-063 ✅ → CS-064 ✅ |
+| `chat-worker` supervised loops | CS-064 ✅ → CS-065 → CS-067 |

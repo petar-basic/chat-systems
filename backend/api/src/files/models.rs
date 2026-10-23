@@ -144,4 +144,39 @@ pub struct FileSearchHit {
     pub channel_id: Uuid,
     pub user_id: Uuid,
     pub created_at: DateTime<Utc>,
+    pub snippet: Option<Vec<super::text::SnippetPart>>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
+#[sqlx(type_name = "file_text_status", rename_all = "snake_case")]
+pub enum FileTextStatus {
+    Pending,
+    Done,
+    Empty,
+    Unsupported,
+    TooLarge,
+    Failed,
+}
+
+impl FileTextStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            FileTextStatus::Pending => "pending",
+            FileTextStatus::Done => "done",
+            FileTextStatus::Empty => "empty",
+            FileTextStatus::Unsupported => "unsupported",
+            FileTextStatus::TooLarge => "too_large",
+            FileTextStatus::Failed => "failed",
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TextJob {
+    pub file_id: Uuid,
+    pub storage_key: String,
+    pub filename: String,
+    pub mime_type: String,
+    pub size_bytes: i64,
+    pub kind: FileKind,
 }

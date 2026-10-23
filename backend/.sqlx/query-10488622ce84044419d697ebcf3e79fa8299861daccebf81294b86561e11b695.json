@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT (SELECT COUNT(*) FROM files f\n                        WHERE f.message_id IS NOT NULL\n                          AND NOT EXISTS (SELECT 1 FROM file_texts t WHERE t.file_id = f.id))\n                    + (SELECT COUNT(*) FROM file_texts WHERE status = 'pending') AS \"backlog!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "backlog!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "10488622ce84044419d697ebcf3e79fa8299861daccebf81294b86561e11b695"
+}

@@ -56,7 +56,7 @@ What a team moving from Slack should expect to be missing or different:
 | **No native mobile app.** The web app is responsive and installs as a PWA with push, but there is nothing in an app store. | Deliberate — see [ROADMAP.md](docs/ROADMAP.md#wave-11--guest-containment-operational-readiness-and-mobile--shipped); React Native only if push reliability or call ringing proves to be the blocker |
 | **Huddles are peer-to-peer mesh**, capped at eight people; not a 30-person all-hands. No recording. | SFU held for 4.0.0 ([CS-037](docs/tickets/CS-037-huddle-sfu.md)); recording deliberately out of scope |
 | **Presence is derived, not declared.** Online / away / offline follows whether you hold a connection; there is no manual "away". A custom status ("In a meeting 🍕") is the separate thing, and that you do set yourself. | Deliberate |
-| **Search covers message text and file names**, not what is inside a file. | Planned: contents ([CS-064](docs/tickets/CS-064-file-content-search.md)) |
+| **Search reads text, not pictures.** Messages, file names and the text inside PDF, Word, Excel, PowerPoint and text files are searched; a scanned page or a screenshot is not (no OCR). | Deliberate — OCR needs a model beside the stack |
 | **No workflow builder, lists or polls yet.** | Planned: [CS-065](docs/tickets/CS-065-polls.md), [CS-066](docs/tickets/CS-066-lists.md), [CS-067](docs/tickets/CS-067-workflow-builder.md) |
 | **No app directory or shared channels across organisations.** | Not planned |
 

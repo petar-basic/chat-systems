@@ -106,6 +106,8 @@ lettre = { workspace = true }
 # HTTP client (for outgoing webhooks)
 reqwest = { workspace = true }
 zip = { workspace = true }
+pdf-extract = "0.12"
+quick-xml = "0.42"
 
 # Error handling
 anyhow = { workspace = true }

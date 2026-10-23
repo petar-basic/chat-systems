@@ -431,6 +431,7 @@ async fn search_files(
             channel_id: found.channel_id,
             user_id: found.record.user_id,
             created_at: found.record.created_at,
+            snippet: found.snippet,
         })
         .collect();
     Ok(Json(DataList { data }))

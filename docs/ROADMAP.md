@@ -9,8 +9,7 @@ ticket in [`docs/tickets/`](./tickets/INDEX.md); a ticket's file is deleted when
 
 | Ticket | What | Status |
 |---|---|---|
-| [CS-064](./tickets/CS-064-file-content-search.md) | Search inside PDF, Office and text files, extracted in the worker | Wave 22, next |
-| [CS-065](./tickets/CS-065-polls.md) | Polls, and the message with server-owned buttons | Wave 23 |
+| [CS-065](./tickets/CS-065-polls.md) | Polls, and the message with server-owned buttons | Wave 23, next |
 | [CS-066](./tickets/CS-066-lists.md) | Lists: typed tables in a conversation, board view, item comments | Wave 23 |
 | [CS-067](./tickets/CS-067-workflow-builder.md) | Workflow builder: schedule, webhook, reaction, member-joined and shortcut triggers; message, DM, form and list steps | Wave 23 |
 | [CS-037](./tickets/CS-037-huddle-sfu.md) | SFU (LiveKit) for huddles above the mesh's six-to-eight ceiling, promoted mid-call without dropping anybody | Held for the next major release (4.0.0), decided 2026-10-23 when 3.2.0 shipped CS-059 alone. Adds an optional media server beside the stack. Until then a huddle is capped at eight people |
@@ -66,7 +65,7 @@ was pencilled in for it was absorbed into 9 and 11.
 | [Wave 19 — Getting around](./history.md#wave-19--getting-around--shipped) | CS-058 |
 | [Wave 20 — Dialogs and large calls](./history.md#wave-20--dialogs-and-large-calls) | CS-059 (CS-037 open) |
 | [Wave 21 — Notifications that fit how a team works](./history.md#wave-21--notifications-that-fit-how-a-team-works--shipped) | CS-060 · CS-061 · CS-062 |
-| [Wave 22 — Finding files](./history.md#wave-22--finding-files) | CS-063 (CS-064 open) |
+| [Wave 22 — Finding files](./history.md#wave-22--finding-files--shipped) | CS-063 · CS-064 |
 
 ---
 

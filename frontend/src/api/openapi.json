@@ -8237,6 +8237,15 @@
                       "type": "string",
                       "format": "uuid"
                     },
+                    "snippet": {
+                      "type": [
+                        "array",
+                        "null"
+                      ],
+                      "items": {
+                        "$ref": "#/components/schemas/SnippetPart"
+                      }
+                    },
                     "user_id": {
                       "type": "string",
                       "format": "uuid"
@@ -9506,6 +9515,15 @@
               "message_id": {
                 "type": "string",
                 "format": "uuid"
+              },
+              "snippet": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "$ref": "#/components/schemas/SnippetPart"
+                }
               },
               "user_id": {
                 "type": "string",
@@ -11131,6 +11149,21 @@
           "position": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "SnippetPart": {
+        "type": "object",
+        "required": [
+          "text",
+          "hit"
+        ],
+        "properties": {
+          "hit": {
+            "type": "boolean"
+          },
+          "text": {
+            "type": "string"
           }
         }
       },

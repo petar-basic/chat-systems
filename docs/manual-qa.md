@@ -211,6 +211,13 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - 🟢 **Channel panel:** the channel's *Files* panel → *Filter by name* `budg` → only matching files, and the kind tabs still narrow them.
 - 🔴 **Edge — visibility:** as a member outside a private channel, or a guest outside a public one, a file posted there is not found; neither is a file whose message was deleted, or an upload never sent.
 
+### 6.3 🟢 Finding a file by what is inside it
+- **Steps:** post a PDF, a Word document, a spreadsheet and a slide deck, each with a word that is not in its name (a client's surname, a city). Wait up to a minute for the worker, then search *Files* for that word, typed without its accents.
+- **Expected:** each file is listed under any name match, with a line of its text under the name and the word marked in its original spelling. `file_text_extraction_total{status="done"}` on the worker's `/metrics` went up by four.
+- 🟠 **Edge — unreadable files:** a password-protected PDF, a truncated PDF and a renamed `.exe` → no results and no worker restart; `file_text_extraction_total` counts them as `unsupported` / `failed`, once each.
+- 🔴 **Edge — markup in a file:** a `.txt` containing `<img src=x onerror=alert(1)>` near the searched word → the snippet shows the characters as text; nothing runs.
+- 🔴 **Edge — visibility:** the same word in a file in a private channel you are not in → not found.
+
 ### How to send a raw upload for the edge cases (curl)
 ```bash
 # get a token by logging in via the UI (devtools → copy access_token) or:
@@ -346,7 +353,7 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 ## 12. Known limitations to verify *don't* regress (not bugs)
 - Presence is eventually-consistent across nodes (≤60s TTL on hard node crash) — a clean disconnect is immediate.
 - Webhook dispatch validates DNS at request time (DNS-rebinding is out of scope); redirects are disabled.
-- Search matches message text and file names, not what is inside a file (CS-064).
+- File search reads text inside PDF, Office and text files, not text in images (no OCR), and not in a file over 25 MB or a password-protected PDF.
 - A huddle holds at most eight people until the SFU (CS-037): a ninth person who presses *Join* gets "This huddle is full" and no call starts; the eight already in it see nobody join or leave.
 
 ---
