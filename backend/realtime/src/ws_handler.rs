@@ -10,7 +10,7 @@ use tracing::{info, warn};
 
 use shared_events::frames::{PresenceEntry, ServerFrame};
 
-use crate::connection_manager::Audience;
+use crate::connection_manager::{Audience, HUDDLE_MAX_PARTICIPANTS};
 use uuid::Uuid;
 
 use crate::connection_manager::{ConnectionManager, WRITER_CHANNEL_CAP};
@@ -234,8 +234,9 @@ async fn cleanup(
     let removed = cm.remove_connection(conn_id);
 
     for huddle_id in huddles {
-        if !cm.user_in_huddle_local(user_id, huddle_id) {
-            cm.huddle_redis_leave(huddle_id, user_id).await;
+        if !cm.user_in_huddle_local(user_id, huddle_id)
+            && cm.huddle_redis_leave(huddle_id, user_id).await
+        {
             cm.publish_huddle(
                 "huddle.member_left",
                 serde_json::json!({ "huddle_id": huddle_id, "user_id": user_id }),
@@ -433,8 +434,19 @@ pub(crate) async fn handle_client_message(
                 );
                 return;
             }
+            if !cm.huddle_redis_try_join(huddle_id, user_id).await {
+                let full = ServerFrame::HuddleFull {
+                    huddle_id,
+                    limit: HUDDLE_MAX_PARTICIPANTS,
+                };
+                cm.send_to_conn(*conn_id, &frame_text(&full));
+                info!(
+                    "User {} turned away from full huddle {}",
+                    user_id, huddle_id
+                );
+                return;
+            }
             cm.join_huddle(conn_id, huddle_id);
-            cm.huddle_redis_join(huddle_id, user_id).await;
             cm.publish_huddle(
                 "huddle.member_joined",
                 serde_json::json!({ "huddle_id": huddle_id, "user_id": user_id }),
@@ -454,8 +466,9 @@ pub(crate) async fn handle_client_message(
                 return;
             };
             cm.leave_huddle(conn_id, huddle_id);
-            if !cm.user_in_huddle_local(user_id, huddle_id) {
-                cm.huddle_redis_leave(huddle_id, user_id).await;
+            if !cm.user_in_huddle_local(user_id, huddle_id)
+                && cm.huddle_redis_leave(huddle_id, user_id).await
+            {
                 cm.publish_huddle(
                     "huddle.member_left",
                     serde_json::json!({ "huddle_id": huddle_id, "user_id": user_id }),

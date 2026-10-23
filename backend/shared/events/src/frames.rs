@@ -108,6 +108,8 @@ pub enum ServerFrame {
         huddle_id: Uuid,
         user_ids: Vec<Uuid>,
     },
+    #[serde(rename = "huddle.full")]
+    HuddleFull { huddle_id: Uuid, limit: usize },
     #[serde(rename = "huddle.mute")]
     HuddleMute {
         huddle_id: Uuid,
