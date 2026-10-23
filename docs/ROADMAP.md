@@ -9,7 +9,8 @@ ticket in [`docs/tickets/`](./tickets/INDEX.md); a ticket's file is deleted when
 
 | Ticket | What | Status |
 |---|---|---|
-| [CS-037](./tickets/CS-037-huddle-sfu.md) | SFU (LiveKit) for huddles above the mesh's six-to-eight ceiling | On request. Adds a media server to the stack; nothing below a 20-person team needs it |
+| [CS-059](./tickets/CS-059-dialogs.md) | Dialogs that look finished: three sizes, a fixed header and footer, one set of form fields, confirmation dialogs, *Browse channels* as Slack has it, and profile split from preferences | **Next.** Wave 20 |
+| [CS-037](./tickets/CS-037-huddle-sfu.md) | SFU (LiveKit) for huddles above the mesh's six-to-eight ceiling, promoted mid-call without dropping anybody | Wave 20, after CS-059. Adds an optional media server beside the stack |
 
 Two decisions were considered on 2026-09-02 and deferred with their reasoning below:
 versioning the API path and asymmetric JWT signing.

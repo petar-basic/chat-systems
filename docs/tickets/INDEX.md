@@ -15,7 +15,8 @@ green — desktop and a phone viewport — and the `e2e` job blocks merges. CS-0
 system at 500,000 messages and closed with Wave 12; what its numbers justified, CS-048, is
 Wave 13 and is shipped too. Wave 14 closes the daily-use gaps a team arriving from Slack
 notices first, Waves 15 and 16 (connected-app previews) and Wave 17 (files and images) are
-shipped too. Waves 18 and 19 are shipped too. The only open ticket is the on-request SFU.
+shipped too. Waves 18 and 19 are shipped too. Next: Wave 20 — [CS-059](CS-059-dialogs.md), then
+[CS-037](CS-037-huddle-sfu.md).
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
@@ -145,7 +146,7 @@ importer are shipped — see
 
 | # | Ticket | Area |
 |---|---|---|
-| [CS-037](CS-037-huddle-sfu.md) | SFU for large huddles | backend · frontend |
+| CS-037 → Wave 20 | SFU for large huddles | backend · frontend |
 
 ### Wave 11 — Guest containment, operational readiness and mobile ✅ done
 
@@ -204,11 +205,24 @@ week and does not find. The activity view a review might add to this list alread
 |---|---|---|
 | CS-058 ✅ | Getting around like in Slack: keyboard, search filters, Threads | backend · frontend |
 
+### Wave 20 — Dialogs and large calls
+
+The dialogs first: they are the part of the app every user sees each day, the work is
+frontend only, and it lands in a few days. The SFU follows; it is the one ticket that adds a
+service to the stack, so it goes last in the wave and into the release with its own upgrade
+note.
+
+| # | Ticket | Area |
+|---|---|---|
+| [CS-059](CS-059-dialogs.md) | Dialogs that look finished: sizes, fields, confirmations, profile and preferences | frontend |
+| [CS-037](CS-037-huddle-sfu.md) | SFU (LiveKit) for huddles above the mesh's ceiling, with promotion mid-call | backend · frontend · ops |
+
 ### Still open
 
 | # | Ticket | Area | Why it is not done |
 |---|---|---|---|
-| [CS-037](CS-037-huddle-sfu.md) | SFU for large huddles | backend · frontend | LiveKit is infrastructure of its own; the mesh is right for everything under six people |
+| [CS-059](CS-059-dialogs.md) | Dialogs that look finished | frontend | Next — written 2026-10-23 |
+| [CS-037](CS-037-huddle-sfu.md) | SFU for large huddles | backend · frontend · ops | After CS-059 — rewritten 2026-10-23 for Wave 20 |
 
 ## Conflict map
 
@@ -228,3 +242,5 @@ Tickets that touch the same files, and the order that avoids rework:
 | `channel_members` read position and counters | CS-026 ✅ → CS-050 ✅ → CS-051 ✅ → CS-052 ✅ |
 | message metadata and `message.updated` | CS-029 ✅ → CS-049 ✅ → CS-053 ✅ → CS-054 ✅ → CS-055 ✅ |
 | `files` and the download route | CS-009 ✅ → CS-011 ✅ → CS-020 ✅ → CS-055 ✅ |
+| `frontend/src/shared/components` dialogs and controls | CS-056 ✅ → CS-059 |
+| huddle join authorization | CS-041 ✅ → CS-037 |
