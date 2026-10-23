@@ -14,6 +14,14 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
+## [Unreleased]
+
+### Changed
+
+- **A huddle holds at most eight people.** Past that a peer-to-peer call degrades for
+  everyone in it, so the ninth person to press *Join* is told the huddle is full and no call
+  starts. Larger calls wait for the SFU in 4.0.0.
+
 ## [3.2.0] — 2026-10-23
 
 ### Upgrading from 3.1.0

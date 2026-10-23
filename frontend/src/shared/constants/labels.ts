@@ -23,6 +23,7 @@ export const ErrorLabels = {
   MicBusy: 'Another app is holding the microphone. Close it and try again.',
   MicFailed: "Couldn't open the microphone.",
   HuddleSetupFailed: "Couldn't set up the call. Try again in a moment.",
+  huddleFull: (limit: number) => `This huddle is full. It holds up to ${limit} people.`,
 } as const;
 
 export const EmptyLabels = {
