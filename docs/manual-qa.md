@@ -376,6 +376,10 @@ HTTPS deployment rather than `http://192.168.x.x`.
       (Browse channels). The dialog must cover the screen, not sit inside the
       drawer. A transformed ancestor is the containing block for
       `position: fixed`, which is what made this wrong before the portal.
+- [ ] **Uploads.** In the installed app, the composer's paperclip, *Edit profile →
+      Upload photo* and *Workspace settings → Upload icon* each open the system picker
+      (photos, camera, files), and the chosen file uploads. Emulation cannot check this:
+      the picker that failed here was the device's own.
 - [ ] **Back gesture.** From a thread, the system back gesture returns to the
       channel rather than leaving the app.
 - [ ] **Background and foreground.** Lock the phone for a minute, come back:

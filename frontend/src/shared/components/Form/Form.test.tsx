@@ -6,6 +6,7 @@ import { TextArea } from './TextArea';
 import { Select } from './Select';
 import { Checkbox } from './Checkbox';
 import { RadioCards } from './RadioCards';
+import { FilePicker } from './FilePicker';
 
 describe('TextInput', () => {
   it('is named by its label and described by its hint', () => {
@@ -112,5 +113,34 @@ describe('RadioCards', () => {
     expect(screen.getByRole('radio', { name: 'Private' })).toHaveAccessibleDescription('Invite only');
     fireEvent.click(screen.getByRole('radio', { name: 'Private' }));
     expect(onChange).toHaveBeenCalledWith('private');
+  });
+});
+
+describe('FilePicker', () => {
+  it('opens the picker natively, through its label, and hands over the chosen files', () => {
+    const onFiles = vi.fn();
+    render(
+      <FilePicker label="Profile photo file" accept="image/*" onFiles={onFiles} className="" dataQa="picker">
+        Upload photo
+      </FilePicker>,
+    );
+    const input = screen.getByLabelText('Profile photo file') as HTMLInputElement;
+    expect(input.type).toBe('file');
+    expect(input.closest('label')).toBe(screen.getByTestId('picker'));
+    expect(input).not.toHaveClass('hidden');
+    const photo = new File(['x'], 'me.png', { type: 'image/png' });
+    fireEvent.change(input, { target: { files: [photo] } });
+    expect(onFiles).toHaveBeenCalledWith([photo]);
+    expect(input.value).toBe('');
+  });
+
+  it('stays shut while disabled', () => {
+    render(
+      <FilePicker label="Workspace icon" onFiles={vi.fn()} className="" disabled dataQa="picker">
+        Upload icon
+      </FilePicker>,
+    );
+    expect(screen.getByLabelText('Workspace icon')).toBeDisabled();
+    expect(screen.getByTestId('picker')).toHaveAttribute('aria-disabled', 'true');
   });
 });

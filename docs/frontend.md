@@ -197,12 +197,15 @@ line up everywhere:
 - **Form** (`shared/components/Form`) — `TextInput` (`leading`, `trailing`, `counter`),
   `TextArea`, `Select`, `Checkbox` (with `description`) and `RadioCards`, all 36 px (`compact`
   32 px for rows and toolbars), each wired to its label, hint, error and counter by `Field`.
-  `labelHidden` keeps the label for screen readers only.
+  `labelHidden` keeps the label for screen readers only. `FilePicker` is a `<label>` styled
+  as the button, around a visually hidden file input: the tap itself opens the picker. A
+  `display: none` input opened with `ref.current.click()` is an untrusted click, and an iOS
+  home-screen app ignores it.
 
 Titles and labels are sentence case. ESLint enforces the rest outside `shared/components`: a
 hand-styled primary button (`hover:bg-purple-500`), a spinner (`rounded-full animate-spin`)
 or a raw `<input>`, `<textarea>` or `<select>` (file pickers excepted) fails
-`no-restricted-syntax`, and an icon-only `<button>` without `aria-label` fails
+`no-restricted-syntax`, as does `ref.current.click()`, and an icon-only `<button>` without `aria-label` fails
 `local/icon-button-label` (`eslint-rules/`).
 
 ### `MessageItem`

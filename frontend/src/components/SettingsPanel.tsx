@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { Button } from '@/shared/components/Button/Button';
 import { RadioCards } from '@/shared/components/Form/RadioCards';
@@ -17,6 +17,7 @@ import { Modal } from '@/shared/components/Modal/Modal';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { TextArea } from '@/shared/components/Form/TextArea';
 import { Checkbox } from '@/shared/components/Form/Checkbox';
+import { FilePicker } from '@/shared/components/Form/FilePicker';
 
 interface Props {
   workspaceId: string;
@@ -45,7 +46,6 @@ export default function SettingsPanel({
   const [name, setName] = useState(currentName);
   const [iconUrl, setIconUrl] = useState(currentIconUrl ?? '');
   const [uploadingIcon, setUploadingIcon] = useState(false);
-  const iconInputRef = useRef<HTMLInputElement>(null);
   const [description, setDescription] = useState(currentDescription || '');
   const [linkPreviews, setLinkPreviews] = useState(currentLinkPreviews);
   const [saving, setSaving] = useState(false);
@@ -63,9 +63,7 @@ export default function SettingsPanel({
     return api;
   };
 
-  const handleIconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleIconUpload = async ([file]: File[]) => {
     setUploadingIcon(true);
     setError(null);
     try {
@@ -79,7 +77,6 @@ export default function SettingsPanel({
       setError(toUserMessage(err));
     } finally {
       setUploadingIcon(false);
-      if (iconInputRef.current) iconInputRef.current.value = '';
     }
   };
 
@@ -164,15 +161,16 @@ export default function SettingsPanel({
               )}
             </div>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => iconInputRef.current?.click()}
+              <FilePicker
+                label="Workspace icon"
+                accept="image/*"
+                onFiles={handleIconUpload}
                 disabled={uploadingIcon}
-                data-qa="workspace-icon-upload"
-                className="px-3 py-2 text-sm bg-raised hover:bg-elevated disabled:bg-raised/50 text-fg rounded-lg transition cursor-pointer"
+                dataQa="workspace-icon-upload"
+                className="px-3 py-2 text-sm bg-raised hover:bg-elevated text-fg rounded-lg transition"
               >
                 {uploadingIcon ? 'Uploading…' : 'Upload icon'}
-              </button>
+              </FilePicker>
               {iconUrl && (
                 <button
                   type="button"
@@ -183,14 +181,6 @@ export default function SettingsPanel({
                 </button>
               )}
             </div>
-            <input
-              aria-label="Workspace icon"
-              ref={iconInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleIconUpload}
-            />
           </div>
 
           <TextInput label="Workspace name" value={name} onChange={(e) => setName(e.target.value)} required />

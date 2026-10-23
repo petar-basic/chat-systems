@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Camera } from 'lucide-react';
 import { Modal } from '@/shared/components/Modal/Modal';
@@ -6,6 +6,8 @@ import { Button } from '@/shared/components/Button/Button';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { TextArea } from '@/shared/components/Form/TextArea';
+import { FilePicker } from '@/shared/components/Form/FilePicker';
+import { buttonStyles } from '@/shared/components/Button/buttonStyles';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { QUERY_KEYS } from '@/shared/constants';
@@ -42,7 +44,6 @@ export function EditProfileModal({ onClose }: Props) {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!loaded && me) {
     const current = { emoji: me.status_emoji ?? '', text: me.status_text ?? '', minutes: null };
@@ -105,9 +106,7 @@ export function EditProfileModal({ onClose }: Props) {
     }
   };
 
-  const handleAvatarUpload = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleAvatarUpload = async ([file]: File[]) => {
     if (!workspace) {
       setError('Open a workspace before uploading a photo.');
       return;
@@ -125,7 +124,6 @@ export function EditProfileModal({ onClose }: Props) {
       setError('Could not upload that photo.');
     } finally {
       setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -194,15 +192,17 @@ export function EditProfileModal({ onClose }: Props) {
           <div className="order-first flex flex-col items-center gap-2 sm:order-none sm:w-40">
             <span className="self-start text-sm font-medium text-fg-dim max-sm:sr-only">Profile photo</span>
             <Avatar userId={user?.id ?? ''} name={name} avatarUrl={avatarUrl || null} size="2xl" />
-            <Button
-              size="sm"
-              icon={uploading ? <Spinner size="sm" /> : <Camera className="h-3.5 w-3.5" />}
-              onClick={() => fileInputRef.current?.click()}
+            <FilePicker
+              label="Profile photo file"
+              accept="image/*"
+              onFiles={handleAvatarUpload}
               disabled={uploading}
-              data-qa="profile-avatar-upload"
+              dataQa="profile-avatar-upload"
+              className={buttonStyles({ size: 'sm' })}
             >
+              {uploading ? <Spinner size="sm" /> : <Camera className="h-3.5 w-3.5" />}
               Upload photo
-            </Button>
+            </FilePicker>
             {avatarUrl && (
               <Button
                 size="sm"
@@ -214,14 +214,6 @@ export function EditProfileModal({ onClose }: Props) {
                 Remove photo
               </Button>
             )}
-            <input
-              aria-label="Profile photo file"
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleAvatarUpload}
-            />
           </div>
         </div>
       )}
