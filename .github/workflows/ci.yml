@@ -290,7 +290,7 @@ jobs:
 
       - name: Restore Playwright browsers
         id: playwright-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
@@ -310,7 +310,7 @@ jobs:
       # Same rule as the other caches: only main writes, branches read.
       - name: Save Playwright browsers
         if: github.ref == 'refs/heads/main' && steps.playwright-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
