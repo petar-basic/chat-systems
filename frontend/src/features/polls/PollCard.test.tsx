@@ -169,7 +169,7 @@ describe('PollCard', () => {
     renderCard(pollOf(), ['o-thu']);
     await waitFor(() => expect(options()[0]).toHaveAttribute('aria-pressed', 'true'));
     fireEvent.click(options()[0]);
-    expect(calls.put).toHaveBeenCalledWith('/polls/{poll_id}/vote', { option_ids: [] });
+    await waitFor(() => expect(calls.put).toHaveBeenCalledWith('/polls/{poll_id}/vote', { option_ids: [] }));
   });
 
   it('adds to the answer on a multiple choice poll', async () => {
@@ -177,7 +177,9 @@ describe('PollCard', () => {
     renderCard(pollOf({ multiple_choice: true }), ['o-thu']);
     await waitFor(() => expect(options()[0]).toHaveAttribute('aria-pressed', 'true'));
     fireEvent.click(options()[1]);
-    expect(calls.put).toHaveBeenCalledWith('/polls/{poll_id}/vote', { option_ids: ['o-thu', 'o-fri'] });
+    await waitFor(() =>
+      expect(calls.put).toHaveBeenCalledWith('/polls/{poll_id}/vote', { option_ids: ['o-thu', 'o-fri'] }),
+    );
     await waitFor(() => expect(countsShown()).toEqual(['2', '1']));
   });
 
@@ -187,7 +189,9 @@ describe('PollCard', () => {
     renderCard(pollOf(), [], keyVoteRef);
     await waitFor(() => expect(calls.get).toHaveBeenCalled());
     act(() => keyVoteRef.current?.(1));
-    expect(calls.put).toHaveBeenCalledWith('/polls/{poll_id}/vote', { option_ids: ['o-fri'] });
+    await waitFor(() =>
+      expect(calls.put).toHaveBeenCalledWith('/polls/{poll_id}/vote', { option_ids: ['o-fri'] }),
+    );
   });
 
   it('never asks who voted on an anonymous poll, and a closed poll takes no votes', async () => {
@@ -204,6 +208,6 @@ describe('PollCard', () => {
     renderCard(pollOf({ created_by: SELF }), []);
     fireEvent.click(screen.getByRole('button', { name: 'Close poll' }));
     await waitFor(() => expect(screen.getByTestId('poll-footer')).toHaveTextContent('Closed'));
-    expect(calls.post).toHaveBeenCalledWith('/polls/{poll_id}/close');
+    expect(calls.post).toHaveBeenCalledWith('/polls/{poll_id}/close', undefined);
   });
 });

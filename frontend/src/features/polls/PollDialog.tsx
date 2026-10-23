@@ -41,7 +41,7 @@ export function PollDialog({ target, onClose }: Props) {
   const setLabel = (index: number, label: string) =>
     setRows((current) => current.map((row, i) => (i === index ? { ...row, label } : row)));
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     const options = rows.map((row) => row.label.trim()).filter(Boolean);
     if (!question.trim()) {
@@ -53,19 +53,20 @@ export function PollDialog({ target, onClose }: Props) {
       return;
     }
     setError(null);
-    try {
-      await create.mutateAsync({
+    create.mutate(
+      {
         question: question.trim(),
         options,
         multiple_choice: multiple,
         anonymous,
         closes_at: closesAt ? new Date(closesAt).toISOString() : null,
         thread_parent_id: target.threadParentId ?? null,
-      });
-      onClose();
-    } catch (err) {
-      setError(toUserMessage(err, "Couldn't create the poll"));
-    }
+      },
+      {
+        onSuccess: onClose,
+        onError: (err) => setError(toUserMessage(err, "Couldn't create the poll")),
+      },
+    );
   };
 
   const onOptionKey = (index: number) => (e: KeyboardEvent<HTMLInputElement>) => {
