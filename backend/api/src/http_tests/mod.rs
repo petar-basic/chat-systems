@@ -26,6 +26,7 @@ mod files;
 mod hooks;
 mod huddle;
 mod later;
+mod lists;
 mod messaging;
 mod notifications;
 mod polls;

@@ -1,0 +1,33 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE list_columns SET name = $2, kind = $3, options = $4 WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        {
+          "Custom": {
+            "name": "list_column_kind",
+            "kind": {
+              "Enum": [
+                "text",
+                "number",
+                "select",
+                "multi_select",
+                "person",
+                "date",
+                "checkbox",
+                "link"
+              ]
+            }
+          }
+        },
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "51df46c94b770a9f1177c930aa836e8b45708975d13f7008c044a45703cbb14d"
+}

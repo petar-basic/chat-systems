@@ -651,3 +651,79 @@ fn the_consumer_listens_where_thread_states_are_published() {
         "thread.read_state is published on events:thread"
     );
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_channel_lists_frames_reach_the_channel_and_nobody_else(pool: PgPool) {
+    let cm = manager(pool).await;
+    let member = Uuid::new_v4();
+    let outsider = Uuid::new_v4();
+    let channel = Uuid::new_v4();
+    let list = Uuid::new_v4();
+    let (member_conn, mut member_rx) = fake_conn(&cm, member);
+    cm.join_channel(&member_conn, channel);
+    let (_outsider_conn, mut outsider_rx) = fake_conn(&cm, outsider);
+
+    let base = json!({ "list_id": list, "channel_id": channel, "owner_id": outsider });
+    let with = |extra: serde_json::Value| {
+        let mut payload = base.clone();
+        payload
+            .as_object_mut()
+            .unwrap()
+            .extend(extra.as_object().unwrap().clone());
+        payload
+    };
+    let events = [
+        ("list.upserted", with(json!({ "list": { "id": list } }))),
+        (
+            "list.columns_changed",
+            with(json!({ "columns": [], "items_rewritten": false })),
+        ),
+        (
+            "list.item_upserted",
+            with(json!({ "item": { "id": Uuid::new_v4() } })),
+        ),
+        (
+            "list.item_deleted",
+            with(json!({ "item_id": Uuid::new_v4() })),
+        ),
+        ("list.deleted", with(json!({}))),
+    ];
+    for (event_type, payload) in &events {
+        crate::event_consumer::handle_event(event_type, payload, &cm).await;
+    }
+
+    let received = drain_types(&mut member_rx);
+    let expected: Vec<String> = events.iter().map(|(t, _)| t.to_string()).collect();
+    assert_eq!(received, expected);
+    assert!(
+        drain_types(&mut outsider_rx).is_empty(),
+        "a channel list's owner hears through the channel, not directly"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_personal_lists_frames_reach_only_its_owner(pool: PgPool) {
+    let cm = manager(pool).await;
+    let owner = Uuid::new_v4();
+    let other = Uuid::new_v4();
+    let (_owner_conn, mut owner_rx) = fake_conn(&cm, owner);
+    let (_other_conn, mut other_rx) = fake_conn(&cm, other);
+
+    let payload = json!({
+        "list_id": Uuid::new_v4(),
+        "channel_id": null,
+        "owner_id": owner,
+        "item": { "id": Uuid::new_v4() },
+    });
+    crate::event_consumer::handle_event("list.item_upserted", &payload, &cm).await;
+
+    let frame = next_json(&mut owner_rx).expect("the owner hears about it");
+    assert_eq!(frame["type"], "list.item_upserted");
+    assert!(frame["channel_id"].is_null());
+    assert!(next_json(&mut other_rx).is_none());
+}
+
+#[test]
+fn the_consumer_listens_where_list_changes_are_published() {
+    assert!(crate::event_consumer::SUBSCRIBED_CHANNELS.contains(&"events:list"));
+}

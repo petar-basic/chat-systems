@@ -126,6 +126,69 @@ impl RetentionRepo {
         Ok(result.rows_affected())
     }
 
+    pub async fn purge_list_items(&self, workspace_id: Uuid, days: i32) -> sqlx::Result<u64> {
+        let result = sqlx::query!(
+            r"
+            DELETE FROM list_items
+             WHERE id IN (
+                 SELECT i.id FROM list_items i
+                   JOIN lists l ON l.id = i.list_id
+                  WHERE l.workspace_id = $1
+                    AND i.updated_at < NOW() - make_interval(days => $2)
+                  LIMIT $3
+             )
+            ",
+            workspace_id,
+            days,
+            PURGE_BATCH
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected())
+    }
+
+    pub async fn purge_deleted_lists(&self, workspace_id: Uuid, days: i32) -> sqlx::Result<u64> {
+        let result = sqlx::query!(
+            r"
+            DELETE FROM lists
+             WHERE id IN (
+                 SELECT id FROM lists
+                  WHERE workspace_id = $1
+                    AND deleted_at < NOW() - make_interval(days => $2)
+                  LIMIT $3
+             )
+            ",
+            workspace_id,
+            days,
+            PURGE_BATCH
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected())
+    }
+
+    pub async fn count_lists_past(
+        &self,
+        workspace_id: Uuid,
+        days: i32,
+    ) -> sqlx::Result<(i64, i64)> {
+        let row = sqlx::query!(
+            r#"
+            SELECT (SELECT COUNT(*) FROM list_items i JOIN lists l ON l.id = i.list_id
+                     WHERE l.workspace_id = $1
+                       AND i.updated_at < NOW() - make_interval(days => $2)) AS "items!",
+                   (SELECT COUNT(*) FROM lists
+                     WHERE workspace_id = $1
+                       AND deleted_at < NOW() - make_interval(days => $2)) AS "lists!"
+            "#,
+            workspace_id,
+            days
+        )
+        .fetch_one(&self.pool)
+        .await?;
+        Ok((row.items, row.lists))
+    }
+
     /// Files come back so the object can be removed before its row: a row
     /// deleted first leaves an object nobody knows about.
     pub async fn files_past(

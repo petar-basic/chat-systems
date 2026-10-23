@@ -11,7 +11,7 @@ use crate::connection_manager::Audience;
 
 use crate::connection_manager::ConnectionManager;
 
-pub const SUBSCRIBED_CHANNELS: [&str; 14] = [
+pub const SUBSCRIBED_CHANNELS: [&str; 15] = [
     "events:message",
     "events:reaction",
     "events:notification",
@@ -26,6 +26,7 @@ pub const SUBSCRIBED_CHANNELS: [&str; 14] = [
     "events:channel",
     "events:later",
     "events:thread",
+    "events:list",
 ];
 
 pub async fn start_event_consumer(
@@ -416,6 +417,25 @@ pub(crate) async fn handle_event_for(
                 workspace_id: ws_id,
             };
             cm.send_to_user(audience, uid, &framed(&notice)).await;
+        }
+        "list.upserted"
+        | "list.deleted"
+        | "list.columns_changed"
+        | "list.item_upserted"
+        | "list.item_deleted" => {
+            let Some(frame) = typed(event_type, payload) else {
+                return;
+            };
+            match (field("channel_id"), field("owner_id")) {
+                (Some(channel_id), _) => {
+                    cm.broadcast_to_channel(audience, channel_id, &framed(&frame))
+                        .await;
+                }
+                (None, Some(owner_id)) => {
+                    cm.send_to_user(audience, owner_id, &framed(&frame)).await;
+                }
+                (None, None) => {}
+            }
         }
         "user.suspended" => {
             if let Some(uid) = field("user_id") {

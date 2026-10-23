@@ -16,6 +16,7 @@ pub mod hooks;
 pub mod huddle;
 pub mod integrations;
 pub mod later;
+pub mod lists;
 pub mod messaging;
 pub mod metrics;
 pub mod middleware;
@@ -109,6 +110,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
     let conversation_repo = ConversationRepo::new(pool.clone());
     let later_repo = later::repo::LaterRepo::new(pool.clone());
     let poll_repo = polls::repo::PollRepo::new(pool.clone());
+    let list_repo = lists::repo::ListRepo::new(pool.clone());
     let thread_repo = threads::repo::ThreadRepo::new(pool.clone());
     let sidebar_repo = sidebar::repo::SidebarRepo::new(pool.clone());
     let integration_repo = integrations::repo::IntegrationRepo::new(pool.clone());
@@ -146,6 +148,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
         conversation_repo,
         later_repo,
         poll_repo,
+        list_repo,
         thread_repo,
         sidebar_repo,
         integration_repo,

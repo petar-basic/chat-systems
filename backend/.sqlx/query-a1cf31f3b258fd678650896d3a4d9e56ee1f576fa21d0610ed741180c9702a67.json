@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE list_items i\n                  SET \"values\" = CASE WHEN m.value = 'null'::jsonb THEN i.\"values\" - $2::text\n                                      ELSE jsonb_set(i.\"values\", ARRAY[$2::text], m.value) END\n                 FROM jsonb_each($3) AS m\n                WHERE i.list_id = $1 AND i.id = m.key::uuid",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a1cf31f3b258fd678650896d3a4d9e56ee1f576fa21d0610ed741180c9702a67"
+}

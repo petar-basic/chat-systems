@@ -1,0 +1,104 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, list_id, position, name, kind AS \"kind: ColumnKind\",\n                      options AS \"options: Json<ColumnOptions>\"\n                 FROM list_columns WHERE list_id = $1\n                ORDER BY position, id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "list_columns",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "list_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "list_columns",
+            "name": "list_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "position",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "list_columns",
+            "name": "position"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "list_columns",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "kind: ColumnKind",
+        "type_info": {
+          "Custom": {
+            "name": "list_column_kind",
+            "kind": {
+              "Enum": [
+                "text",
+                "number",
+                "select",
+                "multi_select",
+                "person",
+                "date",
+                "checkbox",
+                "link"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "list_columns",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "options: Json<ColumnOptions>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "list_columns",
+            "name": "options"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "2c53d37ee267d2683d8fea0b0fbfd89781fea457ca07497b575f62eb5d33bf16"
+}

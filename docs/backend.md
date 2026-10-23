@@ -727,6 +727,59 @@ and `poll_votes.jsonl` for polls that are not anonymous.
 
 ---
 
+### lists
+
+A list is a table kept in one conversation (a channel, DM or group DM) or, with no
+`channel_id`, a personal list only its creator sees. Reading it is the conversation's read
+access (`require_channel_access`), editing it is the right to post there
+(`require_channel_post`), so an announcement channel's list is read-only to everyone but its
+posters; there is no permission system of its own. Deleting a list is for its creator or a
+channel moderator. `list_columns` (at most 30) have a kind — `text`, `number`, `select`,
+`multi_select`, `person`, `date`, `checkbox`, `link` — and `options`: a select's `choices`
+(`{ id, label, color }`) and a number's `number` format (`plain`, `percent`, `currency` with a
+three-letter code, 0–6 decimals). `list_items` (at most 10,000) keep `values` keyed by column
+id and a `rank`, a fractional index, so moving an item rewrites that one row.
+
+Every cell is checked against its column on the server: a select takes one of its choice ids,
+a person must be a member of the list's conversation (of the workspace, for a personal list),
+a date is `YYYY-MM-DD`, a link starts with `http://` or `https://`. `null` clears a cell.
+`PATCH /list-items/:id` merges (`values || $1`), so two people editing different cells of one
+row both keep their edit, and the same cell is last write wins. Changing a column's kind or
+options converts the cells it can (number ↔ text, select ↔ text by label, a renamed choice
+keeps its cells) and clears the rest, but only when `confirm_cleared` names how many: without
+it the change is 409 "This change clears N cells". `POST /list-columns/:id/preview` gives the
+numbers first. A change to a list's structure locks the list row; a cell edit takes a share
+lock, so edits run side by side but never against a column that is changing.
+
+Each change is staged in the outbox in its transaction and sent to the list's audience: the
+channel for a channel list, the owner's sessions for a personal one. Frames: `list.upserted`
+(created, renamed), `list.deleted`, `list.columns_changed` (the columns as they now are;
+`items_rewritten` when cells were converted or dropped, so the client refetches items),
+`list.item_upserted` (the row as written) and `list.item_deleted`. A deleted channel takes its
+lists with it; retention's message window also removes list items not edited within it and
+deleted lists; a workspace export writes `lists.jsonl` (each list with its columns) and every
+list as `lists/<id>.csv`, a DM's list and personal lists only when DMs are included.
+
+| Method | Route | Input | Output |
+|--------|-------|-------|--------|
+| GET | `/workspaces/:ws_id/lists` | Query: `channel_id?` | `{ data: List[] }` — the caller's personal lists and those in conversations they can read; with `channel_id`, that conversation's |
+| POST | `/workspaces/:ws_id/lists` | `{ title, description?, channel_id?, columns?: [{ name, kind, options? }] }` | `ListDetail` (`{ list, columns }`) |
+| GET | `/lists/:list_id` | — | `ListDetail` |
+| PATCH | `/lists/:list_id` | `{ title?, description? }` | `List` |
+| DELETE | `/lists/:list_id` | — | `{ status: "deleted" }` — creator or channel moderator |
+| GET | `/lists/:list_id/items` | — | `{ data: ListItem[] }` in rank order |
+| POST | `/lists/:list_id/items` | `{ values?, after_id? }` — at the end unless `after_id` | `ListItem` |
+| POST | `/lists/:list_id/columns` | `{ name, kind, options? }` | `ListColumn` |
+| PUT | `/lists/:list_id/column-order` | `{ column_ids }` — every column once | `{ data: ListColumn[] }` |
+| PATCH | `/list-columns/:column_id` | `{ name?, kind?, options?, confirm_cleared? }` | `ListColumn` — 409 when cells would be cleared unconfirmed |
+| POST | `/list-columns/:column_id/preview` | `{ kind, options? }` | `{ converted, cleared }` |
+| DELETE | `/list-columns/:column_id` | — | `{ status: "deleted" }` — its cells go too |
+| PATCH | `/list-items/:item_id` | `{ values }` — only the cells named | `ListItem` |
+| POST | `/list-items/:item_id/move` | `{ after_id }` — `null` moves it to the top | `ListItem` |
+| DELETE | `/list-items/:item_id` | — | `{ status: "deleted" }` |
+
+---
+
 ### integrations (apps)
 
 Per-workspace connected apps — Jira Cloud, Confluence, GitHub, Google Drive and Figma — and each person's own connection to them.
@@ -876,6 +929,7 @@ batch cannot become the flood it replaced.
 | `events:workspace` | `workspace.deleted`, `workspace.restored` |
 | `events:user` | `user.suspended` — consumed by the gateway to close the user's sockets (not pushed to clients) |
 | `events:huddle` | `huddle.started`, `huddle.ended`, `huddle.ring`, `huddle.member_joined`, `huddle.member_left` — lifecycle; also consumed by the API for history + call notifications |
+| `events:list` | `list.upserted`, `list.deleted`, `list.columns_changed`, `list.item_upserted`, `list.item_deleted` — to the list's channel, or to the owner of a personal list |
 | `events:thread` | `thread.read_state` — sent only to the follower whose thread state changed (a reply, `/read`, follow or unfollow), with its `following` and `unread_count` |
 | `events:channel` | `channel.read_state` — sent only to the user whose read position moved (by `/read` or `/unread`), so their other tabs and devices update their badges; `channel.member_removed` becomes `channel.access_revoked` for the removed user |
 | `events:huddle-signal` | `huddle.offer`, `huddle.answer`, `huddle.ice`, `huddle.mute`, `huddle.camera`, `huddle.screenshare`, `huddle.hand`, `huddle.reaction` — high-frequency relay, realtime-only (kept off `events:huddle` so the API consumers don't parse every ICE candidate) |

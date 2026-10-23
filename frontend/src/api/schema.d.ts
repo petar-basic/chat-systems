@@ -851,6 +851,134 @@ export interface paths {
         patch: operations["update_later"];
         trace?: never;
     };
+    "/list-columns/{column_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete_list_column"];
+        options?: never;
+        head?: never;
+        patch: operations["update_list_column"];
+        trace?: never;
+    };
+    "/list-columns/{column_id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["preview_list_column"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/list-items/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete_list_item"];
+        options?: never;
+        head?: never;
+        patch: operations["update_list_item"];
+        trace?: never;
+    };
+    "/list-items/{item_id}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["move_list_item"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lists/{list_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_list"];
+        put?: never;
+        post?: never;
+        delete: operations["delete_list"];
+        options?: never;
+        head?: never;
+        patch: operations["update_list"];
+        trace?: never;
+    };
+    "/lists/{list_id}/column-order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["reorder_list_columns"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lists/{list_id}/columns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["add_list_column"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lists/{list_id}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_items"];
+        put?: never;
+        post: operations["create_list_item"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/messages/{msg_id}": {
         parameters: {
             query?: never;
@@ -1855,6 +1983,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{ws_id}/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_lists"];
+        put?: never;
+        post: operations["create_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{ws_id}/members": {
         parameters: {
             query?: never;
@@ -2407,12 +2551,43 @@ export interface components {
         };
         /** @enum {string} */
         ChannelType: "public" | "private" | "dm" | "group_dm";
+        Choice: {
+            color: components["schemas"]["ChoiceColor"];
+            /** Format: uuid */
+            id: string;
+            label: string;
+        };
+        /** @enum {string} */
+        ChoiceColor: "gray" | "red" | "orange" | "yellow" | "green" | "blue" | "purple" | "pink";
+        ChoiceInput: {
+            color?: components["schemas"]["ChoiceColor"];
+            /** Format: uuid */
+            id?: string | null;
+            label: string;
+        };
         CodeRequest: {
             code: string;
         };
         CollapseBuiltinRequest: {
             collapsed: boolean;
             section: components["schemas"]["BuiltinSection"];
+        };
+        ColumnChangePreview: {
+            kind: components["schemas"]["ColumnKind"];
+            options?: components["schemas"]["ColumnOptionsInput"];
+        };
+        /** @enum {string} */
+        ColumnKind: "text" | "number" | "select" | "multi_select" | "person" | "date" | "checkbox" | "link";
+        ColumnOptions: {
+            choices?: components["schemas"]["Choice"][];
+            number?: components["schemas"]["NumberFormat"] | null;
+        };
+        ColumnOptionsInput: {
+            choices?: components["schemas"]["ChoiceInput"][];
+            number?: components["schemas"]["NumberFormat"] | null;
+        };
+        ColumnOrder: {
+            column_ids: string[];
         };
         CommandInfo: {
             builtin: boolean;
@@ -2485,6 +2660,12 @@ export interface components {
             /** Format: uuid */
             workspace_id: string;
         };
+        ConversionCounts: {
+            /** Format: int64 */
+            cleared: number;
+            /** Format: int64 */
+            converted: number;
+        };
         CreateChannelBookmarkRequest: {
             emoji?: string | null;
             label: string;
@@ -2526,6 +2707,11 @@ export interface components {
             max_uses?: number | null;
             role?: components["schemas"]["WorkspaceRole"] | null;
         };
+        CreateItemRequest: {
+            /** Format: uuid */
+            after_id?: string | null;
+            values?: Record<string, never>;
+        };
         CreateLaterRequest: {
             /** Format: uuid */
             channel_id?: string | null;
@@ -2536,6 +2722,13 @@ export interface components {
             /** Format: date-time */
             remind_at?: string | null;
             text?: string | null;
+        };
+        CreateListRequest: {
+            /** Format: uuid */
+            channel_id?: string | null;
+            columns?: components["schemas"]["NewColumn"][];
+            description?: string;
+            title: string;
         };
         CreatePollRequest: {
             anonymous?: boolean;
@@ -2837,6 +3030,53 @@ export interface components {
                 text?: string | null;
                 /** Format: uuid */
                 workspace_id: string;
+            }[];
+        };
+        DataList_List: {
+            data: {
+                /** Format: uuid */
+                channel_id?: string | null;
+                /** Format: date-time */
+                created_at: string;
+                /** Format: uuid */
+                created_by: string;
+                description: string;
+                /** Format: uuid */
+                id: string;
+                title: string;
+                /** Format: date-time */
+                updated_at: string;
+                /** Format: uuid */
+                workspace_id: string;
+            }[];
+        };
+        DataList_ListColumn: {
+            data: {
+                /** Format: uuid */
+                id: string;
+                kind: components["schemas"]["ColumnKind"];
+                /** Format: uuid */
+                list_id: string;
+                name: string;
+                options: components["schemas"]["ColumnOptions"];
+                /** Format: int32 */
+                position: number;
+            }[];
+        };
+        DataList_ListItem: {
+            data: {
+                /** Format: date-time */
+                created_at: string;
+                /** Format: uuid */
+                created_by: string;
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                list_id: string;
+                rank: string;
+                /** Format: date-time */
+                updated_at: string;
+                values: Record<string, never>;
             }[];
         };
         DataList_MemberWithUser: {
@@ -3331,6 +3571,51 @@ export interface components {
         };
         /** @enum {string} */
         LaterStatus: "in_progress" | "completed" | "archived";
+        List: {
+            /** Format: uuid */
+            channel_id?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            created_by: string;
+            description: string;
+            /** Format: uuid */
+            id: string;
+            title: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: uuid */
+            workspace_id: string;
+        };
+        ListColumn: {
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["ColumnKind"];
+            /** Format: uuid */
+            list_id: string;
+            name: string;
+            options: components["schemas"]["ColumnOptions"];
+            /** Format: int32 */
+            position: number;
+        };
+        ListDetail: {
+            columns: components["schemas"]["ListColumn"][];
+            list: components["schemas"]["List"];
+        };
+        ListItem: {
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            created_by: string;
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            list_id: string;
+            rank: string;
+            /** Format: date-time */
+            updated_at: string;
+            values: Record<string, never>;
+        };
         LoginRequest: {
             email: string;
             password: string;
@@ -3417,11 +3702,20 @@ export interface components {
         MessageWithReactions: components["schemas"]["Message"] & {
             reactions: components["schemas"]["Reaction"][];
         };
+        MoveItemRequest: {
+            /** Format: uuid */
+            after_id?: string | null;
+        };
         MutedResponse: {
             muted: boolean;
         };
         MyVote: {
             option_ids: string[];
+        };
+        NewColumn: {
+            kind: components["schemas"]["ColumnKind"];
+            name: string;
+            options?: components["schemas"]["ColumnOptionsInput"];
         };
         Notification: {
             body?: string | null;
@@ -3454,6 +3748,14 @@ export interface components {
         };
         /** @enum {string} */
         NotifyLevel: "all" | "mentions" | "nothing";
+        NumberFormat: {
+            currency?: string | null;
+            /** Format: int32 */
+            decimals?: number;
+            style?: components["schemas"]["NumberStyle"];
+        };
+        /** @enum {string} */
+        NumberStyle: "plain" | "percent" | "currency";
         OptionVoters: {
             /** Format: uuid */
             option_id: string;
@@ -3788,6 +4090,13 @@ export interface components {
             post_policy?: components["schemas"]["PostPolicy"] | null;
             topic?: string | null;
         };
+        UpdateColumnRequest: {
+            /** Format: int64 */
+            confirm_cleared?: number | null;
+            kind?: components["schemas"]["ColumnKind"] | null;
+            name?: string | null;
+            options?: components["schemas"]["ColumnOptionsInput"] | null;
+        };
         UpdateGroupRequest: {
             description?: string | null;
             name: string;
@@ -3795,12 +4104,19 @@ export interface components {
         UpdateInstanceRoleRequest: {
             is_instance_admin: boolean;
         };
+        UpdateItemRequest: {
+            values: Record<string, never>;
+        };
         UpdateLaterRequest: {
             clear_reminder?: boolean;
             note?: string | null;
             /** Format: date-time */
             remind_at?: string | null;
             status?: components["schemas"]["LaterStatus"] | null;
+        };
+        UpdateListRequest: {
+            description?: string | null;
+            title?: string | null;
         };
         UpdateMemberRoleRequest: {
             role: components["schemas"]["WorkspaceRole"];
@@ -5308,6 +5624,311 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    delete_list_column: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                column_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    update_list_column: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                column_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateColumnRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListColumn"];
+                };
+            };
+        };
+    };
+    preview_list_column: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                column_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ColumnChangePreview"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversionCounts"];
+                };
+            };
+        };
+    };
+    delete_list_item: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    update_list_item: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateItemRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListItem"];
+                };
+            };
+        };
+    };
+    move_list_item: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveItemRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListItem"];
+                };
+            };
+        };
+    };
+    get_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                list_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListDetail"];
+                };
+            };
+        };
+    };
+    delete_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                list_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    update_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                list_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateListRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List"];
+                };
+            };
+        };
+    };
+    reorder_list_columns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                list_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ColumnOrder"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_ListColumn"];
+                };
+            };
+        };
+    };
+    add_list_column: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                list_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewColumn"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListColumn"];
+                };
+            };
+        };
+    };
+    list_items: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                list_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_ListItem"];
+                };
+            };
+        };
+    };
+    create_list_item: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                list_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateItemRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListItem"];
                 };
             };
         };
@@ -7250,6 +7871,54 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LaterCreated"];
+                };
+            };
+        };
+    };
+    list_lists: {
+        parameters: {
+            query?: {
+                channel_id?: string | null;
+            };
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_List"];
+                };
+            };
+        };
+    };
+    create_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateListRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListDetail"];
                 };
             };
         };

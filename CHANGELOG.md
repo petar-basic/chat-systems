@@ -37,6 +37,11 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   [the upgrade note](docs/RUNBOOK.md#upgrade-note-text-inside-files-becomes-searchable) for
   what that costs and how to watch it.
 - Migration 62 adds the `polls`, `poll_options` and `poll_votes` tables.
+- Migration 63 adds the `list_column_kind` type and the `lists`, `list_columns` and
+  `list_items` tables. The realtime service subscribes to one more Redis channel,
+  `events:list`; deploy the backend and realtime images together. A workspace's message
+  retention window now also removes list items nobody has edited within it; see
+  [the upgrade note](docs/RUNBOOK.md#upgrade-note-lists).
 
 ### Added
 
@@ -73,6 +78,12 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   channel moderator closes a poll, or it closes itself at its time. Works in channels, DMs and
   threads; everybody can vote in an announcement channel. `POST /channels/{id}/polls`,
   `PUT /polls/{id}/vote`, `GET /polls/{id}/votes`, `POST /polls/{id}/close`.
+- **Lists, the API.** A list is a table in a channel or DM, or a personal one: typed columns
+  (text, number, select, multi-select, person, date, checkbox, link), up to 30 columns and
+  10,000 items, checked on the server, merged per cell when two people edit one row, and sent
+  live to everyone in the conversation. Exports include each list as CSV. The table, board
+  and comments in the app follow. `/workspaces/{id}/lists`, `/lists/{id}`, `/list-columns/{id}`,
+  `/list-items/{id}`.
 
 ### Changed
 

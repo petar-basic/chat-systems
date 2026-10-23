@@ -2159,6 +2159,466 @@
         }
       }
     },
+    "/list-columns/{column_id}": {
+      "delete": {
+        "tags": [
+          "lists"
+        ],
+        "operationId": "delete_list_column",
+        "parameters": [
+          {
+            "name": "column_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "lists"
+        ],
+        "operationId": "update_list_column",
+        "parameters": [
+          {
+            "name": "column_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateColumnRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListColumn"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/list-columns/{column_id}/preview": {
+      "post": {
+        "tags": [
+          "lists"
+        ],
+        "operationId": "preview_list_column",
+        "parameters": [
+          {
+            "name": "column_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ColumnChangePreview"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversionCounts"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/list-items/{item_id}": {
+      "delete": {
+        "tags": [
+          "lists"
+        ],
+        "operationId": "delete_list_item",
+        "parameters": [
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "lists"
+        ],
+        "operationId": "update_list_item",
+        "parameters": [
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateItemRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListItem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/list-items/{item_id}/move": {
+      "post": {
+        "tags": [
+          "lists"
+        ],
+        "operationId": "move_list_item",
+        "parameters": [
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveItemRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListItem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lists/{list_id}": {
+      "get": {
+        "tags": [
+          "lists"
+        ],
+        "operationId": "get_list",
+        "parameters": [
+          {
+            "name": "list_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListDetail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "lists"
+        ],
+        "operationId": "delete_list",
+        "parameters": [
+          {
+            "name": "list_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "lists"
+        ],
+        "operationId": "update_list",
+        "parameters": [
+          {
+            "name": "list_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateListRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/List"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lists/{list_id}/column-order": {
+      "put": {
+        "tags": [
+          "lists"
+        ],
+        "operationId": "reorder_list_columns",
+        "parameters": [
+          {
+            "name": "list_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ColumnOrder"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_ListColumn"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lists/{list_id}/columns": {
+      "post": {
+        "tags": [
+          "lists"
+        ],
+        "operationId": "add_list_column",
+        "parameters": [
+          {
+            "name": "list_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewColumn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListColumn"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lists/{list_id}/items": {
+      "get": {
+        "tags": [
+          "lists"
+        ],
+        "operationId": "list_items",
+        "parameters": [
+          {
+            "name": "list_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_ListItem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "lists"
+        ],
+        "operationId": "create_list_item",
+        "parameters": [
+          {
+            "name": "list_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateItemRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListItem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/messages/{msg_id}": {
       "delete": {
         "tags": [
@@ -5312,6 +5772,86 @@
         }
       }
     },
+    "/workspaces/{ws_id}/lists": {
+      "get": {
+        "tags": [
+          "lists"
+        ],
+        "operationId": "list_lists",
+        "parameters": [
+          {
+            "name": "channel_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_List"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "lists"
+        ],
+        "operationId": "create_list",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateListRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workspaces/{ws_id}/members": {
       "get": {
         "tags": [
@@ -7071,6 +7611,60 @@
           "group_dm"
         ]
       },
+      "Choice": {
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "color"
+        ],
+        "properties": {
+          "color": {
+            "$ref": "#/components/schemas/ChoiceColor"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      },
+      "ChoiceColor": {
+        "type": "string",
+        "enum": [
+          "gray",
+          "red",
+          "orange",
+          "yellow",
+          "green",
+          "blue",
+          "purple",
+          "pink"
+        ]
+      },
+      "ChoiceInput": {
+        "type": "object",
+        "required": [
+          "label"
+        ],
+        "properties": {
+          "color": {
+            "$ref": "#/components/schemas/ChoiceColor"
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      },
       "CodeRequest": {
         "type": "object",
         "required": [
@@ -7094,6 +7688,90 @@
           },
           "section": {
             "$ref": "#/components/schemas/BuiltinSection"
+          }
+        }
+      },
+      "ColumnChangePreview": {
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ColumnKind"
+          },
+          "options": {
+            "$ref": "#/components/schemas/ColumnOptionsInput"
+          }
+        }
+      },
+      "ColumnKind": {
+        "type": "string",
+        "enum": [
+          "text",
+          "number",
+          "select",
+          "multi_select",
+          "person",
+          "date",
+          "checkbox",
+          "link"
+        ]
+      },
+      "ColumnOptions": {
+        "type": "object",
+        "properties": {
+          "choices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Choice"
+            }
+          },
+          "number": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NumberFormat"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "ColumnOptionsInput": {
+        "type": "object",
+        "properties": {
+          "choices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChoiceInput"
+            }
+          },
+          "number": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NumberFormat"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "ColumnOrder": {
+        "type": "object",
+        "required": [
+          "column_ids"
+        ],
+        "properties": {
+          "column_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         }
       },
@@ -7336,6 +8014,23 @@
           }
         }
       },
+      "ConversionCounts": {
+        "type": "object",
+        "required": [
+          "converted",
+          "cleared"
+        ],
+        "properties": {
+          "cleared": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "converted": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
       "CreateChannelBookmarkRequest": {
         "type": "object",
         "required": [
@@ -7517,6 +8212,21 @@
           }
         }
       },
+      "CreateItemRequest": {
+        "type": "object",
+        "properties": {
+          "after_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "values": {
+            "type": "object"
+          }
+        }
+      },
       "CreateLaterRequest": {
         "type": "object",
         "properties": {
@@ -7553,6 +8263,33 @@
               "string",
               "null"
             ]
+          }
+        }
+      },
+      "CreateListRequest": {
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "properties": {
+          "channel_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NewColumn"
+            }
+          },
+          "description": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
           }
         }
       },
@@ -8679,6 +9416,160 @@
                 "workspace_id": {
                   "type": "string",
                   "format": "uuid"
+                }
+              }
+            }
+          }
+        }
+      },
+      "DataList_List": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "workspace_id",
+                "title",
+                "description",
+                "created_by",
+                "created_at",
+                "updated_at"
+              ],
+              "properties": {
+                "channel_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "created_by": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "updated_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "workspace_id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          }
+        }
+      },
+      "DataList_ListColumn": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "list_id",
+                "position",
+                "name",
+                "kind",
+                "options"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "kind": {
+                  "$ref": "#/components/schemas/ColumnKind"
+                },
+                "list_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "options": {
+                  "$ref": "#/components/schemas/ColumnOptions"
+                },
+                "position": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            }
+          }
+        }
+      },
+      "DataList_ListItem": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "list_id",
+                "rank",
+                "values",
+                "created_by",
+                "created_at",
+                "updated_at"
+              ],
+              "properties": {
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "created_by": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "list_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "rank": {
+                  "type": "string"
+                },
+                "updated_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "values": {
+                  "type": "object"
                 }
               }
             }
@@ -10394,6 +11285,145 @@
           "archived"
         ]
       },
+      "List": {
+        "type": "object",
+        "required": [
+          "id",
+          "workspace_id",
+          "title",
+          "description",
+          "created_by",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "channel_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_by": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "ListColumn": {
+        "type": "object",
+        "required": [
+          "id",
+          "list_id",
+          "position",
+          "name",
+          "kind",
+          "options"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ColumnKind"
+          },
+          "list_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "options": {
+            "$ref": "#/components/schemas/ColumnOptions"
+          },
+          "position": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ListDetail": {
+        "type": "object",
+        "required": [
+          "list",
+          "columns"
+        ],
+        "properties": {
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ListColumn"
+            }
+          },
+          "list": {
+            "$ref": "#/components/schemas/List"
+          }
+        }
+      },
+      "ListItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "list_id",
+          "rank",
+          "values",
+          "created_by",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_by": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "list_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rank": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "values": {
+            "type": "object"
+          }
+        }
+      },
       "LoginRequest": {
         "type": "object",
         "required": [
@@ -10716,6 +11746,18 @@
           }
         ]
       },
+      "MoveItemRequest": {
+        "type": "object",
+        "properties": {
+          "after_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
       "MutedResponse": {
         "type": "object",
         "required": [
@@ -10739,6 +11781,24 @@
               "type": "string",
               "format": "uuid"
             }
+          }
+        }
+      },
+      "NewColumn": {
+        "type": "object",
+        "required": [
+          "name",
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ColumnKind"
+          },
+          "name": {
+            "type": "string"
+          },
+          "options": {
+            "$ref": "#/components/schemas/ColumnOptionsInput"
           }
         }
       },
@@ -10852,6 +11912,33 @@
           "all",
           "mentions",
           "nothing"
+        ]
+      },
+      "NumberFormat": {
+        "type": "object",
+        "properties": {
+          "currency": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "decimals": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "style": {
+            "$ref": "#/components/schemas/NumberStyle"
+          }
+        }
+      },
+      "NumberStyle": {
+        "type": "string",
+        "enum": [
+          "plain",
+          "percent",
+          "currency"
         ]
       },
       "OptionVoters": {
@@ -12032,6 +13119,44 @@
           }
         }
       },
+      "UpdateColumnRequest": {
+        "type": "object",
+        "properties": {
+          "confirm_cleared": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "kind": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ColumnKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "options": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ColumnOptionsInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
       "UpdateGroupRequest": {
         "type": "object",
         "required": [
@@ -12057,6 +13182,17 @@
         "properties": {
           "is_instance_admin": {
             "type": "boolean"
+          }
+        }
+      },
+      "UpdateItemRequest": {
+        "type": "object",
+        "required": [
+          "values"
+        ],
+        "properties": {
+          "values": {
+            "type": "object"
           }
         }
       },
@@ -12087,6 +13223,23 @@
               {
                 "type": "null"
               }
+            ]
+          }
+        }
+      },
+      "UpdateListRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
             ]
           }
         }
@@ -12697,6 +13850,10 @@
     {
       "name": "polls",
       "description": "Polls: the message, its votes and who cast them"
+    },
+    {
+      "name": "lists",
+      "description": "Lists: typed tables kept in a conversation, or personal"
     },
     {
       "name": "sidebar",
