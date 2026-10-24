@@ -21,6 +21,29 @@ pub struct Listener {
     pub version: i32,
 }
 
+pub struct OpenForm {
+    pub run_id: Uuid,
+    pub position: i32,
+    pub recipient_id: Uuid,
+    pub message_id: Uuid,
+    pub fields: serde_json::Value,
+    pub expires_at: DateTime<Utc>,
+    pub answered_at: Option<DateTime<Utc>>,
+    pub run_status: RunStatus,
+    pub workspace_id: Uuid,
+}
+
+pub struct ExpiredForm {
+    pub message_id: Uuid,
+    pub workspace_id: Uuid,
+}
+
+pub struct ShortcutRow {
+    pub id: Uuid,
+    pub name: String,
+    pub description: Option<String>,
+}
+
 pub struct StoppedWorkflow {
     pub id: Uuid,
     pub name: String,
@@ -456,6 +479,135 @@ impl WorkflowRepo {
                 )
             })
             .collect())
+    }
+
+    pub async fn shortcuts(&self, channel_id: Uuid) -> sqlx::Result<Vec<ShortcutRow>> {
+        sqlx::query_as!(
+            ShortcutRow,
+            r"
+            SELECT id, name, description
+              FROM workflows
+             WHERE enabled
+               AND definition #>> '{trigger,channel_id}' = $1
+               AND definition #>> '{trigger,type}' = 'shortcut'
+             ORDER BY lower(name)
+            ",
+            channel_id.to_string()
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub async fn wait_in(
+        &self,
+        conn: &mut PgConnection,
+        run_id: Uuid,
+        position: i32,
+        recipient_id: Uuid,
+        message_id: Uuid,
+        fields: &serde_json::Value,
+        expires_at: DateTime<Utc>,
+    ) -> sqlx::Result<()> {
+        sqlx::query!(
+            r"
+            INSERT INTO workflow_forms (run_id, position, recipient_id, message_id, fields, expires_at)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            ",
+            run_id,
+            position,
+            recipient_id,
+            message_id,
+            fields,
+            expires_at
+        )
+        .execute(&mut *conn)
+        .await?;
+        sqlx::query!(
+            "UPDATE workflow_runs SET status = 'waiting' WHERE id = $1",
+            run_id
+        )
+        .execute(&mut *conn)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn form_for_update_in(
+        &self,
+        conn: &mut PgConnection,
+        run_id: Uuid,
+        position: i32,
+    ) -> sqlx::Result<Option<OpenForm>> {
+        sqlx::query_as!(
+            OpenForm,
+            r#"
+            SELECT f.run_id, f.position, f.recipient_id, f.message_id, f.fields, f.expires_at,
+                   f.answered_at, r.status AS "run_status: RunStatus", w.workspace_id
+              FROM workflow_forms f
+              JOIN workflow_runs r ON r.id = f.run_id
+              JOIN workflows w ON w.id = r.workflow_id
+             WHERE f.run_id = $1 AND f.position = $2
+             FOR UPDATE OF f, r
+            "#,
+            run_id,
+            position
+        )
+        .fetch_optional(&mut *conn)
+        .await
+    }
+
+    pub async fn answer_in(
+        &self,
+        conn: &mut PgConnection,
+        run_id: Uuid,
+        position: i32,
+        answers: &serde_json::Value,
+    ) -> sqlx::Result<()> {
+        sqlx::query!(
+            r"
+            UPDATE workflow_forms SET answers = $3, answered_at = NOW()
+             WHERE run_id = $1 AND position = $2
+            ",
+            run_id,
+            position,
+            answers
+        )
+        .execute(&mut *conn)
+        .await?;
+        sqlx::query!(
+            r"
+            UPDATE workflow_runs
+               SET context = jsonb_set(context, '{form}', COALESCE(context->'form', '{}'::jsonb) || $2::jsonb),
+                   status = 'pending', claimed_at = NULL
+             WHERE id = $1
+            ",
+            run_id,
+            answers
+        )
+        .execute(&mut *conn)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn expire_forms_in(
+        &self,
+        conn: &mut PgConnection,
+        reason: &str,
+    ) -> sqlx::Result<Vec<ExpiredForm>> {
+        sqlx::query_as!(
+            ExpiredForm,
+            r"
+            UPDATE workflow_runs r
+               SET status = 'expired', error = $1, finished_at = NOW()
+              FROM workflow_forms f, workflows w
+             WHERE f.run_id = r.id AND w.id = r.workflow_id
+               AND r.status = 'waiting' AND f.answered_at IS NULL AND f.expires_at <= NOW()
+            RETURNING f.message_id, w.workspace_id
+            ",
+            reason
+        )
+        .fetch_all(&mut *conn)
+        .await
     }
 
     pub async fn disable_by_creator(

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Clock, Plus, SmilePlus, Trash2, UserPlus, Webhook } from 'lucide-react';
+import { Clock, Plus, SmilePlus, Trash2, UserPlus, Webhook, Zap } from 'lucide-react';
 import { EmojiPicker } from '@/features/messaging';
 import type { Channel } from '@/stores/workspace';
 import { Field } from '@/shared/components/Form/Field';
@@ -36,6 +36,7 @@ const ICONS: Record<Trigger['type'], typeof Clock> = {
   webhook: Webhook,
   reaction_added: SmilePlus,
   member_joined: UserPlus,
+  shortcut: Zap,
 };
 
 export function TriggerCard({ trigger, channels, webhookUrl, readOnly, onChange }: Props) {
@@ -66,7 +67,9 @@ export function TriggerCard({ trigger, channels, webhookUrl, readOnly, onChange 
         {trigger.type === 'webhook' && (
           <WebhookFields trigger={trigger} webhookUrl={webhookUrl} readOnly={readOnly} onChange={onChange} />
         )}
-        {(trigger.type === 'reaction_added' || trigger.type === 'member_joined') && (
+        {(trigger.type === 'reaction_added' ||
+          trigger.type === 'member_joined' ||
+          trigger.type === 'shortcut') && (
           <EventFields trigger={trigger} channels={channels} readOnly={readOnly} onChange={onChange} />
         )}
       </div>
@@ -76,7 +79,13 @@ export function TriggerCard({ trigger, channels, webhookUrl, readOnly, onChange 
 
 type Schedule = Extract<Trigger, { type: 'schedule' }>;
 type Hook = Extract<Trigger, { type: 'webhook' }>;
-type ChannelEvent = Extract<Trigger, { type: 'reaction_added' | 'member_joined' }>;
+type ChannelEvent = Extract<Trigger, { type: 'reaction_added' | 'member_joined' | 'shortcut' }>;
+
+const CHANNEL_LABEL: Record<ChannelEvent['type'], string> = {
+  reaction_added: 'In',
+  member_joined: 'Joins',
+  shortcut: 'Shortcut in',
+};
 
 function EventFields({
   trigger,
@@ -94,7 +103,7 @@ function EventFields({
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <Select
-        label={trigger.type === 'reaction_added' ? 'In' : 'Joins'}
+        label={CHANNEL_LABEL[trigger.type]}
         value={trigger.channel_id}
         disabled={readOnly}
         onChange={(e) => onChange({ ...trigger, channel_id: e.target.value })}

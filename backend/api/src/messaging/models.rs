@@ -41,6 +41,7 @@ pub struct MessageMetadata {
     pub app_prompts: Option<Vec<String>>,
     pub attachments: Option<Vec<crate::files::models::Attachment>>,
     pub poll: Option<crate::polls::models::PollSummary>,
+    pub form: Option<crate::workflows::models::FormRequest>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, ToSchema)]

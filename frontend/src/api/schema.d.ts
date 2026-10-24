@@ -659,6 +659,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/channels/{ch_id}/workflow-shortcuts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["workflow_shortcuts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/conversations/{conv_id}/read": {
         parameters: {
             query?: never;
@@ -1546,6 +1562,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workflow-runs/{run_id}/forms/{position}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["submit_workflow_form"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workflows/webhook/{token}": {
         parameters: {
             query?: never;
@@ -1620,6 +1652,22 @@ export interface paths {
         get: operations["workflow_runs"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflows/{workflow_id}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["start_workflow"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3442,6 +3490,14 @@ export interface components {
                 workspace_id: string;
             }[];
         };
+        DataList_Shortcut: {
+            data: {
+                description?: string | null;
+                /** Format: uuid */
+                id: string;
+                name: string;
+            }[];
+        };
         DataList_UserGroupSummary: {
             data: {
                 description?: string | null;
@@ -3627,6 +3683,8 @@ export interface components {
         /** @enum {string} */
         ExportStatus: "pending" | "running" | "complete" | "failed";
         /** @enum {string} */
+        FieldKind: "short_text" | "long_text" | "select" | "person" | "date";
+        /** @enum {string} */
         FileKind: "pdf" | "image" | "video" | "audio" | "spreadsheet" | "presentation" | "document" | "archive" | "text" | "other";
         FileMeta: {
             file: components["schemas"]["FileRecord"];
@@ -3690,6 +3748,28 @@ export interface components {
         };
         ForgotPasswordRequest: {
             email: string;
+        };
+        FormField: {
+            kind: components["schemas"]["FieldKind"];
+            label: string;
+            name: string;
+            options?: string[];
+            required?: boolean;
+        };
+        FormRequest: {
+            expired?: boolean;
+            /** Format: date-time */
+            expires_at: string;
+            fields: components["schemas"]["FormField"][];
+            /** Format: int32 */
+            position: number;
+            /** Format: uuid */
+            recipient_id: string;
+            /** Format: uuid */
+            run_id: string;
+            /** Format: date-time */
+            submitted_at?: string | null;
+            title: string;
         };
         GroupMembers: {
             data: string[];
@@ -4024,6 +4104,7 @@ export interface components {
             app_prompts?: string[] | null;
             attachments?: components["schemas"]["Attachment"][] | null;
             bot?: components["schemas"]["BotIdentity"] | null;
+            form?: components["schemas"]["FormRequest"] | null;
             /** Format: uuid */
             huddle_id?: string | null;
             /** Format: uuid */
@@ -4215,7 +4296,7 @@ export interface components {
             status: string;
         };
         /** @enum {string} */
-        RunStatus: "pending" | "running" | "succeeded" | "failed";
+        RunStatus: "pending" | "running" | "succeeded" | "failed" | "waiting" | "expired";
         RunStep: {
             error?: string | null;
             /** Format: date-time */
@@ -4307,6 +4388,12 @@ export interface components {
             expires_at?: string | null;
             text?: string | null;
         };
+        Shortcut: {
+            description?: string | null;
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
         SidebarLayout: {
             collapsed_builtins: components["schemas"]["BuiltinSection"][];
             placements: components["schemas"]["ChannelPlacement"][];
@@ -4343,14 +4430,27 @@ export interface components {
         Step: {
             /** Format: uuid */
             channel_id: string;
+            summary?: boolean;
             text: string;
             /** @enum {string} */
             type: "send_message";
         } | {
+            summary?: boolean;
             text: string;
             to: components["schemas"]["Recipient"];
             /** @enum {string} */
             type: "send_dm";
+        } | {
+            fields: components["schemas"]["FormField"][];
+            title: string;
+            to: components["schemas"]["Recipient"];
+            /** @enum {string} */
+            type: "form";
+        };
+        SubmitFormRequest: {
+            answers: {
+                [key: string]: string;
+            };
         };
         SubscribeRequest: {
             endpoint: string;
@@ -4422,6 +4522,11 @@ export interface components {
             channel_id: string;
             /** @enum {string} */
             type: "member_joined";
+        } | {
+            /** Format: uuid */
+            channel_id: string;
+            /** @enum {string} */
+            type: "shortcut";
         };
         Unfurl: {
             description?: string | null;
@@ -5759,6 +5864,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReadState"];
+                };
+            };
+        };
+    };
+    workflow_shortcuts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_Shortcut"];
                 };
             };
         };
@@ -7496,6 +7622,32 @@ export interface operations {
             };
         };
     };
+    submit_workflow_form: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+                position: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitFormRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
     workflow_webhook: {
         parameters: {
             query?: never;
@@ -7647,6 +7799,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DataList_WorkflowRun"];
+                };
+            };
+        };
+    };
+    start_workflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workflow_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunAccepted"];
                 };
             };
         };

@@ -47,7 +47,9 @@
                 "pending",
                 "running",
                 "succeeded",
-                "failed"
+                "failed",
+                "waiting",
+                "expired"
               ]
             }
           }

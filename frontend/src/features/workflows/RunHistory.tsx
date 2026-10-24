@@ -15,6 +15,8 @@ const STATUS: Record<WorkflowRun['status'], { label: string; className: string }
   running: { label: 'Running', className: 'text-accent' },
   succeeded: { label: 'Succeeded', className: 'text-success' },
   failed: { label: 'Failed', className: 'text-danger' },
+  waiting: { label: 'Waiting for a form', className: 'text-accent' },
+  expired: { label: 'Expired', className: 'text-muted' },
 };
 
 export function RunHistory({ workflowId, steps, instanceUrl }: Props) {
@@ -75,7 +77,7 @@ export function RunHistory({ workflowId, steps, instanceUrl }: Props) {
                     </li>
                   );
                 })}
-                {run.status === 'running' &&
+                {(run.status === 'running' || run.status === 'waiting') &&
                   steps.slice(run.steps.length).map((step, i) => (
                     <li key={`todo-${i}`} className="flex items-center gap-1.5 text-xs text-muted">
                       <CircleDashed className="h-3.5 w-3.5" aria-label="Waiting" />
