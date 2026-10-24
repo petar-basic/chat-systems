@@ -93,7 +93,7 @@ describe('LaterPanel', () => {
     expect(within(saved).getByTestId('later-due')).toHaveTextContent('Overdue');
     expect(within(reminder).getByTestId('later-due')).toHaveTextContent('Due');
     expect(reminder).toHaveTextContent('stand-up');
-    expect(screen.getByTestId('later-tab-in_progress')).toHaveTextContent('In progress 2');
+    expect(screen.getByTestId('later-tab-in_progress')).toHaveTextContent('In progress 3');
   });
 
   it('ticks an item off, archives it, and opens its message', () => {

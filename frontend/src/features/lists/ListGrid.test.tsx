@@ -158,7 +158,7 @@ describe('ListGrid keyboard navigation', () => {
     const headers = screen.getAllByTestId('list-column-header');
     fireEvent.click(headers[0]);
     expect(screen.queryByTestId('list-column-due-toggle')).toBeNull();
-    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    fireEvent.keyDown(screen.getByRole('menu', { hidden: true }), { key: 'Escape' });
     fireEvent.click(headers[5]);
     fireEvent.click(screen.getByTestId('list-column-due-toggle'));
     expect(columnActions.onToggleDue).toHaveBeenCalledWith(COLUMNS[5]);
