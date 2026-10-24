@@ -1,5 +1,7 @@
-# Accepted advisories. Each entry must name a crate that is in Cargo.lock but NOT
-# compiled into either binary, with the reason it's unreachable.
+# Accepted advisories. Each entry names the crate, why it can't be upgraded, and
+# why it's unreachable or unexploitable here. Preferably the crate is in Cargo.lock
+# but NOT compiled into either binary; a compiled-in crate needs a concrete reason
+# its flaw doesn't apply and the upstream release that lets us drop the entry.
 [advisories]
 ignore = [
     # rsa (Marvin timing attack). Present only as a lock entry under sqlx's MySQL
@@ -7,4 +9,13 @@ ignore = [
     # `cargo tree -i rsa` is empty. jsonwebtoken uses the aws_lc_rs provider, not
     # the rust_crypto/rsa path.
     "RUSTSEC-2023-0071",
+    # crypto-bigint 0.5.5 (timing variability in constant-time ops), fixed in 0.7.6.
+    # Pulled in through elliptic-curve 0.13 by web-push 0.11 (jwt-simple, VAPID
+    # signing) and openidconnect 4.0 (p256/p384); both are their latest releases,
+    # so there is no upgrade path. openidconnect only verifies ID-token signatures
+    # with the provider's public keys, so no secret is involved. web-push signs one
+    # VAPID JWT per push with our key inside the worker; recovering it would need
+    # fine-grained timing of that signing, which isn't observable remotely.
+    # Drop this once web-push and openidconnect move to elliptic-curve 0.14.
+    "RUSTSEC-2026-0387",
 ]
