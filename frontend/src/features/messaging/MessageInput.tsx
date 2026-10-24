@@ -34,6 +34,7 @@ import { FilePicker } from '@/shared/components/Form/FilePicker';
 import { PollDialog, type PollTarget } from '@/features/polls/PollDialog';
 import { parsePollCommand } from '@/features/polls/pollCommand';
 import { useCreatePoll } from '@/features/polls/usePolls';
+import { ShortcutMenu } from '@/features/workflows/ShortcutMenu';
 
 const MentionNode = Mention.extend({
   addStorage() {
@@ -67,6 +68,7 @@ interface Props {
   instanceUrl?: string;
   scheduleTarget?: ScheduleTarget;
   pollTarget?: PollTarget;
+  shortcutChannelId?: string;
 }
 
 export default function MessageInput({
@@ -87,6 +89,7 @@ export default function MessageInput({
   instanceUrl,
   scheduleTarget,
   pollTarget,
+  shortcutChannelId,
 }: Props) {
   const attachmentsRef = useRef(attachments);
   const allowEmptyRef = useRef(allowEmpty);
@@ -357,6 +360,9 @@ export default function MessageInput({
               >
                 <BarChart3 className="w-3.5 h-3.5" />
               </button>
+            )}
+            {shortcutChannelId && !editing && (
+              <ShortcutMenu channelId={shortcutChannelId} instanceUrl={instanceUrl} />
             )}
             {(attachments || (pollTarget && !editing)) && <div className="w-px h-4 bg-elevated/60 mx-0.5" />}
             {/* Twelve formatting buttons in a composer this narrow is more

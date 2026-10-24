@@ -26,6 +26,9 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(publish_workflow))
         .routes(routes!(disable_workflow))
         .routes(routes!(workflow_runs))
+        .routes(routes!(workflow_shortcuts))
+        .routes(routes!(start_workflow))
+        .routes(routes!(submit_workflow_form))
 }
 
 pub fn public_router() -> OpenApiRouter<Arc<AppState>> {
@@ -122,6 +125,59 @@ async fn workflow_runs(
     Ok(Json(DataList { data }))
 }
 
+#[utoipa::path(get, path = "/channels/{ch_id}/workflow-shortcuts", tag = "workflows", responses((status = 200, body = DataList<Shortcut>)))]
+async fn workflow_shortcuts(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(ch_id): Path<Uuid>,
+) -> AppResult<Json<DataList<Shortcut>>> {
+    let data = service::shortcuts(&state, ch_id, auth.user_id).await?;
+    Ok(Json(DataList { data }))
+}
+
+#[utoipa::path(post, path = "/workflows/{workflow_id}/start", tag = "workflows", responses((status = 202, body = RunAccepted)))]
+async fn start_workflow(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(workflow_id): Path<Uuid>,
+    headers: HeaderMap,
+) -> AppResult<(axum::http::StatusCode, Json<RunAccepted>)> {
+    let run_id = service::start_shortcut(
+        &state,
+        workflow_id,
+        auth.user_id,
+        idempotency_key(&headers).as_deref(),
+    )
+    .await?;
+    Ok((
+        axum::http::StatusCode::ACCEPTED,
+        Json(RunAccepted {
+            status: "accepted",
+            run_id,
+        }),
+    ))
+}
+
+#[utoipa::path(post, path = "/workflow-runs/{run_id}/forms/{position}", tag = "workflows", request_body = SubmitFormRequest, responses((status = 200, body = StatusResponse)))]
+async fn submit_workflow_form(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path((run_id, position)): Path<(Uuid, i32)>,
+    Json(req): Json<SubmitFormRequest>,
+) -> AppResult<Json<StatusResponse>> {
+    service::submit_form(&state, run_id, position, auth.user_id, &req.answers).await?;
+    Ok(Json(StatusResponse::new("submitted")))
+}
+
+fn idempotency_key(headers: &HeaderMap) -> Option<String> {
+    headers
+        .get("idempotency-key")
+        .and_then(|v| v.to_str().ok())
+        .map(str::trim)
+        .filter(|key| !key.is_empty() && key.len() <= 200)
+        .map(str::to_string)
+}
+
 #[utoipa::path(post, path = "/workflows/webhook/{token}", tag = "workflows", request_body = serde_json::Value, responses((status = 202, body = RunAccepted)), security(()))]
 async fn workflow_webhook(
     State(state): State<Arc<AppState>>,
@@ -179,13 +235,7 @@ async fn workflow_webhook(
         values.insert(name, serde_json::Value::String(value));
     }
 
-    let request_id = headers
-        .get("idempotency-key")
-        .and_then(|v| v.to_str().ok())
-        .map(str::trim)
-        .filter(|key| !key.is_empty() && key.len() <= 200)
-        .map(str::to_string)
-        .unwrap_or_else(|| Uuid::new_v4().to_string());
+    let request_id = idempotency_key(&headers).unwrap_or_else(|| Uuid::new_v4().to_string());
     let run_id = state
         .workflow_repo
         .queue_run(

@@ -25,6 +25,9 @@ pub async fn start_runner(state: Arc<AppState>) {
         if let Err(e) = run_pending(&state).await {
             warn!("Failed to run pending workflows: {}", e);
         }
+        if let Err(e) = expire_forms(&state).await {
+            warn!("Failed to expire workflow forms: {}", e);
+        }
     }
 }
 
@@ -71,9 +74,52 @@ pub async fn run_pending(state: &AppState) -> sqlx::Result<usize> {
     Ok(count)
 }
 
+pub async fn expire_forms(state: &AppState) -> sqlx::Result<usize> {
+    let mut tx = state.pool.begin().await?;
+    let expired = state
+        .workflow_repo
+        .expire_forms_in(
+            &mut tx,
+            &format!("Nobody filled in the form within {FORM_EXPIRY_DAYS} days"),
+        )
+        .await?;
+    let mut staged = Vec::with_capacity(expired.len());
+    for form in &expired {
+        let Some(message) = state
+            .message_repo
+            .mark_form_in(
+                &mut tx,
+                form.message_id,
+                "expired",
+                &serde_json::json!(true),
+            )
+            .await?
+        else {
+            continue;
+        };
+        match state
+            .publisher
+            .stage_message_updated(&mut tx, &message, form.workspace_id)
+            .await
+        {
+            Ok(event) => staged.push(event),
+            Err(e) => warn!("could not stage an expired form: {}", e),
+        }
+    }
+    tx.commit().await?;
+    state.publisher.dispatch_all(staged).await;
+    Ok(expired.len())
+}
+
+enum Outcome {
+    Done,
+    Waiting,
+}
+
 struct Context<'a> {
     workflow: &'a WorkflowRow,
     run: &'a RunRow,
+    definition: &'a Definition,
     fired: Fired,
 }
 
@@ -82,15 +128,35 @@ struct Fired {
     values: HashMap<&'static str, String>,
 }
 
+fn text_of(value: &serde_json::Value) -> String {
+    match value {
+        serde_json::Value::String(text) => text.clone(),
+        serde_json::Value::Null => String::new(),
+        other => other.to_string(),
+    }
+}
+
 impl Context<'_> {
     fn value(&self, name: &str) -> String {
-        let Some(variable) = name.strip_prefix("webhook.") else {
-            return self.fired.values.get(name).cloned().unwrap_or_default();
-        };
-        match &self.run.context["webhook"][variable] {
-            serde_json::Value::String(text) => text.clone(),
-            serde_json::Value::Null => String::new(),
-            other => other.to_string(),
+        if let Some(variable) = name.strip_prefix("webhook.") {
+            return text_of(&self.run.context["webhook"][variable]);
+        }
+        if let Some(field) = name.strip_prefix("form.") {
+            return text_of(&self.run.context["form"][field]);
+        }
+        self.fired.values.get(name).cloned().unwrap_or_default()
+    }
+
+    fn trusted(&self, name: &str) -> bool {
+        if name.starts_with("webhook.") || name == "trigger.message" {
+            return false;
+        }
+        match name.strip_prefix("form.") {
+            Some(field) => self
+                .definition
+                .fields_before(self.definition.steps.len())
+                .any(|f| f.name == field && f.kind == FieldKind::Person),
+            None => true,
         }
     }
 
@@ -100,12 +166,33 @@ impl Context<'_> {
 
     fn authored(&self, text: &str) -> String {
         render(text, |name| {
-            if name.starts_with("webhook.") || name == "trigger.message" {
-                String::new()
-            } else {
+            if self.trusted(name) {
                 self.value(name)
+            } else {
+                String::new()
             }
         })
+    }
+
+    fn summary(&self, position: usize, only_trusted: bool) -> String {
+        self.definition
+            .fields_before(position)
+            .map(|field| {
+                let name = format!("form.{}", field.name);
+                let answer = if only_trusted && !self.trusted(&name) {
+                    String::new()
+                } else {
+                    self.value(&name)
+                };
+                let answer = if answer.trim().is_empty() {
+                    "\u{2014}".to_string()
+                } else {
+                    answer.replace('\n', "  \n")
+                };
+                format!("**{}**  \n{answer}", field.label.trim())
+            })
+            .collect::<Vec<_>>()
+            .join("\n\n")
     }
 
     fn bot(&self) -> serde_json::Value {
@@ -122,21 +209,21 @@ pub async fn execute(state: &AppState, run: &RunRow) {
             return;
         }
     };
-    let outcome = steps(state, &workflow, run).await;
-    let (status, error) = match &outcome {
-        Ok(()) => (RunStatus::Succeeded, None),
-        Err(reason) => (RunStatus::Failed, Some(reason.as_str())),
+    let (status, error) = match steps(state, &workflow, run).await {
+        Ok(Outcome::Waiting) => return,
+        Ok(Outcome::Done) => (RunStatus::Succeeded, None),
+        Err(reason) => (RunStatus::Failed, Some(reason)),
     };
     if let Err(e) = state
         .workflow_repo
-        .finish(run.id, workflow.version, status, error)
+        .finish(run.id, workflow.version, status, error.as_deref())
         .await
     {
         warn!(run_id = %run.id, "could not finish a workflow run: {}", e);
     }
 }
 
-async fn steps(state: &AppState, workflow: &WorkflowRow, run: &RunRow) -> Result<(), String> {
+async fn steps(state: &AppState, workflow: &WorkflowRow, run: &RunRow) -> Result<Outcome, String> {
     if !workflow.enabled {
         return Err("The workflow was turned off before it ran".into());
     }
@@ -163,9 +250,13 @@ async fn steps(state: &AppState, workflow: &WorkflowRow, run: &RunRow) -> Result
         .finished_positions(run.id)
         .await
         .map_err(|e| e.to_string())?;
+    if !done.is_empty() && workflow.version != run.workflow_version {
+        return Err("The workflow was edited while this run was under way".into());
+    }
     let context = Context {
         workflow,
         run,
+        definition: &definition,
         fired: fired(state, workflow, run)
             .await
             .map_err(|e| e.to_string())?,
@@ -176,18 +267,30 @@ async fn steps(state: &AppState, workflow: &WorkflowRow, run: &RunRow) -> Result
         if done.contains(&position) {
             continue;
         }
-        if let Err(reason) = run_step(state, &context, &creator, position, step).await {
-            if let Err(e) = state
-                .workflow_repo
-                .record_step(run.id, position, Err(&reason))
-                .await
-            {
-                warn!(run_id = %run.id, "could not record a failed step: {}", e);
+        match run_step(state, &context, &creator, position, step).await {
+            Ok(Outcome::Done) => {}
+            Ok(Outcome::Waiting) => return Ok(Outcome::Waiting),
+            Err(reason) => {
+                if let Err(e) = state
+                    .workflow_repo
+                    .record_step(run.id, position, Err(&reason))
+                    .await
+                {
+                    warn!(run_id = %run.id, "could not record a failed step: {}", e);
+                }
+                return Err(format!("Step {} ({}): {reason}", index + 1, step.label()));
             }
-            return Err(format!("Step {} ({}): {reason}", index + 1, step.label()));
         }
     }
-    Ok(())
+    Ok(Outcome::Done)
+}
+
+fn recipient_of(to: &Recipient, context: &Context<'_>) -> Result<Uuid, String> {
+    match (to, context.fired.user) {
+        (Recipient::Person { user_id }, _) => Ok(*user_id),
+        (Recipient::TriggerUser, Some(user_id)) => Ok(user_id),
+        (Recipient::TriggerUser, None) => Err("This trigger has no person".into()),
+    }
 }
 
 async fn run_step(
@@ -196,7 +299,7 @@ async fn run_step(
     creator: &crate::workspace::models::WorkspaceMember,
     position: i32,
     step: &Step,
-) -> Result<(), String> {
+) -> Result<Outcome, String> {
     let channel_id = match step {
         Step::SendMessage { channel_id, .. } => {
             let access = authz::require_channel_post(state, *channel_id, creator.user_id)
@@ -208,31 +311,69 @@ async fn run_step(
             *channel_id
         }
         Step::SendDm { to, .. } => {
-            let recipient = match (to, context.fired.user) {
-                (Recipient::Person { user_id }, _) => *user_id,
-                (Recipient::TriggerUser, Some(user_id)) if user_id == creator.user_id => {
-                    return state
-                        .workflow_repo
-                        .record_step(context.run.id, position, Ok(None))
-                        .await
-                        .map_err(|e| e.to_string());
-                }
-                (Recipient::TriggerUser, Some(user_id)) => user_id,
-                (Recipient::TriggerUser, None) => return Err("This trigger has no person".into()),
-            };
+            let recipient = recipient_of(to, context)?;
+            if recipient == creator.user_id && *to == Recipient::TriggerUser {
+                state
+                    .workflow_repo
+                    .record_step(context.run.id, position, Ok(None))
+                    .await
+                    .map_err(|e| e.to_string())?;
+                return Ok(Outcome::Done);
+            }
             dm_channel(state, creator, recipient).await?
+        }
+        Step::Form { to, title, fields } => {
+            let recipient = recipient_of(to, context)?;
+            let channel_id = if recipient == creator.user_id {
+                let channel_id = context
+                    .definition
+                    .trigger
+                    .channel()
+                    .ok_or_else(|| "A workflow can't send its creator a form".to_string())?;
+                authz::require_channel_post(state, channel_id, creator.user_id)
+                    .await
+                    .map_err(|_| "Its creator can no longer post in that channel".to_string())?;
+                channel_id
+            } else {
+                dm_channel(state, creator, recipient).await?
+            };
+            post_form(
+                state,
+                context,
+                creator.user_id,
+                position,
+                channel_id,
+                recipient,
+                title.trim(),
+                fields,
+            )
+            .await
+            .map_err(|e| e.to_string())?;
+            return Ok(Outcome::Waiting);
         }
     };
 
-    let text = step.text();
-    let content = context.rendered(text);
-    let mentioned = crate::messaging::routes::expand_mentions(
-        state,
-        channel_id,
-        creator.user_id,
-        &context.authored(text),
-    )
-    .await;
+    let text = step.text().unwrap_or_default();
+    let (content, authored) = if step.summary() {
+        let at = position as usize;
+        (
+            format!(
+                "{}\n\n{}",
+                context.rendered(text),
+                context.summary(at, false)
+            ),
+            format!(
+                "{}\n\n{}",
+                context.authored(text),
+                context.summary(at, true)
+            ),
+        )
+    } else {
+        (context.rendered(text), context.authored(text))
+    };
+    let mentioned =
+        crate::messaging::routes::expand_mentions(state, channel_id, creator.user_id, &authored)
+            .await;
 
     let internal = |e: sqlx::Error| e.to_string();
     let mut tx = state.pool.begin().await.map_err(internal)?;
@@ -260,7 +401,78 @@ async fn run_step(
         .map_err(|e| e.to_string())?;
     tx.commit().await.map_err(internal)?;
     state.publisher.dispatch(staged).await;
+    Ok(Outcome::Done)
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn post_form(
+    state: &AppState,
+    context: &Context<'_>,
+    creator: Uuid,
+    position: i32,
+    channel_id: Uuid,
+    recipient: Uuid,
+    title: &str,
+    fields: &[FormField],
+) -> shared_common::errors::AppResult<()> {
+    let expires_at = Utc::now() + Duration::days(FORM_EXPIRY_DAYS);
+    let form = FormRequest {
+        run_id: context.run.id,
+        position,
+        title: title.to_string(),
+        recipient_id: recipient,
+        fields: fields.to_vec(),
+        expires_at,
+        submitted_at: None,
+        expired: false,
+    };
+    let form = serde_json::to_value(&form)
+        .map_err(|e| shared_common::errors::AppError::Internal(e.to_string()))?;
+    let fields = serde_json::to_value(fields)
+        .map_err(|e| shared_common::errors::AppError::Internal(e.to_string()))?;
+
+    let mut tx = state.pool.begin().await?;
+    let message = state
+        .message_repo
+        .create_bot_message_in(&mut tx, channel_id, creator, title, &context.bot(), &[])
+        .await?;
+    let message = state
+        .message_repo
+        .set_form_in(&mut tx, message.id, &form)
+        .await?;
+    state
+        .workflow_repo
+        .wait_in(
+            &mut tx,
+            context.run.id,
+            position,
+            recipient,
+            message.id,
+            &fields,
+            expires_at,
+        )
+        .await?;
+    let staged = state
+        .publisher
+        .stage_message_created(&mut tx, &message, context.workflow.workspace_id, &[])
+        .await?;
+    tx.commit().await?;
+    state.publisher.dispatch(staged).await;
     Ok(())
+}
+
+pub(super) async fn mention_of(state: &AppState, user_id: Uuid) -> sqlx::Result<Option<String>> {
+    Ok(state
+        .auth_service
+        .repo()
+        .find_by_id(user_id)
+        .await?
+        .map(|user| {
+            let name = user
+                .display_name
+                .unwrap_or_else(|| user.email.split('@').next().unwrap_or_default().to_string());
+            format!("@[{name}]({user_id})")
+        }))
 }
 
 async fn fired(state: &AppState, workflow: &WorkflowRow, run: &RunRow) -> sqlx::Result<Fired> {
@@ -269,17 +481,10 @@ async fn fired(state: &AppState, workflow: &WorkflowRow, run: &RunRow) -> sqlx::
     let mut values = HashMap::new();
     let user = id("user_id");
     if let Some(user_id) = user {
-        let name = state
-            .auth_service
-            .repo()
-            .find_by_id(user_id)
+        let mention = mention_of(state, user_id)
             .await?
-            .map(|user| {
-                user.display_name
-                    .unwrap_or_else(|| user.email.split('@').next().unwrap_or_default().to_string())
-            })
-            .unwrap_or_else(|| "someone".into());
-        values.insert("trigger.user", format!("@[{name}]({user_id})"));
+            .unwrap_or_else(|| format!("@[someone]({user_id})"));
+        values.insert("trigger.user", mention);
     }
     if let Some(channel_id) = id("channel_id") {
         let channel = state

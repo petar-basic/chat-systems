@@ -3,6 +3,50 @@ import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { QUERY_KEYS } from '@/shared/constants';
 import type { SaveWorkflow, Workflow } from './workflowModel';
 
+export const useWorkflowShortcuts = (channelId: string | null, instanceUrl?: string) =>
+  useQuery({
+    queryKey: QUERY_KEYS.workflowShortcuts(channelId ?? ''),
+    queryFn: async () => {
+      if (!channelId) throw new Error('No channel selected');
+      const res = await getApiForInstance(instanceUrl).typed((c) =>
+        c.GET('/channels/{ch_id}/workflow-shortcuts', { params: { path: { ch_id: channelId } } }),
+      );
+      return res.data;
+    },
+    enabled: !!channelId,
+    staleTime: 1000 * 30,
+  });
+
+export const useStartWorkflow = (instanceUrl?: string) =>
+  useMutation({
+    mutationFn: (workflowId: string) =>
+      getApiForInstance(instanceUrl).typed((c) =>
+        c.POST('/workflows/{workflow_id}/start', {
+          params: { path: { workflow_id: workflowId } },
+          headers: { 'idempotency-key': crypto.randomUUID() },
+        }),
+      ),
+  });
+
+export const useSubmitForm = (instanceUrl?: string) =>
+  useMutation({
+    mutationFn: ({
+      runId,
+      position,
+      answers,
+    }: {
+      runId: string;
+      position: number;
+      answers: Record<string, string>;
+    }) =>
+      getApiForInstance(instanceUrl).typed((c) =>
+        c.POST('/workflow-runs/{run_id}/forms/{position}', {
+          params: { path: { run_id: runId, position } },
+          body: { answers },
+        }),
+      ),
+  });
+
 export const useWorkflows = (workspaceId: string, instanceUrl?: string) =>
   useQuery({
     queryKey: QUERY_KEYS.workflows(workspaceId),

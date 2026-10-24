@@ -14,6 +14,14 @@ pub const MAX_STEPS: usize = 20;
 pub const MAX_WEBHOOK_VARIABLES: usize = 10;
 pub const VARIABLE_NAME_MAX_CHARS: usize = 40;
 pub const HISTORY_LIMIT: i64 = 50;
+pub const FORM_TITLE_MAX_CHARS: usize = 80;
+pub const MAX_FORM_FIELDS: usize = 10;
+pub const FIELD_LABEL_MAX_CHARS: usize = 80;
+pub const MAX_SELECT_OPTIONS: usize = 20;
+pub const OPTION_MAX_CHARS: usize = 80;
+pub const SHORT_ANSWER_MAX_CHARS: usize = 200;
+pub const LONG_ANSWER_MAX_CHARS: usize = 4000;
+pub const FORM_EXPIRY_DAYS: i64 = 7;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
@@ -59,6 +67,9 @@ pub enum Trigger {
     MemberJoined {
         channel_id: Uuid,
     },
+    Shortcut {
+        channel_id: Uuid,
+    },
 }
 
 pub const REACTION_VARIABLES: [&str; 4] = [
@@ -76,6 +87,7 @@ impl Trigger {
             Self::Webhook { .. } => "webhook",
             Self::ReactionAdded { .. } => "reaction_added",
             Self::MemberJoined { .. } => "member_joined",
+            Self::Shortcut { .. } => "shortcut",
         }
     }
 
@@ -87,19 +99,21 @@ impl Trigger {
                 .map(|name| format!("webhook.{name}"))
                 .collect(),
             Self::ReactionAdded { .. } => REACTION_VARIABLES.map(String::from).to_vec(),
-            Self::MemberJoined { .. } => JOIN_VARIABLES.map(String::from).to_vec(),
+            Self::MemberJoined { .. } | Self::Shortcut { .. } => {
+                JOIN_VARIABLES.map(String::from).to_vec()
+            }
         }
     }
 
     pub fn has_person(&self) -> bool {
-        matches!(self, Self::ReactionAdded { .. } | Self::MemberJoined { .. })
+        self.channel().is_some()
     }
 
     pub fn channel(&self) -> Option<Uuid> {
         match self {
-            Self::ReactionAdded { channel_id, .. } | Self::MemberJoined { channel_id } => {
-                Some(*channel_id)
-            }
+            Self::ReactionAdded { channel_id, .. }
+            | Self::MemberJoined { channel_id }
+            | Self::Shortcut { channel_id } => Some(*channel_id),
             Self::Schedule { .. } | Self::Webhook { .. } => None,
         }
     }
@@ -137,17 +151,68 @@ pub enum Recipient {
     TriggerUser,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum FieldKind {
+    ShortText,
+    LongText,
+    Select,
+    Person,
+    Date,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct FormField {
+    pub name: String,
+    pub label: String,
+    pub kind: FieldKind,
+    #[serde(default)]
+    pub options: Vec<String>,
+    #[serde(default)]
+    pub required: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Step {
-    SendMessage { channel_id: Uuid, text: String },
-    SendDm { to: Recipient, text: String },
+    SendMessage {
+        channel_id: Uuid,
+        text: String,
+        #[serde(default)]
+        summary: bool,
+    },
+    SendDm {
+        to: Recipient,
+        text: String,
+        #[serde(default)]
+        summary: bool,
+    },
+    Form {
+        to: Recipient,
+        title: String,
+        fields: Vec<FormField>,
+    },
 }
 
 impl Step {
-    pub fn text(&self) -> &str {
+    pub fn text(&self) -> Option<&str> {
         match self {
-            Self::SendMessage { text, .. } | Self::SendDm { text, .. } => text,
+            Self::SendMessage { text, .. } | Self::SendDm { text, .. } => Some(text),
+            Self::Form { .. } => None,
+        }
+    }
+
+    pub fn summary(&self) -> bool {
+        match self {
+            Self::SendMessage { summary, .. } | Self::SendDm { summary, .. } => *summary,
+            Self::Form { .. } => false,
+        }
+    }
+
+    pub fn recipient(&self) -> Option<&Recipient> {
+        match self {
+            Self::SendDm { to, .. } | Self::Form { to, .. } => Some(to),
+            Self::SendMessage { .. } => None,
         }
     }
 
@@ -155,6 +220,7 @@ impl Step {
         match self {
             Self::SendMessage { .. } => "Send a message",
             Self::SendDm { .. } => "Send a DM",
+            Self::Form { .. } => "Collect a form",
         }
     }
 }
@@ -166,6 +232,15 @@ pub struct Definition {
 }
 
 impl Definition {
+    pub fn fields_before(&self, position: usize) -> impl Iterator<Item = &FormField> {
+        self.steps[..position.min(self.steps.len())]
+            .iter()
+            .flat_map(|step| match step {
+                Step::Form { fields, .. } => fields.as_slice(),
+                _ => &[],
+            })
+    }
+
     pub fn check(&self) -> AppResult<()> {
         match &self.trigger {
             Trigger::Schedule {
@@ -207,7 +282,7 @@ impl Definition {
                 }
                 shared_common::validation::validate_reaction_emoji(emoji)?;
             }
-            Trigger::MemberJoined { .. } => {}
+            Trigger::MemberJoined { .. } | Trigger::Shortcut { .. } => {}
         }
 
         if self.steps.is_empty() {
@@ -217,37 +292,99 @@ impl Definition {
             return invalid(&format!("A workflow has at most {MAX_STEPS} steps"));
         }
 
-        let available = self.trigger.variables();
+        let mut available = self.trigger.variables();
+        let mut asked = HashSet::new();
         for (index, step) in self.steps.iter().enumerate() {
             let at = format!("Step {}", index + 1);
-            let text = step.text();
-            if text.trim().is_empty() {
-                return invalid(&format!("{at} needs some text"));
-            }
-            if text.chars().count() > TEXT_MAX_CHARS {
-                return invalid(&format!(
-                    "{at}: the text can be at most {TEXT_MAX_CHARS} characters"
-                ));
-            }
-            for name in placeholders(text) {
-                if !available.iter().any(|known| known == name) {
+            if let Some(text) = step.text() {
+                if text.trim().is_empty() {
+                    return invalid(&format!("{at} needs some text"));
+                }
+                if text.chars().count() > TEXT_MAX_CHARS {
                     return invalid(&format!(
-                        "{at}: {{{{{name}}}}} isn't available for this trigger"
+                        "{at}: the text can be at most {TEXT_MAX_CHARS} characters"
                     ));
                 }
-            }
-            if let Step::SendDm {
-                to: Recipient::TriggerUser,
-                ..
-            } = step
-            {
-                if !self.trigger.has_person() {
-                    return invalid(&format!("{at}: this trigger has no person to send a DM to"));
+                for name in placeholders(text) {
+                    if !available.iter().any(|known| known == name) {
+                        return invalid(&format!(
+                            "{at}: {{{{{name}}}}} isn't available for this trigger"
+                        ));
+                    }
                 }
+            }
+            if step.summary() && asked.is_empty() {
+                return invalid(&format!("{at}: there is no form before it to sum up"));
+            }
+            if step.recipient() == Some(&Recipient::TriggerUser) && !self.trigger.has_person() {
+                return invalid(&format!("{at}: this trigger has no person to send it to"));
+            }
+            if let Step::Form { title, fields, .. } = step {
+                check_form(&at, title, fields, &mut asked)?;
+                available.extend(fields.iter().map(|field| format!("form.{}", field.name)));
             }
         }
         Ok(())
     }
+}
+
+fn check_form<'a>(
+    at: &str,
+    title: &str,
+    fields: &'a [FormField],
+    asked: &mut HashSet<&'a str>,
+) -> AppResult<()> {
+    if title.trim().is_empty() {
+        return invalid(&format!("{at}: give the form a title"));
+    }
+    if title.chars().count() > FORM_TITLE_MAX_CHARS {
+        return invalid(&format!(
+            "{at}: a form title can be at most {FORM_TITLE_MAX_CHARS} characters"
+        ));
+    }
+    if fields.is_empty() || fields.len() > MAX_FORM_FIELDS {
+        return invalid(&format!(
+            "{at}: a form has 1 to {MAX_FORM_FIELDS} questions"
+        ));
+    }
+    for field in fields {
+        let label = field.label.trim();
+        if label.is_empty() {
+            return invalid(&format!("{at}: every question needs a label"));
+        }
+        if label.chars().count() > FIELD_LABEL_MAX_CHARS {
+            return invalid(&format!(
+                "{at}: a question can be at most {FIELD_LABEL_MAX_CHARS} characters"
+            ));
+        }
+        if !is_variable_name(&field.name) {
+            return invalid(&format!(
+                "{at}: \"{}\" can't be a variable name: use lowercase letters, digits and _",
+                field.name
+            ));
+        }
+        if !asked.insert(&field.name) {
+            return invalid(&format!("{at}: \"{}\" is asked twice", field.name));
+        }
+        if field.kind == FieldKind::Select {
+            let options: HashSet<&str> = field.options.iter().map(|o| o.trim()).collect();
+            if field.options.is_empty() || field.options.len() > MAX_SELECT_OPTIONS {
+                return invalid(&format!(
+                    "{at}: \u{201c}{label}\u{201d} needs 1 to {MAX_SELECT_OPTIONS} choices"
+                ));
+            }
+            if options.len() != field.options.len()
+                || options
+                    .iter()
+                    .any(|o| o.is_empty() || o.chars().count() > OPTION_MAX_CHARS)
+            {
+                return invalid(&format!(
+                    "{at}: \u{201c}{label}\u{201d} has a blank, repeated or too long choice"
+                ));
+            }
+        }
+    }
+    Ok(())
 }
 
 fn invalid(message: &str) -> AppResult<()> {
@@ -339,6 +476,8 @@ pub enum RunStatus {
     Running,
     Succeeded,
     Failed,
+    Waiting,
+    Expired,
 }
 
 #[derive(Debug, Clone)]
@@ -418,6 +557,31 @@ pub struct WorkflowRun {
     pub started_at: DateTime<Utc>,
     pub finished_at: Option<DateTime<Utc>>,
     pub steps: Vec<RunStep>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct FormRequest {
+    pub run_id: Uuid,
+    pub position: i32,
+    pub title: String,
+    pub recipient_id: Uuid,
+    pub fields: Vec<FormField>,
+    pub expires_at: DateTime<Utc>,
+    pub submitted_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub expired: bool,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct SubmitFormRequest {
+    pub answers: std::collections::HashMap<String, String>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct Shortcut {
+    pub id: Uuid,
+    pub name: String,
+    pub description: Option<String>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -543,7 +707,7 @@ mod tests {
                 "trigger": schedule(),
                 "steps": [{ "type": "send_dm", "to": { "kind": "trigger_user" }, "text": "hi" }],
             })),
-            "Step 1: this trigger has no person to send a DM to"
+            "Step 1: this trigger has no person to send it to"
         );
     }
 
@@ -584,6 +748,101 @@ mod tests {
         assert_eq!(
             error(json!({ "trigger": long, "steps": [post("x")] })),
             "Reaction must be at most 8 characters"
+        );
+    }
+
+    fn form(fields: serde_json::Value) -> serde_json::Value {
+        json!({ "type": "form", "to": { "kind": "trigger_user" }, "title": "Time off", "fields": fields })
+    }
+
+    fn field(name: &str, kind: &str) -> serde_json::Value {
+        json!({ "name": name, "label": name, "kind": kind })
+    }
+
+    fn shortcut() -> serde_json::Value {
+        json!({ "type": "shortcut", "channel_id": Uuid::nil() })
+    }
+
+    #[test]
+    fn a_shortcut_form_offers_its_answers_to_later_steps() {
+        definition(json!({
+            "trigger": shortcut(),
+            "steps": [
+                form(json!([
+                    field("reason", "long_text"),
+                    { "name": "kind", "label": "Kind", "kind": "select", "options": ["Sick", "Holiday"], "required": true },
+                    field("cover", "person"),
+                    field("from", "date"),
+                ])),
+                { "type": "send_message", "channel_id": Uuid::nil(), "text": "{{trigger.user}} is off from {{form.from}}, {{form.cover}} covers", "summary": true },
+            ],
+        }))
+        .check()
+        .unwrap();
+        assert_eq!(
+            error(json!({
+                "trigger": shortcut(),
+                "steps": [post("{{form.reason}}"), form(json!([field("reason", "short_text")]))],
+            })),
+            "Step 1: {{form.reason}} isn't available for this trigger"
+        );
+        assert_eq!(
+            error(json!({
+                "trigger": shortcut(),
+                "steps": [{ "type": "send_message", "channel_id": Uuid::nil(), "text": "x", "summary": true }],
+            })),
+            "Step 1: there is no form before it to sum up"
+        );
+        assert_eq!(
+            error(
+                json!({ "trigger": schedule(), "steps": [form(json!([field("a", "short_text")]))] })
+            ),
+            "Step 1: this trigger has no person to send it to"
+        );
+    }
+
+    #[test]
+    fn a_form_needs_a_title_and_well_formed_questions() {
+        let check =
+            |step: serde_json::Value| error(json!({ "trigger": shortcut(), "steps": [step] }));
+        let mut untitled = form(json!([field("a", "short_text")]));
+        untitled["title"] = json!(" ");
+        assert_eq!(check(untitled), "Step 1: give the form a title");
+        assert_eq!(
+            check(form(json!([]))),
+            "Step 1: a form has 1 to 10 questions"
+        );
+        assert_eq!(
+            check(form(json!((0..11)
+                .map(|i| field(&format!("q{i}"), "short_text"))
+                .collect::<Vec<_>>()))),
+            "Step 1: a form has 1 to 10 questions"
+        );
+        assert_eq!(
+            check(form(json!([{ "name": "a", "label": " ", "kind": "date" }]))),
+            "Step 1: every question needs a label"
+        );
+        assert!(check(form(json!([field("A b", "date")]))).contains("can't be a variable name"));
+        assert_eq!(
+            check(form(json!([field("a", "date"), field("a", "person")]))),
+            "Step 1: \"a\" is asked twice"
+        );
+        assert_eq!(
+            check(form(json!([field("a", "select")]))),
+            "Step 1: \u{201c}a\u{201d} needs 1 to 20 choices"
+        );
+        assert_eq!(
+            check(form(
+                json!([{ "name": "a", "label": "a", "kind": "select", "options": ["x", " x "] }])
+            )),
+            "Step 1: \u{201c}a\u{201d} has a blank, repeated or too long choice"
+        );
+        assert_eq!(
+            error(json!({
+                "trigger": shortcut(),
+                "steps": [form(json!([field("a", "date")])), form(json!([field("a", "date")]))],
+            })),
+            "Step 2: \"a\" is asked twice"
         );
     }
 

@@ -122,3 +122,91 @@ test('a member-joined workflow welcomes the newcomer with a DM', async ({ page }
     await alice.dispose();
   }
 });
+
+test('a shortcut asks the person who ran it a form and posts the answers', async ({ page }) => {
+  const { ctx: admin } = await userContext('admin@dev.local');
+  const { ctx: alice, userId: aliceId } = await userContext('alice@dev.local');
+  const { ctx: bob, userId: bobId } = await userContext('bob@dev.local');
+  const workspace = await devWorkspace(admin);
+  const channel = await createChannel(admin, workspace.id, 'requests');
+  for (const user_id of [aliceId, bobId]) {
+    await admin.post(`${API}/channels/${channel.id}/members`, { data: { user_id } });
+  }
+  const name = `Time off ${Date.now()}`;
+  let workflowId = '';
+
+  try {
+    const created = await alice.post(`${API}/workspaces/${workspace.id}/workflows`, {
+      data: {
+        name,
+        definition: {
+          trigger: { type: 'shortcut', channel_id: channel.id },
+          steps: [
+            {
+              type: 'form',
+              to: { kind: 'trigger_user' },
+              title: 'Request time off',
+              fields: [
+                { name: 'reason', label: 'Reason', kind: 'short_text', required: true },
+                { name: 'kind', label: 'Kind', kind: 'select', options: ['Sick', 'Holiday'], required: true },
+              ],
+            },
+            {
+              type: 'send_message',
+              channel_id: channel.id,
+              text: '{{trigger.user}} asked for time off',
+              summary: true,
+            },
+          ],
+        },
+      },
+    });
+    expect(created.status(), 'alice builds the workflow').toBe(200);
+    workflowId = (await created.json()).id;
+    expect((await alice.post(`${API}/workflows/${workflowId}/publish`)).status()).toBe(200);
+
+    await login(page, 'bob@dev.local');
+    await page.goto(`/app/${workspace.id}/${channel.id}`);
+    await page.getByTestId('composer-workflows').click();
+    await page.getByTestId('composer-workflow').filter({ hasText: name }).click();
+
+    let conversationId = '';
+    await expect
+      .poll(
+        async () => {
+          const listed = await (await bob.get(`${API}/workspaces/${workspace.id}/conversations`)).json();
+          const direct = (listed.data ?? []).find(
+            (c: { kind: string; participant_ids: string[] }) =>
+              c.kind === 'direct' && c.participant_ids.includes(aliceId),
+          );
+          conversationId = direct?.id ?? '';
+          if (!direct) return '';
+          return JSON.stringify(await (await bob.get(`${API}/channels/${direct.id}/messages`)).json());
+        },
+        { timeout: 30_000 },
+      )
+      .toContain('Request time off');
+
+    await page.goto(`/app/${workspace.id}/c/${conversationId}`);
+    const card = page.getByTestId('workflow-form-card').filter({ hasText: 'Request time off' }).last();
+    await card.getByTestId('workflow-form-fill').click();
+    const dialog = page.getByTestId('workflow-form-dialog');
+    const answers = dialog.getByTestId('workflow-form-answer');
+    await answers.nth(0).fill('Dentist');
+    await answers.nth(1).selectOption('Sick');
+    await dialog.getByTestId('workflow-form-submit').click();
+    await expect(dialog).toBeHidden();
+    await expect(card.getByTestId('workflow-form-card-status')).toContainText('Filled in');
+
+    await page.goto(`/app/${workspace.id}/${channel.id}`);
+    const posted = page.locator('[data-qa="message-list"]').getByText('Dentist');
+    await expect(posted).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('[data-qa="message-list"]').getByText('asked for time off')).toBeVisible();
+  } finally {
+    if (workflowId) await alice.delete(`${API}/workflows/${workflowId}`);
+    await admin.delete(`${API}/channels/${channel.id}`);
+    await admin.dispose();
+    await alice.dispose();
+    await bob.dispose();
+  }
+});
