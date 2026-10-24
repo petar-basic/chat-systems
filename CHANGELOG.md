@@ -14,10 +14,18 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
-## [Unreleased]
+## [3.3.0] — 2026-10-24
 
-### Upgrading
+### Upgrading from 3.2.0
 
+- Pull both images and restart `api`, `worker`, `realtime` and `frontend` together; the API
+  runs migrations 57–70 on start, so snapshot first. Two upgrade notes in the RUNBOOK cover what runs after:
+  [text inside files](docs/RUNBOOK.md#upgrade-note-text-inside-files-becomes-searchable)
+  and [lists](docs/RUNBOOK.md#upgrade-note-lists).
+- For API clients, three shapes change in a way a strict client notices: `ChannelMember`
+  loses `notifications` and `is_muted`, the `notification` frame's `priority` is now `kind`,
+  and `GET`/`PATCH /notifications/dnd` answer `{ dnd_until, schedule_paused_until }`. The web
+  client in this release already speaks the new shapes. Everything else is added.
 - Migration 57 adds the `notify_level` type, `workspace_members.notify_default`,
   `channel_members.notify_level` and `pending_mention_emails.direct`, and drops
   `channel_members.notifications` and `channel_members.is_muted`, which nothing read. The
