@@ -14177,6 +14177,48 @@
                 }
               }
             }
+          },
+          {
+            "type": "object",
+            "required": [
+              "channel_id",
+              "emoji",
+              "type"
+            ],
+            "properties": {
+              "channel_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "emoji": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "reaction_added"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "channel_id",
+              "type"
+            ],
+            "properties": {
+              "channel_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "member_joined"
+                ]
+              }
+            }
           }
         ]
       },

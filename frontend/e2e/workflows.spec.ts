@@ -62,3 +62,63 @@ test('a member builds a webhook workflow and a call to it posts in the channel',
     await bob.dispose();
   }
 });
+
+test('a member-joined workflow welcomes the newcomer with a DM', async ({ page }) => {
+  const { ctx: admin } = await userContext('admin@dev.local');
+  const { ctx: bob, userId: bobId } = await userContext('bob@dev.local');
+  const { ctx: alice, userId: aliceId } = await userContext('alice@dev.local');
+  const workspace = await devWorkspace(admin);
+  const channel = await createChannel(admin, workspace.id, 'onboarding');
+  await admin.post(`${API}/channels/${channel.id}/members`, { data: { user_id: bobId } });
+  const name = `Welcome ${Date.now()}`;
+  const greeting = `Welcome aboard ${Date.now()}`;
+
+  try {
+    await login(page, 'bob@dev.local');
+    await page.goto(`/app/${workspace.id}/${channel.id}`);
+    await page.getByRole('button', { name: workspace.name }).first().click();
+    await page.getByTestId('open-workflows').click();
+    await page.getByTestId('workflow-new').click();
+
+    const editor = page.getByTestId('workflow-editor');
+    await editor.getByTestId('workflow-name').fill(name);
+    await editor.getByTestId('workflow-trigger-type').selectOption('member_joined');
+    await editor.getByTestId('workflow-trigger-channel').selectOption(channel.id);
+    await editor.getByTestId('workflow-step-type').selectOption('send_dm');
+    await editor.getByTestId('workflow-step-person').selectOption('trigger_user');
+    await editor.getByTestId('workflow-step-text').fill(`${greeting} in {{trigger.channel}}`);
+    await editor.getByTestId('workflow-publish').click();
+    await expect(editor.getByTestId('workflow-disable')).toBeVisible();
+
+    const added = await admin.post(`${API}/channels/${channel.id}/members`, { data: { user_id: aliceId } });
+    expect(added.status(), 'alice joins the channel').toBe(200);
+
+    await expect
+      .poll(
+        async () => {
+          const listed = await (await alice.get(`${API}/workspaces/${workspace.id}/conversations`)).json();
+          const direct = (listed.data ?? []).find(
+            (c: { kind: string; participant_ids: string[] }) =>
+              c.kind === 'direct' && c.participant_ids.includes(bobId),
+          );
+          if (!direct) return '';
+          return JSON.stringify(await (await alice.get(`${API}/channels/${direct.id}/messages`)).json());
+        },
+        { timeout: 30_000 },
+      )
+      .toContain(`${greeting} in #${channel.name}`);
+
+    await editor.getByTestId('workflow-history-toggle').click();
+    await expect(editor.getByTestId('workflow-run-status').first()).toHaveText('Succeeded');
+    await expect(editor.getByTestId('workflow-run-step').first()).toHaveText('Step 1 · Send a DM');
+  } finally {
+    const listed = await (await bob.get(`${API}/workspaces/${workspace.id}/workflows`)).json();
+    for (const workflow of listed.data ?? []) {
+      if (workflow.name === name) await bob.delete(`${API}/workflows/${workflow.id}`);
+    }
+    await admin.delete(`${API}/channels/${channel.id}`);
+    await admin.dispose();
+    await bob.dispose();
+    await alice.dispose();
+  }
+});

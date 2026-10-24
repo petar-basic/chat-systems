@@ -37,6 +37,20 @@ vi.mock('./useWorkflows', () => ({
   }),
 }));
 
+vi.mock('@/features/messaging', () => ({
+  EmojiPicker: ({ onSelect, onClose }: { onSelect: (emoji: string) => void; onClose: () => void }) => (
+    <button
+      type="button"
+      onClick={() => {
+        onSelect('🚨');
+        onClose();
+      }}
+    >
+      Siren
+    </button>
+  ),
+}));
+
 const channel = (id: string, name: string, extra: Partial<Channel> = {}) =>
   ({ id, name, channel_type: 'public', is_archived: false, ...extra }) as Channel;
 const CHANNELS = [
@@ -154,6 +168,49 @@ describe('WorkflowEditor', () => {
       target: { value: '{{webhook.service}}' },
     });
     expect(area.value).toBe('{{webhook.service}}is down');
+  });
+
+  it('builds a welcome for people who join a channel, sent back to them', async () => {
+    create.mockResolvedValue(saved());
+    renderEditor();
+    fireEvent.change(screen.getByTestId('workflow-trigger-type'), { target: { value: 'member_joined' } });
+    expect(screen.getByTestId('workflow-trigger-channel')).toHaveValue('c-general');
+    expect(
+      within(screen.getByTestId('workflow-step-variable'))
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['Insert variable…', 'Person who joined', 'Channel']);
+
+    fireEvent.change(screen.getByTestId('workflow-step-type'), { target: { value: 'send_dm' } });
+    fireEvent.change(screen.getByTestId('workflow-step-person'), { target: { value: 'trigger_user' } });
+    fireEvent.change(screen.getByTestId('workflow-step-text'), { target: { value: 'Welcome!' } });
+    fireEvent.click(screen.getByTestId('workflow-save'));
+
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+    expect(create.mock.calls[0][0].definition).toEqual({
+      trigger: { type: 'member_joined', channel_id: 'c-general' },
+      steps: [{ type: 'send_dm', to: { kind: 'trigger_user' }, text: 'Welcome!' }],
+    });
+  });
+
+  it('picks the emoji a reaction trigger listens for', () => {
+    renderEditor();
+    fireEvent.change(screen.getByTestId('workflow-trigger-type'), { target: { value: 'reaction_added' } });
+    expect(screen.getByTestId('workflow-trigger-emoji')).toHaveTextContent('Pick an emoji');
+    fireEvent.click(screen.getByTestId('workflow-trigger-emoji'));
+    fireEvent.click(screen.getByRole('button', { name: 'Siren' }));
+    expect(screen.getByTestId('workflow-trigger-emoji')).toHaveTextContent('🚨');
+    expect(screen.queryByRole('button', { name: 'Siren' })).toBeNull();
+  });
+
+  it('offers no trigger person to a schedule’s DM', () => {
+    renderEditor();
+    fireEvent.change(screen.getByTestId('workflow-step-type'), { target: { value: 'send_dm' } });
+    expect(
+      within(screen.getByTestId('workflow-step-person'))
+        .getAllByRole('option')
+        .map((o) => (o as HTMLOptionElement).value),
+    ).not.toContain('trigger_user');
   });
 
   it('flags a variable name the server would refuse', () => {

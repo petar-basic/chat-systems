@@ -230,6 +230,9 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - 🟠 **Edge — retries:** send the same curl twice with `-H 'Idempotency-Key: x'` → one message. Call a draft or turned-off workflow → 409. 31 calls in a minute → 429.
 - 🟠 **Edge — authority:** a step to a private channel, then remove Bob from it and call the webhook → *Failed*, "Step 1 (Send a message): Its creator can no longer post in that channel". Remove Bob from the workspace → his workflows turn off and the admins' Activity says so.
 - 🔴 **Edge — who builds:** *Settings* → *Who can build workflows* → *Admins only* → Bob's *New* is gone and `POST /api/workspaces/<id>/workflows` answers 403; a guest never sees *Workflows*.
+- 🟢 **Event triggers:** as Bob, build "Welcome": *When someone joins a channel* → #random; step *Send a DM* to *The person who joined*, "Welcome {{trigger.user}} to {{trigger.channel}}". Build "Incident": *When a reaction is added* in #general, emoji 🚨; step *Send a message* to #random with "{{trigger.user}} flagged {{trigger.message_link}}". Publish both. Ana joins #random, Ana adds 🚨 to a message in #general.
+- **Expected:** within seconds Ana has a DM from *Welcome*, tagged *Workflow*, mentioning her; #random gets the flag with a link that opens the message. Ana joining again, 👍 instead of 🚨, or 🚨 in another channel starts nothing. Bob joining #random himself is a succeeded run that sent no DM.
+- 🟠 **Edge — private channel:** a join trigger on a private channel Bob isn't in → "You can't see the channel it listens to". Add Bob, publish, remove Bob, add someone → the run fails with "Its creator can no longer see the channel it listens to".
 
 ---
 

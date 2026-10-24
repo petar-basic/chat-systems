@@ -4411,6 +4411,17 @@ export interface components {
             /** @enum {string} */
             type: "webhook";
             variables: string[];
+        } | {
+            /** Format: uuid */
+            channel_id: string;
+            emoji: string;
+            /** @enum {string} */
+            type: "reaction_added";
+        } | {
+            /** Format: uuid */
+            channel_id: string;
+            /** @enum {string} */
+            type: "member_joined";
         };
         Unfurl: {
             description?: string | null;

@@ -39,6 +39,7 @@ export default function WorkflowsPanel({
   const workflows = useWorkflows(workspaceId, instanceUrl);
   const [editing, setEditing] = useState<Workflow | 'new' | null>(null);
   const nameOf = (userId: string) => displayNameOf(members.find((m) => m.user_id === userId)?.display_name);
+  const channelName = (channelId: string) => channels.find((c) => c.id === channelId)?.name ?? undefined;
 
   return (
     <aside
@@ -72,7 +73,7 @@ export default function WorkflowsPanel({
         ) : (workflows.data ?? []).length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-muted" data-qa="workflows-empty">
             {canBuild
-              ? 'No workflows yet. Post a standup reminder on a schedule, or turn a webhook call into a message.'
+              ? 'No workflows yet. Post a standup reminder on a schedule, welcome people who join a channel, or turn a webhook call into a message.'
               : 'Only admins can build workflows in this workspace.'}
           </p>
         ) : (
@@ -98,7 +99,7 @@ export default function WorkflowsPanel({
                     </span>
                   </div>
                   <div className="truncate text-xs text-muted" data-qa="workflow-trigger-summary">
-                    {triggerSummary(workflow.definition.trigger)}
+                    {triggerSummary(workflow.definition.trigger, channelName)}
                   </div>
                   {workflow.last_run && (
                     <div

@@ -254,6 +254,19 @@ fn spawn_consumers(state: &Arc<AppState>, redis_url: &str) {
     }
 
     {
+        let listener_state = state.clone();
+        tokio::spawn(async move {
+            supervise("workflow_listener", || {
+                let listener_state = listener_state.clone();
+                async move {
+                    workflows::listener::start_listener(listener_state).await;
+                }
+            })
+            .await;
+        });
+    }
+
+    {
         let redis_url = redis_url.to_string();
         let notif_repo = notif_repo.clone();
         let push = Arc::new(state.push_sender.clone());

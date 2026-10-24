@@ -116,6 +116,7 @@ mod tests {
 
     use super::*;
     use crate::http_tests::common::app_and_state;
+    use crate::messaging::publisher::EventPublisher;
 
     async fn stream_len(state: &AppState, workspace_id: Uuid) -> i64 {
         let mut conn = state.redis.clone();
@@ -140,16 +141,14 @@ mod tests {
         let ws = Uuid::new_v4();
 
         let mut tx = state.pool.begin().await.unwrap();
-        let staged = state
-            .publisher
-            .stage(
-                &mut tx,
-                "message.created",
-                ws,
-                serde_json::json!({ "n": 1 }),
-            )
-            .await
-            .unwrap();
+        let staged = EventPublisher::stage(
+            &mut tx,
+            "message.created",
+            ws,
+            serde_json::json!({ "n": 1 }),
+        )
+        .await
+        .unwrap();
         let event_id = staged.event_id();
         tx.rollback().await.unwrap();
 
@@ -163,16 +162,14 @@ mod tests {
         let before = stream_len(&state, ws).await;
 
         let mut tx = state.pool.begin().await.unwrap();
-        let staged = state
-            .publisher
-            .stage(
-                &mut tx,
-                "message.created",
-                ws,
-                serde_json::json!({ "n": 2 }),
-            )
-            .await
-            .unwrap();
+        let staged = EventPublisher::stage(
+            &mut tx,
+            "message.created",
+            ws,
+            serde_json::json!({ "n": 2 }),
+        )
+        .await
+        .unwrap();
         let event_id = staged.event_id();
         tx.commit().await.unwrap();
         state.publisher.dispatch(staged).await;

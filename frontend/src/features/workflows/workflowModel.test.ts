@@ -7,6 +7,7 @@ import {
   moveStep,
   repeatOf,
   toggleDay,
+  triggerPerson,
   triggerSummary,
   variableNameError,
   variablesOf,
@@ -38,6 +39,31 @@ describe('workflowModel', () => {
       'Mon, Fri at 17:00',
     );
     expect(triggerSummary({ type: 'webhook', variables: [] })).toBe('Webhook');
+  });
+
+  it('summarises an event trigger with its channel', () => {
+    const named = (id: string) => (id === 'c-1' ? 'incidents' : undefined);
+    expect(triggerSummary({ type: 'reaction_added', channel_id: 'c-1', emoji: '🚨' }, named)).toBe(
+      'When 🚨 is added in #incidents',
+    );
+    expect(triggerSummary({ type: 'member_joined', channel_id: 'c-1' }, named)).toBe(
+      'When someone joins #incidents',
+    );
+    expect(triggerSummary({ type: 'member_joined', channel_id: 'gone' }, named)).toBe(
+      'When someone joins a channel',
+    );
+  });
+
+  it('offers the person and channel an event trigger brings, and a DM back to that person', () => {
+    expect(variablesOf({ type: 'reaction_added', channel_id: 'c', emoji: '🚨' }).map((v) => v.token)).toEqual(
+      ['{{trigger.user}}', '{{trigger.channel}}', '{{trigger.message}}', '{{trigger.message_link}}'],
+    );
+    expect(variablesOf({ type: 'member_joined', channel_id: 'c' }).map((v) => v.label)).toEqual([
+      'Person who joined',
+      'Channel',
+    ]);
+    expect(triggerPerson({ type: 'member_joined', channel_id: 'c' })).toBe('The person who joined');
+    expect(triggerPerson({ type: 'webhook', variables: [] })).toBeNull();
   });
 
   it('offers a webhook’s declared variables and nothing for a schedule', () => {

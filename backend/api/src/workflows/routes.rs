@@ -17,7 +17,7 @@ use crate::middleware::{AuthUser, PeerAddr};
 use crate::rate_limit::{self, LimiterFailure};
 use crate::state::AppState;
 
-pub const WEBHOOK_CALLS_PER_MINUTE: u64 = 30;
+pub const RUNS_PER_MINUTE: u64 = 30;
 
 pub fn router() -> OpenApiRouter<Arc<AppState>> {
     OpenApiRouter::new()
@@ -157,7 +157,7 @@ async fn workflow_webhook(
     rate_limit::enforce(
         &mut conn,
         &format!("rate_limit:workflow:{}", workflow.id),
-        WEBHOOK_CALLS_PER_MINUTE,
+        RUNS_PER_MINUTE,
         60,
         LimiterFailure::Open,
     )

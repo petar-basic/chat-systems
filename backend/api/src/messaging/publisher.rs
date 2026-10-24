@@ -26,7 +26,7 @@ fn is_durable(event_type: &str) -> bool {
     // minutes later is worse than not replaying it.
     if matches!(
         event_type,
-        "huddle.member_joined" | "huddle.member_left" | "huddle.ring"
+        "huddle.member_joined" | "huddle.member_left" | "huddle.ring" | "channel.member_joined"
     ) {
         return true;
     }
@@ -45,6 +45,7 @@ pub struct EventPublisher {
 /// An event written to the outbox inside the caller's transaction. Handing it
 /// to `dispatch` after the commit is the fast path; the worker's relay is the
 /// slow one, for whatever the fast path did not manage.
+#[derive(Debug)]
 pub struct Staged {
     row_id: i64,
     event: Event,
@@ -82,16 +83,13 @@ impl EventPublisher {
             return self.emit(&mut event, Some(workspace_id)).await;
         }
         let mut tx = self.pool.begin().await?;
-        let staged = self
-            .stage(&mut tx, event_type, workspace_id, payload)
-            .await?;
+        let staged = Self::stage(&mut tx, event_type, workspace_id, payload).await?;
         tx.commit().await?;
         self.dispatch(staged).await;
         Ok(())
     }
 
     pub async fn stage(
-        &self,
         conn: &mut PgConnection,
         event_type: &str,
         workspace_id: Uuid,
@@ -236,8 +234,7 @@ impl EventPublisher {
         let message =
             serde_json::to_value(message).map_err(|e| AppError::Internal(e.to_string()))?;
         let payload = Self::message_created_payload(&message, workspace_id, mentioned_user_ids);
-        self.stage(conn, "message.created", workspace_id, payload)
-            .await
+        Self::stage(conn, "message.created", workspace_id, payload).await
     }
 
     pub async fn stage_message_updated(
@@ -248,8 +245,7 @@ impl EventPublisher {
     ) -> AppResult<Staged> {
         let payload =
             serde_json::to_value(message).map_err(|e| AppError::Internal(e.to_string()))?;
-        self.stage(conn, "message.updated", workspace_id, payload)
-            .await
+        Self::stage(conn, "message.updated", workspace_id, payload).await
     }
 
     pub async fn publish_read_state(
@@ -279,7 +275,7 @@ impl EventPublisher {
         channel_id: Uuid,
         workspace_id: Uuid,
     ) -> AppResult<Staged> {
-        self.stage(
+        Self::stage(
             conn,
             "message.deleted",
             workspace_id,
@@ -296,7 +292,7 @@ impl EventPublisher {
         workspace_id: Uuid,
         pinned: bool,
     ) -> AppResult<Staged> {
-        self.stage(
+        Self::stage(
             conn,
             "message.pinned",
             workspace_id,
@@ -321,8 +317,7 @@ impl EventPublisher {
         if let Some(obj) = payload.as_object_mut() {
             obj.insert("channel_id".into(), serde_json::json!(channel_id));
         }
-        self.stage(conn, "reaction.added", workspace_id, payload)
-            .await
+        Self::stage(conn, "reaction.added", workspace_id, payload).await
     }
 
     pub async fn stage_reaction_removed(
@@ -334,7 +329,7 @@ impl EventPublisher {
         user_id: Uuid,
         emoji: &str,
     ) -> AppResult<Staged> {
-        self.stage(
+        Self::stage(
             conn,
             "reaction.removed",
             workspace_id,
@@ -354,7 +349,7 @@ impl EventPublisher {
         workspace_id: Uuid,
         delete_type: &str,
     ) -> AppResult<Staged> {
-        self.stage(
+        Self::stage(
             conn,
             "workspace.deleted",
             workspace_id,
@@ -368,7 +363,7 @@ impl EventPublisher {
         conn: &mut PgConnection,
         workspace_id: Uuid,
     ) -> AppResult<Staged> {
-        self.stage(
+        Self::stage(
             conn,
             "workspace.restored",
             workspace_id,
@@ -383,11 +378,30 @@ impl EventPublisher {
         workspace_id: Uuid,
         user_id: Uuid,
     ) -> AppResult<Staged> {
-        self.stage(
+        Self::stage(
             conn,
             "workspace.member_removed",
             workspace_id,
             serde_json::json!({ "workspace_id": workspace_id, "user_id": user_id }),
+        )
+        .await
+    }
+
+    pub async fn stage_channel_member_joined(
+        conn: &mut PgConnection,
+        channel_id: Uuid,
+        workspace_id: Uuid,
+        user_id: Uuid,
+    ) -> AppResult<Staged> {
+        Self::stage(
+            conn,
+            "channel.member_joined",
+            workspace_id,
+            serde_json::json!({
+                "channel_id": channel_id,
+                "workspace_id": workspace_id,
+                "user_id": user_id,
+            }),
         )
         .await
     }
@@ -399,7 +413,7 @@ impl EventPublisher {
         workspace_id: Uuid,
         user_id: Uuid,
     ) -> AppResult<Staged> {
-        self.stage(
+        Self::stage(
             conn,
             "channel.member_removed",
             workspace_id,

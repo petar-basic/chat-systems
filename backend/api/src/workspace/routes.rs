@@ -9,6 +9,7 @@ use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
 
+use super::membership;
 use super::models::*;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
@@ -336,7 +337,7 @@ async fn remove_member(
             ));
         }
     }
-    crate::workspace::membership::detach(&state, ws_id, user_id).await?;
+    membership::detach(&state, ws_id, user_id).await?;
 
     audit::record(
         &state,
@@ -416,10 +417,11 @@ async fn accept_invite(
         .find_by_id(auth.user_id)
         .await?
         .ok_or_else(|| AppError::NotFound("User not found".into()))?;
-    let member = state
+    let (member, staged) = state
         .workspace_service
         .accept_invite(&token, auth.user_id, &user.email)
         .await?;
+    state.publisher.dispatch_all(staged).await;
     Ok(Json(member))
 }
 
@@ -727,11 +729,7 @@ async fn join_channel(
             "This channel is archived and cannot be joined".into(),
         ));
     }
-    let member = state
-        .workspace_service
-        .repo
-        .add_channel_member(ch_id, auth.user_id, &ChannelRole::Member)
-        .await?;
+    let member = membership::add_to_channel(&state, &channel, auth.user_id).await?;
     Ok(Json(member))
 }
 
@@ -804,11 +802,7 @@ async fn add_channel_member(
             })?;
     }
     authz::require_workspace_member(&state, channel.workspace_id, req.user_id).await?;
-    let member = state
-        .workspace_service
-        .repo
-        .add_channel_member(ch_id, req.user_id, &ChannelRole::Member)
-        .await?;
+    let member = membership::add_to_channel(&state, &channel, req.user_id).await?;
 
     audit::record(
         &state,

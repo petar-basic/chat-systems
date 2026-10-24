@@ -52,13 +52,30 @@ pub enum Trigger {
     Webhook {
         variables: Vec<String>,
     },
+    ReactionAdded {
+        channel_id: Uuid,
+        emoji: String,
+    },
+    MemberJoined {
+        channel_id: Uuid,
+    },
 }
+
+pub const REACTION_VARIABLES: [&str; 4] = [
+    "trigger.user",
+    "trigger.channel",
+    "trigger.message",
+    "trigger.message_link",
+];
+pub const JOIN_VARIABLES: [&str; 2] = ["trigger.user", "trigger.channel"];
 
 impl Trigger {
     pub fn kind(&self) -> &'static str {
         match self {
             Self::Schedule { .. } => "schedule",
             Self::Webhook { .. } => "webhook",
+            Self::ReactionAdded { .. } => "reaction_added",
+            Self::MemberJoined { .. } => "member_joined",
         }
     }
 
@@ -69,11 +86,22 @@ impl Trigger {
                 .iter()
                 .map(|name| format!("webhook.{name}"))
                 .collect(),
+            Self::ReactionAdded { .. } => REACTION_VARIABLES.map(String::from).to_vec(),
+            Self::MemberJoined { .. } => JOIN_VARIABLES.map(String::from).to_vec(),
         }
     }
 
     pub fn has_person(&self) -> bool {
-        false
+        matches!(self, Self::ReactionAdded { .. } | Self::MemberJoined { .. })
+    }
+
+    pub fn channel(&self) -> Option<Uuid> {
+        match self {
+            Self::ReactionAdded { channel_id, .. } | Self::MemberJoined { channel_id } => {
+                Some(*channel_id)
+            }
+            Self::Schedule { .. } | Self::Webhook { .. } => None,
+        }
     }
 
     pub fn schedule(&self) -> Option<Schedule<'_>> {
@@ -87,7 +115,7 @@ impl Trigger {
                 time: parse_time(time)?,
                 timezone,
             }),
-            Self::Webhook { .. } => None,
+            _ => None,
         }
     }
 }
@@ -173,6 +201,13 @@ impl Definition {
                     }
                 }
             }
+            Trigger::ReactionAdded { emoji, .. } => {
+                if emoji.trim().is_empty() {
+                    return invalid("Pick the emoji to listen for");
+                }
+                shared_common::validation::validate_reaction_emoji(emoji)?;
+            }
+            Trigger::MemberJoined { .. } => {}
         }
 
         if self.steps.is_empty() {
@@ -509,6 +544,46 @@ mod tests {
                 "steps": [{ "type": "send_dm", "to": { "kind": "trigger_user" }, "text": "hi" }],
             })),
             "Step 1: this trigger has no person to send a DM to"
+        );
+    }
+
+    #[test]
+    fn event_triggers_offer_the_person_and_the_channel_that_set_them_off() {
+        let reaction =
+            json!({ "type": "reaction_added", "channel_id": Uuid::nil(), "emoji": "\u{1F6A8}" });
+        definition(json!({
+            "trigger": reaction.clone(),
+            "steps": [
+                post("{{trigger.user}} flagged {{trigger.message_link}} in {{trigger.channel}}: {{trigger.message}}"),
+                { "type": "send_dm", "to": { "kind": "trigger_user" }, "text": "thanks" },
+            ],
+        }))
+        .check()
+        .unwrap();
+
+        let joined = json!({ "type": "member_joined", "channel_id": Uuid::nil() });
+        definition(json!({
+            "trigger": joined.clone(),
+            "steps": [{ "type": "send_dm", "to": { "kind": "trigger_user" }, "text": "Welcome {{trigger.user}} to {{trigger.channel}}" }],
+        }))
+        .check()
+        .unwrap();
+        assert_eq!(
+            error(json!({ "trigger": joined, "steps": [post("{{trigger.message}}")] })),
+            "Step 1: {{trigger.message}} isn't available for this trigger"
+        );
+
+        let mut no_emoji = reaction.clone();
+        no_emoji["emoji"] = json!(" ");
+        assert_eq!(
+            error(json!({ "trigger": no_emoji, "steps": [post("x")] })),
+            "Pick the emoji to listen for"
+        );
+        let mut long = reaction;
+        long["emoji"] = json!("x".repeat(9));
+        assert_eq!(
+            error(json!({ "trigger": long, "steps": [post("x")] })),
+            "Reaction must be at most 8 characters"
         );
     }
 

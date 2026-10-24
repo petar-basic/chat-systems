@@ -1,4 +1,8 @@
-import { Clock, Plus, Trash2, Webhook } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Clock, Plus, SmilePlus, Trash2, UserPlus, Webhook } from 'lucide-react';
+import { EmojiPicker } from '@/features/messaging';
+import type { Channel } from '@/stores/workspace';
+import { Field } from '@/shared/components/Form/Field';
 import { Select } from '@/shared/components/Form/Select';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { Checkbox } from '@/shared/components/Form/Checkbox';
@@ -7,6 +11,7 @@ import { IconButton } from '@/shared/components/IconButton/IconButton';
 import { CopyField } from '@/shared/components/CopyField/CopyField';
 import {
   MAX_WEBHOOK_VARIABLES,
+  TRIGGER_TYPES,
   WEEKDAYS,
   blankTrigger,
   daysFor,
@@ -20,16 +25,25 @@ import {
 
 interface Props {
   trigger: Trigger;
+  channels: Channel[];
   webhookUrl: string | null;
   readOnly: boolean;
   onChange: (trigger: Trigger) => void;
 }
 
-export function TriggerCard({ trigger, webhookUrl, readOnly, onChange }: Props) {
+const ICONS: Record<Trigger['type'], typeof Clock> = {
+  schedule: Clock,
+  webhook: Webhook,
+  reaction_added: SmilePlus,
+  member_joined: UserPlus,
+};
+
+export function TriggerCard({ trigger, channels, webhookUrl, readOnly, onChange }: Props) {
+  const Icon = ICONS[trigger.type];
   return (
     <section className="rounded-xl border border-line bg-raised/30 p-4" data-qa="workflow-trigger">
       <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-fg">
-        {trigger.type === 'schedule' ? <Clock className="h-4 w-4" /> : <Webhook className="h-4 w-4" />}
+        <Icon className="h-4 w-4" />
         Starts
       </h3>
       <div className="space-y-4">
@@ -37,16 +51,23 @@ export function TriggerCard({ trigger, webhookUrl, readOnly, onChange }: Props) 
           label="Trigger"
           value={trigger.type}
           disabled={readOnly}
-          onChange={(e) => onChange(blankTrigger(e.target.value as Trigger['type']))}
+          onChange={(e) => onChange(blankTrigger(e.target.value as Trigger['type'], channels[0]?.id))}
           dataQa="workflow-trigger-type"
         >
-          <option value="schedule">On a schedule</option>
-          <option value="webhook">When a webhook is called</option>
+          {TRIGGER_TYPES.map(({ type, label }) => (
+            <option key={type} value={type}>
+              {label}
+            </option>
+          ))}
         </Select>
-        {trigger.type === 'schedule' ? (
+        {trigger.type === 'schedule' && (
           <ScheduleFields trigger={trigger} readOnly={readOnly} onChange={onChange} />
-        ) : (
+        )}
+        {trigger.type === 'webhook' && (
           <WebhookFields trigger={trigger} webhookUrl={webhookUrl} readOnly={readOnly} onChange={onChange} />
+        )}
+        {(trigger.type === 'reaction_added' || trigger.type === 'member_joined') && (
+          <EventFields trigger={trigger} channels={channels} readOnly={readOnly} onChange={onChange} />
         )}
       </div>
     </section>
@@ -55,6 +76,69 @@ export function TriggerCard({ trigger, webhookUrl, readOnly, onChange }: Props) 
 
 type Schedule = Extract<Trigger, { type: 'schedule' }>;
 type Hook = Extract<Trigger, { type: 'webhook' }>;
+type ChannelEvent = Extract<Trigger, { type: 'reaction_added' | 'member_joined' }>;
+
+function EventFields({
+  trigger,
+  channels,
+  readOnly,
+  onChange,
+}: {
+  trigger: ChannelEvent;
+  channels: Channel[];
+  readOnly: boolean;
+  onChange: (trigger: Trigger) => void;
+}) {
+  const anchor = useRef<HTMLSpanElement>(null);
+  const [picking, setPicking] = useState(false);
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <Select
+        label={trigger.type === 'reaction_added' ? 'In' : 'Joins'}
+        value={trigger.channel_id}
+        disabled={readOnly}
+        onChange={(e) => onChange({ ...trigger, channel_id: e.target.value })}
+        dataQa="workflow-trigger-channel"
+      >
+        <option value="" disabled>
+          Pick a channel
+        </option>
+        {channels.map((channel) => (
+          <option key={channel.id} value={channel.id}>
+            #{channel.name}
+          </option>
+        ))}
+      </Select>
+      {trigger.type === 'reaction_added' && (
+        <Field label="Emoji">
+          {(control) => (
+            <span ref={anchor} className="inline-block">
+              <Button
+                {...control}
+                disabled={readOnly}
+                onClick={() => setPicking((open) => !open)}
+                data-qa="workflow-trigger-emoji"
+              >
+                {trigger.emoji ? (
+                  <span className="text-lg leading-none">{trigger.emoji}</span>
+                ) : (
+                  'Pick an emoji'
+                )}
+              </Button>
+              {picking && (
+                <EmojiPicker
+                  anchorRef={anchor}
+                  onSelect={(emoji) => onChange({ ...trigger, emoji })}
+                  onClose={() => setPicking(false)}
+                />
+              )}
+            </span>
+          )}
+        </Field>
+      )}
+    </div>
+  );
+}
 
 function ScheduleFields({
   trigger,

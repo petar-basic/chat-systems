@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO workflow_runs\n                   (workflow_id, workflow_version, trigger_key, context, status, error, finished_at)\n            VALUES ($1, $2, $3, $4, 'failed', $5, NOW())\n            ON CONFLICT (workflow_id, trigger_key) DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Text",
+        "Jsonb",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8d4035b1a38a1a80a973fbff1533230305d44238dfe184df3bb622da5ded6f05"
+}
