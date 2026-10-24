@@ -193,6 +193,54 @@ describe('WorkflowEditor', () => {
     });
   });
 
+  it('builds a shortcut that asks the person who ran it a form, then posts the answers', async () => {
+    create.mockResolvedValue(saved());
+    renderEditor();
+    fireEvent.change(screen.getByTestId('workflow-trigger-type'), { target: { value: 'shortcut' } });
+    expect(screen.getByTestId('workflow-trigger-channel')).toHaveValue('c-general');
+
+    fireEvent.change(screen.getByTestId('workflow-step-type'), { target: { value: 'form' } });
+    expect(screen.getByTestId('workflow-step-title')).toHaveTextContent('Collect a form');
+    fireEvent.change(screen.getByTestId('workflow-step-person'), { target: { value: 'trigger_user' } });
+    fireEvent.change(screen.getByTestId('workflow-form-title'), { target: { value: 'Time off' } });
+    fireEvent.change(screen.getByTestId('workflow-form-field-label'), { target: { value: 'How long?' } });
+    expect(screen.getByTestId('workflow-form-field-variable')).toHaveTextContent('{{form.how_long}}');
+    fireEvent.click(screen.getByTestId('workflow-form-field-add'));
+    fireEvent.change(screen.getAllByTestId('workflow-form-field-label')[1], { target: { value: 'Kind' } });
+    fireEvent.change(screen.getAllByTestId('workflow-form-field-kind')[1], { target: { value: 'select' } });
+    fireEvent.change(screen.getByTestId('workflow-form-field-options'), {
+      target: { value: 'Sick\n\nHoliday\n' },
+    });
+
+    fireEvent.click(screen.getByTestId('workflow-step-add'));
+    const next = steps()[1];
+    expect(
+      within(within(next).getByTestId('workflow-step-variable'))
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['Insert variable…', 'Person who ran it', 'Channel', 'Answer: How long?', 'Answer: Kind']);
+    fireEvent.change(within(next).getByTestId('workflow-step-text'), { target: { value: 'New request' } });
+    fireEvent.click(within(next).getByTestId('workflow-step-summary'));
+    fireEvent.click(screen.getByTestId('workflow-save'));
+
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+    expect(create.mock.calls[0][0].definition).toEqual({
+      trigger: { type: 'shortcut', channel_id: 'c-general' },
+      steps: [
+        {
+          type: 'form',
+          to: { kind: 'trigger_user' },
+          title: 'Time off',
+          fields: [
+            { name: 'how_long', label: 'How long?', kind: 'short_text', options: [], required: true },
+            { name: 'kind', label: 'Kind', kind: 'select', options: ['Sick', 'Holiday'], required: true },
+          ],
+        },
+        { type: 'send_message', channel_id: 'c-general', text: 'New request', summary: true },
+      ],
+    });
+  });
+
   it('picks the emoji a reaction trigger listens for', () => {
     renderEditor();
     fireEvent.change(screen.getByTestId('workflow-trigger-type'), { target: { value: 'reaction_added' } });

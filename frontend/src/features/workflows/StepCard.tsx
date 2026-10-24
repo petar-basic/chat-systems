@@ -1,11 +1,21 @@
 import { useRef } from 'react';
 import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react';
+import { Checkbox } from '@/shared/components/Form/Checkbox';
 import { Select } from '@/shared/components/Form/Select';
 import { TextArea } from '@/shared/components/Form/TextArea';
 import { IconButton } from '@/shared/components/IconButton/IconButton';
 import { displayNameOf } from '@/lib/userHelpers';
 import type { Channel, WorkspaceMember } from '@/stores/workspace';
-import { TEXT_MAX, blankStep, insertAt, stepLabel, type Step } from './workflowModel';
+import { FormStepEditor } from './FormStepEditor';
+import {
+  TEXT_MAX,
+  blankStep,
+  insertAt,
+  stepLabel,
+  type Step,
+  type TextStep,
+  type Variable,
+} from './workflowModel';
 
 const TRIGGER_PERSON = 'trigger_user';
 
@@ -15,8 +25,9 @@ interface Props {
   count: number;
   channels: Channel[];
   people: WorkspaceMember[];
-  variables: { token: string; label: string }[];
+  variables: Variable[];
   triggerPerson: string | null;
+  formBefore: boolean;
   readOnly: boolean;
   onChange: (step: Step) => void;
   onMove: (to: number) => void;
@@ -31,24 +42,23 @@ export function StepCard({
   people,
   variables,
   triggerPerson,
+  formBefore,
   readOnly,
   onChange,
   onMove,
   onRemove,
 }: Props) {
-  const textRef = useRef<HTMLTextAreaElement>(null);
   const number = index + 1;
 
-  const insertVariable = (token: string) => {
-    const area = textRef.current;
-    const start = area?.selectionStart ?? step.text.length;
-    const end = area?.selectionEnd ?? start;
-    const { text, caret } = insertAt(step.text, token, start, end);
-    onChange({ ...step, text });
-    requestAnimationFrame(() => {
-      area?.focus();
-      area?.setSelectionRange(caret, caret);
-    });
+  const changeType = (type: Step['type']) => {
+    const next = blankStep(type);
+    if (next.type !== 'form' && step.type !== 'form') {
+      onChange({ ...next, text: step.text });
+    } else if (next.type !== 'send_message' && step.type !== 'send_message') {
+      onChange({ ...next, to: step.to });
+    } else {
+      onChange(next);
+    }
   };
 
   return (
@@ -97,11 +107,12 @@ export function StepCard({
             label="Action"
             value={step.type}
             disabled={readOnly}
-            onChange={(e) => onChange({ ...blankStep(e.target.value as Step['type']), text: step.text })}
+            onChange={(e) => changeType(e.target.value as Step['type'])}
             dataQa="workflow-step-type"
           >
             <option value="send_message">Send a message to a channel</option>
             <option value="send_dm">Send a DM to a person</option>
+            <option value="form">Ask a person to fill in a form</option>
           </Select>
           {step.type === 'send_message' ? (
             <Select
@@ -122,7 +133,7 @@ export function StepCard({
             </Select>
           ) : (
             <Select
-              label="To"
+              label={step.type === 'form' ? 'Send it to' : 'To'}
               value={step.to.kind === 'person' ? step.to.user_id : triggerPerson ? TRIGGER_PERSON : ''}
               disabled={readOnly}
               onChange={(e) =>
@@ -148,17 +159,63 @@ export function StepCard({
             </Select>
           )}
         </div>
-        <TextArea
-          ref={textRef}
-          label="Message"
-          value={step.text}
-          rows={4}
-          maxLength={TEXT_MAX}
-          disabled={readOnly}
-          placeholder={step.type === 'send_message' ? 'Standup in 10 minutes!' : 'Welcome aboard!'}
-          onChange={(e) => onChange({ ...step, text: e.target.value })}
-          dataQa="workflow-step-text"
-        />
+        {step.type === 'form' ? (
+          <FormStepEditor step={step} readOnly={readOnly} onChange={onChange} />
+        ) : (
+          <MessageFields
+            step={step}
+            variables={variables}
+            formBefore={formBefore}
+            readOnly={readOnly}
+            onChange={onChange}
+          />
+        )}
+      </div>
+    </section>
+  );
+}
+
+function MessageFields({
+  step,
+  variables,
+  formBefore,
+  readOnly,
+  onChange,
+}: {
+  step: TextStep;
+  variables: Variable[];
+  formBefore: boolean;
+  readOnly: boolean;
+  onChange: (step: Step) => void;
+}) {
+  const textRef = useRef<HTMLTextAreaElement>(null);
+
+  const insertVariable = (token: string) => {
+    const area = textRef.current;
+    const start = area?.selectionStart ?? step.text.length;
+    const end = area?.selectionEnd ?? start;
+    const { text, caret } = insertAt(step.text, token, start, end);
+    onChange({ ...step, text });
+    requestAnimationFrame(() => {
+      area?.focus();
+      area?.setSelectionRange(caret, caret);
+    });
+  };
+
+  return (
+    <>
+      <TextArea
+        ref={textRef}
+        label="Message"
+        value={step.text}
+        rows={4}
+        maxLength={TEXT_MAX}
+        disabled={readOnly}
+        placeholder={step.type === 'send_message' ? 'Standup in 10 minutes!' : 'Welcome aboard!'}
+        onChange={(e) => onChange({ ...step, text: e.target.value })}
+        dataQa="workflow-step-text"
+      />
+      <div className="flex flex-wrap items-center gap-4">
         {!readOnly && variables.length > 0 && (
           <Select
             label="Insert variable"
@@ -177,7 +234,16 @@ export function StepCard({
             ))}
           </Select>
         )}
+        {(formBefore || step.summary) && (
+          <Checkbox
+            label="Add the form answers below the message"
+            checked={step.summary ?? false}
+            disabled={readOnly}
+            onChange={(summary) => onChange({ ...step, summary })}
+            dataQa="workflow-step-summary"
+          />
+        )}
       </div>
-    </section>
+    </>
   );
 }

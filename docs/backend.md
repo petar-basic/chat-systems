@@ -835,6 +835,17 @@ every enabled workflow listening to that channel (and emoji), with the person, c
 message in the run's `context`. `workspace::membership::add_to_channel` and the default-channel
 joins stage `channel.member_joined` with the membership row.
 
+A `shortcut` trigger is started by a person who can post in its channel, from
+`POST /workflows/:id/start` or the built-in `/workflow <name>`. A `form` step posts a card
+(`metadata.form`) in the DM between the builder and its recipient, or in the trigger channel
+when the recipient is the builder, writes a `workflow_forms` row and leaves the run `waiting`,
+which the runner does not claim. `service::submit_form` checks the answers against the stored
+fields, merges them into `context.form`, records the step done and sets the run `pending`
+again, in one transaction with the card's `submitted_at` and its `message.updated`. A later
+step inserts `{{form.<name>}}`; a person answer is a mention and notifies, a text answer does
+not. The tick also expires forms past `expires_at` (7 days): the run becomes `expired` and the
+card `expired`. A run resumed after its workflow was edited stops.
+
 A run is a row in `workflow_runs`, unique on `(workflow_id, trigger_key)` — the schedule
 instant, the webhook request or the stream event id — so a trigger delivered twice is one run.
 Every trigger shares one limit of 30 runs a minute per workflow (`RUNS_PER_MINUTE`); an event
@@ -859,6 +870,9 @@ webhook values or the reacted message.
 | POST | `/workflows/:workflow_id/disable` | — | `Workflow` — its builder or an admin |
 | DELETE | `/workflows/:workflow_id` | — | `{ status: "deleted" }` — its builder or an admin |
 | GET | `/workflows/:workflow_id/runs` | — | `{ data: WorkflowRun[] }`, the last 50, newest first, each with its steps |
+| POST | `/workflows/:workflow_id/start` | header `Idempotency-Key` optional | 202 `{ status: "accepted", run_id }` — a shortcut, by someone who can post in its channel; 404 otherwise, 409 turned off, 429 above 30 a minute |
+| GET | `/channels/:ch_id/workflow-shortcuts` | — | `{ data: Shortcut[] }` — the enabled shortcuts of a channel you can post in |
+| POST | `/workflow-runs/:run_id/forms/:position` | `{ answers: { [name]: string } }` | `{ status: "submitted" }` — its recipient only (403); 422 a bad answer, 409 answered, expired or no longer waiting |
 | POST | `/workflows/webhook/:token` | any JSON object; header `Idempotency-Key` optional | 202 `{ status: "accepted", run_id }`; 401 unknown token, 409 turned off, 429 above 30 a minute |
 
 The webhook route is public, authenticated by the token in `Workflow.webhook_url`. Audit

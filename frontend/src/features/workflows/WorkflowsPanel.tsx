@@ -25,6 +25,8 @@ const LAST_RUN: Record<NonNullable<Workflow['last_run']>['status'], string> = {
   running: 'Running',
   succeeded: 'Last run succeeded',
   failed: 'Last run failed',
+  waiting: 'Waiting for a form',
+  expired: 'Last run expired',
 };
 
 export default function WorkflowsPanel({

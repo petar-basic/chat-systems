@@ -315,11 +315,14 @@ on the server.
 the workflows you built (an admin sees everyone's): name, trigger, on or off, the last run,
 and who built it when that is somebody else. A row or *New* opens `WorkflowEditor`, a
 full-height `Modal` (`size="full"`): `TriggerCard` (schedule, webhook with its URL once saved
-and its variables, a reaction in a channel with the emoji from `EmojiPicker`, or someone
-joining a channel), then a `StepCard` per step (send a message to a channel, or a DM to a
-person or, for a reaction or join, to the person who set it off), each movable and removable,
-with *Insert variable* putting `{{webhook.name}}` or `{{trigger.user}}` and the like at the
-caret. *Save draft*/*Save changes* saves; *Publish* saves and turns it on; *Turn off*; *Run
+and its variables, a reaction in a channel with the emoji from `EmojiPicker`, someone
+joining a channel, or a shortcut in a channel), then a `StepCard` per step (send a message to
+a channel, a DM, or a form, to a person or, for a reaction, join or shortcut, to the person who
+set it off), each movable and removable, with *Insert variable* putting `{{webhook.name}}`,
+`{{trigger.user}}` or an earlier form's `{{form.name}}` at the caret. `FormStepEditor` edits a
+form: its title and up to 10 questions, each a label, an answer kind, choices for a *Choice*,
+and *Required*; a question's variable name follows its label until it is renamed. A message
+step after a form can tick *Add the form answers below the message*. *Save draft*/*Save changes* saves; *Publish* saves and turns it on; *Turn off*; *Run
 history* swaps the form for `RunHistory`, refetched every 10 seconds. Someone else's workflow,
 or yours when only admins may build, opens read-only. `workflowModel.ts` holds the pure
 helpers (schedule presets, insertion, reordering, who may build).
@@ -327,8 +330,15 @@ helpers (schedule presets, insertion, reordering, who may build).
 `SettingsPanel` has *Who can build workflows* (every member or admins only). A message whose
 `metadata.bot.workflow_id` is set is tagged *Workflow* instead of *Bot*.
 
+A message with `metadata.form` renders `FormCard` instead of its text: the title, and for its
+recipient a *Fill in* button opening `FormDialog`, a `Modal` of shared fields (a text input,
+text area, select of the choices or of the workspace's people, or a date input); everyone else
+reads who it waits for, and once answered or expired it says so. A channel's composer shows
+`ShortcutMenu`, a ⚡ button listing the channel's shortcuts, when it has any; picking one starts
+it. `/workflow <name>` goes to the server like any other command.
+
 **API calls:** `/workspaces/{id}/workflows`, `/workflows/{id}` (with `/publish`, `/disable`,
-`/runs`)
+`/runs`, `/start`), `/channels/{id}/workflow-shortcuts`, `/workflow-runs/{id}/forms/{position}`
 
 ---
 

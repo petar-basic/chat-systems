@@ -8,6 +8,13 @@ export type Step = components['schemas']['Step'];
 export type Weekday = components['schemas']['Weekday'];
 export type SaveWorkflow = components['schemas']['SaveWorkflowRequest'];
 export type WorkflowBuilders = components['schemas']['WorkflowBuilders'];
+export type FormField = components['schemas']['FormField'];
+export type FieldKind = components['schemas']['FieldKind'];
+export type FormStep = Extract<Step, { type: 'form' }>;
+export type TextStep = Exclude<Step, FormStep>;
+export type Variable = { token: string; label: string };
+export type FormRequest = components['schemas']['FormRequest'];
+export type WorkflowShortcut = components['schemas']['Shortcut'];
 
 export const WEEKDAYS: { day: Weekday; label: string }[] = [
   { day: 'mon', label: 'Mon' },
@@ -28,6 +35,20 @@ export const MAX_STEPS = 20;
 export const MAX_WEBHOOK_VARIABLES = 10;
 export const NAME_MAX = 80;
 export const TEXT_MAX = 4000;
+export const FORM_TITLE_MAX = 80;
+export const MAX_FORM_FIELDS = 10;
+export const FIELD_LABEL_MAX = 80;
+export const MAX_SELECT_OPTIONS = 20;
+export const SHORT_ANSWER_MAX = 200;
+export const LONG_ANSWER_MAX = 4000;
+
+export const FIELD_KINDS: { kind: FieldKind; label: string }[] = [
+  { kind: 'short_text', label: 'Short answer' },
+  { kind: 'long_text', label: 'Long answer' },
+  { kind: 'select', label: 'Choice' },
+  { kind: 'person', label: 'Person' },
+  { kind: 'date', label: 'Date' },
+];
 
 export function repeatOf(days: Weekday[]): Repeat {
   const set = new Set(days);
@@ -62,6 +83,7 @@ export const TRIGGER_TYPES: { type: Trigger['type']; label: string }[] = [
   { type: 'webhook', label: 'When a webhook is called' },
   { type: 'reaction_added', label: 'When a reaction is added' },
   { type: 'member_joined', label: 'When someone joins a channel' },
+  { type: 'shortcut', label: 'From a shortcut in a channel' },
 ];
 
 export function blankTrigger(type: Trigger['type'], channelId = ''): Trigger {
@@ -74,26 +96,83 @@ export function blankTrigger(type: Trigger['type'], channelId = ''): Trigger {
       return { type: 'reaction_added', channel_id: channelId, emoji: '' };
     case 'member_joined':
       return { type: 'member_joined', channel_id: channelId };
+    case 'shortcut':
+      return { type: 'shortcut', channel_id: channelId };
   }
 }
 
 export function triggerPerson(trigger: Trigger): string | null {
   if (trigger.type === 'reaction_added') return 'The person who reacted';
   if (trigger.type === 'member_joined') return 'The person who joined';
+  if (trigger.type === 'shortcut') return 'The person who ran it';
   return null;
 }
 
 export function blankStep(type: Step['type'], channelId = ''): Step {
-  return type === 'send_message'
-    ? { type: 'send_message', channel_id: channelId, text: '' }
-    : { type: 'send_dm', to: { kind: 'person', user_id: '' }, text: '' };
+  switch (type) {
+    case 'send_message':
+      return { type: 'send_message', channel_id: channelId, text: '' };
+    case 'send_dm':
+      return { type: 'send_dm', to: { kind: 'person', user_id: '' }, text: '' };
+    case 'form':
+      return { type: 'form', to: { kind: 'person', user_id: '' }, title: '', fields: [blankField([])] };
+  }
+}
+
+export function fieldNameFrom(label: string, taken: string[]): string {
+  const base =
+    label
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^[^a-z]+/, '')
+      .replace(/_+$/, '')
+      .slice(0, 32) || 'answer';
+  if (!taken.includes(base)) return base;
+  let n = 2;
+  while (taken.includes(`${base}_${n}`)) n += 1;
+  return `${base}_${n}`;
+}
+
+export function blankField(fields: FormField[]): FormField {
+  return {
+    name: fieldNameFrom(
+      '',
+      fields.map((f) => f.name),
+    ),
+    label: '',
+    kind: 'short_text',
+    options: [],
+    required: true,
+  };
+}
+
+export function relabel(fields: FormField[], index: number, label: string): FormField[] {
+  return fields.map((field, i) => {
+    if (i !== index) return field;
+    const others = fields.filter((_, j) => j !== index).map((f) => f.name);
+    const named = field.name === fieldNameFrom(field.label, others);
+    return { ...field, label, name: named ? fieldNameFrom(label, others) : field.name };
+  });
+}
+
+export function formsBefore(steps: Step[], index: number): FormStep[] {
+  return steps.slice(0, index).filter((step): step is FormStep => step.type === 'form');
+}
+
+export function stepVariables(definition: Definition, index: number): Variable[] {
+  const asked = formsBefore(definition.steps, index).flatMap((form) =>
+    form.fields
+      .filter((field) => field.name)
+      .map((field) => ({ token: `{{form.${field.name}}}`, label: `Answer: ${field.label || field.name}` })),
+  );
+  return [...variablesOf(definition.trigger), ...asked];
 }
 
 export function blankDefinition(channelId = ''): Definition {
   return { trigger: blankTrigger('schedule'), steps: [blankStep('send_message', channelId)] };
 }
 
-export function variablesOf(trigger: Trigger): { token: string; label: string }[] {
+export function variablesOf(trigger: Trigger): Variable[] {
   switch (trigger.type) {
     case 'webhook':
       return trigger.variables
@@ -109,6 +188,11 @@ export function variablesOf(trigger: Trigger): { token: string; label: string }[
     case 'member_joined':
       return [
         { token: '{{trigger.user}}', label: 'Person who joined' },
+        { token: '{{trigger.channel}}', label: 'Channel' },
+      ];
+    case 'shortcut':
+      return [
+        { token: '{{trigger.user}}', label: 'Person who ran it' },
         { token: '{{trigger.channel}}', label: 'Channel' },
       ];
     case 'schedule':
@@ -150,6 +234,7 @@ export function triggerSummary(
   if (trigger.type !== 'schedule') {
     const name = channelName(trigger.channel_id);
     const where = name ? `#${name}` : 'a channel';
+    if (trigger.type === 'shortcut') return `Shortcut in ${where}`;
     return trigger.type === 'reaction_added'
       ? `When ${trigger.emoji} is added in ${where}`
       : `When someone joins ${where}`;
@@ -166,8 +251,36 @@ export function triggerSummary(
   return `${when} at ${trigger.time}`;
 }
 
+const STEP_LABELS: Record<Step['type'], string> = {
+  send_message: 'Send a message',
+  send_dm: 'Send a DM',
+  form: 'Collect a form',
+};
+
 export function stepLabel(step: Step): string {
-  return step.type === 'send_message' ? 'Send a message' : 'Send a DM';
+  return STEP_LABELS[step.type];
+}
+
+export function cleanDefinition(definition: Definition): Definition {
+  const trigger =
+    definition.trigger.type === 'webhook'
+      ? { ...definition.trigger, variables: definition.trigger.variables.filter(Boolean) }
+      : definition.trigger;
+  const steps = definition.steps.map((step) =>
+    step.type === 'form'
+      ? {
+          ...step,
+          fields: step.fields.map((field) => ({
+            ...field,
+            options:
+              field.kind === 'select'
+                ? (field.options ?? []).map((option) => option.trim()).filter(Boolean)
+                : [],
+          })),
+        }
+      : step,
+  );
+  return { trigger, steps };
 }
 
 export function workflowBuildersOf(settings: unknown): WorkflowBuilders {

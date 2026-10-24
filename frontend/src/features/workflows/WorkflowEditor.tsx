@@ -16,9 +16,11 @@ import {
   NAME_MAX,
   blankDefinition,
   blankStep,
+  cleanDefinition,
+  formsBefore,
   moveStep,
+  stepVariables,
   triggerPerson,
-  variablesOf,
   type Definition,
   type SaveWorkflow,
   type Workflow,
@@ -61,7 +63,6 @@ export function WorkflowEditor({
 
   const mine = !workflow || workflow.created_by === currentUserId;
   const readOnly = !mine || !canBuild;
-  const variables = variablesOf(definition.trigger);
   const people = members.filter((m) => m.user_id !== currentUserId);
   const busy =
     actions.create.isPending ||
@@ -73,13 +74,7 @@ export function WorkflowEditor({
   const body = (): SaveWorkflow => ({
     name: name.trim(),
     description: description.trim() || null,
-    definition:
-      definition.trigger.type === 'webhook'
-        ? {
-            ...definition,
-            trigger: { ...definition.trigger, variables: definition.trigger.variables.filter(Boolean) },
-          }
-        : definition,
+    definition: cleanDefinition(definition),
   });
 
   const save = async (): Promise<Workflow> => {
@@ -238,7 +233,8 @@ export function WorkflowEditor({
                   count={definition.steps.length}
                   channels={postable}
                   people={people}
-                  variables={variables}
+                  variables={stepVariables(definition, index)}
+                  formBefore={formsBefore(definition.steps, index).length > 0}
                   triggerPerson={triggerPerson(definition.trigger)}
                   readOnly={readOnly}
                   onChange={(next) => setStep(index, next)}

@@ -21,6 +21,7 @@ import type { Message, WorkspaceMember, Channel } from '@/stores/workspace';
 import { ReactionEmoji } from '@/shared/components/ReactionEmoji';
 import RichTextDisplay from '@/components/RichTextDisplay';
 import { PollCard, type PollKeyVote } from '@/features/polls/PollCard';
+import { FormCard } from '@/features/workflows/FormCard';
 import { MessageAttachments } from './MessageAttachments';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { HuddleSystemMessage } from '@/features/huddle/components/HuddleSystemMessage';
@@ -136,7 +137,8 @@ function MessageItem({
   const isOwn = currentUserId === message.user_id;
   const isEdited = message.updated_at !== message.created_at;
   const poll = message.metadata?.poll ?? null;
-  const canEdit = isOwn && !poll;
+  const form = message.metadata?.form ?? null;
+  const canEdit = isOwn && !poll && !form;
   const pollKeyVote = useRef<PollKeyVote | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const rowRef = useRef<HTMLDivElement>(null);
@@ -452,6 +454,8 @@ function MessageItem({
                   currentUserId={currentUserId}
                   keyVoteRef={pollKeyVote}
                 />
+              ) : form && !message.deleted_at ? (
+                <FormCard form={form} currentUserId={currentUserId} />
               ) : (
                 <RichTextDisplay content={message.content} attachments={attachments} />
               )}

@@ -1170,3 +1170,391 @@ async fn a_busy_event_trigger_is_rate_limited(pool: PgPool) {
         format!("Skipped: it started more than {limit} times in a minute")
     );
 }
+
+fn shortcut(name: &str, channel: Uuid, steps: Vec<Value>) -> Value {
+    json!({
+        "name": name,
+        "definition": { "trigger": { "type": "shortcut", "channel_id": channel }, "steps": steps },
+    })
+}
+
+fn time_off_form() -> Value {
+    json!({
+        "type": "form",
+        "to": { "kind": "trigger_user" },
+        "title": "Time off",
+        "fields": [
+            { "name": "reason", "label": "Reason", "kind": "long_text", "required": true },
+            { "name": "kind", "label": "Kind", "kind": "select", "options": ["Sick", "Holiday"], "required": true },
+            { "name": "cover", "label": "Cover", "kind": "person" },
+            { "name": "from", "label": "From", "kind": "date" },
+        ],
+    })
+}
+
+async fn start(
+    app: &axum::Router,
+    token: &str,
+    workflow: &Value,
+    key: Option<&str>,
+) -> (StatusCode, Value) {
+    let mut builder = Request::builder()
+        .method("POST")
+        .uri(format!(
+            "/api/workflows/{}/start",
+            workflow["id"].as_str().unwrap()
+        ))
+        .header(header::AUTHORIZATION, format!("Bearer {token}"));
+    if let Some(key) = key {
+        builder = builder.header("idempotency-key", key);
+    }
+    let response = app
+        .clone()
+        .oneshot(builder.body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    let status = response.status();
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    (
+        status,
+        serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+    )
+}
+
+async fn shortcut_names(
+    app: &axum::Router,
+    token: &str,
+    channel: Uuid,
+) -> (StatusCode, Vec<String>) {
+    let (status, body) = send(
+        app,
+        "GET",
+        &format!("/api/channels/{channel}/workflow-shortcuts"),
+        Some(token),
+        None,
+    )
+    .await;
+    let names = body["data"]
+        .as_array()
+        .map(|shortcuts| {
+            shortcuts
+                .iter()
+                .map(|s| s["name"].as_str().unwrap().to_string())
+                .collect()
+        })
+        .unwrap_or_default();
+    (status, names)
+}
+
+async fn join(state: &AppState, channel: Uuid, users: &[Uuid]) {
+    for user in users {
+        state
+            .workspace_service
+            .repo
+            .add_channel_member(
+                channel,
+                *user,
+                &crate::workspace::models::ChannelRole::Member,
+            )
+            .await
+            .unwrap();
+    }
+}
+
+async fn fill(
+    app: &axum::Router,
+    token: &str,
+    form: &Value,
+    answers: Value,
+) -> (StatusCode, Value) {
+    send(
+        app,
+        "POST",
+        &format!(
+            "/api/workflow-runs/{}/forms/{}",
+            form["run_id"].as_str().unwrap(),
+            form["position"]
+        ),
+        Some(token),
+        Some(json!({ "answers": answers })),
+    )
+    .await
+}
+
+async fn command(app: &axum::Router, token: &str, channel: Uuid, text: &str) -> String {
+    let (status, body) = send(
+        app,
+        "POST",
+        &format!("/api/channels/{channel}/commands"),
+        Some(token),
+        Some(json!({ "command": "workflow", "text": text })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    body["text"].as_str().unwrap().to_string()
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_shortcut_runs_for_whoever_can_post_in_its_channel(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (ws, owner_id, owner, member_id, member) =
+        workspace_with_member(&app, &state, "wf-short").await;
+    let open = seed_channel(&state, ws, owner_id, "open", false).await;
+    let secret = seed_channel(&state, ws, owner_id, "secret", true).await;
+    join(&state, open, &[member_id]).await;
+
+    let draft = built(
+        &app,
+        &member,
+        ws,
+        shortcut(
+            "Ask",
+            open,
+            vec![post_to(
+                open,
+                "{{trigger.user}} asked in {{trigger.channel}}",
+            )],
+        ),
+    )
+    .await;
+    assert_eq!(
+        shortcut_names(&app, &owner, open).await,
+        (StatusCode::OK, vec![])
+    );
+    let (status, _) = start(&app, &owner, &draft, None).await;
+    assert_eq!(status, StatusCode::CONFLICT);
+
+    let workflow = act(&app, &member, &draft, "publish").await.1;
+    assert_eq!(
+        shortcut_names(&app, &owner, open).await,
+        (StatusCode::OK, vec!["Ask".to_string()])
+    );
+    let (status, _) = shortcut_names(&app, &member, secret).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+
+    let (status, first) = start(&app, &owner, &workflow, Some("click-1")).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{first:?}");
+    let (_, again) = start(&app, &owner, &workflow, Some("click-1")).await;
+    assert_eq!(first["run_id"], again["run_id"]);
+    assert_eq!(command(&app, &owner, open, "").await, "Shortcuts here: Ask");
+    assert_eq!(
+        command(&app, &owner, open, "ask").await,
+        "Started \u{201c}Ask\u{201d}."
+    );
+    assert_eq!(
+        command(&app, &owner, secret, "ask").await,
+        "This channel has no workflow shortcuts."
+    );
+    runner::run_pending(&state).await.unwrap();
+    let contents: Vec<String> = bot_messages(&state, open)
+        .await
+        .into_iter()
+        .map(|(content, _)| content)
+        .collect();
+    let asked = format!("@[Test User]({owner_id}) asked in #open");
+    assert_eq!(contents, vec![asked.clone(), asked]);
+
+    let hook = published(
+        &app,
+        &member,
+        ws,
+        webhook("Hook", &[], vec![post_to(open, "x")]),
+    )
+    .await;
+    let (status, _) = start(&app, &owner, &hook, None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let private = published(
+        &app,
+        &owner,
+        ws,
+        shortcut("Hidden", secret, vec![post_to(secret, "x")]),
+    )
+    .await;
+    let (status, _) = start(&app, &member, &private, None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    act(&app, &member, &workflow, "disable").await;
+    let (status, _) = start(&app, &owner, &workflow, None).await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert_eq!(
+        shortcut_names(&app, &owner, open).await.1,
+        Vec::<String>::new()
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_busy_shortcut_is_rate_limited(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (ws, owner_id, owner, _, _) = workspace_with_member(&app, &state, "wf-short-busy").await;
+    let open = seed_channel(&state, ws, owner_id, "open", false).await;
+    let workflow = published(
+        &app,
+        &owner,
+        ws,
+        shortcut("Busy", open, vec![post_to(open, "x")]),
+    )
+    .await;
+
+    for _ in 0..crate::workflows::routes::RUNS_PER_MINUTE {
+        let (status, _) = start(&app, &owner, &workflow, None).await;
+        assert_eq!(status, StatusCode::ACCEPTED);
+    }
+    let (status, _) = start(&app, &owner, &workflow, None).await;
+    assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_form_waits_for_its_person_and_hands_their_answers_on(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (ws, owner_id, owner, member_id, member) =
+        workspace_with_member(&app, &state, "wf-form").await;
+    let (bob_id, bob_email) = seed(&state, "wf-form-bob", false).await;
+    add_ws_member(&state, ws, bob_id, "member").await;
+    let bob = login(&app, &bob_email, "password123").await;
+    let requests = seed_channel(&state, ws, owner_id, "requests", false).await;
+    join(&state, requests, &[member_id, bob_id]).await;
+
+    let mut summary = post_to(requests, "{{trigger.user}} is off, {{form.cover}} covers");
+    summary["summary"] = json!(true);
+    let workflow = published(
+        &app,
+        &member,
+        ws,
+        shortcut("Time off", requests, vec![time_off_form(), summary]),
+    )
+    .await;
+    start(&app, &bob, &workflow, None).await;
+    runner::run_pending(&state).await.unwrap();
+    assert_eq!(runs(&app, &member, &workflow).await[0]["status"], "waiting");
+    runner::run_pending(&state).await.unwrap();
+
+    let conversation = state
+        .conversation_repo
+        .find_direct(ws, member_id, bob_id)
+        .await
+        .unwrap()
+        .expect("the form arrives in a DM from the builder");
+    let sent = bot_messages(&state, conversation.id).await;
+    assert_eq!(sent.len(), 1);
+    assert_eq!(sent[0].0, "Time off");
+    let form = sent[0].1["form"].clone();
+    assert_eq!(form["recipient_id"], json!(bob_id));
+    assert_eq!(form["fields"].as_array().unwrap().len(), 4);
+    assert!(form["submitted_at"].is_null());
+
+    let (status, _) = fill(
+        &app,
+        &owner,
+        &form,
+        json!({ "reason": "x", "kind": "Sick" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    for (answers, refusal) in [
+        (
+            json!({ "kind": "Sick" }),
+            "\u{201c}Reason\u{201d} needs an answer",
+        ),
+        (
+            json!({ "reason": "x", "kind": "Maybe" }),
+            "\u{201c}Kind\u{201d} has no choice \u{201c}Maybe\u{201d}",
+        ),
+        (
+            json!({ "reason": "x", "kind": "Sick", "cover": Uuid::new_v4() }),
+            "\u{201c}Cover\u{201d} must be someone in this workspace",
+        ),
+        (
+            json!({ "reason": "x", "kind": "Sick", "from": "next week" }),
+            "\u{201c}From\u{201d} needs a date",
+        ),
+        (
+            json!({ "reason": "x", "kind": "Sick", "mood": "ok" }),
+            "\"mood\" is not a question in this form",
+        ),
+    ] {
+        let (status, body) = fill(&app, &bob, &form, answers).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{refusal}");
+        assert_eq!(body["error"], refusal);
+    }
+
+    let answers =
+        json!({ "reason": " Dentist ", "kind": "Sick", "cover": owner_id, "from": "2026-11-02" });
+    let (status, body) = fill(&app, &bob, &form, answers.clone()).await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    let (status, _) = fill(&app, &bob, &form, answers).await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    let sent = bot_messages(&state, conversation.id).await;
+    assert!(sent[0].1["form"]["submitted_at"].is_string());
+
+    runner::run_pending(&state).await.unwrap();
+    let posted = bot_messages(&state, requests).await;
+    let cover = format!("@[Test User]({owner_id})");
+    assert_eq!(
+        posted.iter().map(|(content, _)| content.clone()).collect::<Vec<_>>(),
+        vec![format!(
+            "@[Test User]({bob_id}) is off, {cover} covers\n\n**Reason**  \nDentist\n\n**Kind**  \nSick\n\n**Cover**  \n{cover}\n\n**From**  \n2026-11-02"
+        )]
+    );
+    let history = runs(&app, &member, &workflow).await;
+    assert_eq!(history[0]["status"], "succeeded");
+    assert_eq!(history[0]["steps"].as_array().unwrap().len(), 2);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_form_for_its_builder_waits_in_the_channel_until_it_expires(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (ws, owner_id, _, member_id, member) =
+        workspace_with_member(&app, &state, "wf-expire").await;
+    let requests = seed_channel(&state, ws, owner_id, "requests", false).await;
+    join(&state, requests, &[member_id]).await;
+    let workflow = published(
+        &app,
+        &member,
+        ws,
+        shortcut(
+            "Time off",
+            requests,
+            vec![time_off_form(), post_to(requests, "done")],
+        ),
+    )
+    .await;
+    start(&app, &member, &workflow, None).await;
+    runner::run_pending(&state).await.unwrap();
+
+    let sent = bot_messages(&state, requests).await;
+    assert_eq!(sent.len(), 1);
+    let form = sent[0].1["form"].clone();
+    assert_eq!(form["recipient_id"], json!(member_id));
+
+    assert_eq!(runner::expire_forms(&state).await.unwrap(), 0);
+    sqlx::query("UPDATE workflow_forms SET expires_at = NOW() - INTERVAL '1 minute'")
+        .execute(&state.pool)
+        .await
+        .unwrap();
+    assert_eq!(runner::expire_forms(&state).await.unwrap(), 1);
+    assert_eq!(runner::expire_forms(&state).await.unwrap(), 0);
+
+    let history = runs(&app, &member, &workflow).await;
+    assert_eq!(history[0]["status"], "expired");
+    assert_eq!(
+        history[0]["error"],
+        "Nobody filled in the form within 7 days"
+    );
+    assert_eq!(
+        bot_messages(&state, requests).await[0].1["form"]["expired"],
+        true
+    );
+    let (status, body) = fill(
+        &app,
+        &member,
+        &form,
+        json!({ "reason": "x", "kind": "Sick" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert_eq!(body["error"], "This form has expired");
+    runner::run_pending(&state).await.unwrap();
+    assert_eq!(bot_messages(&state, requests).await.len(), 1);
+}

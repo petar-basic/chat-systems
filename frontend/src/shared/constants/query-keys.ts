@@ -70,6 +70,7 @@ export const QUERY_KEYS = {
 
   workflows: (workspaceId: string) => ['workflows', workspaceId] as const,
   workflowRuns: (workflowId: string) => ['workflows', 'runs', workflowId] as const,
+  workflowShortcuts: (channelId: string) => ['workflows', 'shortcuts', channelId] as const,
 
   huddlesActive: () => ['huddles', 'active'] as const,
   workspaceActiveHuddles: (workspaceId: string) => ['huddles', 'active', workspaceId] as const,

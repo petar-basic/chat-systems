@@ -111,7 +111,34 @@ Landed as described, with these differences:
 - A trigger on a private channel requires the creator to be a member when saving and
   re-checks at run time.
 
-### 3. Shortcuts and forms
+### 3. Shortcuts and forms ✅ done
+
+Landed as described, with these differences:
+
+- The composer of a channel with shortcuts shows a ⚡ button listing them; `/workflow` there
+  lists them and `/workflow <name>` (any case) starts one. Both need the right to post in the
+  channel. `POST /workflows/{id}/start` takes an `Idempotency-Key` like the webhook, answers
+  202, 409 while the workflow is off, 429 above 30 a minute, and 404 for a workflow that is
+  not a shortcut or whose channel the caller cannot post in.
+- A form goes in the DM between the builder and its recipient. A form for the builder
+  themselves (they ran their own shortcut) is posted in the trigger channel instead, with only
+  them able to fill it in.
+- The form's state is `workflow_forms`, one row per run and step; the message carries a copy
+  in `metadata.form`, marked `submitted_at` or `expired` when that happens, and goes out as
+  `message.updated`. A waiting run is `waiting` and the runner does not pick it up; the submit
+  records the form step done and queues the run again, so it continues within one tick.
+- Answers are checked on submit: required ones, a choice from the list, a date as
+  `YYYY-MM-DD`, a person who is in the workspace (stored as a mention, so it notifies when a
+  later step inserts it), 200 characters on one line for a short answer and 4,000 for a long
+  one. Only the recipient submits, once.
+- A text answer is inserted as text: a mention typed into it notifies nobody, like a webhook
+  value.
+- `summary` exists on both message steps, needs a form before it, and appends every earlier
+  form's answers as **Label** / answer blocks, with "—" for one left blank.
+- A run that resumes after its workflow was edited stops: "The workflow was edited while this
+  run was under way".
+- Expiry runs in the runner's tick: a run still waiting 7 days after its form went out becomes
+  `expired`, "Nobody filled in the form within 7 days".
 
 - **A `shortcut` trigger** shows the workflow in a channel's composer menu and as
   `/workflow <name>` there.

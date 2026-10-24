@@ -1656,6 +1656,36 @@
         }
       }
     },
+    "/channels/{ch_id}/workflow-shortcuts": {
+      "get": {
+        "tags": [
+          "workflows"
+        ],
+        "operationId": "workflow_shortcuts",
+        "parameters": [
+          {
+            "name": "ch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_Shortcut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/conversations/{conv_id}/read": {
       "post": {
         "tags": [
@@ -4337,6 +4367,55 @@
         }
       }
     },
+    "/workflow-runs/{run_id}/forms/{position}": {
+      "post": {
+        "tags": [
+          "workflows"
+        ],
+        "operationId": "submit_workflow_form",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "position",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitFormRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workflows/webhook/{token}": {
       "post": {
         "tags": [
@@ -4556,6 +4635,36 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DataList_WorkflowRun"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workflows/{workflow_id}/start": {
+      "post": {
+        "tags": [
+          "workflows"
+        ],
+        "operationId": "start_workflow",
+        "parameters": [
+          {
+            "name": "workflow_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunAccepted"
                 }
               }
             }
@@ -10816,6 +10925,39 @@
           }
         }
       },
+      "DataList_Shortcut": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "name"
+              ],
+              "properties": {
+                "description": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
       "DataList_UserGroupSummary": {
         "type": "object",
         "required": [
@@ -11438,6 +11580,16 @@
           "failed"
         ]
       },
+      "FieldKind": {
+        "type": "string",
+        "enum": [
+          "short_text",
+          "long_text",
+          "select",
+          "person",
+          "date"
+        ]
+      },
       "FileKind": {
         "type": "string",
         "enum": [
@@ -11675,6 +11827,82 @@
         ],
         "properties": {
           "email": {
+            "type": "string"
+          }
+        }
+      },
+      "FormField": {
+        "type": "object",
+        "required": [
+          "name",
+          "label",
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/FieldKind"
+          },
+          "label": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "required": {
+            "type": "boolean"
+          }
+        }
+      },
+      "FormRequest": {
+        "type": "object",
+        "required": [
+          "run_id",
+          "position",
+          "title",
+          "recipient_id",
+          "fields",
+          "expires_at"
+        ],
+        "properties": {
+          "expired": {
+            "type": "boolean"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FormField"
+            }
+          },
+          "position": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "recipient_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "run_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "submitted_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "title": {
             "type": "string"
           }
         }
@@ -12797,6 +13025,16 @@
               }
             ]
           },
+          "form": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FormRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "huddle_id": {
             "type": [
               "string",
@@ -13475,7 +13713,9 @@
           "pending",
           "running",
           "succeeded",
-          "failed"
+          "failed",
+          "waiting",
+          "expired"
         ]
       },
       "RunStep": {
@@ -13781,6 +14021,28 @@
           }
         }
       },
+      "Shortcut": {
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "SidebarLayout": {
         "type": "object",
         "required": [
@@ -13915,6 +14177,9 @@
                 "type": "string",
                 "format": "uuid"
               },
+              "summary": {
+                "type": "boolean"
+              },
               "text": {
                 "type": "string"
               },
@@ -13934,6 +14199,9 @@
               "type"
             ],
             "properties": {
+              "summary": {
+                "type": "boolean"
+              },
               "text": {
                 "type": "string"
               },
@@ -13947,8 +14215,54 @@
                 ]
               }
             }
+          },
+          {
+            "type": "object",
+            "required": [
+              "to",
+              "title",
+              "fields",
+              "type"
+            ],
+            "properties": {
+              "fields": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/FormField"
+                }
+              },
+              "title": {
+                "type": "string"
+              },
+              "to": {
+                "$ref": "#/components/schemas/Recipient"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "form"
+                ]
+              }
+            }
           }
         ]
+      },
+      "SubmitFormRequest": {
+        "type": "object",
+        "required": [
+          "answers"
+        ],
+        "properties": {
+          "answers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          }
+        }
       },
       "SubscribeRequest": {
         "type": "object",
@@ -14216,6 +14530,25 @@
                 "type": "string",
                 "enum": [
                   "member_joined"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "channel_id",
+              "type"
+            ],
+            "properties": {
+              "channel_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "shortcut"
                 ]
               }
             }

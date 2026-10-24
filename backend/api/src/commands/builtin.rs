@@ -25,6 +25,10 @@ pub const BUILTIN_COMMANDS: &[(&str, &str)] = &[
         "/poll \"Lunch?\" \"Thursday\" \"Friday\" — or /poll alone for the dialog",
     ),
     (
+        "workflow",
+        "/workflow <name> — run one of this channel's workflow shortcuts",
+    ),
+    (
         "remind",
         "/remind me in 30m to ship — also `at 15:00` or `tomorrow at 9am`",
     ),
@@ -51,6 +55,31 @@ pub async fn run(
         "poll" => Ok(Some(CommandResponse::ephemeral(
             "Polls are made in the app's message box, or with POST /channels/{id}/polls.",
         ))),
+
+        "workflow" => {
+            let shortcuts =
+                crate::workflows::service::shortcuts(state, channel_id, user_id).await?;
+            if shortcuts.is_empty() {
+                return Ok(Some(CommandResponse::ephemeral(
+                    "This channel has no workflow shortcuts.",
+                )));
+            }
+            let Some(shortcut) = shortcuts
+                .iter()
+                .find(|shortcut| shortcut.name.trim().eq_ignore_ascii_case(text))
+            else {
+                let names: Vec<&str> = shortcuts.iter().map(|s| s.name.as_str()).collect();
+                return Ok(Some(CommandResponse::ephemeral(format!(
+                    "Shortcuts here: {}",
+                    names.join(", ")
+                ))));
+            };
+            crate::workflows::service::start_shortcut(state, shortcut.id, user_id, None).await?;
+            Ok(Some(CommandResponse::ephemeral(format!(
+                "Started \u{201c}{}\u{201d}.",
+                shortcut.name
+            ))))
+        }
 
         "dnd" => {
             let until = parse_dnd(text)?;

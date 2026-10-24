@@ -1,7 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
-  blankStep,
+  blankField,
   canBuild,
+  cleanDefinition,
+  fieldNameFrom,
+  relabel,
+  stepVariables,
   daysFor,
   insertAt,
   moveStep,
@@ -12,6 +16,8 @@ import {
   variableNameError,
   variablesOf,
   workflowBuildersOf,
+  type Definition,
+  type FormStep,
   type Step,
 } from './workflowModel';
 
@@ -87,12 +93,16 @@ describe('workflowModel', () => {
   });
 
   it('moves a step and refuses to move one past either end', () => {
-    const steps: Step[] = [
-      { ...blankStep('send_message', 'c'), text: 'one' },
-      { ...blankStep('send_message', 'c'), text: 'two' },
-      { ...blankStep('send_message', 'c'), text: 'three' },
-    ];
-    expect(moveStep(steps, 2, 0).map((s) => s.text)).toEqual(['three', 'one', 'two']);
+    const steps: Step[] = ['one', 'two', 'three'].map((text) => ({
+      type: 'send_message',
+      channel_id: 'c',
+      text,
+    }));
+    expect(moveStep(steps, 2, 0).map((s) => (s.type === 'form' ? s.title : s.text))).toEqual([
+      'three',
+      'one',
+      'two',
+    ]);
     expect(moveStep(steps, 0, -1)).toBe(steps);
     expect(moveStep(steps, 2, 3)).toBe(steps);
   });
@@ -114,5 +124,69 @@ describe('workflowModel', () => {
     expect(canBuild('admin', 'admins')).toBe(true);
     expect(canBuild('guest', 'members')).toBe(false);
     expect(canBuild(null, 'members')).toBe(false);
+  });
+
+  it('offers a shortcut the person who ran it and the answers of every earlier form', () => {
+    const trigger = { type: 'shortcut', channel_id: 'c' } as const;
+    expect(triggerPerson(trigger)).toBe('The person who ran it');
+    expect(triggerSummary(trigger, () => 'help')).toBe('Shortcut in #help');
+    const form: FormStep = {
+      type: 'form',
+      to: { kind: 'trigger_user' },
+      title: 'Time off',
+      fields: [
+        { name: 'reason', label: 'Reason', kind: 'long_text' },
+        { name: 'from', label: '', kind: 'date' },
+      ],
+    };
+    const definition: Definition = {
+      trigger,
+      steps: [
+        { type: 'send_message', channel_id: 'c', text: 'x' },
+        form,
+        { type: 'send_message', channel_id: 'c', text: 'y' },
+      ],
+    };
+    expect(stepVariables(definition, 1).map((v) => v.token)).toEqual([
+      '{{trigger.user}}',
+      '{{trigger.channel}}',
+    ]);
+    expect(stepVariables(definition, 2).slice(2)).toEqual([
+      { token: '{{form.reason}}', label: 'Answer: Reason' },
+      { token: '{{form.from}}', label: 'Answer: from' },
+    ]);
+  });
+
+  it('names a question after its label until someone renames it', () => {
+    expect(fieldNameFrom('How many days?', [])).toBe('how_many_days');
+    expect(fieldNameFrom('2nd choice', [])).toBe('nd_choice');
+    expect(fieldNameFrom('', ['answer'])).toBe('answer_2');
+    let fields = [blankField([])];
+    fields = relabel(fields, 0, 'Reason');
+    expect(fields[0].name).toBe('reason');
+    fields = relabel([...fields, blankField(fields)], 1, 'Reason');
+    expect(fields.map((f) => f.name)).toEqual(['reason', 'reason_2']);
+    const renamed = relabel([{ ...fields[0], name: 'why' }], 0, 'Why exactly');
+    expect(renamed[0].name).toBe('why');
+  });
+
+  it('drops blank choices and webhook variables before saving', () => {
+    const cleaned = cleanDefinition({
+      trigger: { type: 'webhook', variables: ['a', ''] },
+      steps: [
+        {
+          type: 'form',
+          to: { kind: 'person', user_id: 'u' },
+          title: 'T',
+          fields: [
+            { name: 'pick', label: 'Pick', kind: 'select', options: [' Red ', '', 'Blue'] },
+            { name: 'note', label: 'Note', kind: 'short_text', options: ['left over'] },
+          ],
+        },
+      ],
+    });
+    expect(cleaned.trigger).toEqual({ type: 'webhook', variables: ['a'] });
+    const step = cleaned.steps[0] as FormStep;
+    expect(step.fields.map((f) => f.options)).toEqual([['Red', 'Blue'], []]);
   });
 });

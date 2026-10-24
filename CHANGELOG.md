@@ -66,6 +66,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   starts no runs. Joining a channel now emits a durable `channel.member_joined` event, which the
   gateway ignores. `WorkspaceService::join_workspace` and `accept_invite` return the events
   they staged.
+- Migration 69 adds `waiting` and `expired` to `workflow_run_status` and the `workflow_forms`
+  table. A message's metadata gains `form`, and both message steps of a workflow definition an
+  optional `summary`. `/workflow` joins the built-in commands, so a registered command of that
+  name is shadowed.
 
 ### Added
 
@@ -137,14 +141,19 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   builds new ones in a full-height editor: one trigger, then steps in order. A workflow starts
   on a schedule (every day, weekdays or chosen days, at a time in a timezone), when its secret
   webhook URL is called with a JSON object, when someone adds a chosen emoji to a message in a
-  channel, or when someone joins a channel; it then posts in a channel or sends someone a DM
+  channel, when someone joins a channel, or from a shortcut: the ⚡ button in a channel's
+  composer, or `/workflow <name>` there. It then posts in a channel or sends someone a DM
   (or the person who set it off), as a message tagged *Workflow*, with the webhook's values,
   that person, the channel, or the reacted message and its link inserted where you put them.
+  A form step sends someone a *Fill in* card that opens a dialog of short and long answers,
+  choices, people and dates; the run waits for the answers (7 days at most), later steps insert
+  them, and a message step can append them all as a summary.
   Every step runs with what its builder can do at that moment, so losing access to a channel
   fails that step, and a builder leaving the workspace turns their workflows off and tells the
   admins. *Run history* shows the last 50 runs and why a step failed. Admins can keep building
   to admins in *Settings*. `/workspaces/{id}/workflows`, `/workflows/{id}` (with `/publish`,
-  `/disable`, `/runs`), `POST /workflows/webhook/{token}`.
+  `/disable`, `/runs`, `/start`), `POST /workflows/webhook/{token}`,
+  `GET /channels/{id}/workflow-shortcuts`, `POST /workflow-runs/{id}/forms/{position}`.
 
 ### Changed
 

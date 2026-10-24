@@ -6,9 +6,11 @@ use uuid::Uuid;
 use shared_common::errors::{AppError, AppResult};
 
 use super::models::*;
+use super::routes::RUNS_PER_MINUTE;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
 use crate::notifications::models::NotificationType;
+use crate::rate_limit::{self, LimiterFailure};
 use crate::state::AppState;
 use crate::workspace::models::{ChannelType, WorkflowBuilders, WorkspaceMember, WorkspaceRole};
 
@@ -161,10 +163,19 @@ pub async fn check_authority(
             Step::SendDm {
                 to: Recipient::Person { user_id },
                 ..
+            }
+            | Step::Form {
+                to: Recipient::Person { user_id },
+                ..
             } => {
                 if *user_id == creator {
+                    let what = if matches!(step, Step::Form { .. }) {
+                        "form"
+                    } else {
+                        "DM"
+                    };
                     return Err(AppError::Validation(format!(
-                        "{at}: a workflow can't send you a DM; pick someone else"
+                        "{at}: a workflow can't send you a {what}; pick someone else"
                     )));
                 }
                 crate::conversations::routes::require_reachable(state, &member, *user_id)
@@ -174,6 +185,10 @@ pub async fn check_authority(
                     })?;
             }
             Step::SendDm {
+                to: Recipient::TriggerUser,
+                ..
+            }
+            | Step::Form {
                 to: Recipient::TriggerUser,
                 ..
             } => {}
@@ -373,6 +388,215 @@ pub async fn runs(state: &AppState, id: Uuid, user_id: Uuid) -> AppResult<Vec<Wo
             finished_at: run.finished_at,
         })
         .collect())
+}
+
+pub async fn shortcuts(
+    state: &AppState,
+    channel_id: Uuid,
+    user_id: Uuid,
+) -> AppResult<Vec<Shortcut>> {
+    authz::require_channel_post(state, channel_id, user_id).await?;
+    Ok(state
+        .workflow_repo
+        .shortcuts(channel_id)
+        .await?
+        .into_iter()
+        .map(|row| Shortcut {
+            id: row.id,
+            name: row.name,
+            description: row.description,
+        })
+        .collect())
+}
+
+pub async fn start_shortcut(
+    state: &AppState,
+    id: Uuid,
+    user_id: Uuid,
+    request_id: Option<&str>,
+) -> AppResult<Uuid> {
+    let not_found = || AppError::NotFound("Workflow not found".into());
+    let workflow = state.workflow_repo.find(id).await?.ok_or_else(not_found)?;
+    let Some(Trigger::Shortcut { channel_id }) = workflow.definition().map(|d| d.trigger) else {
+        return Err(not_found());
+    };
+    authz::require_channel_post(state, channel_id, user_id)
+        .await
+        .map_err(|_| not_found())?;
+    if !workflow.enabled {
+        return Err(AppError::Conflict("This workflow is turned off".into()));
+    }
+
+    let mut conn = state.redis.clone();
+    rate_limit::enforce(
+        &mut conn,
+        &format!("rate_limit:workflow:{}", workflow.id),
+        RUNS_PER_MINUTE,
+        60,
+        LimiterFailure::Open,
+    )
+    .await?;
+
+    let key = match request_id {
+        Some(request_id) => format!("shortcut:{user_id}:{request_id}"),
+        None => format!("shortcut:{}", Uuid::new_v4()),
+    };
+    let context = serde_json::json!({
+        "trigger": { "user_id": user_id, "channel_id": channel_id, "message_id": null }
+    });
+    Ok(state
+        .workflow_repo
+        .queue_run(workflow.id, workflow.version, &key, &context)
+        .await?)
+}
+
+pub async fn submit_form(
+    state: &AppState,
+    run_id: Uuid,
+    position: i32,
+    user_id: Uuid,
+    answers: &HashMap<String, String>,
+) -> AppResult<()> {
+    let mut tx = state.pool.begin().await?;
+    let form = state
+        .workflow_repo
+        .form_for_update_in(&mut tx, run_id, position)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Form not found".into()))?;
+    if form.recipient_id != user_id {
+        return Err(AppError::Forbidden(
+            "This form was sent to someone else".into(),
+        ));
+    }
+    if form.answered_at.is_some() {
+        return Err(AppError::Conflict("This form was already filled in".into()));
+    }
+    if form.run_status == RunStatus::Expired || form.expires_at <= chrono::Utc::now() {
+        return Err(AppError::Conflict("This form has expired".into()));
+    }
+    if form.run_status != RunStatus::Waiting {
+        return Err(AppError::Conflict(
+            "This workflow is no longer waiting for the form".into(),
+        ));
+    }
+    let fields: Vec<FormField> =
+        serde_json::from_value(form.fields).map_err(|e| AppError::Internal(e.to_string()))?;
+    let answers = checked_answers(state, form.workspace_id, &fields, answers).await?;
+
+    state
+        .workflow_repo
+        .answer_in(&mut tx, run_id, position, &answers)
+        .await?;
+    state
+        .workflow_repo
+        .record_step_in(&mut tx, run_id, position, Ok(Some(form.message_id)))
+        .await?;
+    let message = state
+        .message_repo
+        .mark_form_in(
+            &mut tx,
+            form.message_id,
+            "submitted_at",
+            &serde_json::json!(chrono::Utc::now()),
+        )
+        .await?;
+    let staged = match message {
+        Some(message) => Some(
+            state
+                .publisher
+                .stage_message_updated(&mut tx, &message, form.workspace_id)
+                .await?,
+        ),
+        None => None,
+    };
+    tx.commit().await?;
+    if let Some(staged) = staged {
+        state.publisher.dispatch(staged).await;
+    }
+    Ok(())
+}
+
+async fn checked_answers(
+    state: &AppState,
+    workspace_id: Uuid,
+    fields: &[FormField],
+    answers: &HashMap<String, String>,
+) -> AppResult<serde_json::Value> {
+    if let Some(name) = answers
+        .keys()
+        .find(|name| !fields.iter().any(|field| &field.name == *name))
+    {
+        return Err(AppError::Validation(format!(
+            "\"{name}\" is not a question in this form"
+        )));
+    }
+    let mut checked = serde_json::Map::new();
+    for field in fields {
+        let label = field.label.trim();
+        let answer = answers
+            .get(&field.name)
+            .map(|a| a.trim())
+            .unwrap_or_default();
+        if answer.is_empty() {
+            if field.required {
+                return Err(AppError::Validation(format!(
+                    "\u{201c}{label}\u{201d} needs an answer"
+                )));
+            }
+            checked.insert(field.name.clone(), serde_json::Value::String(String::new()));
+            continue;
+        }
+        let value = match field.kind {
+            FieldKind::ShortText | FieldKind::LongText => {
+                let (limit, single_line) = match field.kind {
+                    FieldKind::ShortText => (SHORT_ANSWER_MAX_CHARS, true),
+                    _ => (LONG_ANSWER_MAX_CHARS, false),
+                };
+                if answer.chars().count() > limit {
+                    return Err(AppError::Validation(format!(
+                        "\u{201c}{label}\u{201d} can be at most {limit} characters"
+                    )));
+                }
+                if single_line && answer.contains('\n') {
+                    return Err(AppError::Validation(format!(
+                        "\u{201c}{label}\u{201d} takes one line"
+                    )));
+                }
+                answer.to_string()
+            }
+            FieldKind::Select => {
+                if !field.options.iter().any(|option| option.trim() == answer) {
+                    return Err(AppError::Validation(format!(
+                        "\u{201c}{label}\u{201d} has no choice \u{201c}{answer}\u{201d}"
+                    )));
+                }
+                answer.to_string()
+            }
+            FieldKind::Person => {
+                let not_a_member = || {
+                    AppError::Validation(format!(
+                        "\u{201c}{label}\u{201d} must be someone in this workspace"
+                    ))
+                };
+                let person: Uuid = answer.parse().map_err(|_| not_a_member())?;
+                state
+                    .workspace_service
+                    .repo
+                    .get_member(workspace_id, person)
+                    .await?
+                    .ok_or_else(not_a_member)?;
+                super::runner::mention_of(state, person)
+                    .await?
+                    .ok_or_else(not_a_member)?
+            }
+            FieldKind::Date => chrono::NaiveDate::parse_from_str(answer, "%Y-%m-%d")
+                .map_err(|_| AppError::Validation(format!("\u{201c}{label}\u{201d} needs a date")))?
+                .format("%Y-%m-%d")
+                .to_string(),
+        };
+        checked.insert(field.name.clone(), serde_json::Value::String(value));
+    }
+    Ok(serde_json::Value::Object(checked))
 }
 
 pub async fn creator_left(state: &AppState, workspace_id: Uuid, user_id: Uuid) {
