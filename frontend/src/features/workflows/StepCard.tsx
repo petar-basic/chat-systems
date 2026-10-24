@@ -7,11 +7,14 @@ import { IconButton } from '@/shared/components/IconButton/IconButton';
 import { displayNameOf } from '@/lib/userHelpers';
 import type { Channel, WorkspaceMember } from '@/stores/workspace';
 import { FormStepEditor } from './FormStepEditor';
+import { ListStepEditor } from './ListStepEditor';
 import {
   TEXT_MAX,
+  addStepsBefore,
   blankStep,
   insertAt,
   stepLabel,
+  type Definition,
   type Step,
   type TextStep,
   type Variable,
@@ -23,8 +26,12 @@ interface Props {
   step: Step;
   index: number;
   count: number;
+  definition: Definition;
+  workspaceId: string;
+  instanceUrl?: string;
   channels: Channel[];
   people: WorkspaceMember[];
+  members: WorkspaceMember[];
   variables: Variable[];
   triggerPerson: string | null;
   formBefore: boolean;
@@ -38,8 +45,12 @@ export function StepCard({
   step,
   index,
   count,
+  definition,
+  workspaceId,
+  instanceUrl,
   channels,
   people,
+  members,
   variables,
   triggerPerson,
   formBefore,
@@ -50,11 +61,13 @@ export function StepCard({
 }: Props) {
   const number = index + 1;
 
+  const earlier = addStepsBefore(definition.steps, index);
+
   const changeType = (type: Step['type']) => {
-    const next = blankStep(type);
-    if (next.type !== 'form' && step.type !== 'form') {
+    const next = blankStep(type, '', earlier[earlier.length - 1] ?? index);
+    if ((next.type === 'send_message' || next.type === 'send_dm') && 'text' in step) {
       onChange({ ...next, text: step.text });
-    } else if (next.type !== 'send_message' && step.type !== 'send_message') {
+    } else if ((next.type === 'send_dm' || next.type === 'form') && 'to' in step) {
       onChange({ ...next, to: step.to });
     } else {
       onChange(next);
@@ -113,8 +126,13 @@ export function StepCard({
             <option value="send_message">Send a message to a channel</option>
             <option value="send_dm">Send a DM to a person</option>
             <option value="form">Ask a person to fill in a form</option>
+            <option value="add_list_item">Add an item to a list</option>
+            {(earlier.length > 0 || step.type === 'update_list_item') && (
+              <option value="update_list_item">Update the item a step added</option>
+            )}
           </Select>
-          {step.type === 'send_message' ? (
+          {step.type === 'add_list_item' || step.type === 'update_list_item' ? null : step.type ===
+            'send_message' ? (
             <Select
               label="Channel"
               value={step.channel_id}
@@ -161,6 +179,18 @@ export function StepCard({
         </div>
         {step.type === 'form' ? (
           <FormStepEditor step={step} readOnly={readOnly} onChange={onChange} />
+        ) : step.type === 'add_list_item' || step.type === 'update_list_item' ? (
+          <ListStepEditor
+            step={step}
+            index={index}
+            definition={definition}
+            workspaceId={workspaceId}
+            instanceUrl={instanceUrl}
+            members={members}
+            variables={variables}
+            readOnly={readOnly}
+            onChange={onChange}
+          />
         ) : (
           <MessageFields
             step={step}

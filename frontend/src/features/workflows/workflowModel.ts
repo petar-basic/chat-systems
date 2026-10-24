@@ -1,4 +1,5 @@
 import type { components } from '@/api/schema';
+import type { ListColumn } from '@/features/lists/listModel';
 
 export type Workflow = components['schemas']['Workflow'];
 export type WorkflowRun = components['schemas']['WorkflowRun'];
@@ -11,7 +12,11 @@ export type WorkflowBuilders = components['schemas']['WorkflowBuilders'];
 export type FormField = components['schemas']['FormField'];
 export type FieldKind = components['schemas']['FieldKind'];
 export type FormStep = Extract<Step, { type: 'form' }>;
-export type TextStep = Exclude<Step, FormStep>;
+export type TextStep = Extract<Step, { type: 'send_message' | 'send_dm' }>;
+export type AddItemStep = Extract<Step, { type: 'add_list_item' }>;
+export type UpdateItemStep = Extract<Step, { type: 'update_list_item' }>;
+export type ListStep = AddItemStep | UpdateItemStep;
+export type CellValue = components['schemas']['CellValue'];
 export type Variable = { token: string; label: string };
 export type FormRequest = components['schemas']['FormRequest'];
 export type WorkflowShortcut = components['schemas']['Shortcut'];
@@ -41,6 +46,8 @@ export const FIELD_LABEL_MAX = 80;
 export const MAX_SELECT_OPTIONS = 20;
 export const SHORT_ANSWER_MAX = 200;
 export const LONG_ANSWER_MAX = 4000;
+export const MAX_CELLS = 30;
+export const UPDATABLE_KINDS: ListColumn['kind'][] = ['person', 'select', 'checkbox'];
 
 export const FIELD_KINDS: { kind: FieldKind; label: string }[] = [
   { kind: 'short_text', label: 'Short answer' },
@@ -108,7 +115,7 @@ export function triggerPerson(trigger: Trigger): string | null {
   return null;
 }
 
-export function blankStep(type: Step['type'], channelId = ''): Step {
+export function blankStep(type: Step['type'], channelId = '', fromStep = 0): Step {
   switch (type) {
     case 'send_message':
       return { type: 'send_message', channel_id: channelId, text: '' };
@@ -116,7 +123,72 @@ export function blankStep(type: Step['type'], channelId = ''): Step {
       return { type: 'send_dm', to: { kind: 'person', user_id: '' }, text: '' };
     case 'form':
       return { type: 'form', to: { kind: 'person', user_id: '' }, title: '', fields: [blankField([])] };
+    case 'add_list_item':
+      return { type: 'add_list_item', list_id: '', cells: [] };
+    case 'update_list_item':
+      return { type: 'update_list_item', from_step: fromStep, cells: [] };
   }
+}
+
+export function addStepsBefore(steps: Step[], index: number): number[] {
+  return steps.flatMap((step, i) => (i < index && step.type === 'add_list_item' ? [i] : []));
+}
+
+export function listOf(steps: Step[], index: number): string | null {
+  const step = steps[index];
+  if (step?.type === 'add_list_item') return step.list_id || null;
+  if (step?.type === 'update_list_item' && step.from_step < index) return listOf(steps, step.from_step);
+  return null;
+}
+
+export type VariableKind =
+  { kind: 'text' } | { kind: 'person' } | { kind: 'date' } | { kind: 'choice'; options: string[] };
+
+export function variableKind(definition: Definition, index: number, token: string): VariableKind {
+  const name = token.replace(/^\{\{\s*|\s*\}\}$/g, '');
+  if (name === 'trigger.user') return { kind: 'person' };
+  const field = name.startsWith('form.')
+    ? formsBefore(definition.steps, index)
+        .flatMap((form) => form.fields)
+        .find((f) => f.name === name.slice('form.'.length))
+    : undefined;
+  if (field?.kind === 'person') return { kind: 'person' };
+  if (field?.kind === 'date') return { kind: 'date' };
+  if (field?.kind === 'select') return { kind: 'choice', options: field.options ?? [] };
+  return { kind: 'text' };
+}
+
+export function fits(column: ListColumn, variable: VariableKind): boolean {
+  if (variable.kind === 'text') return true;
+  if (variable.kind === 'person') return column.kind === 'person';
+  if (variable.kind === 'date') return column.kind === 'date';
+  if (column.kind !== 'select' && column.kind !== 'multi_select') return false;
+  const labels = (column.options.choices ?? []).map((c) => c.label.toLowerCase());
+  return variable.options.every((option) => labels.includes(option.trim().toLowerCase()));
+}
+
+export function setCell(cells: CellValue[], columnId: string, value: string): CellValue[] {
+  const rest = cells.filter((cell) => cell.column_id !== columnId);
+  if (!value) return rest;
+  return cells.some((cell) => cell.column_id === columnId)
+    ? cells.map((cell) => (cell.column_id === columnId ? { ...cell, value } : cell))
+    : [...cells, { column_id: columnId, value }];
+}
+
+export function cellFor(cells: CellValue[], columnId: string): string {
+  return cells.find((cell) => cell.column_id === columnId)?.value ?? '';
+}
+
+export function matchColumns(columns: ListColumn[], definition: Definition, index: number): CellValue[] {
+  const answers = formsBefore(definition.steps, index).flatMap((form) => form.fields);
+  return columns.flatMap((column) => {
+    const field = answers.find((f) => f.label.trim().toLowerCase() === column.name.trim().toLowerCase());
+    if (!field?.name) return [];
+    const token = `{{form.${field.name}}}`;
+    return fits(column, variableKind(definition, index, token))
+      ? [{ column_id: column.id, value: token }]
+      : [];
+  });
 }
 
 export function fieldNameFrom(label: string, taken: string[]): string {
@@ -200,12 +272,28 @@ export function variablesOf(trigger: Trigger): Variable[] {
   }
 }
 
+function reorder(steps: Step[], order: number[]): Step[] {
+  return order.map((old, at) => {
+    const step = steps[old];
+    if (step.type !== 'update_list_item') return step;
+    const from = order.indexOf(step.from_step);
+    return { ...step, from_step: from === -1 ? at : from };
+  });
+}
+
 export function moveStep(steps: Step[], from: number, to: number): Step[] {
   if (to < 0 || to >= steps.length || from === to) return steps;
-  const next = [...steps];
-  const [moved] = next.splice(from, 1);
-  next.splice(to, 0, moved);
-  return next;
+  const order = steps.map((_, i) => i);
+  const [moved] = order.splice(from, 1);
+  order.splice(to, 0, moved);
+  return reorder(steps, order);
+}
+
+export function removeStep(steps: Step[], index: number): Step[] {
+  return reorder(
+    steps,
+    steps.map((_, i) => i).filter((i) => i !== index),
+  );
 }
 
 export function insertAt(
@@ -255,6 +343,8 @@ const STEP_LABELS: Record<Step['type'], string> = {
   send_message: 'Send a message',
   send_dm: 'Send a DM',
   form: 'Collect a form',
+  add_list_item: 'Add a list item',
+  update_list_item: 'Update the list item',
 };
 
 export function stepLabel(step: Step): string {
@@ -278,9 +368,24 @@ export function cleanDefinition(definition: Definition): Definition {
                 : [],
           })),
         }
-      : step,
+      : step.type === 'add_list_item' || step.type === 'update_list_item'
+        ? { ...step, cells: step.cells.filter((cell) => cell.value.trim()) }
+        : step,
   );
   return { trigger, steps };
+}
+
+export function unpicked(definition: Definition): string | null {
+  const trigger = definition.trigger;
+  if ('channel_id' in trigger && !trigger.channel_id) return 'Pick the channel it listens to';
+  for (const [index, step] of definition.steps.entries()) {
+    const at = `Step ${index + 1}`;
+    if (step.type === 'send_message' && !step.channel_id) return `${at}: pick a channel`;
+    if ((step.type === 'send_dm' || step.type === 'form') && step.to.kind === 'person' && !step.to.user_id)
+      return `${at}: pick a person`;
+    if (step.type === 'add_list_item' && !step.list_id) return `${at}: pick a list`;
+  }
+  return null;
 }
 
 export function workflowBuildersOf(settings: unknown): WorkflowBuilders {

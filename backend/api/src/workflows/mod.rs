@@ -1,3 +1,4 @@
+pub mod cells;
 pub mod listener;
 pub mod models;
 pub mod repo;

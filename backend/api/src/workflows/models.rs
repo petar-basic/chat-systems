@@ -22,6 +22,7 @@ pub const OPTION_MAX_CHARS: usize = 80;
 pub const SHORT_ANSWER_MAX_CHARS: usize = 200;
 pub const LONG_ANSWER_MAX_CHARS: usize = 4000;
 pub const FORM_EXPIRY_DAYS: i64 = 7;
+pub const MAX_CELLS: usize = 30;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
@@ -173,6 +174,20 @@ pub struct FormField {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct CellValue {
+    pub column_id: Uuid,
+    pub value: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum VariableKind<'a> {
+    Text,
+    Person,
+    Date,
+    Choice(&'a [String]),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Step {
     SendMessage {
@@ -192,27 +207,42 @@ pub enum Step {
         title: String,
         fields: Vec<FormField>,
     },
+    AddListItem {
+        list_id: Uuid,
+        cells: Vec<CellValue>,
+    },
+    UpdateListItem {
+        from_step: usize,
+        cells: Vec<CellValue>,
+    },
 }
 
 impl Step {
     pub fn text(&self) -> Option<&str> {
         match self {
             Self::SendMessage { text, .. } | Self::SendDm { text, .. } => Some(text),
-            Self::Form { .. } => None,
+            _ => None,
+        }
+    }
+
+    pub fn cells(&self) -> &[CellValue] {
+        match self {
+            Self::AddListItem { cells, .. } | Self::UpdateListItem { cells, .. } => cells,
+            _ => &[],
         }
     }
 
     pub fn summary(&self) -> bool {
         match self {
             Self::SendMessage { summary, .. } | Self::SendDm { summary, .. } => *summary,
-            Self::Form { .. } => false,
+            _ => false,
         }
     }
 
     pub fn recipient(&self) -> Option<&Recipient> {
         match self {
             Self::SendDm { to, .. } | Self::Form { to, .. } => Some(to),
-            Self::SendMessage { .. } => None,
+            _ => None,
         }
     }
 
@@ -221,6 +251,8 @@ impl Step {
             Self::SendMessage { .. } => "Send a message",
             Self::SendDm { .. } => "Send a DM",
             Self::Form { .. } => "Collect a form",
+            Self::AddListItem { .. } => "Add a list item",
+            Self::UpdateListItem { .. } => "Update the list item",
         }
     }
 }
@@ -239,6 +271,34 @@ impl Definition {
                 Step::Form { fields, .. } => fields.as_slice(),
                 _ => &[],
             })
+    }
+
+    pub fn variable_kind(&self, position: usize, name: &str) -> VariableKind<'_> {
+        if name == "trigger.user" {
+            return VariableKind::Person;
+        }
+        let Some(field) = name
+            .strip_prefix("form.")
+            .and_then(|field| self.fields_before(position).find(|f| f.name == field))
+        else {
+            return VariableKind::Text;
+        };
+        match field.kind {
+            FieldKind::Person => VariableKind::Person,
+            FieldKind::Date => VariableKind::Date,
+            FieldKind::Select => VariableKind::Choice(&field.options),
+            FieldKind::ShortText | FieldKind::LongText => VariableKind::Text,
+        }
+    }
+
+    pub fn list_of(&self, position: usize) -> Option<Uuid> {
+        match self.steps.get(position)? {
+            Step::AddListItem { list_id, .. } => Some(*list_id),
+            Step::UpdateListItem { from_step, .. } if *from_step < position => {
+                self.list_of(*from_step)
+            }
+            _ => None,
+        }
     }
 
     pub fn check(&self) -> AppResult<()> {
@@ -313,6 +373,16 @@ impl Definition {
                     }
                 }
             }
+            if let Step::UpdateListItem { from_step, .. } = step {
+                if *from_step >= index
+                    || !matches!(self.steps[*from_step], Step::AddListItem { .. })
+                {
+                    return invalid(&format!("{at}: pick an earlier step that adds a list item"));
+                }
+            }
+            if matches!(step, Step::AddListItem { .. } | Step::UpdateListItem { .. }) {
+                check_cells(&at, step.cells(), &available)?;
+            }
             if step.summary() && asked.is_empty() {
                 return invalid(&format!("{at}: there is no form before it to sum up"));
             }
@@ -326,6 +396,37 @@ impl Definition {
         }
         Ok(())
     }
+}
+
+fn check_cells(at: &str, cells: &[CellValue], available: &[String]) -> AppResult<()> {
+    if cells.is_empty() {
+        return invalid(&format!("{at}: fill in at least one column"));
+    }
+    if cells.len() > MAX_CELLS {
+        return invalid(&format!("{at}: it fills at most {MAX_CELLS} columns"));
+    }
+    let mut seen = HashSet::new();
+    for cell in cells {
+        if !seen.insert(cell.column_id) {
+            return invalid(&format!("{at}: a column is filled twice"));
+        }
+        if cell.value.trim().is_empty() {
+            return invalid(&format!("{at}: every column it fills needs a value"));
+        }
+        if cell.value.chars().count() > TEXT_MAX_CHARS {
+            return invalid(&format!(
+                "{at}: a value can be at most {TEXT_MAX_CHARS} characters"
+            ));
+        }
+        for name in placeholders(&cell.value) {
+            if !available.iter().any(|known| known == name) {
+                return invalid(&format!(
+                    "{at}: {{{{{name}}}}} isn't available for this trigger"
+                ));
+            }
+        }
+    }
+    Ok(())
 }
 
 fn check_form<'a>(
@@ -544,6 +645,7 @@ pub struct RunStep {
     pub position: i32,
     pub succeeded: bool,
     pub message_id: Option<Uuid>,
+    pub list_item_id: Option<Uuid>,
     pub error: Option<String>,
     pub finished_at: DateTime<Utc>,
 }
@@ -843,6 +945,62 @@ mod tests {
                 "steps": [form(json!([field("a", "date")])), form(json!([field("a", "date")]))],
             })),
             "Step 2: \"a\" is asked twice"
+        );
+    }
+
+    fn add_item(cells: serde_json::Value) -> serde_json::Value {
+        json!({ "type": "add_list_item", "list_id": Uuid::nil(), "cells": cells })
+    }
+
+    fn cell(value: &str) -> serde_json::Value {
+        json!({ "column_id": Uuid::new_v4(), "value": value })
+    }
+
+    #[test]
+    fn list_steps_fill_columns_and_update_the_item_an_earlier_step_added() {
+        let update = |from: usize| json!({ "type": "update_list_item", "from_step": from, "cells": [cell("Done")] });
+        let definition = definition(json!({
+            "trigger": shortcut(),
+            "steps": [
+                form(json!([field("reason", "short_text"), field("from", "date")])),
+                add_item(json!([cell("{{form.reason}}"), cell("{{trigger.user}}")])),
+                update(1),
+            ],
+        }));
+        definition.check().unwrap();
+        assert_eq!(definition.list_of(2), Some(Uuid::nil()));
+        assert_eq!(
+            definition.variable_kind(1, "trigger.user"),
+            VariableKind::Person
+        );
+        assert_eq!(definition.variable_kind(1, "form.from"), VariableKind::Date);
+        assert_eq!(definition.variable_kind(0, "form.from"), VariableKind::Text);
+
+        let at = |steps: serde_json::Value| error(json!({ "trigger": shortcut(), "steps": steps }));
+        assert_eq!(
+            at(json!([update(0)])),
+            "Step 1: pick an earlier step that adds a list item"
+        );
+        assert_eq!(
+            at(json!([post("x"), update(0)])),
+            "Step 2: pick an earlier step that adds a list item"
+        );
+        assert_eq!(
+            at(json!([add_item(json!([]))])),
+            "Step 1: fill in at least one column"
+        );
+        let twice = cell("a");
+        assert_eq!(
+            at(json!([add_item(json!([twice.clone(), twice]))])),
+            "Step 1: a column is filled twice"
+        );
+        assert_eq!(
+            at(json!([add_item(json!([cell(" ")]))])),
+            "Step 1: every column it fills needs a value"
+        );
+        assert_eq!(
+            at(json!([add_item(json!([cell("{{form.reason}}")]))])),
+            "Step 1: {{form.reason}} isn't available for this trigger"
         );
     }
 

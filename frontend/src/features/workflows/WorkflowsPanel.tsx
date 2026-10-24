@@ -7,6 +7,8 @@ import { formatDateTime } from '@/lib/datetime';
 import { displayNameOf } from '@/lib/userHelpers';
 import type { Channel, WorkspaceMember } from '@/stores/workspace';
 import { WorkflowEditor } from './WorkflowEditor';
+import { NewWorkflowDialog } from './NewWorkflowDialog';
+import type { Draft } from './templates';
 import { useWorkflows } from './useWorkflows';
 import { triggerSummary, type Workflow } from './workflowModel';
 
@@ -39,9 +41,13 @@ export default function WorkflowsPanel({
   onClose,
 }: Props) {
   const workflows = useWorkflows(workspaceId, instanceUrl);
-  const [editing, setEditing] = useState<Workflow | 'new' | null>(null);
+  const [editing, setEditing] = useState<Workflow | Draft | 'new' | null>(null);
   const nameOf = (userId: string) => displayNameOf(members.find((m) => m.user_id === userId)?.display_name);
   const channelName = (channelId: string) => channels.find((c) => c.id === channelId)?.name ?? undefined;
+  const postable = channels.filter(
+    (c) => (c.channel_type === 'public' || c.channel_type === 'private') && !c.is_archived,
+  );
+  const starting = (postable.find((c) => c.name === 'general') ?? postable[0])?.id ?? '';
 
   return (
     <aside
@@ -122,11 +128,15 @@ export default function WorkflowsPanel({
           </ul>
         )}
       </div>
-      {editing && (
+      {editing === 'new' && (
+        <NewWorkflowDialog channelId={starting} onPick={setEditing} onClose={() => setEditing(null)} />
+      )}
+      {editing && editing !== 'new' && (
         <WorkflowEditor
           workspaceId={workspaceId}
           instanceUrl={instanceUrl}
-          workflow={editing === 'new' ? null : editing}
+          workflow={'id' in editing ? editing : null}
+          draft={'id' in editing ? undefined : editing}
           channels={channels}
           members={members}
           currentUserId={currentUserId}

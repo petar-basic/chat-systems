@@ -2695,6 +2695,11 @@ export interface components {
         };
         /** @enum {string} */
         BuiltinSection: "channels" | "dms" | "people";
+        CellValue: {
+            /** Format: uuid */
+            column_id: string;
+            value: string;
+        };
         ChangePasswordRequest: {
             current_password: string;
             new_password: string;
@@ -4302,6 +4307,8 @@ export interface components {
             /** Format: date-time */
             finished_at: string;
             /** Format: uuid */
+            list_item_id?: string | null;
+            /** Format: uuid */
             message_id?: string | null;
             /** Format: int32 */
             position: number;
@@ -4446,6 +4453,17 @@ export interface components {
             to: components["schemas"]["Recipient"];
             /** @enum {string} */
             type: "form";
+        } | {
+            cells: components["schemas"]["CellValue"][];
+            /** Format: uuid */
+            list_id: string;
+            /** @enum {string} */
+            type: "add_list_item";
+        } | {
+            cells: components["schemas"]["CellValue"][];
+            from_step: number;
+            /** @enum {string} */
+            type: "update_list_item";
         };
         SubmitFormRequest: {
             answers: {

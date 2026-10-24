@@ -9,6 +9,7 @@ use super::models::*;
 use super::routes::RUNS_PER_MINUTE;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
+use crate::lists::models::ColumnKind;
 use crate::messaging::publisher::Staged;
 use crate::notifications::models::NotificationType;
 use crate::rate_limit::{self, LimiterFailure};
@@ -193,6 +194,87 @@ pub async fn check_authority(
                 to: Recipient::TriggerUser,
                 ..
             } => {}
+            Step::AddListItem { list_id, cells } => {
+                let refused = || AppError::Validation(format!("{at}: you can't add to that list"));
+                let list = crate::lists::service::writable(state, creator, *list_id)
+                    .await
+                    .map_err(|_| refused())?;
+                if list.workspace_id != workspace_id {
+                    return Err(refused());
+                }
+                check_cells(
+                    state,
+                    workspace_id,
+                    definition,
+                    index,
+                    *list_id,
+                    cells,
+                    false,
+                )
+                .await?;
+            }
+            Step::UpdateListItem { cells, .. } => {
+                let list_id = definition.list_of(index).ok_or_else(|| {
+                    AppError::Validation(format!(
+                        "{at}: pick an earlier step that adds a list item"
+                    ))
+                })?;
+                check_cells(state, workspace_id, definition, index, list_id, cells, true).await?;
+            }
+        }
+    }
+    Ok(())
+}
+
+async fn check_cells(
+    state: &AppState,
+    workspace_id: Uuid,
+    definition: &Definition,
+    index: usize,
+    list_id: Uuid,
+    cells: &[CellValue],
+    updating: bool,
+) -> AppResult<()> {
+    let at = format!("Step {}", index + 1);
+    let invalid = |message: String| AppError::Validation(format!("{at}: {message}"));
+    let columns = state.list_repo.columns(list_id).await?;
+    for cell in cells {
+        let column = columns
+            .iter()
+            .find(|column| column.id == cell.column_id)
+            .ok_or_else(|| invalid("that list has no such column".into()))?;
+        if updating
+            && !matches!(
+                column.kind,
+                ColumnKind::Person | ColumnKind::Select | ColumnKind::Checkbox
+            )
+        {
+            return Err(invalid(format!(
+                "\u{201c}{}\u{201d} isn't a person, choice or checkbox column",
+                column.name
+            )));
+        }
+        super::cells::check(column, &cell.value, |name| {
+            definition.variable_kind(index, name)
+        })
+        .map_err(invalid)?;
+        if column.kind == ColumnKind::Person && placeholders(&cell.value).is_empty() {
+            let person = cell.value.trim().parse::<Uuid>().ok();
+            let member = match person {
+                Some(person) => state
+                    .workspace_service
+                    .repo
+                    .get_member(workspace_id, person)
+                    .await?
+                    .is_some(),
+                None => false,
+            };
+            if !member {
+                return Err(invalid(format!(
+                    "\u{201c}{}\u{201d} must be someone in this workspace",
+                    column.name
+                )));
+            }
         }
     }
     Ok(())

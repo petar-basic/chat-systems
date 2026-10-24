@@ -1558,3 +1558,305 @@ async fn a_form_for_its_builder_waits_in_the_channel_until_it_expires(pool: PgPo
     runner::run_pending(&state).await.unwrap();
     assert_eq!(bot_messages(&state, requests).await.len(), 1);
 }
+
+async fn requests_list(app: &axum::Router, token: &str, ws: Uuid, channel: Option<Uuid>) -> Value {
+    let choices = |labels: &[&str]| json!({ "choices": labels.iter().map(|l| json!({ "label": l })).collect::<Vec<_>>() });
+    let (status, list) = send(
+        app,
+        "POST",
+        &format!("/api/workspaces/{ws}/lists"),
+        Some(token),
+        Some(json!({
+            "title": "Time off",
+            "channel_id": channel,
+            "columns": [
+                { "name": "Request", "kind": "text" },
+                { "name": "Who", "kind": "person" },
+                { "name": "Kind", "kind": "select", "options": choices(&["Sick", "Holiday"]) },
+                { "name": "From", "kind": "date" },
+                { "name": "Days", "kind": "number" },
+                { "name": "Status", "kind": "select", "options": choices(&["Open", "Approved"]) },
+            ],
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{list:?}");
+    list
+}
+
+fn column_id(list: &Value, name: &str) -> String {
+    list["columns"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == name)
+        .expect("a column")["id"]
+        .as_str()
+        .unwrap()
+        .to_string()
+}
+
+fn choice_id(list: &Value, column: &str, label: &str) -> Value {
+    list["columns"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == column)
+        .unwrap()["options"]["choices"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["label"] == label)
+        .expect("a choice")["id"]
+        .clone()
+}
+
+fn fill_cell(list: &Value, column: &str, value: &str) -> Value {
+    json!({ "column_id": column_id(list, column), "value": value })
+}
+
+fn add_to(list: &Value, cells: Vec<Value>) -> Value {
+    json!({ "type": "add_list_item", "list_id": list["list"]["id"], "cells": cells })
+}
+
+async fn items_of(app: &axum::Router, token: &str, list: &Value) -> Vec<Value> {
+    let (status, body) = send(
+        app,
+        "GET",
+        &format!("/api/lists/{}/items", list["list"]["id"].as_str().unwrap()),
+        Some(token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    body["data"].as_array().cloned().unwrap_or_default()
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_form_answer_becomes_a_list_item_that_a_later_step_updates(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (ws, owner_id, _, member_id, member) = workspace_with_member(&app, &state, "wf-list").await;
+    let (bob_id, bob_email) = seed(&state, "wf-list-bob", false).await;
+    add_ws_member(&state, ws, bob_id, "member").await;
+    let bob = login(&app, &bob_email, PASSWORD).await;
+    let requests = seed_channel(&state, ws, owner_id, "requests", false).await;
+    join(&state, requests, &[member_id, bob_id]).await;
+    let list = requests_list(&app, &member, ws, Some(requests)).await;
+
+    let form = json!({
+        "type": "form",
+        "to": { "kind": "trigger_user" },
+        "title": "Time off",
+        "fields": [
+            { "name": "reason", "label": "Reason", "kind": "short_text", "required": true },
+            { "name": "kind", "label": "Kind", "kind": "select", "options": ["Sick", "Holiday"] },
+            { "name": "from", "label": "From", "kind": "date" },
+            { "name": "days", "label": "Days", "kind": "short_text" },
+        ],
+    });
+    let add = add_to(
+        &list,
+        vec![
+            fill_cell(&list, "Request", "{{form.reason}}"),
+            fill_cell(&list, "Who", "{{trigger.user}}"),
+            fill_cell(&list, "Kind", "{{form.kind}}"),
+            fill_cell(&list, "From", "{{form.from}}"),
+            fill_cell(&list, "Days", "{{form.days}}"),
+            fill_cell(&list, "Status", "Open"),
+        ],
+    );
+    let update = json!({ "type": "update_list_item", "from_step": 1, "cells": [fill_cell(&list, "Status", "approved")] });
+    let workflow = published(
+        &app,
+        &member,
+        ws,
+        shortcut("Time off", requests, vec![form, add, update]),
+    )
+    .await;
+
+    start(&app, &bob, &workflow, None).await;
+    runner::run_pending(&state).await.unwrap();
+    let conversation = state
+        .conversation_repo
+        .find_direct(ws, member_id, bob_id)
+        .await
+        .unwrap()
+        .expect("the form arrives in a DM");
+    let card = bot_messages(&state, conversation.id).await[0].1["form"].clone();
+    let (status, body) = fill(
+        &app,
+        &bob,
+        &card,
+        json!({ "reason": "Dentist", "kind": "Sick", "from": "2026-11-02", "days": "2" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    runner::run_pending(&state).await.unwrap();
+
+    let history = runs(&app, &member, &workflow).await;
+    assert_eq!(history[0]["status"], "succeeded", "{history:?}");
+    let items = items_of(&app, &member, &list).await;
+    assert_eq!(items.len(), 1);
+    let item = &items[0];
+    let values = &item["values"];
+    assert_eq!(values[column_id(&list, "Request")], "Dentist");
+    assert_eq!(values[column_id(&list, "Who")], json!(bob_id));
+    assert_eq!(
+        values[column_id(&list, "Kind")],
+        choice_id(&list, "Kind", "Sick")
+    );
+    assert_eq!(values[column_id(&list, "From")], "2026-11-02");
+    assert_eq!(values[column_id(&list, "Days")], json!(2.0));
+    assert_eq!(
+        values[column_id(&list, "Status")],
+        choice_id(&list, "Status", "Approved")
+    );
+    assert_eq!(item["created_by"], json!(member_id));
+    let steps = history[0]["steps"].as_array().unwrap();
+    assert_eq!(steps.len(), 3);
+    assert_eq!(steps[1]["list_item_id"], item["id"]);
+    assert_eq!(steps[2]["list_item_id"], item["id"]);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_list_step_is_checked_against_its_columns_when_saved(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (ws, owner_id, owner, member_id, member) =
+        workspace_with_member(&app, &state, "wf-list-check").await;
+    let requests = seed_channel(&state, ws, owner_id, "requests", false).await;
+    join(&state, requests, &[member_id]).await;
+    let list = requests_list(&app, &member, ws, Some(requests)).await;
+    let private = requests_list(&app, &owner, ws, None).await;
+    let form = |options: &[&str]| {
+        json!({
+            "type": "form",
+            "to": { "kind": "trigger_user" },
+            "title": "Ask",
+            "fields": [
+                { "name": "kind", "label": "Kind", "kind": "select", "options": options },
+                { "name": "from", "label": "From", "kind": "date" },
+            ],
+        })
+    };
+    let cases = [
+        (
+            vec![add_to(&private, vec![fill_cell(&private, "Request", "x")])],
+            "Step 1: you can't add to that list",
+        ),
+        (
+            vec![add_to(&list, vec![json!({ "column_id": Uuid::new_v4(), "value": "x" })])],
+            "Step 1: that list has no such column",
+        ),
+        (
+            vec![add_to(&list, vec![fill_cell(&list, "Status", "Maybe")])],
+            "Step 1: \u{201c}Status\u{201d} has no choice \u{201c}Maybe\u{201d}",
+        ),
+        (
+            vec![add_to(&list, vec![fill_cell(&list, "Days", "{{trigger.user}}")])],
+            "Step 1: \u{201c}Days\u{201d} can't take {{trigger.user}}",
+        ),
+        (
+            vec![add_to(&list, vec![fill_cell(&list, "Who", &Uuid::new_v4().to_string())])],
+            "Step 1: \u{201c}Who\u{201d} must be someone in this workspace",
+        ),
+        (
+            vec![
+                form(&["Sick", "Holiday"]),
+                add_to(&list, vec![fill_cell(&list, "Who", "{{form.from}}")]),
+            ],
+            "Step 2: \u{201c}Who\u{201d} can't take {{form.from}}",
+        ),
+        (
+            vec![
+                form(&["Sick", "Remote"]),
+                add_to(&list, vec![fill_cell(&list, "Kind", "{{form.kind}}")]),
+            ],
+            "Step 2: \u{201c}Kind\u{201d} has no choice \u{201c}Remote\u{201d}, which {{form.kind}} can answer",
+        ),
+        (
+            vec![
+                add_to(&list, vec![fill_cell(&list, "Request", "x")]),
+                json!({ "type": "update_list_item", "from_step": 0, "cells": [fill_cell(&list, "Request", "y")] }),
+            ],
+            "Step 2: \u{201c}Request\u{201d} isn't a person, choice or checkbox column",
+        ),
+    ];
+    for (steps, expected) in cases {
+        let (status, body) = create(&app, &member, ws, shortcut("Check", requests, steps)).await;
+        assert_eq!(
+            status,
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "{expected}: {body:?}"
+        );
+        assert_eq!(body["error"], expected);
+    }
+    let (status, body) = create(
+        &app,
+        &member,
+        ws,
+        shortcut(
+            "Fine",
+            requests,
+            vec![add_to(
+                &list,
+                vec![fill_cell(&list, "Who", &owner_id.to_string())],
+            )],
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_value_its_column_cannot_hold_fails_the_step(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (ws, owner_id, _, member_id, member) =
+        workspace_with_member(&app, &state, "wf-list-run").await;
+    let requests = seed_channel(&state, ws, owner_id, "requests", false).await;
+    join(&state, requests, &[member_id]).await;
+    let list = requests_list(&app, &member, ws, Some(requests)).await;
+    let workflow = published(
+        &app,
+        &member,
+        ws,
+        webhook(
+            "Count",
+            &["days"],
+            vec![add_to(
+                &list,
+                vec![fill_cell(&list, "Days", "{{webhook.days}}")],
+            )],
+        ),
+    )
+    .await;
+    let path = hook_path(&workflow);
+    call(&app, &path, Some("a"), json!({ "days": "lots" })).await;
+    runner::run_pending(&state).await.unwrap();
+    call(&app, &path, Some("b"), json!({ "days": 3 })).await;
+    runner::run_pending(&state).await.unwrap();
+
+    let history = runs(&app, &member, &workflow).await;
+    let mut outcomes: Vec<(String, Value)> = history
+        .iter()
+        .map(|run| {
+            (
+                run["status"].as_str().unwrap().to_string(),
+                run["error"].clone(),
+            )
+        })
+        .collect();
+    outcomes.sort_by(|a, b| a.0.cmp(&b.0));
+    assert_eq!(
+        outcomes,
+        vec![
+            (
+                "failed".to_string(),
+                json!("Step 1 (Add a list item): \u{201c}Days\u{201d} needs a number, not \u{201c}lots\u{201d}")
+            ),
+            ("succeeded".to_string(), Value::Null),
+        ]
+    );
+    let items = items_of(&app, &member, &list).await;
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0]["values"][column_id(&list, "Days")], json!(3.0));
+}

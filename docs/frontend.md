@@ -313,7 +313,10 @@ on the server.
 ### `workflows/WorkflowsPanel`, `WorkflowEditor`
 *Workflows* in the workspace menu (not for guests) opens `WorkflowsPanel`, a right panel of
 the workflows you built (an admin sees everyone's): name, trigger, on or off, the last run,
-and who built it when that is somebody else. A row or *New* opens `WorkflowEditor`, a
+and who built it when that is somebody else. *New* opens `NewWorkflowDialog`, a blank
+workflow or one of the drafts in `templates.ts` (welcome new members, daily standup reminder,
+incident from a reaction, time-off request into a list). A row or the picked draft opens
+`WorkflowEditor`, a
 full-height `Modal` (`size="full"`): `TriggerCard` (schedule, webhook with its URL once saved
 and its variables, a reaction in a channel with the emoji from `EmojiPicker`, someone
 joining a channel, or a shortcut in a channel), then a `StepCard` per step (send a message to
@@ -322,7 +325,13 @@ set it off), each movable and removable, with *Insert variable* putting `{{webho
 `{{trigger.user}}` or an earlier form's `{{form.name}}` at the caret. `FormStepEditor` edits a
 form: its title and up to 10 questions, each a label, an answer kind, choices for a *Choice*,
 and *Required*; a question's variable name follows its label until it is renamed. A message
-step after a form can tick *Add the form answers below the message*. *Save draft*/*Save changes* saves; *Publish* saves and turns it on; *Turn off*; *Run
+step after a form can tick *Add the form answers below the message*. `ListStepEditor` edits
+*Add an item to a list* (a list from `useWorkspaceLists`, then a field per column of
+`useListDetail`) and *Update the item a step added* (the earlier step, then only its person,
+select and checkbox columns): a select of choices, people or *Checked*/*Unchecked*, or a text
+input, each offering only the variables that fit the column (`fits`), and *Fill from the form
+answers* matches columns to questions by name. Moving or removing a step keeps an update step
+pointing at the step that adds its item (`moveStep`, `removeStep`). *Save draft*/*Save changes* saves; *Publish* saves and turns it on; *Turn off*; *Run
 history* swaps the form for `RunHistory`, refetched every 10 seconds. Someone else's workflow,
 or yours when only admins may build, opens read-only. `workflowModel.ts` holds the pure
 helpers (schedule presets, insertion, reordering, who may build).

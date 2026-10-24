@@ -5,6 +5,8 @@ use chrono::{Duration, Utc};
 use tracing::{info, warn};
 use uuid::Uuid;
 
+use shared_common::errors::AppError;
+
 use super::models::*;
 use crate::authz;
 use crate::state::AppState;
@@ -322,6 +324,28 @@ async fn run_step(
             }
             dm_channel(state, creator, recipient).await?
         }
+        Step::AddListItem { list_id, cells } => {
+            return write_item(
+                state,
+                context,
+                creator.user_id,
+                position,
+                Item::New(*list_id),
+                cells,
+            )
+            .await;
+        }
+        Step::UpdateListItem { from_step, cells } => {
+            return write_item(
+                state,
+                context,
+                creator.user_id,
+                position,
+                Item::From(*from_step),
+                cells,
+            )
+            .await;
+        }
         Step::Form { to, title, fields } => {
             let recipient = recipient_of(to, context)?;
             let channel_id = if recipient == creator.user_id {
@@ -401,6 +425,86 @@ async fn run_step(
         .map_err(|e| e.to_string())?;
     tx.commit().await.map_err(internal)?;
     state.publisher.dispatch(staged).await;
+    Ok(Outcome::Done)
+}
+
+enum Item {
+    New(Uuid),
+    From(usize),
+}
+
+fn list_error(error: AppError) -> String {
+    match error {
+        AppError::Validation(message)
+        | AppError::NotFound(message)
+        | AppError::Forbidden(message)
+        | AppError::Conflict(message) => message,
+        other => other.to_string(),
+    }
+}
+
+async fn write_item(
+    state: &AppState,
+    context: &Context<'_>,
+    creator: Uuid,
+    position: i32,
+    target: Item,
+    cells: &[CellValue],
+) -> Result<Outcome, String> {
+    let (list_id, item_id) = match target {
+        Item::New(list_id) => (list_id, None),
+        Item::From(step) => {
+            let item_id = state
+                .workflow_repo
+                .item_of(context.run.id, step as i32)
+                .await
+                .map_err(|e| e.to_string())?
+                .ok_or_else(|| "The item it updates was deleted".to_string())?;
+            let list_id = context
+                .definition
+                .list_of(step)
+                .ok_or_else(|| "The step that added the item is gone".to_string())?;
+            (list_id, Some(item_id))
+        }
+    };
+    let list = crate::lists::service::writable(state, creator, list_id)
+        .await
+        .map_err(|_| "Its creator can no longer add to that list".to_string())?;
+    let columns = state
+        .list_repo
+        .columns(list_id)
+        .await
+        .map_err(|e| e.to_string())?;
+    let mut values = serde_json::Map::new();
+    for cell in cells {
+        let column = columns
+            .iter()
+            .find(|column| column.id == cell.column_id)
+            .ok_or_else(|| "A column it fills was deleted".to_string())?;
+        if let Some(value) = super::cells::value(column, &context.rendered(&cell.value))? {
+            values.insert(column.id.to_string(), value);
+        }
+    }
+
+    let mut tx = state.pool.begin().await.map_err(|e| e.to_string())?;
+    let write = match item_id {
+        None => {
+            crate::lists::service::create_item_in(state, &mut tx, creator, list_id, &values, None)
+                .await
+        }
+        Some(item_id) => {
+            crate::lists::service::update_item_in(state, &mut tx, creator, &list, item_id, &values)
+                .await
+        }
+    }
+    .map_err(list_error)?;
+    state
+        .workflow_repo
+        .record_item_step_in(&mut tx, context.run.id, position, write.item.id)
+        .await
+        .map_err(|e| e.to_string())?;
+    tx.commit().await.map_err(|e| e.to_string())?;
+    write.announce(state).await;
     Ok(Outcome::Done)
 }
 

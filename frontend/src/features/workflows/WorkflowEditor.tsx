@@ -11,6 +11,7 @@ import { TriggerCard } from './TriggerCard';
 import { StepCard } from './StepCard';
 import { RunHistory } from './RunHistory';
 import { useWorkflowActions } from './useWorkflows';
+import type { Draft } from './templates';
 import {
   MAX_STEPS,
   NAME_MAX,
@@ -19,8 +20,10 @@ import {
   cleanDefinition,
   formsBefore,
   moveStep,
+  removeStep,
   stepVariables,
   triggerPerson,
+  unpicked,
   type Definition,
   type SaveWorkflow,
   type Workflow,
@@ -30,6 +33,7 @@ interface Props {
   workspaceId: string;
   instanceUrl?: string;
   workflow: Workflow | null;
+  draft?: Draft;
   channels: Channel[];
   members: WorkspaceMember[];
   currentUserId: string;
@@ -41,6 +45,7 @@ export function WorkflowEditor({
   workspaceId,
   instanceUrl,
   workflow: initial,
+  draft,
   channels,
   members,
   currentUserId,
@@ -51,10 +56,10 @@ export function WorkflowEditor({
     (c) => (c.channel_type === 'public' || c.channel_type === 'private') && !c.is_archived,
   );
   const [workflow, setWorkflow] = useState<Workflow | null>(initial);
-  const [name, setName] = useState(initial?.name ?? '');
-  const [description, setDescription] = useState(initial?.description ?? '');
+  const [name, setName] = useState(initial?.name ?? draft?.name ?? '');
+  const [description, setDescription] = useState(initial?.description ?? draft?.description ?? '');
   const [definition, setDefinition] = useState<Definition>(
-    initial?.definition ?? blankDefinition(postable[0]?.id ?? ''),
+    initial?.definition ?? draft?.definition ?? blankDefinition(postable[0]?.id ?? ''),
   );
   const [view, setView] = useState<'edit' | 'history'>('edit');
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +83,8 @@ export function WorkflowEditor({
   });
 
   const save = async (): Promise<Workflow> => {
+    const missing = unpicked(definition);
+    if (missing) throw new Error(missing);
     const saved = workflow
       ? await actions.update.mutateAsync({ id: workflow.id, body: body() })
       : await actions.create.mutateAsync(body());
@@ -231,17 +238,19 @@ export function WorkflowEditor({
                   step={step}
                   index={index}
                   count={definition.steps.length}
+                  definition={definition}
+                  workspaceId={workspaceId}
+                  instanceUrl={instanceUrl}
                   channels={postable}
                   people={people}
+                  members={members}
                   variables={stepVariables(definition, index)}
                   formBefore={formsBefore(definition.steps, index).length > 0}
                   triggerPerson={triggerPerson(definition.trigger)}
                   readOnly={readOnly}
                   onChange={(next) => setStep(index, next)}
                   onMove={(to) => setDefinition((d) => ({ ...d, steps: moveStep(d.steps, index, to) }))}
-                  onRemove={() =>
-                    setDefinition((d) => ({ ...d, steps: d.steps.filter((_, i) => i !== index) }))
-                  }
+                  onRemove={() => setDefinition((d) => ({ ...d, steps: removeStep(d.steps, index) }))}
                 />
               </li>
             ))}
