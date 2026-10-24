@@ -1,4 +1,5 @@
 pub mod cells;
+pub mod comments;
 pub mod csv;
 pub mod models;
 pub mod rank;

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT li.id, li.workspace_id, li.created_by, li.channel_id, li.message_id, li.text, li.note,\n                   li.status, li.remind_at, li.reminded_at, li.completed_at, li.created_at,\n                   m.user_id AS \"message_author_id?\",\n                   m.content AS \"message_content?\",\n                   m.created_at AS \"message_sent_at?\",\n                   COALESCE(m.metadata->'attachments', '[]'::jsonb) AS \"message_attachments!: AttachmentList\"\n              FROM later_items li\n              LEFT JOIN messages m ON m.id = li.message_id\n             WHERE li.user_id = $1\n               AND li.workspace_id = $2\n               AND li.status = $3\n               AND (li.message_id IS NULL OR m.deleted_at IS NULL)\n             ORDER BY CASE WHEN $3 = 'in_progress' THEN li.remind_at END ASC NULLS LAST,\n                      li.updated_at DESC\n             LIMIT 500\n            ",
+  "query": "\n            SELECT li.id, li.workspace_id, li.created_by, li.channel_id, li.message_id, li.text, li.note,\n                   li.status, li.remind_at, li.reminded_at, li.completed_at, li.created_at,\n                   m.user_id AS \"message_author_id?\",\n                   m.content AS \"message_content?\",\n                   m.created_at AS \"message_sent_at?\",\n                   COALESCE(m.metadata->'attachments', '[]'::jsonb) AS \"message_attachments!: AttachmentList\",\n                   li.list_item_id,\n                   l.id AS \"list_id?\",\n                   l.title AS \"list_title?\"\n              FROM later_items li\n              LEFT JOIN messages m ON m.id = li.message_id\n              LEFT JOIN list_items i ON i.id = li.list_item_id\n              LEFT JOIN lists l ON l.id = i.list_id\n             WHERE li.user_id = $1\n               AND li.workspace_id = $2\n               AND li.status = $3\n               AND (li.message_id IS NULL OR m.deleted_at IS NULL)\n               AND (li.list_item_id IS NULL OR (i.deleted_at IS NULL AND l.deleted_at IS NULL))\n             ORDER BY CASE WHEN $3 = 'in_progress' THEN li.remind_at END ASC NULLS LAST,\n                      li.updated_at DESC\n             LIMIT 500\n            ",
   "describe": {
     "columns": [
       {
@@ -173,6 +173,39 @@
         "name": "message_attachments!: AttachmentList",
         "type_info": "Jsonb",
         "origin": "Expression"
+      },
+      {
+        "ordinal": 16,
+        "name": "list_item_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "later_items",
+            "name": "list_item_id"
+          }
+        }
+      },
+      {
+        "ordinal": 17,
+        "name": "list_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "lists",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 18,
+        "name": "list_title?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "lists",
+            "name": "title"
+          }
+        }
       }
     ],
     "parameters": {
@@ -198,8 +231,11 @@
       false,
       false,
       false,
-      null
+      null,
+      true,
+      false,
+      false
     ]
   },
-  "hash": "82de10c3dc24f47ca12ac03f833a1a2bcaae6dff8134699f5c540cbdfd550b70"
+  "hash": "4ec2eda8faacd5b43d5a72d6110a665b36c2e890d1ae2854cd5b5f0dc31c6f88"
 }

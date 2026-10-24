@@ -883,6 +883,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/list-comments/{comment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete_list_comment"];
+        options?: never;
+        head?: never;
+        patch: operations["update_list_comment"];
+        trace?: never;
+    };
     "/list-items/{item_id}": {
         parameters: {
             query?: never;
@@ -897,6 +913,22 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["update_list_item"];
+        trace?: never;
+    };
+    "/list-items/{item_id}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_item_comments"];
+        put?: never;
+        post: operations["create_list_item_comment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/list-items/{item_id}/move": {
@@ -2652,6 +2684,9 @@ export interface components {
             response_type: string;
             text: string;
         };
+        CommentRequest: {
+            content: string;
+        };
         CompleteConnectionRequest: {
             code: string;
             state: string;
@@ -3075,6 +3110,7 @@ export interface components {
                 created_by: string;
                 /** Format: uuid */
                 id: string;
+                list_item?: components["schemas"]["LaterListItem"] | null;
                 message?: components["schemas"]["LaterMessage"] | null;
                 note?: string | null;
                 /** Format: date-time */
@@ -3107,6 +3143,7 @@ export interface components {
         };
         DataList_ListColumn: {
             data: {
+                due: boolean;
                 hidden: boolean;
                 /** Format: uuid */
                 id: string;
@@ -3119,8 +3156,27 @@ export interface components {
                 position: number;
             }[];
         };
+        DataList_ListComment: {
+            data: {
+                content: string;
+                /** Format: date-time */
+                created_at: string;
+                /** Format: date-time */
+                edited_at?: string | null;
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                item_id: string;
+                /** Format: uuid */
+                list_id: string;
+                /** Format: uuid */
+                user_id: string;
+            }[];
+        };
         DataList_ListItem: {
             data: {
+                /** Format: int32 */
+                comment_count: number;
                 /** Format: date-time */
                 created_at: string;
                 /** Format: uuid */
@@ -3631,6 +3687,7 @@ export interface components {
             created_by: string;
             /** Format: uuid */
             id: string;
+            list_item?: components["schemas"]["LaterListItem"] | null;
             message?: components["schemas"]["LaterMessage"] | null;
             note?: string | null;
             /** Format: date-time */
@@ -3641,6 +3698,13 @@ export interface components {
             text?: string | null;
             /** Format: uuid */
             workspace_id: string;
+        };
+        LaterListItem: {
+            /** Format: uuid */
+            item_id: string;
+            /** Format: uuid */
+            list_id: string;
+            list_title: string;
         };
         LaterMessage: {
             attachments: components["schemas"]["Attachment"][];
@@ -3673,6 +3737,7 @@ export interface components {
             workspace_id: string;
         };
         ListColumn: {
+            due: boolean;
             hidden: boolean;
             /** Format: uuid */
             id: string;
@@ -3684,12 +3749,29 @@ export interface components {
             /** Format: int32 */
             position: number;
         };
+        ListComment: {
+            content: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            edited_at?: string | null;
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            item_id: string;
+            /** Format: uuid */
+            list_id: string;
+            /** Format: uuid */
+            user_id: string;
+        };
         ListDetail: {
             columns: components["schemas"]["ListColumn"][];
             list: components["schemas"]["List"];
             views: components["schemas"]["ListView"][];
         };
         ListItem: {
+            /** Format: int32 */
+            comment_count: number;
             /** Format: date-time */
             created_at: string;
             /** Format: uuid */
@@ -3848,7 +3930,7 @@ export interface components {
             timezone: string;
         };
         /** @enum {string} */
-        NotificationType: "mention" | "dm" | "reply" | "reaction" | "call" | "reminder" | "system" | "keyword";
+        NotificationType: "mention" | "dm" | "reply" | "reaction" | "call" | "reminder" | "system" | "keyword" | "list";
         NotifyDefault: {
             notify_default: components["schemas"]["NotifyLevel"];
         };
@@ -4206,6 +4288,7 @@ export interface components {
         UpdateColumnRequest: {
             /** Format: int64 */
             confirm_cleared?: number | null;
+            due?: boolean | null;
             hidden?: boolean | null;
             kind?: components["schemas"]["ColumnKind"] | null;
             name?: string | null;
@@ -5831,6 +5914,52 @@ export interface operations {
             };
         };
     };
+    delete_list_comment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                comment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    update_list_comment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                comment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommentRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListComment"];
+                };
+            };
+        };
+    };
     delete_list_item: {
         parameters: {
             query?: never;
@@ -5873,6 +6002,52 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ListItem"];
+                };
+            };
+        };
+    };
+    list_item_comments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_ListComment"];
+                };
+            };
+        };
+    };
+    create_list_item_comment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommentRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListComment"];
                 };
             };
         };

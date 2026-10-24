@@ -20,7 +20,9 @@ function frame(kind: string, channelId = 'ch-1') {
     type: 'notification' as const,
     workspace_id: 'ws-1',
     channel_id: channelId,
-    message_id: 'm-1',
+    message_id: 'm-1' as string | null,
+    list_id: null as string | null,
+    item_id: null as string | null,
     title: 'Ana in #general',
     body: 'deploy finished',
     kind,
@@ -74,5 +76,23 @@ describe('NotificationStream', () => {
       'deploy finished',
       expect.any(Function),
     );
+  });
+
+  it('opens a list item from its notification, even from the channel on screen', () => {
+    useWorkspaceStore.setState({ currentChannel: { id: 'ch-1' } as never });
+
+    globalEventBus.emit({
+      ...frame('list'),
+      message_id: null,
+      list_id: 'l-1',
+      item_id: 'i-1',
+      title: 'Ana assigned you to Fix login',
+      body: 'in Launch plan',
+    });
+
+    expect(playMessageSound).toHaveBeenCalledTimes(1);
+    const onClick = showNotification.mock.calls[0][2] as () => void;
+    onClick();
+    expect(navigate).toHaveBeenCalledWith('/app/ws-1/lists/l-1?item=i-1');
   });
 });

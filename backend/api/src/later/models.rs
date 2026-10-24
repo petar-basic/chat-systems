@@ -50,6 +50,9 @@ pub struct LaterRow {
     pub message_content: Option<String>,
     pub message_sent_at: Option<DateTime<Utc>>,
     pub message_attachments: AttachmentList,
+    pub list_item_id: Option<Uuid>,
+    pub list_id: Option<Uuid>,
+    pub list_title: Option<String>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -60,6 +63,13 @@ pub struct LaterMessage {
     pub content: String,
     pub attachments: Vec<Attachment>,
     pub sent_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct LaterListItem {
+    pub list_id: Uuid,
+    pub item_id: Uuid,
+    pub list_title: String,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -76,6 +86,7 @@ pub struct LaterItem {
     pub completed_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub message: Option<LaterMessage>,
+    pub list_item: Option<LaterListItem>,
 }
 
 impl From<LaterRow> for LaterItem {
@@ -99,6 +110,14 @@ impl From<LaterRow> for LaterItem {
             }
             _ => None,
         };
+        let list_item = match (row.list_item_id, row.list_id, row.list_title) {
+            (Some(item_id), Some(list_id), Some(list_title)) => Some(LaterListItem {
+                list_id,
+                item_id,
+                list_title,
+            }),
+            _ => None,
+        };
         LaterItem {
             id: row.id,
             workspace_id: row.workspace_id,
@@ -112,6 +131,7 @@ impl From<LaterRow> for LaterItem {
             completed_at: row.completed_at,
             created_at: row.created_at,
             message,
+            list_item,
         }
     }
 }
@@ -120,6 +140,12 @@ pub struct LaterOwner {
     pub id: Uuid,
     pub workspace_id: Uuid,
     pub user_id: Uuid,
+    pub list_item_id: Option<Uuid>,
+}
+
+pub struct LaterAudience {
+    pub user_id: Uuid,
+    pub workspace_id: Uuid,
 }
 
 pub struct DueReminder {

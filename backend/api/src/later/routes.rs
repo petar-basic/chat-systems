@@ -182,6 +182,9 @@ async fn update_later(
             },
         )
         .await?;
+    if let (Some(LaterStatus::Completed), Some(list_item_id)) = (req.status, item.list_item_id) {
+        crate::lists::service::check_off(&state, auth.user_id, list_item_id).await?;
+    }
     announce(&state, auth.user_id, item.workspace_id).await;
     Ok(Json(StatusResponse::new("updated")))
 }

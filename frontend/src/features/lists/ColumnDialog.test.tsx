@@ -17,6 +17,7 @@ const STATUS: ListColumn = {
     ],
   },
   hidden: false,
+  due: false,
 };
 
 const add = vi.fn();

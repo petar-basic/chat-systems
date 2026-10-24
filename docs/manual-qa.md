@@ -215,6 +215,14 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - 🟠 **Edge — sorted table:** sort a table → no row grips, Alt + ↓ does nothing; *New item* adds a row that stays visible even if the filter would hide it, until reload.
 - 🔴 **Edge — read-only:** in an announcement channel a member who cannot post sees the views and their rules but cannot change them or drag cards; `POST /api/lists/<id>/views` answers 403. Deleting the last view is refused (422).
 
+### 5.12 🟢 Lists, comments, assignment and due dates
+- **Reach:** open an item (Shift + Enter, or the row's open button); *Comments* is under its fields. The *Due* column's menu → *Use as due date*.
+- **Steps:** as Ana, on a *Project tracker* in a channel Bob is in, mark *Due* as the due date. Set an item's *Owner* to Bob and its *Due* to tomorrow. Comment on it with `@Bob`. Set another item's *Owner* to yourself.
+- **Expected:** Bob's Activity has "Ana assigned you to *…*" and "Ana mentioned you on *…*"; clicking either opens the list with the item. Nothing for the item Ana assigned to herself. Bob sees the comment arrive in the open item and the row's comment count. Bob's Later has the item with the list's title, *Due tomorrow 9:00*; ticking it off checks the item's *Done* for everyone.
+- 🟠 **Edge — handed on:** reassign the item to Carol → it leaves Bob's Later and appears in Carol's; move its date a week out → it leaves Later until it is due tomorrow again (the reminder checker catches a day passing within ten minutes).
+- 🟠 **Edge — mentions:** mention someone who is not in the channel → no notification for them. Mark *Name* (text) as the due date → 422.
+- 🔴 **Edge — comments:** Bob cannot edit Ana's comment (`PATCH /api/list-comments/<id>` 403) nor delete it; a channel moderator can delete it; a member outside a private channel gets 403 on `GET /api/list-items/<id>/comments`.
+
 ---
 
 ## 6. Files

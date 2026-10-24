@@ -3,7 +3,7 @@ import { QueryClient } from '@tanstack/react-query';
 import { globalEventBus } from '@/lib/globalEventBus';
 import { QUERY_KEYS } from '@/shared/constants';
 import { syncListFrames } from './listSync';
-import type { ListColumn, ListDetail, ListItem } from './listModel';
+import type { ListColumn, ListComment, ListDetail, ListItem } from './listModel';
 import type { SavedView } from './viewModel';
 
 const LIST_ID = 'l-1';
@@ -14,6 +14,7 @@ const item = (id: string, rank: string, updated_at: string, values: ListItem['va
     list_id: LIST_ID,
     rank,
     values,
+    comment_count: 0,
     created_by: 'u',
     created_at: updated_at,
     updated_at,
@@ -27,6 +28,7 @@ const title: ListColumn = {
   kind: 'text',
   options: {},
   hidden: false,
+  due: false,
 };
 
 const tableView: SavedView = {
@@ -131,5 +133,40 @@ describe('syncListFrames', () => {
       list: { ...detail.list, title: 'Launch v2' },
     });
     expect(queryClient.getQueryData<ListDetail>(QUERY_KEYS.list(LIST_ID))?.list.title).toBe('Launch v2');
+  });
+
+  it('keeps an open comment thread in step with everyone else', () => {
+    const comment = (id: string, created_at: string, content: string): ListComment => ({
+      id,
+      item_id: 'a',
+      list_id: LIST_ID,
+      user_id: 'u',
+      content,
+      created_at,
+      edited_at: null,
+    });
+    queryClient.setQueryData(QUERY_KEYS.listComments('a'), [comment('k-2', '2026-10-02T00:00:00Z', 'later')]);
+    const frame = (c: ListComment) =>
+      ({
+        type: 'list.comment_upserted',
+        list_id: LIST_ID,
+        channel_id: 'ch-1',
+        item_id: 'a',
+        comment: c,
+      }) as const;
+    globalEventBus.emit(frame(comment('k-1', '2026-10-01T00:00:00Z', 'first')));
+    globalEventBus.emit(
+      frame({ ...comment('k-2', '2026-10-02T00:00:00Z', 'later, edited'), edited_at: 'x' }),
+    );
+    const thread = () => queryClient.getQueryData<ListComment[]>(QUERY_KEYS.listComments('a'))!;
+    expect(thread().map((c) => c.content)).toEqual(['first', 'later, edited']);
+    globalEventBus.emit({
+      type: 'list.comment_deleted',
+      list_id: LIST_ID,
+      channel_id: 'ch-1',
+      item_id: 'a',
+      comment_id: 'k-1',
+    });
+    expect(thread().map((c) => c.id)).toEqual(['k-2']);
   });
 });

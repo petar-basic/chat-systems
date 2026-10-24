@@ -2,12 +2,21 @@ use sqlx::types::Json;
 use sqlx::{PgConnection, PgPool};
 use uuid::Uuid;
 
+use super::comments::ListComment;
 use super::models::{ColumnKind, ColumnOptions, List, ListColumn, ListItem};
 use super::views::{ListView, ViewConfig, ViewKind};
 
 #[derive(Clone)]
 pub struct ListRepo {
     pool: PgPool,
+}
+
+pub struct ColumnFields<'a> {
+    pub name: &'a str,
+    pub kind: ColumnKind,
+    pub options: &'a ColumnOptions,
+    pub hidden: bool,
+    pub due: bool,
 }
 
 pub struct Visibility {
@@ -144,7 +153,7 @@ impl ListRepo {
         sqlx::query_as!(
             ListColumn,
             r#"SELECT id, list_id, position, name, kind AS "kind: ColumnKind",
-                      options AS "options: Json<ColumnOptions>", hidden
+                      options AS "options: Json<ColumnOptions>", hidden, is_due AS due
                  FROM list_columns WHERE list_id = $1
                 ORDER BY position, id"#,
             list_id
@@ -180,7 +189,7 @@ impl ListRepo {
                        (SELECT COALESCE(MAX(position) + 1, 0) FROM list_columns WHERE list_id = $1),
                        $2, $3, $4)
                RETURNING id, list_id, position, name, kind AS "kind: ColumnKind",
-                         options AS "options: Json<ColumnOptions>", hidden"#,
+                         options AS "options: Json<ColumnOptions>", hidden, is_due AS due"#,
             list_id,
             name,
             kind as ColumnKind,
@@ -194,19 +203,28 @@ impl ListRepo {
         &self,
         conn: &mut PgConnection,
         id: Uuid,
-        name: &str,
-        kind: ColumnKind,
-        options: &ColumnOptions,
-        hidden: bool,
+        fields: ColumnFields<'_>,
     ) -> sqlx::Result<()> {
-        let options = serde_json::to_value(options).unwrap_or_default();
+        let options = serde_json::to_value(fields.options).unwrap_or_default();
+        if fields.due {
+            sqlx::query!(
+                "UPDATE list_columns SET is_due = false
+                  WHERE list_id = (SELECT list_id FROM list_columns WHERE id = $1)
+                    AND id <> $1 AND is_due",
+                id
+            )
+            .execute(&mut *conn)
+            .await?;
+        }
         sqlx::query!(
-            "UPDATE list_columns SET name = $2, kind = $3, options = $4, hidden = $5 WHERE id = $1",
+            "UPDATE list_columns SET name = $2, kind = $3, options = $4, hidden = $5, is_due = $6
+              WHERE id = $1",
             id,
-            name,
-            kind as ColumnKind,
+            fields.name,
+            fields.kind as ColumnKind,
             options,
-            hidden
+            fields.hidden,
+            fields.due
         )
         .execute(conn)
         .await?;
@@ -361,7 +379,7 @@ impl ListRepo {
     pub async fn items(&self, list_id: Uuid) -> sqlx::Result<Vec<ListItem>> {
         sqlx::query_as!(
             ListItem,
-            r#"SELECT id, list_id, rank, "values" AS "values", created_by, created_at, updated_at
+            r#"SELECT id, list_id, rank, "values" AS "values", comment_count, created_by, created_at, updated_at
                  FROM list_items WHERE list_id = $1 AND deleted_at IS NULL
                 ORDER BY rank, id"#,
             list_id
@@ -457,7 +475,7 @@ impl ListRepo {
             ListItem,
             r#"INSERT INTO list_items (list_id, rank, "values", created_by)
                VALUES ($1, $2, $3, $4)
-               RETURNING id, list_id, rank, "values" AS "values", created_by, created_at, updated_at"#,
+               RETURNING id, list_id, rank, "values" AS "values", comment_count, created_by, created_at, updated_at"#,
             list_id,
             rank,
             values,
@@ -478,7 +496,7 @@ impl ListRepo {
             ListItem,
             r#"UPDATE list_items SET "values" = ("values" || $2) - $3::text[], updated_at = NOW()
                 WHERE id = $1 AND deleted_at IS NULL
-               RETURNING id, list_id, rank, "values" AS "values", created_by, created_at, updated_at"#,
+               RETURNING id, list_id, rank, "values" AS "values", comment_count, created_by, created_at, updated_at"#,
             id,
             set,
             clear
@@ -496,7 +514,7 @@ impl ListRepo {
         sqlx::query_as!(
             ListItem,
             r#"UPDATE list_items SET rank = $2, updated_at = NOW() WHERE id = $1
-               RETURNING id, list_id, rank, "values" AS "values", created_by, created_at, updated_at"#,
+               RETURNING id, list_id, rank, "values" AS "values", comment_count, created_by, created_at, updated_at"#,
             id,
             rank
         )
@@ -512,6 +530,121 @@ impl ListRepo {
         )
         .execute(conn)
         .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn item_values_in(
+        &self,
+        conn: &mut PgConnection,
+        id: Uuid,
+    ) -> sqlx::Result<Option<serde_json::Value>> {
+        sqlx::query_scalar!(
+            r#"SELECT "values" AS "values" FROM list_items
+                WHERE id = $1 AND deleted_at IS NULL FOR UPDATE"#,
+            id
+        )
+        .fetch_optional(conn)
+        .await
+    }
+
+    pub async fn count_comments_in(
+        &self,
+        conn: &mut PgConnection,
+        id: Uuid,
+        delta: i32,
+    ) -> sqlx::Result<Option<ListItem>> {
+        sqlx::query_as!(
+            ListItem,
+            r#"UPDATE list_items SET comment_count = GREATEST(comment_count + $2, 0)
+                WHERE id = $1 AND deleted_at IS NULL
+               RETURNING id, list_id, rank, "values" AS "values", comment_count, created_by, created_at, updated_at"#,
+            id,
+            delta
+        )
+        .fetch_optional(conn)
+        .await
+    }
+
+    pub async fn comments(&self, item_id: Uuid) -> sqlx::Result<Vec<ListComment>> {
+        sqlx::query_as!(
+            ListComment,
+            "SELECT id, item_id, list_id, user_id, content, created_at, edited_at
+               FROM list_item_comments WHERE item_id = $1
+              ORDER BY created_at, id",
+            item_id
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn list_comments(&self, list_id: Uuid) -> sqlx::Result<Vec<ListComment>> {
+        sqlx::query_as!(
+            ListComment,
+            "SELECT c.id, c.item_id, c.list_id, c.user_id, c.content, c.created_at, c.edited_at
+               FROM list_item_comments c
+               JOIN list_items i ON i.id = c.item_id AND i.deleted_at IS NULL
+              WHERE c.list_id = $1
+              ORDER BY c.created_at, c.id",
+            list_id
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn comment(&self, id: Uuid) -> sqlx::Result<Option<ListComment>> {
+        sqlx::query_as!(
+            ListComment,
+            "SELECT id, item_id, list_id, user_id, content, created_at, edited_at
+               FROM list_item_comments WHERE id = $1",
+            id
+        )
+        .fetch_optional(&self.pool)
+        .await
+    }
+
+    pub async fn insert_comment_in(
+        &self,
+        conn: &mut PgConnection,
+        item: &ListItem,
+        user_id: Uuid,
+        content: &str,
+    ) -> sqlx::Result<ListComment> {
+        sqlx::query_as!(
+            ListComment,
+            "INSERT INTO list_item_comments (item_id, list_id, user_id, content)
+             VALUES ($1, $2, $3, $4)
+             RETURNING id, item_id, list_id, user_id, content, created_at, edited_at",
+            item.id,
+            item.list_id,
+            user_id,
+            content
+        )
+        .fetch_one(conn)
+        .await
+    }
+
+    pub async fn edit_comment_in(
+        &self,
+        conn: &mut PgConnection,
+        id: Uuid,
+        content: &str,
+    ) -> sqlx::Result<Option<ListComment>> {
+        sqlx::query_as!(
+            ListComment,
+            "UPDATE list_item_comments SET content = $2, edited_at = NOW()
+              WHERE id = $1
+             RETURNING id, item_id, list_id, user_id, content, created_at, edited_at",
+            id,
+            content
+        )
+        .fetch_optional(conn)
+        .await
+    }
+
+    pub async fn delete_comment_in(&self, conn: &mut PgConnection, id: Uuid) -> sqlx::Result<bool> {
+        let result = sqlx::query!("DELETE FROM list_item_comments WHERE id = $1", id)
+            .execute(conn)
+            .await?;
         Ok(result.rows_affected() > 0)
     }
 

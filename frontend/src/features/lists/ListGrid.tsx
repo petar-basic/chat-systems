@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type DragEvent, type KeyboardEvent } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { GripVertical, Maximize2, Plus } from 'lucide-react';
+import { GripVertical, Maximize2, MessageSquare, Plus } from 'lucide-react';
 import { IconButton } from '@/shared/components/IconButton/IconButton';
 import { CellContent } from './CellContent';
 import { CellEditor, type Move } from './CellEditor';
@@ -435,14 +435,30 @@ export function ListGrid({
                     <span className="w-4.5" />
                   )}
                   <span className="w-9 text-right tabular-nums">{virtual.index + 1}</span>
-                  <IconButton
-                    label={`Open row ${virtual.index + 1}`}
-                    icon={<Maximize2 className="h-3.5 w-3.5" />}
-                    tabIndex={-1}
-                    className="opacity-0 group-hover/row:opacity-100 focus:opacity-100"
-                    onClick={() => onOpenItem(item.id)}
-                    data-qa="list-row-open"
-                  />
+                  {item.comment_count > 0 ? (
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      aria-label={`Open row ${virtual.index + 1}, ${item.comment_count} ${
+                        item.comment_count === 1 ? 'comment' : 'comments'
+                      }`}
+                      onClick={() => onOpenItem(item.id)}
+                      data-qa="list-row-comments"
+                      className="flex h-7 w-7 items-center justify-center gap-0.5 rounded text-[11px] tabular-nums text-muted hover:bg-raised/60 hover:text-fg cursor-pointer"
+                    >
+                      <MessageSquare className="h-3 w-3" />
+                      {item.comment_count > 99 ? '99+' : item.comment_count}
+                    </button>
+                  ) : (
+                    <IconButton
+                      label={`Open row ${virtual.index + 1}`}
+                      icon={<Maximize2 className="h-3.5 w-3.5" />}
+                      tabIndex={-1}
+                      className="opacity-0 group-hover/row:opacity-100 focus:opacity-100"
+                      onClick={() => onOpenItem(item.id)}
+                      data-qa="list-row-open"
+                    />
+                  )}
                 </div>
                 {columns.map((column, c) => {
                   const isActive = rowIndex === virtual.index && colIndex === c;

@@ -9,6 +9,7 @@ export type Choice = components['schemas']['Choice'];
 export type ChoiceColor = components['schemas']['ChoiceColor'];
 export type NewColumn = components['schemas']['NewColumn'];
 export type CellValues = ListItem['values'];
+export type ListComment = components['schemas']['ListComment'];
 
 export const KIND_LABELS: Record<ColumnKind, string> = {
   text: 'Text',
@@ -76,6 +77,16 @@ export function upsertItem(items: ListItem[], item: ListItem): ListItem[] {
 }
 
 export const removeItem = (items: ListItem[], itemId: string) => items.filter((i) => i.id !== itemId);
+
+export function upsertComment(comments: ListComment[], comment: ListComment): ListComment[] {
+  const rest = comments.filter((c) => c.id !== comment.id);
+  return [...rest, comment].sort((a, b) =>
+    a.created_at === b.created_at ? a.id.localeCompare(b.id) : a.created_at < b.created_at ? -1 : 1,
+  );
+}
+
+export const removeComment = (comments: ListComment[], commentId: string) =>
+  comments.filter((c) => c.id !== commentId);
 
 export function withCells(item: ListItem, cells: CellValues): ListItem {
   const values: CellValues = { ...item.values };

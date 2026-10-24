@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE list_items SET \"values\" = (\"values\" || $2) - $3::text[], updated_at = NOW()\n                WHERE id = $1 AND deleted_at IS NULL\n               RETURNING id, list_id, rank, \"values\" AS \"values\", created_by, created_at, updated_at",
+  "query": "UPDATE list_items SET \"values\" = (\"values\" || $2) - $3::text[], updated_at = NOW()\n                WHERE id = $1 AND deleted_at IS NULL\n               RETURNING id, list_id, rank, \"values\" AS \"values\", comment_count, created_by, created_at, updated_at",
   "describe": {
     "columns": [
       {
@@ -49,6 +49,17 @@
       },
       {
         "ordinal": 4,
+        "name": "comment_count",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "list_items",
+            "name": "comment_count"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
         "name": "created_by",
         "type_info": "Uuid",
         "origin": {
@@ -59,7 +70,7 @@
         }
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -70,7 +81,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -95,8 +106,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "c970ec5564865ab17c782fbdc0b47f3643bf5e63778b7d1945bbe661c9b7b2b1"
+  "hash": "cbbe417f078e2bbd61e754e1d7dd4c2c3d39d93596afbf2e36a396b2f39d6652"
 }

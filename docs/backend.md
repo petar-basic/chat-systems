@@ -769,10 +769,30 @@ Each change is staged in the outbox in its transaction and sent to the list's au
 channel for a channel list, the owner's sessions for a personal one. Frames: `list.upserted`
 (created, renamed), `list.deleted`, `list.columns_changed` (the columns as they now are;
 `items_rewritten` when cells were converted or dropped, so the client refetches items),
-`list.views_changed` (the views as they now are), `list.item_upserted` (the row as written) and `list.item_deleted`. A deleted channel takes its
-lists with it; retention's message window also removes list items not edited within it and
-deleted lists; a workspace export writes `lists.jsonl` (each list with its columns) and every
-list as `lists/<id>.csv`, a DM's list and personal lists only when DMs are included.
+`list.views_changed` (the views as they now are), `list.item_upserted` (the row as written),
+`list.item_deleted`, `list.comment_upserted` and `list.comment_deleted`. A deleted channel takes its
+lists with it; retention's message window also removes list items not edited within it,
+comments older than it, and deleted lists; a workspace export writes `lists.jsonl` (each list
+with its columns and comments) and every list as `lists/<id>.csv`, a DM's list and personal
+lists only when DMs are included.
+
+Every item has a comment thread (`list_item_comments`, at most 4,000 characters a comment,
+oldest first). Commenting takes the right to edit the list; a comment is edited by its author
+and deleted by its author or a channel moderator; `list_items.comment_count` moves in the same
+transaction, so the row's `list.item_upserted` carries the new count. A comment's `@[Name](id)`
+mentions and a `person` cell set to someone new (not to whoever set it) stage
+`list.comment_upserted` (with `mentioned_user_ids`) and `list.assigned`; the notifications
+consumer turns them into a `list` notification — "Ana mentioned you on *Fix login*", "Ana
+assigned you to *Fix login*" — for whoever named can read the list, with `list_id` and
+`item_id` in its data and in the `notification` frame. One `date` column a list can be the
+due date (`PATCH /list-columns/:id { due }`, 422 for any other kind). `list_due_assignments()`
+gives every open item (its first checkbox column unchecked) with a due date by tomorrow in the
+assignee's own time zone, for every person cell, if that person can still read the list; an
+item due today or tomorrow becomes a Later reminder (`later_items.list_item_id`, 09:00 on the
+day in their zone), kept in step when an item of that list is written and every ten minutes by
+the reminder checker, which also removes one that is no longer due, assigned or open.
+Completing it in Later checks the item's first checkbox column, when the person can still edit
+the list.
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
@@ -785,7 +805,7 @@ list as `lists/<id>.csv`, a DM's list and personal lists only when DMs are inclu
 | POST | `/lists/:list_id/items` | `{ values?, after_id? }` — at the end unless `after_id` | `ListItem` |
 | POST | `/lists/:list_id/columns` | `{ name, kind, options? }` | `ListColumn` |
 | PUT | `/lists/:list_id/column-order` | `{ column_ids }` — every column once | `{ data: ListColumn[] }` |
-| PATCH | `/list-columns/:column_id` | `{ name?, kind?, options?, hidden?, confirm_cleared? }` | `ListColumn` — 409 when cells would be cleared unconfirmed |
+| PATCH | `/list-columns/:column_id` | `{ name?, kind?, options?, hidden?, due?, confirm_cleared? }` | `ListColumn` — 409 when cells would be cleared unconfirmed |
 | POST | `/list-columns/:column_id/preview` | `{ kind, options? }` | `{ converted, cleared }` |
 | DELETE | `/list-columns/:column_id` | — | `{ status: "deleted" }` — its cells go too |
 | PATCH | `/list-items/:item_id` | `{ values }` — only the cells named | `ListItem` |
@@ -795,6 +815,10 @@ list as `lists/<id>.csv`, a DM's list and personal lists only when DMs are inclu
 | PUT | `/lists/:list_id/view-order` | `{ view_ids }` — every view once | `{ data: ListView[] }` |
 | PATCH | `/list-views/:view_id` | `{ name?, kind?, config? }` — without `config`, a kind change keeps the rules that still fit | `ListView` |
 | DELETE | `/list-views/:view_id` | — | `{ status: "deleted" }` — 422 for a list's last view |
+| GET | `/list-items/:item_id/comments` | — | `{ data: ListComment[] }`, oldest first |
+| POST | `/list-items/:item_id/comments` | `{ content }` | `ListComment` |
+| PATCH | `/list-comments/:comment_id` | `{ content }` — the author only | `ListComment` |
+| DELETE | `/list-comments/:comment_id` | — | `{ status: "deleted" }` — the author or a channel moderator |
 
 ---
 

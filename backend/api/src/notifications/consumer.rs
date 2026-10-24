@@ -12,6 +12,7 @@ use crate::messaging::stream_group::StreamGroup;
 use crate::push::sender::{PushPayload, PushSender};
 
 pub const RING_MAX_AGE: chrono::Duration = chrono::Duration::seconds(60);
+const ITEM_TITLE_MAX_CHARS: usize = 120;
 
 pub async fn start_consumer(
     redis_url: &str,
@@ -44,6 +45,9 @@ pub async fn start_consumer(
                         .await;
                     }
                     "huddle.ring" => notify_ring(&repo, &mut pub_conn, &delivery.event).await,
+                    "list.comment_upserted" | "list.assigned" => {
+                        notify_list(&app_state, &repo, &push, &mut pub_conn, &delivery.event).await;
+                    }
                     _ => {}
                 }
             }
@@ -70,6 +74,7 @@ pub struct Origin<'a> {
     pub thread_parent_id: Option<&'a str>,
     pub sender_id: Option<&'a str>,
     pub content: &'a str,
+    pub list_item: Option<(uuid::Uuid, uuid::Uuid)>,
 }
 
 impl<'a> Origin<'a> {
@@ -83,13 +88,18 @@ impl<'a> Origin<'a> {
             thread_parent_id: text("thread_parent_id"),
             sender_id: text("user_id"),
             content,
+            list_item: None,
         }
     }
 }
 
 fn mentioned_ids(payload: &serde_json::Value) -> Vec<uuid::Uuid> {
+    ids_in(payload, "mentioned_user_ids")
+}
+
+fn ids_in(payload: &serde_json::Value, key: &str) -> Vec<uuid::Uuid> {
     payload
-        .get("mentioned_user_ids")
+        .get(key)
         .and_then(|v| v.as_array())
         .map(|ids| {
             ids.iter()
@@ -342,13 +352,28 @@ async fn deliver(
         return;
     };
 
-    if let Some(activity) = &notice.activity {
-        let data_json = serde_json::json!({
-            "channel_id": channel_id,
-            "message_id": message_id,
-            "thread_parent_id": origin.thread_parent_id,
-        });
+    let mut data_json = serde_json::json!({
+        "channel_id": channel_id,
+        "message_id": message_id,
+        "thread_parent_id": origin.thread_parent_id,
+    });
+    let mut payload = serde_json::json!({
+        "user_id": uid.to_string(),
+        "workspace_id": ws_id.to_string(),
+        "channel_id": channel_id,
+        "message_id": message_id,
+        "title": notice.title,
+        "body": content,
+        "kind": notice.kind,
+    });
+    if let Some((list_id, item_id)) = origin.list_item {
+        for fields in [&mut data_json, &mut payload] {
+            fields["list_id"] = serde_json::json!(list_id);
+            fields["item_id"] = serde_json::json!(item_id);
+        }
+    }
 
+    if let Some(activity) = &notice.activity {
         if let Err(e) = repo
             .create(
                 uid,
@@ -375,15 +400,7 @@ async fn deliver(
 
     let notif_event = serde_json::json!({
         "event_type": "notification.push",
-        "payload": {
-            "user_id": uid.to_string(),
-            "workspace_id": ws_id.to_string(),
-            "channel_id": channel_id,
-            "message_id": message_id,
-            "title": notice.title,
-            "body": content,
-            "kind": notice.kind,
-        }
+        "payload": payload,
     });
 
     let json = serde_json::to_string(&notif_event).unwrap_or_default();
@@ -497,6 +514,108 @@ pub async fn notify_ring(
     });
     let json = serde_json::to_string(&notif_event).unwrap_or_default();
     let _: Result<(), _> = pub_conn.publish("events:notification", &json).await;
+}
+
+pub async fn notify_list(
+    state: &crate::state::AppState,
+    repo: &NotificationRepo,
+    push: &PushSender,
+    pub_conn: &mut redis::aio::ConnectionManager,
+    event: &Event,
+) {
+    let payload = &event.payload;
+    let text = |name: &str| payload.get(name).and_then(|v| v.as_str());
+    let uuid = |name: &str| text(name).and_then(|v| v.parse::<uuid::Uuid>().ok());
+    let (Some(list_id), Some(item_id)) = (uuid("list_id"), uuid("item_id")) else {
+        return;
+    };
+    let item_title = match text("item_title").unwrap_or("Untitled") {
+        title if title.chars().count() > ITEM_TITLE_MAX_CHARS => {
+            let clipped: String = title.chars().take(ITEM_TITLE_MAX_CHARS - 1).collect();
+            format!("{clipped}…")
+        }
+        title => title.to_string(),
+    };
+    let list_title = text("list_title").unwrap_or_default();
+    let assigned = event.event_type == "list.assigned";
+    let (actor, candidates, body) = if assigned {
+        (
+            text("actor_id"),
+            ids_in(payload, "assignee_ids"),
+            format!("in {list_title}"),
+        )
+    } else {
+        (
+            text("author_id"),
+            mentioned_ids(payload),
+            payload
+                .pointer("/comment/content")
+                .and_then(|v| v.as_str())
+                .unwrap_or_default()
+                .to_string(),
+        )
+    };
+    let Some(actor_id) = actor.and_then(|v| v.parse::<uuid::Uuid>().ok()) else {
+        return;
+    };
+    let mut candidates: Vec<uuid::Uuid> = candidates
+        .into_iter()
+        .filter(|id| *id != actor_id)
+        .collect();
+    candidates.sort();
+    candidates.dedup();
+    if candidates.is_empty() {
+        return;
+    }
+
+    let readers = match uuid("channel_id") {
+        Some(channel_id) => {
+            match state
+                .list_repo
+                .channel_members_among(channel_id, &candidates)
+                .await
+            {
+                Ok(readers) => readers,
+                Err(e) => {
+                    warn!(list_id = %list_id, "Notification consumer: failed to read list readers: {e}");
+                    return;
+                }
+            }
+        }
+        None => uuid("owner_id")
+            .filter(|owner| candidates.contains(owner))
+            .into_iter()
+            .collect(),
+    };
+    if readers.is_empty() {
+        return;
+    }
+
+    let origin = Origin {
+        workspace_id: uuid("workspace_id"),
+        channel_id: text("channel_id"),
+        channel_uuid: uuid("channel_id"),
+        message_id: None,
+        thread_parent_id: None,
+        sender_id: actor,
+        content: &body,
+        list_item: Some((list_id, item_id)),
+    };
+    let names = Names::of(state, &origin).await;
+    let notice = Notice {
+        activity: Some(NotificationType::List),
+        kind: "list",
+        title: if assigned {
+            format!("{} assigned you to {item_title}", names.sender)
+        } else {
+            format!("{} mentioned you on {item_title}", names.sender)
+        },
+        email: false,
+    };
+    let via = Via { state, repo, push };
+    for uid in readers {
+        deliver(&via, pub_conn, uid, &origin, &names, &notice).await;
+    }
 }
 
 fn preview_text(payload: &serde_json::Value) -> String {

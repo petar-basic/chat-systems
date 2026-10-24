@@ -7,7 +7,7 @@ import type { ListColumn, ListItem } from './listModel';
 import type { WorkspaceMember } from '@/stores/workspace';
 
 const column = (id: string, name: string, kind: ListColumn['kind'], options: ListColumn['options'] = {}) =>
-  ({ id, list_id: 'l-1', position: 0, name, kind, options, hidden: false }) satisfies ListColumn;
+  ({ id, list_id: 'l-1', position: 0, name, kind, options, hidden: false, due: false }) satisfies ListColumn;
 
 const COLUMNS: ListColumn[] = [
   column('c-text', 'Title', 'text'),
@@ -35,6 +35,7 @@ const item = (id: string, rank: string, values: ListItem['values'] = {}): ListIt
   list_id: 'l-1',
   rank,
   values,
+  comment_count: 0,
   created_by: 'u-ana',
   created_at: '2026-10-01T00:00:00Z',
   updated_at: '2026-10-01T00:00:00Z',
@@ -58,6 +59,7 @@ const columnActions = {
   onEdit: vi.fn(),
   onMove: vi.fn(),
   onHide: vi.fn(),
+  onToggleDue: vi.fn(),
   onDelete: vi.fn(),
   onAdd: vi.fn(),
   canAdd: true,
@@ -74,6 +76,7 @@ beforeEach(() => {
   onOpenItem.mockReset();
   onMoveItem.mockReset();
   columnActions.onHide.mockReset();
+  columnActions.onToggleDue.mockReset();
 });
 
 function renderGrid({
@@ -148,6 +151,27 @@ describe('ListGrid keyboard navigation', () => {
     press(grid, 'Enter');
     fireEvent.click(screen.getByTestId('list-column-hide'));
     expect(columnActions.onHide).toHaveBeenCalledWith(COLUMNS[0]);
+  });
+
+  it('offers a date column, and only a date column, as the due date', () => {
+    renderGrid();
+    const headers = screen.getAllByTestId('list-column-header');
+    fireEvent.click(headers[0]);
+    expect(screen.queryByTestId('list-column-due-toggle')).toBeNull();
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    fireEvent.click(headers[5]);
+    fireEvent.click(screen.getByTestId('list-column-due-toggle'));
+    expect(columnActions.onToggleDue).toHaveBeenCalledWith(COLUMNS[5]);
+  });
+
+  it('shows how many comments a row has and opens it from there', () => {
+    renderGrid({ items: [{ ...ITEMS[0], comment_count: 3 }, ITEMS[1]] });
+    const comments = screen.getByTestId('list-row-comments');
+    expect(comments).toHaveTextContent('3');
+    expect(comments).toHaveAccessibleName('Open row 1, 3 comments');
+    fireEvent.click(comments);
+    expect(onOpenItem).toHaveBeenCalledWith('i-1');
+    expect(screen.getAllByTestId('list-row-open')).toHaveLength(1);
   });
 
   it('lets Tab leave the grid from its last cell', () => {

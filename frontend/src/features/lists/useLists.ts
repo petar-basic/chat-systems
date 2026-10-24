@@ -7,12 +7,15 @@ import { toUserMessage } from '@/lib/errors';
 import {
   byRank,
   movedRank,
+  removeComment,
   removeItem,
+  upsertComment,
   upsertItem,
   withCells,
   withoutColumn,
   type CellValues,
   type ListColumn,
+  type ListComment,
   type ListDetail,
   type ListItem,
 } from './listModel';
@@ -177,6 +180,24 @@ export function useColumnActions(listId: string, instanceUrl?: string) {
     },
   });
 
+  const setDue = useMutation({
+    mutationFn: ({ columnId, due }: { columnId: string; due: boolean }) =>
+      api(instanceUrl).typed((c) =>
+        c.PATCH('/list-columns/{column_id}', { params: { path: { column_id: columnId } }, body: { due } }),
+      ),
+    onMutate: ({ columnId, due }) =>
+      patchDetail(queryClient, listId, (detail) => ({
+        ...detail,
+        columns: detail.columns.map((c) =>
+          c.id === columnId ? { ...c, due } : due ? { ...c, due: false } : c,
+        ),
+      })),
+    onError: (err) => {
+      failed(err);
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.list(listId) });
+    },
+  });
+
   const preview = (columnId: string, body: ColumnChangePreview) =>
     api(instanceUrl).typed((c) =>
       c.POST('/list-columns/{column_id}/preview', { params: { path: { column_id: columnId } }, body }),
@@ -222,7 +243,7 @@ export function useColumnActions(listId: string, instanceUrl?: string) {
     },
   });
 
-  return { add, update, setHidden, preview, remove, reorder };
+  return { add, update, setHidden, setDue, preview, remove, reorder };
 }
 
 export function useItemActions(listId: string, instanceUrl?: string) {
@@ -298,6 +319,63 @@ export function useItemActions(listId: string, instanceUrl?: string) {
   });
 
   return { create, update, remove, move };
+}
+
+export function useItemComments(itemId: string, instanceUrl?: string) {
+  return useQuery({
+    queryKey: QUERY_KEYS.listComments(itemId),
+    queryFn: async () => {
+      const res = await api(instanceUrl).typed((c) =>
+        c.GET('/list-items/{item_id}/comments', { params: { path: { item_id: itemId } } }),
+      );
+      return res.data;
+    },
+  });
+}
+
+export function useCommentActions(itemId: string, instanceUrl?: string) {
+  const queryClient = useQueryClient();
+  const patch = (change: (comments: ListComment[]) => ListComment[]) =>
+    queryClient.setQueryData<ListComment[]>(QUERY_KEYS.listComments(itemId), (comments) =>
+      comments ? change(comments) : comments,
+    );
+  const place = (comment: ListComment) => patch((comments) => upsertComment(comments, comment));
+  const failed = (err: unknown) => toast.error(toUserMessage(err, ErrorLabels.ListCommentFailed));
+
+  const add = useMutation({
+    mutationFn: (content: string) =>
+      api(instanceUrl).typed((c) =>
+        c.POST('/list-items/{item_id}/comments', {
+          params: { path: { item_id: itemId } },
+          body: { content },
+        }),
+      ),
+    onSuccess: place,
+    onError: failed,
+  });
+
+  const edit = useMutation({
+    mutationFn: ({ commentId, content }: { commentId: string; content: string }) =>
+      api(instanceUrl).typed((c) =>
+        c.PATCH('/list-comments/{comment_id}', {
+          params: { path: { comment_id: commentId } },
+          body: { content },
+        }),
+      ),
+    onSuccess: place,
+    onError: failed,
+  });
+
+  const remove = useMutation({
+    mutationFn: (commentId: string) =>
+      api(instanceUrl).typed((c) =>
+        c.DELETE('/list-comments/{comment_id}', { params: { path: { comment_id: commentId } } }),
+      ),
+    onSuccess: (_, commentId) => patch((comments) => removeComment(comments, commentId)),
+    onError: failed,
+  });
+
+  return { add, edit, remove };
 }
 
 export function useViewActions(listId: string, instanceUrl?: string) {

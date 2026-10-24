@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, workspace_id, user_id FROM later_items WHERE id = $1",
+  "query": "SELECT id, workspace_id, user_id, list_item_id FROM later_items WHERE id = $1",
   "describe": {
     "columns": [
       {
@@ -35,6 +35,17 @@
             "name": "user_id"
           }
         }
+      },
+      {
+        "ordinal": 3,
+        "name": "list_item_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "later_items",
+            "name": "list_item_id"
+          }
+        }
       }
     ],
     "parameters": {
@@ -45,8 +56,9 @@
     "nullable": [
       false,
       false,
-      false
+      false,
+      true
     ]
   },
-  "hash": "aa807a3402c5d3beaec3d53388b1bfdffc728e3c6c2e96f426c7b1c1b90cebbc"
+  "hash": "f260b6aec37a99176d8d800cc1c78fb4e54b743de87405e86715fcd4adf0eaf1"
 }

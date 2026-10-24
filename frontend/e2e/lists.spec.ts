@@ -143,3 +143,92 @@ test('a board view one person saves is the board everyone sees, and its drags ar
     await bob.dispose();
   }
 });
+
+test('comments, an assignment and a due date reach the person the item is for', async ({ browser }) => {
+  const { ctx: admin } = await userContext('admin@dev.local');
+  const { ctx: bob, userId: bobId } = await userContext('bob@dev.local');
+  const workspace = await devWorkspace(admin);
+  const channel = await createChannel(admin, workspace.id, 'due');
+  await admin.post(`${API}/channels/${channel.id}/members`, { data: { user_id: bobId } });
+
+  const created = await admin.post(`${API}/workspaces/${workspace.id}/lists`, {
+    data: {
+      title: 'Release plan',
+      channel_id: channel.id,
+      columns: [
+        { name: 'Task', kind: 'text' },
+        { name: 'Owner', kind: 'person' },
+        { name: 'Due', kind: 'date' },
+        { name: 'Done', kind: 'checkbox' },
+      ],
+    },
+  });
+  expect(created.ok()).toBeTruthy();
+  const detail = await created.json();
+  const listId: string = detail.list.id;
+  const [task, owner, due, done] = detail.columns.map((c: { id: string }) => c.id);
+  expect((await admin.patch(`${API}/list-columns/${due}`, { data: { due: true } })).ok()).toBeTruthy();
+  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const added = await admin.post(`${API}/lists/${listId}/items`, {
+    data: { values: { [task]: 'Fix login', [owner]: bobId, [due]: tomorrow } },
+  });
+  expect(added.ok()).toBeTruthy();
+  const itemId: string = (await added.json()).id;
+
+  const contexts = [await browser.newContext(), await browser.newContext()];
+  const [ana, ben] = [await contexts[0].newPage(), await contexts[1].newPage()];
+  try {
+    await login(ben, 'bob@dev.local');
+    await ben.goto(`/app/${workspace.id}/${channel.id}`);
+    await ben.getByTitle('Notifications').click();
+    const assigned = ben.locator('[data-qa="notification-row"]', { hasText: 'assigned you to Fix login' });
+    await expect(assigned).toBeVisible({ timeout: 15_000 });
+    await assigned.click();
+    await expect(ben).toHaveURL(new RegExp(`/lists/${listId}\\?item=${itemId}`));
+    await expect(ben.getByTestId('list-item-panel')).toBeVisible();
+    await expect(ben.getByTestId('item-comments-empty')).toBeVisible();
+
+    await login(ana, 'admin@dev.local');
+    await ana.goto(`/app/${workspace.id}/lists/${listId}?item=${itemId}`);
+    const editor = ana.locator('[data-qa="item-comment-composer"] .ProseMirror[contenteditable="true"]');
+    await editor.click();
+    await editor.type('@Bob', { delay: 60 });
+    await expect(ana.getByText('Bob Smith').last()).toBeVisible({ timeout: 5000 });
+    await editor.press('Enter');
+    await editor.type(' can you take this one?', { delay: 20 });
+    await editor.press('Enter');
+    await expect(ana.getByTestId('item-comment-content')).toContainText('can you take this one?');
+
+    await expect(ben.getByTestId('item-comment-content')).toContainText('can you take this one?', {
+      timeout: 10_000,
+    });
+    await expect(ben.getByTestId('list-row-comments')).toHaveText('1');
+    if (!(await ben.getByTestId('notifications-panel').isVisible())) {
+      await ben.getByTitle('Notifications').click();
+    }
+    await expect(
+      ben.locator('[data-qa="notification-row"]', { hasText: 'mentioned you on Fix login' }),
+    ).toBeVisible({ timeout: 15_000 });
+
+    await ben.getByTestId('later-open').click();
+    const reminder = ben.locator('[data-qa="later-panel"] [data-qa="later-row"]', { hasText: 'Fix login' });
+    await expect(reminder).toContainText('Release plan');
+    await reminder.getByTestId('later-complete').click();
+    await expect
+      .poll(
+        async () => {
+          const res = await admin.get(`${API}/lists/${listId}/items`);
+          const rows: Array<{ id: string; values: Record<string, unknown> }> = (await res.json()).data;
+          return rows.find((row) => row.id === itemId)?.values[done];
+        },
+        { timeout: 10_000 },
+      )
+      .toBe(true);
+  } finally {
+    await contexts[0].close();
+    await contexts[1].close();
+    await admin.delete(`${API}/channels/${channel.id}`);
+    await admin.dispose();
+    await bob.dispose();
+  }
+});

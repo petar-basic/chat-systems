@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE list_columns SET is_due = false\n                  WHERE list_id = (SELECT list_id FROM list_columns WHERE id = $1)\n                    AND id <> $1 AND is_due",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e0b69ed8d831432715003dad252bf18ebba8f52504d3a7121bd5081bde785ffb"
+}

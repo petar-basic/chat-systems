@@ -6,6 +6,7 @@ use super::models::DueReminder;
 use crate::state::AppState;
 
 const CHECK_EVERY: std::time::Duration = std::time::Duration::from_secs(30);
+const SYNC_DUE_EVERY: u32 = 20;
 
 /// A reminder names a channel, and the target may have lost access to it since
 /// it was written. Delivering it anyway leaks the channel's existence and, with
@@ -21,7 +22,12 @@ pub async fn is_deliverable(state: &AppState, reminder: &DueReminder) -> bool {
 
 pub async fn start_checker(state: Arc<AppState>) {
     info!("Reminder checker started");
+    let mut tick: u32 = 0;
     loop {
+        if tick.is_multiple_of(SYNC_DUE_EVERY) {
+            sync_list_due(&state, None).await;
+        }
+        tick = tick.wrapping_add(1);
         tokio::time::sleep(CHECK_EVERY).await;
         let due = match state.later_repo.claim_due().await {
             Ok(due) => due,
@@ -37,6 +43,17 @@ pub async fn start_checker(state: Arc<AppState>) {
         if closed > 0 {
             info!(closed, "Closed polls that reached their closing time");
         }
+    }
+}
+
+pub async fn sync_list_due(state: &AppState, only_list: Option<uuid::Uuid>) {
+    match state.later_repo.sync_list_due(only_list).await {
+        Ok(changed) => {
+            for audience in changed {
+                super::routes::announce(state, audience.user_id, audience.workspace_id).await;
+            }
+        }
+        Err(e) => warn!("Failed to sync list due dates into Later: {e}"),
     }
 }
 

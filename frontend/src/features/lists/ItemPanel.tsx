@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { EyeOff, Table2, Trash2 } from 'lucide-react';
 import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
 import { TextInput } from '@/shared/components/Form/TextInput';
@@ -20,6 +20,7 @@ interface Props {
   onEdit: (columnId: string, value: unknown) => void;
   onDelete: () => void;
   onClose: () => void;
+  children?: ReactNode;
 }
 
 interface FieldProps {
@@ -136,7 +137,7 @@ function FieldEditor({ column, value, people, onEdit }: FieldProps) {
   }
 }
 
-export function ItemPanel({ item, columns, canEdit, people, onEdit, onDelete, onClose }: Props) {
+export function ItemPanel({ item, columns, canEdit, people, onEdit, onDelete, onClose, children }: Props) {
   const [confirming, setConfirming] = useState(false);
   const titleColumn = columns.find((column) => column.kind === 'text');
   const title = (titleColumn && (item.values[titleColumn.id] as string | undefined)) || 'Item';
@@ -178,6 +179,7 @@ export function ItemPanel({ item, columns, canEdit, people, onEdit, onDelete, on
           Added by {displayNameOf(people.nameOf(item.created_by))} on{' '}
           {new Date(item.created_at).toLocaleDateString()}
         </p>
+        {children}
       </div>
       {canEdit && (
         <div className="border-t border-line/50 p-3">

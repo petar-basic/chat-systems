@@ -51,7 +51,8 @@
                 "call",
                 "reminder",
                 "system",
-                "keyword"
+                "keyword",
+                "list"
               ]
             }
           }

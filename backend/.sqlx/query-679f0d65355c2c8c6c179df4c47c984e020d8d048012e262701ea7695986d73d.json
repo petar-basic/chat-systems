@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE list_columns SET name = $2, kind = $3, options = $4, hidden = $5 WHERE id = $1",
+  "query": "UPDATE list_columns SET name = $2, kind = $3, options = $4, hidden = $5, is_due = $6\n              WHERE id = $1",
   "describe": {
     "columns": [],
     "parameters": {
@@ -25,10 +25,11 @@
           }
         },
         "Jsonb",
+        "Bool",
         "Bool"
       ]
     },
     "nullable": []
   },
-  "hash": "7d19a023018bcc6c9a782e3ce17cee691a583d2ed963c2a61e983edc06b780d1"
+  "hash": "679f0d65355c2c8c6c179df4c47c984e020d8d048012e262701ea7695986d73d"
 }

@@ -11,7 +11,7 @@ const column = (
   kind: ListColumn['kind'],
   options: ListColumn['options'] = {},
   hidden = false,
-) => ({ id, list_id: 'l-1', position: 0, name, kind, options, hidden }) satisfies ListColumn;
+) => ({ id, list_id: 'l-1', position: 0, name, kind, options, hidden, due: false }) satisfies ListColumn;
 
 const COLUMNS: ListColumn[] = [
   column('c-text', 'Title', 'text'),
@@ -38,6 +38,7 @@ const ITEM: ListItem = {
   list_id: 'l-1',
   rank: 'V',
   values: { 'c-text': 'Fix login', 'c-tags': ['t-a'], 'c-due': '2026-10-30' },
+  comment_count: 0,
   created_by: 'u-ana',
   created_at: '2026-10-01T00:00:00Z',
   updated_at: '2026-10-01T00:00:00Z',

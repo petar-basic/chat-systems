@@ -286,16 +286,27 @@ else never moves an edit to another item. `CellEditor` has an editor per kind: a
 multi-select and a member picker for a person, the last two in an `AnchoredPopover`; a
 checkbox toggles without one. `ColumnMenu` edits (`ColumnDialog`: name, kind, choices, and the
 count of cells a change clears from `POST /list-columns/{id}/preview` before it confirms),
-moves, hides, deletes and adds columns. Rows drag by their grip. `ItemPanel` shows every field,
-hidden ones too, with an always-open control per kind, and deletes the item.
+moves, hides, deletes and adds columns, and marks a date column *Use as due date* (a *Due*
+badge in its header). Rows drag by their grip; a row with comments shows their count where the
+open button is, a board card under its fields. `ItemPanel` shows every field, hidden ones too,
+with an always-open control per kind, and deletes the item. Under the fields `ItemComments`
+holds the item's thread, rendered by `RichTextDisplay`, with the message composer
+(`MessageInput`, a draft per item, mentions offered from the people who can see the list); the
+author edits in place, the author or a channel moderator deletes after confirming.
 
 `useLists.ts` holds the queries and mutations. A cell edit, a delete and a move are optimistic:
 the move ranks the item locally with the same midpoint the server uses (`rankBetween`) and the
 server's row replaces it. `listSync.ts` applies the `list.*` frames to the cache; an
 `item_upserted` older than the cached row is ignored.
 
+A `list` notification ("Ana assigned you to *Fix login*", "Ana mentioned you on *Fix login*")
+carries `list_id` and `item_id`: the Activity row and the desktop notification open
+`/lists/<list>?item=<item>`, and it rings even while its channel is on screen. A Later row for
+an item due tomorrow shows the list's title and opens the item; ticking it off checks the item
+on the server.
+
 **API calls:** everything under `/workspaces/{id}/lists`, `/lists/{id}`, `/list-columns/{id}`,
-`/list-items/{id}`, `/list-views/{id}`
+`/list-items/{id}` (and its `/comments`), `/list-views/{id}`, `/list-comments/{id}`
 
 ---
 
@@ -631,6 +642,7 @@ typing, and `notification` events are handled separately — by `usePresenceStor
 | `list.columns_changed` | Replace the columns; refetch the items when `items_rewritten` |
 | `list.views_changed` | Replace the views |
 | `list.item_upserted` / `list.item_deleted` | Place the row by rank, or drop it |
+| `list.comment_upserted` / `list.comment_deleted` | Place or drop the comment in an open item's thread |
 
 ---
 

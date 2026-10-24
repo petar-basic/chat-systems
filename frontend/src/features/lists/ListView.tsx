@@ -11,6 +11,7 @@ import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
 import { useChannelModeration } from '@/features/channel/hooks/useChannelModeration';
 import { ListGrid } from './ListGrid';
 import { ItemPanel } from './ItemPanel';
+import { ItemComments } from './ItemComments';
 import { ColumnDialog } from './ColumnDialog';
 import { ListBoard } from './ListBoard';
 import { ViewTabs } from './ViewTabs';
@@ -361,6 +362,8 @@ export function ListView({
                 onEdit: (column) => setColumnDialog({ column }),
                 onMove: moveColumn,
                 onHide: (column) => columnActions.setHidden.mutate({ columnId: column.id, hidden: true }),
+                onToggleDue: (column) =>
+                  columnActions.setDue.mutate({ columnId: column.id, due: !column.due }),
                 onDelete: setDeletingColumn,
                 onAdd: () => setColumnDialog({ column: null }),
                 canAdd: columns.length < MAX_COLUMNS,
@@ -391,7 +394,18 @@ export function ListView({
             setOpenItem(null);
           }}
           onClose={() => setOpenItem(null)}
-        />
+        >
+          <ItemComments
+            itemId={openItem.id}
+            instanceUrl={instanceUrl}
+            currentUserId={currentUserId}
+            canComment={canEdit}
+            canModerate={!!list.channel_id && moderation.canModerate}
+            people={people}
+            members={members}
+            channels={channels}
+          />
+        </ItemPanel>
       )}
 
       {hiddenOpen && hidden.length > 0 && (

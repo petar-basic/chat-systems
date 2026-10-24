@@ -22,15 +22,25 @@ export interface AppNotification {
   body: string;
   channel_id: string | null;
   message_id: string | null;
+  list_id: string | null;
+  item_id: string | null;
   is_read: boolean;
   created_at: string;
 }
 
-function deepLink(data: unknown): Pick<AppNotification, 'channel_id' | 'message_id'> {
-  if (typeof data !== 'object' || data === null) return { channel_id: null, message_id: null };
+type DeepLink = Pick<AppNotification, 'channel_id' | 'message_id' | 'list_id' | 'item_id'>;
+
+function deepLink(data: unknown): DeepLink {
+  const fields: Record<string, unknown> = typeof data === 'object' && data !== null ? { ...data } : {};
+  const text = (key: keyof DeepLink) => {
+    const value = fields[key];
+    return typeof value === 'string' ? value : null;
+  };
   return {
-    channel_id: 'channel_id' in data && typeof data.channel_id === 'string' ? data.channel_id : null,
-    message_id: 'message_id' in data && typeof data.message_id === 'string' ? data.message_id : null,
+    channel_id: text('channel_id'),
+    message_id: text('message_id'),
+    list_id: text('list_id'),
+    item_id: text('item_id'),
   };
 }
 

@@ -2,6 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import LaterPanel from './LaterPanel';
 
+const routerNavigate = vi.fn();
+vi.mock('react-router', () => ({ useNavigate: () => routerNavigate }));
+
 const update = vi.fn();
 const remove = vi.fn();
 const remind = vi.fn();
@@ -44,6 +47,7 @@ describe('LaterPanel', () => {
     update.mockClear();
     remove.mockClear();
     remind.mockClear();
+    routerNavigate.mockClear();
     items.in_progress = [
       {
         ...base,
@@ -59,6 +63,7 @@ describe('LaterPanel', () => {
           attachments: [],
           sent_at: base.created_at,
         },
+        list_item: null,
       },
       {
         ...base,
@@ -67,6 +72,16 @@ describe('LaterPanel', () => {
         text: 'stand-up',
         remind_at: '2999-01-01T09:00:00Z',
         message: null,
+        list_item: null,
+      },
+      {
+        ...base,
+        id: 'due',
+        status: 'in_progress',
+        text: 'Fix login',
+        remind_at: '2999-01-02T09:00:00Z',
+        message: null,
+        list_item: { list_id: 'l-1', item_id: 'i-1', list_title: 'Launch plan' },
       },
     ];
     items.completed = [];
@@ -90,6 +105,15 @@ describe('LaterPanel', () => {
     expect(update).toHaveBeenCalledWith({ id: 'saved', status: 'archived' });
     fireEvent.click(within(saved).getByTestId('later-content'));
     expect(navigate).toHaveBeenCalledWith('ch', 'm-1');
+  });
+
+  it('opens a list item due tomorrow on its list', () => {
+    renderPanel();
+    const due = screen.getAllByTestId('later-row')[2];
+    expect(due).toHaveTextContent('Launch plan');
+    expect(due).toHaveTextContent('Fix login');
+    fireEvent.click(within(due).getByTestId('later-content'));
+    expect(routerNavigate).toHaveBeenCalledWith('/app/ws/lists/l-1?item=i-1');
   });
 
   it('shows the empty state of each tab', () => {

@@ -1,0 +1,112 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, list_id, rank, \"values\" AS \"values\", comment_count, created_by, created_at, updated_at\n                 FROM list_items WHERE list_id = $1 AND deleted_at IS NULL\n                ORDER BY rank, id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "list_items",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "list_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "list_items",
+            "name": "list_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "rank",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "list_items",
+            "name": "rank"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "values",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "list_items",
+            "name": "values"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "comment_count",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "list_items",
+            "name": "comment_count"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "created_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "list_items",
+            "name": "created_by"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "list_items",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "list_items",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "b711c43d417b3ecc8c2175cf897f966780ee93cdd6c62c512f43cc7665717d45"
+}

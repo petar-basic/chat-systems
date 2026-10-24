@@ -27,6 +27,18 @@ describe('normalizeNotification', () => {
     expect(n.message_id).toBeNull();
   });
 
+  it('carries a list item out of a list notification', () => {
+    const n = normalizeNotification(
+      raw({
+        notification_type: 'list',
+        data: { channel_id: 'ch1', message_id: null, list_id: 'l1', item_id: 'i1' },
+      }),
+    );
+    expect(n.message_id).toBeNull();
+    expect(n.list_id).toBe('l1');
+    expect(n.item_id).toBe('i1');
+  });
+
   it('coerces a null body to an empty string', () => {
     const n = normalizeNotification(raw({ body: null }));
     expect(n.body).toBe('');
