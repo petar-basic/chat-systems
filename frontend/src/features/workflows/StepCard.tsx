@@ -1,0 +1,170 @@
+import { useRef } from 'react';
+import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react';
+import { Select } from '@/shared/components/Form/Select';
+import { TextArea } from '@/shared/components/Form/TextArea';
+import { IconButton } from '@/shared/components/IconButton/IconButton';
+import { displayNameOf } from '@/lib/userHelpers';
+import type { Channel, WorkspaceMember } from '@/stores/workspace';
+import { TEXT_MAX, blankStep, insertAt, stepLabel, type Step } from './workflowModel';
+
+interface Props {
+  step: Step;
+  index: number;
+  count: number;
+  channels: Channel[];
+  people: WorkspaceMember[];
+  variables: { token: string; label: string }[];
+  readOnly: boolean;
+  onChange: (step: Step) => void;
+  onMove: (to: number) => void;
+  onRemove: () => void;
+}
+
+export function StepCard({
+  step,
+  index,
+  count,
+  channels,
+  people,
+  variables,
+  readOnly,
+  onChange,
+  onMove,
+  onRemove,
+}: Props) {
+  const textRef = useRef<HTMLTextAreaElement>(null);
+  const number = index + 1;
+
+  const insertVariable = (token: string) => {
+    const area = textRef.current;
+    const start = area?.selectionStart ?? step.text.length;
+    const end = area?.selectionEnd ?? start;
+    const { text, caret } = insertAt(step.text, token, start, end);
+    onChange({ ...step, text });
+    requestAnimationFrame(() => {
+      area?.focus();
+      area?.setSelectionRange(caret, caret);
+    });
+  };
+
+  return (
+    <section
+      className="rounded-xl border border-line bg-surface p-4"
+      aria-label={`Step ${number}`}
+      data-qa="workflow-step"
+    >
+      <header className="mb-3 flex items-center gap-2">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-semibold text-accent">
+          {number}
+        </span>
+        <h3 className="flex-1 truncate text-sm font-semibold text-fg" data-qa="workflow-step-title">
+          {stepLabel(step)}
+        </h3>
+        {!readOnly && (
+          <div className="flex gap-0.5">
+            <IconButton
+              label={`Move step ${number} up`}
+              icon={<ArrowUp className="h-4 w-4" />}
+              disabled={index === 0}
+              onClick={() => onMove(index - 1)}
+              data-qa="workflow-step-up"
+            />
+            <IconButton
+              label={`Move step ${number} down`}
+              icon={<ArrowDown className="h-4 w-4" />}
+              disabled={index === count - 1}
+              onClick={() => onMove(index + 1)}
+              data-qa="workflow-step-down"
+            />
+            <IconButton
+              label={`Remove step ${number}`}
+              icon={<Trash2 className="h-4 w-4" />}
+              tone="danger"
+              disabled={count === 1}
+              onClick={onRemove}
+              data-qa="workflow-step-remove"
+            />
+          </div>
+        )}
+      </header>
+      <div className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Select
+            label="Action"
+            value={step.type}
+            disabled={readOnly}
+            onChange={(e) => onChange({ ...blankStep(e.target.value as Step['type']), text: step.text })}
+            dataQa="workflow-step-type"
+          >
+            <option value="send_message">Send a message to a channel</option>
+            <option value="send_dm">Send a DM to a person</option>
+          </Select>
+          {step.type === 'send_message' ? (
+            <Select
+              label="Channel"
+              value={step.channel_id}
+              disabled={readOnly}
+              onChange={(e) => onChange({ ...step, channel_id: e.target.value })}
+              dataQa="workflow-step-channel"
+            >
+              <option value="" disabled>
+                Pick a channel
+              </option>
+              {channels.map((channel) => (
+                <option key={channel.id} value={channel.id}>
+                  #{channel.name}
+                </option>
+              ))}
+            </Select>
+          ) : (
+            <Select
+              label="To"
+              value={step.to.kind === 'person' ? step.to.user_id : ''}
+              disabled={readOnly}
+              onChange={(e) => onChange({ ...step, to: { kind: 'person', user_id: e.target.value } })}
+              dataQa="workflow-step-person"
+            >
+              <option value="" disabled>
+                Pick a person
+              </option>
+              {people.map((person) => (
+                <option key={person.user_id} value={person.user_id}>
+                  {displayNameOf(person.display_name)}
+                </option>
+              ))}
+            </Select>
+          )}
+        </div>
+        <TextArea
+          ref={textRef}
+          label="Message"
+          value={step.text}
+          rows={4}
+          maxLength={TEXT_MAX}
+          disabled={readOnly}
+          placeholder={step.type === 'send_message' ? 'Standup in 10 minutes!' : 'Welcome aboard!'}
+          onChange={(e) => onChange({ ...step, text: e.target.value })}
+          dataQa="workflow-step-text"
+        />
+        {!readOnly && variables.length > 0 && (
+          <Select
+            label="Insert variable"
+            labelHidden
+            compact
+            className="w-48"
+            value=""
+            onChange={(e) => e.target.value && insertVariable(e.target.value)}
+            dataQa="workflow-step-variable"
+          >
+            <option value="">Insert variable…</option>
+            {variables.map((variable) => (
+              <option key={variable.token} value={variable.token}>
+                {variable.label}
+              </option>
+            ))}
+          </Select>
+        )}
+      </div>
+    </section>
+  );
+}

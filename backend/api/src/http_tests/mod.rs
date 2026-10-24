@@ -33,4 +33,5 @@ mod polls;
 mod scheduled;
 mod sidebar;
 mod threads;
+mod workflows;
 mod workspace;

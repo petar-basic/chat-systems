@@ -38,6 +38,7 @@ pub mod sidebar;
 pub mod slack_import;
 pub mod state;
 pub mod threads;
+pub mod workflows;
 pub mod workspace;
 
 #[cfg(test)]
@@ -123,6 +124,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
     let push_repo = crate::push::repo::PushRepo::new(pool.clone());
     let emoji_repo = crate::emoji::repo::EmojiRepo::new(pool.clone());
     let group_repo = crate::groups::repo::GroupRepo::new(pool.clone());
+    let workflow_repo = workflows::repo::WorkflowRepo::new(pool.clone());
     let push_sender = crate::push::sender::PushSender::new(
         push_repo.clone(),
         crate::push::sender::VapidKeys {
@@ -163,6 +165,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
         emoji_repo,
         group_repo,
         huddle_repo,
+        workflow_repo,
     }))
 }
 

@@ -46,9 +46,7 @@
               "Enum": [
                 "incoming_webhook",
                 "outgoing_webhook",
-                "bot",
-                "slash_command",
-                "scheduled"
+                "slash_command"
               ]
             }
           }
@@ -138,9 +136,7 @@
               "Enum": [
                 "incoming_webhook",
                 "outgoing_webhook",
-                "bot",
-                "slash_command",
-                "scheduled"
+                "slash_command"
               ]
             }
           }

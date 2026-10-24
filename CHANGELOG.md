@@ -54,6 +54,12 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   `LaterItem` gains `list_item`, and the `notification` frame gains `list_id` and `item_id`.
   Two new frames, `list.comment_upserted` and `list.comment_deleted`, go to the list's
   audience; deploy the backend and realtime images together.
+- Migration 67 adds the `workflows`, `workflow_runs` and `workflow_run_steps` tables, the
+  `workflow_run_status` type and the `workflow_next_run()` function, and removes `bot` and
+  `scheduled` from `hook_type` (nothing ever created either; any such row is deleted).
+  `chat-worker` runs one more supervised loop, `workflow_runner`. A message's `bot` identity
+  gains `workflow_id`, and its `hook_id` is optional, as slash-command replies already left it
+  out. The workspace settings take `workflow_builders`.
 
 ### Added
 
@@ -121,6 +127,16 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   date column *Use as due date*: an item due tomorrow and assigned to you waits in Later as a
   reminder at 9:00 on the day, and ticking it off there checks the item's checkbox.
   `/list-items/{id}/comments`, `PATCH`/`DELETE /list-comments/{id}`.
+- **Workflows.** *Workflows* in the workspace menu lists yours (an admin sees everyone's) and
+  builds new ones in a full-height editor: one trigger, then steps in order. A workflow starts
+  on a schedule (every day, weekdays or chosen days, at a time in a timezone) or when its
+  secret webhook URL is called with a JSON object; it then posts in a channel or sends someone
+  a DM, as a message tagged *Workflow*, with the webhook's values inserted where you put them.
+  Every step runs with what its builder can do at that moment, so losing access to a channel
+  fails that step, and a builder leaving the workspace turns their workflows off and tells the
+  admins. *Run history* shows the last 50 runs and why a step failed. Admins can keep building
+  to admins in *Settings*. `/workspaces/{id}/workflows`, `/workflows/{id}` (with `/publish`,
+  `/disable`, `/runs`), `POST /workflows/webhook/{token}`.
 
 ### Changed
 

@@ -162,6 +162,7 @@ impl MessageRepo {
         posted_by: Uuid,
         content: &str,
         bot: &serde_json::Value,
+        mentioned: &[Uuid],
     ) -> sqlx::Result<Message> {
         let msg = sqlx::query_as!(
             Message,
@@ -178,7 +179,7 @@ impl MessageRepo {
         .fetch_one(&mut *conn)
         .await?;
 
-        bump_unread(conn, channel_id, posted_by, &[]).await?;
+        bump_unread(conn, channel_id, posted_by, mentioned).await?;
 
         Ok(msg)
     }
@@ -192,7 +193,7 @@ impl MessageRepo {
     ) -> sqlx::Result<Message> {
         let mut tx = self.pool.begin().await?;
         let msg = self
-            .create_bot_message_in(&mut tx, channel_id, posted_by, content, bot)
+            .create_bot_message_in(&mut tx, channel_id, posted_by, content, bot, &[])
             .await?;
         tx.commit().await?;
         Ok(msg)

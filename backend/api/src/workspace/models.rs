@@ -227,6 +227,31 @@ pub struct UpdateWorkspaceRequest {
     pub icon_url: Option<String>,
     #[garde(skip)]
     pub link_previews: Option<bool>,
+    #[garde(skip)]
+    pub workflow_builders: Option<WorkflowBuilders>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum WorkflowBuilders {
+    Members,
+    Admins,
+}
+
+impl WorkflowBuilders {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Members => "members",
+            Self::Admins => "admins",
+        }
+    }
+
+    pub fn of(settings: &serde_json::Value) -> Self {
+        match settings.get("workflow_builders").and_then(|v| v.as_str()) {
+            Some("admins") => Self::Admins,
+            _ => Self::Members,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, garde::Validate, ToSchema)]

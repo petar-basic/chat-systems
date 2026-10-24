@@ -22,7 +22,32 @@ ticket removes them rather than building beside them.
 
 Four parts, each its own PR, in this order.
 
-### 1. The engine, two triggers, two steps, and the builder
+### 1. The engine, two triggers, two steps, and the builder ✅ done
+
+Landed as described, with these differences:
+
+- Validation is a typed `Definition` (`serde`-tagged triggers, steps and recipients) with its
+  own check, not `garde`: the messages name the step ("Step 2: {{webhook.x}} isn't available
+  for this trigger"). Saving also checks the timezone against Postgres and, as the builder,
+  each step's channel and person, so a step the builder could not do by hand is refused then.
+- A new workflow is a draft; *Publish* turns it on. Editing a published one keeps it on and
+  bumps `version`. Only its builder edits or publishes it; an admin sees, turns off and deletes
+  anyone's.
+- A schedule's next instant is computed in Postgres (`workflow_next_run()`, DST-correct), kept
+  in `workflows.next_run_at`, and queued as a run keyed `schedule:<instant>`. One missed by
+  more than 15 minutes (the worker was down) is skipped rather than posted late.
+- The runner polls every 5 seconds for queued runs. Each step's message and its
+  `workflow_run_steps` row commit together, so a run picked up again after a crash never
+  repeats a step. A run left `running` for 5 minutes is picked up again.
+- A webhook call's run key is its `Idempotency-Key` header, or a fresh id without one; it
+  answers 202 with the run id, 409 while the workflow is off, and 429 above 30 calls a minute.
+  A variable is any JSON value, inserted as text.
+- Mentions written into a step's text notify; a mention arriving inside a webhook value is
+  posted but notifies nobody.
+- A DM goes to the conversation between the builder and the person, posted as the workflow.
+  A workflow cannot DM its own builder.
+- `{{trigger.user}}`, `{{trigger.channel}}` and the trigger-person recipient exist in the
+  definition but no part-1 trigger provides them; part 2's triggers do.
 
 - **A workflow is data, validated by types.**
   `workflows (id, workspace_id, name, description, created_by, definition JSONB, version,

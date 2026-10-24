@@ -77,6 +77,7 @@ export default function WorkspacePage() {
             onOpenCustomEmoji={() => panel.toggle('customEmoji')}
             onOpenUserGroups={() => panel.toggle('userGroups')}
             onOpenAuditLog={() => panel.toggle('auditLog')}
+            onOpenWorkflows={() => panel.toggle('workflows')}
             onOpenScheduled={() => panel.toggle('scheduled')}
             onOpenLater={() => panel.toggle('later')}
             laterActive={panel.active?.kind === 'later'}
@@ -296,6 +297,7 @@ export default function WorkspacePage() {
           workspaceMembers={c.workspaceMembers}
           channels={c.channels}
           conversations={c.conversations}
+          currentUserId={user?.id}
           onClose={panel.close}
           onNavigateToMessage={c.handleNavigateToMessage}
           onOpenConversation={c.handleOpenConversation}

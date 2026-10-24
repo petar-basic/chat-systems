@@ -460,7 +460,7 @@ Incoming/outgoing webhooks, bots and slash commands. A background task executes 
 | DELETE | `/hooks/:hook_id` | — | `{ status: "deleted" }` |
 | POST | `/hooks/incoming/:token` | `{ text }` | `{ status: "ok", message_id }` |
 
-Hook types: `incoming_webhook`, `outgoing_webhook`, `bot`, `slash_command`, `scheduled`
+Hook types: `incoming_webhook`, `outgoing_webhook`, `slash_command`
 
 Built-in commands run before any registered one and never leave the instance: `/dnd`,
 `/topic`, `/invite`, `/shrug` and `/remind`. `/remind` understands `me in 30m to ship`,
@@ -819,6 +819,42 @@ the list.
 | POST | `/list-items/:item_id/comments` | `{ content }` | `ListComment` |
 | PATCH | `/list-comments/:comment_id` | `{ content }` — the author only | `ListComment` |
 | DELETE | `/list-comments/:comment_id` | — | `{ status: "deleted" }` — the author or a channel moderator |
+
+---
+
+### workflows
+
+A workflow is a trigger and up to 20 steps, stored as a typed `Definition` in
+`workflows.definition` and checked on every save: `models.rs` for the shape and the variables
+each trigger offers, `service::check_authority` for what the builder may do (post in the
+channel, message the person, a real timezone). `runner.rs` is the `workflow_runner` loop in
+`chat-worker`: every 5 seconds it queues the schedules that are due and runs queued runs.
+
+A run is a row in `workflow_runs`, unique on `(workflow_id, trigger_key)` — the schedule
+instant or the webhook request — so a trigger delivered twice is one run. Each step's message
+commits with its `workflow_run_steps` row, and a step already recorded is skipped when a run
+is picked up again. A step authorizes as the builder at that moment; the first that fails
+stops the run with `Step N (…): why`. A builder who is no longer a member turns their
+workflows off (`workspace::membership::detach` does it on removal, a run does it if it finds
+them gone) and every admin gets a `system` notification.
+
+Messages are bot messages (`metadata.bot = { workflow_id, name }`) whose `user_id` is the
+builder. Only mentions in the builder's text notify, not ones inside webhook values.
+
+| Method | Route | Input | Output |
+|--------|-------|-------|--------|
+| GET | `/workspaces/:ws_id/workflows` | — | `{ data: Workflow[] }` — yours; an admin's has everyone's |
+| POST | `/workspaces/:ws_id/workflows` | `{ name, description?, definition }` | `Workflow`, as a draft — a builder (no guests; admins only when `settings.workflow_builders` is `admins`) |
+| GET | `/workflows/:workflow_id` | — | `Workflow` — its builder or an admin |
+| PUT | `/workflows/:workflow_id` | as POST | `Workflow`, `version` + 1 — its builder only |
+| POST | `/workflows/:workflow_id/publish` | — | `Workflow`, `enabled`, `next_run_at` for a schedule — its builder only, re-checked |
+| POST | `/workflows/:workflow_id/disable` | — | `Workflow` — its builder or an admin |
+| DELETE | `/workflows/:workflow_id` | — | `{ status: "deleted" }` — its builder or an admin |
+| GET | `/workflows/:workflow_id/runs` | — | `{ data: WorkflowRun[] }`, the last 50, newest first, each with its steps |
+| POST | `/workflows/webhook/:token` | any JSON object; header `Idempotency-Key` optional | 202 `{ status: "accepted", run_id }`; 401 unknown token, 409 turned off, 429 above 30 a minute |
+
+The webhook route is public, authenticated by the token in `Workflow.webhook_url`. Audit
+actions: `workflow.created`, `.updated`, `.enabled`, `.disabled`, `.deleted`.
 
 ---
 

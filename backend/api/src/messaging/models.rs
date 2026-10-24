@@ -24,7 +24,8 @@ pub struct Message {
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct BotIdentity {
-    pub hook_id: Uuid,
+    pub hook_id: Option<Uuid>,
+    pub workflow_id: Option<Uuid>,
     pub name: String,
     pub icon_url: Option<String>,
 }

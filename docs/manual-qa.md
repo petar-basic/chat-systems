@@ -223,6 +223,14 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - 🟠 **Edge — mentions:** mention someone who is not in the channel → no notification for them. Mark *Name* (text) as the due date → 422.
 - 🔴 **Edge — comments:** Bob cannot edit Ana's comment (`PATCH /api/list-comments/<id>` 403) nor delete it; a channel moderator can delete it; a member outside a private channel gets 403 on `GET /api/list-items/<id>/comments`.
 
+### 5.13 🟢 Workflows
+- **Reach:** workspace menu → *Workflows* → *New*.
+- **Steps:** as Bob, build "Alert relay": trigger *When a webhook is called*, variable `service`; step *Send a message* to #general with `{{webhook.service}} is down` (use *Insert variable*). *Publish*. Copy the URL and run `curl -X POST <url> -H 'content-type: application/json' -d '{"service":"billing"}'`. Build a second one on a schedule a minute or two from now, *Publish*.
+- **Expected:** curl answers 202; within seconds "billing is down" appears in #general from *Alert relay*, tagged *Workflow*. *Run history* shows *Succeeded* with *Step 1 · Send a message*. The scheduled one posts at its minute, once. Admin's panel lists both with "Built by Bob".
+- 🟠 **Edge — retries:** send the same curl twice with `-H 'Idempotency-Key: x'` → one message. Call a draft or turned-off workflow → 409. 31 calls in a minute → 429.
+- 🟠 **Edge — authority:** a step to a private channel, then remove Bob from it and call the webhook → *Failed*, "Step 1 (Send a message): Its creator can no longer post in that channel". Remove Bob from the workspace → his workflows turn off and the admins' Activity says so.
+- 🔴 **Edge — who builds:** *Settings* → *Who can build workflows* → *Admins only* → Bob's *New* is gone and `POST /api/workspaces/<id>/workflows` answers 403; a guest never sees *Workflows*.
+
 ---
 
 ## 6. Files

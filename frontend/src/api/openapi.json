@@ -4337,6 +4337,232 @@
         }
       }
     },
+    "/workflows/webhook/{token}": {
+      "post": {
+        "tags": [
+          "workflows"
+        ],
+        "operationId": "workflow_webhook",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunAccepted"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/workflows/{workflow_id}": {
+      "get": {
+        "tags": [
+          "workflows"
+        ],
+        "operationId": "get_workflow",
+        "parameters": [
+          {
+            "name": "workflow_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Workflow"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "workflows"
+        ],
+        "operationId": "update_workflow",
+        "parameters": [
+          {
+            "name": "workflow_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveWorkflowRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Workflow"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "workflows"
+        ],
+        "operationId": "delete_workflow",
+        "parameters": [
+          {
+            "name": "workflow_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workflows/{workflow_id}/disable": {
+      "post": {
+        "tags": [
+          "workflows"
+        ],
+        "operationId": "disable_workflow",
+        "parameters": [
+          {
+            "name": "workflow_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Workflow"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workflows/{workflow_id}/publish": {
+      "post": {
+        "tags": [
+          "workflows"
+        ],
+        "operationId": "publish_workflow",
+        "parameters": [
+          {
+            "name": "workflow_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Workflow"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workflows/{workflow_id}/runs": {
+      "get": {
+        "tags": [
+          "workflows"
+        ],
+        "operationId": "workflow_runs",
+        "parameters": [
+          {
+            "name": "workflow_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_WorkflowRun"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workspaces": {
       "get": {
         "tags": [
@@ -7144,6 +7370,74 @@
           }
         }
       }
+    },
+    "/workspaces/{ws_id}/workflows": {
+      "get": {
+        "tags": [
+          "workflows"
+        ],
+        "operationId": "list_workflows",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_Workflow"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "workflows"
+        ],
+        "operationId": "create_workflow",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveWorkflowRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Workflow"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -7506,12 +7800,14 @@
       "BotIdentity": {
         "type": "object",
         "required": [
-          "hook_id",
           "name"
         ],
         "properties": {
           "hook_id": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid"
           },
           "icon_url": {
@@ -7522,6 +7818,13 @@
           },
           "name": {
             "type": "string"
+          },
+          "workflow_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -10560,6 +10863,152 @@
           }
         }
       },
+      "DataList_Workflow": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "workspace_id",
+                "name",
+                "created_by",
+                "definition",
+                "version",
+                "enabled",
+                "created_at",
+                "updated_at"
+              ],
+              "properties": {
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "created_by": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "definition": {
+                  "$ref": "#/components/schemas/Definition"
+                },
+                "description": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "last_run": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/LastRun"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "name": {
+                  "type": "string"
+                },
+                "next_run_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "updated_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "version": {
+                  "type": "integer",
+                  "format": "int32"
+                },
+                "webhook_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "workspace_id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          }
+        }
+      },
+      "DataList_WorkflowRun": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "workflow_version",
+                "status",
+                "started_at",
+                "steps"
+              ],
+              "properties": {
+                "error": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "finished_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "started_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "status": {
+                  "$ref": "#/components/schemas/RunStatus"
+                },
+                "steps": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RunStep"
+                  }
+                },
+                "workflow_version": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            }
+          }
+        }
+      },
       "DataList_Workspace": {
         "type": "object",
         "required": [
@@ -10699,6 +11148,24 @@
                 }
               }
             }
+          }
+        }
+      },
+      "Definition": {
+        "type": "object",
+        "required": [
+          "trigger",
+          "steps"
+        ],
+        "properties": {
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Step"
+            }
+          },
+          "trigger": {
+            "$ref": "#/components/schemas/Trigger"
           }
         }
       },
@@ -11308,9 +11775,7 @@
         "enum": [
           "incoming_webhook",
           "outgoing_webhook",
-          "bot",
-          "slash_command",
-          "scheduled"
+          "slash_command"
         ]
       },
       "HookedChannels": {
@@ -11634,6 +12099,22 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "LastRun": {
+        "type": "object",
+        "required": [
+          "status",
+          "started_at"
+        ],
+        "properties": {
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RunStatus"
           }
         }
       },
@@ -12826,6 +13307,43 @@
           }
         }
       },
+      "Recipient": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "user_id",
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "person"
+                ]
+              },
+              "user_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "trigger_user"
+                ]
+              }
+            }
+          }
+        ]
+      },
       "RegisterCompleteRequest": {
         "type": "object",
         "required": [
@@ -12932,6 +13450,86 @@
           "workspace_id": {
             "type": "string",
             "format": "uuid"
+          }
+        }
+      },
+      "RunAccepted": {
+        "type": "object",
+        "required": [
+          "status",
+          "run_id"
+        ],
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "RunStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "running",
+          "succeeded",
+          "failed"
+        ]
+      },
+      "RunStep": {
+        "type": "object",
+        "required": [
+          "position",
+          "succeeded",
+          "finished_at"
+        ],
+        "properties": {
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "finished_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "message_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "position": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "succeeded": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SaveWorkflowRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "definition"
+        ],
+        "properties": {
+          "definition": {
+            "$ref": "#/components/schemas/Definition"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
           }
         }
       },
@@ -13303,6 +13901,55 @@
           }
         }
       },
+      "Step": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "channel_id",
+              "text",
+              "type"
+            ],
+            "properties": {
+              "channel_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "text": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "send_message"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "to",
+              "text",
+              "type"
+            ],
+            "properties": {
+              "text": {
+                "type": "string"
+              },
+              "to": {
+                "$ref": "#/components/schemas/Recipient"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "send_dm"
+                ]
+              }
+            }
+          }
+        ]
+      },
       "SubscribeRequest": {
         "type": "object",
         "required": [
@@ -13478,6 +14125,60 @@
             "type": "boolean"
           }
         }
+      },
+      "Trigger": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "days",
+              "time",
+              "timezone",
+              "type"
+            ],
+            "properties": {
+              "days": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Weekday"
+                }
+              },
+              "time": {
+                "type": "string"
+              },
+              "timezone": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "schedule"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "variables",
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "webhook"
+                ]
+              },
+              "variables": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ]
       },
       "Unfurl": {
         "type": "object",
@@ -14089,6 +14790,16 @@
               "string",
               "null"
             ]
+          },
+          "workflow_builders": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/WorkflowBuilders"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },
@@ -14371,6 +15082,149 @@
           },
           "poll": {
             "$ref": "#/components/schemas/PollSummary"
+          }
+        }
+      },
+      "Weekday": {
+        "type": "string",
+        "enum": [
+          "mon",
+          "tue",
+          "wed",
+          "thu",
+          "fri",
+          "sat",
+          "sun"
+        ]
+      },
+      "Workflow": {
+        "type": "object",
+        "required": [
+          "id",
+          "workspace_id",
+          "name",
+          "created_by",
+          "definition",
+          "version",
+          "enabled",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_by": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "definition": {
+            "$ref": "#/components/schemas/Definition"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "last_run": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/LastRun"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "next_run_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "webhook_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "WorkflowBuilders": {
+        "type": "string",
+        "enum": [
+          "members",
+          "admins"
+        ]
+      },
+      "WorkflowRun": {
+        "type": "object",
+        "required": [
+          "id",
+          "workflow_version",
+          "status",
+          "started_at",
+          "steps"
+        ],
+        "properties": {
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "finished_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RunStatus"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RunStep"
+            }
+          },
+          "workflow_version": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },

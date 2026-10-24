@@ -102,6 +102,7 @@ pub fn typed_routes() -> OpenApiRouter<Arc<AppState>> {
         .merge(crate::retention::routes::router())
         .merge(crate::auth::totp_routes::router())
         .merge(crate::slack_import::routes::router())
+        .merge(crate::workflows::routes::router())
 }
 
 /// Reachable without a session: signing in, accepting an invite, and what an
@@ -110,6 +111,7 @@ pub fn public_routes() -> OpenApiRouter<Arc<AppState>> {
     OpenApiRouter::new()
         .merge(crate::auth::routes::public_router())
         .merge(crate::hooks::routes::public_router())
+        .merge(crate::workflows::routes::public_router())
 }
 
 pub fn spec() -> utoipa::openapi::OpenApi {

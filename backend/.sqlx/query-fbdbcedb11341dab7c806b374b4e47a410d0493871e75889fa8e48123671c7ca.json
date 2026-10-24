@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO workflow_run_steps (run_id, position, succeeded, message_id, error)\n            VALUES ($1, $2, $3, $4, $5)\n            ON CONFLICT (run_id, position) DO UPDATE\n               SET succeeded = EXCLUDED.succeeded, message_id = EXCLUDED.message_id,\n                   error = EXCLUDED.error, finished_at = NOW()\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Bool",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fbdbcedb11341dab7c806b374b4e47a410d0493871e75889fa8e48123671c7ca"
+}

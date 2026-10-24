@@ -68,6 +68,11 @@ pub enum AuditAction {
     AppRemoved,
     AppConnected,
     AppDisconnected,
+    WorkflowCreated,
+    WorkflowUpdated,
+    WorkflowEnabled,
+    WorkflowDisabled,
+    WorkflowDeleted,
 }
 
 impl AuditAction {
@@ -126,6 +131,11 @@ impl AuditAction {
             Self::AppRemoved => "app.removed",
             Self::AppConnected => "app.connected",
             Self::AppDisconnected => "app.disconnected",
+            Self::WorkflowCreated => "workflow.created",
+            Self::WorkflowUpdated => "workflow.updated",
+            Self::WorkflowEnabled => "workflow.enabled",
+            Self::WorkflowDisabled => "workflow.disabled",
+            Self::WorkflowDeleted => "workflow.deleted",
         }
     }
 
@@ -174,6 +184,11 @@ impl AuditAction {
             }
             Self::ExportRequested | Self::ExportCompleted => "export",
             Self::SlackImportStarted => "slack_import",
+            Self::WorkflowCreated
+            | Self::WorkflowUpdated
+            | Self::WorkflowEnabled
+            | Self::WorkflowDisabled
+            | Self::WorkflowDeleted => "workflow",
         }
     }
 }

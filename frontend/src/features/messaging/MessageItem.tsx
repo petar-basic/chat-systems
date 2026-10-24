@@ -410,7 +410,7 @@ function MessageItem({
                   data-qa="bot-tag"
                   className="px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-raised text-fg-dim rounded"
                 >
-                  Bot
+                  {message.metadata.bot.workflow_id ? 'Workflow' : 'Bot'}
                 </span>
               )}
               <span className="text-xs text-muted">{time}</span>

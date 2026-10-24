@@ -9,6 +9,7 @@ import {
   Smile,
   Upload,
   Users,
+  Workflow,
 } from 'lucide-react';
 import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
@@ -17,6 +18,7 @@ interface Props {
   workspaceName: string | undefined;
   isWorkspaceAdmin: boolean;
   isInstanceAdmin: boolean;
+  canUseWorkflows: boolean;
   onOpenMembers: () => void;
   onOpenSettings: () => void;
   onOpenIntegrations: () => void;
@@ -25,6 +27,7 @@ interface Props {
   onOpenCustomEmoji: () => void;
   onOpenUserGroups: () => void;
   onOpenAuditLog: () => void;
+  onOpenWorkflows: () => void;
   onOpenInstanceAdmin: () => void;
 }
 
@@ -35,6 +38,7 @@ export function WorkspaceMenu({
   workspaceName,
   isWorkspaceAdmin,
   isInstanceAdmin,
+  canUseWorkflows,
   onOpenMembers,
   onOpenSettings,
   onOpenIntegrations,
@@ -43,6 +47,7 @@ export function WorkspaceMenu({
   onOpenCustomEmoji,
   onOpenUserGroups,
   onOpenAuditLog,
+  onOpenWorkflows,
   onOpenInstanceAdmin,
 }: Props) {
   const [open, setOpen] = useState(false);
@@ -75,6 +80,11 @@ export function WorkspaceMenu({
           <button className={ITEM} data-qa="open-apps" onClick={pick(onOpenApps)}>
             <LayoutGrid className="w-4 h-4" /> Apps
           </button>
+          {canUseWorkflows && (
+            <button className={ITEM} data-qa="open-workflows" onClick={pick(onOpenWorkflows)}>
+              <Workflow className="w-4 h-4" /> Workflows
+            </button>
+          )}
           {isWorkspaceAdmin && (
             <button className={ITEM} data-qa="open-integrations" onClick={pick(onOpenIntegrations)}>
               <Plug className="w-4 h-4" /> Integrations

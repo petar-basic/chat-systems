@@ -9,7 +9,7 @@ use chat_api::state::AppState;
 use chat_api::{
     build_state, connect_pool, email, export, health, hooks, huddle, init_tracing, later,
     messaging, metrics, notifications, retention, scheduled, shutdown_signal, slack_import,
-    supervise,
+    supervise, workflows,
 };
 
 #[tokio::main]
@@ -234,6 +234,19 @@ fn spawn_consumers(state: &Arc<AppState>, redis_url: &str) {
                 let dispatcher_state = dispatcher_state.clone();
                 async move {
                     scheduled::executor::start_dispatcher(dispatcher_state).await;
+                }
+            })
+            .await;
+        });
+    }
+
+    {
+        let runner_state = state.clone();
+        tokio::spawn(async move {
+            supervise("workflow_runner", || {
+                let runner_state = runner_state.clone();
+                async move {
+                    workflows::runner::start_runner(runner_state).await;
                 }
             })
             .await;

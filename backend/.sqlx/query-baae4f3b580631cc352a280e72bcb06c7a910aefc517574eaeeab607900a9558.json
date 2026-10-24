@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE workflows\n               SET next_run_at = CASE WHEN $2::smallint[] IS NOT NULL\n                                      THEN workflow_next_run($2, $3, $4, GREATEST(next_run_at, NOW())) END\n             WHERE id = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int2Array",
+        "Time",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "baae4f3b580631cc352a280e72bcb06c7a910aefc517574eaeeab607900a9558"
+}
