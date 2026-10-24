@@ -76,13 +76,20 @@ beforeEach(() => {
   columnActions.onHide.mockReset();
 });
 
-function renderGrid({ items = ITEMS, canEdit = true }: { items?: ListItem[]; canEdit?: boolean } = {}) {
+function renderGrid({
+  items = ITEMS,
+  canEdit = true,
+  reorderable = true,
+}: { items?: ListItem[]; canEdit?: boolean; reorderable?: boolean } = {}) {
   render(
     <ListGrid
       label="Launch plan"
       columns={COLUMNS}
       items={items}
       canEdit={canEdit}
+      reorderable={reorderable}
+      canAdd
+      emptyText="No items yet."
       people={PEOPLE}
       columnActions={columnActions}
       openItemId={null}
@@ -200,6 +207,13 @@ describe('ListGrid keyboard navigation', () => {
     expect(onMoveItem).toHaveBeenLastCalledWith('i-2', null);
     press(grid, 'Enter', { shiftKey: true });
     expect(onOpenItem).toHaveBeenCalledWith('i-2');
+  });
+
+  it('keeps rows in place while the view sorts or filters them', () => {
+    const grid = renderGrid({ reorderable: false });
+    press(grid, 'ArrowDown', { altKey: true });
+    expect(onMoveItem).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('list-row-grip')).toBeNull();
   });
 
   it('does not edit a read-only list', () => {

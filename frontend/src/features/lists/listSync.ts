@@ -24,6 +24,9 @@ export function syncListFrames(queryClient: QueryClient): Array<() => void> {
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.listItems(event.list_id) });
       }
     }),
+    globalEventBus.on('list.views_changed', (event) => {
+      setDetail(event.list_id, (detail) => ({ ...detail, views: event.views }));
+    }),
     globalEventBus.on('list.item_upserted', (event) => {
       setItems(event.list_id, (items) => upsertItem(items, event.item));
     }),

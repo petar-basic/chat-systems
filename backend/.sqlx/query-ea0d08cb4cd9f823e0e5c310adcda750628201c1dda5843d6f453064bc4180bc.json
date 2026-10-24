@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE list_views SET name = $2, kind = $3, config = $4, updated_at = NOW() WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        {
+          "Custom": {
+            "name": "list_view_kind",
+            "kind": {
+              "Enum": [
+                "table",
+                "board"
+              ]
+            }
+          }
+        },
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ea0d08cb4cd9f823e0e5c310adcda750628201c1dda5843d6f453064bc4180bc"
+}

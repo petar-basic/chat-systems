@@ -4,6 +4,7 @@ import { globalEventBus } from '@/lib/globalEventBus';
 import { QUERY_KEYS } from '@/shared/constants';
 import { syncListFrames } from './listSync';
 import type { ListColumn, ListDetail, ListItem } from './listModel';
+import type { SavedView } from './viewModel';
 
 const LIST_ID = 'l-1';
 
@@ -28,6 +29,18 @@ const title: ListColumn = {
   hidden: false,
 };
 
+const tableView: SavedView = {
+  id: 'v-1',
+  list_id: LIST_ID,
+  position: 0,
+  name: 'Table',
+  kind: 'table',
+  config: {},
+  created_by: 'u',
+  created_at: '2026-10-01T00:00:00Z',
+  updated_at: '2026-10-01T00:00:00Z',
+};
+
 const detail: ListDetail = {
   list: {
     id: LIST_ID,
@@ -40,6 +53,7 @@ const detail: ListDetail = {
     updated_at: '2026-10-01T00:00:00Z',
   },
   columns: [title],
+  views: [tableView],
 };
 
 let queryClient: QueryClient;
@@ -93,6 +107,20 @@ describe('syncListFrames', () => {
       items_rewritten: true,
     });
     expect(queryClient.getQueryState(QUERY_KEYS.listItems(LIST_ID))?.isInvalidated).toBe(true);
+  });
+
+  it('takes the views someone else saved', () => {
+    const board: SavedView = { ...tableView, id: 'v-2', position: 1, name: 'Board', kind: 'board' };
+    globalEventBus.emit({
+      type: 'list.views_changed',
+      list_id: LIST_ID,
+      channel_id: 'ch-1',
+      views: [tableView, board],
+    });
+    expect(queryClient.getQueryData<ListDetail>(QUERY_KEYS.list(LIST_ID))?.views.map((v) => v.name)).toEqual([
+      'Table',
+      'Board',
+    ]);
   });
 
   it('renames the open list', () => {

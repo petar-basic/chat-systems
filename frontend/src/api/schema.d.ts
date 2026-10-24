@@ -915,6 +915,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/list-views/{view_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete_list_view"];
+        options?: never;
+        head?: never;
+        patch: operations["update_list_view"];
+        trace?: never;
+    };
     "/lists/{list_id}": {
         parameters: {
             query?: never;
@@ -973,6 +989,38 @@ export interface paths {
         get: operations["list_items"];
         put?: never;
         post: operations["create_list_item"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lists/{list_id}/view-order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["reorder_list_views"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lists/{list_id}/views": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["create_list_view"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2753,6 +2801,11 @@ export interface components {
         CreateSectionRequest: {
             name: string;
         };
+        CreateViewRequest: {
+            config?: components["schemas"]["ViewConfig"];
+            kind: components["schemas"]["ViewKind"];
+            name: string;
+        };
         CreateWorkspaceRequest: {
             description?: string | null;
             name: string;
@@ -3084,6 +3137,25 @@ export interface components {
                 };
             }[];
         };
+        DataList_ListView: {
+            data: {
+                config: components["schemas"]["ViewConfig"];
+                /** Format: date-time */
+                created_at: string;
+                /** Format: uuid */
+                created_by: string;
+                /** Format: uuid */
+                id: string;
+                kind: components["schemas"]["ViewKind"];
+                /** Format: uuid */
+                list_id: string;
+                name: string;
+                /** Format: int32 */
+                position: number;
+                /** Format: date-time */
+                updated_at: string;
+            }[];
+        };
         DataList_MemberWithUser: {
             data: {
                 avatar_url?: string | null;
@@ -3411,6 +3483,14 @@ export interface components {
             /** Format: int32 */
             width?: number | null;
         };
+        /** @enum {string} */
+        FilterOp: "contains" | "is" | "is_not" | "lt" | "gt" | "this_week" | "overdue" | "empty" | "not_empty" | "checked" | "unchecked";
+        FilterRule: {
+            /** Format: uuid */
+            column_id: string;
+            op: components["schemas"]["FilterOp"];
+            value?: unknown;
+        };
         ForgotPasswordRequest: {
             email: string;
         };
@@ -3607,6 +3687,7 @@ export interface components {
         ListDetail: {
             columns: components["schemas"]["ListColumn"][];
             list: components["schemas"]["List"];
+            views: components["schemas"]["ListView"][];
         };
         ListItem: {
             /** Format: date-time */
@@ -3623,6 +3704,23 @@ export interface components {
             values: {
                 [key: string]: unknown;
             };
+        };
+        ListView: {
+            config: components["schemas"]["ViewConfig"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            created_by: string;
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["ViewKind"];
+            /** Format: uuid */
+            list_id: string;
+            name: string;
+            /** Format: int32 */
+            position: number;
+            /** Format: date-time */
+            updated_at: string;
         };
         LoginRequest: {
             email: string;
@@ -3967,6 +4065,13 @@ export interface components {
             hit: boolean;
             text: string;
         };
+        /** @enum {string} */
+        SortDirection: "asc" | "desc";
+        SortRule: {
+            /** Format: uuid */
+            column_id: string;
+            direction?: components["schemas"]["SortDirection"];
+        };
         StartHuddleRequest: {
             /** Format: uuid */
             channel_id?: string | null;
@@ -4156,6 +4261,11 @@ export interface components {
             collapsed?: boolean | null;
             name?: string | null;
         };
+        UpdateViewRequest: {
+            config?: components["schemas"]["ViewConfig"] | null;
+            kind?: components["schemas"]["ViewKind"] | null;
+            name?: string | null;
+        };
         UpdateWorkspaceRequest: {
             description?: string | null;
             icon_url?: string | null;
@@ -4221,6 +4331,17 @@ export interface components {
             provider: string;
             /** Format: int32 */
             start?: number | null;
+        };
+        ViewConfig: {
+            filters?: components["schemas"]["FilterRule"][];
+            /** Format: uuid */
+            group_by?: string | null;
+            sort?: components["schemas"]["SortRule"][];
+        };
+        /** @enum {string} */
+        ViewKind: "table" | "board";
+        ViewOrder: {
+            view_ids: string[];
         };
         VoteRequest: {
             option_ids: string[];
@@ -5781,6 +5902,52 @@ export interface operations {
             };
         };
     };
+    delete_list_view: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                view_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    update_list_view: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                view_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateViewRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListView"];
+                };
+            };
+        };
+    };
     get_list: {
         parameters: {
             query?: never;
@@ -5940,6 +6107,56 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ListItem"];
+                };
+            };
+        };
+    };
+    reorder_list_views: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                list_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ViewOrder"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_ListView"];
+                };
+            };
+        };
+    };
+    create_list_view: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                list_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateViewRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListView"];
                 };
             };
         };

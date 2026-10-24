@@ -1068,3 +1068,260 @@ async fn exports_retention_and_channel_deletion_cover_lists(pool: PgPool) {
         .unwrap();
     assert_eq!(remaining, 0, "a deleted channel takes its lists with it");
 }
+
+async fn add_view(app: &axum::Router, token: &str, list: &str, body: Value) -> (StatusCode, Value) {
+    send(
+        app,
+        "POST",
+        &format!("/api/lists/{list}/views"),
+        Some(token),
+        Some(body),
+    )
+    .await
+}
+
+async fn views(app: &axum::Router, token: &str, list: &str) -> Vec<Value> {
+    let (status, body) = send(app, "GET", &format!("/api/lists/{list}"), Some(token), None).await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    body["views"].as_array().unwrap().clone()
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn views_are_shared_checked_and_follow_their_columns(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "list-views-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "List Views WS").await;
+    let (member_id, _, member) = seed_and_login(&app, &state, "list-views-member", false).await;
+    add_ws_member(&state, ws, member_id, "member").await;
+    let channel = seed_channel(&state, ws, owner_id, "planning", false).await;
+    let news = announcement(&state, ws, owner_id).await;
+
+    let columns = json!([
+        text_column("Task"),
+        { "name": "Status", "kind": "select", "options": { "choices": [{ "label": "Todo" }, { "label": "Done" }] } },
+        { "name": "Owner", "kind": "person" },
+        { "name": "Due", "kind": "date" },
+    ]);
+    let detail = list_in(&app, &owner, ws, Some(channel), columns.clone()).await;
+    let list = list_id(&detail).to_string();
+    assert_eq!(detail["views"].as_array().unwrap().len(), 1);
+    assert_eq!(detail["views"][0]["name"], "Table");
+    assert_eq!(detail["views"][0]["kind"], "table");
+    let (task, status_col, owner_col, due) = (
+        column_id(&detail, 0),
+        column_id(&detail, 1),
+        column_id(&detail, 2),
+        column_id(&detail, 3),
+    );
+    let todo = detail["columns"][1]["options"]["choices"][0]["id"].clone();
+
+    let (status, board) = add_view(
+        &app,
+        &member,
+        &list,
+        json!({
+            "name": "Board",
+            "kind": "board",
+            "config": {
+                "group_by": status_col,
+                "sort": [{ "column_id": due, "direction": "desc" }],
+                "filters": [
+                    { "column_id": owner_col, "op": "is", "value": ["me"] },
+                    { "column_id": task, "op": "contains", "value": "  login " },
+                ],
+            },
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{board:?}");
+    assert_eq!(board["config"]["filters"][1]["value"], "login");
+    let seen = views(&app, &owner, &list).await;
+    assert_eq!(
+        seen.iter().map(|v| v["name"].clone()).collect::<Vec<_>>(),
+        [json!("Table"), json!("Board")],
+        "a view one person saves is everyone's"
+    );
+
+    let rejected = [
+        (
+            json!({ "name": "", "kind": "table" }),
+            "a view needs a name",
+        ),
+        (
+            json!({ "name": "B", "kind": "board", "config": { "group_by": task } }),
+            "a board groups by a single-select",
+        ),
+        (
+            json!({ "name": "T", "kind": "table", "config": { "group_by": status_col } }),
+            "a table does not group",
+        ),
+        (
+            json!({ "name": "T", "kind": "table", "config": { "filters": [{ "column_id": task, "op": "overdue" }] } }),
+            "a text column is never overdue",
+        ),
+        (
+            json!({ "name": "T", "kind": "table", "config": { "filters": [{ "column_id": status_col, "op": "is", "value": [Uuid::new_v4()] }] } }),
+            "a choice the column does not offer",
+        ),
+        (
+            json!({ "name": "T", "kind": "table", "config": { "sort": [{ "column_id": Uuid::new_v4() }] } }),
+            "a column of another list",
+        ),
+    ];
+    for (body, why) in rejected {
+        let (status, _) = add_view(&app, &member, &list, body).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{why}");
+    }
+
+    let announced = list_in(&app, &owner, ws, Some(news), columns.clone()).await;
+    let (status, _) = add_view(
+        &app,
+        &member,
+        list_id(&announced),
+        json!({ "name": "Mine", "kind": "table" }),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "a reader who cannot post cannot add a view"
+    );
+
+    let board_id = board["id"].as_str().unwrap().to_string();
+    let (status, renamed) = send(
+        &app,
+        "PATCH",
+        &format!("/api/list-views/{board_id}"),
+        Some(&owner),
+        Some(json!({
+            "name": "By status",
+            "config": {
+                "group_by": status_col,
+                "filters": [{ "column_id": status_col, "op": "is_not", "value": [todo] }],
+            },
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{renamed:?}");
+    assert_eq!(renamed["name"], "By status");
+    assert_eq!(renamed["config"]["sort"], json!([]));
+
+    let (status, _) = send(
+        &app,
+        "PATCH",
+        &format!("/api/list-columns/{status_col}"),
+        Some(&owner),
+        Some(json!({ "options": { "choices": [{ "label": "Done" }] } })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let pruned = &views(&app, &owner, &list).await[1];
+    assert_eq!(pruned["config"]["group_by"], json!(status_col));
+    assert_eq!(
+        pruned["config"]["filters"],
+        json!([]),
+        "a filter on a removed choice goes with it"
+    );
+
+    let (status, _) = send(
+        &app,
+        "DELETE",
+        &format!("/api/list-columns/{status_col}"),
+        Some(&owner),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let pruned = &views(&app, &owner, &list).await[1];
+    assert_eq!(
+        pruned["config"].get("group_by"),
+        None,
+        "a board loses a deleted grouping column"
+    );
+    assert_eq!(pruned["kind"], "board");
+
+    let mut order: Vec<String> = views(&app, &owner, &list)
+        .await
+        .iter()
+        .map(|v| v["id"].as_str().unwrap().to_string())
+        .collect();
+    order.reverse();
+    let (status, reordered) = send(
+        &app,
+        "PUT",
+        &format!("/api/lists/{list}/view-order"),
+        Some(&member),
+        Some(json!({ "view_ids": order })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{reordered:?}");
+    assert_eq!(reordered["data"][0]["name"], "By status");
+    let (status, _) = send(
+        &app,
+        "PUT",
+        &format!("/api/lists/{list}/view-order"),
+        Some(&member),
+        Some(json!({ "view_ids": &order[..1] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "every view, once");
+
+    let (status, _) = send(
+        &app,
+        "DELETE",
+        &format!("/api/list-views/{}", order[1]),
+        Some(&member),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _) = send(
+        &app,
+        "DELETE",
+        &format!("/api/list-views/{}", order[0]),
+        Some(&member),
+        None,
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "a list keeps at least one view"
+    );
+
+    for i in 1..20 {
+        let (status, body) = add_view(
+            &app,
+            &owner,
+            &list,
+            json!({ "name": format!("v{i}"), "kind": "table" }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body:?}");
+    }
+    let (status, _) = add_view(
+        &app,
+        &owner,
+        &list,
+        json!({ "name": "one too many", "kind": "table" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+
+    let rows: Vec<(String, Value)> = sqlx::query_as(
+        "SELECT event_type, payload FROM event_outbox
+          WHERE event_type = 'list.views_changed' AND workspace_id = $1 ORDER BY id",
+    )
+    .bind(ws)
+    .fetch_all(&state.pool)
+    .await
+    .unwrap();
+    assert!(rows.len() >= 6, "every view change is announced");
+    for (event_type, payload) in &rows {
+        assert_eq!(payload["channel_id"], json!(channel));
+        assert!(
+            shared_events::frames::ServerFrame::from_event(event_type, payload).is_ok(),
+            "{payload:?}"
+        );
+    }
+}

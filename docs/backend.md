@@ -752,11 +752,24 @@ it the change is 409 "This change clears N cells". `POST /list-columns/:id/previ
 numbers first. A change to a list's structure locks the list row; a cell edit takes a share
 lock, so edits run side by side but never against a column that is changing.
 
+`list_views` (at most 20 a list, never fewer than one; a new list starts with a "Table") are
+saved on the list and shared by everyone who sees it, as in Slack; changing one takes the
+right to edit the list. A view is a `table` or a `board` with a `config`: `group_by` (a board's
+single-select column), `sort` (at most 3 `{ column_id, direction }`) and `filters` (at most 10,
+all of which must hold, `{ column_id, op, value? }`). The server checks each rule against its
+column's kind: `contains` for text and links, `is`/`is_not` with choice ids or people (`"me"`
+is whoever looks), `lt`/`gt` for numbers and dates, `this_week`/`overdue` for dates,
+`empty`/`not_empty`, `checked`/`unchecked`. Filtering and sorting run in the client over the
+items it already holds. A column change or deletion prunes every view in the same
+transaction — a deleted column's rules, a removed choice, a filter the new kind cannot take,
+a board's grouping by a column that is no longer a single-select — so a saved view never
+refers to what is gone.
+
 Each change is staged in the outbox in its transaction and sent to the list's audience: the
 channel for a channel list, the owner's sessions for a personal one. Frames: `list.upserted`
 (created, renamed), `list.deleted`, `list.columns_changed` (the columns as they now are;
 `items_rewritten` when cells were converted or dropped, so the client refetches items),
-`list.item_upserted` (the row as written) and `list.item_deleted`. A deleted channel takes its
+`list.views_changed` (the views as they now are), `list.item_upserted` (the row as written) and `list.item_deleted`. A deleted channel takes its
 lists with it; retention's message window also removes list items not edited within it and
 deleted lists; a workspace export writes `lists.jsonl` (each list with its columns) and every
 list as `lists/<id>.csv`, a DM's list and personal lists only when DMs are included.
@@ -764,7 +777,7 @@ list as `lists/<id>.csv`, a DM's list and personal lists only when DMs are inclu
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/lists` | Query: `channel_id?` | `{ data: List[] }` — the caller's personal lists and those in conversations they can read; with `channel_id`, that conversation's |
-| POST | `/workspaces/:ws_id/lists` | `{ title, description?, channel_id?, columns?: [{ name, kind, options? }] }` | `ListDetail` (`{ list, columns }`) |
+| POST | `/workspaces/:ws_id/lists` | `{ title, description?, channel_id?, columns?: [{ name, kind, options? }] }` | `ListDetail` (`{ list, columns, views }`) |
 | GET | `/lists/:list_id` | — | `ListDetail` |
 | PATCH | `/lists/:list_id` | `{ title?, description? }` | `List` |
 | DELETE | `/lists/:list_id` | — | `{ status: "deleted" }` — creator or channel moderator |
@@ -778,6 +791,10 @@ list as `lists/<id>.csv`, a DM's list and personal lists only when DMs are inclu
 | PATCH | `/list-items/:item_id` | `{ values }` — only the cells named | `ListItem` |
 | POST | `/list-items/:item_id/move` | `{ after_id }` — `null` moves it to the top | `ListItem` |
 | DELETE | `/list-items/:item_id` | — | `{ status: "deleted" }` |
+| POST | `/lists/:list_id/views` | `{ name, kind, config? }` | `ListView` — 422 for a rule its column cannot take |
+| PUT | `/lists/:list_id/view-order` | `{ view_ids }` — every view once | `{ data: ListView[] }` |
+| PATCH | `/list-views/:view_id` | `{ name?, kind?, config? }` — without `config`, a kind change keeps the rules that still fit | `ListView` |
+| DELETE | `/list-views/:view_id` | — | `{ status: "deleted" }` — 422 for a list's last view |
 
 ---
 

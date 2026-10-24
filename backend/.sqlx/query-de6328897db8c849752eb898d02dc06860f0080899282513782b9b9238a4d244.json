@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE list_views v SET position = (o.position - 1)::int\n               FROM unnest($2::uuid[]) WITH ORDINALITY AS o(id, position)\n              WHERE v.id = o.id AND v.list_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "de6328897db8c849752eb898d02dc06860f0080899282513782b9b9238a4d244"
+}

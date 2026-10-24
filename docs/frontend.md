@@ -249,12 +249,29 @@ POST `/polls/{id}/close`
 
 ---
 
-### `lists/ListView`, `ListGrid`, `ItemPanel`
+### `lists/ListView`, `ListGrid`, `ListBoard`, `ItemPanel`
 `ChannelListsMenu` sits first in the channel's bookmark bar: the channel's lists, and *New
 list* (`NewListModal`, a title and a template from `templates.ts`) for whoever may post there.
 `ListView` is the route view: the title (click to rename), the channel it lives in, the item
 count, *N hidden* to show hidden columns again, and *Delete list* for its creator or a channel
-moderator. The open item is `?item=` in the url, so it survives a reload.
+moderator. The open item is `?item=` in the url, so it survives a reload, and so is the
+open view, `?view=` (the first view without it).
+
+`ViewTabs` is a tablist of the list's saved views (←/→ between them; a menu renames, moves and
+deletes the active one; *+* adds a table or a board). `ViewControls` holds a board's *Group by*
+and the *Sort* and *Filter* popovers; each change saves the view for everyone at once
+(`PATCH /list-views/{id}`, optimistic). A filter row that is still missing its value stays a
+draft in the popover and is not sent. `viewModel.ts` does the work in the client:
+`usableConfig` drops rules whose column is gone or no longer fits, `applyView` filters (every
+rule must hold, `"me"` is the viewer, *this week* is Monday to Sunday in local time) and sorts
+(empty cells last in either direction, rank breaks ties). Items created in this session stay
+in sight even when the filter would hide them. While a table is sorted or filtered,
+`ListGrid` drops its row grips and Alt + ↑/↓, since rank is not what orders it.
+
+`ListBoard` lays a lane per choice of the grouping column, then *No <column>*, each listing 50
+cards at a time. A card is a button: Enter opens the item, the arrows walk cards, and Alt +
+←/→ or dragging it to another lane writes the new choice through the same optimistic cell
+edit the table uses. *New* in a lane creates an item with that choice and opens it.
 
 `ListGrid` is an ARIA grid that keeps focus on itself and points `aria-activedescendant` at the
 active cell, so the virtualized rows (`@tanstack/react-virtual`, fixed 36 px rows, the header
@@ -278,7 +295,7 @@ server's row replaces it. `listSync.ts` applies the `list.*` frames to the cache
 `item_upserted` older than the cached row is ignored.
 
 **API calls:** everything under `/workspaces/{id}/lists`, `/lists/{id}`, `/list-columns/{id}`,
-`/list-items/{id}`
+`/list-items/{id}`, `/list-views/{id}`
 
 ---
 
@@ -612,6 +629,7 @@ typing, and `notification` events are handled separately — by `usePresenceStor
 | `huddle.started` / `huddle.ended` | Set/clear the channel's active-huddle entry in `useWorkspaceStore` |
 | `list.upserted` / `list.deleted` | Patch or refetch the list, refetch the lists menus (`features/lists/listSync.ts`) |
 | `list.columns_changed` | Replace the columns; refetch the items when `items_rewritten` |
+| `list.views_changed` | Replace the views |
 | `list.item_upserted` / `list.item_deleted` | Place the row by rank, or drop it |
 
 ---

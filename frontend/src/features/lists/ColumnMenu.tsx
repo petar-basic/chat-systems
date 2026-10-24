@@ -1,4 +1,4 @@
-import { useRef, type KeyboardEvent, type ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import { AnchoredPopover } from '@/shared/components/Popover/AnchoredPopover';
 import type { ColumnKind, ListColumn } from './listModel';
+import { MenuItem } from './MenuItem';
+import { roveMenu } from './roveMenu';
 
 export interface ColumnActions {
   onEdit: (column: ListColumn) => void;
@@ -48,49 +50,6 @@ interface Props {
   onOpen: () => void;
   onClose: () => void;
   actions: ColumnActions;
-}
-
-function MenuItem({
-  icon,
-  label,
-  onSelect,
-  danger = false,
-  disabled = false,
-  first = false,
-  qa,
-}: {
-  icon: ReactNode;
-  label: string;
-  onSelect: () => void;
-  danger?: boolean;
-  disabled?: boolean;
-  first?: boolean;
-  qa: string;
-}) {
-  return (
-    <button
-      role="menuitem"
-      data-autofocus={first || undefined}
-      disabled={disabled}
-      onClick={onSelect}
-      data-qa={qa}
-      className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 rounded cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:bg-raised hover:bg-raised ${
-        danger ? 'text-danger' : 'text-fg-dim'
-      }`}
-    >
-      {icon}
-      {label}
-    </button>
-  );
-}
-
-function roveMenu(e: KeyboardEvent<HTMLDivElement>) {
-  if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
-  e.preventDefault();
-  const items = [...e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')];
-  const at = items.indexOf(document.activeElement as HTMLButtonElement);
-  const next = e.key === 'ArrowDown' ? (at + 1) % items.length : (at - 1 + items.length) % items.length;
-  items[next]?.focus();
 }
 
 export function ColumnMenu({ column, index, count, canEdit, open, onOpen, onClose, actions }: Props) {

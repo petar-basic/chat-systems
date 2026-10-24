@@ -13,6 +13,10 @@ use super::models::{
 };
 use super::rank;
 use super::repo::Visibility;
+use super::views::{
+    clean_view_name, CreateViewRequest, ListView, UpdateViewRequest, ViewConfig, ViewKind,
+    MAX_VIEWS,
+};
 use crate::authz;
 use crate::messaging::publisher::Staged;
 use crate::state::AppState;
@@ -174,6 +178,17 @@ pub async fn create(
             .await?;
     }
     let columns = state.list_repo.columns_in(&mut tx, list.id).await?;
+    let view = state
+        .list_repo
+        .insert_view_in(
+            &mut tx,
+            list.id,
+            "Table",
+            ViewKind::Table,
+            &ViewConfig::default(),
+            user_id,
+        )
+        .await?;
     let staged = stage(
         state,
         &mut tx,
@@ -184,7 +199,11 @@ pub async fn create(
     .await?;
     tx.commit().await?;
     state.publisher.dispatch(staged).await;
-    Ok(ListDetail { list, columns })
+    Ok(ListDetail {
+        list,
+        columns,
+        views: vec![view],
+    })
 }
 
 pub async fn update(
@@ -243,7 +262,12 @@ pub async fn delete(state: &AppState, user_id: Uuid, list_id: Uuid) -> AppResult
 pub async fn detail(state: &AppState, user_id: Uuid, list_id: Uuid) -> AppResult<ListDetail> {
     let list = readable(state, user_id, list_id).await?;
     let columns = state.list_repo.columns(list.id).await?;
-    Ok(ListDetail { list, columns })
+    let views = state.list_repo.views(list.id).await?;
+    Ok(ListDetail {
+        list,
+        columns,
+        views,
+    })
 }
 
 async fn columns_changed(
@@ -262,6 +286,56 @@ async fn columns_changed(
     )
     .await?;
     Ok((columns, staged))
+}
+
+async fn views_changed(
+    state: &AppState,
+    conn: &mut PgConnection,
+    list: &List,
+) -> AppResult<(Vec<ListView>, Staged)> {
+    let views = state.list_repo.views_in(conn, list.id).await?;
+    let staged = stage(
+        state,
+        conn,
+        list,
+        "list.views_changed",
+        json!({ "views": views }),
+    )
+    .await?;
+    Ok((views, staged))
+}
+
+async fn prune_views(
+    state: &AppState,
+    conn: &mut PgConnection,
+    list: &List,
+    columns: &[ListColumn],
+) -> AppResult<Option<Staged>> {
+    let mut pruned = false;
+    for view in state.list_repo.views_in(conn, list.id).await? {
+        let config = view.config.pruned(view.kind, columns);
+        if config != view.config.0 {
+            state
+                .list_repo
+                .update_view_in(conn, view.id, &view.name, view.kind, &config)
+                .await?;
+            pruned = true;
+        }
+    }
+    if !pruned {
+        return Ok(None);
+    }
+    let (_, staged) = views_changed(state, conn, list).await?;
+    Ok(Some(staged))
+}
+
+fn names_each_once(order: &[Uuid], existing: impl Iterator<Item = Uuid>) -> bool {
+    let mut given = order.to_vec();
+    given.sort();
+    given.dedup();
+    let mut existing: Vec<Uuid> = existing.collect();
+    existing.sort();
+    given.len() == order.len() && given == existing
 }
 
 pub async fn add_column(
@@ -438,8 +512,12 @@ pub async fn update_column(
             .await?;
     }
     let (columns, staged) = columns_changed(state, &mut tx, &list, rewritten).await?;
+    let pruned = prune_views(state, &mut tx, &list, &columns).await?;
     tx.commit().await?;
     state.publisher.dispatch(staged).await;
+    if let Some(pruned) = pruned {
+        state.publisher.dispatch(pruned).await;
+    }
     Ok(column_of(&columns, column_id)?.clone())
 }
 
@@ -452,9 +530,13 @@ pub async fn delete_column(state: &AppState, user_id: Uuid, column_id: Uuid) -> 
         .list_repo
         .delete_column_in(&mut tx, list_id, column_id)
         .await?;
-    let (_, staged) = columns_changed(state, &mut tx, &list, true).await?;
+    let (columns, staged) = columns_changed(state, &mut tx, &list, true).await?;
+    let pruned = prune_views(state, &mut tx, &list, &columns).await?;
     tx.commit().await?;
     state.publisher.dispatch(staged).await;
+    if let Some(pruned) = pruned {
+        state.publisher.dispatch(pruned).await;
+    }
     Ok(())
 }
 
@@ -468,12 +550,7 @@ pub async fn reorder_columns(
     let mut tx = state.pool.begin().await?;
     let list = lock(state, &mut tx, list_id).await?;
     let current = state.list_repo.columns_in(&mut tx, list_id).await?;
-    let mut given = order.to_vec();
-    given.sort();
-    given.dedup();
-    let mut existing: Vec<Uuid> = current.iter().map(|column| column.id).collect();
-    existing.sort();
-    if given.len() != order.len() || given != existing {
+    if !names_each_once(order, current.iter().map(|column| column.id)) {
         return Err(AppError::Validation(
             "Name every column of the list exactly once".into(),
         ));
@@ -486,6 +563,124 @@ pub async fn reorder_columns(
     tx.commit().await?;
     state.publisher.dispatch(staged).await;
     Ok(columns)
+}
+
+async fn view_place(state: &AppState, view_id: Uuid) -> AppResult<Uuid> {
+    state
+        .list_repo
+        .view_list(view_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("View not found".into()))
+}
+
+pub async fn create_view(
+    state: &AppState,
+    user_id: Uuid,
+    list_id: Uuid,
+    req: &CreateViewRequest,
+) -> AppResult<ListView> {
+    writable(state, user_id, list_id).await?;
+    let name = clean_view_name(&req.name)?;
+    let mut tx = state.pool.begin().await?;
+    let list = lock(state, &mut tx, list_id).await?;
+    if state.list_repo.views_in(&mut tx, list_id).await?.len() >= MAX_VIEWS {
+        return Err(AppError::Validation(format!(
+            "A list can have at most {MAX_VIEWS} views"
+        )));
+    }
+    let columns = state.list_repo.columns_in(&mut tx, list_id).await?;
+    let config = req.config.check(req.kind, &columns)?;
+    let view = state
+        .list_repo
+        .insert_view_in(&mut tx, list_id, &name, req.kind, &config, user_id)
+        .await?;
+    let (_, staged) = views_changed(state, &mut tx, &list).await?;
+    tx.commit().await?;
+    state.publisher.dispatch(staged).await;
+    Ok(view)
+}
+
+fn view_of(views: &[ListView], view_id: Uuid) -> AppResult<&ListView> {
+    views
+        .iter()
+        .find(|view| view.id == view_id)
+        .ok_or_else(|| AppError::NotFound("View not found".into()))
+}
+
+pub async fn update_view(
+    state: &AppState,
+    user_id: Uuid,
+    view_id: Uuid,
+    req: &UpdateViewRequest,
+) -> AppResult<ListView> {
+    let list_id = view_place(state, view_id).await?;
+    writable(state, user_id, list_id).await?;
+    let mut tx = state.pool.begin().await?;
+    let list = lock(state, &mut tx, list_id).await?;
+    let views = state.list_repo.views_in(&mut tx, list_id).await?;
+    let view = view_of(&views, view_id)?;
+    let name = match &req.name {
+        Some(name) => clean_view_name(name)?,
+        None => view.name.clone(),
+    };
+    let kind = req.kind.unwrap_or(view.kind);
+    let columns = state.list_repo.columns_in(&mut tx, list_id).await?;
+    let config = match &req.config {
+        Some(config) => config.check(kind, &columns)?,
+        None => view.config.pruned(kind, &columns),
+    };
+    state
+        .list_repo
+        .update_view_in(&mut tx, view_id, &name, kind, &config)
+        .await?;
+    let (views, staged) = views_changed(state, &mut tx, &list).await?;
+    tx.commit().await?;
+    state.publisher.dispatch(staged).await;
+    Ok(view_of(&views, view_id)?.clone())
+}
+
+pub async fn delete_view(state: &AppState, user_id: Uuid, view_id: Uuid) -> AppResult<()> {
+    let list_id = view_place(state, view_id).await?;
+    writable(state, user_id, list_id).await?;
+    let mut tx = state.pool.begin().await?;
+    let list = lock(state, &mut tx, list_id).await?;
+    let views = state.list_repo.views_in(&mut tx, list_id).await?;
+    view_of(&views, view_id)?;
+    if views.len() == 1 {
+        return Err(AppError::Validation(
+            "A list keeps at least one view".into(),
+        ));
+    }
+    state.list_repo.delete_view_in(&mut tx, view_id).await?;
+    let (_, staged) = views_changed(state, &mut tx, &list).await?;
+    tx.commit().await?;
+    state.publisher.dispatch(staged).await;
+    Ok(())
+}
+
+pub async fn reorder_views(
+    state: &AppState,
+    user_id: Uuid,
+    list_id: Uuid,
+    order: &[Uuid],
+) -> AppResult<Vec<ListView>> {
+    writable(state, user_id, list_id).await?;
+    let mut tx = state.pool.begin().await?;
+    let list = lock(state, &mut tx, list_id).await?;
+    let current = state.list_repo.views_in(&mut tx, list_id).await?;
+    if !names_each_once(order, current.iter().map(|view| view.id)) {
+        return Err(AppError::Validation(
+            "Name every view of the list exactly once".into(),
+        ));
+    }
+    state
+        .list_repo
+        .reorder_views_in(&mut tx, list_id, order)
+        .await?;
+    let (views, staged) = views_changed(state, &mut tx, &list).await?;
+    tx.commit().await?;
+    state.publisher.dispatch(staged).await;
+    Ok(views)
 }
 
 pub async fn items(state: &AppState, user_id: Uuid, list_id: Uuid) -> AppResult<Vec<ListItem>> {

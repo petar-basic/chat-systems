@@ -5,7 +5,7 @@ import { IconButton } from '@/shared/components/IconButton/IconButton';
 import { CellContent } from './CellContent';
 import { CellEditor, type Move } from './CellEditor';
 import { ColumnMenu, type ColumnActions } from './ColumnMenu';
-import { COLUMN_WIDTHS, MAX_ITEMS, typesText, type ListColumn, type ListItem } from './listModel';
+import { COLUMN_WIDTHS, typesText, type ListColumn, type ListItem } from './listModel';
 import type { People } from './people';
 
 const ROW_HEIGHT = 36;
@@ -18,6 +18,9 @@ interface Props {
   columns: ListColumn[];
   items: ListItem[];
   canEdit: boolean;
+  reorderable: boolean;
+  canAdd: boolean;
+  emptyText: string;
   people: People;
   columnActions: ColumnActions;
   openItemId: string | null;
@@ -47,6 +50,9 @@ export function ListGrid({
   columns,
   items,
   canEdit,
+  reorderable,
+  canAdd,
+  emptyText,
   people,
   columnActions,
   openItemId,
@@ -170,7 +176,7 @@ export function ListGrid({
 
   const moveRow = (row: number, delta: -1 | 1) => {
     const item = items[row];
-    if (!canEdit || !item) return;
+    if (!canEdit || !reorderable || !item) return;
     if (delta === -1 && row > 0) onMoveItem(item.id, items[row - 2]?.id ?? null);
     if (delta === 1 && row < items.length - 1) onMoveItem(item.id, items[row + 1].id);
     requestAnimationFrame(() =>
@@ -410,7 +416,7 @@ export function ListGrid({
                   className="sticky left-0 z-10 flex shrink-0 items-center gap-0.5 border-b border-r border-line/40 bg-surface pl-1 text-xs text-subtle"
                   style={{ width: LEAD_WIDTH }}
                 >
-                  {canEdit ? (
+                  {canEdit && reorderable ? (
                     <span
                       draggable
                       onDragStart={(e) => {
@@ -493,7 +499,7 @@ export function ListGrid({
 
         {items.length === 0 && (
           <p className="sticky left-0 px-4 py-6 text-sm text-muted" data-qa="list-empty">
-            {columns.length === 0 ? 'Every column is hidden.' : 'No items yet.'}
+            {columns.length === 0 ? 'Every column is hidden.' : emptyText}
           </p>
         )}
       </div>
@@ -502,7 +508,7 @@ export function ListGrid({
         <div className="shrink-0 border-t border-line/50 px-3 py-1.5">
           <button
             onClick={() => void addItem()}
-            disabled={items.length >= MAX_ITEMS}
+            disabled={!canAdd}
             data-qa="list-add-item"
             className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-muted transition hover:bg-raised/50 hover:text-fg disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
           >

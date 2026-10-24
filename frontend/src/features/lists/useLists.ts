@@ -16,11 +16,14 @@ import {
   type ListDetail,
   type ListItem,
 } from './listModel';
+import type { SavedView } from './viewModel';
 
 export type CreateListRequest = components['schemas']['CreateListRequest'];
 export type NewColumn = components['schemas']['NewColumn'];
 export type UpdateColumnRequest = components['schemas']['UpdateColumnRequest'];
 export type ColumnChangePreview = components['schemas']['ColumnChangePreview'];
+export type CreateViewRequest = components['schemas']['CreateViewRequest'];
+export type UpdateViewRequest = components['schemas']['UpdateViewRequest'];
 
 interface Snapshot {
   before: ListItem[] | undefined;
@@ -295,4 +298,90 @@ export function useItemActions(listId: string, instanceUrl?: string) {
   });
 
   return { create, update, remove, move };
+}
+
+export function useViewActions(listId: string, instanceUrl?: string) {
+  const queryClient = useQueryClient();
+  const setViews = (views: SavedView[]) =>
+    patchDetail(queryClient, listId, (detail) => ({ ...detail, views }));
+  const replaceView = (view: SavedView) =>
+    patchDetail(queryClient, listId, (detail) => ({
+      ...detail,
+      views: detail.views.some((v) => v.id === view.id)
+        ? detail.views.map((v) => (v.id === view.id ? view : v))
+        : [...detail.views, view],
+    }));
+  const failed = (err: unknown) => {
+    toast.error(toUserMessage(err, ErrorLabels.ListViewFailed));
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.list(listId) });
+  };
+
+  const create = useMutation({
+    mutationFn: (body: CreateViewRequest) =>
+      api(instanceUrl).typed((c) =>
+        c.POST('/lists/{list_id}/views', { params: { path: { list_id: listId } }, body }),
+      ),
+    onSuccess: replaceView,
+    onError: (err) => toast.error(toUserMessage(err, ErrorLabels.ListViewFailed)),
+  });
+
+  const update = useMutation({
+    mutationFn: ({ viewId, body }: { viewId: string; body: UpdateViewRequest }) =>
+      api(instanceUrl).typed((c) =>
+        c.PATCH('/list-views/{view_id}', { params: { path: { view_id: viewId } }, body }),
+      ),
+    onMutate: ({ viewId, body }) =>
+      patchDetail(queryClient, listId, (detail) => ({
+        ...detail,
+        views: detail.views.map((v) =>
+          v.id === viewId
+            ? {
+                ...v,
+                name: body.name ?? v.name,
+                kind: body.kind ?? v.kind,
+                config: body.config ?? v.config,
+              }
+            : v,
+        ),
+      })),
+    onSuccess: replaceView,
+    onError: failed,
+  });
+
+  const remove = useMutation({
+    mutationFn: (viewId: string) =>
+      api(instanceUrl).typed((c) =>
+        c.DELETE('/list-views/{view_id}', { params: { path: { view_id: viewId } } }),
+      ),
+    onMutate: (viewId) =>
+      patchDetail(queryClient, listId, (detail) => ({
+        ...detail,
+        views: detail.views.filter((v) => v.id !== viewId),
+      })),
+    onError: failed,
+  });
+
+  const reorder = useMutation({
+    mutationFn: (viewIds: string[]) =>
+      api(instanceUrl).typed((c) =>
+        c.PUT('/lists/{list_id}/view-order', {
+          params: { path: { list_id: listId } },
+          body: { view_ids: viewIds },
+        }),
+      ),
+    onMutate: (viewIds) =>
+      patchDetail(queryClient, listId, (detail) => ({
+        ...detail,
+        views: viewIds
+          .map((id, position) => {
+            const view = detail.views.find((v) => v.id === id);
+            return view && { ...view, position };
+          })
+          .filter((v): v is SavedView => !!v),
+      })),
+    onSuccess: (res) => setViews(res.data),
+    onError: failed,
+  });
+
+  return { create, update, remove, reorder };
 }

@@ -3,6 +3,7 @@ use sqlx::{PgConnection, PgPool};
 use uuid::Uuid;
 
 use super::models::{ColumnKind, ColumnOptions, List, ListColumn, ListItem};
+use super::views::{ListView, ViewConfig, ViewKind};
 
 #[derive(Clone)]
 pub struct ListRepo {
@@ -242,6 +243,113 @@ impl ListRepo {
             "UPDATE list_columns c SET position = (o.position - 1)::int
                FROM unnest($2::uuid[]) WITH ORDINALITY AS o(id, position)
               WHERE c.id = o.id AND c.list_id = $1",
+            list_id,
+            ids
+        )
+        .execute(conn)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn views(&self, list_id: Uuid) -> sqlx::Result<Vec<ListView>> {
+        let mut conn = self.pool.acquire().await?;
+        self.views_in(&mut conn, list_id).await
+    }
+
+    pub async fn views_in(
+        &self,
+        conn: &mut PgConnection,
+        list_id: Uuid,
+    ) -> sqlx::Result<Vec<ListView>> {
+        sqlx::query_as!(
+            ListView,
+            r#"SELECT id, list_id, position, name, kind AS "kind: ViewKind",
+                      config AS "config: Json<ViewConfig>", created_by, created_at, updated_at
+                 FROM list_views WHERE list_id = $1
+                ORDER BY position, id"#,
+            list_id
+        )
+        .fetch_all(conn)
+        .await
+    }
+
+    pub async fn view_list(&self, view_id: Uuid) -> sqlx::Result<Option<Uuid>> {
+        sqlx::query_scalar!(
+            "SELECT v.list_id FROM list_views v
+               JOIN lists l ON l.id = v.list_id
+              WHERE v.id = $1 AND l.deleted_at IS NULL",
+            view_id
+        )
+        .fetch_optional(&self.pool)
+        .await
+    }
+
+    pub async fn insert_view_in(
+        &self,
+        conn: &mut PgConnection,
+        list_id: Uuid,
+        name: &str,
+        kind: ViewKind,
+        config: &ViewConfig,
+        created_by: Uuid,
+    ) -> sqlx::Result<ListView> {
+        let config = serde_json::to_value(config).unwrap_or_default();
+        sqlx::query_as!(
+            ListView,
+            r#"INSERT INTO list_views (list_id, position, name, kind, config, created_by)
+               VALUES ($1,
+                       (SELECT COALESCE(MAX(position) + 1, 0) FROM list_views WHERE list_id = $1),
+                       $2, $3, $4, $5)
+               RETURNING id, list_id, position, name, kind AS "kind: ViewKind",
+                         config AS "config: Json<ViewConfig>", created_by, created_at, updated_at"#,
+            list_id,
+            name,
+            kind as ViewKind,
+            config,
+            created_by
+        )
+        .fetch_one(conn)
+        .await
+    }
+
+    pub async fn update_view_in(
+        &self,
+        conn: &mut PgConnection,
+        id: Uuid,
+        name: &str,
+        kind: ViewKind,
+        config: &ViewConfig,
+    ) -> sqlx::Result<()> {
+        let config = serde_json::to_value(config).unwrap_or_default();
+        sqlx::query!(
+            "UPDATE list_views SET name = $2, kind = $3, config = $4, updated_at = NOW() WHERE id = $1",
+            id,
+            name,
+            kind as ViewKind,
+            config
+        )
+        .execute(conn)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn delete_view_in(&self, conn: &mut PgConnection, id: Uuid) -> sqlx::Result<()> {
+        sqlx::query!("DELETE FROM list_views WHERE id = $1", id)
+            .execute(conn)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn reorder_views_in(
+        &self,
+        conn: &mut PgConnection,
+        list_id: Uuid,
+        ids: &[Uuid],
+    ) -> sqlx::Result<()> {
+        sqlx::query!(
+            "UPDATE list_views v SET position = (o.position - 1)::int
+               FROM unnest($2::uuid[]) WITH ORDINALITY AS o(id, position)
+              WHERE v.id = o.id AND v.list_id = $1",
             list_id,
             ids
         )

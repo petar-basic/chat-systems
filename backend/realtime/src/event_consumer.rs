@@ -421,6 +421,7 @@ pub(crate) async fn handle_event_for(
         "list.upserted"
         | "list.deleted"
         | "list.columns_changed"
+        | "list.views_changed"
         | "list.item_upserted"
         | "list.item_deleted" => {
             let Some(frame) = typed(event_type, payload) else {

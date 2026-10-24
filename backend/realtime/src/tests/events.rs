@@ -678,6 +678,7 @@ async fn a_channel_lists_frames_reach_the_channel_and_nobody_else(pool: PgPool) 
             "list.columns_changed",
             with(json!({ "columns": [], "items_rewritten": false })),
         ),
+        ("list.views_changed", with(json!({ "views": [] }))),
         (
             "list.item_upserted",
             with(json!({ "item": { "id": Uuid::new_v4() } })),

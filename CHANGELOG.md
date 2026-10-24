@@ -44,6 +44,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   [the upgrade note](docs/RUNBOOK.md#upgrade-note-lists).
 - Migration 64 adds `list_columns.hidden`. `ListColumn` gains `hidden`, and `PATCH
   /list-columns/{id}` takes it.
+- Migration 65 adds the `list_view_kind` type and the `list_views` table, and gives every
+  existing list a "Table" view. `ListDetail` gains `views`, and a new frame,
+  `list.views_changed`, goes to the list's audience; deploy the backend and realtime images
+  together.
 
 ### Added
 
@@ -96,6 +100,14 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   header menu edits it (name, kind, choices; a change that clears cells says how many first),
   moves, hides or deletes it. An item opens in a side panel with every field, hidden ones
   included. Edits from others arrive live.
+- **Lists, views.** Tabs above a list hold its saved views, shared by everyone who sees the
+  list. A *Board* groups items by a single-select column, a lane per choice; drag a card to
+  another lane, or press Alt + ←/→ on it, to change its value, and *New* in a lane adds an
+  item there. Any view sorts by up to three columns and filters by up to ten rules: text that
+  contains, a choice or person that is or is not, numbers and dates before or after, due this
+  week, overdue, empty. *Only mine* and *Due this week* are one click. While a table is sorted
+  or filtered its rows stay where the view puts them, and items you just added stay in sight.
+  `POST /lists/{id}/views`, `PATCH`/`DELETE /list-views/{id}`, `PUT /lists/{id}/view-order`.
 
 ### Changed
 
