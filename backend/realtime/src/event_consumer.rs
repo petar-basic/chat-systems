@@ -256,6 +256,8 @@ pub(crate) async fn handle_event_for(
                     workspace_id: field("workspace_id"),
                     channel_id: field("channel_id"),
                     message_id: field("message_id"),
+                    list_id: field("list_id"),
+                    item_id: field("item_id"),
                     title: text("title").unwrap_or_default(),
                     body: text("body"),
                     kind: text("kind"),
@@ -423,7 +425,9 @@ pub(crate) async fn handle_event_for(
         | "list.columns_changed"
         | "list.views_changed"
         | "list.item_upserted"
-        | "list.item_deleted" => {
+        | "list.item_deleted"
+        | "list.comment_upserted"
+        | "list.comment_deleted" => {
             let Some(frame) = typed(event_type, payload) else {
                 return;
             };

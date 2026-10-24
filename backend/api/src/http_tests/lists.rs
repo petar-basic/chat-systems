@@ -1325,3 +1325,444 @@ async fn views_are_shared_checked_and_follow_their_columns(pool: PgPool) {
         );
     }
 }
+
+async fn join(state: &crate::state::AppState, channel: Uuid, user: Uuid) {
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(
+            channel,
+            user,
+            &crate::workspace::models::ChannelRole::Member,
+        )
+        .await
+        .unwrap();
+}
+
+async fn comment(
+    app: &axum::Router,
+    token: &str,
+    item: &str,
+    content: &str,
+) -> (StatusCode, Value) {
+    send(
+        app,
+        "POST",
+        &format!("/api/list-items/{item}/comments"),
+        Some(token),
+        Some(json!({ "content": content })),
+    )
+    .await
+}
+
+async fn staged(state: &crate::state::AppState, ws: Uuid, event_type: &str) -> Vec<Value> {
+    sqlx::query_scalar(
+        "SELECT payload FROM event_outbox WHERE event_type = $1 AND workspace_id = $2 ORDER BY id",
+    )
+    .bind(event_type)
+    .bind(ws)
+    .fetch_all(&state.pool)
+    .await
+    .unwrap()
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_item_keeps_a_comment_thread_its_conversation_can_join(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "list-comments-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "List Comments WS").await;
+    let (member_id, _, member) = seed_and_login(&app, &state, "list-comments-member", false).await;
+    add_ws_member(&state, ws, member_id, "member").await;
+    let (peer_id, _, peer) = seed_and_login(&app, &state, "list-comments-peer", false).await;
+    add_ws_member(&state, ws, peer_id, "member").await;
+    let (outsider_id, _, outsider) =
+        seed_and_login(&app, &state, "list-comments-outsider", false).await;
+    add_ws_member(&state, ws, outsider_id, "member").await;
+    let channel = seed_channel(&state, ws, owner_id, "squad", true).await;
+    join(&state, channel, member_id).await;
+    join(&state, channel, peer_id).await;
+
+    let list = list_in(
+        &app,
+        &owner,
+        ws,
+        Some(channel),
+        json!([text_column("Title")]),
+    )
+    .await;
+    let (_, item) = add_item(&app, &owner, list_id(&list), json!({})).await;
+    let item = item["id"].as_str().unwrap();
+
+    let (status, first) = comment(&app, &member, item, "  first look  ").await;
+    assert_eq!(status, StatusCode::OK, "{first:?}");
+    assert_eq!(first["content"], "first look", "a comment is trimmed");
+    let (status, _) = comment(&app, &peer, item, "second").await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _) = comment(&app, &member, item, "   ").await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "an empty comment");
+    let (status, _) = comment(&app, &member, item, &"x".repeat(4001)).await;
+    assert_eq!(
+        status,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "a comment has a limit"
+    );
+    let (status, _) = comment(&app, &outsider, item, "let me in").await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "outside the private channel");
+    let (status, _) = send(
+        &app,
+        "GET",
+        &format!("/api/list-items/{item}/comments"),
+        Some(&outsider),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+
+    let (status, thread) = send(
+        &app,
+        "GET",
+        &format!("/api/list-items/{item}/comments"),
+        Some(&owner),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let contents: Vec<&str> = thread["data"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["content"].as_str().unwrap())
+        .collect();
+    assert_eq!(contents, ["first look", "second"], "oldest first");
+    assert_eq!(
+        items(&app, &owner, list_id(&list)).await[0]["comment_count"],
+        2
+    );
+
+    let first_id = first["id"].as_str().unwrap();
+    let (status, _) = send(
+        &app,
+        "PATCH",
+        &format!("/api/list-comments/{first_id}"),
+        Some(&peer),
+        Some(json!({ "content": "rewritten" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "only the author edits");
+    let (status, edited) = send(
+        &app,
+        "PATCH",
+        &format!("/api/list-comments/{first_id}"),
+        Some(&member),
+        Some(json!({ "content": "first, edited" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{edited:?}");
+    assert!(edited["edited_at"].is_string());
+
+    let (status, _) = send(
+        &app,
+        "DELETE",
+        &format!("/api/list-comments/{first_id}"),
+        Some(&peer),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "a peer cannot remove it");
+    let (status, _) = send(
+        &app,
+        "DELETE",
+        &format!("/api/list-comments/{first_id}"),
+        Some(&owner),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "a channel admin can");
+    assert_eq!(
+        items(&app, &owner, list_id(&list)).await[0]["comment_count"],
+        1
+    );
+
+    let upserted = staged(&state, ws, "list.comment_upserted").await;
+    let deleted = staged(&state, ws, "list.comment_deleted").await;
+    assert_eq!((upserted.len(), deleted.len()), (3, 1));
+    for (event_type, payload) in upserted
+        .iter()
+        .map(|p| ("list.comment_upserted", p))
+        .chain(deleted.iter().map(|p| ("list.comment_deleted", p)))
+    {
+        assert_eq!(payload["channel_id"], json!(channel));
+        assert!(
+            shared_events::frames::ServerFrame::from_event(event_type, payload).is_ok(),
+            "{payload:?}"
+        );
+    }
+    assert_eq!(deleted[0]["comment_id"], first["id"]);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn mentions_and_assignments_notify_whoever_can_see_the_list(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "list-notify-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "List Notify WS").await;
+    let (member_id, _, _) = seed_and_login(&app, &state, "list-notify-member", false).await;
+    add_ws_member(&state, ws, member_id, "member").await;
+    let (outsider_id, _, _) = seed_and_login(&app, &state, "list-notify-outsider", false).await;
+    add_ws_member(&state, ws, outsider_id, "member").await;
+    sqlx::query("UPDATE users SET display_name = 'Ana' WHERE id = $1")
+        .bind(owner_id)
+        .execute(&state.pool)
+        .await
+        .unwrap();
+    let channel = seed_channel(&state, ws, owner_id, "launch", true).await;
+    join(&state, channel, member_id).await;
+
+    let list = list_in(
+        &app,
+        &owner,
+        ws,
+        Some(channel),
+        json!([text_column("Title"), { "name": "Owner", "kind": "person" }]),
+    )
+    .await;
+    let (title, person) = (column_id(&list, 0), column_id(&list, 1));
+    let (_, item) = add_item(
+        &app,
+        &owner,
+        list_id(&list),
+        json!({ "values": { title.clone(): "Fix login", person.clone(): owner_id } }),
+    )
+    .await;
+    let item = item["id"].as_str().unwrap().to_string();
+    assert!(
+        staged(&state, ws, "list.assigned").await.is_empty(),
+        "assigning yourself tells nobody"
+    );
+
+    edit_item(&app, &owner, &item, json!({ person.clone(): member_id })).await;
+    edit_item(
+        &app,
+        &owner,
+        &item,
+        json!({ person.clone(): member_id, title.clone(): "Fix login" }),
+    )
+    .await;
+    let assigned = staged(&state, ws, "list.assigned").await;
+    assert_eq!(
+        assigned.len(),
+        1,
+        "writing the same person again is no news"
+    );
+    assert_eq!(assigned[0]["assignee_ids"], json!([member_id]));
+    assert_eq!(assigned[0]["item_title"], "Fix login");
+    assert_eq!(assigned[0]["list_title"], "Launch plan");
+
+    let (status, _) = comment(
+        &app,
+        &owner,
+        &item,
+        &format!("@[member]({member_id}) @[outsider]({outsider_id}) @[me]({owner_id}) take a look"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let commented = staged(&state, ws, "list.comment_upserted").await;
+    assert_eq!(commented[0]["author_id"], json!(owner_id));
+    assert_eq!(
+        commented[0]["mentioned_user_ids"].as_array().unwrap().len(),
+        3
+    );
+
+    let mut conn = state.redis.clone();
+    for (event_type, payload) in [
+        ("list.assigned", &assigned[0]),
+        ("list.comment_upserted", &commented[0]),
+    ] {
+        let event = shared_events::Event::new(event_type, payload.clone());
+        crate::notifications::consumer::notify_list(
+            &state,
+            &state.notification_repo,
+            &state.push_sender,
+            &mut conn,
+            &event,
+        )
+        .await;
+    }
+
+    let rows: Vec<(Uuid, String, Value)> = sqlx::query_as(
+        "SELECT user_id, title, data FROM notifications
+          WHERE workspace_id = $1 AND notification_type = 'list' ORDER BY created_at, title",
+    )
+    .bind(ws)
+    .fetch_all(&state.pool)
+    .await
+    .unwrap();
+    let titles: Vec<&str> = rows.iter().map(|(_, t, _)| t.as_str()).collect();
+    assert_eq!(
+        titles,
+        [
+            "Ana assigned you to Fix login",
+            "Ana mentioned you on Fix login"
+        ]
+    );
+    assert!(
+        rows.iter().all(|(user, _, _)| *user == member_id),
+        "nobody outside the channel, and not the author"
+    );
+    assert_eq!(rows[0].2["list_id"], json!(list_id(&list)));
+    assert_eq!(rows[0].2["item_id"], json!(item));
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_item_due_tomorrow_waits_in_later_and_completing_it_checks_it_off(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "list-due-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "List Due WS").await;
+    let (member_id, _, member) = seed_and_login(&app, &state, "list-due-member", false).await;
+    add_ws_member(&state, ws, member_id, "member").await;
+    sqlx::query("UPDATE users SET timezone = 'UTC' WHERE id = ANY($1)")
+        .bind(vec![owner_id, member_id])
+        .execute(&state.pool)
+        .await
+        .unwrap();
+    let channel = seed_channel(&state, ws, owner_id, "release", false).await;
+    join(&state, channel, member_id).await;
+
+    let list = list_in(
+        &app,
+        &owner,
+        ws,
+        Some(channel),
+        json!([
+            text_column("Title"),
+            { "name": "Owner", "kind": "person" },
+            { "name": "Due", "kind": "date" },
+            { "name": "Done", "kind": "checkbox" },
+            { "name": "Started", "kind": "date" },
+        ]),
+    )
+    .await;
+    let [title, person, due, done, started] = [0, 1, 2, 3, 4].map(|index| column_id(&list, index));
+
+    let mark = |column: String, body: Value| {
+        let app = app.clone();
+        let owner = owner.clone();
+        async move {
+            send(
+                &app,
+                "PATCH",
+                &format!("/api/list-columns/{column}"),
+                Some(&owner),
+                Some(body),
+            )
+            .await
+        }
+    };
+    let (status, body) = mark(title.clone(), json!({ "due": true })).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body:?}");
+    let (status, body) = mark(started.clone(), json!({ "due": true })).await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    let (status, body) = mark(due.clone(), json!({ "due": true })).await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(body["due"], true);
+    let (_, detail) = send(
+        &app,
+        "GET",
+        &format!("/api/lists/{}", list_id(&list)),
+        Some(&owner),
+        None,
+    )
+    .await;
+    let flagged: Vec<&str> = detail["columns"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|c| c["due"] == true)
+        .map(|c| c["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(flagged, ["Due"], "a list has one due date");
+
+    let today = chrono::Utc::now().date_naive();
+    let day = |offset: i64| (today + chrono::Duration::days(offset)).to_string();
+    let mut ids = Vec::new();
+    for (name, who, when, checked) in [
+        ("Fix login", Some(member_id), day(1), false),
+        ("Write docs", Some(member_id), day(5), false),
+        ("Nobody's", None, day(1), false),
+        ("Already done", Some(member_id), day(1), true),
+    ] {
+        let mut values = json!({ title.clone(): name, due.clone(): when, done.clone(): checked });
+        if let Some(who) = who {
+            values[person.clone()] = json!(who);
+        }
+        let (status, item) =
+            add_item(&app, &owner, list_id(&list), json!({ "values": values })).await;
+        assert_eq!(status, StatusCode::OK, "{item:?}");
+        ids.push(item["id"].as_str().unwrap().to_string());
+    }
+
+    let later = |token: String, status: &'static str| {
+        let app = app.clone();
+        async move {
+            let (code, body) = send(
+                &app,
+                "GET",
+                &format!("/api/workspaces/{ws}/later?status={status}"),
+                Some(&token),
+                None,
+            )
+            .await;
+            assert_eq!(code, StatusCode::OK, "{body:?}");
+            body["data"].as_array().unwrap().clone()
+        }
+    };
+
+    let open = later(member.clone(), "in_progress").await;
+    assert_eq!(open.len(), 1, "only the open item due tomorrow: {open:#?}");
+    assert_eq!(open[0]["text"], "Fix login");
+    assert_eq!(open[0]["list_item"]["item_id"], json!(ids[0]));
+    assert_eq!(open[0]["list_item"]["list_title"], "Launch plan");
+    assert_eq!(
+        open[0]["remind_at"].as_str().unwrap()[..16],
+        format!("{}T09:00", day(1)),
+        "a morning reminder on the day"
+    );
+    assert!(later(owner.clone(), "in_progress").await.is_empty());
+    crate::later::reminders::sync_list_due(&state, None).await;
+    crate::later::reminders::sync_list_due(&state, None).await;
+    assert_eq!(
+        later(member.clone(), "in_progress").await.len(),
+        1,
+        "the periodic sweep agrees with what writing the item did"
+    );
+
+    let later_id = open[0]["id"].as_str().unwrap();
+    let (status, _) = send(
+        &app,
+        "PATCH",
+        &format!("/api/later/{later_id}"),
+        Some(&member),
+        Some(json!({ "status": "completed" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let rows = items(&app, &owner, list_id(&list)).await;
+    let fixed = rows.iter().find(|row| row["id"] == json!(ids[0])).unwrap();
+    assert_eq!(
+        fixed["values"][&done], true,
+        "completing it checks the item"
+    );
+    assert_eq!(later(member.clone(), "completed").await.len(), 1);
+
+    edit_item(&app, &owner, &ids[1], json!({ due.clone(): day(1) })).await;
+    assert_eq!(
+        later(member.clone(), "in_progress").await.len(),
+        1,
+        "moved up to tomorrow"
+    );
+    edit_item(&app, &owner, &ids[1], json!({ person.clone(): owner_id })).await;
+    assert!(
+        later(member.clone(), "in_progress").await.is_empty(),
+        "handed to someone else, it leaves your Later"
+    );
+    assert_eq!(later(owner.clone(), "in_progress").await.len(), 1);
+}

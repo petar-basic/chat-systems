@@ -84,6 +84,8 @@ pub enum ServerFrame {
         workspace_id: Option<Uuid>,
         channel_id: Option<Uuid>,
         message_id: Option<Uuid>,
+        list_id: Option<Uuid>,
+        item_id: Option<Uuid>,
         title: String,
         body: Option<String>,
         kind: Option<String>,
@@ -257,6 +259,21 @@ pub enum ServerFrame {
         channel_id: Option<Uuid>,
         item_id: Uuid,
     },
+    #[serde(rename = "list.comment_upserted")]
+    ListCommentUpserted {
+        list_id: Uuid,
+        channel_id: Option<Uuid>,
+        item_id: Uuid,
+        #[ts(type = "ListComment")]
+        comment: serde_json::Value,
+    },
+    #[serde(rename = "list.comment_deleted")]
+    ListCommentDeleted {
+        list_id: Uuid,
+        channel_id: Option<Uuid>,
+        item_id: Uuid,
+        comment_id: Uuid,
+    },
 }
 
 impl ServerFrame {
@@ -288,7 +305,8 @@ impl ServerFrame {
              type List = components['schemas']['List'];\n\
              type ListColumn = components['schemas']['ListColumn'];\n\
              type ListItem = components['schemas']['ListItem'];\n\
-             type ListView = components['schemas']['ListView'];\n\n\
+             type ListView = components['schemas']['ListView'];\n\
+             type ListComment = components['schemas']['ListComment'];\n\n\
              export {decl}\n"
         )
     }

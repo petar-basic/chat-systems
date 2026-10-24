@@ -279,6 +279,7 @@ mod tests {
                 number: None,
             }),
             hidden: false,
+            due: false,
         }
     }
 

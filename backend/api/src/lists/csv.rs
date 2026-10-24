@@ -92,6 +92,7 @@ mod tests {
             kind,
             options: Json(options),
             hidden: false,
+            due: false,
         }
     }
 
@@ -128,6 +129,7 @@ mod tests {
                 owner.id.to_string(): ana.to_string(),
                 points.id.to_string(): 3,
             }),
+            comment_count: 0,
             created_by: Uuid::nil(),
             created_at: Utc::now(),
             updated_at: Utc::now(),

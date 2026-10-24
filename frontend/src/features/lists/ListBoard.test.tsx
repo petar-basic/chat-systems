@@ -5,7 +5,7 @@ import { peopleFrom } from './people';
 import type { ListColumn, ListItem } from './listModel';
 
 const column = (id: string, name: string, kind: ListColumn['kind'], options: ListColumn['options'] = {}) =>
-  ({ id, list_id: 'l-1', position: 0, name, kind, options, hidden: false }) satisfies ListColumn;
+  ({ id, list_id: 'l-1', position: 0, name, kind, options, hidden: false, due: false }) satisfies ListColumn;
 
 const TITLE = column('c-title', 'Task', 'text');
 const STATUS = column('c-status', 'Status', 'select', {
@@ -21,6 +21,7 @@ const item = (id: string, values: ListItem['values']): ListItem => ({
   list_id: 'l-1',
   rank: id,
   values,
+  comment_count: 0,
   created_by: 'u-ana',
   created_at: '2026-10-01T00:00:00Z',
   updated_at: '2026-10-01T00:00:00Z',
@@ -83,6 +84,12 @@ describe('ListBoard', () => {
     expect(titles('Done')).toEqual(['Ship it']);
     expect(titles('No Status')).toEqual(['Untitled']);
     expect(within(card('Fix login')).getByText('3')).toBeTruthy();
+  });
+
+  it('counts the comments on a card', () => {
+    renderBoard({ items: [{ ...ITEMS[0], comment_count: 2 }, ITEMS[1]] });
+    expect(within(card('Fix login')).getByTestId('list-card-comments')).toHaveTextContent('2 comments');
+    expect(within(card('Write docs')).queryByTestId('list-card-comments')).toBeNull();
   });
 
   it('sets the value when a card is dragged to another lane', () => {

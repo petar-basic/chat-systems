@@ -57,7 +57,7 @@ What a team moving from Slack should expect to be missing or different:
 | **Huddles are peer-to-peer mesh**, capped at eight people; not a 30-person all-hands. No recording. | SFU held for 4.0.0 ([CS-037](docs/tickets/CS-037-huddle-sfu.md)); recording deliberately out of scope |
 | **Presence is derived, not declared.** Online / away / offline follows whether you hold a connection; there is no manual "away". A custom status ("In a meeting 🍕") is the separate thing, and that you do set yourself. | Deliberate |
 | **Search reads text, not pictures.** Messages, file names and the text inside PDF, Word, Excel, PowerPoint and text files are searched; a scanned page or a screenshot is not (no OCR). | Deliberate — OCR needs a model beside the stack |
-| **No workflow builder or lists yet.** | Polls shipped in CS-065. Planned: [CS-066](docs/tickets/CS-066-lists.md), [CS-067](docs/tickets/CS-067-workflow-builder.md) |
+| **No workflow builder yet.** | Polls shipped in CS-065, lists in CS-066. Planned: [CS-067](docs/tickets/CS-067-workflow-builder.md) |
 | **No app directory or shared channels across organisations.** | Not planned |
 
 The trade for all of that: every message, file and audit row stays on hardware you control,

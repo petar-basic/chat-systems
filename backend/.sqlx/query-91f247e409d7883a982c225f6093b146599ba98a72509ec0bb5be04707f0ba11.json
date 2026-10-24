@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE list_items SET rank = $2, updated_at = NOW() WHERE id = $1\n               RETURNING id, list_id, rank, \"values\" AS \"values\", created_by, created_at, updated_at",
+  "query": "SELECT id, item_id, list_id, user_id, content, created_at, edited_at\n               FROM list_item_comments WHERE id = $1",
   "describe": {
     "columns": [
       {
@@ -9,52 +9,52 @@
         "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "list_items",
+            "table": "list_item_comments",
             "name": "id"
           }
         }
       },
       {
         "ordinal": 1,
-        "name": "list_id",
+        "name": "item_id",
         "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "list_items",
-            "name": "list_id"
+            "table": "list_item_comments",
+            "name": "item_id"
           }
         }
       },
       {
         "ordinal": 2,
-        "name": "rank",
-        "type_info": "Text",
+        "name": "list_id",
+        "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "list_items",
-            "name": "rank"
+            "table": "list_item_comments",
+            "name": "list_id"
           }
         }
       },
       {
         "ordinal": 3,
-        "name": "values",
-        "type_info": "Jsonb",
+        "name": "user_id",
+        "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "list_items",
-            "name": "values"
+            "table": "list_item_comments",
+            "name": "user_id"
           }
         }
       },
       {
         "ordinal": 4,
-        "name": "created_by",
-        "type_info": "Uuid",
+        "name": "content",
+        "type_info": "Text",
         "origin": {
           "Table": {
-            "table": "list_items",
-            "name": "created_by"
+            "table": "list_item_comments",
+            "name": "content"
           }
         }
       },
@@ -64,27 +64,26 @@
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
-            "table": "list_items",
+            "table": "list_item_comments",
             "name": "created_at"
           }
         }
       },
       {
         "ordinal": 6,
-        "name": "updated_at",
+        "name": "edited_at",
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
-            "table": "list_items",
-            "name": "updated_at"
+            "table": "list_item_comments",
+            "name": "edited_at"
           }
         }
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Text"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -94,8 +93,8 @@
       false,
       false,
       false,
-      false
+      true
     ]
   },
-  "hash": "e0b322beacf2196ea8d5b04bb1e7ffddee7be05e2edbd38f06856b91fd3dd269"
+  "hash": "91f247e409d7883a982c225f6093b146599ba98a72509ec0bb5be04707f0ba11"
 }

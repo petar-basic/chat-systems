@@ -5,6 +5,7 @@ use uuid::Uuid;
 use shared_common::errors::{AppError, AppResult};
 
 use super::cells::{self, Cell};
+use super::comments::{clean_comment, ListComment};
 use super::models::{
     clean_column_name, clean_description, clean_title, ChoiceInput, ColumnChangePreview,
     ColumnKind, ColumnOptions, ColumnOptionsInput, ConversionCounts, CreateItemRequest,
@@ -12,7 +13,7 @@ use super::models::{
     UpdateListRequest, MAX_COLUMNS, MAX_ITEMS,
 };
 use super::rank;
-use super::repo::Visibility;
+use super::repo::{ColumnFields, Visibility};
 use super::views::{
     clean_view_name, CreateViewRequest, ListView, UpdateViewRequest, ViewConfig, ViewKind,
     MAX_VIEWS,
@@ -77,6 +78,7 @@ async fn stage(
 ) -> AppResult<Staged> {
     let mut payload = json!({
         "list_id": list.id,
+        "workspace_id": list.workspace_id,
         "channel_id": list.channel_id,
         "owner_id": list.created_by,
     });
@@ -476,6 +478,15 @@ pub async fn update_column(
         Some(input) => input.resolve(kind)?,
         None => options_input(&column.options).resolve(kind)?,
     };
+    let due = match req.due {
+        Some(true) if kind != ColumnKind::Date => {
+            return Err(AppError::Validation(
+                "Only a date column can be the due date".into(),
+            ));
+        }
+        Some(due) => due,
+        None => column.due && kind == ColumnKind::Date,
+    };
     let conversion = convert_cells(state, &mut tx, column, kind, &options).await?;
     if conversion.cleared > 0 && req.confirm_cleared != Some(conversion.cleared) {
         return Err(AppError::Conflict(format!(
@@ -493,10 +504,13 @@ pub async fn update_column(
         .update_column_in(
             &mut tx,
             column_id,
-            &name,
-            kind,
-            &options,
-            req.hidden.unwrap_or(column.hidden),
+            ColumnFields {
+                name: &name,
+                kind,
+                options: &options,
+                hidden: req.hidden.unwrap_or(column.hidden),
+                due,
+            },
         )
         .await?;
     let rewritten = !conversion.cells.is_empty();
@@ -518,6 +532,7 @@ pub async fn update_column(
     if let Some(pruned) = pruned {
         state.publisher.dispatch(pruned).await;
     }
+    crate::later::reminders::sync_list_due(state, Some(list_id)).await;
     Ok(column_of(&columns, column_id)?.clone())
 }
 
@@ -537,6 +552,7 @@ pub async fn delete_column(state: &AppState, user_id: Uuid, column_id: Uuid) -> 
     if let Some(pruned) = pruned {
         state.publisher.dispatch(pruned).await;
     }
+    crate::later::reminders::sync_list_due(state, Some(list_id)).await;
     Ok(())
 }
 
@@ -722,6 +738,71 @@ fn validate(columns: &[ListColumn], values: &Map<String, Value>) -> AppResult<Ed
     Ok(edit)
 }
 
+fn item_title(columns: &[ListColumn], values: &Value) -> String {
+    columns
+        .iter()
+        .find(|column| column.kind == ColumnKind::Text)
+        .and_then(|column| values.get(column.id.to_string()))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|title| !title.is_empty())
+        .unwrap_or("Untitled")
+        .to_string()
+}
+
+fn assignees(
+    columns: &[ListColumn],
+    before: &Value,
+    set: &Map<String, Value>,
+    actor: Uuid,
+) -> Vec<Uuid> {
+    let mut people = Vec::new();
+    for column in columns.iter().filter(|c| c.kind == ColumnKind::Person) {
+        let key = column.id.to_string();
+        let Some(value) = set.get(&key) else {
+            continue;
+        };
+        if before.get(&key) == Some(value) {
+            continue;
+        }
+        if let Some(person) = cells::person_of(column.kind, value) {
+            if person != actor && !people.contains(&person) {
+                people.push(person);
+            }
+        }
+    }
+    people
+}
+
+async fn stage_assigned(
+    state: &AppState,
+    conn: &mut PgConnection,
+    list: &List,
+    columns: &[ListColumn],
+    item: &ListItem,
+    people: Vec<Uuid>,
+    actor: Uuid,
+) -> AppResult<Option<Staged>> {
+    if people.is_empty() {
+        return Ok(None);
+    }
+    let staged = stage(
+        state,
+        conn,
+        list,
+        "list.assigned",
+        json!({
+            "item_id": item.id,
+            "assignee_ids": people,
+            "actor_id": actor,
+            "item_title": item_title(columns, &item.values),
+            "list_title": list.title,
+        }),
+    )
+    .await?;
+    Ok(Some(staged))
+}
+
 async fn check_people(state: &AppState, list: &List, people: &[Uuid]) -> AppResult<()> {
     if people.is_empty() {
         return Ok(());
@@ -779,6 +860,7 @@ pub async fn create_item(
             rank::between(last.as_deref(), None)
         }
     };
+    let people = assignees(&columns, &Value::Null, &edit.set, user_id);
     let item = state
         .list_repo
         .insert_item_in(&mut tx, list_id, &rank, &Value::Object(edit.set), user_id)
@@ -791,8 +873,15 @@ pub async fn create_item(
         json!({ "item": item }),
     )
     .await?;
+    let assigned = stage_assigned(state, &mut tx, &list, &columns, &item, people, user_id).await?;
     tx.commit().await?;
     state.publisher.dispatch(staged).await;
+    if let Some(assigned) = assigned {
+        state.publisher.dispatch(assigned).await;
+    }
+    if columns.iter().any(|c| c.due) {
+        crate::later::reminders::sync_list_due(state, Some(list_id)).await;
+    }
     Ok(item)
 }
 
@@ -819,6 +908,12 @@ pub async fn update_item(
     let columns = state.list_repo.columns_in(&mut tx, list_id).await?;
     let edit = validate(&columns, values)?;
     check_people(state, &list, &edit.people).await?;
+    let before = state
+        .list_repo
+        .item_values_in(&mut tx, item_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Item not found".into()))?;
+    let people = assignees(&columns, &before, &edit.set, user_id);
     let item = state
         .list_repo
         .merge_item_in(&mut tx, item_id, &Value::Object(edit.set), &edit.clear)
@@ -832,8 +927,15 @@ pub async fn update_item(
         json!({ "item": item }),
     )
     .await?;
+    let assigned = stage_assigned(state, &mut tx, &list, &columns, &item, people, user_id).await?;
     tx.commit().await?;
     state.publisher.dispatch(staged).await;
+    if let Some(assigned) = assigned {
+        state.publisher.dispatch(assigned).await;
+    }
+    if columns.iter().any(|c| c.due) {
+        crate::later::reminders::sync_list_due(state, Some(list_id)).await;
+    }
     Ok(item)
 }
 
@@ -893,5 +995,199 @@ pub async fn delete_item(state: &AppState, user_id: Uuid, item_id: Uuid) -> AppR
     .await?;
     tx.commit().await?;
     state.publisher.dispatch(staged).await;
+    crate::later::reminders::sync_list_due(state, Some(list_id)).await;
+    Ok(())
+}
+
+pub async fn check_off(state: &AppState, user_id: Uuid, item_id: Uuid) -> AppResult<()> {
+    let Some(list_id) = state.list_repo.item_list(item_id).await? else {
+        return Ok(());
+    };
+    match writable(state, user_id, list_id).await {
+        Ok(_) => {}
+        Err(AppError::Forbidden(_) | AppError::NotFound(_)) => return Ok(()),
+        Err(e) => return Err(e),
+    }
+    let columns = state.list_repo.columns(list_id).await?;
+    let Some(done) = columns.iter().find(|c| c.kind == ColumnKind::Checkbox) else {
+        return Ok(());
+    };
+    let mut values = Map::new();
+    values.insert(done.id.to_string(), Value::Bool(true));
+    update_item(state, user_id, item_id, &values).await?;
+    Ok(())
+}
+
+pub async fn comments(
+    state: &AppState,
+    user_id: Uuid,
+    item_id: Uuid,
+) -> AppResult<Vec<ListComment>> {
+    let list_id = item_place(state, item_id).await?;
+    readable(state, user_id, list_id).await?;
+    Ok(state.list_repo.comments(item_id).await?)
+}
+
+async fn find_comment(state: &AppState, comment_id: Uuid) -> AppResult<ListComment> {
+    state
+        .list_repo
+        .comment(comment_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Comment not found".into()))
+}
+
+async fn comment_counted(
+    state: &AppState,
+    conn: &mut PgConnection,
+    list: &List,
+    item_id: Uuid,
+    delta: i32,
+) -> AppResult<(ListItem, Staged)> {
+    let item = state
+        .list_repo
+        .count_comments_in(conn, item_id, delta)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Item not found".into()))?;
+    let staged = stage(
+        state,
+        conn,
+        list,
+        "list.item_upserted",
+        json!({ "item": item }),
+    )
+    .await?;
+    Ok((item, staged))
+}
+
+pub async fn add_comment(
+    state: &AppState,
+    user_id: Uuid,
+    item_id: Uuid,
+    content: &str,
+) -> AppResult<ListComment> {
+    let content = clean_comment(content)?;
+    let list_id = item_place(state, item_id).await?;
+    let list = writable(state, user_id, list_id).await?;
+    let mut tx = state.pool.begin().await?;
+    if !state.list_repo.share_lock_in(&mut tx, list_id).await? {
+        return Err(not_found());
+    }
+    let (item, counted) = comment_counted(state, &mut tx, &list, item_id, 1).await?;
+    let comment = state
+        .list_repo
+        .insert_comment_in(&mut tx, &item, user_id, &content)
+        .await?;
+    let columns = state.list_repo.columns_in(&mut tx, list_id).await?;
+    let mentioned = crate::messaging::routes::extract_mentioned_user_ids(&content);
+    let staged = stage(
+        state,
+        &mut tx,
+        &list,
+        "list.comment_upserted",
+        json!({
+            "item_id": item_id,
+            "comment": comment,
+            "author_id": user_id,
+            "mentioned_user_ids": mentioned,
+            "item_title": item_title(&columns, &item.values),
+            "list_title": list.title,
+        }),
+    )
+    .await?;
+    tx.commit().await?;
+    state.publisher.dispatch(staged).await;
+    state.publisher.dispatch(counted).await;
+    Ok(comment)
+}
+
+pub async fn edit_comment(
+    state: &AppState,
+    user_id: Uuid,
+    comment_id: Uuid,
+    content: &str,
+) -> AppResult<ListComment> {
+    let content = clean_comment(content)?;
+    let current = find_comment(state, comment_id).await?;
+    let list = writable(state, user_id, current.list_id).await?;
+    if current.user_id != user_id {
+        return Err(AppError::Forbidden(
+            "Only the author can edit a comment".into(),
+        ));
+    }
+    let mut tx = state.pool.begin().await?;
+    if !state.list_repo.share_lock_in(&mut tx, list.id).await? {
+        return Err(not_found());
+    }
+    let comment = state
+        .list_repo
+        .edit_comment_in(&mut tx, comment_id, &content)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Comment not found".into()))?;
+    let staged = stage(
+        state,
+        &mut tx,
+        &list,
+        "list.comment_upserted",
+        json!({ "item_id": comment.item_id, "comment": comment }),
+    )
+    .await?;
+    tx.commit().await?;
+    state.publisher.dispatch(staged).await;
+    Ok(comment)
+}
+
+pub async fn delete_comment(state: &AppState, user_id: Uuid, comment_id: Uuid) -> AppResult<()> {
+    let comment = find_comment(state, comment_id).await?;
+    let list = readable(state, user_id, comment.list_id).await?;
+    match list.channel_id {
+        Some(channel_id) if comment.user_id != user_id => {
+            let channel = authz::find_channel(state, channel_id).await?;
+            authz::require_channel_moderator(state, &channel, user_id).await?;
+        }
+        _ => {
+            writable(state, user_id, list.id).await?;
+        }
+    }
+    let mut tx = state.pool.begin().await?;
+    if !state.list_repo.share_lock_in(&mut tx, list.id).await? {
+        return Err(not_found());
+    }
+    if !state
+        .list_repo
+        .delete_comment_in(&mut tx, comment_id)
+        .await?
+    {
+        return Err(AppError::NotFound("Comment not found".into()));
+    }
+    let staged = stage(
+        state,
+        &mut tx,
+        &list,
+        "list.comment_deleted",
+        json!({ "item_id": comment.item_id, "comment_id": comment_id }),
+    )
+    .await?;
+    let counted = match state
+        .list_repo
+        .count_comments_in(&mut tx, comment.item_id, -1)
+        .await?
+    {
+        Some(item) => Some(
+            stage(
+                state,
+                &mut tx,
+                &list,
+                "list.item_upserted",
+                json!({ "item": item }),
+            )
+            .await?,
+        ),
+        None => None,
+    };
+    tx.commit().await?;
+    state.publisher.dispatch(staged).await;
+    if let Some(counted) = counted {
+        state.publisher.dispatch(counted).await;
+    }
     Ok(())
 }

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO list_items (list_id, rank, \"values\", created_by)\n               VALUES ($1, $2, $3, $4)\n               RETURNING id, list_id, rank, \"values\" AS \"values\", created_by, created_at, updated_at",
+  "query": "UPDATE list_items SET comment_count = GREATEST(comment_count + $2, 0)\n                WHERE id = $1 AND deleted_at IS NULL\n               RETURNING id, list_id, rank, \"values\" AS \"values\", comment_count, created_by, created_at, updated_at",
   "describe": {
     "columns": [
       {
@@ -49,6 +49,17 @@
       },
       {
         "ordinal": 4,
+        "name": "comment_count",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "list_items",
+            "name": "comment_count"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
         "name": "created_by",
         "type_info": "Uuid",
         "origin": {
@@ -59,7 +70,7 @@
         }
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -70,7 +81,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -84,9 +95,7 @@
     "parameters": {
       "Left": [
         "Uuid",
-        "Text",
-        "Jsonb",
-        "Uuid"
+        "Int4"
       ]
     },
     "nullable": [
@@ -96,8 +105,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "11bb7a3b4712489986b8d341e0bf7ef44ff43684807b516203934dc105aa1dac"
+  "hash": "a966e1fa76f31a586771b7c8cd87a39af60943415cfaa62ce72971cad32e7ecf"
 }

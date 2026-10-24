@@ -1,5 +1,15 @@
 import { useState } from 'react';
-import { Archive, ArchiveRestore, Bookmark, Check, Hash, MessageSquare, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router';
+import {
+  Archive,
+  ArchiveRestore,
+  Bookmark,
+  Check,
+  Hash,
+  ListChecks,
+  MessageSquare,
+  Trash2,
+} from 'lucide-react';
 import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { IconButton } from '@/shared/components/IconButton/IconButton';
@@ -14,6 +24,7 @@ import { useUserCache } from '@/stores/users';
 import { useWorkspaceStore } from '@/stores/workspace';
 import RichTextDisplay from './RichTextDisplay';
 import { TextInput } from '@/shared/components/Form/TextInput';
+import { ROUTES } from '@/shared/constants';
 
 const TABS: { status: LaterStatus; label: string }[] = [
   { status: 'in_progress', label: 'In progress' },
@@ -51,8 +62,13 @@ export default function LaterPanel({
   const { data: open = [] } = useLater(workspaceId, 'in_progress', instanceUrl);
   const actions = useLaterActions(workspaceId, instanceUrl);
   const [text, setText] = useState('');
+  const navigate = useNavigate();
 
   const openItem = (item: LaterItem) => {
+    if (item.list_item) {
+      navigate(`${ROUTES.list(workspaceId, item.list_item.list_id)}?item=${item.list_item.item_id}`);
+      return;
+    }
     if (!item.message) return;
     if (conversations.some((c) => c.id === item.message?.channel_id))
       onOpenConversation(item.message.channel_id);
@@ -192,16 +208,19 @@ function LaterRow({
   const { getUser } = useUserCache();
   const currentUserId = useWorkspaceStore((s) => s.currentUserId);
   const message = item.message;
+  const listItem = item.list_item;
   const channelId = message?.channel_id ?? item.channel_id;
-  const where = channelId
-    ? targetLabel(
-        channelId,
-        channels,
-        conversations,
-        currentUserId ?? undefined,
-        (id) => getUser(id)?.display_name,
-      )
-    : null;
+  const where = listItem
+    ? listItem.list_title
+    : channelId
+      ? targetLabel(
+          channelId,
+          channels,
+          conversations,
+          currentUserId ?? undefined,
+          (id) => getUser(id)?.display_name,
+        )
+      : null;
   const isConversation = !!channelId && conversations.some((c) => c.id === channelId);
   const completed = item.status === 'completed';
   const from =
@@ -233,7 +252,9 @@ function LaterRow({
         <div className="mb-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted">
           {where && (
             <span className="flex min-w-0 items-center gap-1">
-              {isConversation ? (
+              {listItem ? (
+                <ListChecks className="h-3 w-3 shrink-0" />
+              ) : isConversation ? (
                 <MessageSquare className="h-3 w-3 shrink-0" />
               ) : (
                 <Hash className="h-3 w-3 shrink-0" />
@@ -248,7 +269,7 @@ function LaterRow({
         <button
           type="button"
           onClick={onOpen}
-          disabled={!message}
+          disabled={!message && !listItem}
           className={`block w-full text-left text-sm text-fg-soft line-clamp-3 disabled:cursor-default ${completed ? 'line-through opacity-70' : ''}`}
           data-qa="later-content"
         >

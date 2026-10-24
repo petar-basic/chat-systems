@@ -8,6 +8,7 @@ use uuid::Uuid;
 
 use shared_common::errors::AppResult;
 
+use super::comments::{CommentRequest, ListComment};
 use super::models::{
     ColumnChangePreview, ColumnOrder, ConversionCounts, CreateItemRequest, CreateListRequest, List,
     ListColumn, ListDetail, ListItem, ListsQuery, MoveItemRequest, NewColumn, UpdateColumnRequest,
@@ -33,6 +34,8 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(create_list_view))
         .routes(routes!(reorder_list_views))
         .routes(routes!(update_list_view, delete_list_view))
+        .routes(routes!(list_item_comments, create_list_item_comment))
+        .routes(routes!(update_list_comment, delete_list_comment))
 }
 
 #[utoipa::path(
@@ -295,5 +298,59 @@ async fn delete_list_view(
     Path(view_id): Path<Uuid>,
 ) -> AppResult<Json<StatusResponse>> {
     service::delete_view(&state, auth.user_id, view_id).await?;
+    Ok(Json(StatusResponse::new("deleted")))
+}
+
+#[utoipa::path(
+    get, path = "/list-items/{item_id}/comments", tag = "lists",
+    responses((status = 200, body = DataList<ListComment>)))]
+async fn list_item_comments(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(item_id): Path<Uuid>,
+) -> AppResult<Json<DataList<ListComment>>> {
+    let comments = service::comments(&state, auth.user_id, item_id).await?;
+    Ok(Json(comments.into()))
+}
+
+#[utoipa::path(
+    post, path = "/list-items/{item_id}/comments", tag = "lists",
+    request_body = CommentRequest,
+    responses((status = 200, body = ListComment)))]
+async fn create_list_item_comment(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(item_id): Path<Uuid>,
+    Json(req): Json<CommentRequest>,
+) -> AppResult<Json<ListComment>> {
+    Ok(Json(
+        service::add_comment(&state, auth.user_id, item_id, &req.content).await?,
+    ))
+}
+
+#[utoipa::path(
+    patch, path = "/list-comments/{comment_id}", tag = "lists",
+    request_body = CommentRequest,
+    responses((status = 200, body = ListComment)))]
+async fn update_list_comment(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(comment_id): Path<Uuid>,
+    Json(req): Json<CommentRequest>,
+) -> AppResult<Json<ListComment>> {
+    Ok(Json(
+        service::edit_comment(&state, auth.user_id, comment_id, &req.content).await?,
+    ))
+}
+
+#[utoipa::path(
+    delete, path = "/list-comments/{comment_id}", tag = "lists",
+    responses((status = 200, body = StatusResponse)))]
+async fn delete_list_comment(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(comment_id): Path<Uuid>,
+) -> AppResult<Json<StatusResponse>> {
+    service::delete_comment(&state, auth.user_id, comment_id).await?;
     Ok(Json(StatusResponse::new("deleted")))
 }

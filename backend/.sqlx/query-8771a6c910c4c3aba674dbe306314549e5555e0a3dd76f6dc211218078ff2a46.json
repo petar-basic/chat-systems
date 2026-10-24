@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, list_id, position, name, kind AS \"kind: ColumnKind\",\n                      options AS \"options: Json<ColumnOptions>\", hidden\n                 FROM list_columns WHERE list_id = $1\n                ORDER BY position, id",
+  "query": "INSERT INTO list_columns (list_id, position, name, kind, options)\n               VALUES ($1,\n                       (SELECT COALESCE(MAX(position) + 1, 0) FROM list_columns WHERE list_id = $1),\n                       $2, $3, $4)\n               RETURNING id, list_id, position, name, kind AS \"kind: ColumnKind\",\n                         options AS \"options: Json<ColumnOptions>\", hidden, is_due AS due",
   "describe": {
     "columns": [
       {
@@ -95,11 +95,41 @@
             "name": "hidden"
           }
         }
+      },
+      {
+        "ordinal": 7,
+        "name": "due",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "list_columns",
+            "name": "is_due"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Uuid",
+        "Text",
+        {
+          "Custom": {
+            "name": "list_column_kind",
+            "kind": {
+              "Enum": [
+                "text",
+                "number",
+                "select",
+                "multi_select",
+                "person",
+                "date",
+                "checkbox",
+                "link"
+              ]
+            }
+          }
+        },
+        "Jsonb"
       ]
     },
     "nullable": [
@@ -109,8 +139,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "0069b6d4a18d4fc1ab352a304bb6e7146abc8a76fe474a4dfe95d62faf03d054"
+  "hash": "8771a6c910c4c3aba674dbe306314549e5555e0a3dd76f6dc211218078ff2a46"
 }

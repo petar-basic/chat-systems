@@ -14,7 +14,7 @@ import {
 } from './viewModel';
 
 const column = (id: string, name: string, kind: ListColumn['kind'], options: ListColumn['options'] = {}) =>
-  ({ id, list_id: 'l-1', position: 0, name, kind, options, hidden: false }) satisfies ListColumn;
+  ({ id, list_id: 'l-1', position: 0, name, kind, options, hidden: false, due: false }) satisfies ListColumn;
 
 const TITLE = column('c-title', 'Task', 'text');
 const STATUS = column('c-status', 'Status', 'select', {
@@ -34,6 +34,7 @@ const item = (id: string, rank: string, values: ListItem['values']): ListItem =>
   list_id: 'l-1',
   rank,
   values,
+  comment_count: 0,
   created_by: 'u-ana',
   created_at: '2026-10-01T00:00:00Z',
   updated_at: '2026-10-01T00:00:00Z',

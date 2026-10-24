@@ -319,10 +319,20 @@ async fn export_lists(
             .map_err(|e| e.to_string())?
             .into_iter()
             .collect();
+        let comments = state
+            .list_repo
+            .list_comments(list.id)
+            .await
+            .map_err(|e| e.to_string())?;
         let path = format!("lists/{}.csv", list.id);
         archive.append(
             "lists.jsonl",
-            &serde_json::json!({ "list": list, "columns": columns, "items": path }),
+            &serde_json::json!({
+                "list": list,
+                "columns": columns,
+                "items": path,
+                "comments": comments,
+            }),
         );
         archive.put_table(
             &path,

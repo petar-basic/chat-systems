@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT \"values\" AS \"values\" FROM list_items\n                WHERE id = $1 AND deleted_at IS NULL FOR UPDATE",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "values",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "list_items",
+            "name": "values"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "ed265291f9e4f18df3032d224d8c1a9a2a1f0ca23e75b032238312d1eb2d5d4f"
+}

@@ -1,13 +1,26 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { globalEventBus } from '@/lib/globalEventBus';
 import { QUERY_KEYS } from '@/shared/constants';
-import { removeItem, upsertItem, type ListDetail, type ListItem } from './listModel';
+import {
+  removeComment,
+  removeItem,
+  upsertComment,
+  upsertItem,
+  type ListComment,
+  type ListDetail,
+  type ListItem,
+} from './listModel';
 
 export function syncListFrames(queryClient: QueryClient): Array<() => void> {
   const setItems = (listId: string, patch: (items: ListItem[]) => ListItem[]) =>
     queryClient.setQueryData<ListItem[]>(QUERY_KEYS.listItems(listId), (items) => items && patch(items));
   const setDetail = (listId: string, patch: (detail: ListDetail) => ListDetail) =>
     queryClient.setQueryData<ListDetail>(QUERY_KEYS.list(listId), (detail) => detail && patch(detail));
+  const setComments = (itemId: string, patch: (comments: ListComment[]) => ListComment[]) =>
+    queryClient.setQueryData<ListComment[]>(
+      QUERY_KEYS.listComments(itemId),
+      (comments) => comments && patch(comments),
+    );
 
   return [
     globalEventBus.on('list.upserted', (event) => {
@@ -32,6 +45,12 @@ export function syncListFrames(queryClient: QueryClient): Array<() => void> {
     }),
     globalEventBus.on('list.item_deleted', (event) => {
       setItems(event.list_id, (items) => removeItem(items, event.item_id));
+    }),
+    globalEventBus.on('list.comment_upserted', (event) => {
+      setComments(event.item_id, (comments) => upsertComment(comments, event.comment));
+    }),
+    globalEventBus.on('list.comment_deleted', (event) => {
+      setComments(event.item_id, (comments) => removeComment(comments, event.comment_id));
     }),
   ];
 }

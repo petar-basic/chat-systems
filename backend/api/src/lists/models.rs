@@ -197,6 +197,7 @@ pub struct ListColumn {
     #[schema(value_type = ColumnOptions)]
     pub options: Json<ColumnOptions>,
     pub hidden: bool,
+    pub due: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -206,6 +207,7 @@ pub struct ListItem {
     pub rank: String,
     #[schema(value_type = std::collections::HashMap<String, serde_json::Value>)]
     pub values: serde_json::Value,
+    pub comment_count: i32,
     pub created_by: Uuid,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -253,6 +255,7 @@ pub struct UpdateColumnRequest {
     pub kind: Option<ColumnKind>,
     pub options: Option<ColumnOptionsInput>,
     pub hidden: Option<bool>,
+    pub due: Option<bool>,
     pub confirm_cleared: Option<i64>,
 }
 

@@ -2267,6 +2267,74 @@
         }
       }
     },
+    "/list-comments/{comment_id}": {
+      "delete": {
+        "tags": [
+          "lists"
+        ],
+        "operationId": "delete_list_comment",
+        "parameters": [
+          {
+            "name": "comment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "lists"
+        ],
+        "operationId": "update_list_comment",
+        "parameters": [
+          {
+            "name": "comment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListComment"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/list-items/{item_id}": {
       "delete": {
         "tags": [
@@ -2328,6 +2396,74 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ListItem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/list-items/{item_id}/comments": {
+      "get": {
+        "tags": [
+          "lists"
+        ],
+        "operationId": "list_item_comments",
+        "parameters": [
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_ListComment"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "lists"
+        ],
+        "operationId": "create_list_item_comment",
+        "parameters": [
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListComment"
                 }
               }
             }
@@ -7967,6 +8103,17 @@
           }
         }
       },
+      "CommentRequest": {
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "properties": {
+          "content": {
+            "type": "string"
+          }
+        }
+      },
       "CompleteConnectionRequest": {
         "type": "object",
         "required": [
@@ -9544,6 +9691,16 @@
                   "type": "string",
                   "format": "uuid"
                 },
+                "list_item": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/LaterListItem"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "message": {
                   "oneOf": [
                     {
@@ -9667,9 +9824,13 @@
                 "name",
                 "kind",
                 "options",
-                "hidden"
+                "hidden",
+                "due"
               ],
               "properties": {
+                "due": {
+                  "type": "boolean"
+                },
                 "hidden": {
                   "type": "boolean"
                 },
@@ -9699,6 +9860,60 @@
           }
         }
       },
+      "DataList_ListComment": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "item_id",
+                "list_id",
+                "user_id",
+                "content",
+                "created_at"
+              ],
+              "properties": {
+                "content": {
+                  "type": "string"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "edited_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "item_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "list_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "user_id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          }
+        }
+      },
       "DataList_ListItem": {
         "type": "object",
         "required": [
@@ -9714,11 +9929,16 @@
                 "list_id",
                 "rank",
                 "values",
+                "comment_count",
                 "created_by",
                 "created_at",
                 "updated_at"
               ],
               "properties": {
+                "comment_count": {
+                  "type": "integer",
+                  "format": "int32"
+                },
                 "created_at": {
                   "type": "string",
                   "format": "date-time"
@@ -11465,6 +11685,16 @@
             "type": "string",
             "format": "uuid"
           },
+          "list_item": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/LaterListItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "message": {
             "oneOf": [
               {
@@ -11507,6 +11737,27 @@
           "workspace_id": {
             "type": "string",
             "format": "uuid"
+          }
+        }
+      },
+      "LaterListItem": {
+        "type": "object",
+        "required": [
+          "list_id",
+          "item_id",
+          "list_title"
+        ],
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "list_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "list_title": {
+            "type": "string"
           }
         }
       },
@@ -11612,9 +11863,13 @@
           "name",
           "kind",
           "options",
-          "hidden"
+          "hidden",
+          "due"
         ],
         "properties": {
+          "due": {
+            "type": "boolean"
+          },
           "hidden": {
             "type": "boolean"
           },
@@ -11638,6 +11893,49 @@
           "position": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "ListComment": {
+        "type": "object",
+        "required": [
+          "id",
+          "item_id",
+          "list_id",
+          "user_id",
+          "content",
+          "created_at"
+        ],
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "edited_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "item_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "list_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
@@ -11673,11 +11971,16 @@
           "list_id",
           "rank",
           "values",
+          "comment_count",
           "created_by",
           "created_at",
           "updated_at"
         ],
         "properties": {
+          "comment_count": {
+            "type": "integer",
+            "format": "int32"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time"
@@ -12227,7 +12530,8 @@
           "call",
           "reminder",
           "system",
-          "keyword"
+          "keyword",
+          "list"
         ]
       },
       "NotifyDefault": {
@@ -13485,6 +13789,12 @@
               "null"
             ],
             "format": "int64"
+          },
+          "due": {
+            "type": [
+              "boolean",
+              "null"
+            ]
           },
           "hidden": {
             "type": [

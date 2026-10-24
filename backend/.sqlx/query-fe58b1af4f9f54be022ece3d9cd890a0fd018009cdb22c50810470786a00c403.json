@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT (SELECT COUNT(*) FROM list_items i JOIN lists l ON l.id = i.list_id\n                     WHERE l.workspace_id = $1\n                       AND i.updated_at < NOW() - make_interval(days => $2)) AS \"items!\",\n                   (SELECT COUNT(*) FROM lists\n                     WHERE workspace_id = $1\n                       AND deleted_at < NOW() - make_interval(days => $2)) AS \"lists!\",\n                   (SELECT COUNT(*) FROM list_item_comments c JOIN lists l ON l.id = c.list_id\n                     WHERE l.workspace_id = $1\n                       AND c.created_at < NOW() - make_interval(days => $2)) AS \"comments!\"\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "items!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "lists!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "comments!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "fe58b1af4f9f54be022ece3d9cd890a0fd018009cdb22c50810470786a00c403"
+}

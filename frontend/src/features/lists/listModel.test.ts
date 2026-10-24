@@ -21,6 +21,7 @@ const item = (
     list_id: 'l-1',
     rank,
     values,
+    comment_count: 0,
     created_by: 'u',
     created_at: updated_at,
     updated_at,
@@ -93,6 +94,7 @@ describe('parseDraft and cellText', () => {
       ],
     },
     hidden: false,
+    due: false,
   };
 
   it('reads each typed kind and clears on blank', () => {

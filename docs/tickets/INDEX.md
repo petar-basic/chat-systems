@@ -245,14 +245,14 @@ forms reuse. Lists come before the workflow builder's last part, which writes in
 | # | Ticket | Area |
 |---|---|---|
 | CS-065 ✅ | Polls | backend · frontend |
-| [CS-066](CS-066-lists.md) | Lists: typed tables in a conversation, with board view and item comments | backend · frontend |
+| CS-066 ✅ | Lists: typed tables in a conversation, with board view and item comments | backend · frontend |
 | [CS-067](CS-067-workflow-builder.md) | Workflow builder | backend · frontend · ops |
 
 ### Still open
 
 | # | Ticket | Area | Why it is not done |
 |---|---|---|---|
-| [CS-066](CS-066-lists.md) … [CS-067](CS-067-workflow-builder.md) | Wave 23 | backend · frontend · ops | Planned 2026-10-23; one at a time, in number order, each before 4.0.0 |
+| [CS-067](CS-067-workflow-builder.md) | Wave 23 | backend · frontend · ops | Planned 2026-10-23; the last of Wave 23, before 4.0.0 |
 | [CS-037](CS-037-huddle-sfu.md) | SFU for large huddles | backend · frontend · ops | Held for 4.0.0 — it adds a service to the stack, so it ships in a major release |
 
 ## Conflict map

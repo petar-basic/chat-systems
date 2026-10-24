@@ -48,6 +48,12 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   existing list a "Table" view. `ListDetail` gains `views`, and a new frame,
   `list.views_changed`, goes to the list's audience; deploy the backend and realtime images
   together.
+- Migration 66 adds the `list` notification type, the `list_item_comments` table,
+  `list_items.comment_count`, `list_columns.is_due`, `later_items.list_item_id` and the
+  `list_due_assignments()` function. `ListItem` gains `comment_count`, `ListColumn` gains `due`,
+  `LaterItem` gains `list_item`, and the `notification` frame gains `list_id` and `item_id`.
+  Two new frames, `list.comment_upserted` and `list.comment_deleted`, go to the list's
+  audience; deploy the backend and realtime images together.
 
 ### Added
 
@@ -108,6 +114,13 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   week, overdue, empty. *Only mine* and *Due this week* are one click. While a table is sorted
   or filtered its rows stay where the view puts them, and items you just added stay in sight.
   `POST /lists/{id}/views`, `PATCH`/`DELETE /list-views/{id}`, `PUT /lists/{id}/view-order`.
+- **Lists, comments and due dates.** Every item has a comment thread under its fields, with
+  mentions, formatting and edits, live for everyone; a row and a card show how many comments
+  it has. Mentioning someone in a comment, or setting a person cell to them, puts it in their
+  Activity ("Ana assigned you to *Fix login*"), and the notification opens the item. Mark a
+  date column *Use as due date*: an item due tomorrow and assigned to you waits in Later as a
+  reminder at 9:00 on the day, and ticking it off there checks the item's checkbox.
+  `/list-items/{id}/comments`, `PATCH`/`DELETE /list-comments/{id}`.
 
 ### Changed
 

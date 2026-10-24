@@ -1110,7 +1110,7 @@ fn extract_group_mentions(content: &str) -> Vec<Uuid> {
     ids
 }
 
-fn extract_mentioned_user_ids(content: &str) -> Vec<Uuid> {
+pub(crate) fn extract_mentioned_user_ids(content: &str) -> Vec<Uuid> {
     let mut ids = Vec::new();
     let mut remaining = content;
     while let Some(at_pos) = remaining.find("@[") {

@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH due AS MATERIALIZED (\n                SELECT * FROM list_due_assignments($1)\n            ),\n            added AS (\n                INSERT INTO later_items\n                       (workspace_id, user_id, created_by, channel_id, list_item_id, text, remind_at)\n                SELECT workspace_id, user_id, user_id, channel_id, item_id, title, remind_at\n                  FROM due\n                 WHERE due >= today\n                ON CONFLICT (user_id, list_item_id) WHERE list_item_id IS NOT NULL DO NOTHING\n                RETURNING user_id, workspace_id\n            ),\n            removed AS (\n                DELETE FROM later_items li\n                 WHERE li.list_item_id IS NOT NULL\n                   AND li.status = 'in_progress'\n                   AND ($1::uuid IS NULL\n                        OR li.list_item_id IN (SELECT id FROM list_items WHERE list_id = $1))\n                   AND NOT EXISTS (\n                       SELECT 1 FROM due d\n                        WHERE d.item_id = li.list_item_id AND d.user_id = li.user_id\n                   )\n                RETURNING li.user_id, li.workspace_id\n            )\n            SELECT user_id AS \"user_id!\", workspace_id AS \"workspace_id!\" FROM added\n            UNION\n            SELECT user_id, workspace_id FROM removed\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "workspace_id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "897e0c211cbcca1ad999200e166a9c2c03c7547497384d335001e04772da2cb6"
+}

@@ -348,6 +348,30 @@ async fn notification_push_delivers_to_target_user(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn list_notification_carries_the_item(pool: PgPool) {
+    let cm = manager(pool).await;
+    let target = Uuid::new_v4();
+    let (_conn, mut rx) = fake_conn(&cm, target);
+    let (list, item) = (Uuid::new_v4(), Uuid::new_v4());
+
+    let payload = json!({
+        "user_id": target,
+        "list_id": list,
+        "item_id": item,
+        "title": "Ana assigned you to Fix login",
+        "body": "in Launch plan",
+        "kind": "list",
+    });
+    crate::event_consumer::handle_event("notification.push", &payload, &cm).await;
+
+    let frame = next_json(&mut rx).expect("target should receive notification");
+    assert_eq!(frame["kind"], "list");
+    assert_eq!(frame["list_id"], list.to_string());
+    assert_eq!(frame["item_id"], item.to_string());
+    assert!(frame["message_id"].is_null());
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn presence_changed_fans_out_to_workspace_subscribers_only(pool: PgPool) {
     let cm = manager(pool).await;
     let subject = Uuid::new_v4();
@@ -686,6 +710,14 @@ async fn a_channel_lists_frames_reach_the_channel_and_nobody_else(pool: PgPool) 
         (
             "list.item_deleted",
             with(json!({ "item_id": Uuid::new_v4() })),
+        ),
+        (
+            "list.comment_upserted",
+            with(json!({ "item_id": Uuid::new_v4(), "comment": { "id": Uuid::new_v4() } })),
+        ),
+        (
+            "list.comment_deleted",
+            with(json!({ "item_id": Uuid::new_v4(), "comment_id": Uuid::new_v4() })),
         ),
         ("list.deleted", with(json!({}))),
     ];

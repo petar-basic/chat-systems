@@ -15,6 +15,7 @@ pub enum NotificationType {
     Reminder,
     System,
     Keyword,
+    List,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, sqlx::Type, PartialEq, Eq, ToSchema)]

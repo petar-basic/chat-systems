@@ -14,9 +14,10 @@ export function NotificationStream() {
 
   useEffect(() => {
     return globalEventBus.on('notification', (event) => {
-      const { workspace_id, channel_id, message_id, title, body, kind } = event;
+      const { workspace_id, channel_id, message_id, list_id, item_id, title, body, kind } = event;
       const isMention = kind === NotificationType.mention;
       const isReply = kind === NotificationType.reply;
+      const isList = kind === NotificationType.list;
 
       if (channel_id && isMention) {
         useWorkspaceStore.setState((s) => {
@@ -39,6 +40,7 @@ export function NotificationStream() {
       const viewing =
         !!channel_id &&
         !isReply &&
+        !isList &&
         (currentChannel?.id === channel_id || currentConversationId === channel_id) &&
         document.hasFocus();
       if (viewing) return;
@@ -50,7 +52,12 @@ export function NotificationStream() {
           if (!message_id) return ROUTES.channel(workspaceId, channelId);
           return `${ROUTES.message(workspaceId, channelId, message_id)}${isReply ? '?thread=1' : ''}`;
         };
-        const onClick = wsId && channel_id ? () => navigate(target(wsId, channel_id)) : undefined;
+        const onClick =
+          wsId && isList && list_id
+            ? () => navigate(`${ROUTES.list(wsId, list_id)}${item_id ? `?item=${item_id}` : ''}`)
+            : wsId && channel_id
+              ? () => navigate(target(wsId, channel_id))
+              : undefined;
         showNotification(isMention ? `🔔 ${title}` : title, body ?? '', onClick);
       }
     });

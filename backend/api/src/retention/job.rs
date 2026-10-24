@@ -16,6 +16,7 @@ const MAX_BATCHES_PER_TABLE: usize = 200;
 pub struct PurgeCounts {
     pub messages: u64,
     pub list_items: u64,
+    pub list_comments: u64,
     pub lists: u64,
     pub files: u64,
     pub notifications: u64,
@@ -30,6 +31,7 @@ impl PurgeCounts {
     fn total(&self) -> u64 {
         self.messages
             + self.list_items
+            + self.list_comments
             + self.lists
             + self.files
             + self.notifications
@@ -44,6 +46,7 @@ impl PurgeCounts {
         for (table, count) in [
             ("messages", self.messages),
             ("list_items", self.list_items),
+            ("list_item_comments", self.list_comments),
             ("lists", self.lists),
             ("files", self.files),
             ("notifications", self.notifications),
@@ -71,6 +74,7 @@ pub async fn start_retention_job(state: Arc<AppState>) {
             dry_run = state.config.retention_dry_run,
             messages = counts.messages,
             list_items = counts.list_items,
+            list_comments = counts.list_comments,
             lists = counts.lists,
             files = counts.files,
             notifications = counts.notifications,
@@ -138,6 +142,13 @@ pub async fn run_once(state: &AppState) -> PurgeCounts {
                     .await
             })
             .await;
+            counts.list_comments += purge_loop(dry_run, || async {
+                state
+                    .retention_repo
+                    .purge_list_comments(policy.workspace_id, days)
+                    .await
+            })
+            .await;
             counts.list_items += purge_loop(dry_run, || async {
                 state
                     .retention_repo
@@ -158,12 +169,13 @@ pub async fn run_once(state: &AppState) -> PurgeCounts {
                     .count_messages_past(policy.workspace_id, days)
                     .await
                     .unwrap_or(0) as u64;
-                let (items, lists) = state
+                let (items, lists, comments) = state
                     .retention_repo
                     .count_lists_past(policy.workspace_id, days)
                     .await
-                    .unwrap_or((0, 0));
+                    .unwrap_or((0, 0, 0));
                 counts.list_items += items as u64;
+                counts.list_comments += comments as u64;
                 counts.lists += lists as u64;
             }
         }
@@ -192,6 +204,7 @@ pub async fn run_once(state: &AppState) -> PurgeCounts {
                     .details(serde_json::json!({
                         "messages": counts.messages,
                         "list_items": counts.list_items,
+                        "list_comments": counts.list_comments,
                         "lists": counts.lists,
                         "files": counts.files,
                         "notifications": counts.notifications,

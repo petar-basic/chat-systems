@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent, type KeyboardEvent } from 'react';
-import { Plus } from 'lucide-react';
+import { MessageSquare, Plus } from 'lucide-react';
 import { CellContent, ChoiceChip } from './CellContent';
 import { cellText, choiceOf, type Choice, type ListColumn, type ListItem } from './listModel';
 import type { People } from './people';
@@ -230,6 +230,18 @@ export function ListBoard({
                               )}
                             </span>
                           ))}
+                        </span>
+                      )}
+                      {item.comment_count > 0 && (
+                        <span
+                          className="mt-1.5 flex items-center gap-1 text-xs tabular-nums text-muted"
+                          data-qa="list-card-comments"
+                        >
+                          <MessageSquare className="h-3 w-3" aria-hidden />
+                          {item.comment_count}
+                          <span className="sr-only">
+                            {item.comment_count === 1 ? ' comment' : ' comments'}
+                          </span>
                         </span>
                       )}
                     </button>

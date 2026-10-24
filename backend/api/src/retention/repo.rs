@@ -147,6 +147,37 @@ impl RetentionRepo {
         Ok(result.rows_affected())
     }
 
+    pub async fn purge_list_comments(&self, workspace_id: Uuid, days: i32) -> sqlx::Result<u64> {
+        sqlx::query_scalar!(
+            r#"
+            WITH gone AS (
+                DELETE FROM list_item_comments
+                 WHERE id IN (
+                     SELECT c.id FROM list_item_comments c
+                       JOIN lists l ON l.id = c.list_id
+                      WHERE l.workspace_id = $1
+                        AND c.created_at < NOW() - make_interval(days => $2)
+                      LIMIT $3
+                 )
+                RETURNING item_id
+            ),
+            counted AS (
+                UPDATE list_items i
+                   SET comment_count = GREATEST(i.comment_count - g.n, 0)
+                  FROM (SELECT item_id, COUNT(*)::int AS n FROM gone GROUP BY item_id) g
+                 WHERE i.id = g.item_id
+            )
+            SELECT COUNT(*) AS "count!" FROM gone
+            "#,
+            workspace_id,
+            days,
+            PURGE_BATCH
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map(|count| count as u64)
+    }
+
     pub async fn purge_deleted_lists(&self, workspace_id: Uuid, days: i32) -> sqlx::Result<u64> {
         let result = sqlx::query!(
             r"
@@ -171,7 +202,7 @@ impl RetentionRepo {
         &self,
         workspace_id: Uuid,
         days: i32,
-    ) -> sqlx::Result<(i64, i64)> {
+    ) -> sqlx::Result<(i64, i64, i64)> {
         let row = sqlx::query!(
             r#"
             SELECT (SELECT COUNT(*) FROM list_items i JOIN lists l ON l.id = i.list_id
@@ -179,14 +210,17 @@ impl RetentionRepo {
                        AND i.updated_at < NOW() - make_interval(days => $2)) AS "items!",
                    (SELECT COUNT(*) FROM lists
                      WHERE workspace_id = $1
-                       AND deleted_at < NOW() - make_interval(days => $2)) AS "lists!"
+                       AND deleted_at < NOW() - make_interval(days => $2)) AS "lists!",
+                   (SELECT COUNT(*) FROM list_item_comments c JOIN lists l ON l.id = c.list_id
+                     WHERE l.workspace_id = $1
+                       AND c.created_at < NOW() - make_interval(days => $2)) AS "comments!"
             "#,
             workspace_id,
             days
         )
         .fetch_one(&self.pool)
         .await?;
-        Ok((row.items, row.lists))
+        Ok((row.items, row.lists, row.comments))
     }
 
     /// Files come back so the object can be removed before its row: a row

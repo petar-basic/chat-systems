@@ -1453,3 +1453,47 @@ polls; what CS-067 can reuse is the shape: state in its own tables, the summary 
 `metadata`, a locked write that stages `message.updated`. The live `message.updated` handler
 used to patch the channel list only, so a vote in a thread did not move there; it now patches
 the thread cache too.
+
+### [CS-066] Lists ✅ shipped
+A launch checklist lived in a pinned message edited by hand, or in a spreadsheet somewhere
+else. A list is now a table kept in one conversation, or a personal one only its creator
+sees: up to 30 typed columns (text, number, select, multi-select, person, date, checkbox,
+link) and 10,000 items. Where a list lives decides who sees it, through the conversation's own
+access, so there is no second permission system to reason about, and an announcement
+channel's list is read-only to everyone but its posters. It shipped in four PRs.
+
+The model took two decisions the ticket left open. `PATCH /list-items/{id}` merges
+(`values || $1`), so two people editing different cells of one row both keep their edit; a
+column change locks the list row and a cell edit takes a share lock, so edits run side by side
+but never against a column that is changing. A kind change that would clear cells is 409
+"This change clears N cells" until `confirm_cleared` is that N: a confirmation given before
+somebody else filled more cells cannot clear those. `list.columns_changed` says
+`items_rewritten` instead of sending up to 10,000 rows, and every frame carries `owner_id` so
+a personal list's frames reach its owner's sessions.
+
+The table is an ARIA grid that keeps focus on itself and points `aria-activedescendant` at
+the active cell, so virtualized rows can come and go without losing it; the active and edited
+cell are kept by item and column id, so a row arriving from somebody else never moves an
+edit. Enter commits and moves down as a spreadsheet does, which put *open the item* on
+Shift + Enter and *move the row* on Alt + ↑/↓. Hidden columns ended up shared, on the list,
+and views did not take them over.
+
+Views are saved on the list and shared, as in Slack, and always at least one. Filtering and
+sorting run in the client over the items it already holds; the server stores the rules,
+checks each against its column's kind, and prunes every view in the transaction that changes
+or deletes a column, so a saved view never points at something gone. `"me"` in a person
+filter is whoever looks, which makes one shared *Only mine* view personal.
+
+Every item has a comment thread, written with the message composer and rendered by the
+message renderer; commenting takes the right to edit the list, and
+`list_items.comment_count` moves in the comment's transaction, so the row's own frame carries
+the count. A mention, or a person cell set to somebody new by somebody else, becomes a
+`list` notification through the CS-060 consumer, for whoever can still read the list, and
+opens the item. The due date is one date column a list marks; the item's title is its first
+text column and *done* is its first checkbox. `list_due_assignments()` answers, in each
+assignee's own time zone, which open items are due by tomorrow and for whom; the reminder
+checker turns those into Later rows (09:00 on the day) and drops the ones no longer due,
+assigned or open. Waiting ten minutes for that sweep after assigning somebody felt broken, so
+writing an item or a column of a list with a due date also syncs that one list at once; the
+sweep is left for the day turning over. Ticking the reminder off in Later checks the item
+through the ordinary item update, so it is only done for someone who may still edit the list.

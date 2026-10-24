@@ -1,5 +1,6 @@
 import { useRef, type ReactNode } from 'react';
 import {
+  AlarmClock,
   ArrowLeft,
   ArrowRight,
   Calendar,
@@ -25,6 +26,7 @@ export interface ColumnActions {
   onEdit: (column: ListColumn) => void;
   onMove: (column: ListColumn, delta: -1 | 1) => void;
   onHide: (column: ListColumn) => void;
+  onToggleDue: (column: ListColumn) => void;
   onDelete: (column: ListColumn) => void;
   onAdd: () => void;
   canAdd: boolean;
@@ -74,6 +76,14 @@ export function ColumnMenu({ column, index, count, canEdit, open, onOpen, onClos
       >
         <span className="shrink-0">{KIND_ICONS[column.kind]}</span>
         <span className="truncate">{column.name}</span>
+        {column.due && (
+          <span
+            className="shrink-0 rounded bg-accent/15 px-1 text-[10px] font-semibold text-accent"
+            data-qa="list-column-due"
+          >
+            Due
+          </span>
+        )}
         {canEdit && <ChevronDown className="ml-auto h-3 w-3 shrink-0" />}
       </button>
       {open && (
@@ -124,6 +134,14 @@ export function ColumnMenu({ column, index, count, canEdit, open, onOpen, onClos
               onSelect={run(() => actions.onHide(column))}
               qa="list-column-hide"
             />
+            {column.kind === 'date' && (
+              <MenuItem
+                icon={<AlarmClock className="h-4 w-4" />}
+                label={column.due ? 'Stop using as due date' : 'Use as due date'}
+                onSelect={run(() => actions.onToggleDue(column))}
+                qa="list-column-due-toggle"
+              />
+            )}
             <MenuItem
               icon={<Plus className="h-4 w-4" />}
               label="Add column"
