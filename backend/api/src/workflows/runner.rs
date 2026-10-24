@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use chrono::{Duration, Utc};
@@ -73,12 +74,18 @@ pub async fn run_pending(state: &AppState) -> sqlx::Result<usize> {
 struct Context<'a> {
     workflow: &'a WorkflowRow,
     run: &'a RunRow,
+    fired: Fired,
+}
+
+struct Fired {
+    user: Option<Uuid>,
+    values: HashMap<&'static str, String>,
 }
 
 impl Context<'_> {
     fn value(&self, name: &str) -> String {
         let Some(variable) = name.strip_prefix("webhook.") else {
-            return String::new();
+            return self.fired.values.get(name).cloned().unwrap_or_default();
         };
         match &self.run.context["webhook"][variable] {
             serde_json::Value::String(text) => text.clone(),
@@ -93,7 +100,7 @@ impl Context<'_> {
 
     fn authored(&self, text: &str) -> String {
         render(text, |name| {
-            if name.starts_with("webhook.") {
+            if name.starts_with("webhook.") || name == "trigger.message" {
                 String::new()
             } else {
                 self.value(name)
@@ -146,12 +153,23 @@ async fn steps(state: &AppState, workflow: &WorkflowRow, run: &RunRow) -> Result
     let definition = workflow
         .definition()
         .ok_or_else(|| "The workflow can't be read".to_string())?;
+    if let Some(channel_id) = definition.trigger.channel() {
+        authz::require_channel_access(state, channel_id, creator.user_id)
+            .await
+            .map_err(|_| "Its creator can no longer see the channel it listens to".to_string())?;
+    }
     let done = state
         .workflow_repo
         .finished_positions(run.id)
         .await
         .map_err(|e| e.to_string())?;
-    let context = Context { workflow, run };
+    let context = Context {
+        workflow,
+        run,
+        fired: fired(state, workflow, run)
+            .await
+            .map_err(|e| e.to_string())?,
+    };
 
     for (index, step) in definition.steps.iter().enumerate() {
         let position = index as i32;
@@ -190,9 +208,17 @@ async fn run_step(
             *channel_id
         }
         Step::SendDm { to, .. } => {
-            let recipient = match to {
-                Recipient::Person { user_id } => *user_id,
-                Recipient::TriggerUser => return Err("This trigger has no person".into()),
+            let recipient = match (to, context.fired.user) {
+                (Recipient::Person { user_id }, _) => *user_id,
+                (Recipient::TriggerUser, Some(user_id)) if user_id == creator.user_id => {
+                    return state
+                        .workflow_repo
+                        .record_step(context.run.id, position, Ok(None))
+                        .await
+                        .map_err(|e| e.to_string());
+                }
+                (Recipient::TriggerUser, Some(user_id)) => user_id,
+                (Recipient::TriggerUser, None) => return Err("This trigger has no person".into()),
             };
             dm_channel(state, creator, recipient).await?
         }
@@ -235,6 +261,54 @@ async fn run_step(
     tx.commit().await.map_err(internal)?;
     state.publisher.dispatch(staged).await;
     Ok(())
+}
+
+async fn fired(state: &AppState, workflow: &WorkflowRow, run: &RunRow) -> sqlx::Result<Fired> {
+    let facts = &run.context["trigger"];
+    let id = |key: &str| facts.get(key)?.as_str()?.parse::<Uuid>().ok();
+    let mut values = HashMap::new();
+    let user = id("user_id");
+    if let Some(user_id) = user {
+        let name = state
+            .auth_service
+            .repo()
+            .find_by_id(user_id)
+            .await?
+            .map(|user| {
+                user.display_name
+                    .unwrap_or_else(|| user.email.split('@').next().unwrap_or_default().to_string())
+            })
+            .unwrap_or_else(|| "someone".into());
+        values.insert("trigger.user", format!("@[{name}]({user_id})"));
+    }
+    if let Some(channel_id) = id("channel_id") {
+        let channel = state
+            .workspace_service
+            .repo
+            .find_channel_by_id(channel_id)
+            .await?;
+        if let Some(name) = channel.and_then(|channel| channel.name) {
+            values.insert("trigger.channel", format!("#{name}"));
+        }
+        if let Some(message_id) = id("message_id") {
+            let message = state.message_repo.find_by_id(message_id).await?;
+            values.insert(
+                "trigger.message",
+                message
+                    .filter(|message| message.deleted_at.is_none())
+                    .map(|message| message.content)
+                    .unwrap_or_default(),
+            );
+            values.insert(
+                "trigger.message_link",
+                format!(
+                    "{}/app/{}/{channel_id}/{message_id}",
+                    state.config.public_url, workflow.workspace_id
+                ),
+            );
+        }
+    }
+    Ok(Fired { user, values })
 }
 
 async fn dm_channel(

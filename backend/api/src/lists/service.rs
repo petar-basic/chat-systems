@@ -19,7 +19,7 @@ use super::views::{
     MAX_VIEWS,
 };
 use crate::authz;
-use crate::messaging::publisher::Staged;
+use crate::messaging::publisher::{EventPublisher, Staged};
 use crate::state::AppState;
 use crate::workspace::models::WorkspaceRole;
 
@@ -70,7 +70,6 @@ async fn lock(state: &AppState, conn: &mut PgConnection, list_id: Uuid) -> AppRe
 }
 
 async fn stage(
-    state: &AppState,
     conn: &mut PgConnection,
     list: &List,
     event_type: &str,
@@ -85,10 +84,7 @@ async fn stage(
     if let (Some(payload), Value::Object(fields)) = (payload.as_object_mut(), fields) {
         payload.extend(fields);
     }
-    state
-        .publisher
-        .stage(conn, event_type, list.workspace_id, payload)
-        .await
+    EventPublisher::stage(conn, event_type, list.workspace_id, payload).await
 }
 
 pub async fn visible(
@@ -191,14 +187,7 @@ pub async fn create(
             user_id,
         )
         .await?;
-    let staged = stage(
-        state,
-        &mut tx,
-        &list,
-        "list.upserted",
-        json!({ "list": list }),
-    )
-    .await?;
+    let staged = stage(&mut tx, &list, "list.upserted", json!({ "list": list })).await?;
     tx.commit().await?;
     state.publisher.dispatch(staged).await;
     Ok(ListDetail {
@@ -229,14 +218,7 @@ pub async fn update(
         .list_repo
         .update_in(&mut tx, list_id, &title, &description)
         .await?;
-    let staged = stage(
-        state,
-        &mut tx,
-        &list,
-        "list.upserted",
-        json!({ "list": list }),
-    )
-    .await?;
+    let staged = stage(&mut tx, &list, "list.upserted", json!({ "list": list })).await?;
     tx.commit().await?;
     state.publisher.dispatch(staged).await;
     Ok(list)
@@ -255,7 +237,7 @@ pub async fn delete(state: &AppState, user_id: Uuid, list_id: Uuid) -> AppResult
     let mut tx = state.pool.begin().await?;
     let list = lock(state, &mut tx, list_id).await?;
     state.list_repo.soft_delete_in(&mut tx, list_id).await?;
-    let staged = stage(state, &mut tx, &list, "list.deleted", json!({})).await?;
+    let staged = stage(&mut tx, &list, "list.deleted", json!({})).await?;
     tx.commit().await?;
     state.publisher.dispatch(staged).await;
     Ok(())
@@ -280,7 +262,6 @@ async fn columns_changed(
 ) -> AppResult<(Vec<ListColumn>, Staged)> {
     let columns = state.list_repo.columns_in(conn, list.id).await?;
     let staged = stage(
-        state,
         conn,
         list,
         "list.columns_changed",
@@ -296,14 +277,7 @@ async fn views_changed(
     list: &List,
 ) -> AppResult<(Vec<ListView>, Staged)> {
     let views = state.list_repo.views_in(conn, list.id).await?;
-    let staged = stage(
-        state,
-        conn,
-        list,
-        "list.views_changed",
-        json!({ "views": views }),
-    )
-    .await?;
+    let staged = stage(conn, list, "list.views_changed", json!({ "views": views })).await?;
     Ok((views, staged))
 }
 
@@ -775,7 +749,6 @@ fn assignees(
 }
 
 async fn stage_assigned(
-    state: &AppState,
     conn: &mut PgConnection,
     list: &List,
     columns: &[ListColumn],
@@ -787,7 +760,6 @@ async fn stage_assigned(
         return Ok(None);
     }
     let staged = stage(
-        state,
         conn,
         list,
         "list.assigned",
@@ -866,14 +838,13 @@ pub async fn create_item(
         .insert_item_in(&mut tx, list_id, &rank, &Value::Object(edit.set), user_id)
         .await?;
     let staged = stage(
-        state,
         &mut tx,
         &list,
         "list.item_upserted",
         json!({ "item": item }),
     )
     .await?;
-    let assigned = stage_assigned(state, &mut tx, &list, &columns, &item, people, user_id).await?;
+    let assigned = stage_assigned(&mut tx, &list, &columns, &item, people, user_id).await?;
     tx.commit().await?;
     state.publisher.dispatch(staged).await;
     if let Some(assigned) = assigned {
@@ -920,14 +891,13 @@ pub async fn update_item(
         .await?
         .ok_or_else(|| AppError::NotFound("Item not found".into()))?;
     let staged = stage(
-        state,
         &mut tx,
         &list,
         "list.item_upserted",
         json!({ "item": item }),
     )
     .await?;
-    let assigned = stage_assigned(state, &mut tx, &list, &columns, &item, people, user_id).await?;
+    let assigned = stage_assigned(&mut tx, &list, &columns, &item, people, user_id).await?;
     tx.commit().await?;
     state.publisher.dispatch(staged).await;
     if let Some(assigned) = assigned {
@@ -963,7 +933,6 @@ pub async fn move_item(
         .move_item_in(&mut tx, item_id, &rank)
         .await?;
     let staged = stage(
-        state,
         &mut tx,
         &list,
         "list.item_upserted",
@@ -986,7 +955,6 @@ pub async fn delete_item(state: &AppState, user_id: Uuid, item_id: Uuid) -> AppR
         return Err(AppError::NotFound("Item not found".into()));
     }
     let staged = stage(
-        state,
         &mut tx,
         &list,
         "list.item_deleted",
@@ -1048,14 +1016,7 @@ async fn comment_counted(
         .count_comments_in(conn, item_id, delta)
         .await?
         .ok_or_else(|| AppError::NotFound("Item not found".into()))?;
-    let staged = stage(
-        state,
-        conn,
-        list,
-        "list.item_upserted",
-        json!({ "item": item }),
-    )
-    .await?;
+    let staged = stage(conn, list, "list.item_upserted", json!({ "item": item })).await?;
     Ok((item, staged))
 }
 
@@ -1080,7 +1041,6 @@ pub async fn add_comment(
     let columns = state.list_repo.columns_in(&mut tx, list_id).await?;
     let mentioned = crate::messaging::routes::extract_mentioned_user_ids(&content);
     let staged = stage(
-        state,
         &mut tx,
         &list,
         "list.comment_upserted",
@@ -1124,7 +1084,6 @@ pub async fn edit_comment(
         .await?
         .ok_or_else(|| AppError::NotFound("Comment not found".into()))?;
     let staged = stage(
-        state,
         &mut tx,
         &list,
         "list.comment_upserted",
@@ -1160,7 +1119,6 @@ pub async fn delete_comment(state: &AppState, user_id: Uuid, comment_id: Uuid) -
         return Err(AppError::NotFound("Comment not found".into()));
     }
     let staged = stage(
-        state,
         &mut tx,
         &list,
         "list.comment_deleted",
@@ -1174,7 +1132,6 @@ pub async fn delete_comment(state: &AppState, user_id: Uuid, comment_id: Uuid) -
     {
         Some(item) => Some(
             stage(
-                state,
                 &mut tx,
                 &list,
                 "list.item_upserted",

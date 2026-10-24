@@ -116,6 +116,25 @@ pub async fn check_authority(
         }
     }
     let member = authz::require_workspace_member(state, workspace_id, creator).await?;
+    if let Some(channel_id) = definition.trigger.channel() {
+        let refused = || AppError::Validation("You can't see the channel it listens to".into());
+        let access = authz::require_channel_access(state, channel_id, creator)
+            .await
+            .map_err(|_| refused())?;
+        if access.channel.workspace_id != workspace_id
+            || !matches!(
+                access.channel.channel_type,
+                ChannelType::Public | ChannelType::Private
+            )
+        {
+            return Err(refused());
+        }
+        if access.channel.is_archived {
+            return Err(AppError::Validation(
+                "The channel it listens to is archived".into(),
+            ));
+        }
+    }
     for (index, step) in definition.steps.iter().enumerate() {
         let at = format!("Step {}", index + 1);
         match step {
@@ -238,7 +257,7 @@ pub async fn update(
     check_authority(state, row.workspace_id, user_id, &req.definition).await?;
     let token = match req.definition.trigger {
         Trigger::Webhook { .. } => Some(row.webhook_token.clone().unwrap_or_else(generate_token)),
-        Trigger::Schedule { .. } => None,
+        _ => None,
     };
     state
         .workflow_repo

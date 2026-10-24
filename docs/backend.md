@@ -826,12 +826,19 @@ the list.
 
 A workflow is a trigger and up to 20 steps, stored as a typed `Definition` in
 `workflows.definition` and checked on every save: `models.rs` for the shape and the variables
-each trigger offers, `service::check_authority` for what the builder may do (post in the
-channel, message the person, a real timezone). `runner.rs` is the `workflow_runner` loop in
-`chat-worker`: every 5 seconds it queues the schedules that are due and runs queued runs.
+each trigger offers, `service::check_authority` for what the builder may do (see the channel
+a trigger listens to, post in the channel, message the person, a real timezone). `runner.rs`
+is the `workflow_runner` loop in `chat-worker`: every 5 seconds it queues the schedules that
+are due and runs queued runs. `listener.rs` is `workflow_listener`, consumer group `workflows`
+on the workspace streams: a `reaction.added` or `channel.member_joined` event queues a run for
+every enabled workflow listening to that channel (and emoji), with the person, channel and
+message in the run's `context`. `workspace::membership::add_to_channel` and the default-channel
+joins stage `channel.member_joined` with the membership row.
 
 A run is a row in `workflow_runs`, unique on `(workflow_id, trigger_key)` — the schedule
-instant or the webhook request — so a trigger delivered twice is one run. Each step's message
+instant, the webhook request or the stream event id — so a trigger delivered twice is one run.
+Every trigger shares one limit of 30 runs a minute per workflow (`RUNS_PER_MINUTE`); an event
+past it is stored as a failed run saying it was skipped. Each step's message
 commits with its `workflow_run_steps` row, and a step already recorded is skipped when a run
 is picked up again. A step authorizes as the builder at that moment; the first that fails
 stops the run with `Step N (…): why`. A builder who is no longer a member turns their
@@ -839,7 +846,8 @@ workflows off (`workspace::membership::detach` does it on removal, a run does it
 them gone) and every admin gets a `system` notification.
 
 Messages are bot messages (`metadata.bot = { workflow_id, name }`) whose `user_id` is the
-builder. Only mentions in the builder's text notify, not ones inside webhook values.
+builder. Only mentions in the builder's text and `{{trigger.user}}` notify, not ones inside
+webhook values or the reacted message.
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|

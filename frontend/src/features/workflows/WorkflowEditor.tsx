@@ -17,6 +17,7 @@ import {
   blankDefinition,
   blankStep,
   moveStep,
+  triggerPerson,
   variablesOf,
   type Definition,
   type SaveWorkflow,
@@ -223,6 +224,7 @@ export function WorkflowEditor({
           </div>
           <TriggerCard
             trigger={definition.trigger}
+            channels={postable}
             webhookUrl={workflow?.webhook_url ?? null}
             readOnly={readOnly}
             onChange={(trigger) => setDefinition((d) => ({ ...d, trigger }))}
@@ -237,6 +239,7 @@ export function WorkflowEditor({
                   channels={postable}
                   people={people}
                   variables={variables}
+                  triggerPerson={triggerPerson(definition.trigger)}
                   readOnly={readOnly}
                   onChange={(next) => setStep(index, next)}
                   onMove={(to) => setDefinition((d) => ({ ...d, steps: moveStep(d.steps, index, to) }))}

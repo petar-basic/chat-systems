@@ -11,7 +11,7 @@ use shared_common::errors::{AppError, AppResult};
 use super::models::*;
 use crate::authz;
 use crate::dto::{DataList, StatusResponse};
-use crate::messaging::publisher::Staged;
+use crate::messaging::publisher::{EventPublisher, Staged};
 use crate::middleware::AuthUser;
 use crate::state::AppState;
 use crate::workspace::models::{WorkspaceMember, WorkspaceRole};
@@ -25,7 +25,6 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
 }
 
 async fn stage_conversation_event(
-    state: &AppState,
     conn: &mut sqlx::PgConnection,
     event: &str,
     conversation_id: Uuid,
@@ -38,10 +37,7 @@ async fn stage_conversation_event(
         obj.insert("workspace_id".into(), serde_json::json!(workspace_id));
         obj.insert("participant_ids".into(), serde_json::json!(participants));
     }
-    state
-        .publisher
-        .stage(conn, event, workspace_id, payload)
-        .await
+    EventPublisher::stage(conn, event, workspace_id, payload).await
 }
 
 #[utoipa::path(get, path = "/workspaces/{ws_id}/conversations", tag = "conversations", responses((status = 200, body = DataList<ConversationSummary>)))]
@@ -173,7 +169,6 @@ async fn open(
         .create_in(&mut tx, ws_id, kind, starter, everyone)
         .await?;
     let staged = stage_conversation_event(
-        state,
         &mut tx,
         "conversation.created",
         conversation.id,

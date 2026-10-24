@@ -60,6 +60,12 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   `chat-worker` runs one more supervised loop, `workflow_runner`. A message's `bot` identity
   gains `workflow_id`, and its `hook_id` is optional, as slash-command replies already left it
   out. The workspace settings take `workflow_builders`.
+- Migration 68 indexes workflows by the channel their trigger listens to. `chat-worker` runs
+  `workflow_listener`, a new consumer group (`workflows`) on the workspace streams; like any new
+  group it starts at the beginning of each stream, and as nothing listens yet that backlog
+  starts no runs. Joining a channel now emits a durable `channel.member_joined` event, which the
+  gateway ignores. `WorkspaceService::join_workspace` and `accept_invite` return the events
+  they staged.
 
 ### Added
 
@@ -129,9 +135,11 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   `/list-items/{id}/comments`, `PATCH`/`DELETE /list-comments/{id}`.
 - **Workflows.** *Workflows* in the workspace menu lists yours (an admin sees everyone's) and
   builds new ones in a full-height editor: one trigger, then steps in order. A workflow starts
-  on a schedule (every day, weekdays or chosen days, at a time in a timezone) or when its
-  secret webhook URL is called with a JSON object; it then posts in a channel or sends someone
-  a DM, as a message tagged *Workflow*, with the webhook's values inserted where you put them.
+  on a schedule (every day, weekdays or chosen days, at a time in a timezone), when its secret
+  webhook URL is called with a JSON object, when someone adds a chosen emoji to a message in a
+  channel, or when someone joins a channel; it then posts in a channel or sends someone a DM
+  (or the person who set it off), as a message tagged *Workflow*, with the webhook's values,
+  that person, the channel, or the reacted message and its link inserted where you put them.
   Every step runs with what its builder can do at that moment, so losing access to a channel
   fails that step, and a builder leaving the workspace turns their workflows off and tells the
   admins. *Run history* shows the last 50 runs and why a step failed. Admins can keep building

@@ -7,6 +7,8 @@ import { displayNameOf } from '@/lib/userHelpers';
 import type { Channel, WorkspaceMember } from '@/stores/workspace';
 import { TEXT_MAX, blankStep, insertAt, stepLabel, type Step } from './workflowModel';
 
+const TRIGGER_PERSON = 'trigger_user';
+
 interface Props {
   step: Step;
   index: number;
@@ -14,6 +16,7 @@ interface Props {
   channels: Channel[];
   people: WorkspaceMember[];
   variables: { token: string; label: string }[];
+  triggerPerson: string | null;
   readOnly: boolean;
   onChange: (step: Step) => void;
   onMove: (to: number) => void;
@@ -27,6 +30,7 @@ export function StepCard({
   channels,
   people,
   variables,
+  triggerPerson,
   readOnly,
   onChange,
   onMove,
@@ -119,14 +123,23 @@ export function StepCard({
           ) : (
             <Select
               label="To"
-              value={step.to.kind === 'person' ? step.to.user_id : ''}
+              value={step.to.kind === 'person' ? step.to.user_id : triggerPerson ? TRIGGER_PERSON : ''}
               disabled={readOnly}
-              onChange={(e) => onChange({ ...step, to: { kind: 'person', user_id: e.target.value } })}
+              onChange={(e) =>
+                onChange({
+                  ...step,
+                  to:
+                    e.target.value === TRIGGER_PERSON
+                      ? { kind: 'trigger_user' }
+                      : { kind: 'person', user_id: e.target.value },
+                })
+              }
               dataQa="workflow-step-person"
             >
               <option value="" disabled>
                 Pick a person
               </option>
+              {triggerPerson && <option value={TRIGGER_PERSON}>{triggerPerson}</option>}
               {people.map((person) => (
                 <option key={person.user_id} value={person.user_id}>
                   {displayNameOf(person.display_name)}

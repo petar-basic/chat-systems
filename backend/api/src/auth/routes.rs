@@ -217,10 +217,11 @@ async fn accept_invite(
         .and_then(|r| serde_json::from_value(serde_json::Value::String(r.to_string())).ok())
         .unwrap_or(WorkspaceRole::Member);
 
-    state
+    let staged = state
         .workspace_service
         .join_workspace(workspace_id, auth.user_id, &role)
         .await?;
+    state.publisher.dispatch_all(staged).await;
 
     audit::record(
         &state,
@@ -256,10 +257,11 @@ async fn complete_registration(
             .and_then(|r| serde_json::from_value(serde_json::Value::String(r.to_string())).ok())
             .unwrap_or(WorkspaceRole::Member);
 
-        state
+        let staged = state
             .workspace_service
             .join_workspace(workspace_id, claims.sub, &role)
             .await?;
+        state.publisher.dispatch_all(staged).await;
     }
 
     let secure = state.config.public_url.starts_with("https://");

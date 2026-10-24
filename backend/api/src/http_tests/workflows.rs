@@ -5,9 +5,11 @@ use sqlx::PgPool;
 use tower::ServiceExt;
 use uuid::Uuid;
 
+use shared_events::Event;
+
 use super::common::*;
 use crate::state::AppState;
-use crate::workflows::runner;
+use crate::workflows::{listener, runner};
 
 fn post_to(channel: Uuid, text: &str) -> Value {
     json!({ "type": "send_message", "channel_id": channel, "text": text })
@@ -32,6 +34,64 @@ fn webhook(name: &str, variables: &[&str], steps: Vec<Value>) -> Value {
         "name": name,
         "definition": { "trigger": { "type": "webhook", "variables": variables }, "steps": steps },
     })
+}
+
+fn dm_back(text: &str) -> Value {
+    json!({ "type": "send_dm", "to": { "kind": "trigger_user" }, "text": text })
+}
+
+fn on_reaction(name: &str, channel: Uuid, emoji: &str, steps: Vec<Value>) -> Value {
+    json!({
+        "name": name,
+        "definition": {
+            "trigger": { "type": "reaction_added", "channel_id": channel, "emoji": emoji },
+            "steps": steps,
+        },
+    })
+}
+
+fn on_join(name: &str, channel: Uuid, steps: Vec<Value>) -> Value {
+    json!({
+        "name": name,
+        "definition": { "trigger": { "type": "member_joined", "channel_id": channel }, "steps": steps },
+    })
+}
+
+async fn deliver(state: &AppState) {
+    let rows = sqlx::query_as::<_, (Uuid, String, Value, chrono::DateTime<chrono::Utc>)>(
+        "SELECT event_id, event_type, payload, created_at FROM event_outbox
+          WHERE event_type IN ('reaction.added', 'channel.member_joined') ORDER BY id",
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap();
+    for (id, event_type, payload, timestamp) in rows {
+        let event = Event {
+            id,
+            event_type,
+            payload,
+            timestamp,
+            stream_id: None,
+        };
+        listener::handle(state, &event).await.unwrap();
+        listener::handle(state, &event).await.unwrap();
+    }
+}
+
+async fn dms(state: &AppState, ws: Uuid, from: Uuid, to: Uuid) -> Vec<String> {
+    let Some(conversation) = state
+        .conversation_repo
+        .find_direct(ws, from, to)
+        .await
+        .unwrap()
+    else {
+        return Vec::new();
+    };
+    bot_messages(state, conversation.id)
+        .await
+        .into_iter()
+        .map(|(content, _)| content)
+        .collect()
 }
 
 async fn create(app: &axum::Router, token: &str, ws: Uuid, body: Value) -> (StatusCode, Value) {
@@ -524,7 +584,7 @@ async fn a_busy_webhook_is_rate_limited(pool: PgPool) {
     .await;
     let path = hook_path(&workflow);
 
-    for _ in 0..crate::workflows::routes::WEBHOOK_CALLS_PER_MINUTE {
+    for _ in 0..crate::workflows::routes::RUNS_PER_MINUTE {
         let (status, _) = call(&app, &path, None, json!({})).await;
         assert_eq!(status, StatusCode::ACCEPTED);
     }
@@ -793,5 +853,320 @@ async fn the_unused_hook_types_are_gone(pool: PgPool) {
     assert_eq!(
         types,
         vec!["incoming_webhook", "outgoing_webhook", "slash_command"]
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_reaction_in_its_channel_starts_one_run_even_when_delivered_twice(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (ws, owner_id, owner, member_id, member) =
+        workspace_with_member(&app, &state, "wf-react").await;
+    let incidents = seed_channel(&state, ws, owner_id, "incidents", false).await;
+    let elsewhere = seed_channel(&state, ws, owner_id, "elsewhere", false).await;
+    let alerts = seed_channel(&state, ws, owner_id, "alerts", false).await;
+    let (bob_id, _, bob) = seed_and_login(&app, &state, "wf-react-bob", false).await;
+    add_ws_member(&state, ws, bob_id, "member").await;
+
+    let workflow = published(
+        &app,
+        &member,
+        ws,
+        on_reaction(
+            "Incident",
+            incidents,
+            "\u{1F6A8}",
+            vec![
+                post_to(
+                    alerts,
+                    "{{trigger.user}} flagged {{trigger.message_link}} in {{trigger.channel}}: {{trigger.message}}",
+                ),
+                dm_back("Thanks for flagging it"),
+            ],
+        ),
+    )
+    .await;
+    assert_eq!(workflow["definition"]["trigger"]["type"], "reaction_added");
+
+    let mut posted = Vec::new();
+    for channel in [incidents, elsewhere] {
+        let (status, message) = send(
+            &app,
+            "POST",
+            &format!("/api/channels/{channel}/messages"),
+            Some(&owner),
+            Some(json!({ "content": format!("db is slow, @[Test User]({member_id})") })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{message:?}");
+        posted.push(message["id"].as_str().unwrap().to_string());
+    }
+    for (message, emoji) in [
+        (&posted[0], "\u{1F6A8}"),
+        (&posted[0], "\u{1F44D}"),
+        (&posted[1], "\u{1F6A8}"),
+    ] {
+        let (status, body) = send(
+            &app,
+            "POST",
+            &format!("/api/messages/{message}/reactions"),
+            Some(&bob),
+            Some(json!({ "emoji": emoji })),
+        )
+        .await;
+        assert!(status.is_success(), "{status}: {body:?}");
+    }
+
+    deliver(&state).await;
+    runner::run_pending(&state).await.unwrap();
+
+    let history = runs(&app, &member, &workflow).await;
+    assert_eq!(history.len(), 1, "one run for the one matching reaction");
+    assert_eq!(history[0]["status"], "succeeded", "{:?}", history[0]);
+    let alerted = bot_messages(&state, alerts).await;
+    assert_eq!(alerted.len(), 1);
+    assert_eq!(
+        alerted[0].0,
+        format!(
+            "@[Test User]({bob_id}) flagged {}/app/{ws}/{incidents}/{} in #incidents: db is slow, @[Test User]({member_id})",
+            state.config.public_url, posted[0]
+        )
+    );
+    let mentioned: Value = sqlx::query_scalar(
+        "SELECT payload->'mentioned_user_ids' FROM event_outbox
+          WHERE event_type = 'message.created' AND payload->>'channel_id' = $1",
+    )
+    .bind(alerts.to_string())
+    .fetch_one(&state.pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        mentioned,
+        json!([bob_id]),
+        "the person who reacted is mentioned; a mention inside their message notifies nobody"
+    );
+    assert_eq!(
+        dms(&state, ws, member_id, bob_id).await,
+        vec!["Thanks for flagging it"]
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn joining_a_channel_starts_its_member_joined_workflows_whichever_way_it_happens(
+    pool: PgPool,
+) {
+    let (app, state) = app_and_state(pool).await;
+    let (ws, owner_id, owner, member_id, member) =
+        workspace_with_member(&app, &state, "wf-join").await;
+    let lobby = seed_channel(&state, ws, owner_id, "lobby", false).await;
+    let general: Uuid =
+        sqlx::query_scalar("SELECT id FROM channels WHERE workspace_id = $1 AND is_default")
+            .bind(ws)
+            .fetch_one(&state.pool)
+            .await
+            .unwrap();
+
+    let welcome = published(
+        &app,
+        &member,
+        ws,
+        on_join(
+            "Welcome",
+            lobby,
+            vec![dm_back("Welcome {{trigger.user}} to {{trigger.channel}}")],
+        ),
+    )
+    .await;
+    let newcomer = published(
+        &app,
+        &member,
+        ws,
+        on_join("Newcomer", general, vec![dm_back("Glad you're here")]),
+    )
+    .await;
+
+    let (carol_id, _, carol) = seed_and_login(&app, &state, "wf-join-carol", false).await;
+    add_ws_member(&state, ws, carol_id, "member").await;
+    let (dave_id, _) = seed(&state, "wf-join-dave", false).await;
+    add_ws_member(&state, ws, dave_id, "member").await;
+    let (erin_id, _) = seed(&state, "wf-join-erin", false).await;
+    add_ws_member(&state, ws, erin_id, "member").await;
+    let (frank_id, _, frank) = seed_and_login(&app, &state, "wf-join-frank", false).await;
+
+    for _ in 0..2 {
+        let (status, _) = send(
+            &app,
+            "POST",
+            &format!("/api/channels/{lobby}/join"),
+            Some(&carol),
+            None,
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+    }
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{lobby}/members"),
+        Some(&owner),
+        Some(json!({ "user_id": dave_id })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, body) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{lobby}/commands"),
+        Some(&owner),
+        Some(json!({ "command": "invite", "text": format!("@[Erin]({erin_id})") })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{lobby}/join"),
+        Some(&member),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, invite) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws}/invites"),
+        Some(&owner),
+        Some(json!({ "max_uses": 1 })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{invite:?}");
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/invites/{}/accept", invite["token"].as_str().unwrap()),
+        Some(&frank),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    deliver(&state).await;
+    runner::run_pending(&state).await.unwrap();
+
+    for person in [carol_id, dave_id, erin_id] {
+        assert_eq!(
+            dms(&state, ws, member_id, person).await,
+            vec![format!("Welcome @[Test User]({person}) to #lobby")],
+            "one welcome, however they joined"
+        );
+    }
+    let history = runs(&app, &member, &welcome).await;
+    assert_eq!(history.len(), 4, "carol once, dave, erin and the builder");
+    assert!(history.iter().all(|run| run["status"] == "succeeded"));
+    let own = history
+        .iter()
+        .flat_map(|run| run["steps"].as_array().unwrap())
+        .filter(|step| step["message_id"].is_null())
+        .count();
+    assert_eq!(own, 1, "the builder joining sends them nothing");
+
+    assert_eq!(
+        dms(&state, ws, member_id, frank_id).await,
+        vec!["Glad you're here"]
+    );
+    assert_eq!(runs(&app, &member, &newcomer).await.len(), 1);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_private_channel_trigger_needs_its_creator_in_the_channel(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (ws, owner_id, owner, member_id, member) =
+        workspace_with_member(&app, &state, "wf-private").await;
+    let secret = seed_channel(&state, ws, owner_id, "secret", true).await;
+    let open = seed_channel(&state, ws, owner_id, "open", false).await;
+    let body = on_join(
+        "Secret welcome",
+        secret,
+        vec![post_to(open, "someone joined")],
+    );
+
+    let (status, error) = create(&app, &member, ws, body.clone()).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(error["error"], "You can't see the channel it listens to");
+
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(
+            secret,
+            member_id,
+            &crate::workspace::models::ChannelRole::Member,
+        )
+        .await
+        .unwrap();
+    let workflow = published(&app, &member, ws, body).await;
+
+    let (eve_id, _) = seed(&state, "wf-private-eve", false).await;
+    add_ws_member(&state, ws, eve_id, "member").await;
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{secret}/members"),
+        Some(&owner),
+        Some(json!({ "user_id": eve_id })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    state
+        .workspace_service
+        .repo
+        .remove_channel_member(secret, member_id)
+        .await
+        .unwrap();
+
+    deliver(&state).await;
+    runner::run_pending(&state).await.unwrap();
+
+    assert!(bot_messages(&state, open).await.is_empty());
+    let history = runs(&app, &member, &workflow).await;
+    assert_eq!(history[0]["status"], "failed");
+    assert_eq!(
+        history[0]["error"],
+        "Its creator can no longer see the channel it listens to"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_busy_event_trigger_is_rate_limited(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (ws, owner_id, _, _, member) = workspace_with_member(&app, &state, "wf-busy").await;
+    let lobby = seed_channel(&state, ws, owner_id, "lobby", false).await;
+    let workflow = published(
+        &app,
+        &member,
+        ws,
+        on_join("Busy", lobby, vec![post_to(lobby, "hi")]),
+    )
+    .await;
+
+    let limit = crate::workflows::routes::RUNS_PER_MINUTE;
+    for _ in 0..=limit {
+        let event = Event::new(
+            "channel.member_joined",
+            json!({ "channel_id": lobby, "workspace_id": ws, "user_id": Uuid::new_v4() }),
+        );
+        listener::handle(&state, &event).await.unwrap();
+    }
+
+    let history = runs(&app, &member, &workflow).await;
+    assert_eq!(history.len() as u64, limit + 1);
+    let skipped: Vec<&Value> = history
+        .iter()
+        .filter(|run| run["status"] == "failed")
+        .collect();
+    assert_eq!(skipped.len(), 1);
+    assert_eq!(
+        skipped[0]["error"],
+        format!("Skipped: it started more than {limit} times in a minute")
     );
 }

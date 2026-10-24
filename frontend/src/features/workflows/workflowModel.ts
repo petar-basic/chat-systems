@@ -57,10 +57,30 @@ export function timezones(current: string): string[] {
   return known.includes(current) ? known : [current, ...known];
 }
 
-export function blankTrigger(type: Trigger['type']): Trigger {
-  return type === 'schedule'
-    ? { type: 'schedule', days: WORK_WEEK, time: '09:00', timezone: localTimezone() }
-    : { type: 'webhook', variables: [] };
+export const TRIGGER_TYPES: { type: Trigger['type']; label: string }[] = [
+  { type: 'schedule', label: 'On a schedule' },
+  { type: 'webhook', label: 'When a webhook is called' },
+  { type: 'reaction_added', label: 'When a reaction is added' },
+  { type: 'member_joined', label: 'When someone joins a channel' },
+];
+
+export function blankTrigger(type: Trigger['type'], channelId = ''): Trigger {
+  switch (type) {
+    case 'schedule':
+      return { type: 'schedule', days: WORK_WEEK, time: '09:00', timezone: localTimezone() };
+    case 'webhook':
+      return { type: 'webhook', variables: [] };
+    case 'reaction_added':
+      return { type: 'reaction_added', channel_id: channelId, emoji: '' };
+    case 'member_joined':
+      return { type: 'member_joined', channel_id: channelId };
+  }
+}
+
+export function triggerPerson(trigger: Trigger): string | null {
+  if (trigger.type === 'reaction_added') return 'The person who reacted';
+  if (trigger.type === 'member_joined') return 'The person who joined';
+  return null;
 }
 
 export function blankStep(type: Step['type'], channelId = ''): Step {
@@ -74,12 +94,26 @@ export function blankDefinition(channelId = ''): Definition {
 }
 
 export function variablesOf(trigger: Trigger): { token: string; label: string }[] {
-  if (trigger.type === 'webhook') {
-    return trigger.variables
-      .filter((name) => name.trim())
-      .map((name) => ({ token: `{{webhook.${name}}}`, label: name }));
+  switch (trigger.type) {
+    case 'webhook':
+      return trigger.variables
+        .filter((name) => name.trim())
+        .map((name) => ({ token: `{{webhook.${name}}}`, label: name }));
+    case 'reaction_added':
+      return [
+        { token: '{{trigger.user}}', label: 'Person who reacted' },
+        { token: '{{trigger.channel}}', label: 'Channel' },
+        { token: '{{trigger.message}}', label: 'Message they reacted to' },
+        { token: '{{trigger.message_link}}', label: 'Link to that message' },
+      ];
+    case 'member_joined':
+      return [
+        { token: '{{trigger.user}}', label: 'Person who joined' },
+        { token: '{{trigger.channel}}', label: 'Channel' },
+      ];
+    case 'schedule':
+      return [];
   }
-  return [];
 }
 
 export function moveStep(steps: Step[], from: number, to: number): Step[] {
@@ -108,8 +142,18 @@ export function variableNameError(name: string): string | null {
   return null;
 }
 
-export function triggerSummary(trigger: Trigger): string {
+export function triggerSummary(
+  trigger: Trigger,
+  channelName: (id: string) => string | undefined = () => undefined,
+): string {
   if (trigger.type === 'webhook') return 'Webhook';
+  if (trigger.type !== 'schedule') {
+    const name = channelName(trigger.channel_id);
+    const where = name ? `#${name}` : 'a channel';
+    return trigger.type === 'reaction_added'
+      ? `When ${trigger.emoji} is added in ${where}`
+      : `When someone joins ${where}`;
+  }
   const repeat = repeatOf(trigger.days);
   const when =
     repeat === 'daily'

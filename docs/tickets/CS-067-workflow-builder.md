@@ -84,7 +84,25 @@ Landed as described, with these differences:
   outcome) round it out.
 - Migration: drop `bot` and `scheduled` from `hook_type`.
 
-### 2. Event triggers
+### 2. Event triggers ✅ done
+
+Landed as described, with these differences:
+
+- Nothing emitted a join before, so adding a member to a channel now stages a durable
+  `channel.member_joined` event in the same transaction: joining a public channel, being
+  added (`POST /channels/{id}/members` or `/invite`), and the default channels on joining a
+  workspace or accepting an invite. Creating a channel and a Slack import do not.
+- `workflow_listener` is its own supervised loop beside the runner, reading group `workflows`.
+  An event's run key is `event:<event id>`, which a redelivery and the outbox relay keep.
+- The webhook's 30-a-minute limit is now every workflow's: past it an event is recorded as a
+  failed run, "Skipped: it started more than 30 times in a minute", so the history shows it.
+  No step adds a reaction or a channel member, so these triggers cannot feed each other.
+- The trigger channel has to be a public or private channel of the workspace that the builder
+  can see; saving checks it, and every run checks it again before its first step.
+- `{{trigger.user}}` is a real mention of the person; `{{trigger.message}}` is that message's
+  text, and like a webhook value a mention inside it notifies nobody. A DM to the trigger
+  person when that is the builder sends nothing and counts as done.
+- The emoji matches exactly, so 👍 and 👍🏽 are different triggers.
 
 - `reaction_added` (an emoji in a chosen channel) and `member_joined` (a chosen channel).
   The runner reads them from the workspace streams through its own `StreamGroup`, the same

@@ -7,7 +7,7 @@ use chrono::{Duration, Utc};
 use crate::authz;
 use crate::later::repo::NewReminder;
 use crate::state::AppState;
-use crate::workspace::models::{ChannelRole, WorkspaceRole};
+use crate::workspace::models::WorkspaceRole;
 
 use super::routes::CommandResponse;
 
@@ -91,11 +91,7 @@ pub async fn run(
             let channel = authz::find_channel(state, channel_id).await?;
 
             authz::require_workspace_member(state, channel.workspace_id, target).await?;
-            state
-                .workspace_service
-                .repo
-                .add_channel_member(channel_id, target, &ChannelRole::Member)
-                .await?;
+            crate::workspace::membership::add_to_channel(state, &channel, target).await?;
             Ok(Some(CommandResponse::in_channel(format!(
                 "added <@{target}> to the channel"
             ))))

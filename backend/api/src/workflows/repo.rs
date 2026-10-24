@@ -16,6 +16,11 @@ pub struct DueSchedule {
     pub next_run_at: DateTime<Utc>,
 }
 
+pub struct Listener {
+    pub id: Uuid,
+    pub version: i32,
+}
+
 pub struct StoppedWorkflow {
     pub id: Uuid,
     pub name: String,
@@ -212,6 +217,56 @@ impl WorkflowRepo {
             context
         )
         .fetch_one(&mut *conn)
+        .await
+    }
+
+    pub async fn skip_run(
+        &self,
+        workflow_id: Uuid,
+        version: i32,
+        trigger_key: &str,
+        context: &serde_json::Value,
+        reason: &str,
+    ) -> sqlx::Result<()> {
+        sqlx::query!(
+            r"
+            INSERT INTO workflow_runs
+                   (workflow_id, workflow_version, trigger_key, context, status, error, finished_at)
+            VALUES ($1, $2, $3, $4, 'failed', $5, NOW())
+            ON CONFLICT (workflow_id, trigger_key) DO NOTHING
+            ",
+            workflow_id,
+            version,
+            trigger_key,
+            context,
+            reason
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn listening(
+        &self,
+        kind: &str,
+        channel_id: Uuid,
+        emoji: Option<&str>,
+    ) -> sqlx::Result<Vec<Listener>> {
+        sqlx::query_as!(
+            Listener,
+            r"
+            SELECT id, version
+              FROM workflows
+             WHERE enabled
+               AND definition #>> '{trigger,channel_id}' = $2
+               AND definition #>> '{trigger,type}' = $1
+               AND ($3::text IS NULL OR definition #>> '{trigger,emoji}' = $3)
+            ",
+            kind,
+            channel_id.to_string(),
+            emoji
+        )
+        .fetch_all(&self.pool)
         .await
     }
 

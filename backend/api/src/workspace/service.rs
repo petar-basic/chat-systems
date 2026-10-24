@@ -9,6 +9,7 @@ use super::models::*;
 use super::repo::WorkspaceRepo;
 use crate::auth::service::AuthService;
 use crate::config::AppConfig;
+use crate::messaging::publisher::{EventPublisher, Staged};
 
 pub struct WorkspaceService {
     pub repo: WorkspaceRepo,
@@ -128,22 +129,16 @@ impl WorkspaceService {
         workspace_id: Uuid,
         user_id: Uuid,
         role: &WorkspaceRole,
-    ) -> AppResult<()> {
+    ) -> AppResult<Vec<Staged>> {
         let mut tx = self.repo.begin().await?;
 
         WorkspaceRepo::add_member_if_absent_tx(&mut tx, workspace_id, user_id, role).await?;
-
-        let channels = WorkspaceRepo::list_default_channels_tx(&mut tx, workspace_id).await?;
-
-        for ch in channels {
-            WorkspaceRepo::add_channel_member_tx(&mut tx, ch.id, user_id, &ChannelRole::Member)
-                .await?;
-        }
+        let staged = join_default_channels(&mut tx, workspace_id, user_id).await?;
 
         tx.commit().await?;
 
         info!("User {} joined workspace {}", user_id, workspace_id);
-        Ok(())
+        Ok(staged)
     }
 
     pub async fn accept_invite(
@@ -151,7 +146,7 @@ impl WorkspaceService {
         token: &str,
         user_id: Uuid,
         user_email: &str,
-    ) -> AppResult<WorkspaceMember> {
+    ) -> AppResult<(WorkspaceMember, Vec<Staged>)> {
         let invite = self
             .repo
             .find_invite_by_token(token)
@@ -186,13 +181,7 @@ impl WorkspaceService {
             WorkspaceRepo::add_member_tx(&mut tx, invite.workspace_id, user_id, &invite.role)
                 .await?;
 
-        let channels =
-            WorkspaceRepo::list_default_channels_tx(&mut tx, invite.workspace_id).await?;
-
-        for ch in channels {
-            WorkspaceRepo::add_channel_member_tx(&mut tx, ch.id, user_id, &ChannelRole::Member)
-                .await?;
-        }
+        let staged = join_default_channels(&mut tx, invite.workspace_id, user_id).await?;
 
         tx.commit().await?;
 
@@ -200,8 +189,28 @@ impl WorkspaceService {
             "User {} accepted invite to workspace {}",
             user_id, invite.workspace_id
         );
-        Ok(member)
+        Ok((member, staged))
     }
+}
+
+async fn join_default_channels(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    workspace_id: Uuid,
+    user_id: Uuid,
+) -> AppResult<Vec<Staged>> {
+    let mut staged = Vec::new();
+    for ch in WorkspaceRepo::list_default_channels_tx(tx, workspace_id).await? {
+        if WorkspaceRepo::add_channel_member_tx(tx, ch.id, user_id, &ChannelRole::Member)
+            .await?
+            .is_some()
+        {
+            staged.push(
+                EventPublisher::stage_channel_member_joined(tx, ch.id, workspace_id, user_id)
+                    .await?,
+            );
+        }
+    }
+    Ok(staged)
 }
 
 fn slug_from_name(name: &str) -> String {
@@ -332,7 +341,7 @@ mod tests {
         .await
         .expect("insert single-use invite");
 
-        let member = service
+        let (member, _) = service
             .accept_invite(token, first_user, "first@test.local")
             .await
             .expect("first accept_invite should succeed");
