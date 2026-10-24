@@ -9,6 +9,7 @@ use super::models::*;
 use super::routes::RUNS_PER_MINUTE;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
+use crate::messaging::publisher::Staged;
 use crate::notifications::models::NotificationType;
 use crate::rate_limit::{self, LimiterFailure};
 use crate::state::AppState;
@@ -458,9 +459,32 @@ pub async fn submit_form(
     answers: &HashMap<String, String>,
 ) -> AppResult<()> {
     let mut tx = state.pool.begin().await?;
+    match answer_form(state, &mut tx, run_id, position, user_id, answers).await {
+        Ok(staged) => {
+            tx.commit().await?;
+            if let Some(staged) = staged {
+                state.publisher.dispatch(staged).await;
+            }
+            Ok(())
+        }
+        Err(e) => {
+            tx.rollback().await?;
+            Err(e)
+        }
+    }
+}
+
+async fn answer_form(
+    state: &AppState,
+    tx: &mut sqlx::PgConnection,
+    run_id: Uuid,
+    position: i32,
+    user_id: Uuid,
+    answers: &HashMap<String, String>,
+) -> AppResult<Option<Staged>> {
     let form = state
         .workflow_repo
-        .form_for_update_in(&mut tx, run_id, position)
+        .form_for_update_in(tx, run_id, position)
         .await?
         .ok_or_else(|| AppError::NotFound("Form not found".into()))?;
     if form.recipient_id != user_id {
@@ -485,16 +509,16 @@ pub async fn submit_form(
 
     state
         .workflow_repo
-        .answer_in(&mut tx, run_id, position, &answers)
+        .answer_in(tx, run_id, position, &answers)
         .await?;
     state
         .workflow_repo
-        .record_step_in(&mut tx, run_id, position, Ok(Some(form.message_id)))
+        .record_step_in(tx, run_id, position, Ok(Some(form.message_id)))
         .await?;
     let message = state
         .message_repo
         .mark_form_in(
-            &mut tx,
+            tx,
             form.message_id,
             "submitted_at",
             &serde_json::json!(chrono::Utc::now()),
@@ -504,16 +528,12 @@ pub async fn submit_form(
         Some(message) => Some(
             state
                 .publisher
-                .stage_message_updated(&mut tx, &message, form.workspace_id)
+                .stage_message_updated(tx, &message, form.workspace_id)
                 .await?,
         ),
         None => None,
     };
-    tx.commit().await?;
-    if let Some(staged) = staged {
-        state.publisher.dispatch(staged).await;
-    }
-    Ok(())
+    Ok(staged)
 }
 
 async fn checked_answers(
