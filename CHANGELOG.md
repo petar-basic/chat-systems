@@ -19,8 +19,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 ### Upgrading from 3.2.0
 
 - Pull both images and restart `api`, `worker`, `realtime` and `frontend` together; the API
-  runs migrations 57–70 on start, so snapshot first. Two upgrade notes in the RUNBOOK cover what runs after:
-  [text inside files](docs/RUNBOOK.md#upgrade-note-text-inside-files-becomes-searchable)
+  runs migrations 57–70 on start, so snapshot first. Two upgrade notes in the RUNBOOK cover
+  what runs after: [text inside files](docs/RUNBOOK.md#upgrade-note-text-inside-files-becomes-searchable)
   and [lists](docs/RUNBOOK.md#upgrade-note-lists).
 - For API clients, three shapes change in a way a strict client notices: `ChannelMember`
   loses `notifications` and `is_muted`, the `notification` frame's `priority` is now `kind`,
