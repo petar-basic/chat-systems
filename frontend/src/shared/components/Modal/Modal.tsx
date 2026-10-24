@@ -5,12 +5,13 @@ import { IconButton } from '../IconButton/IconButton';
 import { Overlay } from './Overlay';
 import { useDismiss } from './dismiss';
 
-export type ModalSize = 'sm' | 'md' | 'lg';
+export type ModalSize = 'sm' | 'md' | 'lg' | 'full';
 
 const WIDTHS: Record<ModalSize, string> = {
   sm: 'sm:max-w-[400px]',
   md: 'sm:max-w-[520px]',
   lg: 'sm:max-w-[720px]',
+  full: 'h-[90dvh] sm:max-w-[880px]',
 };
 
 interface ModalProps {

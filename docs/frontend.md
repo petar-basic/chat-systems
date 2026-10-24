@@ -310,6 +310,26 @@ on the server.
 
 ---
 
+### `workflows/WorkflowsPanel`, `WorkflowEditor`
+*Workflows* in the workspace menu (not for guests) opens `WorkflowsPanel`, a right panel of
+the workflows you built (an admin sees everyone's): name, trigger, on or off, the last run,
+and who built it when that is somebody else. A row or *New* opens `WorkflowEditor`, a
+full-height `Modal` (`size="full"`): `TriggerCard` (schedule or webhook; the webhook URL once
+saved, and its variables), then a `StepCard` per step (send a message to a channel, or a DM to
+a person), each movable and removable, with *Insert variable* putting `{{webhook.name}}` at the
+caret. *Save draft*/*Save changes* saves; *Publish* saves and turns it on; *Turn off*; *Run
+history* swaps the form for `RunHistory`, refetched every 10 seconds. Someone else's workflow,
+or yours when only admins may build, opens read-only. `workflowModel.ts` holds the pure
+helpers (schedule presets, insertion, reordering, who may build).
+
+`SettingsPanel` has *Who can build workflows* (every member or admins only). A message whose
+`metadata.bot.workflow_id` is set is tagged *Workflow* instead of *Bot*.
+
+**API calls:** `/workspaces/{id}/workflows`, `/workflows/{id}` (with `/publish`, `/disable`,
+`/runs`)
+
+---
+
 ### `ThreadPanel`
 Side panel showing thread replies for a parent message.
 

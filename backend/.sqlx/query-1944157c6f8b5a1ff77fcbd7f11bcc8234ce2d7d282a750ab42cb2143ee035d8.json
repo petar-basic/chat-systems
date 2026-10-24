@@ -1,0 +1,196 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT w.id, w.workspace_id, w.name, w.description, w.created_by, w.definition,\n                   w.version, w.enabled, w.webhook_token, w.next_run_at, w.created_at, w.updated_at,\n                   r.status AS \"last_status?: RunStatus\", r.started_at AS \"last_started_at?\"\n              FROM workflows w\n              LEFT JOIN LATERAL (\n                  SELECT status, started_at FROM workflow_runs\n                   WHERE workflow_id = w.id ORDER BY started_at DESC LIMIT 1\n              ) r ON true\n             WHERE w.id = $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "workflows",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "workflows",
+            "name": "workspace_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "workflows",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "description",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "workflows",
+            "name": "description"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "created_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "workflows",
+            "name": "created_by"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "definition",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "workflows",
+            "name": "definition"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "version",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "workflows",
+            "name": "version"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "enabled",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "workflows",
+            "name": "enabled"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "webhook_token",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "workflows",
+            "name": "webhook_token"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "next_run_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "workflows",
+            "name": "next_run_at"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "workflows",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "workflows",
+            "name": "updated_at"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "last_status?: RunStatus",
+        "type_info": {
+          "Custom": {
+            "name": "workflow_run_status",
+            "kind": {
+              "Enum": [
+                "pending",
+                "running",
+                "succeeded",
+                "failed"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "workflow_runs",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "last_started_at?",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "workflow_runs",
+            "name": "started_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "1944157c6f8b5a1ff77fcbd7f11bcc8234ce2d7d282a750ab42cb2143ee035d8"
+}

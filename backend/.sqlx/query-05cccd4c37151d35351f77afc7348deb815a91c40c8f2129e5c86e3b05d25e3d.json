@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE workflow_runs\n               SET status = $3, error = $4, workflow_version = $2, finished_at = NOW()\n             WHERE id = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        {
+          "Custom": {
+            "name": "workflow_run_status",
+            "kind": {
+              "Enum": [
+                "pending",
+                "running",
+                "succeeded",
+                "failed"
+              ]
+            }
+          }
+        },
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "05cccd4c37151d35351f77afc7348deb815a91c40c8f2129e5c86e3b05d25e3d"
+}

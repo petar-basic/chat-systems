@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE workflows\n               SET name = $2, description = $3, definition = $4, webhook_token = $5,\n                   version = version + 1, updated_at = NOW()\n             WHERE id = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Jsonb",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "da06023ea9988f413e6d5ae6e9bed6e4a215a6baa7132a0a6a44d367cd487087"
+}

@@ -14,7 +14,7 @@ use crate::dto::{DataList, StatusResponse};
 use crate::messaging::publisher::Staged;
 use crate::middleware::AuthUser;
 use crate::state::AppState;
-use crate::workspace::models::WorkspaceRole;
+use crate::workspace::models::{WorkspaceMember, WorkspaceRole};
 
 pub const MAX_GROUP_PARTICIPANTS: usize = 9;
 
@@ -85,66 +85,106 @@ async fn create_conversation(
     }
     let starter = authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
     for participant in &participants {
-        // Deliberately the same refusal whether the id is unknown, belongs to
-        // another workspace, or is simply out of a guest's reach. Three
-        // different answers here would rebuild the directory CS-041 closed.
-        let reachable = match authz::require_workspace_member(&state, ws_id, *participant).await {
-            Ok(_) if starter.role != WorkspaceRole::Guest => true,
-            Ok(_) => {
-                state
-                    .workspace_service
-                    .repo
-                    .share_a_channel(auth.user_id, *participant)
-                    .await?
-            }
-            Err(_) => false,
-        };
-
-        if !reachable {
-            return Err(AppError::Forbidden(
-                "You cannot start a conversation with that person".into(),
-            ));
-        }
+        require_reachable(&state, &starter, *participant).await?;
     }
 
     if participants.len() == 1 {
-        if let Some(existing) = state
-            .conversation_repo
-            .find_direct(ws_id, auth.user_id, participants[0])
-            .await?
-        {
-            return Ok(Json(existing));
-        }
+        return Ok(Json(
+            open_direct(&state, ws_id, auth.user_id, participants[0]).await?,
+        ));
     }
-
-    let kind = if participants.len() == 1 {
-        ConversationKind::Direct
-    } else {
-        ConversationKind::Group
-    };
 
     let mut everyone = participants.clone();
     everyone.push(auth.user_id);
+    Ok(Json(
+        open(
+            &state,
+            ws_id,
+            ConversationKind::Group,
+            auth.user_id,
+            &everyone,
+        )
+        .await?,
+    ))
+}
 
+pub(crate) async fn require_reachable(
+    state: &AppState,
+    starter: &WorkspaceMember,
+    other: Uuid,
+) -> AppResult<()> {
+    // Deliberately the same refusal whether the id is unknown, belongs to
+    // another workspace, or is simply out of a guest's reach. Three
+    // different answers here would rebuild the directory CS-041 closed.
+    let reachable = match authz::require_workspace_member(state, starter.workspace_id, other).await
+    {
+        Ok(_) if starter.role != WorkspaceRole::Guest => true,
+        Ok(_) => {
+            state
+                .workspace_service
+                .repo
+                .share_a_channel(starter.user_id, other)
+                .await?
+        }
+        Err(_) => false,
+    };
+
+    if !reachable {
+        return Err(AppError::Forbidden(
+            "You cannot start a conversation with that person".into(),
+        ));
+    }
+    Ok(())
+}
+
+pub(crate) async fn open_direct(
+    state: &AppState,
+    ws_id: Uuid,
+    starter: Uuid,
+    other: Uuid,
+) -> AppResult<Conversation> {
+    if let Some(existing) = state
+        .conversation_repo
+        .find_direct(ws_id, starter, other)
+        .await?
+    {
+        return Ok(existing);
+    }
+    open(
+        state,
+        ws_id,
+        ConversationKind::Direct,
+        starter,
+        &[other, starter],
+    )
+    .await
+}
+
+async fn open(
+    state: &AppState,
+    ws_id: Uuid,
+    kind: ConversationKind,
+    starter: Uuid,
+    everyone: &[Uuid],
+) -> AppResult<Conversation> {
     let mut tx = state.pool.begin().await?;
     let conversation = state
         .conversation_repo
-        .create_in(&mut tx, ws_id, kind, auth.user_id, &everyone)
+        .create_in(&mut tx, ws_id, kind, starter, everyone)
         .await?;
     let staged = stage_conversation_event(
-        &state,
+        state,
         &mut tx,
         "conversation.created",
         conversation.id,
         ws_id,
-        &everyone,
+        everyone,
         serde_json::to_value(&conversation).unwrap_or_default(),
     )
     .await?;
     tx.commit().await?;
     state.publisher.dispatch(staged).await;
-
-    Ok(Json(conversation))
+    Ok(conversation)
 }
 
 #[utoipa::path(

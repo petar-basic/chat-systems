@@ -19,6 +19,7 @@ import AuditLogPanel from '@/components/AuditLogPanel';
 import ScheduledMessagesPanel from '@/components/ScheduledMessagesPanel';
 import LaterPanel from '@/components/LaterPanel';
 import SlackImportPanel from '@/components/SlackImportPanel';
+import { WorkflowsPanel, canBuild, workflowBuildersOf } from '@/features/workflows';
 
 interface Props {
   panel: RightPanel;
@@ -27,6 +28,7 @@ interface Props {
   workspaceMembers: WorkspaceMember[];
   channels: Channel[];
   conversations: Conversation[];
+  currentUserId?: string;
   onClose: () => void;
   onNavigateToMessage: (channelId: string, messageId: string, withThread?: boolean) => void;
   onOpenConversation: (conversationId: string) => void;
@@ -39,6 +41,7 @@ export default function WorkspaceRightPanels({
   workspaceMembers,
   channels,
   conversations,
+  currentUserId,
   onClose,
   onNavigateToMessage,
   onOpenConversation,
@@ -59,6 +62,7 @@ export default function WorkspaceRightPanels({
         currentIconUrl={currentWorkspace.icon_url}
         currentDescription={currentWorkspace.description ?? null}
         currentLinkPreviews={linkPreviewsEnabled(currentWorkspace.settings)}
+        currentWorkflowBuilders={workflowBuildersOf(currentWorkspace.settings)}
         deletedAt={currentWorkspace.deleted_at}
         onClose={onClose}
       />
@@ -187,6 +191,19 @@ export default function WorkspaceRightPanels({
       <AuditLogPanel
         workspaceId={currentWorkspace.id}
         instanceUrl={currentWorkspace.instanceUrl}
+        onClose={onClose}
+      />
+    );
+  }
+  if (panel.kind === 'workflows' && currentWorkspace && currentUserId) {
+    return (
+      <WorkflowsPanel
+        workspaceId={currentWorkspace.id}
+        instanceUrl={currentWorkspace.instanceUrl}
+        channels={channels}
+        members={workspaceMembers}
+        currentUserId={currentUserId}
+        canBuild={canBuild(role, workflowBuildersOf(currentWorkspace.settings))}
         onClose={onClose}
       />
     );

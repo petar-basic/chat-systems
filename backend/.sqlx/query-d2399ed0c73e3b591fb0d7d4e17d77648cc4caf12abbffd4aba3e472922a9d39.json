@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE workflows\n               SET enabled = $2,\n                   next_run_at = CASE WHEN $2 AND $3::smallint[] IS NOT NULL\n                                      THEN workflow_next_run($3, $4, $5, NOW()) END,\n                   updated_at = NOW()\n             WHERE id = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool",
+        "Int2Array",
+        "Time",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d2399ed0c73e3b591fb0d7d4e17d77648cc4caf12abbffd4aba3e472922a9d39"
+}

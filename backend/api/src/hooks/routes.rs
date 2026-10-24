@@ -461,7 +461,14 @@ async fn incoming_webhook(
     let mut tx = state.pool.begin().await?;
     let msg = state
         .message_repo
-        .create_bot_message_in(&mut tx, channel_id, hook.created_by, &payload.text, &bot)
+        .create_bot_message_in(
+            &mut tx,
+            channel_id,
+            hook.created_by,
+            &payload.text,
+            &bot,
+            &[],
+        )
         .await?;
     let staged = state
         .publisher

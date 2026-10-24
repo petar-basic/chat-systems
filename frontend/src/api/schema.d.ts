@@ -1546,6 +1546,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workflows/webhook/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["workflow_webhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflows/{workflow_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_workflow"];
+        put: operations["update_workflow"];
+        post?: never;
+        delete: operations["delete_workflow"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflows/{workflow_id}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["disable_workflow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflows/{workflow_id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["publish_workflow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflows/{workflow_id}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["workflow_runs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces": {
         parameters: {
             query?: never;
@@ -2424,6 +2504,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{ws_id}/workflows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_workflows"];
+        put?: never;
+        post: operations["create_workflow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2527,9 +2623,11 @@ export interface components {
         };
         BotIdentity: {
             /** Format: uuid */
-            hook_id: string;
+            hook_id?: string | null;
             icon_url?: string | null;
             name: string;
+            /** Format: uuid */
+            workflow_id?: string | null;
         };
         BrowsableChannel: {
             channel_type: components["schemas"]["ChannelType"];
@@ -3361,6 +3459,45 @@ export interface components {
                 name: string;
             }[];
         };
+        DataList_Workflow: {
+            data: {
+                /** Format: date-time */
+                created_at: string;
+                /** Format: uuid */
+                created_by: string;
+                definition: components["schemas"]["Definition"];
+                description?: string | null;
+                enabled: boolean;
+                /** Format: uuid */
+                id: string;
+                last_run?: components["schemas"]["LastRun"] | null;
+                name: string;
+                /** Format: date-time */
+                next_run_at?: string | null;
+                /** Format: date-time */
+                updated_at: string;
+                /** Format: int32 */
+                version: number;
+                webhook_url?: string | null;
+                /** Format: uuid */
+                workspace_id: string;
+            }[];
+        };
+        DataList_WorkflowRun: {
+            data: {
+                error?: string | null;
+                /** Format: date-time */
+                finished_at?: string | null;
+                /** Format: uuid */
+                id: string;
+                /** Format: date-time */
+                started_at: string;
+                status: components["schemas"]["RunStatus"];
+                steps: components["schemas"]["RunStep"][];
+                /** Format: int32 */
+                workflow_version: number;
+            }[];
+        };
         DataList_Workspace: {
             data: {
                 /** Format: date-time */
@@ -3401,6 +3538,10 @@ export interface components {
                 /** Format: uuid */
                 workspace_id: string;
             }[];
+        };
+        Definition: {
+            steps: components["schemas"]["Step"][];
+            trigger: components["schemas"]["Trigger"];
         };
         DndStatus: {
             /** Format: date-time */
@@ -3578,7 +3719,7 @@ export interface components {
             incoming_url?: string | null;
         };
         /** @enum {string} */
-        HookType: "incoming_webhook" | "outgoing_webhook" | "bot" | "slash_command" | "scheduled";
+        HookType: "incoming_webhook" | "outgoing_webhook" | "slash_command";
         HookedChannels: {
             channel_ids: string[];
         };
@@ -3671,6 +3812,11 @@ export interface components {
         };
         KeywordList: {
             keywords: string[];
+        };
+        LastRun: {
+            /** Format: date-time */
+            started_at: string;
+            status: components["schemas"]["RunStatus"];
         };
         LaterCreated: {
             /** Format: uuid */
@@ -4022,6 +4168,15 @@ export interface components {
             /** Format: int32 */
             unread_count: number;
         };
+        Recipient: {
+            /** @enum {string} */
+            kind: "person";
+            /** Format: uuid */
+            user_id: string;
+        } | {
+            /** @enum {string} */
+            kind: "trigger_user";
+        };
         RegisterCompleteRequest: {
             display_name: string;
             password: string;
@@ -4053,6 +4208,28 @@ export interface components {
             updated_by?: string | null;
             /** Format: uuid */
             workspace_id: string;
+        };
+        RunAccepted: {
+            /** Format: uuid */
+            run_id: string;
+            status: string;
+        };
+        /** @enum {string} */
+        RunStatus: "pending" | "running" | "succeeded" | "failed";
+        RunStep: {
+            error?: string | null;
+            /** Format: date-time */
+            finished_at: string;
+            /** Format: uuid */
+            message_id?: string | null;
+            /** Format: int32 */
+            position: number;
+            succeeded: boolean;
+        };
+        SaveWorkflowRequest: {
+            definition: components["schemas"]["Definition"];
+            description?: string | null;
+            name: string;
         };
         ScheduledMessage: {
             attachment_ids: string[];
@@ -4163,6 +4340,18 @@ export interface components {
         StatusResponse: {
             status: string;
         };
+        Step: {
+            /** Format: uuid */
+            channel_id: string;
+            text: string;
+            /** @enum {string} */
+            type: "send_message";
+        } | {
+            text: string;
+            to: components["schemas"]["Recipient"];
+            /** @enum {string} */
+            type: "send_dm";
+        };
         SubscribeRequest: {
             endpoint: string;
             keys: components["schemas"]["SubscriptionKeys"];
@@ -4211,6 +4400,17 @@ export interface components {
             /** Format: int64 */
             recovery_codes_remaining: number;
             required: boolean;
+        };
+        Trigger: {
+            days: components["schemas"]["Weekday"][];
+            time: string;
+            timezone: string;
+            /** @enum {string} */
+            type: "schedule";
+        } | {
+            /** @enum {string} */
+            type: "webhook";
+            variables: string[];
         };
         Unfurl: {
             description?: string | null;
@@ -4354,6 +4554,7 @@ export interface components {
             icon_url?: string | null;
             link_previews?: boolean | null;
             name?: string | null;
+            workflow_builders?: components["schemas"]["WorkflowBuilders"] | null;
         };
         UpdatedCount: {
             /** Format: int64 */
@@ -4432,6 +4633,45 @@ export interface components {
         VoteResponse: {
             option_ids: string[];
             poll: components["schemas"]["PollSummary"];
+        };
+        /** @enum {string} */
+        Weekday: "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+        Workflow: {
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            created_by: string;
+            definition: components["schemas"]["Definition"];
+            description?: string | null;
+            enabled: boolean;
+            /** Format: uuid */
+            id: string;
+            last_run?: components["schemas"]["LastRun"] | null;
+            name: string;
+            /** Format: date-time */
+            next_run_at?: string | null;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: int32 */
+            version: number;
+            webhook_url?: string | null;
+            /** Format: uuid */
+            workspace_id: string;
+        };
+        /** @enum {string} */
+        WorkflowBuilders: "members" | "admins";
+        WorkflowRun: {
+            error?: string | null;
+            /** Format: date-time */
+            finished_at?: string | null;
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            started_at: string;
+            status: components["schemas"]["RunStatus"];
+            steps: components["schemas"]["RunStep"][];
+            /** Format: int32 */
+            workflow_version: number;
         };
         Workspace: {
             /** Format: date-time */
@@ -7245,6 +7485,161 @@ export interface operations {
             };
         };
     };
+    workflow_webhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": unknown;
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunAccepted"];
+                };
+            };
+        };
+    };
+    get_workflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workflow_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Workflow"];
+                };
+            };
+        };
+    };
+    update_workflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workflow_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveWorkflowRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Workflow"];
+                };
+            };
+        };
+    };
+    delete_workflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workflow_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    disable_workflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workflow_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Workflow"];
+                };
+            };
+        };
+    };
+    publish_workflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workflow_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Workflow"];
+                };
+            };
+        };
+    };
+    workflow_runs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workflow_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_WorkflowRun"];
+                };
+            };
+        };
+    };
     workspace_list_workspaces: {
         parameters: {
             query?: never;
@@ -8943,6 +9338,52 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UnreadsPage"];
+                };
+            };
+        };
+    };
+    list_workflows: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_Workflow"];
+                };
+            };
+        };
+    };
+    create_workflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveWorkflowRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Workflow"];
                 };
             };
         };

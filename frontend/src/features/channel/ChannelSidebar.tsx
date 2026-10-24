@@ -51,6 +51,7 @@ interface Props {
   onOpenCustomEmoji: () => void;
   onOpenUserGroups: () => void;
   onOpenAuditLog: () => void;
+  onOpenWorkflows: () => void;
   onOpenScheduled: () => void;
   onOpenLater: () => void;
   laterActive: boolean;
@@ -91,6 +92,7 @@ export default function ChannelSidebar({
   onOpenCustomEmoji,
   onOpenUserGroups,
   onOpenAuditLog,
+  onOpenWorkflows,
   onOpenScheduled,
   onOpenLater,
   laterActive,
@@ -178,6 +180,7 @@ export default function ChannelSidebar({
           workspaceName={currentWorkspace?.name}
           isWorkspaceAdmin={isWorkspaceAdmin}
           isInstanceAdmin={isInstanceAdmin}
+          canUseWorkflows={!!currentUserRole && currentUserRole !== 'guest'}
           onOpenMembers={onOpenMembers}
           onOpenSettings={onOpenSettings}
           onOpenIntegrations={onOpenIntegrations}
@@ -186,6 +189,7 @@ export default function ChannelSidebar({
           onOpenCustomEmoji={onOpenCustomEmoji}
           onOpenUserGroups={onOpenUserGroups}
           onOpenAuditLog={onOpenAuditLog}
+          onOpenWorkflows={onOpenWorkflows}
           onOpenInstanceAdmin={() => navigate('/app/admin')}
         />
 

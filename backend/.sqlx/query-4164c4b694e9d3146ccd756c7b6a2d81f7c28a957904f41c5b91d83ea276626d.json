@@ -1,0 +1,125 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT id, workflow_id, workflow_version, status AS \"status: RunStatus\",\n                   context, error, started_at, finished_at\n              FROM workflow_runs\n             WHERE workflow_id = $1\n             ORDER BY started_at DESC, id\n             LIMIT $2\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "workflow_runs",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "workflow_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "workflow_runs",
+            "name": "workflow_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "workflow_version",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "workflow_runs",
+            "name": "workflow_version"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "status: RunStatus",
+        "type_info": {
+          "Custom": {
+            "name": "workflow_run_status",
+            "kind": {
+              "Enum": [
+                "pending",
+                "running",
+                "succeeded",
+                "failed"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "workflow_runs",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "context",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "workflow_runs",
+            "name": "context"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "error",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "workflow_runs",
+            "name": "error"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "started_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "workflow_runs",
+            "name": "started_at"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "finished_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "workflow_runs",
+            "name": "finished_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true
+    ]
+  },
+  "hash": "4164c4b694e9d3146ccd756c7b6a2d81f7c28a957904f41c5b91d83ea276626d"
+}

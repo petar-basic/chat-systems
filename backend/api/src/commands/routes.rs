@@ -208,7 +208,7 @@ async fn finish(
         let mut tx = state.pool.begin().await?;
         let msg = state
             .message_repo
-            .create_bot_message_in(&mut tx, ch_id, user_id, &response.text, &bot)
+            .create_bot_message_in(&mut tx, ch_id, user_id, &response.text, &bot, &[])
             .await?;
         let staged = state
             .publisher

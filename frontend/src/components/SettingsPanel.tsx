@@ -18,6 +18,8 @@ import { TextInput } from '@/shared/components/Form/TextInput';
 import { TextArea } from '@/shared/components/Form/TextArea';
 import { Checkbox } from '@/shared/components/Form/Checkbox';
 import { FilePicker } from '@/shared/components/Form/FilePicker';
+import { Select } from '@/shared/components/Form/Select';
+import type { WorkflowBuilders } from '@/features/workflows';
 
 interface Props {
   workspaceId: string;
@@ -26,6 +28,7 @@ interface Props {
   currentName: string;
   currentDescription: string | null;
   currentLinkPreviews: boolean;
+  currentWorkflowBuilders: WorkflowBuilders;
   deletedAt?: string | null;
   onClose: () => void;
 }
@@ -39,6 +42,7 @@ export default function SettingsPanel({
   currentName,
   currentDescription,
   currentLinkPreviews,
+  currentWorkflowBuilders,
   deletedAt,
   onClose,
 }: Props) {
@@ -48,6 +52,7 @@ export default function SettingsPanel({
   const [uploadingIcon, setUploadingIcon] = useState(false);
   const [description, setDescription] = useState(currentDescription || '');
   const [linkPreviews, setLinkPreviews] = useState(currentLinkPreviews);
+  const [workflowBuilders, setWorkflowBuilders] = useState(currentWorkflowBuilders);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -97,6 +102,7 @@ export default function SettingsPanel({
             name: name.trim(),
             description: description.trim() || null,
             link_previews: linkPreviews,
+            workflow_builders: workflowBuilders,
           },
         }),
       );
@@ -200,6 +206,16 @@ export default function SettingsPanel({
             onChange={setLinkPreviews}
             dataQa="workspace-link-previews"
           />
+
+          <Select
+            label="Who can build workflows"
+            value={workflowBuilders}
+            onChange={(e) => setWorkflowBuilders(e.target.value as WorkflowBuilders)}
+            dataQa="workspace-workflow-builders"
+          >
+            <option value="members">Every member</option>
+            <option value="admins">Admins only</option>
+          </Select>
 
           {error && (
             <div className="text-sm text-danger bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">

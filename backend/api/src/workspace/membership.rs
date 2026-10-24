@@ -46,6 +46,7 @@ pub async fn detach(state: &AppState, ws_id: Uuid, user_id: Uuid) -> AppResult<V
     }
 
     state.publisher.dispatch_all(staged).await;
+    crate::workflows::service::creator_left(state, ws_id, user_id).await;
 
     Ok(dropped_channels)
 }

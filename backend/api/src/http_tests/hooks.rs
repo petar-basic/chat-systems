@@ -4,6 +4,10 @@ use sqlx::PgPool;
 
 use super::common::*;
 
+fn incoming_hook(channel: uuid::Uuid, name: &str) -> serde_json::Value {
+    json!({ "hook_type": "incoming_webhook", "name": name, "config": { "channel_id": channel } })
+}
+
 #[test_macros::db_test(migrations = "../migrations")]
 async fn owner_can_create_hook(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
@@ -125,6 +129,7 @@ async fn ws_admin_can_create_hook(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _) = seed(&state, "hook-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Hooks WS").await;
+    let channel = seed_channel(&state, ws, owner_id, "hooked", false).await;
 
     let (admin_id, admin_email) = seed(&state, "hook-admin", false).await;
     add_ws_member(&state, ws, admin_id, "admin").await;
@@ -135,7 +140,7 @@ async fn ws_admin_can_create_hook(pool: PgPool) {
         "POST",
         &format!("/api/workspaces/{ws}/hooks"),
         Some(&admin_token),
-        Some(json!({ "hook_type": "bot", "name": "helper-bot" })),
+        Some(incoming_hook(channel, "helper-bot")),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
@@ -146,6 +151,7 @@ async fn plain_member_cannot_create_hook(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _) = seed(&state, "hook-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Hooks WS").await;
+    let channel = seed_channel(&state, ws, owner_id, "hooked", false).await;
 
     let (member_id, member_email) = seed(&state, "hook-member", false).await;
     add_ws_member(&state, ws, member_id, "member").await;
@@ -156,7 +162,7 @@ async fn plain_member_cannot_create_hook(pool: PgPool) {
         "POST",
         &format!("/api/workspaces/{ws}/hooks"),
         Some(&member_token),
-        Some(json!({ "hook_type": "bot", "name": "nope-bot" })),
+        Some(incoming_hook(channel, "nope-bot")),
     )
     .await;
     assert_eq!(status, StatusCode::FORBIDDEN, "member lacks Admin role");
@@ -167,13 +173,14 @@ async fn create_hook_without_token_is_unauthorized(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _) = seed(&state, "hook-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Hooks WS").await;
+    let channel = seed_channel(&state, ws, owner_id, "hooked", false).await;
 
     let (status, _) = send(
         &app,
         "POST",
         &format!("/api/workspaces/{ws}/hooks"),
         None,
-        Some(json!({ "hook_type": "bot", "name": "anon-bot" })),
+        Some(incoming_hook(channel, "anon-bot")),
     )
     .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
@@ -337,13 +344,14 @@ async fn get_hook_by_non_admin_member_is_forbidden(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "hook-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Hooks WS").await;
+    let channel = seed_channel(&state, ws, owner_id, "hooked", false).await;
 
     let (status, created) = send(
         &app,
         "POST",
         &format!("/api/workspaces/{ws}/hooks"),
         Some(&owner_token),
-        Some(json!({ "hook_type": "bot", "name": "guarded-bot" })),
+        Some(incoming_hook(channel, "guarded-bot")),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
@@ -369,13 +377,14 @@ async fn get_hook_by_outsider_is_forbidden(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "hook-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Hooks WS").await;
+    let channel = seed_channel(&state, ws, owner_id, "hooked", false).await;
 
     let (status, created) = send(
         &app,
         "POST",
         &format!("/api/workspaces/{ws}/hooks"),
         Some(&owner_token),
-        Some(json!({ "hook_type": "bot", "name": "outsider-bot" })),
+        Some(incoming_hook(channel, "outsider-bot")),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
@@ -399,13 +408,14 @@ async fn owner_can_delete_hook(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Hooks WS").await;
+    let channel = seed_channel(&state, ws, owner_id, "hooked", false).await;
 
     let (status, created) = send(
         &app,
         "POST",
         &format!("/api/workspaces/{ws}/hooks"),
         Some(&token),
-        Some(json!({ "hook_type": "bot", "name": "delete-me" })),
+        Some(incoming_hook(channel, "delete-me")),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
@@ -437,13 +447,14 @@ async fn delete_hook_by_member_is_forbidden(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "hook-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Hooks WS").await;
+    let channel = seed_channel(&state, ws, owner_id, "hooked", false).await;
 
     let (status, created) = send(
         &app,
         "POST",
         &format!("/api/workspaces/{ws}/hooks"),
         Some(&owner_token),
-        Some(json!({ "hook_type": "bot", "name": "protected-bot" })),
+        Some(incoming_hook(channel, "protected-bot")),
     )
     .await;
     assert_eq!(status, StatusCode::OK);

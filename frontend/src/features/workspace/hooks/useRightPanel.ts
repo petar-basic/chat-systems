@@ -15,6 +15,7 @@ export type RightPanel =
   | { kind: 'customEmoji' }
   | { kind: 'userGroups' }
   | { kind: 'auditLog' }
+  | { kind: 'workflows' }
   | { kind: 'scheduled' }
   | { kind: 'later' }
   | { kind: 'slackImport' }

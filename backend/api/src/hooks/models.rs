@@ -9,9 +9,7 @@ use uuid::Uuid;
 pub enum HookType {
     IncomingWebhook,
     OutgoingWebhook,
-    Bot,
     SlashCommand,
-    Scheduled,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
