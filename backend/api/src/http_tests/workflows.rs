@@ -313,7 +313,10 @@ async fn a_definition_the_creator_could_not_carry_out_is_refused_at_save(pool: P
             "{expected}: {error:?}"
         );
         assert!(
-            error.to_string().contains(expected),
+            error["error"]
+                .as_str()
+                .unwrap_or_default()
+                .contains(expected),
             "{expected}: {error:?}"
         );
     }
