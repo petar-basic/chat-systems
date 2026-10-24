@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT run_id, position, succeeded, message_id, error, finished_at\n              FROM workflow_run_steps\n             WHERE run_id = ANY($1)\n             ORDER BY run_id, position\n            ",
+  "query": "\n            SELECT run_id, position, succeeded, message_id, list_item_id, error, finished_at\n              FROM workflow_run_steps\n             WHERE run_id = ANY($1)\n             ORDER BY run_id, position\n            ",
   "describe": {
     "columns": [
       {
@@ -49,6 +49,17 @@
       },
       {
         "ordinal": 4,
+        "name": "list_item_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "workflow_run_steps",
+            "name": "list_item_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
         "name": "error",
         "type_info": "Text",
         "origin": {
@@ -59,7 +70,7 @@
         }
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "finished_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -81,8 +92,9 @@
       false,
       true,
       true,
+      true,
       false
     ]
   },
-  "hash": "48e49f8ca38aae3a92d9924d8db3d363e847b8017eb885d548a83c8edce1e76e"
+  "hash": "e1bff592dd026605c6f20863f26cbee94e400559512b41dfc0ac1992cfc32cd8"
 }

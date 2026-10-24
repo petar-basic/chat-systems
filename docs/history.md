@@ -1423,7 +1423,7 @@ from every text, and the server turns them into `{ text, hit }` parts, so a file
 reach the browser only as text.
 
 
-## Wave 23 — Structured work: polls, lists, workflows
+## Wave 23 — Structured work: polls, lists, workflows ✅ shipped
 
 ### [CS-065] Polls ✅ shipped
 "Lunch Thursday or Friday?" was answered with reactions and a hand count. A poll is now an
@@ -1497,3 +1497,55 @@ assigned or open. Waiting ten minutes for that sweep after assigning somebody fe
 writing an item or a column of a list with a due date also syncs that one list at once; the
 sweep is left for the day turning over. Ticking the reminder off in Later checks the item
 through the ordinary item update, so it is only done for someone who may still edit the list.
+
+### [CS-067] Workflow builder ✅ shipped
+The coordination a team repeats by hand (greet whoever joins `#general`, post "standup in 10"
+at 9:50, turn a 🚨 reaction into a post in `#incidents`, collect a time-off request and keep
+it in a list) is now built in the app by whoever needs it, without code. It shipped in four
+PRs: the engine with schedule and webhook triggers and the builder; reaction and member-joined
+triggers; shortcuts and forms; list steps and templates. The `bot` and `scheduled` members of
+`hook_type`, declared in the initial schema and used nowhere, are gone.
+
+A workflow is a typed `Definition` (serde-tagged triggers, steps and recipients) with its own
+check rather than `garde`, so a refusal names the step: "Step 2: {{webhook.x}} isn't
+available for this trigger". Saving also checks, as the builder, everything a step would do:
+the channel it posts in, the person it DMs, the list it writes to. A new workflow is a draft
+until *Publish*; editing a published one keeps it on and bumps `version`, and a run that
+resumes after an edit stops rather than finishing someone else's version. Every step runs
+with what its builder can do at that moment, so losing access fails the step and the builder
+leaving the workspace turns their workflows off and tells the admins.
+
+Every run is a row unique on `(workflow_id, trigger_key)`: the scheduled instant, the
+webhook's `Idempotency-Key`, `event:<stream event id>` for a reaction or a join, so a second
+delivery never starts a second run. Each step commits together with its `workflow_run_steps`
+row, so a run picked up again after a crash never repeats a step. A schedule's next instant
+is computed in Postgres (`workflow_next_run()`, DST-correct); one missed by more than 15
+minutes is skipped rather than posted late. Nothing emitted a join before, so adding a member
+to a channel now stages a durable `channel.member_joined` event, which `workflow_listener`
+reads through its own consumer group. Workflow messages never start workflows, no step adds a
+reaction or a member, and past 30 starts a minute a trigger is recorded as a skipped run.
+
+A form step parks the run as `waiting` with the form in `workflow_forms`; the submit records
+the step and queues the run again, so it continues within one runner tick, and a form nobody
+answers expires after 7 days. Shipping it found a real bug in CI: a refused submit dropped a
+transaction holding `FOR UPDATE` on the run, sqlx rolls a dropped transaction back
+asynchronously, and the runner's `SKIP LOCKED` claim passed over a run that was free. The
+submit now rolls back explicitly before answering.
+
+`add_list_item` fills up to 30 columns of a list its builder can write to; `update_list_item`
+names the earlier step that added an item (`from_step`) and sets a person, select or checkbox
+column on it, which is how a request becomes *Approved* or gets an owner. The item's id is
+kept in `workflow_run_steps.list_item_id`. Text and link columns take any text with variables;
+every other column takes one value or one variable. A typed variable is checked when saving:
+`{{trigger.user}}` and a person answer fit only a person column, a date answer only a date,
+and a choice answer only a select that has every option the question offers. A text variable
+fits any column and is checked when the step runs, so "“Days” needs a number, not “three”"
+fails that step in the history. The item goes through the list's own `create_item_in` and
+`update_item_in`, inside the step's transaction, so its frames, assignment notifications and
+due-date reminders behave exactly as for an edit by hand.
+
+The builder's *New* opens a choice of a blank workflow or four templates (welcome new
+members, daily standup reminder, incident from a reaction, time-off request into a list),
+each an ordinary draft to change before publishing. A list step lists the columns of the
+picked list, and *Fill from the form answers* matches columns to questions by name. Moving
+or removing a step keeps every update step pointing at the step that adds its item.

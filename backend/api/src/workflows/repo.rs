@@ -370,6 +370,41 @@ impl WorkflowRepo {
         .await
     }
 
+    pub async fn record_item_step_in(
+        &self,
+        conn: &mut PgConnection,
+        run_id: Uuid,
+        position: i32,
+        item_id: Uuid,
+    ) -> sqlx::Result<()> {
+        sqlx::query!(
+            r"
+            INSERT INTO workflow_run_steps (run_id, position, succeeded, list_item_id)
+            VALUES ($1, $2, TRUE, $3)
+            ON CONFLICT (run_id, position) DO UPDATE
+               SET succeeded = TRUE, list_item_id = EXCLUDED.list_item_id, error = NULL,
+                   finished_at = NOW()
+            ",
+            run_id,
+            position,
+            item_id
+        )
+        .execute(&mut *conn)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn item_of(&self, run_id: Uuid, position: i32) -> sqlx::Result<Option<Uuid>> {
+        Ok(sqlx::query_scalar!(
+            "SELECT list_item_id FROM workflow_run_steps WHERE run_id = $1 AND position = $2",
+            run_id,
+            position
+        )
+        .fetch_optional(&self.pool)
+        .await?
+        .flatten())
+    }
+
     pub async fn record_step_in(
         &self,
         conn: &mut PgConnection,
@@ -455,7 +490,7 @@ impl WorkflowRepo {
     pub async fn steps_of(&self, run_ids: &[Uuid]) -> sqlx::Result<Vec<(Uuid, RunStep)>> {
         let rows = sqlx::query!(
             r"
-            SELECT run_id, position, succeeded, message_id, error, finished_at
+            SELECT run_id, position, succeeded, message_id, list_item_id, error, finished_at
               FROM workflow_run_steps
              WHERE run_id = ANY($1)
              ORDER BY run_id, position
@@ -473,6 +508,7 @@ impl WorkflowRepo {
                         position: row.position,
                         succeeded: row.succeeded,
                         message_id: row.message_id,
+                        list_item_id: row.list_item_id,
                         error: row.error,
                         finished_at: row.finished_at,
                     },

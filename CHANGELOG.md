@@ -70,6 +70,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   table. A message's metadata gains `form`, and both message steps of a workflow definition an
   optional `summary`. `/workflow` joins the built-in commands, so a registered command of that
   name is shadowed.
+- Migration 70 adds `workflow_run_steps.list_item_id`, the item a list step wrote, which a
+  `RunStep` in the run history now carries. A workflow definition takes two more steps,
+  `add_list_item` and `update_list_item`.
 
 ### Added
 
@@ -148,6 +151,11 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   A form step sends someone a *Fill in* card that opens a dialog of short and long answers,
   choices, people and dates; the run waits for the answers (7 days at most), later steps insert
   them, and a message step can append them all as a summary.
+  A list step adds an item to a list, filling its columns from values and variables (a form's
+  person, date or choice answer is checked against the column when saving), and a later step
+  can set a person, choice or checkbox column on that same item. *New* starts from a blank
+  workflow or a template: welcome new members, daily standup reminder, incident from a
+  reaction, time-off request into a list.
   Every step runs with what its builder can do at that moment, so losing access to a channel
   fails that step, and a builder leaving the workspace turns their workflows off and tells the
   admins. *Run history* shows the last 50 runs and why a step failed. Admins can keep building

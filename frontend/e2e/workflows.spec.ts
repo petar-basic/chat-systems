@@ -21,6 +21,7 @@ test('a member builds a webhook workflow and a call to it posts in the channel',
     await expect(page.getByTestId('workflows-panel')).toBeVisible();
 
     await page.getByTestId('workflow-new').click();
+    await page.getByTestId('new-workflow-submit').click();
     const editor = page.getByTestId('workflow-editor');
     await editor.getByTestId('workflow-name').fill(name);
     await editor.getByTestId('workflow-trigger-type').selectOption('webhook');
@@ -79,6 +80,7 @@ test('a member-joined workflow welcomes the newcomer with a DM', async ({ page }
     await page.getByRole('button', { name: workspace.name }).first().click();
     await page.getByTestId('open-workflows').click();
     await page.getByTestId('workflow-new').click();
+    await page.getByTestId('new-workflow-submit').click();
 
     const editor = page.getByTestId('workflow-editor');
     await editor.getByTestId('workflow-name').fill(name);
@@ -204,6 +206,107 @@ test('a shortcut asks the person who ran it a form and posts the answers', async
     await expect(page.locator('[data-qa="message-list"]').getByText('asked for time off')).toBeVisible();
   } finally {
     if (workflowId) await alice.delete(`${API}/workflows/${workflowId}`);
+    await admin.delete(`${API}/channels/${channel.id}`);
+    await admin.dispose();
+    await alice.dispose();
+    await bob.dispose();
+  }
+});
+
+test('the time-off template adds a request to a list with who asked', async ({ page }) => {
+  const { ctx: admin } = await userContext('admin@dev.local');
+  const { ctx: alice, userId: aliceId } = await userContext('alice@dev.local');
+  const { ctx: bob, userId: bobId } = await userContext('bob@dev.local');
+  const workspace = await devWorkspace(admin);
+  const channel = await createChannel(admin, workspace.id, 'timeoff');
+  for (const user_id of [aliceId, bobId]) {
+    await admin.post(`${API}/channels/${channel.id}/members`, { data: { user_id } });
+  }
+  const created = await admin.post(`${API}/workspaces/${workspace.id}/lists`, {
+    data: {
+      title: `Time off ${Date.now()}`,
+      channel_id: channel.id,
+      columns: [
+        {
+          name: 'Kind',
+          kind: 'select',
+          options: { choices: [{ label: 'Holiday' }, { label: 'Sick' }, { label: 'Other' }] },
+        },
+        { name: 'From', kind: 'date' },
+        { name: 'Until', kind: 'date' },
+        { name: 'Who', kind: 'person' },
+      ],
+    },
+  });
+  expect(created.ok(), 'the list exists').toBeTruthy();
+  const detail = await created.json();
+  const listId: string = detail.list.id;
+  type Column = { id: string; name: string; options: { choices?: { id: string; label: string }[] } };
+  const columns: Column[] = detail.columns;
+  const columnId = (name: string) => columns.find((c) => c.name === name)!.id;
+  const sick = columns.find((c) => c.name === 'Kind')!.options.choices!.find((c) => c.label === 'Sick')!.id;
+  const name = `Request time off ${Date.now()}`;
+
+  try {
+    await login(page, 'alice@dev.local');
+    await page.goto(`/app/${workspace.id}/${channel.id}`);
+    await page.getByRole('button', { name: workspace.name }).first().click();
+    await page.getByTestId('open-workflows').click();
+    await page.getByTestId('workflow-new').click();
+    await page.getByTestId('new-workflow-template-time_off').click();
+    await page.getByTestId('new-workflow-submit').click();
+
+    const editor = page.getByTestId('workflow-editor');
+    await editor.getByTestId('workflow-name').fill(name);
+    await editor.getByTestId('workflow-trigger-channel').selectOption(channel.id);
+    await editor.getByTestId('workflow-step-list').selectOption(listId);
+    await editor.getByTestId('workflow-step-match').click();
+    const who = editor
+      .locator('[data-qa="workflow-cell"][data-column="Who"]')
+      .getByTestId('workflow-cell-value');
+    await who.selectOption('{{trigger.user}}');
+    await editor.getByTestId('workflow-step-channel').selectOption(channel.id);
+    await editor.getByTestId('workflow-publish').click();
+    await expect(editor.getByTestId('workflow-disable')).toBeVisible();
+
+    const listed = await (await alice.get(`${API}/workspaces/${workspace.id}/workflows`)).json();
+    const workflow = (listed.data ?? []).find((w: { name: string }) => w.name === name);
+    const started = await bob.post(`${API}/workflows/${workflow.id}/start`);
+    expect(started.status(), 'bob runs the shortcut').toBe(202);
+    const { run_id } = await started.json();
+
+    await expect
+      .poll(
+        async () =>
+          (
+            await bob.post(`${API}/workflow-runs/${run_id}/forms/0`, {
+              data: { answers: { kind: 'Sick', from: '2026-11-02', until: '2026-11-03', note: '' } },
+            })
+          ).status(),
+        { timeout: 30_000 },
+      )
+      .toBe(200);
+
+    await expect
+      .poll(
+        async () => {
+          const items = await (await alice.get(`${API}/lists/${listId}/items`)).json();
+          return (items.data ?? []).map((item: { values: Record<string, unknown> }) => item.values);
+        },
+        { timeout: 30_000 },
+      )
+      .toContainEqual({
+        [columnId('Kind')]: sick,
+        [columnId('From')]: '2026-11-02',
+        [columnId('Until')]: '2026-11-03',
+        [columnId('Who')]: bobId,
+      });
+  } finally {
+    const listed = await (await alice.get(`${API}/workspaces/${workspace.id}/workflows`)).json();
+    for (const workflow of listed.data ?? []) {
+      if (workflow.name === name) await alice.delete(`${API}/workflows/${workflow.id}`);
+    }
+    await admin.delete(`${API}/lists/${listId}`);
     await admin.delete(`${API}/channels/${channel.id}`);
     await admin.dispose();
     await alice.dispose();

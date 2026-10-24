@@ -62,6 +62,19 @@ export function useChannelLists(
   });
 }
 
+export function useWorkspaceLists(workspaceId: string, instanceUrl?: string, enabled = true) {
+  return useQuery({
+    queryKey: QUERY_KEYS.listsOf(workspaceId),
+    queryFn: async () => {
+      const res = await api(instanceUrl).typed((c) =>
+        c.GET('/workspaces/{ws_id}/lists', { params: { path: { ws_id: workspaceId } } }),
+      );
+      return res.data;
+    },
+    enabled,
+  });
+}
+
 export function useListDetail(listId: string, instanceUrl?: string) {
   return useQuery({
     queryKey: QUERY_KEYS.list(listId),

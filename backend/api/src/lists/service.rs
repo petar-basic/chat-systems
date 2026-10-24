@@ -801,6 +801,22 @@ async fn check_people(state: &AppState, list: &List, people: &[Uuid]) -> AppResu
     Ok(())
 }
 
+pub struct ItemWrite {
+    pub item: ListItem,
+    staged: Vec<Staged>,
+    due: bool,
+}
+
+impl ItemWrite {
+    pub async fn announce(self, state: &AppState) {
+        let list_id = self.item.list_id;
+        state.publisher.dispatch_all(self.staged).await;
+        if self.due {
+            crate::later::reminders::sync_list_due(state, Some(list_id)).await;
+        }
+    }
+}
+
 pub async fn create_item(
     state: &AppState,
     user_id: Uuid,
@@ -809,51 +825,56 @@ pub async fn create_item(
 ) -> AppResult<ListItem> {
     writable(state, user_id, list_id).await?;
     let mut tx = state.pool.begin().await?;
-    let list = lock(state, &mut tx, list_id).await?;
-    let columns = state.list_repo.columns_in(&mut tx, list_id).await?;
-    let edit = validate(&columns, &req.values)?;
+    let write = create_item_in(state, &mut tx, user_id, list_id, &req.values, req.after_id).await?;
+    tx.commit().await?;
+    let item = write.item.clone();
+    write.announce(state).await;
+    Ok(item)
+}
+
+pub async fn create_item_in(
+    state: &AppState,
+    conn: &mut PgConnection,
+    user_id: Uuid,
+    list_id: Uuid,
+    values: &Map<String, Value>,
+    after_id: Option<Uuid>,
+) -> AppResult<ItemWrite> {
+    let list = lock(state, conn, list_id).await?;
+    let columns = state.list_repo.columns_in(conn, list_id).await?;
+    let edit = validate(&columns, values)?;
     check_people(state, &list, &edit.people).await?;
-    if state.list_repo.item_count_in(&mut tx, list_id).await? >= MAX_ITEMS {
+    if state.list_repo.item_count_in(conn, list_id).await? >= MAX_ITEMS {
         return Err(AppError::Validation(format!(
             "A list can hold at most {MAX_ITEMS} items"
         )));
     }
-    let rank = match req.after_id {
+    let rank = match after_id {
         Some(after) => {
             let (low, high) = state
                 .list_repo
-                .neighbours_in(&mut tx, list_id, Some(after), None)
+                .neighbours_in(conn, list_id, Some(after), None)
                 .await?
                 .ok_or_else(|| AppError::Validation("That item is not in this list".into()))?;
             rank::between(low.as_deref(), high.as_deref())
         }
         None => {
-            let last = state.list_repo.last_rank_in(&mut tx, list_id).await?;
+            let last = state.list_repo.last_rank_in(conn, list_id).await?;
             rank::between(last.as_deref(), None)
         }
     };
     let people = assignees(&columns, &Value::Null, &edit.set, user_id);
     let item = state
         .list_repo
-        .insert_item_in(&mut tx, list_id, &rank, &Value::Object(edit.set), user_id)
+        .insert_item_in(conn, list_id, &rank, &Value::Object(edit.set), user_id)
         .await?;
-    let staged = stage(
-        &mut tx,
-        &list,
-        "list.item_upserted",
-        json!({ "item": item }),
-    )
-    .await?;
-    let assigned = stage_assigned(&mut tx, &list, &columns, &item, people, user_id).await?;
-    tx.commit().await?;
-    state.publisher.dispatch(staged).await;
-    if let Some(assigned) = assigned {
-        state.publisher.dispatch(assigned).await;
-    }
-    if columns.iter().any(|c| c.due) {
-        crate::later::reminders::sync_list_due(state, Some(list_id)).await;
-    }
-    Ok(item)
+    let mut staged = vec![stage(conn, &list, "list.item_upserted", json!({ "item": item })).await?];
+    staged.extend(stage_assigned(conn, &list, &columns, &item, people, user_id).await?);
+    Ok(ItemWrite {
+        item,
+        staged,
+        due: columns.iter().any(|c| c.due),
+    })
 }
 
 async fn item_place(state: &AppState, item_id: Uuid) -> AppResult<Uuid> {
@@ -873,40 +894,45 @@ pub async fn update_item(
     let list_id = item_place(state, item_id).await?;
     let list = writable(state, user_id, list_id).await?;
     let mut tx = state.pool.begin().await?;
-    if !state.list_repo.share_lock_in(&mut tx, list_id).await? {
+    let write = update_item_in(state, &mut tx, user_id, &list, item_id, values).await?;
+    tx.commit().await?;
+    let item = write.item.clone();
+    write.announce(state).await;
+    Ok(item)
+}
+
+pub async fn update_item_in(
+    state: &AppState,
+    conn: &mut PgConnection,
+    user_id: Uuid,
+    list: &List,
+    item_id: Uuid,
+    values: &Map<String, Value>,
+) -> AppResult<ItemWrite> {
+    if !state.list_repo.share_lock_in(conn, list.id).await? {
         return Err(not_found());
     }
-    let columns = state.list_repo.columns_in(&mut tx, list_id).await?;
+    let columns = state.list_repo.columns_in(conn, list.id).await?;
     let edit = validate(&columns, values)?;
-    check_people(state, &list, &edit.people).await?;
+    check_people(state, list, &edit.people).await?;
     let before = state
         .list_repo
-        .item_values_in(&mut tx, item_id)
+        .item_values_in(conn, item_id)
         .await?
         .ok_or_else(|| AppError::NotFound("Item not found".into()))?;
     let people = assignees(&columns, &before, &edit.set, user_id);
     let item = state
         .list_repo
-        .merge_item_in(&mut tx, item_id, &Value::Object(edit.set), &edit.clear)
+        .merge_item_in(conn, item_id, &Value::Object(edit.set), &edit.clear)
         .await?
         .ok_or_else(|| AppError::NotFound("Item not found".into()))?;
-    let staged = stage(
-        &mut tx,
-        &list,
-        "list.item_upserted",
-        json!({ "item": item }),
-    )
-    .await?;
-    let assigned = stage_assigned(&mut tx, &list, &columns, &item, people, user_id).await?;
-    tx.commit().await?;
-    state.publisher.dispatch(staged).await;
-    if let Some(assigned) = assigned {
-        state.publisher.dispatch(assigned).await;
-    }
-    if columns.iter().any(|c| c.due) {
-        crate::later::reminders::sync_list_due(state, Some(list_id)).await;
-    }
-    Ok(item)
+    let mut staged = vec![stage(conn, list, "list.item_upserted", json!({ "item": item })).await?];
+    staged.extend(stage_assigned(conn, list, &columns, &item, people, user_id).await?);
+    Ok(ItemWrite {
+        item,
+        staged,
+        due: columns.iter().any(|c| c.due),
+    })
 }
 
 pub async fn move_item(

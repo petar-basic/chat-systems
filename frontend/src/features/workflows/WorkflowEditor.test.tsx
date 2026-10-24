@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { Channel, WorkspaceMember } from '@/stores/workspace';
+import type { ListColumn } from '@/features/lists/listModel';
 import { WorkflowEditor } from './WorkflowEditor';
 import type { SaveWorkflow, Workflow } from './workflowModel';
 
@@ -50,6 +51,35 @@ vi.mock('@/features/messaging', () => ({
     </button>
   ),
 }));
+
+vi.mock('@/features/lists/useLists', () => ({
+  useWorkspaceLists: () => ({ isLoading: false, data: [{ id: 'l-1', title: 'Time off' }] }),
+  useListDetail: (id: string) => ({
+    isLoading: false,
+    data: id === 'l-1' ? { columns: LIST_COLUMNS } : undefined,
+  }),
+}));
+
+const column = (id: string, name: string, kind: ListColumn['kind'], choices: string[] = []): ListColumn => ({
+  id,
+  list_id: 'l-1',
+  name,
+  kind,
+  position: 0,
+  hidden: false,
+  due: false,
+  options: {
+    choices: choices.map((label) => ({ id: `${id}-${label.toLowerCase()}`, label, color: 'gray' })),
+  },
+});
+const LIST_COLUMNS = [
+  column('request', 'Request', 'text'),
+  column('who', 'Who', 'person'),
+  column('kind', 'Kind', 'select', ['Sick', 'Holiday']),
+  column('from', 'From', 'date'),
+  column('days', 'Days', 'number'),
+  column('status', 'Status', 'select', ['Open', 'Approved']),
+];
 
 const channel = (id: string, name: string, extra: Partial<Channel> = {}) =>
   ({ id, name, channel_type: 'public', is_archived: false, ...extra }) as Channel;
@@ -102,6 +132,14 @@ function renderEditor(workflow: Workflow | null = null, { currentUserId = 'u-me'
 }
 
 const steps = () => screen.getAllByTestId('workflow-step');
+const cell = (scope: HTMLElement, name: string) =>
+  within(scope)
+    .getAllByTestId('workflow-cell')
+    .find((row) => row.dataset.column === name) as HTMLElement;
+const optionsOf = (select: HTMLElement) =>
+  within(select)
+    .getAllByRole('option')
+    .map((o) => o.textContent);
 const texts = () =>
   screen.getAllByTestId('workflow-step-text').map((area) => (area as HTMLTextAreaElement).value);
 
@@ -239,6 +277,102 @@ describe('WorkflowEditor', () => {
         { type: 'send_message', channel_id: 'c-general', text: 'New request', summary: true },
       ],
     });
+  });
+
+  it('adds the form answers to a list, then updates the status of that item', async () => {
+    update.mockResolvedValue(saved());
+    renderEditor(
+      saved({
+        definition: {
+          trigger: { type: 'shortcut', channel_id: 'c-general' },
+          steps: [
+            {
+              type: 'form',
+              to: { kind: 'trigger_user' },
+              title: 'Time off',
+              fields: [
+                { name: 'kind', label: 'Kind', kind: 'select', options: ['Sick', 'Holiday'], required: true },
+                { name: 'from', label: 'From', kind: 'date', options: [], required: true },
+                { name: 'note', label: 'Note', kind: 'short_text', options: [], required: false },
+              ],
+            },
+          ],
+        },
+      }),
+    );
+
+    expect(optionsOf(screen.getByTestId('workflow-step-type'))).not.toContain('Update the item a step added');
+    fireEvent.click(screen.getByTestId('workflow-step-add'));
+    fireEvent.change(within(steps()[1]).getByTestId('workflow-step-type'), {
+      target: { value: 'add_list_item' },
+    });
+    expect(within(steps()[1]).getByTestId('workflow-step-title')).toHaveTextContent('Add a list item');
+    fireEvent.change(within(steps()[1]).getByTestId('workflow-step-list'), { target: { value: 'l-1' } });
+    fireEvent.click(within(steps()[1]).getByTestId('workflow-step-match'));
+    expect(within(cell(steps()[1], 'Kind')).getByTestId('workflow-cell-value')).toHaveValue('{{form.kind}}');
+    expect(within(cell(steps()[1], 'From')).getByTestId('workflow-cell-value')).toHaveValue('{{form.from}}');
+
+    const who = within(cell(steps()[1], 'Who')).getByTestId('workflow-cell-value');
+    expect(optionsOf(who)).toContain('Person who ran it');
+    expect(optionsOf(who)).not.toContain('Answer: From');
+    fireEvent.change(who, { target: { value: '{{trigger.user}}' } });
+    fireEvent.change(within(cell(steps()[1], 'Request')).getByTestId('workflow-cell-variable'), {
+      target: { value: '{{form.note}}' },
+    });
+
+    fireEvent.click(screen.getByTestId('workflow-step-add'));
+    fireEvent.change(within(steps()[2]).getByTestId('workflow-step-type'), {
+      target: { value: 'update_list_item' },
+    });
+    expect(within(steps()[2]).getByTestId('workflow-step-from')).toHaveValue('1');
+    expect(
+      within(steps()[2])
+        .getAllByTestId('workflow-cell')
+        .map((row) => row.dataset.column),
+    ).toEqual(['Who', 'Kind', 'Status']);
+    fireEvent.change(within(cell(steps()[2], 'Status')).getByTestId('workflow-cell-value'), {
+      target: { value: 'status-approved' },
+    });
+    fireEvent.click(screen.getByTestId('workflow-save'));
+
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+    expect(update.mock.calls[0][0].body.definition.steps.slice(1)).toEqual([
+      {
+        type: 'add_list_item',
+        list_id: 'l-1',
+        cells: [
+          { column_id: 'kind', value: '{{form.kind}}' },
+          { column_id: 'from', value: '{{form.from}}' },
+          { column_id: 'who', value: '{{trigger.user}}' },
+          { column_id: 'request', value: '{{form.note}}' },
+        ],
+      },
+      { type: 'update_list_item', from_step: 1, cells: [{ column_id: 'status', value: 'status-approved' }] },
+    ]);
+  });
+
+  it('asks an update step for a new item once the step that added its item is removed', () => {
+    renderEditor(
+      saved({
+        definition: {
+          trigger: { type: 'shortcut', channel_id: 'c-general' },
+          steps: [
+            { type: 'send_message', channel_id: 'c-general', text: 'one' },
+            { type: 'add_list_item', list_id: 'l-1', cells: [{ column_id: 'request', value: 'x' }] },
+            {
+              type: 'update_list_item',
+              from_step: 1,
+              cells: [{ column_id: 'status', value: 'status-open' }],
+            },
+          ],
+        },
+      }),
+    );
+    fireEvent.click(within(steps()[0]).getByTestId('workflow-step-down'));
+    expect(within(steps()[2]).getByTestId('workflow-step-from')).toHaveValue('0');
+    fireEvent.click(within(steps()[0]).getByTestId('workflow-step-remove'));
+    expect(within(steps()[1]).getByTestId('workflow-step-from')).toHaveValue('');
+    expect(within(steps()[1]).queryByTestId('workflow-cell')).toBeNull();
   });
 
   it('picks the emoji a reaction trigger listens for', () => {

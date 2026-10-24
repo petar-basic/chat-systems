@@ -9,7 +9,6 @@ ticket in [`docs/tickets/`](./tickets/INDEX.md); a ticket's file is deleted when
 
 | Ticket | What | Status |
 |---|---|---|
-| [CS-067](./tickets/CS-067-workflow-builder.md) | Workflow builder: schedule, webhook, reaction, member-joined and shortcut triggers; message, DM, form and list steps | Wave 23, next; parts 1–3 of 4 (the engine, schedule, webhook, reaction, member-joined and shortcut triggers, message, DM and form steps, the builder) done |
 | [CS-037](./tickets/CS-037-huddle-sfu.md) | SFU (LiveKit) for huddles above the mesh's six-to-eight ceiling, promoted mid-call without dropping anybody | Held for the next major release (4.0.0), decided 2026-10-23 when 3.2.0 shipped CS-059 alone. Adds an optional media server beside the stack. Until then a huddle is capped at eight people |
 
 Waves 21–23 were chosen in the 2026-10-23 review and all ship in 3.x minor releases, one
@@ -64,7 +63,7 @@ was pencilled in for it was absorbed into 9 and 11.
 | [Wave 20 — Dialogs and large calls](./history.md#wave-20--dialogs-and-large-calls) | CS-059 (CS-037 open) |
 | [Wave 21 — Notifications that fit how a team works](./history.md#wave-21--notifications-that-fit-how-a-team-works--shipped) | CS-060 · CS-061 · CS-062 |
 | [Wave 22 — Finding files](./history.md#wave-22--finding-files--shipped) | CS-063 · CS-064 |
-| [Wave 23 — Structured work: polls, lists, workflows](./history.md#wave-23--structured-work-polls-lists-workflows) | CS-065 · CS-066 (CS-067 open) |
+| [Wave 23 — Structured work: polls, lists, workflows](./history.md#wave-23--structured-work-polls-lists-workflows--shipped) | CS-065 · CS-066 · CS-067 |
 
 ---
 

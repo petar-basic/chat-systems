@@ -1,9 +1,16 @@
 import { describe, it, expect } from 'vitest';
+import type { ListColumn } from '@/features/lists/listModel';
 import {
   blankField,
   canBuild,
   cleanDefinition,
   fieldNameFrom,
+  fits,
+  listOf,
+  matchColumns,
+  removeStep,
+  setCell,
+  variableKind,
   relabel,
   stepVariables,
   daysFor,
@@ -13,6 +20,7 @@ import {
   toggleDay,
   triggerPerson,
   triggerSummary,
+  unpicked,
   variableNameError,
   variablesOf,
   workflowBuildersOf,
@@ -98,7 +106,7 @@ describe('workflowModel', () => {
       channel_id: 'c',
       text,
     }));
-    expect(moveStep(steps, 2, 0).map((s) => (s.type === 'form' ? s.title : s.text))).toEqual([
+    expect(moveStep(steps, 2, 0).map((s) => ('text' in s ? s.text : s.type))).toEqual([
       'three',
       'one',
       'two',
@@ -188,5 +196,85 @@ describe('workflowModel', () => {
     expect(cleaned.trigger).toEqual({ type: 'webhook', variables: ['a'] });
     const step = cleaned.steps[0] as FormStep;
     expect(step.fields.map((f) => f.options)).toEqual([['Red', 'Blue'], []]);
+  });
+
+  it('keeps an update step pointing at the step that adds its item when steps move', () => {
+    const steps: Step[] = [
+      { type: 'send_message', channel_id: 'c', text: 'hi' },
+      { type: 'add_list_item', list_id: 'l', cells: [] },
+      { type: 'update_list_item', from_step: 1, cells: [] },
+    ];
+    expect(moveStep(steps, 0, 2)[1]).toEqual({ type: 'update_list_item', from_step: 0, cells: [] });
+    expect(listOf(moveStep(steps, 0, 2), 1)).toBe('l');
+    expect(removeStep(steps, 0)[1]).toEqual({ type: 'update_list_item', from_step: 0, cells: [] });
+    expect(removeStep(steps, 1)[1]).toEqual({ type: 'update_list_item', from_step: 1, cells: [] });
+    expect(listOf(removeStep(steps, 1), 1)).toBeNull();
+  });
+
+  it('offers a column only the variables it can hold and fills columns named like a question', () => {
+    const column = (name: string, kind: ListColumn['kind'], choices: string[] = []): ListColumn => ({
+      id: name,
+      list_id: 'l',
+      name,
+      kind,
+      position: 0,
+      hidden: false,
+      due: false,
+      options: { choices: choices.map((label) => ({ id: `${name}-${label}`, label, color: 'gray' })) },
+    });
+    const definition: Definition = {
+      trigger: { type: 'shortcut', channel_id: 'c' },
+      steps: [
+        {
+          type: 'form',
+          to: { kind: 'trigger_user' },
+          title: 'Time off',
+          fields: [
+            { name: 'kind', label: 'Kind', kind: 'select', options: ['Sick', 'holiday'] },
+            { name: 'from', label: 'From', kind: 'date' },
+            { name: 'note', label: 'Note', kind: 'short_text' },
+          ],
+        },
+        { type: 'add_list_item', list_id: 'l', cells: [] },
+      ],
+    };
+    const kind = column('Kind', 'select', ['Sick', 'Holiday']);
+    expect(variableKind(definition, 1, '{{trigger.user}}')).toEqual({ kind: 'person' });
+    expect(fits(column('Who', 'person'), variableKind(definition, 1, '{{trigger.user}}'))).toBe(true);
+    expect(fits(column('Who', 'person'), variableKind(definition, 1, '{{form.from}}'))).toBe(false);
+    expect(fits(kind, variableKind(definition, 1, '{{form.kind}}'))).toBe(true);
+    expect(fits(column('Kind', 'select', ['Sick']), variableKind(definition, 1, '{{form.kind}}'))).toBe(
+      false,
+    );
+    expect(fits(column('Days', 'number'), variableKind(definition, 1, '{{form.note}}'))).toBe(true);
+    expect(matchColumns([kind, column('From', 'date'), column('Days', 'number')], definition, 1)).toEqual([
+      { column_id: 'Kind', value: '{{form.kind}}' },
+      { column_id: 'From', value: '{{form.from}}' },
+    ]);
+    const cells = setCell(setCell([], 'a', 'x'), 'b', 'y');
+    expect(setCell(cells, 'a', 'z')).toEqual([
+      { column_id: 'a', value: 'z' },
+      { column_id: 'b', value: 'y' },
+    ]);
+    expect(setCell(cells, 'a', '')).toEqual([{ column_id: 'b', value: 'y' }]);
+  });
+
+  it('names the first step still missing its channel, person or list', () => {
+    const steps: Step[] = [
+      { type: 'send_message', channel_id: 'c', text: 'hi' },
+      { type: 'form', to: { kind: 'trigger_user' }, title: 'T', fields: [] },
+      { type: 'add_list_item', list_id: '', cells: [] },
+    ];
+    expect(unpicked({ trigger: { type: 'shortcut', channel_id: '' }, steps })).toBe(
+      'Pick the channel it listens to',
+    );
+    expect(unpicked({ trigger: { type: 'shortcut', channel_id: 'c' }, steps })).toBe('Step 3: pick a list');
+    expect(
+      unpicked({
+        trigger: { type: 'webhook', variables: [] },
+        steps: [{ type: 'send_dm', to: { kind: 'person', user_id: '' }, text: 'x' }],
+      }),
+    ).toBe('Step 1: pick a person');
+    expect(unpicked({ trigger: { type: 'webhook', variables: [] }, steps: steps.slice(0, 2) })).toBeNull();
   });
 });

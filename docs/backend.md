@@ -846,6 +846,17 @@ step inserts `{{form.<name>}}`; a person answer is a mention and notifies, a tex
 not. The tick also expires forms past `expires_at` (7 days): the run becomes `expired` and the
 card `expired`. A run resumed after its workflow was edited stops.
 
+`add_list_item` writes an item into a list its builder can write to (`lists::service::writable`)
+and `update_list_item` sets person, select or checkbox columns on the item an earlier step
+added (`from_step`), found through `workflow_run_steps.list_item_id`. A cell is a template:
+`cells::check` validates it against its column when saving (a static value parsed as the
+column would, a typed variable — `{{trigger.user}}`, a person, date or choice answer — only
+where it fits, any text in a text or link column) and `cells::value` turns the rendered text
+into the stored value at run time, failing the step with the column's reason. The write is
+`lists::service::create_item_in` / `update_item_in` on the step's transaction, followed by the
+returned `ItemWrite::announce`, so list frames, assignment notifications and the due-date sync
+are the ones a hand edit gives.
+
 A run is a row in `workflow_runs`, unique on `(workflow_id, trigger_key)` — the schedule
 instant, the webhook request or the stream event id — so a trigger delivered twice is one run.
 Every trigger shares one limit of 30 runs a minute per workflow (`RUNS_PER_MINUTE`); an event

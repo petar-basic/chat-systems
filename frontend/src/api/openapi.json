@@ -8002,6 +8002,22 @@
           "people"
         ]
       },
+      "CellValue": {
+        "type": "object",
+        "required": [
+          "column_id",
+          "value"
+        ],
+        "properties": {
+          "column_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      },
       "ChangePasswordRequest": {
         "type": "object",
         "required": [
@@ -13736,6 +13752,13 @@
             "type": "string",
             "format": "date-time"
           },
+          "list_item_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
           "message_id": {
             "type": [
               "string",
@@ -14241,6 +14264,58 @@
                 "type": "string",
                 "enum": [
                   "form"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "list_id",
+              "cells",
+              "type"
+            ],
+            "properties": {
+              "cells": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CellValue"
+                }
+              },
+              "list_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "add_list_item"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "from_step",
+              "cells",
+              "type"
+            ],
+            "properties": {
+              "cells": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CellValue"
+                }
+              },
+              "from_step": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "update_list_item"
                 ]
               }
             }
