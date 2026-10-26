@@ -32,6 +32,11 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ### Added
 
+- **A new workspace says what to do next.** While it has fewer than three members or no
+  channel but `#general`, its admins see a checklist above the messages: *Invite your team*,
+  *Create a channel*, *Set an icon*, *Connect SSO*. Each is ticked once done, and the list can
+  be dismissed. An empty channel says what it is for and offers *Add people* and *Add a
+  bookmark*.
 - **First run from the browser.** With no instance admin, the API logs a one-time setup
   token on every start, and `/setup` takes it with the first admin's name, email and password
   and the first workspace's name. `ADMIN_EMAIL`/`ADMIN_PASSWORD` still work for scripted
@@ -77,6 +82,11 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - **Workflows have no drafts.** *Create workflow* saves a new workflow and it starts running;
   an existing one has *Save changes*, *Turn off* and *Turn on*. A draft had to be complete to
   save anyway, and once saved it looked exactly like a workflow somebody had turned off.
+
+### Fixed
+
+- **A new channel opens once created.** It used to leave you in `#general`, because the app
+  went to the channel before its list knew about it.
 
 ## [3.3.0] — 2026-10-24
 

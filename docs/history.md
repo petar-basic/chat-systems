@@ -1609,3 +1609,30 @@ count resolve each message's period in the same `DELETE` — a `LEFT JOIN` on
 `channel_retention` gated by the flag — so a workspace kept forever still trims a channel
 that asked for it, and a channel kept forever outlives a workspace period. While overrides
 are off the rows stay and are ignored. Files and list history keep the workspace period.
+
+### [CS-071] First run, and an empty workspace that says what to do ✅ shipped
+A new instance got its first admin only from `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env`.
+Leave them out and nobody could sign in; set them and the password stayed in that file for
+the life of the instance. Two PRs. The first gave an instance with no instance admin a
+setup token, logged on every start until it is used, and a `/setup` page that takes it with
+the first admin and the first workspace. The table keeps a nonce and the token is an HMAC
+of it under `JWT_SECRET`, so a database dump does not hand anyone the instance and every
+replica prints the same one. It is claimed by one `DELETE … RETURNING` guarded by "no
+instance admin yet", and put back if the account cannot be created. The environment
+variables still work for scripted installs and are optional now. *Send a test email*, at
+the end of setup and in *Instance admin → Email*, sends past the outbox and names what went
+wrong: nothing listening at `SMTP_HOST:SMTP_PORT`, a TLS mode that does not match the port,
+or credentials refused.
+
+The second tells a new workspace's admin what comes next. While a workspace has fewer than
+three members or no channel but `#general`, its admins see *Get <workspace> going* above
+the messages: *Invite your team*, *Create a channel*, *Set an icon* and *Connect SSO*, the
+last a link to the RUNBOOK. Each step is ticked from what is already there (a pending
+invite or a second member, a channel of its own, an icon, SSO configured), not from a
+record of clicks, so doing it anywhere counts. Dismissing it is remembered in the browser,
+like the app-connect prompt. An empty channel now says what it is for (its description or
+topic, or what `#general` is) and offers *Add people* and *Add a bookmark* to whoever may
+do them: in `#general`, or while the admin is alone in the workspace, that is inviting to
+the workspace; elsewhere the channel's member list opens already adding. Creating a channel
+now opens it: the app used to navigate before the channel list knew about it and fell back
+to `#general`.

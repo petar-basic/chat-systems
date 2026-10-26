@@ -76,6 +76,21 @@ export const useWorkspaceMembers = (workspaceId: string | null, instanceUrl?: st
   });
 };
 
+export const useWorkspaceInvites = (workspaceId: string | null, instanceUrl?: string, enabled = true) => {
+  return useQuery({
+    queryKey: QUERY_KEYS.workspaceInvites(workspaceId ?? ''),
+    queryFn: async () => {
+      if (!workspaceId) throw new Error('No workspace ID');
+      const response = await getApiForInstance(instanceUrl).typed((c) =>
+        c.GET('/workspaces/{ws_id}/invites', { params: { path: { ws_id: workspaceId } } }),
+      );
+      return response.data;
+    },
+    enabled: !!workspaceId && enabled,
+    staleTime: 1000 * 60 * 2,
+  });
+};
+
 export const useWorkspaceChannels = (workspaceId: string | null, instanceUrl?: string) => {
   return useQuery({
     queryKey: QUERY_KEYS.workspaceChannels(workspaceId ?? ''),
@@ -177,7 +192,10 @@ export const useCreateChannel = () => {
           },
         }),
       ),
-    onSuccess: (_, { workspaceId }) => {
+    onSuccess: (created, { workspaceId }) => {
+      queryClient.setQueryData<Channel[]>(QUERY_KEYS.workspaceChannels(workspaceId), (channels) =>
+        channels && !channels.some((ch) => ch.id === created.id) ? [...channels, created] : channels,
+      );
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceChannels(workspaceId) });
     },
   });

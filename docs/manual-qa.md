@@ -58,6 +58,12 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - **Expected:** the API prints the same token on every start until setup is done. The wrong token says so and keeps what you typed. The right one signs you in as instance admin; the test email says *Sent to <you>* and arrives in MailHog. The workspace opens on #general. `/setup` afterwards says *This instance is already set up*, and the same token answers 409.
 - 🔴 **Edge — SMTP problems in words:** set `SMTP_PORT=1` and restart api, then *Instance admin → Email → Send a test email* → *Nothing accepted the connection at mailhog:1…*. `SMTP_TLS_MODE=implicit` against MailHog names the TLS mode instead.
 
+### 1.0b 🔴 A new workspace's checklist and an empty channel
+- **Reach:** right after 1.0, or as Admin create a workspace from the workspace rail.
+- **Steps:** look above the messages in `#general` → *Invite people* and send an invite → *Create* a channel → *Choose* an icon in *General* → follow *How to* for SSO → dismiss with ×, then reload. In a new empty channel use *Add people* and *Add a bookmark*.
+- **Expected:** *Get <workspace> going* shows *0 of 4 done* (*1 of 4* where SSO is configured); each step ticks as soon as it is done, from wherever it was done. The link opens the RUNBOOK's *Single sign-on*. Dismissed, it stays gone after the reload, and only for that workspace. `#general` empty says *Everyone in the workspace is here…*; a channel with a description shows it. *Add people* in `#general` (or while you are the workspace's only member) opens the invite form, elsewhere the channel's member list already adding; *Add a bookmark* opens the bookmark form in the bar.
+- 🟠 **Edge — who:** Bob (member) sees no checklist, and no *Add a bookmark* in a channel he does not moderate. The dev workspace (many members and channels) shows no checklist to anyone.
+
 ### 1.1 🟢 Login / logout
 - **Reach:** open `/` (LoginPage).
 - **Steps:** log in as admin → land on the workspace view → click avatar/menu → Logout.

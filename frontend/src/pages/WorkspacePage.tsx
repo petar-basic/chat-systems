@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Hash, Megaphone } from 'lucide-react';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { ROUTES, EmptyLabels } from '@/shared/constants';
@@ -8,11 +9,19 @@ import {
   WorkspaceSidebar,
   WorkspaceRightPanels,
   WorkspaceSettingsModal,
+  WorkspaceChecklist,
   useCurrentWorkspaceRole,
   useSettingsDialog,
   useWorkspaceController,
 } from '@/features/workspace';
-import { ChannelSidebar, ChannelHeader, ChannelBookmarksBar } from '@/features/channel';
+import {
+  ChannelSidebar,
+  ChannelHeader,
+  ChannelBookmarksBar,
+  ChannelIntro,
+  CreateChannelModal,
+} from '@/features/channel';
+import { canAddChannelMembers } from '@/lib/channelPermissions';
 import { MessageList, MessageInput } from '@/features/messaging';
 import ConversationView from '@/features/messaging/ConversationView';
 import { AllUnreadsView } from '@/features/unreads';
@@ -34,10 +43,27 @@ export default function WorkspacePage() {
 
   useActiveHuddlesSync(currentWorkspace?.id, currentWorkspace?.instanceUrl);
 
-  const { canPost } = useChannelModeration(currentChannel?.id ?? null, currentChannel?.settings);
+  const { canPost, canModerate, myRole, workspaceRole } = useChannelModeration(
+    currentChannel?.id ?? null,
+    currentChannel?.settings,
+  );
   const { role } = useCurrentWorkspaceRole();
   const isAdmin = role === 'admin' || role === 'owner';
   const settings = useSettingsDialog();
+  const [addingBookmark, setAddingBookmark] = useState(false);
+  const [creatingChannel, setCreatingChannel] = useState(false);
+
+  const inviteToWorkspace = () => settings.open('members', true);
+  const aloneInWorkspace = c.workspaceMembers.length < 2;
+  const addPeople = !currentChannel
+    ? undefined
+    : currentChannel.is_default || aloneInWorkspace
+      ? isAdmin
+        ? inviteToWorkspace
+        : undefined
+      : canAddChannelMembers(workspaceRole, myRole, currentChannel.channel_type)
+        ? panel.addChannelMembers
+        : undefined;
 
   // Every other panel and modal closes on Escape; the drawer did not.
   useEscapeToClose(() => c.setMobileNavOpen(false), c.mobileNavOpen);
@@ -81,7 +107,7 @@ export default function WorkspacePage() {
             onOpenConversation={c.handleOpenConversation}
             onOpenWith={c.handleOpenWith}
             onOpenSettings={() => settings.open(isAdmin ? 'general' : 'members')}
-            onInvite={() => settings.open('members', true)}
+            onInvite={inviteToWorkspace}
             onOpenWorkflows={() => panel.toggle('workflows')}
             onOpenScheduled={() => panel.toggle('scheduled')}
             onOpenLater={() => panel.toggle('later')}
@@ -213,6 +239,20 @@ export default function WorkspacePage() {
                   channelId={currentChannel.id}
                   instanceUrl={currentWorkspace.instanceUrl}
                   canPost={canPost}
+                  adding={addingBookmark}
+                  onAddingChange={setAddingBookmark}
+                />
+              )}
+
+              {currentWorkspace && currentChannel && isAdmin && (
+                <WorkspaceChecklist
+                  key={currentWorkspace.id}
+                  workspace={currentWorkspace}
+                  members={c.workspaceMembers}
+                  channels={c.channels}
+                  onInvite={inviteToWorkspace}
+                  onCreateChannel={() => setCreatingChannel(true)}
+                  onSetIcon={() => settings.open('general')}
                 />
               )}
 
@@ -226,6 +266,13 @@ export default function WorkspacePage() {
                   onForward={c.handleForwardMessage}
                   highlightMessageId={c.urlMessageId}
                   onTargetMessageFound={c.handleTargetMessageFound}
+                  empty={
+                    <ChannelIntro
+                      channel={currentChannel}
+                      onAddPeople={addPeople}
+                      onAddBookmark={canModerate ? () => setAddingBookmark(true) : undefined}
+                    />
+                  }
                 />
               )}
 
@@ -316,6 +363,14 @@ export default function WorkspacePage() {
             currentUserId={user.id}
             instanceUrl={currentWorkspace.instanceUrl}
             onClose={c.dismissForward}
+          />
+        )}
+
+        {creatingChannel && (
+          <CreateChannelModal
+            channels={c.channels}
+            onCreate={c.handleCreateChannel}
+            onClose={() => setCreatingChannel(false)}
           />
         )}
 

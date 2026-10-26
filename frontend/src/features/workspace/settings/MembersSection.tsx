@@ -260,6 +260,7 @@ export function MembersSection({ workspaceId, openInvite, isInstanceAdmin }: Pro
       setInviteResult(`Invite sent to ${inviteEmail}.`);
       setInviteEmail('');
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceMembers(workspaceId) });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceInvites(workspaceId) });
     } catch (err: unknown) {
       const msg = toUserMessage(err, 'Failed to invite user');
       setInviteError(msg);

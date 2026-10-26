@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useUnreadChannels } from '@/hooks/queries/useChannels';
 import { UnreadDivider } from './UnreadDivider';
 import { MessageSquare } from 'lucide-react';
@@ -25,6 +25,7 @@ interface Props {
   onForward?: (msg: Message) => void;
   highlightMessageId?: string;
   onTargetMessageFound?: (msg: Message) => void;
+  empty?: ReactNode;
 }
 
 export function DaySeparator({ at }: { at: string }) {
@@ -46,6 +47,7 @@ export default function MessageList({
   onForward,
   highlightMessageId,
   onTargetMessageFound,
+  empty,
 }: Props) {
   const { data, isLoading, isError, refetch, isFetchingNextPage, hasNextPage, fetchNextPage } =
     useMessages(channelId);
@@ -144,11 +146,13 @@ export default function MessageList({
       isEmpty={messages.length === 0}
       onRetry={() => void refetch()}
       empty={
-        <>
-          <MessageSquare className="w-12 h-12 mb-3 text-faint" />
-          <p className="text-lg font-medium">{EmptyLabels.NoMessages}</p>
-          <p className="text-sm">{EmptyLabels.NoMessagesHint}</p>
-        </>
+        empty ?? (
+          <>
+            <MessageSquare className="w-12 h-12 mb-3 text-faint" />
+            <p className="text-lg font-medium">{EmptyLabels.NoMessages}</p>
+            <p className="text-sm">{EmptyLabels.NoMessagesHint}</p>
+          </>
+        )
       }
     >
       <GalleryProvider messages={messages}>

@@ -95,6 +95,8 @@ export default function WorkspaceRightPanels({
   if (panel.kind === 'channelMembers' && currentChannel && currentWorkspace) {
     return (
       <ChannelMembersPanel
+        key={panel.adding ? 'adding' : 'list'}
+        startAdding={panel.adding}
         channelId={currentChannel.id}
         channelName={currentChannel.name ?? ''}
         channelType={currentChannel.channel_type}
