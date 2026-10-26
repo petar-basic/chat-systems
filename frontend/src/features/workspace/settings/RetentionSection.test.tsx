@@ -20,6 +20,7 @@ const policy = {
   file_days: null,
   audit_days: 730,
   notification_days: 90,
+  channel_overrides: false,
   updated_by: null,
   updated_at: '2026-10-01T00:00:00Z',
 };
@@ -62,7 +63,11 @@ describe('RetentionSection', () => {
       ),
     );
     const previewCall = get.mock.calls.find(([path]) => path.endsWith('/preview'));
-    expect(previewCall?.[1].params.query).toEqual({ message_days: 30, file_days: undefined });
+    expect(previewCall?.[1].params.query).toEqual({
+      message_days: 30,
+      file_days: undefined,
+      channel_overrides: undefined,
+    });
     expect(patch).not.toHaveBeenCalled();
   });
 
@@ -79,6 +84,7 @@ describe('RetentionSection', () => {
       file_days: null,
       audit_days: 730,
       notification_days: 90,
+      channel_overrides: false,
     });
     expect(await screen.findByText('Saved')).toBeInTheDocument();
   });
@@ -91,5 +97,23 @@ describe('RetentionSection', () => {
 
     expect(screen.getByText('At least one day')).toBeInTheDocument();
     expect(screen.getByTestId('retention-save')).toBeDisabled();
+  });
+
+  it('lets channels have their own period, and counts with them', async () => {
+    render(<RetentionSection workspaceId="ws-1" />, { wrapper });
+    await screen.findByTestId('retention-section');
+
+    fireEvent.click(screen.getByLabelText('Let channels keep messages for their own period'));
+    await waitFor(() =>
+      expect(
+        get.mock.calls.some(
+          ([path, init]) => path.endsWith('/preview') && init.params.query.channel_overrides,
+        ),
+      ).toBe(true),
+    );
+    fireEvent.click(screen.getByTestId('retention-save'));
+
+    await waitFor(() => expect(patch).toHaveBeenCalledTimes(1));
+    expect(patch.mock.calls[0][1].body).toMatchObject({ message_days: null, channel_overrides: true });
   });
 });

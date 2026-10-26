@@ -265,7 +265,7 @@ come after the structure move because they rebuild *Channel settings* as *Channe
 |---|---|---|
 | CS-068 ✅ | Workflows without drafts | backend · frontend |
 | CS-069 ✅ | Small UI fixes and a README that says what ships | frontend · backend · docs |
-| [CS-070](CS-070-workspace-admin.md) | Workspace admin in one place, with the settings that have no screen | frontend · backend |
+| CS-070 ✅ | Workspace admin in one place, with the settings that have no screen | frontend · backend |
 | [CS-071](CS-071-first-run.md) | First run and an empty workspace that says what to do | backend · frontend · ops |
 | [CS-072](CS-072-fewer-round-trips.md) | Fewer round trips on start and on switching channels | frontend · backend |
 | [CS-073](CS-073-one-frontend-structure.md) | One frontend structure | frontend |
@@ -276,7 +276,7 @@ come after the structure move because they rebuild *Channel settings* as *Channe
 
 | # | Ticket | Area | Why it is not done |
 |---|---|---|---|
-| [CS-070](CS-070-workspace-admin.md) … [CS-075](CS-075-posting-and-channel-permissions.md) | Wave 24 | frontend · backend · ops | Planned 2026-10-26; one at a time, in number order |
+| [CS-071](CS-071-first-run.md) … [CS-075](CS-075-posting-and-channel-permissions.md) | Wave 24 | frontend · backend · ops | Planned 2026-10-26; one at a time, in number order |
 | [CS-037](CS-037-huddle-sfu.md) | SFU for large huddles | backend · frontend · ops | Held for 4.0.0 — it adds a service to the stack, so it ships in a major release |
 
 ## Conflict map
@@ -304,6 +304,6 @@ Tickets that touch the same files, and the order that avoids rework:
 | search visibility (`searchable_channels()`) | CS-048 ✅ → CS-063 ✅ → CS-064 ✅ |
 | search panel tabs and filter bar | CS-058 ✅ → CS-063 ✅ → CS-064 ✅ |
 | `chat-worker` supervised loops | CS-064 ✅ → CS-065 ✅ → CS-067 ✅ |
-| workspace `settings` JSON and the *General* section | CS-070 → CS-075 |
-| *Channel settings* / *Channel details* | CS-070 → CS-074 → CS-075 |
-| *Integrations* panel and hook permissions | CS-070 → CS-074 |
+| workspace `settings` JSON and the *General* section | CS-070 ✅ → CS-075 |
+| *Channel settings* / *Channel details* | CS-070 ✅ → CS-074 → CS-075 |
+| *Integrations* panel and hook permissions | CS-070 ✅ → CS-074 |

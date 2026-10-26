@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM channel_retention WHERE channel_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0d4270a9c410833c9f3def157d26f6302b17edcc3394fe859f7978b6d5b29b2b"
+}

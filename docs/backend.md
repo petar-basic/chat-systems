@@ -982,7 +982,10 @@ delete is a soft-delete (reversible via restore), audited in the same transactio
 |--------|-------|-----|--------|
 | GET | `/workspaces/:ws_id/retention` | admin | `{ policy }`, `null` for keep-everything |
 | PATCH | `/workspaces/:ws_id/retention` | owner | `{ policy }`; the whole policy, a missing period is *forever* |
-| GET | `/workspaces/:ws_id/retention/preview` | owner | Query `message_days?, file_days?` → `{ messages, files }` past those periods now |
+| GET | `/workspaces/:ws_id/retention/preview` | owner | Query `message_days?, file_days?, channel_overrides?` → `{ messages, files }` past those periods now |
+| GET | `/channels/:ch_id/retention` | channel access | `{ overrides_allowed, workspace_message_days, channel }` |
+| PUT | `/channels/:ch_id/retention` | channel moderator | `{ message_days }`, `null` for forever; 409 while the owner has overrides off |
+| DELETE | `/channels/:ch_id/retention` | channel moderator | back to the workspace's period |
 | GET | `/workspaces/:ws_id/exports` | admin | `{ data: { export, download_url }[] }`, newest 50 |
 | POST | `/workspaces/:ws_id/exports` | owner | `{ export }`, queued |
 | POST | `/users/:user_id/exports` | self or instance admin | `{ export }`, queued |
@@ -991,6 +994,8 @@ delete is a soft-delete (reversible via restore), audited in the same transactio
 The list holds the workspace's exports and the person exports the caller started for its
 members, which belong to no workspace. `download_url` is there only for whoever asked for the
 export (or an instance admin) and only while the single-use link is unspent and unexpired.
+A channel's period change posts a message in the channel and an audit row; direct messages
+keep the workspace's period.
 
 ---
 

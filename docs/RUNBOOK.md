@@ -269,7 +269,11 @@ covers direct and group messages too — they are messages in `dm`/`group_dm` ch
 retention rule that skipped them would keep exactly the history people assume is gone.
 
 An owner sets the policy in *Workspace settings → Data retention*, which shows how many
-messages and files the new periods would remove now before it saves.
+messages and files the new periods would remove now before it saves. With *Let channels keep
+messages for their own period* on, a channel's admins may set a shorter or longer period, or
+forever, in *Channel settings*; the pass applies each channel's own period in the same
+`DELETE`, and that is the number the dry run reports too. Turning it off leaves their periods
+stored and ignored.
 
 Set `RETENTION_DRY_RUN=true` for the first run on a real instance. It logs and counts what
 each pass *would* delete and deletes nothing. Deletion is irreversible, and a misread policy

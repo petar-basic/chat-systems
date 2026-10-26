@@ -171,6 +171,9 @@ mod tests {
         assert!(paths["/admin/scim/tokens/{id}/rotate"]["post"].is_object());
         assert!(paths["/workspaces/{ws_id}/exports"]["get"].is_object());
         assert!(paths["/workspaces/{ws_id}/retention/preview"]["get"].is_object());
+        for method in ["get", "put", "delete"] {
+            assert!(paths["/channels/{ch_id}/retention"][method].is_object());
+        }
         assert!(
             !paths.keys().any(|path| path.starts_with("/scim/v2")),
             "the provisioning API speaks SCIM, not this document"

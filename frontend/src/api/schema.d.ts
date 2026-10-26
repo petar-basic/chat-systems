@@ -680,6 +680,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/channels/{ch_id}/retention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_channel_retention"];
+        /**
+         * A channel's own period, `null` for forever. Only while the owner allows
+         *     channels their own; the row stays when that is switched off, and is ignored.
+         */
+        put: operations["set_channel_retention"];
+        post?: never;
+        delete: operations["clear_channel_retention"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/channels/{ch_id}/section": {
         parameters: {
             query?: never;
@@ -2842,11 +2862,25 @@ export interface components {
             effective_notify_level: components["schemas"]["NotifyLevel"];
             notify_level?: components["schemas"]["NotifyLevel"] | null;
         };
+        ChannelOverride: {
+            /** Format: int32 */
+            message_days?: number | null;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: uuid */
+            updated_by?: string | null;
+        };
         ChannelPlacement: {
             /** Format: uuid */
             channel_id: string;
             /** Format: uuid */
             section_id: string;
+        };
+        ChannelRetention: {
+            channel?: components["schemas"]["ChannelOverride"] | null;
+            overrides_allowed: boolean;
+            /** Format: int32 */
+            workspace_message_days?: number | null;
         };
         /** @enum {string} */
         ChannelRole: "member" | "admin";
@@ -4390,6 +4424,7 @@ export interface components {
         RetentionPolicy: {
             /** Format: int32 */
             audit_days: number;
+            channel_overrides: boolean;
             /** Format: int32 */
             file_days?: number | null;
             /** Format: int32 */
@@ -4494,6 +4529,10 @@ export interface components {
         };
         SetChannelNotificationsRequest: {
             muted: boolean;
+        };
+        SetChannelRetention: {
+            /** Format: int32 */
+            message_days?: number | null;
         };
         SetDndRequest: {
             /** Format: date-time */
@@ -4794,6 +4833,7 @@ export interface components {
         UpdateRetentionRequest: {
             /** Format: int32 */
             audit_days?: number | null;
+            channel_overrides?: boolean;
             /** Format: int32 */
             file_days?: number | null;
             /** Format: int32 */
@@ -6043,6 +6083,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    get_channel_retention: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChannelRetention"];
+                };
+            };
+        };
+    };
+    set_channel_retention: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetChannelRetention"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChannelRetention"];
+                };
+            };
+        };
+    };
+    clear_channel_retention: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChannelRetention"];
                 };
             };
         };
@@ -9475,6 +9582,7 @@ export interface operations {
             query?: {
                 message_days?: number | null;
                 file_days?: number | null;
+                channel_overrides?: boolean;
             };
             header?: never;
             path: {

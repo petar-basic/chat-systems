@@ -1580,3 +1580,32 @@ both, and splits the intro off the content only when the content still ends in e
 Markdown; anything else renders as it is. `create_bot_message_in` takes the whole metadata
 object now rather than building `{ bot }` itself. The README's *Features* lists what ships as
 of 3.3.0, grouped the way the app is.
+
+### [CS-070] Workspace admin in one place, with the settings that had no screen ✅ shipped
+An admin's work was nine entries of the workspace menu, each a narrow right panel, and part
+of what a company needs existed only as an API. Three PRs. The first put *General*,
+*Members*, *User groups*, *Custom emoji*, *Apps*, *Integrations*, *Slack import* and *Audit
+log* in one *Workspace settings* dialog built like *Preferences*, saving as you change a
+setting, with `?settings=<section>` as a deep link; a member gets the four sections they use.
+Escape now closes only the topmost layer, from one stack.
+
+The second gave the API-only settings a screen. *Data retention* (owner) shows what a change
+would remove now, counted by the purge's own queries through
+`GET /workspaces/{id}/retention/preview`, before it saves; it saves with a button, the one
+place that does, because nothing it deletes comes back. *Exports* lists past exports from a
+new `GET /workspaces/{id}/exports`, with the single-use link only for whoever asked for it.
+An instance admin exports or erases a person from their *Members* row, the erasure behind a
+list of what goes and their name typed; both stay instance-admin only, as the endpoints were,
+since a person's export is everything they wrote on the instance. *SCIM provisioning* mints,
+rotates and revokes tokens, each shown once, and the token routes moved onto the OpenAPI
+router.
+
+The third lets a channel keep its messages for its own period. The owner allows it beside
+the policy (`retention_policies.channel_overrides`); a channel moderator then sets a number
+of days, forever, or the workspace default in *Channel settings*, stored in
+`channel_retention` (`NULL` days meaning forever), announced in the channel by a message and
+audited as `retention.changed` with the channel and both ends. The purge and its dry-run
+count resolve each message's period in the same `DELETE` — a `LEFT JOIN` on
+`channel_retention` gated by the flag — so a workspace kept forever still trims a channel
+that asked for it, and a channel kept forever outlives a workspace period. While overrides
+are off the rows stay and are ignored. Files and list history keep the workspace period.

@@ -121,6 +121,12 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - **Expected:** the retention form says *About N messages and M files would be removed now* before anything is saved, and *Saved* after. The export row goes pending → running → complete (the worker polls every 10 s); the archive downloads once, after which the row says *Downloaded*, and the link opened again answers 404. Bob's export shows up under *Exports* with his name. Erase names what goes and stays disabled until the person's name is typed exactly; afterwards the row reads *Deleted user*. A token is visible only until it is put away; rotate shows the replacement the same way, and the revoked one is struck through with no buttons.
 - 🔴 **Edge — who:** Alice (admin) sees *Exports* but no *Export workspace* button, no *Download* on the owner's exports, and no export/erase icons; `GET /api/workspaces/<id>/retention/preview` answers her 403.
 
+### 3.1d 🔴 Retention per channel
+- **Reach:** *Workspace settings → Data retention*; a channel's ⋯ → *Channel settings*.
+- **Steps:** as Admin (owner), tick *Let channels keep messages for their own period* and save. In #random open *Channel settings*, set *Message retention* to *A number of days*, 3650, *Save*; then *Keep forever*; then *Workspace default*. As Bob open #random's settings if he can (he cannot moderate). Untick the workspace option and reopen #random's settings.
+- **Expected:** each change posts a line in #random from Admin (*set this channel to keep messages for 3650 days*, *…forever*, *…follow the workspace's message retention*) and an *Audit log* row. With the option off, *Channel settings* says *Messages here follow the workspace…* and has no control; `PUT /api/channels/<id>/retention` answers 409.
+- 🔴 **Edge — who:** as Bob, `PUT /api/channels/<random id>/retention` with `{"message_days": 1}` answers 403.
+
 ### 3.2 🟢 Members: list / change role / remove
 - **Reach:** workspace menu → *Workspace settings* → *Members* (an admin also has *Invite people*, which opens it with the invite form).
 - **Steps:** as Owner/Admin, change a member's role from the row dropdown, then remove a member (Remove → confirm).

@@ -18,12 +18,22 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ### Upgrading
 
+- The API runs migration 71 on start (`retention_policies.channel_overrides` and the
+  `channel_retention` table); it is off for every workspace until an owner turns it on.
+  `PATCH /workspaces/{id}/retention` replaces the whole policy, so an API client that saves it
+  must now send `channel_overrides` too, or it switches them off.
 - `POST /workflows/{id}/publish` is now `POST /workflows/{id}/enable`, and
   `POST /workspaces/{id}/workflows` creates a workflow that is already on. A workflow saved as
   a draft before the upgrade is one that is off; *Turn on* starts it.
 
 ### Added
 
+- **Retention per channel.** An owner can let channels keep messages for their own period
+  (*Data retention → Let channels keep messages for their own period*); a channel's admins then
+  choose a number of days, forever, or the workspace default in *Channel settings*. The
+  channel gets a message saying who changed it, and the audit log a `retention.changed` row.
+  Files and lists keep the workspace period. API: `GET`/`PUT`/`DELETE
+  /channels/{id}/retention`, and `channel_overrides` on the workspace policy.
 - **Screens for what was API only.** *Workspace settings* gains *Data retention* (owner): keep
   messages and files forever or for a number of days, with the count the change would remove
   now shown before saving; *Exports*: start a workspace export, follow it, download it once;
