@@ -26,6 +26,7 @@ interface Props {
   highlightMessageId?: string;
   onTargetMessageFound?: (msg: Message) => void;
   empty?: ReactNode;
+  markReadIn?: string;
 }
 
 export function DaySeparator({ at }: { at: string }) {
@@ -48,9 +49,12 @@ export default function MessageList({
   highlightMessageId,
   onTargetMessageFound,
   empty,
+  markReadIn,
 }: Props) {
-  const { data, isLoading, isError, refetch, isFetchingNextPage, hasNextPage, fetchNextPage } =
-    useMessages(channelId);
+  const { data, isLoading, isError, refetch, isFetchingNextPage, hasNextPage, fetchNextPage } = useMessages(
+    channelId,
+    markReadIn,
+  );
   const { getUser } = useUserCache();
   const actions = useMessageActions(channelId);
 

@@ -5,6 +5,7 @@ import type { components } from '@/api/schema';
 type Attachment = components['schemas']['Attachment'];
 import { useCurrentApi } from '@/shared/hooks/useCurrentApi';
 import { applyReadState } from '@/lib/readState';
+import { settleChannelNotifications } from './useNotifications';
 import { QUERY_KEYS, MESSAGES_PAGE_SIZE, ErrorLabels } from '@/shared/constants';
 import { upsertMessage, patchMessageById, newestFirst, removeMessageById } from '@/lib/messageCache';
 import { toast } from '@/shared/components/Toast';
@@ -18,6 +19,7 @@ export interface OutgoingMessage {
 
 export interface MessagesResponse {
   data: Message[];
+  unread_notifications?: number | null;
 }
 
 export type MessagesInfiniteData = InfiniteData<MessagesResponse>;
@@ -33,18 +35,30 @@ export function olderMessagesCursor(page: MessagesResponse): string | undefined 
   return oldest?.id;
 }
 
-export const useMessages = (channelId: string | null) => {
+export const useMessages = (channelId: string | null, markReadIn?: string) => {
   const apiClient = useCurrentApi();
+  const queryClient = useQueryClient();
 
   return useInfiniteQuery({
     queryKey: QUERY_KEYS.messages(channelId ?? ''),
     queryFn: async ({ pageParam }): Promise<MessagesResponse> => {
       if (!channelId) throw new Error('No channel selected');
-      return apiClient.typed((c) =>
+      const page = await apiClient.typed((c) =>
         c.GET('/channels/{ch_id}/messages', {
-          params: { path: { ch_id: channelId }, query: { limit: MESSAGES_PAGE_SIZE, cursor: pageParam } },
+          params: {
+            path: { ch_id: channelId },
+            query: {
+              limit: MESSAGES_PAGE_SIZE,
+              cursor: pageParam,
+              mark_read: markReadIn && pageParam === undefined ? true : undefined,
+            },
+          },
         }),
       );
+      if (markReadIn && page.unread_notifications != null) {
+        await settleChannelNotifications(queryClient, markReadIn, channelId, page.unread_notifications);
+      }
+      return page;
     },
     getNextPageParam: olderMessagesCursor,
     initialPageParam: undefined as string | undefined,

@@ -64,7 +64,6 @@ export function useWorkspaceController() {
     workspaces: data.workspaces,
     deletedWorkspaces: data.deletedWorkspaces,
     channels: data.channels,
-    markChannelNotificationsRead: data.markChannelNotificationsRead,
     markConversationReadServer: data.markConversationReadServer,
     panel,
   });
@@ -124,9 +123,8 @@ export function useWorkspaceController() {
       const wsId = workspaceId || currentWorkspace?.id;
       if (!wsId) return;
       navigate(ROUTES.channel(wsId, ch.id));
-      markChannelReadServer(ch.id);
     },
-    [workspaceId, currentWorkspace, navigate, markChannelReadServer],
+    [workspaceId, currentWorkspace, navigate],
   );
 
   const handleOpenConversation = useCallback(

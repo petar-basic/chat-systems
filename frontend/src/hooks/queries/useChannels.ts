@@ -3,6 +3,7 @@ import type { components } from '@/api/schema';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useCurrentApi, getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { QUERY_KEYS } from '@/shared/constants';
+import { fromChannelContext } from './channelContext';
 import type { Message, Channel } from '@/stores/workspace';
 
 export type BrowsableChannel = components['schemas']['BrowsableChannel'];
@@ -91,14 +92,23 @@ export const useLeaveChannel = (workspaceId: string, userId: string, instanceUrl
 
 export const useChannelMembers = (channelId: string | null) => {
   const apiClient = useCurrentApi();
+  const queryClient = useQueryClient();
   return useQuery({
     queryKey: QUERY_KEYS.channelMembers(channelId ?? ''),
     queryFn: async () => {
       if (!channelId) throw new Error('No channel ID');
-      const response = await apiClient.typed((c) =>
-        c.GET('/channels/{ch_id}/members', { params: { path: { ch_id: channelId } } }),
+      return fromChannelContext(
+        queryClient,
+        apiClient,
+        channelId,
+        (context) => context.members,
+        async () => {
+          const response = await apiClient.typed((c) =>
+            c.GET('/channels/{ch_id}/members', { params: { path: { ch_id: channelId } } }),
+          );
+          return response.data;
+        },
       );
-      return response.data;
     },
     enabled: !!channelId,
     staleTime: 1000 * 60 * 2,
@@ -150,14 +160,23 @@ export const useArchiveChannel = (workspaceId: string) => {
 
 export const useChannelPins = (channelId: string | null) => {
   const apiClient = useCurrentApi();
+  const queryClient = useQueryClient();
   return useQuery({
     queryKey: QUERY_KEYS.channelPins(channelId ?? ''),
     queryFn: async (): Promise<Message[]> => {
       if (!channelId) throw new Error('No channel ID');
-      const response = await apiClient.typed((c) =>
-        c.GET('/channels/{ch_id}/pins', { params: { path: { ch_id: channelId } } }),
+      return fromChannelContext(
+        queryClient,
+        apiClient,
+        channelId,
+        (context) => context.pins,
+        async () => {
+          const response = await apiClient.typed((c) =>
+            c.GET('/channels/{ch_id}/pins', { params: { path: { ch_id: channelId } } }),
+          );
+          return response.data;
+        },
       );
-      return response.data;
     },
     enabled: !!channelId,
     staleTime: 1000 * 30,

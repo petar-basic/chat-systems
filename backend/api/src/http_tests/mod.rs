@@ -18,6 +18,7 @@ mod admin;
 mod apps;
 mod audit;
 mod auth;
+mod channel_context;
 mod channels;
 mod commands;
 mod conversations;
