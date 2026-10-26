@@ -1,17 +1,5 @@
 import { useRef, useState, type ReactNode } from 'react';
-import {
-  Hash,
-  Lock,
-  Search,
-  Pin,
-  Users,
-  Menu,
-  Settings,
-  Plug,
-  MoreHorizontal,
-  Files,
-  Bell,
-} from 'lucide-react';
+import { Hash, Lock, Search, Pin, Users, Menu, Info, Plug, MoreHorizontal, Files, Bell } from 'lucide-react';
 import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
 import { IconButton } from '@/shared/components/IconButton/IconButton';
 import { useChannelMembers, useChannelPins } from '@/features/channel/hooks/useChannels';
@@ -20,7 +8,7 @@ import type { Channel } from '@/stores/workspace';
 import { HuddleBar } from '@/features/huddle';
 import { useChannelModeration } from './hooks/useChannelModeration';
 import { useHookedChannels } from '@/features/workspace';
-import ChannelSettingsModal from './ChannelSettingsModal';
+import { ChannelDetailsModal, type ChannelDetailsTab } from './details/ChannelDetailsModal';
 import { NotificationLevelButton, NotificationLevelMenu } from '@/features/notifications';
 
 interface Props {
@@ -34,6 +22,7 @@ interface Props {
   onToggleFiles: () => void;
   onToggleChannelMembers: () => void;
   onOpenNav?: () => void;
+  onOpenWorkflow?: (workflowId: string) => void;
 }
 
 export default function ChannelHeader({
@@ -47,11 +36,12 @@ export default function ChannelHeader({
   onToggleFiles,
   onToggleChannelMembers,
   onOpenNav,
+  onOpenWorkflow,
 }: Props) {
   const navigate = useNavigate();
   const { canModerate } = useChannelModeration(channel?.id ?? null);
   const { data: hookedChannels } = useHookedChannels(channel?.workspace_id ?? null);
-  const [showSettings, setShowSettings] = useState(false);
+  const [details, setDetails] = useState<ChannelDetailsTab | null>(null);
   const { data: members } = useChannelMembers(channel?.id ?? null);
   const { data: pins } = useChannelPins(channel?.id ?? null);
   const memberCount = members?.length;
@@ -89,14 +79,16 @@ export default function ChannelHeader({
             {channel.name}
           </span>
           {isForwarded && (
-            <span
+            <button
+              type="button"
+              onClick={() => setDetails('integrations')}
               data-qa="channel-integration-indicator"
               title="An integration forwards messages from this channel to an external URL"
-              className="flex items-center gap-1 shrink-0 px-1.5 py-0.5 rounded bg-amber-500/10 text-warning text-[11px]"
+              className="flex items-center gap-1 shrink-0 px-1.5 py-0.5 rounded bg-amber-500/10 text-warning text-[11px] cursor-pointer hover:bg-amber-500/20"
             >
               <Plug className="w-3 h-3" />
               Integration
-            </span>
+            </button>
           )}
           {channel.topic && (
             <span className="text-sm text-muted ml-2 truncate hidden sm:inline">— {channel.topic}</span>
@@ -137,7 +129,7 @@ export default function ChannelHeader({
               data-qa="channel-header-search"
             />
 
-            <div className={`relative ${canModerate ? '' : 'sm:hidden'}`} ref={overflowRef}>
+            <div className="relative" ref={overflowRef}>
               <IconButton
                 label="More channel actions"
                 size="md"
@@ -184,17 +176,15 @@ export default function ChannelHeader({
                       setOverflowOpen(false);
                     }}
                   />
-                  {canModerate && (
-                    <MenuItem
-                      icon={<Settings className="w-4 h-4" />}
-                      label="Channel settings"
-                      dataQa="channel-settings-open"
-                      onClick={() => {
-                        setShowSettings(true);
-                        setOverflowOpen(false);
-                      }}
-                    />
-                  )}
+                  <MenuItem
+                    icon={<Info className="w-4 h-4" />}
+                    label="Channel details"
+                    dataQa="channel-details-open"
+                    onClick={() => {
+                      setDetails('about');
+                      setOverflowOpen(false);
+                    }}
+                  />
                 </div>
               )}
             </div>
@@ -209,11 +199,13 @@ export default function ChannelHeader({
             />
           )}
 
-          {showSettings && (
-            <ChannelSettingsModal
+          {details && (
+            <ChannelDetailsModal
               channel={channel}
-              workspaceId={channel.workspace_id}
-              onClose={() => setShowSettings(false)}
+              canModerate={canModerate}
+              initialTab={details}
+              onOpenWorkflow={onOpenWorkflow}
+              onClose={() => setDetails(null)}
               onArchived={() => navigate(`/app/${channel.workspace_id}`)}
             />
           )}

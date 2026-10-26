@@ -27,6 +27,7 @@ import ConversationView from '@/features/messaging/ConversationView';
 import { AllUnreadsView } from '@/features/unreads';
 import { ThreadsView } from '@/features/threads';
 import { ListView } from '@/features/lists';
+import { canBuild, workflowBuildersOf } from '@/features/workflows';
 import ForwardMessageModal from '@/features/messaging/ForwardMessageModal';
 import AddInstancePanel from '@/features/instance/AddInstancePanel';
 import { EditProfileModal, PreferencesModal } from '@/features/profile';
@@ -49,6 +50,7 @@ export default function WorkspacePage() {
   );
   const { role } = useCurrentWorkspaceRole();
   const isAdmin = role === 'admin' || role === 'owner';
+  const mayBuildWorkflows = canBuild(role, workflowBuildersOf(currentWorkspace?.settings));
   const settings = useSettingsDialog();
   const [addingBookmark, setAddingBookmark] = useState(false);
   const [creatingChannel, setCreatingChannel] = useState(false);
@@ -231,6 +233,7 @@ export default function WorkspacePage() {
                 onToggleFiles={() => panel.toggle('files')}
                 onToggleChannelMembers={() => panel.toggle('channelMembers')}
                 onOpenNav={() => c.setMobileNavOpen(true)}
+                onOpenWorkflow={mayBuildWorkflows ? panel.openWorkflow : undefined}
               />
 
               {currentChannel && currentWorkspace && (

@@ -8,7 +8,7 @@ export type RightPanel =
   | { kind: 'pins' }
   | { kind: 'files' }
   | { kind: 'channelMembers'; adding?: boolean }
-  | { kind: 'workflows' }
+  | { kind: 'workflows'; workflowId?: string }
   | { kind: 'scheduled' }
   | { kind: 'later' }
   | { kind: 'notifications' }
@@ -49,10 +49,11 @@ export function useRightPanel(currentChannelId?: string, currentDmPartnerId?: st
     setActive((p) => (p?.kind === kind ? null : { kind }));
   }, []);
   const addChannelMembers = useCallback(() => setActive({ kind: 'channelMembers', adding: true }), []);
+  const openWorkflow = useCallback((workflowId: string) => setActive({ kind: 'workflows', workflowId }), []);
   const openThread = useCallback((message: Message) => setActive({ kind: 'thread', message }), []);
   const close = useCallback(() => setActive(null), []);
 
   useEscapeToClose(close, !!active);
 
-  return { active, toggle, openThread, addChannelMembers, close };
+  return { active, toggle, openThread, addChannelMembers, openWorkflow, close };
 }

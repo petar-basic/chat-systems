@@ -335,7 +335,7 @@ retention rule that skipped them would keep exactly the history people assume is
 An owner sets the policy in *Workspace settings → Data retention*, which shows how many
 messages and files the new periods would remove now before it saves. With *Let channels keep
 messages for their own period* on, a channel's admins may set a shorter or longer period, or
-forever, in *Channel settings*; the pass applies each channel's own period in the same
+forever, in *Channel details → Settings*; the pass applies each channel's own period in the same
 `DELETE`, and that is the number the dry run reports too. Turning it off leaves their periods
 stored and ignored.
 

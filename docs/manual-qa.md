@@ -134,9 +134,9 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - 🔴 **Edge — who:** Alice (admin) sees *Exports* but no *Export workspace* button, no *Download* on the owner's exports, and no export/erase icons; `GET /api/workspaces/<id>/retention/preview` answers her 403.
 
 ### 3.1d 🔴 Retention per channel
-- **Reach:** *Workspace settings → Data retention*; a channel's ⋯ → *Channel settings*.
-- **Steps:** as Admin (owner), tick *Let channels keep messages for their own period* and save. In #random open *Channel settings*, set *Message retention* to *A number of days*, 3650, *Save*; then *Keep forever*; then *Workspace default*. As Bob open #random's settings if he can (he cannot moderate). Untick the workspace option and reopen #random's settings.
-- **Expected:** each change posts a line in #random from Admin (*set this channel to keep messages for 3650 days*, *…forever*, *…follow the workspace's message retention*) and an *Audit log* row. With the option off, *Channel settings* says *Messages here follow the workspace…* and has no control; `PUT /api/channels/<id>/retention` answers 409.
+- **Reach:** *Workspace settings → Data retention*; a channel's ⋯ → *Channel details → Settings*.
+- **Steps:** as Admin (owner), tick *Let channels keep messages for their own period* and save. In #random open *Channel details → Settings*, set *Message retention* to *A number of days*, 3650, *Save*; then *Keep forever*; then *Workspace default*. As Bob open #random's settings if he can (he cannot moderate). Untick the workspace option and reopen #random's settings.
+- **Expected:** each change posts a line in #random from Admin (*set this channel to keep messages for 3650 days*, *…forever*, *…follow the workspace's message retention*) and an *Audit log* row. With the option off, *Settings* says *Messages here follow the workspace…* and has no control; `PUT /api/channels/<id>/retention` answers 409.
 - 🔴 **Edge — who:** as Bob, `PUT /api/channels/<random id>/retention` with `{"message_days": 1}` answers 403.
 
 ### 3.2 🟢 Members: list / change role / remove
@@ -172,7 +172,7 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - 🔴 **Edge — private access:** as a non-member, try to open a private channel / fetch its messages by id (`/api/channels/<id>/...` or `/api/messages/...`) → **403/404**, no message leakage.
 
 ### 4.2 🟠 Channel admin / archive
-- **Steps:** channel admin renames/archives a channel from the header's ⋯ → *Channel settings*; non-admin cannot.
+- **Steps:** channel admin renames/archives a channel from the header's ⋯ → *Channel details → About*; a non-admin sees the topic and description as text and no *Settings* tab.
 - **Expected:** archived channel is read-only/hidden; permission enforced. A plain member's header has no ⋯ on desktop.
 - 🟢 **Header:** the people count is the one members button and toggles the panel; the pin button shows how many are pinned. Every header icon has a tooltip.
 
@@ -416,6 +416,12 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 - 🔴 **Edge — config requires channel:** creating an `incoming_webhook` without `config.channel_id` (or with a channel from another workspace) → **400/validation error**, no hook created.
 - 🟠 **Edge — rate limit:** hammer the same token >60×/min → **429** (per-token limit), the channel isn't flooded.
 
+### 10.4 🟢 A channel's integrations
+- **Reach:** a channel's ⋯ → *Channel details → Integrations*.
+- **Steps:** as Admin, make an incoming webhook for #random in *Workspace settings → Integrations*, an outgoing webhook that forwards #random, and a workflow whose trigger is a reaction in #random. Make Bob a channel admin of #random. As Bob open *Channel details → Integrations* in #random, *Add an incoming webhook* named *Bob's CI*, copy the URL and `curl` `{"text":"from Bob"}` to it. Make a new URL for it, then remove it. As Charlie (plain member) open the same tab.
+- **Expected:** Bob and Charlie both see the incoming webhook (with who added it), the outgoing webhook, the workflow (On/Off, who built it) and any command scoped to #random, never a URL or secret. Bob's URL shows once, under his webhook; the `curl` lands in #random; the old URL stops working after the new one is made. Charlie has no add, rotate or remove. A workflow row has *Open* for someone who may build workflows, which opens it in the *Workflows* panel. Each of Bob's actions is a row in *Audit log*.
+- 🔴 **Edge — authz:** as Bob, `POST /api/workspaces/<id>/hooks` an incoming webhook for a channel he does not run, an outgoing webhook or a slash command → **403**.
+
 ---
 
 ## 11. Cross-cutting security & resilience (mostly API-level)
@@ -488,7 +494,7 @@ Every dialog shares one frame, so a fault in one usually shows in all of them.
 Open each below three times: light theme, dark theme, and a phone width (the
 dialog becomes a sheet from the bottom).
 
-- **Dialogs:** Create channel, Browse channels, Channel settings (and its
+- **Dialogs:** Create channel, Browse channels, Channel details (and its
   archive confirmation), New message, Forward, Keyboard shortcuts (`?`), Create
   workspace, Delete workspace, Edit profile, Preferences, Incoming call, and the confirmations
   for deleting a message and an integration.
@@ -502,7 +508,7 @@ dialog becomes a sheet from the bottom).
       text size; checkboxes and selects look like the app, not the operating
       system, in both themes.
 - [ ] **Errors.** Submitting Create channel with a name that exists marks the
-      field red and says why under it; Channel settings does the same.
+      field red and says why under it; Channel details does the same.
 - [ ] **Closing.** The X, Cancel, Escape and a click on the backdrop each close
       it with a short fade; with *Reduce motion* on in the OS, it closes at once.
 - [ ] **Focus.** Opening puts the cursor in the first field (or on the action of

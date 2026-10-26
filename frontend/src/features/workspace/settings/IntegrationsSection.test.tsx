@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { IntegrationsSection } from './IntegrationsSection';
 import type { Channel } from '@/stores/workspace';
 import type { Hook, HookSecrets } from '@/features/workspace/hooks/useHooks';
@@ -46,7 +47,11 @@ const channels = [
 ] as Channel[];
 
 function renderPanel() {
-  render(<IntegrationsSection workspaceId="ws-1" instanceUrl="http://localhost:8080" channels={channels} />);
+  render(
+    <MemoryRouter>
+      <IntegrationsSection workspaceId="ws-1" instanceUrl="http://localhost:8080" channels={channels} />
+    </MemoryRouter>,
+  );
 }
 
 describe('IntegrationsSection', () => {
@@ -124,6 +129,7 @@ describe('IntegrationsSection', () => {
 
     const rows = screen.getAllByTestId('hook-row');
     expect(within(rows[0]).getByTestId('hook-target')).toHaveTextContent('#alerts');
+    expect(within(rows[0]).getByRole('link', { name: '#alerts' })).toHaveAttribute('href', '/app/ws-1/ch-1');
     expect(within(rows[1]).getByTestId('hook-target')).toHaveTextContent('https://example.com/hooks/chat');
   });
 

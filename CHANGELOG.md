@@ -66,6 +66,11 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - **API:** `GET /channels/{id}/context` returns a channel's members, pins, bookmarks, lists
   and workflow shortcuts in one request. `GET /channels/{id}/messages?mark_read=true` marks the
   channel read along with its newest page.
+- **What touches a channel, in the channel.** *Channel details → Integrations* lists the
+  incoming webhooks, outgoing webhooks, slash commands and workflows that post into or read
+  a channel, for everyone in it. A channel admin adds an incoming webhook there without a
+  workspace admin, sees its URL once, and can make a new URL or remove it. The workspace
+  *Integrations* section links each hook's channels.
 - **API:** `GET /channels/{id}/integrations` lists the incoming webhooks, outgoing webhooks,
   slash commands and workflows that touch a channel, for anyone in it, without URLs or
   secrets. A channel admin may now create, reveal, rotate and delete the incoming webhooks of
@@ -76,6 +81,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ### Changed
 
+- **Channel settings is now *Channel details*,** open to everyone in the channel from ⋯, with
+  *About*, *Settings* (moderators) and *Integrations*. The header's *Integration* badge opens
+  *Integrations*.
 - **Workspace settings in one dialog.** The workspace menu is down to *Invite people*,
   *Workflows* and *Workspace settings*; the last opens one dialog with *General*, *Members*,
   *User groups*, *Custom emoji*, *Apps*, *Integrations*, *Slack import* and *Audit log* for an

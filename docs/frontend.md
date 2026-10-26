@@ -168,8 +168,21 @@ Vertical sidebar showing channels, DMs, and workspace members with presence dots
 
 ### `channel/ChannelHeader`
 Top bar with channel name, topic, the huddle and notification controls, and toggles for
-members (the people count), pins (with their count), files and search. *Channel settings*
-sits in the ⋯ menu, which on desktop only a moderator has; below `sm` the toggles fold into it.
+members (the people count), pins (with their count), files and search. *Channel details*
+sits in the ⋯ menu for everyone in the channel; below `sm` the toggles fold into it. The
+*Integration* badge, shown while an outgoing webhook reads the channel, opens it on
+*Integrations*.
+
+### `channel/details/ChannelDetailsModal`
+A `SectionedModal` with *About* (name, topic, description and archive for a moderator, the
+topic and description as text for everyone else), *Settings* (announcement channel and
+message retention, moderators only) and *Integrations*. *Integrations* reads
+`GET /channels/:id/integrations`: the incoming webhooks bound to the channel, the outgoing
+webhooks and slash commands scoped to it, and the workflows that start from it or post into
+it. When the server says `can_add_webhook`, the viewer adds an incoming webhook, makes a new
+URL for one or removes it; a URL is shown once, under its webhook, after it is made. A
+workflow row opens the workflow in the *Workflows* panel for someone who may build them
+(`useRightPanel().openWorkflow`).
 
 **Reads:** current channel
 **Emits:** `onToggleSearch()`, `onTogglePins()`, `onToggleFiles()`, `onToggleChannelMembers()`

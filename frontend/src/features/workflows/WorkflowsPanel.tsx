@@ -19,6 +19,7 @@ interface Props {
   members: WorkspaceMember[];
   currentUserId: string;
   canBuild: boolean;
+  workflowId?: string;
   onClose: () => void;
 }
 
@@ -38,10 +39,17 @@ export default function WorkflowsPanel({
   members,
   currentUserId,
   canBuild,
+  workflowId,
   onClose,
 }: Props) {
   const workflows = useWorkflows(workspaceId, instanceUrl);
   const [editing, setEditing] = useState<Workflow | Starter | 'new' | null>(null);
+  const [opening, setOpening] = useState(workflowId);
+  const opened = opening ? workflows.data?.find((w) => w.id === opening) : undefined;
+  if (opened) {
+    setOpening(undefined);
+    setEditing(opened);
+  }
   const nameOf = (userId: string) => displayNameOf(members.find((m) => m.user_id === userId)?.display_name);
   const channelName = (channelId: string) => channels.find((c) => c.id === channelId)?.name ?? undefined;
   const postable = channels.filter(
