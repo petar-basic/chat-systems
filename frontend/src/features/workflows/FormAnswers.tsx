@@ -1,4 +1,4 @@
-import RichTextDisplay from '@/components/RichTextDisplay';
+import RichTextDisplay from '@/features/messaging/RichTextDisplay';
 import { isLongAnswer, type MessageField } from './answerFields';
 
 export function FormAnswers({ fields }: { fields: MessageField[] }) {

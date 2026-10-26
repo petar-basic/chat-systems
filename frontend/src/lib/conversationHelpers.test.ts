@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { conversationTitle, otherParticipants, isUnread } from './conversationHelpers';
-import type { Conversation } from '@/hooks/queries/useConversations';
+import type { Conversation } from '@/features/messaging/hooks/useConversations';
 
 const names: Record<string, string> = {
   me: 'Me',

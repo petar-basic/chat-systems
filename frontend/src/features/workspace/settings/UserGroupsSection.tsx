@@ -7,7 +7,7 @@ import {
   useCreateGroup,
   useDeleteGroup,
   useSetGroupMember,
-} from '@/hooks/queries/useUserGroups';
+} from '@/features/workspace/hooks/useUserGroups';
 import type { WorkspaceMember } from '@/stores/workspace';
 import { toUserMessage } from '@/lib/errors';
 import { toast } from '@/shared/components/Toast';

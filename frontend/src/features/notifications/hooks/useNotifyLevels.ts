@@ -3,7 +3,7 @@ import type { components } from '@/api/schema';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { QUERY_KEYS } from '@/shared/constants';
 import type { Channel } from '@/stores/workspace';
-import type { Conversation } from './useConversations';
+import type { Conversation } from '@/features/messaging/hooks/useConversations';
 
 export type NotifyLevel = components['schemas']['NotifyLevel'];
 

@@ -1,12 +1,12 @@
 import { CheckCheck, Hash, Lock, Menu, BellOff, MessageCircle } from 'lucide-react';
 import type { KeyboardEvent } from 'react';
-import RichTextDisplay from '@/components/RichTextDisplay';
+import RichTextDisplay from '@/features/messaging/RichTextDisplay';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { useUserCache } from '@/stores/users';
 import { displayNameOf } from '@/lib/userHelpers';
 import { conversationTitle } from '@/lib/conversationHelpers';
-import type { Conversation } from '@/hooks/queries/useConversations';
-import { useUnreads, useMarkGroupRead, type UnreadGroup } from '@/hooks/queries/useUnreads';
+import type { Conversation } from '@/features/messaging/hooks/useConversations';
+import { useUnreads, useMarkGroupRead, type UnreadGroup } from '@/features/unreads/hooks/useUnreads';
 
 interface Props {
   workspaceId: string;

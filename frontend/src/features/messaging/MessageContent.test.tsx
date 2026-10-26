@@ -5,7 +5,7 @@ import { useKeywordStore } from '@/stores/keywords';
 
 const SELF_ID = 'user-self';
 
-vi.mock('@/hooks/queries/useAuth', () => ({
+vi.mock('@/features/instance/hooks/useAuth', () => ({
   useCurrentUser: () => ({ data: { id: SELF_ID } }),
 }));
 

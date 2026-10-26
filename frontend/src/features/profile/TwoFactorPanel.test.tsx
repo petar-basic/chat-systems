@@ -6,7 +6,7 @@ import TwoFactorPanel from './TwoFactorPanel';
 const get = vi.fn();
 const post = vi.fn();
 
-vi.mock('../lib/api', async () => {
+vi.mock('@/lib/api', async () => {
   const { typedApiMock } = await import('@/test/typedApiMock');
   return {
     api: typedApiMock({ get: (...args) => get(...args), post: (...args) => post(...args) }),

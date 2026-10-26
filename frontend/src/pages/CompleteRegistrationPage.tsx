@@ -5,7 +5,7 @@ import { TextInput } from '@/shared/components/Form/TextInput';
 import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { UserPlus, MessageSquare, LogIn } from 'lucide-react';
-import { useCompleteRegistration } from '../hooks/queries/useAuth';
+import { useCompleteRegistration } from '@/features/instance/hooks/useAuth';
 import { useInstanceStore } from '@/stores/instances';
 import { instanceManager } from '@/lib/instances';
 import { QUERY_KEYS, PENDING_INVITE_KEY } from '@/shared/constants';

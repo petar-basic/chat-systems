@@ -1,7 +1,7 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { Button } from '@/shared/components/Button/Button';
 import { TextInput } from '@/shared/components/Form/TextInput';
-import { useCompleteSetup, type SetupDraft } from '@/hooks/queries/useAuth';
+import { useCompleteSetup, type SetupDraft } from '@/features/instance/hooks/useAuth';
 import { toUserMessage } from '@/lib/errors';
 
 interface Props {

@@ -7,7 +7,7 @@ import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { Button } from '@/shared/components/Button/Button';
 import { RadioCards } from '@/shared/components/Form/RadioCards';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
-import { useRestoreWorkspace } from '@/hooks/queries/useWorkspaces';
+import { useRestoreWorkspace } from '@/features/workspace/hooks/useWorkspaces';
 import { logger } from '@/lib/logger';
 import { toast } from '@/shared/components/Toast';
 import { ErrorLabels, QUERY_KEYS } from '@/shared/constants';

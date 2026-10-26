@@ -2,8 +2,8 @@ import { useState, type ReactNode } from 'react';
 import { CheckCircle2, Circle, ExternalLink, X } from 'lucide-react';
 import { Button } from '@/shared/components/Button/Button';
 import { IconButton } from '@/shared/components/IconButton/IconButton';
-import { useWorkspaceInvites } from '@/hooks/queries/useWorkspaces';
-import { useInstanceInfo } from '@/hooks/queries/useInstanceInfo';
+import { useWorkspaceInvites } from '@/features/workspace/hooks/useWorkspaces';
+import { useInstanceInfo } from '@/features/instance/hooks/useInstanceInfo';
 import type { Channel, Workspace, WorkspaceMember } from '@/stores/workspace';
 import {
   SSO_RUNBOOK_URL,

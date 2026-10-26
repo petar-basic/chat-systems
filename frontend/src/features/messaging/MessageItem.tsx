@@ -14,12 +14,12 @@ import {
 } from 'lucide-react';
 import { AnchoredPopover } from '@/shared/components/Popover/AnchoredPopover';
 import { HoverCard } from '@/shared/components/Popover/HoverCard';
-import { UserHoverCard } from '@/components/UserHoverCard';
+import { UserHoverCard } from '@/features/messaging/UserHoverCard';
 import { useLongPress } from '@/shared/hooks/useLongPress';
 import MessageActionSheet, { type SheetAction } from './MessageActionSheet';
 import type { Message, WorkspaceMember, Channel } from '@/stores/workspace';
 import { ReactionEmoji } from '@/shared/components/ReactionEmoji';
-import RichTextDisplay from '@/components/RichTextDisplay';
+import RichTextDisplay from '@/features/messaging/RichTextDisplay';
 import { PollCard, type PollKeyVote } from '@/features/polls/PollCard';
 import { FormCard } from '@/features/workflows/FormCard';
 import { FormAnswers } from '@/features/workflows/FormAnswers';
@@ -45,7 +45,7 @@ import {
   type MessageKeyAction,
 } from './messageKeys';
 import { useIsTabStop, useRovingFocus } from './rovingFocus';
-import { useLaterActions, useSavedItemId } from '@/hooks/queries/useLater';
+import { useLaterActions, useSavedItemId } from '@/features/later/hooks/useLater';
 import { REMIND_PRESETS } from './schedulePresets';
 import { useWorkspaceStore } from '@/stores/workspace';
 import EditHistoryPanel from './EditHistoryPanel';

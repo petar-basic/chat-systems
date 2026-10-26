@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Mail } from 'lucide-react';
-import { api } from '../lib/api';
+import { api } from '@/lib/api';
 import { toast } from '@/shared/components/Toast';
 import { toUserMessage } from '@/lib/errors';
 import type { components } from '@/api/schema';

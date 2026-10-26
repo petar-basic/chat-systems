@@ -1,4 +1,4 @@
-import type { Conversation } from '@/hooks/queries/useConversations';
+import type { Conversation } from '@/features/messaging/hooks/useConversations';
 import { displayNameOf } from './userHelpers';
 
 export function otherParticipants(conversation: Conversation, currentUserId: string | undefined) {

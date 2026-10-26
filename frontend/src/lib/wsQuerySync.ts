@@ -11,7 +11,7 @@ import {
   removeMessageById,
 } from './messageCache';
 import type { Message, WorkspaceMember } from '@/stores/workspace';
-import type { Conversation } from '@/hooks/queries/useConversations';
+import type { Conversation } from '@/features/messaging/hooks/useConversations';
 import { instanceManager } from './instances';
 import { wsClient } from './ws';
 import { useWorkspaceStore } from '@/stores/workspace';

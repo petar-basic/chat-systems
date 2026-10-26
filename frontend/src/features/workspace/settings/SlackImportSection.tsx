@@ -10,7 +10,7 @@ import {
   type SlackImportRun,
   type SlackImportReport,
   reportOf,
-} from '@/hooks/queries/useSlackImport';
+} from '@/features/workspace/hooks/useSlackImport';
 import { Checkbox } from '@/shared/components/Form/Checkbox';
 import { TextInput } from '@/shared/components/Form/TextInput';
 

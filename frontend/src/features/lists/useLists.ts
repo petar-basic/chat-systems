@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tansta
 import type { components } from '@/api/schema';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { ErrorLabels, QUERY_KEYS } from '@/shared/constants';
-import { fromChannelContext } from '@/hooks/queries/channelContext';
+import { fromChannelContext } from '@/features/channel/hooks/channelContext';
 import { toast } from '@/shared/components/Toast';
 import { toUserMessage } from '@/lib/errors';
 import {

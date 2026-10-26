@@ -1,21 +1,21 @@
 import { useCallback, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import type { CreateChannelDraft } from '@/models/channel';
+import type { CreateChannelDraft } from '@/shared/models/channel';
 import { useNavigate, useParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCurrentUser, useLogout } from '@/hooks/queries/useAuth';
+import { useCurrentUser, useLogout } from '@/features/instance/hooks/useAuth';
 import { useWorkspaceStore, type Channel } from '@/stores/workspace';
 import { ROUTES, QUERY_KEYS } from '@/shared/constants';
-import { useCreateWorkspace, useCreateChannel } from '@/hooks/queries/useWorkspaces';
-import { useOpenConversation } from '@/hooks/queries/useConversations';
+import { useCreateWorkspace, useCreateChannel } from '@/features/workspace/hooks/useWorkspaces';
+import { useOpenConversation } from '@/features/messaging/hooks/useConversations';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
-import type { MessagesInfiniteData } from '@/hooks/queries/useMessages';
+import type { MessagesInfiniteData } from '@/features/messaging/hooks/useMessages';
 import { useRightPanel } from './useRightPanel';
 import { useWorkspaceData } from './useWorkspaceData';
 import { useWorkspaceRouting } from './useWorkspaceRouting';
 import { useComposer } from './useComposer';
 import { useWorkspaceShortcuts } from './useWorkspaceShortcuts';
-import { useMarkWorkspaceRead } from '@/hooks/queries/useUnreads';
+import { useMarkWorkspaceRead } from '@/features/unreads/hooks/useUnreads';
 import { useMessageActions } from './useMessageActions';
 
 export function useWorkspaceController() {

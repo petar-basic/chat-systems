@@ -7,8 +7,8 @@ import { Checkbox } from '@/shared/components/Form/Checkbox';
 import { TextArea } from '@/shared/components/Form/TextArea';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import type { Channel } from '@/stores/workspace';
-import { useUpdateChannel, useArchiveChannel } from '@/hooks/queries/useChannels';
-import { useChannelRetention, useSetChannelRetention } from '@/hooks/queries/useRetention';
+import { useUpdateChannel, useArchiveChannel } from '@/features/channel/hooks/useChannels';
+import { useChannelRetention, useSetChannelRetention } from '@/features/workspace/hooks/useRetention';
 import { ChannelRetentionField } from './ChannelRetentionField';
 import { choiceOf, periodOf, type PeriodChoice } from './channelPeriod';
 

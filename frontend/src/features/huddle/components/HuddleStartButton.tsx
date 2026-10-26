@@ -1,5 +1,5 @@
 import { Phone } from 'lucide-react';
-import { useStartHuddle } from '@/hooks/queries/useHuddle';
+import { useStartHuddle } from '@/features/huddle/hooks/useHuddle';
 import { useHuddleStore } from '@/stores/huddle';
 
 interface Props {

@@ -15,7 +15,7 @@ const file = (id: string, filename: string, mime_type: string) => ({
 
 const kinds: (string | null)[] = [];
 const names: string[] = [];
-vi.mock('@/hooks/queries/useChannelFiles', () => ({
+vi.mock('@/features/channel/hooks/useChannelFiles', () => ({
   useChannelFileSearch: (_workspaceId: string | undefined, _channelId: string, name: string) => {
     names.push(name);
     return {

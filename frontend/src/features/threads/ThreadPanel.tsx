@@ -13,9 +13,9 @@ import {
   useSendThreadReply,
   useThreadReplyActions,
   useThreadState,
-} from '@/hooks/queries/useThreads';
+} from '@/features/threads/hooks/useThreads';
 import { Button } from '@/shared/components/Button/Button';
-import RichTextDisplay from './RichTextDisplay';
+import RichTextDisplay from '@/features/messaging/RichTextDisplay';
 import { MessageInput, MessageItem } from '@/features/messaging';
 import { asAttachments, useComposerAttachments } from '@/features/messaging/useComposerAttachments';
 import { GalleryProvider } from '@/features/messaging/GalleryProvider';

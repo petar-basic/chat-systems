@@ -14,12 +14,12 @@ import {
 } from 'lucide-react';
 import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
 import { IconButton } from '@/shared/components/IconButton/IconButton';
-import { useChannelMembers, useChannelPins } from '@/hooks/queries/useChannels';
+import { useChannelMembers, useChannelPins } from '@/features/channel/hooks/useChannels';
 import { useNavigate } from 'react-router';
 import type { Channel } from '@/stores/workspace';
 import { HuddleBar } from '@/features/huddle';
 import { useChannelModeration } from './hooks/useChannelModeration';
-import { useHookedChannels } from '@/hooks/queries/useHooks';
+import { useHookedChannels } from '@/features/workspace/hooks/useHooks';
 import ChannelSettingsModal from './ChannelSettingsModal';
 import { NotificationLevelButton, NotificationLevelMenu } from '@/features/notifications';
 

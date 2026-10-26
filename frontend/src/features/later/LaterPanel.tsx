@@ -14,15 +14,15 @@ import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { IconButton } from '@/shared/components/IconButton/IconButton';
 import type { Channel } from '@/stores/workspace';
-import type { Conversation } from '@/hooks/queries/useConversations';
-import { useLater, useLaterActions, type LaterItem, type LaterStatus } from '@/hooks/queries/useLater';
+import type { Conversation } from '@/features/messaging/hooks/useConversations';
+import { useLater, useLaterActions, type LaterItem, type LaterStatus } from '@/features/later/hooks/useLater';
 import { RemindMenu } from '@/features/later/RemindMenu';
 import { formatScheduleHint } from '@/features/messaging/schedulePresets';
 import { targetLabel } from '@/lib/targetLabel';
 import { displayNameOf } from '@/lib/userHelpers';
 import { useUserCache } from '@/stores/users';
 import { useWorkspaceStore } from '@/stores/workspace';
-import RichTextDisplay from './RichTextDisplay';
+import RichTextDisplay from '@/features/messaging/RichTextDisplay';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { ROUTES } from '@/shared/constants';
 

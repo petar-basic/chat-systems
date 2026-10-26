@@ -2,17 +2,17 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import ChannelSettingsModal from './ChannelSettingsModal';
 import type { Channel } from '@/stores/workspace';
-import type { ChannelRetention } from '@/hooks/queries/useRetention';
+import type { ChannelRetention } from '@/features/workspace/hooks/useRetention';
 
 const updateChannel = vi.fn();
 const setRetention = vi.fn();
 let retention: ChannelRetention;
 
-vi.mock('@/hooks/queries/useChannels', () => ({
+vi.mock('@/features/channel/hooks/useChannels', () => ({
   useUpdateChannel: () => ({ mutateAsync: updateChannel, isPending: false }),
   useArchiveChannel: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
-vi.mock('@/hooks/queries/useRetention', () => ({
+vi.mock('@/features/workspace/hooks/useRetention', () => ({
   useChannelRetention: () => ({ data: retention }),
   useSetChannelRetention: () => ({ mutateAsync: setRetention, isPending: false }),
 }));

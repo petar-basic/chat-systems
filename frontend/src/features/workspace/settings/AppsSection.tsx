@@ -3,7 +3,7 @@ import { Button } from '@/shared/components/Button/Button';
 import { ExternalLink } from 'lucide-react';
 import { CopyField } from '@/shared/components/CopyField/CopyField';
 import { AppIcon } from '@/shared/components/AppIcon/AppIcon';
-import { useApps, useAppActions, type AppStatus } from '@/hooks/queries/useApps';
+import { useApps, useAppActions, type AppStatus } from '@/features/workspace/hooks/useApps';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { Checkbox } from '@/shared/components/Form/Checkbox';
 

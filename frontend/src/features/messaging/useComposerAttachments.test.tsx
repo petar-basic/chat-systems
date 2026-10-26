@@ -11,7 +11,7 @@ vi.mock('@/shared/hooks/useCurrentApi', () => ({
       op({ DELETE: (path: string, init: unknown) => Promise.resolve(remove(path, init)) }),
   }),
 }));
-vi.mock('@/hooks/queries/useInstanceInfo', () => ({
+vi.mock('@/features/instance/hooks/useInstanceInfo', () => ({
   useInstanceInfo: () => ({ data: { max_upload_bytes: 10 } }),
 }));
 const toastError = vi.fn();

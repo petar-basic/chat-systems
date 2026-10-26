@@ -9,8 +9,8 @@ import {
   useRemoveReaction,
   usePinMessage,
   useSendMessage,
-} from '@/hooks/queries/useMessages';
-import { useCurrentUser } from '@/hooks/queries/useAuth';
+} from '@/features/messaging/hooks/useMessages';
+import { useCurrentUser } from '@/features/instance/hooks/useAuth';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { toast } from '@/shared/components/Toast';
 import { ROUTES, ActionLabels } from '@/shared/constants';

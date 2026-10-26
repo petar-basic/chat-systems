@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { ScimSection } from './ScimSection';
-import type { MintedScimToken, ScimToken } from '@/hooks/queries/useScimTokens';
+import type { MintedScimToken, ScimToken } from '@/features/workspace/hooks/useScimTokens';
 
 type Options = { onSuccess?: (token: MintedScimToken) => void };
 
@@ -10,7 +10,7 @@ const rotateMutate = vi.fn();
 const revokeMutate = vi.fn();
 let tokens: ScimToken[] = [];
 
-vi.mock('@/hooks/queries/useScimTokens', () => ({
+vi.mock('@/features/workspace/hooks/useScimTokens', () => ({
   useScimTokens: () => ({ data: tokens, isLoading: false, error: null }),
   useMintScimToken: () => ({ mutate: mintMutate, isPending: false, error: null }),
   useRotateScimToken: () => ({ mutate: rotateMutate, isPending: false, error: null }),

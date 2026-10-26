@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { globalEventBus, type ServerEvent } from '../lib/globalEventBus';
-import { useUserCache } from '../stores/users';
+import { globalEventBus, type ServerEvent } from '@/lib/globalEventBus';
+import { useUserCache } from '@/stores/users';
 import { UNKNOWN_USER, TYPING_INDICATOR_TTL_MS } from '@/shared/constants';
 
 interface Props {

@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Bell, Palette, ShieldCheck } from 'lucide-react';
 import { SectionedModal, type ModalSection } from '@/shared/components/Modal/SectionedModal';
-import PushNotificationsPanel from '@/components/PushNotificationsPanel';
-import EmailNotificationsPanel from '@/components/EmailNotificationsPanel';
-import ThemePicker from '@/components/ThemePicker';
-import TwoFactorPanel from '@/components/TwoFactorPanel';
+import PushNotificationsPanel from '@/features/notifications/PushNotificationsPanel';
+import EmailNotificationsPanel from '@/features/notifications/EmailNotificationsPanel';
+import ThemePicker from '@/features/profile/ThemePicker';
+import TwoFactorPanel from '@/features/profile/TwoFactorPanel';
 import { KeywordsPanel, NotifyDefaultPanel, ScheduleEditor } from '@/features/notifications';
 
 export type PreferencesSection = 'notifications' | 'appearance' | 'security';

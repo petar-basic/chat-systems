@@ -15,16 +15,16 @@ vi.mock('@/stores/workspace', () => ({
       mutedChannels: new Set(muted ? ['ch-1'] : []),
     }),
 }));
-vi.mock('@/hooks/queries/useWorkspaces', () => ({
+vi.mock('@/features/workspace/hooks/useWorkspaces', () => ({
   useWorkspaceChannels: () => ({ data: [{ id: 'ch-1', ...channel }] }),
 }));
-vi.mock('@/hooks/queries/useConversations', () => ({
+vi.mock('@/features/messaging/hooks/useConversations', () => ({
   useConversations: () => ({ data: [{ id: 'dm-1', notify_level: null, effective_notify_level: 'all' }] }),
 }));
-vi.mock('@/hooks/queries/useChannels', () => ({
+vi.mock('@/features/channel/hooks/useChannels', () => ({
   useSetChannelMuted: () => ({ mutate: setMuted }),
 }));
-vi.mock('@/hooks/queries/useNotifyLevels', () => ({
+vi.mock('@/features/notifications/hooks/useNotifyLevels', () => ({
   useNotifyDefault: () => ({ data: 'mentions' }),
   useSetNotifyLevel: () => ({ mutate: setLevel }),
 }));

@@ -14,7 +14,7 @@ import {
   useScimTokens,
   type MintedScimToken,
   type ScimToken,
-} from '@/hooks/queries/useScimTokens';
+} from '@/features/workspace/hooks/useScimTokens';
 
 interface Props {
   instanceUrl?: string;

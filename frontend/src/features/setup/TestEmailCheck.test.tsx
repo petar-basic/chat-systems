@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { TestEmailCheck } from './TestEmailCheck';
-import type { EmailTest } from '@/hooks/queries/useAdmin';
+import type { EmailTest } from '@/features/instance/hooks/useAdmin';
 
 const mutate = vi.fn();
 let mutation: { isPending: boolean; isError: boolean; error: unknown; data: EmailTest | undefined } = {
@@ -11,7 +11,7 @@ let mutation: { isPending: boolean; isError: boolean; error: unknown; data: Emai
   data: undefined,
 };
 
-vi.mock('@/hooks/queries/useAdmin', () => ({
+vi.mock('@/features/instance/hooks/useAdmin', () => ({
   useSendTestEmail: () => ({ mutate, ...mutation }),
 }));
 

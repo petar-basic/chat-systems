@@ -6,7 +6,7 @@ import {
   useChannelFileSearch,
   type ChannelFile,
   type FileKindFilter,
-} from '@/hooks/queries/useChannelFiles';
+} from '@/features/channel/hooks/useChannelFiles';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
 import { TextInput } from '@/shared/components/Form/TextInput';

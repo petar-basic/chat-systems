@@ -1,10 +1,10 @@
 import { Pin } from 'lucide-react';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
-import type { Message } from '../stores/workspace';
-import { useUserCache } from '../stores/users';
-import { useChannelPins } from '../hooks/queries/useChannels';
-import RichTextDisplay from './RichTextDisplay';
+import type { Message } from '@/stores/workspace';
+import { useUserCache } from '@/stores/users';
+import { useChannelPins } from './hooks/useChannels';
+import RichTextDisplay from '@/features/messaging/RichTextDisplay';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 
 interface Props {

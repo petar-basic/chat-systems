@@ -4,7 +4,7 @@ import type { Channel, Workspace } from '@/stores/workspace';
 import { commandResultText, parseCommand, runCommand } from '@/lib/slashCommands';
 import { toUserMessage } from '@/lib/errors';
 import { useTypingSignal, typingTargetOf } from '@/shared/hooks/useTypingSignal';
-import { useSendMessage } from '@/hooks/queries/useMessages';
+import { useSendMessage } from '@/features/messaging/hooks/useMessages';
 
 interface Args {
   currentWorkspace: Workspace | null;

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import BrowseChannelsModal from './BrowseChannelsModal';
-import type { BrowsableChannel } from '@/hooks/queries/useChannels';
+import type { BrowsableChannel } from '@/features/channel/hooks/useChannels';
 
 const joinMutate = vi.fn();
 const leaveMutate = vi.fn();
@@ -32,7 +32,7 @@ const channels: BrowsableChannel[] = [
   },
 ];
 
-vi.mock('@/hooks/queries/useChannels', () => ({
+vi.mock('@/features/channel/hooks/useChannels', () => ({
   useBrowsableChannels: () => ({ data: channels, isLoading: false, isError: false }),
   useJoinChannel: () => ({ mutateAsync: joinMutate, isPending: false }),
   useLeaveChannel: () => ({ mutateAsync: leaveMutate, isPending: false }),

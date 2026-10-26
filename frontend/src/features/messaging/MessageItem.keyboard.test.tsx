@@ -10,15 +10,15 @@ const SELF = 'user-self';
 const removeLater = vi.fn();
 let savedItemId: string | undefined;
 
-vi.mock('@/hooks/queries/useAuth', () => ({ useCurrentUser: () => ({ data: { id: SELF } }) }));
-vi.mock('@/hooks/queries/useLater', () => ({
+vi.mock('@/features/instance/hooks/useAuth', () => ({ useCurrentUser: () => ({ data: { id: SELF } }) }));
+vi.mock('@/features/later/hooks/useLater', () => ({
   useSavedItemId: () => savedItemId,
   useLaterActions: () => ({ save: { mutate: vi.fn() }, remove: { mutate: removeLater } }),
 }));
 vi.mock('@/features/workspace/hooks/useCurrentWorkspaceRole', () => ({
   useCurrentWorkspaceRole: () => ({ role: 'member' }),
 }));
-vi.mock('@/components/UserHoverCard', () => ({
+vi.mock('@/features/messaging/UserHoverCard', () => ({
   UserHoverCard: ({ children }: { children: ReactNode }) => children,
 }));
 vi.mock('./EmojiPicker', () => ({ default: () => <div data-qa="emoji-picker" /> }));

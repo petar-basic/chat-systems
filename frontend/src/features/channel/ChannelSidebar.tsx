@@ -1,15 +1,15 @@
 import { useState } from 'react';
-import type { CreateChannelDraft } from '@/models/channel';
+import type { CreateChannelDraft } from '@/shared/models/channel';
 import { useNavigate } from 'react-router';
 import { Bookmark, Compass, FolderPlus, Inbox, MessagesSquare } from 'lucide-react';
-import { useLater } from '@/hooks/queries/useLater';
-import { useUnreadThreadCount } from '@/hooks/queries/useThreads';
+import { useLater } from '@/features/later/hooks/useLater';
+import { useUnreadThreadCount } from '@/features/threads/hooks/useThreads';
 import type { Channel, Workspace, WorkspaceMember } from '@/stores/workspace';
-import type { Conversation } from '@/hooks/queries/useConversations';
+import type { Conversation } from '@/features/messaging/hooks/useConversations';
 import { useCurrentWorkspaceRole } from '@/features/workspace/hooks/useCurrentWorkspaceRole';
 import { useInstanceStore } from '@/stores/instances';
-import { useUnreadNotificationCount } from '@/hooks/queries/useNotifications';
-import { useMyStatus } from '@/hooks/queries/useStatus';
+import { useUnreadNotificationCount } from '@/features/notifications/hooks/useNotifications';
+import { useMyStatus } from '@/features/profile/hooks/useStatus';
 import { NotificationLevelButton } from '@/features/notifications';
 import BrowseChannelsModal from './BrowseChannelsModal';
 import { useCollapsedSections } from './hooks/useCollapsedSections';
@@ -23,7 +23,7 @@ import { CreateChannelModal } from './components/CreateChannelModal';
 import { SidebarCustomSection } from './components/SidebarCustomSection';
 import { acceptsChannelDrop } from './components/channelDrag';
 import { SectionNameInput } from './components/SectionNameInput';
-import { useSidebarLayout, useSidebarActions } from '@/hooks/queries/useSidebarLayout';
+import { useSidebarLayout, useSidebarActions } from '@/features/channel/hooks/useSidebarLayout';
 
 interface Props {
   currentWorkspace: Workspace | null;

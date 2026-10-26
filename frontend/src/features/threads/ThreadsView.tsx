@@ -1,19 +1,19 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Hash, Lock, Menu, MessageCircle, MessagesSquare } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
-import RichTextDisplay from '@/components/RichTextDisplay';
+import RichTextDisplay from '@/features/messaging/RichTextDisplay';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { useUserCache } from '@/stores/users';
 import type { Channel, Message, WorkspaceMember } from '@/stores/workspace';
 import { displayNameOf } from '@/lib/userHelpers';
 import { conversationTitle } from '@/lib/conversationHelpers';
-import type { Conversation } from '@/hooks/queries/useConversations';
+import type { Conversation } from '@/features/messaging/hooks/useConversations';
 import {
   useFollowedThreads,
   useMarkThreadRead,
   useSendThreadReply,
   type ThreadSummary,
-} from '@/hooks/queries/useThreads';
+} from '@/features/threads/hooks/useThreads';
 import { MessageInput } from '@/features/messaging';
 import { asAttachments, useComposerAttachments } from '@/features/messaging/useComposerAttachments';
 import { QUERY_KEYS } from '@/shared/constants';

@@ -9,7 +9,7 @@ const update = vi.fn();
 const remove = vi.fn();
 const remind = vi.fn();
 const items: Record<string, unknown[]> = {};
-vi.mock('@/hooks/queries/useLater', () => ({
+vi.mock('@/features/later/hooks/useLater', () => ({
   useLater: (_ws: string, status: string) => ({ data: items[status] ?? [], isLoading: false }),
   useLaterActions: () => ({
     update: { mutate: update },

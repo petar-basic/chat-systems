@@ -5,7 +5,7 @@ import { ScheduleEditor } from './ScheduleEditor';
 const save = vi.fn();
 let schedule: Record<string, unknown> = {};
 
-vi.mock('@/hooks/queries/useNotificationSchedule', () => ({
+vi.mock('@/features/notifications/hooks/useNotificationSchedule', () => ({
   useNotificationSchedule: () => ({ data: schedule }),
   useSetNotificationSchedule: () => ({ mutate: save }),
 }));

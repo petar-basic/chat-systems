@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useActiveHuddles } from '@/hooks/queries/useHuddle';
+import { useActiveHuddles } from '@/features/huddle/hooks/useHuddle';
 import { useWorkspaceStore } from '@/stores/workspace';
 
 export function useActiveHuddlesSync(workspaceId?: string | null, instanceUrl?: string) {

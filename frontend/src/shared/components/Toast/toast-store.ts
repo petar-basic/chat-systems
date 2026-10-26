@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { ToastKind } from '@/models/enums';
+import { ToastKind } from '@/shared/models/enums';
 import { TOAST_DEFAULT_DURATION_MS } from '@/shared/constants';
 
 export interface IToast {

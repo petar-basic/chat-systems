@@ -29,7 +29,7 @@ const group = {
   ],
 };
 
-vi.mock('@/hooks/queries/useUnreads', () => ({
+vi.mock('@/features/unreads/hooks/useUnreads', () => ({
   useUnreads: () => ({
     data: { pages: [{ data: [group], next_offset: null }] },
     isLoading: false,

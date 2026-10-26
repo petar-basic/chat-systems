@@ -3,10 +3,10 @@ import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { queryClient } from './lib/queryClient';
-import { useWebSocketQuerySync } from './lib/wsQuerySync';
-import { useInstanceStore } from './stores/instances';
-import { ErrorBoundary } from './components/ErrorBoundary';
+import { queryClient } from '@/lib/queryClient';
+import { useWebSocketQuerySync } from '@/lib/wsQuerySync';
+import { useInstanceStore } from '@/stores/instances';
+import { ErrorBoundary } from '@/shared/components/ErrorBoundary';
 import { Toaster } from '@/shared/components/Toast';
 import { NotificationStream } from '@/features/notifications';
 import { HuddleController } from '@/features/huddle';
@@ -16,13 +16,13 @@ import { registerWorker } from '@/lib/push';
 
 const Router = BrowserRouter;
 
-const AddInstancePage = lazy(() => import('./pages/AddInstancePage'));
-const SetupPage = lazy(() => import('./pages/SetupPage'));
-const CompleteRegistrationPage = lazy(() => import('./pages/CompleteRegistrationPage'));
-const WorkspacePage = lazy(() => import('./pages/WorkspacePage'));
-const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
-const InstanceAdminPage = lazy(() => import('./pages/InstanceAdminPage'));
-const AppConnectCallbackPage = lazy(() => import('./pages/AppConnectCallbackPage'));
+const AddInstancePage = lazy(() => import('@/pages/AddInstancePage'));
+const SetupPage = lazy(() => import('@/pages/SetupPage'));
+const CompleteRegistrationPage = lazy(() => import('@/pages/CompleteRegistrationPage'));
+const WorkspacePage = lazy(() => import('@/pages/WorkspacePage'));
+const ResetPasswordPage = lazy(() => import('@/pages/ResetPasswordPage'));
+const InstanceAdminPage = lazy(() => import('@/pages/InstanceAdminPage'));
+const AppConnectCallbackPage = lazy(() => import('@/pages/AppConnectCallbackPage'));
 
 function SplashScreen() {
   return (

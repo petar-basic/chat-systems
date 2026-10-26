@@ -3,8 +3,8 @@ import { Button } from '@/shared/components/Button/Button';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { useNavigate } from 'react-router';
 import { KeyRound, ServerCrash, LogIn } from 'lucide-react';
-import { useInstanceStore } from '../stores/instances';
-import { useInstanceInfo } from '@/hooks/queries/useInstanceInfo';
+import { useInstanceStore } from '@/stores/instances';
+import { useInstanceInfo } from '@/features/instance/hooks/useInstanceInfo';
 import { isTotpRequired } from '@/lib/errors';
 import { PENDING_INVITE_KEY } from '@/shared/constants';
 

@@ -1,6 +1,6 @@
 import type { MentionItem } from './MentionDropdown';
 import type { Channel, WorkspaceMember } from '@/stores/workspace';
-import type { UserGroup } from '@/hooks/queries/useUserGroups';
+import type { UserGroup } from '@/features/workspace/hooks/useUserGroups';
 
 export const BROADCAST_MENTIONS: MentionItem[] = [
   { id: 'channel', label: 'channel', type: 'broadcast', hint: 'everyone in here' },

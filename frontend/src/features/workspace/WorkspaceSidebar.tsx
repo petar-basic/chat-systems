@@ -7,7 +7,7 @@ import { useInstanceStore } from '@/stores/instances';
 import { useWsStatusStore } from '@/stores/wsStatus';
 import { instanceManager } from '@/lib/instances';
 import { Modal } from '@/shared/components/Modal/Modal';
-import { useWorkspaceUnreadCounts } from '@/hooks/queries/useNotifications';
+import { useWorkspaceUnreadCounts } from '@/features/notifications/hooks/useNotifications';
 import { avatarColorFor } from '@/lib/userHelpers';
 import { workspaceInitials } from './workspaceTile';
 

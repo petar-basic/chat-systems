@@ -3,24 +3,24 @@ import { useShallow } from 'zustand/react/shallow';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useUserCache } from '@/stores/users';
 import { useCustomEmojiStore } from '@/stores/customEmoji';
-import { useCustomEmoji } from '@/hooks/queries/useCustomEmoji';
+import { useCustomEmoji } from '@/features/workspace/hooks/useCustomEmoji';
 import { useUserGroupStore } from '@/stores/userGroups';
-import { useUserGroups } from '@/hooks/queries/useUserGroups';
+import { useUserGroups } from '@/features/workspace/hooks/useUserGroups';
 import { useKeywordStore } from '@/stores/keywords';
-import { useNotificationKeywords } from '@/hooks/queries/useNotificationKeywords';
+import { useNotificationKeywords } from '@/features/notifications/hooks/useNotificationKeywords';
 import { useInstanceStore } from '@/stores/instances';
 import { useDocumentTitle } from '@/shared/hooks/useDocumentTitle';
 import { useFaviconBadge } from '@/shared/hooks/useFaviconBadge';
-import { useWorkspaceUnreadCounts } from '@/hooks/queries/useNotifications';
+import { useWorkspaceUnreadCounts } from '@/features/notifications/hooks/useNotifications';
 import {
   useWorkspaces,
   useWorkspaceChannels,
   useWorkspaceMembers,
   useDeletedWorkspaces,
   useRestoreWorkspace,
-} from '@/hooks/queries/useWorkspaces';
-import { useConversations, useMarkConversationRead } from '@/hooks/queries/useConversations';
-import { useUnreadChannels } from '@/hooks/queries/useChannels';
+} from '@/features/workspace/hooks/useWorkspaces';
+import { useConversations, useMarkConversationRead } from '@/features/messaging/hooks/useConversations';
+import { useUnreadChannels } from '@/features/channel/hooks/useChannels';
 import { instanceManager } from '@/lib/instances';
 import { wsClient } from '@/lib/ws';
 import { usePresenceStore } from '@/stores/presence';

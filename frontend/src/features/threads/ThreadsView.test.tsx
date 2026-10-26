@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { ThreadSummary } from '@/hooks/queries/useThreads';
+import type { ThreadSummary } from '@/features/threads/hooks/useThreads';
 import { ThreadsView } from './ThreadsView';
 
 const markRead = vi.fn();
@@ -35,7 +35,7 @@ const thread = (unread: number): ThreadSummary => ({
   last_reply_at: '2026-10-22T10:00:00Z',
 });
 
-vi.mock('@/hooks/queries/useThreads', () => ({
+vi.mock('@/features/threads/hooks/useThreads', () => ({
   useFollowedThreads: () => ({
     data: { pages: [{ data: threads, next_cursor: null }] },
     isLoading: false,

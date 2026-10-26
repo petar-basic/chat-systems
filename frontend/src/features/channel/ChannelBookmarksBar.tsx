@@ -6,7 +6,7 @@ import {
   useChannelBookmarks,
   useCreateChannelBookmark,
   useDeleteChannelBookmark,
-} from '@/hooks/queries/useChannelBookmarks';
+} from '@/features/channel/hooks/useChannelBookmarks';
 import { useChannelModeration } from './hooks/useChannelModeration';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { ChannelListsMenu } from '@/features/lists';

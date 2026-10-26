@@ -1,5 +1,5 @@
 import type { Channel } from '@/stores/workspace';
-import type { Conversation } from '@/hooks/queries/useConversations';
+import type { Conversation } from '@/features/messaging/hooks/useConversations';
 import { conversationTitle } from './conversationHelpers';
 
 /// Names the channel a message lives in, whether that is a channel with a name

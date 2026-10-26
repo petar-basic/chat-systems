@@ -9,7 +9,7 @@ const submit =
 vi.mock('./useWorkflows', () => ({
   useSubmitForm: () => ({ mutateAsync: submit, isPending: false }),
 }));
-vi.mock('@/hooks/queries/useWorkspaces', () => ({
+vi.mock('@/features/workspace/hooks/useWorkspaces', () => ({
   useWorkspaceMembers: () => ({
     data: [
       { user_id: 'u-me', display_name: 'Me' },

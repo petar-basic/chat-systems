@@ -1,4 +1,4 @@
-import type { CustomEmoji } from '@/hooks/queries/useCustomEmoji';
+import type { CustomEmoji } from '@/features/workspace/hooks/useCustomEmoji';
 
 export type EmojiSpan = { text: string; emoji: CustomEmoji | null };
 

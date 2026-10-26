@@ -1,6 +1,6 @@
 import { Select } from '@/shared/components/Form/Select';
 import { TextInput } from '@/shared/components/Form/TextInput';
-import type { ChannelRetention } from '@/hooks/queries/useRetention';
+import type { ChannelRetention } from '@/features/workspace/hooks/useRetention';
 import { periodOf, type PeriodChoice } from './channelPeriod';
 
 function workspacePeriod(days: number | null | undefined) {

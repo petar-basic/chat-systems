@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { components } from '@/api/schema';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
-import { useInstanceInfo } from '@/hooks/queries/useInstanceInfo';
+import { useInstanceInfo } from '@/features/instance/hooks/useInstanceInfo';
 import { toast } from '@/shared/components/Toast';
 import { toUserMessage } from '@/lib/errors';
 import { logger } from '@/lib/logger';

@@ -1,9 +1,9 @@
-import type { Conversation } from '@/hooks/queries/useConversations';
+import type { Conversation } from '@/features/messaging/hooks/useConversations';
 import { conversationTitle } from '@/lib/conversationHelpers';
 import { displayNameOf } from '@/lib/userHelpers';
 import { useUserCache } from '@/stores/users';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
-import PresenceDot from '@/components/PresenceDot';
+import PresenceDot from '@/shared/components/PresenceDot';
 
 function UserAvatarWithPresence({
   userId,

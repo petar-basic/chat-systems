@@ -3,7 +3,7 @@ import { Button } from '@/shared/components/Button/Button';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
 import { ServerCrash, LogIn } from 'lucide-react';
-import { useInstanceStore } from '../stores/instances';
+import { useInstanceStore } from '@/stores/instances';
 import { isTotpRequired } from '@/lib/errors';
 
 interface Props {

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
-import { ToastKind } from '@/models/enums';
+import { ToastKind } from '@/shared/models/enums';
 import { useToastStore, type IToast } from './toast-store';
 
 const KIND_STYLES: Record<ToastKind, { ring: string; icon: React.ReactNode }> = {

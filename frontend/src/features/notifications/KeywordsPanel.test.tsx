@@ -9,7 +9,7 @@ vi.mock('@/stores/workspace', () => ({
   useWorkspaceStore: (select: (state: unknown) => unknown) =>
     select({ currentWorkspace: { id: 'ws-1', instanceUrl: 'http://localhost:3000' } }),
 }));
-vi.mock('@/hooks/queries/useNotificationKeywords', () => ({
+vi.mock('@/features/notifications/hooks/useNotificationKeywords', () => ({
   useNotificationKeywords: () => ({ data: keywords }),
   useSetNotificationKeywords: () => ({ mutate: save }),
 }));

@@ -5,7 +5,7 @@ import { AppConnectPrompt } from './AppConnectPrompt';
 const connect = vi.fn();
 const prompts = vi.fn();
 let apps: { provider: string; prompts_off: boolean; connected_account: string | null }[] = [];
-vi.mock('@/hooks/queries/useApps', () => ({
+vi.mock('@/features/workspace/hooks/useApps', () => ({
   useAppActions: () => ({
     connect: { mutate: connect, isPending: false },
     prompts: { mutate: prompts, isPending: false },

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { IntegrationsSection } from './IntegrationsSection';
 import type { Channel } from '@/stores/workspace';
-import type { Hook, HookSecrets } from '@/hooks/queries/useHooks';
+import type { Hook, HookSecrets } from '@/features/workspace/hooks/useHooks';
 
 const createMutate = vi.fn();
 const deleteMutate = vi.fn();
@@ -32,7 +32,7 @@ const secrets = (over: Partial<HookSecrets>): HookSecrets => ({
   ...over,
 });
 
-vi.mock('@/hooks/queries/useHooks', () => ({
+vi.mock('@/features/workspace/hooks/useHooks', () => ({
   useHooks: () => ({ data: hooks, isLoading: false }),
   useCreateHook: () => ({ mutateAsync: createMutate, isPending: false }),
   useDeleteHook: () => ({ mutateAsync: deleteMutate, isPending: false }),

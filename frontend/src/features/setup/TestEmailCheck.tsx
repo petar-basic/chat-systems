@@ -1,6 +1,6 @@
 import { Mail } from 'lucide-react';
 import { Button } from '@/shared/components/Button/Button';
-import { useSendTestEmail } from '@/hooks/queries/useAdmin';
+import { useSendTestEmail } from '@/features/instance/hooks/useAdmin';
 import { toUserMessage } from '@/lib/errors';
 
 interface Props {
