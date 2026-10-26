@@ -606,6 +606,14 @@ impl WorkflowRow {
 }
 
 #[derive(Debug, Serialize, ToSchema)]
+pub struct ChannelWorkflow {
+    pub id: Uuid,
+    pub name: String,
+    pub enabled: bool,
+    pub created_by: Uuid,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
 pub struct LastRun {
     pub status: RunStatus,
     pub started_at: DateTime<Utc>,

@@ -19,6 +19,7 @@ mod apps;
 mod audit;
 mod auth;
 mod channel_context;
+mod channel_integrations;
 mod channels;
 mod commands;
 mod conversations;

@@ -17,7 +17,7 @@ use crate::dto::{DataList, StatusResponse};
 use crate::middleware::AuthUser;
 use crate::middleware::PeerAddr;
 use crate::state::AppState;
-use crate::workspace::models::{ChannelType, WorkspaceRole};
+use crate::workspace::models::WorkspaceRole;
 
 pub fn router() -> OpenApiRouter<Arc<AppState>> {
     OpenApiRouter::new()
@@ -66,19 +66,19 @@ async fn create_hook(
     Path(ws_id): Path<Uuid>,
     Json(req): Json<CreateHookRequest>,
 ) -> AppResult<Json<Hook>> {
-    authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
+    if req.hook_type == HookType::IncomingWebhook {
+        authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
+    } else {
+        authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
+    }
     req.validate()?;
     let mut config = req.config.unwrap_or(serde_json::json!({}));
 
     if req.hook_type == HookType::IncomingWebhook {
-        let channel_id = config
-            .get("channel_id")
-            .and_then(|v| v.as_str())
-            .and_then(|s| s.parse::<Uuid>().ok())
-            .ok_or_else(|| {
-                AppError::Validation("incoming_webhook requires a channel_id in config".into())
-            })?;
-        require_attachable_channel(&state, ws_id, channel_id, auth.user_id).await?;
+        let channel_id = bound_channel(&config).ok_or_else(|| {
+            AppError::Validation("incoming_webhook requires a channel_id in config".into())
+        })?;
+        require_hook_channel(&state, ws_id, channel_id, &req.hook_type, auth.user_id).await?;
         if let Some(obj) = config.as_object_mut() {
             obj.insert("token".to_string(), serde_json::json!(generate_token()));
         }
@@ -102,7 +102,7 @@ async fn create_hook(
 
         let channel_ids = parse_channel_ids(&config)?;
         for channel_id in &channel_ids {
-            require_attachable_channel(&state, ws_id, *channel_id, auth.user_id).await?;
+            require_hook_channel(&state, ws_id, *channel_id, &req.hook_type, auth.user_id).await?;
         }
 
         if let Some(obj) = config.as_object_mut() {
@@ -139,7 +139,7 @@ async fn create_hook(
         // what somebody typed to a third-party URL.
         let channel_ids = parse_channel_ids(&config)?;
         for channel_id in &channel_ids {
-            require_attachable_channel(&state, ws_id, *channel_id, auth.user_id).await?;
+            require_hook_channel(&state, ws_id, *channel_id, &req.hook_type, auth.user_id).await?;
         }
 
         if state
@@ -190,14 +190,11 @@ async fn create_hook(
     Ok(Json(hook))
 }
 
-/// An outgoing webhook forwards a channel's traffic off the instance, so
-/// attaching one to a channel takes the same rights as moderating it. Without
-/// this a workspace admin who is not in a private channel can read it through a
-/// webhook they point at themselves.
-async fn require_attachable_channel(
+async fn require_hook_channel(
     state: &AppState,
     ws_id: Uuid,
     channel_id: Uuid,
+    hook_type: &HookType,
     user_id: Uuid,
 ) -> AppResult<()> {
     let channel = authz::find_channel(state, channel_id).await?;
@@ -206,20 +203,14 @@ async fn require_attachable_channel(
             "channel does not belong to this workspace".into(),
         ));
     }
-    if channel.channel_type != ChannelType::Public {
-        state
-            .workspace_service
-            .repo
-            .get_channel_member(channel_id, user_id)
-            .await?
-            .ok_or_else(|| {
-                AppError::Forbidden(
-                    "Only members of a private channel can attach an integration to it".into(),
-                )
-            })?;
-        authz::require_channel_moderator(state, &channel, user_id).await?;
-    }
-    Ok(())
+    authz::require_channel_hook_manager(state, hook_type, &channel, user_id).await
+}
+
+fn bound_channel(config: &serde_json::Value) -> Option<Uuid> {
+    config
+        .get("channel_id")
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse::<Uuid>().ok())
 }
 
 fn parse_channel_ids(config: &serde_json::Value) -> AppResult<Vec<Uuid>> {
@@ -301,13 +292,20 @@ fn secrets_response(state: &AppState, hook: &Hook) -> HookSecrets {
     }
 }
 
-async fn require_hook_admin(state: &AppState, hook_id: Uuid, user_id: Uuid) -> AppResult<Hook> {
+async fn require_hook_manager(state: &AppState, hook_id: Uuid, user_id: Uuid) -> AppResult<Hook> {
     let hook = state
         .hook_repo
         .find_hook_by_id(hook_id)
         .await?
         .ok_or_else(|| AppError::NotFound("Hook not found".into()))?;
-    authz::require_workspace_role(state, hook.workspace_id, user_id, &WorkspaceRole::Admin).await?;
+    let member = authz::require_workspace_member(state, hook.workspace_id, user_id).await?;
+    if member.role.has_at_least(&WorkspaceRole::Admin) {
+        return Ok(hook);
+    }
+    let channel_id = bound_channel(&hook.config)
+        .ok_or_else(|| AppError::Forbidden("Requires at least Admin role".into()))?;
+    let channel = authz::find_channel(state, channel_id).await?;
+    authz::require_channel_hook_manager(state, &hook.hook_type, &channel, user_id).await?;
     Ok(hook)
 }
 
@@ -318,7 +316,7 @@ async fn reveal_hook(
     ip: ClientIp,
     Path(hook_id): Path<Uuid>,
 ) -> AppResult<Json<HookSecrets>> {
-    let hook = require_hook_admin(&state, hook_id, auth.user_id).await?;
+    let hook = require_hook_manager(&state, hook_id, auth.user_id).await?;
     audit::record(
         &state,
         AuditEntry::new(AuditAction::HookRevealed, auth.user_id)
@@ -337,7 +335,7 @@ async fn rotate_hook(
     ip: ClientIp,
     Path(hook_id): Path<Uuid>,
 ) -> AppResult<Json<HookSecrets>> {
-    let hook = require_hook_admin(&state, hook_id, auth.user_id).await?;
+    let hook = require_hook_manager(&state, hook_id, auth.user_id).await?;
 
     let rotated_key = match hook.hook_type {
         HookType::IncomingWebhook => "token",
@@ -375,18 +373,7 @@ async fn delete_hook(
     ip: ClientIp,
     Path(hook_id): Path<Uuid>,
 ) -> AppResult<Json<StatusResponse>> {
-    let hook = state
-        .hook_repo
-        .find_hook_by_id(hook_id)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Hook not found".into()))?;
-    authz::require_workspace_role(
-        &state,
-        hook.workspace_id,
-        auth.user_id,
-        &WorkspaceRole::Admin,
-    )
-    .await?;
+    let hook = require_hook_manager(&state, hook_id, auth.user_id).await?;
     state.hook_repo.delete_hook(hook_id).await?;
 
     audit::record(
@@ -446,11 +433,7 @@ async fn incoming_webhook(
 
     payload.validate()?;
 
-    let channel_id = hook
-        .config
-        .get("channel_id")
-        .and_then(|v| v.as_str())
-        .and_then(|s| s.parse::<Uuid>().ok())
+    let channel_id = bound_channel(&hook.config)
         .ok_or_else(|| AppError::Internal("hook is missing a channel_id".into()))?;
 
     let metadata = serde_json::json!({ "bot": {

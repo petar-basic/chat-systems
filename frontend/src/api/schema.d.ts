@@ -552,6 +552,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/channels/{ch_id}/integrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["channel_integrations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/channels/{ch_id}/join": {
         parameters: {
             query?: never;
@@ -2896,6 +2912,23 @@ export interface components {
             /** Format: uuid */
             user_id: string;
         };
+        ChannelIncomingWebhook: {
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            created_by: string;
+            description?: string | null;
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
+        ChannelIntegrations: {
+            can_add_webhook: boolean;
+            incoming_webhooks: components["schemas"]["ChannelIncomingWebhook"][];
+            outgoing_webhooks: components["schemas"]["ChannelOutgoingWebhook"][];
+            slash_commands: components["schemas"]["ChannelSlashCommand"][];
+            workflows: components["schemas"]["ChannelWorkflow"][];
+        };
         ChannelListing: components["schemas"]["Channel"] & {
             effective_notify_level: components["schemas"]["NotifyLevel"];
             muted: boolean;
@@ -2918,6 +2951,12 @@ export interface components {
         ChannelNotifyLevel: {
             effective_notify_level: components["schemas"]["NotifyLevel"];
             notify_level?: components["schemas"]["NotifyLevel"] | null;
+        };
+        ChannelOutgoingWebhook: {
+            description?: string | null;
+            /** Format: uuid */
+            id: string;
+            name: string;
         };
         ChannelOverride: {
             /** Format: int32 */
@@ -2944,8 +2983,22 @@ export interface components {
         ChannelSettings: {
             post_policy?: components["schemas"]["PostPolicy"] | null;
         };
+        ChannelSlashCommand: {
+            command: string;
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
         /** @enum {string} */
         ChannelType: "public" | "private" | "dm" | "group_dm";
+        ChannelWorkflow: {
+            /** Format: uuid */
+            created_by: string;
+            enabled: boolean;
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
         Choice: {
             color: components["schemas"]["ChoiceColor"];
             /** Format: uuid */
@@ -5912,6 +5965,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DataList_ChannelFile"];
+                };
+            };
+        };
+    };
+    channel_integrations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChannelIntegrations"];
                 };
             };
         };

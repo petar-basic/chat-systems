@@ -462,6 +462,7 @@ Incoming/outgoing webhooks, bots and slash commands. A background task executes 
 | POST | `/hooks/:hook_id/rotate` | — | same shape, after minting a fresh `token` (incoming) or `secret` (outgoing); the previous value stops working immediately |
 | DELETE | `/hooks/:hook_id` | — | `{ status: "deleted" }` |
 | POST | `/hooks/incoming/:token` | `{ text }` | `{ status: "ok", message_id }` |
+| GET | `/channels/:ch_id/integrations` | — | `{ incoming_webhooks, outgoing_webhooks, slash_commands, workflows, can_add_webhook }` — what touches the channel, for anyone with access to it: incoming webhooks bound to it, outgoing webhooks and commands whose `channel_ids` include it, workflows whose trigger listens to it or whose `send_message` step posts into it; names and authors only, never a URL, token or secret |
 
 Hook types: `incoming_webhook`, `outgoing_webhook`, `slash_command`
 
@@ -472,7 +473,10 @@ caller's own timezone and a time already past means tomorrow. Reminding somebody
 workspace admin, the same rule `POST /workspaces/:ws_id/later` applies. A reminder lands in the person's *Later* list.
 
 `GET`/`POST`/`DELETE` on `/hooks` and `/workspaces/:ws_id/hooks` require a workspace
-admin session; secrets in `config` (`token`, `secret`, …) are redacted on read — `reveal`
+admin session, with one exception: a channel admin creates, reveals, rotates and deletes the
+`incoming_webhook`s of their own channel (`authz::can_manage_channel_hook`). Outgoing
+webhooks and slash commands send what people type to a third-party URL, so they stay with
+workspace admins, and attaching any hook to a private channel needs its membership. Secrets in `config` (`token`, `secret`, …) are redacted on read — `reveal`
 is the only way back to the plaintext value, and it leaves an audit trail. Creating an
 `outgoing_webhook` requires an http(s) `config.url` and mints `config.secret` when omitted
 (the delivery path still runs the full SSRF check per request).

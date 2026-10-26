@@ -83,6 +83,7 @@ pub fn typed_routes() -> OpenApiRouter<Arc<AppState>> {
         .merge(crate::messaging::routes::router())
         .merge(crate::workspace::routes::router())
         .merge(crate::channel_context::routes::router())
+        .merge(crate::channel_integrations::routes::router())
         .merge(crate::conversations::routes::router())
         .merge(crate::notifications::routes::router())
         .merge(crate::hooks::routes::router())

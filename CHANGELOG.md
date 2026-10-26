@@ -66,6 +66,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - **API:** `GET /channels/{id}/context` returns a channel's members, pins, bookmarks, lists
   and workflow shortcuts in one request. `GET /channels/{id}/messages?mark_read=true` marks the
   channel read along with its newest page.
+- **API:** `GET /channels/{id}/integrations` lists the incoming webhooks, outgoing webhooks,
+  slash commands and workflows that touch a channel, for anyone in it, without URLs or
+  secrets. A channel admin may now create, reveal, rotate and delete the incoming webhooks of
+  their own channel; every other hook still needs a workspace admin.
 - **Form answers as fields.** A workflow message with the form answers below it shows them as
   labelled fields in two columns instead of a tall stack of paragraphs; the message text is
   unchanged.

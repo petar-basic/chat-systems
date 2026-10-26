@@ -627,7 +627,7 @@ async fn rotate_replaces_the_incoming_token_and_retires_the_old_one(pool: PgPool
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
-async fn reveal_and_rotate_are_workspace_admin_only(pool: PgPool) {
+async fn reveal_and_rotate_refuse_a_plain_member(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Hook Guard WS").await;

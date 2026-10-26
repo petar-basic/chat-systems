@@ -2,6 +2,7 @@ use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
 
+use crate::hooks::models::HookType;
 use crate::state::AppState;
 use crate::workspace::models::{
     Channel, ChannelMember, ChannelRole, ChannelType, PostPolicy, WorkspaceMember, WorkspaceRole,
@@ -56,6 +57,18 @@ impl ChannelAccess {
             return true;
         }
         self.member.role.has_at_least(&WorkspaceRole::Member) && self.is_channel_admin()
+    }
+
+    pub fn can_manage_hook(&self, hook_type: &HookType) -> bool {
+        if self.requires_explicit_membership() && self.channel_member.is_none() {
+            return false;
+        }
+        match hook_type {
+            HookType::IncomingWebhook => self.can_moderate(),
+            HookType::OutgoingWebhook | HookType::SlashCommand => {
+                self.member.role.has_at_least(&WorkspaceRole::Admin)
+            }
+        }
     }
 }
 
@@ -187,6 +200,44 @@ pub async fn require_channel_moderator(
     ))
 }
 
+pub async fn can_manage_channel_hook(
+    state: &AppState,
+    hook_type: &HookType,
+    channel: &Channel,
+    user_id: Uuid,
+) -> AppResult<bool> {
+    let repo = &state.workspace_service.repo;
+    let Some(member) = repo.get_member(channel.workspace_id, user_id).await? else {
+        return Ok(false);
+    };
+    let channel_member = repo.get_channel_member(channel.id, user_id).await?;
+    Ok(ChannelAccess {
+        channel: channel.clone(),
+        member,
+        channel_member,
+    }
+    .can_manage_hook(hook_type))
+}
+
+pub async fn require_channel_hook_manager(
+    state: &AppState,
+    hook_type: &HookType,
+    channel: &Channel,
+    user_id: Uuid,
+) -> AppResult<()> {
+    if can_manage_channel_hook(state, hook_type, channel, user_id).await? {
+        return Ok(());
+    }
+    Err(AppError::Forbidden(match hook_type {
+        HookType::IncomingWebhook => {
+            "Requires channel admin or workspace admin, in the channel if it is private".into()
+        }
+        HookType::OutgoingWebhook | HookType::SlashCommand => {
+            "Requires workspace admin, in the channel if it is private".into()
+        }
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -268,5 +319,35 @@ mod tests {
     fn plain_members_and_guests_do_not_moderate() {
         assert!(!access(WorkspaceRole::Member, ChannelType::Public, false).can_moderate());
         assert!(!access(WorkspaceRole::Guest, ChannelType::Public, true).can_moderate());
+    }
+
+    #[test]
+    fn channel_admins_manage_only_the_incoming_webhooks_of_their_channel() {
+        let a = access(WorkspaceRole::Member, ChannelType::Private, true);
+        assert!(a.can_manage_hook(&HookType::IncomingWebhook));
+        assert!(!a.can_manage_hook(&HookType::OutgoingWebhook));
+        assert!(!a.can_manage_hook(&HookType::SlashCommand));
+    }
+
+    #[test]
+    fn workspace_admins_manage_every_hook_of_a_channel_they_can_see() {
+        let a = access(WorkspaceRole::Admin, ChannelType::Public, false);
+        for hook_type in [
+            HookType::IncomingWebhook,
+            HookType::OutgoingWebhook,
+            HookType::SlashCommand,
+        ] {
+            assert!(a.can_manage_hook(&hook_type));
+        }
+        let outside = access(WorkspaceRole::Admin, ChannelType::Private, false);
+        assert!(!outside.can_manage_hook(&HookType::IncomingWebhook));
+        assert!(!outside.can_manage_hook(&HookType::OutgoingWebhook));
+    }
+
+    #[test]
+    fn plain_members_manage_no_hook() {
+        let a = access(WorkspaceRole::Member, ChannelType::Public, false);
+        assert!(!a.can_manage_hook(&HookType::IncomingWebhook));
+        assert!(!a.can_manage_hook(&HookType::OutgoingWebhook));
     }
 }

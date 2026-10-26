@@ -168,6 +168,69 @@ impl HookRepo {
         .await
     }
 
+    pub async fn incoming_for_channel(
+        &self,
+        workspace_id: Uuid,
+        channel_id: Uuid,
+    ) -> sqlx::Result<Vec<ChannelIncomingWebhook>> {
+        sqlx::query_as!(
+            ChannelIncomingWebhook,
+            r#"SELECT id, name, description, created_by, created_at
+                 FROM hooks
+                WHERE workspace_id = $1
+                  AND hook_type = 'incoming_webhook'
+                  AND is_active = true
+                  AND config->>'channel_id' = $2
+                ORDER BY created_at"#,
+            workspace_id,
+            channel_id.to_string()
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn outgoing_for_channel(
+        &self,
+        workspace_id: Uuid,
+        channel_id: Uuid,
+    ) -> sqlx::Result<Vec<ChannelOutgoingWebhook>> {
+        sqlx::query_as!(
+            ChannelOutgoingWebhook,
+            r#"SELECT id, name, description
+                 FROM hooks
+                WHERE workspace_id = $1
+                  AND hook_type = 'outgoing_webhook'
+                  AND is_active = true
+                  AND config->'channel_ids' ? $2::text
+                ORDER BY lower(name)"#,
+            workspace_id,
+            channel_id.to_string()
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn commands_for_channel(
+        &self,
+        workspace_id: Uuid,
+        channel_id: Uuid,
+    ) -> sqlx::Result<Vec<ChannelSlashCommand>> {
+        sqlx::query_as!(
+            ChannelSlashCommand,
+            r#"SELECT id, name, config->>'command' AS "command!"
+                 FROM hooks
+                WHERE workspace_id = $1
+                  AND hook_type = 'slash_command'
+                  AND is_active = true
+                  AND config->'channel_ids' ? $2::text
+                ORDER BY config->>'command'"#,
+            workspace_id,
+            channel_id.to_string()
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
     pub async fn channel_ids_with_outgoing_hooks(
         &self,
         workspace_id: Uuid,
