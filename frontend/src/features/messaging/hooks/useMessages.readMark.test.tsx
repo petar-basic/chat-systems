@@ -4,7 +4,7 @@ import { renderHook, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MESSAGES_PAGE_SIZE, QUERY_KEYS } from '@/shared/constants';
 import { useMessages } from './useMessages';
-import type { AppNotification } from './useNotifications';
+import type { AppNotification } from '@/features/notifications/hooks/useNotifications';
 
 const get = vi.fn();
 const client = {

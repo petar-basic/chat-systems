@@ -7,7 +7,7 @@ import { Checkbox } from '@/shared/components/Form/Checkbox';
 import { RadioCards } from '@/shared/components/Form/RadioCards';
 import { Hash, Lock } from 'lucide-react';
 import { CHANNEL_NAME_MAX, channelNameFrom } from '../channelName';
-import type { CreateChannelDraft } from '@/models/channel';
+import type { CreateChannelDraft } from '@/shared/models/channel';
 import type { Channel } from '@/stores/workspace';
 
 interface Props {

@@ -1,6 +1,6 @@
 import { X, History } from 'lucide-react';
 import { formatDateTime } from '@/lib/datetime';
-import { useEditHistory } from '@/hooks/queries/useEditHistory';
+import { useEditHistory } from '@/features/messaging/hooks/useEditHistory';
 import MessageContent from './MessageContent';
 
 interface Props {

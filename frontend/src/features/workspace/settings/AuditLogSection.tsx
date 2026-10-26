@@ -1,4 +1,4 @@
-import { useAuditLog } from '@/hooks/queries/useAuditLog';
+import { useAuditLog } from '@/features/workspace/hooks/useAuditLog';
 import AuditLogTable from '@/features/workspace/components/AuditLogTable';
 
 interface Props {

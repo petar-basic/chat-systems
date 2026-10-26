@@ -118,17 +118,18 @@ reuse.
 
 ## Query Hooks Structure
 
-All hooks (queries and mutations) live in `src/hooks/queries/` and use the TanStack Query v5
+All hooks (queries and mutations) live in the `hooks/` folder of the feature they belong to
+(`src/features/<feature>/hooks/`) and use the TanStack Query v5
 object API (`useQuery({ queryKey, queryFn, ... })`). Keys come from `QUERY_KEYS`.
 
 ```typescript
-// src/hooks/queries/useAuth.ts
+// src/features/instance/hooks/useAuth.ts
 export const useCurrentUser = () => /* reads useInstanceStore, no fetch */
 export const useAddInstance = () => useMutation(...)            // POST /auth/login (via store)
 export const useCompleteRegistration = () => useMutation(...)   // POST /auth/complete-registration
 export const useLogout = (instanceUrl?) => useMutation(...)     // POST /auth/logout
 
-// src/hooks/queries/useWorkspaces.ts
+// src/features/workspace/hooks/useWorkspaces.ts
 export const useWorkspaces = () => useQuery({ queryKey: QUERY_KEYS.workspacesList(instanceUrls), ... })
 export const useWorkspace = (id) => useQuery(...)
 export const useWorkspaceMembers = (id, instanceUrl?) => useQuery(...)
@@ -138,13 +139,13 @@ export const useRestoreWorkspace = () => useMutation(...)
 export const useCreateWorkspace = () => useMutation(...)
 export const useCreateChannel = () => useMutation(...)
 
-// src/hooks/queries/useChannels.ts
+// src/features/channel/hooks/useChannels.ts
 export const useChannelMembers = (id) => useQuery(...)
 export const useChannelPins = (id) => useQuery(...)
 export const useUnreadChannelIds = (workspaceId, instanceUrl?) => useQuery(...)
 export const useSetChannelMuted = (workspaceId, instanceUrl?) => useMutation(...)
 
-// src/hooks/queries/useMessages.ts
+// src/features/messaging/hooks/useMessages.ts
 export const useMessages = (channelId) => useInfiniteQuery(...)
 export const useSendMessage = (channelId, userId) => useMutation(...)
 export const useEditMessage = () => useMutation(...)
@@ -153,11 +154,11 @@ export const useReactToMessage = () => useMutation(...)
 export const useRemoveReaction = () => useMutation(...)
 export const usePinMessage = () => useMutation(...)
 
-// src/hooks/queries/useThreads.ts
+// src/features/threads/hooks/useThreads.ts
 export const useThreadMessages = (parentMessageId) => useQuery(...)
 export const useSendThreadReply = (parentMessageId, channelId) => useMutation(...)
 
-// src/hooks/queries/useDm.ts
+// src/features/messaging/hooks/useConversations.ts
 export const useDmConversations = (workspaceId, instanceUrl?) => useQuery(...)
 export const useDirectMessages = (workspaceId, partnerId, instanceUrl?) => useInfiniteQuery(...)
 export const useSendDirectMessage = (...) => useMutation(...)
@@ -165,7 +166,7 @@ export const useEditDirectMessage / useDeleteDirectMessage = (...) => useMutatio
 export const useReactToDm / useRemoveDmReaction = (...) => useMutation(...)
 export const useMarkDmRead = (workspaceId, instanceUrl?) => useMutation(...)
 
-// src/hooks/queries/useNotifications.ts
+// src/features/notifications/hooks/useNotifications.ts
 export const useNotifications = (workspaceId) => useQuery(...)
 export const useUnreadNotificationCount = (workspaceId) => useQuery(...)
 export const useWorkspaceUnreadCounts = (workspaces) => useQueries(...)
@@ -174,7 +175,7 @@ export const useMarkChannelNotificationsRead = (workspaceId) => useMutation(...)
 export const useMarkAllNotificationsRead = (workspaceId) => useMutation(...)
 export const useDndStatus / useSetDnd = () => useQuery / useMutation(...)
 
-// src/hooks/queries/useHuddle.ts
+// src/features/huddle/hooks/useHuddle.ts
 export const useActiveHuddles = (workspaceId?, instanceUrl?) => useQuery(...)
 ```
 
@@ -182,10 +183,10 @@ export const useActiveHuddles = (workspaceId?, instanceUrl?) => useQuery(...)
 
 ## Mutations Structure
 
-Mutations are co-located with their queries in `src/hooks/queries/`.
+Mutations are co-located with their queries in the same file.
 
 ```typescript
-// src/hooks/queries/useMessages.ts
+// src/features/messaging/hooks/useMessages.ts
 export const useSendMessage = (channelId, userId) => useMutation({
   mutationFn: ({ content, id }) => api.post(`/channels/${channelId}/messages`, { content, id }),
   onMutate: async ({ content, id }) => {
@@ -401,7 +402,7 @@ export const useWebSocketQuerySync = () => {
 Migration to React Query is **complete**. The architecture described in this document is the current production state:
 
 - `QueryClientProvider` is configured in `App.tsx` with `ReactQueryDevtools`
-- All query and mutation hooks are in `src/hooks/queries/`
+- All query and mutation hooks are in `src/features/<feature>/hooks/`
 - `useWebSocketQuerySync()` is called once in `App.tsx`
 - Zustand stores hold UI/session state: `useWorkspaceStore`, `usePresenceStore`, `useUserCache`, plus `drafts`, `notificationPrefs`, `wsStatus`, and `huddle`. `useInstanceStore` is the exception — it owns the connected-instance list and the logged-in user (and, cross-origin, the persisted tokens)
 - React Query owns server data (workspaces, channels, messages, threads, DMs, notifications, active huddles)

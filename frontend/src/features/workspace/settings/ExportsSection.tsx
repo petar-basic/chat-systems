@@ -7,7 +7,11 @@ import { toUserMessage } from '@/lib/errors';
 import { formatDateTime } from '@/lib/datetime';
 import { getUserDisplay } from '@/lib/userHelpers';
 import type { WorkspaceMember } from '@/stores/workspace';
-import { useExports, useStartWorkspaceExport, type ExportDetail } from '@/hooks/queries/useExports';
+import {
+  useExports,
+  useStartWorkspaceExport,
+  type ExportDetail,
+} from '@/features/workspace/hooks/useExports';
 
 interface Props {
   workspaceId: string;

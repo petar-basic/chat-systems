@@ -3,7 +3,7 @@ import { Hash, Megaphone } from 'lucide-react';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { ROUTES, EmptyLabels } from '@/shared/constants';
 import { ConnectionBanner } from '@/shared/components/ConnectionBanner/ConnectionBanner';
-import InstallAppBanner from '@/components/InstallAppBanner';
+import InstallAppBanner from '@/features/instance/InstallAppBanner';
 import { QuickSwitcher, KeyboardShortcutsDialog } from '@/features/navigation';
 import {
   WorkspaceSidebar,
@@ -28,9 +28,9 @@ import { AllUnreadsView } from '@/features/unreads';
 import { ThreadsView } from '@/features/threads';
 import { ListView } from '@/features/lists';
 import ForwardMessageModal from '@/features/messaging/ForwardMessageModal';
-import AddInstancePanel from '../components/AddInstancePanel';
+import AddInstancePanel from '@/features/instance/AddInstancePanel';
 import { EditProfileModal, PreferencesModal } from '@/features/profile';
-import TypingIndicator from '../components/TypingIndicator';
+import TypingIndicator from '@/features/messaging/TypingIndicator';
 import { useChannelModeration } from '@/features/channel/hooks/useChannelModeration';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
 import { useActiveHuddlesSync } from '@/features/huddle';

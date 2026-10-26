@@ -6,13 +6,13 @@ import { toUserMessage } from '@/lib/errors';
 import { formatDateTime } from '@/lib/datetime';
 import { Clock, Hash, Trash2, MessageSquare } from 'lucide-react';
 import type { Channel } from '@/stores/workspace';
-import type { Conversation } from '@/hooks/queries/useConversations';
+import type { Conversation } from '@/features/messaging/hooks/useConversations';
 import {
   useScheduledMessages,
   useCancelScheduledMessage,
   useRescheduleMessage,
   type ScheduledMessage,
-} from '@/hooks/queries/useScheduledMessages';
+} from '@/features/messaging/hooks/useScheduledMessages';
 import { targetLabel } from '@/lib/targetLabel';
 import { toLocalInputValue } from '@/features/messaging/schedulePresets';
 import { useUserCache } from '@/stores/users';

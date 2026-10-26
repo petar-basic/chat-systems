@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
-import type { Conversation } from '@/hooks/queries/useConversations';
+import type { Conversation } from '@/features/messaging/hooks/useConversations';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { QUERY_KEYS } from '@/shared/constants';
 

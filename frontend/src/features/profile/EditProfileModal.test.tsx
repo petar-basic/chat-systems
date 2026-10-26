@@ -17,10 +17,10 @@ vi.mock('@/shared/hooks/useCurrentApi', async () => {
     }),
   };
 });
-vi.mock('@/hooks/queries/useAuth', () => ({
+vi.mock('@/features/instance/hooks/useAuth', () => ({
   useCurrentUser: () => ({ data: { id: 'user-1', email: 'alice@dev.local' } }),
 }));
-vi.mock('@/hooks/queries/useStatus', () => ({
+vi.mock('@/features/profile/hooks/useStatus', () => ({
   useMyStatus: () => ({ data: me, isLoading: false }),
   useSetStatus: () => ({
     set: { mutateAsync: (...args: unknown[]) => setStatus(...args) },

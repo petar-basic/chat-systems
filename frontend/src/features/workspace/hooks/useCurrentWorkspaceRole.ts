@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useParams } from 'react-router';
-import { useCurrentUser } from '@/hooks/queries/useAuth';
-import { useWorkspaces, useWorkspaceMembers } from '@/hooks/queries/useWorkspaces';
+import { useCurrentUser } from '@/features/instance/hooks/useAuth';
+import { useWorkspaces, useWorkspaceMembers } from '@/features/workspace/hooks/useWorkspaces';
 import { useInstanceStore } from '@/stores/instances';
 import { useWorkspaceStore, type WorkspaceMember, type WorkspaceRole } from '@/stores/workspace';
 

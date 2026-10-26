@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { ExportsSection } from './ExportsSection';
-import type { ExportDetail } from '@/hooks/queries/useExports';
+import type { ExportDetail } from '@/features/workspace/hooks/useExports';
 import type { WorkspaceMember } from '@/stores/workspace';
 
 const startMutate = vi.fn();
 let rows: ExportDetail[] = [];
 
-vi.mock('@/hooks/queries/useExports', () => ({
+vi.mock('@/features/workspace/hooks/useExports', () => ({
   useExports: () => ({ data: rows, isLoading: false, error: null }),
   useStartWorkspaceExport: () => ({ mutate: startMutate, isPending: false, isError: false }),
 }));

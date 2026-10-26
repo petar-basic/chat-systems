@@ -4,7 +4,7 @@ import { Button } from '@/shared/components/Button/Button';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { useQueryClient } from '@tanstack/react-query';
 import { Trash2, Upload } from 'lucide-react';
-import { useCustomEmoji, customEmojiKey } from '@/hooks/queries/useCustomEmoji';
+import { useCustomEmoji, customEmojiKey } from '@/features/workspace/hooks/useCustomEmoji';
 import { toUserMessage } from '@/lib/errors';
 import { toast } from '@/shared/components/Toast';
 import { TextInput } from '@/shared/components/Form/TextInput';

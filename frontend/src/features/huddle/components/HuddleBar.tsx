@@ -1,7 +1,7 @@
 import { Phone, Users } from 'lucide-react';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useHuddleStore } from '@/stores/huddle';
-import { useStartHuddle } from '@/hooks/queries/useHuddle';
+import { useStartHuddle } from '@/features/huddle/hooks/useHuddle';
 
 export function HuddleBar({ channelId }: { channelId: string }) {
   const currentWorkspace = useWorkspaceStore((s) => s.currentWorkspace);

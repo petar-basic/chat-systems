@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { FormAnswers } from './FormAnswers';
 
-vi.mock('@/components/RichTextDisplay', () => ({
+vi.mock('@/features/messaging/RichTextDisplay', () => ({
   default: ({ content }: { content: string }) => <span>{content}</span>,
 }));
 

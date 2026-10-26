@@ -25,7 +25,7 @@ import {
   useDndStatus,
   type AppNotification,
   type NotificationKind,
-} from '../hooks/queries/useNotifications';
+} from './hooks/useNotifications';
 import { flattenMentions } from '@/lib/mentions';
 import { currentPause, pauseLabel } from '@/lib/pause';
 import { PauseMenuItems } from '@/features/notifications';

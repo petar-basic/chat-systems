@@ -1,6 +1,6 @@
 import type { components } from '@/api/schema';
-import { MessageAttachments } from '../features/messaging/MessageAttachments';
-import MessageContent from '../features/messaging/MessageContent';
+import { MessageAttachments } from './MessageAttachments';
+import MessageContent from './MessageContent';
 
 type Attachment = components['schemas']['Attachment'];
 

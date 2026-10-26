@@ -4,10 +4,14 @@ import { AnchoredPopover } from '@/shared/components/Popover/AnchoredPopover';
 import { IconButton } from '@/shared/components/IconButton/IconButton';
 import { toast } from '@/shared/components/Toast';
 import { useWorkspaceStore } from '@/stores/workspace';
-import { useWorkspaceChannels } from '@/hooks/queries/useWorkspaces';
-import { useConversations } from '@/hooks/queries/useConversations';
-import { useSetChannelMuted } from '@/hooks/queries/useChannels';
-import { useNotifyDefault, useSetNotifyLevel, type NotifyLevel } from '@/hooks/queries/useNotifyLevels';
+import { useWorkspaceChannels } from '@/features/workspace/hooks/useWorkspaces';
+import { useConversations } from '@/features/messaging/hooks/useConversations';
+import { useSetChannelMuted } from '@/features/channel/hooks/useChannels';
+import {
+  useNotifyDefault,
+  useSetNotifyLevel,
+  type NotifyLevel,
+} from '@/features/notifications/hooks/useNotifyLevels';
 import { NOTIFY_LEVEL_LABELS } from './notifyLevels';
 
 const LEVELS: NotifyLevel[] = ['all', 'mentions', 'nothing'];

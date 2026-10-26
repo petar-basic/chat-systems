@@ -16,7 +16,7 @@ import {
   useRotateHook,
   type Hook,
   type HookSecrets,
-} from '@/hooks/queries/useHooks';
+} from '@/features/workspace/hooks/useHooks';
 
 interface Props {
   workspaceId: string;

@@ -5,7 +5,7 @@ import { PauseMenuItems } from './PauseMenuItems';
 const setDnd = vi.fn();
 let status: Record<string, string | null> | undefined;
 
-vi.mock('@/hooks/queries/useNotifications', () => ({
+vi.mock('@/features/notifications/hooks/useNotifications', () => ({
   useDndStatus: () => ({ data: status }),
   useSetDnd: () => ({ mutate: setDnd }),
 }));

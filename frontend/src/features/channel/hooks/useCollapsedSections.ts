@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { SidebarLayout, BuiltinSection } from '@/hooks/queries/useSidebarLayout';
+import type { SidebarLayout, BuiltinSection } from '@/features/channel/hooks/useSidebarLayout';
 
 export type SidebarSection = BuiltinSection;
 

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/shared/components/Button/Button';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ShieldCheck, ShieldOff, Copy, Check } from 'lucide-react';
-import { api } from '../lib/api';
+import { api } from '@/lib/api';
 import { toUserMessage } from '@/lib/errors';
 import { toast } from '@/shared/components/Toast';
 import type { components } from '@/api/schema';

@@ -6,7 +6,7 @@ import { logger } from '@/lib/logger';
 import { toast } from '@/shared/components/Toast';
 import { QUERY_KEYS, ErrorLabels } from '@/shared/constants';
 import { patchMessageById, claimReplyCount } from '@/lib/messageCache';
-import type { MessagesInfiniteData, OutgoingMessage } from './useMessages';
+import type { MessagesInfiniteData, OutgoingMessage } from '@/features/messaging/hooks/useMessages';
 
 export type ThreadSummary = components['schemas']['ThreadSummary'];
 export type ThreadState = components['schemas']['ThreadState'];

@@ -14,10 +14,10 @@ vi.mock('@/shared/hooks/useCurrentApi', () => ({
       }).then((result) => result.data),
   }),
 }));
-vi.mock('@/hooks/queries/useWorkspaces', () => ({
+vi.mock('@/features/workspace/hooks/useWorkspaces', () => ({
   useWorkspaceChannels: () => ({ data: [{ id: 'c-1', name: 'finance', channel_type: 'public' }] }),
 }));
-vi.mock('@/hooks/queries/useConversations', () => ({
+vi.mock('@/features/messaging/hooks/useConversations', () => ({
   useConversations: () => ({ data: [] }),
 }));
 

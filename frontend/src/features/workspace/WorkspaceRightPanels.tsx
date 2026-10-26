@@ -1,15 +1,15 @@
 import type { Channel, WorkspaceMember, Workspace } from '@/stores/workspace';
-import type { Conversation } from '@/hooks/queries/useConversations';
+import type { Conversation } from '@/features/messaging/hooks/useConversations';
 import type { RightPanel } from './hooks/useRightPanel';
-import ThreadPanel from '@/components/ThreadPanel';
-import SearchPanel from '@/components/SearchPanel';
-import PinnedMessagesPanel from '@/components/PinnedMessagesPanel';
-import ChannelFilesPanel from '@/components/ChannelFilesPanel';
-import ChannelMembersPanel from '@/components/ChannelMembersPanel';
-import NotificationsPanel from '@/components/NotificationsPanel';
+import ThreadPanel from '@/features/threads/ThreadPanel';
+import SearchPanel from '@/features/search/SearchPanel';
+import PinnedMessagesPanel from '@/features/channel/PinnedMessagesPanel';
+import ChannelFilesPanel from '@/features/channel/ChannelFilesPanel';
+import ChannelMembersPanel from '@/features/channel/ChannelMembersPanel';
+import NotificationsPanel from '@/features/notifications/NotificationsPanel';
 import { useCurrentWorkspaceRole } from './hooks/useCurrentWorkspaceRole';
-import ScheduledMessagesPanel from '@/components/ScheduledMessagesPanel';
-import LaterPanel from '@/components/LaterPanel';
+import ScheduledMessagesPanel from '@/features/messaging/ScheduledMessagesPanel';
+import LaterPanel from '@/features/later/LaterPanel';
 import { WorkflowsPanel, canBuild, workflowBuildersOf } from '@/features/workflows';
 
 interface Props {

@@ -6,11 +6,11 @@ import type { Channel, Workspace, WorkspaceMember } from '@/stores/workspace';
 let invites: unknown[] = [];
 let ssoEnabled = false;
 
-vi.mock('@/hooks/queries/useWorkspaces', () => ({
+vi.mock('@/features/workspace/hooks/useWorkspaces', () => ({
   useWorkspaceInvites: () => ({ data: invites }),
 }));
 
-vi.mock('@/hooks/queries/useInstanceInfo', () => ({
+vi.mock('@/features/instance/hooks/useInstanceInfo', () => ({
   useInstanceInfo: () => ({ data: { sso_enabled: ssoEnabled } }),
 }));
 

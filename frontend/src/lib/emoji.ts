@@ -1,5 +1,5 @@
 import { splitCustomEmoji } from './customEmoji';
-import type { CustomEmoji } from '@/hooks/queries/useCustomEmoji';
+import type { CustomEmoji } from '@/features/workspace/hooks/useCustomEmoji';
 
 const PICTOGRAPH = '(?:\\p{Extended_Pictographic}\\uFE0F|\\p{Emoji_Presentation}\\uFE0F?)';
 const SKIN_TONE = '[\\u{1F3FB}-\\u{1F3FF}]';

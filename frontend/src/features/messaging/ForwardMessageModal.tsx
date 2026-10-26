@@ -5,7 +5,7 @@ import { Hash, MessageSquare, Search } from 'lucide-react';
 import { Modal } from '@/shared/components/Modal/Modal';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import type { Channel } from '@/stores/workspace';
-import type { Conversation } from '@/hooks/queries/useConversations';
+import type { Conversation } from '@/features/messaging/hooks/useConversations';
 import { conversationTitle } from '@/lib/conversationHelpers';
 import { useUserCache } from '@/stores/users';
 import { forwardedBody } from './forwardBody';

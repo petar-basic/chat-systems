@@ -1,6 +1,6 @@
 import type { ChannelSettings } from '@/stores/workspace';
-import { useCurrentUser } from '@/hooks/queries/useAuth';
-import { useChannelMembers } from '@/hooks/queries/useChannels';
+import { useCurrentUser } from '@/features/instance/hooks/useAuth';
+import { useChannelMembers } from '@/features/channel/hooks/useChannels';
 import { useCurrentWorkspaceRole } from '@/features/workspace/hooks/useCurrentWorkspaceRole';
 import { canModerateChannel, canPostInChannel, type ChannelRole } from '@/lib/channelPermissions';
 

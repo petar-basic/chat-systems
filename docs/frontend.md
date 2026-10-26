@@ -29,7 +29,7 @@ reconciles them into the Query cache.
 - **Feature-modular** under `src/features/*` (workspace, channel, messaging, navigation,
   notifications, huddle), each with a barrel. Smart logic lives in hooks; views stay thin — e.g.
   `useWorkspaceController` holds the page's data + handlers and `WorkspacePage` just renders.
-- **`hooks/queries/*`** wrap every endpoint with Query/Mutation hooks and optimistic updates.
+- **`features/<feature>/hooks/*`** wrap every endpoint with Query/Mutation hooks and optimistic updates.
 - **`lib/`** is the infrastructure layer: `api` (typed `openapi-fetch` client with single-flight 401 refresh),
   `ws` (reconnecting WebSocket with backoff + re-subscribe + reconnect backfill), `instances`
   (multi-instance manager), `messageCache` (cache helpers),
@@ -121,7 +121,7 @@ Standard auth flows. POST to their respective `/auth/*` endpoints.
 ### `InstanceAdminPage`
 Instance-admin user management for the active instance (route `/app/admin`). Instance-admin
 gated; redirects non-admins to `/app`.
-**Reads:** GET `/admin/users?limit=200`, GET `/admin/audit-log?limit=200` (through `hooks/queries/useAdmin.ts`)
+**Reads:** GET `/admin/users?limit=200`, GET `/admin/audit-log?limit=200` (through `features/instance/hooks/useAdmin.ts`)
 **Writes:**
 - POST `/admin/users/{id}/suspend` / `/admin/users/{id}/activate` — toggle account status
 - PATCH `/admin/users/{id}/instance-role` `{ is_instance_admin }` — grant/revoke instance admin
@@ -538,7 +538,7 @@ In-memory map of `userId → { displayName, avatarUrl }`. Populated when workspa
 
 All hooks accept an optional `instanceUrl` to target a specific connected instance.
 
-### Auth (`hooks/queries/useAuth.ts`)
+### Auth (`features/instance/hooks/useAuth.ts`)
 | Hook | Call | Description |
 |------|------|-------------|
 | `useCurrentUser()` | — | Returns the active instance's user from `useInstanceStore` (no API call) |
@@ -577,7 +577,7 @@ Token refresh is **not** a hook — `ApiClient` refreshes automatically on 401 /
 | `useThreadMessages(parentId)` | GET `/messages/{id}/thread` | Thread replies |
 | `useSendThreadReply(parentId, chId)` | POST `/messages/{id}/thread` | Reply mutation |
 
-### Channels (`hooks/queries/useChannels.ts`)
+### Channels (`features/channel/hooks/useChannels.ts`)
 | Hook | Call | Description |
 |------|------|-------------|
 | `useChannelMembers(channelId)` | GET `/channels/{id}/members` | Channel members |
@@ -588,7 +588,7 @@ Token refresh is **not** a hook — `ApiClient` refreshes automatically on 401 /
 
 (`useChannel` lives in this module's barrel as needed; the channel object itself is also carried in the workspace channels list.)
 
-### Conversations (`hooks/queries/useConversations.ts`)
+### Conversations (`features/messaging/hooks/useConversations.ts`)
 | Hook | Call | Description |
 |------|------|-------------|
 | `useConversations(wsId, instanceUrl?)` | GET `/workspaces/{id}/conversations` | Direct and group conversations, newest message first, with participants and the caller's `last_read_at` |
@@ -598,7 +598,7 @@ Token refresh is **not** a hook — `ApiClient` refreshes automatically on 401 /
 Messages, threads, reactions, edits, pins, saved items and scheduled sends in a conversation
 use the channel hooks above with the conversation id as `channelId`.
 
-### Notifications (`hooks/queries/useNotifications.ts`)
+### Notifications (`features/notifications/hooks/useNotifications.ts`)
 | Hook | Call | Description |
 |------|------|-------------|
 | `useNotifications(wsId)` | GET `/workspaces/{id}/notifications?limit=50` | Notifications list (normalized) |
@@ -613,7 +613,7 @@ use the channel hooks above with the conversation id as `channelId`.
 | `useNotificationSchedule()` / `useSetNotificationSchedule()` | GET/PUT `/users/me/notification-schedule` | The caller's schedule (optimistic); a change refetches the DND status |
 | `useNotificationKeywords(wsId)` / `useSetNotificationKeywords(wsId)` | GET/PUT `/workspaces/{id}/notification-keywords` | The caller's keywords; a change is optimistic and rolls back on error |
 
-### Huddles (`hooks/queries/useHuddle.ts`)
+### Huddles (`features/huddle/hooks/useHuddle.ts`)
 `useActiveHuddles(wsId, instanceUrl?)` backfills currently-active huddles for the workspace.
 
 ---

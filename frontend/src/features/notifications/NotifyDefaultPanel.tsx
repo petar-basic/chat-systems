@@ -1,7 +1,11 @@
 import { RadioCards } from '@/shared/components/Form/RadioCards';
 import { toast } from '@/shared/components/Toast';
 import { useWorkspaceStore } from '@/stores/workspace';
-import { useNotifyDefault, useSetNotifyDefault, type NotifyLevel } from '@/hooks/queries/useNotifyLevels';
+import {
+  useNotifyDefault,
+  useSetNotifyDefault,
+  type NotifyLevel,
+} from '@/features/notifications/hooks/useNotifyLevels';
 import { NOTIFY_LEVEL_LABELS } from './notifyLevels';
 
 const DESCRIPTIONS: Record<NotifyLevel, string> = {

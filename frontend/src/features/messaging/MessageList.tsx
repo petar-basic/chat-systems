@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useUnreadChannels } from '@/hooks/queries/useChannels';
+import { useUnreadChannels } from '@/features/channel/hooks/useChannels';
 import { UnreadDivider } from './UnreadDivider';
 import { MessageSquare } from 'lucide-react';
 import MessageItem from './MessageItem';
@@ -8,7 +8,7 @@ import { GalleryProvider } from './GalleryProvider';
 import { RovingContext, createRovingStore } from './rovingFocus';
 import { buildMessageRows, type MessageRow } from './messageRows';
 import { useWorkspaceStore, type Message, type WorkspaceMember, type Channel } from '@/stores/workspace';
-import { useMessages, messagesOldestFirst } from '@/hooks/queries/useMessages';
+import { useMessages, messagesOldestFirst } from '@/features/messaging/hooks/useMessages';
 import { useUserCache } from '@/stores/users';
 import { displayNameOf } from '@/lib/userHelpers';
 import { useMessageActions } from './hooks/useMessageActions';

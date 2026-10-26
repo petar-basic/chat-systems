@@ -6,7 +6,7 @@ import { useWorkspaceStore } from '@/stores/workspace';
 import { useNotificationPrefs } from '@/stores/notificationPrefs';
 import { showNotification, playMessageSound } from '@/lib/notifications';
 import { QUERY_KEYS, ROUTES } from '@/shared/constants';
-import { NotificationType } from '@/models/enums';
+import { NotificationType } from '@/shared/models/enums';
 
 export function NotificationStream() {
   const navigate = useNavigate();

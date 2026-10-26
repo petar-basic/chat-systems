@@ -4,7 +4,10 @@ import { TextInput } from '@/shared/components/Form/TextInput';
 import { IconButton } from '@/shared/components/IconButton/IconButton';
 import { toast } from '@/shared/components/Toast';
 import { useWorkspaceStore } from '@/stores/workspace';
-import { useNotificationKeywords, useSetNotificationKeywords } from '@/hooks/queries/useNotificationKeywords';
+import {
+  useNotificationKeywords,
+  useSetNotificationKeywords,
+} from '@/features/notifications/hooks/useNotificationKeywords';
 import { keywordProblem } from '@/lib/keywords';
 
 export function KeywordsPanel() {

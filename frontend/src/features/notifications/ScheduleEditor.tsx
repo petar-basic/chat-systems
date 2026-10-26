@@ -5,7 +5,7 @@ import {
   useNotificationSchedule,
   useSetNotificationSchedule,
   type ScheduleChange,
-} from '@/hooks/queries/useNotificationSchedule';
+} from '@/features/notifications/hooks/useNotificationSchedule';
 import { DAY_LABELS, EVERY_DAY, WEEKDAYS, minuteLabel, timeOptions } from './schedule';
 
 const CHIP =

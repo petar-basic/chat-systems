@@ -3,9 +3,9 @@ import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
 import { toUserMessage } from '@/lib/errors';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
-import { useUserCache } from '../stores/users';
-import { useWorkspaceStore } from '../stores/workspace';
-import type { Message, WorkspaceMember } from '../stores/workspace';
+import { useUserCache } from '@/stores/users';
+import { useWorkspaceStore } from '@/stores/workspace';
+import type { Message, WorkspaceMember } from '@/stores/workspace';
 import { SearchFilterBar } from '@/features/search/SearchFilterBar';
 import {
   extractFilters,
@@ -24,8 +24,8 @@ import { IconButton } from '@/shared/components/IconButton/IconButton';
 import { displayNameOf } from '@/lib/userHelpers';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
-import { useWorkspaceChannels } from '@/hooks/queries/useWorkspaces';
-import { useConversations } from '@/hooks/queries/useConversations';
+import { useWorkspaceChannels } from '@/features/workspace/hooks/useWorkspaces';
+import { useConversations } from '@/features/messaging/hooks/useConversations';
 import { toPlainText } from '@/lib/plainText';
 import { formatDateTime } from '@/lib/datetime';
 import { TextInput } from '@/shared/components/Form/TextInput';

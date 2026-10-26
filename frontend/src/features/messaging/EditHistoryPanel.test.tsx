@@ -21,10 +21,10 @@ const edits = [
 
 let state: { data?: typeof edits; isLoading: boolean; error?: Error } = { data: edits, isLoading: false };
 
-vi.mock('@/hooks/queries/useEditHistory', () => ({
+vi.mock('@/features/messaging/hooks/useEditHistory', () => ({
   useEditHistory: () => state,
 }));
-vi.mock('@/hooks/queries/useAuth', () => ({
+vi.mock('@/features/instance/hooks/useAuth', () => ({
   useCurrentUser: () => ({ data: { id: 'u1' } }),
 }));
 

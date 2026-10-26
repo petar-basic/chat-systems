@@ -2,16 +2,16 @@ import { useState, useEffect } from 'react';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { useNavigate } from 'react-router';
 import { UserX, UserCheck, ArrowLeft, RefreshCw } from 'lucide-react';
-import { useInstanceStore } from '../stores/instances';
-import { useCurrentUser } from '../hooks/queries/useAuth';
+import { useInstanceStore } from '@/stores/instances';
+import { useCurrentUser } from '@/features/instance/hooks/useAuth';
 import {
   useAdminAuditLog,
   useAdminUsers,
   useSetInstanceRole,
   useSetUserStatus,
   type AdminUser,
-} from '../hooks/queries/useAdmin';
-import AuditLogTable from '../features/workspace/components/AuditLogTable';
+} from '@/features/instance/hooks/useAdmin';
+import AuditLogTable from '@/features/workspace/components/AuditLogTable';
 import { toUserMessage } from '@/lib/errors';
 import { Select } from '@/shared/components/Form/Select';
 import { TestEmailCheck } from '@/features/setup/TestEmailCheck';

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { Rocket } from 'lucide-react';
 import { Button } from '@/shared/components/Button/Button';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
-import { useInstanceInfo } from '@/hooks/queries/useInstanceInfo';
+import { useInstanceInfo } from '@/features/instance/hooks/useInstanceInfo';
 import { SetupForm } from '@/features/setup/SetupForm';
 import { TestEmailCheck } from '@/features/setup/TestEmailCheck';
 import { toUserMessage } from '@/lib/errors';

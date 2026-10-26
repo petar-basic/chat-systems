@@ -11,7 +11,7 @@ import {
   useJoinChannel,
   useLeaveChannel,
   type BrowsableChannel,
-} from '@/hooks/queries/useChannels';
+} from '@/features/channel/hooks/useChannels';
 
 type SortKey = 'name' | 'members' | 'newest';
 

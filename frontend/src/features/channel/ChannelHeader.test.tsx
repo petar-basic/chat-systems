@@ -6,11 +6,11 @@ import type { Channel } from '@/stores/workspace';
 const moderation = { canModerate: false };
 
 vi.mock('react-router', () => ({ useNavigate: () => vi.fn() }));
-vi.mock('@/hooks/queries/useChannels', () => ({
+vi.mock('@/features/channel/hooks/useChannels', () => ({
   useChannelMembers: () => ({ data: [{ user_id: 'u-1' }, { user_id: 'u-2' }, { user_id: 'u-3' }] }),
   useChannelPins: () => ({ data: [{ id: 'm-1' }, { id: 'm-2' }] }),
 }));
-vi.mock('@/hooks/queries/useHooks', () => ({ useHookedChannels: () => ({ data: new Set() }) }));
+vi.mock('@/features/workspace/hooks/useHooks', () => ({ useHookedChannels: () => ({ data: new Set() }) }));
 vi.mock('./hooks/useChannelModeration', () => ({ useChannelModeration: () => moderation }));
 vi.mock('@/features/huddle', () => ({ HuddleBar: () => null }));
 vi.mock('@/features/notifications', () => ({

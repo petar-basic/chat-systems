@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { splitEmojiText, countEmojiOnly, isJumboEmoji } from './emoji';
-import type { CustomEmoji } from '@/hooks/queries/useCustomEmoji';
+import type { CustomEmoji } from '@/features/workspace/hooks/useCustomEmoji';
 
 const shipit: CustomEmoji = {
   id: '1',

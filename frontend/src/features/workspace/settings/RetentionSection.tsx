@@ -11,7 +11,7 @@ import {
   useRetentionPreview,
   useSaveRetention,
   type RetentionPolicy,
-} from '@/hooks/queries/useRetention';
+} from '@/features/workspace/hooks/useRetention';
 
 interface Props {
   workspaceId: string;

@@ -8,14 +8,14 @@ import { useWorkspaceStore } from '@/stores/workspace';
 import { useCurrentWorkspaceRole } from '@/features/workspace/hooks/useCurrentWorkspaceRole';
 import { getUserDisplay } from '@/lib/userHelpers';
 import { UserPlus, UserMinus, Crown, Shield, User, Mail, PackageOpen, Eraser } from 'lucide-react';
-import PresenceDot from '@/components/PresenceDot';
+import PresenceDot from '@/shared/components/PresenceDot';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
-import { useWorkspaceMembers } from '@/hooks/queries/useWorkspaces';
+import { useWorkspaceMembers } from '@/features/workspace/hooks/useWorkspaces';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/shared/constants';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { Select } from '@/shared/components/Form/Select';
-import { useErasePerson, useStartPersonExport } from '@/hooks/queries/useExports';
+import { useErasePerson, useStartPersonExport } from '@/features/workspace/hooks/useExports';
 import { ErasePersonDialog } from './ErasePersonDialog';
 
 interface Props {

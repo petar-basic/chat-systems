@@ -1,5 +1,5 @@
 import { Moon } from 'lucide-react';
-import { useDndStatus, useSetDnd } from '@/hooks/queries/useNotifications';
+import { useDndStatus, useSetDnd } from '@/features/notifications/hooks/useNotifications';
 import { PAUSE_PRESETS, currentPause, minutesFromNowIso, pauseLabel, tomorrowMorningIso } from '@/lib/pause';
 
 const ITEM = 'w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised cursor-pointer';

@@ -1,4 +1,4 @@
-import { usePresenceStore, type PresenceStatus } from '../stores/presence';
+import { usePresenceStore, type PresenceStatus } from '@/stores/presence';
 
 interface Props {
   userId: string;

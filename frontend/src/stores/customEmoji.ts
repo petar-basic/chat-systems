@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { CustomEmoji } from '@/hooks/queries/useCustomEmoji';
+import type { CustomEmoji } from '@/features/workspace/hooks/useCustomEmoji';
 
 interface CustomEmojiState {
   byName: Map<string, CustomEmoji>;

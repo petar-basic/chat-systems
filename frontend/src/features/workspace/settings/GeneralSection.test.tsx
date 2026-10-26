@@ -8,7 +8,7 @@ import type { Workspace } from '@/stores/workspace';
 const patch = vi.fn();
 
 vi.mock('react-router', () => ({ useNavigate: () => vi.fn() }));
-vi.mock('@/hooks/queries/useWorkspaces', () => ({
+vi.mock('@/features/workspace/hooks/useWorkspaces', () => ({
   useRestoreWorkspace: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 vi.mock('@/shared/hooks/useCurrentApi', () => ({

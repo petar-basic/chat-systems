@@ -9,7 +9,7 @@ let mutation: { isPending: boolean; isError: boolean; error: unknown } = {
   error: null,
 };
 
-vi.mock('@/hooks/queries/useAuth', () => ({
+vi.mock('@/features/instance/hooks/useAuth', () => ({
   useCompleteSetup: () => ({ mutate, ...mutation }),
 }));
 
