@@ -7,7 +7,7 @@ import { TextInput } from '@/shared/components/Form/TextInput';
 import { toUserMessage } from '@/lib/errors';
 import { displayNameOf } from '@/lib/userHelpers';
 import { useWorkspaceStore } from '@/stores/workspace';
-import { useWorkspaceMembers } from '@/features/workspace/hooks/useWorkspaces';
+import { useWorkspaceMembers } from '@/features/workspace';
 import { useSubmitForm } from './useWorkflows';
 import { LONG_ANSWER_MAX, SHORT_ANSWER_MAX, type FormField, type FormRequest } from './workflowModel';
 

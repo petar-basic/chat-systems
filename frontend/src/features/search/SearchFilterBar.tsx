@@ -18,7 +18,7 @@ import {
   type SearchTab,
 } from './searchFilters';
 import { TextInput } from '@/shared/components/Form/TextInput';
-import { FILE_KINDS, type FileKindName } from '@/features/messaging/fileKinds';
+import { FILE_KINDS, type FileKindName } from '@/lib/fileKinds';
 
 type Picker = 'from' | 'in' | 'has' | 'type' | 'date';
 

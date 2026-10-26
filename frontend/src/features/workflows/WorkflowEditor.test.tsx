@@ -38,8 +38,8 @@ vi.mock('./useWorkflows', () => ({
   }),
 }));
 
-vi.mock('@/features/messaging', () => ({
-  EmojiPicker: ({ onSelect, onClose }: { onSelect: (emoji: string) => void; onClose: () => void }) => (
+vi.mock('@/features/messaging/EmojiPicker', () => ({
+  default: ({ onSelect, onClose }: { onSelect: (emoji: string) => void; onClose: () => void }) => (
     <button
       type="button"
       onClick={() => {

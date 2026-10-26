@@ -9,9 +9,13 @@ vi.mock('@/features/notifications/EmailNotificationsPanel', () => ({
   default: () => <div data-qa="email-panel" />,
 }));
 vi.mock('@/features/profile/ThemePicker', () => ({ default: () => <div data-qa="theme-panel" /> }));
-vi.mock('@/features/notifications', () => ({
+vi.mock('@/features/notifications/NotifyDefaultPanel', () => ({
   NotifyDefaultPanel: () => <div data-qa="notify-default" />,
+}));
+vi.mock('@/features/notifications/KeywordsPanel', () => ({
   KeywordsPanel: () => <div data-qa="notification-keywords" />,
+}));
+vi.mock('@/features/notifications/ScheduleEditor', () => ({
   ScheduleEditor: () => <div data-qa="notification-schedule" />,
 }));
 vi.mock('@/features/profile/TwoFactorPanel', () => ({ default: () => <div data-qa="security-panel" /> }));

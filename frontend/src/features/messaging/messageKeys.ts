@@ -1,4 +1,4 @@
-import type { ShortcutKey } from '@/features/navigation/shortcuts';
+import type { ShortcutKey } from '@/features/navigation';
 
 export type MessageKeyAction =
   'previous' | 'next' | 'edit' | 'thread' | 'react' | 'later' | 'pin' | 'composer';

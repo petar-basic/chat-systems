@@ -8,7 +8,7 @@ import { TextArea } from '@/shared/components/Form/TextArea';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import type { Channel } from '@/stores/workspace';
 import { useUpdateChannel, useArchiveChannel } from '@/features/channel/hooks/useChannels';
-import { useChannelRetention, useSetChannelRetention } from '@/features/workspace/hooks/useRetention';
+import { useChannelRetention, useSetChannelRetention } from '@/features/workspace';
 import { ChannelRetentionField } from './ChannelRetentionField';
 import { choiceOf, periodOf, type PeriodChoice } from './channelPeriod';
 

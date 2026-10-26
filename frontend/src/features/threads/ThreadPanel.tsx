@@ -15,10 +15,14 @@ import {
   useThreadState,
 } from '@/features/threads/hooks/useThreads';
 import { Button } from '@/shared/components/Button/Button';
-import RichTextDisplay from '@/features/messaging/RichTextDisplay';
-import { MessageInput, MessageItem } from '@/features/messaging';
-import { asAttachments, useComposerAttachments } from '@/features/messaging/useComposerAttachments';
-import { GalleryProvider } from '@/features/messaging/GalleryProvider';
+import {
+  RichTextDisplay,
+  MessageInput,
+  MessageItem,
+  asAttachments,
+  useComposerAttachments,
+  GalleryProvider,
+} from '@/features/messaging';
 
 interface Props {
   parentMessage: Message;

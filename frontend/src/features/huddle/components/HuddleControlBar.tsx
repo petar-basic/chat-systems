@@ -16,7 +16,7 @@ import {
 import { useHuddleStore, type ActiveHuddle } from '@/stores/huddle';
 import { displayNameOf } from '@/lib/userHelpers';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
-import { useWorkspaceMembers } from '@/features/workspace/hooks/useWorkspaces';
+import { useWorkspaceMembers } from '@/features/workspace';
 import { useInviteToHuddle } from '@/features/huddle/hooks/useHuddle';
 import { useMediaDevices } from '../hooks/useMediaDevices';
 import type { HuddleControls } from '../HuddleController';

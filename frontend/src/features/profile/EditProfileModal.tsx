@@ -11,7 +11,7 @@ import { buttonStyles } from '@/shared/components/Button/buttonStyles';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { QUERY_KEYS } from '@/shared/constants';
-import { useCurrentUser } from '@/features/instance/hooks/useAuth';
+import { useCurrentUser } from '@/features/instance';
 import { useMyStatus, useSetStatus } from '@/features/profile/hooks/useStatus';
 import { useInstanceStore } from '@/stores/instances';
 import { useWorkspaceStore } from '@/stores/workspace';

@@ -1,7 +1,7 @@
 import { AlertCircle, X } from 'lucide-react';
 import { formatBytes } from '@/lib/fileSize';
 import type { PendingAttachment } from './useComposerAttachments';
-import { fileKind } from './fileKinds';
+import { fileKind } from '@/lib/fileKinds';
 
 interface Props {
   items: PendingAttachment[];

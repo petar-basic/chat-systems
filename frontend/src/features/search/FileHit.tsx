@@ -5,7 +5,7 @@ import { displayNameOf } from '@/lib/userHelpers';
 import { formatBytes } from '@/lib/fileSize';
 import { formatDateTime } from '@/lib/datetime';
 import { fragmentRange } from '@/lib/fold';
-import { FILE_KINDS, isRenderableImage } from '@/features/messaging/fileKinds';
+import { FILE_KINDS, isRenderableImage } from '@/lib/fileKinds';
 
 export type FileSearchHit = components['schemas']['FileSearchHit'];
 type SnippetPart = components['schemas']['SnippetPart'];

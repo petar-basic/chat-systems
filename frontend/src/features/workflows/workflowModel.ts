@@ -1,5 +1,5 @@
 import type { components } from '@/api/schema';
-import type { ListColumn } from '@/features/lists/listModel';
+import type { ListColumn } from '@/features/lists';
 
 export type Workflow = components['schemas']['Workflow'];
 export type WorkflowRun = components['schemas']['WorkflowRun'];

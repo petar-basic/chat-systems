@@ -10,7 +10,7 @@ import {
   usePinMessage,
   useSendMessage,
 } from '@/features/messaging/hooks/useMessages';
-import { useCurrentUser } from '@/features/instance/hooks/useAuth';
+import { useCurrentUser } from '@/features/instance';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { toast } from '@/shared/components/Toast';
 import { ROUTES, ActionLabels } from '@/shared/constants';

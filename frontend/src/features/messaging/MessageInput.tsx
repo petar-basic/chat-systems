@@ -27,14 +27,12 @@ import { SCHEDULE_PRESETS, formatScheduleHint, toLocalInputValue } from './sched
 import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
 import { buildMentionItems } from './mentionItems';
-import { useUserGroups } from '@/features/workspace/hooks/useUserGroups';
+import { useUserGroups } from '@/features/workspace';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { FilePicker } from '@/shared/components/Form/FilePicker';
-import { PollDialog, type PollTarget } from '@/features/polls/PollDialog';
-import { parsePollCommand } from '@/features/polls/pollCommand';
-import { useCreatePoll } from '@/features/polls/usePolls';
-import { ShortcutMenu } from '@/features/workflows/ShortcutMenu';
+import { PollDialog, type PollTarget, parsePollCommand, useCreatePoll } from '@/features/polls';
+import { ShortcutMenu } from '@/features/workflows';
 
 const MentionNode = Mention.extend({
   addStorage() {

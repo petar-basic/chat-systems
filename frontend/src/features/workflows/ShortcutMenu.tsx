@@ -3,8 +3,7 @@ import { Zap } from 'lucide-react';
 import { AnchoredPopover } from '@/shared/components/Popover/AnchoredPopover';
 import { toast } from '@/shared/components/Toast';
 import { toUserMessage } from '@/lib/errors';
-import { MenuItem } from '@/features/lists/MenuItem';
-import { roveMenu } from '@/features/lists/roveMenu';
+import { MenuItem, roveMenu } from '@/features/lists';
 import { useStartWorkflow, useWorkflowShortcuts } from './useWorkflows';
 import type { WorkflowShortcut } from './workflowModel';
 

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/shared/components/Button/Button';
 import { useWorkspaceStore } from '@/stores/workspace';
-import { useAppActions, useApps, type AppProvider } from '@/features/workspace/hooks/useApps';
+import { useAppActions, useApps, type AppProvider } from '@/features/workspace';
 import { appName } from '@/lib/appConnect';
 import { AppIcon } from '@/shared/components/AppIcon/AppIcon';
 

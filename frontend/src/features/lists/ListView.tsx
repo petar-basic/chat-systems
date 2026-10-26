@@ -8,7 +8,7 @@ import { TextInput } from '@/shared/components/Form/TextInput';
 import { AnchoredPopover } from '@/shared/components/Popover/AnchoredPopover';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog/ConfirmDialog';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
-import { useChannelModeration } from '@/features/channel/hooks/useChannelModeration';
+import { useChannelModeration } from '@/features/channel';
 import { ListGrid } from './ListGrid';
 import { ItemPanel } from './ItemPanel';
 import { ItemComments } from './ItemComments';

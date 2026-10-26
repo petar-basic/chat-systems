@@ -3,7 +3,7 @@ import { CheckCircle2, Circle, ExternalLink, X } from 'lucide-react';
 import { Button } from '@/shared/components/Button/Button';
 import { IconButton } from '@/shared/components/IconButton/IconButton';
 import { useWorkspaceInvites } from '@/features/workspace/hooks/useWorkspaces';
-import { useInstanceInfo } from '@/features/instance/hooks/useInstanceInfo';
+import { useInstanceInfo } from '@/features/instance';
 import type { Channel, Workspace, WorkspaceMember } from '@/stores/workspace';
 import {
   SSO_RUNBOOK_URL,

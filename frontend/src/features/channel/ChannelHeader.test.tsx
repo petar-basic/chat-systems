@@ -12,8 +12,8 @@ vi.mock('@/features/channel/hooks/useChannels', () => ({
 }));
 vi.mock('@/features/workspace/hooks/useHooks', () => ({ useHookedChannels: () => ({ data: new Set() }) }));
 vi.mock('./hooks/useChannelModeration', () => ({ useChannelModeration: () => moderation }));
-vi.mock('@/features/huddle', () => ({ HuddleBar: () => null }));
-vi.mock('@/features/notifications', () => ({
+vi.mock('@/features/huddle/components/HuddleBar', () => ({ HuddleBar: () => null }));
+vi.mock('@/features/notifications/NotificationLevelMenu', () => ({
   NotificationLevelButton: () => null,
   NotificationLevelMenu: () => null,
 }));

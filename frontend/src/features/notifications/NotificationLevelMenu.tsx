@@ -4,9 +4,9 @@ import { AnchoredPopover } from '@/shared/components/Popover/AnchoredPopover';
 import { IconButton } from '@/shared/components/IconButton/IconButton';
 import { toast } from '@/shared/components/Toast';
 import { useWorkspaceStore } from '@/stores/workspace';
-import { useWorkspaceChannels } from '@/features/workspace/hooks/useWorkspaces';
-import { useConversations } from '@/features/messaging/hooks/useConversations';
-import { useSetChannelMuted } from '@/features/channel/hooks/useChannels';
+import { useWorkspaceChannels } from '@/features/workspace';
+import { useConversations } from '@/features/messaging';
+import { useSetChannelMuted } from '@/features/channel';
 import {
   useNotifyDefault,
   useSetNotifyLevel,

@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react';
 import type { components } from '@/api/schema';
 import type { Message } from '@/stores/workspace';
-import { isRenderableImage } from './fileKinds';
+import { isRenderableImage } from '@/lib/fileKinds';
 
 type Attachment = components['schemas']['Attachment'];
 

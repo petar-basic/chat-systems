@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { AlarmClock } from 'lucide-react';
 import { AnchoredPopover } from '@/shared/components/Popover/AnchoredPopover';
 import { IconButton } from '@/shared/components/IconButton/IconButton';
-import { REMIND_PRESETS, formatScheduleHint, toLocalInputValue } from '@/features/messaging/schedulePresets';
+import { REMIND_PRESETS, formatScheduleHint, toLocalInputValue } from '@/features/messaging';
 import { TextInput } from '@/shared/components/Form/TextInput';
 
 interface Props {

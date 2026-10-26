@@ -1,10 +1,8 @@
 import type { MutableRefObject, ReactNode } from 'react';
 import type { Message } from '@/stores/workspace';
 import RichTextDisplay from '@/features/messaging/RichTextDisplay';
-import { PollCard, type PollKeyVote } from '@/features/polls/PollCard';
-import { FormCard } from '@/features/workflows/FormCard';
-import { FormAnswers } from '@/features/workflows/FormAnswers';
-import { introOf } from '@/features/workflows/answerFields';
+import { PollCard, type PollKeyVote } from '@/features/polls';
+import { FormCard, FormAnswers, introOf } from '@/features/workflows';
 import { LinkPreviews } from './LinkPreviews';
 import { AppConnectPrompt } from './AppConnectPrompt';
 

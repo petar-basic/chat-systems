@@ -5,9 +5,9 @@ import { useLongPress } from '@/shared/hooks/useLongPress';
 import MessageActionSheet from './MessageActionSheet';
 import type { Message, WorkspaceMember, Channel } from '@/stores/workspace';
 import RichTextDisplay from '@/features/messaging/RichTextDisplay';
-import type { PollKeyVote } from '@/features/polls/PollCard';
+import type { PollKeyVote } from '@/features/polls';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
-import { HuddleSystemMessage } from '@/features/huddle/components/HuddleSystemMessage';
+import { HuddleSystemMessage } from '@/features/huddle';
 import {
   EDIT_MESSAGE_EVENT,
   focusComposer,
@@ -17,10 +17,10 @@ import {
   type MessageKeyAction,
 } from './messageKeys';
 import { useIsTabStop, useRovingFocus } from './rovingFocus';
-import { useLaterActions, useSavedItemId } from '@/features/later/hooks/useLater';
+import { useLaterActions, useSavedItemId } from '@/features/later';
 import { useWorkspaceStore } from '@/stores/workspace';
 import EditHistoryPanel from './EditHistoryPanel';
-import { useCurrentWorkspaceRole } from '@/features/workspace/hooks/useCurrentWorkspaceRole';
+import { useCurrentWorkspaceRole } from '@/features/workspace';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog/ConfirmDialog';
 import { QUICK_REACTIONS, sheetActionsFor, type MessageActionHandlers } from './messageActionList';
 import { MessageActionsBar } from './MessageActionsBar';

@@ -47,8 +47,8 @@ vi.mock('@/features/threads/hooks/useThreads', () => ({
   useSendThreadReply: () => ({ mutate: sendReply }),
 }));
 
-vi.mock('@/features/messaging', () => ({
-  MessageInput: ({ onSend }: { onSend: (content: string) => Promise<void> }) => (
+vi.mock('@/features/messaging/MessageInput', () => ({
+  default: ({ onSend }: { onSend: (content: string) => Promise<void> }) => (
     <button type="button" onClick={() => void onSend('on it')}>
       send
     </button>

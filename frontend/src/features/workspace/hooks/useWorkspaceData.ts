@@ -7,11 +7,10 @@ import { useCustomEmoji } from '@/features/workspace/hooks/useCustomEmoji';
 import { useUserGroupStore } from '@/stores/userGroups';
 import { useUserGroups } from '@/features/workspace/hooks/useUserGroups';
 import { useKeywordStore } from '@/stores/keywords';
-import { useNotificationKeywords } from '@/features/notifications/hooks/useNotificationKeywords';
+import { useNotificationKeywords, useWorkspaceUnreadCounts } from '@/features/notifications';
 import { useInstanceStore } from '@/stores/instances';
 import { useDocumentTitle } from '@/shared/hooks/useDocumentTitle';
 import { useFaviconBadge } from '@/shared/hooks/useFaviconBadge';
-import { useWorkspaceUnreadCounts } from '@/features/notifications/hooks/useNotifications';
 import {
   useWorkspaces,
   useWorkspaceChannels,
@@ -19,8 +18,8 @@ import {
   useDeletedWorkspaces,
   useRestoreWorkspace,
 } from '@/features/workspace/hooks/useWorkspaces';
-import { useConversations, useMarkConversationRead } from '@/features/messaging/hooks/useConversations';
-import { useUnreadChannels } from '@/features/channel/hooks/useChannels';
+import { useConversations, useMarkConversationRead } from '@/features/messaging';
+import { useUnreadChannels } from '@/features/channel';
 import { instanceManager } from '@/lib/instances';
 import { wsClient } from '@/lib/ws';
 import { usePresenceStore } from '@/stores/presence';
