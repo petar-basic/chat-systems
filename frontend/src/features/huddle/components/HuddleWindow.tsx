@@ -1,54 +1,21 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import {
-  Mic,
-  MicOff,
-  Video,
-  VideoOff,
-  ScreenShare,
-  ScreenShareOff,
-  PhoneOff,
-  Settings,
-  Pin,
-  Hand,
-  Smile,
-  Sparkles,
-  UserPlus,
-  LayoutGrid,
-  Maximize2,
-  Expand,
-  Shrink,
-} from 'lucide-react';
-import { useHuddleStore, type ActiveHuddle } from '@/stores/huddle';
-import { useUserCache } from '@/stores/users';
-import { displayNameOf } from '@/lib/userHelpers';
-import { Avatar } from '@/shared/components/Avatar/Avatar';
-import { useWorkspaceMembers } from '@/features/workspace/hooks/useWorkspaces';
-import { useInviteToHuddle } from '@/features/huddle/hooks/useHuddle';
-import { useSpeaking } from '../hooks/useSpeaking';
-import { useMediaDevices } from '../hooks/useMediaDevices';
+import { useState } from 'react';
+import { LayoutGrid, Maximize2, Expand, Shrink } from 'lucide-react';
+import { useHuddleStore } from '@/stores/huddle';
 import type { HuddleControls } from '../HuddleController';
-import { logger } from '@/lib/logger';
-import { Select } from '@/shared/components/Form/Select';
-
-type Layout = 'grid' | 'focus';
-
-const QUICK_REACTIONS = ['👍', '❤️', '😂', '🎉', '👏', '🙌'];
+import { buildTiles } from './huddleTiles';
+import { HuddleStage, type Layout } from './HuddleStage';
+import { HuddleControlBar } from './HuddleControlBar';
 
 export function HuddleWindow({ controls }: { controls: HuddleControls }) {
   const active = useHuddleStore((s) => s.active);
   const participants = useHuddleStore((s) => s.participants);
-  const speaking = useHuddleStore((s) => s.speaking);
-  const pinnedUserId = useHuddleStore((s) => s.pinnedUserId);
   const localMuted = useHuddleStore((s) => s.localMuted);
   const localCameraOn = useHuddleStore((s) => s.localCameraOn);
   const localSharing = useHuddleStore((s) => s.localSharing);
   const localHandRaised = useHuddleStore((s) => s.localHandRaised);
-  const background = useHuddleStore((s) => s.background);
   const localVideoStream = useHuddleStore((s) => s.localVideoStream);
   const localScreenStream = useHuddleStore((s) => s.localScreenStream);
   const localStream = useHuddleStore((s) => s.localStream);
-  const speakerId = useHuddleStore((s) => s.devices.speakerId);
-  const reactions = useHuddleStore((s) => s.reactions);
   const [layout, setLayout] = useState<Layout>('grid');
   const [expanded, setExpanded] = useState(false);
 
@@ -56,81 +23,18 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
 
   const self = active.selfUserId;
   const remotes = Object.values(participants).filter((p) => p.userId !== self);
-
-  // A shared screen is its own tile, not a replacement for the face: whoever is
-  // sharing shows up twice, once as themselves and once as their screen.
-  const tiles: TileProps[] = [
+  const tiles = buildTiles(
     {
-      tileId: `${self}:camera`,
-      userId: self,
-      kind: 'camera' as const,
-      stream: localVideoStream,
-      audioStream: null,
+      self,
+      videoStream: localVideoStream,
+      screenStream: localScreenStream,
       muted: localMuted,
       cameraOn: localCameraOn,
       sharing: localSharing,
       handRaised: localHandRaised,
-      isSelf: true,
     },
-    ...(localSharing && localScreenStream
-      ? [
-          {
-            tileId: `${self}:screen`,
-            userId: self,
-            kind: 'screen' as const,
-            stream: localScreenStream,
-            audioStream: null,
-            muted: localMuted,
-            cameraOn: localCameraOn,
-            sharing: true,
-            handRaised: false,
-            isSelf: true,
-          },
-        ]
-      : []),
-    ...remotes.flatMap((p) => [
-      {
-        tileId: `${p.userId}:camera`,
-        userId: p.userId,
-        kind: 'camera' as const,
-        stream: p.cameraStream,
-        audioStream: p.audioStream,
-        muted: p.audioMuted,
-        cameraOn: p.cameraOn,
-        sharing: p.sharing,
-        handRaised: p.handRaised,
-        isSelf: false,
-      },
-      ...(p.sharing && p.screenStream
-        ? [
-            {
-              tileId: `${p.userId}:screen`,
-              userId: p.userId,
-              kind: 'screen' as const,
-              stream: p.screenStream,
-              audioStream: null,
-              muted: p.audioMuted,
-              cameraOn: p.cameraOn,
-              sharing: true,
-              handRaised: false,
-              isSelf: false,
-            },
-          ]
-        : []),
-    ]),
-  ];
-
-  // A screen is shared to be looked at, so it takes the stage over whoever
-  // happens to be talking; an explicit pin still wins over both.
-  const activeSpeaker = [...speaking].find((id) => id !== self) ?? null;
-  const sharedScreen = tiles.find((t) => t.kind === 'screen' && !t.isSelf) ?? null;
-  const pinnedTile = pinnedUserId ? tiles.find((t) => t.userId === pinnedUserId) : null;
-  const focusTile =
-    pinnedTile ??
-    sharedScreen ??
-    tiles.find((t) => t.userId === (activeSpeaker ?? remotes[0]?.userId ?? self)) ??
-    tiles[0];
-  const stripTiles = tiles.filter((t) => t.tileId !== focusTile.tileId);
+    remotes,
+  );
 
   return (
     <div
@@ -142,12 +46,6 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
           : 'fixed bottom-4 right-4 z-60 w-120 max-w-[calc(100vw-2rem)] bg-surface border border-line rounded-2xl shadow-2xl p-3 flex flex-col gap-3'
       }
     >
-      {tiles
-        .filter((t) => t.audioStream)
-        .map((t) => (
-          <SpeakingDetector key={`spk-${t.tileId}`} userId={t.userId} stream={t.audioStream} />
-        ))}
-
       <div className="flex items-center justify-between">
         <span className="text-sm font-semibold text-fg">
           Huddle <span className="text-muted font-normal">· {tiles.length}</span>
@@ -172,109 +70,9 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
         </div>
       </div>
 
-      <div className={`relative ${expanded ? 'flex-1 min-h-0 overflow-y-auto' : ''}`}>
-        {layout === 'focus' ? (
-          <div className="flex flex-col gap-2">
-            <VideoTile
-              {...focusTile}
-              speaking={speaking.has(focusTile.userId)}
-              pinned={pinnedUserId === focusTile.userId}
-              speakerId={speakerId}
-              large
-            />
-            {stripTiles.length > 0 && (
-              <div className="flex gap-2 overflow-x-auto">
-                {stripTiles.map((t) => (
-                  <div key={t.tileId} className="w-28 shrink-0">
-                    <VideoTile
-                      {...t}
-                      speaking={speaking.has(t.userId)}
-                      pinned={pinnedUserId === t.userId}
-                      speakerId={speakerId}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div
-            className={`grid gap-2 ${expanded ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 content-start' : 'grid-cols-2'}`}
-          >
-            {tiles.map((t) => (
-              <VideoTile
-                key={t.tileId}
-                {...t}
-                speaking={speaking.has(t.userId)}
-                pinned={pinnedUserId === t.userId}
-                speakerId={speakerId}
-              />
-            ))}
-          </div>
-        )}
+      <HuddleStage tiles={tiles} self={self} layout={layout} expanded={expanded} />
 
-        {reactions.length > 0 && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-2 flex justify-center gap-2">
-            {reactions.map((r) => (
-              <span key={r.id} className="huddle-float text-3xl drop-shadow-lg">
-                {r.emoji}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="flex items-center justify-center gap-1.5 pt-1">
-        <ControlButton
-          active={!localMuted}
-          onClick={controls.toggleMute}
-          on={<Mic className="w-4 h-4" />}
-          off={<MicOff className="w-4 h-4" />}
-          label={localMuted ? 'Unmute' : 'Mute'}
-          danger={localMuted}
-        />
-        <ControlButton
-          active={localCameraOn}
-          onClick={() => void controls.toggleCamera()}
-          on={<Video className="w-4 h-4" />}
-          off={<VideoOff className="w-4 h-4" />}
-          label={localCameraOn ? 'Turn camera off' : 'Turn camera on'}
-        />
-        <ControlButton
-          active={localSharing}
-          onClick={() => void controls.toggleScreen()}
-          on={<ScreenShare className="w-4 h-4" />}
-          off={<ScreenShareOff className="w-4 h-4" />}
-          label={localSharing ? 'Stop sharing' : 'Share screen'}
-          highlight={localSharing}
-        />
-        <ControlButton
-          active={localHandRaised}
-          onClick={controls.toggleHand}
-          on={<Hand className="w-4 h-4" />}
-          off={<Hand className="w-4 h-4" />}
-          label={localHandRaised ? 'Lower hand' : 'Raise hand'}
-          highlight={localHandRaised}
-        />
-        <ControlButton
-          active={background === 'blur'}
-          onClick={() => void controls.toggleBackground()}
-          on={<Sparkles className="w-4 h-4" />}
-          off={<Sparkles className="w-4 h-4" />}
-          label={background === 'blur' ? 'Background blur on' : 'Blur background'}
-          highlight={background === 'blur'}
-        />
-        <ReactionPicker onPick={controls.sendReaction} />
-        <InvitePicker active={active} />
-        <DevicePicker controls={controls} />
-        <button
-          onClick={controls.leave}
-          aria-label="Leave huddle"
-          className="p-2.5 rounded-full bg-red-600 text-white hover:bg-red-500 transition"
-        >
-          <PhoneOff className="w-4 h-4" />
-        </button>
-      </div>
+      <HuddleControlBar controls={controls} active={active} />
 
       {!localStream ? (
         <p className="text-xs text-muted text-center">Connecting…</p>
@@ -282,362 +80,5 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
         remotes.length === 0 && <p className="text-xs text-muted text-center">Waiting for others to join…</p>
       )}
     </div>
-  );
-}
-
-interface TileProps {
-  tileId: string;
-  userId: string;
-  kind: 'camera' | 'screen';
-  stream: MediaStream | null;
-  audioStream: MediaStream | null;
-  muted: boolean;
-  cameraOn: boolean;
-  sharing: boolean;
-  handRaised: boolean;
-  isSelf: boolean;
-}
-
-type VideoTileProps = TileProps & {
-  speaking: boolean;
-  pinned: boolean;
-  speakerId: string | null;
-  large?: boolean;
-};
-
-type SinkAudio = HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> };
-
-function VideoTile({
-  userId,
-  kind,
-  stream,
-  audioStream,
-  muted,
-  sharing,
-  handRaised,
-  isSelf,
-  speaking,
-  pinned,
-  speakerId,
-  large,
-}: VideoTileProps) {
-  const { getUser } = useUserCache();
-  const participant = getUser(userId);
-  const name = displayNameOf(participant?.display_name);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const isScreen = kind === 'screen';
-
-  const subscribeVideo = useCallback(
-    (onChange: () => void) => {
-      if (!stream) return () => undefined;
-      const subscribed = new Set<MediaStreamTrack>();
-      const sync = () => {
-        for (const t of stream.getVideoTracks()) {
-          if (!subscribed.has(t)) {
-            subscribed.add(t);
-            t.addEventListener('mute', onChange);
-            t.addEventListener('unmute', onChange);
-            t.addEventListener('ended', onChange);
-          }
-        }
-      };
-      const onMutation = () => {
-        sync();
-        onChange();
-      };
-      sync();
-      stream.addEventListener('addtrack', onMutation);
-      stream.addEventListener('removetrack', onMutation);
-      return () => {
-        stream.removeEventListener('addtrack', onMutation);
-        stream.removeEventListener('removetrack', onMutation);
-        for (const t of subscribed) {
-          t.removeEventListener('mute', onChange);
-          t.removeEventListener('unmute', onChange);
-          t.removeEventListener('ended', onChange);
-        }
-      };
-    },
-    [stream],
-  );
-  const hasVideo = useSyncExternalStore(
-    subscribeVideo,
-    () => !!stream && stream.getVideoTracks().some((t) => t.readyState === 'live' && !t.muted),
-  );
-
-  useEffect(() => {
-    const v = videoRef.current;
-    if (v && v.srcObject !== stream) v.srcObject = stream;
-  }, [stream]);
-
-  useEffect(() => {
-    const a = audioRef.current;
-    if (a && a.srcObject !== audioStream) {
-      a.srcObject = audioStream;
-      void a.play().catch((e) => logger.warn('VideoTile', 'audioPlay', String(e)));
-    }
-  }, [audioStream]);
-
-  useEffect(() => {
-    if (hasVideo)
-      void videoRef.current?.play().catch((e) => logger.warn('VideoTile', 'videoPlay', String(e)));
-  }, [hasVideo]);
-
-  useEffect(() => {
-    const a = audioRef.current as SinkAudio | null;
-    if (a?.setSinkId && speakerId) {
-      void a.setSinkId(speakerId).catch((e) => logger.warn('VideoTile', 'setSinkId', String(e)));
-    }
-  }, [speakerId]);
-
-  return (
-    <div
-      className={`relative ${large ? 'aspect-video' : 'aspect-[4/3]'} rounded-lg overflow-hidden bg-app ring-2 transition ${
-        speaking && !muted ? 'ring-green-500/70' : 'ring-transparent'
-      }`}
-    >
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        muted
-        className={`w-full h-full ${isScreen ? 'object-contain bg-black' : 'object-cover'} ${
-          hasVideo ? '' : 'hidden'
-        } ${isSelf && !isScreen ? 'scale-x-[-1]' : ''}`}
-      />
-      {!isSelf && audioStream && <audio ref={audioRef} autoPlay />}
-      {!hasVideo &&
-        (isScreen ? (
-          <div className="absolute inset-0 flex items-center justify-center text-xs text-muted">
-            Waiting for the screen…
-          </div>
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Avatar
-              userId={userId}
-              name={name}
-              avatarUrl={participant?.avatar_url}
-              size={large ? 'xl' : 'lg'}
-            />
-          </div>
-        ))}
-
-      {handRaised && (
-        <div className="absolute top-1 left-1 text-lg" aria-label="Hand raised" title="Hand raised">
-          ✋
-        </div>
-      )}
-
-      <div className="absolute bottom-1 left-1 right-1 flex items-center gap-1">
-        <span className="px-1.5 py-0.5 rounded bg-black/50 text-[11px] text-white truncate max-w-full">
-          {isScreen ? `${name}'s screen` : name}
-          {isSelf && !isScreen && ' (you)'}
-        </span>
-        {sharing && !isScreen && (
-          <span className="px-1 py-0.5 rounded bg-purple-600/80 text-[10px] text-fg">Sharing</span>
-        )}
-        {muted && !isScreen && <MicOff className="w-3 h-3 text-danger shrink-0" />}
-      </div>
-
-      {!isSelf && !isScreen && (
-        <button
-          onClick={() => useHuddleStore.getState().setPinned(pinned ? null : userId)}
-          aria-label={pinned ? 'Unpin' : 'Pin'}
-          title={pinned ? 'Unpin' : 'Pin'}
-          className={`absolute top-1 right-1 p-1 rounded-md transition ${
-            pinned ? 'bg-purple-600 text-white' : 'bg-black/40 text-slate-200'
-          }`}
-        >
-          <Pin className="w-3 h-3" />
-        </button>
-      )}
-    </div>
-  );
-}
-
-function SpeakingDetector({ userId, stream }: { userId: string; stream: MediaStream | null }) {
-  const speaking = useSpeaking(stream);
-  useEffect(() => {
-    useHuddleStore.getState().setSpeaking(userId, speaking);
-  }, [userId, speaking]);
-  return null;
-}
-
-interface ControlButtonProps {
-  active: boolean;
-  onClick: () => void;
-  on: React.ReactNode;
-  off: React.ReactNode;
-  label: string;
-  danger?: boolean;
-  highlight?: boolean;
-}
-
-function ControlButton({ active, onClick, on, off, label, danger, highlight }: ControlButtonProps) {
-  const tone = danger
-    ? 'bg-red-600/20 text-danger hover:bg-red-600/30'
-    : highlight
-      ? 'bg-purple-600/30 text-accent-soft hover:bg-purple-600/40'
-      : 'bg-raised text-fg hover:bg-elevated';
-  return (
-    <button
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      aria-pressed={active}
-      className={`p-2.5 rounded-full transition ${tone}`}
-    >
-      {active ? on : off}
-    </button>
-  );
-}
-
-function ReactionPicker({ onPick }: { onPick: (emoji: string) => void }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        aria-label="Send reaction"
-        title="Send reaction"
-        aria-expanded={open}
-        className="p-2.5 rounded-full bg-raised text-fg hover:bg-elevated transition"
-      >
-        <Smile className="w-4 h-4" />
-      </button>
-      {open && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 flex gap-1 bg-app border border-line rounded-xl p-1.5 shadow-2xl">
-          {QUICK_REACTIONS.map((emoji) => (
-            <button
-              key={emoji}
-              onClick={() => {
-                onPick(emoji);
-                setOpen(false);
-              }}
-              className="text-xl px-1.5 py-0.5 rounded-lg hover:bg-raised transition"
-            >
-              {emoji}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function InvitePicker({ active }: { active: ActiveHuddle }) {
-  const [open, setOpen] = useState(false);
-  const { data: members } = useWorkspaceMembers(open ? active.workspaceId : null, active.instanceUrl);
-  const invite = useInviteToHuddle(active.workspaceId, active.huddleId, active.instanceUrl);
-  const participants = useHuddleStore((s) => s.participants);
-
-  const inHuddle = new Set([active.selfUserId, ...Object.keys(participants)]);
-  const candidates = (members ?? []).filter((m) => !inHuddle.has(m.user_id));
-
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        aria-label="Invite to huddle"
-        title="Invite to huddle"
-        aria-expanded={open}
-        className="p-2.5 rounded-full bg-raised text-fg hover:bg-elevated transition"
-      >
-        <UserPlus className="w-4 h-4" />
-      </button>
-      {open && (
-        <div className="absolute bottom-full right-0 mb-2 w-56 max-h-64 overflow-y-auto bg-app border border-line rounded-xl p-2 shadow-2xl flex flex-col gap-0.5">
-          {candidates.length === 0 && <p className="text-xs text-muted px-2 py-1.5">No one to invite</p>}
-          {candidates.map((m) => (
-            <button
-              key={m.user_id}
-              onClick={() => {
-                invite.mutate([m.user_id]);
-                setOpen(false);
-              }}
-              className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-sm text-fg-soft hover:bg-raised transition"
-            >
-              <Avatar
-                userId={m.user_id}
-                name={displayNameOf(m.display_name)}
-                avatarUrl={m.avatar_url}
-                size="xs"
-              />
-              <span className="truncate">{displayNameOf(m.display_name)}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function DevicePicker({ controls }: { controls: HuddleControls }) {
-  const [open, setOpen] = useState(false);
-  const devices = useMediaDevices(open);
-  const selected = useHuddleStore((s) => s.devices);
-
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        aria-label="Devices"
-        title="Devices"
-        aria-expanded={open}
-        className="p-2.5 rounded-full bg-raised text-fg hover:bg-elevated transition"
-      >
-        <Settings className="w-4 h-4" />
-      </button>
-      {open && (
-        <div className="absolute bottom-full right-0 mb-2 w-60 bg-app border border-line rounded-xl p-3 shadow-2xl flex flex-col gap-2">
-          <DeviceSelect
-            label="Microphone"
-            options={devices.mics}
-            value={selected.micId}
-            onChange={controls.selectMic}
-          />
-          <DeviceSelect
-            label="Camera"
-            options={devices.cameras}
-            value={selected.cameraId}
-            onChange={controls.selectCamera}
-          />
-          {devices.speakers.length > 0 && (
-            <DeviceSelect
-              label="Speaker"
-              options={devices.speakers}
-              value={selected.speakerId}
-              onChange={controls.selectSpeaker}
-            />
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-interface DeviceSelectProps {
-  label: string;
-  options: MediaDeviceInfo[];
-  value: string | null;
-  onChange: (deviceId: string) => void;
-}
-
-function DeviceSelect({ label, options, value, onChange }: DeviceSelectProps) {
-  return (
-    <Select
-      label={label}
-      compact
-      value={value ?? options[0]?.deviceId ?? ''}
-      onChange={(e) => onChange(e.target.value)}
-    >
-      {options.length === 0 && <option value="">No devices</option>}
-      {options.map((d, i) => (
-        <option key={d.deviceId} value={d.deviceId}>
-          {d.label || `${label} ${i + 1}`}
-        </option>
-      ))}
-    </Select>
   );
 }
