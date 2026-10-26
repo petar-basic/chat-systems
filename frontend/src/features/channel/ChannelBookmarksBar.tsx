@@ -16,15 +16,23 @@ interface Props {
   channelId: string;
   instanceUrl?: string;
   canPost: boolean;
+  adding: boolean;
+  onAddingChange: (adding: boolean) => void;
 }
 
-export default function ChannelBookmarksBar({ workspaceId, channelId, instanceUrl, canPost }: Props) {
+export default function ChannelBookmarksBar({
+  workspaceId,
+  channelId,
+  instanceUrl,
+  canPost,
+  adding,
+  onAddingChange,
+}: Props) {
   const { data: bookmarks = [] } = useChannelBookmarks(channelId, instanceUrl);
   const { canModerate } = useChannelModeration(channelId);
   const createBookmark = useCreateChannelBookmark(channelId, instanceUrl);
   const deleteBookmark = useDeleteChannelBookmark(channelId, instanceUrl);
 
-  const [adding, setAdding] = useState(false);
   const [label, setLabel] = useState('');
   const [url, setUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +49,7 @@ export default function ChannelBookmarksBar({ workspaceId, channelId, instanceUr
       await createBookmark.mutateAsync({ label: trimmedLabel, url: trimmedUrl });
       setLabel('');
       setUrl('');
-      setAdding(false);
+      onAddingChange(false);
     } catch (err) {
       setError(toUserMessage(err, 'Failed to add that bookmark'));
     }
@@ -89,7 +97,7 @@ export default function ChannelBookmarksBar({ workspaceId, channelId, instanceUr
 
       {canModerate && !adding && (
         <button
-          onClick={() => setAdding(true)}
+          onClick={() => onAddingChange(true)}
           data-qa="channel-bookmark-add"
           className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs text-muted hover:text-fg hover:bg-raised/50 transition cursor-pointer"
         >
@@ -104,6 +112,7 @@ export default function ChannelBookmarksBar({ workspaceId, channelId, instanceUr
             label="Bookmark label"
             labelHidden
             compact
+            autoFocus
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             placeholder="Label"
@@ -132,7 +141,7 @@ export default function ChannelBookmarksBar({ workspaceId, channelId, instanceUr
           </Button>
           <button
             onClick={() => {
-              setAdding(false);
+              onAddingChange(false);
               setError(null);
             }}
             className="px-2 py-1 text-xs text-muted hover:text-fg transition cursor-pointer"

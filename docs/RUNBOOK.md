@@ -49,6 +49,22 @@ account on start if it does not exist, and no token is printed. Once the instanc
 remove `ADMIN_PASSWORD` from `.env`: it is read only to create the account, and a password
 left in a file is one somebody can read.
 
+## Single sign-on
+
+SSO is off until `OIDC_ISSUER` is set. Register `<PUBLIC_URL>/api/auth/oidc/callback` as the
+redirect URI with the provider, then set:
+
+| Variable | What |
+|---|---|
+| `OIDC_ISSUER` | The provider's issuer URL; endpoints are read from its `.well-known/openid-configuration` |
+| `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | The client registered with the provider |
+| `OIDC_PROVISIONING` | `invite_only` (default): existing accounts may sign in, nobody new is created. `domain_allowlist`: the provider may create accounts for `OIDC_ALLOWED_DOMAINS`. `disabled`: off, configuration kept |
+
+Restart `api`; the sign-in page then offers *Sign in with SSO*, and a new workspace's
+checklist ticks *Connect SSO*. Signing in through the provider removes the password from a
+non-admin account, so nobody has a second way in; instance admins keep theirs as the
+break-glass account.
+
 ## What self-hosting actually costs
 
 ### Footprint

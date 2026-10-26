@@ -79,6 +79,22 @@ test('a stack with no admin is set up from /setup', async ({ page }) => {
     await page.getByTestId('setup-continue').click();
     await expect(page).toHaveURL(/\/app\/[0-9a-f-]{36}/);
     await expect(page.locator('[data-qa="channel-header-name"]')).toHaveText('general');
+    await expect(page.getByTestId('channel-intro')).toContainText('This is the very beginning of #general');
+    await expect(page.getByTestId('channel-intro-add-people')).toBeVisible();
+
+    const checklist = page.getByTestId('workspace-checklist');
+    await expect(checklist).toContainText(`Get First ${stamp} going`);
+    await expect(checklist.locator('[data-step="invite"]')).toHaveAttribute('data-done', 'false');
+    await page.getByTestId('checklist-channel').click();
+    await page.getByTestId('create-channel-name').fill(`plans-${stamp}`);
+    await page.getByTestId('create-channel-submit').click();
+    await expect(page.locator('[data-qa="channel-header-name"]')).toHaveText(`plans-${stamp}`);
+    await expect(checklist.locator('[data-step="channel"]')).toHaveAttribute('data-done', 'true');
+    await page.getByTestId('checklist-dismiss').click();
+    await expect(checklist).toHaveCount(0);
+    await page.reload();
+    await expect(page.locator('[data-qa="channel-header-name"]')).toHaveText(`plans-${stamp}`);
+    await expect(checklist, 'a dismissed checklist stays dismissed').toHaveCount(0);
 
     const again = await anonymous.post(`${API}/setup`, {
       data: {

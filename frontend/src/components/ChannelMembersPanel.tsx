@@ -20,6 +20,7 @@ interface Props {
   channelId: string;
   channelName: string;
   channelType: string;
+  startAdding?: boolean;
   onClose: () => void;
 }
 
@@ -111,7 +112,13 @@ function AddableUserRow({ userId, onAdd }: { userId: string; onAdd: (id: string)
   );
 }
 
-export default function ChannelMembersPanel({ channelId, channelName, channelType, onClose }: Props) {
+export default function ChannelMembersPanel({
+  channelId,
+  channelName,
+  channelType,
+  startAdding = false,
+  onClose,
+}: Props) {
   const { users } = useUserCache();
   const {
     members,
@@ -121,7 +128,7 @@ export default function ChannelMembersPanel({ channelId, channelName, channelTyp
     workspaceRole,
     currentUserId,
   } = useChannelModeration(channelId);
-  const [showAddUser, setShowAddUser] = useState(false);
+  const [showAddUser, setShowAddUser] = useState(startAdding);
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const currentWorkspace = useWorkspaceStore((s) => s.currentWorkspace);
@@ -229,6 +236,14 @@ export default function ChannelMembersPanel({ channelId, channelName, channelTyp
             <AddableUserRow key={userId} userId={userId} onAdd={(id) => addMemberMutation.mutate(id)} />
           ))}
         </div>
+      )}
+      {showAddUser && canAdd && !loading && nonMembers.length === 0 && (
+        <p
+          className="border-t border-line/50 px-4 py-3 text-xs text-muted"
+          data-qa="channel-members-none-to-add"
+        >
+          Everyone in the workspace is already in this channel.
+        </p>
       )}
     </div>
   );
