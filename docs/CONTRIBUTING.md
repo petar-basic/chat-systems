@@ -313,7 +313,8 @@ checks it selects.
   - on any other PR that carries the `e2e` label; adding the label starts it.
 
 **`All checks` is the only job that should be a required status check.** It always runs,
-treats skipped jobs as passing, and fails if any job failed or was cancelled. Requiring
+treats skipped jobs as passing, and fails if any job failed or was cancelled, except when a
+newer run of the same commit cancelled it (a label added mid-run), which then reports instead. Requiring
 `Backend (Rust)`, `Frontend (Node)` or `E2E (Playwright)` directly blocks every
 docs-only PR forever: a skipped job reports no status at all, so the check stays pending
 rather than green. Adding a new job needs no change to branch protection, only an entry
