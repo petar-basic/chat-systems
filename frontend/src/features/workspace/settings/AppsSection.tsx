@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Button } from '@/shared/components/Button/Button';
-import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
-import { ExternalLink, LayoutGrid } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 import { CopyField } from '@/shared/components/CopyField/CopyField';
 import { AppIcon } from '@/shared/components/AppIcon/AppIcon';
 import { useApps, useAppActions, type AppStatus } from '@/hooks/queries/useApps';
@@ -11,16 +10,14 @@ import { Checkbox } from '@/shared/components/Form/Checkbox';
 interface Props {
   workspaceId: string;
   isAdmin: boolean;
-  onClose: () => void;
 }
 
-export default function AppsPanel({ workspaceId, isAdmin, onClose }: Props) {
+export function AppsSection({ workspaceId, isAdmin }: Props) {
   const { data, isLoading, isError } = useApps(workspaceId);
   const apps = data?.data ?? [];
 
   return (
-    <div className="w-80 bg-surface/80 border-l border-line/50 flex flex-col h-full" data-qa="apps-panel">
-      <PanelHeader title="Apps" icon={<LayoutGrid className="h-4 w-4 text-muted" />} onClose={onClose} />
+    <div className="-mx-4 flex flex-col" data-qa="apps-panel">
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         <p className="text-xs text-muted">
           Connected apps turn links into cards with live details. Each person connects their own account, so a

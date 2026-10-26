@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
-import { API, PASSWORD, login, devWorkspace, openWorkspaceMenu } from './helpers';
+import { API, PASSWORD, login, devWorkspace, openWorkspaceSettings } from './helpers';
 
 async function signIn(ctx: APIRequestContext, email: string) {
   const res = await ctx.post(`${API}/auth/login`, { data: { email, password: PASSWORD } });
@@ -11,8 +11,7 @@ async function sharedWorkspace(ctx: APIRequestContext) {
 }
 
 async function openIntegrations(page: Page) {
-  await openWorkspaceMenu(page);
-  await page.locator('[data-qa="open-integrations"]').click();
+  await openWorkspaceSettings(page, 'integrations');
   await expect(page.locator('[data-qa="integrations-panel"]')).toBeVisible();
 }
 
@@ -117,8 +116,8 @@ test('the Integrations menu and the hook API stay closed to non-admins', async (
 
     await login(page, 'bob@dev.local');
     await page.goto(`/app/${workspace.id}`);
-    await openWorkspaceMenu(page);
-    await expect(page.locator('[data-qa="open-integrations"]')).toHaveCount(0);
+    await openWorkspaceSettings(page);
+    await expect(page.locator('[data-qa="workspace-settings-tab-integrations"]')).toHaveCount(0);
   } finally {
     await admin.dispose();
     await bob.dispose();

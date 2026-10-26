@@ -1,13 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { Button } from '@/shared/components/Button/Button';
-import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
 import { CopyField } from '@/shared/components/CopyField/CopyField';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog/ConfirmDialog';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { Select } from '@/shared/components/Form/Select';
 import { Checkbox } from '@/shared/components/Form/Checkbox';
-import { Plug, Trash2, Eye, RefreshCw, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
+import { Trash2, Eye, RefreshCw, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
 import type { Channel } from '@/stores/workspace';
 import {
   useHooks,
@@ -23,7 +22,6 @@ interface Props {
   workspaceId: string;
   instanceUrl?: string;
   channels: Channel[];
-  onClose: () => void;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -148,7 +146,7 @@ function HookRow({
   );
 }
 
-export default function IntegrationsPanel({ workspaceId, instanceUrl, channels, onClose }: Props) {
+export function IntegrationsSection({ workspaceId, instanceUrl, channels }: Props) {
   const { data: hooks = [], isLoading } = useHooks(workspaceId, instanceUrl);
   const createHook = useCreateHook(workspaceId, instanceUrl);
   const deleteHook = useDeleteHook(workspaceId, instanceUrl);
@@ -254,12 +252,7 @@ export default function IntegrationsPanel({ workspaceId, instanceUrl, channels, 
   };
 
   return (
-    <div
-      className="w-full lg:w-96 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-surface border-l border-line/50 flex flex-col"
-      data-qa="integrations-panel"
-    >
-      <PanelHeader title="Integrations" icon={<Plug className="h-4 w-4 text-muted" />} onClose={onClose} />
-
+    <div className="-mx-4 flex flex-col" data-qa="integrations-panel">
       <div className="flex-1 overflow-y-auto">
         {error && <div className="px-4 py-2 text-xs text-danger">{error}</div>}
 

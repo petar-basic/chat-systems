@@ -44,18 +44,12 @@ interface Props {
   onCreateChannel: (draft: CreateChannelDraft) => Promise<void>;
   onOpenConversation: (conversationId: string) => void;
   onOpenWith: (participantIds: string[]) => Promise<void>;
-  onOpenMembers: () => void;
   onOpenSettings: () => void;
-  onOpenIntegrations: () => void;
-  onOpenApps: () => void;
-  onOpenCustomEmoji: () => void;
-  onOpenUserGroups: () => void;
-  onOpenAuditLog: () => void;
+  onInvite: () => void;
   onOpenWorkflows: () => void;
   onOpenScheduled: () => void;
   onOpenLater: () => void;
   laterActive: boolean;
-  onOpenSlackImport: () => void;
   onOpenProfile: () => void;
   onOpenPreferences: () => void;
   onOpenNotifications: () => void;
@@ -85,18 +79,12 @@ export default function ChannelSidebar({
   onCreateChannel,
   onOpenConversation,
   onOpenWith,
-  onOpenMembers,
   onOpenSettings,
-  onOpenIntegrations,
-  onOpenApps,
-  onOpenCustomEmoji,
-  onOpenUserGroups,
-  onOpenAuditLog,
+  onInvite,
   onOpenWorkflows,
   onOpenScheduled,
   onOpenLater,
   laterActive,
-  onOpenSlackImport,
   onOpenProfile,
   onOpenPreferences,
   onOpenNotifications,
@@ -181,14 +169,8 @@ export default function ChannelSidebar({
           isWorkspaceAdmin={isWorkspaceAdmin}
           isInstanceAdmin={isInstanceAdmin}
           canUseWorkflows={!!currentUserRole && currentUserRole !== 'guest'}
-          onOpenMembers={onOpenMembers}
           onOpenSettings={onOpenSettings}
-          onOpenIntegrations={onOpenIntegrations}
-          onOpenApps={onOpenApps}
-          onOpenSlackImport={onOpenSlackImport}
-          onOpenCustomEmoji={onOpenCustomEmoji}
-          onOpenUserGroups={onOpenUserGroups}
-          onOpenAuditLog={onOpenAuditLog}
+          onInvite={onInvite}
           onOpenWorkflows={onOpenWorkflows}
           onOpenInstanceAdmin={() => navigate('/app/admin')}
         />

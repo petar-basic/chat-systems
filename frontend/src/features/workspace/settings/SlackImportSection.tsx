@@ -1,9 +1,8 @@
 import { useRef, useState } from 'react';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { Button } from '@/shared/components/Button/Button';
-import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
 import { toUserMessage } from '@/lib/errors';
-import { Upload, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
 import {
   useSlackImports,
   useStartSlackImport,
@@ -18,7 +17,6 @@ import { TextInput } from '@/shared/components/Form/TextInput';
 interface Props {
   workspaceId: string;
   instanceUrl?: string;
-  onClose: () => void;
 }
 
 const COUNTS: { key: keyof Omit<SlackImportReport, 'skipped' | 'notes'>; label: string }[] = [
@@ -100,7 +98,7 @@ function RunRow({ run }: { run: SlackImportRun }) {
   );
 }
 
-export default function SlackImportPanel({ workspaceId, instanceUrl, onClose }: Props) {
+export function SlackImportSection({ workspaceId, instanceUrl }: Props) {
   const { data: runs = [], isLoading } = useSlackImports(workspaceId, instanceUrl);
   const start = useStartSlackImport(workspaceId, instanceUrl);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -135,12 +133,7 @@ export default function SlackImportPanel({ workspaceId, instanceUrl, onClose }: 
   };
 
   return (
-    <div
-      className="w-full lg:w-96 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-surface border-l border-line/50 flex flex-col"
-      data-qa="slack-import-panel"
-    >
-      <PanelHeader title="Slack import" icon={<Upload className="h-4 w-4 text-muted" />} onClose={onClose} />
-
+    <div className="-mx-4 flex flex-col" data-qa="slack-import-panel">
       <div className="px-4 py-3 border-b border-line/40 space-y-2">
         <p className="text-xs text-muted">
           The .zip from Slack&apos;s <span className="text-fg-dim">Export workspace data</span>. Imported

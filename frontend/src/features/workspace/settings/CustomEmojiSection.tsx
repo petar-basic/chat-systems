@@ -1,10 +1,9 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { Button } from '@/shared/components/Button/Button';
-import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { useQueryClient } from '@tanstack/react-query';
-import { Smile, Trash2, Upload } from 'lucide-react';
+import { Trash2, Upload } from 'lucide-react';
 import { useCustomEmoji, customEmojiKey } from '@/hooks/queries/useCustomEmoji';
 import { toUserMessage } from '@/lib/errors';
 import { toast } from '@/shared/components/Toast';
@@ -13,10 +12,9 @@ import { TextInput } from '@/shared/components/Form/TextInput';
 interface Props {
   workspaceId: string;
   instanceUrl?: string;
-  onClose: () => void;
 }
 
-export default function CustomEmojiPanel({ workspaceId, instanceUrl, onClose }: Props) {
+export function CustomEmojiSection({ workspaceId, instanceUrl }: Props) {
   const queryClient = useQueryClient();
   const { data: emojis, isLoading } = useCustomEmoji(workspaceId, instanceUrl);
   const [name, setName] = useState('');
@@ -79,9 +77,7 @@ export default function CustomEmojiPanel({ workspaceId, instanceUrl, onClose }: 
   };
 
   return (
-    <div className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 flex flex-col border-l border-line/50 bg-app lg:bg-app/80">
-      <PanelHeader title="Custom emoji" icon={<Smile className="h-4 w-4 text-muted" />} onClose={onClose} />
-
+    <div className="-mx-4 flex flex-col">
       <form onSubmit={handleUpload} className="px-3 py-3 border-b border-line/30 space-y-2">
         <TextInput
           label="Emoji name"
