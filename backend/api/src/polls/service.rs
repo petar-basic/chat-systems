@@ -9,7 +9,7 @@ use shared_common::errors::{AppError, AppResult};
 use super::models::{CreatePollRequest, Poll, PollOptionCount, PollPlace, PollSummary};
 use crate::authz;
 use crate::messaging::models::{Message, NewMessage};
-use crate::messaging::routes::{expand_mentions, thread_root};
+use crate::messaging::routes::{expand_mentions, mentions_everyone, thread_root};
 use crate::state::AppState;
 use crate::threads::{self, repo::ReplyFollows};
 
@@ -25,6 +25,9 @@ pub async fn create(
     let channel = authz::require_channel_post(state, channel_id, user_id)
         .await?
         .channel;
+    if mentions_everyone(&draft.question) {
+        authz::require_broadcast(state, &channel, user_id).await?;
+    }
     let root = match req.thread_parent_id {
         Some(parent_id) => Some(thread_root(state, channel_id, parent_id).await?),
         None => None,

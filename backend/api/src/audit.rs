@@ -22,6 +22,7 @@ pub enum AuditAction {
     ChannelArchived,
     ChannelUpdated,
     ChannelPostPolicyChanged,
+    ChannelBroadcastMentionsChanged,
     ChannelMemberAdded,
     ChannelMemberRemoved,
     ChannelRoleChanged,
@@ -85,6 +86,7 @@ impl AuditAction {
             Self::ChannelArchived => "channel.archived",
             Self::ChannelUpdated => "channel.updated",
             Self::ChannelPostPolicyChanged => "channel.post_policy_changed",
+            Self::ChannelBroadcastMentionsChanged => "channel.broadcast_mentions_changed",
             Self::ChannelMemberAdded => "channel.member_added",
             Self::ChannelMemberRemoved => "channel.member_removed",
             Self::ChannelRoleChanged => "channel.role_changed",
@@ -146,6 +148,7 @@ impl AuditAction {
             | Self::ChannelArchived
             | Self::ChannelUpdated
             | Self::ChannelPostPolicyChanged
+            | Self::ChannelBroadcastMentionsChanged
             | Self::ChannelMemberAdded
             | Self::ChannelMemberRemoved
             | Self::ChannelRoleChanged => "channel",

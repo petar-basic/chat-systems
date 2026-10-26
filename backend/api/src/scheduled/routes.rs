@@ -27,6 +27,7 @@ async fn require_target_access(
     auth: &AuthUser,
     workspace_id: Uuid,
     channel_id: Uuid,
+    content: &str,
 ) -> AppResult<()> {
     let channel = authz::find_channel(state, channel_id).await?;
     if channel.workspace_id != workspace_id {
@@ -35,6 +36,9 @@ async fn require_target_access(
         ));
     }
     crate::authz::require_channel_post(state, channel_id, auth.user_id).await?;
+    if crate::messaging::routes::mentions_everyone(content) {
+        crate::authz::require_broadcast(state, &channel, auth.user_id).await?;
+    }
     Ok(())
 }
 
@@ -65,7 +69,7 @@ async fn create_scheduled(
             "Message content cannot be empty".into(),
         ));
     }
-    require_target_access(&state, &auth, ws_id, req.channel_id).await?;
+    require_target_access(&state, &auth, ws_id, req.channel_id, &req.content).await?;
     hold_attachments(
         &state,
         &req.attachment_ids,

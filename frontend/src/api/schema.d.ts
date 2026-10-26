@@ -2981,6 +2981,7 @@ export interface components {
         /** @enum {string} */
         ChannelRole: "member" | "admin";
         ChannelSettings: {
+            allow_broadcast_mentions?: boolean | null;
             post_policy?: components["schemas"]["PostPolicy"] | null;
         };
         ChannelSlashCommand: {
@@ -4907,6 +4908,7 @@ export interface components {
             role: components["schemas"]["ChannelRole"];
         };
         UpdateChannelRequest: {
+            allow_broadcast_mentions?: boolean | null;
             description?: string | null;
             name?: string | null;
             post_policy?: components["schemas"]["PostPolicy"] | null;
@@ -4978,11 +4980,14 @@ export interface components {
             name?: string | null;
         };
         UpdateWorkspaceRequest: {
+            broadcast_mentions?: components["schemas"]["WhoMay"] | null;
             description?: string | null;
             icon_url?: string | null;
             link_previews?: boolean | null;
             name?: string | null;
-            workflow_builders?: components["schemas"]["WorkflowBuilders"] | null;
+            private_channel_creators?: components["schemas"]["WhoMay"] | null;
+            public_channel_creators?: components["schemas"]["WhoMay"] | null;
+            workflow_builders?: components["schemas"]["WhoMay"] | null;
         };
         UpdatedCount: {
             /** Format: int64 */
@@ -5064,6 +5069,8 @@ export interface components {
         };
         /** @enum {string} */
         Weekday: "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+        /** @enum {string} */
+        WhoMay: "members" | "admins";
         Workflow: {
             /** Format: date-time */
             created_at: string;
@@ -5086,8 +5093,6 @@ export interface components {
             /** Format: uuid */
             workspace_id: string;
         };
-        /** @enum {string} */
-        WorkflowBuilders: "members" | "admins";
         WorkflowRun: {
             error?: string | null;
             /** Format: date-time */

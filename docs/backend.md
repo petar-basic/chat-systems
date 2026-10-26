@@ -188,7 +188,7 @@ feature — see `dm` below.)
 | GET | `/workspaces` | — | `{ data: Workspace[] }` |
 | POST | `/workspaces` | `{ name, description? }` | `Workspace` |
 | GET | `/workspaces/:ws_id` | — | `Workspace` |
-| PATCH | `/workspaces/:ws_id` | `{ name?, description?, icon_url?, link_previews? }` | `Workspace` — `link_previews` is stored in `settings` and defaults to on |
+| PATCH | `/workspaces/:ws_id` | `{ name?, description?, icon_url?, link_previews?, workflow_builders?, broadcast_mentions?, public_channel_creators?, private_channel_creators? }` | `Workspace` — admins; each is merged into `settings`. `link_previews` defaults to on; the four rules are `members` (the default) or `admins` |
 | DELETE | `/workspaces/:ws_id` | Query: `hard=bool` | `{ status: "soft_deleted" \| "hard_deleted" }` |
 | POST | `/workspaces/:ws_id/restore` | — | `Workspace` |
 | GET | `/workspaces/deleted` | — | `{ data: Workspace[] }` |
@@ -217,9 +217,9 @@ feature — see `dm` below.)
 | GET | `/workspaces/:ws_id/channels` | — | `{ data: ChannelListing[] }` — each channel with the caller's `muted`, `notify_level` (`null` when it follows the default) and `effective_notify_level` |
 | GET | `/workspaces/:ws_id/channels/unread` | — | `{ channel_ids: string[] }` |
 | GET | `/workspaces/:ws_id/channels/browse` | — | `{ data: BrowsableChannel[] }` — every public, unarchived channel with `member_count` and `is_member` (Members and up; Guests are refused) |
-| POST | `/workspaces/:ws_id/channels` | `{ name, channel_type?, description?, is_default? }` | `Channel` |
+| POST | `/workspaces/:ws_id/channels` | `{ name, channel_type?, description?, is_default?, post_policy? }` | `Channel` — Members and up; only admins when `settings.public_channel_creators` (or `private_channel_creators` for a private one) is `admins` |
 | GET | `/channels/:ch_id` | — | `Channel` |
-| PATCH | `/channels/:ch_id` | `{ name?, topic?, description? }` | `Channel` |
+| PATCH | `/channels/:ch_id` | `{ name?, topic?, description?, post_policy?, allow_broadcast_mentions? }` | `Channel` — channel moderators; `post_policy` and `allow_broadcast_mentions` are merged into `settings` and each change is audited |
 | DELETE | `/channels/:ch_id` | — | `{ status: "archived" }` |
 | PATCH | `/channels/:ch_id/notifications` | `{ muted }` | `{ muted: bool }` — members only (403 otherwise) |
 
@@ -336,6 +336,13 @@ their notification level, channel mute and DND; a mentioned non-member gets noth
 `presence:*` key in Redis). Broadcasts count whether the author picked them from the
 composer (`@[channel](channel)`) or simply typed the word; the author is never notified of
 their own message, and a named user inside a broadcast is notified once, not twice.
+`authz::can_broadcast` decides who may: nobody in a channel whose
+`settings.allow_broadcast_mentions` is `false`, and only workspace admins and the channel's
+own admins when the workspace's `settings.broadcast_mentions` is `admins`. Sending a
+message, creating a poll and scheduling a message answer 403 with the reason for a
+broadcast the author may not make; saving a workflow whose `send_message` step would make
+one answers 422. A scheduled message or a workflow run whose author lost the right still
+posts, but `expand_mentions` leaves the broadcast out and nobody is notified by it.
 
 **Reactions:**
 

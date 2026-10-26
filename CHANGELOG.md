@@ -71,6 +71,14 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   a channel, for everyone in it. A channel admin adds an incoming webhook there without a
   workspace admin, sees its URL once, and can make a new URL or remove it. The workspace
   *Integrations* section links each hook's channels.
+- **API: who may notify a whole channel, and who may make one.** Workspace `settings` take
+  `broadcast_mentions`, `public_channel_creators` and `private_channel_creators`
+  (`members`, the default, or `admins`) through `PATCH /workspaces/{id}`, and a channel's
+  `settings.allow_broadcast_mentions` (on by default) through `PATCH /channels/{id}`. A
+  message, poll or scheduled message with `@channel`, `@here` or `@everyone` the author may
+  not use is refused with 403 and the reason; one already queued, or sent by a workflow,
+  goes out without notifying anyone. In the OpenAPI document `WorkflowBuilders` is now
+  `WhoMay`.
 - **API:** `GET /channels/{id}/integrations` lists the incoming webhooks, outgoing webhooks,
   slash commands and workflows that touch a channel, for anyone in it, without URLs or
   secrets. A channel admin may now create, reveal, rotate and delete the incoming webhooks of

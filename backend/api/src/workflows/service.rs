@@ -14,7 +14,7 @@ use crate::messaging::publisher::Staged;
 use crate::notifications::models::NotificationType;
 use crate::rate_limit::{self, LimiterFailure};
 use crate::state::AppState;
-use crate::workspace::models::{ChannelType, WorkflowBuilders, WorkspaceMember, WorkspaceRole};
+use crate::workspace::models::{ChannelType, WhoMay, WorkspaceMember, WorkspaceRole};
 
 pub fn webhook_url(state: &AppState, token: &str) -> String {
     format!("{}/api/workflows/webhook/{token}", state.config.public_url)
@@ -66,9 +66,7 @@ pub async fn require_builder(
         .find_workspace_by_id(workspace_id)
         .await?
         .ok_or_else(|| AppError::NotFound("Workspace not found".into()))?;
-    if WorkflowBuilders::of(&workspace.settings) == WorkflowBuilders::Admins
-        && !member.role.has_at_least(&WorkspaceRole::Admin)
-    {
+    if !WhoMay::of(&workspace.settings, WhoMay::WORKFLOW_BUILDERS).allows(&member.role) {
         return Err(AppError::Forbidden(
             "Only admins can build workflows in this workspace".into(),
         ));
@@ -142,7 +140,9 @@ pub async fn check_authority(
     for (index, step) in definition.steps.iter().enumerate() {
         let at = format!("Step {}", index + 1);
         match step {
-            Step::SendMessage { channel_id, .. } => {
+            Step::SendMessage {
+                channel_id, text, ..
+            } => {
                 let refused =
                     || AppError::Validation(format!("{at}: you can't post in that channel"));
                 let access = authz::require_channel_post(state, *channel_id, creator)
@@ -159,6 +159,13 @@ pub async fn check_authority(
                 if access.channel.is_archived {
                     return Err(AppError::Validation(format!(
                         "{at}: that channel is archived"
+                    )));
+                }
+                if crate::messaging::routes::mentions_everyone(text)
+                    && !authz::can_broadcast(state, &access.channel, creator).await?
+                {
+                    return Err(AppError::Validation(format!(
+                        "{at}: you can't use @channel, @here or @everyone in that channel"
                     )));
                 }
             }
