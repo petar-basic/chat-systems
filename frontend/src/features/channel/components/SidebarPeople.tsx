@@ -1,4 +1,4 @@
-import type { Conversation } from '@/features/messaging/hooks/useConversations';
+import type { Conversation } from '@/features/messaging';
 import { conversationTitle } from '@/lib/conversationHelpers';
 import { displayNameOf } from '@/lib/userHelpers';
 import { useUserCache } from '@/stores/users';

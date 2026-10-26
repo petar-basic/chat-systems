@@ -17,15 +17,13 @@ import {
   type SearchTab,
 } from '@/features/search/searchFilters';
 import { FileHit, type FileSearchHit } from '@/features/search/FileHit';
-import { isRenderableImage } from '@/features/messaging/fileKinds';
-import { ImageGallery } from '@/features/messaging/ImageGallery';
+import { isRenderableImage, ImageGallery, useConversations } from '@/features/messaging';
 import { X, Search } from 'lucide-react';
 import { IconButton } from '@/shared/components/IconButton/IconButton';
 import { displayNameOf } from '@/lib/userHelpers';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
-import { useWorkspaceChannels } from '@/features/workspace/hooks/useWorkspaces';
-import { useConversations } from '@/features/messaging/hooks/useConversations';
+import { useWorkspaceChannels } from '@/features/workspace';
 import { toPlainText } from '@/lib/plainText';
 import { formatDateTime } from '@/lib/datetime';
 import { TextInput } from '@/shared/components/Form/TextInput';

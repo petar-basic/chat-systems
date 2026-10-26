@@ -3,3 +3,4 @@ export { HuddleStartButton } from './components/HuddleStartButton';
 export { HuddleBar } from './components/HuddleBar';
 export { HuddleSystemMessage } from './components/HuddleSystemMessage';
 export { useActiveHuddlesSync } from './hooks/useActiveHuddlesSync';
+export { useStartHuddle } from './hooks/useHuddle';

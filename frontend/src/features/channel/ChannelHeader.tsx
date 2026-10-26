@@ -19,7 +19,7 @@ import { useNavigate } from 'react-router';
 import type { Channel } from '@/stores/workspace';
 import { HuddleBar } from '@/features/huddle';
 import { useChannelModeration } from './hooks/useChannelModeration';
-import { useHookedChannels } from '@/features/workspace/hooks/useHooks';
+import { useHookedChannels } from '@/features/workspace';
 import ChannelSettingsModal from './ChannelSettingsModal';
 import { NotificationLevelButton, NotificationLevelMenu } from '@/features/notifications';
 

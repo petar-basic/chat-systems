@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { asAttachments, useComposerAttachments } from '@/features/messaging/useComposerAttachments';
+import { asAttachments, useComposerAttachments, useSendMessage } from '@/features/messaging';
 import type { Channel, Workspace } from '@/stores/workspace';
 import { commandResultText, parseCommand, runCommand } from '@/lib/slashCommands';
 import { toUserMessage } from '@/lib/errors';
 import { useTypingSignal, typingTargetOf } from '@/shared/hooks/useTypingSignal';
-import { useSendMessage } from '@/features/messaging/hooks/useMessages';
 
 interface Args {
   currentWorkspace: Workspace | null;

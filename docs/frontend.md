@@ -4,6 +4,26 @@ A React + Vite single-page app. State is split between **TanStack Query** (serve
 and **Zustand** (UI state); WebSocket events flow through a typed **global event bus** that
 reconciles them into the Query cache.
 
+## Layout
+
+Every file under `frontend/src/` is in one of these places. `npm run lint` refuses a file
+anywhere else (`eslint-rules/feature-structure.js`).
+
+| Folder | What lives there |
+|---|---|
+| `features/<feature>/` | Everything one part of the product needs: its components, its query and mutation hooks in `hooks/`, and its helpers. Tests sit beside the file they test. The features are `channel`, `huddle`, `instance` (sign-in, setup, instance admin), `later`, `lists`, `messaging`, `navigation`, `notifications`, `polls`, `profile`, `search`, `setup`, `threads`, `unreads`, `workflows` and `workspace` |
+| `features/<feature>/index.ts` | What other features may use. A feature imports another only as `@/features/<name>`. The lint rule refuses `@/features/<name>/hooks/...` or a relative path into another feature, except in tests, which may mock a module directly |
+| `shared/` | What several features use and none owns: the controls in `shared/components` (Button, Modal, Form, Popover, Avatar, PresenceDot, ErrorBoundary…), `shared/hooks`, `shared/constants` (query keys, routes, labels) and `shared/models` |
+| `pages/` | One component per route, composing features |
+| `lib/` | Infrastructure with no UI: the API client, the WebSocket, the instance manager, the event bus and the cache reducer, plus pure helpers (markdown, emoji, mentions, dates) |
+| `stores/` | Zustand stores for UI and session state |
+| `api/` | Generated from the backend: `schema.d.ts` from the OpenAPI document and `serverFrames.ts` from the gateway's frames |
+| `test/`, `types/` | Vitest setup and mocks; ambient type declarations |
+
+Choose the folder by what the code is about, not by its kind. A query hook for pins lives
+in `features/channel/hooks`, not in a shared hooks folder. A component that only messaging
+renders lives in `features/messaging`, even when it is small and general-looking.
+
 ## Architecture & Rationale
 
 ### Why this stack
@@ -26,14 +46,12 @@ reconciles them into the Query cache.
 
 ### Structure
 
-- **Feature-modular** under `src/features/*` (workspace, channel, messaging, navigation,
-  notifications, huddle), each with a barrel. Smart logic lives in hooks; views stay thin — e.g.
-  `useWorkspaceController` holds the page's data + handlers and `WorkspacePage` just renders.
-- **`features/<feature>/hooks/*`** wrap every endpoint with Query/Mutation hooks and optimistic updates.
-- **`lib/`** is the infrastructure layer: `api` (typed `openapi-fetch` client with single-flight 401 refresh),
-  `ws` (reconnecting WebSocket with backoff + re-subscribe + reconnect backfill), `instances`
-  (multi-instance manager), `messageCache` (cache helpers),
-  `wsQuerySync`/`globalEventBus`/`serverEvents` (typed WS → cache reducer).
+- Smart logic lives in hooks and views stay thin. For example, `useWorkspaceController` holds
+  the page's data and handlers, and `WorkspacePage` only renders.
+- A component that grew more than one job is split along those jobs. `MessageItem` is the
+  row, and `MessageActionsBar`, `MessageBody`, `MessageEditor` and `MessageReactions` are its
+  parts. `HuddleWindow` is the frame around `HuddleStage`, `VideoTile` and
+  `HuddleControlBar`.
 
 ### Cross-cutting decisions
 
@@ -220,7 +238,9 @@ or a raw `<input>`, `<textarea>` or `<select>` (file pickers excepted) fails
 `local/icon-button-label` (`eslint-rules/`).
 
 ### `MessageItem`
-Single message row with reactions, edit/delete, thread reply, and pin actions. It does not
+Single message row. The hover toolbar is `MessageActionsBar`. Content, polls, forms and link
+previews are in `MessageBody`. Edit mode is `MessageEditor` and reactions are `MessageReactions`. The
+row keeps focus, keys, the sender line and the delete confirmation. It does not
 call the API directly — actions go through `useMessageActions`, which wraps the message
 mutation hooks (`useEditMessage`, `useDeleteMessage`, `useReactToMessage`,
 `useRemoveReaction`, `usePinMessage`).

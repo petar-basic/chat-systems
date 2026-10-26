@@ -1656,3 +1656,17 @@ on start is now marked read on the server too. Before, only a click in the sideb
 that, and only once the messages were already loaded. The sign-in page reads
 `/instance/info` through the same query as the rest of the app. Start is down to 24
 requests with none twice, a first switch to two, and a switch back to one.
+
+### [CS-073] One frontend structure ✅ shipped
+Code for one feature sat in three places: `components/`, `hooks/queries/` and `features/`,
+and which one a new file went into depended on who wrote it. Three PRs. The first moved
+every file in `components/` and `hooks/queries/` into the feature it belongs to, with a new
+`features/instance` for sign-in, instance administration and the install prompt, and
+`models/` into `shared/models/`. The second split the two files that did several jobs:
+`MessageItem` is now the row, with its actions bar, body, editor and reactions beside it,
+and `HuddleWindow` is the frame around the stage, its tiles and the control bar. The third
+adds `structure/feature-structure`, an ESLint rule that refuses a file outside `features/`,
+`shared/`, `pages/`, `lib/`, `stores/`, `api/`, `test/` and `types/`, and a feature
+importing another feature's files except through its `index.ts`. 108 imports in 56 files
+went through a barrel for the first time, and `instance`, `later`, `polls` and `search`
+gained one. `docs/frontend.md` describes the layout once, at the top.

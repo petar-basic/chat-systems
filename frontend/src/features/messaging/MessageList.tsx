@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useUnreadChannels } from '@/features/channel/hooks/useChannels';
+import { useUnreadChannels } from '@/features/channel';
 import { UnreadDivider } from './UnreadDivider';
 import { MessageSquare } from 'lucide-react';
 import MessageItem from './MessageItem';

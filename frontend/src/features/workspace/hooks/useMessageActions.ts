@@ -1,8 +1,7 @@
 import { useCallback, useState } from 'react';
 import type { Channel, Message } from '@/stores/workspace';
-import type { Conversation } from '@/features/messaging/hooks/useConversations';
-import { useLaterActions } from '@/features/later/hooks/useLater';
-import type { ForwardSource } from '@/features/messaging/ForwardMessageModal';
+import type { Conversation, ForwardSource } from '@/features/messaging';
+import { useLaterActions } from '@/features/later';
 import { targetLabel } from '@/lib/targetLabel';
 import { toast } from '@/shared/components/Toast';
 

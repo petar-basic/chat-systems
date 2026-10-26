@@ -6,6 +6,7 @@ import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
 import { defineConfig, globalIgnores } from 'eslint/config';
 import iconButtonLabel from './eslint-rules/icon-button-label.js';
+import featureStructure from './eslint-rules/feature-structure.js';
 
 export default defineConfig([
   globalIgnores([
@@ -32,6 +33,13 @@ export default defineConfig([
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
       'no-console': 'error',
+    },
+  },
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    plugins: { structure: { rules: { 'feature-structure': featureStructure } } },
+    rules: {
+      'structure/feature-structure': 'error',
     },
   },
   {

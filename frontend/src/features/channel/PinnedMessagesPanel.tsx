@@ -4,7 +4,7 @@ import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
 import type { Message } from '@/stores/workspace';
 import { useUserCache } from '@/stores/users';
 import { useChannelPins } from './hooks/useChannels';
-import RichTextDisplay from '@/features/messaging/RichTextDisplay';
+import { RichTextDisplay } from '@/features/messaging';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 
 interface Props {

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { MessageSquare, Pencil, Trash2 } from 'lucide-react';
-import MessageInput from '@/features/messaging/MessageInput';
-import RichTextDisplay from '@/features/messaging/RichTextDisplay';
+import { MessageInput, RichTextDisplay } from '@/features/messaging';
 import { IconButton } from '@/shared/components/IconButton/IconButton';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog/ConfirmDialog';
 import { Spinner } from '@/shared/components/Spinner/Spinner';

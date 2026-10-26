@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { QUERY_KEYS } from '@/shared/constants';
-import { fromChannelContext } from '@/features/channel/hooks/channelContext';
+import { fromChannelContext } from '@/features/channel';
 import type { SaveWorkflow, Workflow } from './workflowModel';
 
 export const useWorkflowShortcuts = (channelId: string | null, instanceUrl?: string) => {

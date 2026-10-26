@@ -5,8 +5,7 @@ import { TextInput } from '@/shared/components/Form/TextInput';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { displayNameOf } from '@/lib/userHelpers';
 import type { WorkspaceMember } from '@/stores/workspace';
-import { KIND_LABELS, type ListColumn } from '@/features/lists/listModel';
-import { useListDetail, useWorkspaceLists } from '@/features/lists/useLists';
+import { KIND_LABELS, type ListColumn, useListDetail, useWorkspaceLists } from '@/features/lists';
 import {
   MAX_CELLS,
   TEXT_MAX,

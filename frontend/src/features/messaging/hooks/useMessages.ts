@@ -5,7 +5,7 @@ import type { components } from '@/api/schema';
 type Attachment = components['schemas']['Attachment'];
 import { useCurrentApi } from '@/shared/hooks/useCurrentApi';
 import { applyReadState } from '@/lib/readState';
-import { settleChannelNotifications } from '@/features/notifications/hooks/useNotifications';
+import { settleChannelNotifications } from '@/features/notifications';
 import { QUERY_KEYS, MESSAGES_PAGE_SIZE, ErrorLabels } from '@/shared/constants';
 import { upsertMessage, patchMessageById, newestFirst, removeMessageById } from '@/lib/messageCache';
 import { toast } from '@/shared/components/Toast';

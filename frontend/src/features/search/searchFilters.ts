@@ -1,5 +1,5 @@
 import { displayNameOf } from '@/lib/userHelpers';
-import { FILE_KINDS, type FileKindName } from '@/features/messaging/fileKinds';
+import { FILE_KINDS, type FileKindName } from '@/features/messaging';
 
 export type HasFilter = 'file' | 'image' | 'link';
 

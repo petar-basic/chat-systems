@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { shortcutFor, stepSidebar, typingTarget, type Shortcut } from '@/features/navigation/shortcuts';
+import { shortcutFor, stepSidebar, typingTarget, type Shortcut } from '@/features/navigation';
 
 export type ShortcutHandlers = Partial<Record<Shortcut, () => void>>;
 

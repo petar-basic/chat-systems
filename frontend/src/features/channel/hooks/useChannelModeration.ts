@@ -1,7 +1,7 @@
 import type { ChannelSettings } from '@/stores/workspace';
-import { useCurrentUser } from '@/features/instance/hooks/useAuth';
+import { useCurrentUser } from '@/features/instance';
 import { useChannelMembers } from '@/features/channel/hooks/useChannels';
-import { useCurrentWorkspaceRole } from '@/features/workspace/hooks/useCurrentWorkspaceRole';
+import { useCurrentWorkspaceRole } from '@/features/workspace';
 import { canModerateChannel, canPostInChannel, type ChannelRole } from '@/lib/channelPermissions';
 
 export function useChannelModeration(channelId: string | null, settings?: ChannelSettings | null) {

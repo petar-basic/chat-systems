@@ -1,4 +1,4 @@
-import type { ChannelPeriod, ChannelRetention } from '@/features/workspace/hooks/useRetention';
+import type { ChannelPeriod, ChannelRetention } from '@/features/workspace';
 
 export interface PeriodChoice {
   mode: 'workspace' | 'forever' | 'days';
