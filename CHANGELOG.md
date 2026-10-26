@@ -30,6 +30,13 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ### Changed
 
+- **Workspace settings in one dialog.** The workspace menu is down to *Invite people*,
+  *Workflows* and *Workspace settings*; the last opens one dialog with *General*, *Members*,
+  *User groups*, *Custom emoji*, *Apps*, *Integrations*, *Slack import* and *Audit log* for an
+  admin, and the four a member uses for everyone else. *General* saves as you change it, like
+  *Preferences*. `?settings=<section>` in the address opens a section.
+- **Escape closes only the topmost thing**: a confirmation inside a dialog, not both.
+- **The invite form shows only to admins**, who are the only ones the server lets invite.
 - **The channel header has one members button**, the people count, and the pin button shows
   how many are pinned. *Channel settings* moved into the header's ⋯ menu. Every header icon
   has a tooltip.

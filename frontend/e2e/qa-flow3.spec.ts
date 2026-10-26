@@ -1,13 +1,12 @@
 import { test, expect, type Page } from '@playwright/test';
-import { authHeaders, devWorkspace, login, SHOTS } from './helpers';
+import { authHeaders, devWorkspace, login, openWorkspaceSettings, SHOTS } from './helpers';
 
 /// Opens the seeded workspace by id first. Landing on `/app` picks whichever
 /// workspace the instance happens to sort first, which is not this suite's to
 /// assume — an import, or anybody creating one, changes it.
 async function openMembersPanel(page: Page, workspaceId: string) {
   await page.goto(`/app/${workspaceId}`);
-  await page.locator('[data-qa="workspace-menu"]').click();
-  await page.getByRole('button', { name: 'Members', exact: true }).click();
+  await openWorkspaceSettings(page, 'members');
   await expect(page.getByText(/\d+ members?/)).toBeVisible({ timeout: 10_000 });
 }
 

@@ -126,7 +126,7 @@ gated; redirects non-admins to `/app`.
 - POST `/admin/users/{id}/suspend` / `/admin/users/{id}/activate` — toggle account status
 - PATCH `/admin/users/{id}/instance-role` `{ is_instance_admin }` — grant/revoke instance admin
 
-(Workspace deletion lives in `SettingsPanel`, not here.)
+(Workspace deletion lives in *Workspace settings → General*, not here.)
 
 ---
 
@@ -196,7 +196,9 @@ line up everywhere:
   actions, and a close button labelled *Close {title}*.
 - **`Modal`** — `size` `sm` (400 px) · `md` (520) · `lg` (720); a fixed header (title,
   `description`, `headerActions`, ✕) and footer (`footerStart`, `dismissLabel`, `actions`)
-  around a body that is the only scroll area; `onSubmit` makes the whole dialog a form. On a
+  around a body that is the only scroll area; `onSubmit` makes the whole dialog a form.
+  **`SectionedModal`** builds a dialog of sections on it: a vertical tab list (arrow keys,
+  Home/End) beside one section at a time; *Preferences* and *Workspace settings* use it. On a
   phone it is a sheet from the bottom. **`Overlay`** under it holds the portal, focus trap,
   initial focus (`data-autofocus`, then the first field in the body) and the exit fade, which
   runs for the ✕, Escape, the backdrop and the dismiss button.
@@ -339,7 +341,7 @@ on* switch it. There are no drafts. *Run history* swaps the form for `RunHistory
 or yours when only admins may build, opens read-only. `workflowModel.ts` holds the pure
 helpers (schedule presets, insertion, reordering, who may build).
 
-`SettingsPanel` has *Who can build workflows* (every member or admins only). A message whose
+*Workspace settings → General* has *Who can build workflows* (every member or admins only). A message whose
 `metadata.bot.workflow_id` is set is tagged *Workflow* instead of *Bot*.
 
 A message with `metadata.form` renders `FormCard` instead of its text: the title, and for its
@@ -394,18 +396,21 @@ Shows members of the current channel with add/remove actions.
 
 ---
 
-### `MembersPanel`
-Workspace members list with an invite-by-email form (role picker: member / admin / guest).
+### `workspace/settings/WorkspaceSettingsModal`
+Everything about the workspace in one `SectionedModal`, opened from the workspace menu's
+*Workspace settings* (or *Invite people*, which opens *Members* with the invite form). An admin
+sees *General*, *Members*, *User groups*, *Custom emoji*, *Apps*, *Integrations*, *Slack
+import* and *Audit log*; a member sees the four they can use (`sections.ts`). Each section is
+the former right panel's content (`MembersSection`, `IntegrationsSection`, …). `?settings=<section>`
+in the address opens it at that section and is then removed (`useSettingsDialog`).
 
-**Reads:** `useWorkspaceMembers(workspaceId, instanceUrl)`
-**API calls:** POST `/workspaces/{id}/invites` `{ email, role }` — server either adds an existing user directly or sends an invite
+*General* saves as you change it, like *Preferences*: a name or description when the field is
+left, the icon on upload, the switches at once, each PATCH carrying only that field; a status
+line says *Saving…*, *Saved* or why not. Deleting the workspace stays a danger zone at the
+bottom. *Members* shows the invite form to admins only, since inviting is admin-only.
 
----
-
-### `SettingsPanel`
-Workspace name, description, and deletion (soft-delete by default; `?hard=true` for hard delete).
-
-**API calls:** PATCH `/workspaces/{id}`, DELETE `/workspaces/{id}` (optionally `?hard=true`)
+**API calls:** PATCH `/workspaces/{id}`, DELETE `/workspaces/{id}` (optionally `?hard=true`),
+POST `/workspaces/{id}/invites` `{ email, role }`, and each section's own.
 
 ---
 

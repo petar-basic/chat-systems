@@ -109,8 +109,14 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - 🟠 **Edge:** create with an empty/whitespace name → validation error.
 - 🟢 **Rail:** create "Design" and "Dev Team" with no icon → the rail shows *De* and *DT* on tiles of different colours; hovering one shows its full name, and the open one has a ring.
 
+### 3.1b 🟢 Workspace settings in one dialog
+- **Reach:** workspace menu → *Workspace settings*.
+- **Steps:** as Admin, go through every section; in *General* rename the workspace and click away, flip *Link previews*, set *Who can build workflows*. Open `/app/<ws id>?settings=audit-log`. As Bob (member), open *Workspace settings*.
+- **Expected:** the menu holds *Invite people*, *Workflows*, *Workspace settings* (and *Instance admin* for one). *General* says *Saving…* then *Saved* after each change, with no save button; the sidebar shows the new name. The link opens the dialog on *Audit log* and the `?settings=` leaves the address. Bob sees *Members*, *User groups*, *Custom emoji* and *Apps* only, and no invite form.
+- 🟠 **Edge — Escape:** in *Integrations*, *Delete* a webhook to open its confirmation, press Escape → only the confirmation closes; Escape again closes the dialog.
+
 ### 3.2 🟢 Members: list / change role / remove
-- **Reach:** workspace dropdown → Members.
+- **Reach:** workspace menu → *Workspace settings* → *Members* (an admin also has *Invite people*, which opens it with the invite form).
 - **Steps:** as Owner/Admin, change a member's role from the row dropdown, then remove a member (Remove → confirm).
 - **Expected:** UI updates live; removed member loses access. Rows you may not manage (yourself, the Owner, anyone at or above your level) show a read-only role label instead of controls.
 - 🔴 **Edge — privilege:** as a plain Member or Guest there are no role controls at all, and the API rejects the calls (403). As Admin you cannot promote yourself or anyone to Owner, demote the Owner, or remove the Owner.
@@ -231,7 +237,7 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - **Expected:** curl answers 202; within seconds "billing is down" appears in #general from *Alert relay*, tagged *Workflow*. *Run history* shows *Succeeded* with *Step 1 · Send a message*. The scheduled one posts at its minute, once. Admin's panel lists both with "Built by Bob".
 - 🟠 **Edge — retries:** send the same curl twice with `-H 'Idempotency-Key: x'` → one message. *Turn off* the workflow and call it → 409; *Turn on* → 202 again. There is no *Save draft*: a new workflow runs as soon as it is created. 31 calls in a minute → 429.
 - 🟠 **Edge — authority:** a step to a private channel, then remove Bob from it and call the webhook → *Failed*, "Step 1 (Send a message): Its creator can no longer post in that channel". Remove Bob from the workspace → his workflows turn off and the admins' Activity says so.
-- 🔴 **Edge — who builds:** *Settings* → *Who can build workflows* → *Admins only* → Bob's *New* is gone and `POST /api/workspaces/<id>/workflows` answers 403; a guest never sees *Workflows*.
+- 🔴 **Edge — who builds:** *Workspace settings → General* → *Who can build workflows* → *Admins only* → Bob's *New* is gone and `POST /api/workspaces/<id>/workflows` answers 403; a guest never sees *Workflows*.
 - 🟢 **Event triggers:** as Bob, build "Welcome": *When someone joins a channel* → #random; step *Send a DM* to *The person who joined*, "Welcome {{trigger.user}} to {{trigger.channel}}". Build "Incident": *When a reaction is added* in #general, emoji 🚨; step *Send a message* to #random with "{{trigger.user}} flagged {{trigger.message_link}}". Create both. Ana joins #random, Ana adds 🚨 to a message in #general.
 - **Expected:** within seconds Ana has a DM from *Welcome*, tagged *Workflow*, mentioning her; #random gets the flag with a link that opens the message. Ana joining again, 👍 instead of 🚨, or 🚨 in another channel starts nothing. Bob joining #random himself is a succeeded run that sent no DM.
 - 🟠 **Edge — private channel:** a join trigger on a private channel Bob isn't in → "You can't see the channel it listens to". Add Bob, create it, remove Bob, add someone → the run fails with "Its creator can no longer see the channel it listens to".
@@ -435,7 +441,7 @@ HTTPS deployment rather than `http://192.168.x.x`.
       drawer. A transformed ancestor is the containing block for
       `position: fixed`, which is what made this wrong before the portal.
 - [ ] **Uploads.** In the installed app, the composer's paperclip, *Edit profile →
-      Upload photo* and *Workspace settings → Upload icon* each open the system picker
+      Upload photo* and *Workspace settings → General → Upload icon* each open the system picker
       (photos, camera, files), and the chosen file uploads. Emulation cannot check this:
       the picker that failed here was the device's own.
 - [ ] **Back gesture.** From a thread, the system back gesture returns to the

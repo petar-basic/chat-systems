@@ -1,16 +1,5 @@
 import { useRef, useState } from 'react';
-import {
-  ChevronDown,
-  LayoutGrid,
-  Plug,
-  ScrollText,
-  Settings,
-  ShieldCheck,
-  Smile,
-  Upload,
-  Users,
-  Workflow,
-} from 'lucide-react';
+import { ChevronDown, Settings, ShieldCheck, UserPlus, Workflow } from 'lucide-react';
 import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
 
@@ -19,14 +8,8 @@ interface Props {
   isWorkspaceAdmin: boolean;
   isInstanceAdmin: boolean;
   canUseWorkflows: boolean;
-  onOpenMembers: () => void;
   onOpenSettings: () => void;
-  onOpenIntegrations: () => void;
-  onOpenApps: () => void;
-  onOpenSlackImport: () => void;
-  onOpenCustomEmoji: () => void;
-  onOpenUserGroups: () => void;
-  onOpenAuditLog: () => void;
+  onInvite: () => void;
   onOpenWorkflows: () => void;
   onOpenInstanceAdmin: () => void;
 }
@@ -39,14 +22,8 @@ export function WorkspaceMenu({
   isWorkspaceAdmin,
   isInstanceAdmin,
   canUseWorkflows,
-  onOpenMembers,
   onOpenSettings,
-  onOpenIntegrations,
-  onOpenApps,
-  onOpenSlackImport,
-  onOpenCustomEmoji,
-  onOpenUserGroups,
-  onOpenAuditLog,
+  onInvite,
   onOpenWorkflows,
   onOpenInstanceAdmin,
 }: Props) {
@@ -73,41 +50,19 @@ export function WorkspaceMenu({
       </button>
       {open && (
         <div className="absolute top-full left-0 right-0 bg-surface border border-line rounded-b-lg shadow-xl z-30">
-          <button className={ITEM} onClick={pick(onOpenMembers)}>
-            <Users className="w-4 h-4" /> Members
-          </button>
-          <button className={ITEM} onClick={pick(onOpenSettings)}>
-            <Settings className="w-4 h-4" /> Settings
-          </button>
-          <button className={ITEM} data-qa="open-apps" onClick={pick(onOpenApps)}>
-            <LayoutGrid className="w-4 h-4" /> Apps
-          </button>
+          {isWorkspaceAdmin && (
+            <button className={ITEM} data-qa="open-invite" onClick={pick(onInvite)}>
+              <UserPlus className="w-4 h-4" /> Invite people
+            </button>
+          )}
           {canUseWorkflows && (
             <button className={ITEM} data-qa="open-workflows" onClick={pick(onOpenWorkflows)}>
               <Workflow className="w-4 h-4" /> Workflows
             </button>
           )}
-          {isWorkspaceAdmin && (
-            <button className={ITEM} data-qa="open-integrations" onClick={pick(onOpenIntegrations)}>
-              <Plug className="w-4 h-4" /> Integrations
-            </button>
-          )}
-          {isWorkspaceAdmin && (
-            <button className={ITEM} data-qa="open-slack-import" onClick={pick(onOpenSlackImport)}>
-              <Upload className="w-4 h-4" /> Slack import
-            </button>
-          )}
-          <button className={ITEM} data-qa="open-custom-emoji" onClick={pick(onOpenCustomEmoji)}>
-            <Smile className="w-4 h-4" /> Custom emoji
+          <button className={ITEM} data-qa="open-workspace-settings" onClick={pick(onOpenSettings)}>
+            <Settings className="w-4 h-4" /> Workspace settings
           </button>
-          <button className={ITEM} data-qa="open-user-groups" onClick={pick(onOpenUserGroups)}>
-            <Users className="w-4 h-4" /> User groups
-          </button>
-          {isWorkspaceAdmin && (
-            <button className={ITEM} data-qa="open-audit-log" onClick={pick(onOpenAuditLog)}>
-              <ScrollText className="w-4 h-4" /> Audit log
-            </button>
-          )}
           {isInstanceAdmin && (
             <button
               className="w-full px-4 py-2 text-left text-sm text-accent-soft hover:bg-raised flex items-center gap-2 cursor-pointer border-t border-line"
