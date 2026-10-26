@@ -1,11 +1,10 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { Button } from '@/shared/components/Button/Button';
 import { TextInput } from '@/shared/components/Form/TextInput';
-import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { useNavigate } from 'react-router';
-import { useQuery } from '@tanstack/react-query';
 import { KeyRound, ServerCrash, LogIn } from 'lucide-react';
 import { useInstanceStore } from '../stores/instances';
+import { useInstanceInfo } from '@/hooks/queries/useInstanceInfo';
 import { isTotpRequired } from '@/lib/errors';
 import { PENDING_INVITE_KEY } from '@/shared/constants';
 
@@ -30,11 +29,7 @@ export default function AddInstancePage() {
   const [totpCode, setTotpCode] = useState('');
   const [needsTotp, setNeedsTotp] = useState(false);
 
-  const { data: instance } = useQuery({
-    queryKey: ['instance-info'],
-    queryFn: () => getApiForInstance(window.location.origin).typed((c) => c.GET('/instance/info')),
-    staleTime: Infinity,
-  });
+  const { data: instance } = useInstanceInfo(window.location.origin);
 
   const sameOrigin = url.trim().replace(/\/$/, '') === window.location.origin;
 

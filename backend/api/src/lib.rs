@@ -2,6 +2,7 @@ pub mod admin;
 pub mod audit;
 pub mod auth;
 pub mod authz;
+pub mod channel_context;
 pub mod commands;
 pub mod config;
 pub mod conversations;

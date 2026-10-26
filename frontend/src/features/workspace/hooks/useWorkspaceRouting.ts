@@ -9,7 +9,6 @@ interface Args {
   workspaces: Workspace[];
   deletedWorkspaces: Workspace[];
   channels: Channel[];
-  markChannelNotificationsRead: (channelId: string) => void;
   markConversationReadServer: (conversationId: string) => void;
   panel: ReturnType<typeof useRightPanel>;
 }
@@ -21,7 +20,6 @@ export function useWorkspaceRouting({
   workspaces,
   deletedWorkspaces,
   channels,
-  markChannelNotificationsRead,
   markConversationReadServer,
   panel,
 }: Args) {
@@ -95,7 +93,6 @@ export function useWorkspaceRouting({
       if (target && currentChannel?.id !== urlChannelId) {
         selectChannel(target);
         markChannelRead(target.id);
-        markChannelNotificationsRead(target.id);
       } else if (!target) {
         navigate(`/app/${activeWorkspaceId}`, { replace: true });
       }
@@ -116,7 +113,6 @@ export function useWorkspaceRouting({
     currentChannel?.id,
     selectChannel,
     markChannelRead,
-    markChannelNotificationsRead,
     navigate,
   ]);
 

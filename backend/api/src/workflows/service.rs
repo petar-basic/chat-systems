@@ -485,6 +485,10 @@ pub async fn shortcuts(
     user_id: Uuid,
 ) -> AppResult<Vec<Shortcut>> {
     authz::require_channel_post(state, channel_id, user_id).await?;
+    in_channel(state, channel_id).await
+}
+
+pub async fn in_channel(state: &AppState, channel_id: Uuid) -> AppResult<Vec<Shortcut>> {
     Ok(state
         .workflow_repo
         .shortcuts(channel_id)

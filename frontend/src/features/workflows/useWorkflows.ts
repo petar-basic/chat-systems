@@ -1,21 +1,33 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { QUERY_KEYS } from '@/shared/constants';
+import { fromChannelContext } from '@/hooks/queries/channelContext';
 import type { SaveWorkflow, Workflow } from './workflowModel';
 
-export const useWorkflowShortcuts = (channelId: string | null, instanceUrl?: string) =>
-  useQuery({
+export const useWorkflowShortcuts = (channelId: string | null, instanceUrl?: string) => {
+  const queryClient = useQueryClient();
+  return useQuery({
     queryKey: QUERY_KEYS.workflowShortcuts(channelId ?? ''),
     queryFn: async () => {
       if (!channelId) throw new Error('No channel selected');
-      const res = await getApiForInstance(instanceUrl).typed((c) =>
-        c.GET('/channels/{ch_id}/workflow-shortcuts', { params: { path: { ch_id: channelId } } }),
+      const api = getApiForInstance(instanceUrl);
+      return fromChannelContext(
+        queryClient,
+        api,
+        channelId,
+        (context) => context.workflow_shortcuts,
+        async () => {
+          const res = await api.typed((c) =>
+            c.GET('/channels/{ch_id}/workflow-shortcuts', { params: { path: { ch_id: channelId } } }),
+          );
+          return res.data;
+        },
       );
-      return res.data;
     },
     enabled: !!channelId,
     staleTime: 1000 * 30,
   });
+};
 
 export const useStartWorkflow = (instanceUrl?: string) =>
   useMutation({

@@ -1159,6 +1159,36 @@
         }
       }
     },
+    "/channels/{ch_id}/context": {
+      "get": {
+        "tags": [
+          "channels"
+        ],
+        "operationId": "channel_context",
+        "parameters": [
+          {
+            "name": "ch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelContext"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/channels/{ch_id}/files": {
       "get": {
         "tags": [
@@ -1452,6 +1482,17 @@
             }
           },
           {
+            "name": "mark_read",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          {
             "name": "ch_id",
             "in": "path",
             "required": true,
@@ -1466,7 +1507,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DataList_MessageWithReactions"
+                  "$ref": "#/components/schemas/MessagePage"
                 }
               }
             }
@@ -8495,6 +8536,53 @@
           }
         }
       },
+      "ChannelContext": {
+        "type": "object",
+        "required": [
+          "workspace_id",
+          "members",
+          "pins",
+          "bookmarks",
+          "lists",
+          "workflow_shortcuts"
+        ],
+        "properties": {
+          "bookmarks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChannelBookmark"
+            }
+          },
+          "lists": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/List"
+            }
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChannelMember"
+            }
+          },
+          "pins": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Message"
+            }
+          },
+          "workflow_shortcuts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Shortcut"
+            }
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
       "ChannelFile": {
         "allOf": [
           {
@@ -11096,38 +11184,6 @@
           }
         }
       },
-      "DataList_MessageWithReactions": {
-        "type": "object",
-        "required": [
-          "data"
-        ],
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/Message"
-                },
-                {
-                  "type": "object",
-                  "required": [
-                    "reactions"
-                  ],
-                  "properties": {
-                    "reactions": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/Reaction"
-                      }
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
       "DataList_Notification": {
         "type": "object",
         "required": [
@@ -13634,6 +13690,27 @@
               "boolean",
               "null"
             ]
+          }
+        }
+      },
+      "MessagePage": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MessageWithReactions"
+            }
+          },
+          "unread_notifications": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
           }
         }
       },

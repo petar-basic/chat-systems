@@ -1636,3 +1636,23 @@ do them: in `#general`, or while the admin is alone in the workspace, that is in
 the workspace; elsewhere the channel's member list opens already adding. Creating a channel
 now opens it: the app used to navigate before the channel list knew about it and fell back
 to `#general`.
+
+### [CS-072] Fewer round trips on start and on switching channels ✅ shipped
+Signing in made 31 requests before the first channel was drawn, two of them twice, and each
+switch to a channel not opened before made eight: the channel's members, pins, bookmarks,
+lists and workflow shortcuts one by one, then the messages, a call marking the channel's
+notifications read and a second fetch of the unread count it had just changed. One PR,
+measured before and after with `frontend/scripts/measure-requests.mjs`; the numbers are in
+the RUNBOOK. `GET /channels/{id}/context` answers the five in one request with the same
+authorization as each, except that it gives an empty shortcut list instead of a 403 in a
+channel the caller can read but not post in. The five hooks ask for the context when theirs
+is the first fetch for the channel, and the context seeds every key, so the components
+still read the keys they read before. When the context is under 30 seconds old, a fetch can
+only be an invalidation of one key, so it goes to that key's own route. The newest page of
+messages carries the read mark: `mark_read=true` moves the read position, marks the
+channel's notifications read and answers with the workspace's notification count, which
+replaces the two separate calls and the refetch. A channel opened from the address bar or
+on start is now marked read on the server too. Before, only a click in the sidebar did
+that, and only once the messages were already loaded. The sign-in page reads
+`/instance/info` through the same query as the rest of the app. Start is down to 24
+requests with none twice, a first switch to two, and a switch back to one.

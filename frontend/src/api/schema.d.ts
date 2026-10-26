@@ -520,6 +520,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/channels/{ch_id}/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["channel_context"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/channels/{ch_id}/files": {
         parameters: {
             query?: never;
@@ -2863,6 +2879,15 @@ export interface components {
             position: number;
             url: string;
         };
+        ChannelContext: {
+            bookmarks: components["schemas"]["ChannelBookmark"][];
+            lists: components["schemas"]["List"][];
+            members: components["schemas"]["ChannelMember"][];
+            pins: components["schemas"]["Message"][];
+            workflow_shortcuts: components["schemas"]["Shortcut"][];
+            /** Format: uuid */
+            workspace_id: string;
+        };
         ChannelFile: components["schemas"]["Attachment"] & {
             /** Format: date-time */
             created_at: string;
@@ -3566,11 +3591,6 @@ export interface components {
                 message_id: string;
                 previous_content: string;
             }[];
-        };
-        DataList_MessageWithReactions: {
-            data: (components["schemas"]["Message"] & {
-                reactions: components["schemas"]["Reaction"][];
-            })[];
         };
         DataList_Notification: {
             data: {
@@ -4291,6 +4311,11 @@ export interface components {
             poll?: components["schemas"]["PollSummary"] | null;
             unfurls?: components["schemas"]["Unfurl"][] | null;
             unfurls_hidden?: boolean | null;
+        };
+        MessagePage: {
+            data: components["schemas"]["MessageWithReactions"][];
+            /** Format: int64 */
+            unread_notifications?: number | null;
         };
         MessageWithReactions: components["schemas"]["Message"] & {
             reactions: components["schemas"]["Reaction"][];
@@ -5845,6 +5870,27 @@ export interface operations {
             };
         };
     };
+    channel_context: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChannelContext"];
+                };
+            };
+        };
+    };
     files_list_channel_files: {
         parameters: {
             query?: {
@@ -5990,6 +6036,7 @@ export interface operations {
             query?: {
                 limit?: number | null;
                 cursor?: string | null;
+                mark_read?: boolean | null;
             };
             header?: never;
             path: {
@@ -6004,7 +6051,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DataList_MessageWithReactions"];
+                    "application/json": components["schemas"]["MessagePage"];
                 };
             };
         };

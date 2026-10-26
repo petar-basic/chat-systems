@@ -259,6 +259,7 @@ export default function WorkspacePage() {
               {currentChannel && (
                 <MessageList
                   channelId={currentChannel.id}
+                  markReadIn={currentChannel.workspace_id}
                   members={c.workspaceMembers}
                   channels={c.channels}
                   onThreadOpen={panel.openThread}

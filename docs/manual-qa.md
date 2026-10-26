@@ -222,6 +222,8 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 ### 5.8 🟠 Read tracking / unread badges
 - **Steps:** in tab A send to a channel; in tab B (different user) don't open it.
 - **Expected:** tab B shows an unread indicator for that channel; opening it clears the badge.
+- 🟢 **Read on the server too:** open that channel from a link or by reloading on it, not from the sidebar, then reload again → it stays read, and a mention notification from it no longer counts in the bell.
+- 🟢 **Request count (CS-072):** in the browser's network tab, switch to a channel not opened before → two `/api` requests, `channels/<id>/context` and `channels/<id>/messages?…&mark_read=true`; switch back within half a minute → only the messages.
 
 ### 5.9 🟢 Polls
 - **Reach:** the poll button next to the paperclip, or `/poll` in any message box (`POST /api/channels/<id>/polls`).

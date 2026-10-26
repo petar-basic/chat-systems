@@ -11,7 +11,7 @@ import { useNotificationKeywords } from '@/hooks/queries/useNotificationKeywords
 import { useInstanceStore } from '@/stores/instances';
 import { useDocumentTitle } from '@/shared/hooks/useDocumentTitle';
 import { useFaviconBadge } from '@/shared/hooks/useFaviconBadge';
-import { useWorkspaceUnreadCounts, useMarkChannelNotificationsRead } from '@/hooks/queries/useNotifications';
+import { useWorkspaceUnreadCounts } from '@/hooks/queries/useNotifications';
 import {
   useWorkspaces,
   useWorkspaceChannels,
@@ -91,10 +91,6 @@ export function useWorkspaceData(workspaceId: string | undefined, currentUserId:
   useEffect(() => {
     hydrateMutedChannels(channels.filter((c) => c.muted).map((c) => c.id));
   }, [channels, hydrateMutedChannels]);
-
-  const { mutate: markChannelNotificationsRead } = useMarkChannelNotificationsRead(
-    workspaceId || storeWorkspaceId || null,
-  );
 
   const unreadByWorkspace = useWorkspaceUnreadCounts(workspaces);
   const totalUnread = useMemo(
@@ -177,7 +173,6 @@ export function useWorkspaceData(workspaceId: string | undefined, currentUserId:
     workspaceMembers,
     conversations,
     restoreWorkspace,
-    markChannelNotificationsRead,
     markConversationReadServer,
     getUser,
   };

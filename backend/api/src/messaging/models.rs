@@ -266,6 +266,14 @@ pub struct UnreadsPage {
 pub struct ListMessagesQuery {
     pub limit: Option<i64>,
     pub cursor: Option<Uuid>,
+    pub mark_read: Option<bool>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct MessagePage {
+    pub data: Vec<MessageWithReactions>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unread_notifications: Option<i64>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]

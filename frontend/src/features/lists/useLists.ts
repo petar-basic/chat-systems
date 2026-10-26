@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tansta
 import type { components } from '@/api/schema';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { ErrorLabels, QUERY_KEYS } from '@/shared/constants';
+import { fromChannelContext } from '@/hooks/queries/channelContext';
 import { toast } from '@/shared/components/Toast';
 import { toUserMessage } from '@/lib/errors';
 import {
@@ -48,16 +49,24 @@ export function useChannelLists(
   instanceUrl?: string,
   enabled = true,
 ) {
+  const queryClient = useQueryClient();
   return useQuery({
     queryKey: QUERY_KEYS.channelLists(workspaceId, channelId),
-    queryFn: async () => {
-      const res = await api(instanceUrl).typed((c) =>
-        c.GET('/workspaces/{ws_id}/lists', {
-          params: { path: { ws_id: workspaceId }, query: { channel_id: channelId } },
-        }),
-      );
-      return res.data;
-    },
+    queryFn: () =>
+      fromChannelContext(
+        queryClient,
+        api(instanceUrl),
+        channelId,
+        (context) => context.lists,
+        async () => {
+          const res = await api(instanceUrl).typed((c) =>
+            c.GET('/workspaces/{ws_id}/lists', {
+              params: { path: { ws_id: workspaceId }, query: { channel_id: channelId } },
+            }),
+          );
+          return res.data;
+        },
+      ),
     enabled,
   });
 }

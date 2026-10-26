@@ -238,6 +238,7 @@ feature — see `dm` below.)
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/channels/:ch_id/bookmarks` | — | `{ data: ChannelBookmark[] }` — any channel member |
+| GET | `/channels/:ch_id/context` | — | `{ workspace_id, members, pins, bookmarks, lists, workflow_shortcuts }` — what the members, pins, bookmarks, `lists?channel_id=` and workflow-shortcuts routes return, in one request; refused where pins and bookmarks are, and `workflow_shortcuts` is empty rather than 403 in a channel the caller cannot post in |
 | POST | `/channels/:ch_id/bookmarks` | `{ label, url, emoji? }` | `ChannelBookmark` — channel moderators only; the URL must be `http(s)` |
 | DELETE | `/channels/:ch_id/bookmarks/:bookmark_id` | — | `{ status: "deleted" }` — channel moderators only |
 
@@ -295,7 +296,7 @@ Sends and manages messages, threads, reactions, pins, read tracking, and search.
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
-| GET | `/channels/:ch_id/messages` | Query: `limit=50, cursor?` | `{ data: Message[] }` |
+| GET | `/channels/:ch_id/messages` | Query: `limit=50, cursor?, mark_read?` | `{ data: Message[], unread_notifications? }` — with `mark_read=true` and no cursor, the newest message becomes the caller's read position (as `POST /channels/:ch_id/read`), the channel's notifications are marked read, and `unread_notifications` is the workspace's count afterwards |
 | POST | `/channels/:ch_id/messages` | `{ content, thread_parent_id?, client_message_id?, attachment_ids?, copy_attachments_from? }` | `Message` — the one send path; a `thread_parent_id` makes it a reply (one level deep, same channel) and `client_message_id` makes a retry idempotent. `attachment_ids` (at most 10, the sender's own drafts) are linked in the message's transaction and listed in `metadata.attachments`; `content` may then be empty. `copy_attachments_from` (a forward) copies that message's files, if the sender can read it |
 | PATCH | `/messages/:msg_id` | `{ content, attachment_ids? }` | `Message` — `attachment_ids` is the set of files to keep; the rest are deleted |
 | DELETE | `/messages/:msg_id` | — | `{ status: "deleted" }` |

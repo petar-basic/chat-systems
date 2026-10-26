@@ -9,7 +9,6 @@ ticket in [`docs/tickets/`](./tickets/INDEX.md); a ticket's file is deleted when
 
 | Ticket | What | Status |
 |---|---|---|
-| [CS-072](./tickets/CS-072-fewer-round-trips.md) | Fewer API round trips on start and on switching channels | Wave 24 |
 | [CS-073](./tickets/CS-073-one-frontend-structure.md) | One frontend structure: `components/` and `hooks/` folded into `features/` | Wave 24 |
 | [CS-074](./tickets/CS-074-channel-integrations.md) | A channel shows the webhooks, commands and workflows that touch it, and its admin adds an incoming webhook without a workspace admin | Wave 24 |
 | [CS-075](./tickets/CS-075-posting-and-channel-permissions.md) | Who may use `@channel` / `@here` / `@everyone`, per workspace and per channel, and who may create channels | Wave 24 |
@@ -69,7 +68,7 @@ was pencilled in for it was absorbed into 9 and 11.
 | [Wave 21 — Notifications that fit how a team works](./history.md#wave-21--notifications-that-fit-how-a-team-works--shipped) | CS-060 · CS-061 · CS-062 |
 | [Wave 22 — Finding files](./history.md#wave-22--finding-files--shipped) | CS-063 · CS-064 |
 | [Wave 23 — Structured work: polls, lists, workflows](./history.md#wave-23--structured-work-polls-lists-workflows--shipped) | CS-065 · CS-066 · CS-067 |
-| [Wave 24 — Ready for a company](./history.md#wave-24--ready-for-a-company) | CS-068, CS-069, CS-070, CS-071 (CS-072 … CS-075 open) |
+| [Wave 24 — Ready for a company](./history.md#wave-24--ready-for-a-company) | CS-068, CS-069, CS-070, CS-071, CS-072 (CS-073 … CS-075 open) |
 
 ---
 

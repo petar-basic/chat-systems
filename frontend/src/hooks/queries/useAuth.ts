@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useInstanceStore, type InstanceUser, type InstanceConfig, toInstanceUser } from '@/stores/instances';
 import { instanceManager } from '@/lib/instances';
 import { useWsStatusStore } from '@/stores/wsStatus';
+import { QUERY_KEYS } from '@/shared/constants';
 
 export type User = InstanceUser;
 
@@ -89,6 +90,7 @@ export interface SetupDraft {
 
 export const useCompleteSetup = () => {
   const { addValidatedInstance } = useInstanceStore();
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (draft: SetupDraft) => {
@@ -118,6 +120,8 @@ export const useCompleteSetup = () => {
 
       return res;
     },
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.instanceInfo(window.location.origin) }),
   });
 };
 

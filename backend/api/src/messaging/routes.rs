@@ -45,14 +45,14 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
     operation_id = "messaging_list_messages",
     get, path = "/channels/{ch_id}/messages", tag = "messages",
     params(ListMessagesQuery),
-    responses((status = 200, body = DataList<MessageWithReactions>)))]
+    responses((status = 200, body = MessagePage)))]
 async fn list_messages(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ch_id): Path<Uuid>,
     Query(params): Query<ListMessagesQuery>,
-) -> AppResult<Json<DataList<MessageWithReactions>>> {
-    authz::require_channel_access(&state, ch_id, auth.user_id).await?;
+) -> AppResult<Json<MessagePage>> {
+    let access = authz::require_channel_access(&state, ch_id, auth.user_id).await?;
     let limit = params.limit.unwrap_or(50).clamp(1, 200);
     let messages = state
         .message_repo
@@ -80,9 +80,58 @@ async fn list_messages(
             let reactions = reactions_map.remove(&message.id).unwrap_or_default();
             MessageWithReactions { message, reactions }
         })
-        .collect();
+        .collect::<Vec<_>>();
 
-    Ok(Json(DataList { data }))
+    let newest = data.first().map(|m| m.message.id);
+    let unread_notifications = match newest {
+        Some(newest) if params.mark_read == Some(true) && params.cursor.is_none() => {
+            read_up_to(&state, &access, auth.user_id, newest).await?;
+            let ws_id = access.channel.workspace_id;
+            state
+                .notification_repo
+                .mark_channel_read(auth.user_id, ws_id, ch_id)
+                .await?;
+            Some(
+                state
+                    .notification_repo
+                    .unread_count(auth.user_id, ws_id)
+                    .await?,
+            )
+        }
+        _ => None,
+    };
+
+    Ok(Json(MessagePage {
+        data,
+        unread_notifications,
+    }))
+}
+
+async fn read_up_to(
+    state: &AppState,
+    access: &authz::ChannelAccess,
+    user_id: Uuid,
+    message_id: Uuid,
+) -> AppResult<()> {
+    let ch_id = access.channel.id;
+    state
+        .message_repo
+        .mark_read(ch_id, user_id, message_id)
+        .await?;
+    let read = ReadState {
+        channel_id: ch_id,
+        unread_count: 0,
+        mention_count: 0,
+        last_read_message_id: Some(message_id),
+    };
+    if let Err(e) = state
+        .publisher
+        .publish_read_state(user_id, access.channel.workspace_id, &read)
+        .await
+    {
+        tracing::warn!(channel_id = %ch_id, "failed to announce the read position: {e}");
+    }
+    Ok(())
 }
 
 /// Threads are one level deep and stay in their channel: replying to a reply
@@ -769,23 +818,7 @@ async fn mark_read(
     Json(req): Json<MarkReadRequest>,
 ) -> AppResult<Json<StatusResponse>> {
     let access = authz::require_channel_access(&state, ch_id, auth.user_id).await?;
-    state
-        .message_repo
-        .mark_read(ch_id, auth.user_id, req.message_id)
-        .await?;
-    let read = ReadState {
-        channel_id: ch_id,
-        unread_count: 0,
-        mention_count: 0,
-        last_read_message_id: Some(req.message_id),
-    };
-    if let Err(e) = state
-        .publisher
-        .publish_read_state(auth.user_id, access.channel.workspace_id, &read)
-        .await
-    {
-        tracing::warn!(channel_id = %ch_id, "failed to announce the read position: {e}");
-    }
+    read_up_to(&state, &access, auth.user_id, req.message_id).await?;
     Ok(Json(StatusResponse { status: "read" }))
 }
 

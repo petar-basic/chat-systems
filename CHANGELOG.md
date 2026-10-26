@@ -22,6 +22,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   admin prints no setup token and needs nothing. `ADMIN_PASSWORD` is optional now; once the
   instance is up, remove it from `.env`.
 - `GET /instance/info` gains `setup_required`.
+- `GET /channels/{id}/messages` answers `{ data, unread_notifications? }`. The second field is
+  there only when the request asked for `mark_read=true`. A client that reads `data` sees no
+  change.
 - The API runs migration 71 on start (`retention_policies.channel_overrides` and the
   `channel_retention` table); it is off for every workspace until an owner turns it on.
   `PATCH /workspaces/{id}/retention` replaces the whole policy, so an API client that saves it
@@ -60,6 +63,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   `GET /workspaces/{id}/retention/preview` counts what given periods would remove; the
   `/admin/scim/tokens` routes are in the OpenAPI document. Rotating a revoked SCIM token now
   answers 404 instead of minting a replacement.
+- **API:** `GET /channels/{id}/context` returns a channel's members, pins, bookmarks, lists
+  and workflow shortcuts in one request. `GET /channels/{id}/messages?mark_read=true` marks the
+  channel read along with its newest page.
 - **Form answers as fields.** A workflow message with the form answers below it shows them as
   labelled fields in two columns instead of a tall stack of paragraphs; the message text is
   unchanged.
@@ -79,12 +85,16 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - **Workspaces without an icon differ in the rail**: a tile coloured from the workspace and up
   to two letters (*Dev Team* → *DT*, *Design* → *De*).
 - **The README lists what ships**, grouped as the app is.
+- **Fewer requests.** Signing in makes 24 requests instead of 31, and none of them twice. Opening
+  a channel for the first time makes two instead of eight.
 - **Workflows have no drafts.** *Create workflow* saves a new workflow and it starts running;
   an existing one has *Save changes*, *Turn off* and *Turn on*. A draft had to be complete to
   save anyway, and once saved it looked exactly like a workflow somebody had turned off.
 
 ### Fixed
 
+- **A channel opened on start or from a link is marked read.** Only a click in the sidebar
+  used to mark it, so its unread count came back after a reload.
 - **A new channel opens once created.** It used to leave you in `#general`, because the app
   went to the channel before its list knew about it.
 

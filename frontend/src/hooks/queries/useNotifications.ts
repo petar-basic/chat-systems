@@ -1,4 +1,4 @@
-import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueries, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type { components } from '@/api/schema';
 import { useCurrentApi, getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { QUERY_KEYS, NOTIFICATIONS_PAGE_SIZE } from '@/shared/constants';
@@ -188,50 +188,19 @@ export const useMarkNotificationsRead = (workspaceId: string | null) => {
   });
 };
 
-export const useMarkChannelNotificationsRead = (workspaceId: string | null) => {
-  const queryClient = useQueryClient();
-  const apiClient = useCurrentApi();
-  const listKey = QUERY_KEYS.notifications(workspaceId ?? '');
-  const countKey = QUERY_KEYS.notificationUnreadCount(workspaceId ?? '');
-
-  return useMutation({
-    mutationFn: async (channelId: string) => {
-      if (!workspaceId) throw new Error('No workspace');
-      return apiClient.typed((c) =>
-        c.POST('/workspaces/{ws_id}/channels/{ch_id}/notifications/read', {
-          params: { path: { ws_id: workspaceId, ch_id: channelId } },
-        }),
-      );
-    },
-    onMutate: async (channelId) => {
-      await queryClient.cancelQueries({ queryKey: listKey });
-      const prevList = queryClient.getQueryData<AppNotification[]>(listKey);
-      const prevCount = queryClient.getQueryData<number>(countKey);
-      let newlyRead = 0;
-      queryClient.setQueryData<AppNotification[]>(listKey, (old) =>
-        old?.map((n) => {
-          if (n.channel_id === channelId && !n.is_read) {
-            newlyRead++;
-            return { ...n, is_read: true };
-          }
-          return n;
-        }),
-      );
-      if (newlyRead > 0) {
-        queryClient.setQueryData<number>(countKey, (c) => Math.max(0, (c ?? 0) - newlyRead));
-      }
-      return { prevList, prevCount };
-    },
-    onError: (err, _channelId, ctx) => {
-      logger.error('useMarkChannelNotificationsRead', 'mutationFn', err);
-      if (ctx?.prevList) queryClient.setQueryData(listKey, ctx.prevList);
-      if (ctx?.prevCount !== undefined) queryClient.setQueryData(countKey, ctx.prevCount);
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: countKey });
-    },
-  });
-};
+export async function settleChannelNotifications(
+  queryClient: QueryClient,
+  workspaceId: string,
+  channelId: string,
+  unread: number,
+) {
+  const countKey = QUERY_KEYS.notificationUnreadCount(workspaceId);
+  await queryClient.cancelQueries({ queryKey: countKey, exact: true });
+  queryClient.setQueryData<number>(countKey, unread);
+  queryClient.setQueryData<AppNotification[]>(QUERY_KEYS.notifications(workspaceId), (old) =>
+    old?.map((n) => (n.channel_id === channelId && !n.is_read ? { ...n, is_read: true } : n)),
+  );
+}
 
 export const useMarkAllNotificationsRead = (workspaceId: string | null) => {
   const queryClient = useQueryClient();

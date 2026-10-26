@@ -178,6 +178,32 @@ table above. **On a database with no statistics at all** — straight after a re
 before `ANALYZE` or autovacuum has run — a common word still takes up to 3 s, which is why
 the restore below ends with `vacuumdb --analyze-only`.
 
+### Requests on start and per channel switch
+
+Counted with `frontend/scripts/measure-requests.mjs` (`CS-072`, 2026-10-26), which signs in
+through the browser, counts every request to `/api` until the first channel has drawn, then
+switches channels and counts again. It runs against a local stack:
+
+```bash
+cd frontend && node scripts/measure-requests.mjs
+```
+
+`E2E_BASE_URL`, `MEASURE_EMAIL` and `MEASURE_WORKSPACE` point it elsewhere, and
+`MEASURE_CHANNEL=chrome` uses the installed Chrome when Playwright's own browser is missing.
+Start was measured as a member of three workspaces (each asks for its own notification
+count), the switches as a member of several channels in one.
+
+| | Before | After |
+|---|---|---|
+| Sign-in to the first message | 31, two of them twice | 24, none twice |
+| Switch to a channel not opened before | 8 | 2 |
+| Switch back to a channel opened before | 1 | 1 |
+
+The switch used to ask for the channel's members, pins, bookmarks, lists and workflow
+shortcuts one by one, mark the channel's notifications read, and fetch the unread count
+again. Now it asks for `GET /channels/{id}/context` and the newest page of messages, which
+carries the read mark. A switch back within 30 seconds asks for the messages only.
+
 ## Upgrade note: Wave 1 expires every outstanding invite
 
 The `20240305000016_invite_lifecycle` migration backfills an expiry onto every invite that

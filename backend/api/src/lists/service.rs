@@ -18,7 +18,7 @@ use super::views::{
     clean_view_name, CreateViewRequest, ListView, UpdateViewRequest, ViewConfig, ViewKind,
     MAX_VIEWS,
 };
-use crate::authz;
+use crate::authz::{self, ChannelAccess};
 use crate::messaging::publisher::{EventPublisher, Staged};
 use crate::state::AppState;
 use crate::workspace::models::WorkspaceRole;
@@ -99,6 +99,7 @@ pub async fn visible(
         if access.channel.workspace_id != workspace_id {
             return Err(AppError::NotFound("Channel not found".into()));
         }
+        return in_channel(state, &access).await;
     }
     Ok(state
         .list_repo
@@ -106,7 +107,19 @@ pub async fn visible(
             workspace_id,
             user_id,
             is_guest: member.role == WorkspaceRole::Guest,
-            channel_id,
+            channel_id: None,
+        })
+        .await?)
+}
+
+pub async fn in_channel(state: &AppState, access: &ChannelAccess) -> AppResult<Vec<List>> {
+    Ok(state
+        .list_repo
+        .visible(&Visibility {
+            workspace_id: access.channel.workspace_id,
+            user_id: access.member.user_id,
+            is_guest: access.is_guest(),
+            channel_id: Some(access.channel.id),
         })
         .await?)
 }
