@@ -114,6 +114,8 @@ export default function WorkspaceRightPanels({
   if (panel.kind === 'workflows' && currentWorkspace && currentUserId) {
     return (
       <WorkflowsPanel
+        key={panel.workflowId ?? 'list'}
+        workflowId={panel.workflowId}
         workspaceId={currentWorkspace.id}
         instanceUrl={currentWorkspace.instanceUrl}
         channels={channels}

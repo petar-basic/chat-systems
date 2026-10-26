@@ -36,7 +36,13 @@ test('a channel admin can rename their channel while a plain member cannot', asy
 
     await login(page, 'bob@dev.local');
     await openChannel(page, workspace.id, channelId, channelName);
-    await expect(page.locator('[data-qa="channel-actions-more"]')).toBeHidden();
+    await page.locator('[data-qa="channel-actions-more"]').click();
+    await page.locator('[data-qa="channel-details-open"]').click();
+    await expect(page.locator('[data-qa="channel-details-modal"]')).toBeVisible();
+    await expect(page.locator('[data-qa="channel-about"]')).toBeVisible();
+    await expect(page.locator('[data-qa="channel-about-name"]')).toHaveCount(0);
+    await expect(page.locator('[data-qa="channel-details-tab-settings"]')).toHaveCount(0);
+    await page.keyboard.press('Escape');
 
     const denied = await bob.patch(`${API}/channels/${channelId}`, { data: { name: `nope-${stamp}` } });
     expect(denied.status(), 'a plain channel member cannot rename').toBe(403);
@@ -48,12 +54,12 @@ test('a channel admin can rename their channel while a plain member cannot', asy
 
     await page.reload();
     await page.locator('[data-qa="channel-actions-more"]').click();
-    await page.locator('[data-qa="channel-settings-open"]').click();
-    await page.locator('[data-qa="channel-settings-name"]').fill(`perm-${stamp}-renamed`);
-    await page.locator('[data-qa="channel-settings-topic"]').fill('owned by bob');
-    await page.locator('[data-qa="channel-settings-save"]').click();
+    await page.locator('[data-qa="channel-details-open"]').click();
+    await page.locator('[data-qa="channel-about-name"]').fill(`perm-${stamp}-renamed`);
+    await page.locator('[data-qa="channel-about-topic"]').fill('owned by bob');
+    await page.locator('[data-qa="channel-about-save"]').click();
 
-    await expect(page.locator('[data-qa="channel-settings-modal"]')).toBeHidden();
+    await expect(page.locator('[data-qa="channel-details-modal"]')).toBeHidden();
     await expect(page.getByRole('navigation').getByText(`perm-${stamp}-renamed`)).toBeVisible();
 
     const fetched = await (await admin.get(`${API}/channels/${channelId}`)).json();

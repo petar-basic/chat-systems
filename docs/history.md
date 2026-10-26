@@ -1673,3 +1673,23 @@ gained one. A barrel imports its whole feature, so features that use each other 
 import cycles; that is safe while no module reads another feature's export as it loads, and
 the one that did, search's file-kind filter, now reads `lib/fileKinds`, which moved out of
 messaging because both use it. `docs/frontend.md` describes the layout once, at the top.
+
+### [CS-074] A channel shows what posts into it, and its admin can add a webhook ✅ shipped
+Every integration lived in the workspace admin's panel and nothing in a channel said which
+of them touched it, and making any hook took a workspace admin, so the team that owns
+`#deploys` asked one each time it wanted a CI notification. Two PRs. The first added
+`GET /channels/{id}/integrations`: the incoming webhooks bound to the channel, the outgoing
+webhooks and slash commands whose `channel_ids` include it, and the workflows whose trigger
+listens to it or whose `send_message` step posts into it, one SQL query per kind, for anyone
+with access and with no URL, token or secret in it. `authz::can_manage_channel_hook` lets a
+channel admin create, reveal, rotate and delete the incoming webhooks of their own channel;
+outgoing webhooks and slash commands send what people type to a third-party URL, so they
+stay with workspace admins, and every write keeps its audit row. A private channel the
+caller is not in answers 403 like every other channel route, not the 404 the ticket named.
+The second turned *Channel settings* into *Channel details*, which everyone in the channel
+opens from ⋯: *About* (editable by a moderator, text for everyone else), *Settings*
+(announcement channel and message retention, moderators only) and *Integrations*. A channel
+admin adds an incoming webhook there and sees its URL once, under it; a workflow row opens
+the workflow in the *Workflows* panel for someone who may build them; the *Integration* badge
+in the header opens the tab. The workspace *Integrations* section links each hook's
+channels.

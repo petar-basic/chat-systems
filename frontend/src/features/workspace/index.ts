@@ -9,7 +9,13 @@ export { WorkspaceChecklist } from './onboarding/WorkspaceChecklist';
 export { useAppActions, useApps } from './hooks/useApps';
 export type { AppProvider } from './hooks/useApps';
 export type { CustomEmoji } from './hooks/useCustomEmoji';
-export { useHookedChannels } from './hooks/useHooks';
+export {
+  useCreateHook,
+  useDeleteHook,
+  useHookedChannels,
+  useRevealHook,
+  useRotateHook,
+} from './hooks/useHooks';
 export { useChannelRetention, useSetChannelRetention } from './hooks/useRetention';
 export type { ChannelPeriod, ChannelRetention } from './hooks/useRetention';
 export { useUserGroups } from './hooks/useUserGroups';

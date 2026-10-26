@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from 'react';
+import { Fragment, useState, type FormEvent } from 'react';
+import { Link } from 'react-router';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { Button } from '@/shared/components/Button/Button';
 import { CopyField } from '@/shared/components/CopyField/CopyField';
@@ -32,9 +33,24 @@ function configOf(source: { config: unknown }): Record<string, unknown> {
   return isRecord(source.config) ? source.config : {};
 }
 
+function ChannelLink({
+  workspaceId,
+  channel,
+}: {
+  workspaceId: string;
+  channel: { id: string; name: string };
+}) {
+  return (
+    <Link to={`/app/${workspaceId}/${channel.id}`} className="hover:underline" data-qa="hook-channel-link">
+      #{channel.name}
+    </Link>
+  );
+}
+
 function HookRow({
   hook,
-  channelName,
+  workspaceId,
+  channels,
   scope,
   secrets,
   busy,
@@ -43,8 +59,9 @@ function HookRow({
   onDelete,
 }: {
   hook: Hook;
-  channelName: string | null;
-  scope?: string;
+  workspaceId: string;
+  channels: { id: string; name: string }[];
+  scope?: boolean;
   secrets: HookSecrets | null;
   busy: boolean;
   onReveal: () => void;
@@ -53,7 +70,12 @@ function HookRow({
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const isIncoming = hook.hook_type === 'incoming_webhook';
-  const target = isIncoming ? `#${channelName ?? 'unknown channel'}` : String(configOf(hook).url ?? '');
+  const linked = channels.map((channel, i) => (
+    <Fragment key={channel.id}>
+      {i > 0 && ', '}
+      <ChannelLink workspaceId={workspaceId} channel={channel} />
+    </Fragment>
+  ));
   const signingSecret = secrets ? configOf(secrets).secret : undefined;
 
   return (
@@ -62,11 +84,15 @@ function HookRow({
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium text-fg-soft truncate">{hook.name}</div>
           <div className="text-xs text-muted truncate" data-qa="hook-target">
-            {target}
+            {isIncoming
+              ? linked.length > 0
+                ? linked
+                : '#unknown channel'
+              : String(configOf(hook).url ?? '')}
           </div>
-          {scope && (
+          {scope && linked.length > 0 && (
             <div className="text-xs text-warning/80 truncate" data-qa="hook-scope">
-              Forwards {scope}
+              Forwards {linked}
             </div>
           )}
           {!hook.is_active && (
@@ -214,13 +240,12 @@ export function IntegrationsSection({ workspaceId, instanceUrl, channels }: Prop
       prev.includes(channelId) ? prev.filter((id) => id !== channelId) : [...prev, channelId],
     );
 
-  const scopeLabel = (hook: Hook) => {
-    const channelIds = configOf(hook).channel_ids;
-    const ids = Array.isArray(channelIds)
-      ? channelIds.filter((id): id is string => typeof id === 'string')
-      : [];
-    if (ids.length === 0) return undefined;
-    return ids.map((id) => `#${channels.find((c) => c.id === id)?.name ?? 'unknown'}`).join(', ');
+  const channelsOf = (hook: Hook) => {
+    const config = configOf(hook);
+    const ids = Array.isArray(config.channel_ids) ? config.channel_ids : [config.channel_id];
+    return ids
+      .filter((id): id is string => typeof id === 'string')
+      .map((id) => ({ id, name: channels.find((c) => c.id === id)?.name ?? 'unknown' }));
   };
 
   const handleReveal = async (hookId: string) => {
@@ -274,7 +299,8 @@ export function IntegrationsSection({ workspaceId, instanceUrl, channels }: Prop
             <HookRow
               key={hook.id}
               hook={hook}
-              channelName={channels.find((c) => c.id === configOf(hook).channel_id)?.name ?? null}
+              workspaceId={workspaceId}
+              channels={channelsOf(hook)}
               secrets={secretsByHook[hook.id] ?? null}
               busy={busy}
               onReveal={() => void handleReveal(hook.id)}
@@ -331,8 +357,9 @@ export function IntegrationsSection({ workspaceId, instanceUrl, channels }: Prop
           <HookRow
             key={hook.id}
             hook={hook}
-            channelName={null}
-            scope={scopeLabel(hook)}
+            workspaceId={workspaceId}
+            channels={channelsOf(hook)}
+            scope
             secrets={secretsByHook[hook.id] ?? null}
             busy={busy}
             onReveal={() => void handleReveal(hook.id)}
