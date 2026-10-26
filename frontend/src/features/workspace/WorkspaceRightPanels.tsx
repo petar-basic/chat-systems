@@ -1,24 +1,15 @@
 import type { Channel, WorkspaceMember, Workspace } from '@/stores/workspace';
 import type { Conversation } from '@/hooks/queries/useConversations';
 import type { RightPanel } from './hooks/useRightPanel';
-import MembersPanel from '@/components/MembersPanel';
-import SettingsPanel from '@/components/SettingsPanel';
 import ThreadPanel from '@/components/ThreadPanel';
 import SearchPanel from '@/components/SearchPanel';
 import PinnedMessagesPanel from '@/components/PinnedMessagesPanel';
 import ChannelFilesPanel from '@/components/ChannelFilesPanel';
 import ChannelMembersPanel from '@/components/ChannelMembersPanel';
 import NotificationsPanel from '@/components/NotificationsPanel';
-import IntegrationsPanel from '@/components/IntegrationsPanel';
-import AppsPanel from '@/components/AppsPanel';
-import CustomEmojiPanel from '@/components/CustomEmojiPanel';
-import UserGroupsPanel from '@/components/UserGroupsPanel';
 import { useCurrentWorkspaceRole } from './hooks/useCurrentWorkspaceRole';
-import { linkPreviewsEnabled } from './linkPreviews';
-import AuditLogPanel from '@/components/AuditLogPanel';
 import ScheduledMessagesPanel from '@/components/ScheduledMessagesPanel';
 import LaterPanel from '@/components/LaterPanel';
-import SlackImportPanel from '@/components/SlackImportPanel';
 import { WorkflowsPanel, canBuild, workflowBuildersOf } from '@/features/workflows';
 
 interface Props {
@@ -50,24 +41,6 @@ export default function WorkspaceRightPanels({
 
   if (!panel) return null;
 
-  if (panel.kind === 'members' && currentWorkspace) {
-    return <MembersPanel workspaceId={currentWorkspace.id} onClose={onClose} />;
-  }
-  if (panel.kind === 'settings' && currentWorkspace) {
-    return (
-      <SettingsPanel
-        workspaceId={currentWorkspace.id}
-        instanceUrl={currentWorkspace.instanceUrl}
-        currentName={currentWorkspace.name}
-        currentIconUrl={currentWorkspace.icon_url}
-        currentDescription={currentWorkspace.description ?? null}
-        currentLinkPreviews={linkPreviewsEnabled(currentWorkspace.settings)}
-        currentWorkflowBuilders={workflowBuildersOf(currentWorkspace.settings)}
-        deletedAt={currentWorkspace.deleted_at}
-        onClose={onClose}
-      />
-    );
-  }
   if (panel.kind === 'thread') {
     return (
       <ThreadPanel
@@ -88,15 +61,6 @@ export default function WorkspaceRightPanels({
         onClose={onClose}
         onNavigateToMessage={(chId, msgId) => onNavigateToMessage(chId, msgId)}
         onOpenConversation={onOpenConversation}
-      />
-    );
-  }
-  if (panel.kind === 'slackImport' && currentWorkspace) {
-    return (
-      <SlackImportPanel
-        workspaceId={currentWorkspace.id}
-        instanceUrl={currentWorkspace.instanceUrl}
-        onClose={onClose}
       />
     );
   }
@@ -144,54 +108,6 @@ export default function WorkspaceRightPanels({
         workspaceId={currentWorkspace.id}
         onClose={onClose}
         onNavigate={(chId, msgId, withThread) => onNavigateToMessage(chId, msgId, withThread)}
-      />
-    );
-  }
-  if (panel.kind === 'apps' && currentWorkspace) {
-    return (
-      <AppsPanel
-        workspaceId={currentWorkspace.id}
-        isAdmin={role === 'admin' || role === 'owner'}
-        onClose={onClose}
-      />
-    );
-  }
-  if (panel.kind === 'integrations' && currentWorkspace) {
-    return (
-      <IntegrationsPanel
-        workspaceId={currentWorkspace.id}
-        instanceUrl={currentWorkspace.instanceUrl}
-        channels={channels}
-        onClose={onClose}
-      />
-    );
-  }
-  if (panel.kind === 'customEmoji' && currentWorkspace) {
-    return (
-      <CustomEmojiPanel
-        workspaceId={currentWorkspace.id}
-        instanceUrl={currentWorkspace.instanceUrl}
-        onClose={onClose}
-      />
-    );
-  }
-  if (panel.kind === 'userGroups' && currentWorkspace) {
-    return (
-      <UserGroupsPanel
-        workspaceId={currentWorkspace.id}
-        instanceUrl={currentWorkspace.instanceUrl}
-        members={workspaceMembers}
-        isAdmin={role === 'admin' || role === 'owner'}
-        onClose={onClose}
-      />
-    );
-  }
-  if (panel.kind === 'auditLog' && currentWorkspace) {
-    return (
-      <AuditLogPanel
-        workspaceId={currentWorkspace.id}
-        instanceUrl={currentWorkspace.instanceUrl}
-        onClose={onClose}
       />
     );
   }

@@ -96,6 +96,12 @@ export async function openWorkspaceMenu(page: Page) {
   await page.locator('[data-qa="workspace-menu"]').click();
 }
 
+export async function openWorkspaceSettings(page: Page, section?: string) {
+  await openWorkspaceMenu(page);
+  await page.locator('[data-qa="open-workspace-settings"]').click();
+  if (section) await page.locator(`[data-qa="workspace-settings-tab-${section}"]`).click();
+}
+
 export async function send(page: Page, text: string) {
   const editor = page.locator('.ProseMirror[contenteditable="true"]').last();
   await editor.click();

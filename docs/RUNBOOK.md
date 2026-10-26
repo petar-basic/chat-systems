@@ -156,7 +156,7 @@ uploader — that is the intended fail-closed default, not data loss; the file i
 
 `20240305000019_scope_outgoing_hooks` turns off every existing outgoing webhook. They now
 require an explicit `channel_ids` allow-list, and an old hook carries no record of which
-channels it was ever meant to see. Re-create them from **Integrations** with the channels
+channels it was ever meant to see. Re-create them from *Workspace settings → Integrations* with the channels
 they may read; the alternative was leaving them running against every channel in the
 workspace, which is the leak the change closes. Incoming webhooks are unaffected.
 
@@ -630,8 +630,8 @@ still wanted but untouched for longer than the window goes too. Run a pass with
 
 `GET /api/workspaces/:ws_id/audit-log` (workspace admin) and `GET /api/admin/audit-log`
 (instance admin), both keyset-paginated on `(created_at, id)` via `before`/`before_id` and
-filterable by `action`, `user_id`, `since` and `until`. The UI is under the workspace menu
-and as a tab in the instance admin page.
+filterable by `action`, `user_id`, `since` and `until`. The UI is *Workspace settings → Audit log*
+(`?settings=audit-log`) and a tab in the instance admin page.
 
 `ip_address` is resolved with the same `TRUSTED_PROXIES` rules as the rate limit. Behind a
 proxy that is not listed there, the column records the proxy's address rather than the
@@ -692,7 +692,7 @@ can see in Jira.
 
 **Setting it up (an admin, once per workspace, about two minutes):**
 
-1. In the app: workspace menu → **Apps** → *Jira Cloud* → *Set up*. Keep this open; it shows
+1. In the app: *Workspace settings* → **Apps** → *Jira Cloud* → *Set up*. Keep this open; it shows
    every value you need with a copy button.
 2. Go to <https://developer.atlassian.com/console/myapps/> → **Create** → **OAuth 2.0
    integration**, and name it after your instance.
@@ -724,7 +724,7 @@ of 60 an hour per server address, so each public card is cached for ten minutes.
 private code is `repo`, which also grants write access; a GitHub App can be limited to
 read-only and to the repositories it is installed on.
 
-1. In the app: workspace menu → **Apps** → *GitHub* → *Set up*.
+1. In the app: *Workspace settings* → **Apps** → *GitHub* → *Set up*.
 2. On GitHub: **Settings → Developer settings → GitHub Apps → New GitHub App**. Use the
    organization's settings instead for an app the organization owns.
 3. Name it, set the homepage to your instance, and paste the *Callback URL* from the app.
@@ -748,7 +748,7 @@ the file's type, owner and when it was last changed. The app asks Google for
 inside a document. Google has no anonymous API, so every Drive card needs the poster's
 connection.
 
-1. In the app: workspace menu → **Apps** → *Google Drive* → *Set up*.
+1. In the app: *Workspace settings* → **Apps** → *Google Drive* → *Set up*.
 2. In the Google Cloud console (<https://console.cloud.google.com/>), create a project for
    this instance or pick one, and **enable the Google Drive API** (*APIs & Services →
    Library*).
@@ -777,7 +777,7 @@ each person to consent to it separately. The scopes are Confluence's **granular*
 1. Open that app in <https://developer.atlassian.com/console/myapps/> → **Permissions** →
    add **Confluence API** → *Configure* → **Granular scopes** → add the three scopes above.
    The callback URL is the same one Jira uses, so *Authorization* needs no change.
-2. In the app: workspace menu → **Apps** → *Confluence* → *Set up*, keep **Use the Jira Cloud
+2. In the app: *Workspace settings* → **Apps** → *Confluence* → *Set up*, keep **Use the Jira Cloud
    app** ticked and save. The client ID and the sealed secret are copied on the server; the
    secret never comes back to the browser.
 3. Press **Connect my account**.
@@ -794,7 +794,7 @@ The app asks Figma for `file_metadata:read` and `current_user:read` only: it can
 file's name, project, dates and thumbnail, never its layers or comments. Every card needs
 the poster's connection.
 
-1. In the app: workspace menu → **Apps** → *Figma* → *Set up*.
+1. In the app: *Workspace settings* → **Apps** → *Figma* → *Set up*.
 2. Go to <https://www.figma.com/developers/apps> and create a new app **inside your
    organization's team**, named after your instance.
 3. **OAuth credentials**: add the *Callback URL* from the app as a redirect URL, and copy the
@@ -853,8 +853,8 @@ primitive against the host it runs on.
 
 ## Importing a Slack export
 
-Slack gives you a ZIP. **The ordinary way is the app**: as a workspace admin, workspace menu
-→ *Slack import*, choose the zip, leave *Dry run* ticked, and read the report. Untick it and
+Slack gives you a ZIP. **The ordinary way is the app**: as a workspace admin, *Workspace settings
+→ Slack import*, choose the zip, leave *Dry run* ticked, and read the report. Untick it and
 upload again to do it for real. The upload is one request; the import itself runs in the
 worker, and the panel shows the counts as they move.
 

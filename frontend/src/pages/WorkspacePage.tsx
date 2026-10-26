@@ -4,7 +4,14 @@ import { ROUTES, EmptyLabels } from '@/shared/constants';
 import { ConnectionBanner } from '@/shared/components/ConnectionBanner/ConnectionBanner';
 import InstallAppBanner from '@/components/InstallAppBanner';
 import { QuickSwitcher, KeyboardShortcutsDialog } from '@/features/navigation';
-import { WorkspaceSidebar, WorkspaceRightPanels, useWorkspaceController } from '@/features/workspace';
+import {
+  WorkspaceSidebar,
+  WorkspaceRightPanels,
+  WorkspaceSettingsModal,
+  useCurrentWorkspaceRole,
+  useSettingsDialog,
+  useWorkspaceController,
+} from '@/features/workspace';
 import { ChannelSidebar, ChannelHeader, ChannelBookmarksBar } from '@/features/channel';
 import { MessageList, MessageInput } from '@/features/messaging';
 import ConversationView from '@/features/messaging/ConversationView';
@@ -28,6 +35,9 @@ export default function WorkspacePage() {
   useActiveHuddlesSync(currentWorkspace?.id, currentWorkspace?.instanceUrl);
 
   const { canPost } = useChannelModeration(currentChannel?.id ?? null, currentChannel?.settings);
+  const { role } = useCurrentWorkspaceRole();
+  const isAdmin = role === 'admin' || role === 'owner';
+  const settings = useSettingsDialog();
 
   // Every other panel and modal closes on Escape; the drawer did not.
   useEscapeToClose(() => c.setMobileNavOpen(false), c.mobileNavOpen);
@@ -47,7 +57,7 @@ export default function WorkspacePage() {
             currentWorkspaceId={currentWorkspace?.id}
             onSelectWorkspace={c.handleSelectWorkspace}
             onCreateWorkspace={c.handleCreateWorkspace}
-            onImportFromSlack={() => panel.toggle('slackImport')}
+            onImportFromSlack={() => settings.open('slack-import')}
             onAddInstance={() => c.setShowAddInstance(true)}
           />
 
@@ -70,18 +80,12 @@ export default function WorkspacePage() {
             onCreateChannel={c.handleCreateChannel}
             onOpenConversation={c.handleOpenConversation}
             onOpenWith={c.handleOpenWith}
-            onOpenMembers={() => panel.toggle('members')}
-            onOpenSettings={() => panel.toggle('settings')}
-            onOpenIntegrations={() => panel.toggle('integrations')}
-            onOpenApps={() => panel.toggle('apps')}
-            onOpenCustomEmoji={() => panel.toggle('customEmoji')}
-            onOpenUserGroups={() => panel.toggle('userGroups')}
-            onOpenAuditLog={() => panel.toggle('auditLog')}
+            onOpenSettings={() => settings.open(isAdmin ? 'general' : 'members')}
+            onInvite={() => settings.open('members', true)}
             onOpenWorkflows={() => panel.toggle('workflows')}
             onOpenScheduled={() => panel.toggle('scheduled')}
             onOpenLater={() => panel.toggle('later')}
             laterActive={panel.active?.kind === 'later'}
-            onOpenSlackImport={() => panel.toggle('slackImport')}
             onOpenProfile={() => c.setAccountDialog('profile')}
             onOpenPreferences={() => c.setAccountDialog('preferences')}
             onOpenNotifications={() => panel.toggle('notifications')}
@@ -312,6 +316,18 @@ export default function WorkspacePage() {
             currentUserId={user.id}
             instanceUrl={currentWorkspace.instanceUrl}
             onClose={c.dismissForward}
+          />
+        )}
+
+        {settings.dialog && currentWorkspace && (
+          <WorkspaceSettingsModal
+            workspace={currentWorkspace}
+            isAdmin={isAdmin}
+            initial={settings.dialog.section}
+            inviting={settings.dialog.inviting}
+            members={c.workspaceMembers}
+            channels={c.channels}
+            onClose={settings.close}
           />
         )}
 

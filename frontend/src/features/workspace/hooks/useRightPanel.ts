@@ -3,22 +3,14 @@ import type { Message } from '@/stores/workspace';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
 
 export type RightPanel =
-  | { kind: 'members' }
-  | { kind: 'settings' }
   | { kind: 'thread'; message: Message }
   | { kind: 'search' }
   | { kind: 'pins' }
   | { kind: 'files' }
   | { kind: 'channelMembers' }
-  | { kind: 'integrations' }
-  | { kind: 'apps' }
-  | { kind: 'customEmoji' }
-  | { kind: 'userGroups' }
-  | { kind: 'auditLog' }
   | { kind: 'workflows' }
   | { kind: 'scheduled' }
   | { kind: 'later' }
-  | { kind: 'slackImport' }
   | { kind: 'notifications' }
   | null;
 

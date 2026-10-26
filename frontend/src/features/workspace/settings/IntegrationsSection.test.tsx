@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
-import IntegrationsPanel from './IntegrationsPanel';
+import { IntegrationsSection } from './IntegrationsSection';
 import type { Channel } from '@/stores/workspace';
 import type { Hook, HookSecrets } from '@/hooks/queries/useHooks';
 
@@ -46,19 +46,10 @@ const channels = [
 ] as Channel[];
 
 function renderPanel() {
-  const onClose = vi.fn();
-  render(
-    <IntegrationsPanel
-      workspaceId="ws-1"
-      instanceUrl="http://localhost:8080"
-      channels={channels}
-      onClose={onClose}
-    />,
-  );
-  return { onClose };
+  render(<IntegrationsSection workspaceId="ws-1" instanceUrl="http://localhost:8080" channels={channels} />);
 }
 
-describe('IntegrationsPanel', () => {
+describe('IntegrationsSection', () => {
   beforeEach(() => {
     hooks = [];
     createMutate.mockReset().mockImplementation(async () => {

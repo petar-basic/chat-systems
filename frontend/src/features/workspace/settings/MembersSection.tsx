@@ -1,17 +1,16 @@
 import { useState, type FormEvent } from 'react';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { Button } from '@/shared/components/Button/Button';
-import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { toUserMessage } from '@/lib/errors';
-import type { WorkspaceMember, WorkspaceRole } from '../stores/workspace';
-import { useWorkspaceStore } from '../stores/workspace';
+import type { WorkspaceMember, WorkspaceRole } from '@/stores/workspace';
+import { useWorkspaceStore } from '@/stores/workspace';
 import { useCurrentWorkspaceRole } from '@/features/workspace/hooks/useCurrentWorkspaceRole';
-import { getUserDisplay } from '../lib/userHelpers';
+import { getUserDisplay } from '@/lib/userHelpers';
 import { UserPlus, UserMinus, Crown, Shield, User, Mail } from 'lucide-react';
-import PresenceDot from './PresenceDot';
+import PresenceDot from '@/components/PresenceDot';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
-import { useWorkspaceMembers } from '../hooks/queries/useWorkspaces';
+import { useWorkspaceMembers } from '@/hooks/queries/useWorkspaces';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/shared/constants';
 import { TextInput } from '@/shared/components/Form/TextInput';
@@ -19,7 +18,7 @@ import { Select } from '@/shared/components/Form/Select';
 
 interface Props {
   workspaceId: string;
-  onClose: () => void;
+  openInvite: boolean;
 }
 
 const ROLE_LEVEL: Record<string, number> = { guest: 10, member: 20, channel_admin: 30, admin: 40, owner: 50 };
@@ -150,7 +149,7 @@ function MemberRow({
   );
 }
 
-export default function MembersPanel({ workspaceId, onClose }: Props) {
+export function MembersSection({ workspaceId, openInvite }: Props) {
   const queryClient = useQueryClient();
   const instanceUrl = useWorkspaceStore((s) => s.currentWorkspace?.instanceUrl);
   const { role: actorRole } = useCurrentWorkspaceRole();
@@ -191,7 +190,8 @@ export default function MembersPanel({ workspaceId, onClose }: Props) {
     onError: (err: unknown) => setManageError(toUserMessage(err, 'Failed to remove member')),
   });
 
-  const [showInvite, setShowInvite] = useState(false);
+  const isAdmin = actorRole === 'admin' || actorRole === 'owner';
+  const [showInvite, setShowInvite] = useState(openInvite);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<WorkspaceRole>('member');
   const [inviting, setInviting] = useState(false);
@@ -224,67 +224,67 @@ export default function MembersPanel({ workspaceId, onClose }: Props) {
   };
 
   return (
-    <div className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-surface lg:bg-surface/80 border-l border-line/50 flex flex-col h-full">
-      <PanelHeader title="Members" onClose={onClose} />
-
-      <div className="px-4 py-3 border-b border-line/50 shrink-0">
-        {!showInvite ? (
-          <Button variant="primary" fullWidth onClick={() => setShowInvite(true)}>
-            <UserPlus className="w-4 h-4" />
-            Invite people
-          </Button>
-        ) : (
-          <form onSubmit={handleInvite} className="space-y-2">
-            <TextInput
-              label="Email address to invite"
-              labelHidden
-              type="email"
-              leading={<Mail className="w-4 h-4" />}
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              placeholder="user@example.com"
-              autoFocus
-              required
-            />
-            <Select
-              label="Invite role"
-              labelHidden
-              value={inviteRole}
-              onChange={(e) => {
-                const role = ASSIGNABLE_ROLES.find((r) => r === e.target.value);
-                if (role) setInviteRole(role);
-              }}
-            >
-              <option value="member">Member</option>
-              <option value="admin">Admin</option>
-              <option value="guest">Guest</option>
-            </Select>
-            {inviteError && <div className="text-xs text-danger px-1">{inviteError}</div>}
-            {inviteResult && <div className="text-xs text-success px-1">{inviteResult}</div>}
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowInvite(false);
-                  setInviteError(null);
-                  setInviteResult(null);
+    <div className="-mx-4 flex flex-col">
+      {isAdmin && (
+        <div className="px-4 py-3 border-b border-line/50 shrink-0">
+          {!showInvite ? (
+            <Button variant="primary" fullWidth onClick={() => setShowInvite(true)}>
+              <UserPlus className="w-4 h-4" />
+              Invite people
+            </Button>
+          ) : (
+            <form onSubmit={handleInvite} className="space-y-2">
+              <TextInput
+                label="Email address to invite"
+                labelHidden
+                type="email"
+                leading={<Mail className="w-4 h-4" />}
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="user@example.com"
+                autoFocus
+                required
+              />
+              <Select
+                label="Invite role"
+                labelHidden
+                value={inviteRole}
+                onChange={(e) => {
+                  const role = ASSIGNABLE_ROLES.find((r) => r === e.target.value);
+                  if (role) setInviteRole(role);
                 }}
-                className="flex-1 px-3 py-2 text-sm text-muted hover:text-fg transition cursor-pointer"
               >
-                Cancel
-              </button>
-              <Button
-                variant="primary"
-                className="flex-1"
-                type="submit"
-                disabled={inviting || !inviteEmail.trim()}
-              >
-                {inviting ? 'Sending…' : 'Send invite'}
-              </Button>
-            </div>
-          </form>
-        )}
-      </div>
+                <option value="member">Member</option>
+                <option value="admin">Admin</option>
+                <option value="guest">Guest</option>
+              </Select>
+              {inviteError && <div className="text-xs text-danger px-1">{inviteError}</div>}
+              {inviteResult && <div className="text-xs text-success px-1">{inviteResult}</div>}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowInvite(false);
+                    setInviteError(null);
+                    setInviteResult(null);
+                  }}
+                  className="flex-1 px-3 py-2 text-sm text-muted hover:text-fg transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <Button
+                  variant="primary"
+                  className="flex-1"
+                  type="submit"
+                  disabled={inviting || !inviteEmail.trim()}
+                >
+                  {inviting ? 'Sending…' : 'Send invite'}
+                </Button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto py-2">
         {loading ? (

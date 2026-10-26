@@ -1,8 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { Button } from '@/shared/components/Button/Button';
-import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
-import { Users, Trash2, Plus, Check } from 'lucide-react';
+import { Trash2, Plus, Check } from 'lucide-react';
 import {
   useUserGroups,
   useCreateGroup,
@@ -20,10 +19,9 @@ interface Props {
   instanceUrl?: string;
   members: WorkspaceMember[];
   isAdmin: boolean;
-  onClose: () => void;
 }
 
-export default function UserGroupsPanel({ workspaceId, instanceUrl, members, isAdmin, onClose }: Props) {
+export function UserGroupsSection({ workspaceId, instanceUrl, members, isAdmin }: Props) {
   const { data: groups, isLoading } = useUserGroups(workspaceId, instanceUrl);
   const createGroup = useCreateGroup(workspaceId, instanceUrl);
   const deleteGroup = useDeleteGroup(workspaceId, instanceUrl);
@@ -81,9 +79,7 @@ export default function UserGroupsPanel({ workspaceId, instanceUrl, members, isA
   };
 
   return (
-    <div className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 flex flex-col border-l border-line/50 bg-app lg:bg-app/80">
-      <PanelHeader title="User groups" icon={<Users className="h-4 w-4 text-muted" />} onClose={onClose} />
-
+    <div className="-mx-4 flex flex-col">
       {isAdmin && (
         <form onSubmit={handleCreate} className="px-3 py-3 border-b border-line/30 space-y-2">
           <div className="flex gap-2">
