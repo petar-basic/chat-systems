@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO messages (channel_id, user_id, content, metadata)\n            VALUES ($1, $2, $3, jsonb_build_object('bot', $4::jsonb))\n            RETURNING id, channel_id, user_id, client_message_id, content, metadata AS \"metadata!\", thread_parent_id, reply_count AS \"reply_count!\", is_pinned AS \"is_pinned!\", created_at, updated_at, deleted_at\n            ",
+  "query": "\n            INSERT INTO messages (channel_id, user_id, content, metadata)\n            VALUES ($1, $2, $3, $4::jsonb)\n            RETURNING id, channel_id, user_id, client_message_id, content, metadata AS \"metadata!\", thread_parent_id, reply_count AS \"reply_count!\", is_pinned AS \"is_pinned!\", created_at, updated_at, deleted_at\n            ",
   "describe": {
     "columns": [
       {
@@ -159,5 +159,5 @@
       true
     ]
   },
-  "hash": "92a1f88566544029168d458a6ef73572730ddafcd29288295b0effdb55e44da1"
+  "hash": "9d0fb174fe0582883e029e4db7ec528d2351c5c76fd3df32cc820acf4b281bdb"
 }

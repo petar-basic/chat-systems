@@ -4105,10 +4105,15 @@ export interface components {
             message_id: string;
             previous_content: string;
         };
+        MessageField: {
+            label: string;
+            value: string;
+        };
         MessageMetadata: {
             app_prompts?: string[] | null;
             attachments?: components["schemas"]["Attachment"][] | null;
             bot?: components["schemas"]["BotIdentity"] | null;
+            fields?: components["schemas"]["MessageField"][] | null;
             form?: components["schemas"]["FormRequest"] | null;
             /** Format: uuid */
             huddle_id?: string | null;

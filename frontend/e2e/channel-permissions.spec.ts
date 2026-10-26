@@ -36,7 +36,7 @@ test('a channel admin can rename their channel while a plain member cannot', asy
 
     await login(page, 'bob@dev.local');
     await openChannel(page, workspace.id, channelId, channelName);
-    await expect(page.locator('[data-qa="channel-settings-open"]')).toHaveCount(0);
+    await expect(page.locator('[data-qa="channel-actions-more"]')).toBeHidden();
 
     const denied = await bob.patch(`${API}/channels/${channelId}`, { data: { name: `nope-${stamp}` } });
     expect(denied.status(), 'a plain channel member cannot rename').toBe(403);
@@ -47,8 +47,7 @@ test('a channel admin can rename their channel while a plain member cannot', asy
     expect(promoted.status(), 'admin promotes bob to channel admin').toBe(200);
 
     await page.reload();
-    await expect(page.locator('[data-qa="channel-settings-open"]')).toBeVisible();
-
+    await page.locator('[data-qa="channel-actions-more"]').click();
     await page.locator('[data-qa="channel-settings-open"]').click();
     await page.locator('[data-qa="channel-settings-name"]').fill(`perm-${stamp}-renamed`);
     await page.locator('[data-qa="channel-settings-topic"]').fill('owned by bob');

@@ -8,6 +8,8 @@ import { useWsStatusStore } from '@/stores/wsStatus';
 import { instanceManager } from '@/lib/instances';
 import { Modal } from '@/shared/components/Modal/Modal';
 import { useWorkspaceUnreadCounts } from '@/hooks/queries/useNotifications';
+import { avatarColorFor } from '@/lib/userHelpers';
+import { workspaceInitials } from './workspaceTile';
 
 interface Props {
   workspaces: Workspace[];
@@ -120,20 +122,22 @@ export default function WorkspaceSidebar({
                   <div key={ws.id} className="relative">
                     <button
                       onClick={() => onSelectWorkspace(ws)}
-                      className={`w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center text-sm font-bold transition cursor-pointer ${
+                      aria-label={ws.name}
+                      aria-current={currentWorkspaceId === ws.id ? 'true' : undefined}
+                      data-qa="workspace-tile"
+                      className={`w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center text-sm font-bold text-white transition cursor-pointer ${
+                        ws.icon_url ? 'bg-raised' : avatarColorFor(ws.id)
+                      } ${
                         currentWorkspaceId === ws.id
-                          ? 'bg-purple-600 text-white ring-2 ring-purple-400'
-                          : 'bg-raised text-fg-dim hover:bg-elevated'
+                          ? 'ring-2 ring-purple-400 ring-offset-2 ring-offset-rail'
+                          : 'opacity-80 hover:opacity-100'
                       }`}
                       title={`${ws.name} · ${instanceLabel(group.instance.url)}${showBadge ? ` · ${unread} unread` : ''}`}
                     >
-                      {/* An icon if the workspace has picked one; the initial is
-                          the fallback, not the only option. A column of identical
-                          letters is not a switcher. */}
                       {ws.icon_url ? (
                         <img src={ws.icon_url} alt="" className="w-full h-full object-cover" />
                       ) : (
-                        ws.name.charAt(0).toUpperCase()
+                        workspaceInitials(ws.name)
                       )}
                     </button>
                     {/* Outside the button: the icon needs `overflow-hidden` to
@@ -158,7 +162,7 @@ export default function WorkspaceSidebar({
                   className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold transition cursor-pointer opacity-40 hover:opacity-70 bg-raised text-muted relative"
                   title={`${ws.name} (deleted) · ${instanceLabel(group.instance.url)}`}
                 >
-                  <span className="line-through">{ws.name.charAt(0).toUpperCase()}</span>
+                  <span className="line-through">{workspaceInitials(ws.name)}</span>
                 </button>
               ))}
 

@@ -868,7 +868,9 @@ workflows off (`workspace::membership::detach` does it on removal, a run does it
 them gone) and every admin gets a `system` notification.
 
 Messages are bot messages (`metadata.bot = { workflow_id, name }`) whose `user_id` is the
-builder. Only mentions in the builder's text and `{{trigger.user}}` notify, not ones inside
+builder. A step with *summary* appends the form answers to its text as Markdown, which stays
+the content for search, notifications and other clients, and stores them as `metadata.fields`
+(`[{ label, value }]`, a person as a mention) for the web client to lay out as a grid. Only mentions in the builder's text and `{{trigger.user}}` notify, not ones inside
 webhook values or the reacted message.
 
 | Method | Route | Input | Output |

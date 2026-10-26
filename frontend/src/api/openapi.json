@@ -13010,6 +13010,21 @@
           }
         }
       },
+      "MessageField": {
+        "type": "object",
+        "required": [
+          "label",
+          "value"
+        ],
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      },
       "MessageMetadata": {
         "type": "object",
         "properties": {
@@ -13040,6 +13055,15 @@
                 "type": "null"
               }
             ]
+          },
+          "fields": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/MessageField"
+            }
           },
           "form": {
             "oneOf": [

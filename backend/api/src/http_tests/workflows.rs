@@ -1498,6 +1498,16 @@ async fn a_form_waits_for_its_person_and_hands_their_answers_on(pool: PgPool) {
             "@[Test User]({bob_id}) is off, {cover} covers\n\n**Reason**  \nDentist\n\n**Kind**  \nSick\n\n**Cover**  \n{cover}\n\n**From**  \n2026-11-02"
         )]
     );
+    assert_eq!(
+        posted[0].1["fields"],
+        json!([
+            { "label": "Reason", "value": "Dentist" },
+            { "label": "Kind", "value": "Sick" },
+            { "label": "Cover", "value": cover },
+            { "label": "From", "value": "2026-11-02" },
+        ])
+    );
+    assert_eq!(posted[0].1["bot"]["workflow_id"], workflow["id"]);
     let history = runs(&app, &member, &workflow).await;
     assert_eq!(history[0]["status"], "succeeded");
     assert_eq!(history[0]["steps"].as_array().unwrap().len(), 2);

@@ -1562,3 +1562,21 @@ on or off, and *Turn off* / *Turn on*. `POST /workflows/{id}/publish` became
 `/workflows/{id}/enable`, the pair of `/disable`; nothing outside this repository used it in
 the two days since 3.3.0. A draft saved before the upgrade is simply a workflow that is off.
 
+### [CS-069] Small UI fixes and a README that says what ships ✅ shipped
+What a new team sees in its first hour. The channel header had *Channel members* twice, the
+count and an icon, and a pin count beside a pin icon; now the count is the one members
+button, the pin button carries the count, and *Channel settings*, used by moderators and
+rarely, moved into the ⋯ menu, which on desktop only a moderator has. Every icon has a
+tooltip. The rail showed one letter on a grey tile, so three workspaces named D… were three
+identical tiles; a workspace without an icon now gets a tile coloured from its id, from the
+avatar palette, and up to two letters (`Dev Team` → `DT`, `Design` → `De`), with its name
+as the accessible name.
+
+A workflow's form summary was a stack of bold labels and answers, taller than the screen for
+five questions. The summary step still appends the same Markdown, which stays the content
+so search, notifications and other clients keep working, and also stores the answers as
+`metadata.fields`. The web client lays those out as a two-column grid, a long answer across
+both, and splits the intro off the content only when the content still ends in exactly that
+Markdown; anything else renders as it is. `create_bot_message_in` takes the whole metadata
+object now rather than building `{ bot }` itself. The README's *Features* lists what ships as
+of 3.3.0, grouped the way the app is.

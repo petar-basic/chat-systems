@@ -9,6 +9,7 @@ use shared_common::errors::AppError;
 
 use super::models::*;
 use crate::authz;
+use crate::messaging::models::MessageField;
 use crate::state::AppState;
 use crate::workspace::models::WorkspaceRole;
 
@@ -176,30 +177,42 @@ impl Context<'_> {
         })
     }
 
-    fn summary(&self, position: usize, only_trusted: bool) -> String {
+    fn answers(&self, position: usize, only_trusted: bool) -> Vec<MessageField> {
         self.definition
             .fields_before(position)
             .map(|field| {
                 let name = format!("form.{}", field.name);
-                let answer = if only_trusted && !self.trusted(&name) {
+                let value = if only_trusted && !self.trusted(&name) {
                     String::new()
                 } else {
                     self.value(&name)
                 };
-                let answer = if answer.trim().is_empty() {
-                    "\u{2014}".to_string()
-                } else {
-                    answer.replace('\n', "  \n")
-                };
-                format!("**{}**  \n{answer}", field.label.trim())
+                MessageField {
+                    label: field.label.trim().to_string(),
+                    value,
+                }
             })
-            .collect::<Vec<_>>()
-            .join("\n\n")
+            .collect()
     }
 
-    fn bot(&self) -> serde_json::Value {
-        serde_json::json!({ "workflow_id": self.workflow.id, "name": self.workflow.name })
+    fn metadata(&self) -> serde_json::Value {
+        serde_json::json!({ "bot": { "workflow_id": self.workflow.id, "name": self.workflow.name } })
     }
+}
+
+fn summary(answers: &[MessageField]) -> String {
+    answers
+        .iter()
+        .map(|answer| {
+            let value = if answer.value.trim().is_empty() {
+                "\u{2014}".to_string()
+            } else {
+                answer.value.replace('\n', "  \n")
+            };
+            format!("**{}**  \n{value}", answer.label)
+        })
+        .collect::<Vec<_>>()
+        .join("\n\n")
 }
 
 pub async fn execute(state: &AppState, run: &RunRow) {
@@ -378,20 +391,18 @@ async fn run_step(
     };
 
     let text = step.text().unwrap_or_default();
+    let mut metadata = context.metadata();
     let (content, authored) = if step.summary() {
         let at = position as usize;
-        (
-            format!(
-                "{}\n\n{}",
-                context.rendered(text),
-                context.summary(at, false)
-            ),
-            format!(
-                "{}\n\n{}",
-                context.authored(text),
-                context.summary(at, true)
-            ),
-        )
+        let answers = context.answers(at, false);
+        let content = format!("{}\n\n{}", context.rendered(text), summary(&answers));
+        let authored = format!(
+            "{}\n\n{}",
+            context.authored(text),
+            summary(&context.answers(at, true))
+        );
+        metadata["fields"] = serde_json::json!(answers);
+        (content, authored)
     } else {
         (context.rendered(text), context.authored(text))
     };
@@ -408,7 +419,7 @@ async fn run_step(
             channel_id,
             creator.user_id,
             &content,
-            &context.bot(),
+            &metadata,
             &mentioned,
         )
         .await
@@ -538,7 +549,14 @@ async fn post_form(
     let mut tx = state.pool.begin().await?;
     let message = state
         .message_repo
-        .create_bot_message_in(&mut tx, channel_id, creator, title, &context.bot(), &[])
+        .create_bot_message_in(
+            &mut tx,
+            channel_id,
+            creator,
+            title,
+            &context.metadata(),
+            &[],
+        )
         .await?;
     let message = state
         .message_repo
