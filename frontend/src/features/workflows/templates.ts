@@ -2,7 +2,7 @@ import { blankDefinition, blankTrigger, type Definition } from './workflowModel'
 
 export type TemplateId = 'blank' | 'welcome' | 'standup' | 'incident' | 'time_off';
 
-export interface Draft {
+export interface Starter {
   name: string;
   description: string;
   definition: Definition;
@@ -12,7 +12,7 @@ export interface WorkflowTemplate {
   id: TemplateId;
   label: string;
   description: string;
-  draft: (channelId: string) => Draft;
+  starter: (channelId: string) => Starter;
 }
 
 export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
@@ -20,13 +20,13 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     id: 'blank',
     label: 'Blank',
     description: 'A schedule and one message; change both as you like.',
-    draft: (channelId) => ({ name: '', description: '', definition: blankDefinition(channelId) }),
+    starter: (channelId) => ({ name: '', description: '', definition: blankDefinition(channelId) }),
   },
   {
     id: 'welcome',
     label: 'Welcome new members',
     description: 'DM everyone who joins a channel.',
-    draft: (channelId) => ({
+    starter: (channelId) => ({
       name: 'Welcome new members',
       description: 'Greets everyone who joins the channel.',
       definition: {
@@ -45,7 +45,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     id: 'standup',
     label: 'Daily standup reminder',
     description: 'Post a reminder every weekday before standup.',
-    draft: (channelId) => ({
+    starter: (channelId) => ({
       name: 'Daily standup reminder',
       description: '',
       definition: {
@@ -58,7 +58,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     id: 'incident',
     label: 'Incident from a reaction',
     description: 'Turn a 🚨 reaction into a post in another channel.',
-    draft: (channelId) => ({
+    starter: (channelId) => ({
       name: 'Incident from a reaction',
       description: 'Reposts a message someone reacts to with 🚨.',
       definition: {
@@ -77,7 +77,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     id: 'time_off',
     label: 'Time-off request into a list',
     description: 'A shortcut asks for the dates and adds them to a list.',
-    draft: (channelId) => ({
+    starter: (channelId) => ({
       name: 'Request time off',
       description: 'Collects a time-off request and tracks it in a list.',
       definition: {

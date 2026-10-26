@@ -1549,3 +1549,16 @@ members, daily standup reminder, incident from a reaction, time-off request into
 each an ordinary draft to change before publishing. A list step lists the columns of the
 picked list, and *Fill from the form answers* matches columns to questions by name. Moving
 or removing a step keeps every update step pointing at the step that adds its item.
+
+## Wave 24 — Ready for a company
+
+### [CS-068] Workflows without drafts ✅ shipped
+*Save draft* saved a workflow that did not run, but only once it was complete and valid, so
+it was not a draft in any sense a person expects; and the editor stayed open over the list,
+so the saved row was out of sight and, once closed, looked exactly like a workflow somebody
+had turned off. Drafts are gone. *Create workflow* saves and turns it on in one statement
+(`next_run_at` computed in the insert), and an existing one has *Save changes*, which keeps it
+on or off, and *Turn off* / *Turn on*. `POST /workflows/{id}/publish` became
+`/workflows/{id}/enable`, the pair of `/disable`; nothing outside this repository used it in
+the two days since 3.3.0. A draft saved before the upgrade is simply a workflow that is off.
+

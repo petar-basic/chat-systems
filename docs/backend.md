@@ -874,10 +874,10 @@ webhook values or the reacted message.
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/workflows` | — | `{ data: Workflow[] }` — yours; an admin's has everyone's |
-| POST | `/workspaces/:ws_id/workflows` | `{ name, description?, definition }` | `Workflow`, as a draft — a builder (no guests; admins only when `settings.workflow_builders` is `admins`) |
+| POST | `/workspaces/:ws_id/workflows` | `{ name, description?, definition }` | `Workflow`, on at once (`next_run_at` set for a schedule) — a builder (no guests; admins only when `settings.workflow_builders` is `admins`) |
 | GET | `/workflows/:workflow_id` | — | `Workflow` — its builder or an admin |
-| PUT | `/workflows/:workflow_id` | as POST | `Workflow`, `version` + 1 — its builder only |
-| POST | `/workflows/:workflow_id/publish` | — | `Workflow`, `enabled`, `next_run_at` for a schedule — its builder only, re-checked |
+| PUT | `/workflows/:workflow_id` | as POST | `Workflow`, `version` + 1, on or off as it was — its builder only |
+| POST | `/workflows/:workflow_id/enable` | — | `Workflow`, `enabled`, `next_run_at` for a schedule — its builder only, re-checked |
 | POST | `/workflows/:workflow_id/disable` | — | `Workflow` — its builder or an admin |
 | DELETE | `/workflows/:workflow_id` | — | `{ status: "deleted" }` — its builder or an admin |
 | GET | `/workflows/:workflow_id/runs` | — | `{ data: WorkflowRun[] }`, the last 50, newest first, each with its steps |

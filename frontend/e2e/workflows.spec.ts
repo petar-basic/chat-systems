@@ -33,7 +33,7 @@ test('a member builds a webhook workflow and a call to it posts in the channel',
     await editor.getByTestId('workflow-step-variable').selectOption({ label: 'service' });
     await expect(editor.getByTestId('workflow-step-text')).toHaveValue('{{webhook.service}} is down');
 
-    await editor.getByTestId('workflow-publish').click();
+    await editor.getByTestId('workflow-save').click();
     await expect(editor.getByTestId('workflow-disable')).toBeVisible();
     const url = await editor.getByTestId('workflow-webhook-url').innerText();
     expect(url).toContain('/api/workflows/webhook/');
@@ -89,7 +89,7 @@ test('a member-joined workflow welcomes the newcomer with a DM', async ({ page }
     await editor.getByTestId('workflow-step-type').selectOption('send_dm');
     await editor.getByTestId('workflow-step-person').selectOption('trigger_user');
     await editor.getByTestId('workflow-step-text').fill(`${greeting} in {{trigger.channel}}`);
-    await editor.getByTestId('workflow-publish').click();
+    await editor.getByTestId('workflow-save').click();
     await expect(editor.getByTestId('workflow-disable')).toBeVisible();
 
     const added = await admin.post(`${API}/channels/${channel.id}/members`, { data: { user_id: aliceId } });
@@ -165,7 +165,6 @@ test('a shortcut asks the person who ran it a form and posts the answers', async
     });
     expect(created.status(), 'alice builds the workflow').toBe(200);
     workflowId = (await created.json()).id;
-    expect((await alice.post(`${API}/workflows/${workflowId}/publish`)).status()).toBe(200);
 
     await login(page, 'bob@dev.local');
     await page.goto(`/app/${workspace.id}/${channel.id}`);
@@ -266,7 +265,7 @@ test('the time-off template adds a request to a list with who asked', async ({ p
       .getByTestId('workflow-cell-value');
     await who.selectOption('{{trigger.user}}');
     await editor.getByTestId('workflow-step-channel').selectOption(channel.id);
-    await editor.getByTestId('workflow-publish').click();
+    await editor.getByTestId('workflow-save').click();
     await expect(editor.getByTestId('workflow-disable')).toBeVisible();
 
     const listed = await (await alice.get(`${API}/workspaces/${workspace.id}/workflows`)).json();

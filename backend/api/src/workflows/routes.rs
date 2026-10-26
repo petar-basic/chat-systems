@@ -23,7 +23,7 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
     OpenApiRouter::new()
         .routes(routes!(list_workflows, create_workflow))
         .routes(routes!(get_workflow, update_workflow, delete_workflow))
-        .routes(routes!(publish_workflow))
+        .routes(routes!(enable_workflow))
         .routes(routes!(disable_workflow))
         .routes(routes!(workflow_runs))
         .routes(routes!(workflow_shortcuts))
@@ -91,15 +91,15 @@ async fn delete_workflow(
     Ok(Json(StatusResponse::new("deleted")))
 }
 
-#[utoipa::path(post, path = "/workflows/{workflow_id}/publish", tag = "workflows", responses((status = 200, body = Workflow)))]
-async fn publish_workflow(
+#[utoipa::path(post, path = "/workflows/{workflow_id}/enable", tag = "workflows", responses((status = 200, body = Workflow)))]
+async fn enable_workflow(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
     Path(workflow_id): Path<Uuid>,
 ) -> AppResult<Json<Workflow>> {
     Ok(Json(
-        service::publish(&state, workflow_id, auth.user_id, &ip).await?,
+        service::enable(&state, workflow_id, auth.user_id, &ip).await?,
     ))
 }
 

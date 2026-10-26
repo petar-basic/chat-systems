@@ -14,6 +14,20 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
+## [Unreleased]
+
+### Upgrading
+
+- `POST /workflows/{id}/publish` is now `POST /workflows/{id}/enable`, and
+  `POST /workspaces/{id}/workflows` creates a workflow that is already on. A workflow saved as
+  a draft before the upgrade is one that is off; *Turn on* starts it.
+
+### Changed
+
+- **Workflows have no drafts.** *Create workflow* saves a new workflow and it starts running;
+  an existing one has *Save changes*, *Turn off* and *Turn on*. A draft had to be complete to
+  save anyway, and once saved it looked exactly like a workflow somebody had turned off.
+
 ## [3.3.0] — 2026-10-24
 
 ### Upgrading from 3.2.0

@@ -1626,7 +1626,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/workflows/{workflow_id}/publish": {
+    "/workflows/{workflow_id}/enable": {
         parameters: {
             query?: never;
             header?: never;
@@ -1635,7 +1635,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["publish_workflow"];
+        post: operations["enable_workflow"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7779,7 +7779,7 @@ export interface operations {
             };
         };
     };
-    publish_workflow: {
+    enable_workflow: {
         parameters: {
             query?: never;
             header?: never;

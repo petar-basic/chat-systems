@@ -331,8 +331,9 @@ step after a form can tick *Add the form answers below the message*. `ListStepEd
 select and checkbox columns): a select of choices, people or *Checked*/*Unchecked*, or a text
 input, each offering only the variables that fit the column (`fits`), and *Fill from the form
 answers* matches columns to questions by name. Moving or removing a step keeps an update step
-pointing at the step that adds its item (`moveStep`, `removeStep`). *Save draft*/*Save changes* saves; *Publish* saves and turns it on; *Turn off*; *Run
-history* swaps the form for `RunHistory`, refetched every 10 seconds. Someone else's workflow,
+pointing at the step that adds its item (`moveStep`, `removeStep`). *Create workflow* saves a
+new one and it runs at once; *Save changes* keeps it on or off as it was; *Turn off* and *Turn
+on* switch it. There are no drafts. *Run history* swaps the form for `RunHistory`, refetched every 10 seconds. Someone else's workflow,
 or yours when only admins may build, opens read-only. `workflowModel.ts` holds the pure
 helpers (schedule presets, insertion, reordering, who may build).
 
@@ -346,7 +347,7 @@ reads who it waits for, and once answered or expired it says so. A channel's com
 `ShortcutMenu`, a ⚡ button listing the channel's shortcuts, when it has any; picking one starts
 it. `/workflow <name>` goes to the server like any other command.
 
-**API calls:** `/workspaces/{id}/workflows`, `/workflows/{id}` (with `/publish`, `/disable`,
+**API calls:** `/workspaces/{id}/workflows`, `/workflows/{id}` (with `/enable`, `/disable`,
 `/runs`, `/start`), `/channels/{id}/workflow-shortcuts`, `/workflow-runs/{id}/forms/{position}`
 
 ---

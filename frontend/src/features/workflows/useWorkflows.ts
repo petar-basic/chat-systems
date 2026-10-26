@@ -99,10 +99,10 @@ export function useWorkflowActions(workspaceId: string, instanceUrl?: string) {
       api().typed((c) => c.PUT('/workflows/{workflow_id}', { params: { path: { workflow_id: id } }, body })),
     onSuccess: refresh,
   });
-  const publish = useMutation({
+  const enable = useMutation({
     mutationFn: (id: string) =>
       api().typed((c) =>
-        c.POST('/workflows/{workflow_id}/publish', { params: { path: { workflow_id: id } } }),
+        c.POST('/workflows/{workflow_id}/enable', { params: { path: { workflow_id: id } } }),
       ),
     onSuccess: refresh,
   });
@@ -119,5 +119,5 @@ export function useWorkflowActions(workspaceId: string, instanceUrl?: string) {
     onSuccess: () => refresh(),
   });
 
-  return { create, update, publish, disable, remove };
+  return { create, update, enable, disable, remove };
 }

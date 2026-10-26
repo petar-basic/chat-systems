@@ -4582,12 +4582,12 @@
         }
       }
     },
-    "/workflows/{workflow_id}/publish": {
+    "/workflows/{workflow_id}/enable": {
       "post": {
         "tags": [
           "workflows"
         ],
-        "operationId": "publish_workflow",
+        "operationId": "enable_workflow",
         "parameters": [
           {
             "name": "workflow_id",
