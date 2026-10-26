@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { API, login, userContext, devWorkspace } from './helpers';
+import { API, login, userContext, devWorkspace, openWorkspaceMenu } from './helpers';
 
 test.setTimeout(90_000);
 
@@ -68,7 +68,7 @@ test('an admin imports a Slack export from the app and watches it finish', async
     await login(page, 'admin@dev.local');
     await page.goto(`/app/${workspace.id}`);
 
-    await page.getByRole('button', { name: workspace.name }).click();
+    await openWorkspaceMenu(page);
     await page.locator('[data-qa="open-slack-import"]').click();
 
     const panel = page.locator('[data-qa="slack-import-panel"]');
@@ -131,7 +131,7 @@ test('an export can bring its own workspace, named from the file', async ({ page
   try {
     await login(page, 'admin@dev.local');
     await page.goto(`/app/${workspace.id}`);
-    await page.getByRole('button', { name: workspace.name }).click();
+    await openWorkspaceMenu(page);
     await page.locator('[data-qa="open-slack-import"]').click();
 
     const panel = page.locator('[data-qa="slack-import-panel"]');
@@ -181,7 +181,7 @@ test('a plain member is not offered the import at all', async ({ page }) => {
   try {
     await login(page, 'bob@dev.local');
     await page.goto(`/app/${workspace.id}`);
-    await page.getByRole('button', { name: workspace.name }).click();
+    await openWorkspaceMenu(page);
 
     await expect(page.locator('[data-qa="open-slack-import"]')).toHaveCount(0);
 

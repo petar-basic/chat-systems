@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
-import { API, PASSWORD, login, devWorkspace } from './helpers';
+import { API, PASSWORD, login, devWorkspace, openWorkspaceMenu } from './helpers';
 
 async function signIn(ctx: APIRequestContext, email: string) {
   const res = await ctx.post(`${API}/auth/login`, { data: { email, password: PASSWORD } });
@@ -10,8 +10,8 @@ async function sharedWorkspace(ctx: APIRequestContext) {
   return await devWorkspace(ctx);
 }
 
-async function openIntegrations(page: Page, workspaceName: string) {
-  await page.getByRole('button', { name: workspaceName }).first().click();
+async function openIntegrations(page: Page) {
+  await openWorkspaceMenu(page);
   await page.locator('[data-qa="open-integrations"]').click();
   await expect(page.locator('[data-qa="integrations-panel"]')).toBeVisible();
 }
@@ -35,7 +35,7 @@ test('an admin creates an incoming webhook and a post through it lands in the ch
   try {
     await login(page, 'admin@dev.local');
     await page.goto(`/app/${workspace.id}/${channelId}`);
-    await openIntegrations(page, workspace.name);
+    await openIntegrations(page);
 
     await page.locator('[data-qa="incoming-hook-name"]').fill(`CI ${stamp}`);
     await page.locator('[data-qa="incoming-hook-channel"]').selectOption(channelId);
@@ -80,7 +80,7 @@ test('rotating a webhook retires the old URL', async ({ page, playwright }) => {
   try {
     await login(page, 'admin@dev.local');
     await page.goto(`/app/${workspace.id}/${channelId}`);
-    await openIntegrations(page, workspace.name);
+    await openIntegrations(page);
 
     const row = page.locator(`[data-qa="hook-row"][data-hook-id="${hookId}"]`);
     await row.locator('[data-qa="hook-reveal"]').click();
@@ -117,7 +117,7 @@ test('the Integrations menu and the hook API stay closed to non-admins', async (
 
     await login(page, 'bob@dev.local');
     await page.goto(`/app/${workspace.id}`);
-    await page.getByRole('button', { name: workspace.name }).first().click();
+    await openWorkspaceMenu(page);
     await expect(page.locator('[data-qa="open-integrations"]')).toHaveCount(0);
   } finally {
     await admin.dispose();
@@ -158,7 +158,7 @@ test('an outgoing webhook is scoped to named channels and the channel says so', 
 
     await login(page, 'admin@dev.local');
     await page.goto(`/app/${workspace.id}/${hookedId}`);
-    await openIntegrations(page, workspace.name);
+    await openIntegrations(page);
 
     await page.locator('[data-qa="outgoing-hook-name"]').fill(`Deploy ${stamp}`);
     await page.locator('[data-qa="outgoing-hook-url"]').fill('https://example.com/hooks/chat');

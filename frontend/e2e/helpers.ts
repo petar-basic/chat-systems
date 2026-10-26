@@ -92,6 +92,10 @@ export async function login(page: Page, email: string) {
   await expect(page.locator('.ProseMirror[contenteditable="true"]').last()).toBeVisible({ timeout: 20_000 });
 }
 
+export async function openWorkspaceMenu(page: Page) {
+  await page.locator('[data-qa="workspace-menu"]').click();
+}
+
 export async function send(page: Page, text: string) {
   const editor = page.locator('.ProseMirror[contenteditable="true"]').last();
   await editor.click();

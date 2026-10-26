@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext } from '@playwright/test';
-import { API, PASSWORD, login, devWorkspace } from './helpers';
+import { API, PASSWORD, login, devWorkspace, openWorkspaceMenu } from './helpers';
 
 async function signIn(ctx: APIRequestContext, email: string) {
   const res = await ctx.post(`${API}/auth/login`, { data: { email, password: PASSWORD } });
@@ -29,7 +29,7 @@ test('a destructive action shows up in the workspace audit log', async ({ page, 
 
     await login(page, 'admin@dev.local');
     await page.goto(`/app/${workspace.id}`);
-    await page.getByRole('button', { name: workspace.name }).first().click();
+    await openWorkspaceMenu(page);
     await page.locator('[data-qa="open-audit-log"]').click();
 
     const panel = page.locator('[data-qa="audit-log-panel"]');
@@ -58,7 +58,7 @@ test('the audit log stays closed to plain members', async ({ page, playwright })
 
     await login(page, 'bob@dev.local');
     await page.goto(`/app/${workspace.id}`);
-    await page.getByRole('button', { name: workspace.name }).first().click();
+    await openWorkspaceMenu(page);
     await expect(page.locator('[data-qa="open-audit-log"]')).toHaveCount(0);
   } finally {
     await bob.dispose();

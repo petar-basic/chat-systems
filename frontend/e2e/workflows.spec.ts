@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { API, createChannel, devWorkspace, login, userContext } from './helpers';
+import { API, createChannel, devWorkspace, login, userContext, openWorkspaceMenu } from './helpers';
 
 test('a member builds a webhook workflow and a call to it posts in the channel', async ({
   page,
@@ -16,7 +16,7 @@ test('a member builds a webhook workflow and a call to it posts in the channel',
   try {
     await login(page, 'bob@dev.local');
     await page.goto(`/app/${workspace.id}/${channel.id}`);
-    await page.getByRole('button', { name: workspace.name }).first().click();
+    await openWorkspaceMenu(page);
     await page.getByTestId('open-workflows').click();
     await expect(page.getByTestId('workflows-panel')).toBeVisible();
 
@@ -77,7 +77,7 @@ test('a member-joined workflow welcomes the newcomer with a DM', async ({ page }
   try {
     await login(page, 'bob@dev.local');
     await page.goto(`/app/${workspace.id}/${channel.id}`);
-    await page.getByRole('button', { name: workspace.name }).first().click();
+    await openWorkspaceMenu(page);
     await page.getByTestId('open-workflows').click();
     await page.getByTestId('workflow-new').click();
     await page.getByTestId('new-workflow-submit').click();
@@ -249,7 +249,7 @@ test('the time-off template adds a request to a list with who asked', async ({ p
   try {
     await login(page, 'alice@dev.local');
     await page.goto(`/app/${workspace.id}/${channel.id}`);
-    await page.getByRole('button', { name: workspace.name }).first().click();
+    await openWorkspaceMenu(page);
     await page.getByTestId('open-workflows').click();
     await page.getByTestId('workflow-new').click();
     await page.getByTestId('new-workflow-template-time_off').click();
