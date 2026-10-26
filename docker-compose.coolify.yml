@@ -86,8 +86,8 @@ services:
       DATABASE_URL: postgres://chat:${POSTGRES_PASSWORD}@postgres:5432/chatsystems
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:?ADMIN_EMAIL must be set}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD must be set}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       INSTANCE_NAME: ${INSTANCE_NAME:-Chat Systems}
       PUBLIC_URL: https://${DOMAIN:?DOMAIN must be set}
       CORS_ORIGINS: https://${DOMAIN}

@@ -73,8 +73,8 @@ backup sidecars — `db-backup` (verified `pg_dump`) and `storage-backup`
 (`rclone copy` of the upload bucket). Point your domain's DNS at the host first.
 
 ```bash
-# Required in .env: DOMAIN, ACME_EMAIL, JWT_SECRET, ADMIN_PASSWORD,
-#   POSTGRES_PASSWORD, MINIO_ROOT_PASSWORD, SMTP_HOST, SMTP_FROM_ADDRESS
+# Required in .env: DOMAIN, ACME_EMAIL, JWT_SECRET, POSTGRES_PASSWORD,
+#   MINIO_ROOT_PASSWORD, SMTP_HOST, SMTP_FROM_ADDRESS
 # Optional in .env: VERSION (tags the app images for rollback — set to a git SHA
 #   or release tag), BACKUP_OFFSITE_REMOTE (off-host copy of each verified dump).
 docker compose -f docker-compose.yml -f docker-compose.prod.yml \

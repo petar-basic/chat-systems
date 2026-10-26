@@ -113,12 +113,14 @@ HTTP request → chat-api → PostgreSQL write + outbox row → Redis stream + p
 ## Try it locally
 
 ```bash
-cp .env.example .env          # then set JWT_SECRET, ADMIN_PASSWORD, POSTGRES_PASSWORD
+cp .env.example .env          # then set JWT_SECRET, POSTGRES_PASSWORD
 docker compose --profile frontend up -d --build
-ADMIN_PASSWORD=... ./seed.sh  # optional: a demo workspace + users
+docker compose logs api | grep "setup token"
 ```
 
-Open **http://localhost:8080** and log in with your `ADMIN_EMAIL` / `ADMIN_PASSWORD`.
+Open **http://localhost:8080**, paste the setup token, and create the first admin and
+workspace. For demo users and channels, set `ADMIN_PASSWORD` in `.env` before the first start
+instead and run `ADMIN_PASSWORD=... ./seed.sh`.
 
 To run a published release instead of compiling, add to `.env`:
 

@@ -18,6 +18,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ### Upgrading
 
+- The API runs migration 72 (`instance_setup`). An instance that already has an instance
+  admin prints no setup token and needs nothing. `ADMIN_PASSWORD` is optional now; once the
+  instance is up, remove it from `.env`.
+- `GET /instance/info` gains `setup_required`.
 - The API runs migration 71 on start (`retention_policies.channel_overrides` and the
   `channel_retention` table); it is off for every workspace until an owner turns it on.
   `PATCH /workspaces/{id}/retention` replaces the whole policy, so an API client that saves it
@@ -28,6 +32,13 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ### Added
 
+- **First run from the browser.** With no instance admin, the API logs a one-time setup
+  token on every start, and `/setup` takes it with the first admin's name, email and password
+  and the first workspace's name. `ADMIN_EMAIL`/`ADMIN_PASSWORD` still work for scripted
+  installs. API: `POST /setup`.
+- **Send a test email**, at the end of setup and in *Instance admin → Email*, says in words
+  why mail did not go: nothing listening at `SMTP_HOST`, the wrong TLS mode, or credentials
+  refused. API: `POST /admin/email/test`.
 - **Retention per channel.** An owner can let channels keep messages for their own period
   (*Data retention → Let channels keep messages for their own period*); a channel's admins then
   choose a number of days, forever, or the workspace default in *Channel settings*. The

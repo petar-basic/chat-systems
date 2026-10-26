@@ -8,6 +8,7 @@ mod push;
 mod rate_limits;
 mod retention;
 mod scim;
+mod setup;
 mod smoke;
 mod streams;
 mod totp;

@@ -4,6 +4,7 @@ import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { QUERY_KEYS } from '@/shared/constants';
 
 export type AdminUser = components['schemas']['AdminUser'];
+export type EmailTest = components['schemas']['EmailTest'];
 
 const PAGE = 200;
 
@@ -75,3 +76,8 @@ export const useSetUserStatus = (instanceUrl: string | null) => {
     },
   });
 };
+
+export const useSendTestEmail = (instanceUrl: string | null) =>
+  useMutation({
+    mutationFn: () => getApiForInstance(instanceUrl).typed((c) => c.POST('/admin/email/test')),
+  });

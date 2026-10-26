@@ -339,8 +339,9 @@ async fn reset_password(
 }
 
 #[utoipa::path(get, path = "/instance/info", tag = "instance", responses((status = 200, body = InstanceInfo)), security(()))]
-async fn instance_info(State(state): State<Arc<AppState>>) -> Json<InstanceInfo> {
-    Json(InstanceInfo {
+async fn instance_info(State(state): State<Arc<AppState>>) -> AppResult<Json<InstanceInfo>> {
+    let setup_required = !state.setup_repo.has_instance_admin().await?;
+    Ok(Json(InstanceInfo {
         name: state.config.instance_name.clone(),
         icon_url: state.config.instance_icon_url.clone(),
         sso_enabled: super::oidc_routes::settings_from(&state.config).is_configured()
@@ -350,7 +351,8 @@ async fn instance_info(State(state): State<Arc<AppState>>) -> Json<InstanceInfo>
             )
             .may_sign_in(),
         max_upload_bytes: state.config.max_upload_bytes,
-    })
+        setup_required,
+    }))
 }
 
 #[utoipa::path(get, path = "/users/me", tag = "users", responses((status = 200, body = UserPublic)))]

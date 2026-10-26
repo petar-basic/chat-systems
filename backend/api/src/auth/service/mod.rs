@@ -265,6 +265,20 @@ impl AuthService {
         Ok(user.into())
     }
 
+    pub async fn create_instance_admin(
+        &self,
+        email: &str,
+        password: &str,
+        display_name: &str,
+    ) -> AppResult<User> {
+        let hash = Self::hash_password(password)?;
+        let user = self
+            .repo
+            .create(email, Some(&hash), Some(display_name), true)
+            .await?;
+        Ok(self.repo.activate(user.id, &hash, display_name).await?)
+    }
+
     pub async fn bootstrap_admin(&self) -> AppResult<()> {
         let email = match &self.config.admin_email {
             Some(e) if !e.is_empty() => e.clone(),
@@ -275,25 +289,13 @@ impl AuthService {
             _ => return Ok(()),
         };
 
-        let existing = self.repo.find_by_email(&email).await?;
-
-        if existing.is_some() {
+        if self.repo.find_by_email(&email).await?.is_some() {
             info!("Instance admin already exists: {}", email);
             return Ok(());
         }
 
-        let hash = Self::hash_password(&password)?;
-        self.repo
-            .create(&email, Some(&hash), Some("Admin"), true)
+        self.create_instance_admin(&email, &password, "Admin")
             .await?;
-
-        let user = self
-            .repo
-            .find_by_email(&email)
-            .await?
-            .ok_or_else(|| AppError::Internal("Admin user not found after creation".into()))?;
-
-        self.repo.activate(user.id, &hash, "Admin").await?;
 
         info!("Instance admin bootstrapped: {}", email);
         Ok(())

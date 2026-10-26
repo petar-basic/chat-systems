@@ -20,6 +20,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/email/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["send_test_email"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/health": {
         parameters: {
             query?: never;
@@ -1479,6 +1495,22 @@ export interface paths {
         get: operations["search_files"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["complete_setup"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3748,6 +3780,10 @@ export interface components {
         EmailPreferenceRequest: {
             mention_emails: boolean;
         };
+        EmailTest: {
+            error?: string | null;
+            sent_to: string;
+        };
         EmojiCreated: {
             /** Format: uuid */
             id: string;
@@ -3992,6 +4028,7 @@ export interface components {
             /** Format: int64 */
             max_upload_bytes: number;
             name: string;
+            setup_required: boolean;
             sso_enabled: boolean;
         };
         InstanceRoleResponse: {
@@ -4561,6 +4598,18 @@ export interface components {
             expires_at?: string | null;
             text?: string | null;
         };
+        SetupComplete: {
+            session: components["schemas"]["AuthSession"];
+            /** Format: uuid */
+            workspace_id: string;
+        };
+        SetupRequest: {
+            display_name: string;
+            email: string;
+            password: string;
+            token: string;
+            workspace_name: string;
+        };
         Shortcut: {
             description?: string | null;
             /** Format: uuid */
@@ -5055,6 +5104,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DataList_AuditRow"];
+                };
+            };
+        };
+    };
+    send_test_email: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailTest"];
                 };
             };
         };
@@ -7672,6 +7740,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DataList_FileSearchHit"];
+                };
+            };
+        };
+    };
+    complete_setup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetupRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetupComplete"];
                 };
             };
         };

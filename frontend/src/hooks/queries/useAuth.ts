@@ -79,6 +79,48 @@ export const useCompleteRegistration = () => {
   });
 };
 
+export interface SetupDraft {
+  token: string;
+  displayName: string;
+  email: string;
+  password: string;
+  workspaceName: string;
+}
+
+export const useCompleteSetup = () => {
+  const { addValidatedInstance } = useInstanceStore();
+
+  return useMutation({
+    mutationFn: async (draft: SetupDraft) => {
+      const instanceUrl = window.location.origin;
+      const clients = instanceManager.get(instanceUrl);
+      clients.api.onSessionExpired = () => useInstanceStore.getState().removeInstance(instanceUrl);
+
+      const res = await clients.api.typed((c) =>
+        c.POST('/setup', {
+          body: {
+            token: draft.token.trim(),
+            display_name: draft.displayName,
+            email: draft.email,
+            password: draft.password,
+            workspace_name: draft.workspaceName,
+          },
+        }),
+      );
+
+      clients.api.setTokens(res.session.access_token, res.session.refresh_token);
+      clients.ws.onStatusChange = (status) => {
+        useWsStatusStore.getState().setStatus(instanceUrl, status);
+      };
+      clients.ws.connect();
+
+      addValidatedInstance({ url: instanceUrl, user: toInstanceUser(res.session.user) });
+
+      return res;
+    },
+  });
+};
+
 export const useLogout = (instanceUrl?: string) => {
   const queryClient = useQueryClient();
   const { removeInstance, instances } = useInstanceStore();
