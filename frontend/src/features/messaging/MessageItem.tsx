@@ -1,41 +1,13 @@
 import { memo, useEffect, useState, useRef } from 'react';
-import {
-  AlarmClock,
-  Pencil,
-  Trash2,
-  MessageSquare,
-  SmilePlus,
-  Pin,
-  Link2,
-  Bookmark,
-  Forward,
-  MoreHorizontal,
-  MailOpen,
-} from 'lucide-react';
-import { AnchoredPopover } from '@/shared/components/Popover/AnchoredPopover';
-import { HoverCard } from '@/shared/components/Popover/HoverCard';
+import { MessageSquare, Pin, Trash2 } from 'lucide-react';
 import { UserHoverCard } from '@/features/messaging/UserHoverCard';
 import { useLongPress } from '@/shared/hooks/useLongPress';
-import MessageActionSheet, { type SheetAction } from './MessageActionSheet';
+import MessageActionSheet from './MessageActionSheet';
 import type { Message, WorkspaceMember, Channel } from '@/stores/workspace';
-import { ReactionEmoji } from '@/shared/components/ReactionEmoji';
 import RichTextDisplay from '@/features/messaging/RichTextDisplay';
-import { PollCard, type PollKeyVote } from '@/features/polls/PollCard';
-import { FormCard } from '@/features/workflows/FormCard';
-import { FormAnswers } from '@/features/workflows/FormAnswers';
-import { introOf } from '@/features/workflows/answerFields';
-import { MessageAttachments } from './MessageAttachments';
+import type { PollKeyVote } from '@/features/polls/PollCard';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { HuddleSystemMessage } from '@/features/huddle/components/HuddleSystemMessage';
-import EmojiPicker from './EmojiPicker';
-import { LinkPreviews } from './LinkPreviews';
-import { AppConnectPrompt } from './AppConnectPrompt';
-
-/// Reacting is the most common action in the product; a picker turns one tap
-/// into three. Kept to three so the toolbar stays narrow enough not to cover
-/// the message it belongs to.
-const QUICK_REACTIONS = ['👍', '✅', '🎉'];
-import MessageInput from './MessageInput';
 import {
   EDIT_MESSAGE_EVENT,
   focusComposer,
@@ -46,14 +18,15 @@ import {
 } from './messageKeys';
 import { useIsTabStop, useRovingFocus } from './rovingFocus';
 import { useLaterActions, useSavedItemId } from '@/features/later/hooks/useLater';
-import { REMIND_PRESETS } from './schedulePresets';
 import { useWorkspaceStore } from '@/stores/workspace';
 import EditHistoryPanel from './EditHistoryPanel';
 import { useCurrentWorkspaceRole } from '@/features/workspace/hooks/useCurrentWorkspaceRole';
-import { useUserCache } from '@/stores/users';
-import { displayNameOf } from '@/lib/userHelpers';
-import { joinReactors, reactorNames, type ReactionGroup } from './reactionSummary';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog/ConfirmDialog';
+import { QUICK_REACTIONS, sheetActionsFor, type MessageActionHandlers } from './messageActionList';
+import { MessageActionsBar } from './MessageActionsBar';
+import { MessageBody } from './MessageBody';
+import { MessageEditor } from './MessageEditor';
+import { MessageReactions } from './MessageReactions';
 
 interface MessageItemProps {
   message: Message;
@@ -79,26 +52,6 @@ interface MessageItemProps {
   onSave?: (message: Message) => void;
   onForward?: (message: Message) => void;
   dataQa?: string;
-}
-
-function groupReactions(message: Message, currentUserId: string): ReactionGroup[] {
-  const groups: ReactionGroup[] = [];
-  for (const r of message.reactions ?? []) {
-    const existing = groups.find((g) => g.emoji === r.emoji);
-    if (existing) {
-      existing.count++;
-      existing.userIds.push(r.user_id);
-      if (r.user_id === currentUserId) existing.hasOwn = true;
-    } else {
-      groups.push({
-        emoji: r.emoji,
-        count: 1,
-        hasOwn: r.user_id === currentUserId,
-        userIds: [r.user_id],
-      });
-    }
-  }
-  return groups;
 }
 
 function MessageItem({
@@ -130,19 +83,12 @@ function MessageItem({
   const workspace = useWorkspaceStore((s) => s.currentWorkspace);
   const savedItemId = useSavedItemId(onSave ? workspace?.id : undefined, message.id, workspace?.instanceUrl);
   const later = useLaterActions(workspace?.id, workspace?.instanceUrl);
-  const [keptAttachments, setKeptAttachments] = useState<string[] | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const reactBtnRef = useRef<HTMLButtonElement>(null);
 
-  const reactionGroups = groupReactions(message, currentUserId);
   const isOwn = currentUserId === message.user_id;
   const isEdited = message.updated_at !== message.created_at;
-  const poll = message.metadata?.poll ?? null;
-  const form = message.metadata?.form ?? null;
-  const answers = message.deleted_at ? null : (message.metadata?.fields ?? null);
-  const intro = answers ? introOf(message.content, answers) : null;
-  const canEdit = isOwn && !poll && !form;
+  const canEdit = isOwn && !message.metadata?.poll && !message.metadata?.form;
   const pollKeyVote = useRef<PollKeyVote | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const rowRef = useRef<HTMLDivElement>(null);
@@ -151,73 +97,26 @@ function MessageItem({
   const [sheetOpen, setSheetOpen] = useState(false);
   const longPress = useLongPress(() => setSheetOpen(true), !editing && !confirmDelete);
 
-  const sheetActions: SheetAction[] = [
-    ...(onThreadOpen
-      ? [
-          {
-            key: 'thread',
-            label: 'Reply in thread',
-            Icon: MessageSquare,
-            onSelect: () => onThreadOpen(message),
-          },
-        ]
-      : []),
-    ...(onSave
-      ? [
-          savedItemId
-            ? {
-                key: 'save',
-                label: 'Remove from Later',
-                Icon: Bookmark,
-                onSelect: () => later.remove.mutate(savedItemId),
-              }
-            : { key: 'save', label: 'Save for later', Icon: Bookmark, onSelect: () => onSave(message) },
-          {
-            key: 'remind',
-            label: 'Remind me in 1 hour',
-            Icon: AlarmClock,
-            onSelect: () =>
-              later.save.mutate({ messageId: message.id, remindAt: new Date(Date.now() + 60 * 60 * 1000) }),
-          },
-        ]
-      : []),
-    ...(onCopyLink
-      ? [{ key: 'copy-link', label: 'Copy link', Icon: Link2, onSelect: () => onCopyLink(message.id) }]
-      : []),
-    ...(onMarkUnread && !message.pending
-      ? [
-          {
-            key: 'mark-unread',
-            label: 'Mark unread',
-            Icon: MailOpen,
-            onSelect: () => onMarkUnread(message.id),
-          },
-        ]
-      : []),
-    ...(onForward
-      ? [{ key: 'forward', label: 'Forward', Icon: Forward, onSelect: () => onForward(message) }]
-      : []),
-    {
-      key: 'pin',
-      label: message.is_pinned ? 'Unpin from channel' : 'Pin to channel',
-      Icon: Pin,
-      onSelect: () => onTogglePin(message.id, message.is_pinned),
-    },
-    ...(canEdit
-      ? [{ key: 'edit', label: 'Edit message', Icon: Pencil, onSelect: () => setEditing(true) }]
-      : []),
-    ...(isOwn
-      ? [
-          {
-            key: 'delete',
-            label: 'Delete message',
-            Icon: Trash2,
-            onSelect: () => setConfirmDelete(true),
-            destructive: true,
-          },
-        ]
-      : []),
-  ];
+  const toggleSave = onSave
+    ? () => {
+        if (savedItemId) later.remove.mutate(savedItemId);
+        else onSave(message);
+      }
+    : undefined;
+  const actions: MessageActionHandlers = {
+    saved: !!savedItemId,
+    isOwn,
+    canEdit,
+    onThread: onThreadOpen ? () => onThreadOpen(message) : undefined,
+    onToggleSave: toggleSave,
+    onRemind: onSave ? (at) => later.save.mutate({ messageId: message.id, remindAt: at }) : undefined,
+    onCopyLink: onCopyLink ? () => onCopyLink(message.id) : undefined,
+    onMarkUnread: onMarkUnread ? () => onMarkUnread(message.id) : undefined,
+    onForward: onForward ? () => onForward(message) : undefined,
+    onTogglePin: () => onTogglePin(message.id, message.is_pinned),
+    onEdit: () => setEditing(true),
+    onDelete: () => setConfirmDelete(true),
+  };
 
   useEffect(() => {
     const row = rowRef.current;
@@ -234,8 +133,6 @@ function MessageItem({
     if (!editing) return;
     rowRef.current?.scrollIntoView({ block: 'nearest' });
   }, [editing]);
-  const [showOverflow, setShowOverflow] = useState(false);
-  const overflowAnchorRef = useRef<HTMLButtonElement>(null);
   // The marker becomes a control only for people entitled to what is behind it;
   // for everyone else it stays the plain marker it has always been.
   const { role } = useCurrentWorkspaceRole();
@@ -251,35 +148,25 @@ function MessageItem({
     );
   }
   const time = new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
   const attachments = message.metadata?.attachments ?? [];
-  const editingAttachments = attachments.filter((a) => keptAttachments?.includes(a.id) ?? true);
 
   const finishEditing = () => {
     const row = rowRef.current;
     if (row?.contains(document.activeElement)) focusComposer(row);
     setEditing(false);
-    setKeptAttachments(null);
   };
 
-  const handleEditSave = async (content: string) => {
-    const kept =
-      keptAttachments && keptAttachments.length !== attachments.length ? keptAttachments : undefined;
+  const handleEditSave = async (content: string, kept?: string[]) => {
     await onEdit(message.id, content, kept);
     finishEditing();
   };
 
   const keyHandlers: Partial<Record<MessageKeyAction, () => void>> = {
     edit: canEdit && !message.pending ? () => setEditing(true) : undefined,
-    thread: onThreadOpen ? () => onThreadOpen(message) : undefined,
+    thread: actions.onThread,
     react: () => setShowEmojiPicker(true),
-    later: onSave
-      ? () => {
-          if (savedItemId) later.remove.mutate(savedItemId);
-          else onSave(message);
-        }
-      : undefined,
-    pin: message.pending ? undefined : () => onTogglePin(message.id, message.is_pinned),
+    later: toggleSave,
+    pin: message.pending ? undefined : actions.onTogglePin,
   };
 
   const handleRowKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -427,74 +314,29 @@ function MessageItem({
           )}
 
           {editing ? (
-            <>
-              <MessageInput
-                key={`edit:${message.id}`}
-                editing
-                allowEmpty={editingAttachments.length > 0}
-                initialContent={message.content}
-                members={members}
-                channels={channels}
-                onSend={handleEditSave}
-                onCancel={finishEditing}
-              />
-              {editingAttachments.length > 0 && (
-                <MessageAttachments
-                  attachments={editingAttachments}
-                  onRemove={(id) =>
-                    setKeptAttachments((current) =>
-                      (current ?? attachments.map((a) => a.id)).filter((kept) => kept !== id),
-                    )
-                  }
-                />
-              )}
-            </>
+            <MessageEditor
+              message={message}
+              members={members}
+              channels={channels}
+              onSave={handleEditSave}
+              onCancel={finishEditing}
+            />
           ) : (
-            <>
-              {poll ? (
-                <PollCard
-                  message={message}
-                  poll={poll}
-                  currentUserId={currentUserId}
-                  keyVoteRef={pollKeyVote}
-                />
-              ) : form && !message.deleted_at ? (
-                <FormCard form={form} currentUserId={currentUserId} />
-              ) : answers && intro !== null ? (
-                <>
-                  <RichTextDisplay content={intro} attachments={attachments} />
-                  <FormAnswers fields={answers} />
-                </>
-              ) : (
-                <RichTextDisplay content={message.content} attachments={attachments} />
-              )}
-              {!message.deleted_at && !!message.metadata?.unfurls?.length && (
-                <LinkPreviews
-                  unfurls={message.metadata.unfurls}
-                  onHide={
-                    onHidePreviews && message.user_id === currentUserId
-                      ? () => onHidePreviews(message.id)
-                      : undefined
-                  }
-                  onRefresh={
-                    onRefreshPreviews && message.user_id === currentUserId
-                      ? () => onRefreshPreviews(message.id)
-                      : undefined
-                  }
-                />
-              )}
-              {!message.deleted_at &&
-                message.user_id === currentUserId &&
-                !!message.metadata?.app_prompts?.length && (
-                  <AppConnectPrompt providers={message.metadata.app_prompts} messageId={message.id} />
-                )}
-              {grouped && (editedMarker || pinnedMarker) && (
-                <div className="flex items-center gap-2">
-                  {editedMarker}
-                  {pinnedMarker}
-                </div>
-              )}
-            </>
+            <MessageBody
+              message={message}
+              currentUserId={currentUserId}
+              pollKeyVote={pollKeyVote}
+              markers={
+                grouped && (editedMarker || pinnedMarker) ? (
+                  <>
+                    {editedMarker}
+                    {pinnedMarker}
+                  </>
+                ) : undefined
+              }
+              onHidePreviews={onHidePreviews}
+              onRefreshPreviews={onRefreshPreviews}
+            />
           )}
 
           {showHistory && (
@@ -534,204 +376,24 @@ function MessageItem({
             </button>
           )}
 
-          {reactionGroups.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-1">
-              {reactionGroups.map((g) => (
-                <ReactionPill
-                  key={g.emoji}
-                  group={g}
-                  currentUserId={currentUserId}
-                  onToggle={handleReactionToggle}
-                />
-              ))}
-            </div>
-          )}
+          <MessageReactions message={message} currentUserId={currentUserId} onToggle={handleReactionToggle} />
         </div>
 
         {!editing && !confirmDelete && (
-          <div
-            className={`message-actions absolute -top-3 right-2 flex items-center gap-0.5 bg-surface border border-line rounded-lg px-1 py-0.5 shadow-lg opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto ${
-              showOverflow ? 'opacity-100 pointer-events-auto' : ''
-            }`}
-          >
-            {/* Slack surfaces a few emoji inline because reacting is the most
-              common action in the product, and a picker turns one tap into
-              three. These are the three this instance uses most. */}
-            {QUICK_REACTIONS.map((emoji) => (
-              <button
-                key={emoji}
-                onClick={() => handleReactionToggle(emoji)}
-                aria-label={`React with ${emoji}`}
-                data-qa="message-quick-reaction"
-                className="px-1 py-0.5 text-sm leading-none hover:bg-raised rounded transition"
-              >
-                {emoji}
-              </button>
-            ))}
-            <div className="w-px h-4 bg-raised mx-0.5" />
-            {onThreadOpen && (
-              <button
-                onClick={() => onThreadOpen(message)}
-                aria-label="Reply in thread"
-                data-qa="message-action-thread"
-                className="p-1 text-muted hover:text-fg hover:bg-raised rounded transition"
-              >
-                <MessageSquare className="w-3.5 h-3.5" />
-              </button>
-            )}
-            <div className="relative">
-              <button
-                ref={reactBtnRef}
-                onClick={() => setShowEmojiPicker((v) => !v)}
-                aria-label="Add reaction"
-                data-qa="message-action-react"
-                className="p-1 text-muted hover:text-fg hover:bg-raised rounded transition"
-              >
-                <SmilePlus className="w-3.5 h-3.5" />
-              </button>
-              {showEmojiPicker && (
-                <EmojiPicker
-                  anchorRef={reactBtnRef}
-                  onSelect={(emoji) => {
-                    handleReactionToggle(emoji);
-                    setShowEmojiPicker(false);
-                  }}
-                  onClose={() => setShowEmojiPicker(false)}
-                />
-              )}
-            </div>
-            {onSave && (
-              <button
-                onClick={() => (savedItemId ? later.remove.mutate(savedItemId) : onSave(message))}
-                aria-label={savedItemId ? 'Remove from Later' : 'Save for later'}
-                aria-pressed={!!savedItemId}
-                data-qa="message-action-save"
-                className={`p-1 hover:bg-raised rounded transition ${savedItemId ? 'text-accent' : 'text-muted hover:text-accent-soft'}`}
-              >
-                <Bookmark className="w-3.5 h-3.5" fill={savedItemId ? 'currentColor' : 'none'} />
-              </button>
-            )}
-
-            {/* The toolbar sits over the message, so it has to stay short. The
-              four that get used live here; the rest are one click further. */}
-            <div className="relative">
-              <button
-                ref={overflowAnchorRef}
-                onClick={() => setShowOverflow((open) => !open)}
-                aria-label="More actions"
-                aria-expanded={showOverflow}
-                data-qa="message-action-more"
-                className="p-1 text-muted hover:text-fg hover:bg-raised rounded transition"
-              >
-                <MoreHorizontal className="w-3.5 h-3.5" />
-              </button>
-              {showOverflow && (
-                <AnchoredPopover
-                  anchorRef={overflowAnchorRef}
-                  onClose={() => setShowOverflow(false)}
-                  dataQa="message-overflow"
-                  className="w-44 bg-surface border border-line rounded-lg shadow-xl py-1"
-                >
-                  <button
-                    onClick={() => {
-                      onTogglePin(message.id, message.is_pinned);
-                      setShowOverflow(false);
-                    }}
-                    data-qa="message-action-pin"
-                    className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2"
-                  >
-                    <Pin className="w-3.5 h-3.5" /> {message.is_pinned ? 'Unpin' : 'Pin'}
-                  </button>
-                  {onMarkUnread && !message.pending && (
-                    <button
-                      onClick={() => {
-                        onMarkUnread(message.id);
-                        setShowOverflow(false);
-                      }}
-                      data-qa="message-action-mark-unread"
-                      className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2"
-                    >
-                      <MailOpen className="w-3.5 h-3.5" /> Mark unread
-                    </button>
-                  )}
-                  {onCopyLink && (
-                    <button
-                      onClick={() => {
-                        onCopyLink(message.id);
-                        setShowOverflow(false);
-                      }}
-                      data-qa="message-action-copy-link"
-                      className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2"
-                    >
-                      <Link2 className="w-3.5 h-3.5" /> Copy link
-                    </button>
-                  )}
-                  {onSave && (
-                    <div className="border-y border-line/60 py-1" data-qa="message-action-remind">
-                      <div className="px-3 py-1 text-[11px] uppercase tracking-wide text-subtle">
-                        Remind me about this
-                      </div>
-                      {REMIND_PRESETS.map((preset) => (
-                        <button
-                          key={preset.label}
-                          onClick={() => {
-                            later.save.mutate({ messageId: message.id, remindAt: preset.at() });
-                            setShowOverflow(false);
-                          }}
-                          className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised"
-                        >
-                          {preset.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {onForward && (
-                    <button
-                      onClick={() => {
-                        onForward(message);
-                        setShowOverflow(false);
-                      }}
-                      data-qa="message-action-forward"
-                      className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2"
-                    >
-                      <Forward className="w-3.5 h-3.5" /> Forward
-                    </button>
-                  )}
-                  {canEdit && (
-                    <button
-                      onClick={() => {
-                        setEditing(true);
-                        setShowOverflow(false);
-                      }}
-                      data-qa="message-action-edit"
-                      className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2"
-                    >
-                      <Pencil className="w-3.5 h-3.5" /> Edit
-                    </button>
-                  )}
-                  {isOwn && (
-                    <button
-                      onClick={() => {
-                        setConfirmDelete(true);
-                        setShowOverflow(false);
-                      }}
-                      data-qa="message-action-delete"
-                      className="w-full px-3 py-1.5 text-left text-sm text-danger hover:bg-raised flex items-center gap-2"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" /> Delete
-                    </button>
-                  )}
-                </AnchoredPopover>
-              )}
-            </div>
-          </div>
+          <MessageActionsBar
+            message={message}
+            actions={actions}
+            pickerOpen={showEmojiPicker}
+            onPickerChange={setShowEmojiPicker}
+            onReact={handleReactionToggle}
+          />
         )}
 
         {sheetOpen && (
           <MessageActionSheet
             quickReactions={QUICK_REACTIONS}
             onReact={(emoji) => handleReactionToggle(emoji)}
-            actions={sheetActions}
+            actions={sheetActionsFor(message, actions)}
             onClose={() => setSheetOpen(false)}
           />
         )}
@@ -760,55 +422,6 @@ function MessageItem({
         </ConfirmDialog>
       )}
     </>
-  );
-}
-
-function ReactionPill({
-  group,
-  currentUserId,
-  onToggle,
-}: {
-  group: ReactionGroup;
-  currentUserId: string;
-  onToggle: (emoji: string) => void;
-}) {
-  const getUser = useUserCache((s) => s.getUser);
-  const names = reactorNames(group.userIds, currentUserId, (id) => {
-    const user = getUser(id);
-    return user ? displayNameOf(user.display_name) : undefined;
-  });
-
-  return (
-    <HoverCard
-      placement="top"
-      dataQa="reaction-tooltip"
-      triggerClassName="inline-flex"
-      panelClassName="max-w-56 px-2.5 py-1.5 rounded-lg bg-elevated border border-line-strong shadow-xl text-xs text-fg-dim text-center"
-      content={
-        <>
-          <span className="block text-lg leading-none mb-1">
-            <ReactionEmoji emoji={group.emoji} />
-          </span>
-          <span className="text-fg-soft font-medium">{joinReactors(names)}</span>
-          <span> reacted</span>
-        </>
-      }
-    >
-      <button
-        onClick={() => onToggle(group.emoji)}
-        aria-pressed={group.hasOwn}
-        aria-label={`${joinReactors(names)} reacted`}
-        data-qa="message-reaction"
-        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs border transition ${
-          group.hasOwn
-            ? 'bg-purple-600/20 border-purple-500/40 text-accent-soft'
-            : 'bg-raised/50 border-line-strong/50 text-fg-dim hover:bg-raised'
-        }`}
-      >
-        <ReactionEmoji emoji={group.emoji} />
-        <span>{group.count}</span>
-      </button>
-    </HoverCard>
   );
 }
 
