@@ -9,10 +9,16 @@ ticket in [`docs/tickets/`](./tickets/INDEX.md); a ticket's file is deleted when
 
 | Ticket | What | Status |
 |---|---|---|
+| [CS-069](./tickets/CS-069-ui-fixes-and-readme.md) | Small UI fixes: one members button, workspace tiles that differ, form answers as fields, a current README | Wave 24, next |
+| [CS-070](./tickets/CS-070-workspace-admin.md) | Workspace admin in one dialog, with screens for retention, exports, erasure and SCIM tokens | Wave 24 |
+| [CS-071](./tickets/CS-071-first-run.md) | A setup page instead of an admin password in `.env`, a test email, and a checklist for a new workspace | Wave 24 |
+| [CS-072](./tickets/CS-072-fewer-round-trips.md) | Fewer API round trips on start and on switching channels | Wave 24 |
+| [CS-073](./tickets/CS-073-one-frontend-structure.md) | One frontend structure: `components/` and `hooks/` folded into `features/` | Wave 24 |
 | [CS-037](./tickets/CS-037-huddle-sfu.md) | SFU (LiveKit) for huddles above the mesh's six-to-eight ceiling, promoted mid-call without dropping anybody | Held for the next major release (4.0.0), decided 2026-10-23 when 3.2.0 shipped CS-059 alone. Adds an optional media server beside the stack. Until then a huddle is capped at eight people |
 
 Waves 21–23 were chosen in the 2026-10-23 review and shipped together in 3.3.0, before
-4.0.0. Two decisions were considered on 2026-09-02 and deferred
+4.0.0. Wave 24 came out of the 2026-10-26 review, which walked the app the way a company
+trying it would; it ships in 3.x too. Two decisions were considered on 2026-09-02 and deferred
 with their reasoning below: versioning the API path and asymmetric JWT signing.
 
 ## How the order was chosen
@@ -64,6 +70,7 @@ was pencilled in for it was absorbed into 9 and 11.
 | [Wave 21 — Notifications that fit how a team works](./history.md#wave-21--notifications-that-fit-how-a-team-works--shipped) | CS-060 · CS-061 · CS-062 |
 | [Wave 22 — Finding files](./history.md#wave-22--finding-files--shipped) | CS-063 · CS-064 |
 | [Wave 23 — Structured work: polls, lists, workflows](./history.md#wave-23--structured-work-polls-lists-workflows--shipped) | CS-065 · CS-066 · CS-067 |
+| [Wave 24 — Ready for a company](./history.md#wave-24--ready-for-a-company) | CS-068 (CS-069 … CS-073 open) |
 
 ---
 
@@ -75,6 +82,12 @@ was pencilled in for it was absorbed into 9 and 11.
   and the minimum stays at 8. An organisation that needs a policy has SSO (`CS-032`), and
   the identity provider is where such a policy belongs.
 
+- **Scale by headcount.** The 2026-10-26 review found that nothing has been measured above
+  40 people: the member directory is sent whole to every client on start, and hundreds of
+  concurrent connections, presence fan-out and push have not been load-tested. The RUNBOOK
+  sizes an instance for a team of a few dozen, which is who uses it. Decided that day not to
+  work on it until a team that size needs it; then measure first (a load test with a few
+  hundred signed-in clients) and fix what the numbers show.
 - **Partitioning `messages` / `audit_log`.** Right at a scale this instance is nowhere
   near. Revisit when a metric says so, not before.
 - **Server-side huddle recording.** A compliance feature with its own consent and retention

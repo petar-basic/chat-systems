@@ -17,7 +17,8 @@ Wave 13 and is shipped too. Wave 14 closes the daily-use gaps a team arriving fr
 notices first, Waves 15 and 16 (connected-app previews) and Wave 17 (files and images) are
 shipped too. Waves 18 and 19 are shipped too. In Wave 20, CS-059 shipped in 3.2.0;
 [CS-037](CS-037-huddle-sfu.md) is held for the next major release, 4.0.0. Waves 21–23,
-chosen in the 2026-10-23 review, shipped in 3.3.0.
+chosen in the 2026-10-23 review, shipped in 3.3.0. Wave 24, from the 2026-10-26 review, is
+under way.
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
@@ -248,10 +249,29 @@ forms reuse. Lists come before the workflow builder's last part, which writes in
 | CS-066 ✅ | Lists: typed tables in a conversation, with board view and item comments | backend · frontend |
 | CS-067 ✅ | Workflow builder | backend · frontend · ops |
 
+### Wave 24 — Ready for a company
+
+Chosen in the 2026-10-26 review, after 3.3.0, which walked the app as a company trying it
+would. The features are there; what a team notices is the rough edges, an admin's work
+spread over nine panels with retention, exports, erasure and SCIM tokens reachable only by
+API, and an instance that cannot be set up without editing `.env`. Small fixes come first,
+the admin dialog before first run (whose checklist points into it), and the frontend's move
+to one structure last, after the admin dialog has moved its panels.
+
+| # | Ticket | Area |
+|---|---|---|
+| CS-068 ✅ | Workflows without drafts | backend · frontend |
+| [CS-069](CS-069-ui-fixes-and-readme.md) | Small UI fixes and a README that says what ships | frontend · backend · docs |
+| [CS-070](CS-070-workspace-admin.md) | Workspace admin in one place, with the settings that have no screen | frontend · backend |
+| [CS-071](CS-071-first-run.md) | First run and an empty workspace that says what to do | backend · frontend · ops |
+| [CS-072](CS-072-fewer-round-trips.md) | Fewer round trips on start and on switching channels | frontend · backend |
+| [CS-073](CS-073-one-frontend-structure.md) | One frontend structure | frontend |
+
 ### Still open
 
 | # | Ticket | Area | Why it is not done |
 |---|---|---|---|
+| [CS-069](CS-069-ui-fixes-and-readme.md) … [CS-073](CS-073-one-frontend-structure.md) | Wave 24 | frontend · backend · ops | Planned 2026-10-26; one at a time, in number order |
 | [CS-037](CS-037-huddle-sfu.md) | SFU for large huddles | backend · frontend · ops | Held for 4.0.0 — it adds a service to the stack, so it ships in a major release |
 
 ## Conflict map
@@ -278,4 +298,4 @@ Tickets that touch the same files, and the order that avoids rework:
 | `NotificationStream` and `wsQuerySync` sound/desktop | CS-060 ✅ → CS-061 ✅ |
 | search visibility (`searchable_channels()`) | CS-048 ✅ → CS-063 ✅ → CS-064 ✅ |
 | search panel tabs and filter bar | CS-058 ✅ → CS-063 ✅ → CS-064 ✅ |
-| `chat-worker` supervised loops | CS-064 ✅ → CS-065 ✅ → CS-067 |
+| `chat-worker` supervised loops | CS-064 ✅ → CS-065 ✅ → CS-067 ✅ |
