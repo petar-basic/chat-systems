@@ -1,0 +1,54 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO channel_retention (channel_id, message_days, updated_by)\n            VALUES ($1, $2, $3)\n            ON CONFLICT (channel_id) DO UPDATE SET\n                message_days = EXCLUDED.message_days,\n                updated_by = EXCLUDED.updated_by,\n                updated_at = NOW()\n            RETURNING message_days, updated_by, updated_at\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "message_days",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "channel_retention",
+            "name": "message_days"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "updated_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "channel_retention",
+            "name": "updated_by"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "channel_retention",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "5426060319f1b0c4bbdef96dd5b0b5a54b646a5af82f5768f7c0b3626e35960d"
+}

@@ -3,6 +3,7 @@ import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { Button } from '@/shared/components/Button/Button';
 import { RadioCards } from '@/shared/components/Form/RadioCards';
 import { TextInput } from '@/shared/components/Form/TextInput';
+import { Checkbox } from '@/shared/components/Form/Checkbox';
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
 import { toUserMessage } from '@/lib/errors';
 import {
@@ -88,17 +89,26 @@ function RetentionForm({
 }) {
   const [messages, setMessages] = useState(periodOf(policy?.message_days));
   const [files, setFiles] = useState(periodOf(policy?.file_days));
+  const [channelOverrides, setChannelOverrides] = useState(policy?.channel_overrides ?? false);
   const save = useSaveRetention(workspaceId, instanceUrl);
 
   const messageDays = daysOf(messages);
   const fileDays = daysOf(files);
   const valid = messageDays !== 'invalid' && fileDays !== 'invalid';
   const changed =
-    valid && (messageDays !== (policy?.message_days ?? null) || fileDays !== (policy?.file_days ?? null));
+    valid &&
+    (messageDays !== (policy?.message_days ?? null) ||
+      fileDays !== (policy?.file_days ?? null) ||
+      channelOverrides !== (policy?.channel_overrides ?? false));
 
   const settledMessages = useDebouncedValue(valid ? messageDays : null, 300);
   const settledFiles = useDebouncedValue(valid ? fileDays : null, 300);
-  const preview = useRetentionPreview(workspaceId, settledMessages, settledFiles, instanceUrl);
+  const preview = useRetentionPreview(
+    workspaceId,
+    { messageDays: settledMessages, fileDays: settledFiles, channelOverrides },
+    instanceUrl,
+  );
+  const removesNothing = settledMessages === null && settledFiles === null && !channelOverrides;
 
   const submit = () => {
     if (!valid) return;
@@ -107,6 +117,7 @@ function RetentionForm({
       file_days: fileDays,
       audit_days: policy?.audit_days,
       notification_days: policy?.notification_days,
+      channel_overrides: channelOverrides,
     });
   };
 
@@ -126,8 +137,16 @@ function RetentionForm({
       />
       <PeriodField label="Keep files" noun="files" period={files} onChange={setFiles} qa="retention-files" />
 
+      <Checkbox
+        label="Let channels keep messages for their own period"
+        description="A channel's admins can then set a shorter or longer period, or forever, in its settings. Files keep the workspace period."
+        checked={channelOverrides}
+        onChange={setChannelOverrides}
+        dataQa="retention-channel-overrides"
+      />
+
       <p aria-live="polite" className="min-h-5 text-sm" data-qa="retention-preview">
-        {settledMessages === null && settledFiles === null ? (
+        {removesNothing ? (
           <span className="text-muted">Nothing is removed while both are kept forever.</span>
         ) : preview.isPending ? (
           <span className="text-muted">Counting…</span>

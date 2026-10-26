@@ -134,14 +134,31 @@ pub async fn run_once(state: &AppState) -> PurgeCounts {
         if let Some(days) = policy.file_days {
             counts.files += purge_files(state, policy.workspace_id, days, dry_run).await;
         }
-        if let Some(days) = policy.message_days {
+        if policy.message_days.is_some() || policy.channel_overrides {
             counts.messages += purge_loop(dry_run, || async {
                 state
                     .retention_repo
-                    .purge_messages(policy.workspace_id, days)
+                    .purge_messages(
+                        policy.workspace_id,
+                        policy.message_days,
+                        policy.channel_overrides,
+                    )
                     .await
             })
             .await;
+            if dry_run {
+                counts.messages += state
+                    .retention_repo
+                    .count_messages_past(
+                        policy.workspace_id,
+                        policy.message_days,
+                        policy.channel_overrides,
+                    )
+                    .await
+                    .unwrap_or(0) as u64;
+            }
+        }
+        if let Some(days) = policy.message_days {
             counts.list_comments += purge_loop(dry_run, || async {
                 state
                     .retention_repo
@@ -164,11 +181,6 @@ pub async fn run_once(state: &AppState) -> PurgeCounts {
             })
             .await;
             if dry_run {
-                counts.messages += state
-                    .retention_repo
-                    .count_messages_past(policy.workspace_id, days)
-                    .await
-                    .unwrap_or(0) as u64;
                 let (items, lists, comments) = state
                     .retention_repo
                     .count_lists_past(policy.workspace_id, days)

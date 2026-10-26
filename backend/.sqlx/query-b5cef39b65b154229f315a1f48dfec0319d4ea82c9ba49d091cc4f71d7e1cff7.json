@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT COUNT(*) AS \"count!\" FROM messages m\n              JOIN channels c ON c.id = m.channel_id\n              LEFT JOIN channel_retention cr ON cr.channel_id = c.id AND $3\n             WHERE c.workspace_id = $1\n               AND m.created_at < NOW() - make_interval(days =>\n                   CASE WHEN cr.channel_id IS NULL THEN $2 ELSE cr.message_days END)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "b5cef39b65b154229f315a1f48dfec0319d4ea82c9ba49d091cc4f71d7e1cff7"
+}

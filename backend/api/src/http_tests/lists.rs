@@ -1038,6 +1038,7 @@ async fn exports_retention_and_channel_deletion_cover_lists(pool: PgPool) {
                 file_days: None,
                 audit_days: Some(730),
                 notification_days: Some(90),
+                channel_overrides: false,
             },
             owner_id,
         )

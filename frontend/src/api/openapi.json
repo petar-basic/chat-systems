@@ -1683,6 +1683,103 @@
         }
       }
     },
+    "/channels/{ch_id}/retention": {
+      "get": {
+        "tags": [
+          "retention"
+        ],
+        "operationId": "get_channel_retention",
+        "parameters": [
+          {
+            "name": "ch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelRetention"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "retention"
+        ],
+        "summary": "A channel's own period, `null` for forever. Only while the owner allows\nchannels their own; the row stays when that is switched off, and is ignored.",
+        "operationId": "set_channel_retention",
+        "parameters": [
+          {
+            "name": "ch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetChannelRetention"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelRetention"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "retention"
+        ],
+        "operationId": "clear_channel_retention",
+        "parameters": [
+          {
+            "name": "ch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelRetention"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/channels/{ch_id}/section": {
       "put": {
         "tags": [
@@ -7136,6 +7233,14 @@
             }
           },
           {
+            "name": "channel_overrides",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
             "name": "ws_id",
             "in": "path",
             "required": true,
@@ -8465,6 +8570,32 @@
           }
         }
       },
+      "ChannelOverride": {
+        "type": "object",
+        "required": [
+          "updated_at"
+        ],
+        "properties": {
+          "message_days": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
       "ChannelPlacement": {
         "type": "object",
         "required": [
@@ -8479,6 +8610,34 @@
           "section_id": {
             "type": "string",
             "format": "uuid"
+          }
+        }
+      },
+      "ChannelRetention": {
+        "type": "object",
+        "required": [
+          "overrides_allowed"
+        ],
+        "properties": {
+          "channel": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ChannelOverride"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "overrides_allowed": {
+            "type": "boolean"
+          },
+          "workspace_message_days": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -13995,12 +14154,16 @@
           "workspace_id",
           "audit_days",
           "notification_days",
+          "channel_overrides",
           "updated_at"
         ],
         "properties": {
           "audit_days": {
             "type": "integer",
             "format": "int32"
+          },
+          "channel_overrides": {
+            "type": "boolean"
           },
           "file_days": {
             "type": [
@@ -14327,6 +14490,18 @@
         "properties": {
           "muted": {
             "type": "boolean"
+          }
+        }
+      },
+      "SetChannelRetention": {
+        "type": "object",
+        "properties": {
+          "message_days": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -15533,6 +15708,9 @@
               "null"
             ],
             "format": "int32"
+          },
+          "channel_overrides": {
+            "type": "boolean"
           },
           "file_days": {
             "type": [

@@ -11,6 +11,7 @@ pub struct RetentionPolicy {
     pub file_days: Option<i32>,
     pub audit_days: i32,
     pub notification_days: i32,
+    pub channel_overrides: bool,
     pub updated_by: Option<Uuid>,
     pub updated_at: DateTime<Utc>,
 }
@@ -21,6 +22,15 @@ pub struct UpdateRetentionRequest {
     pub file_days: Option<i32>,
     pub audit_days: Option<i32>,
     pub notification_days: Option<i32>,
+    #[serde(default)]
+    pub channel_overrides: bool,
+}
+
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct ChannelOverride {
+    pub message_days: Option<i32>,
+    pub updated_by: Option<Uuid>,
+    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Clone)]
@@ -40,7 +50,7 @@ impl RetentionRepo {
     pub async fn get(&self, workspace_id: Uuid) -> sqlx::Result<Option<RetentionPolicy>> {
         sqlx::query_as!(
             RetentionPolicy,
-            "SELECT workspace_id, message_days, file_days, audit_days, notification_days, updated_by, updated_at FROM retention_policies WHERE workspace_id = $1",
+            "SELECT workspace_id, message_days, file_days, audit_days, notification_days, channel_overrides, updated_by, updated_at FROM retention_policies WHERE workspace_id = $1",
             workspace_id
         )
         .fetch_optional(&self.pool)
@@ -57,22 +67,24 @@ impl RetentionRepo {
             RetentionPolicy,
             r"
             INSERT INTO retention_policies
-                (workspace_id, message_days, file_days, audit_days, notification_days, updated_by)
-            VALUES ($1, $2, $3, COALESCE($4, 730), COALESCE($5, 90), $6)
+                (workspace_id, message_days, file_days, audit_days, notification_days, channel_overrides, updated_by)
+            VALUES ($1, $2, $3, COALESCE($4, 730), COALESCE($5, 90), $6, $7)
             ON CONFLICT (workspace_id) DO UPDATE SET
                 message_days = EXCLUDED.message_days,
                 file_days = EXCLUDED.file_days,
                 audit_days = EXCLUDED.audit_days,
                 notification_days = EXCLUDED.notification_days,
+                channel_overrides = EXCLUDED.channel_overrides,
                 updated_by = EXCLUDED.updated_by,
                 updated_at = NOW()
-            RETURNING workspace_id, message_days, file_days, audit_days, notification_days, updated_by, updated_at
+            RETURNING workspace_id, message_days, file_days, audit_days, notification_days, channel_overrides, updated_by, updated_at
             ",
             workspace_id,
             req.message_days,
             req.file_days,
             req.audit_days,
             req.notification_days,
+            req.channel_overrides,
             updated_by
         )
         .fetch_one(&self.pool)
@@ -80,7 +92,7 @@ impl RetentionRepo {
     }
 
     pub async fn workspaces_with_policies(&self) -> sqlx::Result<Vec<RetentionPolicy>> {
-        sqlx::query_as!(RetentionPolicy, "SELECT workspace_id, message_days, file_days, audit_days, notification_days, updated_by, updated_at FROM retention_policies")
+        sqlx::query_as!(RetentionPolicy, "SELECT workspace_id, message_days, file_days, audit_days, notification_days, channel_overrides, updated_by, updated_at FROM retention_policies")
             .fetch_all(&self.pool)
             .await
     }
@@ -88,42 +100,107 @@ impl RetentionRepo {
     /// Counts what a purge would remove without removing it. Dry-run reports
     /// through the same queries the deletion uses, so the number it prints is
     /// the number that would actually go.
-    pub async fn count_messages_past(&self, workspace_id: Uuid, days: i32) -> sqlx::Result<i64> {
+    pub async fn count_messages_past(
+        &self,
+        workspace_id: Uuid,
+        days: Option<i32>,
+        channel_overrides: bool,
+    ) -> sqlx::Result<i64> {
         sqlx::query_scalar!(
             r#"
             SELECT COUNT(*) AS "count!" FROM messages m
               JOIN channels c ON c.id = m.channel_id
+              LEFT JOIN channel_retention cr ON cr.channel_id = c.id AND $3
              WHERE c.workspace_id = $1
-               AND m.created_at < NOW() - make_interval(days => $2)
+               AND m.created_at < NOW() - make_interval(days =>
+                   CASE WHEN cr.channel_id IS NULL THEN $2 ELSE cr.message_days END)
             "#,
             workspace_id,
-            days
+            days,
+            channel_overrides
         )
         .fetch_one(&self.pool)
         .await
     }
 
     /// Deletes one bounded batch and reports how many went, so the caller can
-    /// loop until a batch comes back short.
-    pub async fn purge_messages(&self, workspace_id: Uuid, days: i32) -> sqlx::Result<u64> {
+    /// loop until a batch comes back short. A channel with its own period uses
+    /// it while the workspace allows overrides; a `NULL` period keeps forever.
+    pub async fn purge_messages(
+        &self,
+        workspace_id: Uuid,
+        days: Option<i32>,
+        channel_overrides: bool,
+    ) -> sqlx::Result<u64> {
         let result = sqlx::query!(
             r"
             DELETE FROM messages
              WHERE id IN (
                  SELECT m.id FROM messages m
                    JOIN channels c ON c.id = m.channel_id
+                   LEFT JOIN channel_retention cr ON cr.channel_id = c.id AND $3
                   WHERE c.workspace_id = $1
-                    AND m.created_at < NOW() - make_interval(days => $2)
-                  LIMIT $3
+                    AND m.created_at < NOW() - make_interval(days =>
+                        CASE WHEN cr.channel_id IS NULL THEN $2 ELSE cr.message_days END)
+                  LIMIT $4
              )
             ",
             workspace_id,
             days,
+            channel_overrides,
             PURGE_BATCH
         )
         .execute(&self.pool)
         .await?;
         Ok(result.rows_affected())
+    }
+
+    pub async fn channel_override(
+        &self,
+        channel_id: Uuid,
+    ) -> sqlx::Result<Option<ChannelOverride>> {
+        sqlx::query_as!(
+            ChannelOverride,
+            "SELECT message_days, updated_by, updated_at FROM channel_retention WHERE channel_id = $1",
+            channel_id
+        )
+        .fetch_optional(&self.pool)
+        .await
+    }
+
+    pub async fn set_channel_override(
+        &self,
+        channel_id: Uuid,
+        message_days: Option<i32>,
+        updated_by: Uuid,
+    ) -> sqlx::Result<ChannelOverride> {
+        sqlx::query_as!(
+            ChannelOverride,
+            r"
+            INSERT INTO channel_retention (channel_id, message_days, updated_by)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (channel_id) DO UPDATE SET
+                message_days = EXCLUDED.message_days,
+                updated_by = EXCLUDED.updated_by,
+                updated_at = NOW()
+            RETURNING message_days, updated_by, updated_at
+            ",
+            channel_id,
+            message_days,
+            updated_by
+        )
+        .fetch_one(&self.pool)
+        .await
+    }
+
+    pub async fn clear_channel_override(&self, channel_id: Uuid) -> sqlx::Result<bool> {
+        let result = sqlx::query!(
+            "DELETE FROM channel_retention WHERE channel_id = $1",
+            channel_id
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected() == 1)
     }
 
     pub async fn purge_list_items(&self, workspace_id: Uuid, days: i32) -> sqlx::Result<u64> {

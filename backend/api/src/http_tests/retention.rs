@@ -43,6 +43,7 @@ async fn set_policy(
                 file_days: None,
                 audit_days: Some(730),
                 notification_days: Some(90),
+                channel_overrides: false,
             },
             owner_id,
         )
@@ -311,4 +312,268 @@ async fn the_preview_counts_what_a_period_would_remove_now(pool: PgPool) {
         StatusCode::FORBIDDEN,
         "the preview belongs to the owner's form"
     );
+}
+
+async fn allow_channel_periods(
+    state: &crate::state::AppState,
+    ws: Uuid,
+    owner_id: Uuid,
+    message_days: Option<i32>,
+    channel_overrides: bool,
+) {
+    state
+        .retention_repo
+        .upsert(
+            ws,
+            &crate::retention::repo::UpdateRetentionRequest {
+                message_days,
+                file_days: None,
+                audit_days: Some(730),
+                notification_days: Some(90),
+                channel_overrides,
+            },
+            owner_id,
+        )
+        .await
+        .expect("set policy");
+}
+
+async fn channel_period(
+    state: &crate::state::AppState,
+    ch: Uuid,
+    owner_id: Uuid,
+    days: Option<i32>,
+) {
+    state
+        .retention_repo
+        .set_channel_override(ch, days, owner_id)
+        .await
+        .expect("set channel period");
+}
+
+async fn aged_post(
+    app: &axum::Router,
+    state: &crate::state::AppState,
+    token: &str,
+    ch: Uuid,
+    days: i64,
+) -> Uuid {
+    let id = post(app, token, ch, &format!("{days} days old")).await;
+    age_message(state, id, days).await;
+    id
+}
+
+async fn exists(state: &crate::state::AppState, id: Uuid) -> bool {
+    sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM messages WHERE id = $1)")
+        .bind(id)
+        .fetch_one(&state.pool)
+        .await
+        .expect("exists")
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_channel_period_purges_before_and_after_the_workspaces(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, token) = seed_and_login(&app, &state, "ret-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Retention WS").await;
+    let short = seed_channel(&state, ws, owner_id, "random", false).await;
+    let long = seed_channel(&state, ws, owner_id, "legal", false).await;
+    let plain = seed_channel(&state, ws, owner_id, "general", false).await;
+
+    let short_20 = aged_post(&app, &state, &token, short, 20).await;
+    let long_45 = aged_post(&app, &state, &token, long, 45).await;
+    let long_90 = aged_post(&app, &state, &token, long, 90).await;
+    let plain_20 = aged_post(&app, &state, &token, plain, 20).await;
+    let plain_45 = aged_post(&app, &state, &token, plain, 45).await;
+
+    allow_channel_periods(&state, ws, owner_id, Some(30), true).await;
+    channel_period(&state, short, owner_id, Some(10)).await;
+    channel_period(&state, long, owner_id, Some(60)).await;
+    crate::retention::job::run_once(&state).await;
+
+    assert!(
+        !exists(&state, short_20).await,
+        "a shorter period goes first"
+    );
+    assert!(
+        exists(&state, long_45).await,
+        "a longer one outlives the workspace's"
+    );
+    assert!(!exists(&state, long_90).await, "but not its own");
+    assert!(
+        exists(&state, plain_20).await,
+        "a channel without one follows the workspace"
+    );
+    assert!(!exists(&state, plain_45).await);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_channel_kept_forever_is_kept_and_a_workspace_kept_forever_still_purges_a_channel(
+    pool: PgPool,
+) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, token) = seed_and_login(&app, &state, "ret-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Retention WS").await;
+    let kept = seed_channel(&state, ws, owner_id, "legal", false).await;
+    let trimmed = seed_channel(&state, ws, owner_id, "random", false).await;
+    let plain = seed_channel(&state, ws, owner_id, "general", false).await;
+
+    let kept_old = aged_post(&app, &state, &token, kept, 400).await;
+    let trimmed_old = aged_post(&app, &state, &token, trimmed, 20).await;
+    let plain_old = aged_post(&app, &state, &token, plain, 400).await;
+
+    allow_channel_periods(&state, ws, owner_id, Some(30), true).await;
+    channel_period(&state, kept, owner_id, None).await;
+    crate::retention::job::run_once(&state).await;
+    assert!(exists(&state, kept_old).await, "forever means forever");
+    assert!(!exists(&state, plain_old).await);
+
+    allow_channel_periods(&state, ws, owner_id, None, true).await;
+    channel_period(&state, trimmed, owner_id, Some(10)).await;
+    let counts = crate::retention::job::run_once(&state).await;
+    assert!(
+        !exists(&state, trimmed_old).await,
+        "the channel's period applies on its own"
+    );
+    assert_eq!(counts.messages, 1);
+    assert!(exists(&state, kept_old).await);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn channel_periods_are_ignored_while_overrides_are_off(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, token) = seed_and_login(&app, &state, "ret-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Retention WS").await;
+    let ch = seed_channel(&state, ws, owner_id, "random", false).await;
+
+    let twenty = aged_post(&app, &state, &token, ch, 20).await;
+    channel_period(&state, ch, owner_id, Some(10)).await;
+    allow_channel_periods(&state, ws, owner_id, Some(30), false).await;
+    crate::retention::job::run_once(&state).await;
+
+    assert!(exists(&state, twenty).await, "the row is kept and ignored");
+    let (status, body) = send(
+        &app,
+        "GET",
+        &format!("/api/channels/{ch}/retention"),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(body["overrides_allowed"], false);
+    assert_eq!(body["workspace_message_days"], 30);
+    assert_eq!(body["channel"]["message_days"], 10);
+
+    let (status, _) = send(
+        &app,
+        "PUT",
+        &format!("/api/channels/{ch}/retention"),
+        Some(&token),
+        Some(json!({ "message_days": 5 })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::CONFLICT,
+        "nothing to set while the owner says no"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_moderator_sets_the_period_and_the_channel_and_audit_log_say_so(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "ret-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Retention WS").await;
+    let ch = seed_channel(&state, ws, owner_id, "random", false).await;
+    let (member_id, _, member) = seed_and_login(&app, &state, "ret-member", false).await;
+    add_ws_member(&state, ws, member_id, "member").await;
+    send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch}/join"),
+        Some(&member),
+        None,
+    )
+    .await;
+    allow_channel_periods(&state, ws, owner_id, Some(365), true).await;
+
+    let path = format!("/api/channels/{ch}/retention");
+    let (status, _) = send(
+        &app,
+        "PUT",
+        &path,
+        Some(&member),
+        Some(json!({ "message_days": 7 })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "a member who does not moderate is refused"
+    );
+    let (status, _) = send(&app, "DELETE", &path, Some(&member), None).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+
+    let (status, _) = send(
+        &app,
+        "PUT",
+        &path,
+        Some(&owner),
+        Some(json!({ "message_days": 0 })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+
+    let (status, body) = send(
+        &app,
+        "PUT",
+        &path,
+        Some(&owner),
+        Some(json!({ "message_days": 7 })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(body["channel"]["message_days"], 7);
+    let (status, body) = send(
+        &app,
+        "PUT",
+        &path,
+        Some(&owner),
+        Some(json!({ "message_days": null })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert!(
+        body["channel"]["message_days"].is_null(),
+        "null keeps forever"
+    );
+    let (status, body) = send(&app, "DELETE", &path, Some(&owner), None).await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert!(body["channel"].is_null(), "back to the workspace's");
+
+    let said: Vec<String> = sqlx::query_scalar(
+        "SELECT content FROM messages WHERE channel_id = $1 AND metadata->>'kind' = 'retention_changed' ORDER BY created_at",
+    )
+    .bind(ch)
+    .fetch_all(&state.pool)
+    .await
+    .expect("system messages");
+    assert_eq!(
+        said,
+        [
+            "set this channel to keep messages for 7 days",
+            "set this channel to keep messages forever",
+            "set this channel to follow the workspace's message retention",
+        ]
+    );
+
+    let audited: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM audit_log WHERE action = 'retention.changed' AND details->>'channel_id' = $1",
+    )
+    .bind(ch.to_string())
+    .fetch_one(&state.pool)
+    .await
+    .expect("count");
+    assert_eq!(audited, 3);
 }

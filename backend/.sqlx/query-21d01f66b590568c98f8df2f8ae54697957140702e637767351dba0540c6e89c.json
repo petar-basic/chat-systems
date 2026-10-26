@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT message_days, updated_by, updated_at FROM channel_retention WHERE channel_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "message_days",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "channel_retention",
+            "name": "message_days"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "updated_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "channel_retention",
+            "name": "updated_by"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "channel_retention",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "21d01f66b590568c98f8df2f8ae54697957140702e637767351dba0540c6e89c"
+}

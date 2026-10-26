@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            DELETE FROM messages\n             WHERE id IN (\n                 SELECT m.id FROM messages m\n                   JOIN channels c ON c.id = m.channel_id\n                   LEFT JOIN channel_retention cr ON cr.channel_id = c.id AND $3\n                  WHERE c.workspace_id = $1\n                    AND m.created_at < NOW() - make_interval(days =>\n                        CASE WHEN cr.channel_id IS NULL THEN $2 ELSE cr.message_days END)\n                  LIMIT $4\n             )\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Bool",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7331a2794018076462ffd3655cdcd230b5021f349b4e7fd755f80d0fb4310169"
+}

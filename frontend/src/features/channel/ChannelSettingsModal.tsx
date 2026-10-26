@@ -8,6 +8,9 @@ import { TextArea } from '@/shared/components/Form/TextArea';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import type { Channel } from '@/stores/workspace';
 import { useUpdateChannel, useArchiveChannel } from '@/hooks/queries/useChannels';
+import { useChannelRetention, useSetChannelRetention } from '@/hooks/queries/useRetention';
+import { ChannelRetentionField } from './ChannelRetentionField';
+import { choiceOf, periodOf, type PeriodChoice } from './channelPeriod';
 
 interface Props {
   channel: Channel;
@@ -23,16 +26,25 @@ export default function ChannelSettingsModal({ channel, workspaceId, onClose, on
   const [announcementOnly, setAnnouncementOnly] = useState(channel.settings?.post_policy === 'moderators');
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retentionChoice, setRetentionChoice] = useState<PeriodChoice | null>(null);
 
   const updateChannel = useUpdateChannel(workspaceId, channel.id);
   const archiveChannel = useArchiveChannel(workspaceId);
+  const retention = useChannelRetention(channel.id);
+  const setRetention = useSetChannelRetention(channel.id);
+
+  const savedChoice = retention.data ? choiceOf(retention.data) : null;
+  const choice = retentionChoice ?? savedChoice;
+  const period = choice ? periodOf(choice) : undefined;
+  const retentionChanged =
+    !!retention.data?.overrides_allowed && savedChoice !== null && period !== periodOf(savedChoice);
 
   const failWith = (fallback: string) => (err: unknown) =>
     setError((err as { message?: string })?.message || fallback);
 
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || period === 'invalid') return;
     setError(null);
     try {
       await updateChannel.mutateAsync({
@@ -41,6 +53,7 @@ export default function ChannelSettingsModal({ channel, workspaceId, onClose, on
         description: description.trim(),
         post_policy: announcementOnly ? 'moderators' : 'everyone',
       });
+      if (retentionChanged && period !== undefined) await setRetention.mutateAsync(period);
       onClose();
     } catch (err: unknown) {
       failWith('Failed to save the channel')(err);
@@ -89,8 +102,8 @@ export default function ChannelSettingsModal({ channel, workspaceId, onClose, on
         <Button
           type="submit"
           variant="primary"
-          loading={updateChannel.isPending}
-          disabled={!name.trim()}
+          loading={updateChannel.isPending || setRetention.isPending}
+          disabled={!name.trim() || period === 'invalid'}
           data-qa="channel-settings-save"
         >
           Save
@@ -128,6 +141,9 @@ export default function ChannelSettingsModal({ channel, workspaceId, onClose, on
           onChange={setAnnouncementOnly}
           dataQa="channel-settings-announcement"
         />
+        {retention.data && choice && (
+          <ChannelRetentionField retention={retention.data} choice={choice} onChange={setRetentionChoice} />
+        )}
         {error && (
           <p role="alert" className="text-sm text-danger">
             {error}

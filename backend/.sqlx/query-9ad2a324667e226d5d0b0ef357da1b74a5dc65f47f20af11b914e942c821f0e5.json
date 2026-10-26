@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO retention_policies\n                (workspace_id, message_days, file_days, audit_days, notification_days, updated_by)\n            VALUES ($1, $2, $3, COALESCE($4, 730), COALESCE($5, 90), $6)\n            ON CONFLICT (workspace_id) DO UPDATE SET\n                message_days = EXCLUDED.message_days,\n                file_days = EXCLUDED.file_days,\n                audit_days = EXCLUDED.audit_days,\n                notification_days = EXCLUDED.notification_days,\n                updated_by = EXCLUDED.updated_by,\n                updated_at = NOW()\n            RETURNING workspace_id, message_days, file_days, audit_days, notification_days, updated_by, updated_at\n            ",
+  "query": "SELECT workspace_id, message_days, file_days, audit_days, notification_days, channel_overrides, updated_by, updated_at FROM retention_policies WHERE workspace_id = $1",
   "describe": {
     "columns": [
       {
@@ -60,6 +60,17 @@
       },
       {
         "ordinal": 5,
+        "name": "channel_overrides",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "retention_policies",
+            "name": "channel_overrides"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
         "name": "updated_by",
         "type_info": "Uuid",
         "origin": {
@@ -70,7 +81,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -83,11 +94,6 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Int4",
-        "Int4",
-        "Int4",
-        "Int4",
         "Uuid"
       ]
     },
@@ -97,9 +103,10 @@
       true,
       false,
       false,
+      false,
       true,
       false
     ]
   },
-  "hash": "b2188c304cad8d7740ec983c1121bbeafa8701f044971fc686a33cd2d6c25336"
+  "hash": "9ad2a324667e226d5d0b0ef357da1b74a5dc65f47f20af11b914e942c821f0e5"
 }

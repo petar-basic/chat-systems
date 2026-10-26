@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT workspace_id, message_days, file_days, audit_days, notification_days, updated_by, updated_at FROM retention_policies",
+  "query": "SELECT workspace_id, message_days, file_days, audit_days, notification_days, channel_overrides, updated_by, updated_at FROM retention_policies",
   "describe": {
     "columns": [
       {
@@ -60,6 +60,17 @@
       },
       {
         "ordinal": 5,
+        "name": "channel_overrides",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "retention_policies",
+            "name": "channel_overrides"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
         "name": "updated_by",
         "type_info": "Uuid",
         "origin": {
@@ -70,7 +81,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -90,9 +101,10 @@
       true,
       false,
       false,
+      false,
       true,
       false
     ]
   },
-  "hash": "2b137ef984239f3010cb3bbff44f6d7d215ec1ea106f0c50bb279e8b349e1427"
+  "hash": "deb4c92f3d4ae773f5f45312a05f05fcf5e0b708c93230810452352a27c59c33"
 }
