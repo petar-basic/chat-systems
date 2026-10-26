@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO instance_setup (nonce) VALUES ($1)\n               ON CONFLICT (id) DO UPDATE SET id = instance_setup.id\n               RETURNING nonce",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "nonce",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "instance_setup",
+            "name": "nonce"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "52bb2af9ac1b5c48a2fbdfc8db8dba3f1ed0af18d9e64c142e480fb5bd4100ab"
+}

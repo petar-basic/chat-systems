@@ -52,6 +52,12 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 
 ## 1. Authentication & onboarding
 
+### 1.0 🔴 First run from /setup
+- **Reach:** a stack with no instance admin: `ADMIN_PASSWORD` left empty on a fresh database, or `UPDATE users SET is_instance_admin = FALSE` and `docker compose restart api` on the dev stack (put the flags back afterwards).
+- **Steps:** `docker compose logs api | grep "setup token"` → open `/` → it moves to `/setup` → enter a wrong token, then the right one, your name, email, a password and a workspace name → *Set up this instance* → *Send a test email* → *Open the workspace*.
+- **Expected:** the API prints the same token on every start until setup is done. The wrong token says so and keeps what you typed. The right one signs you in as instance admin; the test email says *Sent to <you>* and arrives in MailHog. The workspace opens on #general. `/setup` afterwards says *This instance is already set up*, and the same token answers 409.
+- 🔴 **Edge — SMTP problems in words:** set `SMTP_PORT=1` and restart api, then *Instance admin → Email → Send a test email* → *Nothing accepted the connection at mailhog:1…*. `SMTP_TLS_MODE=implicit` against MailHog names the TLS mode instead.
+
 ### 1.1 🟢 Login / logout
 - **Reach:** open `/` (LoginPage).
 - **Steps:** log in as admin → land on the workspace view → click avatar/menu → Logout.

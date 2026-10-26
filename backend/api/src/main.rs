@@ -27,6 +27,9 @@ async fn main() -> anyhow::Result<()> {
     if let Err(e) = state.auth_service.bootstrap_admin().await {
         warn!("Admin bootstrap failed: {}", e);
     }
+    if let Err(e) = chat_api::setup::announce(&state).await {
+        warn!("Setup token could not be prepared: {}", e);
+    }
 
     let app = build_app(state).merge(metrics::router(metrics_handle));
 

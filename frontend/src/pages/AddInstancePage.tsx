@@ -39,6 +39,10 @@ export default function AddInstancePage() {
   const sameOrigin = url.trim().replace(/\/$/, '') === window.location.origin;
 
   useEffect(() => {
+    if (instance?.setup_required) navigate('/setup', { replace: true });
+  }, [instance?.setup_required, navigate]);
+
+  useEffect(() => {
     if (hydrated && instances.length > 0 && !url && !email && !password) {
       navigate(afterSignIn(), { replace: true });
     }

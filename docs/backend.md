@@ -152,7 +152,8 @@ Handles user identity — login, registration, JWT, and profile.
 | POST | `/auth/logout` | refresh cookie | `{ status: "logged_out" }` |
 | POST | `/auth/forgot-password` | `{ email }` | `{ status: "sent" }` |
 | POST | `/auth/reset-password` | `{ token, password }` | `{ status: "reset" }` |
-| GET | `/instance/info` | — | `{ name, icon_url, sso_enabled, max_upload_bytes }` |
+| GET | `/instance/info` | — | `{ name, icon_url, sso_enabled, max_upload_bytes, setup_required }` |
+| POST | `/setup` | `{ token, display_name, email, password, workspace_name }` | `{ session: AuthSession, workspace_id }` and the auth cookies; 403 for a wrong token, 409 once an instance admin exists |
 | GET | `/users/me` | JWT | `UserPublic` |
 | PATCH | `/users/me` | `{ display_name?, avatar_url?, bio?, timezone? }` | `UserPublic` |
 | PATCH | `/users/me/password` | `{ current_password, new_password }` | `{ status: "password_changed" }` |
@@ -957,6 +958,7 @@ Instance-level administration. Requires `is_instance_admin = true`.
 |--------|-------|-------|--------|
 | GET | `/admin/health` | — | `{ status, service, version }` |
 | GET | `/admin/stats` | — | `{ users, workspaces, messages, files }` |
+| POST | `/admin/email/test` | — | `{ sent_to, error }`: sent now to the caller's address; `error` says in words why it did not go |
 | GET | `/admin/users` | Query: `limit?, offset?` | `{ data: User[] }` |
 | POST | `/admin/users/:user_id/suspend` | — | `{ status: "suspended" }` |
 | POST | `/admin/users/:user_id/activate` | — | `{ status: "activated" }` |

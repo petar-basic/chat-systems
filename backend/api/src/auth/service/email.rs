@@ -1,7 +1,12 @@
+use std::error::Error as _;
+use std::io::ErrorKind;
+use std::time::Duration;
+
 use askama::Template;
 use lettre::message::header::ContentType;
 use lettre::message::MultiPart;
 use lettre::transport::smtp::authentication::Credentials;
+use lettre::transport::smtp::Error as SmtpError;
 use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
 use tracing::{info, warn};
 
@@ -111,6 +116,60 @@ impl AuthService {
             .as_ref()
             .ok_or_else(|| AppError::Internal("Email service not configured".into()))?;
 
+        mailer
+            .send(self.message(to, subject, text, html)?)
+            .await
+            .map_err(|e| AppError::Internal(format!("Failed to send email: {e}")))?;
+
+        info!("Email sent to {}: {}", to, subject);
+        Ok(())
+    }
+
+    pub async fn send_test_email(&self, to: &str) -> AppResult<Option<String>> {
+        if self.config.smtp_host.trim().is_empty() {
+            return Ok(Some(
+                "SMTP_HOST is not set, so there is no server to send through".into(),
+            ));
+        }
+        let Some(mailer) = self.mailer.as_ref() else {
+            return Ok(Some(format!(
+                "No mail transport could be built for SMTP_HOST {}. Check the host name and SMTP_TLS_MODE",
+                self.config.smtp_host
+            )));
+        };
+
+        let name = &self.config.instance_name;
+        let message = self.message(
+            to,
+            &format!("Test email from {name}"),
+            &format!("This is a test email from {name}. It reached you, so email works.\n"),
+            None,
+        )?;
+
+        let server = format!("{}:{}", self.config.smtp_host, self.config.smtp_port);
+        match tokio::time::timeout(TEST_EMAIL_TIMEOUT, mailer.send(message)).await {
+            Ok(Ok(_)) => {
+                info!("Test email sent to {}", to);
+                Ok(None)
+            }
+            Ok(Err(e)) => {
+                warn!("Test email to {} failed: {}", to, e);
+                Ok(Some(explain_smtp_error(&server, &e)))
+            }
+            Err(_) => Ok(Some(format!(
+                "{server} did not answer within {} seconds. A firewall may be dropping the connection, or SMTP_TLS_MODE does not match the port",
+                TEST_EMAIL_TIMEOUT.as_secs()
+            ))),
+        }
+    }
+
+    fn message(
+        &self,
+        to: &str,
+        subject: &str,
+        text: &str,
+        html: Option<&str>,
+    ) -> AppResult<Message> {
         let from = format!(
             "{} <{}>",
             self.config.smtp_from_name, self.config.smtp_from_address
@@ -126,7 +185,7 @@ impl AuthService {
                 .map_err(|e| AppError::Internal(format!("Invalid to address: {e}")))?)
             .subject(subject);
 
-        let email = match html {
+        match html {
             Some(html) => builder.multipart(MultiPart::alternative_plain_html(
                 text.to_string(),
                 html.to_string(),
@@ -135,14 +194,59 @@ impl AuthService {
                 .header(ContentType::TEXT_PLAIN)
                 .body(text.to_string()),
         }
-        .map_err(|e| AppError::Internal(format!("Failed to build email: {e}")))?;
-
-        mailer
-            .send(email)
-            .await
-            .map_err(|e| AppError::Internal(format!("Failed to send email: {e}")))?;
-
-        info!("Email sent to {}: {}", to, subject);
-        Ok(())
+        .map_err(|e| AppError::Internal(format!("Failed to build email: {e}")))
     }
+}
+
+const TEST_EMAIL_TIMEOUT: Duration = Duration::from_secs(15);
+
+fn io_cause(e: &SmtpError) -> Option<&std::io::Error> {
+    let mut source = e.source();
+    while let Some(cause) = source {
+        if let Some(io) = cause.downcast_ref::<std::io::Error>() {
+            return Some(io);
+        }
+        source = cause.source();
+    }
+    None
+}
+
+pub fn explain_smtp_error(server: &str, e: &SmtpError) -> String {
+    if let Some(code) = e.status() {
+        return match code.to_string().as_str() {
+            "530" | "534" | "535" | "538" => format!(
+                "{server} refused the sign-in. Check SMTP_USER and SMTP_PASSWORD ({e})"
+            ),
+            _ => format!(
+                "{server} refused the message. Check that SMTP_FROM_ADDRESS may send through it ({e})"
+            ),
+        };
+    }
+    if e.is_tls() {
+        return format!(
+            "The TLS handshake with {server} failed. Check SMTP_TLS_MODE: port 465 expects implicit, port 587 expects starttls ({e})"
+        );
+    }
+    if e.is_timeout() {
+        return format!(
+            "{server} did not answer in time. A firewall may be dropping the connection, or SMTP_TLS_MODE does not match the port"
+        );
+    }
+    if let Some(io) = io_cause(e) {
+        return match io.kind() {
+            ErrorKind::ConnectionRefused => format!(
+                "Nothing accepted the connection at {server}. Check SMTP_HOST and SMTP_PORT, and that the mail server is running"
+            ),
+            ErrorKind::TimedOut => format!(
+                "{server} did not answer in time. A firewall may be dropping the connection"
+            ),
+            _ => format!("{server} could not be reached: {io}. Check SMTP_HOST and SMTP_PORT"),
+        };
+    }
+    if e.is_client() || e.is_response() {
+        return format!(
+            "{server} does not speak the TLS mode SMTP_TLS_MODE asks for. Try implicit for port 465 or starttls for port 587 ({e})"
+        );
+    }
+    format!("Sending through {server} failed: {e}")
 }

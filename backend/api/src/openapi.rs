@@ -112,6 +112,7 @@ pub fn typed_routes() -> OpenApiRouter<Arc<AppState>> {
 pub fn public_routes() -> OpenApiRouter<Arc<AppState>> {
     OpenApiRouter::new()
         .merge(crate::auth::routes::public_router())
+        .merge(crate::setup::routes::public_router())
         .merge(crate::hooks::routes::public_router())
         .merge(crate::workflows::routes::public_router())
 }

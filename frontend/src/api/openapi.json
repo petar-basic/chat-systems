@@ -131,6 +131,25 @@
         }
       }
     },
+    "/admin/email/test": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "operationId": "send_test_email",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailTest"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/admin/health": {
       "get": {
         "tags": [
@@ -4213,6 +4232,38 @@
             }
           }
         }
+      }
+    },
+    "/setup": {
+      "post": {
+        "tags": [
+          "instance"
+        ],
+        "operationId": "complete_setup",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupComplete"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
       }
     },
     "/slack-imports": {
@@ -11815,6 +11866,23 @@
           }
         }
       },
+      "EmailTest": {
+        "type": "object",
+        "required": [
+          "sent_to"
+        ],
+        "properties": {
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sent_to": {
+            "type": "string"
+          }
+        }
+      },
       "EmojiCreated": {
         "type": "object",
         "required": [
@@ -12646,7 +12714,8 @@
         "required": [
           "name",
           "sso_enabled",
-          "max_upload_bytes"
+          "max_upload_bytes",
+          "setup_required"
         ],
         "properties": {
           "icon_url": {
@@ -12662,6 +12731,9 @@
           },
           "name": {
             "type": "string"
+          },
+          "setup_required": {
+            "type": "boolean"
           },
           "sso_enabled": {
             "type": "boolean"
@@ -14607,6 +14679,49 @@
               "string",
               "null"
             ]
+          }
+        }
+      },
+      "SetupComplete": {
+        "type": "object",
+        "required": [
+          "session",
+          "workspace_id"
+        ],
+        "properties": {
+          "session": {
+            "$ref": "#/components/schemas/AuthSession"
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "SetupRequest": {
+        "type": "object",
+        "required": [
+          "token",
+          "display_name",
+          "email",
+          "password",
+          "workspace_name"
+        ],
+        "properties": {
+          "display_name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          },
+          "workspace_name": {
+            "type": "string"
           }
         }
       },

@@ -27,6 +27,28 @@ messages still send and read — but webhooks, reminders, scheduled messages, ca
 and notification rows wait until one returns; the streams hold what was published in the
 meantime. Its `/readyz` is wired to the autoheal sidecar like the others.
 
+## First run
+
+An instance with no instance admin prints a setup token on every start until one exists:
+
+```bash
+docker compose logs api | grep "setup token"
+```
+
+Open `PUBLIC_URL` (it moves to `/setup`), paste the token, and give the first admin's name,
+email and password and the first workspace's name. The token works once. The database holds
+only a nonce; the token is derived from it and `JWT_SECRET`, so a database dump does not
+hand anyone the instance, and every API replica prints the same one.
+
+Setup ends with *Send a test email* to the new admin's address; *Instance admin → Email*
+has the same button later. A failure is named: nothing listening at `SMTP_HOST:SMTP_PORT`,
+a TLS handshake or mode that does not match the port, or credentials the server refused.
+
+Scripted installs can still set `ADMIN_EMAIL` and `ADMIN_PASSWORD`; the API creates that
+account on start if it does not exist, and no token is printed. Once the instance is up,
+remove `ADMIN_PASSWORD` from `.env`: it is read only to create the account, and a password
+left in a file is one somebody can read.
+
 ## What self-hosting actually costs
 
 ### Footprint
@@ -655,6 +677,9 @@ unset, a local catcher gets `none` and any other host gets `starttls`. The API *
 to start** when the mode is `none`, the host is remote, and SMTP credentials are set —
 that combination puts the relay password on the wire in clear. An open internal relay with
 no credentials still starts, with a warning.
+
+*Instance admin → Email → Send a test email* sends one to your own address straight away,
+not through the outbox, and says what went wrong if it did not go.
 
 ## Rate limits and upload size
 

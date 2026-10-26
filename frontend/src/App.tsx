@@ -17,6 +17,7 @@ import { registerWorker } from '@/lib/push';
 const Router = BrowserRouter;
 
 const AddInstancePage = lazy(() => import('./pages/AddInstancePage'));
+const SetupPage = lazy(() => import('./pages/SetupPage'));
 const CompleteRegistrationPage = lazy(() => import('./pages/CompleteRegistrationPage'));
 const WorkspacePage = lazy(() => import('./pages/WorkspacePage'));
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
@@ -82,6 +83,7 @@ function AppContent() {
       <Suspense fallback={<SplashScreen />}>
         <Routes>
           <Route path="/add-instance" element={<AddInstancePage />} />
+          <Route path="/setup" element={<SetupPage />} />
           <Route path="/invite/:token" element={<CompleteRegistrationPage />} />
           <Route path="/complete-registration" element={<CompleteRegistrationPage />} />
           <Route path="/forgot-password" element={<ResetPasswordPage />} />

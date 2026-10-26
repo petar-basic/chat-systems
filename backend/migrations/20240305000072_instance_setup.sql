@@ -1,0 +1,5 @@
+CREATE TABLE instance_setup (
+    id BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (id),
+    nonce TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

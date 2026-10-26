@@ -8,7 +8,7 @@ use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 use uuid::Uuid;
 
-use shared_common::errors::AppResult;
+use shared_common::errors::{AppError, AppResult};
 
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::dto::{DataList, StatusResponse};
@@ -20,6 +20,7 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
     OpenApiRouter::new()
         .routes(routes!(health))
         .routes(routes!(stats))
+        .routes(routes!(send_test_email))
         .routes(routes!(list_audit_log))
         .routes(routes!(list_users))
         .routes(routes!(suspend_user))
@@ -46,6 +47,12 @@ pub struct InstanceStats {
 }
 
 #[derive(Debug, Serialize, ToSchema)]
+pub struct EmailTest {
+    pub sent_to: String,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
 pub struct InstanceRoleResponse {
     pub is_instance_admin: bool,
 }
@@ -67,6 +74,24 @@ async fn health() -> Json<AdminHealth> {
         service: "chat-api",
         version: env!("CARGO_PKG_VERSION"),
     })
+}
+
+#[utoipa::path(post, path = "/admin/email/test", tag = "admin", responses((status = 200, body = EmailTest)))]
+async fn send_test_email(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+) -> AppResult<Json<EmailTest>> {
+    let user = state
+        .auth_service
+        .repo()
+        .find_by_id(auth.user_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("User not found".into()))?;
+    let error = state.auth_service.send_test_email(&user.email).await?;
+    Ok(Json(EmailTest {
+        sent_to: user.email,
+        error,
+    }))
 }
 
 #[utoipa::path(get, path = "/admin/stats", tag = "admin", responses((status = 200, body = InstanceStats)))]

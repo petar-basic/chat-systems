@@ -14,8 +14,11 @@ import {
 import AuditLogTable from '../features/workspace/components/AuditLogTable';
 import { toUserMessage } from '@/lib/errors';
 import { Select } from '@/shared/components/Form/Select';
+import { TestEmailCheck } from '@/features/setup/TestEmailCheck';
 
-type AdminTab = 'users' | 'audit';
+type AdminTab = 'users' | 'audit' | 'email';
+
+const TAB_LABELS: Record<AdminTab, string> = { users: 'Users', audit: 'Audit log', email: 'Email' };
 
 function instanceLabel(url: string) {
   try {
@@ -86,7 +89,7 @@ export default function InstanceAdminPage() {
           {instance && <p className="text-xs text-muted truncate">{instanceLabel(instance.url)}</p>}
         </div>
         <div className="flex items-center gap-1 bg-surface rounded-lg p-1 shrink-0">
-          {(['users', 'audit'] as const).map((value) => (
+          {(['users', 'audit', 'email'] as const).map((value) => (
             <button
               key={value}
               data-qa={`admin-tab-${value}`}
@@ -95,7 +98,7 @@ export default function InstanceAdminPage() {
                 tab === value ? 'bg-raised text-fg' : 'text-muted hover:text-fg'
               }`}
             >
-              <span className="whitespace-nowrap">{value === 'users' ? 'Users' : 'Audit log'}</span>
+              <span className="whitespace-nowrap">{TAB_LABELS[value]}</span>
             </button>
           ))}
         </div>
@@ -116,7 +119,11 @@ export default function InstanceAdminPage() {
           </div>
         )}
 
-        {tab === 'audit' ? (
+        {tab === 'email' ? (
+          <div className="max-w-2xl mx-auto bg-surface rounded-xl border border-line p-6">
+            <TestEmailCheck instanceUrl={instanceUrl} />
+          </div>
+        ) : tab === 'audit' ? (
           <div className="max-w-5xl mx-auto">
             <AuditLogTable entries={entries} loading={auditLoading} showWorkspace />
           </div>

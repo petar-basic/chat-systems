@@ -4,7 +4,7 @@
 # SECRETS: this file reads required secrets from the environment / a .env file.
 # Before running, copy the template and fill in strong values:
 #   cp .env.example .env
-#   # then set JWT_SECRET, ADMIN_PASSWORD, POSTGRES_PASSWORD, etc.
+#   # then set JWT_SECRET, POSTGRES_PASSWORD, etc.
 # Docker Compose auto-loads a .env file in this directory. The `${VAR:?msg}`
 # syntax below fails fast with a clear error if a required var is missing.
 # =============================================================================
@@ -200,7 +200,7 @@ services:
       SMTP_FROM_ADDRESS: noreply@dev.local
       SMTP_FROM_NAME: Chat Systems
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@dev.local}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD must be set (see .env.example)}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       INSTANCE_NAME: ${INSTANCE_NAME:-Chat Systems}
       # PUBLIC_URL is used for invite/reset email links AND decides whether auth
       # cookies are marked Secure (https → Secure). In production set this to your
