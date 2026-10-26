@@ -11,7 +11,7 @@ import { TriggerCard } from './TriggerCard';
 import { StepCard } from './StepCard';
 import { RunHistory } from './RunHistory';
 import { useWorkflowActions } from './useWorkflows';
-import type { Draft } from './templates';
+import type { Starter } from './templates';
 import {
   MAX_STEPS,
   NAME_MAX,
@@ -33,7 +33,7 @@ interface Props {
   workspaceId: string;
   instanceUrl?: string;
   workflow: Workflow | null;
-  draft?: Draft;
+  starter?: Starter;
   channels: Channel[];
   members: WorkspaceMember[];
   currentUserId: string;
@@ -45,7 +45,7 @@ export function WorkflowEditor({
   workspaceId,
   instanceUrl,
   workflow: initial,
-  draft,
+  starter,
   channels,
   members,
   currentUserId,
@@ -56,10 +56,10 @@ export function WorkflowEditor({
     (c) => (c.channel_type === 'public' || c.channel_type === 'private') && !c.is_archived,
   );
   const [workflow, setWorkflow] = useState<Workflow | null>(initial);
-  const [name, setName] = useState(initial?.name ?? draft?.name ?? '');
-  const [description, setDescription] = useState(initial?.description ?? draft?.description ?? '');
+  const [name, setName] = useState(initial?.name ?? starter?.name ?? '');
+  const [description, setDescription] = useState(initial?.description ?? starter?.description ?? '');
   const [definition, setDefinition] = useState<Definition>(
-    initial?.definition ?? draft?.definition ?? blankDefinition(postable[0]?.id ?? ''),
+    initial?.definition ?? starter?.definition ?? blankDefinition(postable[0]?.id ?? ''),
   );
   const [view, setView] = useState<'edit' | 'history'>('edit');
   const [error, setError] = useState<string | null>(null);
@@ -72,7 +72,7 @@ export function WorkflowEditor({
   const busy =
     actions.create.isPending ||
     actions.update.isPending ||
-    actions.publish.isPending ||
+    actions.enable.isPending ||
     actions.disable.isPending ||
     actions.remove.isPending;
 
@@ -107,11 +107,10 @@ export function WorkflowEditor({
     void run(save, "Couldn't save the workflow");
   };
 
-  const handlePublish = () =>
+  const handleEnable = () =>
     run(async () => {
-      const saved = await save();
-      setWorkflow(await actions.publish.mutateAsync(saved.id));
-    }, "Couldn't publish the workflow");
+      if (workflow) setWorkflow(await actions.enable.mutateAsync(workflow.id));
+    }, "Couldn't turn the workflow on");
 
   const handleDisable = () =>
     run(async () => {
@@ -127,9 +126,9 @@ export function WorkflowEditor({
       description={
         workflow
           ? workflow.enabled
-            ? 'Published: it runs whenever its trigger fires.'
-            : 'Not published: it won’t run until you publish it.'
-          : 'Pick what starts it, then what it does.'
+            ? 'On: it runs whenever its trigger fires.'
+            : 'Off: it won’t run until you turn it on.'
+          : 'Pick what starts it, then what it does. It runs as soon as you create it.'
       }
       size="full"
       onClose={onClose}
@@ -175,25 +174,26 @@ export function WorkflowEditor({
               Turn off
             </Button>
           )}
-          {!readOnly && (
+          {workflow && !workflow.enabled && !readOnly && (
             <Button
-              type="submit"
-              loading={actions.create.isPending || actions.update.isPending}
+              icon={<Power className="h-4 w-4" />}
+              onClick={handleEnable}
+              loading={actions.enable.isPending}
               disabled={busy}
-              data-qa="workflow-save"
+              data-qa="workflow-enable"
             >
-              {workflow ? 'Save changes' : 'Save draft'}
+              Turn on
             </Button>
           )}
           {!readOnly && (
             <Button
+              type="submit"
               variant="primary"
-              onClick={handlePublish}
-              loading={actions.publish.isPending}
+              loading={actions.create.isPending || actions.update.isPending}
               disabled={busy}
-              data-qa="workflow-publish"
+              data-qa="workflow-save"
             >
-              {workflow?.enabled ? 'Save and publish' : 'Publish'}
+              {workflow ? 'Save changes' : 'Create workflow'}
             </Button>
           )}
         </>

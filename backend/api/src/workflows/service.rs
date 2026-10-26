@@ -321,12 +321,18 @@ pub async fn create(
     req: &SaveWorkflowRequest,
 ) -> AppResult<Workflow> {
     require_builder(state, workspace_id, user_id).await?;
-    let draft = req.draft()?;
+    let checked = req.checked()?;
     check_authority(state, workspace_id, user_id, &req.definition).await?;
     let token = matches!(req.definition.trigger, Trigger::Webhook { .. }).then(generate_token);
     let id = state
         .workflow_repo
-        .insert(workspace_id, user_id, &draft, token.as_deref())
+        .insert(
+            workspace_id,
+            user_id,
+            &checked,
+            token.as_deref(),
+            req.definition.trigger.schedule().as_ref(),
+        )
         .await?;
     audit::record(
         state,
@@ -335,7 +341,7 @@ pub async fn create(
             user_id,
             workspace_id,
             id,
-            &draft.name,
+            &checked.name,
         )
         .ip(ip),
     )
@@ -351,7 +357,7 @@ pub async fn update(
     req: &SaveWorkflowRequest,
 ) -> AppResult<Workflow> {
     let row = find_own(state, id, user_id).await?;
-    let draft = req.draft()?;
+    let checked = req.checked()?;
     check_authority(state, row.workspace_id, user_id, &req.definition).await?;
     let token = match req.definition.trigger {
         Trigger::Webhook { .. } => Some(row.webhook_token.clone().unwrap_or_else(generate_token)),
@@ -359,7 +365,7 @@ pub async fn update(
     };
     state
         .workflow_repo
-        .update(id, &draft, token.as_deref())
+        .update(id, &checked, token.as_deref())
         .await?;
     state
         .workflow_repo
@@ -372,7 +378,7 @@ pub async fn update(
             user_id,
             row.workspace_id,
             id,
-            &draft.name,
+            &checked.name,
         )
         .ip(ip),
     )
@@ -380,7 +386,7 @@ pub async fn update(
     reload(state, id).await
 }
 
-pub async fn publish(
+pub async fn enable(
     state: &AppState,
     id: Uuid,
     user_id: Uuid,

@@ -130,13 +130,6 @@ async fn act(
     .await
 }
 
-async fn published(app: &axum::Router, token: &str, ws: Uuid, body: Value) -> Value {
-    let workflow = built(app, token, ws, body).await;
-    let (status, workflow) = act(app, token, &workflow, "publish").await;
-    assert_eq!(status, StatusCode::OK, "{workflow:?}");
-    workflow
-}
-
 async fn list(app: &axum::Router, token: &str, ws: Uuid) -> Vec<String> {
     let (status, body) = send(
         app,
@@ -224,7 +217,7 @@ async fn workspace_with_member(
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
-async fn a_member_builds_publishes_edits_disables_and_deletes_a_workflow(pool: PgPool) {
+async fn a_member_builds_edits_disables_and_deletes_a_workflow(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (ws, owner_id, owner, member_id, member) =
         workspace_with_member(&app, &state, "wf-life").await;
@@ -237,10 +230,9 @@ async fn a_member_builds_publishes_edits_disables_and_deletes_a_workflow(pool: P
         scheduled("Standup", vec![post_to(general, "standup in 10")]),
     )
     .await;
-    assert_eq!(workflow["enabled"], false, "a new workflow is a draft");
+    assert_eq!(workflow["enabled"], true, "a new workflow runs at once");
     assert_eq!(workflow["created_by"], json!(member_id));
     assert_eq!(workflow["version"], 1);
-    assert!(workflow["next_run_at"].is_null());
     assert!(workflow["webhook_url"].is_null());
     assert_eq!(
         workflow["definition"]["trigger"]["days"]
@@ -249,10 +241,6 @@ async fn a_member_builds_publishes_edits_disables_and_deletes_a_workflow(pool: P
             .len(),
         5
     );
-
-    let (status, workflow) = act(&app, &member, &workflow, "publish").await;
-    assert_eq!(status, StatusCode::OK, "{workflow:?}");
-    assert_eq!(workflow["enabled"], true);
     let next: chrono::DateTime<chrono::Utc> =
         serde_json::from_value(workflow["next_run_at"].clone()).expect("a next run");
     assert!(next > chrono::Utc::now());
@@ -300,6 +288,13 @@ async fn a_member_builds_publishes_edits_disables_and_deletes_a_workflow(pool: P
     assert_eq!(status, StatusCode::OK);
     assert_eq!(disabled["enabled"], false);
     assert!(disabled["next_run_at"].is_null());
+    let (status, enabled) = act(&app, &member, &workflow, "enable").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(enabled["enabled"], true);
+    assert!(
+        !enabled["next_run_at"].is_null(),
+        "turning it on schedules it again"
+    );
 
     let (status, _) = send(
         &app,
@@ -323,9 +318,9 @@ async fn a_member_builds_publishes_edits_disables_and_deletes_a_workflow(pool: P
         actions,
         vec![
             "workflow.created",
-            "workflow.enabled",
             "workflow.updated",
             "workflow.disabled",
+            "workflow.enabled",
             "workflow.deleted"
         ]
     );
@@ -430,11 +425,11 @@ async fn admins_can_keep_building_to_themselves(pool: PgPool) {
     assert!(error
         .to_string()
         .contains("Only admins can build workflows"));
-    let (status, _) = act(&app, &member, &mine, "publish").await;
+    let (status, _) = act(&app, &member, &mine, "enable").await;
     assert_eq!(
         status,
         StatusCode::FORBIDDEN,
-        "nor publish what they built before"
+        "nor turn on what they built before"
     );
 
     built(
@@ -493,7 +488,7 @@ async fn a_webhook_call_runs_once_per_request_and_posts_as_the_workflow(pool: Pg
             .unwrap();
     }
 
-    let draft = built(
+    let workflow = built(
         &app,
         &member,
         ws,
@@ -509,14 +504,19 @@ async fn a_webhook_call_runs_once_per_request_and_posts_as_the_workflow(pool: Pg
         ),
     )
     .await;
-    let path = hook_path(&draft);
+    let path = hook_path(&workflow);
 
     let (status, _) = call(&app, "/api/workflows/webhook/not-a-token", None, json!({})).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
+    act(&app, &member, &workflow, "disable").await;
     let (status, _) = call(&app, &path, None, json!({})).await;
-    assert_eq!(status, StatusCode::CONFLICT, "a draft doesn't take calls");
+    assert_eq!(
+        status,
+        StatusCode::CONFLICT,
+        "a turned-off workflow doesn't take calls"
+    );
 
-    let (status, _) = act(&app, &member, &draft, "publish").await;
+    let (status, _) = act(&app, &member, &workflow, "enable").await;
     assert_eq!(status, StatusCode::OK);
     let body =
         json!({ "service": format!("api @[Carol]({carol_id})"), "code": 503, "extra": "ignored" });
@@ -538,7 +538,7 @@ async fn a_webhook_call_runs_once_per_request_and_posts_as_the_workflow(pool: Pg
         content,
         &format!("api @[Carol]({carol_id}) returned 503, @[Bob]({bob_id})")
     );
-    assert_eq!(metadata["bot"]["workflow_id"], draft["id"]);
+    assert_eq!(metadata["bot"]["workflow_id"], workflow["id"]);
     assert_eq!(metadata["bot"]["name"], "Page");
 
     let mentions: Vec<(Uuid, i32)> = sqlx::query_as(
@@ -556,7 +556,7 @@ async fn a_webhook_call_runs_once_per_request_and_posts_as_the_workflow(pool: Pg
         "the builder's mention counts; one smuggled in through a variable doesn't"
     );
 
-    let history = runs(&app, &member, &draft).await;
+    let history = runs(&app, &member, &workflow).await;
     assert_eq!(history.len(), 1);
     assert_eq!(history[0]["status"], "succeeded");
     assert_eq!(history[0]["steps"][0]["succeeded"], true);
@@ -575,7 +575,7 @@ async fn a_busy_webhook_is_rate_limited(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (ws, owner_id, owner, _, _) = workspace_with_member(&app, &state, "wf-busy").await;
     let open = seed_channel(&state, ws, owner_id, "open", false).await;
-    let workflow = published(
+    let workflow = built(
         &app,
         &owner,
         ws,
@@ -597,7 +597,7 @@ async fn a_schedule_queues_one_run_per_instant_and_skips_one_it_missed(pool: PgP
     let (app, state) = app_and_state(pool).await;
     let (ws, owner_id, owner, _, _) = workspace_with_member(&app, &state, "wf-sched").await;
     let open = seed_channel(&state, ws, owner_id, "open", false).await;
-    let workflow = published(
+    let workflow = built(
         &app,
         &owner,
         ws,
@@ -676,7 +676,7 @@ async fn each_step_runs_with_what_its_creator_can_do_at_that_moment(pool: PgPool
         .await
         .unwrap();
 
-    let workflow = published(
+    let workflow = built(
         &app,
         &member,
         ws,
@@ -722,7 +722,7 @@ async fn a_dm_step_messages_the_person_in_one_conversation(pool: PgPool) {
     let (bob_id, _) = seed(&state, "wf-dm-bob", false).await;
     add_ws_member(&state, ws, bob_id, "member").await;
 
-    let workflow = published(
+    let workflow = built(
         &app,
         &member,
         ws,
@@ -761,7 +761,7 @@ async fn a_creator_leaving_turns_their_workflows_off_and_tells_the_admins(pool: 
     let (ws, owner_id, owner, member_id, member) =
         workspace_with_member(&app, &state, "wf-leave").await;
     let open = seed_channel(&state, ws, owner_id, "open", false).await;
-    let workflow = published(
+    let workflow = built(
         &app,
         &member,
         ws,
@@ -808,7 +808,7 @@ async fn a_creator_leaving_turns_their_workflows_off_and_tells_the_admins(pool: 
     assert_eq!(status, StatusCode::CONFLICT);
 
     add_ws_member(&state, ws, member_id, "member").await;
-    let (status, _) = act(&app, &member, &workflow, "publish").await;
+    let (status, _) = act(&app, &member, &workflow, "enable").await;
     assert_eq!(status, StatusCode::OK);
     call(&app, &hook_path(&workflow), None, json!({})).await;
     sqlx::query("DELETE FROM workspace_members WHERE workspace_id = $1 AND user_id = $2")
@@ -867,7 +867,7 @@ async fn a_reaction_in_its_channel_starts_one_run_even_when_delivered_twice(pool
     let (bob_id, _, bob) = seed_and_login(&app, &state, "wf-react-bob", false).await;
     add_ws_member(&state, ws, bob_id, "member").await;
 
-    let workflow = published(
+    let workflow = built(
         &app,
         &member,
         ws,
@@ -965,7 +965,7 @@ async fn joining_a_channel_starts_its_member_joined_workflows_whichever_way_it_h
             .await
             .unwrap();
 
-    let welcome = published(
+    let welcome = built(
         &app,
         &member,
         ws,
@@ -976,7 +976,7 @@ async fn joining_a_channel_starts_its_member_joined_workflows_whichever_way_it_h
         ),
     )
     .await;
-    let newcomer = published(
+    let newcomer = built(
         &app,
         &member,
         ws,
@@ -1104,7 +1104,7 @@ async fn a_private_channel_trigger_needs_its_creator_in_the_channel(pool: PgPool
         )
         .await
         .unwrap();
-    let workflow = published(&app, &member, ws, body).await;
+    let workflow = built(&app, &member, ws, body).await;
 
     let (eve_id, _) = seed(&state, "wf-private-eve", false).await;
     add_ws_member(&state, ws, eve_id, "member").await;
@@ -1141,7 +1141,7 @@ async fn a_busy_event_trigger_is_rate_limited(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (ws, owner_id, _, _, member) = workspace_with_member(&app, &state, "wf-busy").await;
     let lobby = seed_channel(&state, ws, owner_id, "lobby", false).await;
-    let workflow = published(
+    let workflow = built(
         &app,
         &member,
         ws,
@@ -1305,7 +1305,7 @@ async fn a_shortcut_runs_for_whoever_can_post_in_its_channel(pool: PgPool) {
     let secret = seed_channel(&state, ws, owner_id, "secret", true).await;
     join(&state, open, &[member_id]).await;
 
-    let draft = built(
+    let built_one = built(
         &app,
         &member,
         ws,
@@ -1319,14 +1319,15 @@ async fn a_shortcut_runs_for_whoever_can_post_in_its_channel(pool: PgPool) {
         ),
     )
     .await;
+    act(&app, &member, &built_one, "disable").await;
     assert_eq!(
         shortcut_names(&app, &owner, open).await,
         (StatusCode::OK, vec![])
     );
-    let (status, _) = start(&app, &owner, &draft, None).await;
+    let (status, _) = start(&app, &owner, &built_one, None).await;
     assert_eq!(status, StatusCode::CONFLICT);
 
-    let workflow = act(&app, &member, &draft, "publish").await.1;
+    let workflow = act(&app, &member, &built_one, "enable").await.1;
     assert_eq!(
         shortcut_names(&app, &owner, open).await,
         (StatusCode::OK, vec!["Ask".to_string()])
@@ -1356,7 +1357,7 @@ async fn a_shortcut_runs_for_whoever_can_post_in_its_channel(pool: PgPool) {
     let asked = format!("@[Test User]({owner_id}) asked in #open");
     assert_eq!(contents, vec![asked.clone(), asked]);
 
-    let hook = published(
+    let hook = built(
         &app,
         &member,
         ws,
@@ -1365,7 +1366,7 @@ async fn a_shortcut_runs_for_whoever_can_post_in_its_channel(pool: PgPool) {
     .await;
     let (status, _) = start(&app, &owner, &hook, None).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
-    let private = published(
+    let private = built(
         &app,
         &owner,
         ws,
@@ -1389,7 +1390,7 @@ async fn a_busy_shortcut_is_rate_limited(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (ws, owner_id, owner, _, _) = workspace_with_member(&app, &state, "wf-short-busy").await;
     let open = seed_channel(&state, ws, owner_id, "open", false).await;
-    let workflow = published(
+    let workflow = built(
         &app,
         &owner,
         ws,
@@ -1418,7 +1419,7 @@ async fn a_form_waits_for_its_person_and_hands_their_answers_on(pool: PgPool) {
 
     let mut summary = post_to(requests, "{{trigger.user}} is off, {{form.cover}} covers");
     summary["summary"] = json!(true);
-    let workflow = published(
+    let workflow = built(
         &app,
         &member,
         ws,
@@ -1509,7 +1510,7 @@ async fn a_form_for_its_builder_waits_in_the_channel_until_it_expires(pool: PgPo
         workspace_with_member(&app, &state, "wf-expire").await;
     let requests = seed_channel(&state, ws, owner_id, "requests", false).await;
     join(&state, requests, &[member_id]).await;
-    let workflow = published(
+    let workflow = built(
         &app,
         &member,
         ws,
@@ -1666,7 +1667,7 @@ async fn a_form_answer_becomes_a_list_item_that_a_later_step_updates(pool: PgPoo
         ],
     );
     let update = json!({ "type": "update_list_item", "from_step": 1, "cells": [fill_cell(&list, "Status", "approved")] });
-    let workflow = published(
+    let workflow = built(
         &app,
         &member,
         ws,
@@ -1815,7 +1816,7 @@ async fn a_value_its_column_cannot_hold_fails_the_step(pool: PgPool) {
     let requests = seed_channel(&state, ws, owner_id, "requests", false).await;
     join(&state, requests, &[member_id]).await;
     let list = requests_list(&app, &member, ws, Some(requests)).await;
-    let workflow = published(
+    let workflow = built(
         &app,
         &member,
         ws,

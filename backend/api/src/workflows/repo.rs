@@ -58,21 +58,28 @@ impl WorkflowRepo {
         &self,
         workspace_id: Uuid,
         created_by: Uuid,
-        draft: &WorkflowDraft,
+        workflow: &CheckedWorkflow,
         webhook_token: Option<&str>,
+        schedule: Option<&Schedule<'_>>,
     ) -> sqlx::Result<Uuid> {
         sqlx::query_scalar!(
             r"
-            INSERT INTO workflows (workspace_id, created_by, name, description, definition, webhook_token)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO workflows (workspace_id, created_by, name, description, definition,
+                                   webhook_token, enabled, next_run_at)
+            VALUES ($1, $2, $3, $4, $5, $6, TRUE,
+                    CASE WHEN $7::smallint[] IS NOT NULL
+                         THEN workflow_next_run($7, $8, $9, NOW()) END)
             RETURNING id
             ",
             workspace_id,
             created_by,
-            draft.name,
-            draft.description,
-            draft.definition,
-            webhook_token
+            workflow.name,
+            workflow.description,
+            workflow.definition,
+            webhook_token,
+            schedule.map(|s| s.days.clone()) as Option<Vec<i16>>,
+            schedule.map(|s| s.time),
+            schedule.map(|s| s.timezone)
         )
         .fetch_one(&self.pool)
         .await
@@ -81,7 +88,7 @@ impl WorkflowRepo {
     pub async fn update(
         &self,
         id: Uuid,
-        draft: &WorkflowDraft,
+        workflow: &CheckedWorkflow,
         webhook_token: Option<&str>,
     ) -> sqlx::Result<()> {
         sqlx::query!(
@@ -92,9 +99,9 @@ impl WorkflowRepo {
              WHERE id = $1
             ",
             id,
-            draft.name,
-            draft.description,
-            draft.definition,
+            workflow.name,
+            workflow.description,
+            workflow.definition,
             webhook_token
         )
         .execute(&self.pool)

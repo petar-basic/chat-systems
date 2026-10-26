@@ -8,7 +8,7 @@ import { displayNameOf } from '@/lib/userHelpers';
 import type { Channel, WorkspaceMember } from '@/stores/workspace';
 import { WorkflowEditor } from './WorkflowEditor';
 import { NewWorkflowDialog } from './NewWorkflowDialog';
-import type { Draft } from './templates';
+import type { Starter } from './templates';
 import { useWorkflows } from './useWorkflows';
 import { triggerSummary, type Workflow } from './workflowModel';
 
@@ -41,7 +41,7 @@ export default function WorkflowsPanel({
   onClose,
 }: Props) {
   const workflows = useWorkflows(workspaceId, instanceUrl);
-  const [editing, setEditing] = useState<Workflow | Draft | 'new' | null>(null);
+  const [editing, setEditing] = useState<Workflow | Starter | 'new' | null>(null);
   const nameOf = (userId: string) => displayNameOf(members.find((m) => m.user_id === userId)?.display_name);
   const channelName = (channelId: string) => channels.find((c) => c.id === channelId)?.name ?? undefined;
   const postable = channels.filter(
@@ -136,7 +136,7 @@ export default function WorkflowsPanel({
           workspaceId={workspaceId}
           instanceUrl={instanceUrl}
           workflow={'id' in editing ? editing : null}
-          draft={'id' in editing ? undefined : editing}
+          starter={'id' in editing ? undefined : editing}
           channels={channels}
           members={members}
           currentUserId={currentUserId}

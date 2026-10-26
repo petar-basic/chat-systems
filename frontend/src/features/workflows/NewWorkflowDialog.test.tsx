@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NewWorkflowDialog } from './NewWorkflowDialog';
 import { WorkflowEditor } from './WorkflowEditor';
-import type { Draft } from './templates';
+import type { Starter } from './templates';
 
 const create = vi.fn();
 
@@ -10,7 +10,7 @@ vi.mock('./useWorkflows', () => ({
   useWorkflowActions: () => ({
     create: { isPending: false, mutateAsync: create },
     update: { isPending: false },
-    publish: { isPending: false },
+    enable: { isPending: false },
     disable: { isPending: false },
     remove: { isPending: false },
   }),
@@ -23,7 +23,7 @@ vi.mock('@/features/lists/useLists', () => ({
 
 describe('NewWorkflowDialog', () => {
   it('starts from a blank workflow unless a template is picked', () => {
-    const onPick = vi.fn<(draft: Draft) => void>();
+    const onPick = vi.fn<(starter: Starter) => void>();
     render(<NewWorkflowDialog channelId="c-general" onPick={onPick} onClose={vi.fn()} />);
     fireEvent.click(screen.getByTestId('new-workflow-submit'));
     expect(onPick.mock.calls[0][0].name).toBe('');
@@ -31,13 +31,13 @@ describe('NewWorkflowDialog', () => {
   });
 
   it('opens the time-off template with its form, list step and message in the editor', async () => {
-    const onPick = vi.fn<(draft: Draft) => void>();
+    const onPick = vi.fn<(starter: Starter) => void>();
     render(<NewWorkflowDialog channelId="c-general" onPick={onPick} onClose={vi.fn()} />);
     fireEvent.click(screen.getByTestId('new-workflow-template-time_off'));
     fireEvent.click(screen.getByTestId('new-workflow-submit'));
-    const draft = onPick.mock.calls[0][0];
-    expect(draft.definition.trigger).toEqual({ type: 'shortcut', channel_id: 'c-general' });
-    expect(draft.definition.steps.map((step) => step.type)).toEqual([
+    const starter = onPick.mock.calls[0][0];
+    expect(starter.definition.trigger).toEqual({ type: 'shortcut', channel_id: 'c-general' });
+    expect(starter.definition.steps.map((step) => step.type)).toEqual([
       'form',
       'add_list_item',
       'send_message',
@@ -47,7 +47,7 @@ describe('NewWorkflowDialog', () => {
       <WorkflowEditor
         workspaceId="ws"
         workflow={null}
-        draft={draft}
+        starter={starter}
         channels={[]}
         members={[]}
         currentUserId="u-me"
@@ -70,12 +70,12 @@ describe('NewWorkflowDialog', () => {
   });
 
   it.each(['welcome', 'standup', 'incident'])('fills the %s template in a channel', (id) => {
-    const onPick = vi.fn<(draft: Draft) => void>();
+    const onPick = vi.fn<(starter: Starter) => void>();
     render(<NewWorkflowDialog channelId="c-general" onPick={onPick} onClose={vi.fn()} />);
     fireEvent.click(screen.getByTestId(`new-workflow-template-${id}`));
     fireEvent.click(screen.getByTestId('new-workflow-submit'));
-    const draft = onPick.mock.calls[0][0];
-    expect(draft.name).not.toBe('');
-    expect(JSON.stringify(draft.definition)).toContain('c-general');
+    const starter = onPick.mock.calls[0][0];
+    expect(starter.name).not.toBe('');
+    expect(JSON.stringify(starter.definition)).toContain('c-general');
   });
 });

@@ -7,7 +7,7 @@ import type { SaveWorkflow, Workflow } from './workflowModel';
 
 const create = vi.fn<(body: SaveWorkflow) => Promise<Workflow>>();
 const update = vi.fn<(vars: { id: string; body: SaveWorkflow }) => Promise<Workflow>>();
-const publish = vi.fn<(id: string) => Promise<Workflow>>();
+const enable = vi.fn<(id: string) => Promise<Workflow>>();
 const disable = vi.fn<(id: string) => Promise<Workflow>>();
 const remove = vi.fn<(id: string) => Promise<unknown>>();
 
@@ -15,7 +15,7 @@ vi.mock('./useWorkflows', () => ({
   useWorkflowActions: () => ({
     create: { mutateAsync: create, isPending: false },
     update: { mutateAsync: update, isPending: false },
-    publish: { mutateAsync: publish, isPending: false },
+    enable: { mutateAsync: enable, isPending: false },
     disable: { mutateAsync: disable, isPending: false },
     remove: { mutateAsync: remove, isPending: false },
   }),
@@ -146,7 +146,7 @@ const texts = () =>
 beforeEach(() => {
   create.mockReset();
   update.mockReset();
-  publish.mockReset();
+  enable.mockReset();
   disable.mockReset();
   remove.mockReset();
 });
@@ -403,11 +403,13 @@ describe('WorkflowEditor', () => {
     expect(screen.getByText('Lowercase letters, digits and _, starting with a letter')).toBeInTheDocument();
   });
 
-  it('saves a draft, then publishes what is on screen', async () => {
-    create.mockResolvedValue(saved());
-    update.mockResolvedValue(saved({ version: 2 }));
-    publish.mockResolvedValue(saved({ version: 2, enabled: true }));
+  it('creates a workflow that runs at once, then saves changes and turns it off and on', async () => {
+    create.mockResolvedValue(saved({ enabled: true }));
+    update.mockResolvedValue(saved({ version: 2, enabled: true }));
+    disable.mockResolvedValue(saved({ version: 2, enabled: false }));
+    enable.mockResolvedValue(saved({ version: 2, enabled: true }));
     renderEditor();
+    expect(screen.getByTestId('workflow-save')).toHaveTextContent('Create workflow');
     fireEvent.change(screen.getByTestId('workflow-name'), { target: { value: '  Standup ' } });
     fireEvent.change(screen.getByTestId('workflow-step-text'), { target: { value: 'standup in 10' } });
     fireEvent.click(screen.getByTestId('workflow-save'));
@@ -421,10 +423,15 @@ describe('WorkflowEditor', () => {
         steps: [{ type: 'send_message', channel_id: 'c-general', text: 'standup in 10' }],
       },
     });
+    expect(await screen.findByTestId('workflow-disable')).toBeInTheDocument();
+    expect(screen.getByTestId('workflow-save')).toHaveTextContent('Save changes');
 
-    fireEvent.click(screen.getByTestId('workflow-publish'));
-    await waitFor(() => expect(publish).toHaveBeenCalledWith('w-1'));
-    expect(update).toHaveBeenCalledWith(expect.objectContaining({ id: 'w-1' }));
+    fireEvent.click(screen.getByTestId('workflow-save'));
+    await waitFor(() => expect(update).toHaveBeenCalledWith(expect.objectContaining({ id: 'w-1' })));
+    fireEvent.click(screen.getByTestId('workflow-disable'));
+    await waitFor(() => expect(disable).toHaveBeenCalledWith('w-1'));
+    fireEvent.click(await screen.findByTestId('workflow-enable'));
+    await waitFor(() => expect(enable).toHaveBeenCalledWith('w-1'));
     expect(await screen.findByTestId('workflow-disable')).toBeInTheDocument();
   });
 
@@ -454,7 +461,7 @@ describe('WorkflowEditor', () => {
     renderEditor(saved({ created_by: 'u-bob', enabled: true }), { currentUserId: 'u-me' });
     expect(screen.getByTestId('workflow-name')).toBeDisabled();
     expect(screen.queryByTestId('workflow-save')).toBeNull();
-    expect(screen.queryByTestId('workflow-publish')).toBeNull();
+    expect(screen.queryByTestId('workflow-enable')).toBeNull();
     expect(screen.queryByTestId('workflow-step-add')).toBeNull();
     expect(screen.getByTestId('workflow-read-only')).toHaveTextContent(
       'Only the person who built this workflow',

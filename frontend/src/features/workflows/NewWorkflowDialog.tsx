@@ -2,11 +2,11 @@ import { useState, type FormEvent } from 'react';
 import { Modal } from '@/shared/components/Modal/Modal';
 import { Button } from '@/shared/components/Button/Button';
 import { RadioCards } from '@/shared/components/Form/RadioCards';
-import { WORKFLOW_TEMPLATES, type Draft, type TemplateId } from './templates';
+import { WORKFLOW_TEMPLATES, type Starter, type TemplateId } from './templates';
 
 interface Props {
   channelId: string;
-  onPick: (draft: Draft) => void;
+  onPick: (starter: Starter) => void;
   onClose: () => void;
 }
 
@@ -16,7 +16,7 @@ export function NewWorkflowDialog({ channelId, onPick, onClose }: Props) {
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     const chosen = WORKFLOW_TEMPLATES.find((t) => t.id === template) ?? WORKFLOW_TEMPLATES[0];
-    onPick(chosen.draft(channelId));
+    onPick(chosen.starter(channelId));
   };
 
   return (

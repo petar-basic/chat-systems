@@ -532,14 +532,14 @@ pub struct SaveWorkflowRequest {
     pub definition: Definition,
 }
 
-pub struct WorkflowDraft {
+pub struct CheckedWorkflow {
     pub name: String,
     pub description: Option<String>,
     pub definition: serde_json::Value,
 }
 
 impl SaveWorkflowRequest {
-    pub fn draft(&self) -> AppResult<WorkflowDraft> {
+    pub fn checked(&self) -> AppResult<CheckedWorkflow> {
         let name = self.name.trim();
         if name.is_empty() {
             return Err(AppError::Validation("Give the workflow a name".into()));
@@ -560,7 +560,7 @@ impl SaveWorkflowRequest {
             )));
         }
         self.definition.check()?;
-        Ok(WorkflowDraft {
+        Ok(CheckedWorkflow {
             name: name.to_string(),
             description: description.map(str::to_string),
             definition: serde_json::to_value(&self.definition)
