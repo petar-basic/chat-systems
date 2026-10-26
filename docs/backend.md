@@ -11,7 +11,8 @@ the crates under `shared/`:
 
 `chat-api` serves an OpenAPI document at `/api/openapi.json`, generated from the handlers
 themselves, and the frontend's `src/api/schema.d.ts` is generated from that. Every feature
-is on it except SCIM (its own standard, its own error format) and the OIDC redirects. The
+is on it except the SCIM provisioning API (its own standard, its own error format) and the
+OIDC redirects; the SCIM *token* routes an instance admin uses are on it. The
 route tables below are hand-maintained and kept only as a narrative overview; where the two
 disagree, the document is right.
 
@@ -962,11 +963,34 @@ Instance-level administration. Requires `is_instance_admin = true`.
 | PATCH | `/admin/users/:user_id/instance-role` | `{ is_instance_admin: bool }` | `{ is_instance_admin: bool }` |
 | GET | `/admin/workspaces` | Query: `limit?, offset?` | `{ data: Workspace[] }` |
 | DELETE | `/admin/workspaces/:ws_id` | — | `{ status: "deleted" }` |
+| DELETE | `/admin/users/:user_id/data` | `{ hard_delete?: bool }` | `{ status: "erased", hard_delete, removed }` |
+| GET | `/admin/scim/tokens` | — | `{ data: ScimToken[] }` |
+| POST | `/admin/scim/tokens` | `{ description? }` | `{ id, description, token }`, the token only here |
+| POST | `/admin/scim/tokens/:id/rotate` | — | `{ id, description, token }`; the old one is revoked |
+| DELETE | `/admin/scim/tokens/:id` | — | `{ status: "revoked" }` |
 
 `suspend` revokes the user immediately: it deletes their refresh tokens, sets a
 Redis revocation flag the auth middleware checks (so an unexpired access token is
 rejected), and closes their live WebSockets; `activate` clears the flag. Workspace
 delete is a soft-delete (reversible via restore), audited in the same transaction.
+
+---
+
+### retention and export
+
+| Method | Route | Who | Output |
+|--------|-------|-----|--------|
+| GET | `/workspaces/:ws_id/retention` | admin | `{ policy }`, `null` for keep-everything |
+| PATCH | `/workspaces/:ws_id/retention` | owner | `{ policy }`; the whole policy, a missing period is *forever* |
+| GET | `/workspaces/:ws_id/retention/preview` | owner | Query `message_days?, file_days?` → `{ messages, files }` past those periods now |
+| GET | `/workspaces/:ws_id/exports` | admin | `{ data: { export, download_url }[] }`, newest 50 |
+| POST | `/workspaces/:ws_id/exports` | owner | `{ export }`, queued |
+| POST | `/users/:user_id/exports` | self or instance admin | `{ export }`, queued |
+| GET | `/exports/:id` | requester or instance admin | `{ export, download_url }` |
+
+The list holds the workspace's exports and the person exports the caller started for its
+members, which belong to no workspace. `download_url` is there only for whoever asked for the
+export (or an instance admin) and only while the single-use link is unspent and unexpired.
 
 ---
 

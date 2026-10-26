@@ -7,7 +7,7 @@ import type { WorkspaceMember, WorkspaceRole } from '@/stores/workspace';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useCurrentWorkspaceRole } from '@/features/workspace/hooks/useCurrentWorkspaceRole';
 import { getUserDisplay } from '@/lib/userHelpers';
-import { UserPlus, UserMinus, Crown, Shield, User, Mail } from 'lucide-react';
+import { UserPlus, UserMinus, Crown, Shield, User, Mail, PackageOpen, Eraser } from 'lucide-react';
 import PresenceDot from '@/components/PresenceDot';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { useWorkspaceMembers } from '@/hooks/queries/useWorkspaces';
@@ -15,10 +15,13 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/shared/constants';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { Select } from '@/shared/components/Form/Select';
+import { useErasePerson, useStartPersonExport } from '@/hooks/queries/useExports';
+import { ErasePersonDialog } from './ErasePersonDialog';
 
 interface Props {
   workspaceId: string;
   openInvite: boolean;
+  isInstanceAdmin: boolean;
 }
 
 const ROLE_LEVEL: Record<string, number> = { guest: 10, member: 20, channel_admin: 30, admin: 40, owner: 50 };
@@ -28,19 +31,26 @@ function MemberRow({
   member,
   actorRole,
   isSelf,
+  canHandleData,
   onChangeRole,
   onRemove,
+  onExport,
+  onErase,
   busy,
 }: {
   member: WorkspaceMember;
   actorRole: string | null;
   isSelf: boolean;
+  canHandleData: boolean;
   onChangeRole: (userId: string, role: WorkspaceRole) => void;
   onRemove: (userId: string) => void;
+  onExport: (userId: string) => void;
+  onErase: (userId: string) => Promise<unknown>;
   busy: boolean;
 }) {
   const { displayName, email } = getUserDisplay(member.user_id, [member]);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const [confirmErase, setConfirmErase] = useState(false);
 
   const actorLevel = actorRole ? (ROLE_LEVEL[actorRole] ?? 0) : 0;
   const targetLevel = ROLE_LEVEL[member.role] ?? 0;
@@ -62,7 +72,7 @@ function MemberRow({
   const roleName = member.role.charAt(0).toUpperCase() + member.role.slice(1);
 
   return (
-    <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-raised/30 rounded-lg">
+    <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-raised/30 rounded-lg" data-qa="member-row">
       <div className="relative">
         <Avatar userId={member.user_id} name={displayName} avatarUrl={member.avatar_url} />
         <PresenceDot
@@ -108,6 +118,38 @@ function MemberRow({
           </div>
         )}
       </div>
+      {canHandleData && !isSelf && (
+        <div className="flex items-center gap-0.5 shrink-0">
+          <button
+            onClick={() => onExport(member.user_id)}
+            disabled={busy}
+            aria-label={`Export ${displayName}'s data`}
+            title="Export their data"
+            data-qa="member-export"
+            className="p-1 text-muted hover:text-fg transition cursor-pointer disabled:opacity-50"
+          >
+            <PackageOpen className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => setConfirmErase(true)}
+            disabled={busy}
+            aria-label={`Erase ${displayName}'s data`}
+            title="Erase their data"
+            data-qa="member-erase"
+            className="p-1 text-muted hover:text-danger transition cursor-pointer disabled:opacity-50"
+          >
+            <Eraser className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+      {confirmErase && (
+        <ErasePersonDialog
+          name={displayName}
+          email={email}
+          onErase={() => onErase(member.user_id)}
+          onClose={() => setConfirmErase(false)}
+        />
+      )}
       {canManage ? (
         <div className="flex items-center gap-1.5 shrink-0">
           <Select
@@ -149,13 +191,16 @@ function MemberRow({
   );
 }
 
-export function MembersSection({ workspaceId, openInvite }: Props) {
+export function MembersSection({ workspaceId, openInvite, isInstanceAdmin }: Props) {
   const queryClient = useQueryClient();
   const instanceUrl = useWorkspaceStore((s) => s.currentWorkspace?.instanceUrl);
   const { role: actorRole } = useCurrentWorkspaceRole();
   const currentUserId = useWorkspaceStore((s) => s.currentUserId);
   const { data: members = [], isLoading: loading } = useWorkspaceMembers(workspaceId, instanceUrl);
   const [manageError, setManageError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const startExport = useStartPersonExport(workspaceId, instanceUrl);
+  const erase = useErasePerson(workspaceId, instanceUrl);
 
   const apiClient = getApiForInstance(instanceUrl);
   const refreshMembers = () =>
@@ -301,15 +346,36 @@ export function MembersSection({ workspaceId, openInvite }: Props) {
               </span>
             </div>
             {manageError && <div className="px-4 pb-1 text-xs text-danger">{manageError}</div>}
+            {notice && (
+              <div className="px-4 pb-1 text-xs text-success" data-qa="member-data-notice">
+                {notice}
+              </div>
+            )}
             {members.map((m) => (
               <MemberRow
                 key={m.user_id}
                 member={m}
                 actorRole={actorRole}
                 isSelf={m.user_id === currentUserId}
-                busy={changeRole.isPending || removeMember.isPending}
+                canHandleData={isInstanceAdmin}
+                busy={changeRole.isPending || removeMember.isPending || startExport.isPending}
                 onChangeRole={(userId, role) => changeRole.mutate({ userId, role })}
                 onRemove={(userId) => removeMember.mutate(userId)}
+                onExport={(userId) =>
+                  startExport.mutate(userId, {
+                    onSuccess: () => {
+                      setManageError(null);
+                      setNotice(
+                        `Export started for ${getUserDisplay(userId, members).displayName}. It appears under Exports.`,
+                      );
+                    },
+                    onError: (err) => setManageError(toUserMessage(err, 'Failed to start the export')),
+                  })
+                }
+                onErase={async (userId) => {
+                  await erase.mutateAsync(userId);
+                  setNotice(`${getUserDisplay(userId, members).displayName}'s data was erased.`);
+                }}
               />
             ))}
           </>

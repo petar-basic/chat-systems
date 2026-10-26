@@ -3,9 +3,12 @@ use std::sync::Arc;
 use axum::extract::{Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
-use axum::routing::{delete, get, patch, post};
+use axum::routing::{delete, get, patch};
 use axum::{Json, Router};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::routes;
 use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
@@ -14,34 +17,33 @@ use super::repo::ScimToken;
 use super::service;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::auth::models::{User, UserStatus};
-use crate::middleware::AuthUser;
+use crate::dto::{DataList, StatusResponse};
 use crate::middleware::PeerAddr;
+use crate::middleware::{admin_middleware, AuthUser};
 use crate::state::AppState;
 
 const USER_SCHEMA: &str = "urn:ietf:params:scim:schemas:core:2.0:User";
 const LIST_SCHEMA: &str = "urn:ietf:params:scim:api:messages:2.0:ListResponse";
 const ERROR_SCHEMA: &str = "urn:ietf:params:scim:api:messages:2.0:Error";
 
+/// The caller is a provisioning system holding its own token, so this subtree
+/// sits outside `auth_middleware` entirely rather than pretending to have a
+/// session.
 pub fn router(state: Arc<AppState>) -> Router {
-    // The caller is a provisioning system holding its own token, so this subtree
-    // sits outside `auth_middleware` entirely rather than pretending to have a
-    // session.
-    let scim = Router::new()
+    Router::new()
         .route("/scim/v2/Users", get(list_users).post(create_user))
         .route("/scim/v2/Users/{id}", get(get_user))
         .route("/scim/v2/Users/{id}", patch(patch_user))
         .route("/scim/v2/Users/{id}", delete(delete_user))
-        .with_state(state.clone());
+        .with_state(state)
+}
 
-    let tokens = Router::new()
-        .route("/admin/scim/tokens", get(list_tokens).post(create_token))
-        .route("/admin/scim/tokens/{id}", delete(revoke_token))
-        .route("/admin/scim/tokens/{id}/rotate", post(rotate_token))
-        .layer(axum::middleware::from_fn(
-            crate::middleware::admin_middleware,
-        ));
-
-    crate::protected(state, tokens).merge(scim)
+pub fn token_router() -> OpenApiRouter<Arc<AppState>> {
+    OpenApiRouter::new()
+        .routes(routes!(list_tokens, create_token))
+        .routes(routes!(revoke_token))
+        .routes(routes!(rotate_token))
+        .layer(axum::middleware::from_fn(admin_middleware))
 }
 
 /// SCIM has its own error envelope and identity providers read it. An app-shaped
@@ -411,25 +413,33 @@ fn generate_token() -> String {
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
 }
 
-#[derive(Debug, Deserialize)]
-struct CreateToken {
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct CreateScimToken {
     description: Option<String>,
 }
 
-async fn list_tokens(State(state): State<Arc<AppState>>) -> AppResult<Json<serde_json::Value>> {
-    let tokens = state.scim_repo.list().await?;
-    Ok(Json(serde_json::json!({ "data": tokens })))
+#[derive(Debug, Serialize, ToSchema)]
+pub struct MintedScimToken {
+    pub id: Uuid,
+    pub description: Option<String>,
+    pub token: String,
+}
+
+#[utoipa::path(get, path = "/admin/scim/tokens", tag = "scim", responses((status = 200, body = DataList<ScimToken>)))]
+async fn list_tokens(State(state): State<Arc<AppState>>) -> AppResult<Json<DataList<ScimToken>>> {
+    Ok(Json(state.scim_repo.list().await?.into()))
 }
 
 /// Returned once. There is nowhere to read it from afterwards, which is the
 /// point: a token an admin can re-read is a token a stolen admin session can
 /// read too.
+#[utoipa::path(post, path = "/admin/scim/tokens", tag = "scim", request_body = CreateScimToken, responses((status = 200, body = MintedScimToken)))]
 async fn create_token(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
-    Json(body): Json<CreateToken>,
-) -> AppResult<Json<serde_json::Value>> {
+    Json(body): Json<CreateScimToken>,
+) -> AppResult<Json<MintedScimToken>> {
     let plaintext = generate_token();
     let token = state
         .scim_repo
@@ -444,19 +454,20 @@ async fn create_token(
     )
     .await;
 
-    Ok(Json(serde_json::json!({
-        "id": token.id,
-        "description": token.description,
-        "token": plaintext,
-    })))
+    Ok(Json(MintedScimToken {
+        id: token.id,
+        description: token.description,
+        token: plaintext,
+    }))
 }
 
+#[utoipa::path(delete, path = "/admin/scim/tokens/{id}", tag = "scim", responses((status = 200, body = StatusResponse)))]
 async fn revoke_token(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
     Path(id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<StatusResponse>> {
     if !state.scim_repo.revoke(id).await? {
         return Err(AppError::NotFound("No such token".into()));
     }
@@ -467,21 +478,22 @@ async fn revoke_token(
             .ip(&ip),
     )
     .await;
-    Ok(Json(serde_json::json!({ "status": "revoked" })))
+    Ok(Json(StatusResponse::new("revoked")))
 }
 
+#[utoipa::path(post, path = "/admin/scim/tokens/{id}/rotate", tag = "scim", responses((status = 200, body = MintedScimToken)))]
 async fn rotate_token(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
     Path(id): Path<Uuid>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<MintedScimToken>> {
     let existing = state
         .scim_repo
         .list()
         .await?
         .into_iter()
-        .find(|t| t.id == id)
+        .find(|t| t.id == id && t.revoked_at.is_none())
         .ok_or_else(|| AppError::NotFound("No such token".into()))?;
 
     let plaintext = generate_token();
@@ -500,11 +512,11 @@ async fn rotate_token(
     )
     .await;
 
-    Ok(Json(serde_json::json!({
-        "id": replacement.id,
-        "description": replacement.description,
-        "token": plaintext,
-    })))
+    Ok(Json(MintedScimToken {
+        id: replacement.id,
+        description: replacement.description,
+        token: plaintext,
+    }))
 }
 
 #[cfg(test)]

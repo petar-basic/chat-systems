@@ -7,6 +7,7 @@ export interface ConfirmDialogProps {
   description?: ReactNode;
   confirmLabel: string;
   tone?: 'danger' | 'primary';
+  confirmDisabled?: boolean;
   onConfirm: () => void | Promise<void>;
   onClose: () => void;
   dataQa?: string;
@@ -18,6 +19,7 @@ export function ConfirmDialog({
   description,
   confirmLabel,
   tone = 'danger',
+  confirmDisabled = false,
   onConfirm,
   onClose,
   dataQa,
@@ -50,6 +52,7 @@ export function ConfirmDialog({
         <Button
           variant={tone}
           loading={busy}
+          disabled={confirmDisabled}
           onClick={() => void confirm()}
           data-autofocus
           data-qa={dataQa ? `${dataQa}-confirm` : undefined}

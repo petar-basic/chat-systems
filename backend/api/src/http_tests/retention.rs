@@ -265,3 +265,50 @@ async fn the_policy_is_owner_only_and_the_change_is_audited(pool: PgPool) {
     .expect("count");
     assert_eq!(audited, 1);
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn the_preview_counts_what_a_period_would_remove_now(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "ret-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Retention WS").await;
+    let ch = seed_channel(&state, ws, owner_id, "main", false).await;
+
+    for days in [40, 60] {
+        let id = post(&app, &owner, ch, "old").await;
+        age_message(&state, id, days).await;
+    }
+    post(&app, &owner, ch, "fresh").await;
+
+    let preview =
+        |days: &str| format!("/api/workspaces/{ws}/retention/preview?message_days={days}");
+
+    let (status, body) = send(&app, "GET", &preview("30"), Some(&owner), None).await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(body["messages"], 2);
+    assert_eq!(body["files"], 0);
+
+    let (_, body) = send(&app, "GET", &preview("50"), Some(&owner), None).await;
+    assert_eq!(body["messages"], 1, "only what is past the boundary");
+
+    let remaining: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM messages m JOIN channels c ON c.id = m.channel_id WHERE c.workspace_id = $1",
+    )
+    .bind(ws)
+    .fetch_one(&state.pool)
+    .await
+    .expect("count");
+    assert!(remaining >= 3, "a preview deletes nothing");
+
+    let (status, _) = send(&app, "GET", &preview("0"), Some(&owner), None).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+
+    let (admin_id, admin_email) = seed(&state, "ret-admin", false).await;
+    add_ws_member(&state, ws, admin_id, "admin").await;
+    let admin = login(&app, &admin_email, PASSWORD).await;
+    let (status, _) = send(&app, "GET", &preview("30"), Some(&admin), None).await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "the preview belongs to the owner's form"
+    );
+}

@@ -356,3 +356,106 @@ async fn hard_delete_removes_the_messages(pool: PgPool) {
             .expect("count");
     assert_eq!(audited, 1);
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_admin_lists_the_workspaces_exports_and_nobody_elses(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "exp-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Export WS").await;
+    let other = seed_workspace(&state, owner_id, "Other WS").await;
+
+    let (admin_id, admin_email) = seed(&state, "exp-admin", false).await;
+    add_ws_member(&state, ws, admin_id, "admin").await;
+    let admin = login(&app, &admin_email, PASSWORD).await;
+    let (member_id, member_email) = seed(&state, "exp-member", false).await;
+    add_ws_member(&state, ws, member_id, "member").await;
+    let member = login(&app, &member_email, PASSWORD).await;
+
+    for target in [ws, other] {
+        let (status, body) = send(
+            &app,
+            "POST",
+            &format!("/api/workspaces/{target}/exports"),
+            Some(&owner),
+            Some(json!({})),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body:?}");
+    }
+    run_pending_export(&state).await;
+
+    let list = format!("/api/workspaces/{ws}/exports");
+    let (status, body) = send(&app, "GET", &list, Some(&owner), None).await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    let rows = body["data"].as_array().expect("rows");
+    assert_eq!(rows.len(), 1, "the other workspace's export is not here");
+    assert_eq!(rows[0]["export"]["workspace_id"], json!(ws));
+
+    let (status, body) = send(&app, "GET", &list, Some(&admin), None).await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    let rows = body["data"].as_array().expect("rows");
+    assert_eq!(rows.len(), 1, "an admin sees that it exists");
+    assert!(
+        rows[0]["download_url"].is_null(),
+        "but the link goes only to whoever asked for it"
+    );
+
+    let (status, _) = send(&app, "GET", &list, Some(&member), None).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+
+    let (status, _) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{other}/exports"),
+        Some(&admin),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "not a member there");
+
+    let (_, body) = send(&app, "GET", &list, Some(&owner), None).await;
+    assert!(
+        body["data"][0]["download_url"]
+            .as_str()
+            .is_some_and(|url| url.contains("/api/exports/download/")),
+        "the requester gets the link once it is ready: {body:?}"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_person_export_an_admin_started_is_listed_with_the_workspace(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "exp-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Export WS").await;
+    let (root_id, root_email) = seed(&state, "exp-root", true).await;
+    add_ws_member(&state, ws, root_id, "admin").await;
+    let root = login(&app, &root_email, PASSWORD).await;
+    let (member_id, _) = seed(&state, "exp-subject", false).await;
+    add_ws_member(&state, ws, member_id, "member").await;
+    let (stranger_id, _) = seed(&state, "exp-stranger", false).await;
+
+    for subject in [member_id, stranger_id] {
+        let (status, body) = send(
+            &app,
+            "POST",
+            &format!("/api/users/{subject}/exports"),
+            Some(&root),
+            Some(json!({})),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body:?}");
+    }
+
+    let (status, body) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws}/exports"),
+        Some(&root),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    let rows = body["data"].as_array().expect("rows");
+    assert_eq!(rows.len(), 1, "only the member of this workspace: {body:?}");
+    assert_eq!(rows[0]["export"]["subject_user_id"], json!(member_id));
+}

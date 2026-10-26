@@ -54,6 +54,11 @@ export const QUERY_KEYS = {
   hookedChannels: (workspaceId: string) => ['hooks', workspaceId, 'channels'] as const,
 
   auditLog: (workspaceId: string) => ['audit-log', workspaceId] as const,
+  retention: (workspaceId: string) => ['retention', workspaceId] as const,
+  retentionPreview: (workspaceId: string, messageDays: number | null, fileDays: number | null) =>
+    ['retention', workspaceId, 'preview', messageDays, fileDays] as const,
+  exports: (workspaceId: string) => ['exports', workspaceId] as const,
+  scimTokens: (instanceUrl: string) => ['admin', 'scim-tokens', instanceUrl] as const,
   adminUsers: (instanceUrl: string) => ['admin', 'users', instanceUrl] as const,
   adminAuditLog: (instanceUrl: string) => ['admin', 'audit-log', instanceUrl] as const,
 

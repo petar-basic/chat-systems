@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Channel, Workspace, WorkspaceMember } from '@/stores/workspace';
 import { SectionedModal } from '@/shared/components/Modal/SectionedModal';
-import { sectionsFor, type SettingsSection } from './sections';
+import { isWorkspaceAdmin, sectionsFor, type SettingsSection, type Viewer } from './sections';
 import { GeneralSection } from './GeneralSection';
 import { MembersSection } from './MembersSection';
 import { UserGroupsSection } from './UserGroupsSection';
@@ -10,10 +10,13 @@ import { AppsSection } from './AppsSection';
 import { IntegrationsSection } from './IntegrationsSection';
 import { SlackImportSection } from './SlackImportSection';
 import { AuditLogSection } from './AuditLogSection';
+import { RetentionSection } from './RetentionSection';
+import { ExportsSection } from './ExportsSection';
+import { ScimSection } from './ScimSection';
 
 interface Props {
   workspace: Workspace;
-  isAdmin: boolean;
+  viewer: Viewer;
   initial: SettingsSection;
   inviting?: boolean;
   members: WorkspaceMember[];
@@ -23,17 +26,17 @@ interface Props {
 
 export function WorkspaceSettingsModal({
   workspace,
-  isAdmin,
+  viewer,
   initial,
   inviting = false,
   members,
   channels,
   onClose,
 }: Props) {
-  const sections = sectionsFor(isAdmin);
-  const [active, setActive] = useState<SettingsSection>(
-    sections.some((s) => s.key === initial) ? initial : sections[0].key,
-  );
+  const sections = sectionsFor(viewer);
+  const isAdmin = isWorkspaceAdmin(viewer.role);
+  const [chosen, setChosen] = useState<SettingsSection>(initial);
+  const active = sections.some((s) => s.key === chosen) ? chosen : sections[0].key;
   const { id, instanceUrl } = workspace;
 
   return (
@@ -41,13 +44,15 @@ export function WorkspaceSettingsModal({
       title="Workspace settings"
       sections={sections}
       active={active}
-      onSelect={setActive}
+      onSelect={setChosen}
       onClose={onClose}
       size="full"
       qaPrefix="workspace-settings"
     >
       {active === 'general' && <GeneralSection workspace={workspace} onDeleted={onClose} />}
-      {active === 'members' && <MembersSection workspaceId={id} openInvite={inviting} />}
+      {active === 'members' && (
+        <MembersSection workspaceId={id} openInvite={inviting} isInstanceAdmin={viewer.isInstanceAdmin} />
+      )}
       {active === 'user-groups' && (
         <UserGroupsSection workspaceId={id} instanceUrl={instanceUrl} members={members} isAdmin={isAdmin} />
       )}
@@ -56,8 +61,18 @@ export function WorkspaceSettingsModal({
       {active === 'integrations' && (
         <IntegrationsSection workspaceId={id} instanceUrl={instanceUrl} channels={channels} />
       )}
+      {active === 'retention' && <RetentionSection workspaceId={id} instanceUrl={instanceUrl} />}
+      {active === 'exports' && (
+        <ExportsSection
+          workspaceId={id}
+          instanceUrl={instanceUrl}
+          isOwner={viewer.role === 'owner'}
+          members={members}
+        />
+      )}
       {active === 'slack-import' && <SlackImportSection workspaceId={id} instanceUrl={instanceUrl} />}
       {active === 'audit-log' && <AuditLogSection workspaceId={id} instanceUrl={instanceUrl} />}
+      {active === 'scim' && <ScimSection instanceUrl={instanceUrl} />}
     </SectionedModal>
   );
 }

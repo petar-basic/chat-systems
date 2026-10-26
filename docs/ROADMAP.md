@@ -9,7 +9,7 @@ ticket in [`docs/tickets/`](./tickets/INDEX.md); a ticket's file is deleted when
 
 | Ticket | What | Status |
 |---|---|---|
-| [CS-070](./tickets/CS-070-workspace-admin.md) | Workspace admin in one dialog, with screens for retention, exports, erasure and SCIM tokens, and retention per channel | Wave 24, in progress: part 1 (one dialog) done |
+| [CS-070](./tickets/CS-070-workspace-admin.md) | Workspace admin in one dialog, with screens for retention, exports, erasure and SCIM tokens, and retention per channel | Wave 24, in progress: parts 1 (one dialog) and 2 (retention, exports, erasure, SCIM screens) done |
 | [CS-071](./tickets/CS-071-first-run.md) | A setup page instead of an admin password in `.env`, a test email, and a checklist for a new workspace | Wave 24 |
 | [CS-072](./tickets/CS-072-fewer-round-trips.md) | Fewer API round trips on start and on switching channels | Wave 24 |
 | [CS-073](./tickets/CS-073-one-frontend-structure.md) | One frontend structure: `components/` and `hooks/` folded into `features/` | Wave 24 |

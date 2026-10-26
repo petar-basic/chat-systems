@@ -150,6 +150,113 @@
         }
       }
     },
+    "/admin/scim/tokens": {
+      "get": {
+        "tags": [
+          "scim"
+        ],
+        "operationId": "list_tokens",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_ScimToken"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "scim"
+        ],
+        "summary": "Returned once. There is nowhere to read it from afterwards, which is the\npoint: a token an admin can re-read is a token a stolen admin session can\nread too.",
+        "operationId": "create_token",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateScimToken"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MintedScimToken"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/scim/tokens/{id}": {
+      "delete": {
+        "tags": [
+          "scim"
+        ],
+        "operationId": "revoke_token",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/scim/tokens/{id}/rotate": {
+      "post": {
+        "tags": [
+          "scim"
+        ],
+        "operationId": "rotate_token",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MintedScimToken"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/admin/stats": {
       "get": {
         "tags": [
@@ -5648,6 +5755,34 @@
       }
     },
     "/workspaces/{ws_id}/exports": {
+      "get": {
+        "tags": [
+          "exports"
+        ],
+        "operationId": "list_workspace_exports",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_ExportDetail"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "tags": [
           "exports"
@@ -6961,6 +7096,61 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PolicyResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/retention/preview": {
+      "get": {
+        "tags": [
+          "retention"
+        ],
+        "summary": "What the next pass would remove under the periods asked about, counted by\nthe queries the purge itself uses. Shown before the owner saves.",
+        "operationId": "preview_policy",
+        "parameters": [
+          {
+            "name": "message_days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "file_days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetentionPreview"
                 }
               }
             }
@@ -9086,6 +9276,17 @@
           }
         }
       },
+      "CreateScimToken": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
       "CreateSectionRequest": {
         "type": "object",
         "required": [
@@ -9799,6 +10000,34 @@
                 },
                 "url": {
                   "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "DataList_ExportDetail": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "export"
+              ],
+              "properties": {
+                "download_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "export": {
+                  "$ref": "#/components/schemas/ExportJob"
                 }
               }
             }
@@ -10935,6 +11164,61 @@
                 "workspace_id": {
                   "type": "string",
                   "format": "uuid"
+                }
+              }
+            }
+          }
+        }
+      },
+      "DataList_ScimToken": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "created_at"
+              ],
+              "properties": {
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "created_by": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid"
+                },
+                "description": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "last_used_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "revoked_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
                 }
               }
             }
@@ -13143,6 +13427,28 @@
           }
         ]
       },
+      "MintedScimToken": {
+        "type": "object",
+        "required": [
+          "id",
+          "token"
+        ],
+        "properties": {
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "token": {
+            "type": "string"
+          }
+        }
+      },
       "MoveItemRequest": {
         "type": "object",
         "properties": {
@@ -13731,6 +14037,23 @@
           }
         }
       },
+      "RetentionPreview": {
+        "type": "object",
+        "required": [
+          "messages",
+          "files"
+        ],
+        "properties": {
+          "files": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "messages": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
       "RunAccepted": {
         "type": "object",
         "required": [
@@ -13886,6 +14209,50 @@
           "workspace_id": {
             "type": "string",
             "format": "uuid"
+          }
+        }
+      },
+      "ScimToken": {
+        "type": "object",
+        "required": [
+          "id",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "last_used_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "revoked_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -15980,6 +16347,10 @@
     {
       "name": "slack-import",
       "description": "Importing a Slack export"
+    },
+    {
+      "name": "scim",
+      "description": "SCIM provisioning tokens"
     }
   ]
 }

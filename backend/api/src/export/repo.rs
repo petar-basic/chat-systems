@@ -107,6 +107,33 @@ impl ExportRepo {
         .await
     }
 
+    /// A workspace's exports, and the person exports its admins started for
+    /// its members: those have no workspace of their own to be listed under.
+    pub async fn list_for_workspace(
+        &self,
+        workspace_id: Uuid,
+        viewer: Uuid,
+    ) -> sqlx::Result<Vec<ExportJob>> {
+        sqlx::query_as!(
+            ExportJob,
+            r#"SELECT id, scope AS "scope: ExportScope", workspace_id, subject_user_id, requested_by, include_dms,
+                   since, until, status AS "status: ExportStatus", storage_key, manifest, error,
+                   download_token, token_expires_at, created_at, completed_at
+                 FROM export_jobs e
+                WHERE e.workspace_id = $1
+                   OR (e.scope = 'user'
+                       AND e.requested_by = $2
+                       AND EXISTS (SELECT 1 FROM workspace_members wm
+                                    WHERE wm.workspace_id = $1 AND wm.user_id = e.subject_user_id))
+                ORDER BY created_at DESC
+                LIMIT 50"#,
+            workspace_id,
+            viewer
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
     /// Claims one pending job, marking it running in the same statement so two
     /// worker replicas cannot both run the same export.
     pub async fn claim_next(&self) -> sqlx::Result<Option<ExportJob>> {

@@ -16,6 +16,7 @@ use shared_common::errors::{AppError, AppResult};
 use super::repo::{CreateExportRequest, ExportJob, ExportScope, NewExport};
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
+use crate::dto::DataList;
 use crate::middleware::AuthUser;
 use crate::state::AppState;
 use crate::workspace::models::WorkspaceRole;
@@ -29,7 +30,7 @@ pub fn generate_download_token() -> String {
 
 pub fn router() -> OpenApiRouter<Arc<AppState>> {
     OpenApiRouter::new()
-        .routes(routes!(create_workspace_export))
+        .routes(routes!(list_workspace_exports, create_workspace_export))
         .routes(routes!(create_user_export))
         .routes(routes!(get_export))
         .routes(routes!(erase_user_data))
@@ -149,6 +150,26 @@ async fn create_user_export(
     Ok(Json(ExportCreated { export: job }))
 }
 
+#[utoipa::path(get, path = "/workspaces/{ws_id}/exports", tag = "exports", responses((status = 200, body = DataList<ExportDetail>)))]
+async fn list_workspace_exports(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(ws_id): Path<Uuid>,
+) -> AppResult<Json<DataList<ExportDetail>>> {
+    authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
+
+    let jobs = state
+        .export_repo
+        .list_for_workspace(ws_id, auth.user_id)
+        .await?;
+    Ok(Json(
+        jobs.into_iter()
+            .map(|job| detail(&state, &auth, job))
+            .collect::<Vec<_>>()
+            .into(),
+    ))
+}
+
 #[utoipa::path(get, path = "/exports/{id}", tag = "exports", responses((status = 200, body = ExportDetail)))]
 async fn get_export(
     State(state): State<Arc<AppState>>,
@@ -165,15 +186,25 @@ async fn get_export(
         return Err(AppError::Forbidden("Not your export".into()));
     }
 
+    Ok(Json(detail(&state, &auth, job)))
+}
+
+/// The link is the archive, so it goes only to whoever asked for it: another
+/// admin sees that an export exists, not a way to fetch it.
+fn detail(state: &AppState, auth: &AuthUser, job: ExportJob) -> ExportDetail {
     let download_url = job
         .download_token
         .as_ref()
+        .filter(|_| job.requested_by == auth.user_id || auth.is_instance_admin)
+        .filter(|_| {
+            job.token_expires_at
+                .is_some_and(|at| at > chrono::Utc::now())
+        })
         .map(|token| format!("{}/api/exports/download/{}", state.config.public_url, token));
-
-    Ok(Json(ExportDetail {
+    ExportDetail {
         export: job,
         download_url,
-    }))
+    }
 }
 
 async fn download(
