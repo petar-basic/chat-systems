@@ -144,6 +144,7 @@ impl PostPolicy {
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct ChannelSettings {
     pub post_policy: Option<PostPolicy>,
+    pub allow_broadcast_mentions: Option<bool>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -228,17 +229,54 @@ pub struct UpdateWorkspaceRequest {
     #[garde(skip)]
     pub link_previews: Option<bool>,
     #[garde(skip)]
-    pub workflow_builders: Option<WorkflowBuilders>,
+    pub workflow_builders: Option<WhoMay>,
+    #[garde(skip)]
+    pub broadcast_mentions: Option<WhoMay>,
+    #[garde(skip)]
+    pub public_channel_creators: Option<WhoMay>,
+    #[garde(skip)]
+    pub private_channel_creators: Option<WhoMay>,
+}
+
+impl UpdateWorkspaceRequest {
+    pub fn settings_patch(&self) -> serde_json::Value {
+        let mut patch = serde_json::Map::new();
+        if let Some(on) = self.link_previews {
+            patch.insert("link_previews".into(), on.into());
+        }
+        for (key, rule) in [
+            (WhoMay::WORKFLOW_BUILDERS, self.workflow_builders),
+            (WhoMay::BROADCAST_MENTIONS, self.broadcast_mentions),
+            (
+                WhoMay::PUBLIC_CHANNEL_CREATORS,
+                self.public_channel_creators,
+            ),
+            (
+                WhoMay::PRIVATE_CHANNEL_CREATORS,
+                self.private_channel_creators,
+            ),
+        ] {
+            if let Some(rule) = rule {
+                patch.insert(key.into(), rule.as_str().into());
+            }
+        }
+        patch.into()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
-pub enum WorkflowBuilders {
+pub enum WhoMay {
     Members,
     Admins,
 }
 
-impl WorkflowBuilders {
+impl WhoMay {
+    pub const WORKFLOW_BUILDERS: &'static str = "workflow_builders";
+    pub const BROADCAST_MENTIONS: &'static str = "broadcast_mentions";
+    pub const PUBLIC_CHANNEL_CREATORS: &'static str = "public_channel_creators";
+    pub const PRIVATE_CHANNEL_CREATORS: &'static str = "private_channel_creators";
+
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Members => "members",
@@ -246,10 +284,17 @@ impl WorkflowBuilders {
         }
     }
 
-    pub fn of(settings: &serde_json::Value) -> Self {
-        match settings.get("workflow_builders").and_then(|v| v.as_str()) {
+    pub fn of(settings: &serde_json::Value, key: &str) -> Self {
+        match settings.get(key).and_then(|v| v.as_str()) {
             Some("admins") => Self::Admins,
             _ => Self::Members,
+        }
+    }
+
+    pub fn allows(self, role: &WorkspaceRole) -> bool {
+        match self {
+            Self::Members => role.has_at_least(&WorkspaceRole::Member),
+            Self::Admins => role.has_at_least(&WorkspaceRole::Admin),
         }
     }
 }
@@ -340,6 +385,7 @@ pub struct UpdateChannelRequest {
     /// Absent means unchanged, which is how a client that predates
     /// announcement channels keeps working.
     pub post_policy: Option<PostPolicy>,
+    pub allow_broadcast_mentions: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]

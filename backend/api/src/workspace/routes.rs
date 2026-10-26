@@ -117,8 +117,7 @@ async fn update_workspace(
             req.name.as_deref(),
             req.description.as_deref(),
             req.icon_url.as_deref(),
-            req.link_previews,
-            req.workflow_builders.map(WorkflowBuilders::as_str),
+            &req.settings_patch(),
         )
         .await?;
     Ok(Json(workspace))
@@ -567,8 +566,8 @@ async fn create_channel(
     Json(req): Json<CreateChannelRequest>,
 ) -> AppResult<Json<Channel>> {
     req.validate()?;
-    authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Member).await?;
     let channel_type = req.channel_type.unwrap_or(ChannelType::Public);
+    authz::require_channel_creator(&state, ws_id, auth.user_id, &channel_type).await?;
     let channel = state
         .workspace_service
         .repo
@@ -594,7 +593,10 @@ async fn create_channel(
             state
                 .workspace_service
                 .repo
-                .set_channel_post_policy(channel.id, policy.as_str())
+                .merge_channel_settings(
+                    channel.id,
+                    &serde_json::json!({ "post_policy": policy.as_str() }),
+                )
                 .await?
         }
         None => channel,
@@ -661,7 +663,10 @@ async fn update_channel(
         updated = state
             .workspace_service
             .repo
-            .set_channel_post_policy(ch_id, policy.as_str())
+            .merge_channel_settings(
+                ch_id,
+                &serde_json::json!({ "post_policy": policy.as_str() }),
+            )
             .await?;
 
         // "Who silenced this channel" is exactly the question an audit log is
@@ -673,6 +678,26 @@ async fn update_channel(
                 .resource(ch_id)
                 .ip(&ip)
                 .details(serde_json::json!({ "from": before, "to": policy.as_str() })),
+        )
+        .await;
+    }
+
+    if let Some(allowed) = req.allow_broadcast_mentions {
+        updated = state
+            .workspace_service
+            .repo
+            .merge_channel_settings(
+                ch_id,
+                &serde_json::json!({ "allow_broadcast_mentions": allowed }),
+            )
+            .await?;
+        audit::record(
+            &state,
+            AuditEntry::new(AuditAction::ChannelBroadcastMentionsChanged, auth.user_id)
+                .workspace(channel.workspace_id)
+                .resource(ch_id)
+                .ip(&ip)
+                .details(serde_json::json!({ "allowed": allowed })),
         )
         .await;
     }

@@ -176,6 +176,9 @@ async fn send_message(
     let channel = authz::require_channel_post(&state, ch_id, auth.user_id)
         .await?
         .channel;
+    if mentions_everyone(&req.content) {
+        authz::require_broadcast(&state, &channel, auth.user_id).await?;
+    }
 
     let forwarded = match req.copy_attachments_from {
         Some(source_id) => forwarded_files(&state, source_id, auth.user_id).await?,
@@ -986,6 +989,10 @@ impl BroadcastMentions {
     }
 }
 
+pub(crate) fn mentions_everyone(content: &str) -> bool {
+    extract_broadcast_mentions(content).any()
+}
+
 fn extract_broadcast_mentions(content: &str) -> BroadcastMentions {
     let mut found = BroadcastMentions::default();
     for target in mention_targets(content) {
@@ -1039,7 +1046,7 @@ pub(crate) async fn expand_mentions(
     let groups = extract_group_mentions(content);
     let here_only = broadcast.here && !broadcast.channel;
 
-    let workspace_id = if here_only || !groups.is_empty() {
+    let channel = if broadcast.any() || !groups.is_empty() {
         state
             .workspace_service
             .repo
@@ -1047,12 +1054,18 @@ pub(crate) async fn expand_mentions(
             .await
             .ok()
             .flatten()
-            .map(|c| c.workspace_id)
     } else {
         None
     };
+    let workspace_id = channel.as_ref().map(|c| c.workspace_id);
+    let may_broadcast = match &channel {
+        Some(channel) if broadcast.any() => authz::can_broadcast(state, channel, author_id)
+            .await
+            .unwrap_or(false),
+        _ => false,
+    };
 
-    if broadcast.any() {
+    if may_broadcast {
         let members = state
             .message_repo
             .list_channel_member_ids(channel_id)

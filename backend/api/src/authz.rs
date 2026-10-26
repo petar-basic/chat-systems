@@ -5,7 +5,8 @@ use shared_common::errors::{AppError, AppResult};
 use crate::hooks::models::HookType;
 use crate::state::AppState;
 use crate::workspace::models::{
-    Channel, ChannelMember, ChannelRole, ChannelType, PostPolicy, WorkspaceMember, WorkspaceRole,
+    Channel, ChannelMember, ChannelRole, ChannelType, PostPolicy, WhoMay, WorkspaceMember,
+    WorkspaceRole,
 };
 
 pub struct ChannelAccess {
@@ -57,6 +58,32 @@ impl ChannelAccess {
             return true;
         }
         self.member.role.has_at_least(&WorkspaceRole::Member) && self.is_channel_admin()
+    }
+
+    pub fn allows_broadcast_mentions(&self) -> bool {
+        self.channel
+            .settings
+            .get("allow_broadcast_mentions")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true)
+    }
+
+    pub fn broadcast_refusal(&self, rule: WhoMay) -> Option<&'static str> {
+        if !self.allows_broadcast_mentions() {
+            return Some("@channel, @here and @everyone are turned off in this channel");
+        }
+        match rule {
+            WhoMay::Members => None,
+            WhoMay::Admins
+                if self.member.role.has_at_least(&WorkspaceRole::Admin)
+                    || self.is_channel_admin() =>
+            {
+                None
+            }
+            WhoMay::Admins => Some(
+                "Only workspace admins and this channel's admins can use @channel, @here and @everyone",
+            ),
+        }
     }
 
     pub fn can_manage_hook(&self, hook_type: &HookType) -> bool {
@@ -200,23 +227,92 @@ pub async fn require_channel_moderator(
     ))
 }
 
+async fn access_to(
+    state: &AppState,
+    channel: &Channel,
+    user_id: Uuid,
+) -> AppResult<Option<ChannelAccess>> {
+    let repo = &state.workspace_service.repo;
+    let Some(member) = repo.get_member(channel.workspace_id, user_id).await? else {
+        return Ok(None);
+    };
+    let channel_member = repo.get_channel_member(channel.id, user_id).await?;
+    Ok(Some(ChannelAccess {
+        channel: channel.clone(),
+        member,
+        channel_member,
+    }))
+}
+
+async fn workspace_rule(state: &AppState, workspace_id: Uuid, key: &str) -> AppResult<WhoMay> {
+    let workspace = state
+        .workspace_service
+        .repo
+        .find_workspace_by_id(workspace_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Workspace not found".into()))?;
+    Ok(WhoMay::of(&workspace.settings, key))
+}
+
 pub async fn can_manage_channel_hook(
     state: &AppState,
     hook_type: &HookType,
     channel: &Channel,
     user_id: Uuid,
 ) -> AppResult<bool> {
-    let repo = &state.workspace_service.repo;
-    let Some(member) = repo.get_member(channel.workspace_id, user_id).await? else {
-        return Ok(false);
+    Ok(access_to(state, channel, user_id)
+        .await?
+        .is_some_and(|access| access.can_manage_hook(hook_type)))
+}
+
+async fn broadcast_refusal(
+    state: &AppState,
+    channel: &Channel,
+    user_id: Uuid,
+) -> AppResult<Option<&'static str>> {
+    let Some(access) = access_to(state, channel, user_id).await? else {
+        return Ok(Some("Not a member of this workspace"));
     };
-    let channel_member = repo.get_channel_member(channel.id, user_id).await?;
-    Ok(ChannelAccess {
-        channel: channel.clone(),
-        member,
-        channel_member,
+    let rule = workspace_rule(state, channel.workspace_id, WhoMay::BROADCAST_MENTIONS).await?;
+    Ok(access.broadcast_refusal(rule))
+}
+
+pub async fn can_broadcast(state: &AppState, channel: &Channel, user_id: Uuid) -> AppResult<bool> {
+    Ok(broadcast_refusal(state, channel, user_id).await?.is_none())
+}
+
+pub async fn require_broadcast(
+    state: &AppState,
+    channel: &Channel,
+    user_id: Uuid,
+) -> AppResult<()> {
+    match broadcast_refusal(state, channel, user_id).await? {
+        Some(reason) => Err(AppError::Forbidden(reason.into())),
+        None => Ok(()),
     }
-    .can_manage_hook(hook_type))
+}
+
+pub async fn require_channel_creator(
+    state: &AppState,
+    workspace_id: Uuid,
+    user_id: Uuid,
+    channel_type: &ChannelType,
+) -> AppResult<()> {
+    let member = require_workspace_member(state, workspace_id, user_id).await?;
+    let (key, kind) = match channel_type {
+        ChannelType::Private => (WhoMay::PRIVATE_CHANNEL_CREATORS, "private"),
+        _ => (WhoMay::PUBLIC_CHANNEL_CREATORS, "public"),
+    };
+    let rule = workspace_rule(state, workspace_id, key).await?;
+    if rule.allows(&member.role) {
+        return Ok(());
+    }
+    Err(AppError::Forbidden(match rule {
+        WhoMay::Admins if member.role != WorkspaceRole::Guest => {
+            format!("Only admins can create {kind} channels in this workspace")
+        }
+        _ => format!("Requires at least {:?} role", WorkspaceRole::Member),
+    }))
 }
 
 pub async fn require_channel_hook_manager(
@@ -342,6 +438,55 @@ mod tests {
         let outside = access(WorkspaceRole::Admin, ChannelType::Private, false);
         assert!(!outside.can_manage_hook(&HookType::IncomingWebhook));
         assert!(!outside.can_manage_hook(&HookType::OutgoingWebhook));
+    }
+
+    fn with_settings(mut a: ChannelAccess, settings: serde_json::Value) -> ChannelAccess {
+        a.channel.settings = settings;
+        a
+    }
+
+    #[test]
+    fn by_default_everyone_who_may_post_may_broadcast() {
+        for role in [
+            WorkspaceRole::Guest,
+            WorkspaceRole::Member,
+            WorkspaceRole::Admin,
+        ] {
+            let a = access(role, ChannelType::Public, false);
+            assert_eq!(a.broadcast_refusal(WhoMay::Members), None);
+        }
+    }
+
+    #[test]
+    fn an_admins_rule_leaves_workspace_and_channel_admins() {
+        assert_eq!(
+            access(WorkspaceRole::Admin, ChannelType::Public, false)
+                .broadcast_refusal(WhoMay::Admins),
+            None
+        );
+        assert_eq!(
+            access(WorkspaceRole::Member, ChannelType::Public, true)
+                .broadcast_refusal(WhoMay::Admins),
+            None
+        );
+        for role in [WorkspaceRole::Guest, WorkspaceRole::Member] {
+            assert!(access(role, ChannelType::Public, false)
+                .broadcast_refusal(WhoMay::Admins)
+                .is_some());
+        }
+    }
+
+    #[test]
+    fn a_channel_that_turned_broadcasts_off_refuses_everyone() {
+        let off = serde_json::json!({ "allow_broadcast_mentions": false });
+        for (role, channel_admin) in [(WorkspaceRole::Owner, true), (WorkspaceRole::Member, false)]
+        {
+            let a = with_settings(
+                access(role, ChannelType::Public, channel_admin),
+                off.clone(),
+            );
+            assert!(a.broadcast_refusal(WhoMay::Members).is_some());
+        }
     }
 
     #[test]

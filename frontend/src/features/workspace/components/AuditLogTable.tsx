@@ -45,6 +45,7 @@ const ACTION_LABELS: Record<string, string> = {
   'user.provisioned': 'User provisioned',
   'user.data_erased': 'User data erased',
   'channel.post_policy_changed': 'Posting policy changed',
+  'channel.broadcast_mentions_changed': 'Broadcast mentions changed',
   'message.history_read': 'Edit history read',
   'command.invoked': 'Command run',
   'emoji.created': 'Custom emoji added',

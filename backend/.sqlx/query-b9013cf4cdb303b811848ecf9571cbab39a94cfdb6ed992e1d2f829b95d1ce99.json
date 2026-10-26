@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            UPDATE channels\n               SET settings = COALESCE(settings, '{}'::jsonb)\n                              || jsonb_build_object('post_policy', $2::text),\n                   updated_at = NOW()\n             WHERE id = $1\n            RETURNING id, workspace_id, name, channel_type AS \"channel_type: ChannelType\", topic, description,\n                   created_by, is_default AS \"is_default!\", is_archived AS \"is_archived!\",\n                   settings AS \"settings!\", created_at, updated_at\n            ",
+  "query": "\n            UPDATE channels\n               SET settings = COALESCE(settings, '{}'::jsonb) || $2::jsonb,\n                   updated_at = NOW()\n             WHERE id = $1\n            RETURNING id, workspace_id, name, channel_type AS \"channel_type: ChannelType\", topic, description,\n                   created_by, is_default AS \"is_default!\", is_archived AS \"is_archived!\",\n                   settings AS \"settings!\", created_at, updated_at\n            ",
   "describe": {
     "columns": [
       {
@@ -151,7 +151,7 @@
     "parameters": {
       "Left": [
         "Uuid",
-        "Text"
+        "Jsonb"
       ]
     },
     "nullable": [
@@ -169,5 +169,5 @@
       false
     ]
   },
-  "hash": "f6195cffdaa6b107a463c6b7995b4f4a75f6f5aa275f3898b4b6431c4aae3c28"
+  "hash": "b9013cf4cdb303b811848ecf9571cbab39a94cfdb6ed992e1d2f829b95d1ce99"
 }

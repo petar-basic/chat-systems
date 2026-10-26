@@ -180,8 +180,7 @@ impl WorkspaceRepo {
         name: Option<&str>,
         description: Option<&str>,
         icon_url: Option<&str>,
-        link_previews: Option<bool>,
-        workflow_builders: Option<&str>,
+        settings: &serde_json::Value,
     ) -> sqlx::Result<Workspace> {
         sqlx::query_as!(
             Workspace,
@@ -189,11 +188,7 @@ impl WorkspaceRepo {
             UPDATE workspaces
             SET name = COALESCE($2, name),
                 description = COALESCE($3, description),
-                settings = COALESCE(settings, '{}'::jsonb)
-                           || CASE WHEN $5::boolean IS NULL THEN '{}'::jsonb
-                                   ELSE jsonb_build_object('link_previews', $5::boolean) END
-                           || CASE WHEN $6::text IS NULL THEN '{}'::jsonb
-                                   ELSE jsonb_build_object('workflow_builders', $6::text) END,
+                settings = COALESCE(settings, '{}'::jsonb) || $5::jsonb,
                 -- An empty string clears it. Plain COALESCE could only ever set
                 -- an icon, never take one off, so the remove button had nothing
                 -- to say.
@@ -207,8 +202,7 @@ impl WorkspaceRepo {
             name,
             description,
             icon_url,
-            link_previews,
-            workflow_builders
+            settings
         )
         .fetch_one(&self.pool)
         .await
@@ -674,13 +668,16 @@ impl WorkspaceRepo {
     /// Merged into `settings` rather than replacing it: the column is a bag
     /// that later features will also want, and a whole-object write would
     /// silently drop whatever they put there.
-    pub async fn set_channel_post_policy(&self, id: Uuid, policy: &str) -> sqlx::Result<Channel> {
+    pub async fn merge_channel_settings(
+        &self,
+        id: Uuid,
+        patch: &serde_json::Value,
+    ) -> sqlx::Result<Channel> {
         sqlx::query_as!(
             Channel,
             r#"
             UPDATE channels
-               SET settings = COALESCE(settings, '{}'::jsonb)
-                              || jsonb_build_object('post_policy', $2::text),
+               SET settings = COALESCE(settings, '{}'::jsonb) || $2::jsonb,
                    updated_at = NOW()
              WHERE id = $1
             RETURNING id, workspace_id, name, channel_type AS "channel_type: ChannelType", topic, description,
@@ -688,7 +685,7 @@ impl WorkspaceRepo {
                    settings AS "settings!", created_at, updated_at
             "#,
             id,
-            policy
+            patch
         )
         .fetch_one(&self.pool)
         .await

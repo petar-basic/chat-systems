@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            UPDATE workspaces\n            SET name = COALESCE($2, name),\n                description = COALESCE($3, description),\n                settings = COALESCE(settings, '{}'::jsonb)\n                           || CASE WHEN $5::boolean IS NULL THEN '{}'::jsonb\n                                   ELSE jsonb_build_object('link_previews', $5::boolean) END\n                           || CASE WHEN $6::text IS NULL THEN '{}'::jsonb\n                                   ELSE jsonb_build_object('workflow_builders', $6::text) END,\n                -- An empty string clears it. Plain COALESCE could only ever set\n                -- an icon, never take one off, so the remove button had nothing\n                -- to say.\n                icon_url = CASE WHEN $4::text = '' THEN NULL ELSE COALESCE($4, icon_url) END,\n                updated_at = NOW()\n            WHERE id = $1\n            RETURNING id, name, slug, description, icon_url, owner_id, settings AS \"settings!\",\n                   is_active AS \"is_active!\", deleted_at, created_at, updated_at\n            ",
+  "query": "\n            UPDATE workspaces\n            SET name = COALESCE($2, name),\n                description = COALESCE($3, description),\n                settings = COALESCE(settings, '{}'::jsonb) || $5::jsonb,\n                -- An empty string clears it. Plain COALESCE could only ever set\n                -- an icon, never take one off, so the remove button had nothing\n                -- to say.\n                icon_url = CASE WHEN $4::text = '' THEN NULL ELSE COALESCE($4, icon_url) END,\n                updated_at = NOW()\n            WHERE id = $1\n            RETURNING id, name, slug, description, icon_url, owner_id, settings AS \"settings!\",\n                   is_active AS \"is_active!\", deleted_at, created_at, updated_at\n            ",
   "describe": {
     "columns": [
       {
@@ -131,8 +131,7 @@
         "Varchar",
         "Text",
         "Text",
-        "Bool",
-        "Text"
+        "Jsonb"
       ]
     },
     "nullable": [
@@ -149,5 +148,5 @@
       false
     ]
   },
-  "hash": "261c15349a3065b3ab2289b90256933237a1b5ef2ded67f8e0307a15be0e47b0"
+  "hash": "4032b8706c7af2fe905e3dbb5c043d960bc0d61746fb34b0f95ecdd5b20d0956"
 }

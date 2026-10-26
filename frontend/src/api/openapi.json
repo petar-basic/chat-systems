@@ -8913,6 +8913,12 @@
       "ChannelSettings": {
         "type": "object",
         "properties": {
+          "allow_broadcast_mentions": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
           "post_policy": {
             "oneOf": [
               {
@@ -15826,6 +15832,12 @@
       "UpdateChannelRequest": {
         "type": "object",
         "properties": {
+          "allow_broadcast_mentions": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
           "description": {
             "type": [
               "string",
@@ -16146,6 +16158,16 @@
       "UpdateWorkspaceRequest": {
         "type": "object",
         "properties": {
+          "broadcast_mentions": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/WhoMay"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "description": {
             "type": [
               "string",
@@ -16170,10 +16192,30 @@
               "null"
             ]
           },
+          "private_channel_creators": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/WhoMay"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "public_channel_creators": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/WhoMay"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "workflow_builders": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/WorkflowBuilders"
+                "$ref": "#/components/schemas/WhoMay"
               },
               {
                 "type": "null"
@@ -16476,6 +16518,13 @@
           "sun"
         ]
       },
+      "WhoMay": {
+        "type": "string",
+        "enum": [
+          "members",
+          "admins"
+        ]
+      },
       "Workflow": {
         "type": "object",
         "required": [
@@ -16553,13 +16602,6 @@
             "format": "uuid"
           }
         }
-      },
-      "WorkflowBuilders": {
-        "type": "string",
-        "enum": [
-          "members",
-          "admins"
-        ]
       },
       "WorkflowRun": {
         "type": "object",
