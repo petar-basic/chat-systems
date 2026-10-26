@@ -268,6 +268,9 @@ set a policy; a workspace with no `retention_policies` row keeps everything fore
 covers direct and group messages too — they are messages in `dm`/`group_dm` channels, and a
 retention rule that skipped them would keep exactly the history people assume is gone.
 
+An owner sets the policy in *Workspace settings → Data retention*, which shows how many
+messages and files the new periods would remove now before it saves.
+
 Set `RETENTION_DRY_RUN=true` for the first run on a real instance. It logs and counts what
 each pass *would* delete and deletes nothing. Deletion is irreversible, and a misread policy
 is visible in those numbers before it is visible in a support ticket. The metric is
@@ -292,11 +295,11 @@ Enrolment is two steps and nothing is enforced until a code confirms it, so a ha
 setup cannot lock anybody out. Recovery codes are shown once; the count remaining is
 visible in the same panel.
 
-**SCIM needs a token minted here first.** `POST /api/admin/scim/tokens` (instance admin)
-returns it once — there is nowhere to read it again. Point the provider at
-`<PUBLIC_URL>/api/scim/v2` with that token as a bearer credential. Rotation is
-`POST /api/admin/scim/tokens/:id/rotate`, which issues the replacement and revokes the old
-one in the same call.
+**SCIM needs a token minted here first.** An instance admin creates one in *Workspace
+settings → SCIM provisioning* (or `POST /api/admin/scim/tokens`), which shows it once — there
+is nowhere to read it again. Point the provider at `<PUBLIC_URL>/api/scim/v2` with that token
+as a bearer credential. *Rotate* (`POST /api/admin/scim/tokens/:id/rotate`) issues the
+replacement and revokes the old one in the same call.
 
 Be aware of what deprovisioning does, because it is not reversible from the provider's side:
 `active: false` (and `DELETE`, which means the same thing) suspends the account, ends every
@@ -307,7 +310,8 @@ their old private channels by flipping a flag.
 
 **Exports are single-use links.** A workspace export is the whole workspace in one file, so
 the download token works once and expires. If somebody says the link is dead, the answer is
-a new export, not a longer expiry.
+a new export, not a longer expiry. Exports are started and downloaded in *Workspace settings →
+Exports*; a person's export and erasure are on their row in *Members*, for an instance admin.
 
 **Nothing to migrate by hand.** Migrations `…23` through `…26` add the edit-history,
 retention, export, TOTP and SCIM tables and one column on `oauth_accounts`. They are

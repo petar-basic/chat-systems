@@ -223,6 +223,20 @@ impl RetentionRepo {
         Ok((row.items, row.lists, row.comments))
     }
 
+    pub async fn count_files_past(&self, workspace_id: Uuid, days: i32) -> sqlx::Result<i64> {
+        sqlx::query_scalar!(
+            r#"
+            SELECT COUNT(*) AS "count!" FROM files
+             WHERE workspace_id = $1
+               AND created_at < NOW() - make_interval(days => $2)
+            "#,
+            workspace_id,
+            days
+        )
+        .fetch_one(&self.pool)
+        .await
+    }
+
     /// Files come back so the object can be removed before its row: a row
     /// deleted first leaves an object nobody knows about.
     pub async fn files_past(

@@ -36,6 +36,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/scim/tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_tokens"];
+        put?: never;
+        /**
+         * Returned once. There is nowhere to read it from afterwards, which is the
+         *     point: a token an admin can re-read is a token a stolen admin session can
+         *     read too.
+         */
+        post: operations["create_token"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/scim/tokens/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["revoke_token"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/scim/tokens/{id}/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["rotate_token"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/stats": {
         parameters: {
             query?: never;
@@ -1973,7 +2026,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: operations["list_workspace_exports"];
         put?: never;
         /**
          * The most sensitive operation in the product: everything anyone said in a
@@ -2386,6 +2439,26 @@ export interface paths {
          *     who asked for it matters more than usual.
          */
         patch: operations["update_policy"];
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/retention/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the next pass would remove under the periods asked about, counted by
+         *     the queries the purge itself uses. Shown before the owner saves.
+         */
+        get: operations["preview_policy"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/workspaces/{ws_id}/scheduled-messages": {
@@ -2984,6 +3057,9 @@ export interface components {
             /** Format: date-time */
             send_at: string;
         };
+        CreateScimToken: {
+            description?: string | null;
+        };
         CreateSectionRequest: {
             name: string;
         };
@@ -3171,6 +3247,12 @@ export interface components {
                 id: string;
                 name: string;
                 url: string;
+            }[];
+        };
+        DataList_ExportDetail: {
+            data: {
+                download_url?: string | null;
+                export: components["schemas"]["ExportJob"];
             }[];
         };
         DataList_FileRecord: {
@@ -3493,6 +3575,21 @@ export interface components {
                 user_id: string;
                 /** Format: uuid */
                 workspace_id: string;
+            }[];
+        };
+        DataList_ScimToken: {
+            data: {
+                /** Format: date-time */
+                created_at: string;
+                /** Format: uuid */
+                created_by?: string | null;
+                description?: string | null;
+                /** Format: uuid */
+                id: string;
+                /** Format: date-time */
+                last_used_at?: string | null;
+                /** Format: date-time */
+                revoked_at?: string | null;
             }[];
         };
         DataList_Shortcut: {
@@ -4127,6 +4224,12 @@ export interface components {
         MessageWithReactions: components["schemas"]["Message"] & {
             reactions: components["schemas"]["Reaction"][];
         };
+        MintedScimToken: {
+            description?: string | null;
+            /** Format: uuid */
+            id: string;
+            token: string;
+        };
         MoveItemRequest: {
             /** Format: uuid */
             after_id?: string | null;
@@ -4300,6 +4403,12 @@ export interface components {
             /** Format: uuid */
             workspace_id: string;
         };
+        RetentionPreview: {
+            /** Format: int64 */
+            files: number;
+            /** Format: int64 */
+            messages: number;
+        };
         RunAccepted: {
             /** Format: uuid */
             run_id: string;
@@ -4344,6 +4453,19 @@ export interface components {
             user_id: string;
             /** Format: uuid */
             workspace_id: string;
+        };
+        ScimToken: {
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            created_by?: string | null;
+            description?: string | null;
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            last_used_at?: string | null;
+            /** Format: date-time */
+            revoked_at?: string | null;
         };
         SearchResponse: {
             data: components["schemas"]["Message"][];
@@ -4912,6 +5034,90 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminHealth"];
+                };
+            };
+        };
+    };
+    list_tokens: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_ScimToken"];
+                };
+            };
+        };
+    };
+    create_token: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateScimToken"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MintedScimToken"];
+                };
+            };
+        };
+    };
+    revoke_token: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    rotate_token: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MintedScimToken"];
                 };
             };
         };
@@ -8435,6 +8641,27 @@ export interface operations {
             };
         };
     };
+    list_workspace_exports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_ExportDetail"];
+                };
+            };
+        };
+    };
     create_workspace_export: {
         parameters: {
             query?: never;
@@ -9239,6 +9466,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PolicyResponse"];
+                };
+            };
+        };
+    };
+    preview_policy: {
+        parameters: {
+            query?: {
+                message_days?: number | null;
+                file_days?: number | null;
+            };
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetentionPreview"];
                 };
             };
         };

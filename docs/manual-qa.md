@@ -112,8 +112,14 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 ### 3.1b 🟢 Workspace settings in one dialog
 - **Reach:** workspace menu → *Workspace settings*.
 - **Steps:** as Admin, go through every section; in *General* rename the workspace and click away, flip *Link previews*, set *Who can build workflows*. Open `/app/<ws id>?settings=audit-log`. As Bob (member), open *Workspace settings*.
-- **Expected:** the menu holds *Invite people*, *Workflows*, *Workspace settings* (and *Instance admin* for one). *General* says *Saving…* then *Saved* after each change, with no save button; the sidebar shows the new name. The link opens the dialog on *Audit log* and the `?settings=` leaves the address. Bob sees *Members*, *User groups*, *Custom emoji* and *Apps* only, and no invite form.
+- **Expected:** the menu holds *Invite people*, *Workflows*, *Workspace settings* (and *Instance admin* for one). *General* says *Saving…* then *Saved* after each change, with no save button; the sidebar shows the new name. The link opens the dialog on *Audit log* and the `?settings=` leaves the address. Bob sees *Members*, *User groups*, *Custom emoji* and *Apps* only, and no invite form. Alice (admin, not owner) has no *Data retention*; only an instance admin sees *SCIM provisioning*.
 - 🟠 **Edge — Escape:** in *Integrations*, *Delete* a webhook to open its confirmation, press Escape → only the confirmation closes; Escape again closes the dialog.
+
+### 3.1c 🔴 Retention, exports, erasure and SCIM
+- **Reach:** *Workspace settings* → *Data retention*, *Exports*, *SCIM provisioning*; *Members* rows.
+- **Steps:** as Admin (owner and instance admin): in *Data retention* choose *For a number of days* for messages and type 30, wait, then *Save retention*; set it back to *Forever* and save. In *Exports* tick nothing and *Export workspace*, wait for *complete*, *Download*. In *Members* use the export icon on Bob's row, then the erase icon on a throwaway account's row. In *SCIM provisioning* create a token, *I have stored it*, rotate it, revoke it.
+- **Expected:** the retention form says *About N messages and M files would be removed now* before anything is saved, and *Saved* after. The export row goes pending → running → complete (the worker polls every 10 s); the archive downloads once, after which the row says *Downloaded*, and the link opened again answers 404. Bob's export shows up under *Exports* with his name. Erase names what goes and stays disabled until the person's name is typed exactly; afterwards the row reads *Deleted user*. A token is visible only until it is put away; rotate shows the replacement the same way, and the revoked one is struck through with no buttons.
+- 🔴 **Edge — who:** Alice (admin) sees *Exports* but no *Export workspace* button, no *Download* on the owner's exports, and no export/erase icons; `GET /api/workspaces/<id>/retention/preview` answers her 403.
 
 ### 3.2 🟢 Members: list / change role / remove
 - **Reach:** workspace menu → *Workspace settings* → *Members* (an admin also has *Invite people*, which opens it with the invite form).

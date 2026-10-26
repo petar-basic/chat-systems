@@ -322,7 +322,7 @@ export default function WorkspacePage() {
         {settings.dialog && currentWorkspace && (
           <WorkspaceSettingsModal
             workspace={currentWorkspace}
-            isAdmin={isAdmin}
+            viewer={{ role, isInstanceAdmin: user?.is_instance_admin ?? false }}
             initial={settings.dialog.section}
             inviting={settings.dialog.inviting}
             members={c.workspaceMembers}

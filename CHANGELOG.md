@@ -24,6 +24,16 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ### Added
 
+- **Screens for what was API only.** *Workspace settings* gains *Data retention* (owner): keep
+  messages and files forever or for a number of days, with the count the change would remove
+  now shown before saving; *Exports*: start a workspace export, follow it, download it once;
+  and *SCIM provisioning* (instance admins): create, rotate and revoke tokens, each shown once.
+  An instance admin exports or erases a person from their row in *Members*; erasing names what
+  goes and asks for the person's name.
+- **API:** `GET /workspaces/{id}/exports` lists a workspace's exports and
+  `GET /workspaces/{id}/retention/preview` counts what given periods would remove; the
+  `/admin/scim/tokens` routes are in the OpenAPI document. Rotating a revoked SCIM token now
+  answers 404 instead of minting a replacement.
 - **Form answers as fields.** A workflow message with the form answers below it shows them as
   labelled fields in two columns instead of a tall stack of paragraphs; the message text is
   unchanged.

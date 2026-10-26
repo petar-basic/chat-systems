@@ -47,7 +47,8 @@ use crate::state::AppState;
         (name = "push", description = "Web Push subscriptions"),
         (name = "retention", description = "Retention policies"),
         (name = "totp", description = "Two-factor enrolment"),
-        (name = "slack-import", description = "Importing a Slack export")
+        (name = "slack-import", description = "Importing a Slack export"),
+        (name = "scim", description = "SCIM provisioning tokens")
     )
 )]
 struct ApiDoc;
@@ -96,6 +97,7 @@ pub fn typed_routes() -> OpenApiRouter<Arc<AppState>> {
         .merge(crate::integrations::routes::router())
         .merge(crate::scheduled::routes::router())
         .merge(crate::admin::routes::router())
+        .merge(crate::scim::routes::token_router())
         .merge(crate::commands::routes::router())
         .merge(crate::export::routes::router())
         .merge(crate::push::routes::router())
@@ -157,6 +159,29 @@ mod tests {
         ] {
             assert!(schemas.contains_key(name), "schema {name} is missing");
         }
+    }
+
+    #[test]
+    fn spec_covers_the_admin_screens() {
+        let json = serde_json::to_value(super::spec()).unwrap();
+        let paths = json["paths"].as_object().unwrap();
+        assert!(paths["/admin/scim/tokens"]["get"].is_object());
+        assert!(paths["/admin/scim/tokens"]["post"].is_object());
+        assert!(paths["/admin/scim/tokens/{id}"]["delete"].is_object());
+        assert!(paths["/admin/scim/tokens/{id}/rotate"]["post"].is_object());
+        assert!(paths["/workspaces/{ws_id}/exports"]["get"].is_object());
+        assert!(paths["/workspaces/{ws_id}/retention/preview"]["get"].is_object());
+        assert!(
+            !paths.keys().any(|path| path.starts_with("/scim/v2")),
+            "the provisioning API speaks SCIM, not this document"
+        );
+
+        let token = &json["components"]["schemas"]["ScimToken"]["properties"];
+        assert!(token["id"].is_object());
+        assert!(
+            token.get("token_hash").is_none(),
+            "the digest is not part of the contract"
+        );
     }
 
     #[test]

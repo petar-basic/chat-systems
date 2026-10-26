@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { cleanup, render, screen, fireEvent } from '@testing-library/react';
 import { WorkspaceSettingsModal } from './WorkspaceSettingsModal';
-import type { Workspace } from '@/stores/workspace';
+import type { Workspace, WorkspaceRole } from '@/stores/workspace';
 
 vi.mock('./GeneralSection', () => ({ GeneralSection: () => <p>general body</p> }));
 vi.mock('./MembersSection', () => ({
@@ -13,14 +13,21 @@ vi.mock('./AppsSection', () => ({ AppsSection: () => <p>apps body</p> }));
 vi.mock('./IntegrationsSection', () => ({ IntegrationsSection: () => <p>integrations body</p> }));
 vi.mock('./SlackImportSection', () => ({ SlackImportSection: () => <p>import body</p> }));
 vi.mock('./AuditLogSection', () => ({ AuditLogSection: () => <p>audit body</p> }));
+vi.mock('./RetentionSection', () => ({ RetentionSection: () => <p>retention body</p> }));
+vi.mock('./ExportsSection', () => ({ ExportsSection: () => <p>exports body</p> }));
+vi.mock('./ScimSection', () => ({ ScimSection: () => <p>scim body</p> }));
 
 const workspace = { id: 'ws-1', name: 'Dev Team', instanceUrl: 'http://localhost:8080' } as Workspace;
 
-function renderModal(isAdmin: boolean, initial: Parameters<typeof WorkspaceSettingsModal>[0]['initial']) {
+function renderModal(
+  role: WorkspaceRole,
+  initial: Parameters<typeof WorkspaceSettingsModal>[0]['initial'],
+  isInstanceAdmin = false,
+) {
   render(
     <WorkspaceSettingsModal
       workspace={workspace}
-      isAdmin={isAdmin}
+      viewer={{ role, isInstanceAdmin }}
       initial={initial}
       members={[]}
       channels={[]}
@@ -32,8 +39,8 @@ function renderModal(isAdmin: boolean, initial: Parameters<typeof WorkspaceSetti
 const tabNames = () => screen.getAllByRole('tab').map((t) => t.textContent);
 
 describe('WorkspaceSettingsModal', () => {
-  it('gives an admin every section, in one place', () => {
-    renderModal(true, 'general');
+  it('gives an admin every workspace section but retention, in one place', () => {
+    renderModal('admin', 'general');
     expect(tabNames()).toEqual([
       'General',
       'Members',
@@ -41,6 +48,7 @@ describe('WorkspaceSettingsModal', () => {
       'Custom emoji',
       'Apps',
       'Integrations',
+      'Exports',
       'Slack import',
       'Audit log',
     ]);
@@ -50,13 +58,47 @@ describe('WorkspaceSettingsModal', () => {
   });
 
   it('gives a member only what they can use', () => {
-    renderModal(false, 'members');
+    renderModal('member', 'members');
     expect(tabNames()).toEqual(['Members', 'User groups', 'Custom emoji', 'Apps']);
   });
 
   it('falls back to the first section a member may open', () => {
-    renderModal(false, 'audit-log');
+    renderModal('member', 'audit-log');
     expect(screen.getByRole('tab', { name: 'Members' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.queryByText('audit body')).not.toBeInTheDocument();
+  });
+
+  it('gives the owner data retention, as the API does', () => {
+    renderModal('owner', 'retention');
+    expect(tabNames()).toContain('Data retention');
+    expect(screen.getByText('retention body')).toBeInTheDocument();
+  });
+
+  it('keeps SCIM for instance admins, whatever their workspace role', () => {
+    renderModal('owner', 'scim');
+    expect(tabNames()).not.toContain('SCIM provisioning');
+
+    cleanup();
+    renderModal('member', 'scim', true);
+    expect(tabNames()).toContain('SCIM provisioning');
+    expect(screen.getByText('scim body')).toBeInTheDocument();
+  });
+
+  it('opens the linked section once the role it needs is known', () => {
+    const props = {
+      workspace,
+      initial: 'retention' as const,
+      members: [],
+      channels: [],
+      onClose: vi.fn(),
+    };
+    const { rerender } = render(
+      <WorkspaceSettingsModal {...props} viewer={{ role: null, isInstanceAdmin: false }} />,
+    );
+    expect(screen.getByRole('tab', { name: 'Members' })).toHaveAttribute('aria-selected', 'true');
+
+    rerender(<WorkspaceSettingsModal {...props} viewer={{ role: 'owner', isInstanceAdmin: false }} />);
+    expect(screen.getByRole('tab', { name: 'Data retention' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText('retention body')).toBeInTheDocument();
   });
 });
