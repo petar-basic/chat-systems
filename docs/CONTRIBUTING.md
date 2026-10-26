@@ -304,9 +304,13 @@ Editing `ci.yml` itself re-runs both, so a broken filter cannot silently disable
 checks it selects.
 
 - **E2E:** boots the real stack with `docker compose --profile frontend`, seeds it,
-  and runs the Playwright suite. Runs when anything the stack is built from changes —
-  `backend/**`, `frontend/**`, `docker/**`, `docker-compose*.yml`, `seed.sh` — and
-  uploads the report, screenshots and container logs on failure.
+  and runs the Playwright suite, uploading the report, screenshots and container logs on
+  failure. It is most of a PR's CI time, so it does not run on every PR:
+  - on `main`, after each merge that changes anything the stack is built from
+    (`backend/**`, `frontend/**`, `docker/**`, `docker-compose*.yml`, `seed.sh`);
+  - on a release PR (a `chore/release-X.Y.Z` branch), always, whatever it changed, since
+    that is the last check before the tag;
+  - on any other PR that carries the `e2e` label; adding the label starts it.
 
 **`All checks` is the only job that should be a required status check.** It always runs,
 treats skipped jobs as passing, and fails if any job failed or was cancelled. Requiring
@@ -325,9 +329,10 @@ back: a removed route or frame a client depends on, or a migration that rewrites
 irreversibly. A one-time manual step that leaves the data intact — copying uploads to a new
 store, say — is a minor release with an upgrade note at the top of its CHANGELOG entry.
 
-1. In a PR, date the release's section in [CHANGELOG.md](../CHANGELOG.md)
-   (`## [X.Y.Z] — YYYY-MM-DD`) and make sure every operator-facing change has an upgrade
-   note in [RUNBOOK.md](RUNBOOK.md). Merge it.
+1. In a PR from `chore/release-X.Y.Z` (the branch name is what runs E2E on it), date the
+   release's section in [CHANGELOG.md](../CHANGELOG.md) (`## [X.Y.Z] — YYYY-MM-DD`) and make
+   sure every operator-facing change has an upgrade note in [RUNBOOK.md](RUNBOOK.md). Merge
+   it.
 2. Tag the merge commit on `main` and push the tag:
    `git tag -a vX.Y.Z -m "Chat Systems X.Y.Z" && git push origin vX.Y.Z`.
 

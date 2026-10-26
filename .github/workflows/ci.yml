@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
 
 # Supersede in-flight runs on a PR branch; never cancel a run on main.
 concurrency:
@@ -203,7 +204,10 @@ jobs:
     # images and shares no artifact with them, so waiting only bought a serial
     # ~6 min: backend alone is longer than this whole job.
     needs: changes
-    if: needs.changes.outputs.e2e == 'true'
+    if: >-
+      (github.event_name == 'push' && needs.changes.outputs.e2e == 'true')
+      || startsWith(github.head_ref, 'chore/release-')
+      || contains(github.event.pull_request.labels.*.name, 'e2e')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
