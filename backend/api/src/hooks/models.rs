@@ -78,3 +78,26 @@ pub struct IncomingAccepted {
     pub status: &'static str,
     pub message_id: Uuid,
 }
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ChannelIncomingWebhook {
+    pub id: Uuid,
+    pub name: String,
+    pub description: Option<String>,
+    pub created_by: Uuid,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ChannelOutgoingWebhook {
+    pub id: Uuid,
+    pub name: String,
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ChannelSlashCommand {
+    pub id: Uuid,
+    pub name: String,
+    pub command: String,
+}

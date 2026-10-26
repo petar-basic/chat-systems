@@ -1264,6 +1264,36 @@
         }
       }
     },
+    "/channels/{ch_id}/integrations": {
+      "get": {
+        "tags": [
+          "channels"
+        ],
+        "operationId": "channel_integrations",
+        "parameters": [
+          {
+            "name": "ch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelIntegrations"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/channels/{ch_id}/join": {
       "post": {
         "tags": [
@@ -8612,6 +8642,77 @@
           }
         ]
       },
+      "ChannelIncomingWebhook": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "created_by",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_by": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "ChannelIntegrations": {
+        "type": "object",
+        "required": [
+          "incoming_webhooks",
+          "outgoing_webhooks",
+          "slash_commands",
+          "workflows",
+          "can_add_webhook"
+        ],
+        "properties": {
+          "can_add_webhook": {
+            "type": "boolean"
+          },
+          "incoming_webhooks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChannelIncomingWebhook"
+            }
+          },
+          "outgoing_webhooks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChannelOutgoingWebhook"
+            }
+          },
+          "slash_commands": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChannelSlashCommand"
+            }
+          },
+          "workflows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChannelWorkflow"
+            }
+          }
+        }
+      },
       "ChannelListing": {
         "allOf": [
           {
@@ -8709,6 +8810,28 @@
           }
         }
       },
+      "ChannelOutgoingWebhook": {
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "ChannelOverride": {
         "type": "object",
         "required": [
@@ -8802,6 +8925,26 @@
           }
         }
       },
+      "ChannelSlashCommand": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "command"
+        ],
+        "properties": {
+          "command": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "ChannelType": {
         "type": "string",
         "enum": [
@@ -8810,6 +8953,31 @@
           "dm",
           "group_dm"
         ]
+      },
+      "ChannelWorkflow": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "enabled",
+          "created_by"
+        ],
+        "properties": {
+          "created_by": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
       },
       "Choice": {
         "type": "object",

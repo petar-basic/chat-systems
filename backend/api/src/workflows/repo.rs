@@ -524,6 +524,29 @@ impl WorkflowRepo {
             .collect())
     }
 
+    pub async fn touching_channel(
+        &self,
+        workspace_id: Uuid,
+        channel_id: Uuid,
+    ) -> sqlx::Result<Vec<ChannelWorkflow>> {
+        sqlx::query_as!(
+            ChannelWorkflow,
+            r"
+            SELECT id, name, enabled, created_by
+              FROM workflows
+             WHERE workspace_id = $1
+               AND (definition #>> '{trigger,channel_id}' = $2
+                    OR definition->'steps' @> jsonb_build_array(
+                         jsonb_build_object('type', 'send_message', 'channel_id', $2::text)))
+             ORDER BY lower(name)
+            ",
+            workspace_id,
+            channel_id.to_string()
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
     pub async fn shortcuts(&self, channel_id: Uuid) -> sqlx::Result<Vec<ShortcutRow>> {
         sqlx::query_as!(
             ShortcutRow,
