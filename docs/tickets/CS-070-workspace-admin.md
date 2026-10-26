@@ -3,7 +3,7 @@
 **Wave:** 24 — ready for a company
 **Area:** frontend · backend
 **Blocked by:** —
-**Blocks:** CS-071
+**Blocks:** CS-071, CS-075
 
 ## Problem
 
@@ -26,7 +26,7 @@ An admin who does not read the RUNBOOK does not know they exist, and one who doe
 
 ## Approach
 
-Two parts, each its own PR.
+Three parts, each its own PR.
 
 ### 1. One dialog
 
@@ -55,11 +55,29 @@ Two parts, each its own PR.
 - **SCIM** (instance admins): mint, list, rotate and revoke tokens; a minted token is shown
   once. The token routes move onto the OpenAPI router so the client is typed.
 
+### 3. Retention per channel
+
+The workspace policy is one number for every channel, so a company keeps `#random` as long
+as `#legal`. Slack lets an owner allow a channel its own period.
+
+- `retention_policies` gains `channel_overrides` (default off), set by the owner beside the
+  policy.
+- A new `channel_retention` table (`channel_id` primary key, `message_days`, `NULL` meaning
+  forever, `updated_by`, `updated_at`). A channel moderator sets or clears it in *Channel
+  settings* (CS-074 later moves it to the *Settings* tab) while overrides are on; the channel gets a system message
+  naming who changed it, and the audit log a `retention.changed` row with the channel.
+- The purge job and the dry-run count use the channel's period where one is set and the
+  workspace's otherwise, in the same `DELETE`, not a query per channel. While overrides are
+  off the rows are kept and ignored, and the channel shows the workspace policy.
+- Files keep the workspace period.
+
 ## Acceptance
 
 - [ ] Every admin task is reachable from one dialog; the workspace menu is short.
 - [ ] Retention, exports, erasure and SCIM tokens are usable without the API.
 - [ ] Settings save the same way everywhere.
+- [ ] An owner can let a channel keep its messages for its own period, and the purge honours
+      it.
 
 ## Tests
 
@@ -67,4 +85,6 @@ Frontend: the dialog's sections and deep link, each moved section's existing tes
 retention form (owner only, the preview), exports list and download, the erasure
 confirmation, SCIM mint-once. E2E: an owner sets retention and starts an export from the
 dialog. Backend: the exports list (an admin sees the workspace's, nobody else's), the
-retention preview count, and the SCIM token routes in the OpenAPI document.
+retention preview count, and the SCIM token routes in the OpenAPI document; a channel's
+period purged before and after the workspace's, forever kept, overrides ignored while off, a
+member who is not a moderator refused.
