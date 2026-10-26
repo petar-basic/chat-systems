@@ -1693,3 +1693,22 @@ admin adds an incoming webhook there and sees its URL once, under it; a workflow
 the workflow in the *Workflows* panel for someone who may build them; the *Integration* badge
 in the header opens the tab. The workspace *Integrations* section links each hook's
 channels.
+
+### [CS-075] Who may notify a whole channel, and who may make one ✅ shipped
+Anyone who could post could ping a whole channel with `@channel`, `@here` or `@everyone`, and
+any member could create channels, so a company of a few hundred had no way to keep either to
+the people meant to. Two PRs. The first put three rules beside `workflow_builders` in the
+workspace settings, `broadcast_mentions`, `public_channel_creators` and
+`private_channel_creators`, all `WhoMay` (`members` by default, or `admins`), and a channel's
+own `allow_broadcast_mentions`. `authz::broadcast_refusal` gives the reason: a channel that
+turned broadcasts off refuses everyone, admins included; an admins-only rule leaves workspace
+admins and the channel's admins. A message, poll or scheduled message the author may not
+broadcast is refused with 403 and that reason; a workflow is refused when it is saved, and
+anything already queued still posts but notifies nobody, since `expand_mentions` checks the
+same rule. Creating a channel checks the rule for its kind. The second is the frontend: a
+*Permissions* group in *General*, the channel switch in *Channel details → Settings*, a
+composer that leaves the broadcasts out of its suggestions for someone who would be refused
+and asks before notifying a channel of more than 25 people, and *Create channel* offering only
+the kinds the person may make. `lib/channelPermissions.ts` mirrors the server's checks so the
+UI does not offer what will be refused; the server stays the boundary. A refused send now
+shows the server's reason instead of *Message failed to send*.

@@ -1,5 +1,6 @@
 import type { components } from '@/api/schema';
 import type { ListColumn } from '@/features/lists';
+import { allows, ruleOf, type WhoMay } from '@/lib/workspaceRules';
 
 export type Workflow = components['schemas']['Workflow'];
 export type WorkflowRun = components['schemas']['WorkflowRun'];
@@ -8,7 +9,7 @@ export type Trigger = components['schemas']['Trigger'];
 export type Step = components['schemas']['Step'];
 export type Weekday = components['schemas']['Weekday'];
 export type SaveWorkflow = components['schemas']['SaveWorkflowRequest'];
-export type WorkflowBuilders = components['schemas']['WhoMay'];
+export type WorkflowBuilders = WhoMay;
 export type FormField = components['schemas']['FormField'];
 export type FieldKind = components['schemas']['FieldKind'];
 export type FormStep = Extract<Step, { type: 'form' }>;
@@ -389,13 +390,11 @@ export function unpicked(definition: Definition): string | null {
 }
 
 export function workflowBuildersOf(settings: unknown): WorkflowBuilders {
-  if (typeof settings !== 'object' || settings === null) return 'members';
-  return (settings as Record<string, unknown>).workflow_builders === 'admins' ? 'admins' : 'members';
+  return ruleOf(settings, 'workflow_builders');
 }
 
 export function canBuild(role: string | null, builders: WorkflowBuilders): boolean {
-  if (!role || role === 'guest') return false;
-  return builders === 'members' || role === 'admin' || role === 'owner';
+  return allows(builders, role);
 }
 
 export function canManageAll(role: string | null): boolean {

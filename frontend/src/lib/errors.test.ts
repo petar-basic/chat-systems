@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ApiError, HttpError, isSessionExpired, isTotpRequired, toUserMessage } from './errors';
+import { ApiError, HttpError, isSessionExpired, isTotpRequired, refusalOr, toUserMessage } from './errors';
 
 describe('isTotpRequired', () => {
   it('separates an incomplete login from a wrong one', () => {
@@ -14,5 +14,18 @@ describe('isTotpRequired', () => {
     const error = new ApiError(409, 'totp_required');
     expect(isSessionExpired(error)).toBe(false);
     expect(toUserMessage(error)).toBe('totp_required');
+  });
+});
+
+describe('refusalOr', () => {
+  it('says why the server refused, and falls back for anything else', () => {
+    const reason = "Only workspace admins and this channel's admins can use @channel, @here and @everyone";
+    expect(refusalOr(new ApiError(403, reason), 'Message failed to send')).toBe(reason);
+    expect(refusalOr(new ApiError(502, 'Bad gateway'), 'Message failed to send')).toBe(
+      'Message failed to send',
+    );
+    expect(refusalOr(new TypeError('Failed to fetch'), 'Message failed to send')).toBe(
+      'Message failed to send',
+    );
   });
 });

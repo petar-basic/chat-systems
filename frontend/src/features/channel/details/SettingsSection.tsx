@@ -14,6 +14,8 @@ interface Props {
 
 export function SettingsSection({ channel, onClose }: Props) {
   const [announcementOnly, setAnnouncementOnly] = useState(channel.settings?.post_policy === 'moderators');
+  const savedBroadcastMentions = channel.settings?.allow_broadcast_mentions !== false;
+  const [broadcastMentions, setBroadcastMentions] = useState(savedBroadcastMentions);
   const [retentionChoice, setRetentionChoice] = useState<PeriodChoice | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,7 +34,10 @@ export function SettingsSection({ channel, onClose }: Props) {
     if (period === 'invalid') return;
     setError(null);
     try {
-      await updateChannel.mutateAsync({ post_policy: announcementOnly ? 'moderators' : 'everyone' });
+      await updateChannel.mutateAsync({
+        post_policy: announcementOnly ? 'moderators' : 'everyone',
+        ...(broadcastMentions !== savedBroadcastMentions && { allow_broadcast_mentions: broadcastMentions }),
+      });
       if (retentionChanged && period !== undefined) await setRetention.mutateAsync(period);
       onClose();
     } catch (err: unknown) {
@@ -48,6 +53,13 @@ export function SettingsSection({ channel, onClose }: Props) {
         checked={announcementOnly}
         onChange={setAnnouncementOnly}
         dataQa="channel-settings-announcement"
+      />
+      <Checkbox
+        label="Allow @channel, @here and @everyone"
+        description="Off means no one can notify the whole channel at once, admins included."
+        checked={broadcastMentions}
+        onChange={setBroadcastMentions}
+        dataQa="channel-settings-broadcast-mentions"
       />
       {retention.data && choice && (
         <ChannelRetentionField retention={retention.data} choice={choice} onChange={setRetentionChoice} />

@@ -21,12 +21,13 @@ import { AttachmentTray } from './AttachmentTray';
 import type { ComposerAttachments } from './useComposerAttachments';
 import { useDraftStore } from '@/stores/drafts';
 import { flattenMentions } from '@/lib/mentions';
+import { ConfirmDialog } from '@/shared/components/ConfirmDialog/ConfirmDialog';
 import { useScheduleMessage, type ScheduleTarget } from '@/features/messaging/hooks/useScheduledMessages';
 import { toast } from '@/shared/components/Toast';
 import { SCHEDULE_PRESETS, formatScheduleHint, toLocalInputValue } from './schedulePresets';
 import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
-import { buildMentionItems } from './mentionItems';
+import { asksBeforeBroadcast, buildMentionItems } from './mentionItems';
 import { useUserGroups } from '@/features/workspace';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { TextInput } from '@/shared/components/Form/TextInput';
@@ -53,6 +54,8 @@ interface Props {
   members?: WorkspaceMember[];
   channels?: Channel[];
   isDm?: boolean;
+  canBroadcast?: boolean;
+  channelMemberCount?: number;
   placeholder?: string;
   draftKey?: string;
   initialContent?: string;
@@ -74,6 +77,8 @@ export default function MessageInput({
   members = [],
   channels = [],
   isDm = false,
+  canBroadcast = true,
+  channelMemberCount = 0,
   placeholder,
   draftKey,
   initialContent,
@@ -114,8 +119,8 @@ export default function MessageInput({
   const workspace = useWorkspaceStore((s) => s.currentWorkspace);
   const { data: groups } = useUserGroups(workspace?.id, workspace?.instanceUrl);
   const mentionItems = useMemo<MentionItem[]>(
-    () => buildMentionItems(members, channels, isDm, groups ?? []),
-    [members, channels, isDm, groups],
+    () => buildMentionItems(members, channels, isDm, groups ?? [], canBroadcast),
+    [members, channels, isDm, groups, canBroadcast],
   );
   // The editor is built once, but the people it can mention change with the
   // channel, so the suggestion callback reads the current list through a ref.
@@ -264,49 +269,58 @@ export default function MessageInput({
   const [showPoll, setShowPoll] = useState(false);
   const createPoll = useCreatePoll(pollTarget?.channelId ?? '', pollTarget?.instanceUrl);
 
-  const handleSend = useCallback(async () => {
-    if (!editor) return;
-    const markdown = editor.storage.markdown.getMarkdown().trim();
-    const pollCommand = pollTarget && !editing ? parsePollCommand(markdown) : null;
-    if (pollCommand?.kind === 'invalid') {
-      toast.error(pollCommand.message);
-      return;
-    }
-    if (pollCommand) {
-      editor.commands.clearContent();
-      if (draftKey) useDraftStore.getState().clearDraft(draftKey);
-      if (pollCommand.kind === 'dialog') {
-        setShowPoll(true);
+  const [confirmingBroadcast, setConfirmingBroadcast] = useState(false);
+
+  const handleSend = useCallback(
+    async (confirmed = false) => {
+      if (!editor) return;
+      const markdown = editor.storage.markdown.getMarkdown().trim();
+      const pollCommand = pollTarget && !editing ? parsePollCommand(markdown) : null;
+      if (pollCommand?.kind === 'invalid') {
+        toast.error(pollCommand.message);
         return;
       }
-      try {
-        await createPoll.mutateAsync({
-          question: pollCommand.question,
-          options: pollCommand.options,
-          thread_parent_id: pollTarget?.threadParentId ?? null,
-        });
-      } catch (err) {
-        editor.commands.setContent(markdown);
-        toast.error(toUserMessage(err, "Couldn't create the poll"));
+      if (pollCommand) {
+        editor.commands.clearContent();
+        if (draftKey) useDraftStore.getState().clearDraft(draftKey);
+        if (pollCommand.kind === 'dialog') {
+          setShowPoll(true);
+          return;
+        }
+        try {
+          await createPoll.mutateAsync({
+            question: pollCommand.question,
+            options: pollCommand.options,
+            thread_parent_id: pollTarget?.threadParentId ?? null,
+          });
+        } catch (err) {
+          editor.commands.setContent(markdown);
+          toast.error(toUserMessage(err, "Couldn't create the poll"));
+        }
+        return;
       }
-      return;
-    }
-    const files = attachmentsRef.current;
-    if (!markdown && !files?.hasReady && !allowEmptyRef.current) return;
-    if (files?.busy) {
-      toast.error('Wait for the files to finish uploading');
-      return;
-    }
-    editor.commands.clearContent();
-    editor.commands.focus();
-    if (draftKey) useDraftStore.getState().clearDraft(draftKey);
-    try {
-      await onSend(markdown);
-    } catch {
-      editor.commands.setContent(markdown);
-      if (draftKey) useDraftStore.getState().setDraft(draftKey, markdown);
-    }
-  }, [editor, onSend, draftKey, pollTarget, editing, createPoll]);
+      const files = attachmentsRef.current;
+      if (!markdown && !files?.hasReady && !allowEmptyRef.current) return;
+      if (files?.busy) {
+        toast.error('Wait for the files to finish uploading');
+        return;
+      }
+      if (!confirmed && !editing && asksBeforeBroadcast(markdown, channelMemberCount)) {
+        setConfirmingBroadcast(true);
+        return;
+      }
+      editor.commands.clearContent();
+      editor.commands.focus();
+      if (draftKey) useDraftStore.getState().clearDraft(draftKey);
+      try {
+        await onSend(markdown);
+      } catch {
+        editor.commands.setContent(markdown);
+        if (draftKey) useDraftStore.getState().setDraft(draftKey, markdown);
+      }
+    },
+    [editor, onSend, draftKey, pollTarget, editing, createPoll, channelMemberCount],
+  );
 
   useEffect(() => {
     sendRef.current = () => {
@@ -408,7 +422,7 @@ export default function MessageInput({
                 variant="primary"
                 size="sm"
 
-                onClick={handleSend}
+                onClick={() => void handleSend()}
                 disabled={isEmpty}
                 data-qa="message-edit-save"
               >
@@ -506,7 +520,7 @@ export default function MessageInput({
               )}
               <button
                 type="button"
-                onClick={handleSend}
+                onClick={() => void handleSend()}
                 disabled={sendBlocked}
                 data-qa="composer-send"
                 className="p-1 text-accent hover:text-accent-soft disabled:text-faint transition cursor-pointer disabled:cursor-not-allowed rounded hover:bg-raised/60"
@@ -520,6 +534,16 @@ export default function MessageInput({
         </div>
       </div>
       {showPoll && pollTarget && <PollDialog target={pollTarget} onClose={() => setShowPoll(false)} />}
+      {confirmingBroadcast && (
+        <ConfirmDialog
+          title={`This notifies ${channelMemberCount - 1} people. Send anyway?`}
+          confirmLabel="Send"
+          tone="primary"
+          onConfirm={() => handleSend(true)}
+          onClose={() => setConfirmingBroadcast(false)}
+          dataQa="broadcast-confirm"
+        />
+      )}
     </div>
   );
 }

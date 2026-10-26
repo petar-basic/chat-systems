@@ -9,6 +9,7 @@ export const MESSAGES_PAGE_SIZE = 50;
 export const NOTIFICATIONS_PAGE_SIZE = 50;
 export const SEARCH_RESULT_LIMIT = 20;
 export const MENTION_SUGGESTION_LIMIT = 8;
+export const BROADCAST_CONFIRM_ABOVE = 25;
 
 export const MAX_ATTACHMENTS = 10;
 

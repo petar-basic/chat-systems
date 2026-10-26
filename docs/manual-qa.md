@@ -170,6 +170,13 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - **Steps:** create a public channel and a private channel; join/leave the public one.
 - **Expected:** public channels are visible/joinable by any workspace member; private channels only to invited channel members.
 - 🔴 **Edge — private access:** as a non-member, try to open a private channel / fetch its messages by id (`/api/channels/<id>/...` or `/api/messages/...`) → **403/404**, no message leakage.
+- 🔴 **Edge — who creates:** as Admin set *Workspace settings → General → Who can create public channels* to *Admins only*. Bob's *Create channel* offers only *Private*; set private to admins too and Bob has no *+* by *Channels* and no *Create channel* in *Browse channels*. `POST /api/workspaces/<id>/channels` as Bob answers **403** naming the kind. Put both back.
+
+### 4.1b 🔴 Who may notify a whole channel
+- **Reach:** *Workspace settings → General → Permissions*; a channel's ⋯ → *Channel details → Settings*.
+- **Steps:** as Admin set *Who can use @channel, @here and @everyone* to *Admins only*. As Bob type `@` in #random, then send `@channel hello`. Make Bob a channel admin of #random and send it again. Put the rule back; in #random's *Settings* untick *Allow @channel, @here and @everyone* and send `@here` as Admin.
+- **Expected:** Bob's suggestions have no `@channel`, `@here` or `@everyone`; his send fails with *Only workspace admins and this channel's admins can use @channel, @here and @everyone*. As a channel admin it goes through. With the channel switch off even the Admin is refused (*…turned off in this channel*), and *Audit log* has *Broadcast mentions changed*.
+- 🟠 **Edge — large channel:** in a channel of more than 25 people a broadcast asks *This notifies N people. Send anyway?*; *Cancel* keeps the text in the composer.
 
 ### 4.2 🟠 Channel admin / archive
 - **Steps:** channel admin renames/archives a channel from the header's ⋯ → *Channel details → About*; a non-admin sees the topic and description as text and no *Settings* tab.

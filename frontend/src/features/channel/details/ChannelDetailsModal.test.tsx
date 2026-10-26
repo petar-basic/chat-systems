@@ -147,6 +147,21 @@ describe('ChannelDetailsModal settings', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it('turns @channel, @here and @everyone off for the channel, and sends the switch only when it moved', async () => {
+    renderModal({ initialTab: 'settings' });
+    expect(screen.getByTestId('channel-settings-broadcast-mentions')).toBeChecked();
+
+    fireEvent.click(screen.getByTestId('channel-settings-broadcast-mentions'));
+    save();
+
+    await waitFor(() =>
+      expect(updateChannel).toHaveBeenCalledWith({
+        post_policy: 'everyone',
+        allow_broadcast_mentions: false,
+      }),
+    );
+  });
+
   it('keeps forever, or goes back to the workspace', async () => {
     retention = { ...retention, channel: { message_days: 30, updated_by: null, updated_at: '' } };
     renderModal({ initialTab: 'settings' });

@@ -21,7 +21,7 @@ import {
   ChannelIntro,
   CreateChannelModal,
 } from '@/features/channel';
-import { canAddChannelMembers } from '@/lib/channelPermissions';
+import { canAddChannelMembers, creatableChannelKinds } from '@/lib/channelPermissions';
 import { MessageList, MessageInput } from '@/features/messaging';
 import ConversationView from '@/features/messaging/ConversationView';
 import { AllUnreadsView } from '@/features/unreads';
@@ -44,10 +44,14 @@ export default function WorkspacePage() {
 
   useActiveHuddlesSync(currentWorkspace?.id, currentWorkspace?.instanceUrl);
 
-  const { canPost, canModerate, myRole, workspaceRole } = useChannelModeration(
-    currentChannel?.id ?? null,
-    currentChannel?.settings,
-  );
+  const {
+    canPost,
+    canModerate,
+    canBroadcast,
+    members: channelMembers,
+    myRole,
+    workspaceRole,
+  } = useChannelModeration(currentChannel?.id ?? null, currentChannel?.settings);
   const { role } = useCurrentWorkspaceRole();
   const isAdmin = role === 'admin' || role === 'owner';
   const mayBuildWorkflows = canBuild(role, workflowBuildersOf(currentWorkspace?.settings));
@@ -323,6 +327,8 @@ export default function WorkspacePage() {
                   draftKey={currentChannel.id}
                   members={c.workspaceMembers}
                   channels={c.channels}
+                  canBroadcast={canBroadcast}
+                  channelMemberCount={channelMembers.length}
                   onSend={c.handleSend}
                   attachments={c.attachments}
                   onTyping={c.handleTyping}
@@ -372,6 +378,7 @@ export default function WorkspacePage() {
 
         {creatingChannel && (
           <CreateChannelModal
+            kinds={creatableChannelKinds(role, currentWorkspace?.settings)}
             channels={c.channels}
             onCreate={c.handleCreateChannel}
             onClose={() => setCreatingChannel(false)}

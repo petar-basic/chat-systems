@@ -19,12 +19,19 @@ import { Checkbox } from '@/shared/components/Form/Checkbox';
 import { FilePicker } from '@/shared/components/Form/FilePicker';
 import { Select } from '@/shared/components/Form/Select';
 import type { Workspace } from '@/stores/workspace';
-import { workflowBuildersOf, type WorkflowBuilders } from '@/features/workflows';
+import { ruleOf, type WhoMay, type WorkspaceRule } from '@/lib/workspaceRules';
 import { linkPreviewsEnabled } from '../linkPreviews';
 import { workspaceInitials } from '../workspaceTile';
 
 type Changes = components['schemas']['UpdateWorkspaceRequest'];
 type DeleteType = 'soft' | 'hard';
+
+const PERMISSIONS: { rule: WorkspaceRule; label: string }[] = [
+  { rule: 'workflow_builders', label: 'Who can build workflows' },
+  { rule: 'broadcast_mentions', label: 'Who can use @channel, @here and @everyone' },
+  { rule: 'public_channel_creators', label: 'Who can create public channels' },
+  { rule: 'private_channel_creators', label: 'Who can create private channels' },
+];
 
 interface Props {
   workspace: Workspace;
@@ -40,7 +47,9 @@ export function GeneralSection({ workspace, onDeleted }: Props) {
   const [name, setName] = useState(workspace.name);
   const [description, setDescription] = useState(workspace.description ?? '');
   const [linkPreviews, setLinkPreviews] = useState(linkPreviewsEnabled(workspace.settings));
-  const [workflowBuilders, setWorkflowBuilders] = useState(workflowBuildersOf(workspace.settings));
+  const [rules, setRules] = useState(() =>
+    Object.fromEntries(PERMISSIONS.map(({ rule }) => [rule, ruleOf(workspace.settings, rule)])),
+  );
   const [uploadingIcon, setUploadingIcon] = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
   const [deleteType, setDeleteType] = useState<DeleteType>('soft');
@@ -177,19 +186,25 @@ export function GeneralSection({ workspace, onDeleted }: Props) {
           dataQa="workspace-link-previews"
         />
 
-        <Select
-          label="Who can build workflows"
-          value={workflowBuilders}
-          onChange={(e) => {
-            const workflow_builders = e.target.value as WorkflowBuilders;
-            setWorkflowBuilders(workflow_builders);
-            save.mutate({ workflow_builders });
-          }}
-          dataQa="workspace-workflow-builders"
-        >
-          <option value="members">Every member</option>
-          <option value="admins">Admins only</option>
-        </Select>
+        <fieldset className="space-y-3" data-qa="workspace-permissions">
+          <legend className="mb-2 text-sm font-semibold text-fg">Permissions</legend>
+          {PERMISSIONS.map(({ rule, label }) => (
+            <Select
+              key={rule}
+              label={label}
+              value={rules[rule]}
+              onChange={(e) => {
+                const who = e.target.value as WhoMay;
+                setRules((current) => ({ ...current, [rule]: who }));
+                save.mutate({ [rule]: who });
+              }}
+              dataQa={`workspace-${rule.replaceAll('_', '-')}`}
+            >
+              <option value="members">Every member</option>
+              <option value="admins">Admins only</option>
+            </Select>
+          ))}
+        </fieldset>
 
         <p aria-live="polite" className="min-h-5 text-xs" data-qa="workspace-save-status">
           {save.isPending ? (

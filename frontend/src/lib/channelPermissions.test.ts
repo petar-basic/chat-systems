@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { canModerateChannel, canAddChannelMembers, canPostInChannel } from './channelPermissions';
+import {
+  canModerateChannel,
+  canAddChannelMembers,
+  canPostInChannel,
+  canBroadcastInChannel,
+  creatableChannelKinds,
+} from './channelPermissions';
 
 describe('canModerateChannel', () => {
   it('lets workspace admins and owners moderate any channel', () => {
@@ -59,5 +65,46 @@ describe('canPostInChannel', () => {
   /// `can_moderate`, and the two have to agree or the composer lies.
   it('does not promote a guest through channel admin', () => {
     expect(canPostInChannel(locked, 'guest', 'admin')).toBe(false);
+  });
+});
+
+describe('canBroadcastInChannel', () => {
+  it('lets anyone who may post broadcast by default', () => {
+    expect(canBroadcastInChannel({}, 'members', 'member', 'member')).toBe(true);
+    expect(canBroadcastInChannel(undefined, 'members', 'guest', undefined)).toBe(true);
+  });
+
+  it('keeps an admins-only rule to workspace and channel admins', () => {
+    expect(canBroadcastInChannel({}, 'admins', 'member', 'member')).toBe(false);
+    expect(canBroadcastInChannel({}, 'admins', 'guest', undefined)).toBe(false);
+    expect(canBroadcastInChannel({}, 'admins', 'member', 'admin')).toBe(true);
+    expect(canBroadcastInChannel({}, 'admins', 'admin', undefined)).toBe(true);
+    expect(canBroadcastInChannel({}, 'admins', 'owner', 'member')).toBe(true);
+  });
+
+  it('refuses everyone in a channel that turned broadcasts off', () => {
+    expect(canBroadcastInChannel({ allow_broadcast_mentions: false }, 'members', 'owner', 'admin')).toBe(
+      false,
+    );
+  });
+});
+
+describe('creatableChannelKinds', () => {
+  it('lets members create both kinds by default, and never a guest', () => {
+    expect(creatableChannelKinds('member', {})).toEqual(['public', 'private']);
+    expect(creatableChannelKinds('guest', {})).toEqual([]);
+    expect(creatableChannelKinds(null, {})).toEqual([]);
+  });
+
+  it('follows the rule for each kind separately', () => {
+    const settings = { public_channel_creators: 'admins' };
+    expect(creatableChannelKinds('member', settings)).toEqual(['private']);
+    expect(creatableChannelKinds('admin', settings)).toEqual(['public', 'private']);
+    expect(
+      creatableChannelKinds('member', {
+        public_channel_creators: 'admins',
+        private_channel_creators: 'admins',
+      }),
+    ).toEqual([]);
   });
 });

@@ -10,6 +10,7 @@ import { QUERY_KEYS, MESSAGES_PAGE_SIZE, ErrorLabels } from '@/shared/constants'
 import { upsertMessage, patchMessageById, newestFirst, removeMessageById } from '@/lib/messageCache';
 import { toast } from '@/shared/components/Toast';
 import { logger } from '@/lib/logger';
+import { refusalOr } from '@/lib/errors';
 
 export interface OutgoingMessage {
   content: string;
@@ -114,7 +115,7 @@ export const useSendMessage = (channelId: string, userId: string) => {
       queryClient.setQueryData<MessagesInfiniteData>(key, (old) =>
         patchMessageById(old, id, (m) => ({ ...m, pending: false, failed: true })),
       );
-      toast.error(ErrorLabels.SendFailed);
+      toast.error(refusalOr(err, ErrorLabels.SendFailed));
     },
     onSuccess: (message, { id }) => {
       // The optimistic row was keyed on the client id, the stored row is keyed

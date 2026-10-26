@@ -60,6 +60,8 @@ export const MentionDropdown = forwardRef<MentionDropdownHandle, Props>(({ items
         <button
           key={`${item.type}-${item.id}`}
           type="button"
+          data-qa="mention-option"
+          data-mention-type={item.type}
           onMouseDown={(e) => {
             e.preventDefault();
             command(item);
