@@ -1669,4 +1669,7 @@ adds `structure/feature-structure`, an ESLint rule that refuses a file outside `
 `shared/`, `pages/`, `lib/`, `stores/`, `api/`, `test/` and `types/`, and a feature
 importing another feature's files except through its `index.ts`. 108 imports in 56 files
 went through a barrel for the first time, and `instance`, `later`, `polls` and `search`
-gained one. `docs/frontend.md` describes the layout once, at the top.
+gained one. A barrel imports its whole feature, so features that use each other now form
+import cycles; that is safe while no module reads another feature's export as it loads, and
+the one that did, search's file-kind filter, now reads `lib/fileKinds`, which moved out of
+messaging because both use it. `docs/frontend.md` describes the layout once, at the top.

@@ -4,7 +4,7 @@ import type { components } from '@/api/schema';
 import { formatBytes } from '@/lib/fileSize';
 import { ImageGallery } from './ImageGallery';
 import { useGallery } from './galleryContext';
-import { fileKind, isRenderableImage, playableMedia } from './fileKinds';
+import { fileKind, isRenderableImage, playableMedia } from '@/lib/fileKinds';
 
 type Attachment = components['schemas']['Attachment'];
 

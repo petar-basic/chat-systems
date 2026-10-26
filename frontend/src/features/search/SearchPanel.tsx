@@ -17,7 +17,8 @@ import {
   type SearchTab,
 } from '@/features/search/searchFilters';
 import { FileHit, type FileSearchHit } from '@/features/search/FileHit';
-import { isRenderableImage, ImageGallery, useConversations } from '@/features/messaging';
+import { ImageGallery, useConversations } from '@/features/messaging';
+import { isRenderableImage } from '@/lib/fileKinds';
 import { X, Search } from 'lucide-react';
 import { IconButton } from '@/shared/components/IconButton/IconButton';
 import { displayNameOf } from '@/lib/userHelpers';

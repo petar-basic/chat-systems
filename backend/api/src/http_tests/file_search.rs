@@ -449,7 +449,7 @@ async fn the_name_and_kind_come_from_the_database(pool: PgPool) {
     assert_eq!(name.as_deref(), Some("Sifra.txt"), "a rename refreshes it");
 
     let cases: Vec<Value> = serde_json::from_str(include_str!(
-        "../../../../frontend/src/features/messaging/fileKindCases.json"
+        "../../../../frontend/src/lib/fileKindCases.json"
     ))
     .unwrap();
     for case in cases {

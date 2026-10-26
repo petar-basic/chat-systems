@@ -8,8 +8,6 @@ export { GalleryProvider } from './GalleryProvider';
 export { ImageGallery } from './ImageGallery';
 export { default as RichTextDisplay } from './RichTextDisplay';
 export { default as ScheduledMessagesPanel } from './ScheduledMessagesPanel';
-export { FILE_KINDS, fileKind, isRenderableImage } from './fileKinds';
-export type { FileKindName } from './fileKinds';
 export { useConversations, useMarkConversationRead, useOpenConversation } from './hooks/useConversations';
 export type { Conversation } from './hooks/useConversations';
 export { useSendMessage } from './hooks/useMessages';

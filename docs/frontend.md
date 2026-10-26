@@ -394,7 +394,7 @@ by name* box asks the same route with `channel_id`.
 
 **API calls:** GET `/search?q=...&limit=20`, GET `/search/files?q=...&limit=20`
 
-`fileKinds.ts` holds the icon and tone per server `kind` (`FILE_KINDS`) and `kindOf()`, the
+`lib/fileKinds.ts` holds the icon and tone per server `kind` (`FILE_KINDS`) and `kindOf()`, the
 same rules as the database's `file_kind_of()` for files that have no server kind yet (the
 composer tray, message attachments). Both are tested against `fileKindCases.json`.
 

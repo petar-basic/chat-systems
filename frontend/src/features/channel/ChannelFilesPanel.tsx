@@ -13,7 +13,8 @@ import { TextInput } from '@/shared/components/Form/TextInput';
 import { useUserCache } from '@/stores/users';
 import { displayNameOf } from '@/lib/userHelpers';
 import { formatBytes } from '@/lib/fileSize';
-import { fileKind, isRenderableImage, ImageGallery } from '@/features/messaging';
+import { ImageGallery } from '@/features/messaging';
+import { fileKind, isRenderableImage } from '@/lib/fileKinds';
 
 const TABS: { kind: FileKindFilter | null; label: string }[] = [
   { kind: null, label: 'All' },
