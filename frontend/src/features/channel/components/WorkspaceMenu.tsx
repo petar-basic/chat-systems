@@ -64,6 +64,8 @@ export function WorkspaceMenu({
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        data-qa="workspace-menu"
         className="w-full px-4 py-3 flex items-center justify-between border-b border-line/50 hover:bg-raised/30 transition cursor-pointer"
       >
         <span className="font-semibold text-fg truncate">{workspaceName || 'Select workspace'}</span>

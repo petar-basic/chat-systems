@@ -264,7 +264,7 @@ come after the structure move because they rebuild *Channel settings* as *Channe
 | # | Ticket | Area |
 |---|---|---|
 | CS-068 ✅ | Workflows without drafts | backend · frontend |
-| [CS-069](CS-069-ui-fixes-and-readme.md) | Small UI fixes and a README that says what ships | frontend · backend · docs |
+| CS-069 ✅ | Small UI fixes and a README that says what ships | frontend · backend · docs |
 | [CS-070](CS-070-workspace-admin.md) | Workspace admin in one place, with the settings that have no screen | frontend · backend |
 | [CS-071](CS-071-first-run.md) | First run and an empty workspace that says what to do | backend · frontend · ops |
 | [CS-072](CS-072-fewer-round-trips.md) | Fewer round trips on start and on switching channels | frontend · backend |
@@ -276,7 +276,7 @@ come after the structure move because they rebuild *Channel settings* as *Channe
 
 | # | Ticket | Area | Why it is not done |
 |---|---|---|---|
-| [CS-069](CS-069-ui-fixes-and-readme.md) … [CS-075](CS-075-posting-and-channel-permissions.md) | Wave 24 | frontend · backend · ops | Planned 2026-10-26; one at a time, in number order |
+| [CS-070](CS-070-workspace-admin.md) … [CS-075](CS-075-posting-and-channel-permissions.md) | Wave 24 | frontend · backend · ops | Planned 2026-10-26; one at a time, in number order |
 | [CS-037](CS-037-huddle-sfu.md) | SFU for large huddles | backend · frontend · ops | Held for 4.0.0 — it adds a service to the stack, so it ships in a major release |
 
 ## Conflict map

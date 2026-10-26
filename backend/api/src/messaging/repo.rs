@@ -161,20 +161,20 @@ impl MessageRepo {
         channel_id: Uuid,
         posted_by: Uuid,
         content: &str,
-        bot: &serde_json::Value,
+        metadata: &serde_json::Value,
         mentioned: &[Uuid],
     ) -> sqlx::Result<Message> {
         let msg = sqlx::query_as!(
             Message,
             r#"
             INSERT INTO messages (channel_id, user_id, content, metadata)
-            VALUES ($1, $2, $3, jsonb_build_object('bot', $4::jsonb))
+            VALUES ($1, $2, $3, $4::jsonb)
             RETURNING id, channel_id, user_id, client_message_id, content, metadata AS "metadata!", thread_parent_id, reply_count AS "reply_count!", is_pinned AS "is_pinned!", created_at, updated_at, deleted_at
             "#,
             channel_id,
             posted_by,
             content,
-            bot
+            metadata
         )
         .fetch_one(&mut *conn)
         .await?;
@@ -193,7 +193,14 @@ impl MessageRepo {
     ) -> sqlx::Result<Message> {
         let mut tx = self.pool.begin().await?;
         let msg = self
-            .create_bot_message_in(&mut tx, channel_id, posted_by, content, bot, &[])
+            .create_bot_message_in(
+                &mut tx,
+                channel_id,
+                posted_by,
+                content,
+                &serde_json::json!({ "bot": bot }),
+                &[],
+            )
             .await?;
         tx.commit().await?;
         Ok(msg)

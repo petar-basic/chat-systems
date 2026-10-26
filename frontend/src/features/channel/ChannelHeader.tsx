@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import {
   Hash,
   Lock,
@@ -13,6 +13,7 @@ import {
   Bell,
 } from 'lucide-react';
 import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
+import { IconButton } from '@/shared/components/IconButton/IconButton';
 import { useChannelMembers, useChannelPins } from '@/hooks/queries/useChannels';
 import { useNavigate } from 'react-router';
 import type { Channel } from '@/stores/workspace';
@@ -101,137 +102,98 @@ export default function ChannelHeader({
             <span className="text-sm text-muted ml-2 truncate hidden sm:inline">— {channel.topic}</span>
           )}
 
-          {/* Chips rather than icons alone: how many people are in here and
-              whether anything is pinned is the state of the channel, and it
-              should be readable without clicking anything first. */}
-          <button
-            onClick={onToggleChannelMembers}
-            data-qa="channel-header-members"
-            className="max-sm:hidden ml-2 shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] text-muted hover:text-fg hover:bg-raised/50 transition cursor-pointer"
-            title="Channel members"
-          >
-            <Users className="w-3 h-3" />
-            {memberCount ?? '—'}
-          </button>
-          {pinCount > 0 && (
-            <button
-              onClick={onTogglePins}
-              data-qa="channel-header-pins"
-              className="max-sm:hidden shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] text-warning/80 hover:text-warning hover:bg-raised/50 transition cursor-pointer"
-              title="Pinned messages"
-            >
-              <Pin className="w-3 h-3" />
-              {pinCount}
-            </button>
-          )}
-
           <div className="ml-auto flex items-center gap-1">
             <HuddleBar channelId={channel.id} />
             <NotificationLevelButton channelId={channel.id} direct={false} className="max-sm:hidden" />
-            {canModerate && (
-              <button
-                onClick={() => setShowSettings(true)}
-                aria-label="Channel settings"
-                data-qa="channel-settings-open"
-                className="max-sm:hidden p-1.5 rounded-lg transition text-muted hover:text-fg hover:bg-raised/50"
-              >
-                <Settings className="w-4 h-4" />
-              </button>
-            )}
-            <button
+            <HeaderToggle
+              label="Channel members"
+              icon={<Users className="w-4 h-4" />}
+              count={memberCount ?? '—'}
+              pressed={showChannelMembers}
               onClick={onToggleChannelMembers}
-              aria-label="Channel members"
-              aria-pressed={showChannelMembers}
-              className={`max-sm:hidden p-1.5 rounded-lg transition ${showChannelMembers ? 'bg-raised text-fg' : 'text-muted hover:text-fg hover:bg-raised/50'}`}
-            >
-              <Users className="w-4 h-4" />
-            </button>
-            <button
+              dataQa="channel-header-members"
+            />
+            <HeaderToggle
+              label="Pinned messages"
+              icon={<Pin className="w-4 h-4" />}
+              count={pinCount || undefined}
+              pressed={showPins}
               onClick={onTogglePins}
-              aria-label="Pinned messages"
-              aria-pressed={showPins}
-              className={`max-sm:hidden p-1.5 rounded-lg transition ${showPins ? 'bg-raised text-warning' : 'text-muted hover:text-fg hover:bg-raised/50'}`}
-            >
-              <Pin className="w-4 h-4" />
-            </button>
-            <button
+              dataQa="channel-header-pins"
+            />
+            <HeaderToggle
+              label="Files"
+              icon={<Files className="w-4 h-4" />}
+              pressed={showFiles}
               onClick={onToggleFiles}
-              aria-label="Files"
-              aria-pressed={showFiles}
-              data-qa="channel-header-files"
-              className={`max-sm:hidden p-1.5 rounded-lg transition ${showFiles ? 'bg-raised text-fg' : 'text-muted hover:text-fg hover:bg-raised/50'}`}
-            >
-              <Files className="w-4 h-4" />
-            </button>
-            <button
+              dataQa="channel-header-files"
+            />
+            <IconButton
+              label="Search"
+              size="md"
+              icon={<Search className="w-4 h-4" />}
+              pressed={showSearch}
               onClick={onToggleSearch}
-              aria-label="Search"
-              aria-pressed={showSearch}
               data-qa="channel-header-search"
-              className={`p-1.5 rounded-lg transition ${showSearch ? 'bg-raised text-fg' : 'text-muted hover:text-fg hover:bg-raised/50'}`}
-            >
-              <Search className="w-4 h-4" />
-            </button>
+            />
 
-            {/* Five unlabelled icons and a channel name do not fit a phone, so
-                below `sm` the less-used three fold into one menu. */}
-            <div className="relative sm:hidden" ref={overflowRef}>
-              <button
+            <div className={`relative ${canModerate ? '' : 'sm:hidden'}`} ref={overflowRef}>
+              <IconButton
+                label="More channel actions"
+                size="md"
+                icon={<MoreHorizontal className="w-4 h-4" />}
                 onClick={() => setOverflowOpen((open) => !open)}
-                aria-label="More channel actions"
+                aria-expanded={overflowOpen}
                 data-qa="channel-actions-more"
-                className="p-1.5 rounded-lg transition text-muted hover:text-fg hover:bg-raised/50"
-              >
-                <MoreHorizontal className="w-4 h-4" />
-              </button>
+              />
               {overflowOpen && (
                 <div className="absolute right-0 top-full mt-1 w-48 bg-surface border border-line rounded-lg shadow-xl z-20 py-1">
-                  <button
-                    className="w-full px-4 py-2 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2 cursor-pointer"
+                  <MenuItem
+                    icon={<Users className="w-4 h-4" />}
+                    label="Members"
+                    phoneOnly
                     onClick={() => {
                       onToggleChannelMembers();
                       setOverflowOpen(false);
                     }}
-                  >
-                    <Users className="w-4 h-4" /> Members
-                  </button>
-                  <button
-                    className="w-full px-4 py-2 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2 cursor-pointer"
+                  />
+                  <MenuItem
+                    icon={<Pin className="w-4 h-4" />}
+                    label="Pinned"
+                    phoneOnly
                     onClick={() => {
                       onTogglePins();
                       setOverflowOpen(false);
                     }}
-                  >
-                    <Pin className="w-4 h-4" /> Pinned
-                  </button>
-                  <button
-                    className="w-full px-4 py-2 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2 cursor-pointer"
+                  />
+                  <MenuItem
+                    icon={<Files className="w-4 h-4" />}
+                    label="Files"
+                    phoneOnly
                     onClick={() => {
                       onToggleFiles();
                       setOverflowOpen(false);
                     }}
-                  >
-                    <Files className="w-4 h-4" /> Files
-                  </button>
-                  <button
-                    className="w-full px-4 py-2 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2 cursor-pointer"
+                  />
+                  <MenuItem
+                    icon={<Bell className="w-4 h-4" />}
+                    label="Notification settings"
+                    phoneOnly
                     onClick={() => {
                       setNotificationsOpen(true);
                       setOverflowOpen(false);
                     }}
-                  >
-                    <Bell className="w-4 h-4" /> Notification settings
-                  </button>
+                  />
                   {canModerate && (
-                    <button
-                      className="w-full px-4 py-2 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2 cursor-pointer"
+                    <MenuItem
+                      icon={<Settings className="w-4 h-4" />}
+                      label="Channel settings"
+                      dataQa="channel-settings-open"
                       onClick={() => {
                         setShowSettings(true);
                         setOverflowOpen(false);
                       }}
-                    >
-                      <Settings className="w-4 h-4" /> Channel settings
-                    </button>
+                    />
                   )}
                 </div>
               )}
@@ -258,5 +220,61 @@ export default function ChannelHeader({
         </>
       )}
     </div>
+  );
+}
+
+function HeaderToggle({
+  label,
+  icon,
+  count,
+  pressed,
+  onClick,
+  dataQa,
+}: {
+  label: string;
+  icon: ReactNode;
+  count?: number | string;
+  pressed: boolean;
+  onClick: () => void;
+  dataQa: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      aria-pressed={pressed}
+      data-qa={dataQa}
+      className="max-sm:hidden inline-flex h-8 min-w-8 shrink-0 items-center justify-center gap-1 rounded-md px-1.5 text-xs text-muted transition cursor-pointer hover:text-fg hover:bg-raised/60 aria-pressed:bg-raised aria-pressed:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+    >
+      {icon}
+      {count !== undefined && <span className="tabular-nums">{count}</span>}
+    </button>
+  );
+}
+
+function MenuItem({
+  icon,
+  label,
+  phoneOnly = false,
+  dataQa,
+  onClick,
+}: {
+  icon: ReactNode;
+  label: string;
+  phoneOnly?: boolean;
+  dataQa?: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      data-qa={dataQa}
+      className={`w-full px-4 py-2 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2 cursor-pointer ${phoneOnly ? 'sm:hidden' : ''}`}
+      onClick={onClick}
+    >
+      {icon} {label}
+    </button>
   );
 }

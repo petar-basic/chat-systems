@@ -22,8 +22,20 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   `POST /workspaces/{id}/workflows` creates a workflow that is already on. A workflow saved as
   a draft before the upgrade is one that is off; *Turn on* starts it.
 
+### Added
+
+- **Form answers as fields.** A workflow message with the form answers below it shows them as
+  labelled fields in two columns instead of a tall stack of paragraphs; the message text is
+  unchanged.
+
 ### Changed
 
+- **The channel header has one members button**, the people count, and the pin button shows
+  how many are pinned. *Channel settings* moved into the header's ⋯ menu. Every header icon
+  has a tooltip.
+- **Workspaces without an icon differ in the rail**: a tile coloured from the workspace and up
+  to two letters (*Dev Team* → *DT*, *Design* → *De*).
+- **The README lists what ships**, grouped as the app is.
 - **Workflows have no drafts.** *Create workflow* saves a new workflow and it starts running;
   an existing one has *Save changes*, *Turn off* and *Turn on*. A draft had to be complete to
   save anyway, and once saved it looked exactly like a workflow somebody had turned off.

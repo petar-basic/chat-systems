@@ -202,13 +202,14 @@ async fn finish(
     }
 
     if response.response_type == "in_channel" && !response.text.trim().is_empty() {
-        let bot = serde_json::json!({ "name": format!("/{command}"), "icon_url": null });
+        let metadata =
+            serde_json::json!({ "bot": { "name": format!("/{command}"), "icon_url": null } });
         let channel = authz::find_channel(state, ch_id).await?;
 
         let mut tx = state.pool.begin().await?;
         let msg = state
             .message_repo
-            .create_bot_message_in(&mut tx, ch_id, user_id, &response.text, &bot, &[])
+            .create_bot_message_in(&mut tx, ch_id, user_id, &response.text, &metadata, &[])
             .await?;
         let staged = state
             .publisher

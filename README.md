@@ -19,35 +19,55 @@ integration-test suite and a real CI pipeline.
 
 ## Features
 
-- **Real-time messaging** — channels, threads, pins, reactions, editing with history, link previews, full-text search
-- **Direct messages** — 1:1 and group conversations (up to nine) with threads, reactions and read state
-- **Mentions** — `@person`, `@group`, `@channel` / `@here` / `@everyone`, with custom emoji
-- **Scheduled send** — queue a message for a channel or conversation and send it later
-- **Reminders** — `/remind me in 30m to ship`, `at 15:00`, `tomorrow at 9am`, read in your own timezone
-- **Keeping things** — saved items, channel bookmarks, message forwarding, a status you set yourself, and sidebar sections of your own
-- **Huddles** — WebRTC voice/video with screen sharing (mesh, small groups)
-- **Presence & typing** — live, multi-tab and multi-node aware
-- **File sharing** — uploads served through the authenticated API (local disk or S3, RustFS in the compose stack)
-- **Multi-workspace** — one instance, many teams; the client can connect to several instances
-- **Role-based access** — Instance Admin, Workspace Owner/Admin, Channel Admin, Member, Guest — guests see only the people they share a channel with
-- **Announcement channels** — read-only to everyone but moderators, while reactions keep working
-- **Invite-only onboarding** — email invites, password reset, no open sign-up
-- **Webhooks, bots and slash commands** — incoming (Slack-compatible `{"text":...}` → channel), outgoing (SSRF-hardened, HMAC-signed), and synchronous `/commands`
-- **Enterprise auth** — SSO (OIDC), TOTP with recovery codes, SCIM deprovisioning
-- **Compliance** — audit log, retention policies, per-user export and erasure
-- **Notifications** — in-app, desktop, and Web Push to a closed app, with mention highlighting and favicon/app-icon badges
-- **Installable PWA** — standalone window, app-icon unread badge, desktop notifications
+**Messaging**
+- Public and private channels, threads, DMs and group DMs (up to nine people)
+- Reactions, pins, editing with history, forwarding, mark as unread
+- `@person`, `@group`, `@channel` / `@here` / `@everyone`, and custom emoji
+- Files and images attached to a message, with a gallery, local disk or S3 storage
+- Link previews, with rich previews from GitHub, Jira, Figma, Google Drive and Confluence
+- Scheduled send, and announcement channels where only moderators post
+
+**Notifications**
+- Per channel: everything, mentions only, or nothing; mute
+- Keywords that notify you like a mention
+- A notification schedule and do not disturb
+- In-app, desktop and Web Push, with unread badges on the tab and app icon
+
+**Finding things**
+- Search across channels and DMs with filters, including file names and the text inside PDF,
+  Word, Excel and PowerPoint files
+- *All unreads*, *Threads*, *Later* (saved messages and reminders), keyboard shortcuts and
+  a quick switcher
+- Channel bookmarks, sidebar sections of your own, and a status you set yourself
+
+**Structured work**
+- Polls
+- Lists: tables with typed columns kept in a conversation
+- Workflows built without code: triggered by a schedule, a webhook, a reaction, someone
+  joining or a shortcut; they post messages, ask with forms and add to lists
+
+**Calls**
+- Huddles: voice and video with screen sharing, for up to eight people
+
+**Integrations**
+- Incoming webhooks (Slack-compatible), signed outgoing webhooks, slash commands
+- A Slack importer that brings your history with you
+
+**Admin and compliance**
+- Roles: Instance Admin, Workspace Owner and Admin, Channel Admin, Member, and Guests who
+  see only the people they share a channel with
+- Invite-only sign-up, SSO (OIDC), TOTP with recovery codes, SCIM deprovisioning
+- Audit log, retention policies, workspace and per-person export, erasure
+
+**Running it**
+- One `docker compose` command, automatic HTTPS, several workspaces per instance
+- An installable PWA; the client can connect to several instances
 
 ## Coming from Slack
 
-Most of the daily surface is here: public and private channels, threads in channels and in
-DMs, DMs and group DMs (up to nine people), reactions, pins, saved items, channel bookmarks,
-message forwarding, link previews, a status you set yourself, editing with history, search across channels
-and DMs, file sharing, `@person` / `@group` / `@channel` / `@here` mentions, custom emoji,
-scheduled send, reminders with `/remind`, huddles with screen sharing, slash commands,
-a Slack importer that brings your history with you,
-incoming and outgoing webhooks, SSO (OIDC), TOTP, SCIM deprovisioning, retention policies
-and GDPR-style export.
+Most of the daily surface is here, from threads, huddles and *Later* to notification levels,
+keywords, search inside files, polls, lists and workflows (see [Features](#features)). The
+Slack importer brings people, channels and messages, threads included.
 
 What a team moving from Slack should expect to be missing or different:
 
@@ -105,7 +125,7 @@ To run a published release instead of compiling, add to `.env`:
 ```bash
 BACKEND_IMAGE=ghcr.io/petar-basic/chat-systems-backend
 FRONTEND_IMAGE=ghcr.io/petar-basic/chat-systems-frontend
-VERSION=2.0.0
+VERSION=3.3.0
 ```
 
 then `docker compose --profile frontend pull` and `up -d` without `--build`. What each
@@ -148,7 +168,8 @@ Honest about the edges, since this is a reference codebase:
   capped at eight; large all-hands calls need the SFU planned for 4.0.0.
 - **One instance is one trust domain.** SSO, TOTP and SCIM are per instance, not per
   workspace, and there is no cross-organisation sharing.
-- **Search covers message text and file names**, not what is inside a file.
+- **Search reads text, not pictures.** A scanned page or a screenshot is not searched (no
+  OCR).
 
 The full prioritized list lives in **[docs/ROADMAP.md](docs/ROADMAP.md)**.
 

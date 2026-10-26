@@ -149,10 +149,12 @@ Vertical sidebar showing channels, DMs, and workspace members with presence dots
 ---
 
 ### `channel/ChannelHeader`
-Top bar with channel name, topic, and buttons for search / pins / members.
+Top bar with channel name, topic, the huddle and notification controls, and toggles for
+members (the people count), pins (with their count), files and search. *Channel settings*
+sits in the ⋯ menu, which on desktop only a moderator has; below `sm` the toggles fold into it.
 
 **Reads:** current channel
-**Emits:** `onToggleSearch()`, `onTogglePins()`, `onToggleChannelMembers()`
+**Emits:** `onToggleSearch()`, `onTogglePins()`, `onToggleFiles()`, `onToggleChannelMembers()`
 
 ---
 

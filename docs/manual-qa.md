@@ -107,6 +107,7 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - **Steps:** create a workspace → it appears with a default `#general` channel and you as Owner.
 - **Expected:** atomic — you're never left with a workspace that has no owner or no #general (transaction).
 - 🟠 **Edge:** create with an empty/whitespace name → validation error.
+- 🟢 **Rail:** create "Design" and "Dev Team" with no icon → the rail shows *De* and *DT* on tiles of different colours; hovering one shows its full name, and the open one has a ring.
 
 ### 3.2 🟢 Members: list / change role / remove
 - **Reach:** workspace dropdown → Members.
@@ -141,8 +142,9 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - 🔴 **Edge — private access:** as a non-member, try to open a private channel / fetch its messages by id (`/api/channels/<id>/...` or `/api/messages/...`) → **403/404**, no message leakage.
 
 ### 4.2 🟠 Channel admin / archive
-- **Steps:** channel admin renames/archives a channel; non-admin cannot.
-- **Expected:** archived channel is read-only/hidden; permission enforced.
+- **Steps:** channel admin renames/archives a channel from the header's ⋯ → *Channel settings*; non-admin cannot.
+- **Expected:** archived channel is read-only/hidden; permission enforced. A plain member's header has no ⋯ on desktop.
+- 🟢 **Header:** the people count is the one members button and toggles the panel; the pin button shows how many are pinned. Every header icon has a tooltip.
 
 ---
 
@@ -166,8 +168,8 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - **Expected:** reactions aggregate with counts; live to others; you can't double-count the same emoji.
 
 ### 5.4 🟢 Pins
-- **Steps:** pin a message → open the Pinned panel → unpin.
-- **Expected:** pinned set updates live.
+- **Steps:** pin a message → open the Pinned panel from the header's pin button → unpin.
+- **Expected:** pinned set updates live, and so does the count on the pin button.
 
 ### 5.5 🟢 Mentions (@)
 - **Reach:** type `@` in the composer → mention dropdown.
@@ -234,7 +236,7 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - **Expected:** within seconds Ana has a DM from *Welcome*, tagged *Workflow*, mentioning her; #random gets the flag with a link that opens the message. Ana joining again, 👍 instead of 🚨, or 🚨 in another channel starts nothing. Bob joining #random himself is a succeeded run that sent no DM.
 - 🟠 **Edge — private channel:** a join trigger on a private channel Bob isn't in → "You can't see the channel it listens to". Add Bob, create it, remove Bob, add someone → the run fails with "Its creator can no longer see the channel it listens to".
 - 🟢 **Shortcuts and forms:** as Bob, build "Time off": *From a shortcut in a channel* → #general; step 1 *Ask a person to fill in a form* to *The person who ran it*, title "Request time off", questions *Reason* (long answer, required), *Kind* (choice: Sick, Holiday), *Cover* (person), *From* (date); step 2 *Send a message* to #general with "{{trigger.user}} is off from {{form.from}}", *Add the form answers below the message* ticked. *Create workflow*. As Ana, open #general → the ⚡ button in the composer → *Time off*.
-- **Expected:** a toast says it started; Ana's DM with Bob gets a *Request time off* card with *Fill in*. Submit empty → "“Reason” needs an answer". Fill it in, picking Admin as cover → the card says *Filled in*; within seconds #general has Ana's message with every answer under its label in bold, and Admin is notified as cover. *Run history* shows *Succeeded* with both steps. `/workflow time off` in #general starts it too; `/workflow` alone lists the shortcuts.
+- **Expected:** a toast says it started; Ana's DM with Bob gets a *Request time off* card with *Fill in*. Submit empty → "“Reason” needs an answer". Fill it in, picking Admin as cover → the card says *Filled in*; within seconds #general has Ana's message with the answers laid out as fields in two columns (one on a phone, the long *Reason* across both), and Admin is notified as cover. *Run history* shows *Succeeded* with both steps. `/workflow time off` in #general starts it too; `/workflow` alone lists the shortcuts.
 - 🟠 **Edge — forms:** Bob sees "Waiting for Ana" on a card that isn't his and no button; a second submit → 409. Running his own shortcut, Bob's form appears in #general with *Fill in* only for him. Edit the workflow while a form waits, then submit → *Failed*, "The workflow was edited while this run was under way". A form left alone for 7 days → *Expired* in the history, "This form expired" on the card.
 - 🟢 **Lists:** create a list in #general with *Kind* (select: Holiday, Sick, Other), *From* and *Until* (date), *Who* (person) and *Status* (select: Open, Approved). As Bob, *New* → *Time-off request into a list* → *Continue*: the form, *Add an item to a list* and the message are filled in. Pick the list, *Fill from the form answers*, set *Who* to *Person who ran it*. Add a step *Update the item a step added* → step 2, *Status* → *Approved*. *Create workflow*, then run it as Ana from the ⚡ button and fill in the form.
 - **Expected:** the list gets a row with Ana's kind, dates and Ana as *Who*, marked *Approved*; Ana is notified she was assigned. *Run history* shows every step *Succeeded*.

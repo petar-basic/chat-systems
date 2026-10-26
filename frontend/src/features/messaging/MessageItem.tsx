@@ -22,6 +22,8 @@ import { ReactionEmoji } from '@/shared/components/ReactionEmoji';
 import RichTextDisplay from '@/components/RichTextDisplay';
 import { PollCard, type PollKeyVote } from '@/features/polls/PollCard';
 import { FormCard } from '@/features/workflows/FormCard';
+import { FormAnswers } from '@/features/workflows/FormAnswers';
+import { introOf } from '@/features/workflows/answerFields';
 import { MessageAttachments } from './MessageAttachments';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { HuddleSystemMessage } from '@/features/huddle/components/HuddleSystemMessage';
@@ -138,6 +140,8 @@ function MessageItem({
   const isEdited = message.updated_at !== message.created_at;
   const poll = message.metadata?.poll ?? null;
   const form = message.metadata?.form ?? null;
+  const answers = message.deleted_at ? null : (message.metadata?.fields ?? null);
+  const intro = answers ? introOf(message.content, answers) : null;
   const canEdit = isOwn && !poll && !form;
   const pollKeyVote = useRef<PollKeyVote | null>(null);
   const [showHistory, setShowHistory] = useState(false);
@@ -456,6 +460,11 @@ function MessageItem({
                 />
               ) : form && !message.deleted_at ? (
                 <FormCard form={form} currentUserId={currentUserId} />
+              ) : answers && intro !== null ? (
+                <>
+                  <RichTextDisplay content={intro} attachments={attachments} />
+                  <FormAnswers fields={answers} />
+                </>
               ) : (
                 <RichTextDisplay content={message.content} attachments={attachments} />
               )}
