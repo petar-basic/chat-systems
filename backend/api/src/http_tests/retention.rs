@@ -378,7 +378,7 @@ async fn a_channel_period_purges_before_and_after_the_workspaces(pool: PgPool) {
     let ws = seed_workspace(&state, owner_id, "Retention WS").await;
     let short = seed_channel(&state, ws, owner_id, "random", false).await;
     let long = seed_channel(&state, ws, owner_id, "legal", false).await;
-    let plain = seed_channel(&state, ws, owner_id, "general", false).await;
+    let plain = seed_channel(&state, ws, owner_id, "plain", false).await;
 
     let short_20 = aged_post(&app, &state, &token, short, 20).await;
     let long_45 = aged_post(&app, &state, &token, long, 45).await;
@@ -416,7 +416,7 @@ async fn a_channel_kept_forever_is_kept_and_a_workspace_kept_forever_still_purge
     let ws = seed_workspace(&state, owner_id, "Retention WS").await;
     let kept = seed_channel(&state, ws, owner_id, "legal", false).await;
     let trimmed = seed_channel(&state, ws, owner_id, "random", false).await;
-    let plain = seed_channel(&state, ws, owner_id, "general", false).await;
+    let plain = seed_channel(&state, ws, owner_id, "plain", false).await;
 
     let kept_old = aged_post(&app, &state, &token, kept, 400).await;
     let trimmed_old = aged_post(&app, &state, &token, trimmed, 20).await;
