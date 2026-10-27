@@ -14,17 +14,18 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
-## [Unreleased]
+## [3.5.0] — 2026-10-27
 
 ### Upgrading from 3.4.2
 
 - Pull both images and restart `api`, `worker` and `frontend` together; the API runs
-  migration 73 on start, so snapshot first. It copies each live status into every workspace
+  migrations 73–74 on start, so snapshot first. Migration 73 copies each live status into every workspace
   the person is in (a custom emoji only where that workspace has it), then drops the status
   columns from `users` and the unused `user_preferences` and `bookmarked_messages` tables.
 - Migration 74 does the same for notifications: a running pause, the notification schedule
   and the mention-email switch are copied into every workspace the person is in, and leave
-  `users`. Nobody loses a pause or a schedule.
+  `users`. Nobody loses a pause or a schedule. Both drop columns, so going back to 3.4.2
+  means restoring the snapshot.
 - For API clients: `PUT`/`DELETE /users/me/status` are now
   `PUT`/`DELETE /workspaces/{id}/profile/status`, and `UserPublic` no longer has
   `status_emoji`, `status_text` or `status_expires_at`. Members gain `bio`.

@@ -1713,7 +1713,7 @@ the kinds the person may make. `lib/channelPermissions.ts` mirrors the server's 
 UI does not offer what will be refused; the server stays the boundary. A refused send now
 shows the server's reason instead of *Message failed to send*.
 
-## Wave 25 — One person, several workspaces
+## Wave 25 — One person, several workspaces ✅ shipped
 
 ### [CS-076] A profile and notification settings of your own in each workspace ✅ shipped
 A status set in a hobby workspace showed at work, and pausing one workspace silenced all of

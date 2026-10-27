@@ -18,7 +18,8 @@ notices first, Waves 15 and 16 (connected-app previews) and Wave 17 (files and i
 shipped too. Waves 18 and 19 are shipped too. In Wave 20, CS-059 shipped in 3.2.0;
 [CS-037](CS-037-huddle-sfu.md) is held for the next major release, 4.0.0. Waves 21–23,
 chosen in the 2026-10-23 review, shipped in 3.3.0. Wave 24, from the 2026-10-26 review, shipped
-in 3.4.0. Wave 25 moves the profile and notification settings to each workspace.
+in 3.4.0. Wave 25, which moves the profile and notification settings to each workspace, shipped
+in 3.5.0.
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
