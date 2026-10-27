@@ -176,11 +176,14 @@ impl SlackImportRepo {
     ) -> sqlx::Result<Vec<(String, Uuid, String)>> {
         let rows = sqlx::query!(
             r#"
-            SELECT su.slack_user_id AS "slack_user_id!", su.user_id AS "user_id!",
-                   COALESCE(wm.display_name, u.display_name, u.email) AS "name!"
+            SELECT su.slack_user_id, su.user_id,
+                   COALESCE(
+                       (SELECT wm.display_name FROM workspace_members wm
+                         WHERE wm.workspace_id = su.workspace_id AND wm.user_id = su.user_id),
+                       u.display_name, u.email
+                   ) AS "name!"
             FROM slack_users su
             JOIN users u ON u.id = su.user_id
-            LEFT JOIN workspace_members wm ON wm.workspace_id = su.workspace_id AND wm.user_id = su.user_id
             WHERE su.workspace_id = $1
             "#,
             workspace_id

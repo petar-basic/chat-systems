@@ -101,10 +101,13 @@ impl ProfileRepo {
     ) -> sqlx::Result<Vec<(Uuid, String)>> {
         let rows = sqlx::query!(
             r#"
-            SELECT u.id AS "id!",
-                   COALESCE(wm.display_name, u.display_name, split_part(u.email, '@', 1)) AS "name!"
+            SELECT u.id,
+                   COALESCE(
+                       (SELECT wm.display_name FROM workspace_members wm
+                         WHERE wm.workspace_id = $1 AND wm.user_id = u.id),
+                       u.display_name, split_part(u.email, '@', 1)
+                   ) AS "name!"
               FROM users u
-              LEFT JOIN workspace_members wm ON wm.user_id = u.id AND wm.workspace_id = $1
              WHERE u.id = ANY($2)
             "#,
             workspace_id,

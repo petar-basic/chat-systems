@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT su.slack_user_id AS \"slack_user_id!\", su.user_id AS \"user_id!\",\n                   COALESCE(wm.display_name, u.display_name, u.email) AS \"name!\"\n            FROM slack_users su\n            JOIN users u ON u.id = su.user_id\n            LEFT JOIN workspace_members wm ON wm.workspace_id = su.workspace_id AND wm.user_id = su.user_id\n            WHERE su.workspace_id = $1\n            ",
+  "query": "\n            SELECT su.slack_user_id, su.user_id,\n                   COALESCE(\n                       (SELECT wm.display_name FROM workspace_members wm\n                         WHERE wm.workspace_id = su.workspace_id AND wm.user_id = su.user_id),\n                       u.display_name, u.email\n                   ) AS \"name!\"\n            FROM slack_users su\n            JOIN users u ON u.id = su.user_id\n            WHERE su.workspace_id = $1\n            ",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "slack_user_id!",
+        "name": "slack_user_id",
         "type_info": "Varchar",
         "origin": {
           "Table": {
@@ -16,7 +16,7 @@
       },
       {
         "ordinal": 1,
-        "name": "user_id!",
+        "name": "user_id",
         "type_info": "Uuid",
         "origin": {
           "Table": {
@@ -38,10 +38,10 @@
       ]
     },
     "nullable": [
-      true,
-      true,
+      false,
+      false,
       null
     ]
   },
-  "hash": "ed2c6538dc0e0a9897b11d443dc4b4210007dc42213cefc6fc674c9ec7a408f1"
+  "hash": "d86c1ecdd56bb54020d2b574303db184fdf8a4cccfc3a7390cdf691a509c4b26"
 }
