@@ -416,18 +416,7 @@ pub(crate) async fn handle_client_message(
             let Some(huddle_id) = msg_uuid(&msg, "huddle_id") else {
                 return;
             };
-            let allowed = if let Some(channel_id) = msg_uuid(&msg, "channel_id") {
-                cm.is_channel_member(channel_id, user_id).await
-            } else if let (Some(ws_id), Some(partner_id)) = (
-                msg_uuid(&msg, "workspace_id"),
-                msg_uuid(&msg, "dm_partner_id"),
-            ) {
-                cm.is_workspace_member(ws_id, user_id).await
-                    && cm.is_workspace_member(ws_id, partner_id).await
-            } else {
-                false
-            };
-            if !allowed {
+            if !cm.may_join_huddle(huddle_id, user_id).await {
                 warn!(
                     "Denied huddle.join: user {} not authorized for huddle {}",
                     user_id, huddle_id

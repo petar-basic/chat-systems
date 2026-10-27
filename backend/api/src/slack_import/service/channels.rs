@@ -34,18 +34,18 @@ impl Import<'_> {
                 continue;
             }
 
-            let name = sanitise_channel_name(&slack_name);
-            let existing = self
-                .state
-                .workspace_service
-                .repo
-                .find_channel_by_name(self.workspace_id, &name)
-                .await?;
+            let wanted = sanitise_channel_name(&slack_name);
+            let (name, existing) = self.place_channel(&wanted, channel_type).await?;
+            if name != wanted {
+                self.report.notes.push(format!(
+                    "#{slack_name} was imported as #{name}: a channel of another kind already has its name here"
+                ));
+            }
 
             let channel_id = match existing {
                 Some(found) => {
                     self.report.channels_reused += 1;
-                    found.id
+                    found
                 }
                 None if self.dry_run => {
                     self.report.channels_created += 1;
@@ -89,6 +89,39 @@ impl Import<'_> {
         }
 
         Ok(targets)
+    }
+
+    async fn place_channel(
+        &self,
+        name: &str,
+        channel_type: &ChannelType,
+    ) -> AppResult<(String, Option<Uuid>)> {
+        let mut attempt = 0;
+        loop {
+            let suffix = match attempt {
+                0 => String::new(),
+                1 => "-slack".to_string(),
+                n => format!("-slack-{n}"),
+            };
+            let candidate: String = name
+                .chars()
+                .take(80 - suffix.len())
+                .chain(suffix.chars())
+                .collect();
+            match self
+                .state
+                .workspace_service
+                .repo
+                .find_channel_by_name(self.workspace_id, &candidate)
+                .await?
+            {
+                None => return Ok((candidate, None)),
+                Some(found) if found.channel_type == *channel_type => {
+                    return Ok((candidate, Some(found.id)))
+                }
+                Some(_) => attempt += 1,
+            }
+        }
     }
 
     /// `dms.json` and `mpims.json`. These become dm and group_dm channels, which

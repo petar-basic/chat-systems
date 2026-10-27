@@ -70,17 +70,57 @@ impl HuddleRepo {
     pub async fn list_open_channel_sessions(
         &self,
         workspace_id: Uuid,
+        user_id: Uuid,
     ) -> sqlx::Result<Vec<HuddleSession>> {
+        sqlx::query_as!(
+            HuddleSession,
+            "SELECT h.id, h.workspace_id, h.channel_id, h.dm_partner_id, h.initiated_by,
+                    h.started_at, h.ended_at
+               FROM huddle_sessions h
+               JOIN channel_members cm ON cm.channel_id = h.channel_id AND cm.user_id = $2
+              WHERE h.workspace_id = $1 AND h.ended_at IS NULL
+              ORDER BY h.started_at DESC",
+            workspace_id,
+            user_id
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn find_open(
+        &self,
+        workspace_id: Uuid,
+        huddle_id: Uuid,
+    ) -> sqlx::Result<Option<HuddleSession>> {
         sqlx::query_as!(
             HuddleSession,
             "SELECT id, workspace_id, channel_id, dm_partner_id, initiated_by, started_at, ended_at
                FROM huddle_sessions
-              WHERE workspace_id = $1 AND channel_id IS NOT NULL AND ended_at IS NULL
-              ORDER BY started_at DESC",
+              WHERE id = $1 AND workspace_id = $2 AND ended_at IS NULL",
+            huddle_id,
             workspace_id
         )
-        .fetch_all(&self.pool)
+        .fetch_optional(&self.pool)
         .await
+    }
+
+    pub async fn invite(
+        &self,
+        huddle_id: Uuid,
+        user_id: Uuid,
+        invited_by: Uuid,
+    ) -> sqlx::Result<()> {
+        sqlx::query!(
+            "INSERT INTO huddle_invites (huddle_id, user_id, invited_by)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (huddle_id, user_id) DO NOTHING",
+            huddle_id,
+            user_id,
+            invited_by
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
     }
 
     pub async fn end_session(&self, huddle_id: Uuid) -> sqlx::Result<Option<HuddleSession>> {

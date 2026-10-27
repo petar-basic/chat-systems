@@ -153,7 +153,7 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 
 ### 3.3 🟢 Invites: create (email + shareable link), accept, revoke
 - **Steps:** create an email invite (§1.2) AND a no-email "shareable link" invite with `max_uses`. Accept the link as an already-registered user. Then **revoke** an outstanding invite.
-- **Expected:** link invite respects `max_uses`; revoked invite no longer works.
+- **Expected:** link invite respects `max_uses`; revoked invite no longer works — the emailed link of a revoked email invite included (the registration page says the invite is invalid).
 - 🔴 **Edge — max_uses race:** set `max_uses=1`, then accept the same link from two users near-simultaneously (two browsers, click together) → exactly **one** succeeds, the other gets "reached max uses". (This was a check-then-increment race; now atomic.)
 
 ### 3.4 🟠 Soft-delete + restore

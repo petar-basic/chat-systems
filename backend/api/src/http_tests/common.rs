@@ -11,7 +11,7 @@ use uuid::Uuid;
 use crate::auth::service::AuthService;
 use crate::config::AppConfig;
 use crate::state::AppState;
-use crate::workspace::models::{ChannelRole, ChannelType};
+use crate::workspace::models::{ChannelRole, ChannelType, WorkspaceRole};
 use crate::{build_app, build_state};
 
 pub const PASSWORD: &str = "password123";
@@ -102,6 +102,36 @@ pub async fn seed_workspace(state: &AppState, owner_id: Uuid, name: &str) -> Uui
         .await
         .expect("create workspace")
         .id
+}
+
+pub async fn email_invite(
+    state: &AppState,
+    ws_id: Uuid,
+    invited_by: Uuid,
+    invitee: Uuid,
+    email: &str,
+    role: WorkspaceRole,
+) -> (Uuid, String) {
+    let expires_at = chrono::Utc::now() + chrono::Duration::days(7);
+    let invite = state
+        .workspace_service
+        .repo
+        .create_invite(crate::workspace::repo::NewInvite {
+            workspace_id: ws_id,
+            created_by: invited_by,
+            email: Some(email),
+            role: &role,
+            token: &Uuid::new_v4().simple().to_string(),
+            max_uses: 1,
+            expires_at,
+        })
+        .await
+        .expect("create invite");
+    let token = state
+        .auth_service
+        .generate_registration_token(invitee, email, invite.id, expires_at)
+        .expect("registration token");
+    (invite.id, token)
 }
 
 pub async fn add_ws_member(state: &AppState, ws_id: Uuid, user_id: Uuid, role: &str) {

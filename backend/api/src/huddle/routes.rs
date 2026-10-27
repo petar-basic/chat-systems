@@ -37,7 +37,10 @@ async fn active_huddles(
 ) -> AppResult<Json<DataList<ActiveHuddle>>> {
     authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
 
-    let sessions = state.huddle_repo.list_open_channel_sessions(ws_id).await?;
+    let sessions = state
+        .huddle_repo
+        .list_open_channel_sessions(ws_id, auth.user_id)
+        .await?;
 
     let mut conn = state.redis.clone();
     let mut active = Vec::new();
@@ -64,6 +67,24 @@ async fn invite_to_huddle(
     Json(req): Json<InviteRequest>,
 ) -> AppResult<Json<StatusResponse>> {
     authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
+    state
+        .huddle_repo
+        .find_open(ws_id, huddle_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Huddle not found".into()))?;
+    let mut conn = state.redis.clone();
+    let inviter_in_huddle: bool = conn
+        .sismember(
+            format!("huddle:{huddle_id}:members"),
+            auth.user_id.to_string(),
+        )
+        .await
+        .unwrap_or(false);
+    if !inviter_in_huddle {
+        return Err(AppError::Forbidden(
+            "Only someone in the huddle can invite to it".into(),
+        ));
+    }
 
     for invitee in req.user_ids {
         if invitee == auth.user_id {
@@ -76,6 +97,10 @@ async fn invite_to_huddle(
         {
             continue;
         }
+        state
+            .huddle_repo
+            .invite(huddle_id, invitee, auth.user_id)
+            .await?;
         let _ = state
             .publisher
             .publish_scoped(

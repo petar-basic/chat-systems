@@ -48,9 +48,7 @@ pub struct Claims {
     #[serde(default = "default_token_type")]
     pub token_type: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub workspace_id: Option<Uuid>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub invite_role: Option<String>,
+    pub invite_id: Option<Uuid>,
 }
 
 #[derive(Debug, Clone)]
@@ -307,8 +305,7 @@ mod tests {
             exp: iat + 3600,
             jti,
             token_type: "access".into(),
-            workspace_id: None,
-            invite_role: None,
+            invite_id: None,
         }
     }
 

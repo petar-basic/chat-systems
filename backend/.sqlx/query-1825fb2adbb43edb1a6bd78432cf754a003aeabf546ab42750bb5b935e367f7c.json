@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, workspace_id, channel_id, dm_partner_id, initiated_by, started_at, ended_at\n               FROM huddle_sessions\n              WHERE workspace_id = $1 AND channel_id IS NOT NULL AND ended_at IS NULL\n              ORDER BY started_at DESC",
+  "query": "SELECT id, workspace_id, channel_id, dm_partner_id, initiated_by, started_at, ended_at\n               FROM huddle_sessions\n              WHERE id = $1 AND workspace_id = $2 AND ended_at IS NULL",
   "describe": {
     "columns": [
       {
@@ -83,6 +83,7 @@
     ],
     "parameters": {
       "Left": [
+        "Uuid",
         "Uuid"
       ]
     },
@@ -96,5 +97,5 @@
       true
     ]
   },
-  "hash": "f379cbdab2796c696c577fa4fd6dc965df201e9b9ac30f27e92a4cb2954ab6f4"
+  "hash": "1825fb2adbb43edb1a6bd78432cf754a003aeabf546ab42750bb5b935e367f7c"
 }

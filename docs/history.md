@@ -1744,3 +1744,25 @@ is still the one definition of paused, now per workspace, and push, the email di
 huddle ring and the member list pass the workspace they are about. `/dnd` pauses the
 workspace of the channel it is typed in. The routes moved under `/workspaces/{id}/notifications/`,
 and *Preferences → Notifications* names the workspace it changes.
+
+## Wave 26 — What the survey found
+
+### [CS-077] Access that holds: huddles, email invites, private channels ✅ shipped
+A product survey after 3.5.0 found four checks that did not hold. The gateway authorised
+`huddle.join` against the `channel_id` the client sent, so anyone in a channel could join a
+private channel's huddle by naming its id next to their own channel, and `active-huddles`
+handed those ids out. The join now looks the huddle up in `huddle_sessions` and asks whether
+the caller is in its workspace and in its channel, one of its two DM people, or invited;
+migration 75 adds `huddle_invites`, written by the invite route, which now needs an open
+huddle and an inviter who is in it. `active-huddles` lists only channels the caller is in.
+
+An emailed invite was a seven-day registration JWT carrying its own role and never compared
+with the invite row, so revoking it changed nothing. The token now carries only `invite_id`
+and expires with the invite; verify, accept and complete-registration load the row, refuse
+one that is gone, expired or used up, take the role from it and claim a use. Links sent
+before the change are refused and the changelog says to re-send them.
+
+`GET /channels/{id}/members` took workspace membership as enough; it now uses
+`require_channel_access`. The Slack import merged a channel into any same-named one, private
+into public included; it now merges only into the same kind and otherwise creates
+`<name>-slack`, naming the rename in the report.

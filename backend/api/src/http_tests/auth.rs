@@ -11,6 +11,7 @@ use uuid::Uuid;
 
 use super::common::*;
 use crate::middleware::Claims;
+use crate::workspace::models::WorkspaceRole;
 
 const TEST_JWT_SECRET: &str = "integration-test-secret-key-0123456789-abcdef";
 
@@ -214,10 +215,15 @@ async fn complete_registration_activates_account_and_allows_login(pool: PgPool) 
         .await
         .expect("create pending user");
 
-    let token = state
-        .auth_service
-        .generate_registration_token(pending.id, &invitee_email, workspace_id, "member")
-        .expect("generate registration token");
+    let (_, token) = email_invite(
+        &state,
+        workspace_id,
+        owner_id,
+        pending.id,
+        &invitee_email,
+        WorkspaceRole::Member,
+    )
+    .await;
 
     let new_password = "newpassword123";
     let (status, body) = send(
@@ -278,6 +284,135 @@ async fn complete_registration_activates_account_and_allows_login(pool: PgPool) 
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn an_email_invite_link_lives_and_dies_with_its_invite(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _) = seed(&state, "ws-owner", false).await;
+    let workspace_id = seed_workspace(&state, owner_id, "Invite WS").await;
+    let pending = |label: &'static str| {
+        let state = state.clone();
+        async move {
+            let email = unique_email(label);
+            let user = state
+                .auth_service
+                .repo()
+                .create(&email, None, None, false)
+                .await
+                .expect("create pending user");
+            (user.id, email)
+        }
+    };
+    let verify = |token: String| {
+        let app = app.clone();
+        async move {
+            send(
+                &app,
+                "GET",
+                &format!("/api/auth/invites/{token}/verify"),
+                None,
+                None,
+            )
+            .await
+            .0
+        }
+    };
+    let complete = |token: String| {
+        let app = app.clone();
+        async move {
+            send(
+                &app,
+                "POST",
+                "/api/auth/complete-registration",
+                None,
+                Some(json!({
+                    "token": token,
+                    "password": "newpassword123",
+                    "display_name": "Invited User",
+                })),
+            )
+            .await
+            .0
+        }
+    };
+
+    let (revoked_id, revoked_email) = pending("revoked").await;
+    let (invite_id, token) = email_invite(
+        &state,
+        workspace_id,
+        owner_id,
+        revoked_id,
+        &revoked_email,
+        WorkspaceRole::Member,
+    )
+    .await;
+    assert_eq!(verify(token.clone()).await, StatusCode::OK);
+    state
+        .workspace_service
+        .repo
+        .delete_invite(invite_id)
+        .await
+        .expect("revoke");
+    assert_eq!(
+        verify(token.clone()).await,
+        StatusCode::UNAUTHORIZED,
+        "a revoked invite's link must stop opening"
+    );
+    assert_eq!(
+        complete(token).await,
+        StatusCode::UNAUTHORIZED,
+        "a revoked invite's link must not register anyone"
+    );
+
+    let (admin_id, admin_email) = pending("admin").await;
+    let (_, token) = email_invite(
+        &state,
+        workspace_id,
+        owner_id,
+        admin_id,
+        &admin_email,
+        WorkspaceRole::Admin,
+    )
+    .await;
+    assert_eq!(complete(token.clone()).await, StatusCode::OK);
+    let role: Option<String> = sqlx::query_scalar(
+        "SELECT role::text FROM workspace_members WHERE workspace_id = $1 AND user_id = $2",
+    )
+    .bind(workspace_id)
+    .bind(admin_id)
+    .fetch_optional(&state.pool)
+    .await
+    .expect("query membership");
+    assert_eq!(role.as_deref(), Some("admin"), "the role is the invite's");
+    assert_eq!(
+        verify(token).await,
+        StatusCode::UNAUTHORIZED,
+        "a used invite's link must stop opening"
+    );
+
+    let (stale_id, stale_email) = pending("stale").await;
+    let now = Utc::now();
+    let stale = encode(
+        &Header::default(),
+        &Claims {
+            sub: stale_id,
+            email: stale_email,
+            is_instance_admin: false,
+            iat: now.timestamp(),
+            exp: (now + Duration::days(7)).timestamp(),
+            jti: None,
+            token_type: "registration".to_string(),
+            invite_id: None,
+        },
+        &EncodingKey::from_secret(state.config.jwt_secret.as_bytes()),
+    )
+    .expect("encode");
+    assert_eq!(
+        verify(stale).await,
+        StatusCode::UNAUTHORIZED,
+        "a link minted before invites were bound to their row is refused"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn reset_password_changes_password_and_is_single_use(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (user_id, email) = seed(&state, "reset-happy", false).await;
@@ -293,8 +428,7 @@ async fn reset_password_changes_password_and_is_single_use(pool: PgPool) {
         exp: exp.timestamp(),
         jti: Some(jti),
         token_type: "reset".to_string(),
-        workspace_id: None,
-        invite_role: None,
+        invite_id: None,
     };
     let reset_token = encode(
         &Header::default(),
@@ -744,8 +878,7 @@ async fn a_revocation_store_that_cannot_answer_refuses_the_request(pool: PgPool)
         exp: chrono::Utc::now().timestamp() + 900,
         jti: Some(uuid::Uuid::new_v4()),
         token_type: "access".into(),
-        workspace_id: None,
-        invite_role: None,
+        invite_id: None,
     };
     assert_eq!(
         healthy.revocation_state(&claims).await,

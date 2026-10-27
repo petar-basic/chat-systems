@@ -14,6 +14,33 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
+## [Unreleased]
+
+### Upgrading from 3.5.0
+
+- Pull both images and restart `api`, `realtime`, `worker` and `frontend` together; the API
+  runs migration 75 on start, which adds the `huddle_invites` table.
+- **Re-send pending email invites.** An emailed invite link now names the invite it stands
+  for, and links sent before the upgrade do not: they answer *Invalid or expired invite*.
+  Revoke and re-send any email invite that has not been accepted yet. Shared invite links are
+  unaffected.
+- For WebSocket clients: `huddle.join` needs only `huddle_id`; `channel_id`, `workspace_id`
+  and `dm_partner_id` are ignored.
+
+### Security
+
+- **A private channel's huddle is its members'.** Joining a huddle is checked against the
+  huddle itself: its channel's members, the two people of a DM huddle, or someone invited
+  from inside it. *Active huddles* lists only channels you are in, and only someone in a
+  huddle can invite to it.
+- **An email invite ends when the invite does.** Revoking it, its expiry and its use limit now
+  stop the emailed link too, and the role it grants is the one the invite has today.
+- **A private channel's member list is its members'.** `GET /channels/{id}/members` follows
+  the same access as reading the channel.
+- **A private Slack channel stays private.** The Slack import merges a channel into an
+  existing one of the same name only when both are the same kind; otherwise it imports it as
+  `<name>-slack` and says so in the report.
+
 ## [3.5.0] — 2026-10-27
 
 ### Upgrading from 3.4.2

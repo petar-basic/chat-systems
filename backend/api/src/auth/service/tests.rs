@@ -76,8 +76,7 @@ async fn generate_tokens_stamps_token_type() {
         exp: access_exp.timestamp(),
         jti: Some(jti),
         token_type: "access".to_string(),
-        workspace_id: None,
-        invite_role: None,
+        invite_id: None,
     };
     let access_token = encode(&Header::default(), &access_claims, &secret).unwrap();
 
@@ -89,8 +88,7 @@ async fn generate_tokens_stamps_token_type() {
         exp: refresh_exp.timestamp(),
         jti: Some(jti),
         token_type: "refresh".to_string(),
-        workspace_id: None,
-        invite_role: None,
+        invite_id: None,
     };
     let refresh_token = encode(&Header::default(), &refresh_claims, &secret).unwrap();
 
@@ -469,10 +467,11 @@ async fn registration_token_round_trips_and_rejects_other_token_types(pool: PgPo
         .create("invitee@test.local", None, None, false)
         .await
         .expect("create pending invitee");
-    let workspace_id = Uuid::new_v4();
+    let invite_id = Uuid::new_v4();
+    let expires_at = Utc::now() + Duration::hours(30);
 
     let token = service
-        .generate_registration_token(invited.id, "invitee@test.local", workspace_id, "member")
+        .generate_registration_token(invited.id, "invitee@test.local", invite_id, expires_at)
         .expect("generate registration token");
 
     let raw = decode_claims(&token);
@@ -485,22 +484,21 @@ async fn registration_token_round_trips_and_rejects_other_token_types(pool: PgPo
         "registration token subject must be the invitee"
     );
     assert_eq!(
-        raw.workspace_id,
-        Some(workspace_id),
-        "registration token must carry the target workspace_id"
+        raw.invite_id,
+        Some(invite_id),
+        "registration token must name the invite it stands for"
     );
     assert_eq!(
-        raw.invite_role.as_deref(),
-        Some("member"),
-        "registration token must carry the invite_role"
+        raw.exp,
+        expires_at.timestamp(),
+        "registration token must expire with its invite"
     );
 
     let verified = service
         .verify_registration_token(&token)
         .expect("verify_registration_token must accept a genuine registration token");
     assert_eq!(verified.sub, invited.id);
-    assert_eq!(verified.workspace_id, Some(workspace_id));
-    assert_eq!(verified.invite_role.as_deref(), Some("member"));
+    assert_eq!(verified.invite_id, Some(invite_id));
 
     let hash = AuthService::hash_password("regtokenpw123").expect("hash");
     let active = service

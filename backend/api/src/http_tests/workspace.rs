@@ -1012,10 +1012,15 @@ async fn registration_token_accept_joins_an_already_active_account(pool: PgPool)
     let (_, _, other_token) = seed_and_login(&app, &state, "reg-acc-other", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Second WS").await;
 
-    let reg_token = state
-        .auth_service
-        .generate_registration_token(joiner_id, &joiner_email, ws_id, "member")
-        .expect("registration token");
+    let (_, reg_token) = email_invite(
+        &state,
+        ws_id,
+        owner_id,
+        joiner_id,
+        &joiner_email,
+        crate::workspace::models::WorkspaceRole::Member,
+    )
+    .await;
 
     let (status, resp) = send(
         &app,

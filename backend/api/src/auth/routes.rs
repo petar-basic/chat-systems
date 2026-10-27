@@ -16,7 +16,6 @@ use crate::dto::StatusResponse;
 use crate::middleware::AuthUser;
 use crate::middleware::PeerAddr;
 use crate::state::AppState;
-use crate::workspace::models::WorkspaceRole;
 
 pub fn router() -> OpenApiRouter<Arc<AppState>> {
     OpenApiRouter::new()
@@ -151,23 +150,26 @@ async fn verify_invite(
     State(state): State<Arc<AppState>>,
     Path(token): Path<String>,
 ) -> AppResult<Json<InvitePreview>> {
-    let claims = state.auth_service.verify_registration_token(&token)?;
+    let reg = state.auth_service.registration_invite(&token)?;
 
     let invalid = || AppError::Unauthorized("Invalid or expired invite".into());
+
+    let invite = state
+        .workspace_service
+        .open_email_invite(reg.invite_id, &reg.email)
+        .await?;
 
     let user = state
         .auth_service
         .repo()
-        .find_by_id(claims.sub)
+        .find_by_id(reg.user_id)
         .await?
         .ok_or_else(invalid)?;
-
-    let workspace_id = claims.workspace_id.ok_or_else(invalid)?;
 
     let workspace = state
         .workspace_service
         .repo
-        .find_workspace_by_id(workspace_id)
+        .find_workspace_by_id(invite.workspace_id)
         .await?
         .ok_or_else(invalid)?;
 
@@ -175,7 +177,7 @@ async fn verify_invite(
         already_registered: user.status == UserStatus::Active,
         email: user.email,
         workspace_name: workspace.name,
-        workspace_id,
+        workspace_id: invite.workspace_id,
     }))
 }
 
@@ -190,47 +192,37 @@ async fn accept_invite(
     auth: AuthUser,
     Path(token): Path<String>,
 ) -> AppResult<Json<InviteAccepted>> {
-    let claims = state.auth_service.verify_registration_token(&token)?;
+    let reg = state.auth_service.registration_invite(&token)?;
 
-    let workspace_id = claims
-        .workspace_id
-        .ok_or_else(|| AppError::BadRequest("Invite is not bound to a workspace".into()))?;
-
-    if claims.sub != auth.user_id {
+    if reg.user_id != auth.user_id {
         return Err(AppError::Forbidden(
             "This invite was issued to a different address".into(),
         ));
     }
 
+    let (invite, staged) = state
+        .workspace_service
+        .redeem_email_invite(reg.invite_id, auth.user_id, &reg.email)
+        .await?;
+    state.publisher.dispatch_all(staged).await;
+
     let workspace = state
         .workspace_service
         .repo
-        .find_workspace_by_id(workspace_id)
+        .find_workspace_by_id(invite.workspace_id)
         .await?
         .ok_or_else(|| AppError::Unauthorized("Invalid or expired invite".into()))?;
-
-    let role: WorkspaceRole = claims
-        .invite_role
-        .as_deref()
-        .and_then(|r| serde_json::from_value(serde_json::Value::String(r.to_string())).ok())
-        .unwrap_or(WorkspaceRole::Member);
-
-    let staged = state
-        .workspace_service
-        .join_workspace(workspace_id, auth.user_id, &role)
-        .await?;
-    state.publisher.dispatch_all(staged).await;
 
     audit::record(
         &state,
         AuditEntry::new(AuditAction::InviteAccepted, auth.user_id)
-            .workspace(workspace_id)
-            .resource(workspace_id),
+            .workspace(invite.workspace_id)
+            .resource(invite.workspace_id),
     )
     .await;
 
     Ok(Json(InviteAccepted {
-        workspace_id,
+        workspace_id: invite.workspace_id,
         workspace_name: workspace.name,
     }))
 }
@@ -241,26 +233,22 @@ async fn complete_registration(
     jar: CookieJar,
     Json(req): Json<RegisterCompleteRequest>,
 ) -> AppResult<(CookieJar, Json<AuthSession>)> {
-    let claims = state.auth_service.verify_registration_token(&req.token)?;
+    let reg = state.auth_service.registration_invite(&req.token)?;
+    state
+        .workspace_service
+        .open_email_invite(reg.invite_id, &reg.email)
+        .await?;
 
     let tokens = state
         .auth_service
-        .complete_registration(claims.sub, &req.password, &req.display_name)
+        .complete_registration(reg.user_id, &req.password, &req.display_name)
         .await?;
 
-    if let Some(workspace_id) = claims.workspace_id {
-        let role: WorkspaceRole = claims
-            .invite_role
-            .as_deref()
-            .and_then(|r| serde_json::from_value(serde_json::Value::String(r.to_string())).ok())
-            .unwrap_or(WorkspaceRole::Member);
-
-        let staged = state
-            .workspace_service
-            .join_workspace(workspace_id, claims.sub, &role)
-            .await?;
-        state.publisher.dispatch_all(staged).await;
-    }
+    let (_, staged) = state
+        .workspace_service
+        .redeem_email_invite(reg.invite_id, reg.user_id, &reg.email)
+        .await?;
+    state.publisher.dispatch_all(staged).await;
 
     let secure = state.config.public_url.starts_with("https://");
     let jar = set_auth_cookies(jar, &tokens, secure);

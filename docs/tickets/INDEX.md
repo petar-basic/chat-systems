@@ -19,7 +19,7 @@ shipped too. Waves 18 and 19 are shipped too. In Wave 20, CS-059 shipped in 3.2.
 [CS-037](CS-037-huddle-sfu.md) is held for the next major release, 4.0.0. Waves 21–23,
 chosen in the 2026-10-23 review, shipped in 3.3.0. Wave 24, from the 2026-10-26 review, shipped
 in 3.4.0. Wave 25, which moves the profile and notification settings to each workspace, shipped
-in 3.5.0.
+in 3.5.0. Wave 26 fixes what the 2026-10-27 product survey found, for 3.6.0.
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
@@ -284,6 +284,29 @@ device's own settings stay with the account.
 |---|---|---|
 | CS-076 ✅ | A profile and notification settings of your own in each workspace | backend · frontend |
 
+### Wave 26 — What the survey found
+
+A product survey on 2026-10-27, after 3.5.0, read the code end to end and listed twenty-four
+findings and a dozen smaller ones. The access holes come first (an invite link that outlives
+its revocation, a private huddle anyone can join), then the places a message opens to the
+wrong screen, since every later messaging fix is reached through them. Findings marked
+unverified in the survey are checked first in their ticket and dropped if they do not hold.
+
+| # | Ticket | Area |
+|---|---|---|
+| CS-077 ✅ | Access that holds: huddles, email invites, private channels | backend · realtime · frontend |
+| [CS-078](CS-078-suspended-stops-acting.md) | A suspended or removed person stops acting | backend · frontend |
+| [CS-079](CS-079-open-the-message.md) | Opening a message lands on it | frontend · backend |
+| [CS-080](CS-080-threads-keep-up.md) | Threads that keep up | frontend · backend |
+| [CS-081](CS-081-sending-keeps-work.md) | Sending never loses work | frontend · backend |
+| [CS-082](CS-082-unread-agrees.md) | Unread, Activity and the badge agree | frontend · backend |
+| [CS-083](CS-083-notifications-once.md) | Notifications that arrive once, where they should | backend · frontend · realtime |
+| [CS-084](CS-084-reconnect-and-versions.md) | Reconnecting, presence and new versions | frontend · realtime · ops |
+| [CS-085](CS-085-channel-lifecycle-data.md) | Archive, export and retention that say what they did | backend · frontend |
+| [CS-086](CS-086-getting-people-in.md) | Getting people in | frontend · backend |
+| [CS-087](CS-087-account-photos.md) | A photo that shows everywhere | backend · frontend |
+| [CS-088](CS-088-slack-import-fidelity.md) | A Slack import that keeps what it found | backend |
+
 ### Still open
 
 | # | Ticket | Area | Why it is not done |
@@ -319,3 +342,7 @@ Tickets that touch the same files, and the order that avoids rework:
 | *Channel settings* / *Channel details* | CS-070 ✅ → CS-074 ✅ → CS-075 ✅ |
 | *Integrations* panel and hook permissions | CS-070 ✅ → CS-074 ✅ |
 | `workspace_members` profile and notification columns | CS-076 ✅ |
+| invite tokens and *Members* invite list | CS-077 ✅ → CS-086 |
+| message route resolution | CS-079 → CS-080 → CS-082 |
+| Slack import channel mapping | CS-077 ✅ → CS-088 |
+| archived channels | CS-085 → CS-088 |

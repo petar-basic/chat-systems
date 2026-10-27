@@ -1,11 +1,11 @@
-use chrono::{Duration, Utc};
+use chrono::{DateTime, Duration, Utc};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, TokenData, Validation};
 use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
 
 use super::AuthService;
-use crate::auth::models::{AuthTokens, User, UserStatus};
+use crate::auth::models::{AuthTokens, RegistrationInvite, User, UserStatus};
 use crate::auth::repo::UserRepo;
 use crate::middleware::Claims;
 
@@ -56,8 +56,7 @@ impl AuthService {
             exp: access_exp.timestamp(),
             jti: Some(new_jti),
             token_type: "access".to_string(),
-            workspace_id: None,
-            invite_role: None,
+            invite_id: None,
         };
         let access_token = encode(
             &Header::default(),
@@ -74,8 +73,7 @@ impl AuthService {
             exp: refresh_exp.timestamp(),
             jti: Some(new_jti),
             token_type: "refresh".to_string(),
-            workspace_id: None,
-            invite_role: None,
+            invite_id: None,
         };
         let new_refresh_token = encode(
             &Header::default(),
@@ -112,8 +110,7 @@ impl AuthService {
             exp: access_exp.timestamp(),
             jti: Some(jti),
             token_type: "access".to_string(),
-            workspace_id: None,
-            invite_role: None,
+            invite_id: None,
         };
 
         let access_token = encode(
@@ -131,8 +128,7 @@ impl AuthService {
             exp: refresh_exp.timestamp(),
             jti: Some(jti),
             token_type: "refresh".to_string(),
-            workspace_id: None,
-            invite_role: None,
+            invite_id: None,
         };
 
         let refresh_token = encode(
@@ -182,8 +178,7 @@ impl AuthService {
             exp: exp.timestamp(),
             jti: Some(jti),
             token_type: "reset".to_string(),
-            workspace_id: None,
-            invite_role: None,
+            invite_id: None,
         };
         let token = encode(
             &Header::default(),
@@ -201,21 +196,18 @@ impl AuthService {
         &self,
         user_id: Uuid,
         email: &str,
-        workspace_id: Uuid,
-        role: &str,
+        invite_id: Uuid,
+        expires_at: DateTime<Utc>,
     ) -> AppResult<String> {
-        let now = Utc::now();
-        let exp = now + Duration::days(7);
         let claims = Claims {
             sub: user_id,
             email: email.to_string(),
             is_instance_admin: false,
-            iat: now.timestamp(),
-            exp: exp.timestamp(),
+            iat: Utc::now().timestamp(),
+            exp: expires_at.timestamp(),
             jti: None,
             token_type: "registration".to_string(),
-            workspace_id: Some(workspace_id),
-            invite_role: Some(role.to_string()),
+            invite_id: Some(invite_id),
         };
         encode(
             &Header::default(),
@@ -235,5 +227,17 @@ impl AuthService {
         }
 
         Ok(claims)
+    }
+
+    pub fn registration_invite(&self, token: &str) -> AppResult<RegistrationInvite> {
+        let claims = self.verify_registration_token(token)?;
+        let invite_id = claims
+            .invite_id
+            .ok_or_else(|| AppError::Unauthorized("Invalid or expired invite".into()))?;
+        Ok(RegistrationInvite {
+            user_id: claims.sub,
+            email: claims.email,
+            invite_id,
+        })
     }
 }

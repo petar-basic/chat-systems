@@ -221,24 +221,75 @@ async fn start_huddle_rejects_ambiguous_or_missing_scope(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
-async fn invite_to_huddle_member_ok(pool: PgPool) {
+async fn only_someone_in_an_open_huddle_can_invite_and_the_invite_is_recorded(pool: PgPool) {
+    use redis::AsyncCommands;
+
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "huddle-owner", false).await;
     let ws_id = seed_workspace(&state, owner_id, "huddle-ws").await;
     let (partner_id, _, _) = seed_and_login(&app, &state, "huddle-partner", false).await;
     add_ws_member(&state, ws_id, partner_id, "member").await;
-    let huddle_id = uuid::Uuid::new_v4();
+    let (third_id, _, _) = seed_and_login(&app, &state, "huddle-third", false).await;
+    add_ws_member(&state, ws_id, third_id, "member").await;
 
-    let (status, body) = send(
+    let (_, body) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/huddles/{huddle_id}/invite"),
+        &format!("/api/workspaces/{ws_id}/huddles"),
         Some(&token),
-        Some(json!({ "user_ids": [partner_id] })),
+        Some(json!({ "dm_partner_id": partner_id })),
     )
     .await;
+    let huddle_id: uuid::Uuid = body["huddle_id"].as_str().unwrap().parse().unwrap();
+    let invite = |huddle: uuid::Uuid| {
+        let app = app.clone();
+        let token = token.clone();
+        async move {
+            send(
+                &app,
+                "POST",
+                &format!("/api/workspaces/{ws_id}/huddles/{huddle}/invite"),
+                Some(&token),
+                Some(json!({ "user_ids": [third_id] })),
+            )
+            .await
+            .0
+        }
+    };
 
-    assert_eq!(status, StatusCode::OK, "invite should succeed: {body:?}");
+    assert_eq!(
+        invite(uuid::Uuid::new_v4()).await,
+        StatusCode::NOT_FOUND,
+        "a huddle that does not exist cannot be invited to"
+    );
+    assert_eq!(
+        invite(huddle_id).await,
+        StatusCode::FORBIDDEN,
+        "someone not in the huddle cannot invite to it"
+    );
+
+    let key = format!("huddle:{huddle_id}:members");
+    let mut conn = state.redis.clone();
+    let _: i64 = conn.sadd(&key, owner_id.to_string()).await.unwrap();
+    assert_eq!(invite(huddle_id).await, StatusCode::OK);
+    let recorded: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM huddle_invites WHERE huddle_id = $1 AND user_id = $2 AND invited_by = $3)",
+    )
+    .bind(huddle_id)
+    .bind(third_id)
+    .bind(owner_id)
+    .fetch_one(&state.pool)
+    .await
+    .unwrap();
+    assert!(recorded, "the invite is what lets the invitee join");
+
+    state.huddle_repo.end_session(huddle_id).await.unwrap();
+    assert_eq!(
+        invite(huddle_id).await,
+        StatusCode::NOT_FOUND,
+        "an ended huddle cannot be invited to"
+    );
+    let _: i64 = conn.del(&key).await.unwrap();
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
@@ -375,6 +426,24 @@ async fn active_huddles_lists_only_live_channel_huddles(pool: PgPool) {
             .any(|h| h["huddle_id"].as_str() == Some(huddle_id.as_str())
                 && h["channel_id"].as_str() == Some(channel_id.to_string().as_str())),
         "a channel huddle with a live member must be listed: {listed:?}"
+    );
+
+    let (outsider_id, _, outsider_token) =
+        seed_and_login(&app, &state, "huddle-outsider", false).await;
+    add_ws_member(&state, ws_id, outsider_id, "member").await;
+    let (s3, hidden) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws_id}/active-huddles"),
+        Some(&outsider_token),
+        None,
+    )
+    .await;
+    assert_eq!(s3, StatusCode::OK, "{hidden:?}");
+    assert_eq!(
+        hidden["data"].as_array().map(std::vec::Vec::len),
+        Some(0),
+        "a huddle in a channel the caller is not in must not be listed: {hidden:?}"
     );
 
     let _: i64 = conn.del(&key).await.unwrap();

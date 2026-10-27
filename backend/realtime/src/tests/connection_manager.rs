@@ -5,23 +5,6 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 #[test_macros::db_test(migrations = "../migrations")]
-async fn is_channel_member_true_for_member_false_for_outsider(pool: PgPool) {
-    let cm = manager(pool).await;
-    let (user, _ws, ch) = seed_member_in_channel(cm.db()).await;
-
-    assert!(
-        cm.is_channel_member(ch, user).await,
-        "seeded channel member should be authorized"
-    );
-
-    let outsider = seed_user(cm.db()).await;
-    assert!(
-        !cm.is_channel_member(ch, outsider).await,
-        "non-member must be denied"
-    );
-}
-
-#[test_macros::db_test(migrations = "../migrations")]
 async fn is_workspace_member_true_for_member_false_for_outsider(pool: PgPool) {
     let cm = manager(pool).await;
     let (user, ws, _ch) = seed_member_in_channel(cm.db()).await;
