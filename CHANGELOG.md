@@ -18,7 +18,7 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ### Upgrading from 3.4.0
 
-- Pull both images and restart `api` and `frontend`; there is no migration.
+- Pull both images and restart `api`, `worker` and `frontend`; there is no migration.
 
 ### Fixed
 
