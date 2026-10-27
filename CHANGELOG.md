@@ -19,8 +19,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 ### Upgrading from 3.5.0
 
 - Pull both images and restart `api`, `realtime`, `worker` and `frontend` together; the API
-  runs migrations 75–77 on start, which add the `huddle_invites` table,
-  `hooks.disabled_reason`, and a thread target on scheduled messages.
+  runs migrations 75–78 on start, which add the `huddle_invites` table,
+  `hooks.disabled_reason`, a thread target on scheduled messages, and one pending mention
+  email per person and message.
 - **Re-send pending email invites.** An emailed invite link now names the invite it stands
   for, and links sent before the upgrade do not: they answer *Invalid or expired invite*.
   Revoke and re-send any email invite that has not been accepted yet. Shared invite links are
@@ -35,6 +36,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - For API clients: reading a channel no longer marks its threads' notifications read;
   `POST /threads/{id}/read` does. A push's `badge_count` is the total across workspaces, and a
   thread reply not sent to the channel no longer counts in the channel's unread counters.
+- For WebSocket clients: send `{ "type": "activity", "active": bool }` when the person starts
+  or stops using the app. Push is held back only while a session says it is active, so a
+  client that never sends it gets push even with its socket open. A `huddle.ring` to somebody
+  who paused the workspace is no longer delivered.
 
 ### Security
 
@@ -90,6 +95,15 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   included. A channel with unread messages opens on the first of them under the *New* line,
   also on a fresh load, with *Jump to first unread* while it is above the view; *New
   messages* sits over the list again instead of under it.
+- **Notifications arrive once, where they should.** *Email me what I missed* goes out for a
+  mention or DM still unread five minutes later, whether or not a push was sent, never for one
+  you have read, once however often the event is redelivered, and with a link to the message
+  (or the workspace, for several). An open tab nobody is using no longer holds back push:
+  push waits only while a window is in front and in use. A paused workspace does not ring for
+  huddles, and the pause menu names the workspace it pauses. A webhook's creator is notified
+  of what their hook posts, under the bot's name. *Preferences → Notifications* has the
+  *Desktop notifications while the app is open* switch, and a desktop notification and a push
+  about the same channel replace each other instead of showing twice.
 
 ## [3.5.0] — 2026-10-27
 

@@ -4,7 +4,7 @@ import { toUserMessage } from '@/lib/errors';
 import { useEmailPreference, useSetEmailPreference } from '@/features/notifications/hooks/useEmailPreference';
 
 /**
- * The switch for the digest the worker sends when a mention reached nobody. The
+ * The switch for the digest the worker sends when a mention is still unread. The
  * endpoint shipped without it, which meant people were being emailed with no way
  * to say no from inside the app.
  */
@@ -27,8 +27,8 @@ export default function EmailNotificationsPanel() {
         </h4>
         <p className="text-xs text-muted mt-1">
           {preference.mention_emails
-            ? 'On. A mention that reached no device is emailed once, five minutes later — cancelled if you come back first.'
-            : 'Off. A mention that reaches no device waits until you open the app.'}
+            ? 'On. A mention or direct message still unread five minutes later is emailed once, with a link to it.'
+            : 'Off. Unread mentions wait in Activity until you open the app.'}
         </p>
       </div>
       <button

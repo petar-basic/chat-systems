@@ -252,7 +252,12 @@ pub async fn notify_message(
         return;
     };
 
-    let mut recipients = match repo.recipients(channel_id, sender).await {
+    let bot = event_payload.pointer("/metadata/bot");
+    let author = match bot.and_then(|b| b.get("hook_id")) {
+        Some(_) => None,
+        None => Some(sender),
+    };
+    let mut recipients = match repo.recipients(channel_id, author).await {
         Ok(recipients) => recipients,
         Err(e) => {
             warn!(channel_id = %channel_id, "Notification consumer: failed to read recipients: {e}");
@@ -264,7 +269,7 @@ pub async fn notify_message(
         .thread_parent_id
         .and_then(|v| v.parse::<uuid::Uuid>().ok());
     let followers: HashSet<uuid::Uuid> = match root {
-        Some(root) => match state.thread_repo.reply_recipients(root, sender).await {
+        Some(root) => match state.thread_repo.reply_recipients(root, author).await {
             Ok(followers) => followers.into_iter().collect(),
             Err(e) => {
                 warn!(root_message_id = %root, "Notification consumer: failed to read thread followers: {e}");
@@ -287,7 +292,7 @@ pub async fn notify_message(
     );
 
     let mentioned: HashSet<uuid::Uuid> = mentioned_ids(event_payload).into_iter().collect();
-    let keywords = keyword_matches(repo, channel_id, sender, event_payload).await;
+    let keywords = keyword_matches(repo, channel_id, author, event_payload).await;
     let reasons: Vec<(uuid::Uuid, Reason)> = recipients
         .iter()
         .filter_map(|r| {
@@ -304,7 +309,10 @@ pub async fn notify_message(
         return;
     }
 
-    let names = Names::of(state, &origin).await;
+    let mut names = Names::of(state, &origin).await;
+    if let Some(name) = bot.and_then(|b| b.get("name")).and_then(|v| v.as_str()) {
+        names.sender = name.to_string();
+    }
     let reply_origin = Origin {
         message_id: origin.thread_parent_id,
         ..origin
@@ -324,7 +332,7 @@ pub async fn notify_message(
 async fn keyword_matches(
     repo: &NotificationRepo,
     channel_id: uuid::Uuid,
-    sender: uuid::Uuid,
+    author: Option<uuid::Uuid>,
     payload: &serde_json::Value,
 ) -> HashMap<uuid::Uuid, String> {
     let content = payload
@@ -334,7 +342,7 @@ async fn keyword_matches(
     if content.trim().is_empty() {
         return HashMap::new();
     }
-    match repo.keyword_matches(channel_id, sender, content).await {
+    match repo.keyword_matches(channel_id, author, content).await {
         Ok(matches) => matches
             .into_iter()
             .map(|m| (m.user_id, m.keyword))
@@ -423,40 +431,37 @@ async fn deliver(
     let json = serde_json::to_string(&notif_event).unwrap_or_default();
     let _: Result<(), _> = pub_conn.publish("events:notification", &json).await;
 
-    if crate::presence::is_online(pub_conn, ws_id, uid).await {
+    if notice.email {
+        super::email::enqueue(
+            state,
+            super::email::PendingMention {
+                user_id: uid,
+                workspace_id: ws_id,
+                channel_id: origin.channel_uuid,
+                message_id: message_id.and_then(|v| v.parse().ok()),
+                sender_name: &names.sender,
+                channel_name: &names.channel,
+                direct: notice.activity == Some(NotificationType::Dm),
+            },
+        )
+        .await;
+    }
+
+    if crate::presence::is_active(pub_conn, uid).await {
         return;
     }
 
     let badge = repo.unread_count_everywhere(uid).await.unwrap_or(0);
-    let reached = push
-        .send_to_user(
-            uid,
-            &PushPayload {
-                title: notice.title.clone(),
-                body: PushPayload::preview(content),
-                workspace_id: Some(ws_id.to_string()),
-                channel_id: channel_id.map(str::to_string),
-                message_id: message_id.map(str::to_string),
-                thread_parent_id: origin.thread_parent_id.map(str::to_string),
-                badge_count: badge,
-            },
-        )
-        .await;
-
-    if reached || !notice.email {
-        return;
-    }
-
-    super::email::enqueue(
-        state,
-        super::email::PendingMention {
-            user_id: uid,
-            workspace_id: ws_id,
-            channel_id: origin.channel_uuid,
-            message_id: message_id.and_then(|v| v.parse().ok()),
-            sender_name: &names.sender,
-            channel_name: &names.channel,
-            direct: notice.activity == Some(NotificationType::Dm),
+    push.send_to_user(
+        uid,
+        &PushPayload {
+            title: notice.title.clone(),
+            body: PushPayload::preview(content),
+            workspace_id: Some(ws_id.to_string()),
+            channel_id: channel_id.map(str::to_string),
+            message_id: message_id.map(str::to_string),
+            thread_parent_id: origin.thread_parent_id.map(str::to_string),
+            badge_count: badge,
         },
     )
     .await;

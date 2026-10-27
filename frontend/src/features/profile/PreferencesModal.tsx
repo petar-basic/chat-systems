@@ -3,6 +3,7 @@ import { Bell, Palette, ShieldCheck, UserRound } from 'lucide-react';
 import { SectionedModal, type ModalSection } from '@/shared/components/Modal/SectionedModal';
 import {
   PushNotificationsPanel,
+  DesktopNotificationsPanel,
   EmailNotificationsPanel,
   KeywordsPanel,
   NotifyDefaultPanel,
@@ -44,7 +45,7 @@ export function PreferencesModal({ initial = 'notifications', onClose }: Props) 
         <>
           {workspace && (
             <p className="text-sm text-muted" data-qa="notifications-scope">
-              Except push on this device, these are your settings in{' '}
+              Except push and desktop notifications on this device, these are your settings in{' '}
               <strong className="text-fg">{workspace.name}</strong>; each workspace has its own.
             </p>
           )}
@@ -52,6 +53,7 @@ export function PreferencesModal({ initial = 'notifications', onClose }: Props) 
           <KeywordsPanel />
           <ScheduleEditor />
           <PushNotificationsPanel />
+          <DesktopNotificationsPanel />
           <EmailNotificationsPanel />
         </>
       )}

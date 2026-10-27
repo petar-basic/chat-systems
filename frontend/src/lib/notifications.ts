@@ -74,7 +74,7 @@ export async function requestNotificationPermission(): Promise<boolean> {
   return permissionGranted;
 }
 
-export function showNotification(title: string, body: string, onClick?: () => void) {
+export function showNotification(title: string, body: string, tag: string, onClick?: () => void) {
   if (document.hasFocus()) return;
 
   if (!permissionGranted || !('Notification' in window)) return;
@@ -83,7 +83,7 @@ export function showNotification(title: string, body: string, onClick?: () => vo
   const notification = new Notification(title, {
     body,
     icon: '/favicon.ico',
-    tag: 'chat-message',
+    tag,
   });
 
   if (onClick) {

@@ -201,7 +201,7 @@ async fn unfollowing_stops_the_thread_until_followed_again(pool: PgPool) {
     assert!(!room
         .state
         .thread_repo
-        .reply_recipients(root, room.colleague.0)
+        .reply_recipients(root, Some(room.colleague.0))
         .await
         .expect("recipients")
         .contains(&room.owner.0));

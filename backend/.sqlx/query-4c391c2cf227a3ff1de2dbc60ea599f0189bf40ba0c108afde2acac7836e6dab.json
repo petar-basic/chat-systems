@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT cm.user_id,\n                   effective_notify_level(cm.notify_level, wm.notify_default, c.channel_type)\n                       AS \"level!: NotifyLevel\",\n                   cm.muted AS \"muted!\",\n                   (c.channel_type IN ('dm', 'group_dm')) AS \"direct!\"\n              FROM channel_members cm\n              JOIN channels c ON c.id = cm.channel_id\n              JOIN workspace_members wm\n                ON wm.workspace_id = c.workspace_id AND wm.user_id = cm.user_id\n             WHERE cm.channel_id = $1 AND cm.user_id <> $2\n            ",
+  "query": "\n            SELECT cm.user_id,\n                   effective_notify_level(cm.notify_level, wm.notify_default, c.channel_type)\n                       AS \"level!: NotifyLevel\",\n                   cm.muted AS \"muted!\",\n                   (c.channel_type IN ('dm', 'group_dm')) AS \"direct!\"\n              FROM channel_members cm\n              JOIN channels c ON c.id = cm.channel_id\n              JOIN workspace_members wm\n                ON wm.workspace_id = c.workspace_id AND wm.user_id = cm.user_id\n             WHERE cm.channel_id = $1 AND cm.user_id IS DISTINCT FROM $2\n            ",
   "describe": {
     "columns": [
       {
@@ -62,5 +62,5 @@
       null
     ]
   },
-  "hash": "a4fdfe050ab226290eb137ddb51a9fe0e06fac69818711f87c5c7ff18adffc3b"
+  "hash": "4c391c2cf227a3ff1de2dbc60ea599f0189bf40ba0c108afde2acac7836e6dab"
 }

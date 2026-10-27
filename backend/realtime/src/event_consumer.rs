@@ -326,6 +326,7 @@ pub(crate) async fn handle_event_for(
             };
             cm.broadcast_to_huddle(audience, hid, &framed(&frame)).await;
         }
+        "huddle.ring" if payload.get("quiet").and_then(|v| v.as_bool()) == Some(true) => {}
         "huddle.offer" | "huddle.answer" | "huddle.ice" | "huddle.ring" => {
             let (Some(to_id), Some(frame)) = (field("to_user_id"), typed(event_type, payload))
             else {

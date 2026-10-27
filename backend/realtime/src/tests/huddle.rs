@@ -234,6 +234,29 @@ async fn huddle_offer_relayed_only_to_target(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn a_quiet_ring_is_not_rung(pool: PgPool) {
+    let cm = manager(pool).await;
+    let to = Uuid::new_v4();
+    let (_conn, mut rx) = fake_conn(&cm, to);
+    let ring = |quiet: bool| {
+        json!({
+            "huddle_id": Uuid::new_v4().to_string(),
+            "workspace_id": Uuid::new_v4().to_string(),
+            "from_user_id": Uuid::new_v4().to_string(),
+            "to_user_id": to.to_string(),
+            "quiet": quiet,
+        })
+    };
+
+    crate::event_consumer::handle_event("huddle.ring", &ring(true), &cm).await;
+    assert!(drain_json(&mut rx).is_empty(), "paused: no ring");
+
+    crate::event_consumer::handle_event("huddle.ring", &ring(false), &cm).await;
+    let frame = next_json(&mut rx).expect("not paused: it rings");
+    assert_eq!(frame["type"], "huddle.ring");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn huddle_join_member_returns_snapshot_with_self(pool: PgPool) {
     let cm = manager(pool).await;
     let a = seed_user(cm.db()).await;

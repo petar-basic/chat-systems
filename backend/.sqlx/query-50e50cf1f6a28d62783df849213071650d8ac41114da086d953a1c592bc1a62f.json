@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT DISTINCT ON (k.user_id) k.user_id AS \"user_id!\", k.keyword AS \"keyword!\"\n                 FROM notification_keywords k\n                 JOIN channels c ON c.id = $1 AND c.workspace_id = k.workspace_id\n                 JOIN channel_members cm ON cm.channel_id = c.id AND cm.user_id = k.user_id\n                WHERE k.user_id <> $2\n                  AND lower(public.search_normalize($3::text)) ~ public.keyword_pattern(k.normalized)\n                ORDER BY k.user_id, k.position",
+  "query": "SELECT DISTINCT ON (k.user_id) k.user_id AS \"user_id!\", k.keyword AS \"keyword!\"\n                 FROM notification_keywords k\n                 JOIN channels c ON c.id = $1 AND c.workspace_id = k.workspace_id\n                 JOIN channel_members cm ON cm.channel_id = c.id AND cm.user_id = k.user_id\n                WHERE k.user_id IS DISTINCT FROM $2\n                  AND lower(public.search_normalize($3::text)) ~ public.keyword_pattern(k.normalized)\n                ORDER BY k.user_id, k.position",
   "describe": {
     "columns": [
       {
@@ -38,5 +38,5 @@
       false
     ]
   },
-  "hash": "4e74afd80bc543255503f3e4c22252138fd0bc29f1bfebc44312a01d0e1df2b8"
+  "hash": "50e50cf1f6a28d62783df849213071650d8ac41114da086d953a1c592bc1a62f"
 }

@@ -295,7 +295,7 @@ impl NotificationRepo {
     pub async fn recipients(
         &self,
         channel_id: Uuid,
-        author_id: Uuid,
+        author_id: Option<Uuid>,
     ) -> sqlx::Result<Vec<Recipient>> {
         sqlx::query_as!(
             Recipient,
@@ -309,7 +309,7 @@ impl NotificationRepo {
               JOIN channels c ON c.id = cm.channel_id
               JOIN workspace_members wm
                 ON wm.workspace_id = c.workspace_id AND wm.user_id = cm.user_id
-             WHERE cm.channel_id = $1 AND cm.user_id <> $2
+             WHERE cm.channel_id = $1 AND cm.user_id IS DISTINCT FROM $2
             "#,
             channel_id,
             author_id
@@ -421,7 +421,7 @@ impl NotificationRepo {
     pub async fn keyword_matches(
         &self,
         channel_id: Uuid,
-        author_id: Uuid,
+        author_id: Option<Uuid>,
         content: &str,
     ) -> sqlx::Result<Vec<KeywordMatch>> {
         sqlx::query_as!(
@@ -430,7 +430,7 @@ impl NotificationRepo {
                  FROM notification_keywords k
                  JOIN channels c ON c.id = $1 AND c.workspace_id = k.workspace_id
                  JOIN channel_members cm ON cm.channel_id = c.id AND cm.user_id = k.user_id
-                WHERE k.user_id <> $2
+                WHERE k.user_id IS DISTINCT FROM $2
                   AND lower(public.search_normalize($3::text)) ~ public.keyword_pattern(k.normalized)
                 ORDER BY k.user_id, k.position"#,
             channel_id,

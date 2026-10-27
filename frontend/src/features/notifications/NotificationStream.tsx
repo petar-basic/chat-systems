@@ -62,7 +62,12 @@ export function NotificationStream() {
               : wsId && channel_id
                 ? () => navigate(ROUTES.channel(wsId, channel_id))
                 : undefined;
-        showNotification(isMention ? `🔔 ${title}` : title, body ?? '', onClick);
+        showNotification(
+          isMention ? `🔔 ${title}` : title,
+          body ?? '',
+          channel_id ?? 'chat-systems',
+          onClick,
+        );
       }
     });
   }, [navigate, queryClient, openMessage]);

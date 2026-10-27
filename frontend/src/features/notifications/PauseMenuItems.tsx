@@ -1,5 +1,6 @@
 import { Moon } from 'lucide-react';
 import { useDndStatus, useSetDnd } from '@/features/notifications/hooks/useNotifications';
+import { useWorkspaceStore } from '@/stores/workspace';
 import { PAUSE_PRESETS, currentPause, minutesFromNowIso, pauseLabel, tomorrowMorningIso } from '@/lib/pause';
 
 const ITEM = 'w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised cursor-pointer';
@@ -8,6 +9,8 @@ export function PauseMenuItems({ onDone }: { onDone: () => void }) {
   const { data: status } = useDndStatus();
   const setDnd = useSetDnd();
   const pause = currentPause(status);
+  const workspace = useWorkspaceStore((s) => s.currentWorkspace?.name);
+  const where = workspace ? ` in ${workspace}` : '';
 
   const choose = (until: string | null) => {
     setDnd.mutate(until);
@@ -27,7 +30,7 @@ export function PauseMenuItems({ onDone }: { onDone: () => void }) {
           onClick={() => choose(null)}
           data-qa="pause-resume"
         >
-          Resume notifications
+          Resume notifications{where}
         </button>
       </div>
     );
@@ -35,7 +38,9 @@ export function PauseMenuItems({ onDone }: { onDone: () => void }) {
 
   return (
     <div data-qa="pause-menu">
-      <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-subtle">Pause notifications</div>
+      <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-subtle" data-qa="pause-heading">
+        Pause notifications{where}
+      </div>
       {PAUSE_PRESETS.map((preset) => (
         <button
           key={preset.minutes}

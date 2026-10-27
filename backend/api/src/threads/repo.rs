@@ -102,7 +102,7 @@ impl ThreadRepo {
     pub async fn reply_recipients(
         &self,
         root_message_id: Uuid,
-        sender_id: Uuid,
+        sender_id: Option<Uuid>,
     ) -> sqlx::Result<Vec<Uuid>> {
         sqlx::query_scalar!(
             r#"
@@ -113,7 +113,7 @@ impl ThreadRepo {
               JOIN workspace_members wm ON wm.workspace_id = f.workspace_id AND wm.user_id = f.user_id
              WHERE f.root_message_id = $1
                AND f.following
-               AND f.user_id <> $2
+               AND f.user_id IS DISTINCT FROM $2
                AND (EXISTS (SELECT 1 FROM channel_members cm
                              WHERE cm.channel_id = r.channel_id AND cm.user_id = f.user_id)
                     OR (c.channel_type = 'public' AND wm.role <> 'guest'))

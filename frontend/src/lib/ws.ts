@@ -1,5 +1,6 @@
 import { globalEventBus, type ServerEvent } from './globalEventBus';
 import { logger } from './logger';
+import { isActive, watchActivity } from './activity';
 
 export type { ServerEvent };
 export type WsConnectionStatus = 'connecting' | 'connected' | 'disconnected';
@@ -25,6 +26,7 @@ export class WebSocketClient {
   private lastEventId = new Map<string, string>();
   private joinedChannels = new Set<string>();
   private hasConnectedOnce = false;
+  private active = isActive();
 
   private reconnectListeners = new Set<() => void>();
 
@@ -47,6 +49,10 @@ export class WebSocketClient {
     this.instanceUrl = instanceUrl;
     this.wsUrl = wsUrl;
     this.getToken = getToken;
+    watchActivity((active) => {
+      this.active = active;
+      this.send({ type: 'activity', active });
+    });
   }
 
   connect() {
@@ -118,6 +124,8 @@ export class WebSocketClient {
           last_event_id: this.lastEventId.get(this.subscribedWorkspace),
         });
       }
+
+      if (this.active) this.send({ type: 'activity', active: true });
 
       if (isReconnect) this.reconnectListeners.forEach((listener) => listener());
     };

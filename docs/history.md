@@ -1866,3 +1866,29 @@ for a channel that belongs to another workspace leave the open workspace alone, 
 `badge_count` is the total across workspaces. `GET /channels/{id}/messages?mark_read=true`
 answers `last_read_before`, so a cold load opens on the first unread with the *New* divider,
 and *Jump to first unread* shows while the divider is above the view.
+
+### [CS-083] Notifications that arrive once, where they should ✅ shipped
+*Email me what I missed* was queued only when no push device accepted the notification, so a
+push the service took but nobody saw never became an email, and the digest dropped everything
+the moment the person had any socket open, read or not; its link opened `/app`. Push was held
+back whenever any socket was open, including a tab left in the background for hours. A pause
+silenced the push for a huddle ring but not the ring the gateway delivers, and the pause menu
+did not say which workspace it paused. A webhook posts under its creator's id, so the creator
+was never notified of it, and a notification about a bot message was titled with the
+creator's name. The in-tab desktop notification switch had no control.
+
+A mention or DM with email on is queued once per person and message (a unique index), whatever
+happened to push. The sweep drops the rows whose Activity notification has been read and
+sends one digest per person and workspace for the rest, claiming the rows and queueing the
+email in one transaction, with a link to the message when there is one and to the workspace
+otherwise. The client reports `activity` over the socket — active while the page is visible
+and has had input in the last two minutes, idle as soon as it is hidden — and the gateway
+keeps a per-person hash of connection expiries refreshed on its heartbeat; push is held only
+while one has not expired. Reporting hidden at once is what makes a phone's background socket
+harmless: how long the browser keeps it no longer matters to push. A ring to a paused person
+carries `quiet` and the gateway drops it, while the `Call` row still lands in Activity; the
+pause menu reads *Pause notifications in {workspace}*. A message with `metadata.bot.hook_id`
+excludes nobody as its author, and every notification about a bot message carries the bot's
+name. *Preferences → Notifications* gains *Desktop notifications while the app is open*, and
+the in-tab notification takes its channel as its tag, as the push does, so the two replace
+each other.
