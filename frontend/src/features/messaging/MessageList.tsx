@@ -60,10 +60,8 @@ export default function MessageList({
   markReadIn,
   draftKey,
 }: Props) {
-  const { data, isLoading, isError, refetch, isFetchingNextPage, hasNextPage, fetchNextPage } = useMessages(
-    channelId,
-    markReadIn,
-  );
+  const { data, isLoading, isError, refetch, isFetching, isFetchingNextPage, hasNextPage, fetchNextPage } =
+    useMessages(channelId, markReadIn);
   const { getUser } = useUserCache();
   const actions = useMessageActions(channelId, draftKey);
   const queryClient = useQueryClient();
@@ -97,16 +95,34 @@ export default function MessageList({
   // reading, or the line jumps down the list as each message is marked read.
   const workspace = useWorkspaceStore((s) => s.currentWorkspace);
   const { data: unread } = useUnreadChannels(workspace?.id ?? null, workspace?.instanceUrl);
-  const [readBoundary, setReadBoundary] = useState<string | null>(null);
+  const [readBoundary, setReadBoundary] = useState<string | null | undefined>(undefined);
   const [boundaryChannel, setBoundaryChannel] = useState<string | null>(null);
+  const [landed, setLanded] = useState(false);
   if (boundaryChannel !== channelId) {
     setBoundaryChannel(channelId);
+    setLanded(false);
     setReadBoundary(
-      unread?.counts.find((c) => c.channel_id === channelId && c.unread_count > 0)?.last_read_msg ?? null,
+      unread
+        ? (unread.counts.find((c) => c.channel_id === channelId && c.unread_count > 0)?.last_read_msg ?? null)
+        : undefined,
     );
+  } else if (readBoundary === undefined && data) {
+    setReadBoundary(data.pages[0]?.last_read_before ?? null);
   }
 
   const rows = useMemo(() => buildMessageRows(messages, readBoundary), [messages, readBoundary]);
+  const dividerKey = rows.find((row) => row.kind === 'unread')?.key;
+
+  const landing = !landed && !highlightMessageId && !!readBoundary && !!data && !isFetching;
+  const boundaryLoaded = landing && messages.some((m) => m.id === readBoundary);
+  if (landing && (dividerKey || boundaryLoaded)) {
+    setLanded(true);
+    if (dividerKey) setScrollTarget(dividerKey);
+  }
+  const needOlder = landing && !boundaryLoaded;
+  useEffect(() => {
+    if (needOlder && hasNextPage) fetchNextPage();
+  }, [needOlder, hasNextPage, fetchNextPage]);
 
   const [roving] = useState(createRovingStore);
   const lastMessageId = messages.at(-1)?.id ?? null;
@@ -192,6 +208,8 @@ export default function MessageList({
             isLoadingOlder={isFetchingNextPage}
             onLoadOlder={fetchNextPage}
             scrollToKey={scrollTarget}
+            scrollToAlign={scrollTarget === dividerKey ? 'start' : 'center'}
+            markerKey={dividerKey}
             stickKey={channelId}
             onScrollToKeyHandled={() => setScrollTarget(undefined)}
             qa="message-list"

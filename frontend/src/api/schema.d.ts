@@ -4466,6 +4466,8 @@ export interface components {
         };
         MessagePage: {
             data: components["schemas"]["MessageWithReactions"][];
+            /** Format: uuid */
+            last_read_before?: string | null;
             /** Format: int64 */
             unread_notifications?: number | null;
         };

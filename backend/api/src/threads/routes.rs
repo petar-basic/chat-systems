@@ -152,17 +152,20 @@ async fn mark_thread_read(
     Path(root_id): Path<Uuid>,
 ) -> AppResult<Json<ThreadState>> {
     let (root, workspace_id) = thread_root(&state, root_id, auth.user_id).await?;
-    let thread = match state.thread_repo.mark_read(auth.user_id, root.id).await? {
-        Some(thread) => {
-            announce(&state, auth.user_id, workspace_id, &thread).await;
-            thread
-        }
-        None => ThreadState {
+    state
+        .notification_repo
+        .mark_thread_read(auth.user_id, root.id)
+        .await?;
+    let thread = state
+        .thread_repo
+        .mark_read(auth.user_id, root.id)
+        .await?
+        .unwrap_or(ThreadState {
             root_message_id: root.id,
             following: false,
             unread_count: 0,
-        },
-    };
+        });
+    announce(&state, auth.user_id, workspace_id, &thread).await;
     Ok(Json(thread))
 }
 

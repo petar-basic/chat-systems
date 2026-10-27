@@ -427,7 +427,7 @@ async fn deliver(
         return;
     }
 
-    let badge = repo.unread_count(uid, ws_id).await.unwrap_or(0);
+    let badge = repo.unread_count_everywhere(uid).await.unwrap_or(0);
     let reached = push
         .send_to_user(
             uid,

@@ -22,6 +22,7 @@ export interface OutgoingMessage {
 export interface MessagesResponse {
   data: Message[];
   unread_notifications?: number | null;
+  last_read_before?: string | null;
 }
 
 export type MessagesInfiniteData = InfiniteData<MessagesResponse>;

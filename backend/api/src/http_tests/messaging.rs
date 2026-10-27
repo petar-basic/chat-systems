@@ -1765,3 +1765,95 @@ async fn search_in_one_conversation(pool: PgPool) {
     .await;
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn opening_a_channel_says_where_the_reader_stopped(pool: PgPool) {
+    let (app, state, _owner_id, token, ws_id, ch_id) = setup_channel(pool).await;
+    let (_colleague_id, colleague_token) = colleague_in_channel(&app, &state, ws_id, ch_id).await;
+    let open = format!("/api/channels/{ch_id}/messages?mark_read=true");
+
+    let first = create_message(&app, &token, ch_id, "first").await;
+    let (status, page) = send(&app, "GET", &open, Some(&colleague_token), None).await;
+    assert_eq!(status, StatusCode::OK, "{page:?}");
+    assert!(
+        page.get("last_read_before").is_none(),
+        "nothing was read before, so there is no line to draw: {page:?}"
+    );
+
+    create_message(&app, &token, ch_id, "second").await;
+    create_message(&app, &token, ch_id, "third").await;
+    let (_, page) = send(&app, "GET", &open, Some(&colleague_token), None).await;
+    assert_eq!(
+        page["last_read_before"].as_str(),
+        Some(first.to_string().as_str()),
+        "the line goes after the last message read: {page:?}"
+    );
+
+    let (_, page) = send(&app, "GET", &open, Some(&colleague_token), None).await;
+    assert!(
+        page.get("last_read_before").is_none(),
+        "once read, opening again draws no line: {page:?}"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_thread_reply_counts_in_the_channel_only_when_it_is_shown_there(pool: PgPool) {
+    let (app, state, _owner_id, token, ws_id, ch_id) = setup_channel(pool).await;
+    let (colleague_id, colleague_token) = colleague_in_channel(&app, &state, ws_id, ch_id).await;
+    let root = create_message(&app, &token, ch_id, "root").await;
+    send(
+        &app,
+        "GET",
+        &format!("/api/channels/{ch_id}/messages?mark_read=true"),
+        Some(&colleague_token),
+        None,
+    )
+    .await;
+    let counters = || async {
+        sqlx::query_as::<_, (i32, i32)>(
+            "SELECT unread_count, mention_count FROM channel_members WHERE channel_id = $1 AND user_id = $2",
+        )
+        .bind(ch_id)
+        .bind(colleague_id)
+        .fetch_one(&state.pool)
+        .await
+        .expect("counters")
+    };
+    let reply = |also: bool| {
+        json!({
+            "content": "<@colleague> in the thread",
+            "thread_parent_id": root,
+            "also_to_channel": also,
+        })
+    };
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/messages"),
+        Some(&token),
+        Some(reply(false)),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(
+        counters().await,
+        (0, 0),
+        "a reply kept in its thread leaves the channel read"
+    );
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/messages"),
+        Some(&token),
+        Some(reply(true)),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(
+        counters().await.0,
+        1,
+        "a reply also sent to the channel is unread there"
+    );
+}

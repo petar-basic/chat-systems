@@ -98,10 +98,32 @@ impl NotificationRepo {
         channel_id: Uuid,
     ) -> sqlx::Result<u64> {
         let result = sqlx::query!(
-            "UPDATE notifications SET is_read = true WHERE user_id = $1 AND workspace_id = $2 AND is_read = false AND data->>'channel_id' = $3",
+            "UPDATE notifications SET is_read = true WHERE user_id = $1 AND workspace_id = $2 AND is_read = false AND data->>'channel_id' = $3 AND data->>'thread_parent_id' IS NULL",
             user_id,
             workspace_id,
             channel_id.to_string()
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected())
+    }
+
+    pub async fn mark_channels_read(&self, user_id: Uuid, workspace_id: Uuid) -> sqlx::Result<u64> {
+        let result = sqlx::query!(
+            "UPDATE notifications SET is_read = true WHERE user_id = $1 AND workspace_id = $2 AND is_read = false AND data->>'channel_id' IS NOT NULL AND data->>'thread_parent_id' IS NULL",
+            user_id,
+            workspace_id
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected())
+    }
+
+    pub async fn mark_thread_read(&self, user_id: Uuid, root_id: Uuid) -> sqlx::Result<u64> {
+        let result = sqlx::query!(
+            "UPDATE notifications SET is_read = true WHERE user_id = $1 AND is_read = false AND data->>'thread_parent_id' = $2",
+            user_id,
+            root_id.to_string()
         )
         .execute(&self.pool)
         .await?;
@@ -428,6 +450,15 @@ impl NotificationRepo {
         .fetch_one(&self.pool)
         .await
     }
+
+    pub async fn unread_count_everywhere(&self, user_id: Uuid) -> sqlx::Result<i64> {
+        sqlx::query_scalar!(
+            r#"SELECT COUNT(*) AS "count!" FROM notifications WHERE user_id = $1 AND is_read = false"#,
+            user_id
+        )
+        .fetch_one(&self.pool)
+        .await
+    }
 }
 
 #[cfg(test)]
@@ -563,12 +594,23 @@ mod tests {
         )
         .await
         .expect("create B");
+        let root = Uuid::new_v4();
+        repo.create(
+            user_id,
+            workspace_id,
+            &NotificationType::Reply,
+            "New reply",
+            Some("in a thread of A"),
+            &serde_json::json!({ "channel_id": channel_a.to_string(), "thread_parent_id": root.to_string() }),
+        )
+        .await
+        .expect("create thread reply");
 
         assert_eq!(
             repo.unread_count(user_id, workspace_id)
                 .await
                 .expect("count before"),
-            2,
+            3,
         );
 
         let updated = repo
@@ -577,15 +619,29 @@ mod tests {
             .expect("mark_channel_read");
         assert_eq!(
             updated, 1,
-            "only channel A's notification should be marked read"
+            "only channel A's own notification should be marked read, not its thread's"
         );
 
         assert_eq!(
             repo.unread_count(user_id, workspace_id)
                 .await
                 .expect("count after"),
+            2,
+            "channel B's notification and the thread's must remain unread",
+        );
+
+        assert_eq!(
+            repo.mark_thread_read(user_id, root)
+                .await
+                .expect("mark_thread_read"),
             1,
-            "channel B's notification must remain unread",
+            "reading the thread clears its notification",
+        );
+        assert_eq!(
+            repo.unread_count_everywhere(user_id)
+                .await
+                .expect("count everywhere"),
+            1,
         );
     }
 }

@@ -8,6 +8,7 @@ import { showNotification, playMessageSound } from '@/lib/notifications';
 import { QUERY_KEYS, ROUTES } from '@/shared/constants';
 import { useOpenMessage } from '@/features/messaging';
 import { NotificationType } from '@/shared/models/enums';
+import { onScreen, readOnScreen } from '@/lib/readOnScreen';
 
 export function NotificationStream() {
   const navigate = useNavigate();
@@ -21,8 +22,9 @@ export function NotificationStream() {
       const isMention = kind === NotificationType.mention;
       const isReply = kind === NotificationType.reply;
       const isList = kind === NotificationType.list;
+      const here = !workspace_id || workspace_id === useWorkspaceStore.getState().currentWorkspace?.id;
 
-      if (channel_id && isMention) {
+      if (here && channel_id && isMention && !thread_parent_id) {
         useWorkspaceStore.setState((s) => {
           const nextUnread = new Set(s.unreadChannels);
           nextUnread.add(channel_id);
@@ -38,15 +40,17 @@ export function NotificationStream() {
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notificationUnreadCount(wsId) });
       }
 
+      if (here && thread_parent_id && document.hasFocus()) {
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.threadState(thread_parent_id) });
+      }
+
       const { desktopEnabled } = useNotificationPrefs.getState();
-      const { currentChannel, currentConversationId } = useWorkspaceStore.getState();
       const viewing =
-        !!channel_id &&
-        !isReply &&
-        !isList &&
-        (currentChannel?.id === channel_id || currentConversationId === channel_id) &&
-        document.hasFocus();
-      if (viewing) return;
+        here && !!channel_id && !isReply && !isList && !thread_parent_id && !!onScreen(channel_id);
+      if (viewing) {
+        readOnScreen(queryClient, channel_id);
+        return;
+      }
       playMessageSound();
 
       if (desktopEnabled) {

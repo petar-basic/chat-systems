@@ -32,6 +32,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   replies is listed as a tombstone (`deleted_at` set, empty `content`).
 - For API clients: `copy_attachments_from` on `POST /channels/{id}/messages` is now
   `forwarded_from`; it also records `metadata.forwarded_from`.
+- For API clients: reading a channel no longer marks its threads' notifications read;
+  `POST /threads/{id}/read` does. A push's `badge_count` is the total across workspaces, and a
+  thread reply not sent to the channel no longer counts in the channel's unread counters.
 
 ### Security
 
@@ -79,6 +82,14 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   before sending. A scheduled message that failed shows the reason with *Send now* and
   *Remove*. Forwarding a message no longer notifies the people or the `@channel` in the
   quote.
+- **Unread, Activity and the badge agree.** Reading a channel or DM clears its Activity rows,
+  reading a thread clears the thread's, and a message or mention that arrives in the channel
+  you are looking at is read at once instead of leaving a badge. A reply kept in its thread no
+  longer marks the channel unread. A mention from another workspace no longer lands in the
+  open one's sidebar, and the app icon always shows the total across workspaces, push
+  included. A channel with unread messages opens on the first of them under the *New* line,
+  also on a fresh load, with *Jump to first unread* while it is above the view; *New
+  messages* sits over the list again instead of under it.
 
 ## [3.5.0] — 2026-10-27
 
