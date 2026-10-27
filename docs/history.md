@@ -1915,3 +1915,21 @@ the tab returns, the network does and every ten minutes, and offers *Reload*. A
 missing surfaces instead of looping), and the release image copies the previous release's
 chunks in beside its own, listed in `release-assets.txt` so they last one release and do not
 pile up.
+
+### [CS-087] A photo that shows everywhere ✅ shipped
+An account photo was uploaded as a file of whichever workspace was open, so the others got
+`403` for it and that workspace's file retention deleted it with its old files. `is_avatar`
+made the file readable inside its own workspace by matching `users.avatar_url`, which is the
+one place an account photo was never needed alone.
+
+`POST /users/me/avatar` takes the photo itself: sniffed, decoded and stripped of metadata like
+any image, shrunk to 720 px when wider, and stored as `avatars/{user_id}/{uuid}.{ext}` with no
+`files` row, which is what keeps retention, file search and attachments away from it. It is
+set on the account in the same call and the previous object is deleted, as it is when
+`PATCH /users/me` replaces or clears a photo and when an account is erased, so no orphan is
+left behind. The download route reads the owner out of the key and lets through the owner
+and anyone who shares a workspace with them. `is_avatar` now only matches workspace photos,
+which stay workspace files (CS-076). The move of existing photos needs the object store, so it
+is a worker start-up task rather than a SQL migration: it copies each account photo still
+under a workspace prefix, swaps the URL only if it has not changed meanwhile, and leaves the
+original to its workspace's retention; it runs to nothing on the next start.

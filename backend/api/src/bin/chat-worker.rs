@@ -52,6 +52,13 @@ async fn main() -> anyhow::Result<()> {
         });
     }
 
+    {
+        let photo_state = state.clone();
+        tokio::spawn(async move {
+            chat_api::profile::avatar::migrate(&photo_state).await;
+        });
+    }
+
     let app = Router::new()
         .merge(health::router(state.clone()))
         .merge(metrics::router(metrics_handle));

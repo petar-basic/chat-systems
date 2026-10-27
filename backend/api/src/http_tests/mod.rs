@@ -18,6 +18,7 @@ mod admin;
 mod apps;
 mod audit;
 mod auth;
+mod avatar;
 mod broadcast_mentions;
 mod channel_context;
 mod channel_integrations;

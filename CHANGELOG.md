@@ -40,6 +40,11 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   or stops using the app. Push is held back only while a session says it is active, so a
   client that never sends it gets push even with its socket open. A `huddle.ring` to somebody
   who paused the workspace is no longer delivered.
+- Deploy `api` and `worker` together: on its first start the worker moves every account photo
+  into the object store's `avatars/` prefix (see the RUNBOOK upgrade note).
+- For API clients: `POST /users/me/avatar` takes a multipart `file` and sets the account photo.
+  An account photo set with `PATCH /users/me` to a workspace file is no longer readable to the
+  workspace.
 - Building the frontend image yourself: pass `--build-arg PREVIOUS_IMAGE=<the frontend image
   you run now>` to keep its chunks for tabs opened before the upgrade, and
   `--build-arg APP_VERSION=<version>` to name the build. A proxy in front of the frontend
@@ -116,6 +121,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   shows *A new version is available* with *Reload*, a lazy page or the emoji picker whose
   chunk is gone reloads once onto the new build, and release images keep the previous
   release's chunks.
+- **An account photo shows everywhere and stays.** A photo set under *Preferences → Account*
+  is the account's, not a file of the workspace that was open: every workspace you share with
+  someone shows it, and file retention no longer deletes it. Replacing or removing a photo
+  deletes the old one.
 
 ## [3.5.0] — 2026-10-27
 

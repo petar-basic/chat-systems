@@ -4499,6 +4499,36 @@
         }
       }
     },
+    "/users/me/avatar": {
+      "post": {
+        "tags": [
+          "users"
+        ],
+        "operationId": "upload_account_photo",
+        "requestBody": {
+          "description": "A `file` field: a PNG, JPEG, GIF or WebP image of at most 10 MB",
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPublic"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/users/me/password": {
       "patch": {
         "tags": [

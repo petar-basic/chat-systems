@@ -156,7 +156,8 @@ Handles user identity — login, registration, JWT, and profile.
 | GET | `/instance/info` | — | `{ name, icon_url, sso_enabled, max_upload_bytes, setup_required }` |
 | POST | `/setup` | `{ token, display_name, email, password, workspace_name }` | `{ session: AuthSession, workspace_id }` and the auth cookies; 403 for a wrong token, 409 once an instance admin exists |
 | GET | `/users/me` | JWT | `UserPublic` |
-| PATCH | `/users/me` | `{ display_name?, avatar_url?, bio?, timezone? }` | `UserPublic` |
+| PATCH | `/users/me` | `{ display_name?, avatar_url?, bio?, timezone? }` | `UserPublic` — replacing or clearing a photo stored under `avatars/` deletes the old object |
+| POST | `/users/me/avatar` | multipart `file`: PNG, JPEG, GIF or WebP, at most 10 MB | `UserPublic` with the new `avatar_url` — the photo is sniffed, decoded and stripped of metadata (one wider than 720 px is stored at 720), saved as `avatars/{user_id}/{uuid}.{ext}` with no `files` row, so retention never sees it, and set on the account; the previous one is deleted |
 | PATCH | `/users/me/password` | `{ current_password, new_password }` | `{ status: "password_changed" }` |
 | GET | `/workspaces/{ws_id}/profile` | — | `WorkspaceProfile` — the caller's own name, photo, bio and live status in that workspace; `null` where the account's is shown |
 | PATCH | `/workspaces/{ws_id}/profile` | `{ display_name?, avatar_url?, bio? }` | `WorkspaceProfile` — a field left out stays; `""` goes back to the account's |
@@ -428,7 +429,7 @@ is always one safe path segment and keeps its extension. Downloads send both
 |--------|-------|-------|--------|
 | POST | `/files/upload/:ws_id` | Query: `draft?`; multipart form (files) | `FileUploadResponse[]` |
 | GET | `/files/:file_id` | — | `{ file: FileRecord, url: string }` |
-| GET | `/files/download/*key` | Header: `Range?` | The file, streamed from storage — a single `bytes=` range answers `206` with `Content-Range`, an unsatisfiable one `416`, several ranges the whole file; always `Accept-Ranges: bytes`. A custom emoji's image is served here too, to anyone in its workspace |
+| GET | `/files/download/*key` | Header: `Range?` | The file, streamed from storage — a single `bytes=` range answers `206` with `Content-Range`, an unsatisfiable one `416`, several ranges the whole file; always `Accept-Ranges: bytes`. A custom emoji's image is served here too, to anyone in its workspace, and an account photo (`avatars/{user_id}/…`) to its owner and anyone who shares a workspace with them; anyone else gets `403` |
 | DELETE | `/files/:file_id` | — | `{ status: "deleted" }` |
 | GET | `/files/workspace/:ws_id` | Query: `limit=50, offset=0` | `{ data: FileRecord[] }` |
 | GET | `/channels/:ch_id/files` | Query: `kind?` (`image`, `video`, `audio`, `document`), `cursor?` (a file id), `limit=50` | `{ data: ChannelFile[] }` — the files of the channel's live messages, newest first, to whoever can read the channel |
