@@ -112,7 +112,7 @@ async fn huddle_member_joined_routes_to_lifecycle_channel(pool: PgPool) {
     add_ws_member(cm.db(), ws, a).await;
     let b = seed_user(cm.db()).await;
     add_ws_member(cm.db(), ws, b).await;
-    let huddle = Uuid::new_v4();
+    let huddle = seed_huddle(cm.db(), ws, None, a, Some(b)).await;
 
     let (conn_a, _rx) = fake_conn(&cm, a);
 
@@ -128,13 +128,7 @@ async fn huddle_member_joined_routes_to_lifecycle_channel(pool: PgPool) {
     ));
     settle().await;
 
-    let join = json!({
-        "type": "huddle.join",
-        "huddle_id": huddle,
-        "workspace_id": ws,
-        "dm_partner_id": b,
-    })
-    .to_string();
+    let join = json!({ "type": "huddle.join", "huddle_id": huddle }).to_string();
     crate::ws_handler::handle_client_message(&join, &conn_a, a, &cm, &mut inbound()).await;
 
     let on_lifecycle = lifecycle.await.expect("lifecycle task");
@@ -248,16 +242,10 @@ async fn huddle_join_member_returns_snapshot_with_self(pool: PgPool) {
     let b = seed_user(cm.db()).await;
     add_ws_member(cm.db(), ws, b).await;
 
-    let huddle = Uuid::new_v4();
+    let huddle = seed_huddle(cm.db(), ws, None, a, Some(b)).await;
     let (conn_id, mut rx) = fake_conn(&cm, a);
 
-    let text = json!({
-        "type": "huddle.join",
-        "huddle_id": huddle,
-        "workspace_id": ws,
-        "dm_partner_id": b,
-    })
-    .to_string();
+    let text = json!({ "type": "huddle.join", "huddle_id": huddle }).to_string();
     crate::ws_handler::handle_client_message(&text, &conn_id, a, &cm, &mut inbound()).await;
 
     let frames = drain_json(&mut rx);
@@ -286,16 +274,10 @@ async fn huddle_join_non_member_denied_no_snapshot(pool: PgPool) {
     add_ws_member(cm.db(), ws, owner).await;
     let outsider = seed_user(cm.db()).await;
 
-    let huddle = Uuid::new_v4();
+    let huddle = seed_huddle(cm.db(), ws, None, owner, Some(outsider)).await;
     let (conn_id, mut rx) = fake_conn(&cm, outsider);
 
-    let text = json!({
-        "type": "huddle.join",
-        "huddle_id": huddle,
-        "workspace_id": ws,
-        "dm_partner_id": owner,
-    })
-    .to_string();
+    let text = json!({ "type": "huddle.join", "huddle_id": huddle }).to_string();
     crate::ws_handler::handle_client_message(&text, &conn_id, outsider, &cm, &mut inbound()).await;
 
     let frames = drain_json(&mut rx);
@@ -311,7 +293,7 @@ async fn huddle_join_non_member_denied_no_snapshot(pool: PgPool) {
 async fn full_huddle_turns_away_the_next_person_but_not_a_member(pool: PgPool) {
     let cm = manager(pool).await;
     let (first, ws, ch) = seed_member_in_channel(cm.db()).await;
-    let huddle = Uuid::new_v4();
+    let huddle = seed_huddle(cm.db(), ws, Some(ch), first, None).await;
 
     cm.huddle_redis_join(huddle, first).await;
     for _ in 1..crate::connection_manager::HUDDLE_MAX_PARTICIPANTS {
@@ -323,7 +305,7 @@ async fn full_huddle_turns_away_the_next_person_but_not_a_member(pool: PgPool) {
     add_ws_member(cm.db(), ws, late).await;
     add_ch_member(cm.db(), ch, late).await;
     let (late_conn, mut late_rx) = fake_conn(&cm, late);
-    let join = json!({ "type": "huddle.join", "huddle_id": huddle, "channel_id": ch }).to_string();
+    let join = json!({ "type": "huddle.join", "huddle_id": huddle }).to_string();
 
     let lifecycle = tokio::spawn(collect_on(
         "events:huddle",
@@ -372,4 +354,81 @@ async fn full_huddle_turns_away_the_next_person_but_not_a_member(pool: PgPool) {
     for member in cm.huddle_redis_members(huddle).await {
         cm.huddle_redis_leave(huddle, member).await;
     }
+}
+
+async fn joined(
+    cm: &std::sync::Arc<crate::connection_manager::ConnectionManager>,
+    huddle: Uuid,
+    user: Uuid,
+    extra: Value,
+) -> bool {
+    let (conn_id, mut rx) = fake_conn(cm, user);
+    let mut msg = json!({ "type": "huddle.join", "huddle_id": huddle });
+    if let (Some(m), Some(e)) = (msg.as_object_mut(), extra.as_object()) {
+        m.extend(e.clone());
+    }
+    crate::ws_handler::handle_client_message(&msg.to_string(), &conn_id, user, cm, &mut inbound())
+        .await;
+    let got = drain_json(&mut rx)
+        .iter()
+        .any(|f| f.get("type").and_then(|v| v.as_str()) == Some("huddle.members"));
+    cm.huddle_redis_leave(huddle, user).await;
+    got
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_channel_the_joiner_belongs_to_does_not_open_another_huddle(pool: PgPool) {
+    let cm = manager(pool).await;
+    let (owner, ws, private) = seed_member_in_channel(cm.db()).await;
+    let huddle = seed_huddle(cm.db(), ws, Some(private), owner, None).await;
+
+    let intruder = seed_user(cm.db()).await;
+    add_ws_member(cm.db(), ws, intruder).await;
+    let own = seed_channel(cm.db(), ws, intruder).await;
+    add_ch_member(cm.db(), own, intruder).await;
+
+    assert!(!joined(&cm, huddle, intruder, json!({ "channel_id": own })).await);
+    assert!(
+        !joined(
+            &cm,
+            huddle,
+            intruder,
+            json!({ "workspace_id": ws, "dm_partner_id": owner })
+        )
+        .await
+    );
+    assert!(joined(&cm, huddle, owner, json!({})).await);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_dm_huddle_admits_its_two_people_and_whoever_they_invite(pool: PgPool) {
+    let cm = manager(pool).await;
+    let a = seed_user(cm.db()).await;
+    let ws = seed_workspace(cm.db(), a).await;
+    add_ws_member(cm.db(), ws, a).await;
+    let b = seed_user(cm.db()).await;
+    add_ws_member(cm.db(), ws, b).await;
+    let third = seed_user(cm.db()).await;
+    add_ws_member(cm.db(), ws, third).await;
+    let huddle = seed_huddle(cm.db(), ws, None, a, Some(b)).await;
+
+    assert!(joined(&cm, huddle, b, json!({})).await);
+    assert!(!joined(&cm, huddle, third, json!({})).await);
+
+    invite_to_huddle(cm.db(), huddle, third, a).await;
+    assert!(joined(&cm, huddle, third, json!({})).await);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_ended_huddle_admits_nobody(pool: PgPool) {
+    let cm = manager(pool).await;
+    let (owner, ws, ch) = seed_member_in_channel(cm.db()).await;
+    let huddle = seed_huddle(cm.db(), ws, Some(ch), owner, None).await;
+    sqlx::query("UPDATE huddle_sessions SET ended_at = NOW() WHERE id = $1")
+        .bind(huddle)
+        .execute(cm.db())
+        .await
+        .expect("end huddle");
+
+    assert!(!joined(&cm, huddle, owner, json!({})).await);
 }

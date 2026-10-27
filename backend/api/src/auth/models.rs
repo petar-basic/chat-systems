@@ -151,3 +151,9 @@ pub struct InstanceInfo {
     pub max_upload_bytes: u64,
     pub setup_required: bool,
 }
+
+pub struct RegistrationInvite {
+    pub user_id: Uuid,
+    pub email: String,
+    pub invite_id: Uuid,
+}

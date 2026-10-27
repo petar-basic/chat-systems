@@ -84,6 +84,7 @@ impl WorkspaceService {
             None
         };
 
+        let expires_at = chrono::Utc::now() + chrono::Duration::hours(lifetime.expires_in_hours);
         let invite = self
             .repo
             .create_invite(crate::workspace::repo::NewInvite {
@@ -93,24 +94,15 @@ impl WorkspaceService {
                 role: &role,
                 token: &token,
                 max_uses: lifetime.max_uses,
-                expires_at: chrono::Utc::now() + chrono::Duration::hours(lifetime.expires_in_hours),
+                expires_at,
             })
             .await?;
 
         if let (Some(email_addr), Some(user)) = (email, provisioned.as_ref()) {
             let workspace = self.repo.find_workspace_by_id(workspace_id).await?;
             if let Some(ws) = workspace {
-                let role_str = serde_json::to_value(&role)
-                    .ok()
-                    .and_then(|v| v.as_str().map(std::string::ToString::to_string))
-                    .unwrap_or_else(|| "member".to_string());
-
-                let reg_token = auth_service.generate_registration_token(
-                    user.id,
-                    email_addr,
-                    workspace_id,
-                    &role_str,
-                )?;
+                let reg_token = auth_service
+                    .generate_registration_token(user.id, email_addr, invite.id, expires_at)?;
                 let invite_url = format!("{}/invite/{}", self.config.public_url, reg_token);
                 if let Err(e) = auth_service
                     .send_invite_email(email_addr, &ws.name, &invite_url)
@@ -139,6 +131,53 @@ impl WorkspaceService {
 
         info!("User {} joined workspace {}", user_id, workspace_id);
         Ok(staged)
+    }
+
+    pub async fn open_email_invite(
+        &self,
+        invite_id: Uuid,
+        email: &str,
+    ) -> AppResult<WorkspaceInvite> {
+        let invalid = || AppError::Unauthorized("Invalid or expired invite".into());
+        let invite = self
+            .repo
+            .find_invite_by_id(invite_id)
+            .await?
+            .ok_or_else(invalid)?;
+        let live = invite.expires_at.is_some_and(|e| e >= chrono::Utc::now())
+            && invite.max_uses.is_none_or(|max| invite.use_count < max)
+            && invite
+                .email
+                .as_deref()
+                .is_some_and(|invited| invited.eq_ignore_ascii_case(email));
+        if !live {
+            return Err(invalid());
+        }
+        Ok(invite)
+    }
+
+    pub async fn redeem_email_invite(
+        &self,
+        invite_id: Uuid,
+        user_id: Uuid,
+        email: &str,
+    ) -> AppResult<(WorkspaceInvite, Vec<Staged>)> {
+        let invite = self.open_email_invite(invite_id, email).await?;
+
+        let mut tx = self.repo.begin().await?;
+        WorkspaceRepo::claim_invite_use_tx(&mut tx, invite.id)
+            .await?
+            .ok_or_else(|| AppError::Unauthorized("Invalid or expired invite".into()))?;
+        WorkspaceRepo::add_member_if_absent_tx(&mut tx, invite.workspace_id, user_id, &invite.role)
+            .await?;
+        let staged = join_default_channels(&mut tx, invite.workspace_id, user_id).await?;
+        tx.commit().await?;
+
+        info!(
+            "User {} redeemed email invite to workspace {}",
+            user_id, invite.workspace_id
+        );
+        Ok((invite, staged))
     }
 
     pub async fn accept_invite(

@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO huddle_invites (huddle_id, user_id, invited_by)\n             VALUES ($1, $2, $3)\n             ON CONFLICT (huddle_id, user_id) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1bcf522c96c0074d55a37ff032a644f855ca5a2229dbf2c0c89c28af5d35e73f"
+}

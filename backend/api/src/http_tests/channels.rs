@@ -469,6 +469,27 @@ async fn list_channel_members_forbidden_for_non_workspace_member(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn a_private_channels_members_are_hidden_from_the_rest_of_the_workspace(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "ch-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Private Members WS").await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "members-secret", true).await;
+    let (member_id, _, member_token) = seed_and_login(&app, &state, "ch-member", false).await;
+    add_ws_member(&state, ws_id, member_id, "member").await;
+    let path = format!("/api/channels/{ch_id}/members");
+
+    let (status, _) = send(&app, "GET", &path, Some(&member_token), None).await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "a workspace member outside a private channel must not see who is in it"
+    );
+
+    let (status, body) = send(&app, "GET", &path, Some(&owner_token), None).await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn add_channel_member_succeeds_for_workspace_admin(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "ch-owner", false).await;

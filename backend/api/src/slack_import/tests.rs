@@ -513,6 +513,55 @@ fn zip_of(root: &PathBuf) -> PathBuf {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn a_channel_merges_only_into_one_of_the_same_kind(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "import-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Imported").await;
+    let public_general = seed_channel(&state, ws, owner_id, "general-chat", false).await;
+    let public_incident = seed_channel(&state, ws, owner_id, "incident-2023", false).await;
+
+    let fixture = Fixture::write();
+    let report = import(&state, ws, &fixture.root, false).await;
+
+    assert_eq!(report.channels_reused, 1, "the public channel merges");
+    assert_eq!(report.channels_created, 1, "the private one does not");
+    assert!(
+        report
+            .notes
+            .iter()
+            .any(|n| n.contains("#incident-2023") && n.contains("#incident-2023-slack")),
+        "the rename is reported: {:?}",
+        report.notes
+    );
+
+    let landed: String = sqlx::query_scalar(
+        "SELECT channel_type::text FROM channels WHERE workspace_id = $1 AND name = 'incident-2023-slack'",
+    )
+    .bind(ws)
+    .fetch_one(&state.pool)
+    .await
+    .expect("the private history has a channel of its own");
+    assert_eq!(landed, "private");
+
+    let leaked: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM messages WHERE channel_id = $1")
+        .bind(public_incident)
+        .fetch_one(&state.pool)
+        .await
+        .expect("count");
+    assert_eq!(leaked, 0, "no private message lands in the public channel");
+
+    let merged: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM messages WHERE channel_id = $1")
+        .bind(public_general)
+        .fetch_one(&state.pool)
+        .await
+        .expect("count");
+    assert!(
+        merged > 0,
+        "the public history merges into the public channel"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn the_zip_slack_hands_you_imports_the_same_as_a_directory(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "import-zip", false).await;

@@ -28,15 +28,7 @@ export interface HuddleControls {
 
 const wsFor = (active: ActiveHuddle) => instanceManager.get(active.instanceUrl).ws;
 
-const joinMessage = (active: ActiveHuddle): Record<string, unknown> =>
-  active.scope.kind === 'channel'
-    ? { type: 'huddle.join', huddle_id: active.huddleId, channel_id: active.scope.channelId }
-    : {
-        type: 'huddle.join',
-        huddle_id: active.huddleId,
-        workspace_id: active.workspaceId,
-        dm_partner_id: active.scope.partnerId,
-      };
+const joinMessage = (active: ActiveHuddle) => ({ type: 'huddle.join', huddle_id: active.huddleId });
 
 export function HuddleController() {
   const active = useHuddleStore((s) => s.active);

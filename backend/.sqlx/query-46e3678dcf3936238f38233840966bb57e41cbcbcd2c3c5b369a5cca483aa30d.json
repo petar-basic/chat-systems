@@ -1,0 +1,101 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT h.id, h.workspace_id, h.channel_id, h.dm_partner_id, h.initiated_by,\n                    h.started_at, h.ended_at\n               FROM huddle_sessions h\n               JOIN channel_members cm ON cm.channel_id = h.channel_id AND cm.user_id = $2\n              WHERE h.workspace_id = $1 AND h.ended_at IS NULL\n              ORDER BY h.started_at DESC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "huddle_sessions",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "huddle_sessions",
+            "name": "workspace_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "channel_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "huddle_sessions",
+            "name": "channel_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "dm_partner_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "huddle_sessions",
+            "name": "dm_partner_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "initiated_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "huddle_sessions",
+            "name": "initiated_by"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "started_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "huddle_sessions",
+            "name": "started_at"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "ended_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "huddle_sessions",
+            "name": "ended_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "46e3678dcf3936238f38233840966bb57e41cbcbcd2c3c5b369a5cca483aa30d"
+}

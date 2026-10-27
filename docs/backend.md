@@ -146,8 +146,9 @@ Handles user identity — login, registration, JWT, and profile.
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | POST | `/auth/login` | `{ email, password }` | `AuthSession` |
-| GET | `/auth/invites/:token/verify` | — | `{ email, workspace_name, workspace_id }` |
-| POST | `/auth/complete-registration` | `{ token, password, display_name }` | `AuthSession` |
+| GET | `/auth/invites/:token/verify` | — | `{ email, workspace_name, workspace_id, already_registered }` — 401 once the invite the link names is revoked, expired or used up |
+| POST | `/auth/invites/:token/accept` | JWT | `{ workspace_id, workspace_name }` — an email invite for an account that already exists; same checks, claims a use |
+| POST | `/auth/complete-registration` | `{ token, password, display_name }` | `AuthSession` — joins the invite's workspace with the invite's role and claims a use; 401 for a revoked, expired or used-up invite |
 | POST | `/auth/refresh` | `{ refresh_token }` (or refresh cookie / Bearer) | `AuthSession` |
 | POST | `/auth/logout` | refresh cookie | `{ status: "logged_out" }` |
 | POST | `/auth/forgot-password` | `{ email }` | `{ status: "sent" }` |
@@ -212,6 +213,11 @@ feature — see `dm` below.)
 | DELETE | `/workspaces/:ws_id/invites/:invite_id` | — | `{ status: "revoked" }` |
 | POST | `/invites/:token/accept` | — | `WorkspaceMember` |
 
+An email invite's link carries a registration token that names the invite row
+(`invite_id`) and expires when the invite does. Every use of it loads the row, so revoking
+the invite, its expiry and its use limit hold for the emailed link as they do for a shared
+one, and the role is the row's, not the token's.
+
 **Channels:**
 
 | Method | Route | Input | Output |
@@ -229,7 +235,7 @@ feature — see `dm` below.)
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
-| GET | `/channels/:ch_id/members` | — | `{ data: ChannelMember[] }` |
+| GET | `/channels/:ch_id/members` | — | `{ data: ChannelMember[] }` — anyone who can read the channel; a private channel's to its members only, and any channel a guest is not in is refused |
 | POST | `/channels/:ch_id/members` | `{ user_id }` | `ChannelMember` |
 | POST | `/channels/:ch_id/join` | — | `ChannelMember` — self-join, public and unarchived channels only; idempotent |
 | PATCH | `/channels/:ch_id/members/:user_id/role` | `{ role: "member" \| "admin" }` | `ChannelMember` — channel moderators only |
@@ -603,7 +609,10 @@ channels, `groups.json` private ones, and `dms.json` / `mpims.json` become `dm` 
 `group_dm` channels, which the channel list never shows, so a two-person history stays out
 of everybody's sidebar. A listing the export does not carry is named in the report rather
 than assumed empty: an export without private channels and an export whose private channels
-were quietly dropped should not look the same.
+were quietly dropped should not look the same. A Slack channel merges into an existing one of
+the same name only when both are the same kind; otherwise it lands in `<name>-slack` (then
+`-slack-2`, …) and the report says so, so a private history never ends up in a public
+channel.
 
 **Two passes, because threads are what break single-pass importers.** The first creates
 users, channels, conversations and memberships; the second writes messages, so a `thread_ts`
@@ -1026,13 +1035,13 @@ Live voice/video rooms (Slack-style huddles) over mesh WebRTC. Live membership a
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/ice-servers` | — | `{ ice_servers: IceServer[], ttl: number }` |
-| GET | `/workspaces/:ws_id/active-huddles` | — | `{ data: { huddle_id, channel_id, initiator_id }[] }` |
+| GET | `/workspaces/:ws_id/active-huddles` | — | `{ data: { huddle_id, channel_id, initiator_id }[] }` — channels the caller is in only |
 | POST | `/workspaces/:ws_id/huddles` | `{ channel_id }` XOR `{ dm_partner_id }` | `{ huddle_id }` |
-| POST | `/workspaces/:ws_id/huddles/:huddle_id/invite` | `{ user_ids: string[] }` | `{ status: "ok" }` |
+| POST | `/workspaces/:ws_id/huddles/:huddle_id/invite` | `{ user_ids: string[] }` | `{ status: "ok" }` — 404 unless the huddle is open in this workspace, 403 unless the caller is in it |
 
 `IceServer` is the WebRTC `RTCIceServer` shape: `{ urls: string[], username?, credential? }`. STUN entries are always returned; a TURN entry with time-limited credentials (TURN REST API, `username = "<expiry-unix>:<user-id>"`, `credential = base64(hmac_sha1(TURN_SECRET, username))`) is added only when `TURN_SECRET` and `TURN_URLS` are configured. See the coturn service in `docker-compose.yml` and the TURN section of `.env.example`.
 
-**Start** generates a `huddle_id`, persists a `huddle_sessions` row, publishes `huddle.started`, and (for channels) posts a `metadata.kind="huddle_started"` system message; DM huddles also publish `huddle.ring` to the partner. **Invite** publishes `huddle.ring` to each workspace-member invitee. **Active-huddles** returns currently-live channel huddles — open DB sessions (`ended_at IS NULL`) intersected with live Redis room membership (`SCARD huddle:{id}:members > 0`), so abrupt-drop sessions that never emitted `huddle.ended` are excluded. The frontend fetches it on workspace load and on WS reconnect to backfill the channel huddle banner (so late-joiners see "Join" and stale banners self-heal). Live membership/media is ephemeral — see the `events:huddle` WS surface below. Session/participant history is persisted by the API's huddle consumer, which also emits `huddle.ended` when the last participant leaves; ring/invite also raise a `Call` notification (DND-respecting).
+**Start** generates a `huddle_id`, persists a `huddle_sessions` row, publishes `huddle.started`, and (for channels) posts a `metadata.kind="huddle_started"` system message; DM huddles also publish `huddle.ring` to the partner. **Invite** records a `huddle_invites` row for each workspace-member invitee, which is what lets them join, and publishes `huddle.ring`. **Active-huddles** returns currently-live huddles in channels the caller is a member of — open DB sessions (`ended_at IS NULL`) intersected with live Redis room membership (`SCARD huddle:{id}:members > 0`), so abrupt-drop sessions that never emitted `huddle.ended` are excluded. The frontend fetches it on workspace load and on WS reconnect to backfill the channel huddle banner (so late-joiners see "Join" and stale banners self-heal). Live membership/media is ephemeral — see the `events:huddle` WS surface below. Session/participant history is persisted by the API's huddle consumer, which also emits `huddle.ended` when the last participant leaves; ring/invite also raise a `Call` notification (DND-respecting).
 
 ---
 
@@ -1064,7 +1073,7 @@ batch cannot become the flood it replaced.
 **Huddle signaling (incoming client messages).** Mesh WebRTC uses this socket purely as the signaling channel — no media flows through the server. After membership is verified, the server relays via `events:huddle`:
 
 ```json
-{ "type": "huddle.join", "huddle_id": "...", "channel_id": "..." }   // or workspace_id + dm_partner_id
+{ "type": "huddle.join", "huddle_id": "..." }
 { "type": "huddle.leave", "huddle_id": "..." }
 { "type": "huddle.offer",  "huddle_id": "...", "to_user_id": "...", "sdp": { ... } }
 { "type": "huddle.answer", "huddle_id": "...", "to_user_id": "...", "sdp": { ... } }
@@ -1076,7 +1085,7 @@ batch cannot become the flood it replaced.
 { "type": "huddle.reaction", "huddle_id": "...", "emoji": "👍" }
 ```
 
-`offer`/`answer`/`ice` are relayed only to `to_user_id` (and only when both users are current room members); the rest broadcast to the room. On join the caller gets a `huddle.members` snapshot. A huddle holds at most eight people (`HUDDLE_MAX_PARTICIPANTS`), the mesh's ceiling: the check and the insert are one Lua script on the room's Redis set, so two people racing for the last place cannot both get it, and a ninth joiner gets `huddle.full { limit }` on their own socket and is not added. Someone already in the room rejoining after a reconnect always keeps their place. `huddle.member_left` is published only for a user the room actually held. Disconnect removes the user and, when a room empties, the API consumer emits `huddle.ended`.
+A join is authorised against the huddle's own `huddle_sessions` row, never against anything the client sends: it must be open, and the caller must be in its workspace and either in its channel, one of the two people of a DM huddle, or invited (`huddle_invites`). `offer`/`answer`/`ice` are relayed only to `to_user_id` (and only when both users are current room members); the rest broadcast to the room. On join the caller gets a `huddle.members` snapshot. A huddle holds at most eight people (`HUDDLE_MAX_PARTICIPANTS`), the mesh's ceiling: the check and the insert are one Lua script on the room's Redis set, so two people racing for the last place cannot both get it, and a ninth joiner gets `huddle.full { limit }` on their own socket and is not added. Someone already in the room rejoining after a reconnect always keeps their place. `huddle.member_left` is published only for a user the room actually held. Disconnect removes the user and, when a room empties, the API consumer emits `huddle.ended`.
 
 **Outgoing events pushed to client** (live copies arrive on these pub/sub channels; the durable ones are also on `stream:ws:{id}` for replay):
 

@@ -788,8 +788,7 @@ async fn list_channel_members(
     auth: AuthUser,
     Path(ch_id): Path<Uuid>,
 ) -> AppResult<Json<DataList<ChannelMember>>> {
-    let channel = authz::find_channel(&state, ch_id).await?;
-    authz::require_workspace_member(&state, channel.workspace_id, auth.user_id).await?;
+    authz::require_channel_access(&state, ch_id, auth.user_id).await?;
     let members = state
         .workspace_service
         .repo

@@ -140,6 +140,39 @@ pub async fn seed_member_in_channel(pool: &PgPool) -> (Uuid, Uuid, Uuid) {
     (user, ws, ch)
 }
 
+pub async fn seed_huddle(
+    pool: &PgPool,
+    ws: Uuid,
+    channel: Option<Uuid>,
+    initiator: Uuid,
+    partner: Option<Uuid>,
+) -> Uuid {
+    let id = Uuid::new_v4();
+    sqlx::query(
+        "INSERT INTO huddle_sessions (id, workspace_id, channel_id, dm_partner_id, initiated_by) \
+         VALUES ($1, $2, $3, $4, $5)",
+    )
+    .bind(id)
+    .bind(ws)
+    .bind(channel)
+    .bind(partner)
+    .bind(initiator)
+    .execute(pool)
+    .await
+    .expect("seed huddle");
+    id
+}
+
+pub async fn invite_to_huddle(pool: &PgPool, huddle: Uuid, user: Uuid, by: Uuid) {
+    sqlx::query("INSERT INTO huddle_invites (huddle_id, user_id, invited_by) VALUES ($1, $2, $3)")
+        .bind(huddle)
+        .bind(user)
+        .bind(by)
+        .execute(pool)
+        .await
+        .expect("invite to huddle");
+}
+
 pub fn mint_token(sub: Uuid, token_type: &str) -> String {
     let exp = (Utc::now() + chrono::Duration::hours(1)).timestamp();
     let claims = json!({ "sub": sub, "exp": exp, "token_type": token_type });
