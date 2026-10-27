@@ -1,7 +1,10 @@
-import { X } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Smile, X } from 'lucide-react';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { Select } from '@/shared/components/Form/Select';
 import { IconButton } from '@/shared/components/IconButton/IconButton';
+import { ReactionEmoji } from '@/shared/components/ReactionEmoji';
+import { EmojiPicker } from '@/features/messaging';
 import { formatDateTime } from '@/lib/datetime';
 import type { StatusDraft } from './statusDraft';
 
@@ -28,20 +31,31 @@ interface Props {
 
 export function StatusFields({ value, onChange, clearsAt }: Props) {
   const hasStatus = !!(value.emoji || value.text);
+  const emojiButton = useRef<HTMLButtonElement>(null);
+  const [picking, setPicking] = useState(false);
 
   return (
     <fieldset data-qa="status-editor">
       <legend className="mb-1.5 text-sm font-medium text-fg-dim">Status</legend>
       <div className="flex items-center gap-2">
-        <TextInput
-          label="Status emoji"
-          labelHidden
-          value={value.emoji}
-          onChange={(e) => onChange({ ...value, emoji: e.target.value })}
-          placeholder="🙂"
-          dataQa="status-emoji"
-          className="w-14 shrink-0"
-        />
+        <button
+          ref={emojiButton}
+          type="button"
+          onClick={() => setPicking((open) => !open)}
+          aria-label={value.emoji ? `Status emoji ${value.emoji}` : 'Choose a status emoji'}
+          aria-expanded={picking}
+          data-qa="status-emoji"
+          className="flex h-9 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-line bg-raised/50 text-lg leading-none transition hover:bg-raised"
+        >
+          {value.emoji ? <ReactionEmoji emoji={value.emoji} /> : <Smile className="h-4 w-4 text-muted" />}
+        </button>
+        {picking && (
+          <EmojiPicker
+            anchorRef={emojiButton}
+            onSelect={(emoji) => onChange({ ...value, emoji })}
+            onClose={() => setPicking(false)}
+          />
+        )}
         <TextInput
           label="Status"
           labelHidden

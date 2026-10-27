@@ -114,9 +114,21 @@ pub fn validate_avatar_url(url: &str) -> AppResult<()> {
     Ok(())
 }
 
-/// Matches the rule the realtime gateway already enforces on the WebSocket path.
-/// Two paths reach the same column; one limit.
+pub fn custom_emoji_name(emoji: &str) -> Option<&str> {
+    let name = emoji.strip_prefix(':')?.strip_suffix(':')?;
+    let valid = (2..=32).contains(&name.len())
+        && name
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '-');
+    valid.then_some(name)
+}
+
+/// A character of at most eight code points, the limit the realtime gateway
+/// enforces for a huddle reaction, or a workspace's `:shortcode:`.
 pub fn validate_reaction_emoji(emoji: &str) -> AppResult<()> {
+    if custom_emoji_name(emoji).is_some() {
+        return Ok(());
+    }
     if emoji.is_empty() {
         return Err(AppError::Validation("Reaction cannot be empty".into()));
     }
@@ -272,6 +284,9 @@ pub fn validate_status_text(text: &str) -> AppResult<()> {
 }
 
 pub fn validate_status_emoji(emoji: &str) -> AppResult<()> {
+    if custom_emoji_name(emoji).is_some() {
+        return Ok(());
+    }
     if emoji.chars().count() > 16 {
         return Err(AppError::Validation(
             "Status emoji must be at most 16 characters".into(),
@@ -457,12 +472,22 @@ mod tests {
     }
 
     #[test]
-    fn validate_reaction_emoji_matches_the_websocket_rule() {
+    fn validate_reaction_emoji_takes_a_character_or_a_shortcode() {
         assert!(validate_reaction_emoji("\u{1F680}").is_ok());
         assert!(validate_reaction_emoji(&"a".repeat(8)).is_ok());
         assert_validation_err(validate_reaction_emoji(&"a".repeat(9)));
         assert_validation_err(validate_reaction_emoji(""));
         assert_validation_err(validate_reaction_emoji("a\u{0007}"));
+        assert!(validate_reaction_emoji(":party-parrot:").is_ok());
+        assert_validation_err(validate_reaction_emoji(":Not A Name:"));
+    }
+
+    #[test]
+    fn custom_emoji_name_reads_only_a_shortcode() {
+        assert_eq!(custom_emoji_name(":party_parrot:"), Some("party_parrot"));
+        assert_eq!(custom_emoji_name("\u{1F680}"), None);
+        assert_eq!(custom_emoji_name(":x:"), None);
+        assert_eq!(custom_emoji_name(&format!(":{}:", "a".repeat(33))), None);
     }
 
     #[test]
@@ -564,5 +589,7 @@ mod tests {
         assert_validation_err(validate_status_text(&"a".repeat(101)));
         assert_validation_err(validate_status_text("two\nlines"));
         assert_validation_err(validate_status_emoji("a b"));
+        assert!(validate_status_emoji(":a-workspace-emoji-long-name:").is_ok());
+        assert_validation_err(validate_status_emoji(&"a".repeat(17)));
     }
 }

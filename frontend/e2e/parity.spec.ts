@@ -190,7 +190,9 @@ test('a status set in the profile shows next to your name', async ({ page }) => 
 
     await page.locator('[data-qa="sidebar-profile-avatar"]').click();
     await expect(editor).toBeVisible();
-    await editor.locator('[data-qa="status-emoji"]').fill('🍕');
+    await editor.locator('[data-qa="status-emoji"]').click();
+    await page.locator('em-emoji-picker input[type="search"]').fill('pizza');
+    await page.locator('em-emoji-picker button[aria-label="🍕"]').click();
     await editor.locator('[data-qa="status-text"]').fill('at lunch');
     await page.getByTestId('profile-save').click();
     await expect(dialog).toBeHidden();

@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import { autoUpdate, flip, offset, shift, useFloating } from '@floating-ui/react-dom';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
 import { useThemeStore } from '@/stores/theme';
+import { useCustomEmojiStore } from '@/stores/customEmoji';
+import { pickedEmojiText, pickerCategories } from '@/lib/customEmoji';
 
 interface Props {
   anchorRef: RefObject<HTMLElement | null>;
@@ -12,9 +14,23 @@ interface Props {
 
 type PickerCtor = new (props: Record<string, unknown>) => HTMLElement;
 
+const CATEGORIES = [
+  'frequent',
+  'workspace',
+  'people',
+  'nature',
+  'foods',
+  'activity',
+  'places',
+  'objects',
+  'symbols',
+  'flags',
+];
+
 export default function EmojiPicker({ anchorRef, onSelect, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const theme = useThemeStore((s) => s.resolved);
+  const custom = useCustomEmojiStore((s) => s.byName);
   const onSelectRef = useRef(onSelect);
   const onCloseRef = useRef(onClose);
   useEffect(() => {
@@ -45,11 +61,13 @@ export default function EmojiPicker({ anchorRef, onSelect, onClose }: Props) {
       const el = new Picker({
         data,
         theme,
+        custom: pickerCategories(custom),
+        categories: CATEGORIES,
         previewPosition: 'bottom',
         skinTonePosition: 'search',
         autoFocus: true,
-        onEmojiSelect: (e: { native: string }) => {
-          onSelectRef.current(e.native);
+        onEmojiSelect: (e: { id: string; native?: string }) => {
+          onSelectRef.current(pickedEmojiText(e));
           onCloseRef.current();
         },
       });
@@ -59,7 +77,7 @@ export default function EmojiPicker({ anchorRef, onSelect, onClose }: Props) {
       cancelled = true;
       if (host) host.innerHTML = '';
     };
-  }, [theme]);
+  }, [theme, custom]);
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {

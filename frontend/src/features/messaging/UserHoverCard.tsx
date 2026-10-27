@@ -15,6 +15,7 @@ import { displayNameOf } from '@/lib/userHelpers';
 import { currentPause, formatResume } from '@/lib/pause';
 import { logger } from '@/lib/logger';
 import { ROUTES } from '@/shared/constants';
+import { ReactionEmoji } from '@/shared/components/ReactionEmoji';
 
 interface Props {
   userId: string;
@@ -130,7 +131,11 @@ function UserCardBody({
           )}
           {(statusEmoji || statusText) && (
             <div className="text-xs text-fg-dim mt-1 truncate">
-              {statusEmoji && <span className="mr-1">{statusEmoji}</span>}
+              {statusEmoji && (
+                <span className="mr-1">
+                  <ReactionEmoji emoji={statusEmoji} />
+                </span>
+              )}
               {statusText}
             </div>
           )}

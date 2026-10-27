@@ -742,6 +742,15 @@ async fn add_reaction(
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
 
     let access = authz::require_channel_access(&state, msg.channel_id, auth.user_id).await?;
+    if let Some(name) = shared_common::validation::custom_emoji_name(&req.emoji) {
+        state
+            .emoji_repo
+            .find_by_name(access.channel.workspace_id, name)
+            .await?
+            .ok_or_else(|| {
+                AppError::Validation(format!(":{name}: is not an emoji in this workspace"))
+            })?;
+    }
 
     let mut tx = state.pool.begin().await?;
     let reaction = state

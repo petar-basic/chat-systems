@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { matchCustomEmoji, splitCustomEmoji } from './customEmoji';
+import { matchCustomEmoji, pickedEmojiText, pickerCategories, splitCustomEmoji } from './customEmoji';
 import type { CustomEmoji } from '@/features/workspace/hooks/useCustomEmoji';
 
 const shipit: CustomEmoji = {
@@ -58,5 +58,23 @@ describe('matchCustomEmoji', () => {
 
   it('offers nothing a workspace does not have', () => {
     expect(matchCustomEmoji('test', all)).toEqual([]);
+  });
+});
+
+describe('the emoji picker', () => {
+  it("adds the workspace's emoji as their own category, and none when there are none", () => {
+    expect(pickerCategories(byName)).toEqual([
+      {
+        id: 'workspace',
+        name: 'Workspace',
+        emojis: [{ id: 'shipit', name: 'shipit', keywords: ['shipit'], skins: [{ src: shipit.url }] }],
+      },
+    ]);
+    expect(pickerCategories(new Map())).toEqual([]);
+  });
+
+  it('gives a standard emoji as its character and a custom one as its shortcode', () => {
+    expect(pickedEmojiText({ id: 'rocket', native: '🚀' })).toBe('🚀');
+    expect(pickedEmojiText({ id: 'shipit' })).toBe(':shipit:');
   });
 });

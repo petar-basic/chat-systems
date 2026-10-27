@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Clock, Plus, SmilePlus, Trash2, UserPlus, Webhook, Zap } from 'lucide-react';
 import { EmojiPicker } from '@/features/messaging';
+import { ReactionEmoji } from '@/shared/components/ReactionEmoji';
 import type { Channel } from '@/stores/workspace';
 import { Field } from '@/shared/components/Form/Field';
 import { Select } from '@/shared/components/Form/Select';
@@ -129,7 +130,9 @@ function EventFields({
                 data-qa="workflow-trigger-emoji"
               >
                 {trigger.emoji ? (
-                  <span className="text-lg leading-none">{trigger.emoji}</span>
+                  <span className="text-lg leading-none">
+                    <ReactionEmoji emoji={trigger.emoji} />
+                  </span>
                 ) : (
                   'Pick an emoji'
                 )}

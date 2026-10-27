@@ -27,6 +27,7 @@ import { MessageActionsBar } from './MessageActionsBar';
 import { MessageBody } from './MessageBody';
 import { MessageEditor } from './MessageEditor';
 import { MessageReactions } from './MessageReactions';
+import { ReactionEmoji } from '@/shared/components/ReactionEmoji';
 
 interface MessageItemProps {
   message: Message;
@@ -295,7 +296,7 @@ function MessageItem({
               </UserHoverCard>
               {senderStatusEmoji && (
                 <span data-qa="message-status-emoji" title={senderStatusText ?? undefined}>
-                  {senderStatusEmoji}
+                  <ReactionEmoji emoji={senderStatusEmoji} />
                 </span>
               )}
               {message.metadata?.bot && (

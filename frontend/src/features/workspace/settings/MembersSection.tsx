@@ -17,6 +17,7 @@ import { TextInput } from '@/shared/components/Form/TextInput';
 import { Select } from '@/shared/components/Form/Select';
 import { useErasePerson, useStartPersonExport } from '@/features/workspace/hooks/useExports';
 import { ErasePersonDialog } from './ErasePersonDialog';
+import { ReactionEmoji } from '@/shared/components/ReactionEmoji';
 
 interface Props {
   workspaceId: string;
@@ -85,7 +86,7 @@ function MemberRow({
           {displayName}
           {member.status_emoji && (
             <span className="ml-1.5" data-qa="member-status-emoji" title={member.status_text ?? undefined}>
-              {member.status_emoji}
+              <ReactionEmoji emoji={member.status_emoji} />
             </span>
           )}
         </div>

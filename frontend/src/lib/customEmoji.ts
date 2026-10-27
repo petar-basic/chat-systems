@@ -40,3 +40,23 @@ export function matchCustomEmoji(query: string, byName: Map<string, CustomEmoji>
   }
   return [...leading, ...inside].slice(0, limit);
 }
+
+export function pickerCategories(byName: Map<string, CustomEmoji>) {
+  if (byName.size === 0) return [];
+  return [
+    {
+      id: 'workspace',
+      name: 'Workspace',
+      emojis: [...byName.values()].map((emoji) => ({
+        id: emoji.name,
+        name: emoji.name,
+        keywords: [emoji.name],
+        skins: [{ src: emoji.url }],
+      })),
+    },
+  ];
+}
+
+export function pickedEmojiText(picked: { id: string; native?: string }): string {
+  return picked.native ?? `:${picked.id}:`;
+}

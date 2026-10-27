@@ -4,6 +4,7 @@ import { displayNameOf } from '@/lib/userHelpers';
 import { useUserCache } from '@/stores/users';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import PresenceDot from '@/shared/components/PresenceDot';
+import { ReactionEmoji } from '@/shared/components/ReactionEmoji';
 
 function UserAvatarWithPresence({
   userId,
@@ -95,7 +96,7 @@ export function MemberRow({ userId, onOpenDm }: { userId: string; onOpenDm: (id:
       <span className="truncate">{name}</span>
       {cached?.status_emoji && (
         <span className="shrink-0" data-qa="member-status-emoji" title={cached.status_text ?? undefined}>
-          {cached.status_emoji}
+          <ReactionEmoji emoji={cached.status_emoji} />
         </span>
       )}
     </button>
