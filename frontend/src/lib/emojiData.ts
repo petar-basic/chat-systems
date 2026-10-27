@@ -22,6 +22,7 @@ export interface EmojiSuggestionItem {
   id: string;
   native: string;
   name: string;
+  src?: string;
 }
 
 export async function searchEmojis(query: string, limit = 8): Promise<EmojiSuggestionItem[]> {

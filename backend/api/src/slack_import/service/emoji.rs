@@ -3,7 +3,6 @@
 use std::collections::HashMap;
 
 use shared_common::errors::{AppError, AppResult};
-use uuid::Uuid;
 
 use super::super::source::{read_json, ExportSource};
 use super::Import;
@@ -100,7 +99,7 @@ impl Import<'_> {
             }
         };
         let content_type = content_type_for(url);
-        let storage_key = format!("emoji/{}/{}", self.workspace_id, Uuid::new_v4());
+        let storage_key = crate::emoji::routes::storage_key(self.workspace_id, content_type);
         if let Err(e) = self
             .state
             .file_storage

@@ -55,7 +55,16 @@ export const EmojiSuggestionDropdown = forwardRef<EmojiSuggestionHandle, Props>(
             i === selectedIndex ? 'bg-purple-600/20 text-fg' : 'text-fg-dim hover:bg-raised/50'
           }`}
         >
-          <span className="text-lg leading-none">{item.native}</span>
+          {item.src ? (
+            <img
+              src={item.src}
+              alt=""
+              data-qa="custom-emoji"
+              className="inline-block w-5 h-5 object-contain"
+            />
+          ) : (
+            <span className="text-lg leading-none">{item.native}</span>
+          )}
           <span className="truncate text-muted">:{item.id}:</span>
         </button>
       ))}

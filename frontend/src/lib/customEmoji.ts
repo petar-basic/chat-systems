@@ -29,3 +29,14 @@ export function splitCustomEmoji(text: string, byName: Map<string, CustomEmoji>)
   if (cursor < text.length) spans.push({ text: text.slice(cursor), emoji: null });
   return spans;
 }
+
+export function matchCustomEmoji(query: string, byName: Map<string, CustomEmoji>, limit = 8): CustomEmoji[] {
+  const wanted = query.toLowerCase();
+  const leading: CustomEmoji[] = [];
+  const inside: CustomEmoji[] = [];
+  for (const emoji of byName.values()) {
+    if (emoji.name.startsWith(wanted)) leading.push(emoji);
+    else if (emoji.name.includes(wanted)) inside.push(emoji);
+  }
+  return [...leading, ...inside].slice(0, limit);
+}

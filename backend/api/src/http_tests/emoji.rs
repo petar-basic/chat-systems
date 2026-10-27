@@ -218,3 +218,38 @@ async fn emojis_belong_to_the_workspace_that_owns_them(pool: PgPool) {
     .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn the_image_is_served_to_the_workspace_and_nobody_else(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "emoji-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Emoji WS").await;
+    let (member_id, _, member_token) = seed_and_login(&app, &state, "emoji-member", false).await;
+    add_ws_member(&state, ws_id, member_id, "member").await;
+    let (_, _, outsider_token) = seed_and_login(&app, &state, "emoji-out", false).await;
+
+    let (status, created) = upload(&app, &owner_token, ws_id, "shipit", "image/png", PNG).await;
+    assert_eq!(status, StatusCode::OK, "{created:?}");
+    let url = created["url"].as_str().expect("url");
+    let path = &url[url.find("/api/").expect("api path")..];
+
+    let image = |token: String| {
+        let request = Request::builder()
+            .method("GET")
+            .uri(path)
+            .header(header::AUTHORIZATION, format!("Bearer {token}"))
+            .body(Body::empty())
+            .expect("build request");
+        app.clone().oneshot(request)
+    };
+
+    let response = image(member_token).await.expect("send");
+    assert_eq!(response.status(), StatusCode::OK);
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("read body");
+    assert_eq!(&bytes[..], PNG);
+
+    let response = image(outsider_token).await.expect("send");
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+}

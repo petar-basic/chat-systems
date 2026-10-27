@@ -72,6 +72,17 @@ impl EmojiRepo {
         .await
     }
 
+    pub async fn find_by_storage_key(&self, key: &str) -> sqlx::Result<Option<WorkspaceEmoji>> {
+        sqlx::query_as!(
+            WorkspaceEmoji,
+            "SELECT id, workspace_id, name, storage_key, created_by, created_at
+               FROM workspace_emojis WHERE storage_key = $1",
+            key
+        )
+        .fetch_optional(&self.pool)
+        .await
+    }
+
     pub async fn find(&self, id: Uuid) -> sqlx::Result<Option<WorkspaceEmoji>> {
         sqlx::query_as!(
             WorkspaceEmoji,
