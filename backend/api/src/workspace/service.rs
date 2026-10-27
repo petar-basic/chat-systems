@@ -138,21 +138,12 @@ impl WorkspaceService {
         invite_id: Uuid,
         email: &str,
     ) -> AppResult<WorkspaceInvite> {
-        let invalid = || AppError::Unauthorized("Invalid or expired invite".into());
         let invite = self
             .repo
             .find_invite_by_id(invite_id)
             .await?
-            .ok_or_else(invalid)?;
-        let live = invite.expires_at.is_some_and(|e| e >= chrono::Utc::now())
-            && invite.max_uses.is_none_or(|max| invite.use_count < max)
-            && invite
-                .email
-                .as_deref()
-                .is_some_and(|invited| invited.eq_ignore_ascii_case(email));
-        if !live {
-            return Err(invalid());
-        }
+            .ok_or_else(invalid_invite)?;
+        ensure_live(&invite, email)?;
         Ok(invite)
     }
 
@@ -162,12 +153,25 @@ impl WorkspaceService {
         user_id: Uuid,
         email: &str,
     ) -> AppResult<(WorkspaceInvite, Vec<Staged>)> {
-        let invite = self.open_email_invite(invite_id, email).await?;
+        let invite = self
+            .repo
+            .find_invite_by_id(invite_id)
+            .await?
+            .ok_or_else(invalid_invite)?;
+        if self
+            .repo
+            .get_member(invite.workspace_id, user_id)
+            .await?
+            .is_some()
+        {
+            return Ok((invite, Vec::new()));
+        }
+        ensure_live(&invite, email)?;
 
         let mut tx = self.repo.begin().await?;
         WorkspaceRepo::claim_invite_use_tx(&mut tx, invite.id)
             .await?
-            .ok_or_else(|| AppError::Unauthorized("Invalid or expired invite".into()))?;
+            .ok_or_else(invalid_invite)?;
         WorkspaceRepo::add_member_if_absent_tx(&mut tx, invite.workspace_id, user_id, &invite.role)
             .await?;
         let staged = join_default_channels(&mut tx, invite.workspace_id, user_id).await?;
@@ -229,6 +233,24 @@ impl WorkspaceService {
             user_id, invite.workspace_id
         );
         Ok((member, staged))
+    }
+}
+
+fn invalid_invite() -> AppError {
+    AppError::Unauthorized("Invalid or expired invite".into())
+}
+
+fn ensure_live(invite: &WorkspaceInvite, email: &str) -> AppResult<()> {
+    let live = invite.expires_at.is_some_and(|e| e >= chrono::Utc::now())
+        && invite.max_uses.is_none_or(|max| invite.use_count < max)
+        && invite
+            .email
+            .as_deref()
+            .is_some_and(|invited| invited.eq_ignore_ascii_case(email));
+    if live {
+        Ok(())
+    } else {
+        Err(invalid_invite())
     }
 }
 
