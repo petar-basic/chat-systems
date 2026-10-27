@@ -1075,3 +1075,169 @@ async fn a_pause_a_schedule_and_mention_emails_belong_to_one_workspace(pool: PgP
         assert_eq!(status, StatusCode::FORBIDDEN, "{path}");
     }
 }
+
+async fn unread_count(app: &axum::Router, token: &str, ws: uuid::Uuid) -> i64 {
+    let (_, body) = send(
+        app,
+        "GET",
+        &format!("/api/workspaces/{ws}/notifications/unread-count"),
+        Some(token),
+        None,
+    )
+    .await;
+    body["unread_count"].as_i64().expect("unread_count")
+}
+
+async fn seed_about(
+    state: &crate::state::AppState,
+    user_id: uuid::Uuid,
+    ws_id: uuid::Uuid,
+    data: serde_json::Value,
+) {
+    state
+        .notification_repo
+        .create(
+            user_id,
+            ws_id,
+            &NotificationType::Mention,
+            "You were mentioned",
+            Some("hello"),
+            &data,
+        )
+        .await
+        .expect("seed notification");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn reading_a_channel_a_thread_or_a_dm_clears_only_what_was_read(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (uid, _email, token) = seed_and_login(&app, &state, "notif-rule", false).await;
+    let (other, _other_email) = seed(&state, "notif-rule-other", false).await;
+    let ws = seed_workspace(&state, uid, "Notif rule WS").await;
+    add_ws_member(&state, ws, other, "member").await;
+    let channel = seed_channel(&state, ws, uid, "rule", false).await;
+
+    let (status, root) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{channel}/messages"),
+        Some(&token),
+        Some(json!({ "content": "root" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{root:?}");
+    let root_id = root["id"].as_str().expect("root id").to_string();
+
+    let (status, dm) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws}/conversations"),
+        Some(&token),
+        Some(json!({ "participant_ids": [other] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{dm:?}");
+    let dm_id = dm["id"].as_str().expect("dm id").to_string();
+
+    seed_about(
+        &state,
+        uid,
+        ws,
+        json!({ "channel_id": channel.to_string(), "message_id": root_id }),
+    )
+    .await;
+    seed_about(
+        &state,
+        uid,
+        ws,
+        json!({ "channel_id": channel.to_string(), "message_id": uuid::Uuid::new_v4(), "thread_parent_id": root_id }),
+    )
+    .await;
+    seed_about(
+        &state,
+        uid,
+        ws,
+        json!({ "channel_id": dm_id, "message_id": uuid::Uuid::new_v4() }),
+    )
+    .await;
+    assert_eq!(unread_count(&app, &token, ws).await, 3);
+
+    let (status, page) = send(
+        &app,
+        "GET",
+        &format!("/api/channels/{channel}/messages?mark_read=true"),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{page:?}");
+    assert_eq!(
+        page["unread_notifications"].as_i64(),
+        Some(2),
+        "reading the channel leaves its thread's notification and the DM's: {page:?}"
+    );
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/threads/{root_id}/read"),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        unread_count(&app, &token, ws).await,
+        1,
+        "reading the thread clears its notification"
+    );
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/conversations/{dm_id}/read"),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        unread_count(&app, &token, ws).await,
+        0,
+        "reading the DM clears its notification"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn marking_a_workspace_read_clears_its_channel_notifications_but_not_threads(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (uid, _email, token) = seed_and_login(&app, &state, "notif-ws-read", false).await;
+    let ws = seed_workspace(&state, uid, "Notif ws read").await;
+    let channel = seed_channel(&state, ws, uid, "all", false).await;
+    let root = uuid::Uuid::new_v4();
+    seed_about(
+        &state,
+        uid,
+        ws,
+        json!({ "channel_id": channel.to_string() }),
+    )
+    .await;
+    seed_about(
+        &state,
+        uid,
+        ws,
+        json!({ "channel_id": channel.to_string(), "thread_parent_id": root.to_string() }),
+    )
+    .await;
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws}/read"),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(unread_count(&app, &token, ws).await, 1);
+}

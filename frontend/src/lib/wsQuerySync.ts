@@ -20,6 +20,8 @@ import { useUserCache } from '@/stores/users';
 import { useUnsentStore } from '@/stores/unsent';
 import { QUERY_KEYS } from '@/shared/constants';
 import { applyReadState } from './readState';
+import { belongsElsewhere } from './channelWorkspace';
+import { readOnScreen } from './readOnScreen';
 import { patchMessageEverywhere, shownInChannel } from './messagePatch';
 import { dropReply, patchReply, placeReply } from './threadCache';
 import { syncListFrames } from '@/features/lists/listSync';
@@ -86,9 +88,13 @@ export const useWebSocketQuerySync = () => {
       // The gateway drops the subscription server-side; the client has to stop
       // showing a channel it can no longer read, and forget what it cached.
       globalEventBus.on('channel.read_state', (event) => {
-        applyReadState(queryClient, event);
-        if (event.workspace_id)
-          queryClient.invalidateQueries({ queryKey: QUERY_KEYS.unreads(event.workspace_id) });
+        const here =
+          !event.workspace_id || event.workspace_id === useWorkspaceStore.getState().currentWorkspace?.id;
+        if (here) applyReadState(queryClient, event);
+        if (!event.workspace_id) return;
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.unreads(event.workspace_id) });
+        if (event.unread_count === 0)
+          queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notifications(event.workspace_id) });
       }),
       globalEventBus.on('later.updated', (event) => {
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.later(event.workspace_id) });
@@ -100,6 +106,8 @@ export const useWebSocketQuerySync = () => {
           unread_count: event.unread_count,
         });
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.followedThreads(event.workspace_id) });
+        if (event.unread_count === 0)
+          queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notifications(event.workspace_id) });
       }),
       globalEventBus.on('channel.access_revoked', (event) => {
         queryClient.removeQueries({ queryKey: QUERY_KEYS.messages(event.channel_id) });
@@ -190,6 +198,8 @@ export const useWebSocketQuerySync = () => {
           currentUserId,
         } = useWorkspaceStore.getState();
         const isIncoming = message.user_id !== currentUserId;
+        if (belongsElsewhere(queryClient, message.channel_id)) return;
+        if (isIncoming) readOnScreen(queryClient, message.channel_id);
 
         const conversationsKey = QUERY_KEYS.conversations(currentWorkspace?.id ?? '');
         const conversations = queryClient.getQueryData<Conversation[]>(conversationsKey);

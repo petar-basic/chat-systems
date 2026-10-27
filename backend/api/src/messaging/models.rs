@@ -289,6 +289,8 @@ pub struct MessagePage {
     pub data: Vec<MessageWithReactions>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub unread_notifications: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_read_before: Option<Uuid>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]

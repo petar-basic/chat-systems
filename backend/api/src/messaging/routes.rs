@@ -62,27 +62,22 @@ async fn list_messages(
     let data = with_reactions(&state, messages).await?;
 
     let newest = data.first().map(|m| m.message.id);
-    let unread_notifications = match newest {
+    let (unread_notifications, last_read_before) = match newest {
         Some(newest) if params.mark_read == Some(true) && params.cursor.is_none() => {
-            read_up_to(&state, &access, auth.user_id, newest).await?;
-            let ws_id = access.channel.workspace_id;
-            state
+            let before = read_up_to(&state, &access, auth.user_id, newest).await?;
+            let unread = state
                 .notification_repo
-                .mark_channel_read(auth.user_id, ws_id, ch_id)
+                .unread_count(auth.user_id, access.channel.workspace_id)
                 .await?;
-            Some(
-                state
-                    .notification_repo
-                    .unread_count(auth.user_id, ws_id)
-                    .await?,
-            )
+            (Some(unread), before)
         }
-        _ => None,
+        _ => (None, None),
     };
 
     Ok(Json(MessagePage {
         data,
         unread_notifications,
+        last_read_before,
     }))
 }
 
@@ -91,11 +86,15 @@ async fn read_up_to(
     access: &authz::ChannelAccess,
     user_id: Uuid,
     message_id: Uuid,
-) -> AppResult<()> {
+) -> AppResult<Option<Uuid>> {
     let ch_id = access.channel.id;
-    state
+    let before = state
         .message_repo
         .mark_read(ch_id, user_id, message_id)
+        .await?;
+    state
+        .notification_repo
+        .mark_channel_read(user_id, access.channel.workspace_id, ch_id)
         .await?;
     let read = ReadState {
         channel_id: ch_id,
@@ -110,7 +109,7 @@ async fn read_up_to(
     {
         tracing::warn!(channel_id = %ch_id, "failed to announce the read position: {e}");
     }
-    Ok(())
+    Ok(before)
 }
 
 /// Threads are one level deep and stay in their channel: replying to a reply
@@ -901,6 +900,10 @@ async fn mark_workspace_read(
     let changed = state
         .message_repo
         .mark_workspace_read(ws_id, auth.user_id)
+        .await?;
+    state
+        .notification_repo
+        .mark_channels_read(auth.user_id, ws_id)
         .await?;
     for read in &changed {
         if let Err(e) = state

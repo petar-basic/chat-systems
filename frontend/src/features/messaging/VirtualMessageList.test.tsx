@@ -29,6 +29,12 @@ beforeAll(() => {
       return this.dataset.index === undefined ? VIEWPORT_HEIGHT : ROW_HEIGHT;
     },
   });
+  Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+    configurable: true,
+    get(this: HTMLElement) {
+      return this.dataset.index === undefined ? VIEWPORT_HEIGHT : ROW_HEIGHT;
+    },
+  });
   Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
     configurable: true,
     get(this: HTMLElement) {
@@ -140,5 +146,19 @@ describe('VirtualMessageList scroll anchoring', () => {
 
     expect(scroller.scrollTop).toBe(before);
     expect(screen.getByTestId('jump-to-latest')).toBeInTheDocument();
+  });
+
+  it('offers the first unread while it is above the view and the end is not in sight', () => {
+    const rows = Array.from({ length: 40 }, (_, i) => row(`m${i}`));
+    const { scroller } = renderList(rows, { markerKey: 'm5' });
+
+    scrollTo(scroller, 100);
+    expect(screen.queryByTestId('jump-to-first-unread')).toBeNull();
+
+    scrollTo(scroller, 600);
+    expect(screen.getByTestId('jump-to-first-unread')).toBeInTheDocument();
+
+    scrollTo(scroller, 40 * ROW_HEIGHT);
+    expect(screen.queryByTestId('jump-to-first-unread')).toBeNull();
   });
 });

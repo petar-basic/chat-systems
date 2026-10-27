@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT m.id AS \"id!\", m.channel_id AS \"channel_id!\", m.user_id AS \"user_id!\",\n                   m.client_message_id, m.content AS \"content!\", m.metadata AS \"metadata!\",\n                   m.thread_parent_id, m.reply_count AS \"reply_count!\", m.is_pinned AS \"is_pinned!\",\n                   m.created_at AS \"created_at!\", m.updated_at AS \"updated_at!\", m.deleted_at\n              FROM unnest($1::uuid[]) AS wanted(channel_id)\n              JOIN channel_members cm ON cm.channel_id = wanted.channel_id AND cm.user_id = $2\n              CROSS JOIN LATERAL (\n                  SELECT * FROM messages msg\n                   WHERE msg.channel_id = wanted.channel_id\n                     AND msg.deleted_at IS NULL\n                     AND msg.user_id <> $2\n                     AND (cm.last_read_at IS NULL OR msg.created_at > cm.last_read_at)\n                   ORDER BY msg.created_at DESC\n                   LIMIT $3\n              ) m\n             ORDER BY m.channel_id, m.created_at\n            ",
+  "query": "\n            SELECT m.id AS \"id!\", m.channel_id AS \"channel_id!\", m.user_id AS \"user_id!\",\n                   m.client_message_id, m.content AS \"content!\", m.metadata AS \"metadata!\",\n                   m.thread_parent_id, m.reply_count AS \"reply_count!\", m.is_pinned AS \"is_pinned!\",\n                   m.created_at AS \"created_at!\", m.updated_at AS \"updated_at!\", m.deleted_at\n              FROM unnest($1::uuid[]) AS wanted(channel_id)\n              JOIN channel_members cm ON cm.channel_id = wanted.channel_id AND cm.user_id = $2\n              CROSS JOIN LATERAL (\n                  SELECT * FROM messages msg\n                   WHERE msg.channel_id = wanted.channel_id\n                     AND msg.deleted_at IS NULL\n                     AND (msg.thread_parent_id IS NULL OR msg.metadata->>'also_in_channel' = 'true')\n                     AND msg.user_id <> $2\n                     AND (cm.last_read_at IS NULL OR msg.created_at > cm.last_read_at)\n                   ORDER BY msg.created_at DESC\n                   LIMIT $3\n              ) m\n             ORDER BY m.channel_id, m.created_at\n            ",
   "describe": {
     "columns": [
       {
@@ -158,5 +158,5 @@
       true
     ]
   },
-  "hash": "e830ff90d18cb9d51b412ba355ec94e959a44e84449f9095b3c086f5324944eb"
+  "hash": "bd056b3c4cc158161fb2e09c547b7624a597ecbcea0500c3f908d6a83e61d5d2"
 }

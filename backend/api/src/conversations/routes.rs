@@ -11,6 +11,7 @@ use shared_common::errors::{AppError, AppResult};
 use super::models::*;
 use crate::authz;
 use crate::dto::{DataList, StatusResponse};
+use crate::messaging::models::ReadState;
 use crate::messaging::publisher::{EventPublisher, Staged};
 use crate::middleware::AuthUser;
 use crate::state::AppState;
@@ -190,10 +191,28 @@ async fn mark_read(
     auth: AuthUser,
     Path(conv_id): Path<Uuid>,
 ) -> AppResult<Json<StatusResponse>> {
-    authz::require_channel_access(&state, conv_id, auth.user_id).await?;
+    let access = authz::require_channel_access(&state, conv_id, auth.user_id).await?;
+    let ws_id = access.channel.workspace_id;
     state
         .conversation_repo
         .mark_read(conv_id, auth.user_id)
         .await?;
+    state
+        .notification_repo
+        .mark_channel_read(auth.user_id, ws_id, conv_id)
+        .await?;
+    let read = ReadState {
+        channel_id: conv_id,
+        unread_count: 0,
+        mention_count: 0,
+        last_read_message_id: None,
+    };
+    if let Err(e) = state
+        .publisher
+        .publish_read_state(auth.user_id, ws_id, &read)
+        .await
+    {
+        tracing::warn!(channel_id = %conv_id, "failed to announce the read position: {e}");
+    }
     Ok(Json(StatusResponse::new("ok")))
 }

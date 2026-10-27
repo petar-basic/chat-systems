@@ -5,11 +5,11 @@ import { useNavigate, useParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCurrentUser, useLogout } from '@/features/instance';
 import { useWorkspaceStore, type Channel } from '@/stores/workspace';
-import { ROUTES, QUERY_KEYS } from '@/shared/constants';
+import { ROUTES } from '@/shared/constants';
 import { useCreateWorkspace, useCreateChannel } from '@/features/workspace/hooks/useWorkspaces';
 import { useOpenConversation, useOpenMessage } from '@/features/messaging';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
-import type { MessagesInfiniteData } from '@/features/messaging';
+import { newestSentIn } from '@/lib/readOnScreen';
 import { useRightPanel } from './useRightPanel';
 import { useWorkspaceData } from './useWorkspaceData';
 import { useWorkspaceRouting } from './useWorkspaceRouting';
@@ -101,15 +101,13 @@ export function useWorkspaceController() {
 
   const markChannelReadServer = useCallback(
     (channelId: string) => {
-      const cached = queryClient.getQueryData<MessagesInfiniteData>(QUERY_KEYS.messages(channelId));
-      const lastPage = cached?.pages[cached.pages.length - 1];
-      const newestMsg = lastPage?.data[lastPage.data.length - 1];
-      if (!newestMsg) return;
+      const newest = newestSentIn(queryClient, channelId);
+      if (!newest) return;
       getApiForInstance(currentWorkspace?.instanceUrl)
         .typed((c) =>
           c.POST('/channels/{ch_id}/read', {
             params: { path: { ch_id: channelId } },
-            body: { message_id: newestMsg.id },
+            body: { message_id: newest },
           }),
         )
         .catch(() => {});

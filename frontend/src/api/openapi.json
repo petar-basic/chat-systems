@@ -14274,6 +14274,13 @@
               "$ref": "#/components/schemas/MessageWithReactions"
             }
           },
+          "last_read_before": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
           "unread_notifications": {
             "type": [
               "integer",

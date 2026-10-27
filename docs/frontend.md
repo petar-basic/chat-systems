@@ -73,7 +73,30 @@ renders lives in `features/messaging`, even when it is small and general-looking
   (`navigator.setAppBadge`) and to the favicon, and desktop notifications use the
   Notification API. The server decides who is notified: the client rings and shows a desktop
   notification only for a `notification` frame, and only when the person is not already
-  looking at that channel or conversation.
+  looking at that channel or conversation. The app badge is always the total of unread
+  Activity across every workspace; a push sends the same total for its instance.
+
+### The read rule
+
+Unread state and Activity follow one rule, so the sidebar badge and the Activity row clear
+together:
+
+| Notification about | Clears when | Sidebar badge it pairs with |
+|---|---|---|
+| A message in a channel or DM | That channel or DM is read (opened, *Mark read*, *Mark all read*) | The channel's or DM's unread / @ count |
+| A reply in a thread | That thread is read (opened in the panel or in *Threads*) | *Threads* unread |
+
+- **On screen counts as read.** A message that arrives in the channel or DM open in a focused
+  window is read straight away (`readOnScreen`), and so is a notification about it that lands
+  after the message; a reply that arrives in the open thread re-reads that thread.
+- **A thread reply is not a channel message.** It does not move the channel's unread or @
+  count unless it was also sent to the channel, and reading the channel leaves its
+  notification alone.
+- **Every realtime update checks its workspace.** `message.new`, `notification` and
+  `channel.read_state` frames for another workspace never touch the open workspace's sets;
+  they only refresh that workspace's counts.
+- **Cross-tab.** Every read publishes `channel.read_state` or `thread.read_state`; a tab that
+  sees one with nothing unread refetches its Activity list and count.
 
 ## Authentication Model
 
@@ -191,7 +214,15 @@ workflow row opens the workflow in the *Workflows* panel for someone who may bui
 ---
 
 ### `messaging/MessageList`
-Infinite-scrolling message list (`flex-col-reverse` so newest messages appear at the bottom). Scrolling to top triggers `fetchNextPage()`.
+Infinite-scrolling, virtualized message list; newest messages at the bottom. Scrolling to top triggers `fetchNextPage()`.
+
+Opening a channel with unread messages lands on the first of them under a *New* divider, loading
+older pages until the last read message is in the list. The boundary comes from the sidebar's
+unread counts when they are loaded, and otherwise from the first page's `last_read_before` (the
+server reports where the reader stopped when that page marks the channel read), so a cold load
+draws it too. *Jump to first unread* shows while the divider is above the view and the end of
+the channel is not; *New messages* shows when something arrives while the reader is above the
+end.
 
 **Reads:** `useMessages(channelId)` — infinite query, cursor-based pagination, 50 messages per page
 **Emits:** `onThreadOpen(message)` when user clicks reply icon

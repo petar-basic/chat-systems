@@ -243,6 +243,9 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - **Steps:** in tab A send to a channel; in tab B (different user) don't open it.
 - **Expected:** tab B shows an unread indicator for that channel; opening it clears the badge.
 - 🟢 **Read on the server too:** open that channel from a link or by reloading on it, not from the sidebar, then reload again → it stays read, and a mention notification from it no longer counts in the bell.
+- 🟢 **One rule (CS-082):** with B looking at the channel, A @-mentions B → no badge on the row, no unread Activity row, and none after B leaves the channel. A @-mentions B in a thread reply → no badge on the channel; opening the channel leaves the Activity row, opening the thread clears it. In a DM the same: the open DM leaves nothing behind.
+- 🟢 **Other workspace (CS-082):** with B in workspace X, A @-mentions B in workspace Y → only Y's rail badge moves; X's sidebar is untouched. The app icon shows X + Y.
+- 🟢 **First unread (CS-082):** A posts 40 messages to a channel B had read → B reloads straight onto it → the list opens on the first new message under the *New* line; scroll down a screen → *Jump to first unread* appears and takes B back; at the bottom it goes away.
 - 🟢 **Request count (CS-072):** in the browser's network tab, switch to a channel not opened before → two `/api` requests, `channels/<id>/context` and `channels/<id>/messages?…&mark_read=true`; switch back within half a minute → only the messages.
 
 ### 5.9 🟢 Polls

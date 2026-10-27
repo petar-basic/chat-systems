@@ -9,12 +9,17 @@ const navigate = vi.fn();
 const playMessageSound = vi.fn();
 const showNotification = vi.fn();
 const openMessage = vi.fn();
+const readOnScreen = vi.fn();
 
 vi.mock('react-router', () => ({ useNavigate: () => navigate }));
 vi.mock('@/features/messaging', () => ({ useOpenMessage: () => openMessage }));
 vi.mock('@/lib/notifications', () => ({
   playMessageSound: () => playMessageSound(),
   showNotification: (...args: unknown[]) => showNotification(...args),
+}));
+vi.mock('@/lib/readOnScreen', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/readOnScreen')>()),
+  readOnScreen: (...args: unknown[]) => readOnScreen(...args),
 }));
 
 function frame(kind: string, channelId = 'ch-1') {
@@ -38,8 +43,16 @@ describe('NotificationStream', () => {
     openMessage.mockReset();
     playMessageSound.mockReset();
     showNotification.mockReset();
+    readOnScreen.mockReset();
     vi.spyOn(document, 'hasFocus').mockReturnValue(true);
-    useWorkspaceStore.setState({ currentChannel: null, currentConversationId: null });
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+    useWorkspaceStore.setState({
+      currentWorkspace: { id: 'ws-1' } as never,
+      currentChannel: null,
+      currentConversationId: null,
+      unreadChannels: new Set(),
+      mentionChannels: new Set(),
+    });
     render(
       <QueryClientProvider client={new QueryClient()}>
         <NotificationStream />
@@ -61,6 +74,30 @@ describe('NotificationStream', () => {
 
     expect(playMessageSound).not.toHaveBeenCalled();
     expect(showNotification).not.toHaveBeenCalled();
+    expect(readOnScreen).toHaveBeenCalledWith(expect.anything(), 'dm-1');
+  });
+
+  it('reads a mention in the channel on screen instead of badging it', () => {
+    useWorkspaceStore.setState({ currentChannel: { id: 'ch-1' } as never });
+
+    globalEventBus.emit(frame('mention'));
+
+    expect(readOnScreen).toHaveBeenCalledWith(expect.anything(), 'ch-1');
+    expect(playMessageSound).not.toHaveBeenCalled();
+  });
+
+  it('leaves the open workspace alone when a mention comes from another one', () => {
+    globalEventBus.emit({ ...frame('mention', 'ch-elsewhere'), workspace_id: 'ws-2' });
+
+    const { unreadChannels, mentionChannels } = useWorkspaceStore.getState();
+    expect(unreadChannels.has('ch-elsewhere')).toBe(false);
+    expect(mentionChannels.has('ch-elsewhere')).toBe(false);
+  });
+
+  it('keeps a mention in a thread off the channel badge', () => {
+    globalEventBus.emit({ ...frame('mention'), thread_parent_id: 'root-1' });
+
+    expect(useWorkspaceStore.getState().mentionChannels.has('ch-1')).toBe(false);
   });
 
   it('opens the message a notification is about', () => {

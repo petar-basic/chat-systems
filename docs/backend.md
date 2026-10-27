@@ -267,7 +267,7 @@ counts them.
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/conversations` | — | `{ data: ConversationSummary[] }` — newest message first, with `participant_ids`, `last_message_at` and the caller's `last_read_at` |
 | POST | `/workspaces/:ws_id/conversations` | `{ participant_ids }` | `Conversation` — one other person returns the existing `direct` thread if there is one; more create a `group` |
-| POST | `/conversations/:conv_id/read` | — | `{ status: "ok" }` — clears the caller's unread and mention counters for it |
+| POST | `/conversations/:conv_id/read` | — | `{ status: "ok" }` — clears the caller's unread and mention counters for it and its notifications, and announces `channel.read_state` |
 
 Creating one publishes `conversation.created`, which the gateway delivers to every participant
 so the new thread shows up for the other side; messages in it are ordinary `message.*` and
@@ -306,7 +306,7 @@ Sends and manages messages, threads, reactions, pins, read tracking, and search.
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
-| GET | `/channels/:ch_id/messages` | Query: `limit=50, cursor?, mark_read?` | `{ data: Message[], unread_notifications? }` — with `mark_read=true` and no cursor, the newest message becomes the caller's read position (as `POST /channels/:ch_id/read`), the channel's notifications are marked read, and `unread_notifications` is the workspace's count afterwards |
+| GET | `/channels/:ch_id/messages` | Query: `limit=50, cursor?, mark_read?` | `{ data: Message[], unread_notifications?, last_read_before? }` — with `mark_read=true` and no cursor, the newest message becomes the caller's read position (as `POST /channels/:ch_id/read`), `unread_notifications` is the workspace's count afterwards, and `last_read_before` is the message the caller had read up to when anything after it was unread (where the *New* line goes) |
 | POST | `/channels/:ch_id/messages` | `{ content, thread_parent_id?, also_to_channel?, client_message_id?, attachment_ids?, forwarded_from? }` | `Message` — the one send path; a `thread_parent_id` makes it a reply (one level deep, same channel), `also_to_channel` shows that reply in the channel too (`metadata.also_in_channel`), and `client_message_id` makes a retry idempotent. `attachment_ids` (at most 10, the sender's own drafts) are linked in the message's transaction and listed in `metadata.attachments`; `content` may then be empty. `forwarded_from` (a forward) copies that message's files, if the sender can read it, and records `metadata.forwarded_from`; the quoted lines (`>`) of a forward neither mention nor broadcast, only the sender's own words do |
 | PATCH | `/messages/:msg_id` | `{ content, attachment_ids? }` | `Message` — `attachment_ids` is the set of files to keep; the rest are deleted |
 | DELETE | `/messages/:msg_id` | — | `{ status: "deleted" }` |
@@ -383,8 +383,8 @@ posts, but `expand_mentions` leaves the broadcast out and nobody is notified by 
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
-| POST | `/channels/:ch_id/read` | `{ message_id }` | `{ status: "read" }` |
-| POST | `/workspaces/:ws_id/read` | — | `{ status: "read" }` — moves the caller to the newest message in every unread channel and conversation of the workspace, one `channel.read_state` per channel |
+| POST | `/channels/:ch_id/read` | `{ message_id }` | `{ status: "read" }` — also marks the channel's own notifications read; its threads' notifications stay until each thread is read |
+| POST | `/workspaces/:ws_id/read` | — | `{ status: "read" }` — moves the caller to the newest message in every unread channel and conversation of the workspace, one `channel.read_state` per channel, and marks their notifications read (not threads') |
 | GET | `/workspaces/:ws_id/unreads` | Query: `limit=20 (≤50), offset=0` | `{ data: UnreadGroup[], next_offset }` — every channel and DM the caller has unread messages in, muted last and otherwise newest activity first, each with its newest 20 unread messages (oldest first, the caller's own left out) |
 | POST | `/channels/:ch_id/unread` | `{ message_id }` | `ReadState` — moves the caller's read position to just before that message and recomputes their unread and mention counts for the channel |
 | GET | `/search` | Query: `q?, workspace_id, channel_id?, user_id?, has? (file \| image \| link), after?, before?, scope?, limit=20, offset=0` | `{ data: Message[] }` — `q` may be empty when a filter is set (newest first); `channel_id` takes a channel or a conversation; `after` is inclusive and `before` exclusive (RFC 3339 instants); `has=file` counts images too |
@@ -572,7 +572,11 @@ same folding search uses. One query per message finds the channel members whose 
 appears in `lower(search_normalize(content))` as a whole word: `keyword_pattern()` escapes the
 regex characters and requires a non-word character or the text's edge on both sides, so
 `deploy` matches "Deploy!" and "deploý" but not "redeployed", and `c++` matches literally.
-A keyword does not bump the unread or mention counters, which are written with the message.
+A keyword does not bump the unread or mention counters, which are written with the message —
+and only for a message shown in the channel: a reply kept in its thread counts in that thread
+(*Threads*), not in the channel, unless it was also sent to the channel. A push carries
+`badge_count`, the person's unread Activity across every workspace on the instance, the same
+total the app shows on its icon.
 
 Muted and `nothing` mean no reason at all. DND — `notifications_paused_until(workspace, user, at)` in
 SQL, the one definition of "paused" — keeps the Activity row and drops the rest; a
@@ -743,7 +747,7 @@ mentions, who already have the mention. Rows go with the workspace membership an
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/threads` | Query: `cursor?` (the previous page's `next_cursor`), `limit=20 (≤50)` | `{ data: ThreadSummary[], next_cursor }` — followed threads with replies, newest reply first, each with its root, the latest three replies (oldest first), `unread_count`, `last_read_at` and `last_reply_at` |
 | GET | `/workspaces/:ws_id/threads/unread` | — | `{ count }` — followed threads with an unread reply |
-| POST | `/threads/:root_id/read` | — | `ThreadState` (`{ root_message_id, following, unread_count }`) — a reply's id reads its root |
+| POST | `/threads/:root_id/read` | — | `ThreadState` (`{ root_message_id, following, unread_count }`) — a reply's id reads its root; marks the thread's notifications read and announces `thread.read_state` |
 | PUT | `/threads/:root_id/follow` | — | `ThreadState` |
 | DELETE | `/threads/:root_id/follow` | — | `ThreadState` |
 
@@ -1124,7 +1128,7 @@ A join is authorised against the huddle's own `huddle_sessions` row, never again
 | `events:user` | `user.suspended` — consumed by the gateway to close the user's sockets (not pushed to clients) |
 | `events:huddle` | `huddle.started`, `huddle.ended`, `huddle.ring`, `huddle.member_joined`, `huddle.member_left` — lifecycle; also consumed by the API for history + call notifications |
 | `events:list` | `list.upserted`, `list.deleted`, `list.columns_changed`, `list.item_upserted`, `list.item_deleted` — to the list's channel, or to the owner of a personal list |
-| `events:thread` | `thread.read_state` — sent only to the follower whose thread state changed (a reply, `/read`, follow or unfollow), with its `following` and `unread_count` |
+| `events:thread` | `thread.read_state` — sent only to the user whose thread state changed (a reply, `/read`, follow or unfollow), with its `following` and `unread_count` |
 | `events:channel` | `channel.read_state` — sent only to the user whose read position moved (by `/read` or `/unread`), so their other tabs and devices update their badges; `channel.member_removed` becomes `channel.access_revoked` for the removed user |
 | `events:huddle-signal` | `huddle.offer`, `huddle.answer`, `huddle.ice`, `huddle.mute`, `huddle.camera`, `huddle.screenshare`, `huddle.hand`, `huddle.reaction` — high-frequency relay, realtime-only (kept off `events:huddle` so the API consumers don't parse every ICE candidate) |
 

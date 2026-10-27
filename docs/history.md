@@ -1846,3 +1846,23 @@ the reason when delivery is refused; *Scheduled* shows it with *Send now* and *R
 forward sends `forwarded_from` (formerly `copy_attachments_from`), recorded as
 `metadata.forwarded_from`, and the server reads mentions and broadcasts only from the lines
 outside the quote.
+
+### [CS-082] Unread, Activity and the badge agree ✅ shipped
+A mention in the channel already open still left a badge and an unread Activity row, reading
+a channel also cleared its thread mentions while reading a thread cleared nothing, and thread
+replies counted toward the channel's unread even when they were never shown there. The app
+icon badge flipped between one workspace's count (push) and the total (the app), a realtime
+mention from another workspace could land in the open one's lists, and a channel always
+opened at the bottom, with no divider on a cold load.
+
+One rule now, written down in `docs/frontend.md`: a channel notification clears when the
+channel is read, a thread notification when the thread is read, and the message on screen
+counts as read. Reading a channel, a conversation or a whole workspace marks only its channel
+notifications read; `POST /threads/{id}/read` marks that thread's and always announces the
+new state. A reply counts toward the channel only when it is also sent to the channel. A
+message that arrives in the channel or conversation open in a focused window is read up to
+the newest delivered message, debounced per channel. Realtime read state and new messages
+for a channel that belongs to another workspace leave the open workspace alone, and push
+`badge_count` is the total across workspaces. `GET /channels/{id}/messages?mark_read=true`
+answers `last_read_before`, so a cold load opens on the first unread with the *New* divider,
+and *Jump to first unread* shows while the divider is above the view.

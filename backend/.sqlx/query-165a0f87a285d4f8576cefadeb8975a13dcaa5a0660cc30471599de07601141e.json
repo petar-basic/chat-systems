@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE notifications SET is_read = true WHERE user_id = $1 AND is_read = false AND data->>'thread_parent_id' = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "165a0f87a285d4f8576cefadeb8975a13dcaa5a0660cc30471599de07601141e"
+}

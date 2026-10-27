@@ -105,7 +105,9 @@ impl MessageRepo {
             .await?;
         }
 
-        bump_unread(conn, new.channel_id, new.user_id, new.mentioned).await?;
+        if new.thread_parent_id.is_none() || new.also_in_channel {
+            bump_unread(conn, new.channel_id, new.user_id, new.mentioned).await?;
+        }
 
         Ok(msg)
     }
@@ -959,24 +961,33 @@ impl MessageRepo {
         channel_id: Uuid,
         user_id: Uuid,
         message_id: Uuid,
-    ) -> sqlx::Result<()> {
-        sqlx::query!(
-            r"
-            UPDATE channel_members
+    ) -> sqlx::Result<Option<Uuid>> {
+        let before = sqlx::query_scalar!(
+            r#"
+            WITH before AS (
+                SELECT last_read_msg, unread_count
+                  FROM channel_members
+                 WHERE channel_id = $1 AND user_id = $2
+                   FOR UPDATE
+            )
+            UPDATE channel_members cm
             SET last_read_at = NOW(),
                 last_read_msg = $3,
                 last_read_message_id = $3,
                 unread_count = 0,
                 mention_count = 0
-            WHERE channel_id = $1 AND user_id = $2
-            ",
+            FROM before
+            WHERE cm.channel_id = $1 AND cm.user_id = $2
+            RETURNING CASE WHEN before.unread_count > 0 AND before.last_read_msg IS DISTINCT FROM $3
+                           THEN before.last_read_msg END AS "last_read_before?"
+            "#,
             channel_id,
             user_id,
             message_id
         )
-        .execute(&self.pool)
+        .fetch_optional(&self.pool)
         .await?;
-        Ok(())
+        Ok(before.flatten())
     }
 
     pub async fn mark_workspace_read(
@@ -1035,6 +1046,7 @@ impl MessageRepo {
                 SELECT m.id FROM messages m, target t
                  WHERE m.channel_id = $1
                    AND m.deleted_at IS NULL
+                   AND (m.thread_parent_id IS NULL OR m.metadata->>'also_in_channel' = 'true')
                    AND (m.created_at, m.id) < (t.created_at, t.id)
                  ORDER BY m.created_at DESC, m.id DESC
                  LIMIT 1
@@ -1047,6 +1059,7 @@ impl MessageRepo {
                        SELECT COUNT(*)::int FROM messages m
                         WHERE m.channel_id = $1
                           AND m.deleted_at IS NULL
+                          AND (m.thread_parent_id IS NULL OR m.metadata->>'also_in_channel' = 'true')
                           AND m.user_id <> $2
                           AND m.created_at >= t.created_at
                    ),
@@ -1057,6 +1070,7 @@ impl MessageRepo {
                           AND n.notification_type = 'mention'
                           AND m.channel_id = $1
                           AND m.deleted_at IS NULL
+                          AND (m.thread_parent_id IS NULL OR m.metadata->>'also_in_channel' = 'true')
                           AND m.created_at >= t.created_at
                    )
               FROM target t
@@ -1088,6 +1102,7 @@ impl MessageRepo {
              WHERE m.id = $2
                AND cm.channel_id = $1
                AND cm.user_id <> $3
+               AND (m.thread_parent_id IS NULL OR m.metadata->>'also_in_channel' = 'true')
                AND (cm.last_read_at IS NULL OR m.created_at > cm.last_read_at)
             ",
             channel_id,
@@ -1162,6 +1177,7 @@ impl MessageRepo {
                   SELECT * FROM messages msg
                    WHERE msg.channel_id = wanted.channel_id
                      AND msg.deleted_at IS NULL
+                     AND (msg.thread_parent_id IS NULL OR msg.metadata->>'also_in_channel' = 'true')
                      AND msg.user_id <> $2
                      AND (cm.last_read_at IS NULL OR msg.created_at > cm.last_read_at)
                    ORDER BY msg.created_at DESC
@@ -1219,6 +1235,7 @@ impl MessageRepo {
                        cm.user_id,
                        COUNT(m.id) FILTER (
                            WHERE m.deleted_at IS NULL
+                             AND (m.thread_parent_id IS NULL OR m.metadata->>'also_in_channel' = 'true')
                              AND m.user_id <> cm.user_id
                              AND (cm.last_read_at IS NULL OR m.created_at > cm.last_read_at)
                        )::int AS total

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { Button } from '@/shared/components/Button/Button';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { ArrowDown } from 'lucide-react';
+import { ArrowDown, ArrowUp } from 'lucide-react';
 
 const BOTTOM_THRESHOLD_PX = 100;
 const OLDER_THRESHOLD_PX = 200;
@@ -20,6 +20,8 @@ interface Props<R extends VirtualRow> {
   onLoadOlder: () => void;
   /** Scrolls the row with this key into view once, for permalinks and jumps. */
   scrollToKey?: string;
+  scrollToAlign?: 'start' | 'center';
+  markerKey?: string;
   stickKey?: string;
   onScrollToKeyHandled?: () => void;
   qa?: string;
@@ -43,6 +45,8 @@ export default function VirtualMessageList<R extends VirtualRow>({
   isLoadingOlder,
   onLoadOlder,
   scrollToKey,
+  scrollToAlign = 'center',
+  markerKey,
   stickKey,
   onScrollToKeyHandled,
   qa,
@@ -51,6 +55,12 @@ export default function VirtualMessageList<R extends VirtualRow>({
   const scrollRef = useRef<HTMLDivElement>(null);
   const [atBottom, setAtBottom] = useState(true);
   const [hasUnseen, setHasUnseen] = useState(false);
+  const [markerAbove, setMarkerAbove] = useState(false);
+  const [markerFor, setMarkerFor] = useState(markerKey);
+  if (markerFor !== markerKey) {
+    setMarkerFor(markerKey);
+    setMarkerAbove(false);
+  }
 
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -94,6 +104,7 @@ export default function VirtualMessageList<R extends VirtualRow>({
   const settled = useRef(false);
   const stuckTo = useRef(stickKey);
 
+  const markerIndex = markerKey ? rows.findIndex((row) => row.key === markerKey) : -1;
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -105,6 +116,8 @@ export default function VirtualMessageList<R extends VirtualRow>({
     // re-pins itself on the next measurement pass and drags the reader back
     // down from wherever they went.
     else stick.current = false;
+    const marker = markerIndex >= 0 ? virtualizer.measurementsCache[markerIndex] : undefined;
+    setMarkerAbove(!!marker && !bottom && marker.end < el.scrollTop);
 
     // `!anchor.current` holds off the next page until the previous one has been
     // anchored: without it each correction lands inside another request, the
@@ -114,7 +127,7 @@ export default function VirtualMessageList<R extends VirtualRow>({
       anchorArmed.current = false;
       onLoadOlder();
     }
-  }, [hasOlder, isAtBottom, isLoadingOlder, onLoadOlder]);
+  }, [hasOlder, isAtBottom, isLoadingOlder, onLoadOlder, markerIndex, virtualizer]);
 
   const totalSize = virtualizer.getTotalSize();
 
@@ -170,9 +183,10 @@ export default function VirtualMessageList<R extends VirtualRow>({
     if (!scrollToKey) return;
     const index = rows.findIndex((row) => row.key === scrollToKey);
     if (index === -1) return;
-    virtualizer.scrollToIndex(index, { align: 'center' });
+    stick.current = false;
+    virtualizer.scrollToIndex(index, { align: scrollToAlign });
     onScrollToKeyHandled?.();
-  }, [scrollToKey, rows, virtualizer, onScrollToKeyHandled]);
+  }, [scrollToKey, scrollToAlign, rows, virtualizer, onScrollToKeyHandled]);
 
   const items = virtualizer.getVirtualItems();
 
@@ -216,8 +230,30 @@ export default function VirtualMessageList<R extends VirtualRow>({
         </div>
       )}
 
+      {markerAbove && markerIndex >= 0 && (
+        <Button
+          variant="primary"
+          size="sm"
+          className="absolute top-3 left-1/2 -translate-x-1/2 rounded-full shadow-lg"
+          onClick={() => {
+            setMarkerAbove(false);
+            virtualizer.scrollToIndex(markerIndex, { align: 'start', behavior: 'smooth' });
+          }}
+          data-qa="jump-to-first-unread"
+        >
+          <ArrowUp className="w-3.5 h-3.5" />
+          Jump to first unread
+        </Button>
+      )}
+
       {hasUnseen && (
-        <Button variant="primary" size="sm" onClick={() => jumpToBottom('smooth')} data-qa="jump-to-latest">
+        <Button
+          variant="primary"
+          size="sm"
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full shadow-lg"
+          onClick={() => jumpToBottom('smooth')}
+          data-qa="jump-to-latest"
+        >
           <ArrowDown className="w-3.5 h-3.5" />
           New messages
         </Button>
