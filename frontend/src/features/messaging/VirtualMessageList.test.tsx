@@ -29,6 +29,12 @@ beforeAll(() => {
       return this.dataset.index === undefined ? VIEWPORT_HEIGHT : ROW_HEIGHT;
     },
   });
+  Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+    configurable: true,
+    get(this: HTMLElement) {
+      return this.dataset.index === undefined ? VIEWPORT_HEIGHT : ROW_HEIGHT;
+    },
+  });
   Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
     configurable: true,
     get(this: HTMLElement) {
