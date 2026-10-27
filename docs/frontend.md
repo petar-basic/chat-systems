@@ -724,7 +724,7 @@ cap 30s).
 - `subscribe(wsId)`, `joinChannel(chId)`, `leaveChannel(chId)` — send `subscribe` / `channel.join` / `channel.leave` and remember the desired state for replay
 - `addReconnectListener(fn)` — fires after a *reconnect* (used to wire `backfillAfterReconnect`)
 - Waking up does not wait for the backoff: `online`, and the tab becoming visible, reconnect at once when the socket is closed. A socket that still looks open is sent a `ping`; if nothing arrives within two seconds (a laptop's half-open socket after sleep) it is replaced. `disconnect()` and a revoked session stop all of this
-- `backfillAfterReconnect` (`lib/realtimeBackfill.ts`) invalidates everything a missed event could change: messages, threads and their state, followed threads, Activity, conversations, every `['channels', …]` key (pins, unread counts, members), `unreads`, the sidebar, *Later* and active huddles. It runs after a reconnect and on `sync.refetch_required`
+- `lib/realtimeBackfill.ts`: after every reconnect `backfillAfterReconnect` refetches the open views (messages, Activity, conversations, active huddles) and leaves counters to the replayed events, since a refetched unread count already includes a message the replay then bumps again. On `sync.refetch_required`, when there is no replay, `refetchAfterGap` also invalidates threads and their state, followed threads, every `['channels', …]` key (pins, unread counts, members), `unreads`, the sidebar and *Later*
 - `on(type, handler)` — subscribe to event type (returns unsub fn)
 - All received events are forwarded to `globalEventBus`
 - Singleton `wsClient` for default; `instanceManager.get(url).ws` for others

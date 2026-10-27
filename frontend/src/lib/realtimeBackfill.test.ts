@@ -1,14 +1,14 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { queryClient } from './queryClient';
-import { backfillAfterReconnect } from './realtimeBackfill';
+import { backfillAfterReconnect, refetchAfterGap } from './realtimeBackfill';
 import { QUERY_KEYS } from '@/shared/constants';
 
-describe('backfillAfterReconnect', () => {
+describe('realtimeBackfill', () => {
   afterEach(() => {
     queryClient.clear();
   });
 
-  it('marks everything a missed event could have changed as stale', () => {
+  it('after a gap too long to replay, marks everything a missed event could have changed as stale', () => {
     const missed = [
       QUERY_KEYS.messages('c1'),
       QUERY_KEYS.channelPins('c1'),
@@ -23,11 +23,24 @@ describe('backfillAfterReconnect', () => {
     for (const key of missed) queryClient.setQueryData(key, { cached: true });
     queryClient.setQueryData(QUERY_KEYS.currentUser(), { cached: true });
 
-    backfillAfterReconnect();
+    refetchAfterGap();
 
     for (const key of missed) {
       expect(queryClient.getQueryState(key)?.isInvalidated, JSON.stringify(key)).toBe(true);
     }
     expect(queryClient.getQueryState(QUERY_KEYS.currentUser())?.isInvalidated).toBe(false);
+  });
+
+  it('after a replayed reconnect, leaves the counters to the replayed events', () => {
+    queryClient.setQueryData(QUERY_KEYS.messages('c1'), { cached: true });
+    queryClient.setQueryData(QUERY_KEYS.channelsUnread('w1'), { cached: true });
+
+    backfillAfterReconnect();
+
+    expect(queryClient.getQueryState(QUERY_KEYS.messages('c1'))?.isInvalidated).toBe(true);
+    expect(
+      queryClient.getQueryState(QUERY_KEYS.channelsUnread('w1'))?.isInvalidated,
+      'a refetched count that already includes a replayed message would be bumped by it again',
+    ).toBe(false);
   });
 });

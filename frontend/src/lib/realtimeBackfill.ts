@@ -2,21 +2,37 @@ import { queryClient } from './queryClient';
 import { logger } from './logger';
 import { QUERY_KEYS } from '@/shared/constants';
 
-const MISSED_BY_A_GAP = [
+const OPEN_VIEWS = [
   QUERY_KEYS.messagesAll(),
+  QUERY_KEYS.notificationsAll(),
+  QUERY_KEYS.conversationsAll(),
+  QUERY_KEYS.huddlesActive(),
+];
+
+const COUNTED_BY_EVENTS = [
   QUERY_KEYS.threadsAll(),
   QUERY_KEYS.threadStateAll(),
   QUERY_KEYS.followedThreadsAll(),
-  QUERY_KEYS.notificationsAll(),
-  QUERY_KEYS.conversationsAll(),
   QUERY_KEYS.channels(),
   QUERY_KEYS.unreadsAll(),
   QUERY_KEYS.sidebarAll(),
   QUERY_KEYS.laterAll(),
-  QUERY_KEYS.huddlesActive(),
 ];
 
+function invalidate(keys: ReadonlyArray<readonly string[]>) {
+  for (const queryKey of keys) queryClient.invalidateQueries({ queryKey });
+}
+
 export function backfillAfterReconnect() {
-  logger.info('realtimeBackfill', 'backfillAfterReconnect', 'invalidating what a gap could have changed');
-  for (const queryKey of MISSED_BY_A_GAP) queryClient.invalidateQueries({ queryKey });
+  logger.info(
+    'realtimeBackfill',
+    'backfillAfterReconnect',
+    'invalidating messages/notifications/conversations',
+  );
+  invalidate(OPEN_VIEWS);
+}
+
+export function refetchAfterGap() {
+  logger.info('realtimeBackfill', 'refetchAfterGap', 'invalidating everything a missed event could change');
+  invalidate([...OPEN_VIEWS, ...COUNTED_BY_EVENTS]);
 }
