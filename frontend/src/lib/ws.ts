@@ -27,6 +27,8 @@ export class WebSocketClient {
   private joinedChannels = new Set<string>();
   private hasConnectedOnce = false;
   private active = isActive();
+  private wanted = false;
+  private lastFrameAt = 0;
 
   private reconnectListeners = new Set<() => void>();
 
@@ -41,6 +43,7 @@ export class WebSocketClient {
   private static readonly RECONNECT_BASE_MS = 1000;
   private static readonly RECONNECT_FACTOR = 2;
   private static readonly RECONNECT_CAP_MS = 30000;
+  private static readonly PROBE_TIMEOUT_MS = 2000;
 
   onStatusChange: ((status: WsConnectionStatus) => void) | null = null;
   onSessionRevoked: ((reason: string) => void) | null = null;
@@ -53,9 +56,15 @@ export class WebSocketClient {
       this.active = active;
       this.send({ type: 'activity', active });
     });
+    if (typeof window === 'undefined') return;
+    window.addEventListener('online', () => this.wake());
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') this.wake();
+    });
   }
 
   connect() {
+    this.wanted = true;
     this.connectSeq += 1;
     if (this.ws) {
       this.ws.onclose = null;
@@ -131,6 +140,7 @@ export class WebSocketClient {
     };
 
     this.ws.onmessage = (evt) => {
+      this.lastFrameAt = Date.now();
       try {
         const event = JSON.parse(evt.data) as ServerEvent;
         this.dispatch(event);
@@ -145,6 +155,7 @@ export class WebSocketClient {
       // valid. Reconnecting would loop against a handshake that can only fail.
       if (evt.code === WebSocketClient.SESSION_REVOKED_CLOSE_CODE) {
         logger.warn('WebSocketClient', 'session revoked', evt.reason);
+        this.wanted = false;
         this.onSessionRevoked?.(evt.reason);
         return;
       }
@@ -164,6 +175,7 @@ export class WebSocketClient {
   }
 
   disconnect() {
+    this.wanted = false;
     this.connectSeq += 1;
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
@@ -176,6 +188,43 @@ export class WebSocketClient {
       this.ws = null;
     }
     this.onStatusChange?.('disconnected');
+  }
+
+  private wake() {
+    if (!this.wanted) return;
+    const state = this.ws?.readyState;
+    if (state === WebSocket.CONNECTING) return;
+    if (state === WebSocket.OPEN) {
+      this.probe();
+      return;
+    }
+    logger.info('WebSocketClient', 'wake', 'reconnecting now');
+    this.restart();
+  }
+
+  private probe() {
+    const sentAt = Date.now();
+    this.send({ type: 'ping' });
+    setTimeout(() => {
+      if (!this.wanted || this.ws?.readyState !== WebSocket.OPEN || this.lastFrameAt >= sentAt) return;
+      logger.warn('WebSocketClient', 'probe', 'no answer, reconnecting');
+      this.restart();
+    }, WebSocketClient.PROBE_TIMEOUT_MS);
+  }
+
+  private restart() {
+    this.connectSeq += 1;
+    if (this.ws) {
+      this.ws.onclose = null;
+      this.ws.close();
+      this.ws = null;
+    }
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.reconnectAttempts = 0;
+    void this.doConnect();
   }
 
   private scheduleReconnect() {

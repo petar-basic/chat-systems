@@ -723,11 +723,21 @@ cap 30s).
 - `send(event)` — sends JSON (only when the socket is OPEN)
 - `subscribe(wsId)`, `joinChannel(chId)`, `leaveChannel(chId)` — send `subscribe` / `channel.join` / `channel.leave` and remember the desired state for replay
 - `addReconnectListener(fn)` — fires after a *reconnect* (used to wire `backfillAfterReconnect`)
+- Waking up does not wait for the backoff: `online`, and the tab becoming visible, reconnect at once when the socket is closed. A socket that still looks open is sent a `ping`; if nothing arrives within two seconds (a laptop's half-open socket after sleep) it is replaced. `disconnect()` and a revoked session stop all of this
+- `lib/realtimeBackfill.ts`: after every reconnect `backfillAfterReconnect` refetches the open views (messages, Activity, conversations, active huddles) and leaves counters to the replayed events, since a refetched unread count already includes a message the replay then bumps again. On `sync.refetch_required`, when there is no replay, `refetchAfterGap` also invalidates threads and their state, followed threads, every `['channels', …]` key (pins, unread counts, members), `unreads`, the sidebar and *Later*
 - `on(type, handler)` — subscribe to event type (returns unsub fn)
 - All received events are forwarded to `globalEventBus`
 - Singleton `wsClient` for default; `instanceManager.get(url).ws` for others
 
 Message types the client **sends**: `subscribe`, `channel.join`, `channel.leave`, `typing.start`, `typing.stop`, `activity`.
+
+### New versions — `lib/appVersion.ts`, `lib/chunkReload.ts`
+A build writes `version.json` (`{ version }`, from `APP_VERSION` or the build time) and
+compiles the same id in as `import.meta.env.VITE_BUILD_ID`. nginx serves `index.html` and
+`version.json` with `Cache-Control: no-cache`; the hashed assets stay immutable.
+- `watchForNewBuild(running, onNew)` fetches `/version.json` when the tab comes back, when the network does, and every ten minutes; a different version shows `NewVersionBanner` (*A new version is available*, *Reload*) at the top of the workspace page. A dev build (`dev`) does not watch
+- `reloadWhenChunksAreGone()` (in `main.tsx`) reloads once on `vite:preloadError`, the error a lazy page or the emoji picker raises when its chunk is gone; a second failure within a minute is left to surface instead of looping, and so is one where `sessionStorage` cannot remember the reload
+- The release image copies the previous release's chunks in beside its own (`PREVIOUS_IMAGE` build argument, the list in `release-assets.txt`), so a tab opened before a deploy keeps loading for one release
 
 ### `instances.ts` — `InstanceManager`
 Registry of `{ api: ApiClient, ws: WebSocketClient }` per instance URL.

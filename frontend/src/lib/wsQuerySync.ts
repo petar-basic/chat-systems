@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useQueryClient, type InfiniteData, type QueryClient } from '@tanstack/react-query';
 import { globalEventBus } from './globalEventBus';
 import { logger } from './logger';
-import { backfillAfterReconnect } from './realtimeBackfill';
+import { refetchAfterGap } from './realtimeBackfill';
 import {
   upsertMessage,
   patchMessageById,
@@ -148,7 +148,7 @@ export const useWebSocketQuerySync = () => {
         // honest answer — the alternative is a client quietly missing events it
         // will never be told about.
         logger.info('wsQuerySync', 'sync.refetch_required', event.workspace_id);
-        backfillAfterReconnect();
+        refetchAfterGap();
       }),
       globalEventBus.on('sync.complete', (event) => {
         logger.info('wsQuerySync', 'sync.complete', `replayed ${event.replayed} events`);

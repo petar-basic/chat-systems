@@ -49,6 +49,9 @@ jobs:
             context: ./backend
           - name: frontend
             context: ./frontend
+            build-args: |
+              APP_VERSION=${{ needs.verify.outputs.version }}
+              PREVIOUS_IMAGE=ghcr.io/${{ github.repository_owner }}/chat-systems-frontend:latest
     steps:
       - uses: actions/checkout@v7
 
@@ -63,6 +66,7 @@ jobs:
       - uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
+          build-args: ${{ matrix.build-args }}
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/chat-systems-${{ matrix.name }}:${{ needs.verify.outputs.version }}

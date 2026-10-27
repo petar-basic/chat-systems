@@ -82,6 +82,38 @@ async fn subscribe_member_workspace_sends_presence_batch(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn a_workspace_joined_after_connecting_shows_the_person_online_on_subscribe(pool: PgPool) {
+    let cm = manager(pool).await;
+    let user = seed_user(cm.db()).await;
+    let ws = seed_workspace(cm.db(), user).await;
+    add_ws_member(cm.db(), ws, user).await;
+    let (conn_id, mut rx) = fake_conn(&cm, user);
+    let mut state = inbound();
+    assert!(!cm.online_users_in_workspace(ws).await.contains(&user));
+
+    let text = serde_json::json!({ "type": "subscribe", "workspace_id": ws }).to_string();
+    crate::ws_handler::handle_client_message(&text, &conn_id, user, &cm, &mut state).await;
+
+    assert!(cm.online_users_in_workspace(ws).await.contains(&user));
+    assert_eq!(
+        state.presence_workspaces,
+        vec![ws],
+        "kept fresh by the heartbeat from now on"
+    );
+    let frames = drain_json(&mut rx);
+    let batch = frames
+        .iter()
+        .find(|f| f.get("type").and_then(|v| v.as_str()) == Some("presence.batch"))
+        .expect("presence.batch after subscribe");
+    assert!(
+        batch["users"]
+            .as_array()
+            .is_some_and(|users| users.iter().any(|u| u["user_id"] == user.to_string())),
+        "the batch already counts the person who subscribed: {batch}"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn subscribe_non_member_workspace_denied(pool: PgPool) {
     let cm = manager(pool).await;
     let owner = seed_user(cm.db()).await;
