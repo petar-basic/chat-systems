@@ -40,3 +40,12 @@ export const useDraftStore = create<DraftState>((set, get) => {
     },
   };
 });
+
+export const RESTORE_DRAFT_EVENT = 'chat:restore-draft';
+
+export function restoreDraft(key: string, text: string) {
+  const current = useDraftStore.getState().getDraft(key).trim();
+  const next = current ? `${current}\n\n${text}` : text;
+  useDraftStore.getState().setDraft(key, next);
+  window.dispatchEvent(new CustomEvent(RESTORE_DRAFT_EVENT, { detail: { key, text: next } }));
+}

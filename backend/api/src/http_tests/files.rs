@@ -1086,7 +1086,7 @@ async fn forwarding_copies_the_files_into_the_new_message(pool: PgPool) {
         "POST",
         &format!("/api/channels/{target_ch}/messages"),
         Some(&bob),
-        Some(json!({ "content": "fwd", "copy_attachments_from": original_id })),
+        Some(json!({ "content": "fwd", "forwarded_from": original_id })),
     )
     .await;
     assert_eq!(
@@ -1100,10 +1100,14 @@ async fn forwarding_copies_the_files_into_the_new_message(pool: PgPool) {
         "POST",
         &format!("/api/channels/{target_ch}/messages"),
         Some(&owner),
-        Some(json!({ "content": "", "copy_attachments_from": original_id })),
+        Some(json!({ "content": "", "forwarded_from": original_id })),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{forwarded:?}");
+    assert_eq!(
+        forwarded["metadata"]["forwarded_from"]["message_id"],
+        original_id
+    );
     let copy = &forwarded["metadata"]["attachments"][0];
     assert_eq!(copy["filename"], "plan.txt");
     assert_ne!(copy["id"], file, "a copy, not the same file");
@@ -1182,7 +1186,7 @@ async fn a_scheduled_message_keeps_its_files_until_it_is_sent(pool: PgPool) {
         .await
         .expect("make due");
     for due in state.scheduled_repo.claim_due().await.expect("claim") {
-        crate::scheduled::executor::deliver_for_test(&state, &due)
+        crate::scheduled::executor::deliver_now(&state, &due)
             .await
             .expect("deliver");
     }

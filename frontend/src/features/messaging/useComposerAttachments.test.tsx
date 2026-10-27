@@ -89,4 +89,40 @@ describe('useComposerAttachments', () => {
     expect(result.current.items).toHaveLength(0);
     expect(remove).toHaveBeenCalledWith('/files/{file_id}', { params: { path: { file_id: 'file-2' } } });
   });
+
+  it('keeps the files of a channel while another channel is open', async () => {
+    uploadWithProgress.mockResolvedValue([
+      { id: 'file-3', url: 'https://chat.test/h', filename: 'b.txt', mime_type: 'text/plain', size_bytes: 4 },
+    ]);
+    const { result, rerender } = renderHook(
+      ({ channel }) =>
+        useComposerAttachments({ workspaceId: 'ws-1', instanceUrl: undefined, resetKey: channel }),
+      { initialProps: { channel: 'ch-keep' } },
+    );
+    act(() => result.current.add([file('b.txt')]));
+    await waitFor(() => expect(result.current.hasReady).toBe(true));
+
+    rerender({ channel: 'ch-other' });
+    expect(result.current.items).toHaveLength(0);
+    rerender({ channel: 'ch-keep' });
+    expect(result.current.items.map((item) => item.fileId)).toEqual(['file-3']);
+  });
+
+  it('holds a failed upload with its reason until it is retried', async () => {
+    uploadWithProgress.mockRejectedValueOnce(new Error('Storage is full'));
+    const { result } = renderHook(() =>
+      useComposerAttachments({ workspaceId: 'ws-1', instanceUrl: undefined, resetKey: 'ch-failed' }),
+    );
+    act(() => result.current.add([file('c.txt')]));
+    await waitFor(() => expect(result.current.failed).toBe(true));
+    expect(result.current.items[0].error).toBe('Storage is full');
+
+    uploadWithProgress.mockResolvedValueOnce([
+      { id: 'file-4', url: 'https://chat.test/i', filename: 'c.txt', mime_type: 'text/plain', size_bytes: 4 },
+    ]);
+    act(() => result.current.retry(result.current.items[0].localId));
+    await waitFor(() => expect(result.current.hasReady).toBe(true));
+    expect(result.current.failed).toBe(false);
+    expect(uploadWithProgress).toHaveBeenCalledTimes(2);
+  });
 });

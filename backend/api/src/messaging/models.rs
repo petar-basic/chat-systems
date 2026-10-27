@@ -44,6 +44,12 @@ pub struct MessageMetadata {
     pub form: Option<crate::workflows::models::FormRequest>,
     pub fields: Option<Vec<MessageField>>,
     pub also_in_channel: Option<bool>,
+    pub forwarded_from: Option<ForwardedFrom>,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct ForwardedFrom {
+    pub message_id: Uuid,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
@@ -134,7 +140,7 @@ pub struct SendMessageRequest {
     pub client_message_id: Option<Uuid>,
     #[serde(default)]
     pub attachment_ids: Vec<Uuid>,
-    pub copy_attachments_from: Option<Uuid>,
+    pub forwarded_from: Option<Uuid>,
 }
 
 #[derive(Debug, Deserialize, garde::Validate, ToSchema)]
@@ -320,6 +326,7 @@ pub struct NewMessage<'a> {
     pub content: &'a str,
     pub thread_parent_id: Option<Uuid>,
     pub also_in_channel: bool,
+    pub forwarded_from: Option<Uuid>,
     pub client_message_id: Option<Uuid>,
     pub mentioned: &'a [Uuid],
 }

@@ -1480,6 +1480,22 @@ export interface paths {
         patch: operations["reschedule"];
         trace?: never;
     };
+    "/scheduled-messages/{id}/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["send_now"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/search": {
         parameters: {
             query?: never;
@@ -4079,6 +4095,10 @@ export interface components {
             submitted_at?: string | null;
             title: string;
         };
+        ForwardedFrom: {
+            /** Format: uuid */
+            message_id: string;
+        };
         GroupMembers: {
             data: string[];
         };
@@ -4434,6 +4454,7 @@ export interface components {
             bot?: components["schemas"]["BotIdentity"] | null;
             fields?: components["schemas"]["MessageField"][] | null;
             form?: components["schemas"]["FormRequest"] | null;
+            forwarded_from?: components["schemas"]["ForwardedFrom"] | null;
             /** Format: uuid */
             huddle_id?: string | null;
             /** Format: uuid */
@@ -4720,7 +4741,7 @@ export interface components {
             client_message_id?: string | null;
             content: string;
             /** Format: uuid */
-            copy_attachments_from?: string | null;
+            forwarded_from?: string | null;
             /** Format: uuid */
             thread_parent_id?: string | null;
         };
@@ -7838,6 +7859,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ScheduledMessage"];
+                };
+            };
+        };
+    };
+    send_now: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
                 };
             };
         };

@@ -87,3 +87,16 @@ export const useCancelScheduledMessage = (workspaceId: string, instanceUrl?: str
     },
   });
 };
+
+export const useSendScheduledNow = (workspaceId: string, instanceUrl?: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) =>
+      getApiForInstance(instanceUrl).typed((c) =>
+        c.POST('/scheduled-messages/{id}/send', { params: { path: { id } } }),
+      ),
+    onSettled: async () => {
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.scheduledMessages(workspaceId) });
+    },
+  });
+};

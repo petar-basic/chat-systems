@@ -3954,6 +3954,36 @@
         }
       }
     },
+    "/scheduled-messages/{id}/send": {
+      "post": {
+        "tags": [
+          "scheduled"
+        ],
+        "operationId": "send_now",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/search": {
       "get": {
         "tags": [
@@ -12949,6 +12979,18 @@
           }
         }
       },
+      "ForwardedFrom": {
+        "type": "object",
+        "required": [
+          "message_id"
+        ],
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
       "GroupMembers": {
         "type": "object",
         "required": [
@@ -14163,6 +14205,16 @@
               }
             ]
           },
+          "forwarded_from": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ForwardedFrom"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "huddle_id": {
             "type": [
               "string",
@@ -15146,7 +15198,7 @@
           "content": {
             "type": "string"
           },
-          "copy_attachments_from": {
+          "forwarded_from": {
             "type": [
               "string",
               "null"

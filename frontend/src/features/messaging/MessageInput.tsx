@@ -19,7 +19,7 @@ import { MENTION_SUGGESTION_LIMIT, DRAFT_SAVE_DEBOUNCE_MS } from '@/shared/const
 import { transferFiles } from '@/lib/fileUploads';
 import { AttachmentTray } from './AttachmentTray';
 import type { ComposerAttachments } from './useComposerAttachments';
-import { useDraftStore } from '@/stores/drafts';
+import { RESTORE_DRAFT_EVENT, useDraftStore } from '@/stores/drafts';
 import { flattenMentions } from '@/lib/mentions';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog/ConfirmDialog';
 import { useScheduleMessage, type ScheduleTarget } from '@/features/messaging/hooks/useScheduledMessages';
@@ -305,6 +305,10 @@ export default function MessageInput({
         toast.error('Wait for the files to finish uploading');
         return;
       }
+      if (files?.failed) {
+        toast.error('A file did not upload. Retry it or remove it first');
+        return;
+      }
       if (!confirmed && !editing && asksBeforeBroadcast(markdown, channelMemberCount)) {
         setConfirmingBroadcast(true);
         return;
@@ -332,8 +336,20 @@ export default function MessageInput({
     if (editing && editor) editor.commands.focus('end');
   }, [editing, editor]);
 
+  useEffect(() => {
+    if (!editor || !draftKey) return undefined;
+    const restore = (event: Event) => {
+      const { key, text } = (event as CustomEvent<{ key: string; text: string }>).detail;
+      if (key !== draftKey) return;
+      editor.commands.setContent(text);
+      editor.commands.focus('end');
+    };
+    window.addEventListener(RESTORE_DRAFT_EVENT, restore);
+    return () => window.removeEventListener(RESTORE_DRAFT_EVENT, restore);
+  }, [editor, draftKey]);
+
   const isEmpty = !editor || (editor.isEmpty && !attachments?.hasReady && !allowEmpty);
-  const sendBlocked = isEmpty || !!attachments?.busy;
+  const sendBlocked = isEmpty || !!attachments?.busy || !!attachments?.failed;
 
   return (
     // The bottom padding clears the iOS home indicator; without it the send
@@ -343,7 +359,13 @@ export default function MessageInput({
         className="@container bg-surface border border-line rounded-xl"
         data-composer={editing ? undefined : true}
       >
-        {attachments && <AttachmentTray items={attachments.items} onRemove={attachments.remove} />}
+        {attachments && (
+          <AttachmentTray
+            items={attachments.items}
+            onRemove={attachments.remove}
+            onRetry={attachments.retry}
+          />
+        )}
         <div className="px-4 pt-3 pb-1">
           <EditorContent editor={editor} className="tiptap-editor" />
         </div>

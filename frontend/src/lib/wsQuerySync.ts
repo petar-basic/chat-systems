@@ -17,6 +17,7 @@ import { wsClient } from './ws';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useInstanceStore } from '@/stores/instances';
 import { useUserCache } from '@/stores/users';
+import { useUnsentStore } from '@/stores/unsent';
 import { QUERY_KEYS } from '@/shared/constants';
 import { applyReadState } from './readState';
 import { patchMessageEverywhere, shownInChannel } from './messagePatch';
@@ -151,6 +152,9 @@ export const useWebSocketQuerySync = () => {
         const message = event.message;
         if (!message?.channel_id) return;
         ensureUserKnown(queryClient, message.user_id);
+        if (message.client_message_id) {
+          useUnsentStore.getState().drop({ ...message, id: message.client_message_id });
+        }
 
         if (message.thread_parent_id) {
           const parentId = message.thread_parent_id;

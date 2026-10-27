@@ -11,6 +11,7 @@ import { upsertMessage, patchMessageById, newestFirst, removeMessageById } from 
 import { toast } from '@/shared/components/Toast';
 import { logger } from '@/lib/logger';
 import { refusalOr } from '@/lib/errors';
+import { useUnsentStore } from '@/stores/unsent';
 
 export interface OutgoingMessage {
   content: string;
@@ -105,19 +106,22 @@ export const useSendMessage = (channelId: string, userId: string) => {
         metadata: attachments.length > 0 ? { attachments } : undefined,
         pending: true,
       };
+      useUnsentStore.getState().drop(optimistic);
       queryClient.setQueryData<MessagesInfiniteData>(key, (old) =>
         upsertMessage(old, optimistic, 'lastPage', newestFirst),
       );
-      return { id };
+      return { optimistic };
     },
-    onError: (err, { id }) => {
+    onError: (err, { id }, context) => {
       logger.error('useSendMessage', 'mutationFn', err);
       queryClient.setQueryData<MessagesInfiniteData>(key, (old) =>
         patchMessageById(old, id, (m) => ({ ...m, pending: false, failed: true })),
       );
+      if (context) useUnsentStore.getState().keep({ ...context.optimistic, pending: false, failed: true });
       toast.error(refusalOr(err, ErrorLabels.SendFailed));
     },
     onSuccess: (message, { id }) => {
+      useUnsentStore.getState().drop({ id, channel_id: channelId, thread_parent_id: null });
       // The optimistic row was keyed on the client id, the stored row is keyed
       // on the server's. Swapping them here is what stops the websocket echo
       // from arriving as a second copy of the same message.

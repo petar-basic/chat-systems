@@ -36,7 +36,7 @@ impl DeliveryFailure {
         }
     }
 
-    fn author_message(&self) -> &'static str {
+    pub fn author_message(&self) -> &'static str {
         match self {
             Self::NotAuthorized => "You no longer have access to the destination.",
             Self::AuthorInactive => "Your account is suspended.",
@@ -82,25 +82,17 @@ pub async fn start_dispatcher(state: Arc<AppState>) {
         };
 
         for scheduled in due {
-            if let Err(failure) = deliver(&state, &scheduled).await {
+            if let Err(failure) = deliver_now(&state, &scheduled).await {
                 warn!(
                     scheduled_id = %scheduled.id,
                     "Scheduled message delivery failed: {}", failure
                 );
-                let _ = state
-                    .scheduled_repo
-                    .record_failure(scheduled.id, failure.as_str())
-                    .await;
-                if failure.tell_the_author() {
-                    notify_author(&state, &scheduled, &failure).await;
-                }
             }
         }
     }
 }
 
-#[cfg(test)]
-pub(crate) async fn deliver_for_test(
+pub(crate) async fn deliver_now(
     state: &AppState,
     scheduled: &ScheduledMessage,
 ) -> Result<(), DeliveryFailure> {
@@ -192,6 +184,7 @@ async fn deliver_to_channel(
                 content: &scheduled.content,
                 thread_parent_id: root.as_ref().map(|root| root.id),
                 also_in_channel: scheduled.also_in_channel,
+                forwarded_from: None,
                 client_message_id: None,
                 mentioned: &mentioned,
             },

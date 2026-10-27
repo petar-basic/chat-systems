@@ -261,7 +261,7 @@ async fn what_was_queued_before_the_right_was_lost_posts_without_notifying(pool:
 
     let claimed = t.state.scheduled_repo.claim_due().await.unwrap();
     let row = claimed.into_iter().find(|c| c.id == queued.id).unwrap();
-    crate::scheduled::executor::deliver_for_test(&t.state, &row)
+    crate::scheduled::executor::deliver_now(&t.state, &row)
         .await
         .expect("it still goes out");
     let posted: i64 = sqlx::query_scalar(
@@ -369,4 +369,42 @@ async fn creating_a_channel_follows_the_rule_for_its_type(pool: PgPool) {
         let (status, body) = create(t.owner.clone(), name, channel_type).await;
         assert_eq!(status, StatusCode::OK, "{body:?}");
     }
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_forward_notifies_only_the_people_its_own_words_name(pool: PgPool) {
+    let t = team(pool).await;
+    set_rules(&t, json!({ "broadcast_mentions": "admins" })).await;
+    let (status, original) = say(&t, &t.lead, "@[channel](channel) ship it").await;
+    assert_eq!(status, StatusCode::OK, "{original:?}");
+    let other_before = mention_count(&t, t.other_id).await;
+    let lead_before = mention_count(&t, t.lead_id).await;
+
+    let content = format!(
+        "cc @[other]({})\n\n> **Lead** in #all-hands:\n> @[channel](channel) ship it\n> @[lead]({})",
+        t.other_id, t.lead_id
+    );
+    let (status, body) = send(
+        &t.app,
+        "POST",
+        &format!("/api/channels/{}/messages", t.channel),
+        Some(&t.member),
+        Some(json!({ "content": content, "forwarded_from": original["id"] })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "a quoted @channel is not the forwarder's broadcast: {body:?}"
+    );
+    assert_eq!(
+        body["metadata"]["forwarded_from"]["message_id"],
+        original["id"]
+    );
+    assert_eq!(mention_count(&t, t.other_id).await, other_before + 1);
+    assert_eq!(
+        mention_count(&t, t.lead_id).await,
+        lead_before,
+        "the quote does not notify again"
+    );
 }

@@ -204,6 +204,13 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - 🟠 **Edge — deleted parent:** delete a message that has replies → it stays as *This message was deleted* with its reply count; the thread still opens and takes replies. Deleting one with no replies removes it. No reply ever appears in the channel on its own.
 - 🟢 **Also send to #channel:** tick it under the thread composer and send → the reply shows in the thread and in the channel with *Replied to a thread*, which opens the thread on it; members on *All* are notified as for a channel message. Schedule a reply from the thread composer → it arrives in the thread (*Scheduled* labels it *· thread*).
 
+### 5.2a 🟢 Sending never loses work
+- **Steps:** attach a file, write a message, turn the network off (DevTools → Offline) and send; switch channels and come back; turn the network on and press *Retry*. Repeat in a thread, and press *Discard* on one.
+- **Expected:** the failed row keeps its text and file across the switch; *Retry* sends it with the file; *Discard* removes the row and puts the text and the file back in that composer.
+- 🟠 **Edge — files per channel:** attach a file in #a, switch to #b and back → the file is still in #a's tray, and #b's tray is empty. A file whose upload failed says why and blocks *Send* until it is retried (click it) or removed.
+- 🟠 **Edge — failed scheduled message:** schedule a message into a private channel, leave it, wait for the time → *Scheduled* shows *Not sent* with the reason, *Send now* and the bin; rejoin and *Send now* delivers it, the bin removes it.
+- 🟠 **Edge — forward:** forward a message that says `@channel` and names someone → only people named in your comment are notified, and forwarding is allowed where you may not broadcast.
+
 ### 5.3 🟢 Reactions
 - **Steps:** add an emoji reaction; add the same one again; remove it.
 - **Expected:** reactions aggregate with counts; live to others; you can't double-count the same emoji.

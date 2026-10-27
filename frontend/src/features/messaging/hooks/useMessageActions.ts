@@ -1,4 +1,7 @@
 import { useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import type { Message } from '@/stores/workspace';
+import { discardUnsent } from '@/lib/unsent';
 import {
   useEditMessage,
   useDeleteMessage,
@@ -25,11 +28,13 @@ export interface MessageActions {
   hidePreviews: (messageId: string) => void;
   refreshPreviews: (messageId: string) => void;
   markUnread: (messageId: string) => void;
-  retryMessage: (messageId: string, content: string) => void;
+  retryMessage: (message: Message) => void;
+  discardMessage: (message: Message) => void;
   copyLink: (messageId: string) => void;
 }
 
-export function useMessageActions(channelId: string): MessageActions {
+export function useMessageActions(channelId: string, draftKey: string): MessageActions {
+  const queryClient = useQueryClient();
   const { data: currentUser } = useCurrentUser();
   const userId = currentUser?.id ?? '';
 
@@ -57,7 +62,13 @@ export function useMessageActions(channelId: string): MessageActions {
       hidePreviews: (messageId) => hidePreviews.mutate({ messageId, channelId }),
       refreshPreviews: (messageId) => refreshPreviews.mutate({ messageId }),
       markUnread: (messageId) => markUnread.mutate({ messageId, channelId }),
-      retryMessage: (messageId, content) => send.mutate({ content, id: messageId }),
+      retryMessage: (message) =>
+        send.mutate({
+          content: message.content,
+          id: message.id,
+          attachments: message.metadata?.attachments ?? [],
+        }),
+      discardMessage: (message) => discardUnsent(queryClient, message, draftKey),
       copyLink: (messageId) => {
         const ws = useWorkspaceStore.getState().currentWorkspace;
         if (!ws) return;
@@ -80,6 +91,8 @@ export function useMessageActions(channelId: string): MessageActions {
       refreshPreviews,
       markUnread,
       send,
+      queryClient,
+      draftKey,
     ],
   );
 }

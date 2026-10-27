@@ -48,7 +48,8 @@ interface MessageItemProps {
   onHidePreviews?: (messageId: string) => void;
   onRefreshPreviews?: (messageId: string) => void;
   onMarkUnread?: (messageId: string) => void;
-  onRetry?: (messageId: string, content: string) => void;
+  onRetry?: (message: Message) => void;
+  onDiscard?: (message: Message) => void;
   onCopyLink?: (messageId: string) => void;
   onSave?: (message: Message) => void;
   onForward?: (message: Message) => void;
@@ -75,6 +76,7 @@ function MessageItem({
   onRefreshPreviews,
   onMarkUnread,
   onRetry,
+  onDiscard,
   onCopyLink,
   onSave,
   onForward,
@@ -96,7 +98,8 @@ function MessageItem({
   const isTabStop = useIsTabStop(message.id);
   const focusRow = useRovingFocus();
   const [sheetOpen, setSheetOpen] = useState(false);
-  const longPress = useLongPress(() => setSheetOpen(true), !editing && !confirmDelete);
+  const unsent = !!message.pending || !!message.failed;
+  const longPress = useLongPress(() => setSheetOpen(true), !editing && !confirmDelete && !unsent);
 
   const toggleSave = onSave
     ? () => {
@@ -162,13 +165,15 @@ function MessageItem({
     finishEditing();
   };
 
-  const keyHandlers: Partial<Record<MessageKeyAction, () => void>> = {
-    edit: canEdit && !message.pending ? () => setEditing(true) : undefined,
-    thread: actions.onThread,
-    react: () => setShowEmojiPicker(true),
-    later: toggleSave,
-    pin: message.pending ? undefined : actions.onTogglePin,
-  };
+  const keyHandlers: Partial<Record<MessageKeyAction, () => void>> = unsent
+    ? {}
+    : {
+        edit: canEdit ? () => setEditing(true) : undefined,
+        thread: actions.onThread,
+        react: () => setShowEmojiPicker(true),
+        later: toggleSave,
+        pin: actions.onTogglePin,
+      };
 
   const handleRowKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.target !== e.currentTarget || editing || e.nativeEvent.isComposing) return;
@@ -365,11 +370,20 @@ function MessageItem({
               <span>Failed to send.</span>
               {onRetry && (
                 <button
-                  onClick={() => onRetry(message.id, message.content)}
+                  onClick={() => onRetry(message)}
                   data-qa="message-retry"
                   className="font-semibold text-danger hover:text-danger underline"
                 >
                   Retry
+                </button>
+              )}
+              {onDiscard && (
+                <button
+                  onClick={() => onDiscard(message)}
+                  data-qa="message-discard"
+                  className="font-semibold text-muted hover:text-fg underline"
+                >
+                  Discard
                 </button>
               )}
             </div>
@@ -414,7 +428,7 @@ function MessageItem({
           <MessageReactions message={message} currentUserId={currentUserId} onToggle={handleReactionToggle} />
         </div>
 
-        {!editing && !confirmDelete && (
+        {!editing && !confirmDelete && !unsent && (
           <MessageActionsBar
             message={message}
             actions={actions}

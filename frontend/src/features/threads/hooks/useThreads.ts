@@ -10,6 +10,7 @@ import { QUERY_KEYS, ErrorLabels } from '@/shared/constants';
 import { patchMessageById, claimReplyCount, newestFirst, upsertMessage } from '@/lib/messageCache';
 import { dropReply, oldestFirst, patchReply, placeReply, type ThreadPageOfReplies } from '@/lib/threadCache';
 import { shownInChannel } from '@/lib/messagePatch';
+import { useUnsentStore } from '@/stores/unsent';
 import type { MessagesInfiniteData, OutgoingMessage } from '@/features/messaging';
 
 export type ThreadSummary = components['schemas']['ThreadSummary'];
@@ -134,7 +135,7 @@ export const useSendThreadReply = (parentMessageId: string, channelId: string, u
         ...(attachments.length > 0 ? { attachments } : {}),
         ...(alsoToChannel ? { also_in_channel: true } : {}),
       };
-      placeReply(queryClient, {
+      const optimistic: Message = {
         id,
         channel_id: channelId,
         user_id: userId,
@@ -148,14 +149,19 @@ export const useSendThreadReply = (parentMessageId: string, channelId: string, u
         is_pinned: false,
         metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
         pending: true,
-      });
+      };
+      useUnsentStore.getState().drop(optimistic);
+      placeReply(queryClient, optimistic);
+      return { optimistic };
     },
-    onError: (err, { id }) => {
+    onError: (err, { id }, context) => {
       logger.error('useSendThreadReply', 'mutationFn', err);
       patchReply(queryClient, id, (m) => ({ ...m, pending: false, failed: true }));
+      if (context) useUnsentStore.getState().keep({ ...context.optimistic, pending: false, failed: true });
       toast.error(refusalOr(err, ErrorLabels.SendFailed));
     },
     onSuccess: (newMessage, { id }) => {
+      useUnsentStore.getState().drop({ id, channel_id: channelId, thread_parent_id: parentMessageId });
       const sent = { ...(newMessage as Message), pending: false, failed: false };
       placeReply(queryClient, sent, id);
       if (shownInChannel(sent)) {
