@@ -261,13 +261,21 @@ async fn download_file(
     Path(key): Path<String>,
     headers: HeaderMap,
 ) -> AppResult<Response> {
-    let record = state
-        .file_repo
-        .find_by_storage_key(&key)
-        .await?
-        .ok_or_else(|| AppError::NotFound("File not found".into()))?;
-
-    require_file_access(&state, &record, auth.user_id).await?;
+    let filename = match state.file_repo.find_by_storage_key(&key).await? {
+        Some(record) => {
+            require_file_access(&state, &record, auth.user_id).await?;
+            record.filename
+        }
+        None => {
+            let emoji = state
+                .emoji_repo
+                .find_by_storage_key(&key)
+                .await?
+                .ok_or_else(|| AppError::NotFound("File not found".into()))?;
+            authz::require_workspace_member(&state, emoji.workspace_id, auth.user_id).await?;
+            emoji.name
+        }
+    };
 
     let requested = headers
         .get(header::RANGE)
@@ -299,7 +307,7 @@ async fn download_file(
         .header(header::X_CONTENT_TYPE_OPTIONS, "nosniff")
         .header(
             header::CONTENT_DISPOSITION,
-            names::content_disposition(&record.filename),
+            names::content_disposition(&filename),
         );
     if requested.is_some() {
         response = response.status(StatusCode::PARTIAL_CONTENT).header(

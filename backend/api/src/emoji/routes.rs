@@ -43,6 +43,16 @@ pub struct EmojiCreated {
     pub url: String,
 }
 
+pub fn storage_key(workspace_id: Uuid, content_type: &str) -> String {
+    let extension = match content_type {
+        "image/gif" => "gif",
+        "image/webp" => "webp",
+        "image/jpeg" => "jpg",
+        _ => "png",
+    };
+    format!("emoji/{workspace_id}/{}.{extension}", Uuid::new_v4())
+}
+
 pub fn validate_name(name: &str) -> AppResult<String> {
     let name = name.trim().trim_matches(':').to_lowercase();
 
@@ -146,7 +156,7 @@ async fn upload_emoji(
     let (bytes, content_type) =
         image.ok_or_else(|| AppError::Validation("An emoji needs an image".into()))?;
 
-    let storage_key = format!("emoji/{ws_id}/{}", Uuid::new_v4());
+    let storage_key = storage_key(ws_id, &content_type);
     state
         .file_storage
         .upload(&storage_key, bytes, &content_type)
@@ -244,6 +254,14 @@ mod tests {
         assert!(validate_name("smile").is_err());
         assert!(validate_name(":joy:").is_err());
         assert!(validate_name("shipit").is_ok());
+    }
+
+    #[test]
+    fn the_key_names_the_image_type_for_storage_that_keeps_none() {
+        let ws = Uuid::new_v4();
+        assert!(storage_key(ws, "image/gif").ends_with(".gif"));
+        assert!(storage_key(ws, "image/jpeg").ends_with(".jpg"));
+        assert!(storage_key(ws, "image/png").starts_with(&format!("emoji/{ws}/")));
     }
 
     #[test]

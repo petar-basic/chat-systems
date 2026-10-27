@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { splitCustomEmoji } from './customEmoji';
+import { matchCustomEmoji, splitCustomEmoji } from './customEmoji';
 import type { CustomEmoji } from '@/features/workspace/hooks/useCustomEmoji';
 
 const shipit: CustomEmoji = {
@@ -40,5 +40,23 @@ describe('splitCustomEmoji', () => {
   /// A ratio like 1:30:00 is not a shortcode, and neither is a URL scheme.
   it('does not eat colons that are not shortcodes', () => {
     expect(splitCustomEmoji('at 1:30:00 sharp', byName)).toEqual([{ text: 'at 1:30:00 sharp', emoji: null }]);
+  });
+});
+
+describe('matchCustomEmoji', () => {
+  const party: CustomEmoji = { ...shipit, id: '2', name: 'party-parrot' };
+  const parrot: CustomEmoji = { ...shipit, id: '3', name: 'parrot' };
+  const all = new Map([party, parrot, shipit].map((e) => [e.name, e]));
+
+  it('puts names that start with what was typed before names that only contain it', () => {
+    expect(matchCustomEmoji('parrot', all).map((e) => e.name)).toEqual(['parrot', 'party-parrot']);
+  });
+
+  it('ignores case and stops at the limit', () => {
+    expect(matchCustomEmoji('PAR', all, 1).map((e) => e.name)).toEqual(['party-parrot']);
+  });
+
+  it('offers nothing a workspace does not have', () => {
+    expect(matchCustomEmoji('test', all)).toEqual([]);
   });
 });

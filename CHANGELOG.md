@@ -14,6 +14,17 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
+## [Unreleased]
+
+### Fixed
+
+- **Custom emoji show.** Their image answered 404, because the download route only knew
+  uploaded files, so a custom emoji was a broken image everywhere: in *Custom emoji*, in
+  messages and in reactions. Anyone in the workspace can now load it, and a new one is stored
+  under its image type, so local storage serves it as an image.
+- **Typing `:name` offers the workspace's own emoji**, first, above the standard ones;
+  choosing one inserts `:name:`.
+
 ## [3.4.0] — 2026-10-27
 
 ### Upgrading from 3.3.0
