@@ -1789,3 +1789,20 @@ enable it. `Workflow.creator_gone` says so, and `POST /workflows/{id}/owner` let
 admin take it over — *Take over* in the editor — leaving it off for its new owner to check and
 turn on, with `workflow.taken_over` in the audit log.
 
+### [CS-079] Opening a message lands on it ✅ shipped
+A push, an Activity row, a desktop notification or a search hit opened
+`/app/{ws}/{channel}/{message}`, and the router only knew the channels in the sidebar: a DM or
+a channel the person had not joined redirected to `#general`, and a thread reply, which is not
+in the channel's timeline, was paged for forever. Search stopped at twenty.
+
+`GET /messages/{id}/location` answers where a message lives — workspace, channel, `channel`,
+`dm` or `group_dm`, its thread parent and whether the caller is in the channel — and a 404 for
+one the caller cannot read. `useOpenMessage` resolves it and navigates, and every entry point
+uses it: Activity, desktop notifications, search (messages and files), *Later*, pins and
+channel files. The message route resolves through the same query, so an old link to a DM
+moves to `/app/{ws}/c/{conversation}/{message}`, a reply opens its parent with the thread
+beside it scrolled to the reply, and a gone message says so and opens its channel. A public
+channel not in the sidebar now opens as a preview with a *Join channel* bar in place of the
+composer, from a link or after leaving it. Push payloads and the `notification` frame carry
+`thread_parent_id`, which the service worker turns into `?thread=1`. Search pages with
+*Show more* for messages and files.

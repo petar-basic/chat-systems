@@ -31,6 +31,7 @@ mod hooks;
 mod huddle;
 mod later;
 mod lists;
+mod message_location;
 mod messaging;
 mod notifications;
 mod polls;

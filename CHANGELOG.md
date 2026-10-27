@@ -51,6 +51,16 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   existing one of the same name only when both are the same kind; otherwise it imports it as
   `<name>-slack` and says so in the report.
 
+### Fixed
+
+- **Opening a message lands on it.** From *Activity*, a desktop notification, a phone push or
+  search, a direct message opens its conversation, a thread reply opens its thread scrolled to
+  it, and a public channel you have not joined opens on the message with *Join channel*. Old
+  message links resolve the same way, and a message that is gone says so instead of opening
+  `#general`. `GET /messages/{id}/location` says where a message lives; push payloads and the
+  `notification` frame carry `thread_parent_id`.
+- **Search goes past twenty.** *Show more* pages through message and file results.
+
 ## [3.5.0] — 2026-10-27
 
 ### Upgrading from 3.4.2

@@ -256,6 +256,7 @@ pub(crate) async fn handle_event_for(
                     workspace_id: field("workspace_id"),
                     channel_id: field("channel_id"),
                     message_id: field("message_id"),
+                    thread_parent_id: field("thread_parent_id"),
                     list_id: field("list_id"),
                     item_id: field("item_id"),
                     title: text("title").unwrap_or_default(),

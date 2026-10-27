@@ -226,6 +226,8 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - **Steps:** search for a word present in messages; filter by channel/user if available.
 - **Expected:** full-text results ranked by relevance; deleted messages excluded. Results are **access-scoped**: you must be a member of the queried workspace (else 403), and matches only come from **public channels + the private/DM channels you actually belong to**.
 - 🔴 **Edge — private leakage:** as a user who is NOT a member of a private channel, search for a term you know is only in that private channel → **no results** from it. Search a workspace you're not in → **403**.
+- 🟠 **Edge — more than twenty:** search a word in more than twenty messages → the count reads *20+*, *Show more* adds the next twenty, and it disappears when there are no more. The same on *Files*.
+- 🟠 **Edge — where a hit opens:** click a hit in a DM → the DM opens on the message; a thread reply → the thread opens beside its channel, scrolled to the reply and highlighted; a public channel you have not joined → the channel opens on the message with a *Join channel* bar instead of the composer, and joining puts it in the sidebar.
 
 ### 5.8 🟠 Read tracking / unread badges
 - **Steps:** in tab A send to a channel; in tab B (different user) don't open it.
@@ -337,7 +339,8 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 ### 8.1 🟢 Mention notification + unread badge
 - **Steps:** user A @-mentions user B while B is offline or viewing another channel → B opens the app / Notifications panel.
 - **Expected:** B sees a **persisted** notification ("You were mentioned") with a deep link; the unread count reflects it; marking read clears it (and it stays cleared after refresh — it's persisted in the DB, not just a live push).
-- 🟠 **Edge:** open the deep link → jumps to the message.
+- 🟠 **Edge:** open the deep link → jumps to the message. From *Activity*, a desktop notification and a phone push alike: a DM opens the conversation, a reply opens its thread scrolled to it, and an old `/app/<ws>/<channel>/<message>` link to a DM or a reply lands the same way.
+- 🟠 **Edge — gone:** open the link of a message since deleted, or of a private channel you were removed from → *That message was deleted or you can no longer see it*, and the channel (or the workspace) opens instead.
 - 🔴 **Edge — workspace membership:** the workspace-scoped notifications routes now require membership. As a user NOT in workspace W, call `GET /api/workspaces/<W>/notifications` (also `.../notifications/unread-count`, `.../notifications/read-all`, `.../channels/<id>/notifications/read`) → **403** "Not a member of this workspace".
 
 ### 8.2 🟢 Notification levels

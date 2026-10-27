@@ -283,6 +283,23 @@ pub struct MessageWithReactions {
     pub reactions: Vec<Reaction>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum LocationKind {
+    Channel,
+    Dm,
+    GroupDm,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct MessageLocation {
+    pub workspace_id: Uuid,
+    pub channel_id: Uuid,
+    pub kind: LocationKind,
+    pub thread_parent_id: Option<Uuid>,
+    pub joined: bool,
+}
+
 #[derive(Debug, Serialize, ToSchema)]
 pub struct SearchResponse {
     pub data: Vec<Message>,

@@ -26,6 +26,7 @@ interface Props {
   members: WorkspaceMember[];
   channels: Channel[];
   highlightMessageId?: string;
+  onTargetMessageFound?: (msg: Message) => void;
   onClose: () => void;
   onOpenNav?: () => void;
   onOpenThread: (message: Message) => void;
@@ -44,6 +45,7 @@ export default function ConversationView({
   members,
   channels,
   highlightMessageId,
+  onTargetMessageFound,
   onClose,
   onOpenNav,
   onOpenThread,
@@ -132,6 +134,7 @@ export default function ConversationView({
           onSave={onSave}
           onForward={onForward}
           highlightMessageId={highlightMessageId}
+          onTargetMessageFound={onTargetMessageFound}
         />
 
         <TypingIndicator channelId={conversation.id} currentUserId={currentUserId} />

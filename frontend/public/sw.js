@@ -41,6 +41,7 @@ self.addEventListener('push', (event) => {
       workspace_id: payload.workspace_id,
       channel_id: payload.channel_id,
       message_id: payload.message_id,
+      thread_parent_id: payload.thread_parent_id,
     },
   };
 
@@ -64,7 +65,7 @@ self.addEventListener('notificationclick', (event) => {
 
   let target = '/app';
   if (data.workspace_id && data.channel_id && data.message_id) {
-    target = `/app/${data.workspace_id}/${data.channel_id}/${data.message_id}`;
+    target = `/app/${data.workspace_id}/${data.channel_id}/${data.message_id}${data.thread_parent_id ? '?thread=1' : ''}`;
   } else if (data.workspace_id) {
     target = `/app/${data.workspace_id}`;
   }

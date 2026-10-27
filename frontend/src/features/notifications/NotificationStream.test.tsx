@@ -8,8 +8,10 @@ import { NotificationStream } from './NotificationStream';
 const navigate = vi.fn();
 const playMessageSound = vi.fn();
 const showNotification = vi.fn();
+const openMessage = vi.fn();
 
 vi.mock('react-router', () => ({ useNavigate: () => navigate }));
+vi.mock('@/features/messaging', () => ({ useOpenMessage: () => openMessage }));
 vi.mock('@/lib/notifications', () => ({
   playMessageSound: () => playMessageSound(),
   showNotification: (...args: unknown[]) => showNotification(...args),
@@ -21,6 +23,7 @@ function frame(kind: string, channelId = 'ch-1') {
     workspace_id: 'ws-1',
     channel_id: channelId,
     message_id: 'm-1' as string | null,
+    thread_parent_id: null as string | null,
     list_id: null as string | null,
     item_id: null as string | null,
     title: 'Ana in #general',
@@ -32,6 +35,7 @@ function frame(kind: string, channelId = 'ch-1') {
 describe('NotificationStream', () => {
   beforeEach(() => {
     navigate.mockReset();
+    openMessage.mockReset();
     playMessageSound.mockReset();
     showNotification.mockReset();
     vi.spyOn(document, 'hasFocus').mockReturnValue(true);
@@ -59,12 +63,20 @@ describe('NotificationStream', () => {
     expect(showNotification).not.toHaveBeenCalled();
   });
 
-  it('opens a direct message from its notification', () => {
+  it('opens the message a notification is about', () => {
     globalEventBus.emit(frame('dm', 'dm-1'));
 
     const onClick = showNotification.mock.calls[0][2] as () => void;
     onClick();
-    expect(navigate).toHaveBeenCalledWith('/app/ws-1/c/dm-1');
+    expect(openMessage).toHaveBeenCalledWith('m-1', false);
+  });
+
+  it('opens a reply in its thread', () => {
+    globalEventBus.emit({ ...frame('reply'), thread_parent_id: 'root-1' });
+
+    const onClick = showNotification.mock.calls[0][2] as () => void;
+    onClick();
+    expect(openMessage).toHaveBeenCalledWith('m-1', true);
   });
 
   it('marks a mention on the channel it came from', () => {

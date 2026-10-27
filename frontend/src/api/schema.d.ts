@@ -1234,6 +1234,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/messages/{msg_id}/location": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["locate_message"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/messages/{msg_id}/pin": {
         parameters: {
             query?: never;
@@ -4313,6 +4329,8 @@ export interface components {
             /** Format: date-time */
             updated_at: string;
         };
+        /** @enum {string} */
+        LocationKind: "channel" | "dm" | "group_dm";
         LoginRequest: {
             email: string;
             password: string;
@@ -4387,6 +4405,16 @@ export interface components {
         MessageField: {
             label: string;
             value: string;
+        };
+        MessageLocation: {
+            /** Format: uuid */
+            channel_id: string;
+            joined: boolean;
+            kind: components["schemas"]["LocationKind"];
+            /** Format: uuid */
+            thread_parent_id?: string | null;
+            /** Format: uuid */
+            workspace_id: string;
         };
         MessageMetadata: {
             app_prompts?: string[] | null;
@@ -7356,6 +7384,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DataList_MessageEdit"];
+                };
+            };
+        };
+    };
+    locate_message: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                msg_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageLocation"];
                 };
             };
         };

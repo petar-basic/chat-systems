@@ -28,12 +28,12 @@ import { useWorkspaceChannels } from '@/features/workspace';
 import { toPlainText } from '@/lib/plainText';
 import { formatDateTime } from '@/lib/datetime';
 import { TextInput } from '@/shared/components/Form/TextInput';
+import { Button } from '@/shared/components/Button/Button';
 
 interface Props {
   members: WorkspaceMember[];
   onClose: () => void;
-  onNavigateToMessage?: (channelId: string, messageId: string) => void;
-  onNavigateToConversation?: (conversationId: string) => void;
+  onOpenMessage?: (messageId: string) => void;
 }
 
 const TABS: { tab: SearchTab; label: string }[] = [
@@ -85,12 +85,7 @@ function Hit({
   );
 }
 
-export default function SearchPanel({
-  members,
-  onClose,
-  onNavigateToMessage,
-  onNavigateToConversation,
-}: Props) {
+export default function SearchPanel({ members, onClose, onOpenMessage }: Props) {
   useEscapeToClose(onClose);
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState<SearchFilters>({});
@@ -99,6 +94,8 @@ export default function SearchPanel({
   const [files, setFiles] = useState<FileSearchHit[]>([]);
   const [viewing, setViewing] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const [more, setMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const workspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id);
@@ -119,37 +116,53 @@ export default function SearchPanel({
   }, []);
 
   const doSearch = useCallback(
-    async (q: string, all: SearchFilters, on: SearchTab) => {
+    async (q: string, all: SearchFilters, on: SearchTab, offset = 0) => {
       const request = ++requestRef.current;
       const active = forTab(all, on);
+      const setBusy = offset > 0 ? setLoadingMore : setLoading;
       if ((!q.trim() && !hasFilters(active)) || !workspaceId) {
         setResults([]);
         setFiles([]);
+        setMore(false);
         setSearched(false);
         setError(null);
         setLoading(false);
+        setLoadingMore(false);
         return;
       }
-      setLoading(true);
+      setBusy(true);
       setSearched(true);
       setError(null);
-      const params = { q: q.trim(), workspace_id: workspaceId, limit: LIMIT, ...searchParams(active) };
+      const params = {
+        q: q.trim(),
+        workspace_id: workspaceId,
+        limit: LIMIT,
+        offset,
+        ...searchParams(active),
+      };
       const api = getApiForInstance(instanceUrl);
       try {
         if (on === 'files') {
           const res = await api.typed((c) => c.GET('/search/files', { params: { query: params } }));
-          if (request === requestRef.current) setFiles(res.data);
+          if (request !== requestRef.current) return;
+          setFiles((shown) => (offset > 0 ? [...shown, ...res.data] : res.data));
+          setMore(res.data.length === LIMIT);
         } else {
           const res = await api.typed((c) => c.GET('/search', { params: { query: params } }));
-          if (request === requestRef.current) setResults(res.data);
+          if (request !== requestRef.current) return;
+          setResults((shown) => (offset > 0 ? [...shown, ...res.data] : res.data));
+          setMore(res.data.length === LIMIT);
         }
       } catch (err: unknown) {
         if (request !== requestRef.current) return;
-        setResults([]);
-        setFiles([]);
+        if (offset === 0) {
+          setResults([]);
+          setFiles([]);
+        }
+        setMore(false);
         setError(toUserMessage(err, 'Search failed'));
       } finally {
-        if (request === requestRef.current) setLoading(false);
+        if (request === requestRef.current) setBusy(false);
       }
     },
     [workspaceId, instanceUrl],
@@ -184,6 +197,7 @@ export default function SearchPanel({
   const filtered = hasFilters(forTab(filters, tab));
   const noun = tab === 'files' ? 'files' : 'messages';
   const count = tab === 'files' ? files.length : results.length;
+  const showMore = () => void doSearch(query, filters, tab, count);
   const images = files.filter((file) => isRenderableImage(file.mime_type));
   const placeOf = (channelId: string) =>
     channelNames.has(channelId)
@@ -193,10 +207,7 @@ export default function SearchPanel({
         : undefined;
   const openFile = (file: FileSearchHit) => {
     if (isRenderableImage(file.mime_type)) return () => setViewing(images.indexOf(file));
-    if (conversationIds.has(file.channel_id)) {
-      return onNavigateToConversation ? () => onNavigateToConversation(file.channel_id) : undefined;
-    }
-    return onNavigateToMessage ? () => onNavigateToMessage(file.channel_id, file.message_id) : undefined;
+    return onOpenMessage ? () => onOpenMessage(file.message_id) : undefined;
   };
 
   return (
@@ -255,7 +266,7 @@ export default function SearchPanel({
           data-qa="search-summary"
         >
           <span>
-            {count === LIMIT ? `${LIMIT}+` : count} {count === 1 ? 'result' : 'results'}
+            {more ? `${count}+` : count} {count === 1 ? 'result' : 'results'}
           </span>
           {filtered && (
             <button
@@ -300,6 +311,18 @@ export default function SearchPanel({
                 onOpen={openFile(file)}
               />
             ))}
+            {more && (
+              <Button
+                variant="ghost"
+                size="sm"
+                fullWidth
+                loading={loadingMore}
+                onClick={showMore}
+                data-qa="search-show-more"
+              >
+                Show more
+              </Button>
+            )}
           </div>
         ) : tab === 'messages' && results.length > 0 ? (
           <div className="space-y-1">
@@ -313,18 +336,22 @@ export default function SearchPanel({
                   content={msg.content}
                   createdAt={msg.created_at}
                   context={placeOf(msg.channel_id)}
-                  onClick={
-                    conversation
-                      ? onNavigateToConversation
-                        ? () => onNavigateToConversation(msg.channel_id)
-                        : undefined
-                      : onNavigateToMessage
-                        ? () => onNavigateToMessage(msg.channel_id, msg.id)
-                        : undefined
-                  }
+                  onClick={onOpenMessage ? () => onOpenMessage(msg.id) : undefined}
                 />
               );
             })}
+            {more && (
+              <Button
+                variant="ghost"
+                size="sm"
+                fullWidth
+                loading={loadingMore}
+                onClick={showMore}
+                data-qa="search-show-more"
+              >
+                Show more
+              </Button>
+            )}
           </div>
         ) : (
           <div className="px-4 py-8 text-center text-sm text-muted space-y-1">

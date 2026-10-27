@@ -43,8 +43,7 @@ interface Props {
   channels: Channel[];
   conversations: Conversation[];
   onClose: () => void;
-  onNavigateToMessage: (channelId: string, messageId: string) => void;
-  onOpenConversation: (conversationId: string) => void;
+  onOpenMessage: (messageId: string) => void;
 }
 
 export default function LaterPanel({
@@ -53,8 +52,7 @@ export default function LaterPanel({
   channels,
   conversations,
   onClose,
-  onNavigateToMessage,
-  onOpenConversation,
+  onOpenMessage,
 }: Props) {
   const [status, setStatus] = useState<LaterStatus>('in_progress');
   const { data: items = [], isLoading } = useLater(workspaceId, status, instanceUrl);
@@ -68,10 +66,7 @@ export default function LaterPanel({
       navigate(`${ROUTES.list(workspaceId, item.list_item.list_id)}?item=${item.list_item.item_id}`);
       return;
     }
-    if (!item.message) return;
-    if (conversations.some((c) => c.id === item.message?.channel_id))
-      onOpenConversation(item.message.channel_id);
-    else onNavigateToMessage(item.message.channel_id, item.message.id);
+    if (item.message) onOpenMessage(item.message.id);
   };
 
   return (

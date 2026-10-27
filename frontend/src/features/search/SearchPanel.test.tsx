@@ -40,9 +40,9 @@ const files = [
 ];
 
 function renderPanel() {
-  const onNavigateToMessage = vi.fn();
-  render(<SearchPanel members={[]} onClose={vi.fn()} onNavigateToMessage={onNavigateToMessage} />);
-  return onNavigateToMessage;
+  const onOpenMessage = vi.fn();
+  render(<SearchPanel members={[]} onClose={vi.fn()} onOpenMessage={onOpenMessage} />);
+  return onOpenMessage;
 }
 
 function typeAndSubmit(text: string) {
@@ -116,12 +116,12 @@ describe('SearchPanel', () => {
   });
 
   it('opens an image in the gallery and any other file at its message', async () => {
-    const onNavigateToMessage = renderPanel();
+    const onOpenMessage = renderPanel();
     fireEvent.click(screen.getByTestId('search-tab-files'));
     typeAndSubmit('budget');
     await waitFor(() => expect(screen.getAllByTestId('file-hit')).toHaveLength(2));
     fireEvent.click(screen.getByTitle('Show in conversation'));
-    expect(onNavigateToMessage).toHaveBeenCalledWith('c-1', 'm-1');
+    expect(onOpenMessage).toHaveBeenCalledWith('m-1');
     fireEvent.click(screen.getByTitle('Open in the gallery'));
     expect(screen.getByTestId('image-lightbox')).toBeInTheDocument();
   });
@@ -133,5 +133,30 @@ describe('SearchPanel', () => {
       expect(get).toHaveBeenLastCalledWith('/search', expect.objectContaining({ q: 'budget' })),
     );
     expect(screen.queryByTestId('file-hit')).toBeNull();
+  });
+
+  it('shows more messages past the first page', async () => {
+    const message = (n: number) => ({
+      id: `m-${n}`,
+      channel_id: 'c-1',
+      user_id: 'u-1',
+      content: `budget ${n}`,
+      created_at: '2026-10-22T10:00:00Z',
+    });
+    get.mockImplementation(async (_path: string, query: { offset: number }) => ({
+      data:
+        query.offset === 0 ? Array.from({ length: 20 }, (_, n) => message(n)) : [message(20), message(21)],
+    }));
+    renderPanel();
+    typeAndSubmit('budget');
+    await waitFor(() => expect(screen.getAllByTestId('search-result')).toHaveLength(20));
+    expect(screen.getByTestId('search-summary')).toHaveTextContent('20+ results');
+
+    fireEvent.click(screen.getByTestId('search-show-more'));
+
+    await waitFor(() => expect(screen.getAllByTestId('search-result')).toHaveLength(22));
+    expect(get).toHaveBeenLastCalledWith('/search', expect.objectContaining({ q: 'budget', offset: 20 }));
+    expect(screen.getByTestId('search-summary')).toHaveTextContent('22 results');
+    expect(screen.queryByTestId('search-show-more')).toBeNull();
   });
 });

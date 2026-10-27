@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { useMatch, useNavigate, useParams, useSearchParams } from 'react-router';
-import { ROUTE_PATTERNS } from '@/shared/constants';
+import { useLocation, useMatch, useNavigate, useParams, useSearchParams } from 'react-router';
+import { ROUTE_PATTERNS, ROUTES } from '@/shared/constants';
+import { messagePath, useMessageLocation } from '@/features/messaging';
+import { useChannelPreview } from '@/features/channel';
+import { toast } from '@/shared/components/Toast';
 import { useWorkspaceStore, type Message, type Workspace, type Channel } from '@/stores/workspace';
 import type { useRightPanel } from './useRightPanel';
 
@@ -31,6 +34,7 @@ export function useWorkspaceRouting({
     conversationId: routeConversationId,
   } = useParams<{ workspaceId?: string; channelId?: string; messageId?: string; conversationId?: string }>();
   const [searchParams] = useSearchParams();
+  const { pathname, search } = useLocation();
   const isUnreadsRoute = useMatch(ROUTE_PATTERNS.unreads) !== null;
   const isThreadsRoute = useMatch(ROUTE_PATTERNS.threads) !== null;
   const listId = useMatch(ROUTE_PATTERNS.list)?.params.listId ?? null;
@@ -80,6 +84,51 @@ export function useWorkspaceRouting({
     }
   }, [workspaces, deletedWorkspaces, workspaceId, currentWorkspace, selectWorkspace, navigate]);
 
+  const workspaceReady = !!workspaceId && currentWorkspace?.id === workspaceId;
+  const { data: place, isError: placeMissing } = useMessageLocation(
+    workspaceReady ? urlMessageId : undefined,
+  );
+
+  useEffect(() => {
+    if (!urlMessageId || !workspaceId) return;
+    if (place) {
+      const canonical = messagePath(place, urlMessageId);
+      if (pathname !== canonical) navigate(`${canonical}${search}`, { replace: true });
+    } else if (placeMissing) {
+      toast.error('That message was deleted or you can no longer see it');
+      const channelId = routeConversationId ?? urlChannelId;
+      navigate(
+        routeConversationId
+          ? ROUTES.conversation(workspaceId, routeConversationId)
+          : channelId
+            ? ROUTES.channel(workspaceId, channelId)
+            : ROUTES.workspace(workspaceId),
+        { replace: true },
+      );
+    }
+  }, [
+    urlMessageId,
+    workspaceId,
+    place,
+    placeMissing,
+    pathname,
+    search,
+    routeConversationId,
+    urlChannelId,
+    navigate,
+  ]);
+
+  const unlistedChannelId =
+    workspaceReady &&
+    urlChannelId &&
+    !routeConversationId &&
+    (!urlMessageId || (place?.kind === 'channel' && place.channel_id === urlChannelId)) &&
+    channels.length > 0 &&
+    !channels.some((c) => c.id === urlChannelId)
+      ? urlChannelId
+      : undefined;
+  const { data: preview, isError: previewMissing } = useChannelPreview(unlistedChannelId);
+
   useEffect(() => {
     if (isUnreadsRoute || isThreadsRoute) {
       if (currentChannel?.id || currentConversationId) selectConversation(null);
@@ -90,11 +139,23 @@ export function useWorkspaceRouting({
     if (routeConversationId) return;
     if (urlChannelId) {
       const target = channels.find((c) => c.id === urlChannelId);
-      if (target && currentChannel?.id !== urlChannelId) {
-        selectChannel(target);
-        markChannelRead(target.id);
-      } else if (!target) {
-        navigate(`/app/${activeWorkspaceId}`, { replace: true });
+      if (target) {
+        if (currentChannel?.id !== urlChannelId) {
+          selectChannel(target);
+          markChannelRead(target.id);
+        }
+      } else if (preview?.id === urlChannelId) {
+        if (preview.workspace_id !== activeWorkspaceId) {
+          navigate(ROUTES.workspace(activeWorkspaceId), { replace: true });
+        } else if (preview.channel_type === 'public') {
+          if (currentChannel?.id !== urlChannelId) selectChannel(preview);
+        } else if (preview.channel_type === 'private') {
+          navigate(ROUTES.workspace(activeWorkspaceId), { replace: true });
+        } else {
+          navigate(ROUTES.conversation(activeWorkspaceId, urlChannelId), { replace: true });
+        }
+      } else if (previewMissing) {
+        navigate(ROUTES.workspace(activeWorkspaceId), { replace: true });
       }
     } else {
       const general = channels.find((c) => c.name === 'general') || channels[0];
@@ -108,6 +169,8 @@ export function useWorkspaceRouting({
     selectConversation,
     routeConversationId,
     urlChannelId,
+    preview,
+    previewMissing,
     channels,
     activeWorkspaceId,
     currentChannel?.id,
@@ -135,15 +198,27 @@ export function useWorkspaceRouting({
   useEffect(() => {
     threadOpenedRef.current = false;
   }, [urlMessageId]);
+  const replyId = place?.thread_parent_id ? urlMessageId : undefined;
   const handleTargetMessageFound = useCallback(
     (msg: Message) => {
-      if (searchParams.get('thread') === '1' && !threadOpenedRef.current) {
+      if ((replyId || searchParams.get('thread') === '1') && !threadOpenedRef.current) {
         threadOpenedRef.current = true;
-        panel.openThread(msg);
+        panel.openThread(msg, replyId);
       }
     },
-    [searchParams, panel],
+    [replyId, searchParams, panel],
   );
 
-  return { urlMessageId, handleTargetMessageFound, isUnreadsRoute, isThreadsRoute, listId };
+  const highlightMessageId = urlMessageId && place ? (place.thread_parent_id ?? urlMessageId) : undefined;
+  const previewing =
+    !!currentChannel && channels.length > 0 && !channels.some((c) => c.id === currentChannel.id);
+
+  return {
+    highlightMessageId,
+    handleTargetMessageFound,
+    previewing,
+    isUnreadsRoute,
+    isThreadsRoute,
+    listId,
+  };
 }

@@ -411,6 +411,7 @@ async fn a_subscription_the_service_calls_gone_is_dropped(pool: PgPool) {
                 workspace_id: None,
                 channel_id: None,
                 message_id: None,
+                thread_parent_id: None,
                 badge_count: 1,
             },
         )

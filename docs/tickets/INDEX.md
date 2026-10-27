@@ -296,7 +296,7 @@ unverified in the survey are checked first in their ticket and dropped if they d
 |---|---|---|
 | CS-077 ✅ | Access that holds: huddles, email invites, private channels | backend · realtime · frontend |
 | CS-078 ✅ | A suspended or removed person stops acting | backend · frontend |
-| [CS-079](CS-079-open-the-message.md) | Opening a message lands on it | frontend · backend |
+| CS-079 ✅ | Opening a message lands on it | frontend · backend |
 | [CS-080](CS-080-threads-keep-up.md) | Threads that keep up | frontend · backend |
 | [CS-081](CS-081-sending-keeps-work.md) | Sending never loses work | frontend · backend |
 | [CS-082](CS-082-unread-agrees.md) | Unread, Activity and the badge agree | frontend · backend |
@@ -343,6 +343,6 @@ Tickets that touch the same files, and the order that avoids rework:
 | *Integrations* panel and hook permissions | CS-070 ✅ → CS-074 ✅ |
 | `workspace_members` profile and notification columns | CS-076 ✅ |
 | invite tokens and *Members* invite list | CS-077 ✅ → CS-086 |
-| message route resolution | CS-079 → CS-080 → CS-082 |
+| message route resolution | CS-079 ✅ → CS-080 → CS-082 |
 | Slack import channel mapping | CS-077 ✅ → CS-088 |
 | archived channels | CS-085 → CS-088 |

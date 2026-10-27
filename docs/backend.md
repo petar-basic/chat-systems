@@ -336,6 +336,7 @@ fetch.
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/messages/:msg_id/thread` | Query: `limit=50, offset=0` | `{ data: Message[] }` |
+| GET | `/messages/:msg_id/location` | — | `{ workspace_id, channel_id, kind: channel \| dm \| group_dm, thread_parent_id?, joined }` — where a message lives, for opening it from a link, a notification or a search hit; `joined` is false for a public channel the caller can read but is not in. A message the caller cannot read is a 404, as is a deleted one |
 
 **Mentions.** Sending a channel message or thread reply expands the mentions in its body
 into the `mentioned_user_ids` carried by `message.created`, which the notifications

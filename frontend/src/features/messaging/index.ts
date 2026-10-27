@@ -14,3 +14,5 @@ export { useSendMessage } from './hooks/useMessages';
 export type { MessagesInfiniteData, OutgoingMessage } from './hooks/useMessages';
 export { REMIND_PRESETS, formatScheduleHint, toLocalInputValue } from './schedulePresets';
 export { asAttachments, useComposerAttachments } from './useComposerAttachments';
+export { messagePath, useMessageLocation, useOpenMessage } from './hooks/useMessageLocation';
+export type { MessageLocation } from './hooks/useMessageLocation';

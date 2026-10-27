@@ -37,7 +37,7 @@ import { ActionLabels, EmptyLabels, RELATIVE_TIME_TICK_MS, ROUTES } from '@/shar
 interface Props {
   workspaceId: string;
   onClose: () => void;
-  onNavigate?: (channelId: string, messageId: string, openThread?: boolean) => void;
+  onOpenMessage?: (messageId: string, thread?: boolean) => void;
 }
 
 type Filter = 'all' | 'unread' | 'mention';
@@ -82,12 +82,12 @@ function formatRelativeTime(iso: string) {
 function NotificationRow({
   notification,
   onMarkRead,
-  onNavigate,
+  onOpenMessage,
   onOpenItem,
 }: {
   notification: AppNotification;
   onMarkRead: (id: string) => void;
-  onNavigate?: (channelId: string, messageId: string, openThread?: boolean) => void;
+  onOpenMessage?: (messageId: string, thread?: boolean) => void;
   onOpenItem: (listId: string, itemId: string) => void;
 }) {
   const isNavigable =
@@ -100,12 +100,8 @@ function NotificationRow({
       onOpenItem(notification.list_id, notification.item_id);
       return;
     }
-    if (notification.channel_id && notification.message_id && onNavigate) {
-      onNavigate(
-        notification.channel_id,
-        notification.message_id,
-        notification.notification_type === 'reply',
-      );
+    if (notification.message_id && onOpenMessage) {
+      onOpenMessage(notification.message_id, notification.notification_type === 'reply');
     }
   };
 
@@ -132,7 +128,7 @@ function NotificationRow({
   );
 }
 
-export default function NotificationsPanel({ workspaceId, onClose, onNavigate }: Props) {
+export default function NotificationsPanel({ workspaceId, onClose, onOpenMessage }: Props) {
   const navigate = useNavigate();
   const { data: notifications = [], isLoading, isError, refetch } = useNotifications(workspaceId);
   const { data: unreadCount = 0 } = useUnreadNotificationCount(workspaceId);
@@ -244,7 +240,7 @@ export default function NotificationsPanel({ workspaceId, onClose, onNavigate }:
               key={n.id}
               notification={n}
               onMarkRead={(id) => markRead.mutate([id])}
-              onNavigate={onNavigate}
+              onOpenMessage={onOpenMessage}
               onOpenItem={(listId, itemId) => navigate(`${ROUTES.list(workspaceId, listId)}?item=${itemId}`)}
             />
           ))}

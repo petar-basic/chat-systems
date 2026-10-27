@@ -14,6 +14,7 @@ export const QUERY_KEYS = {
   deletedWorkspacesList: (instanceUrls: string) => ['workspaces', 'deleted', instanceUrls] as const,
 
   channels: () => ['channels'] as const,
+  messageLocation: (id: string) => ['messageLocation', id] as const,
   channel: (id: string) => ['channels', id] as const,
   channelMembers: (id: string) => ['channels', id, 'members'] as const,
   channelPins: (id: string) => ['channels', id, 'pins'] as const,

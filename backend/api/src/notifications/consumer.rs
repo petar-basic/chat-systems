@@ -371,6 +371,7 @@ async fn deliver(
         "workspace_id": ws_id.to_string(),
         "channel_id": channel_id,
         "message_id": message_id,
+        "thread_parent_id": origin.thread_parent_id,
         "title": notice.title,
         "body": content,
         "kind": notice.kind,
@@ -429,6 +430,7 @@ async fn deliver(
                 workspace_id: Some(ws_id.to_string()),
                 channel_id: channel_id.map(str::to_string),
                 message_id: message_id.map(str::to_string),
+                thread_parent_id: origin.thread_parent_id.map(str::to_string),
                 badge_count: badge,
             },
         )

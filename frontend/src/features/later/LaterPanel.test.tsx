@@ -28,18 +28,17 @@ const base = {
   created_at: '2026-10-22T10:00:00Z',
 };
 
-function renderPanel(onNavigateToMessage = vi.fn()) {
+function renderPanel(onOpenMessage = vi.fn()) {
   render(
     <LaterPanel
       workspaceId="ws"
       channels={[{ id: 'ch', name: 'general' } as never]}
       conversations={[]}
       onClose={vi.fn()}
-      onNavigateToMessage={onNavigateToMessage}
-      onOpenConversation={vi.fn()}
+      onOpenMessage={onOpenMessage}
     />,
   );
-  return onNavigateToMessage;
+  return onOpenMessage;
 }
 
 describe('LaterPanel', () => {
@@ -104,7 +103,7 @@ describe('LaterPanel', () => {
     fireEvent.click(within(saved).getByTestId('later-archive'));
     expect(update).toHaveBeenCalledWith({ id: 'saved', status: 'archived' });
     fireEvent.click(within(saved).getByTestId('later-content'));
-    expect(navigate).toHaveBeenCalledWith('ch', 'm-1');
+    expect(navigate).toHaveBeenCalledWith('m-1');
   });
 
   it('opens a list item due tomorrow on its list', () => {

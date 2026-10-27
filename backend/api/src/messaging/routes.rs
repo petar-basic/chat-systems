@@ -18,7 +18,7 @@ use crate::middleware::AuthUser;
 use crate::pagination::PageQuery;
 use crate::state::AppState;
 use crate::threads::{self, repo::ReplyFollows};
-use crate::workspace::models::WorkspaceRole;
+use crate::workspace::models::{ChannelType, WorkspaceRole};
 
 const UNREADS_PER_CHANNEL: i64 = 20;
 
@@ -36,6 +36,7 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(message_history))
         .routes(routes!(pin_message, unpin_message))
         .routes(routes!(list_thread))
+        .routes(routes!(locate_message))
         .routes(routes!(list_reactions, add_reaction))
         .routes(routes!(remove_reaction))
         .routes(routes!(search_messages))
@@ -703,6 +704,39 @@ async fn list_thread(
         .list_thread_messages(msg_id, params.limit(), params.offset())
         .await?;
     Ok(Json(messages.into()))
+}
+
+#[utoipa::path(get, path = "/messages/{msg_id}/location", tag = "messages",
+    responses((status = 200, body = MessageLocation)))]
+async fn locate_message(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(msg_id): Path<Uuid>,
+) -> AppResult<Json<MessageLocation>> {
+    let not_found = || AppError::NotFound("Message not found".into());
+    let message = state
+        .message_repo
+        .find_by_id(msg_id)
+        .await?
+        .ok_or_else(not_found)?;
+    let access = match authz::require_channel_access(&state, message.channel_id, auth.user_id).await
+    {
+        Ok(access) => access,
+        Err(AppError::Forbidden(_)) => return Err(not_found()),
+        Err(e) => return Err(e),
+    };
+    let kind = match access.channel.channel_type {
+        ChannelType::Dm => LocationKind::Dm,
+        ChannelType::GroupDm => LocationKind::GroupDm,
+        ChannelType::Public | ChannelType::Private => LocationKind::Channel,
+    };
+    Ok(Json(MessageLocation {
+        workspace_id: access.channel.workspace_id,
+        channel_id: message.channel_id,
+        kind,
+        thread_parent_id: message.thread_parent_id,
+        joined: access.channel_member.is_some(),
+    }))
 }
 
 #[utoipa::path(get, path = "/messages/{msg_id}/reactions", tag = "messages",

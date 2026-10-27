@@ -2,10 +2,16 @@ export { default as ChannelSidebar } from './ChannelSidebar';
 export { default as ChannelHeader } from './ChannelHeader';
 export { default as ChannelBookmarksBar } from './ChannelBookmarksBar';
 export { ChannelIntro } from './ChannelIntro';
+export { ChannelPreviewBar } from './ChannelPreviewBar';
 export { CreateChannelModal } from './components/CreateChannelModal';
 export { default as ChannelFilesPanel } from './ChannelFilesPanel';
 export { default as ChannelMembersPanel } from './ChannelMembersPanel';
 export { default as PinnedMessagesPanel } from './PinnedMessagesPanel';
 export { fromChannelContext } from './hooks/channelContext';
 export { useChannelModeration } from './hooks/useChannelModeration';
-export { useSetChannelMuted, useUnreadChannels } from './hooks/useChannels';
+export {
+  useChannelPreview,
+  useJoinChannel,
+  useSetChannelMuted,
+  useUnreadChannels,
+} from './hooks/useChannels';

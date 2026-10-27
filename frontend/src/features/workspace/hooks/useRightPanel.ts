@@ -3,7 +3,7 @@ import type { Message } from '@/stores/workspace';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
 
 export type RightPanel =
-  | { kind: 'thread'; message: Message }
+  | { kind: 'thread'; message: Message; replyId?: string }
   | { kind: 'search' }
   | { kind: 'pins' }
   | { kind: 'files' }
@@ -50,7 +50,10 @@ export function useRightPanel(currentChannelId?: string, currentDmPartnerId?: st
   }, []);
   const addChannelMembers = useCallback(() => setActive({ kind: 'channelMembers', adding: true }), []);
   const openWorkflow = useCallback((workflowId: string) => setActive({ kind: 'workflows', workflowId }), []);
-  const openThread = useCallback((message: Message) => setActive({ kind: 'thread', message }), []);
+  const openThread = useCallback(
+    (message: Message, replyId?: string) => setActive({ kind: 'thread', message, replyId }),
+    [],
+  );
   const close = useCallback(() => setActive(null), []);
 
   useEscapeToClose(close, !!active);

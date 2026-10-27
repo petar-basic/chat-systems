@@ -56,6 +56,17 @@ export const useBrowsableChannels = (workspaceId: string | null, instanceUrl?: s
   });
 };
 
+export const useChannelPreview = (channelId: string | undefined) => {
+  const apiClient = useCurrentApi();
+  return useQuery({
+    queryKey: QUERY_KEYS.channel(channelId ?? ''),
+    queryFn: () =>
+      apiClient.typed((c) => c.GET('/channels/{ch_id}', { params: { path: { ch_id: channelId ?? '' } } })),
+    enabled: !!channelId,
+    retry: false,
+  });
+};
+
 export const useJoinChannel = (workspaceId: string, instanceUrl?: string) => {
   const queryClient = useQueryClient();
   return useMutation({
