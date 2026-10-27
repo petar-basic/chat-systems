@@ -300,7 +300,7 @@ unverified in the survey are checked first in their ticket and dropped if they d
 | CS-080 ✅ | Threads that keep up | frontend · backend |
 | CS-081 ✅ | Sending never loses work | frontend · backend |
 | CS-082 ✅ | Unread, Activity and the badge agree | frontend · backend |
-| [CS-083](CS-083-notifications-once.md) | Notifications that arrive once, where they should | backend · frontend · realtime |
+| CS-083 ✅ | Notifications that arrive once, where they should | backend · frontend · realtime |
 | [CS-084](CS-084-reconnect-and-versions.md) | Reconnecting, presence and new versions | frontend · realtime · ops |
 | [CS-085](CS-085-channel-lifecycle-data.md) | Archive, export and retention that say what they did | backend · frontend |
 | [CS-086](CS-086-getting-people-in.md) | Getting people in | frontend · backend |

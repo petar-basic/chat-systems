@@ -31,6 +31,7 @@ pub(crate) struct InboundState {
     tokens: f32,
     last_refill: Instant,
     last_typing: std::collections::HashMap<Uuid, Instant>,
+    active: bool,
 }
 
 impl InboundState {
@@ -39,6 +40,7 @@ impl InboundState {
             tokens: INBOUND_BURST,
             last_refill: Instant::now(),
             last_typing: std::collections::HashMap::new(),
+            active: false,
         }
     }
 
@@ -211,6 +213,9 @@ pub async fn handle_ws(socket: WebSocket, claims: crate::Claims, cm: Arc<Connect
                     break;
                 }
                 cm.presence_refresh(user_id, &presence_workspaces).await;
+                if inbound.active {
+                    cm.activity_set(user_id, conn_id, true).await;
+                }
                 cm.huddle_redis_refresh_conn(&conn_id, user_id).await;
             }
         }
@@ -232,6 +237,7 @@ async fn cleanup(
 ) {
     let huddles = cm.huddle_ids_for_conn(conn_id);
     let removed = cm.remove_connection(conn_id);
+    cm.activity_set(user_id, *conn_id, false).await;
 
     for huddle_id in huddles {
         if !cm.user_in_huddle_local(user_id, huddle_id)
@@ -597,6 +603,11 @@ pub(crate) async fn handle_client_message(
                 }),
             )
             .await;
+        }
+        "activity" => {
+            let active = msg.get("active").and_then(|v| v.as_bool()).unwrap_or(false);
+            inbound.active = active;
+            cm.activity_set(user_id, *conn_id, active).await;
         }
         "ping" => {
             cm.send_to_user(Audience::Everyone, user_id, &frame_text(&ServerFrame::Pong))

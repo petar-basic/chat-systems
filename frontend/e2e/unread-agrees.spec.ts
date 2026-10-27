@@ -1,4 +1,4 @@
-import { test, expect, type APIRequestContext } from '@playwright/test';
+import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
 import { API, login, userContext, devWorkspace, createChannel } from './helpers';
 
 interface Activity {
@@ -13,6 +13,35 @@ async function unreadActivity(
 ): Promise<number> {
   const listed = await (await ctx.get(`${API}/workspaces/${workspaceId}/notifications`)).json();
   return (listed.data as Activity[]).filter((n) => !n.is_read && about(n)).length;
+}
+
+function liveIn(page: Page, workspaceId: string, channelId: string): Promise<void> {
+  return new Promise((resolve) => {
+    let joined = false;
+    let synced = false;
+    page.on('websocket', (socket) => {
+      socket.on('framesent', ({ payload }) => {
+        if (
+          typeof payload === 'string' &&
+          payload.includes('"channel.join"') &&
+          payload.includes(channelId)
+        ) {
+          joined = true;
+        }
+        if (joined && synced) resolve();
+      });
+      socket.on('framereceived', ({ payload }) => {
+        if (
+          typeof payload === 'string' &&
+          payload.includes('"sync.complete"') &&
+          payload.includes(workspaceId)
+        ) {
+          synced = true;
+        }
+        if (joined && synced) resolve();
+      });
+    });
+  });
 }
 
 async function post(ctx: APIRequestContext, channelId: string, data: Record<string, unknown>) {
@@ -30,8 +59,10 @@ test('a mention in the channel on screen leaves no badge and no Activity row', a
   try {
     await admin.post(`${API}/channels/${channel.id}/members`, { data: { user_id: bobId } });
     await login(page, 'bob@dev.local');
+    const live = liveIn(page, workspace.id, channel.id);
     await page.goto(`/app/${workspace.id}/${channel.id}`);
     await expect(page.locator('[data-qa="channel-header-name"]')).toHaveText(channel.name);
+    await live;
 
     const mention = await post(admin, channel.id, { content: `@[Bob Smith](${bobId}) look here` });
     await expect(page.locator(`[data-qa="message-list"] [data-message-id="${mention.id}"]`)).toBeVisible({

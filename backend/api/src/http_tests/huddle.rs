@@ -561,3 +561,64 @@ async fn a_ring_delivered_twice_rings_once_and_a_stale_ring_not_at_all(pool: PgP
         "a ring older than the window is dropped, not rung late"
     );
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_paused_workspace_is_rung_quietly(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (caller, _, token) = seed_and_login(&app, &state, "quiet-caller", false).await;
+    let (callee, _, _) = seed_and_login(&app, &state, "quiet-callee", false).await;
+    let ws_id = seed_workspace(&state, caller, "Quiet ring").await;
+    add_ws_member(&state, ws_id, callee, "member").await;
+    let mut conn = state.redis.clone();
+
+    let last_ring = |conn: &mut redis::aio::ConnectionManager| {
+        let mut conn = conn.clone();
+        async move {
+            let entries: Vec<(String, Vec<String>)> = redis::cmd("XREVRANGE")
+                .arg(crate::messaging::publisher::workspace_stream(ws_id))
+                .arg("+")
+                .arg("-")
+                .arg("COUNT")
+                .arg(1)
+                .query_async(&mut conn)
+                .await
+                .expect("read the log");
+            let event: serde_json::Value =
+                serde_json::from_str(&entries[0].1[1]).expect("an event");
+            assert_eq!(event["event_type"], "huddle.ring");
+            event["payload"]["quiet"].clone()
+        }
+    };
+
+    let path = format!("/api/workspaces/{ws_id}/huddles");
+    let start = || {
+        send(
+            &app,
+            "POST",
+            &path,
+            Some(&token),
+            Some(json!({ "dm_partner_id": callee })),
+        )
+    };
+
+    let (status, _) = start().await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(last_ring(&mut conn).await, json!(false));
+
+    state
+        .notification_repo
+        .set_dnd(
+            ws_id,
+            callee,
+            Some(chrono::Utc::now() + chrono::Duration::hours(1)),
+        )
+        .await
+        .expect("pause");
+    let (status, _) = start().await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        last_ring(&mut conn).await,
+        json!(true),
+        "the gateway does not ring somebody who paused this workspace"
+    );
+}

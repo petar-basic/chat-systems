@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        DELETE FROM pending_mention_emails p\n         WHERE p.created_at <= $1\n           AND NOT EXISTS (SELECT 1 FROM notifications n\n                            WHERE n.user_id = p.user_id\n                              AND n.data->>'message_id' = p.message_id::text\n                              AND NOT n.is_read)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "71dd687a2c1b87b3cdfd2a8cac73cb667f5307f8a420a73d40585e6e45348423"
+}

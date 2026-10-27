@@ -493,7 +493,11 @@ placeholder, and *Use account photo* drops the workspace's. *Preferences* is a v
 list — *Notifications*, *Appearance*, *Account*, *Security* — over panels that save as they
 change, except *Account*, the account's name, bio and photo, which has its own save button.
 The *You* row reads the person from the users cache, so it shows the workspace profile. *Notifications* opens with `NotifyDefaultPanel`, the
-workspace default level (*All new messages*, *Mentions*, *Nothing*). Both open from the *You*
+workspace default level (*All new messages*, *Mentions*, *Nothing*), and ends with this device's
+push, *Desktop notifications while the app is open* (`DesktopNotificationsPanel`, the
+`notificationPrefs.desktopEnabled` switch, asking the browser first) and the workspace's
+mention emails. An in-tab desktop notification is tagged with its channel, as the push is, so
+one replaces the other instead of showing twice. Both open from the *You*
 menu; the sidebar avatar opens *Edit profile*.
 
 ### `notifications/NotificationLevelMenu`
@@ -511,7 +515,8 @@ On a phone the header's overflow menu opens the same menu.
 The hours are in the profile's timezone, which the editor names. `PauseMenuItems` is the pause
 section of the *You* menu and the Activity panel's moon: presets while notifications are on,
 and "Paused by your schedule until 9:00" or "Paused until 14:30" with *Resume* while they are
-not (`lib/pause.ts` decides which). The pause, the schedule and the email switch are the
+not (`lib/pause.ts` decides which); it names the workspace it pauses (*Pause notifications in
+Acme*, *Resume notifications in Acme*). The pause, the schedule and the email switch are the
 current workspace's; *Preferences → Notifications* says which workspace that is. The profile
 hover card shows a member's pause in that workspace from `notifications_paused_until` in the
 member list.
@@ -713,7 +718,8 @@ An `openapi-fetch` client typed by `src/api/schema.d.ts`. All requests include
 Reconnecting WebSocket wrapper. Reconnect uses exponential backoff with jitter (base 1s, factor 2,
 cap 30s).
 - `connect()` — resolves a valid token via `getToken()` and opens the socket with `['bearer', token]` as the subprotocol (no subprotocol if no token, falling back to the cookie)
-- On (re)open it replays state: `subscribe` for the last workspace and `channel.join` for every joined channel
+- On (re)open it replays state: `subscribe` for the last workspace and `channel.join` for every joined channel, and `activity` when the person is active (a new socket starts idle)
+- `lib/activity.ts` decides active: the page is visible and has had input (pointer, key, wheel, touch) in the last two minutes; hiding the tab is idle at once. Every client reports each change as `{ type: 'activity', active }`, and the server holds push only while a session is active
 - `send(event)` — sends JSON (only when the socket is OPEN)
 - `subscribe(wsId)`, `joinChannel(chId)`, `leaveChannel(chId)` — send `subscribe` / `channel.join` / `channel.leave` and remember the desired state for replay
 - `addReconnectListener(fn)` — fires after a *reconnect* (used to wire `backfillAfterReconnect`)
@@ -721,7 +727,7 @@ cap 30s).
 - All received events are forwarded to `globalEventBus`
 - Singleton `wsClient` for default; `instanceManager.get(url).ws` for others
 
-Message types the client **sends**: `subscribe`, `channel.join`, `channel.leave`, `typing.start`, `typing.stop`.
+Message types the client **sends**: `subscribe`, `channel.join`, `channel.leave`, `typing.start`, `typing.stop`, `activity`.
 
 ### `instances.ts` — `InstanceManager`
 Registry of `{ api: ApiClient, ws: WebSocketClient }` per instance URL.

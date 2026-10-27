@@ -59,6 +59,28 @@ async fn active_huddles(
     Ok(Json(DataList { data: active }))
 }
 
+async fn ring(state: &AppState, ws_id: Uuid, huddle_id: Uuid, from: Uuid, to: Uuid) {
+    let quiet = state
+        .notification_repo
+        .is_dnd_active(ws_id, to)
+        .await
+        .unwrap_or(false);
+    let _ = state
+        .publisher
+        .publish_scoped(
+            "huddle.ring",
+            ws_id,
+            serde_json::json!({
+                "huddle_id": huddle_id,
+                "workspace_id": ws_id,
+                "from_user_id": from,
+                "to_user_id": to,
+                "quiet": quiet,
+            }),
+        )
+        .await;
+}
+
 #[utoipa::path(post, path = "/workspaces/{ws_id}/huddles/{huddle_id}/invite", tag = "huddles", request_body = InviteRequest, responses((status = 200, body = StatusResponse)))]
 async fn invite_to_huddle(
     State(state): State<Arc<AppState>>,
@@ -101,19 +123,7 @@ async fn invite_to_huddle(
             .huddle_repo
             .invite(huddle_id, invitee, auth.user_id)
             .await?;
-        let _ = state
-            .publisher
-            .publish_scoped(
-                "huddle.ring",
-                ws_id,
-                serde_json::json!({
-                    "huddle_id": huddle_id,
-                    "workspace_id": ws_id,
-                    "from_user_id": auth.user_id,
-                    "to_user_id": invitee,
-                }),
-            )
-            .await;
+        ring(&state, ws_id, huddle_id, auth.user_id, invitee).await;
     }
 
     Ok(Json(StatusResponse::new("ok")))
@@ -186,19 +196,7 @@ async fn start_huddle(
                 .huddle_repo
                 .start_session(huddle_id, ws_id, None, Some(partner_id), auth.user_id)
                 .await?;
-            let _ = state
-                .publisher
-                .publish_scoped(
-                    "huddle.ring",
-                    ws_id,
-                    serde_json::json!({
-                        "huddle_id": huddle_id,
-                        "workspace_id": ws_id,
-                        "from_user_id": auth.user_id,
-                        "to_user_id": partner_id,
-                    }),
-                )
-                .await;
+            ring(&state, ws_id, huddle_id, auth.user_id, partner_id).await;
         }
         _ => {
             return Err(AppError::BadRequest(

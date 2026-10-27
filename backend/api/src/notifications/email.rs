@@ -6,7 +6,7 @@ use crate::email::outbox::{self, NewEmail};
 use crate::state::AppState;
 
 /// Long enough to be a digest rather than a stream, and a second chance for the
-/// person to come online — at which point nothing is sent at all.
+/// person to read it — at which point nothing is sent at all.
 pub const DIGEST_WINDOW: Duration = Duration::from_secs(300);
 const SWEEP_INTERVAL: Duration = Duration::from_secs(60);
 
@@ -20,10 +20,6 @@ pub struct PendingMention<'a> {
     pub direct: bool,
 }
 
-/// Called only when nothing else could have reached them: no live socket, no
-/// push subscription, not muted, not in do-not-disturb. Anything looser and this
-/// becomes the duplicate email that makes people write a filter rule for your
-/// domain.
 pub async fn enqueue(state: &AppState, pending: PendingMention<'_>) {
     let wants_email = state
         .notification_repo
@@ -40,6 +36,7 @@ pub async fn enqueue(state: &AppState, pending: PendingMention<'_>) {
         INSERT INTO pending_mention_emails
             (user_id, workspace_id, channel_id, message_id, sender_name, channel_name, direct)
         VALUES ($1, $2, $3, $4, $5, $6, $7)
+        ON CONFLICT (user_id, message_id) DO NOTHING
         ",
         pending.user_id,
         pending.workspace_id,
@@ -66,12 +63,32 @@ struct DueDigest {
     direct_messages: i64,
     channels: Vec<String>,
     senders: Vec<String>,
+    channel_id: Option<Uuid>,
+    message_id: Option<Uuid>,
 }
 
 /// One pass. Separated from the loop so a test can run it without waiting a
 /// minute, the way the retention job is arranged.
 pub async fn flush_due(state: &AppState) -> usize {
-    let cutoff = chrono::Utc::now() - chrono::Duration::from_std(DIGEST_WINDOW).unwrap_or_default();
+    let now = chrono::Utc::now();
+    let cutoff = now - chrono::Duration::from_std(DIGEST_WINDOW).unwrap_or_default();
+
+    let seen = sqlx::query!(
+        r#"
+        DELETE FROM pending_mention_emails p
+         WHERE p.created_at <= $1
+           AND NOT EXISTS (SELECT 1 FROM notifications n
+                            WHERE n.user_id = p.user_id
+                              AND n.data->>'message_id' = p.message_id::text
+                              AND NOT n.is_read)
+        "#,
+        cutoff
+    )
+    .execute(&state.pool)
+    .await;
+    if let Err(e) = seen {
+        tracing::warn!("could not drop mention emails already read: {}", e);
+    }
 
     let due = sqlx::query_as!(
         DueDigest,
@@ -80,7 +97,9 @@ pub async fn flush_due(state: &AppState) -> usize {
                COUNT(*) FILTER (WHERE NOT p.direct) AS "mentions!",
                COUNT(*) FILTER (WHERE p.direct) AS "direct_messages!",
                COALESCE(ARRAY_AGG(DISTINCT COALESCE(p.channel_name, '')) FILTER (WHERE NOT p.direct), '{}') AS "channels!",
-               ARRAY_AGG(DISTINCT COALESCE(p.sender_name, '')) AS "senders!"
+               ARRAY_AGG(DISTINCT COALESCE(p.sender_name, '')) AS "senders!",
+               CASE WHEN COUNT(*) = 1 THEN (ARRAY_AGG(p.channel_id))[1] END AS "channel_id?",
+               CASE WHEN COUNT(*) = 1 THEN (ARRAY_AGG(p.message_id))[1] END AS "message_id?"
           FROM pending_mention_emails p
           JOIN users u ON u.id = p.user_id
          WHERE p.created_at <= $1
@@ -88,7 +107,7 @@ pub async fn flush_due(state: &AppState) -> usize {
          GROUP BY p.user_id, p.workspace_id, u.email
         "#,
         cutoff,
-        chrono::Utc::now()
+        now
     )
     .fetch_all(&state.pool)
     .await;
@@ -103,50 +122,53 @@ pub async fn flush_due(state: &AppState) -> usize {
 
     let mut sent = 0;
     for digest in due {
-        // They came back inside the window. The in-app badge is already waiting
-        // for them, so the email would be telling them something they can see.
-        let mut conn = state.redis.clone();
-        let online =
-            crate::presence::is_online(&mut conn, digest.workspace_id, digest.user_id).await;
-
-        if !online {
-            let subject = subject_for(&digest);
-            let body = body_for(&digest, &state.config.public_url);
-
-            let queued = outbox::enqueue(
-                &state.pool,
-                NewEmail {
-                    to: &digest.email,
-                    subject: &subject,
-                    text: &body,
-                    html: None,
-                },
-            )
-            .await;
-            if let Err(e) = queued {
-                tracing::warn!("could not queue a mention email: {}", e);
-                continue;
+        match send_digest(state, &digest, cutoff).await {
+            Ok(true) => {
+                sent += 1;
+                metrics::counter!("mention_emails_queued_total").increment(1);
             }
-            sent += 1;
-            metrics::counter!("mention_emails_queued_total").increment(1);
-        }
-
-        let cleared = sqlx::query!(
-            "DELETE FROM pending_mention_emails \
-              WHERE user_id = $1 AND workspace_id = $2 AND created_at <= $3",
-            digest.user_id,
-            digest.workspace_id,
-            cutoff
-        )
-        .execute(&state.pool)
-        .await;
-
-        if let Err(e) = cleared {
-            tracing::warn!("could not clear sent mention emails: {}", e);
+            Ok(false) => {}
+            Err(e) => tracing::warn!("could not queue a mention email: {}", e),
         }
     }
 
     sent
+}
+
+async fn send_digest(
+    state: &AppState,
+    digest: &DueDigest,
+    cutoff: chrono::DateTime<chrono::Utc>,
+) -> sqlx::Result<bool> {
+    let mut tx = state.pool.begin().await?;
+    let claimed = sqlx::query!(
+        "DELETE FROM pending_mention_emails \
+          WHERE user_id = $1 AND workspace_id = $2 AND created_at <= $3",
+        digest.user_id,
+        digest.workspace_id,
+        cutoff
+    )
+    .execute(&mut *tx)
+    .await?
+    .rows_affected();
+    if claimed == 0 {
+        return Ok(false);
+    }
+
+    let subject = subject_for(digest);
+    let body = body_for(digest, &state.config.public_url);
+    outbox::enqueue(
+        &mut *tx,
+        NewEmail {
+            to: &digest.email,
+            subject: &subject,
+            text: &body,
+            html: None,
+        },
+    )
+    .await?;
+    tx.commit().await?;
+    Ok(true)
 }
 
 fn counted(n: i64, one: &str, many: &str) -> String {
@@ -205,7 +227,11 @@ fn body_for(digest: &DueDigest, public_url: &str) -> String {
         lines.push(format!("In: {}", places.join(", ")));
     }
     lines.push(String::new());
-    lines.push(format!("Open the app: {public_url}/app"));
+    let workspace = format!("{public_url}/app/{}", digest.workspace_id);
+    lines.push(match (digest.channel_id, digest.message_id) {
+        (Some(channel), Some(message)) => format!("Open it: {workspace}/{channel}/{message}"),
+        _ => format!("Open the workspace: {workspace}"),
+    });
     lines.join("\n")
 }
 

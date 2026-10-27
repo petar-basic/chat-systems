@@ -34,7 +34,10 @@ pub struct NewEmail<'a> {
     pub html: Option<&'a str>,
 }
 
-pub async fn enqueue(pool: &PgPool, email: NewEmail<'_>) -> sqlx::Result<Uuid> {
+pub async fn enqueue<'e>(
+    executor: impl sqlx::PgExecutor<'e>,
+    email: NewEmail<'_>,
+) -> sqlx::Result<Uuid> {
     sqlx::query_scalar!(
         "INSERT INTO outbound_emails (to_address, subject, text_body, html_body)
          VALUES ($1, $2, $3, $4)
@@ -44,7 +47,7 @@ pub async fn enqueue(pool: &PgPool, email: NewEmail<'_>) -> sqlx::Result<Uuid> {
         email.text,
         email.html
     )
-    .fetch_one(pool)
+    .fetch_one(executor)
     .await
 }
 

@@ -73,19 +73,16 @@ impl PushSender {
     /// One request per live subscription. Failures are per subscription: a
     /// browser whose push service is down must not stop the person's other
     /// devices from being notified.
-    ///
-    /// Returns whether at least one device accepted it, which is what the caller
-    /// needs to decide whether anything reached this person at all.
-    pub async fn send_to_user(&self, user_id: Uuid, payload: &PushPayload) -> bool {
+    pub async fn send_to_user(&self, user_id: Uuid, payload: &PushPayload) {
         if !self.is_configured() {
-            return false;
+            return;
         }
 
         let subscriptions = match self.repo.list_for_user(user_id).await {
             Ok(subscriptions) => subscriptions,
             Err(e) => {
                 tracing::warn!("push: could not read subscriptions for {}: {}", user_id, e);
-                return false;
+                return;
             }
         };
 
@@ -93,11 +90,10 @@ impl PushSender {
             Ok(body) => body,
             Err(e) => {
                 tracing::warn!("push: could not serialize payload: {}", e);
-                return false;
+                return;
             }
         };
 
-        let mut delivered = false;
         for subscription in subscriptions {
             let info = SubscriptionInfo {
                 endpoint: subscription.endpoint.clone(),
@@ -116,7 +112,6 @@ impl PushSender {
                 Ok(status) if status.is_success() => {
                     self.repo.touch(subscription.id).await;
                     metrics::counter!("push_notifications_sent_total").increment(1);
-                    delivered = true;
                 }
                 Ok(status) => {
                     tracing::warn!("push: service answered {}", status);
@@ -128,8 +123,6 @@ impl PushSender {
                 }
             }
         }
-
-        delivered
     }
 
     /// The crate builds and encrypts the message; the request goes out over the

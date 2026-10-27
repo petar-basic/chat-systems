@@ -24,6 +24,7 @@ pub enum RevocationState {
 }
 
 const PRESENCE_TTL_SECS: u64 = 60;
+const ACTIVE_TTL_SECS: u64 = 60;
 
 /// Distinct from the revocation code so the client can tell "you are too slow"
 /// from "you may not connect" and reconnect immediately in the first case.
@@ -524,6 +525,27 @@ impl ConnectionManager {
         }
         if let Err(e) = pipe.query_async::<()>(&mut conn).await {
             warn!("presence_set_online redis error user={}: {}", user_id, e);
+        }
+    }
+
+    pub async fn activity_set(&self, user_id: Uuid, conn_id: Uuid, active: bool) {
+        let mut conn = self.redis.clone();
+        let key = format!("active:user:{user_id}");
+        let mut pipe = redis::pipe();
+        if active {
+            pipe.hset(
+                &key,
+                conn_id.to_string(),
+                Self::now_secs() + ACTIVE_TTL_SECS as i64,
+            )
+            .ignore()
+            .expire(&key, ACTIVE_TTL_SECS as i64)
+            .ignore();
+        } else {
+            pipe.hdel(&key, conn_id.to_string()).ignore();
+        }
+        if let Err(e) = pipe.query_async::<()>(&mut conn).await {
+            warn!("activity_set redis error user={}: {}", user_id, e);
         }
     }
 

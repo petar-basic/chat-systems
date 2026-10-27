@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { useWorkspaceStore } from '@/stores/workspace';
 import { PauseMenuItems } from './PauseMenuItems';
 
 const setDnd = vi.fn();
@@ -16,6 +17,12 @@ describe('PauseMenuItems', () => {
   beforeEach(() => {
     setDnd.mockReset();
     status = { dnd_until: null, schedule_paused_until: null };
+    useWorkspaceStore.setState({ currentWorkspace: { id: 'ws-1', name: 'Acme' } as never });
+  });
+
+  it('names the workspace it pauses', () => {
+    render(<PauseMenuItems onDone={vi.fn()} />);
+    expect(screen.getByTestId('pause-heading')).toHaveTextContent('Pause notifications in Acme');
   });
 
   it('offers pauses when notifications are on', () => {
@@ -30,7 +37,7 @@ describe('PauseMenuItems', () => {
     status = { dnd_until: null, schedule_paused_until: inMinutes(90) };
     render(<PauseMenuItems onDone={vi.fn()} />);
     expect(screen.getByTestId('pause-status')).toHaveTextContent(/^Paused by your schedule until /);
-    fireEvent.click(screen.getByRole('button', { name: 'Resume notifications' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Resume notifications in Acme' }));
     expect(setDnd).toHaveBeenCalledWith(null);
   });
 

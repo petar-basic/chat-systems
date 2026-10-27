@@ -517,7 +517,9 @@ workspace turns off theirs in it. Activating the account again turns nothing bac
 Creating an `incoming_webhook` requires `config.channel_id`, and the server mints a
 `config.token`. **`POST /hooks/incoming/:token` is authenticated by that URL token,
 not a session** (Slack-compatible `{ "text": ... }`); it posts to the bound channel
-as the hook's creator and is rate-limited per token.
+under the hook's creator's id with `metadata.bot = { hook_id, name, icon_url }`, and is
+rate-limited per token. The creator is notified of it like any other member, and a
+notification about it is titled with the bot's name.
 
 --------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/reminders` | — | `{ data: Reminder[] }` |
@@ -580,11 +582,22 @@ total the app shows on its icon.
 
 Muted and `nothing` mean no reason at all. DND — `notifications_paused_until(workspace, user, at)` in
 SQL, the one definition of "paused" — keeps the Activity row and drops the rest; a
-frame goes to every session, push only when the person has none, and email only when push
-reached no device. The frame's `kind` also carries `reaction`, `call`, `reminder` and
+frame goes to every session and push to every device unless a session is *active* (below).
+A mention or DM with email on is queued in `pending_mention_emails`, once per person and
+message; five minutes later the digest sweep drops what has been read since, and emails one
+digest per person and workspace for what is still unread, linking to the message when there
+is one (`/app/{ws}/{channel}/{message}`) and to the workspace otherwise. The rows are claimed
+and the email queued in one transaction, so two workers cannot send it twice. The frame's `kind` also carries `reaction`, `call`, `reminder` and
 `system` from the other producers; the client rings and counts on it rather than deciding
 for itself. Channel listings and conversation summaries carry the caller's `notify_level` and
 `effective_notify_level`.
+
+**Active, not just connected.** An open socket is not someone looking: a tab left in the
+background, or a phone that kept its socket for a while, used to hold back every push. The
+client sends `{ "type": "activity", "active": bool }` — active while its page is visible and
+has had input in the last two minutes, idle the moment it is hidden — and the gateway keeps
+`active:user:{user}`, a hash of connection → expiry refreshed on each heartbeat and removed
+on idle or disconnect. Push is held only while some entry has not expired.
 
 **Paused.** A pause belongs to one workspace: `notifications_paused_until(workspace, user,
 at)` is the later of the `/dnd` timer (`workspace_members.dnd_until`) and
@@ -1068,7 +1081,7 @@ Live voice/video rooms (Slack-style huddles) over mesh WebRTC. Live membership a
 
 `IceServer` is the WebRTC `RTCIceServer` shape: `{ urls: string[], username?, credential? }`. STUN entries are always returned; a TURN entry with time-limited credentials (TURN REST API, `username = "<expiry-unix>:<user-id>"`, `credential = base64(hmac_sha1(TURN_SECRET, username))`) is added only when `TURN_SECRET` and `TURN_URLS` are configured. See the coturn service in `docker-compose.yml` and the TURN section of `.env.example`.
 
-**Start** generates a `huddle_id`, persists a `huddle_sessions` row, publishes `huddle.started`, and (for channels) posts a `metadata.kind="huddle_started"` system message; DM huddles also publish `huddle.ring` to the partner. **Invite** records a `huddle_invites` row for each workspace-member invitee, which is what lets them join, and publishes `huddle.ring`. **Active-huddles** returns currently-live huddles in channels the caller is a member of — open DB sessions (`ended_at IS NULL`) intersected with live Redis room membership (`SCARD huddle:{id}:members > 0`), so abrupt-drop sessions that never emitted `huddle.ended` are excluded. The frontend fetches it on workspace load and on WS reconnect to backfill the channel huddle banner (so late-joiners see "Join" and stale banners self-heal). Live membership/media is ephemeral — see the `events:huddle` WS surface below. Session/participant history is persisted by the API's huddle consumer, which also emits `huddle.ended` when the last participant leaves; ring/invite also raise a `Call` notification (DND-respecting).
+**Start** generates a `huddle_id`, persists a `huddle_sessions` row, publishes `huddle.started`, and (for channels) posts a `metadata.kind="huddle_started"` system message; DM huddles also publish `huddle.ring` to the partner. **Invite** records a `huddle_invites` row for each workspace-member invitee, which is what lets them join, and publishes `huddle.ring`. **Active-huddles** returns currently-live huddles in channels the caller is a member of — open DB sessions (`ended_at IS NULL`) intersected with live Redis room membership (`SCARD huddle:{id}:members > 0`), so abrupt-drop sessions that never emitted `huddle.ended` are excluded. The frontend fetches it on workspace load and on WS reconnect to backfill the channel huddle banner (so late-joiners see "Join" and stale banners self-heal). Live membership/media is ephemeral — see the `events:huddle` WS surface below. Session/participant history is persisted by the API's huddle consumer, which also emits `huddle.ended` when the last participant leaves; ring/invite also raise a `Call` notification (DND-respecting). A ring to somebody who has paused the workspace carries `quiet: true`: the gateway does not deliver it, and the `Call` row still lands in Activity.
 
 ---
 
@@ -1088,6 +1101,7 @@ The upgrade additionally checks the `Origin` against the configured CORS origins
 { "type": "channel.leave", "channel_id": "..." }
 { "type": "typing.start",  "channel_id": "..." }
 { "type": "typing.stop",   "channel_id": "..." }
+{ "type": "activity",      "active": true }
 { "type": "ping" }
 ```
 

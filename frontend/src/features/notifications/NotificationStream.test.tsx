@@ -60,11 +60,16 @@ describe('NotificationStream', () => {
     );
   });
 
-  it('rings for a message the server decided to announce', () => {
+  it('rings for a message the server decided to announce, tagged like its push so one replaces the other', () => {
     globalEventBus.emit(frame('message'));
 
     expect(playMessageSound).toHaveBeenCalledTimes(1);
-    expect(showNotification).toHaveBeenCalledWith('Ana in #general', 'deploy finished', expect.any(Function));
+    expect(showNotification).toHaveBeenCalledWith(
+      'Ana in #general',
+      'deploy finished',
+      'ch-1',
+      expect.any(Function),
+    );
   });
 
   it('stays quiet for the conversation already on screen', () => {
@@ -103,7 +108,7 @@ describe('NotificationStream', () => {
   it('opens the message a notification is about', () => {
     globalEventBus.emit(frame('dm', 'dm-1'));
 
-    const onClick = showNotification.mock.calls[0][2] as () => void;
+    const onClick = showNotification.mock.calls[0][3] as () => void;
     onClick();
     expect(openMessage).toHaveBeenCalledWith('m-1', false);
   });
@@ -111,7 +116,7 @@ describe('NotificationStream', () => {
   it('opens a reply in its thread', () => {
     globalEventBus.emit({ ...frame('reply'), thread_parent_id: 'root-1' });
 
-    const onClick = showNotification.mock.calls[0][2] as () => void;
+    const onClick = showNotification.mock.calls[0][3] as () => void;
     onClick();
     expect(openMessage).toHaveBeenCalledWith('m-1', true);
   });
@@ -123,6 +128,7 @@ describe('NotificationStream', () => {
     expect(showNotification).toHaveBeenCalledWith(
       '🔔 Ana in #general',
       'deploy finished',
+      'ch-1',
       expect.any(Function),
     );
   });
@@ -140,7 +146,7 @@ describe('NotificationStream', () => {
     });
 
     expect(playMessageSound).toHaveBeenCalledTimes(1);
-    const onClick = showNotification.mock.calls[0][2] as () => void;
+    const onClick = showNotification.mock.calls[0][3] as () => void;
     onClick();
     expect(navigate).toHaveBeenCalledWith('/app/ws-1/lists/l-1?item=i-1');
   });
