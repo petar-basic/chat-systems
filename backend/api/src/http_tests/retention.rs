@@ -577,3 +577,40 @@ async fn a_moderator_sets_the_period_and_the_channel_and_audit_log_say_so(pool: 
     .expect("count");
     assert_eq!(audited, 3);
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn each_workspace_audits_only_what_it_lost(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, token) = seed_and_login(&app, &state, "ret-owner", false).await;
+    let first = seed_workspace(&state, owner_id, "First WS").await;
+    let second = seed_workspace(&state, owner_id, "Second WS").await;
+    let first_ch = seed_channel(&state, first, owner_id, "main", false).await;
+    let second_ch = seed_channel(&state, second, owner_id, "main", false).await;
+
+    for content in ["one", "two", "three"] {
+        let id = post(&app, &token, first_ch, content).await;
+        age_message(&state, id, 400).await;
+    }
+    let id = post(&app, &token, second_ch, "alone").await;
+    age_message(&state, id, 400).await;
+
+    set_policy(&state, first, owner_id, Some(30)).await;
+    set_policy(&state, second, owner_id, Some(30)).await;
+    let total = crate::retention::job::run_once(&state).await;
+    assert_eq!(total.messages, 4);
+
+    for (ws, expected) in [(first, 3), (second, 1)] {
+        let purged: Vec<serde_json::Value> = sqlx::query_scalar(
+            "SELECT details FROM audit_log WHERE workspace_id = $1 AND action = 'retention.purge'",
+        )
+        .bind(ws)
+        .fetch_all(&state.pool)
+        .await
+        .expect("audit");
+        assert_eq!(purged.len(), 1);
+        assert_eq!(
+            purged[0]["messages"], expected,
+            "a workspace's audit names its own purge, not the run's total"
+        );
+    }
+}

@@ -406,6 +406,25 @@ impl EventPublisher {
         .await
     }
 
+    pub async fn stage_channel_updated(
+        conn: &mut PgConnection,
+        channel_id: Uuid,
+        workspace_id: Uuid,
+        is_archived: bool,
+    ) -> AppResult<Staged> {
+        Self::stage(
+            conn,
+            "channel.updated",
+            workspace_id,
+            serde_json::json!({
+                "channel_id": channel_id,
+                "workspace_id": workspace_id,
+                "is_archived": is_archived,
+            }),
+        )
+        .await
+    }
+
     pub async fn stage_channel_member_removed(
         &self,
         conn: &mut PgConnection,

@@ -48,6 +48,9 @@ impl ChannelAccess {
     }
 
     pub fn can_post(&self) -> bool {
+        if self.channel.is_archived {
+            return false;
+        }
         match self.post_policy() {
             PostPolicy::Everyone => true,
             PostPolicy::Moderators => self.can_moderate(),
@@ -178,12 +181,20 @@ pub async fn require_channel_post(
     user_id: Uuid,
 ) -> AppResult<ChannelAccess> {
     let access = require_channel_access(state, channel_id, user_id).await?;
+    require_not_archived(&access.channel)?;
     if !access.can_post() {
         return Err(AppError::Forbidden(
             "Only moderators can post in this channel".into(),
         ));
     }
     Ok(access)
+}
+
+pub fn require_not_archived(channel: &Channel) -> AppResult<()> {
+    if channel.is_archived {
+        return Err(AppError::Forbidden("This channel is archived".into()));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

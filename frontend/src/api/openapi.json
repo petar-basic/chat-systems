@@ -1910,6 +1910,36 @@
         }
       }
     },
+    "/channels/{ch_id}/unarchive": {
+      "post": {
+        "tags": [
+          "channels"
+        ],
+        "operationId": "unarchive_channel",
+        "parameters": [
+          {
+            "name": "ch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/channels/{ch_id}/unread": {
       "post": {
         "tags": [
@@ -8607,6 +8637,7 @@
           "workspace_id",
           "channel_type",
           "is_default",
+          "is_archived",
           "created_at",
           "member_count",
           "is_member"
@@ -8628,6 +8659,9 @@
           "id": {
             "type": "string",
             "format": "uuid"
+          },
+          "is_archived": {
+            "type": "boolean"
           },
           "is_default": {
             "type": "boolean"
@@ -10345,6 +10379,7 @@
                 "workspace_id",
                 "channel_type",
                 "is_default",
+                "is_archived",
                 "created_at",
                 "member_count",
                 "is_member"
@@ -10366,6 +10401,9 @@
                 "id": {
                   "type": "string",
                   "format": "uuid"
+                },
+                "is_archived": {
+                  "type": "boolean"
                 },
                 "is_default": {
                   "type": "boolean"

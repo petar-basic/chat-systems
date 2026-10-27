@@ -17,6 +17,7 @@ const channels: BrowsableChannel[] = [
     created_at: '2026-01-01T00:00:00Z',
     member_count: 3,
     is_member: false,
+    is_archived: false,
   },
   {
     id: 'ch-joined',
@@ -29,11 +30,13 @@ const channels: BrowsableChannel[] = [
     created_at: '2026-02-01T00:00:00Z',
     member_count: 1,
     is_member: true,
+    is_archived: false,
   },
 ];
+let listed = channels;
 
 vi.mock('@/features/channel/hooks/useChannels', () => ({
-  useBrowsableChannels: () => ({ data: channels, isLoading: false, isError: false }),
+  useBrowsableChannels: () => ({ data: listed, isLoading: false, isError: false }),
   useJoinChannel: () => ({ mutateAsync: joinMutate, isPending: false }),
   useLeaveChannel: () => ({ mutateAsync: leaveMutate, isPending: false }),
 }));
@@ -53,6 +56,7 @@ function renderModal(overrides: Partial<Parameters<typeof BrowseChannelsModal>[0
 
 describe('BrowseChannelsModal', () => {
   beforeEach(() => {
+    listed = channels;
     joinMutate.mockReset().mockResolvedValue(undefined);
     leaveMutate.mockReset().mockResolvedValue(undefined);
   });
@@ -67,6 +71,18 @@ describe('BrowseChannelsModal', () => {
     expect(screen.getByTestId('browse-channel-leave')).toBeInTheDocument();
     expect(screen.getByText(/3 members/)).toBeInTheDocument();
     expect(screen.getByText(/1 member/)).toBeInTheDocument();
+  });
+
+  it('lists an archived channel to read, with nothing to join', () => {
+    listed = [{ ...channels[0], id: 'ch-old', name: 'old-launch', is_archived: true }];
+    const props = renderModal();
+
+    expect(screen.getByTestId('browse-channel-archived')).toBeInTheDocument();
+    expect(screen.queryByTestId('browse-channel-join')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('browse-channel-open'));
+    expect(joinMutate).not.toHaveBeenCalled();
+    expect(props.onOpenChannel).toHaveBeenCalledWith('ch-old');
   });
 
   it('counts, sorts by name, members and age, and offers to create one', () => {

@@ -1915,3 +1915,29 @@ the tab returns, the network does and every ten minutes, and offers *Reload*. A
 missing surfaces instead of looping), and the release image copies the previous release's
 chunks in beside its own, listed in `release-assets.txt` so they last one release and do not
 pile up.
+
+### [CS-085] Archive, export and retention that say what they did ✅ shipped
+Archiving a channel only hid it from the sidebar: the composer stayed, posts, reactions,
+scheduled messages and webhooks still landed, nobody else viewing it heard, and there was no
+way back. An export without DMs still listed the files posted in them, and ignored its own
+date range for files. The retention job added each workspace's purge to one running total and
+audited that total, so every workspace's row also counted the ones purged before it.
+
+`authz::can_post` refuses an archived channel and `require_not_archived` guards reactions and
+incoming webhooks; the scheduled executor fails such a message with `channel_archived`.
+Archiving (`DELETE /channels/{id}`) and the new `POST /channels/{id}/unarchive` share one
+transaction that flips `is_archived` only if it changes, posts a system line
+(`channel_archived` / `channel_unarchived`) and stages `channel.updated`; the audit log gains
+`channel.unarchived`. The client patches the open channel from that frame, so the composer
+becomes an *Archived* bar with *Unarchive* for workspace and channel admins, and the person who
+archives stays in the channel instead of being sent to `#general`. *Browse channels* lists
+archived channels to read, without *Join*. `files.jsonl` joins each file to its message's
+channel and applies the same DM filter and `since`/`until` as `messages.jsonl`. The purge
+counts each workspace on its own, audits that, and adds it to the run's total only for the log
+and the metrics.
+
+Checking it live turned up an older gap: opening a channel you are not in sends `channel.join`,
+which the gateway refuses, but the client remembered the channel as joined, so after *Join
+channel* it never asked again and the channel stayed silent until a reconnect. A successful
+join now calls `rejoinChannel`, which forgets the refused id and sends it again, and refetches
+the messages the preview could not hear.

@@ -697,14 +697,20 @@ impl WorkspaceRepo {
         .await
     }
 
-    pub async fn archive_channel(&self, id: Uuid) -> sqlx::Result<()> {
-        sqlx::query!(
-            "UPDATE channels SET is_archived = true, updated_at = NOW() WHERE id = $1",
-            id
+    pub async fn set_archived(
+        &self,
+        conn: &mut PgConnection,
+        id: Uuid,
+        archived: bool,
+    ) -> sqlx::Result<bool> {
+        let result = sqlx::query!(
+            "UPDATE channels SET is_archived = $2, updated_at = NOW() WHERE id = $1 AND is_archived <> $2",
+            id,
+            archived
         )
-        .execute(&self.pool)
+        .execute(conn)
         .await?;
-        Ok(())
+        Ok(result.rows_affected() > 0)
     }
 
     pub async fn add_channel_member(
@@ -919,6 +925,7 @@ impl WorkspaceRepo {
                    c.topic,
                    c.description,
                    c.is_default AS "is_default!",
+                   c.is_archived AS "is_archived!",
                    c.created_at,
                    COUNT(cm.user_id) AS "member_count!",
                    COALESCE(BOOL_OR(cm.user_id = $2), false) AS "is_member!"
@@ -926,9 +933,8 @@ impl WorkspaceRepo {
             LEFT JOIN channel_members cm ON cm.channel_id = c.id
             WHERE c.workspace_id = $1
               AND c.channel_type = 'public'
-              AND c.is_archived = false
             GROUP BY c.id
-            ORDER BY c.name
+            ORDER BY c.is_archived, c.name
             "#,
             workspace_id,
             user_id
