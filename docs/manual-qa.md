@@ -108,6 +108,7 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - **Reach:** admin area → user row → Suspend (or `POST /api/admin/users/<user_id>/suspend`).
 - **Steps:** with the target user logged in and on a live socket, suspend them.
 - **Expected:** their existing **access token is rejected (401 "Session revoked")** on the next `/api/...` call — not just on next login — and their **live WebSocket drops** (driven by a `user.suspended` event); fresh login fails too ("Account is not active"). Their refresh tokens are deleted, so silent refresh can't resurrect the session.
+- 🔴 **Edge — what they set up stops too:** before suspending, have them schedule a message, own an on workflow and an incoming webhook. After the suspend the scheduled message fails, the workflow is *Off* with a notification to the admins, and *Integrations* shows the webhook *Disabled — its creator's account is suspended*. Activating them again leaves both off. As a workspace admin open the workflow → *Take over* → it is yours and *Off*; *Turn on* works.
 - 🟠 **Edge — activate restores:** `POST /api/admin/users/<user_id>/activate` clears the Redis revocation flag → the user can log in again and act. (Revocation is a Redis `revoked:<uid>` key TTL'd to the access-token lifetime; if Redis is unavailable the access token is *not* treated as revoked — fail-open.)
 
 ---

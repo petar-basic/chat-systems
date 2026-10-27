@@ -19,7 +19,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 ### Upgrading from 3.5.0
 
 - Pull both images and restart `api`, `realtime`, `worker` and `frontend` together; the API
-  runs migration 75 on start, which adds the `huddle_invites` table.
+  runs migrations 75–76 on start, which add the `huddle_invites` table and
+  `hooks.disabled_reason`.
 - **Re-send pending email invites.** An emailed invite link now names the invite it stands
   for, and links sent before the upgrade do not: they answer *Invalid or expired invite*.
   Revoke and re-send any email invite that has not been accepted yet. Shared invite links are
@@ -37,6 +38,15 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   stop the emailed link too, and the role it grants is the one the invite has today.
 - **A private channel's member list is its members'.** `GET /channels/{id}/members` follows
   the same access as reading the channel.
+- **A suspended or removed person stops acting.** Suspending or erasing an account turns off
+  every webhook, slash command and workflow that person set up, and removing someone from a
+  workspace turns off theirs there; activating the account again does not turn them back on.
+  Each scheduled message, workflow run and webhook also checks its author when it fires: a
+  suspended author's scheduled message fails with `author_inactive`, and a webhook whose
+  creator can no longer read its channel turns itself off and says why under *Integrations*.
+- **A workflow whose builder left can be taken over.** A workspace admin opens it under
+  *Workflows* and chooses *Take over*; it becomes theirs, stays off until they turn it on, and
+  the audit log records it.
 - **A private Slack channel stays private.** The Slack import merges a channel into an
   existing one of the same name only when both are the same kind; otherwise it imports it as
   `<name>-slack` and says so in the report.

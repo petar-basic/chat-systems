@@ -97,7 +97,9 @@ function HookRow({
           )}
           {!hook.is_active && (
             <div className="text-xs text-danger" data-qa="hook-inactive">
-              Disabled — re-create it with the channels it may read
+              {hook.disabled_reason
+                ? `Disabled — ${hook.disabled_reason.charAt(0).toLowerCase()}${hook.disabled_reason.slice(1)}`
+                : 'Disabled — re-create it with the channels it may read'}
             </div>
           )}
         </div>

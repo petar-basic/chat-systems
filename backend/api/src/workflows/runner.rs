@@ -8,9 +8,10 @@ use uuid::Uuid;
 use shared_common::errors::AppError;
 
 use super::models::*;
-use crate::authz;
+use crate::authz::{self, Stopped};
 use crate::messaging::models::MessageField;
 use crate::state::AppState;
+use crate::workspace::membership::stand_down;
 use crate::workspace::models::WorkspaceRole;
 
 const TICK_SECS: u64 = 5;
@@ -242,24 +243,39 @@ async fn steps(state: &AppState, workflow: &WorkflowRow, run: &RunRow) -> Result
     if !workflow.enabled {
         return Err("The workflow was turned off before it ran".into());
     }
+    let definition = workflow
+        .definition()
+        .ok_or_else(|| "The workflow can't be read".to_string())?;
+    let stopped = authz::still_acting(
+        state,
+        workflow.workspace_id,
+        workflow.created_by,
+        definition.trigger.channel(),
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+    match stopped {
+        None => {}
+        Some(Stopped::LostChannel) => {
+            return Err("Its creator can no longer see the channel it listens to".into());
+        }
+        Some(why) => {
+            stand_down(state, Some(workflow.workspace_id), workflow.created_by, why).await;
+            return Err(match why {
+                Stopped::Inactive => "The person who built it is suspended".into(),
+                Stopped::LeftWorkspace | Stopped::LostChannel => {
+                    "The person who built it is no longer in this workspace".into()
+                }
+            });
+        }
+    }
     let creator = state
         .workspace_service
         .repo
         .get_member(workflow.workspace_id, workflow.created_by)
         .await
-        .map_err(|e| e.to_string())?;
-    let Some(creator) = creator else {
-        super::service::creator_left(state, workflow.workspace_id, workflow.created_by).await;
-        return Err("The person who built it is no longer in this workspace".into());
-    };
-    let definition = workflow
-        .definition()
-        .ok_or_else(|| "The workflow can't be read".to_string())?;
-    if let Some(channel_id) = definition.trigger.channel() {
-        authz::require_channel_access(state, channel_id, creator.user_id)
-            .await
-            .map_err(|_| "Its creator can no longer see the channel it listens to".to_string())?;
-    }
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "The person who built it is no longer in this workspace".to_string())?;
     let done = state
         .workflow_repo
         .finished_positions(run.id)

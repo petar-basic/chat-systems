@@ -436,6 +436,13 @@ async fn incoming_webhook(
     let channel_id = bound_channel(&hook.config)
         .ok_or_else(|| AppError::Internal("hook is missing a channel_id".into()))?;
 
+    if let Some(why) =
+        authz::still_acting(&state, hook.workspace_id, hook.created_by, Some(channel_id)).await?
+    {
+        state.hook_repo.disable(hook.id, why.reason()).await?;
+        return Err(AppError::Unauthorized("Invalid webhook token".into()));
+    }
+
     let metadata = serde_json::json!({ "bot": {
         "hook_id": hook.id,
         "name": payload.username.as_deref().unwrap_or(&hook.name),

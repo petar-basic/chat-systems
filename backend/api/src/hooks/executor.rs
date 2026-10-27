@@ -8,7 +8,10 @@ use tracing::{info, warn};
 use super::models::Hook;
 use super::repo::HookRepo;
 use super::ssrf;
+use crate::authz;
 use crate::messaging::stream_group::StreamGroup;
+use crate::state::AppState;
+use uuid::Uuid;
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -19,7 +22,7 @@ const HOOK_BACKOFF_CAP: Duration = Duration::from_secs(5);
 const HOOK_BODY_MAX_BYTES: usize = 4096;
 pub(crate) const SIGNATURE_HEADER: &str = "X-ChatSystems-Signature";
 
-pub async fn start_hook_consumer(redis_url: &str, hook_repo: Arc<HookRepo>) {
+pub async fn start_hook_consumer(redis_url: &str, state: Arc<AppState>) {
     let Some(mut group) = StreamGroup::connect(redis_url, "hooks").await else {
         return;
     };
@@ -40,7 +43,7 @@ pub async fn start_hook_consumer(redis_url: &str, hook_repo: Arc<HookRepo>) {
 
     loop {
         for delivery in group.next_batch().await {
-            dispatch_delivery(&http, &hook_repo, &delivery).await;
+            dispatch_delivery(&http, &state, &delivery).await;
             group.ack(&delivery.key, &delivery.id).await;
         }
     }
@@ -48,9 +51,10 @@ pub async fn start_hook_consumer(redis_url: &str, hook_repo: Arc<HookRepo>) {
 
 async fn dispatch_delivery(
     http: &reqwest::Client,
-    hook_repo: &HookRepo,
+    state: &AppState,
     delivery: &crate::messaging::stream_group::Delivery,
 ) {
+    let hook_repo = &state.hook_repo;
     let event_type = delivery.event.event_type.as_str();
     if event_type != "message.created" {
         return;
@@ -73,17 +77,7 @@ async fn dispatch_delivery(
         return;
     };
 
-    let hooks = match hook_repo
-        .list_active_outgoing_hooks_for_channel(ws_id, channel_id)
-        .await
-    {
-        Ok(h) => h,
-        Err(e) => {
-            warn!(workspace_id = %ws_id, "Hook consumer: failed to list hooks: {}", e);
-            return;
-        }
-    };
-
+    let hooks = hooks_to_fire(state, ws_id, channel_id).await;
     if hooks.is_empty() {
         return;
     }
@@ -117,6 +111,36 @@ async fn dispatch_delivery(
         )
         .await;
     }
+}
+
+pub(crate) async fn hooks_to_fire(state: &AppState, ws_id: Uuid, channel_id: Uuid) -> Vec<Hook> {
+    let hooks = match state
+        .hook_repo
+        .list_active_outgoing_hooks_for_channel(ws_id, channel_id)
+        .await
+    {
+        Ok(h) => h,
+        Err(e) => {
+            warn!(workspace_id = %ws_id, "Hook consumer: failed to list hooks: {}", e);
+            return Vec::new();
+        }
+    };
+    let mut firing = Vec::with_capacity(hooks.len());
+    for hook in hooks {
+        match authz::still_acting(state, ws_id, hook.created_by, Some(channel_id)).await {
+            Ok(None) => firing.push(hook),
+            Ok(Some(why)) => {
+                info!(hook_id = %hook.id, "Hook disabled: {}", why.reason());
+                if let Err(e) = state.hook_repo.disable(hook.id, why.reason()).await {
+                    warn!(hook_id = %hook.id, "Hook consumer: failed to disable hook: {}", e);
+                }
+            }
+            Err(e) => {
+                warn!(hook_id = %hook.id, "Hook consumer: failed to check its creator: {}", e);
+            }
+        }
+    }
+    firing
 }
 
 /// The event that fans out internally is not the event a third party gets. It

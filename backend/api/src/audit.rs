@@ -38,6 +38,7 @@ pub enum AuditAction {
     HookDeleted,
     HookRevealed,
     HookRotated,
+    HookDisabled,
     FileDeleted,
     UserProvisioned,
     UserSuspended,
@@ -74,6 +75,7 @@ pub enum AuditAction {
     WorkflowEnabled,
     WorkflowDisabled,
     WorkflowDeleted,
+    WorkflowTakenOver,
 }
 
 impl AuditAction {
@@ -102,6 +104,7 @@ impl AuditAction {
             Self::HookDeleted => "hook.deleted",
             Self::HookRevealed => "hook.revealed",
             Self::HookRotated => "hook.rotated",
+            Self::HookDisabled => "hook.disabled",
             Self::FileDeleted => "file.deleted",
             Self::UserProvisioned => "user.provisioned",
             Self::UserSuspended => "user.suspended",
@@ -138,6 +141,7 @@ impl AuditAction {
             Self::WorkflowEnabled => "workflow.enabled",
             Self::WorkflowDisabled => "workflow.disabled",
             Self::WorkflowDeleted => "workflow.deleted",
+            Self::WorkflowTakenOver => "workflow.taken_over",
         }
     }
 
@@ -162,6 +166,7 @@ impl AuditAction {
             | Self::HookDeleted
             | Self::HookRevealed
             | Self::HookRotated
+            | Self::HookDisabled
             | Self::CommandInvoked => "hook",
             Self::FileDeleted => "file",
             Self::EmojiCreated | Self::EmojiDeleted => "emoji",
@@ -191,7 +196,8 @@ impl AuditAction {
             | Self::WorkflowUpdated
             | Self::WorkflowEnabled
             | Self::WorkflowDisabled
-            | Self::WorkflowDeleted => "workflow",
+            | Self::WorkflowDeleted
+            | Self::WorkflowTakenOver => "workflow",
         }
     }
 }

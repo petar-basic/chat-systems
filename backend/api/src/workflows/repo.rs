@@ -46,6 +46,7 @@ pub struct ShortcutRow {
 
 pub struct StoppedWorkflow {
     pub id: Uuid,
+    pub workspace_id: Uuid,
     pub name: String,
 }
 
@@ -148,6 +149,9 @@ impl WorkflowRepo {
             r#"
             SELECT w.id, w.workspace_id, w.name, w.description, w.created_by, w.definition,
                    w.version, w.enabled, w.webhook_token, w.next_run_at, w.created_at, w.updated_at,
+                   NOT EXISTS (SELECT 1 FROM workspace_members wm JOIN users u ON u.id = wm.user_id
+                                WHERE wm.workspace_id = w.workspace_id AND wm.user_id = w.created_by
+                                  AND u.status = 'active') AS "creator_gone!",
                    r.status AS "last_status?: RunStatus", r.started_at AS "last_started_at?"
               FROM workflows w
               LEFT JOIN LATERAL (
@@ -166,12 +170,15 @@ impl WorkflowRepo {
         sqlx::query_as!(
             WorkflowRow,
             r#"
-            SELECT id, workspace_id, name, description, created_by, definition,
-                   version, enabled, webhook_token, next_run_at, created_at, updated_at,
+            SELECT w.id, w.workspace_id, w.name, w.description, w.created_by, w.definition,
+                   w.version, w.enabled, w.webhook_token, w.next_run_at, w.created_at, w.updated_at,
+                   NOT EXISTS (SELECT 1 FROM workspace_members wm JOIN users u ON u.id = wm.user_id
+                                WHERE wm.workspace_id = w.workspace_id AND wm.user_id = w.created_by
+                                  AND u.status = 'active') AS "creator_gone!",
                    NULL::workflow_run_status AS "last_status?: RunStatus",
                    NULL::timestamptz AS "last_started_at?"
-              FROM workflows
-             WHERE webhook_token = $1
+              FROM workflows w
+             WHERE w.webhook_token = $1
             "#,
             token
         )
@@ -189,6 +196,9 @@ impl WorkflowRepo {
             r#"
             SELECT w.id, w.workspace_id, w.name, w.description, w.created_by, w.definition,
                    w.version, w.enabled, w.webhook_token, w.next_run_at, w.created_at, w.updated_at,
+                   NOT EXISTS (SELECT 1 FROM workspace_members wm JOIN users u ON u.id = wm.user_id
+                                WHERE wm.workspace_id = w.workspace_id AND wm.user_id = w.created_by
+                                  AND u.status = 'active') AS "creator_gone!",
                    r.status AS "last_status?: RunStatus", r.started_at AS "last_started_at?"
               FROM workflows w
               LEFT JOIN LATERAL (
@@ -678,7 +688,7 @@ impl WorkflowRepo {
 
     pub async fn disable_by_creator(
         &self,
-        workspace_id: Uuid,
+        workspace_id: Option<Uuid>,
         created_by: Uuid,
     ) -> sqlx::Result<Vec<StoppedWorkflow>> {
         sqlx::query_as!(
@@ -686,14 +696,29 @@ impl WorkflowRepo {
             r"
             UPDATE workflows
                SET enabled = false, next_run_at = NULL, updated_at = NOW()
-             WHERE workspace_id = $1 AND created_by = $2 AND enabled
-            RETURNING id, name
+             WHERE ($1::uuid IS NULL OR workspace_id = $1) AND created_by = $2 AND enabled
+            RETURNING id, workspace_id, name
             ",
             workspace_id,
             created_by
         )
         .fetch_all(&self.pool)
         .await
+    }
+
+    pub async fn set_owner(&self, id: Uuid, owner: Uuid) -> sqlx::Result<()> {
+        sqlx::query!(
+            r"
+            UPDATE workflows
+               SET created_by = $2, enabled = false, next_run_at = NULL, updated_at = NOW()
+             WHERE id = $1
+            ",
+            id,
+            owner
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
     }
 
     pub async fn admin_ids(&self, workspace_id: Uuid) -> sqlx::Result<Vec<Uuid>> {

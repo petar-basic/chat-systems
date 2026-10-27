@@ -17,6 +17,7 @@ const TICK_SECS: u64 = 15;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DeliveryFailure {
     NotAuthorized,
+    AuthorInactive,
     ChannelArchived,
     WorkspaceUnavailable,
     Internal(String),
@@ -26,6 +27,7 @@ impl DeliveryFailure {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::NotAuthorized => "not_authorized",
+            Self::AuthorInactive => "author_inactive",
             Self::ChannelArchived => "channel_archived",
             Self::WorkspaceUnavailable => "workspace_unavailable",
             Self::Internal(_) => "internal_error",
@@ -35,6 +37,7 @@ impl DeliveryFailure {
     fn author_message(&self) -> &'static str {
         match self {
             Self::NotAuthorized => "You no longer have access to the destination.",
+            Self::AuthorInactive => "Your account is suspended.",
             Self::ChannelArchived => "The channel has been archived.",
             Self::WorkspaceUnavailable => "The workspace is no longer available.",
             Self::Internal(_) => "The server could not deliver it.",
@@ -44,7 +47,7 @@ impl DeliveryFailure {
     /// An authorization failure is terminal: the claim already marked the row
     /// sent, and retrying a permission the author does not have never succeeds.
     fn tell_the_author(&self) -> bool {
-        !matches!(self, Self::Internal(_))
+        !matches!(self, Self::Internal(_) | Self::AuthorInactive)
     }
 }
 
@@ -125,6 +128,13 @@ async fn authorize_channel(
     scheduled: &ScheduledMessage,
     channel_id: Uuid,
 ) -> Result<(), DeliveryFailure> {
+    if authz::still_acting(state, scheduled.workspace_id, scheduled.user_id, None)
+        .await
+        .map_err(internal)?
+        == Some(authz::Stopped::Inactive)
+    {
+        return Err(DeliveryFailure::AuthorInactive);
+    }
     let access = authz::require_channel_post(state, channel_id, scheduled.user_id)
         .await
         .map_err(|_| DeliveryFailure::NotAuthorized)?;

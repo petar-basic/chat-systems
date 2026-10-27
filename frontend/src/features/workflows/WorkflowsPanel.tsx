@@ -128,6 +128,7 @@ export default function WorkflowsPanel({
                   {workflow.created_by !== currentUserId && (
                     <div className="truncate text-xs text-subtle" data-qa="workflow-owner">
                       Built by {nameOf(workflow.created_by)}
+                      {workflow.creator_gone && ' · no longer here'}
                     </div>
                   )}
                 </button>

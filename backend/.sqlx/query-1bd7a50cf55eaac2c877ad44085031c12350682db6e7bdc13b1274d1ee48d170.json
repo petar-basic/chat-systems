@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT w.id, w.workspace_id, w.name, w.description, w.created_by, w.definition,\n                   w.version, w.enabled, w.webhook_token, w.next_run_at, w.created_at, w.updated_at,\n                   r.status AS \"last_status?: RunStatus\", r.started_at AS \"last_started_at?\"\n              FROM workflows w\n              LEFT JOIN LATERAL (\n                  SELECT status, started_at FROM workflow_runs\n                   WHERE workflow_id = w.id ORDER BY started_at DESC LIMIT 1\n              ) r ON true\n             WHERE w.id = $1\n            ",
+  "query": "\n            SELECT w.id, w.workspace_id, w.name, w.description, w.created_by, w.definition,\n                   w.version, w.enabled, w.webhook_token, w.next_run_at, w.created_at, w.updated_at,\n                   NOT EXISTS (SELECT 1 FROM workspace_members wm JOIN users u ON u.id = wm.user_id\n                                WHERE wm.workspace_id = w.workspace_id AND wm.user_id = w.created_by\n                                  AND u.status = 'active') AS \"creator_gone!\",\n                   r.status AS \"last_status?: RunStatus\", r.started_at AS \"last_started_at?\"\n              FROM workflows w\n              LEFT JOIN LATERAL (\n                  SELECT status, started_at FROM workflow_runs\n                   WHERE workflow_id = w.id ORDER BY started_at DESC LIMIT 1\n              ) r ON true\n             WHERE w.workspace_id = $1 AND ($2::uuid IS NULL OR w.created_by = $2)\n             ORDER BY lower(w.name), w.created_at\n            ",
   "describe": {
     "columns": [
       {
@@ -137,6 +137,12 @@
       },
       {
         "ordinal": 12,
+        "name": "creator_gone!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 13,
         "name": "last_status?: RunStatus",
         "type_info": {
           "Custom": {
@@ -161,7 +167,7 @@
         }
       },
       {
-        "ordinal": 13,
+        "ordinal": 14,
         "name": "last_started_at?",
         "type_info": "Timestamptz",
         "origin": {
@@ -174,6 +180,7 @@
     ],
     "parameters": {
       "Left": [
+        "Uuid",
         "Uuid"
       ]
     },
@@ -190,9 +197,10 @@
       true,
       false,
       false,
-      true,
-      true
+      null,
+      false,
+      false
     ]
   },
-  "hash": "1944157c6f8b5a1ff77fcbd7f11bcc8234ce2d7d282a750ab42cb2143ee035d8"
+  "hash": "1bd7a50cf55eaac2c877ad44085031c12350682db6e7bdc13b1274d1ee48d170"
 }

@@ -78,19 +78,18 @@ fn worker_port() -> u16 {
 }
 
 fn spawn_consumers(state: &Arc<AppState>, redis_url: &str) {
-    let hook_repo = Arc::new(state.hook_repo.clone());
     let notif_repo = Arc::new(state.notification_repo.clone());
     let huddle_repo = Arc::new(state.huddle_repo.clone());
 
     {
         let redis_url = redis_url.to_string();
-        let hook_repo = hook_repo.clone();
+        let hook_state = state.clone();
         tokio::spawn(async move {
             supervise("hook_consumer", || {
                 let redis_url = redis_url.clone();
-                let hook_repo = hook_repo.clone();
+                let hook_state = hook_state.clone();
                 async move {
-                    hooks::executor::start_hook_consumer(&redis_url, hook_repo).await;
+                    hooks::executor::start_hook_consumer(&redis_url, hook_state).await;
                 }
             })
             .await;

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { History, PenLine, Plus, Power, Trash2 } from 'lucide-react';
+import { History, PenLine, Plus, Power, Trash2, UserCheck } from 'lucide-react';
 import { Modal } from '@/shared/components/Modal/Modal';
 import { Button } from '@/shared/components/Button/Button';
 import { TextInput } from '@/shared/components/Form/TextInput';
@@ -74,6 +74,7 @@ export function WorkflowEditor({
     actions.update.isPending ||
     actions.enable.isPending ||
     actions.disable.isPending ||
+    actions.takeOver.isPending ||
     actions.remove.isPending;
 
   const body = (): SaveWorkflow => ({
@@ -116,6 +117,11 @@ export function WorkflowEditor({
     run(async () => {
       if (workflow) setWorkflow(await actions.disable.mutateAsync(workflow.id));
     }, "Couldn't turn the workflow off");
+
+  const handleTakeOver = () =>
+    run(async () => {
+      if (workflow) setWorkflow(await actions.takeOver.mutateAsync(workflow.id));
+    }, "Couldn't take the workflow over");
 
   const setStep = (index: number, step: Definition['steps'][number]) =>
     setDefinition((d) => ({ ...d, steps: d.steps.map((s, i) => (i === index ? step : s)) }));
@@ -172,6 +178,17 @@ export function WorkflowEditor({
               data-qa="workflow-disable"
             >
               Turn off
+            </Button>
+          )}
+          {workflow && !mine && workflow.creator_gone && (
+            <Button
+              icon={<UserCheck className="h-4 w-4" />}
+              onClick={handleTakeOver}
+              loading={actions.takeOver.isPending}
+              disabled={busy}
+              data-qa="workflow-take-over"
+            >
+              Take over
             </Button>
           )}
           {workflow && !workflow.enabled && !readOnly && (
@@ -274,7 +291,9 @@ export function WorkflowEditor({
             <p className="text-xs text-muted" data-qa="workflow-read-only">
               {mine
                 ? 'Only admins can build workflows in this workspace.'
-                : 'Only the person who built this workflow can change it.'}
+                : workflow?.creator_gone
+                  ? 'The person who built this workflow left or was suspended. Take it over to change it or turn it back on.'
+                  : 'Only the person who built this workflow can change it.'}
             </p>
           )}
           {error && (

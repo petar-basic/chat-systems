@@ -27,6 +27,7 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(disable_workflow))
         .routes(routes!(workflow_runs))
         .routes(routes!(workflow_shortcuts))
+        .routes(routes!(take_over_workflow))
         .routes(routes!(start_workflow))
         .routes(routes!(submit_workflow_form))
 }
@@ -112,6 +113,18 @@ async fn disable_workflow(
 ) -> AppResult<Json<Workflow>> {
     Ok(Json(
         service::disable(&state, workflow_id, auth.user_id, &ip).await?,
+    ))
+}
+
+#[utoipa::path(post, path = "/workflows/{workflow_id}/owner", tag = "workflows", responses((status = 200, body = Workflow)))]
+async fn take_over_workflow(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    ip: ClientIp,
+    Path(workflow_id): Path<Uuid>,
+) -> AppResult<Json<Workflow>> {
+    Ok(Json(
+        service::take_over(&state, workflow_id, auth.user_id, &ip).await?,
     ))
 }
 

@@ -844,6 +844,108 @@ async fn a_creator_leaving_turns_their_workflows_off_and_tells_the_admins(pool: 
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn a_suspended_creators_workflow_stops_and_an_admin_can_take_it_over(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (ws, owner_id, owner, member_id, member) =
+        workspace_with_member(&app, &state, "wf-suspend").await;
+    let (_, _, instance_admin) = seed_and_login(&app, &state, "wf-instance-admin", true).await;
+    let open = seed_channel(&state, ws, owner_id, "open", false).await;
+    let workflow = built(
+        &app,
+        &member,
+        ws,
+        webhook("Pager", &[], vec![post_to(open, "ping")]),
+    )
+    .await;
+    let id = Uuid::parse_str(workflow["id"].as_str().unwrap()).unwrap();
+    assert_eq!(workflow["creator_gone"], false);
+
+    let (status, _) = act(&app, &owner, &workflow, "owner").await;
+    assert_eq!(
+        status,
+        StatusCode::CONFLICT,
+        "a workflow whose creator is still here is theirs"
+    );
+
+    sqlx::query("UPDATE users SET status = 'suspended' WHERE id = $1")
+        .bind(member_id)
+        .execute(&state.pool)
+        .await
+        .unwrap();
+    let (status, _) = call(&app, &hook_path(&workflow), None, json!({})).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    runner::run_pending(&state).await.unwrap();
+    assert!(
+        bot_messages(&state, open).await.is_empty(),
+        "nothing posts on a suspended member's behalf"
+    );
+    let history = runs(&app, &owner, &workflow).await;
+    assert_eq!(history[0]["error"], "The person who built it is suspended");
+    let enabled: bool = sqlx::query_scalar("SELECT enabled FROM workflows WHERE id = $1")
+        .bind(id)
+        .fetch_one(&state.pool)
+        .await
+        .unwrap();
+    assert!(!enabled, "the run that noticed turns it off");
+
+    sqlx::query("UPDATE users SET status = 'active' WHERE id = $1")
+        .bind(member_id)
+        .execute(&state.pool)
+        .await
+        .unwrap();
+    let (status, _) = act(&app, &member, &workflow, "enable").await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/admin/users/{member_id}/suspend"),
+        Some(&instance_admin),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let told: Vec<Option<String>> = sqlx::query_scalar(
+        "SELECT body FROM notifications WHERE user_id = $1 AND data ->> 'workflow_id' = $2 ORDER BY created_at",
+    )
+    .bind(owner_id)
+    .bind(id.to_string())
+    .fetch_all(&state.pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        told.last().cloned().flatten().as_deref(),
+        Some("\u{201c}Pager\u{201d} stopped because the person who built it was suspended.")
+    );
+    let audited: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM audit_log WHERE action = 'workflow.disabled' AND resource_id = $1",
+    )
+    .bind(id)
+    .fetch_one(&state.pool)
+    .await
+    .unwrap();
+    assert_eq!(audited, 1, "suspending turns it off on the record");
+
+    let (status, _) = act(&app, &member, &workflow, "owner").await;
+    assert_ne!(status, StatusCode::OK, "a member cannot take it over");
+    let (status, taken) = act(&app, &owner, &workflow, "owner").await;
+    assert_eq!(status, StatusCode::OK, "{taken:?}");
+    assert_eq!(taken["created_by"], owner_id.to_string());
+    assert_eq!(taken["creator_gone"], false);
+    assert_eq!(taken["enabled"], false, "the new owner turns it on");
+    let audited: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM audit_log WHERE action = 'workflow.taken_over' AND resource_id = $1 AND user_id = $2",
+    )
+    .bind(id)
+    .bind(owner_id)
+    .fetch_one(&state.pool)
+    .await
+    .unwrap();
+    assert_eq!(audited, 1);
+    let (status, _) = act(&app, &owner, &taken, "enable").await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn the_unused_hook_types_are_gone(pool: PgPool) {
     let (_, state) = app_and_state(pool).await;
     let types: Vec<String> = sqlx::query_scalar("SELECT unnest(enum_range(NULL::hook_type))::text")

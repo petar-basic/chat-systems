@@ -194,4 +194,12 @@ describe('IntegrationsSection', () => {
 
     expect(screen.getByTestId('hook-scope')).toHaveTextContent('#alerts, #secret');
   });
+
+  it('says why a hook was turned off', () => {
+    hooks = [hook({ is_active: false, disabled_reason: "Its creator's account is suspended" })];
+    renderPanel();
+    expect(screen.getByTestId('hook-inactive')).toHaveTextContent(
+      "Disabled — its creator's account is suspended",
+    );
+  });
 });

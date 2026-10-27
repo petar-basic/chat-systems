@@ -438,6 +438,37 @@ async fn a_message_from_someone_removed_from_the_workspace_is_not_delivered(pool
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn a_message_from_a_suspended_author_is_not_delivered(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "sched-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Suspended WS").await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "main", false).await;
+    let (author_id, _) = seed(&state, "sched-author", false).await;
+    add_ws_member(&state, ws_id, author_id, "member").await;
+
+    let scheduled = queue_due(&state, ws_id, author_id, ch_id).await;
+    sqlx::query("UPDATE users SET status = 'suspended' WHERE id = $1")
+        .bind(author_id)
+        .execute(&state.pool)
+        .await
+        .expect("suspend");
+
+    let failure = deliver_now(&state, &scheduled).await.expect_err("refused");
+    assert_eq!(
+        failure,
+        crate::scheduled::executor::DeliveryFailure::AuthorInactive
+    );
+    assert_eq!(channel_message_count(&state, ch_id).await, 0);
+    let recorded: Option<String> =
+        sqlx::query_scalar("SELECT failure FROM scheduled_messages WHERE id = $1")
+            .bind(scheduled.id)
+            .fetch_one(&state.pool)
+            .await
+            .expect("row");
+    assert_eq!(recorded.as_deref(), Some("author_inactive"));
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_message_to_an_archived_channel_is_not_delivered(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "sched-owner", false).await;

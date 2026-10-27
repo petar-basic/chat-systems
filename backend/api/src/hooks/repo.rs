@@ -29,7 +29,7 @@ impl HookRepo {
             INSERT INTO hooks (workspace_id, created_by, hook_type, name, description, config)
             VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING id, workspace_id, created_by, hook_type AS "hook_type: HookType", name, description,
-                   config, is_active AS "is_active!", created_at, updated_at
+                   config, is_active AS "is_active!", disabled_reason, created_at, updated_at
             "#,
             workspace_id,
             created_by,
@@ -46,7 +46,7 @@ impl HookRepo {
         sqlx::query_as!(
             Hook,
             r#"SELECT id, workspace_id, created_by, hook_type AS "hook_type: HookType", name, description,
-                   config, is_active AS "is_active!", created_at, updated_at
+                   config, is_active AS "is_active!", disabled_reason, created_at, updated_at
                  FROM hooks WHERE id = $1"#,
             id
         )
@@ -58,7 +58,7 @@ impl HookRepo {
         sqlx::query_as!(
             Hook,
             r#"SELECT id, workspace_id, created_by, hook_type AS "hook_type: HookType", name, description,
-                   config, is_active AS "is_active!", created_at, updated_at
+                   config, is_active AS "is_active!", disabled_reason, created_at, updated_at
                  FROM hooks WHERE workspace_id = $1 ORDER BY created_at DESC"#,
             workspace_id
         )
@@ -75,7 +75,7 @@ impl HookRepo {
             Hook,
             r#"UPDATE hooks SET config = $2, updated_at = NOW() WHERE id = $1
                RETURNING id, workspace_id, created_by, hook_type AS "hook_type: HookType", name, description,
-                   config, is_active AS "is_active!", created_at, updated_at"#,
+                   config, is_active AS "is_active!", disabled_reason, created_at, updated_at"#,
             id,
             config
         )
@@ -97,7 +97,7 @@ impl HookRepo {
         sqlx::query_as!(
             Hook,
             r#"SELECT id, workspace_id, created_by, hook_type AS "hook_type: HookType", name, description,
-                   config, is_active AS "is_active!", created_at, updated_at
+                   config, is_active AS "is_active!", disabled_reason, created_at, updated_at
                  FROM hooks WHERE hook_type = 'incoming_webhook' AND is_active = true AND config->>'token' = $1"#,
             token
         )
@@ -116,7 +116,7 @@ impl HookRepo {
         sqlx::query_as!(
             Hook,
             r#"SELECT id, workspace_id, created_by, hook_type AS "hook_type: HookType", name, description,
-                   config, is_active AS "is_active!", created_at, updated_at
+                   config, is_active AS "is_active!", disabled_reason, created_at, updated_at
                  FROM hooks
                 WHERE workspace_id = $1
                   AND hook_type = 'outgoing_webhook'
@@ -139,7 +139,7 @@ impl HookRepo {
         sqlx::query_as!(
             Hook,
             r#"SELECT id, workspace_id, created_by, hook_type AS "hook_type: HookType", name, description,
-                   config, is_active AS "is_active!", created_at, updated_at
+                   config, is_active AS "is_active!", disabled_reason, created_at, updated_at
                  FROM hooks
                 WHERE workspace_id = $1
                   AND hook_type = 'slash_command'
@@ -156,7 +156,7 @@ impl HookRepo {
         sqlx::query_as!(
             Hook,
             r#"SELECT id, workspace_id, created_by, hook_type AS "hook_type: HookType", name, description,
-                   config, is_active AS "is_active!", created_at, updated_at
+                   config, is_active AS "is_active!", disabled_reason, created_at, updated_at
                  FROM hooks
                 WHERE workspace_id = $1
                   AND hook_type = 'slash_command'
@@ -250,6 +250,41 @@ impl HookRepo {
 
     /// Reserves this (hook, event) pair. Returns false when somebody already
     /// has it, which is how a redelivery is told apart from a first delivery.
+    pub async fn disable(&self, id: Uuid, reason: &str) -> sqlx::Result<()> {
+        sqlx::query!(
+            "UPDATE hooks SET is_active = false, disabled_reason = $2, updated_at = NOW() WHERE id = $1",
+            id,
+            reason
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn disable_by_creator(
+        &self,
+        workspace_id: Option<Uuid>,
+        created_by: Uuid,
+        reason: &str,
+    ) -> sqlx::Result<Vec<DisabledHook>> {
+        sqlx::query_as!(
+            DisabledHook,
+            r"
+            UPDATE hooks
+               SET is_active = false, disabled_reason = $3, updated_at = NOW()
+             WHERE created_by = $2
+               AND ($1::uuid IS NULL OR workspace_id = $1)
+               AND is_active
+            RETURNING id, workspace_id, name
+            ",
+            workspace_id,
+            created_by,
+            reason
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
     pub async fn claim_execution(&self, hook_id: Uuid, event_id: Uuid) -> sqlx::Result<bool> {
         let claimed = sqlx::query!(
             r"
