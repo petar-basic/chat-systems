@@ -13,7 +13,7 @@ ticket in [`docs/tickets/`](./tickets/INDEX.md); a ticket's file is deleted when
 
 Waves 21–23 were chosen in the 2026-10-23 review and shipped together in 3.3.0, before
 4.0.0. Wave 24 came out of the 2026-10-26 review, which walked the app the way a company
-trying it would, and shipped in 3.4.0. Wave 25, raised on 2026-10-27 after 3.4.2, ships in
+trying it would, and shipped in 3.4.0. Wave 25, raised on 2026-10-27 after 3.4.2, shipped in
 3.5.0. Two decisions were considered on 2026-09-02 and deferred
 with their reasoning below: versioning the API path and asymmetric JWT signing.
 
