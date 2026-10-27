@@ -40,6 +40,7 @@ describe('activity', () => {
 
   it('is idle the moment the tab is hidden, and ignores input it cannot see', async () => {
     const { isActive } = await freshTracker();
+    expect(isActive()).toBe(false);
     window.dispatchEvent(new KeyboardEvent('keydown'));
     expect(isActive()).toBe(true);
 
