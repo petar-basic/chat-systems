@@ -1111,6 +1111,21 @@ exists to stop — a workspace with more channels than that used to have its soc
 the act of arriving. One frame, one membership query for the set, capped at 1 000 ids so the
 batch cannot become the flood it replaced.
 
+**Presence follows what a connection subscribes to.** A connection is online in every
+workspace its person belonged to when it opened, and `subscribe` adds the workspace it names:
+it is marked online there before the `presence.batch` is read, the heartbeat keeps it fresh,
+and a clean disconnect clears it. A workspace joined after the socket opened (accepting an
+invite, creating one) shows the person online as soon as they switch to it, without a
+reconnect.
+
+**Replay is bounded twice.** Each workspace stream keeps 10 000 entries and an hour
+(`STREAM_MAXLEN`, the API's stream trimmer); an entry is about 0.8 KB, so a busy workspace
+holds about 8 MB, which is the headroom the worker's consumer group needs when it falls
+behind. A reconnecting client is replayed at most 1 000 events (`REPLAY_MAX_EVENTS`, under a
+megabyte through its socket). A longer gap, or a position the stream has already trimmed,
+answers `sync.refetch_required`, and the client refetches messages, threads, unread counts,
+pins, the sidebar, Activity and *Later*.
+
 **Huddle signaling (incoming client messages).** Mesh WebRTC uses this socket purely as the signaling channel — no media flows through the server. After membership is verified, the server relays via `events:huddle`:
 
 ```json

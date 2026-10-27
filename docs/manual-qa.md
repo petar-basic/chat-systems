@@ -396,6 +396,7 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 - **Steps:** user A and B both online → A sees B as online → B closes the tab/logs out → A sees B go offline within ~60s (TTL) or immediately on clean disconnect.
 - 🟠 **Edge — multi-tab:** B opens two tabs, closes one → B stays **online** (other tab/connection holds presence). Close the last → goes offline. (Presence is keyed per connection/node, so one tab closing doesn't flip you offline.)
 - 🔴 **Edge — presence is workspace-scoped:** A and B share **no** workspace (C is in a workspace with B but A is not). A should **never** see B's presence — neither the initial `presence.batch` snapshot on subscribe nor live `presence.changed` updates reach A. Verify B going online/offline shows up for C (shared workspace) but not for A. (`presence.changed` carries the subject's `workspace_ids` and is delivered only to connections subscribed to a shared workspace.)
+- 🟠 **Edge — a workspace joined after connecting:** A accepts an invite to a workspace B is in, without reloading, and switches to it → B sees A online at once.
 
 ### 9.2 🟢 Typing indicators
 - **Steps:** A types in a channel → B (viewing it) sees "A is typing…" → stops → indicator clears.
@@ -406,6 +407,8 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 - 🟠 **Edge — reconnect:** kill the realtime connection (stop `chat-realtime` or toggle network) → the client shows "disconnected" and reconnects with backoff; after reconnect, new messages flow again.
 - 🔴 **Edge — WS authz:** as user B, try to subscribe to a channel you're NOT a member of (craft a WS `channel.join` with another channel's id via devtools console) → you receive **no** messages for it. (Valid client message `type`s are `subscribe`, `channel.join`, `channel.leave`, `typing.start`, `typing.stop`, `ping`, plus the `huddle.*` set — anything else is ignored.)
 - 🔴 **Edge — WS token type:** connect the websocket using a reset/refresh token in the `access_token` cookie → connection refused (only access tokens open a socket).
+- 🟠 **Edge — waking up:** with the app open, turn Wi-Fi off for a minute (or sleep the laptop), then on → the *Offline* bar clears within a second or two, without waiting for the backoff; messages sent meanwhile by B are there. In devtools, *Offline* then back *Online* does the same.
+- 🟠 **Edge — a gap too long to replay:** stop `realtime`, have B post more than 1 000 events' worth (or wait past the hour), start it again → the open channel, its unread counts, pins and the sidebar are all current without a reload.
 
 ### 9.4 🟠 Realtime health & consumer supervision
 - **Reach:** `GET /readyz` on api (`:3000`) and realtime (`:3004`); `GET /metrics` on both.
@@ -415,6 +418,11 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 ### 9.5 🔴 WS upgrade hardening (Origin + revocation)
 - 🔴 **Edge — Origin check:** open a WS to `/ws` from a page whose `Origin` is not in `CORS_ORIGINS` (e.g. via a script on another host) → upgrade **rejected** ("Origin not allowed"). Same-origin app connects fine.
 - 🔴 **Edge — revoked session can't connect:** suspend a user (§2.2), then try to open a fresh `/ws` with their (still-unexpired) access token → upgrade **rejected** ("Session revoked").
+
+### 9.6 🟠 A new version while a tab is open
+- **Steps:** open the app, then rebuild and restart `frontend` (`docker compose --profile frontend up -d --build frontend`) → within ten minutes, or at once after switching to another tab and back, *A new version is available* shows at the top → *Reload* opens the new build and the bar is gone.
+- 🟠 **Edge — a chunk that is gone:** with a tab from the old build still open, open something lazy you had not opened yet (*Preferences*, the emoji picker) → it loads, from the previous release's chunks or after one automatic reload; it never stays blank.
+- 🟢 **Headers:** `curl -sI localhost:8080/ | grep -i cache-control` → `no-cache`; the same for `/version.json`; an `/assets/*.js` file is `public, immutable`.
 
 ---
 

@@ -29,8 +29,10 @@ export const QUERY_KEYS = {
   messages: (channelId: string) => ['messages', channelId] as const,
   threadsAll: () => ['threads'] as const,
   thread: (parentId: string) => ['threads', parentId] as const,
+  followedThreadsAll: () => ['followed-threads'] as const,
   followedThreads: (workspaceId: string) => ['followed-threads', workspaceId] as const,
   unreadThreads: (workspaceId: string) => ['followed-threads', workspaceId, 'unread'] as const,
+  threadStateAll: () => ['thread-state'] as const,
   threadState: (rootId: string) => ['thread-state', rootId] as const,
 
   notificationsAll: () => ['notifications'] as const,
@@ -44,13 +46,16 @@ export const QUERY_KEYS = {
 
   conversationsAll: () => ['conversations'] as const,
   conversations: (workspaceId: string) => ['conversations', workspaceId] as const,
+  unreadsAll: () => ['unreads'] as const,
   unreads: (workspaceId: string) => ['unreads', workspaceId] as const,
+  sidebarAll: () => ['sidebar'] as const,
   sidebar: (workspaceId: string) => ['sidebar', workspaceId] as const,
   apps: (workspaceId: string) => ['apps', workspaceId] as const,
 
   scheduledMessages: (workspaceId: string) => ['scheduled-messages', workspaceId] as const,
 
   slackImports: (workspaceId: string) => ['slack-imports', workspaceId] as const,
+  laterAll: () => ['later'] as const,
   later: (workspaceId: string, status?: string) =>
     (status ? ['later', workspaceId, status] : ['later', workspaceId]) as readonly string[],
   channelBookmarks: (channelId: string) => ['channels', channelId, 'bookmarks'] as const,

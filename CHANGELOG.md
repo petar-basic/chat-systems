@@ -40,6 +40,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   or stops using the app. Push is held back only while a session says it is active, so a
   client that never sends it gets push even with its socket open. A `huddle.ring` to somebody
   who paused the workspace is no longer delivered.
+- Building the frontend image yourself: pass `--build-arg PREVIOUS_IMAGE=<the frontend image
+  you run now>` to keep its chunks for tabs opened before the upgrade, and
+  `--build-arg APP_VERSION=<version>` to name the build. A proxy in front of the frontend
+  should not cache `index.html` or `version.json`; nginx now sends `no-cache` for both.
 
 ### Security
 
@@ -104,6 +108,14 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   of what their hook posts, under the bot's name. *Preferences → Notifications* has the
   *Desktop notifications while the app is open* switch, and a desktop notification and a push
   about the same channel replace each other instead of showing twice.
+- **Waking up reconnects, and a deploy no longer breaks an open tab.** The socket reconnects
+  as soon as the network comes back or the tab is shown again, instead of waiting out its
+  backoff, and a socket left half-open by sleep is replaced within two seconds. Switching to
+  a workspace you joined after connecting shows you online there at once. A gap too long to
+  replay now also refreshes unread counts, pins and the sidebar. After a deploy, an open tab
+  shows *A new version is available* with *Reload*, a lazy page or the emoji picker whose
+  chunk is gone reloads once onto the new build, and release images keep the previous
+  release's chunks.
 
 ## [3.5.0] — 2026-10-27
 

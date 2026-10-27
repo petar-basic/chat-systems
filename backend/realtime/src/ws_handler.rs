@@ -32,6 +32,7 @@ pub(crate) struct InboundState {
     last_refill: Instant,
     last_typing: std::collections::HashMap<Uuid, Instant>,
     active: bool,
+    pub(crate) presence_workspaces: Vec<Uuid>,
 }
 
 impl InboundState {
@@ -41,6 +42,7 @@ impl InboundState {
             last_refill: Instant::now(),
             last_typing: std::collections::HashMap::new(),
             active: false,
+            presence_workspaces: Vec::new(),
         }
     }
 
@@ -134,12 +136,11 @@ pub async fn handle_ws(socket: WebSocket, claims: crate::Claims, cm: Arc<Connect
 
     info!("WS connected: user={}, conn={}", user_id, conn_id);
 
-    // Resolved once per connection instead of on every heartbeat: the set of
-    // workspaces a user belongs to changes far more slowly than the 30-second
-    // refresh, and `workspace.member_removed` corrects it when it does.
-    let presence_workspaces = cm.user_workspace_ids(user_id).await;
+    let mut inbound = InboundState::new();
+    inbound.presence_workspaces = cm.user_workspace_ids(user_id).await;
 
-    cm.presence_set_online(user_id, &presence_workspaces).await;
+    cm.presence_set_online(user_id, &inbound.presence_workspaces)
+        .await;
     if first_local {
         cm.publish_presence(user_id, "online").await;
     }
@@ -154,7 +155,6 @@ pub async fn handle_ws(socket: WebSocket, claims: crate::Claims, cm: Arc<Connect
     heartbeat.tick().await;
 
     let mut last_pong = Instant::now();
-    let mut inbound = InboundState::new();
     let token_deadline = exp_to_deadline(exp);
 
     loop {
@@ -212,7 +212,7 @@ pub async fn handle_ws(socket: WebSocket, claims: crate::Claims, cm: Arc<Connect
                     );
                     break;
                 }
-                cm.presence_refresh(user_id, &presence_workspaces).await;
+                cm.presence_refresh(user_id, &inbound.presence_workspaces).await;
                 if inbound.active {
                     cm.activity_set(user_id, conn_id, true).await;
                 }
@@ -221,7 +221,7 @@ pub async fn handle_ws(socket: WebSocket, claims: crate::Claims, cm: Arc<Connect
         }
     }
 
-    cleanup(&cm, &conn_id, user_id, &presence_workspaces).await;
+    cleanup(&cm, &conn_id, user_id, &inbound.presence_workspaces).await;
     guard.cleaned = true;
     drop(tx);
     writer.abort();
@@ -331,6 +331,10 @@ pub(crate) async fn handle_client_message(
                     };
                     cm.send_to_conn(*conn_id, &frame_text(&frame));
 
+                    if !inbound.presence_workspaces.contains(&ws_id) {
+                        inbound.presence_workspaces.push(ws_id);
+                    }
+                    cm.presence_set_online(user_id, &[ws_id]).await;
                     let online = cm.online_users_in_workspace(ws_id).await;
                     let batch = ServerFrame::PresenceBatch {
                         users: online

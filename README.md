@@ -164,8 +164,9 @@ Honest about the edges, since this is a reference codebase:
 
 - **Real-time delivery is at-least-once, not exactly-once.** Every durable event is
   written through an outbox and a per-workspace Redis Stream, and a reconnecting client
-  replays from its cursor; a gap longer than the stream keeps (10 000 entries) falls back
-  to refetching open views. Consumers and clients are written to tolerate a duplicate.
+  replays up to 1 000 events from its cursor; a longer gap, or one older than the stream
+  keeps (10 000 entries, an hour), falls back to refetching open views, unread counts, pins
+  and the sidebar. Consumers and clients are written to tolerate a duplicate.
 - **Huddles use a WebRTC mesh**, which is great up to ~6–8 participants, so a huddle is
   capped at eight; large all-hands calls need the SFU planned for 4.0.0.
 - **One instance is one trust domain.** SSO, TOTP and SCIM are per instance, not per

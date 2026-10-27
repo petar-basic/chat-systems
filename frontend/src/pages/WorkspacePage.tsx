@@ -4,6 +4,7 @@ import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { ROUTES, EmptyLabels } from '@/shared/constants';
 import { ConnectionBanner } from '@/shared/components/ConnectionBanner/ConnectionBanner';
 import InstallAppBanner from '@/features/instance/InstallAppBanner';
+import NewVersionBanner from '@/features/instance/NewVersionBanner';
 import { QuickSwitcher, KeyboardShortcutsDialog } from '@/features/navigation';
 import {
   WorkspaceSidebar,
@@ -77,6 +78,7 @@ export default function WorkspacePage() {
 
   return (
     <div className="h-dvh flex flex-col bg-app text-fg">
+      <NewVersionBanner />
       <InstallAppBanner />
       <div className="flex-1 flex min-h-0 relative">
         <div

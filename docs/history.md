@@ -1892,3 +1892,26 @@ excludes nobody as its author, and every notification about a bot message carrie
 name. *Preferences → Notifications* gains *Desktop notifications while the app is open*, and
 the in-tab notification takes its channel as its tag, as the push does, so the two replace
 each other.
+
+### [CS-084] Reconnecting, presence and new versions ✅ shipped
+After a laptop slept, the socket waited out its backoff — up to thirty seconds — and a socket
+the sleep left half-open still looked open until the server's heartbeat gave up on it.
+Presence was written for the workspaces a person belonged to when the socket opened, so a
+workspace joined later showed them offline until they reconnected. The README promised a
+replay of 10 000 events while the gateway stopped at 1 000, and the fallback refetch left
+unread counts, pins and the sidebar stale. After a deploy an open tab still ran the old
+bundle, and a lazy page or the emoji picker asked for chunks the new image no longer had.
+
+The client reconnects at once on `online` and when the tab is shown with a closed socket, and
+probes one that still looks open with a `ping`, replacing it if nothing comes back within two
+seconds. `subscribe` marks the person online in that workspace before the roster is read and
+adds it to what the heartbeat refreshes and the disconnect clears. The stream keeps 10 000
+entries for the worker's sake (about 0.8 KB each, measured, so 8 MB for a busy workspace) and
+a client is replayed at most 1 000; the README now says both, and the gap fallback
+invalidates every key a missed event could touch. nginx serves `index.html` and
+`version.json` uncached; the client compares `version.json` with the build it is running when
+the tab returns, the network does and every ten minutes, and offers *Reload*. A
+`vite:preloadError` reloads once (guarded through `sessionStorage`, so a chunk that is really
+missing surfaces instead of looping), and the release image copies the previous release's
+chunks in beside its own, listed in `release-assets.txt` so they last one release and do not
+pile up.

@@ -1,3 +1,7 @@
+ARG PREVIOUS_IMAGE=nginxinc/nginx-unprivileged:alpine
+
+FROM ${PREVIOUS_IMAGE} AS previous
+
 # ── Stage 1: Build ──────────────────────────────────────────
 FROM node:22-alpine AS builder
 
@@ -10,7 +14,17 @@ COPY index.html tsconfig.json tsconfig.app.json tsconfig.node.json vite.config.t
 COPY public/ public/
 COPY src/ src/
 
+ARG APP_VERSION
+ENV APP_VERSION=${APP_VERSION}
 RUN npm run build
+
+RUN ls dist/assets > dist/release-assets.txt
+RUN --mount=type=bind,from=previous,source=/usr/share/nginx/html,target=/previous \
+    if [ -f /previous/release-assets.txt ]; then \
+      while read -r name; do cp -n "/previous/assets/$name" dist/assets/ 2>/dev/null || true; done < /previous/release-assets.txt; \
+    elif [ -d /previous/assets ]; then \
+      cp -n /previous/assets/* dist/assets/; \
+    fi
 
 # ── Stage 2: Serve with nginx (non-root) ───────────────────
 # nginxinc/nginx-unprivileged runs as the unprivileged `nginx` user (uid 101)
