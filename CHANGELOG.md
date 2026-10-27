@@ -71,6 +71,13 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   a channel, for everyone in it. A channel admin adds an incoming webhook there without a
   workspace admin, sees its URL once, and can make a new URL or remove it. The workspace
   *Integrations* section links each hook's channels.
+- **Who may notify a whole channel, and who may make one.** *Workspace settings → General*
+  has a *Permissions* group: who can build workflows, use `@channel`, `@here` and
+  `@everyone`, and create public or private channels, each every member or admins only.
+  *Channel details → Settings* turns the three broadcasts off for one channel. The composer
+  offers them only to someone who may use them, and in a channel of more than 25 people asks
+  *This notifies N people. Send anyway?* first. *Create channel* offers only the kinds the
+  person may make, and is gone when they may make neither.
 - **API: who may notify a whole channel, and who may make one.** Workspace `settings` take
   `broadcast_mentions`, `public_channel_creators` and `private_channel_creators`
   (`members`, the default, or `admins`) through `PATCH /workspaces/{id}`, and a channel's
@@ -89,6 +96,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ### Changed
 
+- **A message the server refuses says why** (*Only workspace admins and this channel's admins
+  can use @channel, @here and @everyone*) instead of *Message failed to send*. A network or
+  server failure still says the latter.
 - **Channel settings is now *Channel details*,** open to everyone in the channel from ⋯, with
   *About*, *Settings* (moderators) and *Integrations*. The header's *Integration* badge opens
   *Integrations*.

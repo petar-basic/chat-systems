@@ -270,13 +270,12 @@ come after the structure move because they rebuild *Channel settings* as *Channe
 | CS-072 ✅ | Fewer round trips on start and on switching channels | frontend · backend |
 | CS-073 ✅ | One frontend structure | frontend |
 | CS-074 ✅ | A channel shows what posts into it, and its admin can add a webhook | backend · frontend |
-| [CS-075](CS-075-posting-and-channel-permissions.md) | Who may notify a whole channel, and who may make one | backend · frontend |
+| CS-075 ✅ | Who may notify a whole channel, and who may make one | backend · frontend |
 
 ### Still open
 
 | # | Ticket | Area | Why it is not done |
 |---|---|---|---|
-| [CS-075](CS-075-posting-and-channel-permissions.md) | Wave 24 | frontend · backend · ops | Planned 2026-10-26; one at a time, in number order |
 | [CS-037](CS-037-huddle-sfu.md) | SFU for large huddles | backend · frontend · ops | Held for 4.0.0 — it adds a service to the stack, so it ships in a major release |
 
 ## Conflict map
@@ -304,6 +303,6 @@ Tickets that touch the same files, and the order that avoids rework:
 | search visibility (`searchable_channels()`) | CS-048 ✅ → CS-063 ✅ → CS-064 ✅ |
 | search panel tabs and filter bar | CS-058 ✅ → CS-063 ✅ → CS-064 ✅ |
 | `chat-worker` supervised loops | CS-064 ✅ → CS-065 ✅ → CS-067 ✅ |
-| workspace `settings` JSON and the *General* section | CS-070 ✅ → CS-075 |
-| *Channel settings* / *Channel details* | CS-070 ✅ → CS-074 ✅ → CS-075 |
+| workspace `settings` JSON and the *General* section | CS-070 ✅ → CS-075 ✅ |
+| *Channel settings* / *Channel details* | CS-070 ✅ → CS-074 ✅ → CS-075 ✅ |
 | *Integrations* panel and hook permissions | CS-070 ✅ → CS-074 ✅ |

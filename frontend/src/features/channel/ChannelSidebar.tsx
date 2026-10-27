@@ -22,6 +22,7 @@ import { CreateChannelModal } from './components/CreateChannelModal';
 import { SidebarCustomSection } from './components/SidebarCustomSection';
 import { acceptsChannelDrop } from './components/channelDrag';
 import { SectionNameInput } from './components/SectionNameInput';
+import { creatableChannelKinds } from '@/lib/channelPermissions';
 import { useSidebarLayout, useSidebarActions } from '@/features/channel/hooks/useSidebarLayout';
 
 interface Props {
@@ -104,6 +105,7 @@ export default function ChannelSidebar({
   const currentInstance = instances.find((i) => i.url === activeInstanceUrl);
   const isInstanceAdmin = currentInstance?.user.is_instance_admin ?? false;
   const isWorkspaceAdmin = currentUserRole === 'admin' || currentUserRole === 'owner';
+  const creatableKinds = creatableChannelKinds(currentUserRole, currentWorkspace?.settings);
 
   const { data: layout } = useSidebarLayout(currentWorkspace?.id);
   const sidebar = useSidebarActions(currentWorkspace?.id);
@@ -259,7 +261,11 @@ export default function ChannelSidebar({
               label="Channels"
               collapsed={collapsed.channels}
               onToggle={toggleSection}
-              action={{ label: 'Create channel', onClick: () => setShowNewChannel(true) }}
+              action={
+                creatableKinds.length > 0
+                  ? { label: 'Create channel', onClick: () => setShowNewChannel(true) }
+                  : undefined
+              }
             />
             {!collapsed.channels && channels.filter((ch) => !placement.has(ch.id)).map(renderChannel)}
           </div>
@@ -363,6 +369,7 @@ export default function ChannelSidebar({
 
       {showNewChannel && (
         <CreateChannelModal
+          kinds={creatableKinds}
           channels={channels}
           onCreate={onCreateChannel}
           onClose={() => setShowNewChannel(false)}
@@ -376,10 +383,14 @@ export default function ChannelSidebar({
           currentUserId={currentUserId}
           onClose={() => setShowBrowseChannels(false)}
           onOpenChannel={(channelId) => navigate(`/app/${currentWorkspace.id}/${channelId}`)}
-          onCreateChannel={() => {
-            setShowBrowseChannels(false);
-            setShowNewChannel(true);
-          }}
+          onCreateChannel={
+            creatableKinds.length > 0
+              ? () => {
+                  setShowBrowseChannels(false);
+                  setShowNewChannel(true);
+                }
+              : undefined
+          }
         />
       )}
     </>

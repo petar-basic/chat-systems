@@ -1,6 +1,8 @@
 import type { MentionItem } from './MentionDropdown';
 import type { Channel, WorkspaceMember } from '@/stores/workspace';
 import type { UserGroup } from '@/features/workspace';
+import { BROADCAST_CONFIRM_ABOVE } from '@/shared/constants';
+import { mentionsEveryone } from '@/lib/mentions';
 
 export const BROADCAST_MENTIONS: MentionItem[] = [
   { id: 'channel', label: 'channel', type: 'broadcast', hint: 'everyone in here' },
@@ -13,9 +15,10 @@ export function buildMentionItems(
   channels: Channel[],
   isDm: boolean,
   groups: UserGroup[] = [],
+  canBroadcast = true,
 ): MentionItem[] {
   return [
-    ...(isDm ? [] : BROADCAST_MENTIONS),
+    ...(isDm || !canBroadcast ? [] : BROADCAST_MENTIONS),
     // A group is only meaningful where it can fan out, and a DM has no channel
     // membership to intersect with.
     ...(isDm
@@ -35,4 +38,8 @@ export function buildMentionItems(
     })),
     ...channels.flatMap((c) => (c.name ? [{ id: c.id, label: c.name, type: 'channel' as const }] : [])),
   ];
+}
+
+export function asksBeforeBroadcast(markdown: string, channelMemberCount: number): boolean {
+  return channelMemberCount > BROADCAST_CONFIRM_ABOVE && mentionsEveryone(markdown);
 }

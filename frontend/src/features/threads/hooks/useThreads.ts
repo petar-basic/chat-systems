@@ -3,6 +3,7 @@ import type { components } from '@/api/schema';
 import type { Message } from '@/stores/workspace';
 import { useCurrentApi } from '@/shared/hooks/useCurrentApi';
 import { logger } from '@/lib/logger';
+import { refusalOr } from '@/lib/errors';
 import { toast } from '@/shared/components/Toast';
 import { QUERY_KEYS, ErrorLabels } from '@/shared/constants';
 import { patchMessageById, claimReplyCount } from '@/lib/messageCache';
@@ -137,7 +138,7 @@ export const useSendThreadReply = (parentMessageId: string, channelId: string, u
       queryClient.setQueryData<Message[]>(key, (old = []) =>
         old.map((m) => (m.id === id ? { ...m, pending: false, failed: true } : m)),
       );
-      toast.error(ErrorLabels.SendFailed);
+      toast.error(refusalOr(err, ErrorLabels.SendFailed));
     },
     onSuccess: (newMessage, { id }) => {
       queryClient.setQueryData<Message[]>(key, (old = []) => {

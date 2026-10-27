@@ -51,3 +51,9 @@ export function toUserMessage(error: unknown, fallback = GENERIC_ERROR_MESSAGE):
   if (error instanceof Error && error.message) return error.message;
   return fallback;
 }
+
+export function refusalOr(error: unknown, fallback: string): string {
+  return error instanceof ApiError && error.status >= 400 && error.status < 500
+    ? toUserMessage(error)
+    : fallback;
+}

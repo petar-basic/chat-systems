@@ -9,17 +9,19 @@ import { Hash, Lock } from 'lucide-react';
 import { CHANNEL_NAME_MAX, channelNameFrom } from '../channelName';
 import type { CreateChannelDraft } from '@/shared/models/channel';
 import type { Channel } from '@/stores/workspace';
+import type { ChannelKind } from '@/lib/channelPermissions';
 
 interface Props {
+  kinds: ChannelKind[];
   channels: Channel[];
   onCreate: (draft: CreateChannelDraft) => Promise<void>;
   onClose: () => void;
 }
 
-export function CreateChannelModal({ channels, onCreate, onClose }: Props) {
+export function CreateChannelModal({ kinds, channels, onCreate, onClose }: Props) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [isPrivate, setIsPrivate] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(!kinds.includes('public'));
   const [announcementOnly, setAnnouncementOnly] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -88,22 +90,23 @@ export function CreateChannelModal({ channels, onCreate, onClose }: Props) {
           label="Visibility"
           value={isPrivate ? 'private' : 'public'}
           onChange={(value) => setIsPrivate(value === 'private')}
+          columns={kinds.length > 1 ? 2 : 1}
           options={[
             {
-              value: 'public',
+              value: 'public' as const,
               label: 'Public',
               description: 'Anyone in the workspace can find and join it.',
               icon: <Hash className="w-4 h-4" />,
               dataQa: 'create-channel-public',
             },
             {
-              value: 'private',
+              value: 'private' as const,
               label: 'Private',
               description: 'Only people who are invited can find or read it.',
               icon: <Lock className="w-4 h-4" />,
               dataQa: 'create-channel-private',
             },
-          ]}
+          ].filter((option) => kinds.includes(option.value))}
         />
 
         <TextArea

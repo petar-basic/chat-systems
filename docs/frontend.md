@@ -175,8 +175,9 @@ sits in the ⋯ menu for everyone in the channel; below `sm` the toggles fold in
 
 ### `channel/details/ChannelDetailsModal`
 A `SectionedModal` with *About* (name, topic, description and archive for a moderator, the
-topic and description as text for everyone else), *Settings* (announcement channel and
-message retention, moderators only) and *Integrations*. *Integrations* reads
+topic and description as text for everyone else), *Settings* (announcement channel, whether
+`@channel`, `@here` and `@everyone` work there, and message retention, moderators only) and
+*Integrations*. *Integrations* reads
 `GET /channels/:id/integrations`: the incoming webhooks bound to the channel, the outgoing
 webhooks and slash commands scoped to it, and the workflows that start from it or post into
 it. When the server says `can_add_webhook`, the viewer adds an incoming webhook, makes a new
@@ -374,7 +375,13 @@ on* switch it. There are no drafts. *Run history* swaps the form for `RunHistory
 or yours when only admins may build, opens read-only. `workflowModel.ts` holds the pure
 helpers (schedule presets, insertion, reordering, who may build).
 
-*Workspace settings → General* has *Who can build workflows* (every member or admins only). A message whose
+*Workspace settings → General* has a *Permissions* group: who can build workflows, use
+`@channel`, `@here` and `@everyone`, and create public or private channels (every member or
+admins only each). `lib/workspaceRules.ts` reads a rule from the settings; `lib/channelPermissions.ts`
+mirrors the server's checks so the composer leaves the broadcasts out of its suggestions for
+someone who would be refused, and *Create channel* offers only the kinds the person may make
+(no *+* at all when neither). In a channel of more than 25 people the composer asks *This
+notifies N people. Send anyway?* before a broadcast. A send the server refuses says why. A message whose
 `metadata.bot.workflow_id` is set is tagged *Workflow* instead of *Bot*.
 
 A message with `metadata.form` renders `FormCard` instead of its text: the title, and for its

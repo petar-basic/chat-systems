@@ -15,3 +15,10 @@ export function parseMentions(content: string): MentionRef[] {
 export function flattenMentions(content: string): string {
   return content.replace(MENTION_TOKEN, (_m, label) => `@${label}`);
 }
+
+const BROADCAST =
+  /@\[[^\]]*\]\((?:channel|here|everyone)\)|(?:^|[\s(])@(?:channel|here|everyone)(?![A-Za-z0-9_])/;
+
+export function mentionsEveryone(content: string): boolean {
+  return BROADCAST.test(content);
+}

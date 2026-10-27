@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { API, login, userContext, devWorkspace } from './helpers';
+import { API, login, userContext, devWorkspace, openWorkspaceSettings, send } from './helpers';
 
 test('@channel reaches a member who was never named', async ({ page }) => {
   const { ctx: admin } = await userContext('admin@dev.local');
@@ -82,6 +82,56 @@ test('a plain message leaves uninvolved members alone', async ({ page }) => {
     ).toHaveCount(0);
   } finally {
     await admin.delete(`${API}/channels/${channelId}`);
+    await admin.dispose();
+    await bob.dispose();
+  }
+});
+
+test('an admin keeps @channel to admins, and a member is neither offered it nor let through', async ({
+  page,
+  browser,
+}) => {
+  const { ctx: admin } = await userContext('admin@dev.local');
+  const { ctx: bob, userId: bobId } = await userContext('bob@dev.local');
+  const workspace = await devWorkspace(admin);
+  const stamp = Date.now();
+  const created = await admin.post(`${API}/workspaces/${workspace.id}/channels`, {
+    data: { name: `all-hands-${stamp}`, channel_type: 'public' },
+  });
+  const channelId = (await created.json()).id as string;
+  const bobContext = await browser.newContext();
+
+  try {
+    await admin.post(`${API}/channels/${channelId}/members`, { data: { user_id: bobId } });
+
+    await login(page, 'admin@dev.local');
+    await openWorkspaceSettings(page, 'general');
+    await page.getByTestId('workspace-broadcast-mentions').selectOption('admins');
+    await expect(page.getByTestId('workspace-save-status')).toHaveText('Saved');
+
+    const bobPage = await bobContext.newPage();
+    await login(bobPage, 'bob@dev.local');
+    await bobPage.goto(`/app/${workspace.id}/${channelId}`);
+    await expect(bobPage.getByTestId('channel-header-name')).toHaveText(`all-hands-${stamp}`);
+
+    const editor = bobPage.locator('.ProseMirror[contenteditable="true"]').last();
+    await editor.click();
+    await editor.pressSequentially('@');
+    await expect(bobPage.getByTestId('mention-option').first()).toBeVisible();
+    await expect(bobPage.locator('[data-mention-type="broadcast"]')).toHaveCount(0);
+    await editor.press('Escape');
+
+    await send(bobPage, `@channel lunch? ${stamp}`);
+    await expect(
+      bobPage.getByText(
+        "Only workspace admins and this channel's admins can use @channel, @here and @everyone",
+      ),
+    ).toBeVisible();
+    await expect(bobPage.getByTestId('message-failed')).toBeVisible();
+  } finally {
+    await admin.patch(`${API}/workspaces/${workspace.id}`, { data: { broadcast_mentions: 'members' } });
+    await admin.delete(`${API}/channels/${channelId}`);
+    await bobContext.close();
     await admin.dispose();
     await bob.dispose();
   }

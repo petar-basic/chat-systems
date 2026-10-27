@@ -23,6 +23,7 @@ import {
   useComposerAttachments,
   GalleryProvider,
 } from '@/features/messaging';
+import { useChannelModeration } from '@/features/channel';
 
 interface Props {
   parentMessage: Message;
@@ -39,6 +40,11 @@ export default function ThreadPanel({ parentMessage, members, channels, onClose 
   const { toggleReaction, edit, remove, togglePin } = useThreadReplyActions(parentMessage.id, currentUserId);
   const endRef = useRef<HTMLDivElement>(null);
   const { data: threadState, refetch: markRead } = useThreadState(parentMessage.id);
+  const channel = channels?.find((ch) => ch.id === parentMessage.channel_id);
+  const { canBroadcast, members: channelMembers } = useChannelModeration(
+    parentMessage.channel_id,
+    channel?.settings,
+  );
   const follow = useFollowThread(parentMessage.id);
   const seenReplies = useRef<number | null>(null);
 
@@ -155,6 +161,8 @@ export default function ThreadPanel({ parentMessage, members, channels, onClose 
             placeholder="Reply…"
             members={members}
             channels={channels}
+            canBroadcast={canBroadcast}
+            channelMemberCount={channelMembers.length}
             draftKey={`thread:${parentMessage.id}`}
             onSend={handleSend}
             attachments={attachments}

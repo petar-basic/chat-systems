@@ -63,4 +63,27 @@ describe('GeneralSection', () => {
     await waitFor(() => expect(patch).toHaveBeenCalledOnce());
     expect(bodyOf(0)).toEqual({ workflow_builders: 'admins' });
   });
+
+  it('saves who may broadcast and who may create each kind of channel, one rule at a time', async () => {
+    render(
+      <GeneralSection
+        workspace={{ ...workspace, settings: { private_channel_creators: 'admins' } }}
+        onDeleted={vi.fn()}
+      />,
+      { wrapper },
+    );
+    expect(screen.getByTestId('workspace-broadcast-mentions')).toHaveValue('members');
+    expect(screen.getByTestId('workspace-private-channel-creators')).toHaveValue('admins');
+
+    fireEvent.change(screen.getByTestId('workspace-broadcast-mentions'), { target: { value: 'admins' } });
+    await waitFor(() => expect(patch).toHaveBeenCalledOnce());
+    expect(bodyOf(0)).toEqual({ broadcast_mentions: 'admins' });
+
+    fireEvent.change(screen.getByTestId('workspace-public-channel-creators'), {
+      target: { value: 'admins' },
+    });
+    await waitFor(() => expect(patch).toHaveBeenCalledTimes(2));
+    expect(bodyOf(1)).toEqual({ public_channel_creators: 'admins' });
+    expect(screen.getByTestId('workspace-broadcast-mentions')).toHaveValue('admins');
+  });
 });
