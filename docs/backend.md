@@ -157,7 +157,7 @@ Handles user identity — login, registration, JWT, and profile.
 | GET | `/users/me` | JWT | `UserPublic` |
 | PATCH | `/users/me` | `{ display_name?, avatar_url?, bio?, timezone? }` | `UserPublic` |
 | PATCH | `/users/me/password` | `{ current_password, new_password }` | `{ status: "password_changed" }` |
-| PUT | `/users/me/status` | `{ emoji?, text?, expires_at? }` | `UserPublic` — a custom status; needs an emoji or some text, and an expiry in the future. An expired status stops being returned by every read; the row itself is only overwritten the next time the person sets one |
+| PUT | `/users/me/status` | `{ emoji?, text?, expires_at? }` | `UserPublic` — a custom status; needs an emoji or some text, the emoji being a character or a custom emoji's `:shortcode:`, and an expiry in the future. An expired status stops being returned by every read; the row itself is only overwritten the next time the person sets one |
 | DELETE | `/users/me/status` | — | `UserPublic` |
 
 ---

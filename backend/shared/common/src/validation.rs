@@ -284,6 +284,9 @@ pub fn validate_status_text(text: &str) -> AppResult<()> {
 }
 
 pub fn validate_status_emoji(emoji: &str) -> AppResult<()> {
+    if custom_emoji_name(emoji).is_some() {
+        return Ok(());
+    }
     if emoji.chars().count() > 16 {
         return Err(AppError::Validation(
             "Status emoji must be at most 16 characters".into(),
@@ -586,5 +589,7 @@ mod tests {
         assert_validation_err(validate_status_text(&"a".repeat(101)));
         assert_validation_err(validate_status_text("two\nlines"));
         assert_validation_err(validate_status_emoji("a b"));
+        assert!(validate_status_emoji(":a-workspace-emoji-long-name:").is_ok());
+        assert_validation_err(validate_status_emoji(&"a".repeat(17)));
     }
 }

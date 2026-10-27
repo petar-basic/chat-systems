@@ -23,6 +23,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   A reaction used to be refused above eight characters, so `:party-parrot:` could not be one.
   API: `POST /messages/{id}/reactions` takes a `:shortcode:` the workspace has, and answers 422
   for one it does not.
+- **The status emoji comes from the picker**, workspace emoji included, instead of a text box
+  that took any sixteen characters. A custom one shows as its image wherever the status does;
+  in a workspace without it, as its `:shortcode:`.
 
 ## [3.4.1] — 2026-10-27
 

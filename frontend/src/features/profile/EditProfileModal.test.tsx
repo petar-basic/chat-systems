@@ -27,6 +27,19 @@ vi.mock('@/features/profile/hooks/useStatus', () => ({
     clear: { mutateAsync: (...args: unknown[]) => clearStatus(...args) },
   }),
 }));
+vi.mock('@/features/messaging', () => ({
+  EmojiPicker: ({ onSelect, onClose }: { onSelect: (emoji: string) => void; onClose: () => void }) => (
+    <button
+      type="button"
+      onClick={() => {
+        onSelect(':shipit:');
+        onClose();
+      }}
+    >
+      pick shipit
+    </button>
+  ),
+}));
 vi.mock('@/stores/instances', () => ({
   useInstanceStore: (select: (state: unknown) => unknown) =>
     select({ activeInstanceUrl: 'http://localhost:3000', updateInstanceUser: vi.fn() }),
@@ -73,6 +86,22 @@ describe('EditProfileModal', () => {
     expect(patch).toHaveBeenCalledWith('/users/me', { display_name: 'Alice J', bio: null, avatar_url: '' });
     expect(setStatus).toHaveBeenCalledWith(expect.objectContaining({ emoji: '🍕', text: 'At lunch' }));
     expect(clearStatus).not.toHaveBeenCalled();
+  });
+
+  it('picks the status emoji from the picker, a workspace one included', async () => {
+    renderModal();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Choose a status emoji' }));
+    fireEvent.click(screen.getByRole('button', { name: 'pick shipit' }));
+    expect(screen.getByRole('button', { name: 'Status emoji :shipit:' })).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('textbox', { name: 'Status' }), { target: { value: 'Shipping' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() =>
+      expect(setStatus).toHaveBeenCalledWith(
+        expect.objectContaining({ emoji: ':shipit:', text: 'Shipping' }),
+      ),
+    );
   });
 
   it('leaves an untouched status and its expiry alone', async () => {

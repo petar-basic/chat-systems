@@ -4,6 +4,7 @@ import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { displayNameOf } from '@/lib/userHelpers';
 import { PauseMenuItems } from '@/features/notifications';
+import { ReactionEmoji } from '@/shared/components/ReactionEmoji';
 
 interface Props {
   user: { id: string; display_name: string; email: string; avatar_url: string | null } | null;
@@ -68,7 +69,7 @@ export function YouMenu({
             {user?.display_name}
             {statusEmoji && (
               <span className="ml-1.5" data-qa="own-status-emoji">
-                {statusEmoji}
+                <ReactionEmoji emoji={statusEmoji} />
               </span>
             )}
           </div>
