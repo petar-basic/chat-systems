@@ -19,14 +19,17 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 ### Upgrading from 3.5.0
 
 - Pull both images and restart `api`, `realtime`, `worker` and `frontend` together; the API
-  runs migrations 75–76 on start, which add the `huddle_invites` table and
-  `hooks.disabled_reason`.
+  runs migrations 75–77 on start, which add the `huddle_invites` table,
+  `hooks.disabled_reason`, and a thread target on scheduled messages.
 - **Re-send pending email invites.** An emailed invite link now names the invite it stands
   for, and links sent before the upgrade do not: they answer *Invalid or expired invite*.
   Revoke and re-send any email invite that has not been accepted yet. Shared invite links are
   unaffected.
 - For WebSocket clients: `huddle.join` needs only `huddle_id`; `channel_id`, `workspace_id`
   and `dm_partner_id` are ignored.
+- For API clients: `GET /messages/{id}/thread` takes `limit` and `cursor` instead of
+  `offset`, returns the newest replies first, and includes reactions. A deleted message with
+  replies is listed as a tombstone (`deleted_at` set, empty `content`).
 
 ### Security
 
@@ -60,6 +63,13 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   `#general`. `GET /messages/{id}/location` says where a message lives; push payloads and the
   `notification` frame carry `thread_parent_id`.
 - **Search goes past twenty.** *Show more* pages through message and file results.
+- **Threads keep up.** A long thread reads back to its first reply with *Show earlier
+  replies*. Deleting a reply takes it off the count, and an open thread shows other people's
+  reactions, pins and deletions as they happen. A deleted parent with replies stays as *This
+  message was deleted*, so its thread stays together; retention removes a thread once its last
+  reply is past the period, and no reply ever appears in the channel on its own. Replies can
+  be sent to the channel too with *Also send to #channel*, and scheduled from the thread
+  composer.
 
 ## [3.5.0] — 2026-10-27
 

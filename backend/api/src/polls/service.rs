@@ -44,6 +44,7 @@ pub async fn create(
                 user_id,
                 content: &draft.question,
                 thread_parent_id: root.as_ref().map(|root| root.id),
+                also_in_channel: false,
                 client_message_id: None,
                 mentioned: &mentioned,
             },

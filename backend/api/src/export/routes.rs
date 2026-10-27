@@ -255,10 +255,7 @@ async fn erase_user_data(
     }
 
     let removed = if req.hard_delete {
-        let messages = sqlx::query!("DELETE FROM messages WHERE user_id = $1", user_id)
-            .execute(&state.pool)
-            .await?
-            .rows_affected();
+        let messages = state.message_repo.erase_author(user_id).await?;
         ErasedCounts { messages }
     } else {
         ErasedCounts { messages: 0 }

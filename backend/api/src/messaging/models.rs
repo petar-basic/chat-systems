@@ -43,6 +43,7 @@ pub struct MessageMetadata {
     pub poll: Option<crate::polls::models::PollSummary>,
     pub form: Option<crate::workflows::models::FormRequest>,
     pub fields: Option<Vec<MessageField>>,
+    pub also_in_channel: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
@@ -125,6 +126,8 @@ pub struct SendMessageRequest {
     #[garde(custom(shared_common::validation::rules::message_body))]
     pub content: String,
     pub thread_parent_id: Option<Uuid>,
+    #[serde(default)]
+    pub also_to_channel: bool,
     /// The sender's own id for this send, used only to make a retry idempotent.
     /// It is not the message id — the server owns that.
     #[garde(inner(custom(shared_common::validation::rules::client_message_id)))]
@@ -269,6 +272,12 @@ pub struct ListMessagesQuery {
     pub mark_read: Option<bool>,
 }
 
+#[derive(Debug, Deserialize, IntoParams)]
+pub struct ThreadQuery {
+    pub limit: Option<i64>,
+    pub cursor: Option<Uuid>,
+}
+
 #[derive(Debug, Serialize, ToSchema)]
 pub struct MessagePage {
     pub data: Vec<MessageWithReactions>,
@@ -310,6 +319,7 @@ pub struct NewMessage<'a> {
     pub user_id: Uuid,
     pub content: &'a str,
     pub thread_parent_id: Option<Uuid>,
+    pub also_in_channel: bool,
     pub client_message_id: Option<Uuid>,
     pub mentioned: &'a [Uuid],
 }

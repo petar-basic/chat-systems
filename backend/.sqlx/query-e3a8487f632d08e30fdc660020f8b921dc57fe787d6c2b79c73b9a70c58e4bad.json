@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO scheduled_messages (workspace_id, user_id, channel_id, content, send_at, attachment_ids)\n            VALUES ($1, $2, $3, $4, $5, $6)\n            RETURNING id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at, attachment_ids\n            ",
+  "query": "\n            INSERT INTO scheduled_messages (workspace_id, user_id, channel_id, content, send_at, attachment_ids, thread_parent_id, also_in_channel)\n            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)\n            RETURNING id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at, attachment_ids, thread_parent_id, also_in_channel\n            ",
   "describe": {
     "columns": [
       {
@@ -123,6 +123,28 @@
             "name": "attachment_ids"
           }
         }
+      },
+      {
+        "ordinal": 11,
+        "name": "thread_parent_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "scheduled_messages",
+            "name": "thread_parent_id"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "also_in_channel",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "scheduled_messages",
+            "name": "also_in_channel"
+          }
+        }
       }
     ],
     "parameters": {
@@ -132,7 +154,9 @@
         "Uuid",
         "Text",
         "Timestamptz",
-        "UuidArray"
+        "UuidArray",
+        "Uuid",
+        "Bool"
       ]
     },
     "nullable": [
@@ -146,8 +170,10 @@
       true,
       true,
       false,
+      false,
+      true,
       false
     ]
   },
-  "hash": "95934241588ba8e55b8c0a2d32399667d6d6c56d5bc17a3966f8241e173e8075"
+  "hash": "e3a8487f632d08e30fdc660020f8b921dc57fe787d6c2b79c73b9a70c58e4bad"
 }

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, channel_id, user_id, client_message_id, content, metadata AS \"metadata!\", thread_parent_id, reply_count AS \"reply_count!\", is_pinned AS \"is_pinned!\", created_at, updated_at, deleted_at\n              FROM messages WHERE id = ANY($1)\n            ",
+  "query": "\n            SELECT id, channel_id, user_id, client_message_id, content, metadata AS \"metadata!\", thread_parent_id, reply_count AS \"reply_count!\", is_pinned AS \"is_pinned!\", created_at, updated_at, deleted_at FROM messages\n            WHERE thread_parent_id = $1 AND deleted_at IS NULL\n              AND ($3::uuid IS NULL OR (created_at, id) < (SELECT created_at, id FROM messages WHERE id = $3))\n            ORDER BY created_at DESC, id DESC\n            LIMIT $2\n            ",
   "describe": {
     "columns": [
       {
@@ -138,7 +138,9 @@
     ],
     "parameters": {
       "Left": [
-        "UuidArray"
+        "Uuid",
+        "Int8",
+        "Uuid"
       ]
     },
     "nullable": [
@@ -156,5 +158,5 @@
       true
     ]
   },
-  "hash": "67022b4becfedfecbafb6a57e77cffdeff4dae515d0ed8fcc6a38b6065197476"
+  "hash": "bcf88d7b76ee79fe9adb1847d4f757b52289017f8c1d2b8ab17bebf704f70fff"
 }

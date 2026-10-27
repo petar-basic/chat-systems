@@ -19,7 +19,8 @@ import { useInstanceStore } from '@/stores/instances';
 import { useUserCache } from '@/stores/users';
 import { QUERY_KEYS } from '@/shared/constants';
 import { applyReadState } from './readState';
-import { patchMessageEverywhere } from './messagePatch';
+import { patchMessageEverywhere, shownInChannel } from './messagePatch';
+import { dropReply, patchReply, placeReply } from './threadCache';
 import { syncListFrames } from '@/features/lists/listSync';
 
 type ChannelMessages = InfiniteData<{ data: Message[] }>;
@@ -153,14 +154,7 @@ export const useWebSocketQuerySync = () => {
 
         if (message.thread_parent_id) {
           const parentId = message.thread_parent_id;
-          const threadKey = QUERY_KEYS.thread(parentId);
-          if (queryClient.getQueryData<Message[]>(threadKey)) {
-            queryClient.setQueryData<Message[]>(threadKey, (old = []) =>
-              old.some((m) => m.id === message.id)
-                ? old
-                : [...old.filter((m) => m.id !== message.client_message_id), message],
-            );
-          }
+          placeReply(queryClient, message, message.client_message_id ?? undefined);
           if (claimReplyCount(message.id)) {
             patchChannel(
               queryClient,
@@ -170,7 +164,7 @@ export const useWebSocketQuerySync = () => {
               true,
             );
           }
-          return;
+          if (!shownInChannel(message)) return;
         }
 
         patchChannel(queryClient, message.channel_id, (cache) =>
@@ -240,10 +234,13 @@ export const useWebSocketQuerySync = () => {
           content: message.content,
           metadata: message.metadata,
           updated_at: message.updated_at,
+          reply_count: message.reply_count,
+          deleted_at: message.deleted_at,
         }));
       }),
 
       globalEventBus.on('message.deleted', (event) => {
+        dropReply(queryClient, event.message_id);
         patchChannel(
           queryClient,
           event.channel_id,
@@ -264,6 +261,7 @@ export const useWebSocketQuerySync = () => {
           (cache) => patchMessageById(cache, event.message_id, (m) => ({ ...m, is_pinned: event.pinned })),
           true,
         );
+        patchReply(queryClient, event.message_id, (m) => ({ ...m, is_pinned: event.pinned }));
       }),
     );
 
@@ -271,27 +269,28 @@ export const useWebSocketQuerySync = () => {
       globalEventBus.on('reaction.added', (event) => {
         const { channel_id, ...reaction } = event.reaction;
         ensureUserKnown(queryClient, reaction.user_id);
-        patchChannel(queryClient, channel_id, (cache) =>
-          patchMessageById(cache, event.message_id, (m) => {
-            const reactions = m.reactions ?? [];
-            const known = reactions.some(
-              (r) => r.id === reaction.id || (r.user_id === reaction.user_id && r.emoji === reaction.emoji),
-            );
-            if (known) return m;
-            return { ...m, reactions: [...reactions, reaction] };
-          }),
-        );
+        const add = (m: Message): Message => {
+          const reactions = m.reactions ?? [];
+          const known = reactions.some(
+            (r) => r.id === reaction.id || (r.user_id === reaction.user_id && r.emoji === reaction.emoji),
+          );
+          return known ? m : { ...m, reactions: [...reactions, reaction] };
+        };
+        patchChannel(queryClient, channel_id, (cache) => patchMessageById(cache, event.message_id, add));
+        patchReply(queryClient, event.message_id, add);
       }),
 
       globalEventBus.on('reaction.removed', (event) => {
+        const remove = (m: Message): Message => ({
+          ...m,
+          reactions: (m.reactions ?? []).filter(
+            (r) => !(r.user_id === event.user_id && r.emoji === event.emoji),
+          ),
+        });
         patchChannel(queryClient, event.channel_id, (cache) =>
-          patchMessageById(cache, event.message_id, (m) => ({
-            ...m,
-            reactions: (m.reactions ?? []).filter(
-              (r) => !(r.user_id === event.user_id && r.emoji === event.emoji),
-            ),
-          })),
+          patchMessageById(cache, event.message_id, remove),
         );
+        patchReply(queryClient, event.message_id, remove);
       }),
     );
 

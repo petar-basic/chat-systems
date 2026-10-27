@@ -1806,3 +1806,21 @@ channel not in the sidebar now opens as a preview with a *Join channel* bar in p
 composer, from a link or after leaving it. Push payloads and the `notification` frame carry
 `thread_parent_id`, which the service worker turns into `?thread=1`. Search pages with
 *Show more* for messages and files.
+
+### [CS-080] Threads that keep up ✅ shipped
+The thread panel loaded fifty replies and stopped. `reply_count` only went up, an open thread
+did not see other people's reactions or deletions, and when retention or an erasure removed a
+thread's parent its replies fell into the channel as top-level messages. There was no *Also
+send to #channel*, and the thread composer could not schedule.
+
+`GET /messages/{id}/thread` now pages newest first by cursor, with reactions, and the panel is
+an infinite query with *Show earlier replies*. Deleting a reply takes it off the parent's count
+in the same statement and announces the parent; the thread caches take message, reaction, pin
+and delete frames through the same patch as the channel. A thread is a unit (DAT-1): a parent
+with live replies is kept as a tombstone with its content and metadata emptied, so the thread
+stays listed, followed and repliable, and retention removes root and replies together once the
+newest of them is past the period. An erased person's answered roots become tombstones the
+same way. `also_to_channel` marks a reply `metadata.also_in_channel`; the channel lists it with
+a *Replied to a thread* line that opens the thread on it, and it notifies like a channel
+message. Scheduled messages carry `thread_parent_id` and `also_in_channel` (migration 77) and
+deliver as replies, failing with `thread_gone` when the thread no longer exists.

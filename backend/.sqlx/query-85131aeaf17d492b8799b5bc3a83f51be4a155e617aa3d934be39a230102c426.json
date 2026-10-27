@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT id, channel_id, user_id, client_message_id, content, metadata AS \"metadata!\", thread_parent_id, reply_count AS \"reply_count!\", is_pinned AS \"is_pinned!\", created_at, updated_at, deleted_at FROM messages\n                WHERE channel_id = $1\n                  AND deleted_at IS NULL\n                  AND thread_parent_id IS NULL\n                ORDER BY created_at DESC, id DESC\n                LIMIT $2\n                ",
+  "query": "\n            WITH gone AS (\n                UPDATE messages SET deleted_at = NOW()\n                 WHERE id = $1 AND deleted_at IS NULL\n             RETURNING thread_parent_id\n            )\n            UPDATE messages p\n               SET reply_count = GREATEST(p.reply_count - 1, 0)\n              FROM gone\n             WHERE p.id = gone.thread_parent_id\n         RETURNING p.id, p.channel_id, p.user_id, p.client_message_id,\n                   CASE WHEN p.deleted_at IS NULL THEN p.content ELSE '' END AS \"content!\",\n                   CASE WHEN p.deleted_at IS NULL THEN p.metadata ELSE '{}'::jsonb END AS \"metadata!\",\n                   p.thread_parent_id, p.reply_count AS \"reply_count!\", p.is_pinned AS \"is_pinned!\",\n                   p.created_at, p.updated_at, p.deleted_at\n            ",
   "describe": {
     "columns": [
       {
@@ -49,25 +49,15 @@
       },
       {
         "ordinal": 4,
-        "name": "content",
+        "name": "content!",
         "type_info": "Text",
-        "origin": {
-          "Table": {
-            "table": "messages",
-            "name": "content"
-          }
-        }
+        "origin": "Expression"
       },
       {
         "ordinal": 5,
         "name": "metadata!",
         "type_info": "Jsonb",
-        "origin": {
-          "Table": {
-            "table": "messages",
-            "name": "metadata"
-          }
-        }
+        "origin": "Expression"
       },
       {
         "ordinal": 6,
@@ -138,8 +128,7 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Int8"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -147,8 +136,8 @@
       false,
       false,
       true,
-      false,
-      true,
+      null,
+      null,
       true,
       true,
       true,
@@ -157,5 +146,5 @@
       true
     ]
   },
-  "hash": "1a3d29fae6b03fd156bfbca86e4ab7d274ec93315f84d94e6d48c7cd3e60d5b1"
+  "hash": "85131aeaf17d492b8799b5bc3a83f51be4a155e617aa3d934be39a230102c426"
 }

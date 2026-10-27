@@ -15,7 +15,6 @@ use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
 use crate::files::service as files;
 use crate::middleware::AuthUser;
-use crate::pagination::PageQuery;
 use crate::state::AppState;
 use crate::threads::{self, repo::ReplyFollows};
 use crate::workspace::models::{ChannelType, WorkspaceRole};
@@ -60,28 +59,7 @@ async fn list_messages(
         .list_channel_messages(ch_id, limit, params.cursor)
         .await?;
 
-    let message_ids: Vec<Uuid> = messages.iter().map(|m| m.id).collect();
-    let reactions = state
-        .message_repo
-        .list_reactions_for_messages(&message_ids)
-        .await?;
-
-    let mut reactions_map: std::collections::HashMap<Uuid, Vec<Reaction>> =
-        std::collections::HashMap::new();
-    for reaction in reactions {
-        reactions_map
-            .entry(reaction.message_id)
-            .or_default()
-            .push(reaction);
-    }
-
-    let data = messages
-        .into_iter()
-        .map(|message| {
-            let reactions = reactions_map.remove(&message.id).unwrap_or_default();
-            MessageWithReactions { message, reactions }
-        })
-        .collect::<Vec<_>>();
+    let data = with_reactions(&state, messages).await?;
 
     let newest = data.first().map(|m| m.message.id);
     let unread_notifications = match newest {
@@ -146,14 +124,14 @@ pub(crate) async fn thread_root(
     let not_here = || AppError::Validation("Thread parent is not in this channel".into());
     let parent = state
         .message_repo
-        .find_by_id(parent_id)
+        .find_root(parent_id)
         .await?
         .filter(|parent| parent.channel_id == channel_id)
         .ok_or_else(not_here)?;
     match parent.thread_parent_id {
         Some(root_id) => state
             .message_repo
-            .find_by_id(root_id)
+            .find_root(root_id)
             .await?
             .ok_or_else(not_here),
         None => Ok(parent),
@@ -219,6 +197,7 @@ async fn send_message(
                 user_id: auth.user_id,
                 content: &req.content,
                 thread_parent_id,
+                also_in_channel: req.also_to_channel,
                 client_message_id: req.client_message_id,
                 mentioned: &mentioned_ids,
             },
@@ -561,7 +540,7 @@ async fn delete_message(
         );
     }
     let mut tx = state.pool.begin().await?;
-    state
+    let parent = state
         .message_repo
         .soft_delete_message_in(&mut tx, msg_id)
         .await?;
@@ -569,10 +548,22 @@ async fn delete_message(
         .publisher
         .stage_message_deleted(&mut tx, msg_id, existing.channel_id, channel.workspace_id)
         .await?;
+    let parent_staged = match &parent {
+        Some(parent) => Some(
+            state
+                .publisher
+                .stage_message_updated(&mut tx, parent, channel.workspace_id)
+                .await?,
+        ),
+        None => None,
+    };
     tx.commit().await?;
 
     files::delete_for_channel_message(&state, msg_id).await;
     state.publisher.dispatch(staged).await;
+    if let Some(staged) = parent_staged {
+        state.publisher.dispatch(staged).await;
+    }
 
     audit::record(
         &state,
@@ -681,29 +672,57 @@ async fn list_pins(
     Ok(Json(pins.into()))
 }
 
+async fn with_reactions(
+    state: &AppState,
+    messages: Vec<Message>,
+) -> AppResult<Vec<MessageWithReactions>> {
+    let message_ids: Vec<Uuid> = messages.iter().map(|m| m.id).collect();
+    let reactions = state
+        .message_repo
+        .list_reactions_for_messages(&message_ids)
+        .await?;
+
+    let mut reactions_map: HashMap<Uuid, Vec<Reaction>> = HashMap::new();
+    for reaction in reactions {
+        reactions_map
+            .entry(reaction.message_id)
+            .or_default()
+            .push(reaction);
+    }
+
+    Ok(messages
+        .into_iter()
+        .map(|message| {
+            let reactions = reactions_map.remove(&message.id).unwrap_or_default();
+            MessageWithReactions { message, reactions }
+        })
+        .collect())
+}
+
 #[utoipa::path(
     operation_id = "messaging_list_thread",
     get, path = "/messages/{msg_id}/thread", tag = "messages",
-    params(PageQuery),
-    responses((status = 200, body = DataList<Message>)))]
+    params(ThreadQuery),
+    responses((status = 200, body = DataList<MessageWithReactions>)))]
 async fn list_thread(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(msg_id): Path<Uuid>,
-    Query(params): Query<PageQuery>,
-) -> AppResult<Json<DataList<Message>>> {
+    Query(params): Query<ThreadQuery>,
+) -> AppResult<Json<DataList<MessageWithReactions>>> {
     let channel_id = state
         .message_repo
-        .find_by_id(msg_id)
+        .find_root(msg_id)
         .await?
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?
         .channel_id;
     authz::require_channel_access(&state, channel_id, auth.user_id).await?;
+    let limit = params.limit.unwrap_or(50).clamp(1, 200);
     let messages = state
         .message_repo
-        .list_thread_messages(msg_id, params.limit(), params.offset())
+        .list_thread_messages(msg_id, limit, params.cursor)
         .await?;
-    Ok(Json(messages.into()))
+    Ok(Json(with_reactions(&state, messages).await?.into()))
 }
 
 #[utoipa::path(get, path = "/messages/{msg_id}/location", tag = "messages",

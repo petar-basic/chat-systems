@@ -1,0 +1,57 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT f.root_message_id, f.last_read_at, latest.at AS \"last_reply_at!\",\n                   (SELECT count(*) FROM messages m\n                     WHERE m.thread_parent_id = f.root_message_id AND m.deleted_at IS NULL\n                       AND m.user_id <> f.user_id AND m.created_at > f.last_read_at) AS \"unread_count!\"\n              FROM thread_follows f\n              JOIN messages r ON r.id = f.root_message_id\n              JOIN channels c ON c.id = r.channel_id\n              JOIN workspace_members wm ON wm.workspace_id = f.workspace_id AND wm.user_id = f.user_id\n             CROSS JOIN LATERAL (\n                    SELECT max(m.created_at) AS at FROM messages m\n                     WHERE m.thread_parent_id = r.id AND m.deleted_at IS NULL\n                   ) latest\n             WHERE f.user_id = $1\n               AND f.workspace_id = $2\n               AND f.following\n               AND latest.at IS NOT NULL\n               AND ($3::timestamptz IS NULL OR latest.at < $3)\n               AND (EXISTS (SELECT 1 FROM channel_members cm\n                             WHERE cm.channel_id = r.channel_id AND cm.user_id = f.user_id)\n                    OR (c.channel_type = 'public' AND wm.role <> 'guest'))\n             ORDER BY latest.at DESC\n             LIMIT $4\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "root_message_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "thread_follows",
+            "name": "root_message_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "last_read_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "thread_follows",
+            "name": "last_read_at"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "last_reply_at!",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "unread_count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Timestamptz",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "1337f83f426992d7372fbef1806388a3017de03d01a248365134783124f5ede9"
+}

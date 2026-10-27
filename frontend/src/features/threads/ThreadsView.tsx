@@ -283,7 +283,13 @@ function ThreadLine({
           <span className="text-sm font-semibold text-fg-soft">{name}</span>
           <span className="text-xs text-muted">{timeOf(message.created_at)}</span>
         </div>
-        <RichTextDisplay content={message.content} attachments={message.metadata?.attachments} />
+        {message.deleted_at ? (
+          <p className="text-sm text-muted italic" data-qa="thread-root-deleted">
+            This message was deleted
+          </p>
+        ) : (
+          <RichTextDisplay content={message.content} attachments={message.metadata?.attachments} />
+        )}
       </div>
     </li>
   );

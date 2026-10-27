@@ -275,6 +275,8 @@ async fn the_dispatcher_delivers_due_messages_exactly_once(pool: PgPool) {
                 content: "sent by the dispatcher",
                 send_at: Utc::now() - Duration::seconds(5),
                 attachment_ids: &[],
+                thread_parent_id: None,
+                also_in_channel: false,
             })
             .await
             .expect("queue a due message");
@@ -336,6 +338,8 @@ async fn queue_due(
             content: "written before losing access",
             send_at: Utc::now() - Duration::seconds(5),
             attachment_ids: &[],
+            thread_parent_id: None,
+            also_in_channel: false,
         })
         .await
         .expect("queue a due message")

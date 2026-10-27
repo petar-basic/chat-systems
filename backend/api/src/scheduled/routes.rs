@@ -70,6 +70,14 @@ async fn create_scheduled(
         ));
     }
     require_target_access(&state, &auth, ws_id, req.channel_id, &req.content).await?;
+    let thread_parent_id = match req.thread_parent_id {
+        Some(parent_id) => Some(
+            crate::messaging::routes::thread_root(&state, req.channel_id, parent_id)
+                .await?
+                .id,
+        ),
+        None => None,
+    };
     hold_attachments(
         &state,
         &req.attachment_ids,
@@ -88,6 +96,8 @@ async fn create_scheduled(
             content: &req.content,
             send_at: req.send_at,
             attachment_ids: &req.attachment_ids,
+            thread_parent_id,
+            also_in_channel: req.also_to_channel && thread_parent_id.is_some(),
         })
         .await?;
 

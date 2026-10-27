@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO messages (client_message_id, channel_id, user_id, content, thread_parent_id)\n            VALUES ($1, $2, $3, $4, $5)\n            RETURNING id, channel_id, user_id, client_message_id, content, metadata AS \"metadata!\", thread_parent_id, reply_count AS \"reply_count!\", is_pinned AS \"is_pinned!\", created_at, updated_at, deleted_at\n            ",
+  "query": "\n                SELECT id, channel_id, user_id, client_message_id, CASE WHEN deleted_at IS NULL THEN content ELSE '' END AS \"content!\", CASE WHEN deleted_at IS NULL THEN metadata ELSE '{}'::jsonb END AS \"metadata!\", thread_parent_id, reply_count AS \"reply_count!\", is_pinned AS \"is_pinned!\", created_at, updated_at, deleted_at FROM messages\n                WHERE channel_id = $1\n                  AND (deleted_at IS NULL OR reply_count > 0)\n                  AND (thread_parent_id IS NULL OR (deleted_at IS NULL AND metadata @> '{\"also_in_channel\": true}'))\n                ORDER BY created_at DESC, id DESC\n                LIMIT $2\n                ",
   "describe": {
     "columns": [
       {
@@ -49,25 +49,15 @@
       },
       {
         "ordinal": 4,
-        "name": "content",
+        "name": "content!",
         "type_info": "Text",
-        "origin": {
-          "Table": {
-            "table": "messages",
-            "name": "content"
-          }
-        }
+        "origin": "Expression"
       },
       {
         "ordinal": 5,
         "name": "metadata!",
         "type_info": "Jsonb",
-        "origin": {
-          "Table": {
-            "table": "messages",
-            "name": "metadata"
-          }
-        }
+        "origin": "Expression"
       },
       {
         "ordinal": 6,
@@ -139,10 +129,7 @@
     "parameters": {
       "Left": [
         "Uuid",
-        "Uuid",
-        "Uuid",
-        "Text",
-        "Uuid"
+        "Int8"
       ]
     },
     "nullable": [
@@ -150,8 +137,8 @@
       false,
       false,
       true,
-      false,
-      true,
+      null,
+      null,
       true,
       true,
       true,
@@ -160,5 +147,5 @@
       true
     ]
   },
-  "hash": "a9aeb2f478c3e8ff35879abf340dd0b41a0940a6573a2d7ce5e50ebcf8637c60"
+  "hash": "138fe5e0f2cf4fe1abd6a516b84829e3d9780242203669a8c8f36fce5e2a37f6"
 }

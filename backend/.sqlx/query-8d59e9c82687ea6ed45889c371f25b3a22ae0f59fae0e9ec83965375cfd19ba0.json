@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE messages m\n               SET content = '', metadata = '{}'::jsonb, deleted_at = COALESCE(m.deleted_at, NOW())\n             WHERE m.user_id = $1\n               AND EXISTS (SELECT 1 FROM messages r WHERE r.thread_parent_id = m.id AND r.user_id <> $1 AND r.deleted_at IS NULL)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8d59e9c82687ea6ed45889c371f25b3a22ae0f59fae0e9ec83965375cfd19ba0"
+}

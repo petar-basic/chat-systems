@@ -3243,12 +3243,15 @@ export interface components {
             thread_parent_id?: string | null;
         };
         CreateScheduledMessageRequest: {
+            also_to_channel?: boolean;
             attachment_ids?: string[];
             /** Format: uuid */
             channel_id: string;
             content: string;
             /** Format: date-time */
             send_at: string;
+            /** Format: uuid */
+            thread_parent_id?: string | null;
         };
         CreateScimToken: {
             description?: string | null;
@@ -3696,6 +3699,11 @@ export interface components {
                 previous_content: string;
             }[];
         };
+        DataList_MessageWithReactions: {
+            data: (components["schemas"]["Message"] & {
+                reactions: components["schemas"]["Reaction"][];
+            })[];
+        };
         DataList_Notification: {
             data: {
                 body?: string | null;
@@ -3746,6 +3754,7 @@ export interface components {
         };
         DataList_ScheduledMessage: {
             data: {
+                also_in_channel: boolean;
                 attachment_ids: string[];
                 /** Format: date-time */
                 canceled_at?: string | null;
@@ -3761,6 +3770,8 @@ export interface components {
                 send_at: string;
                 /** Format: date-time */
                 sent_at?: string | null;
+                /** Format: uuid */
+                thread_parent_id?: string | null;
                 /** Format: uuid */
                 user_id: string;
                 /** Format: uuid */
@@ -4417,6 +4428,7 @@ export interface components {
             workspace_id: string;
         };
         MessageMetadata: {
+            also_in_channel?: boolean | null;
             app_prompts?: string[] | null;
             attachments?: components["schemas"]["Attachment"][] | null;
             bot?: components["schemas"]["BotIdentity"] | null;
@@ -4650,6 +4662,7 @@ export interface components {
             name: string;
         };
         ScheduledMessage: {
+            also_in_channel: boolean;
             attachment_ids: string[];
             /** Format: date-time */
             canceled_at?: string | null;
@@ -4665,6 +4678,8 @@ export interface components {
             send_at: string;
             /** Format: date-time */
             sent_at?: string | null;
+            /** Format: uuid */
+            thread_parent_id?: string | null;
             /** Format: uuid */
             user_id: string;
             /** Format: uuid */
@@ -4695,6 +4710,7 @@ export interface components {
          */
         SearchScope: "channels" | "conversations" | "all";
         SendMessageRequest: {
+            also_to_channel?: boolean;
             attachment_ids?: string[];
             /**
              * Format: uuid
@@ -7523,7 +7539,7 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number | null;
-                offset?: number | null;
+                cursor?: string | null;
             };
             header?: never;
             path: {
@@ -7538,7 +7554,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DataList_Message"];
+                    "application/json": components["schemas"]["DataList_MessageWithReactions"];
                 };
             };
         };

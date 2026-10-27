@@ -20,6 +20,7 @@ pub enum DeliveryFailure {
     AuthorInactive,
     ChannelArchived,
     WorkspaceUnavailable,
+    ThreadGone,
     Internal(String),
 }
 
@@ -30,6 +31,7 @@ impl DeliveryFailure {
             Self::AuthorInactive => "author_inactive",
             Self::ChannelArchived => "channel_archived",
             Self::WorkspaceUnavailable => "workspace_unavailable",
+            Self::ThreadGone => "thread_gone",
             Self::Internal(_) => "internal_error",
         }
     }
@@ -40,6 +42,7 @@ impl DeliveryFailure {
             Self::AuthorInactive => "Your account is suspended.",
             Self::ChannelArchived => "The channel has been archived.",
             Self::WorkspaceUnavailable => "The workspace is no longer available.",
+            Self::ThreadGone => "The thread it replied to is gone.",
             Self::Internal(_) => "The server could not deliver it.",
         }
     }
@@ -161,6 +164,14 @@ async fn deliver_to_channel(
     channel_id: Uuid,
 ) -> Result<(), DeliveryFailure> {
     authorize_channel(state, scheduled, channel_id).await?;
+    let root = match scheduled.thread_parent_id {
+        Some(parent_id) => Some(
+            crate::messaging::routes::thread_root(state, channel_id, parent_id)
+                .await
+                .map_err(|_| DeliveryFailure::ThreadGone)?,
+        ),
+        None => None,
+    };
 
     let mentioned = crate::messaging::routes::expand_mentions(
         state,
@@ -179,7 +190,8 @@ async fn deliver_to_channel(
                 channel_id,
                 user_id: scheduled.user_id,
                 content: &scheduled.content,
-                thread_parent_id: None,
+                thread_parent_id: root.as_ref().map(|root| root.id),
+                also_in_channel: scheduled.also_in_channel,
                 client_message_id: None,
                 mentioned: &mentioned,
             },
@@ -197,6 +209,23 @@ async fn deliver_to_channel(
     )
     .await
     .map_err(internal)?;
+    if let Some(root) = &root {
+        state
+            .thread_repo
+            .follow_on_reply_in(
+                &mut tx,
+                crate::threads::repo::ReplyFollows {
+                    root_message_id: root.id,
+                    workspace_id: scheduled.workspace_id,
+                    replier_id: scheduled.user_id,
+                    root_author_id: root.user_id,
+                    mentioned: &mentioned,
+                    replied_at: message.created_at,
+                },
+            )
+            .await
+            .map_err(internal)?;
+    }
     let staged = state
         .publisher
         .stage_message_created(&mut tx, &message, scheduled.workspace_id, &mentioned)
@@ -205,6 +234,9 @@ async fn deliver_to_channel(
     tx.commit().await.map_err(internal)?;
 
     state.publisher.dispatch(staged).await;
+    if let Some(root) = &root {
+        crate::threads::routes::announce_reply(state, root.id, scheduled.workspace_id).await;
+    }
 
     Ok(())
 }

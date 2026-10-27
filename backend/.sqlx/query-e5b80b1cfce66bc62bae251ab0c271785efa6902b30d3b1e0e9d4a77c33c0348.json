@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at, attachment_ids FROM scheduled_messages\n            WHERE workspace_id = $1 AND user_id = $2 AND canceled_at IS NULL\n              AND (sent_at IS NULL OR failure IS NOT NULL)\n            ORDER BY send_at\n            ",
+  "query": "\n            UPDATE scheduled_messages\n            SET sent_at = NOW()\n            WHERE id IN (\n                SELECT id FROM scheduled_messages\n                WHERE sent_at IS NULL AND canceled_at IS NULL AND send_at <= NOW()\n                ORDER BY send_at\n                FOR UPDATE SKIP LOCKED\n                LIMIT 100\n            )\n            RETURNING id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at, attachment_ids, thread_parent_id, also_in_channel\n            ",
   "describe": {
     "columns": [
       {
@@ -123,13 +123,32 @@
             "name": "attachment_ids"
           }
         }
+      },
+      {
+        "ordinal": 11,
+        "name": "thread_parent_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "scheduled_messages",
+            "name": "thread_parent_id"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "also_in_channel",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "scheduled_messages",
+            "name": "also_in_channel"
+          }
+        }
       }
     ],
     "parameters": {
-      "Left": [
-        "Uuid",
-        "Uuid"
-      ]
+      "Left": []
     },
     "nullable": [
       false,
@@ -142,8 +161,10 @@
       true,
       true,
       false,
+      false,
+      true,
       false
     ]
   },
-  "hash": "a9805db7c599fb2eaf4cdf78ba2c598c8cafbdd5ad83bf073afffe59132d1358"
+  "hash": "e5b80b1cfce66bc62bae251ab0c271785efa6902b30d3b1e0e9d4a77c33c0348"
 }

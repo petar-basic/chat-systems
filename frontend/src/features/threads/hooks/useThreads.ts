@@ -1,3 +1,4 @@
+import { useCallback, useSyncExternalStore } from 'react';
 import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { components } from '@/api/schema';
 import type { Message } from '@/stores/workspace';
@@ -6,7 +7,9 @@ import { logger } from '@/lib/logger';
 import { refusalOr } from '@/lib/errors';
 import { toast } from '@/shared/components/Toast';
 import { QUERY_KEYS, ErrorLabels } from '@/shared/constants';
-import { patchMessageById, claimReplyCount } from '@/lib/messageCache';
+import { patchMessageById, claimReplyCount, newestFirst, upsertMessage } from '@/lib/messageCache';
+import { dropReply, oldestFirst, patchReply, placeReply, type ThreadPageOfReplies } from '@/lib/threadCache';
+import { shownInChannel } from '@/lib/messagePatch';
 import type { MessagesInfiniteData, OutgoingMessage } from '@/features/messaging';
 
 export type ThreadSummary = components['schemas']['ThreadSummary'];
@@ -82,19 +85,29 @@ export const useFollowThread = (rootId: string) => {
   });
 };
 
+const THREAD_PAGE = 50;
+
 export const useThreadMessages = (parentMessageId: string) => {
   const apiClient = useCurrentApi();
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: QUERY_KEYS.thread(parentMessageId),
-    queryFn: async (): Promise<Message[]> => {
-      const response = await apiClient.typed((c) =>
-        c.GET('/messages/{msg_id}/thread', { params: { path: { msg_id: parentMessageId } } }),
+    initialPageParam: null as string | null,
+    queryFn: async ({ pageParam }): Promise<ThreadPageOfReplies> => {
+      const { data } = await apiClient.typed((c) =>
+        c.GET('/messages/{msg_id}/thread', {
+          params: { path: { msg_id: parentMessageId }, query: { limit: THREAD_PAGE, cursor: pageParam } },
+        }),
       );
-      return response.data;
+      const replies = data as Message[];
+      return { data: replies, next: replies.length === THREAD_PAGE ? replies[replies.length - 1].id : null };
     },
+    getNextPageParam: (page) => page.next ?? undefined,
+    select: oldestFirst,
     staleTime: 1000 * 60,
   });
 };
+
+export type ThreadReply = OutgoingMessage & { alsoToChannel?: boolean };
 
 export const useSendThreadReply = (parentMessageId: string, channelId: string, userId: string) => {
   const queryClient = useQueryClient();
@@ -102,7 +115,7 @@ export const useSendThreadReply = (parentMessageId: string, channelId: string, u
   const key = QUERY_KEYS.thread(parentMessageId);
 
   return useMutation({
-    mutationFn: async ({ content, id, attachments = [] }: OutgoingMessage) =>
+    mutationFn: async ({ content, id, attachments = [], alsoToChannel = false }: ThreadReply) =>
       apiClient.typed((c) =>
         c.POST('/channels/{ch_id}/messages', {
           params: { path: { ch_id: channelId } },
@@ -110,13 +123,18 @@ export const useSendThreadReply = (parentMessageId: string, channelId: string, u
             content,
             client_message_id: id,
             thread_parent_id: parentMessageId,
+            also_to_channel: alsoToChannel,
             attachment_ids: attachments.map((a) => a.id),
           },
         }),
       ),
-    onMutate: async ({ content, id, attachments = [] }) => {
+    onMutate: async ({ content, id, attachments = [], alsoToChannel = false }) => {
       await queryClient.cancelQueries({ queryKey: key });
-      const optimistic: Message = {
+      const metadata = {
+        ...(attachments.length > 0 ? { attachments } : {}),
+        ...(alsoToChannel ? { also_in_channel: true } : {}),
+      };
+      placeReply(queryClient, {
         id,
         channel_id: channelId,
         user_id: userId,
@@ -128,23 +146,23 @@ export const useSendThreadReply = (parentMessageId: string, channelId: string, u
         thread_parent_id: parentMessageId,
         reply_count: 0,
         is_pinned: false,
-        metadata: attachments.length > 0 ? { attachments } : undefined,
+        metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
         pending: true,
-      };
-      queryClient.setQueryData<Message[]>(key, (old = []) => [...old, optimistic]);
+      });
     },
     onError: (err, { id }) => {
       logger.error('useSendThreadReply', 'mutationFn', err);
-      queryClient.setQueryData<Message[]>(key, (old = []) =>
-        old.map((m) => (m.id === id ? { ...m, pending: false, failed: true } : m)),
-      );
+      patchReply(queryClient, id, (m) => ({ ...m, pending: false, failed: true }));
       toast.error(refusalOr(err, ErrorLabels.SendFailed));
     },
     onSuccess: (newMessage, { id }) => {
-      queryClient.setQueryData<Message[]>(key, (old = []) => {
-        const without = old.filter((m) => m.id !== id && m.id !== newMessage.id);
-        return [...without, { ...newMessage, pending: false, failed: false }];
-      });
+      const sent = { ...(newMessage as Message), pending: false, failed: false };
+      placeReply(queryClient, sent, id);
+      if (shownInChannel(sent)) {
+        queryClient.setQueryData<MessagesInfiniteData>(QUERY_KEYS.messages(channelId), (old) =>
+          upsertMessage(old, sent, 'lastPage', newestFirst),
+        );
+      }
       if (!claimReplyCount(newMessage.id)) return;
       queryClient.setQueryData<MessagesInfiniteData>(QUERY_KEYS.messages(channelId), (old) =>
         patchMessageById(old, parentMessageId, (m) => ({ ...m, reply_count: (m.reply_count || 0) + 1 })),
@@ -153,23 +171,12 @@ export const useSendThreadReply = (parentMessageId: string, channelId: string, u
   });
 };
 
-function patchReply(
-  queryClient: ReturnType<typeof useQueryClient>,
-  parentMessageId: string,
-  messageId: string,
-  patch: (message: Message) => Message,
-) {
-  queryClient.setQueryData<Message[]>(QUERY_KEYS.thread(parentMessageId), (old = []) =>
-    old.map((m) => (m.id === messageId ? patch(m) : m)),
-  );
-}
-
 export const useThreadReplyActions = (parentMessageId: string, currentUserId: string) => {
   const queryClient = useQueryClient();
   const apiClient = useCurrentApi();
 
   const toggleReaction = async (messageId: string, emoji: string, hasOwn: boolean) => {
-    patchReply(queryClient, parentMessageId, messageId, (m) => ({
+    patchReply(queryClient, messageId, (m) => ({
       ...m,
       reactions: hasOwn
         ? (m.reactions ?? []).filter((r) => !(r.user_id === currentUserId && r.emoji === emoji))
@@ -199,8 +206,9 @@ export const useThreadReplyActions = (parentMessageId: string, currentUserId: st
           }),
         );
       }
-    } finally {
+    } catch (err) {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.thread(parentMessageId) });
+      throw err;
     }
   };
 
@@ -211,22 +219,37 @@ export const useThreadReplyActions = (parentMessageId: string, currentUserId: st
         body: { content, attachment_ids: attachmentIds ?? null },
       }),
     );
-    patchReply(queryClient, parentMessageId, messageId, (m) => ({ ...m, ...updated }));
+    patchReply(queryClient, messageId, (m) => ({ ...m, ...updated }));
   };
 
   const remove = async (messageId: string) => {
     await apiClient.typed((c) => c.DELETE('/messages/{msg_id}', { params: { path: { msg_id: messageId } } }));
-    queryClient.setQueryData<Message[]>(QUERY_KEYS.thread(parentMessageId), (old = []) =>
-      old.filter((m) => m.id !== messageId),
-    );
+    dropReply(queryClient, messageId);
   };
 
   const togglePin = async (messageId: string, isPinned: boolean) => {
-    patchReply(queryClient, parentMessageId, messageId, (m) => ({ ...m, is_pinned: !isPinned }));
+    patchReply(queryClient, messageId, (m) => ({ ...m, is_pinned: !isPinned }));
     const params = { path: { msg_id: messageId } };
     if (isPinned) await apiClient.typed((c) => c.DELETE('/messages/{msg_id}/pin', { params }));
     else await apiClient.typed((c) => c.POST('/messages/{msg_id}/pin', { params }));
   };
 
   return { toggleReaction, edit, remove, togglePin };
+};
+
+export const useLiveMessage = (message: Message): Message => {
+  const queryClient = useQueryClient();
+  const subscribe = useCallback(
+    (onChange: () => void) => queryClient.getQueryCache().subscribe(onChange),
+    [queryClient],
+  );
+  const read = useCallback(() => {
+    const cache = queryClient.getQueryData<MessagesInfiniteData>(QUERY_KEYS.messages(message.channel_id));
+    for (const page of cache?.pages ?? []) {
+      const found = page.data.find((m) => m.id === message.id);
+      if (found) return found;
+    }
+    return message;
+  }, [queryClient, message]);
+  return useSyncExternalStore(subscribe, read);
 };

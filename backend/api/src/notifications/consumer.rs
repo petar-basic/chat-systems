@@ -93,6 +93,13 @@ impl<'a> Origin<'a> {
     }
 }
 
+fn also_in_channel(payload: &serde_json::Value) -> bool {
+    payload
+        .pointer("/metadata/also_in_channel")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+}
+
 fn mentioned_ids(payload: &serde_json::Value) -> Vec<uuid::Uuid> {
     ids_in(payload, "mentioned_user_ids")
 }
@@ -288,7 +295,7 @@ pub async fn notify_message(
                 mentioned: mentioned.contains(&r.user_id),
                 following: followers.contains(&r.user_id),
                 keyword: keywords.contains_key(&r.user_id),
-                in_thread: root.is_some(),
+                in_thread: root.is_some() && !also_in_channel(event_payload),
             };
             reason_for(r, signals).map(|reason| (r.user_id, reason))
         })

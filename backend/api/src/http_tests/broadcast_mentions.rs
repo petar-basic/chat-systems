@@ -252,6 +252,8 @@ async fn what_was_queued_before_the_right_was_lost_posts_without_notifying(pool:
             content: "@[channel](channel) reminder",
             send_at: Utc::now() - Duration::seconds(5),
             attachment_ids: &[],
+            thread_parent_id: None,
+            also_in_channel: false,
         })
         .await
         .unwrap();

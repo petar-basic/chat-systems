@@ -118,6 +118,7 @@ async fn delete_deactivates_and_destroys_nothing(pool: sqlx::PgPool) {
             user_id: leaver_id,
             content: "still here",
             thread_parent_id: None,
+            also_in_channel: false,
             client_message_id: None,
             mentioned: &[],
         })

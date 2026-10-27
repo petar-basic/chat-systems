@@ -78,15 +78,16 @@ impl MessageRepo {
         let msg = sqlx::query_as!(
             Message,
             r#"
-            INSERT INTO messages (client_message_id, channel_id, user_id, content, thread_parent_id)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO messages (client_message_id, channel_id, user_id, content, thread_parent_id, metadata)
+            VALUES ($1, $2, $3, $4, $5, CASE WHEN $6 THEN '{"also_in_channel": true}'::jsonb ELSE '{}'::jsonb END)
             RETURNING id, channel_id, user_id, client_message_id, content, metadata AS "metadata!", thread_parent_id, reply_count AS "reply_count!", is_pinned AS "is_pinned!", created_at, updated_at, deleted_at
             "#,
             new.client_message_id,
             new.channel_id,
             new.user_id,
             new.content,
-            new.thread_parent_id
+            new.thread_parent_id,
+            new.also_in_channel && new.thread_parent_id.is_some()
         )
         .fetch_one(&mut *conn)
         .await?;
@@ -282,10 +283,10 @@ impl MessageRepo {
             sqlx::query_as!(
             Message,
             r#"
-                SELECT id, channel_id, user_id, client_message_id, content, metadata AS "metadata!", thread_parent_id, reply_count AS "reply_count!", is_pinned AS "is_pinned!", created_at, updated_at, deleted_at FROM messages
+                SELECT id, channel_id, user_id, client_message_id, CASE WHEN deleted_at IS NULL THEN content ELSE '' END AS "content!", CASE WHEN deleted_at IS NULL THEN metadata ELSE '{}'::jsonb END AS "metadata!", thread_parent_id, reply_count AS "reply_count!", is_pinned AS "is_pinned!", created_at, updated_at, deleted_at FROM messages
                 WHERE channel_id = $1
-                  AND deleted_at IS NULL
-                  AND thread_parent_id IS NULL
+                  AND (deleted_at IS NULL OR reply_count > 0)
+                  AND (thread_parent_id IS NULL OR (deleted_at IS NULL AND metadata @> '{"also_in_channel": true}'))
                   AND (created_at, id) < (SELECT created_at, id FROM messages WHERE id = $3)
                 ORDER BY created_at DESC, id DESC
                 LIMIT $2
@@ -300,10 +301,10 @@ impl MessageRepo {
             sqlx::query_as!(
             Message,
             r#"
-                SELECT id, channel_id, user_id, client_message_id, content, metadata AS "metadata!", thread_parent_id, reply_count AS "reply_count!", is_pinned AS "is_pinned!", created_at, updated_at, deleted_at FROM messages
+                SELECT id, channel_id, user_id, client_message_id, CASE WHEN deleted_at IS NULL THEN content ELSE '' END AS "content!", CASE WHEN deleted_at IS NULL THEN metadata ELSE '{}'::jsonb END AS "metadata!", thread_parent_id, reply_count AS "reply_count!", is_pinned AS "is_pinned!", created_at, updated_at, deleted_at FROM messages
                 WHERE channel_id = $1
-                  AND deleted_at IS NULL
-                  AND thread_parent_id IS NULL
+                  AND (deleted_at IS NULL OR reply_count > 0)
+                  AND (thread_parent_id IS NULL OR (deleted_at IS NULL AND metadata @> '{"also_in_channel": true}'))
                 ORDER BY created_at DESC, id DESC
                 LIMIT $2
                 "#,
@@ -319,21 +320,32 @@ impl MessageRepo {
         &self,
         parent_id: Uuid,
         limit: i64,
-        offset: i64,
+        before: Option<Uuid>,
     ) -> sqlx::Result<Vec<Message>> {
         sqlx::query_as!(
             Message,
             r#"
             SELECT id, channel_id, user_id, client_message_id, content, metadata AS "metadata!", thread_parent_id, reply_count AS "reply_count!", is_pinned AS "is_pinned!", created_at, updated_at, deleted_at FROM messages
             WHERE thread_parent_id = $1 AND deleted_at IS NULL
-            ORDER BY created_at ASC
-            LIMIT $2 OFFSET $3
+              AND ($3::uuid IS NULL OR (created_at, id) < (SELECT created_at, id FROM messages WHERE id = $3))
+            ORDER BY created_at DESC, id DESC
+            LIMIT $2
             "#,
             parent_id,
             limit,
-            offset
+            before
         )
         .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn find_root(&self, id: Uuid) -> sqlx::Result<Option<Message>> {
+        sqlx::query_as!(
+            Message,
+            r#"SELECT id, channel_id, user_id, client_message_id, CASE WHEN deleted_at IS NULL THEN content ELSE '' END AS "content!", CASE WHEN deleted_at IS NULL THEN metadata ELSE '{}'::jsonb END AS "metadata!", thread_parent_id, reply_count AS "reply_count!", is_pinned AS "is_pinned!", created_at, updated_at, deleted_at FROM messages WHERE id = $1 AND (deleted_at IS NULL OR reply_count > 0)"#,
+            id
+        )
+        .fetch_optional(&self.pool)
         .await
     }
 
@@ -421,17 +433,78 @@ impl MessageRepo {
         &self,
         conn: &mut PgConnection,
         id: Uuid,
-    ) -> sqlx::Result<()> {
-        sqlx::query!("UPDATE messages SET deleted_at = NOW() WHERE id = $1", id)
-            .execute(&mut *conn)
-            .await?;
-        Ok(())
+    ) -> sqlx::Result<Option<Message>> {
+        sqlx::query_as!(
+            Message,
+            r#"
+            WITH gone AS (
+                UPDATE messages SET deleted_at = NOW()
+                 WHERE id = $1 AND deleted_at IS NULL
+             RETURNING thread_parent_id
+            )
+            UPDATE messages p
+               SET reply_count = GREATEST(p.reply_count - 1, 0)
+              FROM gone
+             WHERE p.id = gone.thread_parent_id
+         RETURNING p.id, p.channel_id, p.user_id, p.client_message_id,
+                   CASE WHEN p.deleted_at IS NULL THEN p.content ELSE '' END AS "content!",
+                   CASE WHEN p.deleted_at IS NULL THEN p.metadata ELSE '{}'::jsonb END AS "metadata!",
+                   p.thread_parent_id, p.reply_count AS "reply_count!", p.is_pinned AS "is_pinned!",
+                   p.created_at, p.updated_at, p.deleted_at
+            "#,
+            id
+        )
+        .fetch_optional(&mut *conn)
+        .await
     }
 
-    pub async fn soft_delete_message(&self, id: Uuid) -> sqlx::Result<()> {
+    pub async fn soft_delete_message(&self, id: Uuid) -> sqlx::Result<Option<Message>> {
         let mut tx = self.pool.begin().await?;
-        self.soft_delete_message_in(&mut tx, id).await?;
-        tx.commit().await
+        let parent = self.soft_delete_message_in(&mut tx, id).await?;
+        tx.commit().await?;
+        Ok(parent)
+    }
+
+    pub async fn erase_author(&self, user_id: Uuid) -> sqlx::Result<u64> {
+        let mut tx = self.pool.begin().await?;
+        let kept = sqlx::query!(
+            r#"
+            UPDATE messages m
+               SET content = '', metadata = '{}'::jsonb, deleted_at = COALESCE(m.deleted_at, NOW())
+             WHERE m.user_id = $1
+               AND EXISTS (SELECT 1 FROM messages r WHERE r.thread_parent_id = m.id AND r.user_id <> $1 AND r.deleted_at IS NULL)
+            "#,
+            user_id
+        )
+        .execute(&mut *tx)
+        .await?
+        .rows_affected();
+        sqlx::query!(
+            r#"
+            UPDATE messages p
+               SET reply_count = GREATEST(p.reply_count - c.n::int, 0)
+              FROM (SELECT thread_parent_id, COUNT(*) AS n FROM messages
+                     WHERE user_id = $1 AND thread_parent_id IS NOT NULL AND deleted_at IS NULL
+                     GROUP BY thread_parent_id) c
+             WHERE p.id = c.thread_parent_id
+            "#,
+            user_id
+        )
+        .execute(&mut *tx)
+        .await?;
+        let removed = sqlx::query!(
+            r#"
+            DELETE FROM messages m
+             WHERE m.user_id = $1
+               AND NOT EXISTS (SELECT 1 FROM messages r WHERE r.thread_parent_id = m.id AND r.user_id <> $1 AND r.deleted_at IS NULL)
+            "#,
+            user_id
+        )
+        .execute(&mut *tx)
+        .await?
+        .rows_affected();
+        tx.commit().await?;
+        Ok(kept + removed)
     }
 
     pub async fn set_pinned_in(
@@ -1228,6 +1301,7 @@ mod tests {
                 user_id,
                 content: "parent message",
                 thread_parent_id: None,
+                also_in_channel: false,
                 client_message_id: None,
                 mentioned: &[],
             })
@@ -1245,6 +1319,7 @@ mod tests {
                 user_id,
                 content: "a reply",
                 thread_parent_id: Some(parent.id),
+                also_in_channel: false,
                 client_message_id: None,
                 mentioned: &[],
             })
@@ -1278,6 +1353,7 @@ mod tests {
                 user_id,
                 content: "doomed message",
                 thread_parent_id: None,
+                also_in_channel: false,
                 client_message_id: None,
                 mentioned: &[],
             })

@@ -29,7 +29,7 @@ interface Props {
   onTargetMessageFound?: (msg: Message) => void;
   onClose: () => void;
   onOpenNav?: () => void;
-  onOpenThread: (message: Message) => void;
+  onOpenThread: (message: Message, replyId?: string) => void;
   onSave: (message: Message) => void;
   onForward: (message: Message) => void;
 }

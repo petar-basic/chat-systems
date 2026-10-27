@@ -192,7 +192,7 @@ impl ThreadRepo {
                      WHERE m.thread_parent_id = f.root_message_id AND m.deleted_at IS NULL
                        AND m.user_id <> f.user_id AND m.created_at > f.last_read_at) AS "unread_count!"
               FROM thread_follows f
-              JOIN messages r ON r.id = f.root_message_id AND r.deleted_at IS NULL
+              JOIN messages r ON r.id = f.root_message_id
               JOIN channels c ON c.id = r.channel_id
               JOIN workspace_members wm ON wm.workspace_id = f.workspace_id AND wm.user_id = f.user_id
              CROSS JOIN LATERAL (
@@ -228,7 +228,7 @@ impl ThreadRepo {
             r#"
             SELECT count(*) AS "count!"
               FROM thread_follows f
-              JOIN messages r ON r.id = f.root_message_id AND r.deleted_at IS NULL
+              JOIN messages r ON r.id = f.root_message_id
               JOIN channels c ON c.id = r.channel_id
               JOIN workspace_members wm ON wm.workspace_id = f.workspace_id AND wm.user_id = f.user_id
              WHERE f.user_id = $1
@@ -252,7 +252,10 @@ impl ThreadRepo {
         sqlx::query_as!(
             Message,
             r#"
-            SELECT id, channel_id, user_id, client_message_id, content, metadata AS "metadata!", thread_parent_id, reply_count AS "reply_count!", is_pinned AS "is_pinned!", created_at, updated_at, deleted_at
+            SELECT id, channel_id, user_id, client_message_id,
+                   CASE WHEN deleted_at IS NULL THEN content ELSE '' END AS "content!",
+                   CASE WHEN deleted_at IS NULL THEN metadata ELSE '{}'::jsonb END AS "metadata!",
+                   thread_parent_id, reply_count AS "reply_count!", is_pinned AS "is_pinned!", created_at, updated_at, deleted_at
               FROM messages WHERE id = ANY($1)
             "#,
             ids
