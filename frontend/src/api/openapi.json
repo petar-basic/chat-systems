@@ -3326,6 +3326,36 @@
         }
       }
     },
+    "/messages/{msg_id}/location": {
+      "get": {
+        "tags": [
+          "messages"
+        ],
+        "operationId": "locate_message",
+        "parameters": [
+          {
+            "name": "msg_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageLocation"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/messages/{msg_id}/pin": {
       "post": {
         "tags": [
@@ -13740,6 +13770,14 @@
           }
         }
       },
+      "LocationKind": {
+        "type": "string",
+        "enum": [
+          "channel",
+          "dm",
+          "group_dm"
+        ]
+      },
       "LoginRequest": {
         "type": "object",
         "required": [
@@ -13981,6 +14019,38 @@
           },
           "value": {
             "type": "string"
+          }
+        }
+      },
+      "MessageLocation": {
+        "type": "object",
+        "required": [
+          "workspace_id",
+          "channel_id",
+          "kind",
+          "joined"
+        ],
+        "properties": {
+          "channel_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "joined": {
+            "type": "boolean"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/LocationKind"
+          },
+          "thread_parent_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },

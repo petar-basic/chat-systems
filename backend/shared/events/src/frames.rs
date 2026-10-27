@@ -84,6 +84,7 @@ pub enum ServerFrame {
         workspace_id: Option<Uuid>,
         channel_id: Option<Uuid>,
         message_id: Option<Uuid>,
+        thread_parent_id: Option<Uuid>,
         list_id: Option<Uuid>,
         item_id: Option<Uuid>,
         title: String,

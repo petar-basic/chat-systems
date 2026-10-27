@@ -19,8 +19,7 @@ interface Props {
   conversations: Conversation[];
   currentUserId?: string;
   onClose: () => void;
-  onNavigateToMessage: (channelId: string, messageId: string, withThread?: boolean) => void;
-  onOpenConversation: (conversationId: string) => void;
+  onOpenMessage: (messageId: string, thread?: boolean) => void;
 }
 
 export default function WorkspaceRightPanels({
@@ -32,8 +31,7 @@ export default function WorkspaceRightPanels({
   conversations,
   currentUserId,
   onClose,
-  onNavigateToMessage,
-  onOpenConversation,
+  onOpenMessage,
 }: Props) {
   const { role } = useCurrentWorkspaceRole();
 
@@ -43,6 +41,7 @@ export default function WorkspaceRightPanels({
     return (
       <ThreadPanel
         parentMessage={panel.message}
+        replyId={panel.replyId}
         members={workspaceMembers}
         channels={channels}
         onClose={onClose}
@@ -57,27 +56,19 @@ export default function WorkspaceRightPanels({
         channels={channels}
         conversations={conversations}
         onClose={onClose}
-        onNavigateToMessage={(chId, msgId) => onNavigateToMessage(chId, msgId)}
-        onOpenConversation={onOpenConversation}
+        onOpenMessage={onOpenMessage}
       />
     );
   }
   if (panel.kind === 'search' && currentWorkspace) {
-    return (
-      <SearchPanel
-        members={workspaceMembers}
-        onClose={onClose}
-        onNavigateToMessage={(chId, msgId) => onNavigateToMessage(chId, msgId)}
-        onNavigateToConversation={onOpenConversation}
-      />
-    );
+    return <SearchPanel members={workspaceMembers} onClose={onClose} onOpenMessage={onOpenMessage} />;
   }
   if (panel.kind === 'pins' && currentChannel) {
     return (
       <PinnedMessagesPanel
         channelId={currentChannel.id}
         onClose={onClose}
-        onNavigate={(msgId) => onNavigateToMessage(currentChannel.id, msgId)}
+        onNavigate={(msgId) => onOpenMessage(msgId)}
       />
     );
   }
@@ -86,7 +77,7 @@ export default function WorkspaceRightPanels({
       <ChannelFilesPanel
         channelId={currentChannel.id}
         onClose={onClose}
-        onNavigate={(msgId) => onNavigateToMessage(currentChannel.id, msgId)}
+        onNavigate={(msgId) => onOpenMessage(msgId)}
       />
     );
   }
@@ -104,11 +95,7 @@ export default function WorkspaceRightPanels({
   }
   if (panel.kind === 'notifications' && currentWorkspace) {
     return (
-      <NotificationsPanel
-        workspaceId={currentWorkspace.id}
-        onClose={onClose}
-        onNavigate={(chId, msgId, withThread) => onNavigateToMessage(chId, msgId, withThread)}
-      />
+      <NotificationsPanel workspaceId={currentWorkspace.id} onClose={onClose} onOpenMessage={onOpenMessage} />
     );
   }
   if (panel.kind === 'workflows' && currentWorkspace && currentUserId) {

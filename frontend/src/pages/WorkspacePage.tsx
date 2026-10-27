@@ -19,6 +19,7 @@ import {
   ChannelHeader,
   ChannelBookmarksBar,
   ChannelIntro,
+  ChannelPreviewBar,
   CreateChannelModal,
 } from '@/features/channel';
 import { canAddChannelMembers, creatableChannelKinds } from '@/lib/channelPermissions';
@@ -190,7 +191,8 @@ export default function WorkspacePage() {
             currentUserId={user.id}
             members={c.workspaceMembers}
             channels={c.channels}
-            highlightMessageId={c.urlMessageId}
+            highlightMessageId={c.highlightMessageId}
+            onTargetMessageFound={c.handleTargetMessageFound}
             onClose={() => c.navigate(ROUTES.workspace(currentWorkspace.id))}
             onOpenNav={() => c.setMobileNavOpen(true)}
             onOpenThread={panel.openThread}
@@ -200,7 +202,7 @@ export default function WorkspacePage() {
         ) : (
           <FileDropZone
             className="flex-1 flex min-w-0"
-            disabled={!currentChannel || !canPost}
+            disabled={!currentChannel || c.previewing || !canPost}
             onFiles={c.attachments.add}
           >
             <main className="flex-1 flex flex-col min-w-0" aria-label="Conversation" data-message-pane>
@@ -272,7 +274,7 @@ export default function WorkspacePage() {
                   onThreadOpen={panel.openThread}
                   onSave={c.handleSaveMessage}
                   onForward={c.handleForwardMessage}
-                  highlightMessageId={c.urlMessageId}
+                  highlightMessageId={c.highlightMessageId}
                   onTargetMessageFound={c.handleTargetMessageFound}
                   empty={
                     <ChannelIntro
@@ -305,7 +307,11 @@ export default function WorkspacePage() {
                 </div>
               )}
 
-              {currentChannel && !canPost && (
+              {currentChannel && c.previewing && (
+                <ChannelPreviewBar channel={currentChannel} instanceUrl={currentWorkspace?.instanceUrl} />
+              )}
+
+              {currentChannel && !c.previewing && !canPost && (
                 <div
                   data-qa="channel-read-only"
                   className="mx-4 mb-4 px-4 py-3 rounded-lg bg-surface/60 border border-line text-sm text-muted flex items-center gap-2"
@@ -315,7 +321,7 @@ export default function WorkspacePage() {
                 </div>
               )}
 
-              {currentChannel && canPost && (
+              {currentChannel && !c.previewing && canPost && (
                 <MessageInput
                   key={currentChannel.id}
                   workspaceId={currentWorkspace?.id}
@@ -361,8 +367,7 @@ export default function WorkspacePage() {
           conversations={c.conversations}
           currentUserId={user?.id}
           onClose={panel.close}
-          onNavigateToMessage={c.handleNavigateToMessage}
-          onOpenConversation={c.handleOpenConversation}
+          onOpenMessage={c.handleOpenMessage}
         />
 
         {c.forwarding && currentWorkspace && user && (

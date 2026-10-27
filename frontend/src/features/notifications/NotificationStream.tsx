@@ -6,15 +6,18 @@ import { useWorkspaceStore } from '@/stores/workspace';
 import { useNotificationPrefs } from '@/stores/notificationPrefs';
 import { showNotification, playMessageSound } from '@/lib/notifications';
 import { QUERY_KEYS, ROUTES } from '@/shared/constants';
+import { useOpenMessage } from '@/features/messaging';
 import { NotificationType } from '@/shared/models/enums';
 
 export function NotificationStream() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const openMessage = useOpenMessage();
 
   useEffect(() => {
     return globalEventBus.on('notification', (event) => {
-      const { workspace_id, channel_id, message_id, list_id, item_id, title, body, kind } = event;
+      const { workspace_id, channel_id, message_id, thread_parent_id, list_id, item_id, title, body, kind } =
+        event;
       const isMention = kind === NotificationType.mention;
       const isReply = kind === NotificationType.reply;
       const isList = kind === NotificationType.list;
@@ -47,21 +50,18 @@ export function NotificationStream() {
       playMessageSound();
 
       if (desktopEnabled) {
-        const target = (workspaceId: string, channelId: string) => {
-          if (kind === NotificationType.dm) return ROUTES.conversation(workspaceId, channelId);
-          if (!message_id) return ROUTES.channel(workspaceId, channelId);
-          return `${ROUTES.message(workspaceId, channelId, message_id)}${isReply ? '?thread=1' : ''}`;
-        };
         const onClick =
           wsId && isList && list_id
             ? () => navigate(`${ROUTES.list(wsId, list_id)}${item_id ? `?item=${item_id}` : ''}`)
-            : wsId && channel_id
-              ? () => navigate(target(wsId, channel_id))
-              : undefined;
+            : message_id
+              ? () => void openMessage(message_id, !!thread_parent_id)
+              : wsId && channel_id
+                ? () => navigate(ROUTES.channel(wsId, channel_id))
+                : undefined;
         showNotification(isMention ? `🔔 ${title}` : title, body ?? '', onClick);
       }
     });
-  }, [navigate, queryClient]);
+  }, [navigate, queryClient, openMessage]);
 
   return null;
 }

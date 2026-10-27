@@ -7,7 +7,7 @@ import { useCurrentUser, useLogout } from '@/features/instance';
 import { useWorkspaceStore, type Channel } from '@/stores/workspace';
 import { ROUTES, QUERY_KEYS } from '@/shared/constants';
 import { useCreateWorkspace, useCreateChannel } from '@/features/workspace/hooks/useWorkspaces';
-import { useOpenConversation } from '@/features/messaging';
+import { useOpenConversation, useOpenMessage } from '@/features/messaging';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import type { MessagesInfiniteData } from '@/features/messaging';
 import { useRightPanel } from './useRightPanel';
@@ -147,15 +147,13 @@ export function useWorkspaceController() {
     [workspaceId, currentWorkspace, openConversation, handleOpenConversation],
   );
 
-  const handleNavigateToMessage = useCallback(
-    (channelId: string, messageId: string, withThread = false) => {
+  const openMessage = useOpenMessage();
+  const handleOpenMessage = useCallback(
+    (messageId: string, thread = false) => {
       panel.close();
-      const wsId = workspaceId || currentWorkspace?.id;
-      if (!wsId) return;
-      const base = ROUTES.message(wsId, channelId, messageId);
-      navigate(withThread ? `${base}?thread=1` : base);
+      void openMessage(messageId, thread);
     },
-    [panel, workspaceId, currentWorkspace, navigate],
+    [panel, openMessage],
   );
 
   const handleCreateWorkspace = useCallback(
@@ -241,7 +239,8 @@ export function useWorkspaceController() {
     setMobileNavOpen,
     shortcutsOpen,
     setShortcutsOpen,
-    urlMessageId: routing.urlMessageId,
+    highlightMessageId: routing.highlightMessageId,
+    previewing: routing.previewing,
     isUnreadsRoute: routing.isUnreadsRoute,
     handleOpenUnreads,
     isThreadsRoute: routing.isThreadsRoute,
@@ -253,7 +252,7 @@ export function useWorkspaceController() {
     handleSelectChannel,
     handleOpenConversation,
     handleOpenWith,
-    handleNavigateToMessage,
+    handleOpenMessage,
     handleCreateWorkspace,
     handleCreateChannel,
   };

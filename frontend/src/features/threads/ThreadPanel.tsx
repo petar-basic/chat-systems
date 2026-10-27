@@ -27,18 +27,21 @@ import { useChannelModeration } from '@/features/channel';
 
 interface Props {
   parentMessage: Message;
+  replyId?: string;
   members?: WorkspaceMember[];
   channels?: Channel[];
   onClose: () => void;
 }
 
-export default function ThreadPanel({ parentMessage, members, channels, onClose }: Props) {
+export default function ThreadPanel({ parentMessage, replyId, members, channels, onClose }: Props) {
   const { data: replies = [], isLoading: loading } = useThreadMessages(parentMessage.id);
   const currentUserId = useWorkspaceStore((s) => s.currentUserId) ?? '';
   const sendReply = useSendThreadReply(parentMessage.id, parentMessage.channel_id, currentUserId);
   const currentWorkspace = useWorkspaceStore((s) => s.currentWorkspace);
   const { toggleReaction, edit, remove, togglePin } = useThreadReplyActions(parentMessage.id, currentUserId);
   const endRef = useRef<HTMLDivElement>(null);
+  const repliesRef = useRef<HTMLDivElement>(null);
+  const landedOn = useRef<string | null>(null);
   const { data: threadState, refetch: markRead } = useThreadState(parentMessage.id);
   const channel = channels?.find((ch) => ch.id === parentMessage.channel_id);
   const { canBroadcast, members: channelMembers } = useChannelModeration(
@@ -55,8 +58,15 @@ export default function ThreadPanel({ parentMessage, members, channels, onClose 
   }, [loading, replies.length, markRead]);
 
   useEffect(() => {
+    if (replyId && landedOn.current !== replyId) {
+      const reply = repliesRef.current?.querySelector(`[data-message-id="${replyId}"]`);
+      if (!reply) return;
+      landedOn.current = replyId;
+      reply.scrollIntoView({ block: 'center' });
+      return;
+    }
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [replies]);
+  }, [replies, replyId]);
 
   const attachments = useComposerAttachments({
     workspaceId: currentWorkspace?.id,
@@ -123,7 +133,7 @@ export default function ThreadPanel({ parentMessage, members, channels, onClose 
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 py-2">
+        <div ref={repliesRef} className="flex-1 overflow-y-auto px-4 py-2">
           {loading ? (
             <div className="flex justify-center py-4">
               <Spinner className="text-accent" />
@@ -138,6 +148,7 @@ export default function ThreadPanel({ parentMessage, members, channels, onClose 
                   key={r.id}
                   message={r}
                   dataQa="thread-reply"
+                  isHighlighted={r.id === replyId}
                   currentUserId={currentUserId}
                   senderName={displayNameOf(sender?.display_name)}
                   senderAvatarUrl={sender?.avatar_url}
