@@ -303,7 +303,7 @@ unverified in the survey are checked first in their ticket and dropped if they d
 | CS-083 ✅ | Notifications that arrive once, where they should | backend · frontend · realtime |
 | CS-084 ✅ | Reconnecting, presence and new versions | frontend · realtime · ops |
 | [CS-085](CS-085-channel-lifecycle-data.md) | Archive, export and retention that say what they did | backend · frontend |
-| [CS-086](CS-086-getting-people-in.md) | Getting people in | frontend · backend |
+| CS-086 ✅ | Getting people in | frontend · backend |
 | [CS-087](CS-087-account-photos.md) | A photo that shows everywhere | backend · frontend |
 | [CS-088](CS-088-slack-import-fidelity.md) | A Slack import that keeps what it found | backend |
 

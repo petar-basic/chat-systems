@@ -11,6 +11,7 @@ use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
 use super::models::*;
+use super::service::PasswordRecovery;
 use crate::audit::{self, AuditAction, AuditEntry};
 use crate::dto::StatusResponse;
 use crate::middleware::AuthUser;
@@ -297,7 +298,17 @@ async fn forgot_password(
 ) -> AppResult<Json<StatusResponse>> {
     let key = format!("rate_limit:forgot:{}", req.email.to_lowercase());
     check_rate_limit(&state, &key, 5, 900).await?;
-    state.auth_service.forgot_password(&req.email).await?;
+    if let PasswordRecovery::AwaitingInvite(user) =
+        state.auth_service.forgot_password(&req.email).await?
+    {
+        if let Err(e) = state
+            .workspace_service
+            .resend_invite(&user.email, &state.auth_service)
+            .await
+        {
+            tracing::warn!("failed to re-send an invite: {}", e);
+        }
+    }
     Ok(Json(StatusResponse::new("sent")))
 }
 

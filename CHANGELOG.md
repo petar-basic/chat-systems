@@ -44,6 +44,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   you run now>` to keep its chunks for tabs opened before the upgrade, and
   `--build-arg APP_VERSION=<version>` to name the build. A proxy in front of the frontend
   should not cache `index.html` or `version.json`; nginx now sends `no-cache` for both.
+- For API clients: `POST /workspaces/{id}/invites` returns the invite with `invite_url` and
+  `email_sent`, and `GET /workspaces/{id}/invites/{invite_id}/link` hands out a pending email
+  invite's link again. An empty `SMTP_HOST` now means no email: invites say so instead of
+  claiming they were sent.
 
 ### Security
 
@@ -116,6 +120,14 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   shows *A new version is available* with *Reload*, a lazy page or the emoji picker whose
   chunk is gone reloads once onto the new build, and release images keep the previous
   release's chunks.
+- **Inviting works without email.** Every invite shows its link to copy, and the form says
+  when email is not set up instead of *Invite sent*. *Workspace settings → Members* lists
+  pending invites with *Copy invite link* and *Revoke*.
+- **SSO from an invite lands in the workspace.** The invite page offers *Continue with SSO*,
+  and the invite is used on the way back from the provider, activating the invited account.
+- **Forgot password does the right thing.** Somebody invited but not registered gets their
+  invite again, an SSO account is told to sign in with SSO, and a too-short new password no
+  longer uses up the reset link.
 
 ## [3.5.0] — 2026-10-27
 

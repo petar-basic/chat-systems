@@ -15,6 +15,12 @@ mod email;
 mod tests;
 mod tokens;
 
+#[derive(Debug)]
+pub enum PasswordRecovery {
+    Handled,
+    AwaitingInvite(User),
+}
+
 pub struct AuthService {
     repo: UserRepo,
     config: AppConfig,
@@ -174,25 +180,36 @@ impl AuthService {
         Ok(())
     }
 
-    pub async fn forgot_password(&self, email: &str) -> AppResult<()> {
+    pub async fn forgot_password(&self, email: &str) -> AppResult<PasswordRecovery> {
         validation::validate_email(email)?;
 
-        let user = self.repo.find_by_email(email).await?;
+        let Some(user) = self.repo.find_by_email(email).await? else {
+            return Ok(PasswordRecovery::Handled);
+        };
 
-        if let Some(user) = user {
-            match self.generate_reset_token(user.id).await {
-                Ok(token) => {
-                    let reset_url =
-                        format!("{}/reset-password?token={}", self.config.public_url, token);
-                    if let Err(e) = self.send_reset_email(&user.email, &reset_url).await {
-                        tracing::warn!("failed to send password reset email: {}", e);
-                    }
-                }
-                Err(e) => tracing::warn!("failed to generate password reset token: {}", e),
-            }
+        if user.status == UserStatus::Pending {
+            return Ok(PasswordRecovery::AwaitingInvite(user));
         }
 
-        Ok(())
+        if user.password_hash.is_none() {
+            if let Err(e) = self.send_sso_reminder(&user.email).await {
+                tracing::warn!("failed to send SSO reminder email: {}", e);
+            }
+            return Ok(PasswordRecovery::Handled);
+        }
+
+        match self.generate_reset_token(user.id).await {
+            Ok(token) => {
+                let reset_url =
+                    format!("{}/reset-password?token={}", self.config.public_url, token);
+                if let Err(e) = self.send_reset_email(&user.email, &reset_url).await {
+                    tracing::warn!("failed to send password reset email: {}", e);
+                }
+            }
+            Err(e) => tracing::warn!("failed to generate password reset token: {}", e),
+        }
+
+        Ok(PasswordRecovery::Handled)
     }
 
     pub async fn reset_password(&self, token: &str, new_password: &str) -> AppResult<Uuid> {
@@ -205,14 +222,15 @@ impl AuthService {
         let jti = claims
             .jti
             .ok_or_else(|| AppError::Unauthorized("Invalid or expired token".into()))?;
+
+        validation::validate_password(new_password)?;
+
         let consumed = self.repo.consume_reset_jti(jti, claims.sub).await?;
         if !consumed {
             return Err(AppError::Unauthorized(
                 "reset link already used or expired".into(),
             ));
         }
-
-        validation::validate_password(new_password)?;
 
         let password_hash = Self::hash_password(new_password)?;
         self.repo

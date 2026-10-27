@@ -78,6 +78,9 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - **Expected:** account is created **and you're joined to the inviting workspace** (land inside it). The invite email link works (verify endpoint returns the invite info, not a 404).
 - 🟠 **Edge — reused link:** click the same invite link again after registering → it should fail cleanly ("invalid/expired"), not create a duplicate or 500.
 - 🟠 **Edge — tampered token:** change a character in the `/invite/<token>` URL → "invalid invite", no crash.
+- 🔴 **Edge — no email:** with `SMTP_HOST=` empty, invite somebody → the form says email is not set up and shows the link with a copy button; nothing reaches MailHog. The copied link registers them as above. Under *Members* the invite sits in *pending invites* until used; its link icon copies a working link, and *Revoke* (confirmed) removes the row and kills every copy of the link.
+- 🔴 **Edge — SSO from the invite:** with SSO configured, invite `sso@dev.local` to a workspace it is not in and open the link in a private window → *Continue with SSO* → you land inside that workspace, signed in.
+- 🟠 **Edge — forgot password:** *Forgot password* for an invited address that never registered → MailHog gets the invite again, not a reset. For `sso@dev.local` → a note to use *Sign in with SSO*. On a reset link, a 5-character password is refused and the same link then works with a proper one.
 - 🟠 **Edge — password too short:** enter <8 chars → validation error, no submit.
 
 ### 1.3 🟢 Forgot / reset password

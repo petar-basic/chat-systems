@@ -18,6 +18,8 @@ import { Select } from '@/shared/components/Form/Select';
 import { useErasePerson, useStartPersonExport } from '@/features/workspace/hooks/useExports';
 import { ErasePersonDialog } from './ErasePersonDialog';
 import { ReactionEmoji } from '@/shared/components/ReactionEmoji';
+import { CopyField } from '@/shared/components/CopyField/CopyField';
+import { PendingInvites } from './PendingInvites';
 
 interface Props {
   workspaceId: string;
@@ -241,7 +243,7 @@ export function MembersSection({ workspaceId, openInvite, isInstanceAdmin }: Pro
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<WorkspaceRole>('member');
   const [inviting, setInviting] = useState(false);
-  const [inviteResult, setInviteResult] = useState<string | null>(null);
+  const [inviteResult, setInviteResult] = useState<{ message: string; url?: string | null } | null>(null);
   const [inviteError, setInviteError] = useState<string | null>(null);
 
   const handleInvite = async (e: FormEvent) => {
@@ -252,13 +254,19 @@ export function MembersSection({ workspaceId, openInvite, isInstanceAdmin }: Pro
     setInviteError(null);
     setInviteResult(null);
     try {
-      await apiClient.typed((c) =>
+      const email = inviteEmail.trim();
+      const created = await apiClient.typed((c) =>
         c.POST('/workspaces/{ws_id}/invites', {
           params: { path: { ws_id: workspaceId } },
-          body: { email: inviteEmail.trim(), role: inviteRole },
+          body: { email, role: inviteRole },
         }),
       );
-      setInviteResult(`Invite sent to ${inviteEmail}.`);
+      setInviteResult({
+        message: created.email_sent
+          ? `Invite sent to ${email}. You can also send them the link yourself.`
+          : `Email is not set up on this instance, so nothing was sent. Send ${email} this link yourself.`,
+        url: created.invite_url,
+      });
       setInviteEmail('');
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceMembers(workspaceId) });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceInvites(workspaceId) });
@@ -306,7 +314,19 @@ export function MembersSection({ workspaceId, openInvite, isInstanceAdmin }: Pro
                 <option value="guest">Guest</option>
               </Select>
               {inviteError && <div className="text-xs text-danger px-1">{inviteError}</div>}
-              {inviteResult && <div className="text-xs text-success px-1">{inviteResult}</div>}
+              {inviteResult && (
+                <div className="px-1" data-qa="invite-result">
+                  <div className="text-xs text-fg-soft">{inviteResult.message}</div>
+                  {inviteResult.url && (
+                    <CopyField
+                      label="Invite link"
+                      value={inviteResult.url}
+                      valueQa="invite-link-value"
+                      copyQa="invite-link-copy"
+                    />
+                  )}
+                </div>
+              )}
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -325,7 +345,7 @@ export function MembersSection({ workspaceId, openInvite, isInstanceAdmin }: Pro
                   type="submit"
                   disabled={inviting || !inviteEmail.trim()}
                 >
-                  {inviting ? 'Sending…' : 'Send invite'}
+                  {inviting ? 'Inviting…' : 'Invite'}
                 </Button>
               </div>
             </form>
@@ -334,6 +354,7 @@ export function MembersSection({ workspaceId, openInvite, isInstanceAdmin }: Pro
       )}
 
       <div className="flex-1 overflow-y-auto py-2">
+        {isAdmin && <PendingInvites workspaceId={workspaceId} instanceUrl={instanceUrl} />}
         {loading ? (
           <div className="flex justify-center py-8">
             <Spinner className="text-accent" />

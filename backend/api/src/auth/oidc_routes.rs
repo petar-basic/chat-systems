@@ -49,7 +49,16 @@ fn pending_key(handle: &str) -> String {
     format!("oidc:pending:{handle}")
 }
 
-async fn start(State(state): State<Arc<AppState>>, jar: CookieJar) -> AppResult<Response> {
+#[derive(Debug, Deserialize)]
+struct StartQuery {
+    invite: Option<String>,
+}
+
+async fn start(
+    State(state): State<Arc<AppState>>,
+    jar: CookieJar,
+    Query(query): Query<StartQuery>,
+) -> AppResult<Response> {
     let settings = settings_from(&state.config);
     if !settings.is_configured() {
         return Err(AppError::BadRequest("SSO is not configured".into()));
@@ -60,7 +69,8 @@ async fn start(State(state): State<Arc<AppState>>, jar: CookieJar) -> AppResult<
         ));
     }
 
-    let (url, pending) = oidc::start(&settings).await?;
+    let (url, mut pending) = oidc::start(&settings).await?;
+    pending.invite = query.invite.filter(|token| !token.is_empty());
 
     let handle = handle();
     let mut conn = state.redis.clone();
@@ -132,6 +142,10 @@ async fn callback(
 
     let user = link_or_create(&state, &settings, &identity, &ip).await?;
     let tokens = state.auth_service.tokens_for(&user).await?;
+    let landing = match pending.invite.as_deref() {
+        Some(token) => join_from_invite(&state, &user, token).await,
+        None => "/app".to_string(),
+    };
 
     let secure = state.config.public_url.starts_with("https://");
     let jar = jar.remove(Cookie::from(HANDLE_COOKIE));
@@ -139,9 +153,45 @@ async fn callback(
 
     Ok((
         jar,
-        Redirect::temporary(&format!("{}/app?sso=1", state.config.public_url)),
+        Redirect::temporary(&format!("{}{landing}?sso=1", state.config.public_url)),
     )
         .into_response())
+}
+
+async fn join_from_invite(
+    state: &AppState,
+    user: &crate::auth::models::User,
+    token: &str,
+) -> String {
+    let back_to_invite = format!("/invite/{token}");
+    let Ok(reg) = state.auth_service.registration_invite(token) else {
+        return back_to_invite;
+    };
+    if reg.user_id != user.id {
+        return back_to_invite;
+    }
+    match state
+        .workspace_service
+        .redeem_email_invite(reg.invite_id, user.id, &reg.email)
+        .await
+    {
+        Ok((invite, staged)) => {
+            state.publisher.dispatch_all(staged).await;
+            audit::record(
+                state,
+                AuditEntry::new(AuditAction::InviteAccepted, user.id)
+                    .workspace(invite.workspace_id)
+                    .resource(invite.workspace_id)
+                    .details(serde_json::json!({ "via": "sso" })),
+            )
+            .await;
+            format!("/app/{}", invite.workspace_id)
+        }
+        Err(e) => {
+            tracing::warn!("SSO sign-in could not redeem its invite: {}", e);
+            back_to_invite
+        }
+    }
 }
 
 pub(crate) async fn link_or_create(
@@ -176,6 +226,9 @@ pub(crate) async fn link_or_create(
 
     if user.status == crate::auth::models::UserStatus::Suspended {
         return Err(AppError::Unauthorized("This account is suspended".into()));
+    }
+    if user.status == crate::auth::models::UserStatus::Pending {
+        repo.activate_sso(user.id).await?;
     }
 
     sqlx::query!(

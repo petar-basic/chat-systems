@@ -478,7 +478,13 @@ in the address opens it at that section and is then removed (`useSettingsDialog`
 *General* saves as you change it, like *Preferences*: a name or description when the field is
 left, the icon on upload, the switches at once, each PATCH carrying only that field; a status
 line says *Saving…*, *Saved* or why not. Deleting the workspace stays a danger zone at the
-bottom. *Members* shows the invite form to admins only, since inviting is admin-only.
+bottom. *Members* shows the invite form to admins only, since inviting is admin-only. After an
+invite it shows the invite's link with a copy button, and says so when email is not set up and
+nothing was sent. Above the members, `PendingInvites` lists the email invites still waiting to
+be used, each with *Copy invite link* (GET `/workspaces/{id}/invites/{invite_id}/link`, then the clipboard) and
+*Revoke* behind a confirmation. The invite page (`/invite/:token`) offers *Continue with SSO*
+when the instance has it, starting `/api/auth/oidc/start?invite=<token>`, and so does the
+sign-in page when it was reached from an invite.
 
 **API calls:** PATCH `/workspaces/{id}`, DELETE `/workspaces/{id}` (optionally `?hard=true`),
 POST `/workspaces/{id}/invites` `{ email, role }`, and each section's own.

@@ -29,6 +29,7 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(remove_member))
         .routes(routes!(list_invites, create_invite))
         .routes(routes!(revoke_invite))
+        .routes(routes!(invite_link))
         .routes(routes!(accept_invite))
         .routes(routes!(list_channels, create_channel))
         .routes(routes!(unread_channels))
@@ -362,18 +363,18 @@ async fn list_invites(
     Ok(Json(invites.into()))
 }
 
-#[utoipa::path(post, path = "/workspaces/{ws_id}/invites", tag = "workspaces", request_body = CreateInviteRequest, responses((status = 200, body = WorkspaceInvite)))]
+#[utoipa::path(post, path = "/workspaces/{ws_id}/invites", tag = "workspaces", request_body = CreateInviteRequest, responses((status = 200, body = CreatedInvite)))]
 async fn create_invite(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
     Path(ws_id): Path<Uuid>,
     Json(req): Json<CreateInviteRequest>,
-) -> AppResult<Json<WorkspaceInvite>> {
+) -> AppResult<Json<CreatedInvite>> {
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
     req.validate()?;
     let lifetime = InviteLifetime::resolve(&req)?;
-    let invite = state
+    let created = state
         .workspace_service
         .create_invite(
             ws_id,
@@ -389,17 +390,39 @@ async fn create_invite(
         &state,
         AuditEntry::new(AuditAction::InviteCreated, auth.user_id)
             .workspace(ws_id)
-            .resource(invite.id)
+            .resource(created.invite.id)
             .ip(&ip)
             .details(serde_json::json!({
-                "email": invite.email,
-                "role": invite.role,
-                "expires_at": invite.expires_at,
+                "email": created.invite.email,
+                "role": created.invite.role,
+                "expires_at": created.invite.expires_at,
+                "email_sent": created.email_sent,
             })),
     )
     .await;
 
-    Ok(Json(invite))
+    Ok(Json(created))
+}
+
+#[utoipa::path(get, path = "/workspaces/{ws_id}/invites/{invite_id}/link", tag = "workspaces", responses((status = 200, body = InviteLink)))]
+async fn invite_link(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path((ws_id, invite_id)): Path<(Uuid, Uuid)>,
+) -> AppResult<Json<InviteLink>> {
+    authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
+    let invite = state
+        .workspace_service
+        .repo
+        .find_invite_by_id(invite_id)
+        .await?
+        .filter(|invite| invite.workspace_id == ws_id)
+        .ok_or_else(|| AppError::NotFound("Invite not found".into()))?;
+    let url = state
+        .workspace_service
+        .invite_url(&invite, &state.auth_service)
+        .await?;
+    Ok(Json(InviteLink { url }))
 }
 
 #[utoipa::path(
