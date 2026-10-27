@@ -14,6 +14,16 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
+## [Unreleased]
+
+### Fixed
+
+- **React with a custom emoji.** The emoji picker has a *Workspace* category with the
+  workspace's own emoji, in the composer, on a message and for a workflow's reaction trigger.
+  A reaction used to be refused above eight characters, so `:party-parrot:` could not be one.
+  API: `POST /messages/{id}/reactions` takes a `:shortcode:` the workspace has, and answers 422
+  for one it does not.
+
 ## [3.4.1] — 2026-10-27
 
 ### Upgrading from 3.4.0

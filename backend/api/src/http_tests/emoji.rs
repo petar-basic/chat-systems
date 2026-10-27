@@ -253,3 +253,51 @@ async fn the_image_is_served_to_the_workspace_and_nobody_else(pool: PgPool) {
     let response = image(outsider_token).await.expect("send");
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_reaction_can_be_a_custom_emoji_the_workspace_has(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, token) = seed_and_login(&app, &state, "emoji-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Emoji WS").await;
+    let channel = seed_channel(&state, ws_id, owner_id, "reactions", false).await;
+
+    let (status, _) = upload(&app, &token, ws_id, "party-parrot", "image/png", PNG).await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, message) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{channel}/messages"),
+        Some(&token),
+        Some(serde_json::json!({ "content": "ship it" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{message:?}");
+    let reactions = format!(
+        "/api/messages/{}/reactions",
+        message["id"].as_str().expect("id")
+    );
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        &reactions,
+        Some(&token),
+        Some(serde_json::json!({ "emoji": ":party-parrot:" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(body["emoji"], ":party-parrot:");
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        &reactions,
+        Some(&token),
+        Some(serde_json::json!({ "emoji": ":not-here:" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body:?}");
+    assert!(body
+        .to_string()
+        .contains(":not-here: is not an emoji in this workspace"));
+}

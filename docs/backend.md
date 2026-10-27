@@ -349,7 +349,7 @@ posts, but `expand_mentions` leaves the broadcast out and nobody is notified by 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/messages/:msg_id/reactions` | — | `{ data: Reaction[] }` |
-| POST | `/messages/:msg_id/reactions` | `{ emoji }` | `Reaction` |
+| POST | `/messages/:msg_id/reactions` | `{ emoji }` | `Reaction` — a character of at most eight code points, or a `:shortcode:` the workspace has a custom emoji for (`422` otherwise) |
 | DELETE | `/messages/:msg_id/reactions/:emoji` | — | `{ status: "removed" }` |
 
 **Pins:**
