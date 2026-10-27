@@ -45,6 +45,23 @@ impl UserRepo {
     /// Created active and with no password: the identity provider is the
     /// credential, and an SSO account that also has a password has a second door
     /// nobody is watching.
+    pub async fn create_suspended(&self, email: &str, display_name: &str) -> sqlx::Result<User> {
+        sqlx::query_as!(
+            User,
+            r#"
+            INSERT INTO users (email, display_name, status)
+            VALUES ($1, $2, 'suspended')
+            RETURNING id, email, password_hash, display_name, avatar_url, bio, timezone AS "timezone!",
+                   status AS "status: UserStatus",
+                   is_instance_admin AS "is_instance_admin!", created_at, updated_at
+            "#,
+            email,
+            display_name
+        )
+        .fetch_one(&self.pool)
+        .await
+    }
+
     pub async fn create_sso_user(&self, email: &str) -> sqlx::Result<User> {
         sqlx::query_as!(
             User,

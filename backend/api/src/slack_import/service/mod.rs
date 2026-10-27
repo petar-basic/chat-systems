@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
@@ -37,6 +37,9 @@ pub struct Import<'a> {
     /// Slack user id → (our user id, the name to render in a mention).
     pub(crate) users: HashMap<String, (Uuid, String)>,
     pub(crate) channels: HashMap<String, Uuid>,
+    pub(crate) archived: Vec<Uuid>,
+    pub(crate) custom_emoji: HashSet<String>,
+    pub(crate) unknown_reactions: HashSet<String>,
     pub(crate) report: ImportReport,
     /// Set when the run was queued from the app: the row already exists, and the
     /// import writes its progress into it rather than opening a second one.
@@ -69,6 +72,9 @@ impl<'a> Import<'a> {
             dry_run,
             users: HashMap::new(),
             channels: HashMap::new(),
+            archived: Vec::new(),
+            custom_emoji: HashSet::new(),
+            unknown_reactions: HashSet::new(),
             report: ImportReport::default(),
             run_id: None,
         })
@@ -97,6 +103,7 @@ impl<'a> Import<'a> {
         self.publish_progress().await;
 
         self.import_custom_emoji(source).await?;
+        self.load_custom_emoji().await?;
         self.publish_progress().await;
 
         let mut targets = Vec::new();
@@ -114,6 +121,7 @@ impl<'a> Import<'a> {
         self.publish_progress().await;
 
         self.import_messages(source, &targets).await?;
+        self.archive_channels().await?;
 
         if let Some(run_id) = self.run_id {
             let report = serde_json::to_value(&self.report).unwrap_or_default();
@@ -199,6 +207,13 @@ impl<'a> Import<'a> {
     }
 
     /// A resumed run starts from what the last one wrote down, not from zero.
+    async fn load_custom_emoji(&mut self) -> AppResult<()> {
+        let existing = self.state.emoji_repo.list(self.workspace_id).await?;
+        self.custom_emoji
+            .extend(existing.into_iter().map(|emoji| emoji.name));
+        Ok(())
+    }
+
     async fn load_existing_mappings(&mut self) -> AppResult<()> {
         let users = self
             .state
@@ -294,30 +309,6 @@ pub fn parse_ts(ts: &str) -> Option<DateTime<Utc>> {
     DateTime::from_timestamp(seconds, micros * 1_000)
 }
 
-/// `:tada:` is Slack's; the reaction column holds the character.
-pub fn emoji_for(name: &str) -> String {
-    let base = name.split("::").next().unwrap_or(name);
-    match base {
-        "+1" | "thumbsup" => "👍".into(),
-        "-1" | "thumbsdown" => "👎".into(),
-        "tada" => "🎉".into(),
-        "heart" => "❤️".into(),
-        "eyes" => "👀".into(),
-        "white_check_mark" | "heavy_check_mark" => "✅".into(),
-        "fire" => "🔥".into(),
-        "rocket" => "🚀".into(),
-        "smile" | "smiley" => "😄".into(),
-        "joy" => "😂".into(),
-        "thinking_face" => "🤔".into(),
-        "clap" => "👏".into(),
-        "pray" => "🙏".into(),
-        "wave" => "👋".into(),
-        // Anything unmapped keeps Slack's own name. It renders as text rather
-        // than as a picture, which is a smaller loss than dropping the reaction.
-        other => format!(":{other}:"),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -361,12 +352,5 @@ mod tests {
     fn an_unreadable_timestamp_is_none_rather_than_a_panic() {
         assert!(parse_ts("1700000000.00Đ100").is_none());
         assert!(parse_ts("1700000000.").is_some());
-    }
-
-    #[test]
-    fn a_known_shortcode_becomes_the_character_and_the_rest_stays_readable() {
-        assert_eq!(emoji_for("tada"), "🎉");
-        assert_eq!(emoji_for("+1::skin-tone-3"), "👍");
-        assert_eq!(emoji_for("shipit"), ":shipit:");
     }
 }

@@ -8,7 +8,7 @@ use uuid::Uuid;
 use super::super::models::*;
 use super::super::mrkdwn;
 use super::super::source::{read_json, ExportSource};
-use super::{attachment_slack_ts, emoji_for, parse_ts, MAX_ATTACHMENT_BYTES};
+use super::{attachment_slack_ts, parse_ts, MAX_ATTACHMENT_BYTES};
 use super::{Import, Target};
 use crate::files::imaging;
 use crate::files::models::FileRecord;
@@ -248,7 +248,7 @@ impl Import<'_> {
         message: &SlackMessage,
     ) -> AppResult<()> {
         for reaction in &message.reactions {
-            let emoji = emoji_for(&reaction.name);
+            let emoji = self.reaction_emoji(&reaction.name);
             for slack_user_id in &reaction.users {
                 let Some(user_id) = self.users.get(slack_user_id).map(|(id, _)| *id) else {
                     continue;
@@ -269,6 +269,20 @@ impl Import<'_> {
             }
         }
         Ok(())
+    }
+
+    fn reaction_emoji(&mut self, name: &str) -> String {
+        if let Some(native) = crate::slack_import::shortcodes::standard(name) {
+            return native.to_string();
+        }
+        let base = name.split("::").next().unwrap_or(name);
+        if !self.custom_emoji.contains(base) && self.unknown_reactions.insert(base.to_string()) {
+            self.report.skip(
+                format!("reaction :{base}:"),
+                "neither a standard emoji nor one of this workspace's, so it shows as its name",
+            );
+        }
+        format!(":{base}:")
     }
 
     /// Slack's file URLs expire, so the bytes are fetched now or not at all. A

@@ -8005,6 +8005,45 @@
         }
       }
     },
+    "/workspaces/{ws_id}/slack-imports/{import_id}/retry": {
+      "post": {
+        "tags": [
+          "slack-import"
+        ],
+        "operationId": "retry_import",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "import_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataItem_ImportRun"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workspaces/{ws_id}/threads": {
       "get": {
         "tags": [
@@ -10076,6 +10115,7 @@
               "dry_run",
               "report",
               "status",
+              "retryable",
               "started_at"
             ],
             "properties": {
@@ -10106,6 +10146,9 @@
                   "null"
                 ],
                 "format": "uuid"
+              },
+              "retryable": {
+                "type": "boolean"
               },
               "source": {
                 "type": "string"
@@ -10988,6 +11031,7 @@
                 "dry_run",
                 "report",
                 "status",
+                "retryable",
                 "started_at"
               ],
               "properties": {
@@ -11018,6 +11062,9 @@
                     "null"
                   ],
                   "format": "uuid"
+                },
+                "retryable": {
+                  "type": "boolean"
                 },
                 "source": {
                   "type": "string"
@@ -13176,6 +13223,7 @@
           "dry_run",
           "report",
           "status",
+          "retryable",
           "started_at"
         ],
         "properties": {
@@ -13206,6 +13254,9 @@
               "null"
             ],
             "format": "uuid"
+          },
+          "retryable": {
+            "type": "boolean"
           },
           "source": {
             "type": "string"

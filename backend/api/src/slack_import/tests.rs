@@ -279,8 +279,8 @@ async fn an_export_arrives_as_channels_messages_threads_reactions_and_pins(pool:
     );
     assert_eq!(report.conversations_created, 1, "the DM is a conversation");
     assert_eq!(
-        report.messages_imported, 7,
-        "four in the channel, one private, two in the DM — the join notice is not a message"
+        report.messages_imported, 8,
+        "five in the channel, one private, two in the DM — the join notice is not a message"
     );
     assert_eq!(report.threads_resolved, 1);
     assert_eq!(report.reactions, 1);
@@ -383,13 +383,23 @@ async fn an_export_arrives_as_channels_messages_threads_reactions_and_pins(pool:
     .expect("the imported account exists");
     assert_eq!(imported_status, "pending");
 
+    assert_eq!(report.users_suspended, 1, "the account that left Slack");
+    let (status, name): (String, String) = sqlx::query_as(
+        "SELECT u.status::text, u.display_name FROM users u
+           JOIN slack_users s ON s.user_id = u.id
+          WHERE s.workspace_id = $1 AND s.slack_user_id = 'U3'",
+    )
+    .bind(ws)
+    .fetch_one(&state.pool)
+    .await
+    .expect("the departed account exists");
+    assert_eq!(status, "suspended", "nobody can sign into it");
+    assert_eq!(name, "Nobody", "and their name stays on what they wrote");
     assert!(
-        report
-            .skipped
+        messages
             .iter()
-            .any(|s| s.why.contains("no email in the export")),
-        "the deleted account is reported, not silently dropped: {:?}",
-        report.skipped
+            .any(|m| m.content == "from an account with no address"),
+        "their message is kept"
     );
     assert!(
         report.skipped.iter().any(|s| s.why.contains("a bot")),
@@ -582,7 +592,7 @@ async fn the_zip_slack_hands_you_imports_the_same_as_a_directory(pool: PgPool) {
 
     assert_eq!(report.channels_created, 2);
     assert_eq!(report.conversations_created, 1);
-    assert_eq!(report.messages_imported, 7);
+    assert_eq!(report.messages_imported, 8);
     assert_eq!(report.threads_resolved, 1);
     assert_eq!(report.files_imported, 1);
 }
@@ -879,7 +889,7 @@ async fn an_admin_uploads_an_export_and_the_worker_runs_it(pool: PgPool) {
     .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(finished["data"]["status"], "complete");
-    assert_eq!(finished["data"]["report"]["messages_imported"], 7);
+    assert_eq!(finished["data"]["report"]["messages_imported"], 8);
     assert_eq!(finished["data"]["report"]["channels_created"], 2);
 
     let channels: i64 = sqlx::query_scalar(
@@ -1119,7 +1129,7 @@ async fn running_it_twice_writes_nothing_the_second_time(pool: PgPool) {
         .fetch_one(&state.pool)
         .await
         .expect("count mappings");
-    assert_eq!(users, 2);
+    assert_eq!(users, 3);
 
     let conversations: i64 =
         sqlx::query_scalar(
@@ -1165,7 +1175,7 @@ async fn an_interrupted_import_picks_up_where_it_stopped(pool: PgPool) {
 
     assert_eq!(resumed.users_created, 0, "the mapping is reused");
     assert_eq!(resumed.channels_created, 0);
-    assert_eq!(resumed.messages_imported, 7, "the messages are written now");
+    assert_eq!(resumed.messages_imported, 8, "the messages are written now");
     assert_eq!(resumed.threads_resolved, 1);
 }
 
@@ -1178,7 +1188,7 @@ async fn a_dry_run_reports_and_writes_nothing(pool: PgPool) {
     let fixture = Fixture::write();
     let report = import(&state, ws, &fixture.root, true).await;
 
-    assert_eq!(report.messages_imported, 7, "it says what it would do");
+    assert_eq!(report.messages_imported, 8, "it says what it would do");
     assert_eq!(report.channels_created, 2);
     assert_eq!(report.conversations_created, 1);
 
@@ -1218,7 +1228,7 @@ async fn an_unfetchable_file_is_reported_and_the_message_still_lands(pool: PgPoo
 
     assert_eq!(report.files_imported, 0);
     assert_eq!(
-        report.messages_imported, 7,
+        report.messages_imported, 8,
         "the message it hung off is kept"
     );
     assert!(
@@ -1226,4 +1236,247 @@ async fn an_unfetchable_file_is_reported_and_the_message_still_lands(pool: PgPoo
         "the operator is told which file: {:?}",
         report.skipped
     );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn guests_leavers_archives_and_reactions_look_as_they_did_in_slack(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "import-fidelity", false).await;
+    let ws = seed_workspace(&state, owner_id, "Imported").await;
+
+    let fixture = Fixture::write();
+    let users = json!([
+        { "id": "U1", "name": "ana", "profile": { "email": "ana@dev.local", "real_name": "Ana Marić" } },
+        { "id": "U4", "name": "gina", "is_restricted": true,
+          "profile": { "email": "gina@dev.local", "real_name": "Gina Guest" } },
+        { "id": "U5", "name": "olga", "is_ultra_restricted": true,
+          "profile": { "email": "olga@dev.local", "real_name": "Olga One" } },
+        { "id": "U6", "name": "leo", "deleted": true,
+          "profile": { "email": "leo@dev.local", "real_name": "Leo Left" } }
+    ]);
+    std::fs::write(
+        fixture.root.join("users.json"),
+        serde_json::to_vec(&users).expect("users json"),
+    )
+    .expect("write users");
+    let channels = json!([
+        { "id": "C1", "name": "general-chat", "members": ["U1"] },
+        { "id": "C2", "name": "old-launch", "is_archived": true, "members": ["U1", "U4", "U6"] }
+    ]);
+    std::fs::write(
+        fixture.root.join("channels.json"),
+        serde_json::to_vec(&channels).expect("channels json"),
+    )
+    .expect("write channels");
+    std::fs::create_dir_all(fixture.root.join("old-launch")).expect("archived directory");
+    let day = json!([
+        {
+            "type": "message",
+            "user": "U6",
+            "text": "launched",
+            "ts": "1690000000.000100",
+            "reactions": [
+                { "name": "+1::skin-tone-2", "users": ["U1"] },
+                { "name": "face_with_rolling_eyes", "users": ["U4"] },
+                { "name": "shipit", "users": ["U1"] },
+                { "name": "not-a-thing", "users": ["U1"] }
+            ]
+        }
+    ]);
+    std::fs::write(
+        fixture.root.join("old-launch").join("2023-07-22.json"),
+        serde_json::to_vec(&day).expect("day json"),
+    )
+    .expect("write day");
+
+    let slack = StubSlack::with_emoji(&[("shipit", "https://emoji.slack.test/shipit/1.png")]);
+    let mut source = DirectorySource::new(&fixture.root);
+    let report = Import::open(&state, &slack, ws, false)
+        .await
+        .expect("the workspace exists")
+        .run(&mut source)
+        .await
+        .expect("import runs");
+
+    assert_eq!(report.guests, 2, "both kinds of Slack guest");
+    assert_eq!(report.users_suspended, 1, "the account that left");
+    assert_eq!(report.channels_archived, 1);
+
+    let roles: Vec<(String, String, String)> = sqlx::query_as(
+        "SELECT u.email, wm.role::text, u.status::text FROM workspace_members wm
+           JOIN users u ON u.id = wm.user_id
+          WHERE wm.workspace_id = $1 AND u.email <> 'ana@dev.local' AND wm.user_id <> $2
+          ORDER BY u.email",
+    )
+    .bind(ws)
+    .bind(owner_id)
+    .fetch_all(&state.pool)
+    .await
+    .expect("members");
+    assert_eq!(
+        roles,
+        vec![
+            ("gina@dev.local".into(), "guest".into(), "pending".into()),
+            ("leo@dev.local".into(), "member".into(), "suspended".into()),
+            ("olga@dev.local".into(), "guest".into(), "pending".into()),
+        ]
+    );
+
+    let archived: Vec<(String, bool)> = sqlx::query_as(
+        "SELECT name, is_archived FROM channels WHERE workspace_id = $1 AND name IN ('general-chat', 'old-launch') ORDER BY name",
+    )
+    .bind(ws)
+    .fetch_all(&state.pool)
+    .await
+    .expect("channels");
+    assert_eq!(
+        archived,
+        vec![("general-chat".into(), false), ("old-launch".into(), true)]
+    );
+
+    let launched: Uuid = sqlx::query_scalar(
+        "SELECT m.id FROM messages m JOIN channels c ON c.id = m.channel_id
+          WHERE c.workspace_id = $1 AND c.name = 'old-launch' AND m.content = 'launched'",
+    )
+    .bind(ws)
+    .fetch_one(&state.pool)
+    .await
+    .expect("the archived channel keeps its history");
+    let mut emoji: Vec<String> = state
+        .message_repo
+        .list_reactions(launched)
+        .await
+        .expect("reactions")
+        .into_iter()
+        .map(|r| r.emoji)
+        .collect();
+    emoji.sort();
+    let mut expected = vec!["👍🏻", "🙄", ":shipit:", ":not-a-thing:"];
+    expected.sort();
+    assert_eq!(emoji, expected);
+    assert!(
+        report
+            .skipped
+            .iter()
+            .any(|s| s.what == "reaction :not-a-thing:"),
+        "an unknown reaction is named: {:?}",
+        report.skipped
+    );
+    assert!(
+        !report.skipped.iter().any(|s| s.what == "reaction :shipit:"),
+        "a custom one is not"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_run_the_worker_lost_fails_and_can_be_started_again(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "import-stale", false).await;
+    let ws = seed_workspace(&state, owner_id, "Imported").await;
+    let (member_id, _, member_token) = seed_and_login(&app, &state, "import-stale-m", false).await;
+    add_ws_member(&state, ws, member_id, "member").await;
+
+    let fixture = Fixture::write();
+    let archive = zip_of(&fixture.root);
+    let bytes = std::fs::read(&archive).expect("read the zip");
+    let _ = std::fs::remove_file(&archive);
+    let key = format!("slack-imports/{ws}/{}.zip", Uuid::new_v4());
+    state
+        .file_storage
+        .upload(&key, bytes, "application/zip")
+        .await
+        .expect("store the archive");
+
+    let lost = state
+        .slack_import_repo
+        .queue_run(ws, "export.zip", &key, owner_id, false)
+        .await
+        .expect("queue");
+    state
+        .slack_import_repo
+        .claim_next()
+        .await
+        .expect("claim")
+        .expect("a job");
+    let alive = state
+        .slack_import_repo
+        .queue_run(ws, "other.zip", "slack-imports/other.zip", owner_id, false)
+        .await
+        .expect("queue");
+    state
+        .slack_import_repo
+        .claim_next()
+        .await
+        .expect("claim")
+        .expect("a job");
+    sqlx::query(
+        "UPDATE slack_imports SET heartbeat_at = NOW() - interval '6 minutes' WHERE id = $1",
+    )
+    .bind(lost.id)
+    .execute(&state.pool)
+    .await
+    .expect("the worker went away");
+
+    let swept = state
+        .slack_import_repo
+        .fail_stale(chrono::Duration::minutes(5), "stopped")
+        .await
+        .expect("sweep");
+    assert_eq!(swept, vec![lost.id], "only the run nobody is beating for");
+
+    let (_, shown) = send(
+        &app,
+        "GET",
+        &format!("/api/slack-imports/{}", alive.id),
+        Some(&owner_token),
+        None,
+    )
+    .await;
+    assert_eq!(shown["data"]["status"], "running");
+
+    let (_, shown) = send(
+        &app,
+        "GET",
+        &format!("/api/slack-imports/{}", lost.id),
+        Some(&owner_token),
+        None,
+    )
+    .await;
+    assert_eq!(shown["data"]["status"], "failed");
+    assert_eq!(shown["data"]["retryable"], true);
+
+    let retry = format!("/api/workspaces/{ws}/slack-imports/{}/retry", lost.id);
+    let (status, _) = send(&app, "POST", &retry, Some(&member_token), None).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let (status, again) = send(&app, "POST", &retry, Some(&owner_token), None).await;
+    assert_eq!(status, StatusCode::OK, "{again:?}");
+    assert_eq!(again["data"]["status"], "pending");
+    assert_eq!(again["data"]["retryable"], false);
+    let (status, _) = send(&app, "POST", &retry, Some(&owner_token), None).await;
+    assert_eq!(
+        status,
+        StatusCode::CONFLICT,
+        "a queued run is not retried twice"
+    );
+
+    let claimed = state
+        .slack_import_repo
+        .claim_next()
+        .await
+        .expect("claim")
+        .expect("the retried job");
+    assert_eq!(claimed.id, lost.id);
+    crate::slack_import::job::run(&state, claimed)
+        .await
+        .expect("the job runs");
+    let (_, finished) = send(
+        &app,
+        "GET",
+        &format!("/api/slack-imports/{}", lost.id),
+        Some(&owner_token),
+        None,
+    )
+    .await;
+    assert_eq!(finished["data"]["status"], "complete");
+    assert_eq!(finished["data"]["report"]["messages_imported"], 8);
 }

@@ -40,6 +40,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   or stops using the app. Push is held back only while a session says it is active, so a
   client that never sends it gets push even with its socket open. A `huddle.ring` to somebody
   who paused the workspace is no longer delivered.
+- The API runs migration 79 on start, which adds `slack_imports.heartbeat_at`.
+- For API clients: `ImportRun` carries `retryable`, and
+  `POST /workspaces/{ws_id}/slack-imports/{import_id}/retry` queues a failed run again. An
+  import report counts `guests`, `users_suspended` and `channels_archived`.
 - Building the frontend image yourself: pass `--build-arg PREVIOUS_IMAGE=<the frontend image
   you run now>` to keep its chunks for tabs opened before the upgrade, and
   `--build-arg APP_VERSION=<version>` to name the build. A proxy in front of the frontend
@@ -116,6 +120,11 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   shows *A new version is available* with *Reload*, a lazy page or the emoji picker whose
   chunk is gone reloads once onto the new build, and release images keep the previous
   release's chunks.
+- **A Slack import keeps what it found.** Slack guests arrive as guests, people who had left
+  Slack arrive as suspended accounts with their name still on their messages, and archived
+  channels arrive archived. Reactions map through the full emoji set, skin tones included, and
+  the workspace's custom emoji. An import that was running when the worker restarted is marked
+  failed after five minutes, and *Start again* picks it up where it stopped.
 
 ## [3.5.0] — 2026-10-27
 

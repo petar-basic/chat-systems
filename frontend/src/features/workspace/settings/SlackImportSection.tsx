@@ -6,6 +6,7 @@ import { CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
 import {
   useSlackImports,
   useStartSlackImport,
+  useRetrySlackImport,
   workspaceNameFrom,
   type SlackImportRun,
   type SlackImportReport,
@@ -25,13 +26,16 @@ const COUNTS: { key: keyof Omit<SlackImportReport, 'skipped' | 'notes'>; label: 
   { key: 'conversations_created', label: 'DMs' },
   { key: 'users_created', label: 'accounts created' },
   { key: 'users_matched', label: 'accounts matched' },
+  { key: 'guests', label: 'guests' },
+  { key: 'users_suspended', label: 'who left Slack' },
+  { key: 'channels_archived', label: 'archived' },
   { key: 'threads_resolved', label: 'in threads' },
   { key: 'reactions', label: 'reactions' },
   { key: 'files_imported', label: 'files' },
   { key: 'emoji_imported', label: 'emoji' },
 ];
 
-function RunRow({ run }: { run: SlackImportRun }) {
+function RunRow({ run, retrying, onRetry }: { run: SlackImportRun; retrying: boolean; onRetry: () => void }) {
   const report = reportOf(run);
   const skipped = report.skipped ?? [];
   const notes = report.notes ?? [];
@@ -80,6 +84,19 @@ function RunRow({ run }: { run: SlackImportRun }) {
         </p>
       )}
 
+      {run.retryable && (
+        <Button
+          size="sm"
+          className="mt-1.5"
+          onClick={onRetry}
+          loading={retrying}
+          disabled={retrying}
+          data-qa="slack-import-retry"
+        >
+          Start again
+        </Button>
+      )}
+
       {skipped.length > 0 && (
         <details className="mt-1.5">
           <summary className="text-xs text-muted cursor-pointer hover:text-fg-soft">
@@ -101,6 +118,7 @@ function RunRow({ run }: { run: SlackImportRun }) {
 export function SlackImportSection({ workspaceId, instanceUrl }: Props) {
   const { data: runs = [], isLoading } = useSlackImports(workspaceId, instanceUrl);
   const start = useStartSlackImport(workspaceId, instanceUrl);
+  const retry = useRetrySlackImport(workspaceId, instanceUrl);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [archive, setArchive] = useState<File | null>(null);
@@ -211,7 +229,18 @@ export function SlackImportSection({ workspaceId, instanceUrl }: Props) {
             No imports yet. A dry run first is the cheap way to see what will not convert.
           </div>
         ) : (
-          runs.map((run) => <RunRow key={run.id} run={run} />)
+          runs.map((run) => (
+            <RunRow
+              key={run.id}
+              run={run}
+              retrying={retry.isPending && retry.variables === run.id}
+              onRetry={() =>
+                retry.mutate(run.id, {
+                  onError: (e) => setError(toUserMessage(e, 'Could not start that import again')),
+                })
+              }
+            />
+          ))
         )}
       </div>
     </div>

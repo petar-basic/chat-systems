@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE slack_imports SET heartbeat_at = NOW() WHERE id = $1 AND status = 'running'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d530f26d84a606cc027c0c3c8b0875bece3e827c0e639283d72a600c8b1a65cd"
+}

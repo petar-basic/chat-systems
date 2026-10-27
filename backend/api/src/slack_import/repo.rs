@@ -26,6 +26,7 @@ pub struct ImportRun {
     pub storage_key: Option<String>,
     pub requested_by: Option<Uuid>,
     pub error: Option<String>,
+    pub retryable: bool,
     pub started_at: DateTime<Utc>,
     pub finished_at: Option<DateTime<Utc>>,
 }
@@ -76,7 +77,9 @@ impl SlackImportRepo {
             INSERT INTO slack_imports (workspace_id, source, storage_key, requested_by, dry_run, status)
             VALUES ($1, $2, $3, $4, $5, 'pending')
             RETURNING id, workspace_id, source, dry_run, report, status AS "status: ImportStatus",
-                   storage_key, requested_by, error, started_at, finished_at
+                   storage_key, requested_by, error,
+                   (status = 'failed' AND storage_key IS NOT NULL) AS "retryable!",
+                   started_at, finished_at
             "#,
             workspace_id,
             source,
@@ -95,7 +98,7 @@ impl SlackImportRepo {
             ImportRun,
             r#"
             UPDATE slack_imports
-               SET status = 'running'
+               SET status = 'running', heartbeat_at = NOW()
              WHERE id = (
                  SELECT id FROM slack_imports
                   WHERE status = 'pending'
@@ -104,7 +107,9 @@ impl SlackImportRepo {
                   LIMIT 1
              )
             RETURNING id, workspace_id, source, dry_run, report, status AS "status: ImportStatus",
-                   storage_key, requested_by, error, started_at, finished_at
+                   storage_key, requested_by, error,
+                   (status = 'failed' AND storage_key IS NOT NULL) AS "retryable!",
+                   started_at, finished_at
             "#
         )
         .fetch_optional(&self.pool)
@@ -124,6 +129,57 @@ impl SlackImportRepo {
         Ok(())
     }
 
+    pub async fn beat(&self, id: Uuid) -> sqlx::Result<()> {
+        sqlx::query!(
+            "UPDATE slack_imports SET heartbeat_at = NOW() WHERE id = $1 AND status = 'running'",
+            id
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn fail_stale(
+        &self,
+        silent_for: chrono::Duration,
+        error: &str,
+    ) -> sqlx::Result<Vec<Uuid>> {
+        sqlx::query_scalar!(
+            r"
+            UPDATE slack_imports
+               SET status = 'failed', error = $2, finished_at = NOW()
+             WHERE status = 'running'
+               AND COALESCE(heartbeat_at, started_at) < NOW() - make_interval(secs => $1)
+            RETURNING id
+            ",
+            silent_for.num_seconds() as f64,
+            error
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn requeue(&self, id: Uuid, workspace_id: Uuid) -> sqlx::Result<Option<ImportRun>> {
+        sqlx::query_as!(
+            ImportRun,
+            r#"
+            UPDATE slack_imports
+               SET status = 'pending', error = NULL, finished_at = NULL, heartbeat_at = NULL,
+                   report = '{}'
+             WHERE id = $1 AND workspace_id = $2
+               AND status = 'failed' AND storage_key IS NOT NULL
+            RETURNING id, workspace_id, source, dry_run, report, status AS "status: ImportStatus",
+                   storage_key, requested_by, error,
+                   (status = 'failed' AND storage_key IS NOT NULL) AS "retryable!",
+                   started_at, finished_at
+            "#,
+            id,
+            workspace_id
+        )
+        .fetch_optional(&self.pool)
+        .await
+    }
+
     pub async fn fail_run(&self, id: Uuid, error: &str) -> sqlx::Result<()> {
         sqlx::query!(
             "UPDATE slack_imports SET status = 'failed', error = $2, finished_at = NOW() WHERE id = $1",
@@ -139,7 +195,9 @@ impl SlackImportRepo {
         sqlx::query_as!(
             ImportRun,
             r#"SELECT id, workspace_id, source, dry_run, report, status AS "status: ImportStatus",
-                   storage_key, requested_by, error, started_at, finished_at
+                   storage_key, requested_by, error,
+                   (status = 'failed' AND storage_key IS NOT NULL) AS "retryable!",
+                   started_at, finished_at
                  FROM slack_imports WHERE id = $1"#,
             id
         )
@@ -151,7 +209,9 @@ impl SlackImportRepo {
         sqlx::query_as!(
             ImportRun,
             r#"SELECT id, workspace_id, source, dry_run, report, status AS "status: ImportStatus",
-                   storage_key, requested_by, error, started_at, finished_at
+                   storage_key, requested_by, error,
+                   (status = 'failed' AND storage_key IS NOT NULL) AS "retryable!",
+                   started_at, finished_at
                  FROM slack_imports WHERE workspace_id = $1 ORDER BY started_at DESC LIMIT 20"#,
             workspace_id
         )

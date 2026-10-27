@@ -29,6 +29,9 @@ impl Import<'_> {
             let slack_name = channel.folder().to_string();
             if let Some(&channel_id) = self.channels.get(&channel.id) {
                 self.report.channels_reused += 1;
+                if channel.is_archived {
+                    self.archived.push(channel_id);
+                }
                 self.add_channel_members(&channel, channel_id).await?;
                 targets.push((channel, channel_id));
                 continue;
@@ -45,10 +48,18 @@ impl Import<'_> {
             let channel_id = match existing {
                 Some(found) => {
                     self.report.channels_reused += 1;
+                    if channel.is_archived {
+                        self.report.note(format!(
+                            "#{slack_name} is archived in Slack, but #{name} was already here, so it stays open"
+                        ));
+                    }
                     found
                 }
                 None if self.dry_run => {
                     self.report.channels_created += 1;
+                    if channel.is_archived {
+                        self.report.channels_archived += 1;
+                    }
                     Uuid::nil()
                 }
                 None => {
@@ -73,6 +84,9 @@ impl Import<'_> {
                             .await?;
                     }
                     self.report.channels_created += 1;
+                    if channel.is_archived {
+                        self.archived.push(created.id);
+                    }
                     created.id
                 }
             };
@@ -228,6 +242,23 @@ impl Import<'_> {
                 .await?;
         }
 
+        Ok(())
+    }
+
+    pub(crate) async fn archive_channels(&mut self) -> AppResult<()> {
+        let archived = std::mem::take(&mut self.archived);
+        if self.dry_run {
+            self.report.channels_archived += archived.len();
+            return Ok(());
+        }
+        for channel_id in archived {
+            self.state
+                .workspace_service
+                .repo
+                .archive_channel(channel_id)
+                .await?;
+            self.report.channels_archived += 1;
+        }
         Ok(())
     }
 }

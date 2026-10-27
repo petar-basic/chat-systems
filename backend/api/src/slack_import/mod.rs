@@ -5,6 +5,7 @@ pub mod mrkdwn;
 pub mod repo;
 pub mod routes;
 pub mod service;
+pub mod shortcodes;
 pub mod source;
 
 #[cfg(test)]

@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE slack_imports\n               SET status = 'failed', error = $2, finished_at = NOW()\n             WHERE status = 'running'\n               AND COALESCE(heartbeat_at, started_at) < NOW() - make_interval(secs => $1)\n            RETURNING id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "slack_imports",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Float8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "cf4688b5edc4ca7df5d801361e824e00c435e1bd118c9b470d5940b83d8c27d7"
+}

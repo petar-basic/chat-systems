@@ -1,4 +1,4 @@
-//! Accounts: matched by email, created pending, made members.
+//! Accounts: matched by email, created pending (or suspended for someone who left), made members or guests.
 
 use shared_common::errors::AppResult;
 use uuid::Uuid;
@@ -21,24 +21,30 @@ impl Import<'_> {
                     .skip(format!("user {}", user.id), "a bot has no account here");
                 continue;
             }
-            let Some(email) = user.profile.email.as_deref().filter(|e| e.contains('@')) else {
-                // Deactivated Slack accounts often keep no email at all, and an
-                // account with no address cannot be matched or invited.
-                self.report
-                    .skip(format!("user {}", user.id), "no email in the export");
-                continue;
+            let email = match user.profile.email.as_deref().filter(|e| e.contains('@')) {
+                Some(email) => email.to_lowercase(),
+                None if user.deleted => format!("slack-{}@deleted.invalid", user.id.to_lowercase()),
+                None => {
+                    self.report
+                        .skip(format!("user {}", user.id), "no email in the export");
+                    continue;
+                }
             };
 
-            let existing = self
-                .state
-                .auth_service
-                .repo()
-                .find_by_email(&email.to_lowercase())
-                .await?;
+            let existing = self.state.auth_service.repo().find_by_email(&email).await?;
 
             let (user_id, created) = match existing {
                 Some(found) => (found.id, false),
                 None if self.dry_run => (Uuid::nil(), true),
+                None if user.deleted => {
+                    let created = self
+                        .state
+                        .auth_service
+                        .repo()
+                        .create_suspended(&email, &user.display_name())
+                        .await?;
+                    (created.id, true)
+                }
                 None => {
                     // Pending, with no password: the person activates through the
                     // ordinary invite flow, and until then their history is
@@ -47,20 +53,17 @@ impl Import<'_> {
                         .state
                         .auth_service
                         .repo()
-                        .create(
-                            &email.to_lowercase(),
-                            None,
-                            Some(&user.display_name()),
-                            false,
-                        )
+                        .create(&email, None, Some(&user.display_name()), false)
                         .await?;
                     (created.id, true)
                 }
             };
 
-            if created {
+            if created && user.deleted {
+                self.report.users_suspended += 1;
+            } else if created {
                 self.report.users_created += 1;
-                if email.to_lowercase().ends_with("@slack-corp.com") {
+                if email.ends_with("@slack-corp.com") {
                     // Slack replaces a deactivated member's address with one of
                     // its own. The account is still worth creating — their
                     // history needs an owner — but nobody can ever claim it.
@@ -73,8 +76,14 @@ impl Import<'_> {
                 self.report.users_matched += 1;
             }
 
+            let role = if user.is_guest() {
+                self.report.guests += 1;
+                WorkspaceRole::Guest
+            } else {
+                WorkspaceRole::Member
+            };
             if !self.dry_run {
-                self.ensure_workspace_member(user_id).await?;
+                self.ensure_workspace_member(user_id, &role).await?;
                 self.state
                     .slack_import_repo
                     .map_user(self.workspace_id, &user.id, user_id)
@@ -87,7 +96,7 @@ impl Import<'_> {
         Ok(())
     }
 
-    async fn ensure_workspace_member(&self, user_id: Uuid) -> AppResult<()> {
+    async fn ensure_workspace_member(&self, user_id: Uuid, role: &WorkspaceRole) -> AppResult<()> {
         if self
             .state
             .workspace_service
@@ -102,7 +111,7 @@ impl Import<'_> {
         self.state
             .workspace_service
             .repo
-            .add_member(self.workspace_id, user_id, &WorkspaceRole::Member)
+            .add_member(self.workspace_id, user_id, role)
             .await?;
         Ok(())
     }

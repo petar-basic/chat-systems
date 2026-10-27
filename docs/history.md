@@ -1915,3 +1915,22 @@ the tab returns, the network does and every ten minutes, and offers *Reload*. A
 missing surfaces instead of looping), and the release image copies the previous release's
 chunks in beside its own, listed in `release-assets.txt` so they last one release and do not
 pile up.
+
+### [CS-088] A Slack import that keeps what it found ✅ shipped
+The import made Slack's guests full members and skipped every deleted account with no address,
+taking its messages with it. Archived channels came in open, reactions knew fifteen standard
+emoji and left every other one as text, and an import that was running when the worker
+restarted said `running` for ever, with nothing to start it again from.
+
+`is_restricted` and `is_ultra_restricted` users join as guests. A deleted account is created
+suspended — under `slack-<id>@deleted.invalid` when the export kept no address — so its messages
+keep an author and a name, and nobody can sign in as it or claim it through an invite; an
+existing account matched by email is not touched. A channel archived in Slack is archived once
+its messages are in, and on every re-run; one merged into an existing channel stays open and
+the report says why. Reactions resolve through `emoji_shortcodes.tsv`, the emoji-mart set the
+composer uses, generated from `@emoji-mart/data` with its aliases and skin tones, and anything
+else keeps its `:name:`, which is how a custom emoji renders; a name that is neither is reported
+once. The worker beats `slack_imports.heartbeat_at` every 30 seconds around a run and, before
+each claim, fails `running` rows silent for five minutes. Since a failed run keeps its archive,
+`POST …/retry` puts it back to `pending`, and the import's idempotency turns the second attempt
+into a resume.

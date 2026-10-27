@@ -26,6 +26,7 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(list_imports, start_import))
         .routes(routes!(start_import_into_new))
         .routes(routes!(get_import))
+        .routes(routes!(retry_import))
         .layer(DefaultBodyLimit::max(MAX_ARCHIVE_BYTES))
 }
 
@@ -59,6 +60,39 @@ async fn get_import(
         &WorkspaceRole::Admin,
     )
     .await?;
+
+    Ok(Json(DataItem { data: run }))
+}
+
+#[utoipa::path(post, path = "/workspaces/{ws_id}/slack-imports/{import_id}/retry", tag = "slack-import", responses((status = 200, body = DataItem<ImportRun>)))]
+async fn retry_import(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    ip: ClientIp,
+    Path((ws_id, import_id)): Path<(Uuid, Uuid)>,
+) -> AppResult<Json<DataItem<ImportRun>>> {
+    authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
+    let run = state
+        .slack_import_repo
+        .requeue(import_id, ws_id)
+        .await?
+        .ok_or_else(|| {
+            AppError::Conflict(
+                "Only a failed import whose export is still here can be started again".into(),
+            )
+        })?;
+
+    audit::record(
+        &state,
+        AuditEntry::new(AuditAction::SlackImportStarted, auth.user_id)
+            .workspace(ws_id)
+            .resource(run.id)
+            .ip(&ip)
+            .details(
+                serde_json::json!({ "source": run.source, "dry_run": run.dry_run, "retry": true }),
+            ),
+    )
+    .await;
 
     Ok(Json(DataItem { data: run }))
 }

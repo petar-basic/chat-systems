@@ -471,7 +471,10 @@ Shows members of the current channel with add/remove actions.
 Everything about the workspace in one `SectionedModal`, opened from the workspace menu's
 *Workspace settings* (or *Invite people*, which opens *Members* with the invite form). An admin
 sees *General*, *Members*, *User groups*, *Custom emoji*, *Apps*, *Integrations*, *Slack
-import* and *Audit log*; a member sees the four they can use (`sections.ts`). Each section is
+import* and *Audit log*; a member sees the four they can use (`sections.ts`). *Slack import*
+lists the last runs with their counts (guests, people who left Slack and archived channels
+among them) and *Start again* under a failed run whose export is still stored
+(`retryable`), which calls `POST /workspaces/{id}/slack-imports/{run}/retry`. Each section is
 the former right panel's content (`MembersSection`, `IntegrationsSection`, …). `?settings=<section>`
 in the address opens it at that section and is then removed (`useSettingsDialog`).
 

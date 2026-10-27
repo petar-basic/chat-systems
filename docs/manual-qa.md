@@ -461,6 +461,11 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 - **Expected:** Bob and Charlie both see the incoming webhook (with who added it), the outgoing webhook, the workflow (On/Off, who built it) and any command scoped to #random, never a URL or secret. Bob's URL shows once, under his webhook; the `curl` lands in #random; the old URL stops working after the new one is made. Charlie has no add, rotate or remove. A workflow row has *Open* for someone who may build workflows, which opens it in the *Workflows* panel. Each of Bob's actions is a row in *Audit log*.
 - 🔴 **Edge — authz:** as Bob, `POST /api/workspaces/<id>/hooks` an incoming webhook for a channel he does not run, an outgoing webhook or a slash command → **403**.
 
+### 10.5 🟢 A Slack import that looks like Slack did
+- **Reach:** *Workspace settings → Slack import*.
+- **Steps:** import an export whose `users.json` has a guest (`is_restricted`), an account with `deleted: true`, an archived channel in `channels.json`, and reactions such as `:face_with_rolling_eyes:`, `:+1::skin-tone-4:` and a custom `:shipit:` (with `SLACK_TOKEN` set or an `emoji.json` in the zip). Then start another import, restart the worker (`docker compose restart worker`) while it says *running*, and wait five minutes.
+- **Expected:** the counts show guests, *who left Slack* and *archived*. The guest is a guest under *Members* and sees only its channels; the deleted person's messages carry their name and the account is suspended in the instance admin page; the archived channel shows its history with the archived bar; the reactions are 🙄, 👍🏽 and the custom image, and an unknown one is listed under *not imported*. The interrupted run turns *failed* with *The import stopped when the worker did*; *Start again* queues it and it completes without duplicating messages.
+
 ---
 
 ## 11. Cross-cutting security & resilience (mostly API-level)
