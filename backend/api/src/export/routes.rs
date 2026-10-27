@@ -268,6 +268,21 @@ async fn erase_user_data(
     // person, and it goes even when their messages stay readable.
     sqlx::query!(
         r"
+        UPDATE workspace_members
+           SET display_name = NULL,
+               avatar_url = NULL,
+               bio = NULL,
+               status_emoji = NULL,
+               status_text = NULL,
+               status_expires_at = NULL
+         WHERE user_id = $1
+        ",
+        user_id
+    )
+    .execute(&state.pool)
+    .await?;
+    sqlx::query!(
+        r"
         UPDATE users
            SET email = 'deleted-' || id || '@invalid',
                display_name = 'Deleted user',

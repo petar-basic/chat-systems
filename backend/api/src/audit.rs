@@ -347,10 +347,11 @@ pub async fn list(
     let rows = sqlx::query_as!(
         AuditRow,
         r#"SELECT a.id, a.workspace_id, a.user_id, u.email AS "actor_email?",
-                  u.display_name AS "actor_display_name?", a.action, a.resource_type,
+                  COALESCE(wm.display_name, u.display_name) AS "actor_display_name?", a.action, a.resource_type,
                   a.resource_id, a.details AS "details!", host(a.ip_address) AS "ip_address?", a.created_at
              FROM audit_log a
              LEFT JOIN users u ON u.id = a.user_id
+             LEFT JOIN workspace_members wm ON wm.workspace_id = a.workspace_id AND wm.user_id = a.user_id
             WHERE ($1::uuid IS NULL OR a.workspace_id = $1)
               AND ($2::text IS NULL OR a.action = $2)
               AND ($3::uuid IS NULL OR a.user_id = $3)

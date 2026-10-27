@@ -153,8 +153,17 @@ struct Names {
 
 impl Names {
     async fn of(state: &crate::state::AppState, origin: &Origin<'_>) -> Self {
-        let sender = match origin.sender_id.and_then(|v| v.parse::<uuid::Uuid>().ok()) {
-            Some(id) => state
+        let sender = match (
+            origin.workspace_id,
+            origin.sender_id.and_then(|v| v.parse::<uuid::Uuid>().ok()),
+        ) {
+            (Some(workspace_id), Some(id)) => state
+                .profile_repo
+                .name(workspace_id, id)
+                .await
+                .ok()
+                .flatten(),
+            (None, Some(id)) => state
                 .auth_service
                 .repo()
                 .find_by_id(id)
@@ -162,7 +171,7 @@ impl Names {
                 .ok()
                 .flatten()
                 .and_then(|u| u.display_name),
-            None => None,
+            _ => None,
         };
         let channel = match origin.channel_uuid {
             Some(id) => state

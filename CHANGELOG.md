@@ -14,6 +14,25 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
+## [Unreleased]
+
+### Upgrading from 3.4.2
+
+- Pull both images and restart `api`, `worker` and `frontend` together; the API runs
+  migration 73 on start, so snapshot first. It copies each live status into every workspace
+  the person is in (a custom emoji only where that workspace has it), then drops the status
+  columns from `users` and the unused `user_preferences` and `bookmarked_messages` tables.
+- For API clients: `PUT`/`DELETE /users/me/status` are now
+  `PUT`/`DELETE /workspaces/{id}/profile/status`, and `UserPublic` no longer has
+  `status_emoji`, `status_text` or `status_expires_at`. Members gain `bio`.
+
+### Added
+
+- **A profile of your own in each workspace.** Name, photo, bio and status are set per
+  workspace in *Edit profile*; a status set in one workspace no longer shows in the others. A
+  name, photo or bio left empty shows the account's, edited in *Preferences → Account*. The
+  hover card shows the bio. API: `GET`/`PATCH /workspaces/{id}/profile`.
+
 ## [3.4.2] — 2026-10-27
 
 ### Upgrading from 3.4.1

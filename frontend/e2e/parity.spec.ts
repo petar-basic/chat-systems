@@ -176,11 +176,15 @@ test('a message forwarded to another channel arrives as a quote', async ({ page 
   }
 });
 
-test('a status set in the profile shows next to your name', async ({ page }) => {
+test('a status set in the profile shows next to your name, in that workspace only', async ({ page }) => {
   const { ctx: admin } = await userContext('admin@dev.local');
   const workspace = await devWorkspace(admin);
   const channels = (await (await admin.get(`${API}/workspaces/${workspace.id}/channels`)).json()).data;
   const channel = channels.find((c: { name: string }) => c.name === 'general');
+  const elsewhere = await (
+    await admin.post(`${API}/workspaces`, { data: { name: `Elsewhere ${Date.now()}` } })
+  ).json();
+  const statusIn = async (id: string) => await (await admin.get(`${API}/workspaces/${id}/profile`)).json();
 
   try {
     await openWorkspace(page, 'admin@dev.local', workspace.id, channel.id);
@@ -197,17 +201,19 @@ test('a status set in the profile shows next to your name', async ({ page }) => 
     await page.getByTestId('profile-save').click();
     await expect(dialog).toBeHidden();
 
-    const me = await (await admin.get(`${API}/users/me`)).json();
-    expect(me.status_text).toBe('at lunch');
-    expect(me.status_emoji).toBe('🍕');
+    const here = await statusIn(workspace.id);
+    expect(here.status_text).toBe('at lunch');
+    expect(here.status_emoji).toBe('🍕');
+    expect((await statusIn(elsewhere.id)).status_text).toBeNull();
     await expect(page.locator('[data-qa="own-status-emoji"]')).toHaveText('🍕');
 
     await page.locator('[data-qa="sidebar-profile-avatar"]').click();
     await editor.locator('[data-qa="status-clear"]').click();
     await page.getByTestId('profile-save').click();
     await expect(dialog).toBeHidden();
-    await expect.poll(async () => (await (await admin.get(`${API}/users/me`)).json()).status_text).toBeNull();
+    await expect.poll(async () => (await statusIn(workspace.id)).status_text).toBeNull();
   } finally {
+    await admin.delete(`${API}/workspaces/${elsewhere.id}`);
     await admin.dispose();
   }
 });

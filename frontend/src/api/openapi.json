@@ -4607,52 +4607,6 @@
         }
       }
     },
-    "/users/me/status": {
-      "put": {
-        "tags": [
-          "users"
-        ],
-        "operationId": "set_status",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SetStatusRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserPublic"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "users"
-        ],
-        "operationId": "clear_status",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserPublic"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/users/{user_id}/exports": {
       "post": {
         "tags": [
@@ -7186,6 +7140,142 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/NotifyDefault"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/profile": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "operationId": "get_workspace_profile",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceProfile"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "users"
+        ],
+        "operationId": "update_workspace_profile",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWorkspaceProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceProfile"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/profile/status": {
+      "put": {
+        "tags": [
+          "users"
+        ],
+        "operationId": "set_workspace_status",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetStatusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceProfile"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "users"
+        ],
+        "operationId": "clear_workspace_status",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceProfile"
                 }
               }
             }
@@ -11187,6 +11277,12 @@
                     "null"
                   ]
                 },
+                "bio": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
                 "display_name": {
                   "type": [
                     "string",
@@ -13604,6 +13700,12 @@
         ],
         "properties": {
           "avatar_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bio": {
             "type": [
               "string",
               "null"
@@ -16155,6 +16257,29 @@
           }
         }
       },
+      "UpdateWorkspaceProfileRequest": {
+        "type": "object",
+        "properties": {
+          "avatar_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bio": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
       "UpdateWorkspaceRequest": {
         "type": "object",
         "properties": {
@@ -16364,25 +16489,6 @@
           },
           "status": {
             "$ref": "#/components/schemas/UserStatus"
-          },
-          "status_emoji": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "status_expires_at": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          },
-          "status_text": {
-            "type": [
-              "string",
-              "null"
-            ]
           },
           "timezone": {
             "type": "string"
@@ -16795,6 +16901,55 @@
           }
         }
       },
+      "WorkspaceProfile": {
+        "type": "object",
+        "required": [
+          "workspace_id"
+        ],
+        "properties": {
+          "avatar_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bio": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status_emoji": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status_expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "status_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
       "WorkspaceRole": {
         "type": "string",
         "enum": [
@@ -16846,7 +17001,7 @@
     },
     {
       "name": "users",
-      "description": "The signed-in user's own profile and status"
+      "description": "The signed-in user's account, and their profile and status in each workspace"
     },
     {
       "name": "instance",

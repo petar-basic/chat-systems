@@ -28,6 +28,7 @@ pub mod openapi;
 pub mod pagination;
 pub mod polls;
 pub mod presence;
+pub mod profile;
 pub mod push;
 pub mod rate_limit;
 pub mod retention;
@@ -127,6 +128,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
     let setup_repo = crate::setup::repo::SetupRepo::new(pool.clone());
     let push_repo = crate::push::repo::PushRepo::new(pool.clone());
     let emoji_repo = crate::emoji::repo::EmojiRepo::new(pool.clone());
+    let profile_repo = crate::profile::repo::ProfileRepo::new(pool.clone());
     let group_repo = crate::groups::repo::GroupRepo::new(pool.clone());
     let workflow_repo = workflows::repo::WorkflowRepo::new(pool.clone());
     let push_sender = crate::push::sender::PushSender::new(
@@ -168,6 +170,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
         push_repo,
         push_sender,
         emoji_repo,
+        profile_repo,
         group_repo,
         huddle_repo,
         workflow_repo,

@@ -9,7 +9,7 @@ import type { Conversation } from '@/features/messaging';
 import { useCurrentWorkspaceRole } from '@/features/workspace';
 import { useInstanceStore } from '@/stores/instances';
 import { useUnreadNotificationCount, NotificationLevelButton } from '@/features/notifications';
-import { useMyStatus } from '@/features/profile';
+import { useUserCache } from '@/stores/users';
 import BrowseChannelsModal from './BrowseChannelsModal';
 import { useCollapsedSections } from './hooks/useCollapsedSections';
 import { SidebarSectionHeader } from './components/SidebarSectionHeader';
@@ -95,7 +95,7 @@ export default function ChannelSidebar({
   onLogout,
 }: Props) {
   const { data: unreadNotifCount = 0 } = useUnreadNotificationCount(currentWorkspace?.id ?? null);
-  const { data: myStatus } = useMyStatus(currentWorkspace?.instanceUrl);
+  const self = useUserCache((s) => (user ? s.getUser(user.id) : undefined));
   const { data: laterItems } = useLater(currentWorkspace?.id, 'in_progress', currentWorkspace?.instanceUrl);
   const laterCount = laterItems?.length ?? 0;
   const { data: unreadThreads = 0 } = useUnreadThreadCount(currentWorkspace?.id);
@@ -345,9 +345,15 @@ export default function ChannelSidebar({
         </div>
 
         <YouMenu
-          user={user}
-          statusEmoji={myStatus?.status_emoji}
-          statusText={myStatus?.status_text}
+          user={
+            user && {
+              ...user,
+              display_name: self?.display_name || user.display_name,
+              avatar_url: self ? self.avatar_url : user.avatar_url,
+            }
+          }
+          statusEmoji={self?.status_emoji}
+          statusText={self?.status_text}
           unreadNotifCount={unreadNotifCount}
           onOpenProfile={onOpenProfile}
           onOpenPreferences={onOpenPreferences}

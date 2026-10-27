@@ -313,8 +313,8 @@ async fn export_lists(
             .await
             .map_err(|e| e.to_string())?;
         let people: HashMap<Uuid, String> = state
-            .list_repo
-            .names(&lists::csv::people_in(&columns, &items))
+            .profile_repo
+            .names(workspace_id, &lists::csv::people_in(&columns, &items))
             .await
             .map_err(|e| e.to_string())?
             .into_iter()

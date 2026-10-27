@@ -157,8 +157,10 @@ Handles user identity — login, registration, JWT, and profile.
 | GET | `/users/me` | JWT | `UserPublic` |
 | PATCH | `/users/me` | `{ display_name?, avatar_url?, bio?, timezone? }` | `UserPublic` |
 | PATCH | `/users/me/password` | `{ current_password, new_password }` | `{ status: "password_changed" }` |
-| PUT | `/users/me/status` | `{ emoji?, text?, expires_at? }` | `UserPublic` — a custom status; needs an emoji or some text, the emoji being a character or a custom emoji's `:shortcode:`, and an expiry in the future. An expired status stops being returned by every read; the row itself is only overwritten the next time the person sets one |
-| DELETE | `/users/me/status` | — | `UserPublic` |
+| GET | `/workspaces/{ws_id}/profile` | — | `WorkspaceProfile` — the caller's own name, photo, bio and live status in that workspace; `null` where the account's is shown |
+| PATCH | `/workspaces/{ws_id}/profile` | `{ display_name?, avatar_url?, bio? }` | `WorkspaceProfile` — a field left out stays; `""` goes back to the account's |
+| PUT | `/workspaces/{ws_id}/profile/status` | `{ emoji?, text?, expires_at? }` | `WorkspaceProfile` — a status in that workspace only; needs an emoji or some text, the emoji being a character or a `:shortcode:` that workspace has (422 otherwise), and an expiry in the future. An expired status stops being returned by every read; the row itself is only overwritten the next time the person sets one |
+| DELETE | `/workspaces/{ws_id}/profile/status` | — | `WorkspaceProfile` |
 
 ---
 
@@ -197,7 +199,7 @@ feature — see `dm` below.)
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
-| GET | `/workspaces/:ws_id/members` | — | `{ data: MemberWithUser[] }` — each with `notifications_paused_until` (`null` unless their notifications are paused now) |
+| GET | `/workspaces/:ws_id/members` | — | `{ data: MemberWithUser[] }` — name, photo and bio as shown in that workspace (its own, else the account's), its status, and `notifications_paused_until` (`null` unless their notifications are paused now) |
 | PATCH | `/workspaces/:ws_id/members/:user_id/role` | `{ role }` | `WorkspaceMember` |
 | DELETE | `/workspaces/:ws_id/members/:user_id` | — | `{ status: "removed" }` |
 

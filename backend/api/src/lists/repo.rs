@@ -709,16 +709,6 @@ impl ListRepo {
         .await
     }
 
-    pub async fn names(&self, user_ids: &[Uuid]) -> sqlx::Result<Vec<(Uuid, String)>> {
-        let rows = sqlx::query!(
-            r#"SELECT id, COALESCE(display_name, email) AS "name!" FROM users WHERE id = ANY($1)"#,
-            user_ids
-        )
-        .fetch_all(&self.pool)
-        .await?;
-        Ok(rows.into_iter().map(|row| (row.id, row.name)).collect())
-    }
-
     pub async fn channel_members_among(
         &self,
         channel_id: Uuid,

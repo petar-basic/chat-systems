@@ -1,12 +1,13 @@
 export const QUERY_KEYS = {
   currentUser: () => ['auth', 'currentUser'] as const,
   instanceInfo: (instanceUrl: string) => ['instance', 'info', instanceUrl] as const,
-  myStatus: (instanceUrl: string) => ['auth', 'status', instanceUrl] as const,
+  account: (instanceUrl: string) => ['auth', 'account', instanceUrl] as const,
 
   workspaces: () => ['workspaces'] as const,
   workspacesList: (instanceUrls: string) => ['workspaces', instanceUrls] as const,
   workspace: (id: string) => ['workspaces', id] as const,
   workspaceMembers: (id: string) => ['workspaces', id, 'members'] as const,
+  workspaceProfile: (id: string) => ['workspaces', id, 'profile'] as const,
   workspaceInvites: (id: string) => ['workspaces', id, 'invites'] as const,
   workspaceChannels: (id: string) => ['workspaces', id, 'channels'] as const,
   deletedWorkspaces: () => ['workspaces', 'deleted'] as const,

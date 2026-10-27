@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, Palette, ShieldCheck } from 'lucide-react';
+import { Bell, Palette, ShieldCheck, UserRound } from 'lucide-react';
 import { SectionedModal, type ModalSection } from '@/shared/components/Modal/SectionedModal';
 import {
   PushNotificationsPanel,
@@ -10,12 +10,14 @@ import {
 } from '@/features/notifications';
 import ThemePicker from '@/features/profile/ThemePicker';
 import TwoFactorPanel from '@/features/profile/TwoFactorPanel';
+import AccountPanel from '@/features/profile/AccountPanel';
 
-export type PreferencesSection = 'notifications' | 'appearance' | 'security';
+export type PreferencesSection = 'notifications' | 'appearance' | 'account' | 'security';
 
 const SECTIONS: ModalSection<PreferencesSection>[] = [
   { key: 'notifications', label: 'Notifications', Icon: Bell },
   { key: 'appearance', label: 'Appearance', Icon: Palette },
+  { key: 'account', label: 'Account', Icon: UserRound },
   { key: 'security', label: 'Security', Icon: ShieldCheck },
 ];
 
@@ -51,6 +53,7 @@ export function PreferencesModal({ initial = 'notifications', onClose }: Props) 
           <ThemePicker />
         </div>
       )}
+      {active === 'account' && <AccountPanel />}
       {active === 'security' && <TwoFactorPanel />}
     </SectionedModal>
   );

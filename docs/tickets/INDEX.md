@@ -18,7 +18,7 @@ notices first, Waves 15 and 16 (connected-app previews) and Wave 17 (files and i
 shipped too. Waves 18 and 19 are shipped too. In Wave 20, CS-059 shipped in 3.2.0;
 [CS-037](CS-037-huddle-sfu.md) is held for the next major release, 4.0.0. Waves 21–23,
 chosen in the 2026-10-23 review, shipped in 3.3.0. Wave 24, from the 2026-10-26 review, shipped
-in 3.4.0.
+in 3.4.0. Wave 25 moves the profile and notification settings to each workspace.
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
@@ -272,6 +272,17 @@ come after the structure move because they rebuild *Channel settings* as *Channe
 | CS-074 ✅ | A channel shows what posts into it, and its admin can add a webhook | backend · frontend |
 | CS-075 ✅ | Who may notify a whole channel, and who may make one | backend · frontend |
 
+### Wave 25 — One person, several workspaces
+
+Raised on 2026-10-27, after 3.4.2: a status set in one workspace showed in every other, because
+the profile and the notification settings belong to the account. Slack keeps them per
+workspace, and so does this wave; email, password, second factor, time zone and the
+device's own settings stay with the account.
+
+| # | Ticket | Area |
+|---|---|---|
+| [CS-076](CS-076-workspace-profiles.md) | A profile and notification settings of your own in each workspace | backend · frontend |
+
 ### Still open
 
 | # | Ticket | Area | Why it is not done |
@@ -306,3 +317,4 @@ Tickets that touch the same files, and the order that avoids rework:
 | workspace `settings` JSON and the *General* section | CS-070 ✅ → CS-075 ✅ |
 | *Channel settings* / *Channel details* | CS-070 ✅ → CS-074 ✅ → CS-075 ✅ |
 | *Integrations* panel and hook permissions | CS-070 ✅ → CS-074 ✅ |
+| `workspace_members` profile and notification columns | CS-076 |

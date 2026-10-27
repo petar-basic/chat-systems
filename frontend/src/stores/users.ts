@@ -5,6 +5,7 @@ interface UserInfo {
   email: string;
   display_name: string;
   avatar_url: string | null;
+  bio?: string | null;
   status_emoji?: string | null;
   status_text?: string | null;
   notifications_paused_until?: string | null;

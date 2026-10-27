@@ -455,10 +455,13 @@ POST `/workspaces/{id}/invites` `{ email, role }`, and each section's own.
 ---
 
 ### `profile/EditProfileModal` and `profile/PreferencesModal`
-*Edit profile* holds the display name, status (presets and *Clear after*), bio and photo, and
-saves them with one button; the status is sent only when it changed, so an untouched one keeps
-its expiry. *Preferences* is a vertical tab list — *Notifications*, *Appearance*, *Security* —
-over panels that save as they change. *Notifications* opens with `NotifyDefaultPanel`, the
+*Edit profile* is the person in the current workspace: display name, status (presets and
+*Clear after*), bio and photo, saved with one button; the status is sent only when it changed,
+so an untouched one keeps its expiry. An empty name, bio or photo shows the account's, as its
+placeholder, and *Use account photo* drops the workspace's. *Preferences* is a vertical tab
+list — *Notifications*, *Appearance*, *Account*, *Security* — over panels that save as they
+change, except *Account*, the account's name, bio and photo, which has its own save button.
+The *You* row reads the person from the users cache, so it shows the workspace profile. *Notifications* opens with `NotifyDefaultPanel`, the
 workspace default level (*All new messages*, *Mentions*, *Nothing*). Both open from the *You*
 menu; the sidebar avatar opens *Edit profile*.
 
@@ -494,7 +497,7 @@ counters are written with the message, and matching every member's keywords ther
 regex scan on the send path. It shows up in Activity, as a push and as a desktop
 notification. This is intended.
 
-**API calls:** GET `/users/me`, PATCH `/users/me` `{ display_name, bio, avatar_url }`, PUT / DELETE `/users/me/status`, POST `/files/upload/{workspaceId}` (photo upload)
+**API calls:** GET / PATCH `/workspaces/{id}/profile`, PUT / DELETE `/workspaces/{id}/profile/status`, GET / PATCH `/users/me` (*Account*), POST `/files/upload/{workspaceId}` (photo upload)
 
 ---
 

@@ -44,6 +44,7 @@ pub struct AppState {
     pub push_repo: crate::push::repo::PushRepo,
     pub push_sender: crate::push::sender::PushSender,
     pub emoji_repo: crate::emoji::repo::EmojiRepo,
+    pub profile_repo: crate::profile::repo::ProfileRepo,
     pub group_repo: crate::groups::repo::GroupRepo,
     pub huddle_repo: HuddleRepo,
     pub workflow_repo: crate::workflows::repo::WorkflowRepo,

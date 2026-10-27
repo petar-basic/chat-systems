@@ -468,6 +468,10 @@ impl FileRepo {
               SELECT 1 FROM users
               WHERE avatar_url IS NOT NULL
                 AND position($1 in avatar_url) > 0
+            ) OR EXISTS(
+              SELECT 1 FROM workspace_members
+              WHERE avatar_url IS NOT NULL
+                AND position($1 in avatar_url) > 0
             ) AS "exists!"
             "#,
             storage_key

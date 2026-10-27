@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, email, password_hash, display_name, avatar_url, bio, timezone AS \"timezone!\",\n                   status AS \"status: UserStatus\", status_emoji, status_text, status_expires_at,\n                   is_instance_admin AS \"is_instance_admin!\", created_at, updated_at\n                 FROM users ORDER BY created_at, id OFFSET $1 LIMIT $2",
+  "query": "\n            UPDATE users\n            SET display_name = COALESCE($2, display_name),\n                avatar_url = CASE\n                    WHEN $3::text IS NULL THEN avatar_url\n                    WHEN $3 = '' THEN NULL\n                    ELSE $3\n                END,\n                bio = COALESCE($4, bio),\n                timezone = COALESCE($5, timezone),\n                updated_at = NOW()\n            WHERE id = $1\n            RETURNING id, email, password_hash, display_name, avatar_url, bio, timezone AS \"timezone!\",\n                   status AS \"status: UserStatus\",\n                   is_instance_admin AS \"is_instance_admin!\", created_at, updated_at\n            ",
   "describe": {
     "columns": [
       {
@@ -104,39 +104,6 @@
       },
       {
         "ordinal": 8,
-        "name": "status_emoji",
-        "type_info": "Varchar",
-        "origin": {
-          "Table": {
-            "table": "users",
-            "name": "status_emoji"
-          }
-        }
-      },
-      {
-        "ordinal": 9,
-        "name": "status_text",
-        "type_info": "Varchar",
-        "origin": {
-          "Table": {
-            "table": "users",
-            "name": "status_text"
-          }
-        }
-      },
-      {
-        "ordinal": 10,
-        "name": "status_expires_at",
-        "type_info": "Timestamptz",
-        "origin": {
-          "Table": {
-            "table": "users",
-            "name": "status_expires_at"
-          }
-        }
-      },
-      {
-        "ordinal": 11,
         "name": "is_instance_admin!",
         "type_info": "Bool",
         "origin": {
@@ -147,7 +114,7 @@
         }
       },
       {
-        "ordinal": 12,
+        "ordinal": 9,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -158,7 +125,7 @@
         }
       },
       {
-        "ordinal": 13,
+        "ordinal": 10,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -171,8 +138,11 @@
     ],
     "parameters": {
       "Left": [
-        "Int8",
-        "Int8"
+        "Uuid",
+        "Varchar",
+        "Text",
+        "Text",
+        "Varchar"
       ]
     },
     "nullable": [
@@ -185,12 +155,9 @@
       true,
       false,
       true,
-      true,
-      true,
-      true,
       false,
       false
     ]
   },
-  "hash": "1dd56d7d09b56b213d90b71570f333b237cb426049d2daa229889a53579f83fa"
+  "hash": "98294291692908eef25da8b74ed28c03f2ae910c5e1347e33991e7c031439980"
 }

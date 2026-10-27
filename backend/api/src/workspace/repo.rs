@@ -344,11 +344,14 @@ impl WorkspaceRepo {
             MemberWithUser,
             r#"
             SELECT wm.workspace_id, wm.user_id, wm.role AS "role: WorkspaceRole", wm.joined_at,
-                   '' AS "email!", u.display_name, u.avatar_url,
-                   CASE WHEN u.status_expires_at IS NULL OR u.status_expires_at > NOW()
-                        THEN u.status_emoji END AS "status_emoji?",
-                   CASE WHEN u.status_expires_at IS NULL OR u.status_expires_at > NOW()
-                        THEN u.status_text END AS "status_text?",
+                   '' AS "email!",
+                   COALESCE(wm.display_name, u.display_name) AS display_name,
+                   COALESCE(wm.avatar_url, u.avatar_url) AS avatar_url,
+                   COALESCE(wm.bio, u.bio) AS bio,
+                   CASE WHEN wm.status_expires_at IS NULL OR wm.status_expires_at > NOW()
+                        THEN wm.status_emoji END AS "status_emoji?",
+                   CASE WHEN wm.status_expires_at IS NULL OR wm.status_expires_at > NOW()
+                        THEN wm.status_text END AS "status_text?",
                    public.notifications_paused_until(u.id, NOW()) AS notifications_paused_until
             FROM workspace_members wm
             JOIN users u ON u.id = wm.user_id
@@ -380,11 +383,14 @@ impl WorkspaceRepo {
             MemberWithUser,
             r#"
             SELECT wm.workspace_id, wm.user_id, wm.role AS "role: WorkspaceRole", wm.joined_at,
-                   u.email, u.display_name, u.avatar_url,
-                   CASE WHEN u.status_expires_at IS NULL OR u.status_expires_at > NOW()
-                        THEN u.status_emoji END AS "status_emoji?",
-                   CASE WHEN u.status_expires_at IS NULL OR u.status_expires_at > NOW()
-                        THEN u.status_text END AS "status_text?",
+                   u.email,
+                   COALESCE(wm.display_name, u.display_name) AS display_name,
+                   COALESCE(wm.avatar_url, u.avatar_url) AS avatar_url,
+                   COALESCE(wm.bio, u.bio) AS bio,
+                   CASE WHEN wm.status_expires_at IS NULL OR wm.status_expires_at > NOW()
+                        THEN wm.status_emoji END AS "status_emoji?",
+                   CASE WHEN wm.status_expires_at IS NULL OR wm.status_expires_at > NOW()
+                        THEN wm.status_text END AS "status_text?",
                    public.notifications_paused_until(u.id, NOW()) AS notifications_paused_until
             FROM workspace_members wm
             JOIN users u ON u.id = wm.user_id
