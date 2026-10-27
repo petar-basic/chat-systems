@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO messages (client_message_id, channel_id, user_id, content, thread_parent_id, metadata)\n            VALUES ($1, $2, $3, $4, $5, CASE WHEN $6 THEN '{\"also_in_channel\": true}'::jsonb ELSE '{}'::jsonb END)\n            RETURNING id, channel_id, user_id, client_message_id, content, metadata AS \"metadata!\", thread_parent_id, reply_count AS \"reply_count!\", is_pinned AS \"is_pinned!\", created_at, updated_at, deleted_at\n            ",
+  "query": "\n            INSERT INTO messages (client_message_id, channel_id, user_id, content, thread_parent_id, metadata)\n            VALUES ($1, $2, $3, $4, $5, jsonb_strip_nulls(jsonb_build_object(\n                'also_in_channel', CASE WHEN $6 THEN TRUE END,\n                'forwarded_from', CASE WHEN $7::uuid IS NULL THEN NULL ELSE jsonb_build_object('message_id', $7::uuid) END\n            )))\n            RETURNING id, channel_id, user_id, client_message_id, content, metadata AS \"metadata!\", thread_parent_id, reply_count AS \"reply_count!\", is_pinned AS \"is_pinned!\", created_at, updated_at, deleted_at\n            ",
   "describe": {
     "columns": [
       {
@@ -143,7 +143,8 @@
         "Uuid",
         "Text",
         "Uuid",
-        "Bool"
+        "Bool",
+        "Uuid"
       ]
     },
     "nullable": [
@@ -161,5 +162,5 @@
       true
     ]
   },
-  "hash": "f0d27eb7fca2c7025d061c85b371560cfa74c3bdf04733761288a69ebc756dbc"
+  "hash": "f94eb809dc2eb729740bf0c074513f09c5171175e8e8b0cd765e663a0e81ece8"
 }

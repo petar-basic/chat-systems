@@ -285,7 +285,7 @@ async fn the_dispatcher_delivers_due_messages_exactly_once(pool: PgPool) {
     let claimed = state.scheduled_repo.claim_due().await.expect("claim");
     assert_eq!(claimed.len(), 2, "both due messages are claimed");
     for scheduled in &claimed {
-        crate::scheduled::executor::deliver_for_test(&state, scheduled)
+        crate::scheduled::executor::deliver_now(&state, scheduled)
             .await
             .expect("deliver");
     }
@@ -354,7 +354,7 @@ async fn deliver_now(
         .into_iter()
         .find(|c| c.id == scheduled.id)
         .expect("the queued message is due");
-    crate::scheduled::executor::deliver_for_test(state, &row).await
+    crate::scheduled::executor::deliver_now(state, &row).await
 }
 
 async fn channel_message_count(state: &crate::state::AppState, ch_id: Uuid) -> i64 {
@@ -623,6 +623,84 @@ async fn a_failed_message_stays_visible_to_its_author(pool: PgPool) {
         .find(|m| m["id"] == scheduled.id.to_string())
         .expect("the failed message is still listed");
     assert_eq!(listed["failure"], "channel_archived");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_failed_message_can_be_sent_again_or_removed(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "sched-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Retry WS").await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "back-room", true).await;
+    let (author_id, _, token) = seed_and_login(&app, &state, "sched-author", false).await;
+    add_ws_member(&state, ws_id, author_id, "member").await;
+    let members = &state.workspace_service.repo;
+    let member = crate::workspace::models::ChannelRole::Member;
+    members
+        .add_channel_member(ch_id, author_id, &member)
+        .await
+        .expect("join");
+
+    let retried = queue_due(&state, ws_id, author_id, ch_id).await;
+    let removed = queue_due(&state, ws_id, author_id, ch_id).await;
+    members
+        .remove_channel_member(ch_id, author_id)
+        .await
+        .expect("leave");
+    for row in state.scheduled_repo.claim_due().await.expect("claim") {
+        let _ = crate::scheduled::executor::deliver_now(&state, &row).await;
+    }
+
+    let send_now = |id: Uuid| {
+        let app = app.clone();
+        let token = token.clone();
+        async move {
+            send(
+                &app,
+                "POST",
+                &format!("/api/scheduled-messages/{id}/send"),
+                Some(&token),
+                None,
+            )
+            .await
+        }
+    };
+    let (status, body) = send_now(retried.id).await;
+    assert_eq!(status, StatusCode::CONFLICT, "{body:?}");
+    assert_eq!(channel_message_count(&state, ch_id).await, 0);
+
+    members
+        .add_channel_member(ch_id, author_id, &member)
+        .await
+        .expect("rejoin");
+    let (status, body) = send_now(retried.id).await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(channel_message_count(&state, ch_id).await, 1);
+    let (status, _) = send_now(retried.id).await;
+    assert_eq!(
+        status,
+        StatusCode::CONFLICT,
+        "a sent message is not sent twice"
+    );
+
+    let (status, body) = send(
+        &app,
+        "DELETE",
+        &format!("/api/scheduled-messages/{}", removed.id),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+
+    let (_, listed) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws_id}/scheduled-messages"),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_eq!(listed["data"].as_array().expect("data").len(), 0);
 }
 
 #[test_macros::db_test(migrations = "../migrations")]

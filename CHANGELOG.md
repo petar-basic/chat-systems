@@ -30,6 +30,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - For API clients: `GET /messages/{id}/thread` takes `limit` and `cursor` instead of
   `offset`, returns the newest replies first, and includes reactions. A deleted message with
   replies is listed as a tombstone (`deleted_at` set, empty `content`).
+- For API clients: `copy_attachments_from` on `POST /channels/{id}/messages` is now
+  `forwarded_from`; it also records `metadata.forwarded_from`.
 
 ### Security
 
@@ -70,6 +72,13 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   reply is past the period, and no reply ever appears in the channel on its own. Replies can
   be sent to the channel too with *Also send to #channel*, and scheduled from the thread
   composer.
+- **Sending never loses work.** A message or thread reply that fails to send keeps its text
+  and files, survives a refresh of the list, and offers *Retry* (with the same files) or
+  *Discard* (back into the composer). Files in the composer stay with their channel when you
+  switch away, and a file that failed to upload says why and must be retried or removed
+  before sending. A scheduled message that failed shows the reason with *Send now* and
+  *Remove*. Forwarding a message no longer notifies the people or the `@channel` in the
+  quote.
 
 ## [3.5.0] — 2026-10-27
 

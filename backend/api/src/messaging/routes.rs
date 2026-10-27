@@ -155,11 +155,12 @@ async fn send_message(
     let channel = authz::require_channel_post(&state, ch_id, auth.user_id)
         .await?
         .channel;
-    if mentions_everyone(&req.content) {
+    let addressed = addressed_text(&req.content, req.forwarded_from.is_some());
+    if mentions_everyone(&addressed) {
         authz::require_broadcast(&state, &channel, auth.user_id).await?;
     }
 
-    let forwarded = match req.copy_attachments_from {
+    let forwarded = match req.forwarded_from {
         Some(source_id) => forwarded_files(&state, source_id, auth.user_id).await?,
         None => Vec::new(),
     };
@@ -183,7 +184,7 @@ async fn send_message(
 
     // The mention set has to exist before the insert: the unread and mention
     // counters are bumped inside the same transaction that writes the message.
-    let mentioned_ids = expand_mentions(&state, ch_id, auth.user_id, &req.content).await;
+    let mentioned_ids = expand_mentions(&state, ch_id, auth.user_id, &addressed).await;
 
     let copied = files::copy_objects(&state, forwarded, channel.workspace_id).await?;
 
@@ -198,6 +199,7 @@ async fn send_message(
                 content: &req.content,
                 thread_parent_id,
                 also_in_channel: req.also_to_channel,
+                forwarded_from: req.forwarded_from,
                 client_message_id: req.client_message_id,
                 mentioned: &mentioned_ids,
             },
@@ -1051,6 +1053,19 @@ impl BroadcastMentions {
     }
 }
 
+fn addressed_text(content: &str, forwarded: bool) -> std::borrow::Cow<'_, str> {
+    if !forwarded {
+        return std::borrow::Cow::Borrowed(content);
+    }
+    std::borrow::Cow::Owned(
+        content
+            .lines()
+            .filter(|line| !line.trim_start().starts_with('>'))
+            .collect::<Vec<_>>()
+            .join("\n"),
+    )
+}
+
 pub(crate) fn mentions_everyone(content: &str) -> bool {
     extract_broadcast_mentions(content).any()
 }
@@ -1242,6 +1257,18 @@ pub(crate) fn extract_mentioned_user_ids(content: &str) -> Vec<Uuid> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_forward_is_addressed_only_by_its_own_words() {
+        let body = "fyi @[ana](11111111-1111-1111-1111-111111111111)\n\n> **Bo** in #ops:\n> @channel deploy\n>   @[ivo](22222222-2222-2222-2222-222222222222)";
+        let addressed = addressed_text(body, true);
+        assert!(!mentions_everyone(&addressed));
+        assert_eq!(
+            extract_mentioned_user_ids(&addressed),
+            vec![Uuid::parse_str("11111111-1111-1111-1111-111111111111").unwrap()]
+        );
+        assert!(mentions_everyone(&addressed_text(body, false)));
+    }
 
     #[test]
     fn broadcast_mentions_are_recognised_by_their_target() {

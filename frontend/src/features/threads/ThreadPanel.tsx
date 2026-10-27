@@ -26,6 +26,9 @@ import {
   GalleryProvider,
 } from '@/features/messaging';
 import { useChannelModeration } from '@/features/channel';
+import { useQueryClient } from '@tanstack/react-query';
+import { useUnsent, withUnsent } from '@/stores/unsent';
+import { discardUnsent } from '@/lib/unsent';
 
 interface Props {
   parentMessage: Message;
@@ -38,12 +41,15 @@ interface Props {
 export default function ThreadPanel({ parentMessage: opened, replyId, members, channels, onClose }: Props) {
   const parentMessage = useLiveMessage(opened);
   const {
-    data: replies = [],
+    data: loaded = [],
     isLoading: loading,
     hasNextPage,
     fetchNextPage,
     isFetchingNextPage,
   } = useThreadMessages(parentMessage.id);
+  const unsent = useUnsent(parentMessage.id);
+  const replies = useMemo(() => withUnsent(loaded, unsent), [loaded, unsent]);
+  const queryClient = useQueryClient();
   const [alsoToChannel, setAlsoToChannel] = useState(false);
   const currentUserId = useWorkspaceStore((s) => s.currentUserId) ?? '';
   const sendReply = useSendThreadReply(parentMessage.id, parentMessage.channel_id, currentUserId);
@@ -122,7 +128,15 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
     });
     setAlsoToChannel(false);
   };
-  const replyCount = hasNextPage ? parentMessage.reply_count : replies.length;
+  const replyCount = hasNextPage ? parentMessage.reply_count : loaded.filter((r) => !r.failed).length;
+  const retry = (reply: Message) =>
+    sendReply.mutate({
+      content: reply.content,
+      id: reply.id,
+      attachments: reply.metadata?.attachments ?? [],
+      alsoToChannel: !!reply.metadata?.also_in_channel,
+    });
+  const discard = (reply: Message) => discardUnsent(queryClient, reply, `thread:${parentMessage.id}`);
 
   const { getUser } = useUserCache();
   const parentSender = getUser(parentMessage.user_id);
@@ -229,6 +243,8 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
                     onTogglePin={togglePin}
                     onEdit={edit}
                     onDelete={remove}
+                    onRetry={retry}
+                    onDiscard={discard}
                   />
                 );
               })}

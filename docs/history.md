@@ -1824,3 +1824,25 @@ same way. `also_to_channel` marks a reply `metadata.also_in_channel`; the channe
 a *Replied to a thread* line that opens the thread on it, and it notifies like a channel
 message. Scheduled messages carry `thread_parent_id` and `also_in_channel` (migration 77) and
 deliver as replies, failing with `thread_gone` when the thread no longer exists.
+
+### [CS-081] Sending never loses work ✅ shipped
+A failed send kept its row but *Retry* dropped its files, a thread could not retry at all, and
+a refetch while a row was failed removed it with its text. Composer files were cleared on
+switching channel while the draft text stayed, and a failed upload was dropped silently at
+send. A failed scheduled message looked like it was still waiting, and both *Cancel* and
+*Reschedule* answered an error. Forwarding quoted the original, so its mentions notified
+again.
+
+A failed send now also lands in an unsent store keyed by channel or thread, merged into the
+list and the thread panel, so a refetch cannot drop it; *Retry* resends with the same client
+id and files, *Discard* puts the text into that composer's draft and the files back in its
+tray. Composer trays are a store keyed by channel, conversation or thread: uploads keep going
+while another channel is open, and a failed upload keeps its file and reason and blocks
+*Send* until it is retried or removed, named by its cause (the connection dropped, the server
+did not answer). A row not yet on the server offers no reactions, thread, pin or save, which
+would refer to an id the server never saw. A failed scheduled message can be deleted,
+rescheduled (queued again) or sent with `POST /scheduled-messages/{id}/send`, which answers
+the reason when delivery is refused; *Scheduled* shows it with *Send now* and *Remove*. A
+forward sends `forwarded_from` (formerly `copy_attachments_from`), recorded as
+`metadata.forwarded_from`, and the server reads mentions and broadcasts only from the lines
+outside the quote.

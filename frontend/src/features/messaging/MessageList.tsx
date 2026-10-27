@@ -15,6 +15,7 @@ import {
   type MessagesInfiniteData,
 } from '@/features/messaging/hooks/useMessages';
 import { useOpenMessage } from './hooks/useMessageLocation';
+import { useUnsent, withUnsent } from '@/stores/unsent';
 import { useUserCache } from '@/stores/users';
 import { displayNameOf } from '@/lib/userHelpers';
 import { useMessageActions } from './hooks/useMessageActions';
@@ -33,6 +34,7 @@ interface Props {
   onTargetMessageFound?: (msg: Message) => void;
   empty?: ReactNode;
   markReadIn?: string;
+  draftKey: string;
 }
 
 export function DaySeparator({ at }: { at: string }) {
@@ -56,13 +58,14 @@ export default function MessageList({
   onTargetMessageFound,
   empty,
   markReadIn,
+  draftKey,
 }: Props) {
   const { data, isLoading, isError, refetch, isFetchingNextPage, hasNextPage, fetchNextPage } = useMessages(
     channelId,
     markReadIn,
   );
   const { getUser } = useUserCache();
-  const actions = useMessageActions(channelId);
+  const actions = useMessageActions(channelId, draftKey);
   const queryClient = useQueryClient();
   const openMessage = useOpenMessage();
   const openThread = useCallback(
@@ -87,7 +90,8 @@ export default function MessageList({
     setScrollTarget(highlightMessageId);
   }
 
-  const messages = useMemo(() => messagesOldestFirst(data), [data]);
+  const unsent = useUnsent(channelId);
+  const messages = useMemo(() => withUnsent(messagesOldestFirst(data), unsent), [data, unsent]);
 
   // Captured once per channel: the boundary must not move while the person is
   // reading, or the line jumps down the list as each message is marked read.
@@ -153,6 +157,7 @@ export default function MessageList({
           onRefreshPreviews={actions.refreshPreviews}
           onMarkUnread={actions.markUnread}
           onRetry={actions.retryMessage}
+          onDiscard={actions.discardMessage}
           onCopyLink={actions.copyLink}
           onSave={onSave}
           onForward={onForward}

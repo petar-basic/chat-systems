@@ -128,6 +128,7 @@ export default function ConversationView({
 
         <MessageList
           channelId={conversation.id}
+          draftKey={`conversation:${conversation.id}`}
           members={members}
           channels={channels}
           onThreadOpen={onOpenThread}

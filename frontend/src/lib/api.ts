@@ -198,7 +198,7 @@ export class ApiClient {
         if (event.lengthComputable) onProgress(event.loaded / event.total);
       };
       xhr.onload = () => resolve({ status: xhr.status, body: xhr.response });
-      xhr.onerror = () => reject(new ApiError(0, 'Upload failed'));
+      xhr.onerror = () => reject(new ApiError(0, 'The connection dropped'));
       xhr.onabort = () => reject(new DOMException('Upload canceled', 'AbortError'));
       signal?.addEventListener('abort', () => xhr.abort(), { once: true });
       xhr.send(formData);
@@ -212,7 +212,10 @@ export class ApiClient {
     }
     if (status < 200 || status >= 300) {
       const err = body as { error?: string; message?: string } | null;
-      throw new ApiError(status, err?.error ?? err?.message ?? 'Upload failed');
+      throw new ApiError(
+        status,
+        err?.error ?? err?.message ?? (status >= 500 ? 'The server did not answer' : 'Upload failed'),
+      );
     }
     return body as T;
   }

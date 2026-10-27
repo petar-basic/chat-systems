@@ -83,7 +83,7 @@ impl ScheduledRepo {
     ) -> sqlx::Result<ScheduledMessage> {
         sqlx::query_as!(
             ScheduledMessage,
-            "UPDATE scheduled_messages SET send_at = $2 WHERE id = $1 RETURNING id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at, attachment_ids, thread_parent_id, also_in_channel",
+            "UPDATE scheduled_messages SET send_at = $2, sent_at = NULL, failure = NULL WHERE id = $1 RETURNING id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at, attachment_ids, thread_parent_id, also_in_channel",
             id,
             send_at
         )
@@ -120,6 +120,21 @@ impl ScheduledRepo {
             "
         )
         .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn claim_now(&self, id: Uuid) -> sqlx::Result<Option<ScheduledMessage>> {
+        sqlx::query_as!(
+            ScheduledMessage,
+            r"
+            UPDATE scheduled_messages
+            SET sent_at = NOW(), failure = NULL
+            WHERE id = $1 AND canceled_at IS NULL AND (sent_at IS NULL OR failure IS NOT NULL)
+            RETURNING id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at, attachment_ids, thread_parent_id, also_in_channel
+            ",
+            id
+        )
+        .fetch_optional(&self.pool)
         .await
     }
 

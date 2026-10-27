@@ -285,8 +285,9 @@ capped at 120 days out.
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/scheduled-messages` | — | `{ data: ScheduledMessage[] }` — the caller's pending queue |
 | POST | `/workspaces/:ws_id/scheduled-messages` | `{ channel_id, content, send_at, attachment_ids?, thread_parent_id?, also_to_channel? }` | `ScheduledMessage` — the drafts are held until a day after `send_at` and attached at delivery; a `thread_parent_id` delivers it as a reply, and one whose thread is gone by then fails with `thread_gone` |
-| PATCH | `/scheduled-messages/:id` | `{ send_at }` | `ScheduledMessage` — author only, pending only |
-| DELETE | `/scheduled-messages/:id` | — | `{ status: "canceled" }` — author only, pending only |
+| PATCH | `/scheduled-messages/:id` | `{ send_at }` | `ScheduledMessage` — author only, pending or failed; a failed one is queued again |
+| DELETE | `/scheduled-messages/:id` | — | `{ status: "canceled" }` — author only, pending or failed |
+| POST | `/scheduled-messages/:id/send` | — | `{ status: "sent" }` — author only, pending or failed: delivers it now; 409 with the reason when delivery is refused, which is also recorded as its `failure` |
 
 A background dispatcher ticks every 15s and claims due rows with
 `UPDATE … WHERE id IN (SELECT … FOR UPDATE SKIP LOCKED) RETURNING *`, so several api replicas
@@ -306,7 +307,7 @@ Sends and manages messages, threads, reactions, pins, read tracking, and search.
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/channels/:ch_id/messages` | Query: `limit=50, cursor?, mark_read?` | `{ data: Message[], unread_notifications? }` — with `mark_read=true` and no cursor, the newest message becomes the caller's read position (as `POST /channels/:ch_id/read`), the channel's notifications are marked read, and `unread_notifications` is the workspace's count afterwards |
-| POST | `/channels/:ch_id/messages` | `{ content, thread_parent_id?, also_to_channel?, client_message_id?, attachment_ids?, copy_attachments_from? }` | `Message` — the one send path; a `thread_parent_id` makes it a reply (one level deep, same channel), `also_to_channel` shows that reply in the channel too (`metadata.also_in_channel`), and `client_message_id` makes a retry idempotent. `attachment_ids` (at most 10, the sender's own drafts) are linked in the message's transaction and listed in `metadata.attachments`; `content` may then be empty. `copy_attachments_from` (a forward) copies that message's files, if the sender can read it |
+| POST | `/channels/:ch_id/messages` | `{ content, thread_parent_id?, also_to_channel?, client_message_id?, attachment_ids?, forwarded_from? }` | `Message` — the one send path; a `thread_parent_id` makes it a reply (one level deep, same channel), `also_to_channel` shows that reply in the channel too (`metadata.also_in_channel`), and `client_message_id` makes a retry idempotent. `attachment_ids` (at most 10, the sender's own drafts) are linked in the message's transaction and listed in `metadata.attachments`; `content` may then be empty. `forwarded_from` (a forward) copies that message's files, if the sender can read it, and records `metadata.forwarded_from`; the quoted lines (`>`) of a forward neither mention nor broadcast, only the sender's own words do |
 | PATCH | `/messages/:msg_id` | `{ content, attachment_ids? }` | `Message` — `attachment_ids` is the set of files to keep; the rest are deleted |
 | DELETE | `/messages/:msg_id` | — | `{ status: "deleted" }` |
 | DELETE | `/messages/:msg_id/unfurls` | — | `Message` — the author removes its link previews; they stay removed across edits |

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback } from 'react';
+import { create } from 'zustand';
 import type { components } from '@/api/schema';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { useInstanceInfo } from '@/features/instance';
@@ -19,6 +20,7 @@ export interface PendingAttachment {
   previewUrl: string | null;
   progress: number;
   status: 'uploading' | 'ready' | 'failed';
+  error: string | null;
   fileId: string | null;
   url: string | null;
   width: number | null;
@@ -28,9 +30,11 @@ export interface PendingAttachment {
 export interface ComposerAttachments {
   items: PendingAttachment[];
   busy: boolean;
+  failed: boolean;
   hasReady: boolean;
   add: (files: File[]) => void;
   remove: (localId: string) => void;
+  retry: (localId: string) => void;
   take: () => PendingAttachment[];
 }
 
@@ -54,45 +58,72 @@ interface Args {
   resetKey: string | undefined;
 }
 
+interface Trays {
+  trays: Record<string, PendingAttachment[]>;
+}
+
+const useTrays = create<Trays>(() => ({ trays: {} }));
+const files = new Map<string, File>();
+const controllers = new Map<string, AbortController>();
+const EMPTY: PendingAttachment[] = [];
+
+function update(scope: string, change: (items: PendingAttachment[]) => PendingAttachment[]) {
+  useTrays.setState((state) => ({ trays: { ...state.trays, [scope]: change(state.trays[scope] ?? EMPTY) } }));
+}
+
+function patch(scope: string, localId: string, change: Partial<PendingAttachment>) {
+  update(scope, (items) => items.map((item) => (item.localId === localId ? { ...item, ...change } : item)));
+}
+
+function forget(localId: string) {
+  controllers.get(localId)?.abort();
+  controllers.delete(localId);
+  files.delete(localId);
+}
+
+export function restoreAttachments(scope: string, attachments: Attachment[]) {
+  if (attachments.length === 0) return;
+  update(scope, (items) => [
+    ...items,
+    ...attachments.map((attachment) => ({
+      localId: crypto.randomUUID(),
+      name: attachment.filename,
+      size: attachment.size_bytes,
+      mimeType: attachment.mime_type,
+      previewUrl: null,
+      progress: 1,
+      status: 'ready' as const,
+      error: null,
+      fileId: attachment.id,
+      url: attachment.url,
+      width: attachment.width ?? null,
+      height: attachment.height ?? null,
+    })),
+  ]);
+}
+
 export function useComposerAttachments({ workspaceId, instanceUrl, resetKey }: Args): ComposerAttachments {
-  const [items, setItems] = useState<PendingAttachment[]>([]);
-  const [trackedKey, setTrackedKey] = useState(resetKey);
-  const controllers = useRef(new Map<string, AbortController>());
+  const scope = resetKey ?? '';
+  const items = useTrays((state) => state.trays[scope] ?? EMPTY);
   const { data: info } = useInstanceInfo(instanceUrl);
   const maxBytes = info?.max_upload_bytes;
-
-  if (trackedKey !== resetKey) {
-    setTrackedKey(resetKey);
-    setItems([]);
-  }
-
-  useEffect(() => {
-    const pending = controllers.current;
-    return () => {
-      for (const controller of pending.values()) controller.abort();
-      pending.clear();
-    };
-  }, [resetKey]);
-
-  const patch = useCallback((localId: string, change: Partial<PendingAttachment>) => {
-    setItems((current) => current.map((item) => (item.localId === localId ? { ...item, ...change } : item)));
-  }, []);
 
   const upload = useCallback(
     async (localId: string, file: File) => {
       if (!workspaceId) return;
       const controller = new AbortController();
-      controllers.current.set(localId, controller);
+      controllers.set(localId, controller);
+      patch(scope, localId, { status: 'uploading', progress: 0, error: null });
       const form = new FormData();
       form.append('file', file);
       try {
         const [stored] = await getApiForInstance(instanceUrl).uploadWithProgress<Uploaded[]>(
           `/files/upload/${workspaceId}?draft=true`,
           form,
-          (progress) => patch(localId, { progress }),
+          (progress) => patch(scope, localId, { progress }),
           controller.signal,
         );
-        patch(localId, {
+        patch(scope, localId, {
           status: 'ready',
           progress: 1,
           fileId: stored.id,
@@ -100,25 +131,27 @@ export function useComposerAttachments({ workspaceId, instanceUrl, resetKey }: A
           width: stored.width ?? null,
           height: stored.height ?? null,
         });
+        files.delete(localId);
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') return;
         logger.error('useComposerAttachments', 'upload', err);
-        patch(localId, { status: 'failed' });
-        toast.error(toUserMessage(err, ErrorLabels.UploadFailed));
+        const reason = toUserMessage(err, ErrorLabels.UploadFailed);
+        patch(scope, localId, { status: 'failed', error: reason });
+        toast.error(reason);
       } finally {
-        controllers.current.delete(localId);
+        controllers.delete(localId);
       }
     },
-    [workspaceId, instanceUrl, patch],
+    [scope, workspaceId, instanceUrl],
   );
 
   const add = useCallback(
-    (files: File[]) => {
+    (picked: File[]) => {
       const room = MAX_ATTACHMENTS - items.length;
-      if (files.length > room) {
+      if (picked.length > room) {
         toast.error(`A message can carry at most ${MAX_ATTACHMENTS} files`);
       }
-      const accepted = files.slice(0, Math.max(room, 0)).filter((file) => {
+      const accepted = picked.slice(0, Math.max(room, 0)).filter((file) => {
         if (maxBytes !== undefined && file.size > maxBytes) {
           toast.error(`${file.name} is larger than ${formatBytes(maxBytes)}`);
           return false;
@@ -135,6 +168,7 @@ export function useComposerAttachments({ workspaceId, instanceUrl, resetKey }: A
           previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
           progress: 0,
           status: 'uploading' as const,
+          error: null,
           fileId: null,
           url: null,
           width: null,
@@ -142,17 +176,28 @@ export function useComposerAttachments({ workspaceId, instanceUrl, resetKey }: A
         },
       }));
       if (fresh.length === 0) return;
-      setItems((current) => [...current, ...fresh.map(({ item }) => item)]);
-      for (const { file, item } of fresh) void upload(item.localId, file);
+      update(scope, (current) => [...current, ...fresh.map(({ item }) => item)]);
+      for (const { file, item } of fresh) {
+        files.set(item.localId, file);
+        void upload(item.localId, file);
+      }
     },
-    [items.length, maxBytes, upload],
+    [scope, items.length, maxBytes, upload],
+  );
+
+  const retry = useCallback(
+    (localId: string) => {
+      const file = files.get(localId);
+      if (file) void upload(localId, file);
+    },
+    [upload],
   );
 
   const remove = useCallback(
     (localId: string) => {
       const item = items.find((candidate) => candidate.localId === localId);
-      controllers.current.get(localId)?.abort();
-      setItems((current) => current.filter((candidate) => candidate.localId !== localId));
+      forget(localId);
+      update(scope, (current) => current.filter((candidate) => candidate.localId !== localId));
       if (item?.previewUrl) URL.revokeObjectURL(item.previewUrl);
       const fileId = item?.fileId;
       if (fileId) {
@@ -161,21 +206,24 @@ export function useComposerAttachments({ workspaceId, instanceUrl, resetKey }: A
           .catch((err) => logger.error('useComposerAttachments', 'remove', err));
       }
     },
-    [items, instanceUrl],
+    [scope, items, instanceUrl],
   );
 
   const take = useCallback(() => {
     const ready = items.filter((item) => item.status === 'ready');
-    setItems([]);
+    for (const item of items) forget(item.localId);
+    update(scope, () => EMPTY);
     return ready;
-  }, [items]);
+  }, [scope, items]);
 
   return {
     items,
     busy: items.some((item) => item.status === 'uploading'),
+    failed: items.some((item) => item.status === 'failed'),
     hasReady: items.some((item) => item.status === 'ready'),
     add,
     remove,
+    retry,
     take,
   };
 }

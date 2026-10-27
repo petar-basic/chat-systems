@@ -20,6 +20,7 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
     OpenApiRouter::new()
         .routes(routes!(list_scheduled, create_scheduled))
         .routes(routes!(reschedule, cancel_scheduled))
+        .routes(routes!(send_now))
 }
 
 async fn require_target_access(
@@ -126,7 +127,7 @@ async fn hold_attachments(
     Ok(())
 }
 
-async fn owned_pending(state: &AppState, id: Uuid, user_id: Uuid) -> AppResult<ScheduledMessage> {
+async fn owned_open(state: &AppState, id: Uuid, user_id: Uuid) -> AppResult<ScheduledMessage> {
     let scheduled = state
         .scheduled_repo
         .find_by_id(id)
@@ -137,7 +138,7 @@ async fn owned_pending(state: &AppState, id: Uuid, user_id: Uuid) -> AppResult<S
             "Can only manage your own scheduled messages".into(),
         ));
     }
-    if scheduled.sent_at.is_some() {
+    if scheduled.sent_at.is_some() && scheduled.failure.is_none() {
         return Err(AppError::Conflict(
             "That message has already been sent".into(),
         ));
@@ -158,7 +159,7 @@ async fn reschedule(
     Json(req): Json<RescheduleRequest>,
 ) -> AppResult<Json<ScheduledMessage>> {
     req.validate()?;
-    let scheduled = owned_pending(&state, id, auth.user_id).await?;
+    let scheduled = owned_open(&state, id, auth.user_id).await?;
     hold_attachments(
         &state,
         &scheduled.attachment_ids,
@@ -177,7 +178,7 @@ async fn cancel_scheduled(
     auth: AuthUser,
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<StatusResponse>> {
-    let scheduled = owned_pending(&state, id, auth.user_id).await?;
+    let scheduled = owned_open(&state, id, auth.user_id).await?;
     state.scheduled_repo.cancel(id).await?;
     if !scheduled.attachment_ids.is_empty() {
         state
@@ -191,4 +192,22 @@ async fn cancel_scheduled(
             .await?;
     }
     Ok(Json(StatusResponse::new("canceled")))
+}
+
+#[utoipa::path(post, path = "/scheduled-messages/{id}/send", tag = "scheduled", responses((status = 200, body = StatusResponse)))]
+async fn send_now(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<StatusResponse>> {
+    owned_open(&state, id, auth.user_id).await?;
+    let claimed = state
+        .scheduled_repo
+        .claim_now(id)
+        .await?
+        .ok_or_else(|| AppError::Conflict("That message is already on its way".into()))?;
+    super::executor::deliver_now(&state, &claimed)
+        .await
+        .map_err(|failure| AppError::Conflict(failure.author_message().into()))?;
+    Ok(Json(StatusResponse::new("sent")))
 }

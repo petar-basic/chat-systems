@@ -68,7 +68,7 @@ export default function ForwardMessageModal({
       const body = {
         content,
         client_message_id: crypto.randomUUID(),
-        copy_attachments_from: source.hasAttachments ? source.messageId : null,
+        forwarded_from: source.messageId,
       };
       await getApiForInstance(instanceUrl).typed((c) =>
         c.POST('/channels/{ch_id}/messages', { params: { path: { ch_id: channelId } }, body }),

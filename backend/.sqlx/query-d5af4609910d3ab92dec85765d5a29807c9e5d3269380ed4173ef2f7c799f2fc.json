@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE scheduled_messages SET send_at = $2 WHERE id = $1 RETURNING id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at, attachment_ids, thread_parent_id, also_in_channel",
+  "query": "UPDATE scheduled_messages SET send_at = $2, sent_at = NULL, failure = NULL WHERE id = $1 RETURNING id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at, attachment_ids, thread_parent_id, also_in_channel",
   "describe": {
     "columns": [
       {
@@ -169,5 +169,5 @@
       false
     ]
   },
-  "hash": "2ef179badfc640b40f7a2b165cffb7b7070fa6fae86a70929c88c531c61c1605"
+  "hash": "d5af4609910d3ab92dec85765d5a29807c9e5d3269380ed4173ef2f7c799f2fc"
 }

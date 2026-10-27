@@ -298,7 +298,7 @@ unverified in the survey are checked first in their ticket and dropped if they d
 | CS-078 ✅ | A suspended or removed person stops acting | backend · frontend |
 | CS-079 ✅ | Opening a message lands on it | frontend · backend |
 | CS-080 ✅ | Threads that keep up | frontend · backend |
-| [CS-081](CS-081-sending-keeps-work.md) | Sending never loses work | frontend · backend |
+| CS-081 ✅ | Sending never loses work | frontend · backend |
 | [CS-082](CS-082-unread-agrees.md) | Unread, Activity and the badge agree | frontend · backend |
 | [CS-083](CS-083-notifications-once.md) | Notifications that arrive once, where they should | backend · frontend · realtime |
 | [CS-084](CS-084-reconnect-and-versions.md) | Reconnecting, presence and new versions | frontend · realtime · ops |

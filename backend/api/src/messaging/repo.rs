@@ -79,7 +79,10 @@ impl MessageRepo {
             Message,
             r#"
             INSERT INTO messages (client_message_id, channel_id, user_id, content, thread_parent_id, metadata)
-            VALUES ($1, $2, $3, $4, $5, CASE WHEN $6 THEN '{"also_in_channel": true}'::jsonb ELSE '{}'::jsonb END)
+            VALUES ($1, $2, $3, $4, $5, jsonb_strip_nulls(jsonb_build_object(
+                'also_in_channel', CASE WHEN $6 THEN TRUE END,
+                'forwarded_from', CASE WHEN $7::uuid IS NULL THEN NULL ELSE jsonb_build_object('message_id', $7::uuid) END
+            )))
             RETURNING id, channel_id, user_id, client_message_id, content, metadata AS "metadata!", thread_parent_id, reply_count AS "reply_count!", is_pinned AS "is_pinned!", created_at, updated_at, deleted_at
             "#,
             new.client_message_id,
@@ -87,7 +90,8 @@ impl MessageRepo {
             new.user_id,
             new.content,
             new.thread_parent_id,
-            new.also_in_channel && new.thread_parent_id.is_some()
+            new.also_in_channel && new.thread_parent_id.is_some(),
+            new.forwarded_from
         )
         .fetch_one(&mut *conn)
         .await?;
@@ -1302,6 +1306,7 @@ mod tests {
                 content: "parent message",
                 thread_parent_id: None,
                 also_in_channel: false,
+                forwarded_from: None,
                 client_message_id: None,
                 mentioned: &[],
             })
@@ -1320,6 +1325,7 @@ mod tests {
                 content: "a reply",
                 thread_parent_id: Some(parent.id),
                 also_in_channel: false,
+                forwarded_from: None,
                 client_message_id: None,
                 mentioned: &[],
             })
@@ -1354,6 +1360,7 @@ mod tests {
                 content: "doomed message",
                 thread_parent_id: None,
                 also_in_channel: false,
+                forwarded_from: None,
                 client_message_id: None,
                 mentioned: &[],
             })
