@@ -1,11 +1,7 @@
-import { useEffect, useState } from 'react';
 import { Mail } from 'lucide-react';
-import { api } from '@/lib/api';
 import { toast } from '@/shared/components/Toast';
 import { toUserMessage } from '@/lib/errors';
-import type { components } from '@/api/schema';
-
-type Preference = components['schemas']['EmailPreference'];
+import { useEmailPreference, useSetEmailPreference } from '@/features/notifications/hooks/useEmailPreference';
 
 /**
  * The switch for the digest the worker sends when a mention reached nobody. The
@@ -13,31 +9,14 @@ type Preference = components['schemas']['EmailPreference'];
  * to say no from inside the app.
  */
 export default function EmailNotificationsPanel() {
-  const [preference, setPreference] = useState<Preference | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    api
-      .typed((c) => c.GET('/notifications/email'))
-      .then(setPreference)
-      .catch(() => setPreference(null));
-  }, []);
+  const { data: preference } = useEmailPreference();
+  const save = useSetEmailPreference();
 
   // Off at the instance level: no SMTP, nothing to configure.
   if (!preference?.available) return null;
 
-  const toggle = async () => {
-    setBusy(true);
-    try {
-      const next = !preference.mention_emails;
-      await api.typed((c) => c.PATCH('/notifications/email', { body: { mention_emails: next } }));
-      setPreference({ ...preference, mention_emails: next });
-    } catch (e) {
-      toast.error(toUserMessage(e));
-    } finally {
-      setBusy(false);
-    }
-  };
+  const toggle = () =>
+    save.mutate(!preference.mention_emails, { onError: (e) => toast.error(toUserMessage(e)) });
 
   return (
     <div className="flex items-start justify-between gap-4" data-qa="email-notifications">
@@ -55,7 +34,7 @@ export default function EmailNotificationsPanel() {
       <button
         type="button"
         onClick={toggle}
-        disabled={busy}
+        disabled={save.isPending}
         data-qa="email-notifications-toggle"
         className="px-3 py-2 text-sm bg-raised hover:bg-elevated disabled:bg-raised/50 text-fg rounded-lg transition cursor-pointer whitespace-nowrap"
       >

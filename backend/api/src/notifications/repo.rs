@@ -108,13 +108,20 @@ impl NotificationRepo {
         Ok(result.rows_affected())
     }
 
-    pub async fn dnd_status(&self, user_id: Uuid, at: DateTime<Utc>) -> sqlx::Result<DndStatus> {
+    pub async fn dnd_status(
+        &self,
+        workspace_id: Uuid,
+        user_id: Uuid,
+        at: DateTime<Utc>,
+    ) -> sqlx::Result<DndStatus> {
         let row = sqlx::query_as!(
             DndStatus,
-            r#"SELECT CASE WHEN dnd_until > $2 THEN dnd_until END AS dnd_until,
-                      CASE WHEN dnd_override_until > $2 THEN NULL
-                           ELSE public.schedule_paused_until(id, $2) END AS schedule_paused_until
-                 FROM users WHERE id = $1"#,
+            r#"SELECT CASE WHEN dnd_until > $3 THEN dnd_until END AS dnd_until,
+                      CASE WHEN dnd_override_until > $3 THEN NULL
+                           ELSE public.schedule_paused_until(workspace_id, user_id, $3) END
+                          AS schedule_paused_until
+                 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2"#,
+            workspace_id,
             user_id,
             at
         )
@@ -126,22 +133,30 @@ impl NotificationRepo {
         }))
     }
 
-    pub async fn set_dnd(&self, user_id: Uuid, until: Option<DateTime<Utc>>) -> sqlx::Result<()> {
-        self.set_dnd_at(user_id, until, Utc::now()).await
+    pub async fn set_dnd(
+        &self,
+        workspace_id: Uuid,
+        user_id: Uuid,
+        until: Option<DateTime<Utc>>,
+    ) -> sqlx::Result<()> {
+        self.set_dnd_at(workspace_id, user_id, until, Utc::now())
+            .await
     }
 
     pub async fn set_dnd_at(
         &self,
+        workspace_id: Uuid,
         user_id: Uuid,
         until: Option<DateTime<Utc>>,
         at: DateTime<Utc>,
     ) -> sqlx::Result<()> {
         sqlx::query!(
-            "UPDATE users
-                SET dnd_until = $2,
-                    dnd_override_until = CASE WHEN $2::timestamptz IS NULL
-                                              THEN public.schedule_paused_until(id, $3) END
-              WHERE id = $1",
+            "UPDATE workspace_members
+                SET dnd_until = $3,
+                    dnd_override_until = CASE WHEN $3::timestamptz IS NULL
+                                              THEN public.schedule_paused_until(workspace_id, user_id, $4) END
+              WHERE workspace_id = $1 AND user_id = $2",
+            workspace_id,
             user_id,
             until,
             at
@@ -153,11 +168,13 @@ impl NotificationRepo {
 
     pub async fn paused_until(
         &self,
+        workspace_id: Uuid,
         user_id: Uuid,
         at: DateTime<Utc>,
     ) -> sqlx::Result<Option<DateTime<Utc>>> {
         let row = sqlx::query_scalar!(
-            "SELECT public.notifications_paused_until($1, $2)",
+            "SELECT public.notifications_paused_until($1, $2, $3)",
+            workspace_id,
             user_id,
             at
         )
@@ -166,11 +183,18 @@ impl NotificationRepo {
         Ok(row)
     }
 
-    pub async fn is_dnd_active(&self, user_id: Uuid) -> sqlx::Result<bool> {
-        Ok(self.paused_until(user_id, Utc::now()).await?.is_some())
+    pub async fn is_dnd_active(&self, workspace_id: Uuid, user_id: Uuid) -> sqlx::Result<bool> {
+        Ok(self
+            .paused_until(workspace_id, user_id, Utc::now())
+            .await?
+            .is_some())
     }
 
-    pub async fn schedule(&self, user_id: Uuid) -> sqlx::Result<NotificationSchedule> {
+    pub async fn schedule(
+        &self,
+        workspace_id: Uuid,
+        user_id: Uuid,
+    ) -> sqlx::Result<NotificationSchedule> {
         sqlx::query_as!(
             NotificationSchedule,
             r#"SELECT COALESCE(s.enabled, FALSE) AS "enabled!",
@@ -179,8 +203,10 @@ impl NotificationRepo {
                       COALESCE(s.end_minute, 1080::SMALLINT) AS "end_minute!",
                       COALESCE(NULLIF(u.timezone, ''), 'UTC') AS "timezone!"
                  FROM users u
-                 LEFT JOIN notification_schedules s ON s.user_id = u.id
-                WHERE u.id = $1"#,
+                 LEFT JOIN notification_schedules s
+                   ON s.user_id = u.id AND s.workspace_id = $1
+                WHERE u.id = $2"#,
+            workspace_id,
             user_id
         )
         .fetch_one(&self.pool)
@@ -189,6 +215,7 @@ impl NotificationRepo {
 
     pub async fn set_schedule(
         &self,
+        workspace_id: Uuid,
         user_id: Uuid,
         enabled: bool,
         days: &[i16],
@@ -196,17 +223,47 @@ impl NotificationRepo {
         end_minute: i16,
     ) -> sqlx::Result<()> {
         sqlx::query!(
-            "INSERT INTO notification_schedules (user_id, enabled, days, start_minute, end_minute)
-             VALUES ($1, $2, $3, $4, $5)
-             ON CONFLICT (user_id) DO UPDATE
+            "INSERT INTO notification_schedules
+                 (workspace_id, user_id, enabled, days, start_minute, end_minute)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             ON CONFLICT (workspace_id, user_id) DO UPDATE
                 SET enabled = EXCLUDED.enabled, days = EXCLUDED.days,
                     start_minute = EXCLUDED.start_minute, end_minute = EXCLUDED.end_minute,
                     updated_at = NOW()",
+            workspace_id,
             user_id,
             enabled,
             days,
             start_minute,
             end_minute
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn mention_emails(&self, workspace_id: Uuid, user_id: Uuid) -> sqlx::Result<bool> {
+        let enabled = sqlx::query_scalar!(
+            "SELECT mention_emails FROM workspace_members WHERE workspace_id = $1 AND user_id = $2",
+            workspace_id,
+            user_id
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(enabled.unwrap_or(false))
+    }
+
+    pub async fn set_mention_emails(
+        &self,
+        workspace_id: Uuid,
+        user_id: Uuid,
+        enabled: bool,
+    ) -> sqlx::Result<()> {
+        sqlx::query!(
+            "UPDATE workspace_members SET mention_emails = $3 WHERE workspace_id = $1 AND user_id = $2",
+            workspace_id,
+            user_id,
+            enabled
         )
         .execute(&self.pool)
         .await?;

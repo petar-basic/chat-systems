@@ -19,6 +19,10 @@ vi.mock('@/features/notifications/ScheduleEditor', () => ({
   ScheduleEditor: () => <div data-qa="notification-schedule" />,
 }));
 vi.mock('@/features/profile/TwoFactorPanel', () => ({ default: () => <div data-qa="security-panel" /> }));
+vi.mock('@/stores/workspace', () => ({
+  useWorkspaceStore: (select: (state: unknown) => unknown) =>
+    select({ currentWorkspace: { name: 'Dev Team' } }),
+}));
 vi.mock('@/features/profile/AccountPanel', () => ({ default: () => <div data-qa="account-panel" /> }));
 
 const selected = () => screen.getByRole('tab', { selected: true });
@@ -28,6 +32,7 @@ describe('PreferencesModal', () => {
     render(<PreferencesModal onClose={vi.fn()} />);
 
     expect(selected()).toHaveTextContent('Notifications');
+    expect(screen.getByTestId('notifications-scope')).toHaveTextContent('your settings in Dev Team');
     expect(screen.getByRole('tabpanel', { name: 'Notifications' })).toContainElement(
       screen.getByTestId('email-panel'),
     );

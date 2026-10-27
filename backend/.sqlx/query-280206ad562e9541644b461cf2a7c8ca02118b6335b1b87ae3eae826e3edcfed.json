@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT COALESCE(s.enabled, FALSE) AS \"enabled!\",\n                      COALESCE(s.days, ARRAY[1, 2, 3, 4, 5]::SMALLINT[]) AS \"days!\",\n                      COALESCE(s.start_minute, 540::SMALLINT) AS \"start_minute!\",\n                      COALESCE(s.end_minute, 1080::SMALLINT) AS \"end_minute!\",\n                      COALESCE(NULLIF(u.timezone, ''), 'UTC') AS \"timezone!\"\n                 FROM users u\n                 LEFT JOIN notification_schedules s ON s.user_id = u.id\n                WHERE u.id = $1",
+  "query": "SELECT COALESCE(s.enabled, FALSE) AS \"enabled!\",\n                      COALESCE(s.days, ARRAY[1, 2, 3, 4, 5]::SMALLINT[]) AS \"days!\",\n                      COALESCE(s.start_minute, 540::SMALLINT) AS \"start_minute!\",\n                      COALESCE(s.end_minute, 1080::SMALLINT) AS \"end_minute!\",\n                      COALESCE(NULLIF(u.timezone, ''), 'UTC') AS \"timezone!\"\n                 FROM users u\n                 LEFT JOIN notification_schedules s\n                   ON s.user_id = u.id AND s.workspace_id = $1\n                WHERE u.id = $2",
   "describe": {
     "columns": [
       {
@@ -36,6 +36,7 @@
     ],
     "parameters": {
       "Left": [
+        "Uuid",
         "Uuid"
       ]
     },
@@ -47,5 +48,5 @@
       null
     ]
   },
-  "hash": "007cbe87971364b009d347da8e3b9be5572cb575b65da1a1f89b12b8010b5fc7"
+  "hash": "280206ad562e9541644b461cf2a7c8ca02118b6335b1b87ae3eae826e3edcfed"
 }

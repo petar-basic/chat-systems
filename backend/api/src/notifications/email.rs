@@ -25,15 +25,13 @@ pub struct PendingMention<'a> {
 /// becomes the duplicate email that makes people write a filter rule for your
 /// domain.
 pub async fn enqueue(state: &AppState, pending: PendingMention<'_>) {
-    let wants_email: Option<bool> = sqlx::query_scalar!(
-        "SELECT mention_emails FROM users WHERE id = $1",
-        pending.user_id
-    )
-    .fetch_optional(&state.pool)
-    .await
-    .unwrap_or(None);
+    let wants_email = state
+        .notification_repo
+        .mention_emails(pending.workspace_id, pending.user_id)
+        .await
+        .unwrap_or(false);
 
-    if wants_email != Some(true) {
+    if !wants_email {
         return;
     }
 
@@ -86,7 +84,7 @@ pub async fn flush_due(state: &AppState) -> usize {
           FROM pending_mention_emails p
           JOIN users u ON u.id = p.user_id
          WHERE p.created_at <= $1
-           AND public.notifications_paused_until(p.user_id, $2) IS NULL
+           AND public.notifications_paused_until(p.workspace_id, p.user_id, $2) IS NULL
          GROUP BY p.user_id, p.workspace_id, u.email
         "#,
         cutoff,

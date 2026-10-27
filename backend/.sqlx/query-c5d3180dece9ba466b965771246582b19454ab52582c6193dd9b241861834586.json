@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT public.notifications_paused_until($1, $2)",
+  "query": "SELECT public.notifications_paused_until($1, $2, $3)",
   "describe": {
     "columns": [
       {
@@ -13,6 +13,7 @@
     "parameters": {
       "Left": [
         "Uuid",
+        "Uuid",
         "Timestamptz"
       ]
     },
@@ -20,5 +21,5 @@
       null
     ]
   },
-  "hash": "cd5d9db7ad68c192980f54841d778a4c5289157304fb971a2c58dcb8c41a765d"
+  "hash": "c5d3180dece9ba466b965771246582b19454ab52582c6193dd9b241861834586"
 }

@@ -359,7 +359,7 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 - **Expected:** the mention lands in Activity, but no push, sound, desktop notification or email. The *You* menu and the Activity panel's moon say "Paused by your schedule until …"; A's hover card on B says "Notifications paused until …".
 - 🟢 **Resume:** *Resume notifications* during the pause → mentions notify again until the next window starts; after that window ends the schedule pauses again.
 - 🟢 **Night window:** *From* 22:00 *To* 07:00 — notifications on at 23:30 and 06:30, paused at noon.
-- 🟠 **Edge:** the hours follow the timezone in *Edit profile*; changing it moves the window. `PUT /api/users/me/notification-schedule` with start = end, day 0 or 8, or no days → **422**.
+- 🟠 **Edge:** the hours follow the timezone in *Edit profile*; changing it moves the window. `PUT /api/workspaces/{id}/notifications/schedule` with start = end, day 0 or 8, or no days → **422**.
 
 ---
 
@@ -533,3 +533,7 @@ dialog becomes a sheet from the bottom).
 - [ ] **Profile and Preferences.** *Edit profile* saves the name, status and bio with one
       button and closes; a status left untouched keeps its *Clears at*. *Preferences* shows one
       section at a time, ↑/↓ move between them, and the theme changes the moment it is picked.
+- [ ] **Two workspaces.** In one, *Edit profile* sets another name and a status, and the
+      *You* menu pauses notifications; switch to the other: the account's name, no status,
+      notifications on. *Preferences → Account* changes the name both show where neither has
+      its own; *Preferences → Notifications* names the workspace it changes.

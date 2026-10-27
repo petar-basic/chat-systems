@@ -281,7 +281,7 @@ device's own settings stay with the account.
 
 | # | Ticket | Area |
 |---|---|---|
-| [CS-076](CS-076-workspace-profiles.md) | A profile and notification settings of your own in each workspace | backend · frontend |
+| CS-076 ✅ | A profile and notification settings of your own in each workspace | backend · frontend |
 
 ### Still open
 
@@ -317,4 +317,4 @@ Tickets that touch the same files, and the order that avoids rework:
 | workspace `settings` JSON and the *General* section | CS-070 ✅ → CS-075 ✅ |
 | *Channel settings* / *Channel details* | CS-070 ✅ → CS-074 ✅ → CS-075 ✅ |
 | *Integrations* panel and hook permissions | CS-070 ✅ → CS-074 ✅ |
-| `workspace_members` profile and notification columns | CS-076 |
+| `workspace_members` profile and notification columns | CS-076 ✅ |

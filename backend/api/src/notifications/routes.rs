@@ -108,51 +108,68 @@ async fn unread_count(
     }))
 }
 
-#[utoipa::path(get, path = "/notifications/dnd", tag = "notifications", responses((status = 200, body = DndStatus)))]
-async fn get_dnd(State(state): State<Arc<AppState>>, auth: AuthUser) -> AppResult<Json<DndStatus>> {
+#[utoipa::path(get, path = "/workspaces/{ws_id}/notifications/dnd", tag = "notifications", responses((status = 200, body = DndStatus)))]
+async fn get_dnd(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(ws_id): Path<Uuid>,
+) -> AppResult<Json<DndStatus>> {
+    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
     let status = state
         .notification_repo
-        .dnd_status(auth.user_id, chrono::Utc::now())
+        .dnd_status(ws_id, auth.user_id, chrono::Utc::now())
         .await?;
     Ok(Json(status))
 }
 
-#[utoipa::path(patch, path = "/notifications/dnd", tag = "notifications", request_body = SetDndRequest, responses((status = 200, body = DndStatus)))]
+#[utoipa::path(patch, path = "/workspaces/{ws_id}/notifications/dnd", tag = "notifications", request_body = SetDndRequest, responses((status = 200, body = DndStatus)))]
 async fn set_dnd(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
+    Path(ws_id): Path<Uuid>,
     Json(req): Json<SetDndRequest>,
 ) -> AppResult<Json<DndStatus>> {
+    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
     let now = chrono::Utc::now();
     state
         .notification_repo
-        .set_dnd_at(auth.user_id, req.dnd_until, now)
+        .set_dnd_at(ws_id, auth.user_id, req.dnd_until, now)
         .await?;
     let status = state
         .notification_repo
-        .dnd_status(auth.user_id, now)
+        .dnd_status(ws_id, auth.user_id, now)
         .await?;
     Ok(Json(status))
 }
 
-#[utoipa::path(get, path = "/users/me/notification-schedule", tag = "notifications", responses((status = 200, body = NotificationSchedule)))]
+#[utoipa::path(get, path = "/workspaces/{ws_id}/notifications/schedule", tag = "notifications", responses((status = 200, body = NotificationSchedule)))]
 async fn get_notification_schedule(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
+    Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<NotificationSchedule>> {
-    Ok(Json(state.notification_repo.schedule(auth.user_id).await?))
+    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
+    Ok(Json(
+        state
+            .notification_repo
+            .schedule(ws_id, auth.user_id)
+            .await?,
+    ))
 }
 
-#[utoipa::path(put, path = "/users/me/notification-schedule", tag = "notifications", request_body = SetScheduleRequest, responses((status = 200, body = NotificationSchedule)))]
+#[utoipa::path(put, path = "/workspaces/{ws_id}/notifications/schedule", tag = "notifications", request_body = SetScheduleRequest, responses((status = 200, body = NotificationSchedule)))]
 async fn set_notification_schedule(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
+    Path(ws_id): Path<Uuid>,
     Json(req): Json<SetScheduleRequest>,
 ) -> AppResult<Json<NotificationSchedule>> {
+    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
     req.validate()?;
     state
         .notification_repo
         .set_schedule(
+            ws_id,
             auth.user_id,
             req.enabled,
             &req.days(),
@@ -160,44 +177,45 @@ async fn set_notification_schedule(
             req.end_minute,
         )
         .await?;
-    Ok(Json(state.notification_repo.schedule(auth.user_id).await?))
+    Ok(Json(
+        state
+            .notification_repo
+            .schedule(ws_id, auth.user_id)
+            .await?,
+    ))
 }
 
 /// Whether to email a mention that reached nobody. On by default: somebody who
 /// never grants push permission is exactly who it is for, and they are not going
 /// to go looking for a switch to turn it on.
-#[utoipa::path(get, path = "/notifications/email", tag = "notifications", responses((status = 200, body = EmailPreference)))]
+#[utoipa::path(get, path = "/workspaces/{ws_id}/notifications/email", tag = "notifications", responses((status = 200, body = EmailPreference)))]
 async fn get_email_preference(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
+    Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<EmailPreference>> {
-    let enabled = sqlx::query_scalar!(
-        "SELECT mention_emails FROM users WHERE id = $1",
-        auth.user_id
-    )
-    .fetch_optional(&state.pool)
-    .await?;
-
+    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
     Ok(Json(EmailPreference {
-        mention_emails: enabled.unwrap_or(true),
+        mention_emails: state
+            .notification_repo
+            .mention_emails(ws_id, auth.user_id)
+            .await?,
         available: state.auth_service.can_send_email(),
     }))
 }
 
-#[utoipa::path(patch, path = "/notifications/email", tag = "notifications", request_body = EmailPreferenceRequest, responses((status = 200, body = EmailPreference)))]
+#[utoipa::path(patch, path = "/workspaces/{ws_id}/notifications/email", tag = "notifications", request_body = EmailPreferenceRequest, responses((status = 200, body = EmailPreference)))]
 async fn set_email_preference(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
+    Path(ws_id): Path<Uuid>,
     Json(req): Json<EmailPreferenceRequest>,
 ) -> AppResult<Json<EmailPreference>> {
-    sqlx::query!(
-        "UPDATE users SET mention_emails = $2 WHERE id = $1",
-        auth.user_id,
-        req.mention_emails
-    )
-    .execute(&state.pool)
-    .await?;
-
+    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
+    state
+        .notification_repo
+        .set_mention_emails(ws_id, auth.user_id, req.mention_emails)
+        .await?;
     Ok(Json(EmailPreference {
         mention_emails: req.mention_emails,
         available: state.auth_service.can_send_email(),

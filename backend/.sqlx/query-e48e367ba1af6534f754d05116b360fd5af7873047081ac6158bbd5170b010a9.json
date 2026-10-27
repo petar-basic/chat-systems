@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT mention_emails FROM users WHERE id = $1",
+  "query": "SELECT mention_emails FROM workspace_members WHERE workspace_id = $1 AND user_id = $2",
   "describe": {
     "columns": [
       {
@@ -9,7 +9,7 @@
         "type_info": "Bool",
         "origin": {
           "Table": {
-            "table": "users",
+            "table": "workspace_members",
             "name": "mention_emails"
           }
         }
@@ -17,6 +17,7 @@
     ],
     "parameters": {
       "Left": [
+        "Uuid",
         "Uuid"
       ]
     },
@@ -24,5 +25,5 @@
       false
     ]
   },
-  "hash": "11978a413573780aa73f0f519b815d4757a6013b35c4ce89acb5661dfa2680ea"
+  "hash": "e48e367ba1af6534f754d05116b360fd5af7873047081ac6158bbd5170b010a9"
 }

@@ -1,27 +1,39 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { components } from '@/api/schema';
-import { useCurrentApi } from '@/shared/hooks/useCurrentApi';
+import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { QUERY_KEYS } from '@/shared/constants';
+import { useWorkspaceStore } from '@/stores/workspace';
 
 export type NotificationSchedule = components['schemas']['NotificationSchedule'];
 export type ScheduleChange = components['schemas']['SetScheduleRequest'];
 
 export const useNotificationSchedule = () => {
-  const apiClient = useCurrentApi();
+  const workspace = useWorkspaceStore((s) => s.currentWorkspace);
+  const workspaceId = workspace?.id ?? '';
   return useQuery({
-    queryKey: QUERY_KEYS.notificationSchedule(),
-    queryFn: () => apiClient.typed((c) => c.GET('/users/me/notification-schedule')),
+    queryKey: QUERY_KEYS.notificationSchedule(workspaceId),
+    queryFn: () =>
+      getApiForInstance(workspace?.instanceUrl).typed((c) =>
+        c.GET('/workspaces/{ws_id}/notifications/schedule', { params: { path: { ws_id: workspaceId } } }),
+      ),
+    enabled: !!workspace,
     staleTime: 1000 * 60 * 5,
   });
 };
 
 export const useSetNotificationSchedule = () => {
   const queryClient = useQueryClient();
-  const apiClient = useCurrentApi();
-  const key = QUERY_KEYS.notificationSchedule();
+  const workspace = useWorkspaceStore((s) => s.currentWorkspace);
+  const workspaceId = workspace?.id ?? '';
+  const key = QUERY_KEYS.notificationSchedule(workspaceId);
   return useMutation({
     mutationFn: (change: ScheduleChange) =>
-      apiClient.typed((c) => c.PUT('/users/me/notification-schedule', { body: change })),
+      getApiForInstance(workspace?.instanceUrl).typed((c) =>
+        c.PUT('/workspaces/{ws_id}/notifications/schedule', {
+          params: { path: { ws_id: workspaceId } },
+          body: change,
+        }),
+      ),
     onMutate: (change) => {
       const previous = queryClient.getQueryData<NotificationSchedule>(key);
       if (previous) queryClient.setQueryData<NotificationSchedule>(key, { ...previous, ...change });
@@ -34,7 +46,8 @@ export const useSetNotificationSchedule = () => {
       queryClient.setQueryData(key, saved);
     },
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notificationDnd() });
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notificationDnd(workspaceId) });
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceMembers(workspaceId) });
     },
   });
 };

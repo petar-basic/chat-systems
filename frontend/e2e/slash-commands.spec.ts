@@ -23,6 +23,9 @@ test('a built-in command answers only the person who ran it, and does the thing'
     extraHTTPHeaders: await authHeaders(await playwright.request.newContext(), 'admin@dev.local'),
   });
 
+  const workspace = await devWorkspace(admin);
+  const dndRoute = `${API}/workspaces/${workspace.id}/notifications/dnd`;
+
   try {
     await openGeneral(page, admin);
     await send(page, '/dnd 15');
@@ -35,10 +38,10 @@ test('a built-in command answers only the person who ran it, and does the thing'
       'the command itself is not posted, and neither is the answer',
     ).toHaveCount(0);
 
-    const dnd = await (await admin.get(`${API}/notifications/dnd`)).json();
+    const dnd = await (await admin.get(dndRoute)).json();
     expect(dnd.dnd_until, 'the command changed real state, not just the reply').toBeTruthy();
   } finally {
-    await admin.patch(`${API}/notifications/dnd`, { data: { dnd_until: null } });
+    await admin.patch(dndRoute, { data: { dnd_until: null } });
     await admin.dispose();
   }
 });

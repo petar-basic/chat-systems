@@ -496,7 +496,8 @@ looks like "the invite never arrived". `outbound_emails` rows with `sent_at IS N
 **Mention emails.** If SMTP is configured, somebody who is mentioned while offline, with no
 push subscription, not muted and not in do-not-disturb, gets one digest email five minutes
 later — cancelled if they come online first. It carries who and where and a link, never the
-message text. Individuals can turn it off at `PATCH /api/notifications/email`; with SMTP
+message text. Individuals can turn it off per workspace at
+`PATCH /api/workspaces/{id}/notifications/email`; with SMTP
 unconfigured the whole feature is off and logs nothing.
 
 **Realtime events go through an outbox too.** Every durable event (messages, reactions,
