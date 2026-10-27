@@ -9,6 +9,7 @@ const create = vi.fn<(body: SaveWorkflow) => Promise<Workflow>>();
 const update = vi.fn<(vars: { id: string; body: SaveWorkflow }) => Promise<Workflow>>();
 const enable = vi.fn<(id: string) => Promise<Workflow>>();
 const disable = vi.fn<(id: string) => Promise<Workflow>>();
+const takeOver = vi.fn<(id: string) => Promise<Workflow>>();
 const remove = vi.fn<(id: string) => Promise<unknown>>();
 
 vi.mock('./useWorkflows', () => ({
@@ -17,6 +18,7 @@ vi.mock('./useWorkflows', () => ({
     update: { mutateAsync: update, isPending: false },
     enable: { mutateAsync: enable, isPending: false },
     disable: { mutateAsync: disable, isPending: false },
+    takeOver: { mutateAsync: takeOver, isPending: false },
     remove: { mutateAsync: remove, isPending: false },
   }),
   useWorkflowRuns: () => ({
@@ -100,6 +102,7 @@ const saved = (overrides: Partial<Workflow> = {}): Workflow => ({
   created_by: 'u-me',
   version: 1,
   enabled: false,
+  creator_gone: false,
   webhook_url: null,
   next_run_at: null,
   last_run: null,
@@ -466,8 +469,21 @@ describe('WorkflowEditor', () => {
     expect(screen.getByTestId('workflow-read-only')).toHaveTextContent(
       'Only the person who built this workflow',
     );
+    expect(screen.queryByTestId('workflow-take-over')).toBeNull();
     fireEvent.click(screen.getByTestId('workflow-disable'));
     await waitFor(() => expect(disable).toHaveBeenCalledWith('w-1'));
+  });
+
+  it('lets an admin take over a workflow whose builder is gone, then edit it', async () => {
+    takeOver.mockResolvedValue(saved({ created_by: 'u-me' }));
+    renderEditor(saved({ created_by: 'u-bob', creator_gone: true }), { currentUserId: 'u-me' });
+    expect(screen.getByTestId('workflow-read-only')).toHaveTextContent('left or was suspended');
+    expect(screen.getByTestId('workflow-name')).toBeDisabled();
+    fireEvent.click(screen.getByTestId('workflow-take-over'));
+    await waitFor(() => expect(takeOver).toHaveBeenCalledWith('w-1'));
+    await waitFor(() => expect(screen.getByTestId('workflow-name')).not.toBeDisabled());
+    expect(screen.getByTestId('workflow-enable')).toBeInTheDocument();
+    expect(screen.queryByTestId('workflow-take-over')).toBeNull();
   });
 
   it('shows the run history with each step’s outcome', () => {

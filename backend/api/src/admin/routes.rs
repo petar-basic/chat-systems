@@ -185,6 +185,7 @@ async fn suspend_user(
         .integration_repo
         .delete_user_connections(user_id)
         .await?;
+    crate::workspace::membership::suspend_creations(&state, user_id, auth.user_id, &ip).await;
 
     let _ = state
         .publisher

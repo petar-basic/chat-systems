@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, workspace_id, created_by, hook_type AS \"hook_type: HookType\", name, description,\n                   config, is_active AS \"is_active!\", created_at, updated_at\n                 FROM hooks\n                WHERE workspace_id = $1\n                  AND hook_type = 'outgoing_webhook'\n                  AND is_active = true\n                  AND config->'channel_ids' ? $2::text",
+  "query": "SELECT id, workspace_id, created_by, hook_type AS \"hook_type: HookType\", name, description,\n                   config, is_active AS \"is_active!\", disabled_reason, created_at, updated_at\n                 FROM hooks WHERE workspace_id = $1 ORDER BY created_at DESC",
   "describe": {
     "columns": [
       {
@@ -104,6 +104,17 @@
       },
       {
         "ordinal": 8,
+        "name": "disabled_reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hooks",
+            "name": "disabled_reason"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -114,7 +125,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -127,8 +138,7 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Text"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -140,9 +150,10 @@
       true,
       false,
       true,
+      true,
       false,
       false
     ]
   },
-  "hash": "4610153feafd1498260d9901c04434602c5d64d09295c1fd57736e20f443308c"
+  "hash": "d04cb7f2c09dd9dc2a5e7bde38a09591d4ce6cd248ca94ec062582892cd8958b"
 }

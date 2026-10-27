@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            UPDATE workflows\n               SET enabled = false, next_run_at = NULL, updated_at = NOW()\n             WHERE workspace_id = $1 AND created_by = $2 AND enabled\n            RETURNING id, name\n            ",
+  "query": "\n            UPDATE workflows\n               SET enabled = false, next_run_at = NULL, updated_at = NOW()\n             WHERE ($1::uuid IS NULL OR workspace_id = $1) AND created_by = $2 AND enabled\n            RETURNING id, workspace_id, name\n            ",
   "describe": {
     "columns": [
       {
@@ -16,6 +16,17 @@
       },
       {
         "ordinal": 1,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "workflows",
+            "name": "workspace_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
         "name": "name",
         "type_info": "Text",
         "origin": {
@@ -34,8 +45,9 @@
     },
     "nullable": [
       false,
+      false,
       false
     ]
   },
-  "hash": "d3635684e02fe4d80c4c47204d3fcb9d9e5ed7920b1c4ea08426df980c0372eb"
+  "hash": "c739a7dd4cff4e2b5d94c800884038b3b80ce4be791c6408478334988950d53d"
 }

@@ -40,6 +40,7 @@ pub fn present(state: &AppState, row: WorkflowRow) -> AppResult<Workflow> {
         definition,
         version: row.version,
         enabled: row.enabled,
+        creator_gone: row.creator_gone,
         webhook_url: row.webhook_token.as_deref().map(|t| webhook_url(state, t)),
         next_run_at: row.next_run_at,
         last_run: row
@@ -302,6 +303,36 @@ pub async fn list(state: &AppState, workspace_id: Uuid, user_id: Uuid) -> AppRes
 pub async fn get(state: &AppState, id: Uuid, user_id: Uuid) -> AppResult<Workflow> {
     let (row, _) = find_manageable(state, id, user_id).await?;
     present(state, row)
+}
+
+pub async fn take_over(
+    state: &AppState,
+    id: Uuid,
+    user_id: Uuid,
+    ip: &ClientIp,
+) -> AppResult<Workflow> {
+    let row = state
+        .workflow_repo
+        .find(id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Workflow not found".into()))?;
+    authz::require_workspace_role(state, row.workspace_id, user_id, &WorkspaceRole::Admin).await?;
+    if !row.creator_gone {
+        return Err(AppError::Conflict(
+            "Only a workflow whose creator left or was suspended can be taken over".into(),
+        ));
+    }
+    state.workflow_repo.set_owner(id, user_id).await?;
+    audit::record(
+        state,
+        AuditEntry::new(AuditAction::WorkflowTakenOver, user_id)
+            .workspace(row.workspace_id)
+            .resource(id)
+            .ip(ip)
+            .details(serde_json::json!({ "name": row.name, "from": row.created_by })),
+    )
+    .await;
+    reload(state, id).await
 }
 
 async fn reload(state: &AppState, id: Uuid) -> AppResult<Workflow> {
@@ -718,7 +749,12 @@ async fn checked_answers(
     Ok(serde_json::Value::Object(checked))
 }
 
-pub async fn creator_left(state: &AppState, workspace_id: Uuid, user_id: Uuid) {
+pub async fn stop_creators_workflows(
+    state: &AppState,
+    workspace_id: Option<Uuid>,
+    user_id: Uuid,
+    because: &str,
+) -> Vec<super::repo::StoppedWorkflow> {
     let stopped = match state
         .workflow_repo
         .disable_by_creator(workspace_id, user_id)
@@ -727,34 +763,39 @@ pub async fn creator_left(state: &AppState, workspace_id: Uuid, user_id: Uuid) {
         Ok(stopped) => stopped,
         Err(e) => {
             tracing::warn!(
-                "could not turn off the workflows of a departed member: {}",
+                "could not turn off the workflows of a stopped creator: {}",
                 e
             );
-            return;
+            return Vec::new();
         }
     };
-    if stopped.is_empty() {
-        return;
-    }
-    let admins = match state.workflow_repo.admin_ids(workspace_id).await {
-        Ok(admins) => admins,
-        Err(e) => {
-            tracing::warn!(
-                "could not find the admins to tell about stopped workflows: {}",
-                e
-            );
-            return;
-        }
-    };
+    let mut admins_of: HashMap<Uuid, Vec<Uuid>> = HashMap::new();
     for workflow in &stopped {
+        if let std::collections::hash_map::Entry::Vacant(slot) =
+            admins_of.entry(workflow.workspace_id)
+        {
+            let admins = state
+                .workflow_repo
+                .admin_ids(workflow.workspace_id)
+                .await
+                .unwrap_or_else(|e| {
+                    tracing::warn!(
+                        "could not find the admins to tell about stopped workflows: {}",
+                        e
+                    );
+                    Vec::new()
+                });
+            slot.insert(admins);
+        }
         let body = format!(
-            "\u{201c}{}\u{201d} stopped because the person who built it left the workspace.",
+            "\u{201c}{}\u{201d} stopped because {because}.",
             workflow.name
         );
-        for admin in &admins {
-            tell(state, *admin, workspace_id, workflow.id, &body).await;
+        for admin in &admins_of[&workflow.workspace_id] {
+            tell(state, *admin, workflow.workspace_id, workflow.id, &body).await;
         }
     }
+    stopped
 }
 
 async fn tell(state: &AppState, user_id: Uuid, workspace_id: Uuid, workflow_id: Uuid, body: &str) {

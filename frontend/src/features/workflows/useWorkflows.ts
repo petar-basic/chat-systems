@@ -125,11 +125,16 @@ export function useWorkflowActions(workspaceId: string, instanceUrl?: string) {
       ),
     onSuccess: refresh,
   });
+  const takeOver = useMutation({
+    mutationFn: (id: string) =>
+      api().typed((c) => c.POST('/workflows/{workflow_id}/owner', { params: { path: { workflow_id: id } } })),
+    onSuccess: refresh,
+  });
   const remove = useMutation({
     mutationFn: (id: string) =>
       api().typed((c) => c.DELETE('/workflows/{workflow_id}', { params: { path: { workflow_id: id } } })),
     onSuccess: () => refresh(),
   });
 
-  return { create, update, enable, disable, remove };
+  return { create, update, enable, disable, takeOver, remove };
 }

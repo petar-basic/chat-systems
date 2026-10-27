@@ -4753,6 +4753,36 @@
         }
       }
     },
+    "/workflows/{workflow_id}/owner": {
+      "post": {
+        "tags": [
+          "workflows"
+        ],
+        "operationId": "take_over_workflow",
+        "parameters": [
+          {
+            "name": "workflow_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Workflow"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workflows/{workflow_id}/runs": {
       "get": {
         "tags": [
@@ -10839,6 +10869,12 @@
                     "null"
                   ]
                 },
+                "disabled_reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
                 "hook_type": {
                   "$ref": "#/components/schemas/HookType"
                 },
@@ -11925,6 +11961,7 @@
                 "definition",
                 "version",
                 "enabled",
+                "creator_gone",
                 "created_at",
                 "updated_at"
               ],
@@ -11936,6 +11973,9 @@
                 "created_by": {
                   "type": "string",
                   "format": "uuid"
+                },
+                "creator_gone": {
+                  "type": "boolean"
                 },
                 "definition": {
                   "$ref": "#/components/schemas/Definition"
@@ -12865,6 +12905,12 @@
             "format": "uuid"
           },
           "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "disabled_reason": {
             "type": [
               "string",
               "null"
@@ -16707,6 +16753,7 @@
           "definition",
           "version",
           "enabled",
+          "creator_gone",
           "created_at",
           "updated_at"
         ],
@@ -16718,6 +16765,9 @@
           "created_by": {
             "type": "string",
             "format": "uuid"
+          },
+          "creator_gone": {
+            "type": "boolean"
           },
           "definition": {
             "$ref": "#/components/schemas/Definition"

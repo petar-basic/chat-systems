@@ -990,3 +990,220 @@ async fn an_incoming_webhook_still_posts_into_an_announcement_channel(pool: PgPo
     .expect("count");
     assert_eq!(posted, 1);
 }
+
+async fn hook_state(state: &crate::state::AppState, id: &str) -> (bool, Option<String>) {
+    sqlx::query_as("SELECT is_active, disabled_reason FROM hooks WHERE id = $1::uuid")
+        .bind(id)
+        .fetch_one(&state.pool)
+        .await
+        .expect("hook row")
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_hook_stops_when_its_creator_can_no_longer_read_its_channel(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "hook-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Lost WS").await;
+    let secret = seed_channel(&state, ws, owner_id, "secret", true).await;
+    let (admin_id, _, admin) = seed_and_login(&app, &state, "hook-admin", false).await;
+    add_ws_member(&state, ws, admin_id, "admin").await;
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(
+            secret,
+            admin_id,
+            &crate::workspace::models::ChannelRole::Member,
+        )
+        .await
+        .expect("join");
+
+    let (status, hook) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws}/hooks"),
+        Some(&admin),
+        Some(json!({
+            "hook_type": "outgoing_webhook",
+            "name": "Mirror",
+            "config": { "url": "https://example.com/out", "channel_ids": [secret] }
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{hook:?}");
+    let id = hook["id"].as_str().unwrap();
+
+    assert_eq!(
+        crate::hooks::executor::hooks_to_fire(&state, ws, secret)
+            .await
+            .len(),
+        1
+    );
+
+    state
+        .workspace_service
+        .repo
+        .remove_channel_member(secret, admin_id)
+        .await
+        .expect("leave");
+    assert!(
+        crate::hooks::executor::hooks_to_fire(&state, ws, secret)
+            .await
+            .is_empty(),
+        "a private channel's messages stop leaving once its hook's creator cannot read them"
+    );
+    assert_eq!(
+        hook_state(&state, id).await,
+        (
+            false,
+            Some("Its creator can no longer read the channel".to_string())
+        )
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_incoming_webhook_from_a_suspended_creator_posts_nothing(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Suspended WS").await;
+    let ch = seed_channel(&state, ws, owner_id, "deploys", false).await;
+    let (status, hook) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws}/hooks"),
+        Some(&token),
+        Some(incoming_hook(ch, "deploy-bot")),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{hook:?}");
+    let webhook_token = hook["config"]["token"].as_str().unwrap().to_string();
+
+    sqlx::query("UPDATE users SET status = 'suspended' WHERE id = $1")
+        .bind(owner_id)
+        .execute(&state.pool)
+        .await
+        .expect("suspend");
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/hooks/incoming/{webhook_token}"),
+        None,
+        Some(json!({ "text": "still here?" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    let posted: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM messages WHERE channel_id = $1")
+        .bind(ch)
+        .fetch_one(&state.pool)
+        .await
+        .unwrap();
+    assert_eq!(posted, 0);
+    assert_eq!(
+        hook_state(&state, hook["id"].as_str().unwrap()).await,
+        (
+            false,
+            Some("Its creator's account is suspended".to_string())
+        )
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn suspending_someone_turns_off_their_hooks_and_says_who_did(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "hook-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Suspend WS").await;
+    let ch = seed_channel(&state, ws, owner_id, "deploys", false).await;
+    let (instance_admin, _, admin_token) =
+        seed_and_login(&app, &state, "hook-instance-admin", true).await;
+    let (status, hook) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws}/hooks"),
+        Some(&owner),
+        Some(incoming_hook(ch, "deploy-bot")),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{hook:?}");
+    let id = hook["id"].as_str().unwrap();
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/admin/users/{owner_id}/suspend"),
+        Some(&admin_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        hook_state(&state, id).await,
+        (
+            false,
+            Some("Its creator's account is suspended".to_string())
+        )
+    );
+    let audited: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM audit_log WHERE action = 'hook.disabled' AND user_id = $1 AND resource_id = $2::uuid",
+    )
+    .bind(instance_admin)
+    .bind(id)
+    .fetch_one(&state.pool)
+    .await
+    .unwrap();
+    assert_eq!(audited, 1);
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/admin/users/{owner_id}/activate"),
+        Some(&admin_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        !hook_state(&state, id).await.0,
+        "activating the account does not turn its integrations back on"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn removing_someone_from_the_workspace_turns_off_their_hooks(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "hook-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Removed WS").await;
+    let ch = seed_channel(&state, ws, owner_id, "deploys", false).await;
+    let (admin_id, _, admin) = seed_and_login(&app, &state, "hook-admin", false).await;
+    add_ws_member(&state, ws, admin_id, "admin").await;
+    let (status, hook) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws}/hooks"),
+        Some(&admin),
+        Some(json!({
+            "hook_type": "outgoing_webhook",
+            "name": "Mirror",
+            "config": { "url": "https://example.com/out", "channel_ids": [ch] }
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{hook:?}");
+
+    let (status, _) = send(
+        &app,
+        "DELETE",
+        &format!("/api/workspaces/{ws}/members/{admin_id}"),
+        Some(&owner),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        hook_state(&state, hook["id"].as_str().unwrap()).await,
+        (false, Some("Its creator left the workspace".to_string()))
+    );
+    assert!(crate::hooks::executor::hooks_to_fire(&state, ws, ch)
+        .await
+        .is_empty());
+}

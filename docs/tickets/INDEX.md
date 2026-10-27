@@ -295,7 +295,7 @@ unverified in the survey are checked first in their ticket and dropped if they d
 | # | Ticket | Area |
 |---|---|---|
 | CS-077 ✅ | Access that holds: huddles, email invites, private channels | backend · realtime · frontend |
-| [CS-078](CS-078-suspended-stops-acting.md) | A suspended or removed person stops acting | backend · frontend |
+| CS-078 ✅ | A suspended or removed person stops acting | backend · frontend |
 | [CS-079](CS-079-open-the-message.md) | Opening a message lands on it | frontend · backend |
 | [CS-080](CS-080-threads-keep-up.md) | Threads that keep up | frontend · backend |
 | [CS-081](CS-081-sending-keeps-work.md) | Sending never loses work | frontend · backend |

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE hooks SET config = $2, updated_at = NOW() WHERE id = $1\n               RETURNING id, workspace_id, created_by, hook_type AS \"hook_type: HookType\", name, description,\n                   config, is_active AS \"is_active!\", created_at, updated_at",
+  "query": "SELECT id, workspace_id, created_by, hook_type AS \"hook_type: HookType\", name, description,\n                   config, is_active AS \"is_active!\", disabled_reason, created_at, updated_at\n                 FROM hooks\n                WHERE workspace_id = $1\n                  AND hook_type = 'outgoing_webhook'\n                  AND is_active = true\n                  AND config->'channel_ids' ? $2::text",
   "describe": {
     "columns": [
       {
@@ -104,6 +104,17 @@
       },
       {
         "ordinal": 8,
+        "name": "disabled_reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hooks",
+            "name": "disabled_reason"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -114,7 +125,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -128,7 +139,7 @@
     "parameters": {
       "Left": [
         "Uuid",
-        "Jsonb"
+        "Text"
       ]
     },
     "nullable": [
@@ -140,9 +151,10 @@
       true,
       false,
       true,
+      true,
       false,
       false
     ]
   },
-  "hash": "701f92a1d2bc3f88b9263b0a544b27e0b81fb56c465828843dc074f55b9b1ab5"
+  "hash": "267740e6d1ead11dcd7e4bb0a21b75a0033fdb612679c2652311cd95f09ef5d2"
 }

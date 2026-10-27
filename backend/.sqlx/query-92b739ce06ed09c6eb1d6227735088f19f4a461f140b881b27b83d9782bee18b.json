@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO hooks (workspace_id, created_by, hook_type, name, description, config)\n            VALUES ($1, $2, $3, $4, $5, $6)\n            RETURNING id, workspace_id, created_by, hook_type AS \"hook_type: HookType\", name, description,\n                   config, is_active AS \"is_active!\", created_at, updated_at\n            ",
+  "query": "\n            INSERT INTO hooks (workspace_id, created_by, hook_type, name, description, config)\n            VALUES ($1, $2, $3, $4, $5, $6)\n            RETURNING id, workspace_id, created_by, hook_type AS \"hook_type: HookType\", name, description,\n                   config, is_active AS \"is_active!\", disabled_reason, created_at, updated_at\n            ",
   "describe": {
     "columns": [
       {
@@ -104,6 +104,17 @@
       },
       {
         "ordinal": 8,
+        "name": "disabled_reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hooks",
+            "name": "disabled_reason"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -114,7 +125,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -155,9 +166,10 @@
       true,
       false,
       true,
+      true,
       false,
       false
     ]
   },
-  "hash": "98d53fc971289a97d474d66eff5698400400214700dbcc0253fd0d8dda09a6cb"
+  "hash": "92b739ce06ed09c6eb1d6227735088f19f4a461f140b881b27b83d9782bee18b"
 }

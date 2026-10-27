@@ -595,6 +595,7 @@ pub struct WorkflowRow {
     pub next_run_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub creator_gone: bool,
     pub last_status: Option<RunStatus>,
     pub last_started_at: Option<DateTime<Utc>>,
 }
@@ -629,6 +630,7 @@ pub struct Workflow {
     pub definition: Definition,
     pub version: i32,
     pub enabled: bool,
+    pub creator_gone: bool,
     pub webhook_url: Option<String>,
     pub next_run_at: Option<DateTime<Utc>>,
     pub last_run: Option<LastRun>,

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, workspace_id, created_by, hook_type AS \"hook_type: HookType\", name, description,\n                   config, is_active AS \"is_active!\", created_at, updated_at\n                 FROM hooks WHERE hook_type = 'incoming_webhook' AND is_active = true AND config->>'token' = $1",
+  "query": "SELECT id, workspace_id, created_by, hook_type AS \"hook_type: HookType\", name, description,\n                   config, is_active AS \"is_active!\", disabled_reason, created_at, updated_at\n                 FROM hooks\n                WHERE workspace_id = $1\n                  AND hook_type = 'slash_command'\n                  AND is_active = true\n                ORDER BY config->>'command'",
   "describe": {
     "columns": [
       {
@@ -104,6 +104,17 @@
       },
       {
         "ordinal": 8,
+        "name": "disabled_reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hooks",
+            "name": "disabled_reason"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -114,7 +125,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -127,7 +138,7 @@
     ],
     "parameters": {
       "Left": [
-        "Text"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -139,9 +150,10 @@
       true,
       false,
       true,
+      true,
       false,
       false
     ]
   },
-  "hash": "15e41ab8f7fcace195bbbb03d3a3d509a4eac1b0d977c37050469caf85d7986b"
+  "hash": "9b21231353dea1a21c6bd87ffa8de169ee1e9e6e5303fc23e8a9046fb927cea6"
 }

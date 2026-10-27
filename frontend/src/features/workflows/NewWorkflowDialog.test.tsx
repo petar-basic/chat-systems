@@ -12,6 +12,7 @@ vi.mock('./useWorkflows', () => ({
     update: { isPending: false },
     enable: { isPending: false },
     disable: { isPending: false },
+    takeOver: { isPending: false },
     remove: { isPending: false },
   }),
 }));

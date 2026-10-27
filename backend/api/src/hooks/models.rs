@@ -22,6 +22,7 @@ pub struct Hook {
     pub description: Option<String>,
     pub config: serde_json::Value,
     pub is_active: bool,
+    pub disabled_reason: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -100,4 +101,10 @@ pub struct ChannelSlashCommand {
     pub id: Uuid,
     pub name: String,
     pub command: String,
+}
+
+pub struct DisabledHook {
+    pub id: Uuid,
+    pub workspace_id: Uuid,
+    pub name: String,
 }

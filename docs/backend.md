@@ -292,7 +292,8 @@ A background dispatcher ticks every 15s and claims due rows with
 `UPDATE … WHERE id IN (SELECT … FOR UPDATE SKIP LOCKED) RETURNING *`, so several api replicas
 can run it without delivering a message twice. Delivery reuses the normal send path — mentions
 are expanded and `message.created` is published — and a failure is recorded on the row instead
-of retried.
+of retried. The author is checked again when it fires: a suspended account fails with
+`author_inactive`, a lost channel or workspace with `not_authorized`.
 
 ---
 
@@ -495,6 +496,14 @@ workspace admins, and attaching any hook to a private channel needs its membersh
 is the only way back to the plaintext value, and it leaves an audit trail. Creating an
 `outgoing_webhook` requires an http(s) `config.url` and mints `config.secret` when omitted
 (the delivery path still runs the full SSRF check per request).
+
+**A hook acts for the person who made it.** Every time an outgoing webhook would fire and every
+time an incoming webhook is called, `authz::still_acting` asks whether its creator's account is
+active, they are still in the workspace and they can still read the channel. If not, the hook is
+turned off with the reason in `Hook.disabled_reason` and nothing is sent or posted. Suspending
+or erasing an account turns off all of that person's hooks and workflows at once
+(`hook.disabled` / `workflow.disabled`, by the admin who did it); removing someone from a
+workspace turns off theirs in it. Activating the account again turns nothing back on.
 Creating an `incoming_webhook` requires `config.channel_id`, and the server mints a
 `config.token`. **`POST /hooks/incoming/:token` is authenticated by that URL token,
 not a session** (Slack-compatible `{ "text": ... }`); it posts to the bound channel
@@ -910,6 +919,7 @@ webhook values or the reacted message.
 | PUT | `/workflows/:workflow_id` | as POST | `Workflow`, `version` + 1, on or off as it was — its builder only |
 | POST | `/workflows/:workflow_id/enable` | — | `Workflow`, `enabled`, `next_run_at` for a schedule — its builder only, re-checked |
 | POST | `/workflows/:workflow_id/disable` | — | `Workflow` — its builder or an admin |
+| POST | `/workflows/:workflow_id/owner` | — | `Workflow`, now the caller's and off — a workspace admin, only when `creator_gone` (its builder left the workspace or is suspended; 409 otherwise) |
 | DELETE | `/workflows/:workflow_id` | — | `{ status: "deleted" }` — its builder or an admin |
 | GET | `/workflows/:workflow_id/runs` | — | `{ data: WorkflowRun[] }`, the last 50, newest first, each with its steps |
 | POST | `/workflows/:workflow_id/start` | header `Idempotency-Key` optional | 202 `{ status: "accepted", run_id }` — a shortcut, by someone who can post in its channel; 404 otherwise, 409 turned off, 429 above 30 a minute |
@@ -918,7 +928,10 @@ webhook values or the reacted message.
 | POST | `/workflows/webhook/:token` | any JSON object; header `Idempotency-Key` optional | 202 `{ status: "accepted", run_id }`; 401 unknown token, 409 turned off, 429 above 30 a minute |
 
 The webhook route is public, authenticated by the token in `Workflow.webhook_url`. Audit
-actions: `workflow.created`, `.updated`, `.enabled`, `.disabled`, `.deleted`.
+actions: `workflow.created`, `.updated`, `.enabled`, `.disabled`, `.deleted`, `.taken_over`.
+A run checks its builder first (`authz::still_acting`): one who is suspended or gone turns the
+workflow off and tells the workspace admins, and one who can no longer read the trigger's
+channel fails the run.
 
 ---
 
@@ -987,7 +1000,7 @@ Instance-level administration. Requires `is_instance_admin = true`.
 | GET | `/admin/stats` | — | `{ users, workspaces, messages, files }` |
 | POST | `/admin/email/test` | — | `{ sent_to, error }`: sent now to the caller's address; `error` says in words why it did not go |
 | GET | `/admin/users` | Query: `limit?, offset?` | `{ data: User[] }` |
-| POST | `/admin/users/:user_id/suspend` | — | `{ status: "suspended" }` |
+| POST | `/admin/users/:user_id/suspend` | — | `{ status: "suspended" }` — also revokes sessions and app connections and turns off the person's hooks and workflows |
 | POST | `/admin/users/:user_id/activate` | — | `{ status: "activated" }` |
 | PATCH | `/admin/users/:user_id/instance-role` | `{ is_instance_admin: bool }` | `{ is_instance_admin: bool }` |
 | GET | `/admin/workspaces` | Query: `limit?, offset?` | `{ data: Workspace[] }` |

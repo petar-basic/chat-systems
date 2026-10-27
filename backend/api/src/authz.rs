@@ -2,6 +2,7 @@ use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
 
+use crate::auth::models::UserStatus;
 use crate::hooks::models::HookType;
 use crate::state::AppState;
 use crate::workspace::models::{
@@ -183,6 +184,59 @@ pub async fn require_channel_post(
         ));
     }
     Ok(access)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Stopped {
+    Inactive,
+    LeftWorkspace,
+    LostChannel,
+}
+
+impl Stopped {
+    pub fn reason(self) -> &'static str {
+        match self {
+            Self::Inactive => "Its creator's account is suspended",
+            Self::LeftWorkspace => "Its creator left the workspace",
+            Self::LostChannel => "Its creator can no longer read the channel",
+        }
+    }
+}
+
+pub async fn still_acting(
+    state: &AppState,
+    workspace_id: Uuid,
+    user_id: Uuid,
+    channel_id: Option<Uuid>,
+) -> AppResult<Option<Stopped>> {
+    let active = state
+        .auth_service
+        .repo()
+        .find_by_id(user_id)
+        .await?
+        .is_some_and(|user| user.status == UserStatus::Active);
+    if !active {
+        return Ok(Some(Stopped::Inactive));
+    }
+    if state
+        .workspace_service
+        .repo
+        .get_member(workspace_id, user_id)
+        .await?
+        .is_none()
+    {
+        return Ok(Some(Stopped::LeftWorkspace));
+    }
+    if let Some(channel_id) = channel_id {
+        match require_channel_access(state, channel_id, user_id).await {
+            Ok(access) if access.channel.workspace_id == workspace_id => {}
+            Ok(_) | Err(AppError::Forbidden(_) | AppError::NotFound(_)) => {
+                return Ok(Some(Stopped::LostChannel));
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    Ok(None)
 }
 
 pub async fn can_moderate_channel(state: &AppState, channel: &Channel, user_id: Uuid) -> bool {

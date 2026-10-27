@@ -1766,3 +1766,26 @@ before the change are refused and the changelog says to re-send them.
 `require_channel_access`. The Slack import merged a channel into any same-named one, private
 into public included; it now merges only into the same kind and otherwise creates
 `<name>-slack`, naming the rename in the report.
+
+### [CS-078] A suspended or removed person stops acting ✅ shipped
+Suspending an account revoked its sessions and app connections and nothing else: its
+scheduled messages still sent, its workflows still ran, and its outgoing webhooks kept
+forwarding private channels to somebody else's server. Scheduled messages and workflow runs
+re-checked membership and channel access when they fired but never the account's status, and
+the hook consumer checked nothing at all.
+
+`authz::still_acting(workspace, user, channel?)` is now the one question every executor asks
+when it fires: is the account active, still in the workspace, and able to read the channel. A
+scheduled message fails with `author_inactive`; a workflow run fails, and a builder who is
+suspended or gone turns the workflow off and tells the admins; an outgoing webhook, or an
+incoming one when it is called, is turned off with the reason in `hooks.disabled_reason`
+(migration 76), which *Integrations* shows. Suspending or erasing an account turns off every
+hook and workflow the person made, audited as the admin who did it; removing someone from a
+workspace does the same there, now hooks included. Activating the account turns none of them
+back on.
+
+A workflow whose builder had left could only be deleted, since only its builder could edit or
+enable it. `Workflow.creator_gone` says so, and `POST /workflows/{id}/owner` lets a workspace
+admin take it over — *Take over* in the editor — leaving it off for its new owner to check and
+turn on, with `workflow.taken_over` in the audit log.
+

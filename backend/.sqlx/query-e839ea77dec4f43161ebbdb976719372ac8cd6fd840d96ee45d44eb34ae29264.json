@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, workspace_id, created_by, hook_type AS \"hook_type: HookType\", name, description,\n                   config, is_active AS \"is_active!\", created_at, updated_at\n                 FROM hooks WHERE workspace_id = $1 ORDER BY created_at DESC",
+  "query": "SELECT id, workspace_id, created_by, hook_type AS \"hook_type: HookType\", name, description,\n                   config, is_active AS \"is_active!\", disabled_reason, created_at, updated_at\n                 FROM hooks WHERE id = $1",
   "describe": {
     "columns": [
       {
@@ -104,6 +104,17 @@
       },
       {
         "ordinal": 8,
+        "name": "disabled_reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hooks",
+            "name": "disabled_reason"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -114,7 +125,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -139,9 +150,10 @@
       true,
       false,
       true,
+      true,
       false,
       false
     ]
   },
-  "hash": "e2b993ce1f120e6f4fb748d510907e42ec8de554964e72de862736ff96d005d4"
+  "hash": "e839ea77dec4f43161ebbdb976719372ac8cd6fd840d96ee45d44eb34ae29264"
 }
