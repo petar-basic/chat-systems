@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT u.id,\n                   COALESCE(wm.display_name, u.display_name, split_part(u.email, '@', 1)) AS \"name!\"\n              FROM users u\n              LEFT JOIN workspace_members wm ON wm.user_id = u.id AND wm.workspace_id = $1\n             WHERE u.id = ANY($2)\n            ",
+  "query": "\n            SELECT u.id AS \"id!\",\n                   COALESCE(wm.display_name, u.display_name, split_part(u.email, '@', 1)) AS \"name!\"\n              FROM users u\n              LEFT JOIN workspace_members wm ON wm.user_id = u.id AND wm.workspace_id = $1\n             WHERE u.id = ANY($2)\n            ",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "id",
+        "name": "id!",
         "type_info": "Uuid",
         "origin": {
           "Table": {
@@ -28,9 +28,9 @@
       ]
     },
     "nullable": [
-      false,
+      true,
       null
     ]
   },
-  "hash": "52fdb5c5ddb7acf3b9c9a0a96a2d62b2a8e78dca120e9b14b09040057ced45c5"
+  "hash": "a241312ace17a22c4af243b4c3c1b00401698b88709d786dee83bcbc6924ec63"
 }

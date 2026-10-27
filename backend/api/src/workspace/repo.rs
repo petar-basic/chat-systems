@@ -352,7 +352,7 @@ impl WorkspaceRepo {
                         THEN wm.status_emoji END AS "status_emoji?",
                    CASE WHEN wm.status_expires_at IS NULL OR wm.status_expires_at > NOW()
                         THEN wm.status_text END AS "status_text?",
-                   public.notifications_paused_until(u.id, NOW()) AS notifications_paused_until
+                   public.notifications_paused_until(wm.workspace_id, u.id, NOW()) AS notifications_paused_until
             FROM workspace_members wm
             JOIN users u ON u.id = wm.user_id
             WHERE wm.workspace_id = $1
@@ -391,7 +391,7 @@ impl WorkspaceRepo {
                         THEN wm.status_emoji END AS "status_emoji?",
                    CASE WHEN wm.status_expires_at IS NULL OR wm.status_expires_at > NOW()
                         THEN wm.status_text END AS "status_text?",
-                   public.notifications_paused_until(u.id, NOW()) AS notifications_paused_until
+                   public.notifications_paused_until(wm.workspace_id, u.id, NOW()) AS notifications_paused_until
             FROM workspace_members wm
             JOIN users u ON u.id = wm.user_id
             WHERE wm.workspace_id = $1

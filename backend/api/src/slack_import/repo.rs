@@ -176,7 +176,7 @@ impl SlackImportRepo {
     ) -> sqlx::Result<Vec<(String, Uuid, String)>> {
         let rows = sqlx::query!(
             r#"
-            SELECT su.slack_user_id, su.user_id,
+            SELECT su.slack_user_id AS "slack_user_id!", su.user_id AS "user_id!",
                    COALESCE(wm.display_name, u.display_name, u.email) AS "name!"
             FROM slack_users su
             JOIN users u ON u.id = su.user_id

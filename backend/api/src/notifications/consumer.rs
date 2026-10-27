@@ -403,7 +403,7 @@ async fn deliver(
         }
     }
 
-    if repo.is_dnd_active(uid).await.unwrap_or(false) {
+    if repo.is_dnd_active(ws_id, uid).await.unwrap_or(false) {
         return;
     }
 
@@ -507,7 +507,11 @@ pub async fn notify_ring(
         return;
     }
 
-    if repo.is_dnd_active(to_user_id).await.unwrap_or(false) {
+    if repo
+        .is_dnd_active(workspace_id, to_user_id)
+        .await
+        .unwrap_or(false)
+    {
         return;
     }
 

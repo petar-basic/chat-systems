@@ -480,8 +480,10 @@ On a phone the header's overflow menu opens the same menu.
 The hours are in the profile's timezone, which the editor names. `PauseMenuItems` is the pause
 section of the *You* menu and the Activity panel's moon: presets while notifications are on,
 and "Paused by your schedule until 9:00" or "Paused until 14:30" with *Resume* while they are
-not (`lib/pause.ts` decides which). The profile hover card shows a member's pause from
-`notifications_paused_until` in the member list.
+not (`lib/pause.ts` decides which). The pause, the schedule and the email switch are the
+current workspace's; *Preferences → Notifications* says which workspace that is. The profile
+hover card shows a member's pause in that workspace from `notifications_paused_until` in the
+member list.
 
 ### `notifications/KeywordsPanel`
 *My keywords* in *Preferences → Notifications*: a field that adds a chip on Enter or a comma,
@@ -650,10 +652,10 @@ use the channel hooks above with the conversation id as `channelId`.
 | `useMarkNotificationsRead(wsId)` | POST `/notifications/read` `{ notification_ids }` | Mark specific read (optimistic) |
 | `useMarkChannelNotificationsRead(wsId)` | POST `/workspaces/{id}/channels/{channelId}/notifications/read` | Mark a channel's notifications read |
 | `useMarkAllNotificationsRead(wsId)` | POST `/workspaces/{id}/notifications/read-all` | Mark all read |
-| `useDndStatus()` / `useSetDnd()` | GET/PATCH `/notifications/dnd` | `{ dnd_until, schedule_paused_until }`; setting `null` resumes, including during a scheduled pause |
+| `useDndStatus()` / `useSetDnd()` | GET/PATCH `/workspaces/{id}/notifications/dnd` (current workspace) | `{ dnd_until, schedule_paused_until }`; setting `null` resumes, including during a scheduled pause |
 | `useNotifyDefault(wsId)` / `useSetNotifyDefault(wsId)` | GET/PUT `/workspaces/{id}/notify-default` | The caller's default level (optimistic); a change refetches channels and conversations |
 | `useSetNotifyLevel(wsId)` | PUT `/channels/{id}/notify-level` `{ level }` | One channel's or DM's level; the answer is merged into the channels and conversations caches |
-| `useNotificationSchedule()` / `useSetNotificationSchedule()` | GET/PUT `/users/me/notification-schedule` | The caller's schedule (optimistic); a change refetches the DND status |
+| `useNotificationSchedule()` / `useSetNotificationSchedule()` | GET/PUT `/workspaces/{id}/notifications/schedule` (current workspace) | The caller's schedule (optimistic); a change refetches the DND status |
 | `useNotificationKeywords(wsId)` / `useSetNotificationKeywords(wsId)` | GET/PUT `/workspaces/{id}/notification-keywords` | The caller's keywords; a change is optimistic and rolls back on error |
 
 ### Huddles (`features/huddle/hooks/useHuddle.ts`)

@@ -3604,99 +3604,6 @@
         }
       }
     },
-    "/notifications/dnd": {
-      "get": {
-        "tags": [
-          "notifications"
-        ],
-        "operationId": "get_dnd",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DndStatus"
-                }
-              }
-            }
-          }
-        }
-      },
-      "patch": {
-        "tags": [
-          "notifications"
-        ],
-        "operationId": "set_dnd",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SetDndRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DndStatus"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/notifications/email": {
-      "get": {
-        "tags": [
-          "notifications"
-        ],
-        "summary": "Whether to email a mention that reached nobody. On by default: somebody who\nnever grants push permission is exactly who it is for, and they are not going\nto go looking for a switch to turn it on.",
-        "operationId": "get_email_preference",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EmailPreference"
-                }
-              }
-            }
-          }
-        }
-      },
-      "patch": {
-        "tags": [
-          "notifications"
-        ],
-        "operationId": "set_email_preference",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/EmailPreferenceRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EmailPreference"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/notifications/read": {
       "post": {
         "tags": [
@@ -4525,52 +4432,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/UserPublic"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/users/me/notification-schedule": {
-      "get": {
-        "tags": [
-          "notifications"
-        ],
-        "operationId": "get_notification_schedule",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NotificationSchedule"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "notifications"
-        ],
-        "operationId": "set_notification_schedule",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SetScheduleRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NotificationSchedule"
                 }
               }
             }
@@ -7019,6 +6880,143 @@
         }
       }
     },
+    "/workspaces/{ws_id}/notifications/dnd": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "operationId": "get_dnd",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DndStatus"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "notifications"
+        ],
+        "operationId": "set_dnd",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetDndRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DndStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/notifications/email": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Whether to email a mention that reached nobody. On by default: somebody who\nnever grants push permission is exactly who it is for, and they are not going\nto go looking for a switch to turn it on.",
+        "operationId": "get_email_preference",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailPreference"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "notifications"
+        ],
+        "operationId": "set_email_preference",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailPreferenceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailPreference"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workspaces/{ws_id}/notifications/read-all": {
       "post": {
         "tags": [
@@ -7042,6 +7040,74 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/UpdatedCount"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/notifications/schedule": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "operationId": "get_notification_schedule",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSchedule"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "notifications"
+        ],
+        "operationId": "set_notification_schedule",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetScheduleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSchedule"
                 }
               }
             }

@@ -1712,3 +1712,35 @@ and asks before notifying a channel of more than 25 people, and *Create channel*
 the kinds the person may make. `lib/channelPermissions.ts` mirrors the server's checks so the
 UI does not offer what will be refused; the server stays the boundary. A refused send now
 shows the server's reason instead of *Message failed to send*.
+
+## Wave 25 — One person, several workspaces
+
+### [CS-076] A profile and notification settings of your own in each workspace ✅ shipped
+A status set in a hobby workspace showed at work, and pausing one workspace silenced all of
+them, because the name, photo, bio, status and every notification setting lived on the
+account. Slack keeps them per workspace, and now so does this. What stays with the account
+belongs to the person or the device: email, password, second factor, SSO, time zone, theme,
+sound, desktop notifications and push subscriptions. Two PRs, each backend and frontend, so
+`main` worked between them.
+
+The first moved the profile. Migration 73 gives `workspace_members` a name, photo, bio and
+status, copies each live status into every workspace the person is in (a custom emoji only
+where that workspace has it) and drops the status from `users`, along with
+`user_preferences` and `bookmarked_messages`, which nothing had read since *Later* replaced
+the second. Name, photo and bio fall back to the account's when a workspace has none, so a
+name changed by SCIM or SSO still reaches every workspace nobody customised; the status has
+no fallback. `GET`/`PATCH /workspaces/{id}/profile` and `PUT`/`DELETE
+/workspaces/{id}/profile/status` replaced `/users/me/status`, and every read of a person
+inside a workspace — the member list, push and email names, a workflow's mention, list
+exports, the audit log, the Slack import's mapping — goes through the workspace profile.
+*Edit profile* edits the current workspace's and says so, with the account's values as
+placeholders and *Use account photo*; *Preferences → Account* edits the account's.
+
+The second moved notifications. Migration 74 gives `workspace_members` the `/dnd` timer, the
+schedule override and the mention-email switch, rebuilds `notification_schedules` keyed by
+workspace and member (cascading when someone leaves), copies today's values into every
+workspace, and drops them from `users`. `notifications_paused_until(workspace, user, at)`
+is still the one definition of paused, now per workspace, and push, the email digest, the
+huddle ring and the member list pass the workspace they are about. `/dnd` pauses the
+workspace of the channel it is typed in. The routes moved under `/workspaces/{id}/notifications/`,
+and *Preferences → Notifications* names the workspace it changes.

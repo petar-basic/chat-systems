@@ -65,8 +65,8 @@ describe('ApiClient single-flight refresh', () => {
           ? firstGet.promise
           : firstRetry.promise;
       }
-      if (url.endsWith('/notifications/dnd')) {
-        return fetchMock.mock.calls.filter((c) => urlOf(c).endsWith('/notifications/dnd')).length === 1
+      if (url.endsWith('/workspaces')) {
+        return fetchMock.mock.calls.filter((c) => urlOf(c).endsWith('/workspaces')).length === 1
           ? secondGet.promise
           : secondRetry.promise;
       }
@@ -74,7 +74,7 @@ describe('ApiClient single-flight refresh', () => {
     });
 
     const p1 = client.typed((c) => c.GET('/users/me'));
-    const p2 = client.typed((c) => c.GET('/notifications/dnd'));
+    const p2 = client.typed((c) => c.GET('/workspaces'));
     await flush();
 
     firstGet.resolve(makeResponse(401));

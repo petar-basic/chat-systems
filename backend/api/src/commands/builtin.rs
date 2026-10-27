@@ -83,7 +83,11 @@ pub async fn run(
 
         "dnd" => {
             let until = parse_dnd(text)?;
-            state.notification_repo.set_dnd(user_id, until).await?;
+            let channel = authz::find_channel(state, channel_id).await?;
+            state
+                .notification_repo
+                .set_dnd(channel.workspace_id, user_id, until)
+                .await?;
             Ok(Some(match until {
                 Some(until) => CommandResponse::ephemeral_at("Notifications paused until", until),
                 None => CommandResponse::ephemeral("Notifications are on again."),

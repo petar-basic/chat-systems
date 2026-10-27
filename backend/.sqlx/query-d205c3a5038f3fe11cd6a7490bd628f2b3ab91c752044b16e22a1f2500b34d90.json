@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT CASE WHEN dnd_until > $2 THEN dnd_until END AS dnd_until,\n                      CASE WHEN dnd_override_until > $2 THEN NULL\n                           ELSE public.schedule_paused_until(id, $2) END AS schedule_paused_until\n                 FROM users WHERE id = $1",
+  "query": "SELECT CASE WHEN dnd_until > $3 THEN dnd_until END AS dnd_until,\n                      CASE WHEN dnd_override_until > $3 THEN NULL\n                           ELSE public.schedule_paused_until(workspace_id, user_id, $3) END\n                          AS schedule_paused_until\n                 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2",
   "describe": {
     "columns": [
       {
@@ -19,6 +19,7 @@
     "parameters": {
       "Left": [
         "Uuid",
+        "Uuid",
         "Timestamptz"
       ]
     },
@@ -27,5 +28,5 @@
       null
     ]
   },
-  "hash": "5771657d9ee9e69c57b8c65e438e5c5319baebc6e08aede4ab0dfb4438b9f1e2"
+  "hash": "d205c3a5038f3fe11cd6a7490bd628f2b3ab91c752044b16e22a1f2500b34d90"
 }

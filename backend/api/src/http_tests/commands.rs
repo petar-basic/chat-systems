@@ -106,10 +106,19 @@ async fn dnd_and_topic_are_built_in_and_change_real_state(pool: PgPool) {
     assert!(
         state
             .notification_repo
-            .is_dnd_active(owner_id)
+            .is_dnd_active(ws_id, owner_id)
             .await
             .expect("read dnd"),
         "the command set the state, not just the reply"
+    );
+    let elsewhere = seed_workspace(&state, owner_id, "Elsewhere").await;
+    assert!(
+        !state
+            .notification_repo
+            .is_dnd_active(elsewhere, owner_id)
+            .await
+            .expect("read dnd"),
+        "it pauses the workspace the channel is in"
     );
 
     let (status, body) = send(

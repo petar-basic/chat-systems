@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT p.user_id, p.workspace_id, u.email,\n               COUNT(*) FILTER (WHERE NOT p.direct) AS \"mentions!\",\n               COUNT(*) FILTER (WHERE p.direct) AS \"direct_messages!\",\n               COALESCE(ARRAY_AGG(DISTINCT COALESCE(p.channel_name, '')) FILTER (WHERE NOT p.direct), '{}') AS \"channels!\",\n               ARRAY_AGG(DISTINCT COALESCE(p.sender_name, '')) AS \"senders!\"\n          FROM pending_mention_emails p\n          JOIN users u ON u.id = p.user_id\n         WHERE p.created_at <= $1\n           AND public.notifications_paused_until(p.user_id, $2) IS NULL\n         GROUP BY p.user_id, p.workspace_id, u.email\n        ",
+  "query": "\n        SELECT p.user_id, p.workspace_id, u.email,\n               COUNT(*) FILTER (WHERE NOT p.direct) AS \"mentions!\",\n               COUNT(*) FILTER (WHERE p.direct) AS \"direct_messages!\",\n               COALESCE(ARRAY_AGG(DISTINCT COALESCE(p.channel_name, '')) FILTER (WHERE NOT p.direct), '{}') AS \"channels!\",\n               ARRAY_AGG(DISTINCT COALESCE(p.sender_name, '')) AS \"senders!\"\n          FROM pending_mention_emails p\n          JOIN users u ON u.id = p.user_id\n         WHERE p.created_at <= $1\n           AND public.notifications_paused_until(p.workspace_id, p.user_id, $2) IS NULL\n         GROUP BY p.user_id, p.workspace_id, u.email\n        ",
   "describe": {
     "columns": [
       {
@@ -77,5 +77,5 @@
       null
     ]
   },
-  "hash": "08283b67e250fb4b51bd3816fc2a916b45fc4db0b2ef1a42bcdfaa590867a14f"
+  "hash": "c2838ad4fed2008bbb9b271c0d59968b61ecfc91b2a30cb66c48b21231c63550"
 }

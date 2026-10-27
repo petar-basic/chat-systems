@@ -11,6 +11,7 @@ import {
 import ThemePicker from '@/features/profile/ThemePicker';
 import TwoFactorPanel from '@/features/profile/TwoFactorPanel';
 import AccountPanel from '@/features/profile/AccountPanel';
+import { useWorkspaceStore } from '@/stores/workspace';
 
 export type PreferencesSection = 'notifications' | 'appearance' | 'account' | 'security';
 
@@ -28,6 +29,7 @@ interface Props {
 
 export function PreferencesModal({ initial = 'notifications', onClose }: Props) {
   const [active, setActive] = useState<PreferencesSection>(initial);
+  const workspace = useWorkspaceStore((s) => s.currentWorkspace);
 
   return (
     <SectionedModal
@@ -40,6 +42,12 @@ export function PreferencesModal({ initial = 'notifications', onClose }: Props) 
     >
       {active === 'notifications' && (
         <>
+          {workspace && (
+            <p className="text-sm text-muted" data-qa="notifications-scope">
+              Except push on this device, these are your settings in{' '}
+              <strong className="text-fg">{workspace.name}</strong>; each workspace has its own.
+            </p>
+          )}
           <NotifyDefaultPanel />
           <KeywordsPanel />
           <ScheduleEditor />

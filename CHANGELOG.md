@@ -22,9 +22,14 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   migration 73 on start, so snapshot first. It copies each live status into every workspace
   the person is in (a custom emoji only where that workspace has it), then drops the status
   columns from `users` and the unused `user_preferences` and `bookmarked_messages` tables.
+- Migration 74 does the same for notifications: a running pause, the notification schedule
+  and the mention-email switch are copied into every workspace the person is in, and leave
+  `users`. Nobody loses a pause or a schedule.
 - For API clients: `PUT`/`DELETE /users/me/status` are now
   `PUT`/`DELETE /workspaces/{id}/profile/status`, and `UserPublic` no longer has
   `status_emoji`, `status_text` or `status_expires_at`. Members gain `bio`.
+  `/notifications/dnd`, `/users/me/notification-schedule` and `/notifications/email` are now
+  `/workspaces/{id}/notifications/dnd`, `…/schedule` and `…/email`.
 
 ### Added
 
@@ -32,6 +37,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   workspace in *Edit profile*; a status set in one workspace no longer shows in the others. A
   name, photo or bio left empty shows the account's, edited in *Preferences → Account*. The
   hover card shows the bio. API: `GET`/`PATCH /workspaces/{id}/profile`.
+- **Notification settings of your own in each workspace.** Pausing notifications (the *You*
+  menu, the Activity panel or `/dnd`), the notification schedule and *Email me what I missed*
+  apply to the workspace they were set in; the others keep notifying. *Preferences →
+  Notifications* names the workspace it changes.
 
 ## [3.4.2] — 2026-10-27
 

@@ -325,6 +325,7 @@ async fn nothing_is_pushed_under_dnd_a_mute_or_a_live_socket(pool: PgPool) {
     state
         .notification_repo
         .set_dnd(
+            ws_id,
             target,
             Some(chrono::Utc::now() + chrono::Duration::hours(1)),
         )
@@ -346,7 +347,7 @@ async fn nothing_is_pushed_under_dnd_a_mute_or_a_live_socket(pool: PgPool) {
 
     state
         .notification_repo
-        .set_dnd(target, None)
+        .set_dnd(ws_id, target, None)
         .await
         .expect("clear dnd");
     let expires_at = chrono::Utc::now().timestamp() + 60;
@@ -525,7 +526,7 @@ async fn somebody_who_turned_mention_emails_off_is_not_queued(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        "/api/notifications/email",
+        &format!("/api/workspaces/{ws_id}/notifications/email"),
         Some(&target_token),
         None,
     )
@@ -536,7 +537,7 @@ async fn somebody_who_turned_mention_emails_off_is_not_queued(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        "/api/notifications/email",
+        &format!("/api/workspaces/{ws_id}/notifications/email"),
         Some(&target_token),
         Some(json!({ "mention_emails": false })),
     )
@@ -842,6 +843,7 @@ async fn a_direct_message_under_dnd_waits_in_activity(pool: PgPool) {
     s.state
         .notification_repo
         .set_dnd(
+            s.ws_id,
             s.target,
             Some(chrono::Utc::now() + chrono::Duration::hours(1)),
         )
@@ -1036,11 +1038,15 @@ async fn nobody_hears_their_own_keyword_or_one_in_a_channel_they_are_not_in(pool
 async fn a_keyword_under_dnd_waits_in_activity(pool: PgPool) {
     let s = scene(pool).await;
     s.keywords(s.target, &["deploy"]).await;
-    sqlx::query("UPDATE users SET dnd_until = NOW() + INTERVAL '1 hour' WHERE id = $1")
-        .bind(s.target)
-        .execute(&s.state.pool)
-        .await
-        .expect("dnd");
+    sqlx::query(
+        "UPDATE workspace_members SET dnd_until = NOW() + INTERVAL '1 hour' \
+          WHERE workspace_id = $1 AND user_id = $2",
+    )
+    .bind(s.ws_id)
+    .bind(s.target)
+    .execute(&s.state.pool)
+    .await
+    .expect("dnd");
 
     assert_eq!(s.post(s.ch_id, "deploy done", false, None).await, 0);
     assert_eq!(s.activity().await, vec!["keyword"]);
@@ -1064,6 +1070,7 @@ async fn the_digest_waits_while_the_schedule_pauses_notifications(pool: PgPool) 
     s.state
         .notification_repo
         .set_schedule(
+            s.ws_id,
             s.target,
             true,
             &[1, 2, 3, 4, 5, 6, 7],
@@ -1078,6 +1085,7 @@ async fn the_digest_waits_while_the_schedule_pauses_notifications(pool: PgPool) 
     s.state
         .notification_repo
         .set_schedule(
+            s.ws_id,
             s.target,
             false,
             &[1, 2, 3, 4, 5, 6, 7],
@@ -1087,4 +1095,72 @@ async fn the_digest_waits_while_the_schedule_pauses_notifications(pool: PgPool) 
         .await
         .expect("schedule off");
     assert_eq!(crate::notifications::email::flush_due(&s.state).await, 1);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_pause_in_another_workspace_leaves_this_one_notifying(pool: PgPool) {
+    let s = scene(pool).await;
+    let elsewhere = seed_workspace(&s.state, s.target, "Elsewhere").await;
+    s.state
+        .notification_repo
+        .set_dnd(
+            elsewhere,
+            s.target,
+            Some(chrono::Utc::now() + chrono::Duration::hours(1)),
+        )
+        .await
+        .expect("set dnd");
+
+    assert_eq!(
+        s.post(s.ch_id, "anyone?", true, None).await,
+        1,
+        "paused there, not here"
+    );
+
+    s.state
+        .notification_repo
+        .set_dnd(
+            s.ws_id,
+            s.target,
+            Some(chrono::Utc::now() + chrono::Duration::hours(1)),
+        )
+        .await
+        .expect("set dnd");
+    assert_eq!(s.post(s.ch_id, "anyone?", true, None).await, 0);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn the_digest_waits_only_for_the_workspace_that_is_paused(pool: PgPool) {
+    let s = scene(pool).await;
+    let elsewhere = seed_workspace(&s.state, s.target, "Elsewhere").await;
+    for ws in [s.ws_id, elsewhere] {
+        sqlx::query(
+            "INSERT INTO pending_mention_emails \
+               (user_id, workspace_id, sender_name, channel_name, created_at) \
+             VALUES ($1, $2, 'Ana', 'general', NOW() - INTERVAL '10 minutes')",
+        )
+        .bind(s.target)
+        .bind(ws)
+        .execute(&s.state.pool)
+        .await
+        .expect("queue");
+    }
+    s.state
+        .notification_repo
+        .set_dnd(
+            elsewhere,
+            s.target,
+            Some(chrono::Utc::now() + chrono::Duration::hours(1)),
+        )
+        .await
+        .expect("set dnd");
+
+    assert_eq!(crate::notifications::email::flush_due(&s.state).await, 1);
+    let waiting: Vec<Uuid> =
+        sqlx::query_scalar("SELECT workspace_id FROM pending_mention_emails WHERE user_id = $1")
+            .bind(s.target)
+            .fetch_all(&s.state.pool)
+            .await
+            .expect("pending");
+    assert_eq!(waiting, vec![elsewhere]);
 }

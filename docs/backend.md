@@ -512,10 +512,12 @@ In-app notifications for mentions, DMs, replies, reactions, calls, reminders, an
 | POST | `/workspaces/:ws_id/notifications/read-all` | — | `{ updated: number }` |
 | POST | `/workspaces/:ws_id/channels/:ch_id/notifications/read` | — | `{ updated: number }` |
 | GET | `/workspaces/:ws_id/notifications/unread-count` | — | `{ unread_count: number }` |
-| GET | `/notifications/dnd` | — | `{ dnd_until, schedule_paused_until }` — the running timer and, if the schedule is pausing notifications now, when it resumes |
-| PATCH | `/notifications/dnd` | `{ dnd_until: timestamp \| null }` | `{ dnd_until, schedule_paused_until }` — `null` during a scheduled pause also resumes until the next window opens |
-| GET | `/users/me/notification-schedule` | — | `{ enabled, days, start_minute, end_minute, timezone }` (weekdays 9:00–18:00, off, when never set) |
-| PUT | `/users/me/notification-schedule` | `{ enabled, days: 1–7 (ISO, Monday = 1), start_minute, end_minute }` | the schedule — minutes 0–1439, start ≠ end (422 otherwise); an end before the start crosses midnight |
+| GET | `/workspaces/:ws_id/notifications/dnd` | — | `{ dnd_until, schedule_paused_until }` — the running timer in that workspace and, if its schedule is pausing notifications now, when it resumes |
+| PATCH | `/workspaces/:ws_id/notifications/dnd` | `{ dnd_until: timestamp \| null }` | `{ dnd_until, schedule_paused_until }` — `null` during a scheduled pause also resumes until the next window opens |
+| GET | `/workspaces/:ws_id/notifications/schedule` | — | `{ enabled, days, start_minute, end_minute, timezone }` (weekdays 9:00–18:00, off, when never set) |
+| PUT | `/workspaces/:ws_id/notifications/schedule` | `{ enabled, days: 1–7 (ISO, Monday = 1), start_minute, end_minute }` | the schedule — minutes 0–1439, start ≠ end (422 otherwise); an end before the start crosses midnight |
+| GET | `/workspaces/:ws_id/notifications/email` | — | `{ mention_emails, available }` — `available` is false without SMTP |
+| PATCH | `/workspaces/:ws_id/notifications/email` | `{ mention_emails }` | `{ mention_emails, available }` |
 | PUT | `/channels/:ch_id/notify-level` | `{ level: "all" \| "mentions" \| "nothing" \| null }` | `{ notify_level, effective_notify_level }` — members only; `null` returns the channel to the default |
 | GET | `/workspaces/:ws_id/notify-default` | — | `{ notify_default }` |
 | PUT | `/workspaces/:ws_id/notify-default` | `{ level: "all" \| "mentions" \| "nothing" }` | `{ notify_default }` |
@@ -547,7 +549,7 @@ regex characters and requires a non-word character or the text's edge on both si
 `deploy` matches "Deploy!" and "deploý" but not "redeployed", and `c++` matches literally.
 A keyword does not bump the unread or mention counters, which are written with the message.
 
-Muted and `nothing` mean no reason at all. DND — `notifications_paused_until(user, at)` in
+Muted and `nothing` mean no reason at all. DND — `notifications_paused_until(workspace, user, at)` in
 SQL, the one definition of "paused" — keeps the Activity row and drops the rest; a
 frame goes to every session, push only when the person has none, and email only when push
 reached no device. The frame's `kind` also carries `reaction`, `call`, `reminder` and
@@ -555,13 +557,15 @@ reached no device. The frame's `kind` also carries `reaction`, `call`, `reminder
 for itself. Channel listings and conversation summaries carry the caller's `notify_level` and
 `effective_notify_level`.
 
-**Paused.** `notifications_paused_until(user, at)` is the later of the `/dnd` timer
-(`users.dnd_until`) and `schedule_paused_until(user, at)`, which is `NULL` inside the
+**Paused.** A pause belongs to one workspace: `notifications_paused_until(workspace, user,
+at)` is the later of the `/dnd` timer (`workspace_members.dnd_until`) and
+`schedule_paused_until(workspace, user, at)` over that member's row of
+`notification_schedules`, which is `NULL` inside the
 person's window and otherwise the next time a window opens. The window is one start and
 end, the same on every selected day, in `users.timezone`: the instant is turned into local
 wall time, so 9:00 stays 9:00 across a DST change, and a window whose end is before its
 start runs past midnight into the next day. Resuming during a scheduled pause stores the
-next window's start in `users.dnd_override_until`; until then the schedule is ignored. The
+next window's start in `workspace_members.dnd_override_until`; until then the schedule is ignored. The
 push path, the email digest (pending emails wait until the person is unpaused) and the
 member listing all call the same function, with the instant passed in by the caller.
 

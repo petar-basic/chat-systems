@@ -692,6 +692,7 @@ async fn keywords_belong_to_a_member_of_the_workspace(pool: PgPool) {
 
 async fn schedule_for(
     state: &crate::state::AppState,
+    ws: uuid::Uuid,
     user_id: uuid::Uuid,
     timezone: &str,
     days: &[i16],
@@ -706,7 +707,7 @@ async fn schedule_for(
         .expect("timezone");
     state
         .notification_repo
-        .set_schedule(user_id, true, days, start_minute, end_minute)
+        .set_schedule(ws, user_id, true, days, start_minute, end_minute)
         .await
         .expect("schedule");
 }
@@ -718,8 +719,9 @@ fn at(instant: &str) -> chrono::DateTime<chrono::Utc> {
 #[test_macros::db_test(migrations = "../migrations")]
 async fn a_schedule_is_stored_and_refused_when_it_cannot_mean_anything(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
-    let (_uid, _email, token) = seed_and_login(&app, &state, "schedule-owner", false).await;
-    let route = "/api/users/me/notification-schedule";
+    let (uid, _email, token) = seed_and_login(&app, &state, "schedule-owner", false).await;
+    let ws = seed_workspace(&state, uid, "Schedule WS").await;
+    let route = &format!("/api/workspaces/{ws}/notifications/schedule");
 
     let (status, body) = send(&app, "GET", route, Some(&token), None).await;
     assert_eq!(status, StatusCode::OK);
@@ -759,14 +761,28 @@ async fn a_schedule_is_stored_and_refused_when_it_cannot_mean_anything(pool: PgP
 
     let (status, _) = send(&app, "GET", route, None, None).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
+
+    let (_, _, outsider) = seed_and_login(&app, &state, "schedule-outsider", false).await;
+    let (status, _) = send(&app, "GET", route, Some(&outsider), None).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
 async fn the_schedule_pauses_outside_its_window_in_the_persons_timezone(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (uid, _email, _token) = seed_and_login(&app, &state, "schedule-belgrade", false).await;
+    let ws = seed_workspace(&state, uid, "Schedule WS").await;
     let repo = &state.notification_repo;
-    schedule_for(&state, uid, "Europe/Belgrade", &[1, 2, 3, 4, 5], 540, 1080).await;
+    schedule_for(
+        &state,
+        ws,
+        uid,
+        "Europe/Belgrade",
+        &[1, 2, 3, 4, 5],
+        540,
+        1080,
+    )
+    .await;
 
     let cases = [
         ("2026-10-21T08:00:00Z", None, "Wednesday 10:00 in Belgrade"),
@@ -788,7 +804,7 @@ async fn the_schedule_pauses_outside_its_window_in_the_persons_timezone(pool: Pg
     ];
     for (now, expected, case) in cases {
         assert_eq!(
-            repo.paused_until(uid, at(now)).await.expect("paused"),
+            repo.paused_until(ws, uid, at(now)).await.expect("paused"),
             expected.map(at),
             "{case}"
         );
@@ -796,6 +812,7 @@ async fn the_schedule_pauses_outside_its_window_in_the_persons_timezone(pool: Pg
 
     schedule_for(
         &state,
+        ws,
         uid,
         "Europe/Belgrade",
         &[1, 2, 3, 4, 5, 6, 7],
@@ -804,14 +821,14 @@ async fn the_schedule_pauses_outside_its_window_in_the_persons_timezone(pool: Pg
     )
     .await;
     assert_eq!(
-        repo.paused_until(uid, at("2026-03-29T07:30:00Z"))
+        repo.paused_until(ws, uid, at("2026-03-29T07:30:00Z"))
             .await
             .expect("paused"),
         None,
         "09:30 on the morning the clocks went forward is inside the window"
     );
     assert_eq!(
-        repo.paused_until(uid, at("2026-03-29T06:30:00Z"))
+        repo.paused_until(ws, uid, at("2026-03-29T06:30:00Z"))
             .await
             .expect("paused"),
         Some(at("2026-03-29T07:00:00Z")),
@@ -820,6 +837,7 @@ async fn the_schedule_pauses_outside_its_window_in_the_persons_timezone(pool: Pg
 
     schedule_for(
         &state,
+        ws,
         uid,
         "America/New_York",
         &[1, 2, 3, 4, 5, 6, 7],
@@ -845,7 +863,7 @@ async fn the_schedule_pauses_outside_its_window_in_the_persons_timezone(pool: Pg
         ),
     ] {
         assert_eq!(
-            repo.paused_until(uid, at(now)).await.expect("paused"),
+            repo.paused_until(ws, uid, at(now)).await.expect("paused"),
             expected.map(at),
             "{case}"
         );
@@ -856,21 +874,36 @@ async fn the_schedule_pauses_outside_its_window_in_the_persons_timezone(pool: Pg
 async fn resuming_during_a_scheduled_pause_lasts_until_the_window_opens(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (uid, _email, _token) = seed_and_login(&app, &state, "schedule-resume", false).await;
+    let ws = seed_workspace(&state, uid, "Schedule WS").await;
     let repo = &state.notification_repo;
-    schedule_for(&state, uid, "Europe/Belgrade", &[1, 2, 3, 4, 5], 540, 1080).await;
+    schedule_for(
+        &state,
+        ws,
+        uid,
+        "Europe/Belgrade",
+        &[1, 2, 3, 4, 5],
+        540,
+        1080,
+    )
+    .await;
     let evening = at("2026-10-21T18:00:00Z");
 
-    repo.set_dnd_at(uid, None, evening).await.expect("resume");
-    assert_eq!(repo.paused_until(uid, evening).await.expect("paused"), None);
+    repo.set_dnd_at(ws, uid, None, evening)
+        .await
+        .expect("resume");
     assert_eq!(
-        repo.paused_until(uid, at("2026-10-22T06:59:00Z"))
+        repo.paused_until(ws, uid, evening).await.expect("paused"),
+        None
+    );
+    assert_eq!(
+        repo.paused_until(ws, uid, at("2026-10-22T06:59:00Z"))
             .await
             .expect("paused"),
         None,
         "on through the night"
     );
     assert_eq!(
-        repo.paused_until(uid, at("2026-10-22T17:00:00Z"))
+        repo.paused_until(ws, uid, at("2026-10-22T17:00:00Z"))
             .await
             .expect("paused"),
         Some(at("2026-10-23T07:00:00Z")),
@@ -878,11 +911,11 @@ async fn resuming_during_a_scheduled_pause_lasts_until_the_window_opens(pool: Pg
     );
 
     let timer = at("2026-10-21T19:00:00Z");
-    repo.set_dnd_at(uid, Some(timer), evening)
+    repo.set_dnd_at(ws, uid, Some(timer), evening)
         .await
         .expect("pause");
     assert_eq!(
-        repo.paused_until(uid, evening).await.expect("paused"),
+        repo.paused_until(ws, uid, evening).await.expect("paused"),
         Some(at("2026-10-22T07:00:00Z")),
         "a timer ends the resume, and the schedule outlasts a short timer"
     );
@@ -897,6 +930,7 @@ async fn a_scheduled_pause_is_reported_to_its_owner_and_to_the_workspace(pool: P
     let minute = |offset: i64| (((now.timestamp() / 60 + offset) % 1440 + 1440) % 1440) as i16;
     schedule_for(
         &state,
+        ws,
         uid,
         "UTC",
         &[1, 2, 3, 4, 5, 6, 7],
@@ -905,7 +939,14 @@ async fn a_scheduled_pause_is_reported_to_its_owner_and_to_the_workspace(pool: P
     )
     .await;
 
-    let (status, body) = send(&app, "GET", "/api/notifications/dnd", Some(&token), None).await;
+    let (status, body) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws}/notifications/dnd"),
+        Some(&token),
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["dnd_until"], json!(null));
     let resumes: chrono::DateTime<chrono::Utc> = body["schedule_paused_until"]
@@ -937,7 +978,7 @@ async fn a_scheduled_pause_is_reported_to_its_owner_and_to_the_workspace(pool: P
     let (status, body) = send(
         &app,
         "PATCH",
-        "/api/notifications/dnd",
+        &format!("/api/workspaces/{ws}/notifications/dnd"),
         Some(&token),
         Some(json!({ "dnd_until": null })),
     )
@@ -947,4 +988,90 @@ async fn a_scheduled_pause_is_reported_to_its_owner_and_to_the_workspace(pool: P
         body,
         json!({ "dnd_until": null, "schedule_paused_until": null })
     );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_pause_a_schedule_and_mention_emails_belong_to_one_workspace(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (uid, _email, token) = seed_and_login(&app, &state, "per-ws", false).await;
+    let here = seed_workspace(&state, uid, "Here").await;
+    let there = seed_workspace(&state, uid, "There").await;
+    let until = chrono::Utc::now() + chrono::Duration::hours(1);
+
+    let (status, _) = send(
+        &app,
+        "PATCH",
+        &format!("/api/workspaces/{here}/notifications/dnd"),
+        Some(&token),
+        Some(json!({ "dnd_until": until })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let paused = |ws: uuid::Uuid| {
+        let (app, token) = (&app, &token);
+        async move {
+            let (_, members) = send(
+                app,
+                "GET",
+                &format!("/api/workspaces/{ws}/members"),
+                Some(token),
+                None,
+            )
+            .await;
+            members["data"][0]["notifications_paused_until"].clone()
+        }
+    };
+    assert!(paused(here).await.is_string());
+    assert_eq!(paused(there).await, json!(null), "the other one notifies");
+
+    let (status, _) = send(
+        &app,
+        "PUT",
+        &format!("/api/workspaces/{here}/notifications/schedule"),
+        Some(&token),
+        Some(json!({ "enabled": true, "days": [1], "start_minute": 540, "end_minute": 1080 })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, body) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{there}/notifications/schedule"),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_eq!(body["enabled"], json!(false));
+
+    let (status, _) = send(
+        &app,
+        "PATCH",
+        &format!("/api/workspaces/{here}/notifications/email"),
+        Some(&token),
+        Some(json!({ "mention_emails": false })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, body) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{there}/notifications/email"),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_eq!(body["mention_emails"], json!(true));
+
+    let (_, _, outsider) = seed_and_login(&app, &state, "per-ws-outsider", false).await;
+    for (method, path) in [("GET", "notifications/dnd"), ("GET", "notifications/email")] {
+        let (status, _) = send(
+            &app,
+            method,
+            &format!("/api/workspaces/{here}/{path}"),
+            Some(&outsider),
+            None,
+        )
+        .await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "{path}");
+    }
 }
