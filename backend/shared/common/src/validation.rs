@@ -369,6 +369,13 @@ pub mod rules {
         adapt(validate_icon_url(value))
     }
 
+    pub fn display_name_or_blank(value: &str, _: &()) -> garde::Result {
+        if value.trim().is_empty() {
+            return Ok(());
+        }
+        adapt(validate_display_name(value))
+    }
+
     pub fn status_text_or_blank(value: &str, _: &()) -> garde::Result {
         let trimmed = value.trim();
         if trimmed.is_empty() {

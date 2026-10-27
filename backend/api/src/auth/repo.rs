@@ -30,7 +30,7 @@ impl UserRepo {
             INSERT INTO users (email, password_hash, display_name, is_instance_admin)
             VALUES ($1, $2, $3, $4)
             RETURNING id, email, password_hash, display_name, avatar_url, bio, timezone AS "timezone!",
-                   status AS "status: UserStatus", status_emoji, status_text, status_expires_at,
+                   status AS "status: UserStatus",
                    is_instance_admin AS "is_instance_admin!", created_at, updated_at
             "#,
             email,
@@ -52,7 +52,7 @@ impl UserRepo {
             INSERT INTO users (email, display_name, status)
             VALUES ($1::text, split_part($1::text, '@', 1), 'active')
             RETURNING id, email, password_hash, display_name, avatar_url, bio, timezone AS "timezone!",
-                   status AS "status: UserStatus", status_emoji, status_text, status_expires_at,
+                   status AS "status: UserStatus",
                    is_instance_admin AS "is_instance_admin!", created_at, updated_at
             "#,
             email
@@ -65,7 +65,7 @@ impl UserRepo {
         sqlx::query_as!(
             User,
             r#"SELECT id, email, password_hash, display_name, avatar_url, bio, timezone AS "timezone!",
-                   status AS "status: UserStatus", status_emoji, status_text, status_expires_at,
+                   status AS "status: UserStatus",
                    is_instance_admin AS "is_instance_admin!", created_at, updated_at
                  FROM users WHERE id = $1"#,
             id
@@ -78,7 +78,7 @@ impl UserRepo {
         sqlx::query_as!(
             User,
             r#"SELECT id, email, password_hash, display_name, avatar_url, bio, timezone AS "timezone!",
-                   status AS "status: UserStatus", status_emoji, status_text, status_expires_at,
+                   status AS "status: UserStatus",
                    is_instance_admin AS "is_instance_admin!", created_at, updated_at
                  FROM users WHERE email = $1"#,
             email
@@ -91,7 +91,7 @@ impl UserRepo {
         sqlx::query_as!(
             User,
             r#"SELECT id, email, password_hash, display_name, avatar_url, bio, timezone AS "timezone!",
-                   status AS "status: UserStatus", status_emoji, status_text, status_expires_at,
+                   status AS "status: UserStatus",
                    is_instance_admin AS "is_instance_admin!", created_at, updated_at
                  FROM users ORDER BY created_at, id OFFSET $1 LIMIT $2"#,
             offset,
@@ -120,41 +120,12 @@ impl UserRepo {
             SET password_hash = $2, display_name = $3, status = 'active', updated_at = NOW()
             WHERE id = $1
             RETURNING id, email, password_hash, display_name, avatar_url, bio, timezone AS "timezone!",
-                   status AS "status: UserStatus", status_emoji, status_text, status_expires_at,
+                   status AS "status: UserStatus",
                    is_instance_admin AS "is_instance_admin!", created_at, updated_at
             "#,
             id,
             password_hash,
             display_name
-        )
-        .fetch_one(&self.pool)
-        .await
-    }
-
-    pub async fn set_status(
-        &self,
-        id: Uuid,
-        emoji: Option<&str>,
-        text: Option<&str>,
-        expires_at: Option<chrono::DateTime<chrono::Utc>>,
-    ) -> sqlx::Result<User> {
-        sqlx::query_as!(
-            User,
-            r#"
-            UPDATE users
-            SET status_emoji = $2,
-                status_text = $3,
-                status_expires_at = $4,
-                updated_at = NOW()
-            WHERE id = $1
-            RETURNING id, email, password_hash, display_name, avatar_url, bio, timezone AS "timezone!",
-                   status AS "status: UserStatus", status_emoji, status_text, status_expires_at,
-                   is_instance_admin AS "is_instance_admin!", created_at, updated_at
-            "#,
-            id,
-            emoji,
-            text,
-            expires_at
         )
         .fetch_one(&self.pool)
         .await
@@ -183,7 +154,7 @@ impl UserRepo {
                 updated_at = NOW()
             WHERE id = $1
             RETURNING id, email, password_hash, display_name, avatar_url, bio, timezone AS "timezone!",
-                   status AS "status: UserStatus", status_emoji, status_text, status_expires_at,
+                   status AS "status: UserStatus",
                    is_instance_admin AS "is_instance_admin!", created_at, updated_at
             "#,
             id,

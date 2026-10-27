@@ -1,22 +1,20 @@
 import { useState, type FormEvent } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { Camera } from 'lucide-react';
 import { Modal } from '@/shared/components/Modal/Modal';
 import { Button } from '@/shared/components/Button/Button';
-import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { TextArea } from '@/shared/components/Form/TextArea';
-import { FilePicker } from '@/shared/components/Form/FilePicker';
-import { buttonStyles } from '@/shared/components/Button/buttonStyles';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
-import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
-import { QUERY_KEYS } from '@/shared/constants';
 import { useCurrentUser } from '@/features/instance';
-import { useMyStatus, useSetStatus } from '@/features/profile/hooks/useStatus';
-import { useInstanceStore } from '@/stores/instances';
+import {
+  useAccount,
+  useSaveWorkspaceProfile,
+  useWorkspaceProfile,
+} from '@/features/profile/hooks/useProfile';
+import { usePhotoUpload } from '@/features/profile/hooks/usePhotoUpload';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { displayNameOf } from '@/lib/userHelpers';
 import { toUserMessage } from '@/lib/errors';
+import { ProfilePhotoField } from './ProfilePhotoField';
 import { StatusFields } from './StatusFields';
 import { sameStatus, type StatusDraft } from './statusDraft';
 
@@ -27,13 +25,13 @@ interface Props {
 }
 
 export function EditProfileModal({ onClose }: Props) {
-  const queryClient = useQueryClient();
-  const instanceUrl = useInstanceStore((s) => s.activeInstanceUrl) ?? undefined;
-  const updateInstanceUser = useInstanceStore((s) => s.updateInstanceUser);
   const workspace = useWorkspaceStore((s) => s.currentWorkspace);
+  const instanceUrl = workspace?.instanceUrl;
   const { data: user } = useCurrentUser();
-  const { data: me, isLoading } = useMyStatus(instanceUrl);
-  const { set: setStatus, clear: clearStatus } = useSetStatus(instanceUrl, workspace?.id);
+  const { data: account } = useAccount(instanceUrl);
+  const { data: profile, isLoading } = useWorkspaceProfile(workspace?.id, instanceUrl);
+  const save = useSaveWorkspaceProfile(workspace?.id, instanceUrl);
+  const photo = usePhotoUpload(instanceUrl, workspace?.id);
 
   const [loaded, setLoaded] = useState(false);
   const [displayName, setDisplayName] = useState('');
@@ -41,32 +39,30 @@ export function EditProfileModal({ onClose }: Props) {
   const [avatarUrl, setAvatarUrl] = useState('');
   const [status, setStatusDraft] = useState<StatusDraft>(EMPTY_STATUS);
   const [savedStatus, setSavedStatus] = useState<StatusDraft>(EMPTY_STATUS);
-  const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!loaded && me) {
-    const current = { emoji: me.status_emoji ?? '', text: me.status_text ?? '', minutes: null };
+  if (!loaded && profile) {
+    const current = { emoji: profile.status_emoji ?? '', text: profile.status_text ?? '', minutes: null };
     setLoaded(true);
-    setDisplayName(me.display_name ?? '');
-    setBio(me.bio ?? '');
-    setAvatarUrl(me.avatar_url ?? '');
+    setDisplayName(profile.display_name ?? '');
+    setBio(profile.bio ?? '');
+    setAvatarUrl(profile.avatar_url ?? '');
     setStatusDraft(current);
     setSavedStatus(current);
   }
 
   const statusChanged = !sameStatus(status, savedStatus);
-  const api = getApiForInstance(instanceUrl);
 
   const saveStatus = async () => {
     if (!statusChanged) return;
     const emoji = status.emoji.trim();
     const text = status.text.trim();
     if (!emoji && !text) {
-      await clearStatus.mutateAsync();
+      await save.clearStatus.mutateAsync();
       return;
     }
-    await setStatus.mutateAsync({
+    await save.setStatus.mutateAsync({
       emoji: emoji || null,
       text: text || null,
       expiresAt: status.minutes ? new Date(Date.now() + status.minutes * 60_000) : null,
@@ -75,30 +71,16 @@ export function EditProfileModal({ onClose }: Props) {
 
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
-    if (!displayName.trim()) {
-      setError('Enter a display name.');
-      return;
-    }
     setSaving(true);
     setError(null);
     try {
-      const updated = await api.typed((c) =>
-        c.PATCH('/users/me', {
-          body: { display_name: displayName.trim(), bio: bio.trim() || null, avatar_url: avatarUrl.trim() },
-        }),
-      );
+      await save.profile.mutateAsync({
+        display_name: displayName.trim(),
+        bio: bio.trim(),
+        avatar_url: avatarUrl.trim(),
+      });
       await saveStatus();
-      if (user && instanceUrl) {
-        updateInstanceUser(instanceUrl, {
-          ...user,
-          display_name: updated.display_name ?? '',
-          avatar_url: updated.avatar_url ?? null,
-        });
-      }
-      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myStatus(instanceUrl ?? '') });
-      if (workspace) {
-        await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceMembers(workspace.id) });
-      }
+      await save.refresh();
       onClose();
     } catch (err) {
       setError(toUserMessage(err, 'Could not save your profile.'));
@@ -106,32 +88,27 @@ export function EditProfileModal({ onClose }: Props) {
     }
   };
 
-  const handleAvatarUpload = async ([file]: File[]) => {
-    if (!workspace) {
-      setError('Open a workspace before uploading a photo.');
-      return;
-    }
-    setUploading(true);
+  const handlePhoto = async (file: File) => {
     setError(null);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const uploaded = await api.upload<{ url: string }[]>(`/files/upload/${workspace.id}`, formData);
-      const url = uploaded[0]?.url;
-      if (url) setAvatarUrl(url);
-      else setError('Could not upload that photo.');
-    } catch {
-      setError('Could not upload that photo.');
-    } finally {
-      setUploading(false);
-    }
+    const url = await photo.upload(file);
+    if (url) setAvatarUrl(url);
+    else setError('Could not upload that photo.');
   };
 
-  const name = displayNameOf(displayName || user?.email);
+  const accountName = account?.display_name ?? '';
+  const name = displayNameOf(displayName || accountName || user?.email);
 
   return (
     <Modal
       title="Edit profile"
+      description={
+        workspace && (
+          <>
+            How you appear in <strong className="text-fg">{workspace.name}</strong>. Anything left empty shows
+            your account's.
+          </>
+        )
+      }
       onClose={onClose}
       size="lg"
       dataQa="profile-modal"
@@ -142,7 +119,7 @@ export function EditProfileModal({ onClose }: Props) {
           type="submit"
           variant="primary"
           loading={saving}
-          disabled={!loaded || uploading}
+          disabled={!loaded || photo.uploading}
           data-qa="profile-save"
         >
           Save changes
@@ -158,18 +135,19 @@ export function EditProfileModal({ onClose }: Props) {
           <div className="space-y-5">
             <TextInput
               label="Display name"
+              optional
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
+              placeholder={accountName}
               maxLength={100}
               autoComplete="name"
               dataQa="profile-display-name"
               data-autofocus
-              required
             />
             <StatusFields
               value={status}
               onChange={setStatusDraft}
-              clearsAt={statusChanged ? null : me?.status_expires_at}
+              clearsAt={statusChanged ? null : profile?.status_expires_at}
             />
             <TextArea
               label="Bio"
@@ -179,7 +157,7 @@ export function EditProfileModal({ onClose }: Props) {
               onChange={(e) => setBio(e.target.value)}
               maxLength={500}
               counter
-              placeholder="What you work on, where you are, how to reach you"
+              placeholder={account?.bio || 'What you work on, where you are, how to reach you'}
               dataQa="profile-bio"
             />
             {error && (
@@ -189,32 +167,16 @@ export function EditProfileModal({ onClose }: Props) {
             )}
           </div>
 
-          <div className="order-first flex flex-col items-center gap-2 sm:order-none sm:w-40">
-            <span className="self-start text-sm font-medium text-fg-dim max-sm:sr-only">Profile photo</span>
-            <Avatar userId={user?.id ?? ''} name={name} avatarUrl={avatarUrl || null} size="2xl" />
-            <FilePicker
-              label="Profile photo file"
-              accept="image/*"
-              onFiles={handleAvatarUpload}
-              disabled={uploading}
-              dataQa="profile-avatar-upload"
-              className={buttonStyles({ size: 'sm' })}
-            >
-              {uploading ? <Spinner size="sm" /> : <Camera className="h-3.5 w-3.5" />}
-              Upload photo
-            </FilePicker>
-            {avatarUrl && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setAvatarUrl('')}
-                data-qa="profile-avatar-remove"
-                className="hover:text-danger"
-              >
-                Remove photo
-              </Button>
-            )}
-          </div>
+          <ProfilePhotoField
+            userId={user?.id ?? ''}
+            name={name}
+            shown={avatarUrl || account?.avatar_url || null}
+            uploading={photo.uploading}
+            resetLabel={avatarUrl ? (account?.avatar_url ? 'Use account photo' : 'Remove photo') : null}
+            qaPrefix="profile"
+            onFile={(file) => void handlePhoto(file)}
+            onReset={() => setAvatarUrl('')}
+          />
         </div>
       )}
     </Modal>

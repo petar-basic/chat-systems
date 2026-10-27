@@ -3,28 +3,23 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { EditProfileModal } from './EditProfileModal';
 
-const patch = vi.fn();
+const saveProfile = vi.fn();
 const setStatus = vi.fn();
 const clearStatus = vi.fn();
-let me: Record<string, string | null> = {};
+let account: Record<string, string | null> = {};
+let profile: Record<string, string | null> = {};
 
-vi.mock('@/shared/hooks/useCurrentApi', async () => {
-  const { typedApiMock } = await import('@/test/typedApiMock');
-  return {
-    getApiForInstance: () => ({
-      ...typedApiMock({ patch: (...args) => patch(...args) }),
-      upload: vi.fn(),
-    }),
-  };
-});
 vi.mock('@/features/instance/hooks/useAuth', () => ({
   useCurrentUser: () => ({ data: { id: 'user-1', email: 'alice@dev.local' } }),
 }));
-vi.mock('@/features/profile/hooks/useStatus', () => ({
-  useMyStatus: () => ({ data: me, isLoading: false }),
-  useSetStatus: () => ({
-    set: { mutateAsync: (...args: unknown[]) => setStatus(...args) },
-    clear: { mutateAsync: (...args: unknown[]) => clearStatus(...args) },
+vi.mock('@/features/profile/hooks/useProfile', () => ({
+  useAccount: () => ({ data: account }),
+  useWorkspaceProfile: () => ({ data: profile, isLoading: false }),
+  useSaveWorkspaceProfile: () => ({
+    profile: { mutateAsync: (...args: unknown[]) => saveProfile(...args) },
+    setStatus: { mutateAsync: (...args: unknown[]) => setStatus(...args) },
+    clearStatus: { mutateAsync: (...args: unknown[]) => clearStatus(...args) },
+    refresh: vi.fn(),
   }),
 }));
 vi.mock('@/features/messaging', () => ({
@@ -40,12 +35,9 @@ vi.mock('@/features/messaging', () => ({
     </button>
   ),
 }));
-vi.mock('@/stores/instances', () => ({
-  useInstanceStore: (select: (state: unknown) => unknown) =>
-    select({ activeInstanceUrl: 'http://localhost:3000', updateInstanceUser: vi.fn() }),
-}));
 vi.mock('@/stores/workspace', () => ({
-  useWorkspaceStore: (select: (state: unknown) => unknown) => select({ currentWorkspace: { id: 'ws-1' } }),
+  useWorkspaceStore: (select: (state: unknown) => unknown) =>
+    select({ currentWorkspace: { id: 'ws-1', name: 'Dev Team', instanceUrl: 'http://localhost:3000' } }),
 }));
 
 function renderModal() {
@@ -61,11 +53,13 @@ function renderModal() {
 
 describe('EditProfileModal', () => {
   beforeEach(() => {
-    patch.mockReset().mockResolvedValue({ display_name: 'Alice J', avatar_url: null });
+    saveProfile.mockReset().mockResolvedValue(undefined);
     setStatus.mockReset().mockResolvedValue(undefined);
     clearStatus.mockReset().mockResolvedValue(undefined);
-    me = {
-      display_name: 'Alice',
+    account = { display_name: 'Alice', bio: 'Backend at Acme', avatar_url: null };
+    profile = {
+      workspace_id: 'ws-1',
+      display_name: null,
       bio: null,
       avatar_url: null,
       status_emoji: null,
@@ -77,15 +71,37 @@ describe('EditProfileModal', () => {
   it('saves the profile and a new status with one button, then closes', async () => {
     const onClose = renderModal();
 
-    fireEvent.change(screen.getByRole('textbox', { name: 'Display name' }), { target: { value: 'Alice J' } });
+    fireEvent.change(screen.getByRole('textbox', { name: /Display name/ }), { target: { value: 'Alice J' } });
     fireEvent.click(screen.getByRole('button', { name: '🍕 At lunch' }));
     expect(screen.getByRole('combobox', { name: 'Clear after' })).toHaveValue('60');
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
 
     await waitFor(() => expect(onClose).toHaveBeenCalled());
-    expect(patch).toHaveBeenCalledWith('/users/me', { display_name: 'Alice J', bio: null, avatar_url: '' });
+    expect(saveProfile).toHaveBeenCalledWith({ display_name: 'Alice J', bio: '', avatar_url: '' });
     expect(setStatus).toHaveBeenCalledWith(expect.objectContaining({ emoji: '🍕', text: 'At lunch' }));
     expect(clearStatus).not.toHaveBeenCalled();
+  });
+
+  it("edits this workspace's profile and shows the account's where it has none", () => {
+    renderModal();
+
+    expect(screen.getByText('Dev Team')).toBeInTheDocument();
+    const name = screen.getByRole('textbox', { name: /Display name/ });
+    expect(name).toHaveValue('');
+    expect(name).toHaveAttribute('placeholder', 'Alice');
+    expect(screen.getByRole('textbox', { name: /Bio/ })).toHaveAttribute('placeholder', 'Backend at Acme');
+  });
+
+  it("goes back to the account's photo", async () => {
+    account = { ...account, avatar_url: '/api/files/account.png' };
+    profile = { ...profile, display_name: 'Ali', avatar_url: '/api/files/work.png' };
+    const onClose = renderModal();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Use account photo' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(saveProfile).toHaveBeenCalledWith({ display_name: 'Ali', bio: '', avatar_url: '' });
   });
 
   it('picks the status emoji from the picker, a workspace one included', async () => {
@@ -105,7 +121,12 @@ describe('EditProfileModal', () => {
   });
 
   it('leaves an untouched status and its expiry alone', async () => {
-    me = { ...me, status_emoji: '🍕', status_text: 'At lunch', status_expires_at: '2026-10-23T13:00:00Z' };
+    profile = {
+      ...profile,
+      status_emoji: '🍕',
+      status_text: 'At lunch',
+      status_expires_at: '2026-10-23T13:00:00Z',
+    };
     const onClose = renderModal();
 
     expect(screen.getByTestId('status-expiry')).toBeInTheDocument();
@@ -117,7 +138,7 @@ describe('EditProfileModal', () => {
   });
 
   it('clears a status that was removed', async () => {
-    me = { ...me, status_emoji: '🍕', status_text: 'At lunch' };
+    profile = { ...profile, status_emoji: '🍕', status_text: 'At lunch' };
     const onClose = renderModal();
 
     fireEvent.click(screen.getByRole('button', { name: 'Clear status' }));
@@ -129,7 +150,7 @@ describe('EditProfileModal', () => {
   });
 
   it('stays open and says why when saving fails', async () => {
-    patch.mockRejectedValue(new Error('Display name is too long'));
+    saveProfile.mockRejectedValue(new Error('Display name is too long'));
     const onClose = renderModal();
 
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));

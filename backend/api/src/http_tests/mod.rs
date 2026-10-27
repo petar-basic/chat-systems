@@ -34,6 +34,7 @@ mod lists;
 mod messaging;
 mod notifications;
 mod polls;
+mod profile;
 mod scheduled;
 mod sidebar;
 mod threads;

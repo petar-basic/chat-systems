@@ -19,6 +19,7 @@ vi.mock('@/features/notifications/ScheduleEditor', () => ({
   ScheduleEditor: () => <div data-qa="notification-schedule" />,
 }));
 vi.mock('@/features/profile/TwoFactorPanel', () => ({ default: () => <div data-qa="security-panel" /> }));
+vi.mock('@/features/profile/AccountPanel', () => ({ default: () => <div data-qa="account-panel" /> }));
 
 const selected = () => screen.getByRole('tab', { selected: true });
 
@@ -45,8 +46,12 @@ describe('PreferencesModal', () => {
     expect(selected()).toHaveAttribute('tabindex', '0');
 
     fireEvent.keyDown(list, { key: 'ArrowDown' });
-    expect(selected()).toHaveTextContent('Security');
+    expect(selected()).toHaveTextContent('Account');
     expect(selected()).toHaveFocus();
+    expect(screen.getByTestId('account-panel')).toBeInTheDocument();
+
+    fireEvent.keyDown(list, { key: 'ArrowDown' });
+    expect(selected()).toHaveTextContent('Security');
 
     fireEvent.keyDown(list, { key: 'ArrowDown' });
     expect(selected()).toHaveTextContent('Notifications');

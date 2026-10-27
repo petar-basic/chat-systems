@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, COALESCE(display_name, email) AS \"name!\" FROM users WHERE id = ANY($1)",
+  "query": "\n            SELECT u.id,\n                   COALESCE(wm.display_name, u.display_name, split_part(u.email, '@', 1)) AS \"name!\"\n              FROM users u\n              LEFT JOIN workspace_members wm ON wm.user_id = u.id AND wm.workspace_id = $1\n             WHERE u.id = ANY($2)\n            ",
   "describe": {
     "columns": [
       {
@@ -23,6 +23,7 @@
     ],
     "parameters": {
       "Left": [
+        "Uuid",
         "UuidArray"
       ]
     },
@@ -31,5 +32,5 @@
       null
     ]
   },
-  "hash": "33e67b0d190a07d140c96485ded9e38d1575dfb86d9cf63120d0360f76bda204"
+  "hash": "52fdb5c5ddb7acf3b9c9a0a96a2d62b2a8e78dca120e9b14b09040057ced45c5"
 }

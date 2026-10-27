@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT a.id, a.workspace_id, a.user_id, u.email AS \"actor_email?\",\n                  u.display_name AS \"actor_display_name?\", a.action, a.resource_type,\n                  a.resource_id, a.details AS \"details!\", host(a.ip_address) AS \"ip_address?\", a.created_at\n             FROM audit_log a\n             LEFT JOIN users u ON u.id = a.user_id\n            WHERE ($1::uuid IS NULL OR a.workspace_id = $1)\n              AND ($2::text IS NULL OR a.action = $2)\n              AND ($3::uuid IS NULL OR a.user_id = $3)\n              AND ($4::timestamptz IS NULL OR a.created_at >= $4)\n              AND ($5::timestamptz IS NULL OR a.created_at <= $5)\n              AND ($6::timestamptz IS NULL\n                   OR (a.created_at, a.id) < ($6, COALESCE($7::uuid, '00000000-0000-0000-0000-000000000000')))\n            ORDER BY a.created_at DESC, a.id DESC\n            LIMIT $8",
+  "query": "SELECT a.id, a.workspace_id, a.user_id, u.email AS \"actor_email?\",\n                  COALESCE(wm.display_name, u.display_name) AS \"actor_display_name?\", a.action, a.resource_type,\n                  a.resource_id, a.details AS \"details!\", host(a.ip_address) AS \"ip_address?\", a.created_at\n             FROM audit_log a\n             LEFT JOIN users u ON u.id = a.user_id\n             LEFT JOIN workspace_members wm ON wm.workspace_id = a.workspace_id AND wm.user_id = a.user_id\n            WHERE ($1::uuid IS NULL OR a.workspace_id = $1)\n              AND ($2::text IS NULL OR a.action = $2)\n              AND ($3::uuid IS NULL OR a.user_id = $3)\n              AND ($4::timestamptz IS NULL OR a.created_at >= $4)\n              AND ($5::timestamptz IS NULL OR a.created_at <= $5)\n              AND ($6::timestamptz IS NULL\n                   OR (a.created_at, a.id) < ($6, COALESCE($7::uuid, '00000000-0000-0000-0000-000000000000')))\n            ORDER BY a.created_at DESC, a.id DESC\n            LIMIT $8",
   "describe": {
     "columns": [
       {
@@ -51,12 +51,7 @@
         "ordinal": 4,
         "name": "actor_display_name?",
         "type_info": "Varchar",
-        "origin": {
-          "Table": {
-            "table": "users",
-            "name": "display_name"
-          }
-        }
+        "origin": "Expression"
       },
       {
         "ordinal": 5,
@@ -137,7 +132,7 @@
       true,
       true,
       false,
-      true,
+      null,
       false,
       true,
       true,
@@ -146,5 +141,5 @@
       false
     ]
   },
-  "hash": "a477a4e545d3b46ebcf56354fed3bb4af88f40eee7982bb27be173cfa683f02d"
+  "hash": "7b7b10da3db7e63cec4fd488adec625039e722e74d8494d1d75711826127cb18"
 }

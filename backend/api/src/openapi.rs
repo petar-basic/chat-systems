@@ -27,7 +27,7 @@ use crate::state::AppState;
         (name = "conversations", description = "Direct and group conversations and their messages"),
         (name = "notifications", description = "In-app notifications, do-not-disturb and email preferences"),
         (name = "auth", description = "Sessions, invites, registration and password recovery"),
-        (name = "users", description = "The signed-in user's own profile and status"),
+        (name = "users", description = "The signed-in user's account, and their profile and status in each workspace"),
         (name = "instance", description = "What this instance says about itself"),
         (name = "hooks", description = "Incoming and outgoing webhooks, bots and slash commands"),
         (name = "files", description = "Uploads and their metadata"),
@@ -91,6 +91,7 @@ pub fn typed_routes() -> OpenApiRouter<Arc<AppState>> {
         .merge(crate::huddle::routes::router())
         .merge(crate::groups::routes::router())
         .merge(crate::emoji::routes::router())
+        .merge(crate::profile::routes::router())
         .merge(crate::later::routes::router())
         .merge(crate::polls::routes::router())
         .merge(crate::lists::routes::router())

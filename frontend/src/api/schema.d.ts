@@ -1667,22 +1667,6 @@ export interface paths {
         patch: operations["change_password"];
         trace?: never;
     };
-    "/users/me/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put: operations["set_status"];
-        post?: never;
-        delete: operations["clear_status"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/users/{user_id}/exports": {
         parameters: {
             query?: never;
@@ -2467,6 +2451,38 @@ export interface paths {
         put: operations["set_notify_default"];
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_workspace_profile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["update_workspace_profile"];
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/profile/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["set_workspace_status"];
+        post?: never;
+        delete: operations["clear_workspace_status"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3593,6 +3609,7 @@ export interface components {
         DataList_MemberWithUser: {
             data: {
                 avatar_url?: string | null;
+                bio?: string | null;
                 display_name?: string | null;
                 email: string;
                 /** Format: date-time */
@@ -4299,6 +4316,7 @@ export interface components {
         };
         MemberWithUser: {
             avatar_url?: string | null;
+            bio?: string | null;
             display_name?: string | null;
             email: string;
             /** Format: date-time */
@@ -4979,6 +4997,11 @@ export interface components {
             kind?: components["schemas"]["ViewKind"] | null;
             name?: string | null;
         };
+        UpdateWorkspaceProfileRequest: {
+            avatar_url?: string | null;
+            bio?: string | null;
+            display_name?: string | null;
+        };
         UpdateWorkspaceRequest: {
             broadcast_mentions?: components["schemas"]["WhoMay"] | null;
             description?: string | null;
@@ -5034,10 +5057,6 @@ export interface components {
             id: string;
             is_instance_admin: boolean;
             status: components["schemas"]["UserStatus"];
-            status_emoji?: string | null;
-            /** Format: date-time */
-            status_expires_at?: string | null;
-            status_text?: string | null;
             timezone: string;
         };
         /** @enum {string} */
@@ -5149,6 +5168,17 @@ export interface components {
             role: components["schemas"]["WorkspaceRole"];
             /** Format: uuid */
             user_id: string;
+            /** Format: uuid */
+            workspace_id: string;
+        };
+        WorkspaceProfile: {
+            avatar_url?: string | null;
+            bio?: string | null;
+            display_name?: string | null;
+            status_emoji?: string | null;
+            /** Format: date-time */
+            status_expires_at?: string | null;
+            status_text?: string | null;
             /** Format: uuid */
             workspace_id: string;
         };
@@ -8108,48 +8138,6 @@ export interface operations {
             };
         };
     };
-    set_status: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SetStatusRequest"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserPublic"];
-                };
-            };
-        };
-    };
-    clear_status: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserPublic"];
-                };
-            };
-        };
-    };
     create_user_export: {
         parameters: {
             query?: never;
@@ -9702,6 +9690,98 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NotifyDefault"];
+                };
+            };
+        };
+    };
+    get_workspace_profile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceProfile"];
+                };
+            };
+        };
+    };
+    update_workspace_profile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateWorkspaceProfileRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceProfile"];
+                };
+            };
+        };
+    };
+    set_workspace_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetStatusRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceProfile"];
+                };
+            };
+        };
+    };
+    clear_workspace_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceProfile"];
                 };
             };
         };

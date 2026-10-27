@@ -118,6 +118,7 @@ export function useWorkspaceData(workspaceId: string | undefined, currentUserId:
           email: m.email,
           display_name: m.display_name ?? '',
           avatar_url: m.avatar_url ?? null,
+          bio: m.bio,
           status_emoji: m.status_emoji,
           status_text: m.status_text,
           notifications_paused_until: m.notifications_paused_until,

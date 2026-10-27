@@ -704,7 +704,7 @@ async fn checked_answers(
                     .get_member(workspace_id, person)
                     .await?
                     .ok_or_else(not_a_member)?;
-                super::runner::mention_of(state, person)
+                super::runner::mention_of(state, workspace_id, person)
                     .await?
                     .ok_or_else(not_a_member)?
             }

@@ -583,18 +583,16 @@ async fn post_form(
     Ok(())
 }
 
-pub(super) async fn mention_of(state: &AppState, user_id: Uuid) -> sqlx::Result<Option<String>> {
+pub(super) async fn mention_of(
+    state: &AppState,
+    workspace_id: Uuid,
+    user_id: Uuid,
+) -> sqlx::Result<Option<String>> {
     Ok(state
-        .auth_service
-        .repo()
-        .find_by_id(user_id)
+        .profile_repo
+        .name(workspace_id, user_id)
         .await?
-        .map(|user| {
-            let name = user
-                .display_name
-                .unwrap_or_else(|| user.email.split('@').next().unwrap_or_default().to_string());
-            format!("@[{name}]({user_id})")
-        }))
+        .map(|name| format!("@[{name}]({user_id})")))
 }
 
 async fn fired(state: &AppState, workflow: &WorkflowRow, run: &RunRow) -> sqlx::Result<Fired> {
@@ -603,7 +601,7 @@ async fn fired(state: &AppState, workflow: &WorkflowRow, run: &RunRow) -> sqlx::
     let mut values = HashMap::new();
     let user = id("user_id");
     if let Some(user_id) = user {
-        let mention = mention_of(state, user_id)
+        let mention = mention_of(state, workflow.workspace_id, user_id)
             .await?
             .unwrap_or_else(|| format!("@[someone]({user_id})"));
         values.insert("trigger.user", mention);

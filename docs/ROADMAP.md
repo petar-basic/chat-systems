@@ -9,6 +9,7 @@ ticket in [`docs/tickets/`](./tickets/INDEX.md); a ticket's file is deleted when
 
 | Ticket | What | Status |
 |---|---|---|
+| [CS-076](./tickets/CS-076-workspace-profiles.md) | A profile (name, photo, bio, status) and notification settings (pause, schedule, mention emails) of your own in each workspace, instead of one on the account | Wave 25, in progress; ships as 3.5.0 |
 | [CS-037](./tickets/CS-037-huddle-sfu.md) | SFU (LiveKit) for huddles above the mesh's six-to-eight ceiling, promoted mid-call without dropping anybody | Held for the next major release (4.0.0), decided 2026-10-23 when 3.2.0 shipped CS-059 alone. Adds an optional media server beside the stack. Until then a huddle is capped at eight people |
 
 Waves 21–23 were chosen in the 2026-10-23 review and shipped together in 3.3.0, before

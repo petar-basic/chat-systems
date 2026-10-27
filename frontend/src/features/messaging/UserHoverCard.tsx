@@ -142,6 +142,12 @@ function UserCardBody({
         </div>
       </div>
 
+      {cached?.bio && (
+        <p className="text-xs text-fg-dim whitespace-pre-line line-clamp-4" data-qa="hover-card-bio">
+          {cached.bio}
+        </p>
+      )}
+
       {cached?.email && <div className="text-xs text-muted truncate">{cached.email}</div>}
 
       {!isSelf && (

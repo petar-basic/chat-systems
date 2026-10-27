@@ -5,7 +5,6 @@ use axum::http::header::AUTHORIZATION;
 use axum::http::HeaderMap;
 use axum::Json;
 use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
-use chrono::Utc;
 use garde::Validate;
 use shared_common::errors::{AppError, AppResult};
 use utoipa_axum::router::OpenApiRouter;
@@ -23,7 +22,6 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
     OpenApiRouter::new()
         .routes(routes!(get_me, update_me))
         .routes(routes!(change_password))
-        .routes(routes!(set_status, clear_status))
         .routes(routes!(accept_invite))
 }
 
@@ -383,54 +381,6 @@ async fn update_me(
             req.bio.as_deref(),
             req.timezone.as_deref(),
         )
-        .await?;
-    Ok(Json(user.into()))
-}
-
-#[utoipa::path(put, path = "/users/me/status", tag = "users", request_body = SetStatusRequest, responses((status = 200, body = UserPublic)))]
-async fn set_status(
-    State(state): State<Arc<AppState>>,
-    auth: AuthUser,
-    Json(req): Json<SetStatusRequest>,
-) -> AppResult<Json<UserPublic>> {
-    req.validate()?;
-    let emoji = req
-        .emoji
-        .as_deref()
-        .map(str::trim)
-        .filter(|e| !e.is_empty());
-    let text = req.text.as_deref().map(str::trim).filter(|t| !t.is_empty());
-
-    if emoji.is_none() && text.is_none() {
-        return Err(AppError::Validation(
-            "A status needs an emoji or some text".into(),
-        ));
-    }
-    if let Some(expires_at) = req.expires_at {
-        if expires_at <= Utc::now() {
-            return Err(AppError::Validation(
-                "A status cannot expire in the past".into(),
-            ));
-        }
-    }
-
-    let user = state
-        .auth_service
-        .repo()
-        .set_status(auth.user_id, emoji, text, req.expires_at)
-        .await?;
-    Ok(Json(user.into()))
-}
-
-#[utoipa::path(delete, path = "/users/me/status", tag = "users", responses((status = 200, body = UserPublic)))]
-async fn clear_status(
-    State(state): State<Arc<AppState>>,
-    auth: AuthUser,
-) -> AppResult<Json<UserPublic>> {
-    let user = state
-        .auth_service
-        .repo()
-        .set_status(auth.user_id, None, None, None)
         .await?;
     Ok(Json(user.into()))
 }
