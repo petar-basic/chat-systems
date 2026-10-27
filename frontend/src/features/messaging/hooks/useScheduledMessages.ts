@@ -7,6 +7,8 @@ export type ScheduledMessage = components['schemas']['ScheduledMessage'];
 
 export interface ScheduleTarget {
   channelId: string;
+  threadParentId?: string;
+  alsoToChannel?: boolean;
 }
 
 export const useScheduledMessages = (workspaceId: string | null, instanceUrl?: string) => {
@@ -43,6 +45,8 @@ export const useScheduleMessage = (workspaceId: string, instanceUrl?: string) =>
           params: { path: { ws_id: workspaceId } },
           body: {
             channel_id: target.channelId,
+            thread_parent_id: target.threadParentId ?? null,
+            also_to_channel: target.alsoToChannel ?? false,
             content,
             send_at: sendAt.toISOString(),
             attachment_ids: attachmentIds,

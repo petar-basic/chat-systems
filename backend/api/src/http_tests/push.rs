@@ -689,6 +689,29 @@ impl Scene {
         self.service.hits.load(Ordering::SeqCst) - before
     }
 
+    async fn reply_also_in_channel(&self, root: Uuid) -> usize {
+        let before = self.service.hits.load(Ordering::SeqCst);
+        let mut conn = self.state.redis.clone();
+        notify_message(
+            &self.state,
+            &self.state.notification_repo,
+            &sender_for(&self.state),
+            &mut conn,
+            &json!({
+                "user_id": self.author.to_string(),
+                "workspace_id": self.ws_id.to_string(),
+                "channel_id": self.ch_id.to_string(),
+                "id": Uuid::new_v4().to_string(),
+                "thread_parent_id": root.to_string(),
+                "content": "shipping it",
+                "metadata": { "also_in_channel": true },
+                "mentioned_user_ids": [],
+            }),
+        )
+        .await;
+        self.service.hits.load(Ordering::SeqCst) - before
+    }
+
     async fn set_level(&self, channel_id: Uuid, level: Option<NotifyLevel>) {
         self.state
             .notification_repo
@@ -778,6 +801,18 @@ async fn every_message_on_all_reaches_the_phone_but_not_the_activity_panel(pool:
             .await,
         0,
         "a thread reply is not a new message in the channel"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_reply_also_sent_to_the_channel_reaches_everyone_on_all(pool: PgPool) {
+    let s = scene(pool).await;
+    s.set_level(s.ch_id, Some(NotifyLevel::All)).await;
+
+    assert_eq!(
+        s.reply_also_in_channel(Uuid::new_v4()).await,
+        1,
+        "a reply sent to the channel too is a message in the channel"
     );
 }
 

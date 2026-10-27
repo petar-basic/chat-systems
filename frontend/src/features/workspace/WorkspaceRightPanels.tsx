@@ -40,6 +40,7 @@ export default function WorkspaceRightPanels({
   if (panel.kind === 'thread') {
     return (
       <ThreadPanel
+        key={panel.message.id}
         parentMessage={panel.message}
         replyId={panel.replyId}
         members={workspaceMembers}

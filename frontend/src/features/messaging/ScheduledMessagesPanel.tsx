@@ -184,14 +184,16 @@ export default function ScheduledMessagesPanel({
 
   const busy = cancelScheduled.isPending || reschedule.isPending;
 
-  const targetOf = (message: ScheduledMessage) =>
-    targetLabel(
+  const targetOf = (message: ScheduledMessage) => {
+    const label = targetLabel(
       message.channel_id,
       channels,
       conversations,
       currentUserId ?? undefined,
       (id) => getUser(id)?.display_name,
     );
+    return message.thread_parent_id ? `${label} · thread` : label;
+  };
 
   const failWith = (fallback: string) => (err: unknown) =>
     setError((err as { message?: string })?.message || fallback);

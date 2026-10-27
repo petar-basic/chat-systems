@@ -284,7 +284,7 @@ capped at 120 days out.
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/scheduled-messages` | — | `{ data: ScheduledMessage[] }` — the caller's pending queue |
-| POST | `/workspaces/:ws_id/scheduled-messages` | `{ channel_id, content, send_at, attachment_ids? }` | `ScheduledMessage` — the drafts are held until a day after `send_at` and attached at delivery |
+| POST | `/workspaces/:ws_id/scheduled-messages` | `{ channel_id, content, send_at, attachment_ids?, thread_parent_id?, also_to_channel? }` | `ScheduledMessage` — the drafts are held until a day after `send_at` and attached at delivery; a `thread_parent_id` delivers it as a reply, and one whose thread is gone by then fails with `thread_gone` |
 | PATCH | `/scheduled-messages/:id` | `{ send_at }` | `ScheduledMessage` — author only, pending only |
 | DELETE | `/scheduled-messages/:id` | — | `{ status: "canceled" }` — author only, pending only |
 
@@ -306,7 +306,7 @@ Sends and manages messages, threads, reactions, pins, read tracking, and search.
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/channels/:ch_id/messages` | Query: `limit=50, cursor?, mark_read?` | `{ data: Message[], unread_notifications? }` — with `mark_read=true` and no cursor, the newest message becomes the caller's read position (as `POST /channels/:ch_id/read`), the channel's notifications are marked read, and `unread_notifications` is the workspace's count afterwards |
-| POST | `/channels/:ch_id/messages` | `{ content, thread_parent_id?, client_message_id?, attachment_ids?, copy_attachments_from? }` | `Message` — the one send path; a `thread_parent_id` makes it a reply (one level deep, same channel) and `client_message_id` makes a retry idempotent. `attachment_ids` (at most 10, the sender's own drafts) are linked in the message's transaction and listed in `metadata.attachments`; `content` may then be empty. `copy_attachments_from` (a forward) copies that message's files, if the sender can read it |
+| POST | `/channels/:ch_id/messages` | `{ content, thread_parent_id?, also_to_channel?, client_message_id?, attachment_ids?, copy_attachments_from? }` | `Message` — the one send path; a `thread_parent_id` makes it a reply (one level deep, same channel), `also_to_channel` shows that reply in the channel too (`metadata.also_in_channel`), and `client_message_id` makes a retry idempotent. `attachment_ids` (at most 10, the sender's own drafts) are linked in the message's transaction and listed in `metadata.attachments`; `content` may then be empty. `copy_attachments_from` (a forward) copies that message's files, if the sender can read it |
 | PATCH | `/messages/:msg_id` | `{ content, attachment_ids? }` | `Message` — `attachment_ids` is the set of files to keep; the rest are deleted |
 | DELETE | `/messages/:msg_id` | — | `{ status: "deleted" }` |
 | DELETE | `/messages/:msg_id/unfurls` | — | `Message` — the author removes its link previews; they stay removed across edits |
@@ -333,9 +333,17 @@ fetch.
 
 **Threads:**
 
+A thread is one unit. Deleting a root that has live replies keeps it as a tombstone:
+`deleted_at` set, `content` and `metadata` served empty, still listed in the channel so its
+replies stay reachable and still repliable. A root with no live replies goes, as any deleted
+message does. Deleting a reply takes it off the root's `reply_count` and announces the root
+with `message.updated`. A reply never appears in the channel list unless it was sent with
+`also_to_channel`. Retention removes a thread once its newest message is past the period,
+root and replies together, and erasing a person tombstones their roots that others answered.
+
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
-| GET | `/messages/:msg_id/thread` | Query: `limit=50, offset=0` | `{ data: Message[] }` |
+| GET | `/messages/:msg_id/thread` | Query: `limit=50 (≤200), cursor?` (the last reply of the previous page) | `{ data: MessageWithReactions[] }` — newest reply first, with reactions; the root may be a tombstone |
 | GET | `/messages/:msg_id/location` | — | `{ workspace_id, channel_id, kind: channel \| dm \| group_dm, thread_parent_id?, joined }` — where a message lives, for opening it from a link, a notification or a search hit; `joined` is false for a public channel the caller can read but is not in. A message the caller cannot read is a 404, as is a deleted one |
 
 **Mentions.** Sending a channel message or thread reply expands the mentions in its body
@@ -553,9 +561,9 @@ consumer decides each recipient's reason for one `message.created`:
 |--------|------|--------------|--------------|------|-------|
 | Mention | named or broadcast, level is not `nothing` | yes | `mention` | yes | yes |
 | Reply | follows the thread, level is not `nothing` | yes | `reply` | yes | no |
-| Direct | DM on `all`, not a thread reply | yes (`dm`) | `dm` | yes | yes |
+| Direct | DM on `all`, not a thread reply (one also sent to the channel counts) | yes (`dm`) | `dm` | yes | yes |
 | Keyword | one of the person's keywords is in the text | yes (`keyword`) | `keyword` | yes | no |
-| Message | channel on `all`, not a thread reply | no | `message` | yes | no |
+| Message | channel on `all`, not a thread reply (one also sent to the channel counts) | no | `message` | yes | no |
 
 The first row that applies wins, so a message is one notification per person. Keywords live
 in `notification_keywords`, stored with `normalized = lower(search_normalize(keyword))`, the
@@ -1006,7 +1014,7 @@ Instance-level administration. Requires `is_instance_admin = true`.
 | PATCH | `/admin/users/:user_id/instance-role` | `{ is_instance_admin: bool }` | `{ is_instance_admin: bool }` |
 | GET | `/admin/workspaces` | Query: `limit?, offset?` | `{ data: Workspace[] }` |
 | DELETE | `/admin/workspaces/:ws_id` | — | `{ status: "deleted" }` |
-| DELETE | `/admin/users/:user_id/data` | `{ hard_delete?: bool }` | `{ status: "erased", hard_delete, removed }` |
+| DELETE | `/admin/users/:user_id/data` | `{ hard_delete?: bool }` | `{ status: "erased", hard_delete, removed }` — the person's messages go, except a thread root someone else answered, which stays as an empty tombstone |
 | GET | `/admin/scim/tokens` | — | `{ data: ScimToken[] }` |
 | POST | `/admin/scim/tokens` | `{ description? }` | `{ id, description, token }`, the token only here |
 | POST | `/admin/scim/tokens/:id/rotate` | — | `{ id, description, token }`; the old one is revoked |

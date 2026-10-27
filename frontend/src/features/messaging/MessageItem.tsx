@@ -1,5 +1,5 @@
 import { memo, useEffect, useState, useRef } from 'react';
-import { MessageSquare, Pin, Trash2 } from 'lucide-react';
+import { CornerDownRight, MessageSquare, Pin, Trash2 } from 'lucide-react';
 import { UserHoverCard } from '@/features/messaging/UserHoverCard';
 import { useLongPress } from '@/shared/hooks/useLongPress';
 import MessageActionSheet from './MessageActionSheet';
@@ -211,6 +211,18 @@ function MessageItem({
         </div>
         <div className="flex-1 min-w-0 py-1">
           <p className="text-sm text-muted italic">This message was deleted</p>
+          {message.reply_count > 0 && onThreadOpen && (
+            <button
+              onClick={() => onThreadOpen(message)}
+              data-qa="message-thread-open"
+              className="mt-1 flex items-center gap-1.5 text-xs text-accent hover:text-accent-soft transition"
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span className="font-medium">
+                {message.reply_count} {message.reply_count === 1 ? 'reply' : 'replies'}
+              </span>
+            </button>
+          )}
         </div>
       </div>
     );
@@ -362,6 +374,28 @@ function MessageItem({
               )}
             </div>
           )}
+
+          {message.thread_parent_id &&
+            message.metadata?.also_in_channel &&
+            (onThreadOpen ? (
+              <button
+                type="button"
+                onClick={() => onThreadOpen(message)}
+                data-qa="message-thread-reply-of"
+                className="mt-1 flex items-center gap-1.5 text-xs text-muted hover:text-accent transition"
+              >
+                <CornerDownRight className="w-3.5 h-3.5" />
+                Replied to a thread
+              </button>
+            ) : (
+              <p
+                className="mt-1 flex items-center gap-1.5 text-xs text-muted"
+                data-qa="message-also-in-channel"
+              >
+                <CornerDownRight className="w-3.5 h-3.5" />
+                Also sent to the channel
+              </p>
+            ))}
 
           {message.reply_count > 0 && onThreadOpen && (
             <button

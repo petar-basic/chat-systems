@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE messages p\n               SET reply_count = GREATEST(p.reply_count - c.n::int, 0)\n              FROM (SELECT thread_parent_id, COUNT(*) AS n FROM messages\n                     WHERE user_id = $1 AND thread_parent_id IS NOT NULL AND deleted_at IS NULL\n                     GROUP BY thread_parent_id) c\n             WHERE p.id = c.thread_parent_id\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4971c20542b4162e2babb7df8f34eccb28f47a6cb03dc29cc336e71bdb9a4504"
+}

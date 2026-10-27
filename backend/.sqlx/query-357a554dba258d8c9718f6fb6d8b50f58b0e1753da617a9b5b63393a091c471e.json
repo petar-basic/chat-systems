@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE scheduled_messages SET send_at = $2 WHERE id = $1 RETURNING id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at, attachment_ids",
+  "query": "\n            SELECT id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at, attachment_ids, thread_parent_id, also_in_channel FROM scheduled_messages\n            WHERE workspace_id = $1 AND user_id = $2 AND canceled_at IS NULL\n              AND (sent_at IS NULL OR failure IS NOT NULL)\n            ORDER BY send_at\n            ",
   "describe": {
     "columns": [
       {
@@ -123,12 +123,34 @@
             "name": "attachment_ids"
           }
         }
+      },
+      {
+        "ordinal": 11,
+        "name": "thread_parent_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "scheduled_messages",
+            "name": "thread_parent_id"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "also_in_channel",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "scheduled_messages",
+            "name": "also_in_channel"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
         "Uuid",
-        "Timestamptz"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -142,8 +164,10 @@
       true,
       true,
       false,
+      false,
+      true,
       false
     ]
   },
-  "hash": "7e8d90da0823fb7136e6b9ba538af257da9cbca2b94134140ac0813250e8cea2"
+  "hash": "357a554dba258d8c9718f6fb6d8b50f58b0e1753da617a9b5b63393a091c471e"
 }

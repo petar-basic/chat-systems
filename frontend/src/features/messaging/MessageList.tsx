@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useUnreadChannels } from '@/features/channel';
 import { UnreadDivider } from './UnreadDivider';
 import { MessageSquare } from 'lucide-react';
@@ -8,19 +9,24 @@ import { GalleryProvider } from './GalleryProvider';
 import { RovingContext, createRovingStore } from './rovingFocus';
 import { buildMessageRows, type MessageRow } from './messageRows';
 import { useWorkspaceStore, type Message, type WorkspaceMember, type Channel } from '@/stores/workspace';
-import { useMessages, messagesOldestFirst } from '@/features/messaging/hooks/useMessages';
+import {
+  useMessages,
+  messagesOldestFirst,
+  type MessagesInfiniteData,
+} from '@/features/messaging/hooks/useMessages';
+import { useOpenMessage } from './hooks/useMessageLocation';
 import { useUserCache } from '@/stores/users';
 import { displayNameOf } from '@/lib/userHelpers';
 import { useMessageActions } from './hooks/useMessageActions';
 import { formatDaySeparator } from './messageGrouping';
 import { QueryState } from '@/shared/components/QueryState/QueryState';
-import { EmptyLabels } from '@/shared/constants';
+import { EmptyLabels, QUERY_KEYS } from '@/shared/constants';
 
 interface Props {
   channelId: string;
   members?: WorkspaceMember[];
   channels?: Channel[];
-  onThreadOpen: (msg: Message) => void;
+  onThreadOpen: (msg: Message, replyId?: string) => void;
   onSave?: (msg: Message) => void;
   onForward?: (msg: Message) => void;
   highlightMessageId?: string;
@@ -57,6 +63,19 @@ export default function MessageList({
   );
   const { getUser } = useUserCache();
   const actions = useMessageActions(channelId);
+  const queryClient = useQueryClient();
+  const openMessage = useOpenMessage();
+  const openThread = useCallback(
+    (msg: Message) => {
+      const parentId = msg.thread_parent_id;
+      if (!parentId) return onThreadOpen(msg);
+      const cache = queryClient.getQueryData<MessagesInfiniteData>(QUERY_KEYS.messages(channelId));
+      const parent = cache?.pages.flatMap((p) => p.data).find((m) => m.id === parentId);
+      if (parent) onThreadOpen(parent, msg.id);
+      else void openMessage(msg.id);
+    },
+    [queryClient, channelId, onThreadOpen, openMessage],
+  );
 
   // Reset during render rather than in an effect, the way `useRightPanel` does:
   // a new permalink target should be pending before the first paint, not after.
@@ -125,7 +144,7 @@ export default function MessageList({
           senderStatusText={row.message.metadata?.bot ? null : sender?.status_text}
           senderAvatarUrl={row.message.metadata?.bot?.icon_url ?? sender?.avatar_url}
           isHighlighted={row.message.id === highlightMessageId}
-          onThreadOpen={onThreadOpen}
+          onThreadOpen={openThread}
           onToggleReaction={actions.toggleReaction}
           onTogglePin={actions.togglePin}
           onEdit={actions.editMessage}
@@ -140,7 +159,7 @@ export default function MessageList({
         />
       );
     },
-    [actions, channels, getUser, highlightMessageId, members, onForward, onSave, onThreadOpen],
+    [actions, channels, getUser, highlightMessageId, members, onForward, onSave, openThread],
   );
 
   return (

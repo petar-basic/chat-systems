@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at, attachment_ids FROM scheduled_messages WHERE id = $1",
+  "query": "SELECT id, workspace_id, user_id, channel_id, content, send_at, sent_at, canceled_at, failure, created_at, attachment_ids, thread_parent_id, also_in_channel FROM scheduled_messages WHERE id = $1",
   "describe": {
     "columns": [
       {
@@ -123,6 +123,28 @@
             "name": "attachment_ids"
           }
         }
+      },
+      {
+        "ordinal": 11,
+        "name": "thread_parent_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "scheduled_messages",
+            "name": "thread_parent_id"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "also_in_channel",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "scheduled_messages",
+            "name": "also_in_channel"
+          }
+        }
       }
     ],
     "parameters": {
@@ -141,8 +163,10 @@
       true,
       true,
       false,
+      false,
+      true,
       false
     ]
   },
-  "hash": "28962ff87d08be4c236068f58fb94e5e0ca0deb4e4966f21d478c863dad8a28a"
+  "hash": "bdc0012bc2cef9d139425d8b2df706bce33b73df03be9fb228da79cfbdb83add"
 }

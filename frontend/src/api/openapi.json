@@ -3540,15 +3540,15 @@
             }
           },
           {
-            "name": "offset",
+            "name": "cursor",
             "in": "query",
             "required": false,
             "schema": {
               "type": [
-                "integer",
+                "string",
                 "null"
               ],
-              "format": "int64"
+              "format": "uuid"
             }
           },
           {
@@ -3566,7 +3566,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DataList_Message"
+                  "$ref": "#/components/schemas/DataList_MessageWithReactions"
                 }
               }
             }
@@ -9944,6 +9944,9 @@
           "send_at"
         ],
         "properties": {
+          "also_to_channel": {
+            "type": "boolean"
+          },
           "attachment_ids": {
             "type": "array",
             "items": {
@@ -9961,6 +9964,13 @@
           "send_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "thread_parent_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -11586,6 +11596,38 @@
           }
         }
       },
+      "DataList_MessageWithReactions": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Message"
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "reactions"
+                  ],
+                  "properties": {
+                    "reactions": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Reaction"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
       "DataList_Notification": {
         "type": "object",
         "required": [
@@ -11776,9 +11818,13 @@
                 "content",
                 "send_at",
                 "created_at",
-                "attachment_ids"
+                "attachment_ids",
+                "also_in_channel"
               ],
               "properties": {
+                "also_in_channel": {
+                  "type": "boolean"
+                },
                 "attachment_ids": {
                   "type": "array",
                   "items": {
@@ -11824,6 +11870,13 @@
                     "null"
                   ],
                   "format": "date-time"
+                },
+                "thread_parent_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid"
                 },
                 "user_id": {
                   "type": "string",
@@ -14057,6 +14110,12 @@
       "MessageMetadata": {
         "type": "object",
         "properties": {
+          "also_in_channel": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
           "app_prompts": {
             "type": [
               "array",
@@ -14923,9 +14982,13 @@
           "content",
           "send_at",
           "created_at",
-          "attachment_ids"
+          "attachment_ids",
+          "also_in_channel"
         ],
         "properties": {
+          "also_in_channel": {
+            "type": "boolean"
+          },
           "attachment_ids": {
             "type": "array",
             "items": {
@@ -14971,6 +15034,13 @@
               "null"
             ],
             "format": "date-time"
+          },
+          "thread_parent_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
           },
           "user_id": {
             "type": "string",
@@ -15055,6 +15125,9 @@
           "content"
         ],
         "properties": {
+          "also_to_channel": {
+            "type": "boolean"
+          },
           "attachment_ids": {
             "type": "array",
             "items": {

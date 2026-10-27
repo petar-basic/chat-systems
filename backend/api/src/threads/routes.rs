@@ -63,13 +63,13 @@ async fn thread_root(
 ) -> AppResult<(Message, Uuid)> {
     let message = state
         .message_repo
-        .find_by_id(message_id)
+        .find_root(message_id)
         .await?
         .ok_or_else(|| AppError::NotFound("Thread not found".into()))?;
     let root = match message.thread_parent_id {
         Some(parent) => state
             .message_repo
-            .find_by_id(parent)
+            .find_root(parent)
             .await?
             .ok_or_else(|| AppError::NotFound("Thread not found".into()))?,
         None => message,

@@ -38,6 +38,7 @@ mod polls;
 mod profile;
 mod scheduled;
 mod sidebar;
+mod thread_keep_up;
 mod threads;
 mod workflows;
 mod workspace;

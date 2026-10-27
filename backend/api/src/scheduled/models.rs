@@ -16,6 +16,8 @@ pub struct ScheduledMessage {
     pub failure: Option<String>,
     pub created_at: DateTime<Utc>,
     pub attachment_ids: Vec<Uuid>,
+    pub thread_parent_id: Option<Uuid>,
+    pub also_in_channel: bool,
 }
 
 #[derive(Debug, Deserialize, garde::Validate, ToSchema)]
@@ -28,6 +30,9 @@ pub struct CreateScheduledMessageRequest {
     pub send_at: DateTime<Utc>,
     #[serde(default)]
     pub attachment_ids: Vec<Uuid>,
+    pub thread_parent_id: Option<Uuid>,
+    #[serde(default)]
+    pub also_to_channel: bool,
 }
 
 pub fn attachments_kept_until(send_at: DateTime<Utc>) -> DateTime<Utc> {

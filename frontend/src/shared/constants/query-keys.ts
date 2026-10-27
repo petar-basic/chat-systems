@@ -27,6 +27,7 @@ export const QUERY_KEYS = {
 
   messagesAll: () => ['messages'] as const,
   messages: (channelId: string) => ['messages', channelId] as const,
+  threadsAll: () => ['threads'] as const,
   thread: (parentId: string) => ['threads', parentId] as const,
   followedThreads: (workspaceId: string) => ['followed-threads', workspaceId] as const,
   unreadThreads: (workspaceId: string) => ['followed-threads', workspaceId, 'unread'] as const,

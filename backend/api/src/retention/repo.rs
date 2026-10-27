@@ -108,12 +108,19 @@ impl RetentionRepo {
     ) -> sqlx::Result<i64> {
         sqlx::query_scalar!(
             r#"
-            SELECT COUNT(*) AS "count!" FROM messages m
-              JOIN channels c ON c.id = m.channel_id
-              LEFT JOIN channel_retention cr ON cr.channel_id = c.id AND $3
-             WHERE c.workspace_id = $1
-               AND m.created_at < NOW() - make_interval(days =>
-                   CASE WHEN cr.channel_id IS NULL THEN $2 ELSE cr.message_days END)
+            WITH due AS (
+                SELECT m.id FROM messages m
+                  JOIN channels c ON c.id = m.channel_id
+                  LEFT JOIN channel_retention cr ON cr.channel_id = c.id AND $3
+                 WHERE c.workspace_id = $1
+                   AND m.thread_parent_id IS NULL
+                   AND GREATEST(m.created_at,
+                       (SELECT MAX(r.created_at) FROM messages r WHERE r.thread_parent_id = m.id))
+                       < NOW() - make_interval(days =>
+                         CASE WHEN cr.channel_id IS NULL THEN $2 ELSE cr.message_days END)
+            )
+            SELECT COUNT(*) AS "count!" FROM messages
+             WHERE id IN (SELECT id FROM due) OR thread_parent_id IN (SELECT id FROM due)
             "#,
             workspace_id,
             days,
@@ -134,16 +141,20 @@ impl RetentionRepo {
     ) -> sqlx::Result<u64> {
         let result = sqlx::query!(
             r"
+            WITH due AS (
+                SELECT m.id FROM messages m
+                  JOIN channels c ON c.id = m.channel_id
+                  LEFT JOIN channel_retention cr ON cr.channel_id = c.id AND $3
+                 WHERE c.workspace_id = $1
+                   AND m.thread_parent_id IS NULL
+                   AND GREATEST(m.created_at,
+                       (SELECT MAX(r.created_at) FROM messages r WHERE r.thread_parent_id = m.id))
+                       < NOW() - make_interval(days =>
+                         CASE WHEN cr.channel_id IS NULL THEN $2 ELSE cr.message_days END)
+                 LIMIT $4
+            )
             DELETE FROM messages
-             WHERE id IN (
-                 SELECT m.id FROM messages m
-                   JOIN channels c ON c.id = m.channel_id
-                   LEFT JOIN channel_retention cr ON cr.channel_id = c.id AND $3
-                  WHERE c.workspace_id = $1
-                    AND m.created_at < NOW() - make_interval(days =>
-                        CASE WHEN cr.channel_id IS NULL THEN $2 ELSE cr.message_days END)
-                  LIMIT $4
-             )
+             WHERE id IN (SELECT id FROM due) OR thread_parent_id IN (SELECT id FROM due)
             ",
             workspace_id,
             days,

@@ -199,7 +199,10 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 ### 5.2 🟢 Threads / replies
 - **Steps:** open a message → reply in thread → send a few replies.
 - **Expected:** the parent shows the correct **reply count** (incremented atomically); thread panel lists replies in order.
-- 🟠 **Edge:** reply, then delete the reply → parent reply count stays consistent.
+- 🟠 **Edge:** reply, then delete the reply → the parent's count goes down by one, in the channel and in a second tab with the thread open, and the reply leaves that tab's thread at once. A reaction on a reply shows in the other tab's open thread without reopening it.
+- 🟠 **Edge — long thread:** a thread past 50 replies opens on the newest; *Show earlier replies* loads the rest without jumping, back to the first.
+- 🟠 **Edge — deleted parent:** delete a message that has replies → it stays as *This message was deleted* with its reply count; the thread still opens and takes replies. Deleting one with no replies removes it. No reply ever appears in the channel on its own.
+- 🟢 **Also send to #channel:** tick it under the thread composer and send → the reply shows in the thread and in the channel with *Replied to a thread*, which opens the thread on it; members on *All* are notified as for a channel message. Schedule a reply from the thread composer → it arrives in the thread (*Scheduled* labels it *· thread*).
 
 ### 5.3 🟢 Reactions
 - **Steps:** add an emoji reaction; add the same one again; remove it.
