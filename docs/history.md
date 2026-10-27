@@ -1550,7 +1550,7 @@ each an ordinary draft to change before publishing. A list step lists the column
 picked list, and *Fill from the form answers* matches columns to questions by name. Moving
 or removing a step keeps every update step pointing at the step that adds its item.
 
-## Wave 24 — Ready for a company
+## Wave 24 — Ready for a company ✅ shipped
 
 ### [CS-068] Workflows without drafts ✅ shipped
 *Save draft* saved a workflow that did not run, but only once it was complete and valid, so

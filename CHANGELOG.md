@@ -14,24 +14,26 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
-## [Unreleased]
+## [3.4.0] — 2026-10-27
 
-### Upgrading
+### Upgrading from 3.3.0
 
-- The API runs migration 72 (`instance_setup`). An instance that already has an instance
-  admin prints no setup token and needs nothing. `ADMIN_PASSWORD` is optional now; once the
-  instance is up, remove it from `.env`.
-- `GET /instance/info` gains `setup_required`.
-- `GET /channels/{id}/messages` answers `{ data, unread_notifications? }`. The second field is
-  there only when the request asked for `mark_read=true`. A client that reads `data` sees no
-  change.
-- The API runs migration 71 on start (`retention_policies.channel_overrides` and the
-  `channel_retention` table); it is off for every workspace until an owner turns it on.
-  `PATCH /workspaces/{id}/retention` replaces the whole policy, so an API client that saves it
-  must now send `channel_overrides` too, or it switches them off.
-- `POST /workflows/{id}/publish` is now `POST /workflows/{id}/enable`, and
-  `POST /workspaces/{id}/workflows` creates a workflow that is already on. A workflow saved as
+- Pull both images and restart `api`, `worker`, `realtime` and `frontend` together; the API
+  runs migrations 71–72 on start, so snapshot first. Neither rewrites existing rows.
+- For API clients, two shapes change in a way a strict client notices:
+  `POST /workflows/{id}/publish` is now `POST /workflows/{id}/enable`, and
+  `PATCH /workspaces/{id}/retention` replaces the whole policy, so a client that saves it must
+  now send `channel_overrides` too, or it switches them off. Everything else is added.
+- Migration 71 adds `retention_policies.channel_overrides` and the `channel_retention` table;
+  channel periods are off for every workspace until an owner turns them on.
+- Migration 72 (`instance_setup`) needs nothing on an instance that already has an instance
+  admin, and it prints no setup token. `ADMIN_PASSWORD` is optional now; once the instance is
+  up, remove it from `.env`.
+- `POST /workspaces/{id}/workflows` creates a workflow that is already on. A workflow saved as
   a draft before the upgrade is one that is off; *Turn on* starts it.
+- `GET /instance/info` gains `setup_required`. `GET /channels/{id}/messages` answers
+  `{ data, unread_notifications? }`; the second field is there only when the request asked for
+  `mark_read=true`, so a client that reads `data` sees no change.
 
 ### Added
 
