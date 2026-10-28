@@ -29,7 +29,7 @@ impl Import<'_> {
             let slack_name = channel.folder().to_string();
             if let Some(&channel_id) = self.channels.get(&channel.id) {
                 self.report.channels_reused += 1;
-                if channel.is_archived {
+                if channel.is_archived && self.created_channels.contains(&channel_id) {
                     self.archived.push(channel_id);
                 }
                 self.add_channel_members(&channel, channel_id).await?;
@@ -40,11 +40,17 @@ impl Import<'_> {
             let wanted = sanitise_channel_name(&slack_name);
             let (name, existing) = self.place_channel(&wanted, channel_type).await?;
             if name != wanted {
-                self.report.notes.push(format!(
-                    "#{slack_name} was imported as #{name}: a channel of another kind already has its name here"
-                ));
+                let why = if *channel_type == ChannelType::Private {
+                    "a private channel never joins one that is already here"
+                } else {
+                    "a channel of another kind already has its name here"
+                };
+                self.report
+                    .notes
+                    .push(format!("#{slack_name} was imported as #{name}: {why}"));
             }
 
+            let created = existing.is_none();
             let channel_id = match existing {
                 Some(found) => {
                     self.report.channels_reused += 1;
@@ -94,10 +100,13 @@ impl Import<'_> {
             if !self.dry_run {
                 self.state
                     .slack_import_repo
-                    .map_channel(self.workspace_id, &channel.id, channel_id)
+                    .map_channel(self.workspace_id, &channel.id, channel_id, created)
                     .await?;
             }
             self.channels.insert(channel.id.clone(), channel_id);
+            if created {
+                self.created_channels.insert(channel_id);
+            }
             self.add_channel_members(&channel, channel_id).await?;
             targets.push((channel, channel_id));
         }
@@ -130,7 +139,10 @@ impl Import<'_> {
                 .await?
             {
                 None => return Ok((candidate, None)),
-                Some(found) if found.channel_type == *channel_type => {
+                Some(found)
+                    if found.channel_type == *channel_type
+                        && *channel_type != ChannelType::Private =>
+                {
                     return Ok((candidate, Some(found.id)))
                 }
                 Some(_) => attempt += 1,
@@ -192,7 +204,7 @@ impl Import<'_> {
 
             self.state
                 .slack_import_repo
-                .map_channel(self.workspace_id, &conversation.id, created.id)
+                .map_channel(self.workspace_id, &conversation.id, created.id, true)
                 .await?;
             self.channels.insert(conversation.id.clone(), created.id);
             targets.push((conversation, created.id));

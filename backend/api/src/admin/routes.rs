@@ -209,12 +209,7 @@ async fn activate_user(
     ip: ClientIp,
     Path(user_id): Path<Uuid>,
 ) -> AppResult<Json<StatusResponse>> {
-    sqlx::query!(
-        "UPDATE users SET status = 'active', updated_at = NOW() WHERE id = $1",
-        user_id
-    )
-    .execute(&state.pool)
-    .await?;
+    state.auth_service.repo().reactivate(user_id).await?;
 
     crate::sessions::restore(&state, user_id).await;
 

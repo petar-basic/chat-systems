@@ -1015,6 +1015,12 @@ failed within five minutes (*The import stopped when the worker did*). Press *St
 under the run, or `POST /api/workspaces/{id}/slack-imports/{run}/retry`; it picks up where it
 stopped. Migration 79 adds the heartbeat column the sweep reads.
 
+**Re-importing over channels that were already here.** A second run leaves a channel the first
+one merged into open, even when it is archived in Slack. Migration 80 records which channels an
+import made; a mapping from before it counts as merged, so a channel an older import created and
+archived is not archived again by a re-run. Private Slack channels never merge: a name already
+taken here becomes `<name>-slack`.
+
 ## What gets backed up
 
 | Data | Where it lives | Backed up by | Backup volume |

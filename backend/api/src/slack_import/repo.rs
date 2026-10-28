@@ -277,16 +277,19 @@ impl SlackImportRepo {
         Ok(())
     }
 
-    pub async fn channel_mappings(&self, workspace_id: Uuid) -> sqlx::Result<Vec<(String, Uuid)>> {
+    pub async fn channel_mappings(
+        &self,
+        workspace_id: Uuid,
+    ) -> sqlx::Result<Vec<(String, Uuid, bool)>> {
         let rows = sqlx::query!(
-            "SELECT slack_channel_id, channel_id FROM slack_channels WHERE workspace_id = $1",
+            "SELECT slack_channel_id, channel_id, created_by_import FROM slack_channels WHERE workspace_id = $1",
             workspace_id
         )
         .fetch_all(&self.pool)
         .await?;
         Ok(rows
             .into_iter()
-            .map(|r| (r.slack_channel_id, r.channel_id))
+            .map(|r| (r.slack_channel_id, r.channel_id, r.created_by_import))
             .collect())
     }
 
@@ -295,16 +298,19 @@ impl SlackImportRepo {
         workspace_id: Uuid,
         slack_channel_id: &str,
         channel_id: Uuid,
+        created_by_import: bool,
     ) -> sqlx::Result<()> {
         sqlx::query!(
             r"
-            INSERT INTO slack_channels (workspace_id, slack_channel_id, channel_id)
-            VALUES ($1, $2, $3)
-            ON CONFLICT (workspace_id, slack_channel_id) DO UPDATE SET channel_id = $3
+            INSERT INTO slack_channels (workspace_id, slack_channel_id, channel_id, created_by_import)
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT (workspace_id, slack_channel_id)
+            DO UPDATE SET channel_id = $3, created_by_import = $4
             ",
             workspace_id,
             slack_channel_id,
-            channel_id
+            channel_id,
+            created_by_import
         )
         .execute(&self.pool)
         .await?;

@@ -322,7 +322,7 @@ or data they should have lost comes first.
 | # | Ticket | Area |
 |---|---|---|
 | CS-089 ✅ | Gone means gone: SSO, erase, demotion, workflow links | backend |
-| [CS-090](CS-090-slack-import-boundaries.md) | A Slack import that respects what is already here | backend |
+| CS-090 ✅ | A Slack import that respects what is already here | backend |
 | CS-091 ✅ | An archived channel is read-only all the way | backend · frontend |
 | [CS-092](CS-092-read-state-holds.md) | Read state that matches what you read | backend · frontend |
 | [CS-093](CS-093-failed-sends-stay.md) | A failed send stays where you sent it | frontend |

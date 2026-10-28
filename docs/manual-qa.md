@@ -473,6 +473,7 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 - **Reach:** *Workspace settings → Slack import*.
 - **Steps:** import an export whose `users.json` has a guest (`is_restricted`), an account with `deleted: true`, an archived channel in `channels.json`, and reactions such as `:face_with_rolling_eyes:`, `:+1::skin-tone-4:` and a custom `:shipit:` (with `SLACK_TOKEN` set or an `emoji.json` in the zip). Then start another import, restart the worker (`docker compose restart worker`) while it says *running*, and wait five minutes.
 - **Expected:** the counts show guests, *who left Slack* and *archived*. The guest is a guest under *Members* and sees only its channels; the deleted person's messages carry their name and the account is suspended in the instance admin page; the archived channel shows its history with the archived bar; the reactions are 🙄, 👍🏽 and the custom image, and an unknown one is listed under *not imported*. The interrupted run turns *failed* with *The import stopped when the worker did*; *Start again* queues it and it completes without duplicating messages.
+- **Edge:** with a local private `#incident-2023` and a public `#general-chat`, import an export where both exist (the Slack `#general-chat` archived), then import it again → Slack's private history lands in `#incident-2023-slack` and nobody joins the local one; `#general-chat` stays open after both runs. Reactivate the suspended leaver in the instance admin page and invite them → they finish the sign-up with a password.
 
 ---
 
