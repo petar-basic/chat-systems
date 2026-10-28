@@ -1006,7 +1006,14 @@ against the same guard outgoing webhooks use before anything is fetched.
 they appear in the channel's history where they belong rather than as a wall of new activity —
 no unread counters move, and nothing is pushed to anybody's phone. Accounts created by the
 import have no password: those people go through the normal invite flow, and until they do,
-their history is attributed to an account only they can claim.
+their history is attributed to an account only they can claim. Slack guests arrive as guests,
+people who had left Slack arrive suspended with their name on their messages, and archived
+channels arrive archived.
+
+**A run that stops with the worker.** If the worker restarts mid-import, the run is marked
+failed within five minutes (*The import stopped when the worker did*). Press *Start again*
+under the run, or `POST /api/workspaces/{id}/slack-imports/{run}/retry`; it picks up where it
+stopped. Migration 79 adds the heartbeat column the sweep reads.
 
 ## What gets backed up
 

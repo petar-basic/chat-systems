@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, workspace_id, source, dry_run, report, status AS \"status: ImportStatus\",\n                   storage_key, requested_by, error, started_at, finished_at\n                 FROM slack_imports WHERE id = $1",
+  "query": "\n            UPDATE slack_imports\n               SET status = 'pending', error = NULL, finished_at = NULL, heartbeat_at = NULL,\n                   report = '{}'\n             WHERE id = $1 AND workspace_id = $2\n               AND status = 'failed' AND storage_key IS NOT NULL\n            RETURNING id, workspace_id, source, dry_run, report, status AS \"status: ImportStatus\",\n                   storage_key, requested_by, error,\n                   (status = 'failed' AND storage_key IS NOT NULL) AS \"retryable!\",\n                   started_at, finished_at\n            ",
   "describe": {
     "columns": [
       {
@@ -116,6 +116,12 @@
       },
       {
         "ordinal": 9,
+        "name": "retryable!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 10,
         "name": "started_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -126,7 +132,7 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 11,
         "name": "finished_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -139,6 +145,7 @@
     ],
     "parameters": {
       "Left": [
+        "Uuid",
         "Uuid"
       ]
     },
@@ -152,9 +159,10 @@
       true,
       true,
       true,
+      null,
       false,
       true
     ]
   },
-  "hash": "63cb5bf2e3239ae3f982a82768f9e66f8fc9994c1dc8c3293c90a426ae9cea6c"
+  "hash": "d4d273dd759be438edc793dc52267d6e7d6400696503791be367a9ee0b82fe9f"
 }

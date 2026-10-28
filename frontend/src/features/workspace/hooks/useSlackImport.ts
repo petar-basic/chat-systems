@@ -8,8 +8,11 @@ export type SlackImportStatus = components['schemas']['ImportStatus'];
 export interface SlackImportReport {
   users_matched: number;
   users_created: number;
+  guests: number;
+  users_suspended: number;
   channels_created: number;
   channels_reused: number;
+  channels_archived: number;
   conversations_created: number;
   memberships: number;
   messages_imported: number;
@@ -28,8 +31,11 @@ export type SlackImportRun = components['schemas']['ImportRun'];
 const COUNT_KEYS = [
   'users_matched',
   'users_created',
+  'guests',
+  'users_suspended',
   'channels_created',
   'channels_reused',
+  'channels_archived',
   'conversations_created',
   'memberships',
   'messages_imported',
@@ -110,6 +116,19 @@ export const useStartSlackImport = (workspaceId: string, instanceUrl?: string) =
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.slackImports(workspaceId) });
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaces() });
     },
+  });
+};
+
+export const useRetrySlackImport = (workspaceId: string, instanceUrl?: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (importId: string) =>
+      getApiForInstance(instanceUrl).typed((c) =>
+        c.POST('/workspaces/{ws_id}/slack-imports/{import_id}/retry', {
+          params: { path: { ws_id: workspaceId, import_id: importId } },
+        }),
+      ),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.slackImports(workspaceId) }),
   });
 };
 

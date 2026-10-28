@@ -630,7 +630,15 @@ writes its counters as it goes so a run that takes an hour has something to show
 | POST | `/workspaces/{ws_id}/slack-imports` | multipart: `archive` (the zip), `dry_run` | `ImportRun` — status `pending`; workspace admins only |
 | POST | `/slack-imports` | multipart: `archive`, `workspace_name`, `dry_run` | Creates the workspace, then queues — an export *is* a workspace, and there is nothing to import into yet. The name is the caller's: Slack writes it into the file name and nowhere inside the archive, not even the manifest |
 | GET | `/workspaces/{ws_id}/slack-imports` | — | `{ data: ImportRun[] }` — the last 20 runs |
-| GET | `/slack-imports/{import_id}` | — | `ImportRun` — status, live counts, and what was skipped |
+| GET | `/slack-imports/{import_id}` | — | `ImportRun` — status, live counts, what was skipped, and `retryable` |
+| POST | `/workspaces/{ws_id}/slack-imports/{import_id}/retry` | — | `ImportRun` back to `pending`, its report cleared; workspace admins only. Only a `failed` run whose archive is still stored (`retryable`) can be retried, otherwise `409` |
+
+**A run the worker lost fails instead of running for ever.** While a run is being imported the
+worker writes `slack_imports.heartbeat_at` every 30 seconds; each poll first marks any
+`running` row whose heartbeat is older than five minutes `failed` with *The import stopped
+when the worker did*. A failed run keeps its archive (only a finished one deletes it), so
+*Start again* re-queues it, and the import's idempotency makes the second attempt pick up
+where the first stopped.
 
 The archive is checked for a zip's magic bytes before anything is stored, capped at 512 MB
 (past that the answer is the CLI, and the error says so), kept in the same storage uploads
@@ -662,8 +670,23 @@ report.
 
 **Users are matched by email and by nothing else.** A Slack handle is not an identity.
 Somebody with no matching account is created with no password, so their history is
-attributed to an account only they can claim through the ordinary invite flow; a bot, or an
-account the export carries no address for, is reported rather than guessed at.
+attributed to an account only they can claim through the ordinary invite flow; a bot, or a
+current account the export carries no address for, is reported rather than guessed at. A
+Slack guest (`is_restricted` or `is_ultra_restricted`) joins as a guest, so it sees only the
+channels it was in. An account deleted in Slack is created **suspended** — with
+`slack-<id>@deleted.invalid` when the export kept no address — so its messages keep its name
+and nobody can sign in as it or be invited into it; an existing account matched by email is
+left as it is.
+
+**Archived stays archived.** A channel archived in Slack is created, filled and then archived,
+and a re-run archives it again. One that merged into an existing channel here is left open
+and the report says so.
+
+**Reactions map the way the composer does.** `slack_import/emoji_shortcodes.tsv` is the full
+emoji-mart shortcode set with its aliases and skin tones (`+1::skin-tone-3` is 👍🏼), generated
+from the frontend's `@emoji-mart/data` by `node scripts/emoji-shortcodes.mjs` in `frontend/`.
+A reaction that is not in it stays `:name:`, which renders as the workspace's custom emoji when
+one of that name exists; a name that is neither is listed in the report once.
 
 **Idempotent by construction.** `messages.slack_ts` carries the Slack timestamp the row came
 from, unique per channel, and `slack_users` / `slack_channels` record what a previous run
@@ -718,7 +741,7 @@ in silence.
 
 | Table | What it holds |
 |---|---|
-| `slack_imports` | One row per run: source, dry-run flag, status, the report as JSON, and the error if it failed |
+| `slack_imports` | One row per run: source, dry-run flag, status, the report as JSON, the error if it failed, and the worker's `heartbeat_at` while it runs |
 | `slack_users` | `(workspace, slack user id)` → our user |
 | `slack_channels` | `(workspace, slack channel id)` → our channel, DMs included |
 | `messages.slack_ts` | The Slack timestamp a message came from; unique per channel |

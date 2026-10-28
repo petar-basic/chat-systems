@@ -10,6 +10,9 @@ use crate::slack_import::source::ZipSource;
 use crate::state::AppState;
 
 const POLL: Duration = Duration::from_secs(5);
+const HEARTBEAT: Duration = Duration::from_secs(30);
+const STALE_AFTER: chrono::Duration = chrono::Duration::minutes(5);
+const STALE_ERROR: &str = "The import stopped when the worker did. Start it again to finish it.";
 
 /// Imports queued from the app. The CLI still exists for an export too large to
 /// travel through a browser; this is for the ones that are not, where "upload it
@@ -18,10 +21,26 @@ pub async fn start_import_worker(state: Arc<AppState>) {
     info!("Slack import worker started");
 
     loop {
+        match state
+            .slack_import_repo
+            .fail_stale(STALE_AFTER, STALE_ERROR)
+            .await
+        {
+            Ok(stale) => {
+                for id in stale {
+                    warn!(import_id = %id, "Slack import had no heartbeat for five minutes; marked failed");
+                }
+            }
+            Err(e) => warn!("Slack import worker: failed to sweep stale runs: {e}"),
+        }
+
         match state.slack_import_repo.claim_next().await {
             Ok(Some(job)) => {
                 let id = job.id;
-                if let Err(e) = run(&state, job).await {
+                let beating = tokio::spawn(beat(state.clone(), id));
+                let outcome = run(&state, job).await;
+                beating.abort();
+                if let Err(e) = outcome {
                     warn!(import_id = %id, "Slack import failed: {e}");
                     let _ = state.slack_import_repo.fail_run(id, &e).await;
                 }
@@ -31,6 +50,16 @@ pub async fn start_import_worker(state: Arc<AppState>) {
                 warn!("Slack import worker: failed to claim a job: {e}");
                 tokio::time::sleep(POLL).await;
             }
+        }
+    }
+}
+
+async fn beat(state: Arc<AppState>, id: uuid::Uuid) {
+    let mut ticks = tokio::time::interval(HEARTBEAT);
+    loop {
+        ticks.tick().await;
+        if let Err(e) = state.slack_import_repo.beat(id).await {
+            warn!(import_id = %id, "Slack import heartbeat failed: {e}");
         }
     }
 }

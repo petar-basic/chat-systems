@@ -81,6 +81,7 @@ impl Import<'_> {
 
         if self.dry_run {
             self.report.emoji_imported += 1;
+            self.custom_emoji.insert(name.clone());
             // Nothing is stored, but the alias pass still has to be able to see
             // that this name went past, or a dry run reports every alias as
             // unimportable and the report stops being worth reading.
@@ -117,6 +118,7 @@ impl Import<'_> {
     async fn record_emoji(&mut self, name: &str, storage_key: &str) -> AppResult<()> {
         if storage_key == DRY_RUN_KEY {
             self.report.emoji_imported += 1;
+            self.custom_emoji.insert(name.to_string());
             return Ok(());
         }
         match self

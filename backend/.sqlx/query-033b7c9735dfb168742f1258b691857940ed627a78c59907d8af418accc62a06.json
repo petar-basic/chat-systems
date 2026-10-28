@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            UPDATE slack_imports\n               SET status = 'running'\n             WHERE id = (\n                 SELECT id FROM slack_imports\n                  WHERE status = 'pending'\n                  ORDER BY started_at\n                  FOR UPDATE SKIP LOCKED\n                  LIMIT 1\n             )\n            RETURNING id, workspace_id, source, dry_run, report, status AS \"status: ImportStatus\",\n                   storage_key, requested_by, error, started_at, finished_at\n            ",
+  "query": "\n            INSERT INTO slack_imports (workspace_id, source, storage_key, requested_by, dry_run, status)\n            VALUES ($1, $2, $3, $4, $5, 'pending')\n            RETURNING id, workspace_id, source, dry_run, report, status AS \"status: ImportStatus\",\n                   storage_key, requested_by, error,\n                   (status = 'failed' AND storage_key IS NOT NULL) AS \"retryable!\",\n                   started_at, finished_at\n            ",
   "describe": {
     "columns": [
       {
@@ -116,6 +116,12 @@
       },
       {
         "ordinal": 9,
+        "name": "retryable!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 10,
         "name": "started_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -126,7 +132,7 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 11,
         "name": "finished_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -138,7 +144,13 @@
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Uuid",
+        "Varchar",
+        "Text",
+        "Uuid",
+        "Bool"
+      ]
     },
     "nullable": [
       false,
@@ -150,9 +162,10 @@
       true,
       true,
       true,
+      null,
       false,
       true
     ]
   },
-  "hash": "492ec7112d4766469b1ad1157be4ae69128cf4c783d0cb43b125aafaa996078d"
+  "hash": "033b7c9735dfb168742f1258b691857940ed627a78c59907d8af418accc62a06"
 }

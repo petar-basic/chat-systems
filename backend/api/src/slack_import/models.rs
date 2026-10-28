@@ -13,6 +13,10 @@ pub struct SlackUser {
     #[serde(default)]
     pub is_bot: bool,
     #[serde(default)]
+    pub is_restricted: bool,
+    #[serde(default)]
+    pub is_ultra_restricted: bool,
+    #[serde(default)]
     pub profile: SlackProfile,
 }
 
@@ -27,6 +31,10 @@ pub struct SlackProfile {
 }
 
 impl SlackUser {
+    pub fn is_guest(&self) -> bool {
+        self.is_restricted || self.is_ultra_restricted
+    }
+
     pub fn display_name(&self) -> String {
         self.profile
             .real_name
@@ -192,8 +200,14 @@ pub struct SlackManifestMetadata {
 pub struct ImportReport {
     pub users_matched: usize,
     pub users_created: usize,
+    #[serde(default)]
+    pub guests: usize,
+    #[serde(default)]
+    pub users_suspended: usize,
     pub channels_created: usize,
     pub channels_reused: usize,
+    #[serde(default)]
+    pub channels_archived: usize,
     pub memberships: usize,
     pub conversations_created: usize,
     pub conversations_reused: usize,
@@ -232,15 +246,19 @@ impl ImportReport {
 
     pub fn summary(&self) -> String {
         format!(
-            "users: {} matched, {} created | channels: {} created, {} reused | \
+            "users: {} matched, {} created, {} guests, {} suspended | \
+             channels: {} created, {} reused, {} archived | \
              conversations: {} created, {} reused | memberships: {} | \
              messages: {} imported, {} already present, {} in threads | \
              reactions: {} | pins: {} | files: {} | emoji: {} imported, {} already present | \
              skipped: {}",
             self.users_matched,
             self.users_created,
+            self.guests,
+            self.users_suspended,
             self.channels_created,
             self.channels_reused,
+            self.channels_archived,
             self.conversations_created,
             self.conversations_reused,
             self.memberships,
