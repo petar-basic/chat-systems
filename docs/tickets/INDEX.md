@@ -20,6 +20,7 @@ shipped too. Waves 18 and 19 are shipped too. In Wave 20, CS-059 shipped in 3.2.
 chosen in the 2026-10-23 review, shipped in 3.3.0. Wave 24, from the 2026-10-26 review, shipped
 in 3.4.0. Wave 25, which moves the profile and notification settings to each workspace, shipped
 in 3.5.0. Wave 26, which fixes what the 2026-10-27 product survey found, shipped in 3.6.0.
+Wave 27 fixes what the 2026-10-28 survey of 3.6.0 found.
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
@@ -307,6 +308,28 @@ unverified in the survey are checked first in their ticket and dropped if they d
 | CS-087 ✅ | A photo that shows everywhere | backend · frontend |
 | CS-088 ✅ | A Slack import that keeps what it found | backend |
 
+### Wave 27 — What the second survey found
+
+A second survey on 2026-10-28 read 3.6.0 against the first and listed twenty-four open
+findings and nine smaller ones. Twenty-two held when checked in the code; a demoted admin's
+hooks (SEC-3) held only in part — the executor already stops at channels they cannot read —
+and a doubled unread count after a laptop wakes (RT-1) corrects itself on the next event, so
+it was dropped, as was the release build's `PREVIOUS_IMAGE`, which is the previous release by
+design. Two findings are regressions of Wave 26: a re-import archiving a merged channel
+(CS-088) and *Mark all read* loading a whole channel (CS-082). What lets somebody keep access
+or data they should have lost comes first.
+
+| # | Ticket | Area |
+|---|---|---|
+| [CS-089](CS-089-gone-means-gone.md) | Gone means gone: SSO, erase, demotion, workflow links | backend |
+| [CS-090](CS-090-slack-import-boundaries.md) | A Slack import that respects what is already here | backend |
+| [CS-091](CS-091-archived-read-only.md) | An archived channel is read-only all the way | backend · frontend |
+| [CS-092](CS-092-read-state-holds.md) | Read state that matches what you read | backend · frontend |
+| [CS-093](CS-093-failed-sends-stay.md) | A failed send stays where you sent it | frontend |
+| [CS-094](CS-094-addresses-photos-hooks.md) | Addresses, workspace photos and hooks that keep working | backend · frontend |
+| [CS-095](CS-095-push-right-device-server.md) | Push to the right device, from the right server | realtime · backend · frontend |
+| [CS-096](CS-096-survey-small-things.md) | The survey's small things | backend · frontend · realtime |
+
 ### Still open
 
 | # | Ticket | Area | Why it is not done |
@@ -346,3 +369,8 @@ Tickets that touch the same files, and the order that avoids rework:
 | message route resolution | CS-079 ✅ → CS-080 ✅ → CS-082 ✅ |
 | Slack import channel mapping | CS-077 ✅ → CS-088 ✅ |
 | archived channels | CS-085 ✅ → CS-088 ✅ |
+| `auth/oidc_routes.rs` and account lookup by email | CS-089 → CS-094 |
+| Slack import channel placement and archiving | CS-090 |
+| channel writers' archive checks in `messaging/routes.rs` | CS-091 → CS-092 |
+| `notifications/repo.rs` read and badge queries | CS-092 → CS-095 |
+| `stores/unsent.ts` and `MessageInput.tsx` | CS-093 → CS-096 |
