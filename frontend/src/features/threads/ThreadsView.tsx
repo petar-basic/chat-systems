@@ -15,6 +15,8 @@ import {
   type ThreadSummary,
 } from '@/features/threads/hooks/useThreads';
 import { QUERY_KEYS } from '@/shared/constants';
+import { useUnsent } from '@/stores/unsent';
+import { discardUnsent } from '@/lib/unsent';
 
 interface Props {
   workspaceId: string;
@@ -198,14 +200,28 @@ function ThreadCard({
   const others = replies.filter((reply) => reply.user_id !== currentUserId);
   const newIds = new Set(fresh > 0 ? others.slice(-fresh).map((reply) => reply.id) : []);
 
+  const unsent = useUnsent(root.id);
+  const refreshThreads = {
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.followedThreads(workspaceId) }),
+  };
+
   const handleSend = async (content: string) => {
     sendReply.mutate(
       { content, id: crypto.randomUUID(), attachments: asAttachments(attachments.take()) },
-      {
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.followedThreads(workspaceId) }),
-      },
+      refreshThreads,
     );
   };
+  const retry = (reply: Message) =>
+    sendReply.mutate(
+      {
+        content: reply.content,
+        id: reply.id,
+        attachments: reply.metadata?.attachments ?? [],
+        alsoToChannel: !!reply.metadata?.also_in_channel,
+      },
+      refreshThreads,
+    );
+  const discard = (reply: Message) => discardUnsent(queryClient, reply, `thread:${root.id}`);
 
   return (
     <section
@@ -245,6 +261,13 @@ function ThreadCard({
         {replies.map((reply) => (
           <ThreadLine key={reply.id} message={reply} highlighted={newIds.has(reply.id)} />
         ))}
+        {unsent.map((reply) => (
+          <ThreadLine
+            key={reply.id}
+            message={{ ...reply, metadata: reply.metadata ?? {} }}
+            failure={{ onRetry: () => retry(reply), onDiscard: () => discard(reply) }}
+          />
+        ))}
       </ol>
       <div className="border-t border-line/50" data-qa="thread-card-reply">
         <MessageInput
@@ -265,9 +288,11 @@ function ThreadCard({
 function ThreadLine({
   message,
   highlighted = false,
+  failure,
 }: {
   message: ThreadSummary['root'];
   highlighted?: boolean;
+  failure?: { onRetry: () => void; onDiscard: () => void };
 }) {
   const { getUser } = useUserCache();
   const sender = getUser(message.user_id);
@@ -289,6 +314,27 @@ function ThreadLine({
           </p>
         ) : (
           <RichTextDisplay content={message.content} attachments={message.metadata?.attachments} />
+        )}
+        {failure && (
+          <div className="mt-1 flex items-center gap-2 text-xs text-danger" data-qa="message-failed">
+            <span>Failed to send.</span>
+            <button
+              type="button"
+              onClick={failure.onRetry}
+              data-qa="message-retry"
+              className="font-semibold text-danger hover:text-danger underline"
+            >
+              Retry
+            </button>
+            <button
+              type="button"
+              onClick={failure.onDiscard}
+              data-qa="message-discard"
+              className="font-semibold text-muted hover:text-fg underline"
+            >
+              Discard
+            </button>
+          </div>
         )}
       </div>
     </li>

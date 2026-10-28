@@ -112,3 +112,78 @@ test('a thread reply that loses the network can be retried or put back', async (
     await alice.dispose();
   }
 });
+
+test('a reply from the Threads view that loses the network stays on its card', async ({ page }) => {
+  const { ctx: alice } = await userContext('alice@dev.local');
+  const { ctx: bob } = await userContext('bob@dev.local');
+  const workspace = await devWorkspace(alice);
+  const channel = await createChannel(alice, workspace.id, 'kept-card');
+  const stamp = Date.now();
+  const text = `card-reply-${stamp}`;
+
+  try {
+    const root = await (
+      await alice.post(`${API}/channels/${channel.id}/messages`, { data: { content: `card-root-${stamp}` } })
+    ).json();
+    expect((await bob.post(`${API}/channels/${channel.id}/join`)).status()).toBe(200);
+    await bob.post(`${API}/channels/${channel.id}/messages`, {
+      data: { content: `card-bob-${stamp}`, thread_parent_id: root.id },
+    });
+
+    await login(page, 'alice@dev.local');
+    await page.goto(`/app/${workspace.id}/threads`);
+    const card = page.locator('[data-qa="thread-card"]', { hasText: `card-root-${stamp}` });
+    await expect(card).toBeVisible({ timeout: 20_000 });
+
+    await cutSends(page);
+    const editor = card.locator('.ProseMirror[contenteditable="true"]');
+    await editor.click();
+    await editor.fill(text);
+    await editor.press('Enter');
+    const failed = card.locator('li', { hasText: text }).locator('[data-qa="message-failed"]');
+    await expect(failed).toBeVisible({ timeout: 15_000 });
+
+    await page.unroute('**/api/channels/*/messages');
+    await card.locator('li', { hasText: text }).locator('[data-qa="message-retry"]').click();
+    await expect(failed).toHaveCount(0, { timeout: 15_000 });
+    await expect(card.getByText(text)).toBeVisible({ timeout: 15_000 });
+  } finally {
+    await alice.delete(`${API}/channels/${channel.id}`);
+    await alice.dispose();
+    await bob.dispose();
+  }
+});
+
+test('a failed message is still there after a reload', async ({ page }) => {
+  const { ctx: alice } = await userContext('alice@dev.local');
+  const workspace = await devWorkspace(alice);
+  const channel = await createChannel(alice, workspace.id, 'kept-reload');
+  const text = `reload-${Date.now()}`;
+
+  try {
+    await login(page, 'alice@dev.local');
+    await page.goto(`/app/${workspace.id}/${channel.id}`);
+    await expect(page.locator('[data-qa="channel-header-name"]')).toHaveText(channel.name);
+
+    await cutSends(page);
+    const composer = page.locator('.ProseMirror[contenteditable="true"]').last();
+    await composer.click();
+    await composer.pressSequentially(text);
+    await page.locator('[data-qa="composer-send"]').last().click();
+    const row = page.locator('[data-qa="message-row"]', { hasText: text });
+    await expect(row.locator('[data-qa="message-failed"]')).toBeVisible({ timeout: 15_000 });
+
+    await page.unroute('**/api/channels/*/messages');
+    await page.reload();
+    await expect(page.locator('[data-qa="channel-header-name"]')).toHaveText(channel.name, {
+      timeout: 20_000,
+    });
+    await expect(row.locator('[data-qa="message-failed"]')).toBeVisible({ timeout: 15_000 });
+
+    await row.locator('[data-qa="message-retry"]').click();
+    await expect(row.locator('[data-qa="message-failed"]')).toHaveCount(0, { timeout: 15_000 });
+  } finally {
+    await alice.delete(`${API}/channels/${channel.id}`);
+    await alice.dispose();
+  }
+});
