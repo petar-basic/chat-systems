@@ -1,0 +1,160 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE hooks\n                  SET is_active = true, disabled_reason = NULL, created_by = $2, updated_at = NOW()\n                WHERE id = $1\n            RETURNING id, workspace_id, created_by, hook_type AS \"hook_type: HookType\", name, description,\n                      config, is_active AS \"is_active!\", disabled_reason, created_at, updated_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hooks",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hooks",
+            "name": "workspace_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "created_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hooks",
+            "name": "created_by"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "hook_type: HookType",
+        "type_info": {
+          "Custom": {
+            "name": "hook_type",
+            "kind": {
+              "Enum": [
+                "incoming_webhook",
+                "outgoing_webhook",
+                "slash_command"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "hooks",
+            "name": "hook_type"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "name",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "hooks",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "description",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hooks",
+            "name": "description"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "config",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "hooks",
+            "name": "config"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "is_active!",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "hooks",
+            "name": "is_active"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "disabled_reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hooks",
+            "name": "disabled_reason"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "hooks",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "hooks",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "3664925fa7bd1b29afa3e711d2f9061d51e9af5ecc385977d8a75d9c6aa57f28"
+}

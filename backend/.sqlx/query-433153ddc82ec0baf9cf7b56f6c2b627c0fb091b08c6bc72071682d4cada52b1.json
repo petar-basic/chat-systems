@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE workspace_members SET avatar_url = $4 WHERE workspace_id = $1 AND user_id = $2 AND avatar_url = $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Varchar"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "433153ddc82ec0baf9cf7b56f6c2b627c0fb091b08c6bc72071682d4cada52b1"
+}

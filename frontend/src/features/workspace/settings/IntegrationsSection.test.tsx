@@ -9,6 +9,7 @@ const createMutate = vi.fn();
 const deleteMutate = vi.fn();
 const revealMutate = vi.fn();
 const rotateMutate = vi.fn();
+const enableMutate = vi.fn();
 let hooks: Hook[] = [];
 
 const hook = (over: Partial<Hook>): Hook => ({
@@ -39,6 +40,7 @@ vi.mock('@/features/workspace/hooks/useHooks', () => ({
   useDeleteHook: () => ({ mutateAsync: deleteMutate, isPending: false }),
   useRevealHook: () => ({ mutateAsync: revealMutate, isPending: false }),
   useRotateHook: () => ({ mutateAsync: rotateMutate, isPending: false }),
+  useEnableHook: () => ({ mutateAsync: enableMutate, isPending: false }),
 }));
 
 const channels = [
@@ -63,6 +65,7 @@ describe('IntegrationsSection', () => {
       return created;
     });
     deleteMutate.mockReset().mockResolvedValue(undefined);
+    enableMutate.mockReset().mockResolvedValue(hook({}));
     revealMutate.mockReset().mockResolvedValue(secrets({}));
     rotateMutate.mockReset().mockResolvedValue(
       secrets({
@@ -201,5 +204,19 @@ describe('IntegrationsSection', () => {
     expect(screen.getByTestId('hook-inactive')).toHaveTextContent(
       "Disabled — its creator's account is suspended",
     );
+  });
+
+  it('turns a stopped hook back on', async () => {
+    hooks = [hook({ is_active: false, disabled_reason: 'Its creator is no longer allowed to make it' })];
+    renderPanel();
+
+    fireEvent.click(screen.getByTestId('hook-enable'));
+    await waitFor(() => expect(enableMutate).toHaveBeenCalledWith('hook-1'));
+  });
+
+  it('offers nothing to turn on for a running hook', () => {
+    hooks = [hook({})];
+    renderPanel();
+    expect(screen.queryByTestId('hook-enable')).toBeNull();
   });
 });

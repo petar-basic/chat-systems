@@ -26,14 +26,13 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
             routes!(upload_account_photo)
                 .layer(DefaultBodyLimit::max(MAX_AVATAR_BYTES + 64 * 1024)),
         )
+        .routes(
+            routes!(upload_workspace_photo)
+                .layer(DefaultBodyLimit::max(MAX_AVATAR_BYTES + 64 * 1024)),
+        )
 }
 
-#[utoipa::path(post, path = "/users/me/avatar", tag = "users", request_body(content = String, content_type = "multipart/form-data", description = "A `file` field: a PNG, JPEG, GIF or WebP image of at most 10 MB"), responses((status = 200, body = UserPublic)))]
-async fn upload_account_photo(
-    State(state): State<Arc<AppState>>,
-    auth: AuthUser,
-    mut multipart: Multipart,
-) -> AppResult<Json<UserPublic>> {
+async fn photo_field(mut multipart: Multipart) -> AppResult<axum::body::Bytes> {
     let mut photo = None;
     while let Some(field) = multipart
         .next_field()
@@ -49,7 +48,16 @@ async fn upload_account_photo(
             );
         }
     }
-    let photo = photo.ok_or_else(|| AppError::Validation("Choose a photo to upload".into()))?;
+    photo.ok_or_else(|| AppError::Validation("Choose a photo to upload".into()))
+}
+
+#[utoipa::path(post, path = "/users/me/avatar", tag = "users", request_body(content = String, content_type = "multipart/form-data", description = "A `file` field: a PNG, JPEG, GIF or WebP image of at most 10 MB"), responses((status = 200, body = UserPublic)))]
+async fn upload_account_photo(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    multipart: Multipart,
+) -> AppResult<Json<UserPublic>> {
+    let photo = photo_field(multipart).await?;
 
     let before = state
         .auth_service
@@ -57,7 +65,7 @@ async fn upload_account_photo(
         .find_by_id(auth.user_id)
         .await?
         .ok_or_else(|| AppError::NotFound("User not found".into()))?;
-    let key = avatar::store(&state, auth.user_id, photo).await?;
+    let key = avatar::store(&state, auth.user_id, None, photo).await?;
     let url = state.file_storage.public_url(&key);
     let user = match state
         .auth_service
@@ -71,8 +79,38 @@ async fn upload_account_photo(
             return Err(e.into());
         }
     };
-    avatar::forget(&state, auth.user_id, before.avatar_url.as_deref()).await;
+    avatar::forget(&state, auth.user_id, None, before.avatar_url.as_deref()).await;
     Ok(Json(user.into()))
+}
+
+#[utoipa::path(post, path = "/workspaces/{ws_id}/profile/avatar", tag = "users", request_body(content = String, content_type = "multipart/form-data", description = "A `file` field: a PNG, JPEG, GIF or WebP image of at most 10 MB"), responses((status = 200, body = WorkspaceProfile)))]
+async fn upload_workspace_photo(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(ws_id): Path<Uuid>,
+    multipart: Multipart,
+) -> AppResult<Json<WorkspaceProfile>> {
+    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
+    let photo = photo_field(multipart).await?;
+    let before = current(&state, ws_id, auth.user_id).await?;
+    let key = avatar::store(&state, auth.user_id, Some(ws_id), photo).await?;
+    let url = state.file_storage.public_url(&key);
+    if let Err(e) = state
+        .profile_repo
+        .update(ws_id, auth.user_id, None, Some(&url), None)
+        .await
+    {
+        let _ = state.file_storage.delete(&key).await;
+        return Err(e.into());
+    }
+    avatar::forget(
+        &state,
+        auth.user_id,
+        Some(ws_id),
+        before.avatar_url.as_deref(),
+    )
+    .await;
+    Ok(Json(current(&state, ws_id, auth.user_id).await?))
 }
 
 async fn current(state: &AppState, ws_id: Uuid, user_id: Uuid) -> AppResult<WorkspaceProfile> {
@@ -102,6 +140,7 @@ async fn update_workspace_profile(
 ) -> AppResult<Json<WorkspaceProfile>> {
     req.validate()?;
     authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
+    let before = current(&state, ws_id, auth.user_id).await?;
     state
         .profile_repo
         .update(
@@ -112,7 +151,17 @@ async fn update_workspace_profile(
             req.bio.as_deref(),
         )
         .await?;
-    Ok(Json(current(&state, ws_id, auth.user_id).await?))
+    let after = current(&state, ws_id, auth.user_id).await?;
+    if before.avatar_url != after.avatar_url {
+        avatar::forget(
+            &state,
+            auth.user_id,
+            Some(ws_id),
+            before.avatar_url.as_deref(),
+        )
+        .await;
+    }
+    Ok(Json(after))
 }
 
 #[utoipa::path(put, path = "/workspaces/{ws_id}/profile/status", tag = "users", request_body = SetStatusRequest, responses((status = 200, body = WorkspaceProfile)))]

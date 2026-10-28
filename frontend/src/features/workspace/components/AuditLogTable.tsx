@@ -42,6 +42,7 @@ const ACTION_LABELS: Record<string, string> = {
   'hook.revealed': 'Integration secret revealed',
   'hook.rotated': 'Integration secret rotated',
   'hook.disabled': 'Integration turned off',
+  'hook.enabled': 'Integration turned back on',
   'file.deleted': 'File deleted',
   'user.suspended': 'User suspended',
   'user.activated': 'User activated',

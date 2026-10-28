@@ -459,24 +459,6 @@ impl FileRepo {
             .await
     }
 
-    /// Workspace photos are uploaded like any other file and never posted to a
-    /// message, so they land in the "nothing owns it" bucket. They are meant to
-    /// be seen.
-    pub async fn is_avatar(&self, storage_key: &str) -> sqlx::Result<bool> {
-        sqlx::query_scalar!(
-            r#"
-            SELECT EXISTS(
-              SELECT 1 FROM workspace_members
-              WHERE avatar_url IS NOT NULL
-                AND position($1 in avatar_url) > 0
-            ) AS "exists!"
-            "#,
-            storage_key
-        )
-        .fetch_one(&self.pool)
-        .await
-    }
-
     pub async fn uploaded_by(&self, user_id: Uuid) -> sqlx::Result<Vec<FileRecord>> {
         sqlx::query_as!(FileRecord, "SELECT id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, created_at FROM files WHERE user_id = $1", user_id)
             .fetch_all(&self.pool)

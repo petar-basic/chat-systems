@@ -27,6 +27,13 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - Reactivating an account that has no password and no SSO link (an imported Slack leaver), from
   the admin page or with SCIM `active: true`, leaves it `pending` instead of `active`; invite
   the person to let them in.
+- Migration 81 lowercases every email address and refuses mixed case from then on. If two
+  accounts differ only in case it stops and names them, and the `api` does not start until one
+  is merged or renamed; the RUNBOOK says how. The worker moves workspace photos out of their
+  workspace's files on its first start, as it did account photos.
+- For API clients: a workspace photo is uploaded with `POST /workspaces/{id}/profile/avatar`;
+  one uploaded through `/files/upload` is an ordinary file again and no longer readable by the
+  workspace. `PATCH /hooks/{id}` with `{ "is_active": true }` turns a stopped hook back on.
 
 ### Security
 
@@ -64,6 +71,14 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   card shows the failed reply with *Retry* and *Discard*, failed messages survive a reload, a
   delivered message never keeps a failed copy, and scheduling refuses a failed file as sending
   does.
+- **An address works in any case.** An invite to `Ana@Firma.com` made an account SSO could not
+  find as `ana@firma.com`, so it refused or made a second one, and signing in with the password
+  needed the exact case. Addresses are stored lowercase now.
+- **A workspace photo stays.** It was a file of that workspace, so file retention deleted it with
+  old attachments. It has a place of its own now, shown to that workspace's members.
+- **A stopped hook can be turned back on.** One switched off because its creator left or lost
+  the channel could only be deleted and made again; *Integrations* has *Turn on*, and whoever
+  turns it on becomes its creator.
 
 ## [3.6.0] — 2026-10-28
 

@@ -476,7 +476,7 @@ impl WorkspaceRepo {
             r#"
             INSERT INTO workspace_invites
                 (workspace_id, created_by, email, role, token, max_uses, expires_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            VALUES ($1, $2, lower($3), $4, $5, $6, $7)
             RETURNING id, workspace_id, created_by, email, role AS "role: WorkspaceRole", token, max_uses,
                    use_count AS "use_count!", expires_at, created_at
             "#,
@@ -557,7 +557,7 @@ impl WorkspaceRepo {
             r#"SELECT id, workspace_id, created_by, email, role AS "role: WorkspaceRole", token, max_uses,
                    use_count AS "use_count!", expires_at, created_at
                  FROM workspace_invites
-                WHERE lower(email) = lower($1)
+                WHERE email = lower($1)
                   AND expires_at >= NOW()
                   AND (max_uses IS NULL OR use_count < max_uses)
                 ORDER BY created_at DESC

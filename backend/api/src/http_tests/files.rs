@@ -602,51 +602,6 @@ async fn an_unposted_upload_belongs_to_whoever_uploaded_it(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
-async fn a_workspace_photo_stays_readable_to_the_workspace(pool: PgPool) {
-    let (app, state) = app_and_state(pool).await;
-    let (alice_id, _, alice) = seed_and_login(&app, &state, "avatar-alice", false).await;
-    let ws_id = seed_workspace(&state, alice_id, "Avatar WS").await;
-    let (bob_id, _, bob) = seed_and_login(&app, &state, "avatar-bob", false).await;
-    add_ws_member(&state, ws_id, bob_id, "member").await;
-    let (_, _, outsider) = seed_and_login(&app, &state, "avatar-outsider", false).await;
-
-    let (_, key) = upload_one(&app, &alice, ws_id, "face.png").await;
-    let download = format!("/api/files/download/{key}");
-
-    // Before it is anybody's avatar it is just a draft.
-    let (status, _b) = send(&app, "GET", &download, Some(&bob), None).await;
-    assert_eq!(
-        status,
-        StatusCode::FORBIDDEN,
-        "an unposted upload stays private"
-    );
-
-    let (status, body) = send(
-        &app,
-        "PATCH",
-        &format!("/api/workspaces/{ws_id}/profile"),
-        Some(&alice),
-        Some(json!({ "avatar_url": download.clone() })),
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK, "set avatar: {body:?}");
-
-    let (status, _b) = send(&app, "GET", &download, Some(&bob), None).await;
-    assert_eq!(
-        status,
-        StatusCode::OK,
-        "an avatar has to render for everyone who can see the person"
-    );
-
-    let (status, _b) = send(&app, "GET", &download, Some(&outsider), None).await;
-    assert_eq!(
-        status,
-        StatusCode::FORBIDDEN,
-        "but not for somebody outside the workspace"
-    );
-}
-
-#[test_macros::db_test(migrations = "../migrations")]
 async fn an_upload_over_the_cap_is_refused_and_leaves_nothing_behind(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (alice_id, _, alice) = seed_and_login(&app, &state, "cap-alice", false).await;

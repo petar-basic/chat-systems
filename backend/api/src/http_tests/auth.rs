@@ -1046,3 +1046,118 @@ async fn an_sso_account_is_told_to_use_sso_instead_of_a_reset(pool: PgPool) {
     assert_eq!(sent[0].0, "You sign in with SSO");
     assert_eq!(reset_tokens_of(&state, &email).await, 0);
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_invite_to_a_mixed_case_address_registers_and_signs_in_in_any_case(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _) = seed(&state, "ws-owner", false).await;
+    let workspace_id = seed_workspace(&state, owner_id, "Invite WS").await;
+
+    let typed = unique_email("Ana.Case").replace("test.local", "Firma.Test");
+    let stored = typed.to_lowercase();
+    let pending = state
+        .auth_service
+        .repo()
+        .create(&typed, None, None, false)
+        .await
+        .expect("create pending user");
+    assert_eq!(pending.email, stored);
+    let (_, token) = email_invite(
+        &state,
+        workspace_id,
+        owner_id,
+        pending.id,
+        &typed,
+        WorkspaceRole::Member,
+    )
+    .await;
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        "/api/auth/complete-registration",
+        None,
+        Some(json!({ "token": token, "password": "newpassword123", "display_name": "Ana" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(body["user"]["email"], stored);
+
+    for spelling in [typed.clone(), stored.clone(), typed.to_uppercase()] {
+        let (status, body) = send(
+            &app,
+            "POST",
+            "/api/auth/login",
+            None,
+            Some(json!({ "email": spelling, "password": "newpassword123" })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{spelling}: {body:?}");
+    }
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn the_address_migration_stops_on_a_clash_and_lowercases_otherwise(pool: PgPool) {
+    let migration = include_str!("../../../migrations/20240305000081_lowercase_emails.sql");
+    sqlx::raw_sql(
+        "ALTER TABLE users DROP CONSTRAINT users_email_lowercase;
+         ALTER TABLE workspace_invites DROP CONSTRAINT workspace_invites_email_lowercase;",
+    )
+    .execute(&pool)
+    .await
+    .expect("undo the migration");
+    let insert = |email: &'static str| {
+        let pool = pool.clone();
+        async move {
+            sqlx::query_scalar::<_, Uuid>(
+                "INSERT INTO users (email, status) VALUES ($1, 'active') RETURNING id",
+            )
+            .bind(email)
+            .fetch_one(&pool)
+            .await
+            .expect("insert user")
+        }
+    };
+    insert("Mixed@Case.Test").await;
+    let twin = insert("mixed@case.test").await;
+    insert("Alone@Case.Test").await;
+
+    let refused = sqlx::raw_sql(migration)
+        .execute(&pool)
+        .await
+        .expect_err("two spellings of one address stop it");
+    let message = refused.to_string();
+    assert!(
+        message.contains("Mixed@Case.Test") && message.contains("mixed@case.test"),
+        "{message}"
+    );
+    let untouched: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM users WHERE email = 'Alone@Case.Test'")
+            .fetch_one(&pool)
+            .await
+            .expect("count");
+    assert_eq!(untouched, 1, "nothing changes when it stops");
+
+    sqlx::query("DELETE FROM users WHERE id = $1")
+        .bind(twin)
+        .execute(&pool)
+        .await
+        .expect("resolve the clash");
+    sqlx::raw_sql(migration)
+        .execute(&pool)
+        .await
+        .expect("runs once the clash is gone");
+    let emails: Vec<String> =
+        sqlx::query_scalar("SELECT email FROM users WHERE email LIKE '%@case.test' ORDER BY email")
+            .fetch_all(&pool)
+            .await
+            .expect("emails");
+    assert_eq!(emails, vec!["alone@case.test", "mixed@case.test"]);
+    assert!(
+        sqlx::query("INSERT INTO users (email, status) VALUES ('Again@Case.Test', 'active')")
+            .execute(&pool)
+            .await
+            .is_err(),
+        "a mixed-case address is refused from then on"
+    );
+}

@@ -139,6 +139,10 @@ the `access_token` / `refresh_token` cookies (see Cross-cutting concerns).
 
 ### auth
 
+An email address is stored lowercase (`users_email_lowercase` and
+`workspace_invites_email_lowercase` refuse anything else), and every lookup lowercases what it
+is given, so sign-in, invites and SSO match an address in any case.
+
 Handles user identity — login, registration, JWT, and profile.
 
 **Input / Output:**
@@ -161,7 +165,8 @@ Handles user identity — login, registration, JWT, and profile.
 | POST | `/users/me/avatar` | multipart `file`: PNG, JPEG, GIF or WebP, at most 10 MB | `UserPublic` with the new `avatar_url` — the photo is sniffed, decoded and stripped of metadata (one wider than 720 px is stored at 720), saved as `avatars/{user_id}/{uuid}.{ext}` with no `files` row, so retention never sees it, and set on the account; the previous one is deleted |
 | PATCH | `/users/me/password` | `{ current_password, new_password }` | `{ status: "password_changed" }` |
 | GET | `/workspaces/{ws_id}/profile` | — | `WorkspaceProfile` — the caller's own name, photo, bio and live status in that workspace; `null` where the account's is shown |
-| PATCH | `/workspaces/{ws_id}/profile` | `{ display_name?, avatar_url?, bio? }` | `WorkspaceProfile` — a field left out stays; `""` goes back to the account's |
+| PATCH | `/workspaces/{ws_id}/profile` | `{ display_name?, avatar_url?, bio? }` | `WorkspaceProfile` — a field left out stays; `""` goes back to the account's; replacing or clearing a workspace photo deletes its object |
+| POST | `/workspaces/{ws_id}/profile/avatar` | multipart `file`, as `/users/me/avatar` | `WorkspaceProfile` with the new `avatar_url` — processed like an account photo and stored as `avatars/{user_id}/{ws_id}/{uuid}.{ext}`, outside retention; the previous workspace photo is deleted |
 | PUT | `/workspaces/{ws_id}/profile/status` | `{ emoji?, text?, expires_at? }` | `WorkspaceProfile` — a status in that workspace only; needs an emoji or some text, the emoji being a character or a `:shortcode:` that workspace has (422 otherwise), and an expiry in the future. An expired status stops being returned by every read; the row itself is only overwritten the next time the person sets one |
 | DELETE | `/workspaces/{ws_id}/profile/status` | — | `WorkspaceProfile` |
 
@@ -432,7 +437,7 @@ is always one safe path segment and keeps its extension. Downloads send both
 |--------|-------|-------|--------|
 | POST | `/files/upload/:ws_id` | Query: `draft?`; multipart form (files) | `FileUploadResponse[]` |
 | GET | `/files/:file_id` | — | `{ file: FileRecord, url: string }` |
-| GET | `/files/download/*key` | Header: `Range?` | The file, streamed from storage — a single `bytes=` range answers `206` with `Content-Range`, an unsatisfiable one `416`, several ranges the whole file; always `Accept-Ranges: bytes`. A custom emoji's image is served here too, to anyone in its workspace, and an account photo (`avatars/{user_id}/…`) to its owner and anyone who shares a workspace with them; anyone else gets `403` |
+| GET | `/files/download/*key` | Header: `Range?` | The file, streamed from storage — a single `bytes=` range answers `206` with `Content-Range`, an unsatisfiable one `416`, several ranges the whole file; always `Accept-Ranges: bytes`. A custom emoji's image is served here too, to anyone in its workspace, an account photo (`avatars/{user_id}/…`) to its owner and anyone who shares a workspace with them, and a workspace photo (`avatars/{user_id}/{ws_id}/…`) to its owner and that workspace's members; anyone else gets `403` |
 | DELETE | `/files/:file_id` | — | `{ status: "deleted" }` |
 | GET | `/files/workspace/:ws_id` | Query: `limit=50, offset=0` | `{ data: FileRecord[] }` |
 | GET | `/channels/:ch_id/files` | Query: `kind?` (`image`, `video`, `audio`, `document`), `cursor?` (a file id), `limit=50` | `{ data: ChannelFile[] }` — the files of the channel's live messages, newest first, to whoever can read the channel |
@@ -488,6 +493,7 @@ Incoming/outgoing webhooks, bots and slash commands. A background task executes 
 | GET | `/workspaces/:ws_id/hooks` | — | `{ data: Hook[] }` |
 | POST | `/workspaces/:ws_id/hooks` | `{ hook_type, name, description?, config? }` | `Hook` |
 | GET | `/hooks/:hook_id` | — | `Hook` |
+| PATCH | `/hooks/:hook_id` | `{ is_active: true }` | `Hook` — turns a stopped hook back on for someone allowed to make it (its type's role and every channel it is bound to), who becomes its creator; `disabled_reason` clears and `hook.enabled` is audited. `false` is a 422: a hook is turned off by deleting it |
 | POST | `/hooks/:hook_id/reveal` | — | `{ hook_id, hook_type, config, incoming_url }` — config unredacted, written to `audit_log` |
 | POST | `/hooks/:hook_id/rotate` | — | same shape, after minting a fresh `token` (incoming) or `secret` (outgoing); the previous value stops working immediately |
 | DELETE | `/hooks/:hook_id` | — | `{ status: "deleted" }` |

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, workspace_id, created_by, email, role AS \"role: WorkspaceRole\", token, max_uses,\n                   use_count AS \"use_count!\", expires_at, created_at\n                 FROM workspace_invites\n                WHERE lower(email) = lower($1)\n                  AND expires_at >= NOW()\n                  AND (max_uses IS NULL OR use_count < max_uses)\n                ORDER BY created_at DESC\n                LIMIT 1",
+  "query": "SELECT id, workspace_id, created_by, email, role AS \"role: WorkspaceRole\", token, max_uses,\n                   use_count AS \"use_count!\", expires_at, created_at\n                 FROM workspace_invites\n                WHERE email = lower($1)\n                  AND expires_at >= NOW()\n                  AND (max_uses IS NULL OR use_count < max_uses)\n                ORDER BY created_at DESC\n                LIMIT 1",
   "describe": {
     "columns": [
       {
@@ -144,5 +144,5 @@
       false
     ]
   },
-  "hash": "4e62a26b08d570fe4b9de52cf60bdad8884792528b8dde400d3749c4896f5508"
+  "hash": "a3917d29bdea09cfa63ea35f12c35084d7375b7856cb8e4921a77f2f785da52a"
 }

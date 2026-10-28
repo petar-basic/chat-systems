@@ -40,6 +40,7 @@ pub enum AuditAction {
     HookRevealed,
     HookRotated,
     HookDisabled,
+    HookEnabled,
     FileDeleted,
     UserProvisioned,
     UserSuspended,
@@ -108,6 +109,7 @@ impl AuditAction {
             Self::HookRevealed => "hook.revealed",
             Self::HookRotated => "hook.rotated",
             Self::HookDisabled => "hook.disabled",
+            Self::HookEnabled => "hook.enabled",
             Self::FileDeleted => "file.deleted",
             Self::UserProvisioned => "user.provisioned",
             Self::UserSuspended => "user.suspended",
@@ -172,6 +174,7 @@ impl AuditAction {
             | Self::HookRevealed
             | Self::HookRotated
             | Self::HookDisabled
+            | Self::HookEnabled
             | Self::CommandInvoked => "hook",
             Self::FileDeleted => "file",
             Self::EmojiCreated | Self::EmojiDeleted => "emoji",

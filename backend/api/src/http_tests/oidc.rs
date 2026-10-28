@@ -306,3 +306,31 @@ async fn an_erased_account_loses_its_sso_link(pool: sqlx::PgPool) {
         Err(shared_common::errors::AppError::Forbidden(_))
     ));
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_account_invited_in_mixed_case_is_the_one_sso_signs_in(pool: sqlx::PgPool) {
+    let (_app, state) = app_and_state(pool).await;
+    let invited = state
+        .auth_service
+        .repo()
+        .create("Ana.Sso@Firma.Test", None, None, false)
+        .await
+        .expect("invited account");
+
+    let user = link_or_create(
+        &state,
+        &settings(Provisioning::InviteOnly),
+        &identity("subject-ana", "ana.sso@firma.test"),
+        &ClientIp(None),
+    )
+    .await
+    .expect("the invited account signs in");
+    assert_eq!(user.id, invited.id);
+
+    let accounts: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM users WHERE email = 'ana.sso@firma.test'")
+            .fetch_one(&state.pool)
+            .await
+            .expect("count");
+    assert_eq!(accounts, 1, "no second account");
+}
