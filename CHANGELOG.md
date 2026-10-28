@@ -14,14 +14,17 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
-## [Unreleased]
+## [3.6.0] — 2026-10-28
 
 ### Upgrading from 3.5.0
 
 - Pull both images and restart `api`, `realtime`, `worker` and `frontend` together; the API
-  runs migrations 75–78 on start, which add the `huddle_invites` table,
-  `hooks.disabled_reason`, a thread target on scheduled messages, and one pending mention
-  email per person and message.
+  runs migrations 75–79 on start, which add the `huddle_invites` table,
+  `hooks.disabled_reason`, a thread target on scheduled messages, one pending mention email
+  per person and message, and `slack_imports.heartbeat_at`, so snapshot first. On its first
+  start the worker moves every account photo into the object store's `avatars/` prefix (see
+  the RUNBOOK upgrade note); 3.5.0 cannot read photos there, so going back means restoring
+  the snapshot.
 - **Re-send pending email invites.** An emailed invite link now names the invite it stands
   for, and links sent before the upgrade do not: they answer *Invalid or expired invite*.
   Revoke and re-send any email invite that has not been accepted yet. Shared invite links are
@@ -40,12 +43,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   or stops using the app. Push is held back only while a session says it is active, so a
   client that never sends it gets push even with its socket open. A `huddle.ring` to somebody
   who paused the workspace is no longer delivered.
-- Deploy `api` and `worker` together: on its first start the worker moves every account photo
-  into the object store's `avatars/` prefix (see the RUNBOOK upgrade note).
 - For API clients: `POST /users/me/avatar` takes a multipart `file` and sets the account photo.
   An account photo set with `PATCH /users/me` to a workspace file is no longer readable to the
   workspace.
-- The API runs migration 79 on start, which adds `slack_imports.heartbeat_at`.
 - For API clients: `ImportRun` carries `retryable`, and
   `POST /workspaces/{ws_id}/slack-imports/{import_id}/retry` queues a failed run again. An
   import report counts `guests`, `users_suspended` and `channels_archived`.
