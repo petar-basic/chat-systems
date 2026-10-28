@@ -122,6 +122,40 @@ async fn activate_user_as_admin_returns_200(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn an_account_nobody_ever_signed_up_for_comes_back_waiting_for_its_invite(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (_admin_id, _email, token) = seed_and_login(&app, &state, "admin-imported", true).await;
+    let imported = state
+        .auth_service
+        .repo()
+        .create(&unique_email("slack-import"), None, None, false)
+        .await
+        .expect("imported account");
+    sqlx::query("UPDATE users SET status = 'suspended' WHERE id = $1")
+        .bind(imported.id)
+        .execute(&state.pool)
+        .await
+        .expect("suspend");
+
+    let uri = format!("/api/admin/users/{}/activate", imported.id);
+    let (status, body) = send(&app, "POST", &uri, Some(&token), None).await;
+    assert_eq!(status, StatusCode::OK, "activate: {body:?}");
+
+    let now: String = sqlx::query_scalar("SELECT status::text FROM users WHERE id = $1")
+        .bind(imported.id)
+        .fetch_one(&state.pool)
+        .await
+        .expect("status");
+    assert_eq!(now, "pending", "an account with no way in is not active");
+
+    state
+        .auth_service
+        .complete_registration(imported.id, "newpassword123", "Came Back")
+        .await
+        .expect("the invite still finishes the sign-up");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn suspended_user_live_access_token_is_revoked(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_admin_id, _email, admin_token) = seed_and_login(&app, &state, "admin-revoke", true).await;

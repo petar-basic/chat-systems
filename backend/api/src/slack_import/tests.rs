@@ -572,6 +572,82 @@ async fn a_channel_merges_only_into_one_of_the_same_kind(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn a_second_run_neither_archives_a_merged_channel_nor_opens_a_private_one(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "import-again", false).await;
+    let ws = seed_workspace(&state, owner_id, "Imported").await;
+    seed_channel(&state, ws, owner_id, "general-chat", false).await;
+    let incident = seed_channel(&state, ws, owner_id, "incident-2023", true).await;
+
+    let fixture = Fixture::write();
+    let channels = json!([
+        { "id": "C1", "name": "general-chat", "is_archived": true, "members": ["U1", "U2"] },
+        { "id": "C2", "name": "old-launch", "is_archived": true, "members": ["U1"] }
+    ]);
+    std::fs::write(
+        fixture.root.join("channels.json"),
+        serde_json::to_vec(&channels).expect("channels json"),
+    )
+    .expect("write channels");
+    std::fs::create_dir_all(fixture.root.join("old-launch")).expect("archived directory");
+
+    let first = import(&state, ws, &fixture.root, false).await;
+    let second = import(&state, ws, &fixture.root, false).await;
+    assert_eq!(first.channels_archived, 1);
+    assert_eq!(
+        second.channels_archived, 1,
+        "only the channel the import made is archived"
+    );
+    assert!(
+        first
+            .notes
+            .iter()
+            .any(|n| n.contains("#incident-2023-slack") && n.contains("private")),
+        "the separate private channel is reported: {:?}",
+        first.notes
+    );
+
+    let state_of: Vec<(String, bool)> = sqlx::query_as(
+        "SELECT name, is_archived FROM channels WHERE workspace_id = $1 AND name IN ('general-chat', 'old-launch') ORDER BY name",
+    )
+    .bind(ws)
+    .fetch_all(&state.pool)
+    .await
+    .expect("channels");
+    assert_eq!(
+        state_of,
+        vec![("general-chat".into(), false), ("old-launch".into(), true)],
+        "the channel that was here stays open after a second run"
+    );
+
+    let members: Vec<Uuid> =
+        sqlx::query_scalar("SELECT user_id FROM channel_members WHERE channel_id = $1")
+            .bind(incident)
+            .fetch_all(&state.pool)
+            .await
+            .expect("members");
+    assert_eq!(
+        members,
+        vec![owner_id],
+        "nobody from Slack joins the private channel"
+    );
+    let landed: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM messages WHERE channel_id = $1")
+        .bind(incident)
+        .fetch_one(&state.pool)
+        .await
+        .expect("count");
+    assert_eq!(landed, 0, "and none of Slack's history lands in it");
+    let kind: String = sqlx::query_scalar(
+        "SELECT channel_type::text FROM channels WHERE workspace_id = $1 AND name = 'incident-2023-slack'",
+    )
+    .bind(ws)
+    .fetch_one(&state.pool)
+    .await
+    .expect("the private history has a channel of its own");
+    assert_eq!(kind, "private");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn the_zip_slack_hands_you_imports_the_same_as_a_directory(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "import-zip", false).await;

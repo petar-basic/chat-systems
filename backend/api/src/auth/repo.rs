@@ -62,6 +62,26 @@ impl UserRepo {
         .await
     }
 
+    pub async fn reactivate(&self, id: Uuid) -> sqlx::Result<()> {
+        sqlx::query!(
+            r"
+            UPDATE users
+               SET status = CASE
+                       WHEN password_hash IS NULL
+                        AND NOT EXISTS (SELECT 1 FROM oauth_accounts o WHERE o.user_id = users.id)
+                       THEN 'pending'::user_status
+                       ELSE 'active'::user_status
+                   END,
+                   updated_at = NOW()
+             WHERE id = $1
+            ",
+            id
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
     pub async fn create_sso_user(&self, email: &str) -> sqlx::Result<User> {
         sqlx::query_as!(
             User,

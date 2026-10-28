@@ -2002,3 +2002,22 @@ once. The worker beats `slack_imports.heartbeat_at` every 30 seconds around a ru
 each claim, fails `running` rows silent for five minutes. Since a failed run keeps its archive,
 `POST …/retry` puts it back to `pending`, and the import's idempotency turns the second attempt
 into a resume.
+
+## Wave 27 — What the second survey found
+
+### [CS-090] A Slack import that respects what is already here ✅ shipped
+CS-077 stopped a private Slack channel merging into a public one, not into a private one: a
+private Slack `#hr` landed in the local private `#hr`, its Slack members were added, and both
+sides read each other's history. CS-088 left a merged channel open when Slack had it archived,
+but the mapping that run recorded sent the channel down the reuse path on any later run, and
+that path queued every mapped archived channel for archiving. And someone who had left Slack,
+imported suspended with no password, came back from an unsuspend as an active account nobody
+could get into: login refused it, *Forgot password* sent an SSO reminder, an invite found the
+account already there.
+
+`place_channel` merges only public into public; anything else takes `<name>-slack`, and the note
+says a private channel never joins one already here. Migration 80 adds
+`slack_channels.created_by_import`, `load_existing_mappings` reads it into `created_channels`,
+and the reuse path archives only a channel the import made. `AuthRepo::reactivate`, used by the
+admin *Activate* and SCIM `active: true`, sets an account with no password and no
+`oauth_accounts` row to `pending`, where the invite flow finishes it.

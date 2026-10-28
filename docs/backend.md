@@ -657,10 +657,10 @@ channels, `groups.json` private ones, and `dms.json` / `mpims.json` become `dm` 
 `group_dm` channels, which the channel list never shows, so a two-person history stays out
 of everybody's sidebar. A listing the export does not carry is named in the report rather
 than assumed empty: an export without private channels and an export whose private channels
-were quietly dropped should not look the same. A Slack channel merges into an existing one of
-the same name only when both are the same kind; otherwise it lands in `<name>-slack` (then
-`-slack-2`, …) and the report says so, so a private history never ends up in a public
-channel.
+were quietly dropped should not look the same. A public Slack channel merges into an existing
+public one of the same name. Any other one, and every private one, lands in `<name>-slack`
+(then `-slack-2`, …) and the report says so, so a private history never ends up in a public
+channel and nobody from Slack joins a private channel that was already here.
 
 **Two passes, because threads are what break single-pass importers.** The first creates
 users, channels, conversations and memberships; the second writes messages, so a `thread_ts`
@@ -676,11 +676,13 @@ Slack guest (`is_restricted` or `is_ultra_restricted`) joins as a guest, so it s
 channels it was in. An account deleted in Slack is created **suspended** — with
 `slack-<id>@deleted.invalid` when the export kept no address — so its messages keep its name
 and nobody can sign in as it or be invited into it; an existing account matched by email is
-left as it is.
+left as it is. Reactivating such an account sets it to `pending`, so an invite lets the person
+choose a password.
 
 **Archived stays archived.** A channel archived in Slack is created, filled and then archived,
 and a re-run archives it again. One that merged into an existing channel here is left open
-and the report says so.
+and the report says so, on the first run and on every later one: `slack_channels.created_by_import`
+records which channels the import made, and only those are archived.
 
 **Reactions map the way the composer does.** `slack_import/emoji_shortcodes.tsv` is the full
 emoji-mart shortcode set with its aliases and skin tones (`+1::skin-tone-3` is 👍🏼), generated
@@ -1055,7 +1057,7 @@ Instance-level administration. Requires `is_instance_admin = true`.
 | POST | `/admin/email/test` | — | `{ sent_to, error }`: sent now to the caller's address; `error` says in words why it did not go |
 | GET | `/admin/users` | Query: `limit?, offset?` | `{ data: User[] }` |
 | POST | `/admin/users/:user_id/suspend` | — | `{ status: "suspended" }` — also revokes sessions and app connections and turns off the person's hooks and workflows |
-| POST | `/admin/users/:user_id/activate` | — | `{ status: "activated" }` |
+| POST | `/admin/users/:user_id/activate` | — | `{ status: "activated" }` — an account with no password and no SSO link goes back to `pending`, waiting for its invite; SCIM `active: true` does the same |
 | PATCH | `/admin/users/:user_id/instance-role` | `{ is_instance_admin: bool }` | `{ is_instance_admin: bool }` |
 | GET | `/admin/workspaces` | Query: `limit?, offset?` | `{ data: Workspace[] }` |
 | DELETE | `/admin/workspaces/:ws_id` | — | `{ status: "deleted" }` |

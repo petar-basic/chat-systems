@@ -14,6 +14,24 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
+## [Unreleased]
+
+### Upgrading from 3.6.0
+
+- Migration 80 adds `slack_channels.created_by_import`. Channels mapped by an earlier import
+  count as ones it merged into, so a re-run never archives them.
+- Reactivating an account that has no password and no SSO link (an imported Slack leaver), from
+  the admin page or with SCIM `active: true`, leaves it `pending` instead of `active`; invite
+  the person to let them in.
+
+### Security
+
+- **A Slack import keeps out of private channels.** A private Slack channel merged into a local
+  private channel of the same name, adding Slack's members to it and its history to theirs.
+  Private channels never merge now; a taken name becomes `<name>-slack`.
+- **A re-import leaves a merged channel open.** Running an import again, or *Start again*,
+  archived a local channel the first run had merged an archived Slack channel into.
+
 ## [3.6.0] — 2026-10-28
 
 ### Upgrading from 3.5.0

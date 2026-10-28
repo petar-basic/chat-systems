@@ -37,6 +37,7 @@ pub struct Import<'a> {
     /// Slack user id → (our user id, the name to render in a mention).
     pub(crate) users: HashMap<String, (Uuid, String)>,
     pub(crate) channels: HashMap<String, Uuid>,
+    pub(crate) created_channels: HashSet<Uuid>,
     pub(crate) archived: Vec<Uuid>,
     pub(crate) custom_emoji: HashSet<String>,
     pub(crate) unknown_reactions: HashSet<String>,
@@ -72,6 +73,7 @@ impl<'a> Import<'a> {
             dry_run,
             users: HashMap::new(),
             channels: HashMap::new(),
+            created_channels: HashSet::new(),
             archived: Vec::new(),
             custom_emoji: HashSet::new(),
             unknown_reactions: HashSet::new(),
@@ -229,8 +231,11 @@ impl<'a> Import<'a> {
             .slack_import_repo
             .channel_mappings(self.workspace_id)
             .await?;
-        for (slack_id, channel_id) in channels {
+        for (slack_id, channel_id, created) in channels {
             self.channels.insert(slack_id, channel_id);
+            if created {
+                self.created_channels.insert(channel_id);
+            }
         }
 
         Ok(())
