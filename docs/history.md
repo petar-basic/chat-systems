@@ -2044,3 +2044,23 @@ says a private channel never joins one already here. Migration 80 adds
 and the reuse path archives only a channel the import made. `AuthRepo::reactivate`, used by the
 admin *Activate* and SCIM `active: true`, sets an account with no password and no
 `oauth_accounts` row to `pending`, where the invite flow finishes it.
+
+### [CS-093] A failed send stays where you sent it ✅ shipped
+CS-081 kept a failed message in the channel and the thread panel, and three paths still lost
+one. A reply from a *Threads* card failed into the thread panel's cache, which the card does not
+read. When the request timed out after the server had saved the message, `message.new` dropped
+the unsent copy first and `onError` kept it afterwards, and `withUnsent`, deduping by id, could
+not see that the delivered row (keyed by the server's id) was the same message. The unsent
+store lived in memory, so a reload lost everything in it; and scheduling sent only the files
+that had finished uploading, then cleared the tray.
+
+The card renders `useUnsent(root.id)` under its replies with *Retry* and *Discard*. It still sends
+with `mutate`, not the `mutateAsync` the ticket named: the failed reply carries its text and
+*Discard* puts it back in the draft, as in the panel, so handing it to the composer as well would
+show it twice. A session-wide set of delivered client ids, filled by `message.new` and by
+`onSuccess` through `deliver`, makes `keep` ignore a message the server already has, and
+`withUnsent` dedupes on `client_message_id` too. The store saves to `chat_unsent` in local
+storage on every change and reads it back at start; `useUnsent` shows only the current user's,
+so another account on the same browser does not see them. Attachments are already uploaded,
+so a kept message refers to its files by id and no file content is stored. `handleSchedule` refuses a
+tray with a failed file in the words sending uses.

@@ -105,3 +105,66 @@ describe('a send that fails', () => {
     expect(useDraftStore.getState().getDraft('ch-1')).toBe('keep me');
   });
 });
+
+describe('a send the server took before the request failed', () => {
+  beforeEach(() => {
+    post.mockReset();
+    useUnsentStore.setState({ byScope: {} });
+  });
+
+  it('shows the delivered message and no failed copy', async () => {
+    let fail: (reason: unknown) => void = () => undefined;
+    post.mockImplementationOnce(() => new Promise((_, reject) => (fail = reject)));
+    const { queryClient, view, shown } = setup();
+
+    act(() => view.result.current.mutate({ content: 'slow', id: 'local-3' }));
+    await waitFor(() => expect(post).toHaveBeenCalled());
+    act(() => {
+      useUnsentStore.getState().deliver({ id: 'local-3', channel_id: 'ch-1', thread_parent_id: null });
+      queryClient.setQueryData<MessagesInfiniteData>(QUERY_KEYS.messages('ch-1'), {
+        pages: [
+          { data: [{ id: 'srv-3', channel_id: 'ch-1', content: 'slow', client_message_id: 'local-3' }] },
+        ],
+        pageParams: [undefined],
+      } as MessagesInfiniteData);
+    });
+    act(() => fail(new TypeError('Failed to fetch')));
+    await waitFor(() => expect(view.result.current.isError).toBe(true));
+
+    expect(useUnsentStore.getState().byScope['ch-1'] ?? []).toEqual([]);
+    expect(shown().map((m) => m.id)).toEqual(['srv-3']);
+  });
+
+  it('never lists a failed copy beside the message it became', () => {
+    const delivered = { id: 'srv-4', channel_id: 'ch-1', content: 'x', client_message_id: 'local-4' };
+    const failed = { id: 'local-4', channel_id: 'ch-1', content: 'x', failed: true };
+    expect(
+      withUnsent(
+        [delivered] as Parameters<typeof withUnsent>[0],
+        [failed] as Parameters<typeof withUnsent>[1],
+      ).map((m) => m.id),
+    ).toEqual(['srv-4']);
+  });
+});
+
+describe('a failed message across a reload', () => {
+  it('is still there when the store is loaded again', async () => {
+    post.mockReset();
+    post.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    useUnsentStore.setState({ byScope: {} });
+    const { view } = setup();
+    act(() => view.result.current.mutate({ content: 'survive', id: 'local-5', attachments: [file] }));
+    await waitFor(() => expect(useUnsentStore.getState().byScope['ch-1']?.[0]?.failed).toBe(true));
+
+    vi.resetModules();
+    const reloaded = await import('@/stores/unsent');
+    const [kept] = reloaded.useUnsentStore.getState().byScope['ch-1'];
+    expect([kept.id, kept.content, kept.failed, kept.metadata?.attachments?.[0]?.id]).toEqual([
+      'local-5',
+      'survive',
+      true,
+      'file-1',
+    ]);
+    localStorage.removeItem('chat_unsent');
+  });
+});

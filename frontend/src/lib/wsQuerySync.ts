@@ -165,7 +165,7 @@ export const useWebSocketQuerySync = () => {
         if (!message?.channel_id) return;
         ensureUserKnown(queryClient, message.user_id);
         if (message.client_message_id) {
-          useUnsentStore.getState().drop({ ...message, id: message.client_message_id });
+          useUnsentStore.getState().deliver({ ...message, id: message.client_message_id });
         }
 
         if (message.thread_parent_id) {

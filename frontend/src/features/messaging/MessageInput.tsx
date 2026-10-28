@@ -245,6 +245,10 @@ export default function MessageInput({
         toast.error('Wait for the files to finish uploading');
         return;
       }
+      if (attachments?.failed) {
+        toast.error('A file did not upload. Retry it or remove it first');
+        return;
+      }
       try {
         await scheduleMessage.mutateAsync({
           target: scheduleTarget,

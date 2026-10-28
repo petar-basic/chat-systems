@@ -47,6 +47,15 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - **A re-import leaves a merged channel open.** Running an import again, or *Start again*,
   archived a local channel the first run had merged an archived Slack channel into.
 
+### Fixed
+
+- **A failed send stays where you sent it.** A reply from the *Threads* view that failed
+  vanished from its card, a failed message was lost on reload, a send the server took just before
+  the request failed showed twice, and scheduling dropped a file that had failed to upload. The
+  card shows the failed reply with *Retry* and *Discard*, failed messages survive a reload, a
+  delivered message never keeps a failed copy, and scheduling refuses a failed file as sending
+  does.
+
 ## [3.6.0] — 2026-10-28
 
 ### Upgrading from 3.5.0

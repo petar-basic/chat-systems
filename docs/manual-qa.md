@@ -212,6 +212,7 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 ### 5.2a 🟢 Sending never loses work
 - **Steps:** attach a file, write a message, turn the network off (DevTools → Offline) and send; switch channels and come back; turn the network on and press *Retry*. Repeat in a thread, and press *Discard* on one.
 - **Expected:** the failed row keeps its text and file across the switch; *Retry* sends it with the file; *Discard* removes the row and puts the text and the file back in that composer.
+- **Edge:** reply from a card in *Threads* with the network off → the reply shows on the card as *Failed to send* with *Retry* and *Discard*. Reload the page with a failed message in a channel → it is still there. Schedule a message whose tray has a file that failed to upload → *A file did not upload*, and nothing is scheduled.
 - 🟠 **Edge — files per channel:** attach a file in #a, switch to #b and back → the file is still in #a's tray, and #b's tray is empty. A file whose upload failed says why and blocks *Send* until it is retried (click it) or removed.
 - 🟠 **Edge — failed scheduled message:** schedule a message into a private channel, leave it, wait for the time → *Scheduled* shows *Not sent* with the reason, *Send now* and the bin; rejoin and *Send now* delivers it, the bin removes it.
 - 🟠 **Edge — forward:** forward a message that says `@channel` and names someone → only people named in your comment are notified, and forwarding is allowed where you may not broadcast.
