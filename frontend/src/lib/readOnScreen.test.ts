@@ -75,13 +75,19 @@ describe('readOnScreen', () => {
     });
   });
 
-  it('reads the open conversation', async () => {
+  it('reads the open conversation up to its newest message, as a channel', async () => {
     useWorkspaceStore.setState({ currentChannel: null, currentConversationId: 'dm-1' });
-    readOnScreen(new QueryClient(), 'dm-1');
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(QUERY_KEYS.messages('dm-1'), {
+      pages: [{ data: [message('d1', '2026-10-27T10:01:00Z', { channel_id: 'dm-1' })] }],
+      pageParams: [undefined],
+    });
+    readOnScreen(queryClient, 'dm-1');
     await vi.runAllTimersAsync();
 
-    expect(post).toHaveBeenCalledWith('/conversations/{conv_id}/read', {
-      params: { path: { conv_id: 'dm-1' } },
+    expect(post).toHaveBeenCalledWith('/channels/{ch_id}/read', {
+      params: { path: { ch_id: 'dm-1' } },
+      body: { message_id: 'd1' },
     });
   });
 

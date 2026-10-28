@@ -19,7 +19,12 @@ vi.mock('@/shared/hooks/useCurrentApi', () => ({
 
 const page = Array.from({ length: MESSAGES_PAGE_SIZE }, (_, i) => ({ id: `msg-${i}`, channel_id: 'ch-1' }));
 
-function notification(id: string, channelId: string, threadParentId: string | null = null): AppNotification {
+function notification(
+  id: string,
+  channelId: string,
+  threadParentId: string | null = null,
+  inChannel = false,
+): AppNotification {
   return {
     id,
     workspace_id: 'ws-1',
@@ -30,6 +35,7 @@ function notification(id: string, channelId: string, threadParentId: string | nu
     channel_id: channelId,
     message_id: null,
     thread_parent_id: threadParentId,
+    in_channel: inChannel,
     list_id: null,
     item_id: null,
     is_read: false,
@@ -43,6 +49,7 @@ function setup(markReadIn?: string) {
     notification('n-1', 'ch-1'),
     notification('n-2', 'ch-2'),
     notification('n-3', 'ch-1', 'root-1'),
+    notification('n-4', 'ch-1', 'root-1', true),
   ]);
   queryClient.setQueryData(QUERY_KEYS.notificationUnreadCount('ws-1'), 5);
   const wrapper = ({ children }: { children: ReactNode }) => (
@@ -74,7 +81,7 @@ describe('useMessages read mark', () => {
     expect(queryClient.getQueryData(QUERY_KEYS.notificationUnreadCount('ws-1'))).toBe(1);
     expect(
       queryClient.getQueryData<AppNotification[]>(QUERY_KEYS.notifications('ws-1'))?.map((n) => n.is_read),
-    ).toEqual([true, false, false]);
+    ).toEqual([true, false, false, true]);
 
     await act(() => view.result.current.fetchNextPage());
     expect(get).toHaveBeenCalledTimes(2);

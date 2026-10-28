@@ -80,3 +80,17 @@ export function buildMessageRows<M extends Groupable>(
 
   return rows;
 }
+
+export interface ReadBoundary {
+  id: string;
+  at: string | null;
+}
+
+export function boundaryReached(
+  messages: Array<{ id: string; created_at: string }>,
+  boundary: ReadBoundary,
+): boolean {
+  if (messages.some((m) => m.id === boundary.id)) return true;
+  const oldest = messages[0];
+  return !!oldest && !!boundary.at && Date.parse(oldest.created_at) < Date.parse(boundary.at);
+}

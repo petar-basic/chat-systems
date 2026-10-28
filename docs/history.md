@@ -2066,6 +2066,48 @@ no cache, and `patchChannel` dropped it while the page it was waiting for had be
 the message existed. `message.new` now invalidates the channel's messages when there is no cache
 yet, which refetches an open channel and leaves one nobody is looking at alone.
 
+### [CS-092] Read state that matches what you read ✅ shipped
+The read position is the message the *New* line is drawn after, and three writers each had their
+own idea of it. `mark_workspace_read` took the channel's newest message, a thread-only reply
+included, which the list never finds, so it paged back to the start of the channel looking. The
+conversation read route moved the counters and left the position where it was, so a DM opened at
+an old line. And a mention in a reply also sent to the channel kept its notification after the
+channel was read, because reading a channel cleared only notifications with no thread, which is
+also what the mention email checks before it goes out.
+
+Both writers now take the newest message the channel shows, top level or sent to the channel,
+not deleted: `mark_workspace_read` per channel, and `mark_read` at or before the message it is
+given, so a client cannot leave it on something the list does not show either. DMs read through
+`POST /channels/{id}/read`, and the conversation route is gone; a conversation's list asks the
+first page to mark it read as a channel's does. The notification for a reply sent to the channel
+records `in_channel`, and both channel reads clear it, so the digest finds it read. For a
+position written before this, or a message deleted since, unread counts carry `last_read_at` and
+the first page `last_read_before_at`: once a page reaches back past that time without finding
+the boundary, the list stops and draws no line. `/location` looks a message up with `find_root`,
+so a deleted root that still has replies opens its thread, and keyword matching gets the
+forwarder's own words, as mentions do. *Mark all read* also refetches the unread counts, which
+had kept the old position for up to half a minute.
+
+### [CS-093] A failed send stays where you sent it ✅ shipped
+CS-081 kept a failed message in the channel and the thread panel, and three paths still lost
+one. A reply from a *Threads* card failed into the thread panel's cache, which the card does not
+read. When the request timed out after the server had saved the message, `message.new` dropped
+the unsent copy first and `onError` kept it afterwards, and `withUnsent`, deduping by id, could
+not see that the delivered row (keyed by the server's id) was the same message. The unsent
+store lived in memory, so a reload lost everything in it; and scheduling sent only the files
+that had finished uploading, then cleared the tray.
+
+The card renders `useUnsent(root.id)` under its replies with *Retry* and *Discard*. It still sends
+with `mutate`, not the `mutateAsync` the ticket named: the failed reply carries its text and
+*Discard* puts it back in the draft, as in the panel, so handing it to the composer as well would
+show it twice. A session-wide set of delivered client ids, filled by `message.new` and by
+`onSuccess` through `deliver`, makes `keep` ignore a message the server already has, and
+`withUnsent` dedupes on `client_message_id` too. The store saves to `chat_unsent` in local
+storage on every change and reads it back at start; `useUnsent` shows only the current user's,
+so another account on the same browser does not see them. Attachments are already uploaded,
+so a kept message refers to its files by id and no file content is stored. `handleSchedule` refuses a
+tray with a failed file in the words sending uses.
+
 ### [CS-094] Addresses, workspace photos and hooks that keep working ✅ shipped
 Three leftovers that each broke something a while after it worked. Nothing but SSO lowercased an
 address, so an invite to `Ana@Firma.com` stored that spelling, the provider's `ana@firma.com`
@@ -2089,23 +2131,3 @@ file uploaded the old way is a draft again. `PATCH /hooks/{id}` with `is_active:
 what creating that hook would (`require_hook_maker`: the type's role and every bound channel),
 refuses a slash command whose name was taken meanwhile, and hands the hook to the caller, which
 is what keeps it on the next time `hooks_to_fire` checks its creator.
-
-### [CS-093] A failed send stays where you sent it ✅ shipped
-CS-081 kept a failed message in the channel and the thread panel, and three paths still lost
-one. A reply from a *Threads* card failed into the thread panel's cache, which the card does not
-read. When the request timed out after the server had saved the message, `message.new` dropped
-the unsent copy first and `onError` kept it afterwards, and `withUnsent`, deduping by id, could
-not see that the delivered row (keyed by the server's id) was the same message. The unsent
-store lived in memory, so a reload lost everything in it; and scheduling sent only the files
-that had finished uploading, then cleared the tray.
-
-The card renders `useUnsent(root.id)` under its replies with *Retry* and *Discard*. It still sends
-with `mutate`, not the `mutateAsync` the ticket named: the failed reply carries its text and
-*Discard* puts it back in the draft, as in the panel, so handing it to the composer as well would
-show it twice. A session-wide set of delivered client ids, filled by `message.new` and by
-`onSuccess` through `deliver`, makes `keep` ignore a message the server already has, and
-`withUnsent` dedupes on `client_message_id` too. The store saves to `chat_unsent` in local
-storage on every change and reads it back at start; `useUnsent` shows only the current user's,
-so another account on the same browser does not see them. Attachments are already uploaded,
-so a kept message refers to its files by id and no file content is stored. `handleSchedule` refuses a
-tray with a failed file in the words sending uses.

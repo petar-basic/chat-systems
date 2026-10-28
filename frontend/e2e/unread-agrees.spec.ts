@@ -1,4 +1,4 @@
-import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
+import { test, expect, type APIRequestContext, type Locator, type Page } from '@playwright/test';
 import { API, login, userContext, devWorkspace, createChannel } from './helpers';
 
 interface Activity {
@@ -172,5 +172,53 @@ test('a channel with unread messages opens on the first of them', async ({ page 
     await admin.dispose();
     await alice.dispose();
     await bob.dispose();
+  }
+});
+
+test('after Mark all read the channel opens on one page, with the line above what came since', async ({
+  page,
+}) => {
+  test.slow();
+  const { ctx: admin } = await userContext('admin@dev.local');
+  const { ctx: alice, userId: aliceId } = await userContext('alice@dev.local');
+  const { ctx: bob, userId: bobId } = await userContext('bob@dev.local');
+  const workspace = await devWorkspace(bob);
+  const channel = await createChannel(admin, workspace.id, 'read-all');
+
+  try {
+    for (const userId of [aliceId, bobId]) {
+      await admin.post(`${API}/channels/${channel.id}/members`, { data: { user_id: userId } });
+    }
+    let last = { id: '' };
+    for (let i = 0; i < 60; i++) {
+      last = await post(i % 2 ? alice : admin, channel.id, { content: `read-all #${i}` });
+    }
+    await post(admin, channel.id, { content: 'only in the thread', thread_parent_id: last.id });
+
+    const read = await bob.post(`${API}/workspaces/${workspace.id}/read`);
+    expect(read.status()).toBe(200);
+    await post(alice, channel.id, { content: 'since the read' });
+
+    const older: string[] = [];
+    page.on('request', (request) => {
+      const url = request.url();
+      if (url.includes(`/channels/${channel.id}/messages`) && url.includes('cursor=')) older.push(url);
+    });
+    await login(page, 'bob@dev.local');
+    await page.goto(`/app/${workspace.id}/${channel.id}`);
+
+    const list = page.locator('[data-qa="message-list"]');
+    await expect(list.getByText('since the read')).toBeVisible();
+    const divider = list.locator('[data-qa="unread-divider"]');
+    await expect(divider).toHaveCount(1);
+    const top = async (locator: Locator) => (await locator.boundingBox())?.y ?? NaN;
+    const line = await top(divider);
+    expect(line).toBeGreaterThan(await top(list.getByText('read-all #59')));
+    expect(line).toBeLessThan(await top(list.getByText('since the read')));
+    await page.waitForTimeout(1_000);
+    expect(older, 'the boundary is on the first page, so nothing older loads').toEqual([]);
+  } finally {
+    await admin.delete(`${API}/channels/${channel.id}`);
+    await Promise.all([admin, alice, bob].map((ctx) => ctx.dispose()));
   }
 });

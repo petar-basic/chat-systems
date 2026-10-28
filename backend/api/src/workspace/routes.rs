@@ -553,19 +553,8 @@ async fn unread_channels(
 
     let channel_ids: Vec<Uuid> = counts
         .iter()
-        .filter(|(_, unread, _, _)| *unread > 0)
-        .map(|(id, _, _, _)| *id)
-        .collect();
-    let counts: Vec<UnreadCount> = counts
-        .into_iter()
-        .map(
-            |(channel_id, unread_count, mention_count, last_read_msg)| UnreadCount {
-                channel_id,
-                unread_count,
-                mention_count,
-                last_read_msg,
-            },
-        )
+        .filter(|count| count.unread_count > 0)
+        .map(|count| count.channel_id)
         .collect();
 
     Ok(Json(UnreadChannels {

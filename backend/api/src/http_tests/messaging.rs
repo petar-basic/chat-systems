@@ -869,6 +869,90 @@ async fn mark_workspace_read_clears_every_channel(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn mark_workspace_read_leaves_the_line_after_the_newest_channel_message(pool: PgPool) {
+    let (app, state, _owner, token, ws_id, ch_id) = setup_channel(pool).await;
+    let (_colleague, colleague_token) = colleague_in_channel(&app, &state, ws_id, ch_id).await;
+    let root = create_message(&app, &colleague_token, ch_id, "root").await;
+    let (status, reply) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/messages"),
+        Some(&colleague_token),
+        Some(json!({ "content": "only in the thread", "thread_parent_id": root })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{reply:?}");
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/read"),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    create_message(&app, &colleague_token, ch_id, "after").await;
+
+    let (_, body) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws_id}/channels/unread"),
+        Some(&token),
+        None,
+    )
+    .await;
+    let count = body["counts"]
+        .as_array()
+        .expect("counts")
+        .iter()
+        .find(|c| c["channel_id"] == ch_id.to_string().as_str())
+        .expect("the channel's count")
+        .clone();
+    assert_eq!(count["unread_count"], json!(1), "{count:?}");
+    assert_eq!(
+        count["last_read_msg"],
+        json!(root),
+        "the boundary is the newest message the channel shows, not the thread-only reply"
+    );
+    assert!(!count["last_read_at"].is_null());
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn reading_up_to_a_thread_only_reply_stops_at_the_channel_message_before_it(pool: PgPool) {
+    let (app, state, owner, token, ws_id, ch_id) = setup_channel(pool).await;
+    let (_colleague, colleague_token) = colleague_in_channel(&app, &state, ws_id, ch_id).await;
+    let root = create_message(&app, &colleague_token, ch_id, "root").await;
+    let (_, reply) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/messages"),
+        Some(&colleague_token),
+        Some(json!({ "content": "only in the thread", "thread_parent_id": root })),
+    )
+    .await;
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/read"),
+        Some(&token),
+        Some(json!({ "message_id": reply["id"] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let boundary: Option<uuid::Uuid> = sqlx::query_scalar(
+        "SELECT last_read_msg FROM channel_members WHERE channel_id = $1 AND user_id = $2",
+    )
+    .bind(ch_id)
+    .bind(owner)
+    .fetch_one(&state.pool)
+    .await
+    .expect("boundary");
+    assert_eq!(boundary, Some(root));
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn mark_workspace_read_access(pool: PgPool) {
     let (app, state, _owner, _token, ws_id, _ch_id) = setup_channel(pool).await;
     let (_outsider, _email, outsider_token) = seed_and_login(&app, &state, "outsider", false).await;

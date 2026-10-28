@@ -27,6 +27,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - Reactivating an account that has no password and no SSO link (an imported Slack leaver), from
   the admin page or with SCIM `active: true`, leaves it `pending` instead of `active`; invite
   the person to let them in.
+- For API clients: `POST /conversations/{id}/read` is gone; a conversation is read like a
+  channel, `POST /channels/{id}/read` with the message read up to. Unread counts carry
+  `last_read_at` and a first message page `last_read_before_at`, the time of the read.
 - Migration 81 lowercases every email address and refuses mixed case from then on. If two
   accounts differ only in case it stops and names them, and the `api` does not start until one
   is merged or renamed; the RUNBOOK says how. The worker moves workspace photos out of their
@@ -65,6 +68,12 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - **A message that arrives while a channel opens is shown.** The first page of a channel was
   still loading when a new message came in over the socket, so the message was dropped until
   the next reload. It now reloads the page instead.
+- **Read state matches what you read.** *Mark all read* could leave a channel's read position
+  on a reply kept in its thread, so opening it loaded the whole history looking for it. A
+  mention in a reply also sent to the channel stayed unread after reading the channel, and its
+  email went out. A reply notification under a deleted message opened nothing, a DM opened at
+  an old *New* line, and a keyword quoted in a forward alerted its owner. Each now behaves as
+  it does in a channel.
 - **A failed send stays where you sent it.** A reply from the *Threads* view that failed
   vanished from its card, a failed message was lost on reload, a send the server took just before
   the request failed showed twice, and scheduling dropped a file that had failed to upload. The

@@ -98,7 +98,7 @@ impl NotificationRepo {
         channel_id: Uuid,
     ) -> sqlx::Result<u64> {
         let result = sqlx::query!(
-            "UPDATE notifications SET is_read = true WHERE user_id = $1 AND workspace_id = $2 AND is_read = false AND data->>'channel_id' = $3 AND data->>'thread_parent_id' IS NULL",
+            r#"UPDATE notifications SET is_read = true WHERE user_id = $1 AND workspace_id = $2 AND is_read = false AND data->>'channel_id' = $3 AND (data->>'thread_parent_id' IS NULL OR data @> '{"in_channel": true}')"#,
             user_id,
             workspace_id,
             channel_id.to_string()
@@ -110,7 +110,7 @@ impl NotificationRepo {
 
     pub async fn mark_channels_read(&self, user_id: Uuid, workspace_id: Uuid) -> sqlx::Result<u64> {
         let result = sqlx::query!(
-            "UPDATE notifications SET is_read = true WHERE user_id = $1 AND workspace_id = $2 AND is_read = false AND data->>'channel_id' IS NOT NULL AND data->>'thread_parent_id' IS NULL",
+            r#"UPDATE notifications SET is_read = true WHERE user_id = $1 AND workspace_id = $2 AND is_read = false AND data->>'channel_id' IS NOT NULL AND (data->>'thread_parent_id' IS NULL OR data @> '{"in_channel": true}')"#,
             user_id,
             workspace_id
         )

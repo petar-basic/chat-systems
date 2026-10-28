@@ -812,22 +812,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/conversations/{conv_id}/read": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["conversations_mark_read"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/exports/{id}": {
         parameters: {
             query?: never;
@@ -4588,6 +4572,8 @@ export interface components {
             data: components["schemas"]["MessageWithReactions"][];
             /** Format: uuid */
             last_read_before?: string | null;
+            /** Format: date-time */
+            last_read_before_at?: string | null;
             /** Format: int64 */
             unread_notifications?: number | null;
         };
@@ -5091,6 +5077,8 @@ export interface components {
         UnreadCount: {
             /** Format: uuid */
             channel_id: string;
+            /** Format: date-time */
+            last_read_at?: string | null;
             /** Format: uuid */
             last_read_msg?: string | null;
             /** Format: int32 */
@@ -6676,27 +6664,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DataList_Shortcut"];
-                };
-            };
-        };
-    };
-    conversations_mark_read: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                conv_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StatusResponse"];
                 };
             };
         };
