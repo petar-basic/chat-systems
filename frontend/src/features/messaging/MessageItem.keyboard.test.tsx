@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import MessageItem from './MessageItem';
 import { RovingContext, createRovingStore } from './rovingFocus';
 import { editLastOwnMessage } from './messageKeys';
-import type { Message } from '@/stores/workspace';
+import { useWorkspaceStore, type Channel, type Message } from '@/stores/workspace';
 
 const SELF = 'user-self';
 const removeLater = vi.fn();
@@ -77,6 +77,7 @@ describe('MessageItem keyboard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     savedItemId = undefined;
+    useWorkspaceStore.setState({ currentChannel: null });
   });
 
   it('is one Tab stop that follows the focused message', () => {
@@ -119,6 +120,20 @@ describe('MessageItem keyboard', () => {
     expect(screen.queryByTestId('edit-box')).not.toBeInTheDocument();
     fireEvent.keyDown(mine, { key: 'e' });
     expect(screen.getByTestId('edit-box')).toBeInTheDocument();
+  });
+
+  it('leaves a message in an archived channel as it is', () => {
+    useWorkspaceStore.setState({ currentChannel: { id: 'ch-1', is_archived: true } as Channel });
+    const [row] = renderPane([message('m1', SELF)]);
+    fireEvent.keyDown(row, { key: 'e' });
+    fireEvent.keyDown(row, { key: 'p' });
+    fireEvent.keyDown(row, { key: 'r' });
+    expect(screen.queryByTestId('edit-box')).not.toBeInTheDocument();
+    expect(pin).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('emoji-picker')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Add reaction')).not.toBeInTheDocument();
+    fireEvent.keyDown(row, { key: 't' });
+    expect(thread).toHaveBeenCalled();
   });
 
   it('goes back to the message box with Esc', () => {

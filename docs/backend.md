@@ -178,7 +178,7 @@ feature — see `dm` below.)
 |--------|----------|
 | Read channels/messages, post, react, thread | Member of the workspace; **Guest** additionally must be a member of that channel (Guests never get implicit access to public channels) |
 | Create a channel | `Member` |
-| Browse public channels and self-join one | `Member` — Guests are refused; private channels are never listed, and archived ones are listed to read but cannot be joined |
+| Browse public channels and self-join one | `Member` — Guests are refused; an open private channel is never listed, an archived one only to its members, and archived ones are listed to read but cannot be joined |
 | Rename/archive/unarchive a channel, change a channel member's role, remove someone from a channel | **Channel admin** (`channel_members.role = 'admin'`) or workspace `Admin`; a Guest never moderates, even holding the channel-admin row |
 | Add someone to a channel | `Member` of the workspace, and — for a private channel — a member of that channel; the person being added must already be in the workspace |
 | Manage invites and workspace settings | `Admin` |
@@ -227,11 +227,11 @@ one, and the role is the row's, not the token's.
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/channels` | — | `{ data: ChannelListing[] }` — each channel with the caller's `muted`, `notify_level` (`null` when it follows the default) and `effective_notify_level` |
 | GET | `/workspaces/:ws_id/channels/unread` | — | `{ channel_ids: string[] }` |
-| GET | `/workspaces/:ws_id/channels/browse` | — | `{ data: BrowsableChannel[] }` — every public channel with `member_count`, `is_member` and `is_archived`, archived ones last (Members and up; Guests are refused) |
+| GET | `/workspaces/:ws_id/channels/browse` | — | `{ data: BrowsableChannel[] }` — every public channel, and every archived private channel the caller is a member of, with `member_count`, `is_member` and `is_archived`; archived ones last, the private ones under the public ones, so an archived private channel, which the sidebar leaves out, can still be reached and unarchived (Members and up; Guests are refused) |
 | POST | `/workspaces/:ws_id/channels` | `{ name, channel_type?, description?, is_default?, post_policy? }` | `Channel` — Members and up; only admins when `settings.public_channel_creators` (or `private_channel_creators` for a private one) is `admins` |
 | GET | `/channels/:ch_id` | — | `Channel` |
 | PATCH | `/channels/:ch_id` | `{ name?, topic?, description?, post_policy?, allow_broadcast_mentions? }` | `Channel` — channel moderators; `post_policy` and `allow_broadcast_mentions` are merged into `settings` and each change is audited |
-| DELETE | `/channels/:ch_id` | — | `{ status: "archived" }` — channel moderators; posts a `channel_archived` system line and publishes `channel.updated`. An archived channel refuses posts, replies, reactions, scheduled messages and incoming webhooks with 403 |
+| DELETE | `/channels/:ch_id` | — | `{ status: "archived" }` — channel moderators; posts a `channel_archived` system line and publishes `channel.updated`. An archived channel refuses every write with 403 until it is unarchived: posts, replies, reactions, scheduled messages, incoming webhooks, editing, deleting and pinning a message, its link previews, poll votes and closing, files, renaming and settings, adding, removing and re-roling members, bookmarks and starting a huddle |
 | POST | `/channels/:ch_id/unarchive` | — | `{ status: "unarchived" }` — channel moderators; posts `channel_unarchived` and publishes `channel.updated` |
 | PATCH | `/channels/:ch_id/notifications` | `{ muted }` | `{ muted: bool }` — members only (403 otherwise) |
 

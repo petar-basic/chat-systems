@@ -2027,3 +2027,18 @@ the incoming webhook use it. Taking over a workflow mints a new token, and
 `POST /workflows/{id}/rotate` (*New URL* in the editor, `workflow.link_rotated` in the audit log)
 mints one on demand. The ticket said the old URL would answer 404; it answers 401, as any unknown
 token always has.
+
+### [CS-091] An archived channel is read-only all the way ✅ shipped
+CS-085 closed posting, reacting, scheduling and incoming webhooks in an archived channel and
+left the rest: editing, deleting and pinning a message, its link previews, poll votes and
+closing, file deletion, renaming, members and their roles, bookmarks and huddles all still
+wrote. And an archived private channel had no way back, since the sidebar leaves archived
+channels out and *Browse channels* listed public ones only.
+
+Every one of those writers calls `authz::require_not_archived` after its permission check, so
+the refusal is the same 403 in each. The client reads `is_archived` off the open channel
+(`useChannelArchived`) and drops the controls: message actions lose reacting, pinning, editing
+and deleting, reaction pills and poll options go inert, and the header, members panel and
+bookmark bar lose their writers. `list_browsable_channels` adds archived private channels the
+caller is a member of, ordered under the archived public ones, and opening one lands on the
+archived bar with *Unarchive* for its admins.

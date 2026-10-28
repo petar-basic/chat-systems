@@ -283,8 +283,10 @@ export default function WorkspacePage() {
                   empty={
                     <ChannelIntro
                       channel={currentChannel}
-                      onAddPeople={addPeople}
-                      onAddBookmark={canModerate ? () => setAddingBookmark(true) : undefined}
+                      onAddPeople={currentChannel.is_archived ? undefined : addPeople}
+                      onAddBookmark={
+                        canModerate && !currentChannel.is_archived ? () => setAddingBookmark(true) : undefined
+                      }
                     />
                   }
                 />

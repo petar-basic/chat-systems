@@ -36,6 +36,15 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   by an admin who is now a member kept sending channel traffic; it turns off, saying why.
 - **A taken-over workflow gets a new URL.** The old owner could still start it from the link
   they knew. *New URL* in the workflow replaces it at any time.
+- **An archived channel is read-only all the way.** Editing, deleting and pinning a message,
+  voting in a poll, adding or removing members, bookmarks, renaming and starting a huddle still
+  changed an archived channel; every one answers 403 now, and the client hides them.
+
+### Fixed
+
+- **An archived private channel can be found again.** The sidebar leaves archived channels out
+  and *Browse channels* listed public ones only, so nobody could reach one to unarchive it. Browse
+  now lists those you are a member of, under the archived public ones.
 
 ## [3.6.0] — 2026-10-28
 

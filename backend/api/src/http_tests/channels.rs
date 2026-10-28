@@ -2038,6 +2038,196 @@ async fn an_archived_channel_takes_no_writes_from_any_path(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn nothing_in_an_archived_channel_changes_until_it_is_unarchived(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, token) = seed_and_login(&app, &state, "frozen-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Frozen WS").await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "frozen", false).await;
+    let (other_id, _) = seed(&state, "frozen-other", false).await;
+    add_ws_member(&state, ws_id, other_id, "member").await;
+    let (outsider_id, _) = seed(&state, "frozen-outsider", false).await;
+    add_ws_member(&state, ws_id, outsider_id, "member").await;
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(ch_id, other_id, &ChannelRole::Member)
+        .await
+        .expect("precondition: member");
+
+    let (_, msg) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/messages"),
+        Some(&token),
+        Some(json!({ "content": "before" })),
+    )
+    .await;
+    let msg_id = msg["id"].as_str().expect("id").to_string();
+    let (_, poll) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/polls"),
+        Some(&token),
+        Some(json!({ "question": "Lunch?", "options": ["Thursday", "Friday"] })),
+    )
+    .await;
+    let poll_id = poll["metadata"]["poll"]["id"]
+        .as_str()
+        .expect("poll")
+        .to_string();
+    let option_id = poll["metadata"]["poll"]["options"][0]["id"]
+        .as_str()
+        .expect("option")
+        .to_string();
+    let (_, bookmark) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/bookmarks"),
+        Some(&token),
+        Some(json!({ "label": "Docs", "url": "https://example.com/docs" })),
+    )
+    .await;
+    let bookmark_id = bookmark["id"].as_str().expect("bookmark").to_string();
+
+    assert_eq!(archive(&app, &token, ch_id).await, StatusCode::OK);
+
+    let attempts = [
+        (
+            "PATCH",
+            format!("/api/messages/{msg_id}"),
+            Some(json!({ "content": "rewritten" })),
+        ),
+        ("POST", format!("/api/messages/{msg_id}/pin"), None),
+        ("DELETE", format!("/api/messages/{msg_id}/pin"), None),
+        (
+            "POST",
+            format!("/api/messages/{msg_id}/unfurls/refresh"),
+            None,
+        ),
+        ("DELETE", format!("/api/messages/{msg_id}/unfurls"), None),
+        (
+            "PUT",
+            format!("/api/polls/{poll_id}/vote"),
+            Some(json!({ "option_ids": [option_id] })),
+        ),
+        ("POST", format!("/api/polls/{poll_id}/close"), None),
+        (
+            "PATCH",
+            format!("/api/channels/{ch_id}"),
+            Some(json!({ "topic": "new topic" })),
+        ),
+        (
+            "POST",
+            format!("/api/channels/{ch_id}/members"),
+            Some(json!({ "user_id": outsider_id })),
+        ),
+        (
+            "PATCH",
+            format!("/api/channels/{ch_id}/members/{other_id}/role"),
+            Some(json!({ "role": "admin" })),
+        ),
+        (
+            "DELETE",
+            format!("/api/channels/{ch_id}/members/{other_id}"),
+            None,
+        ),
+        (
+            "POST",
+            format!("/api/channels/{ch_id}/bookmarks"),
+            Some(json!({ "label": "More", "url": "https://example.com/more" })),
+        ),
+        (
+            "DELETE",
+            format!("/api/channels/{ch_id}/bookmarks/{bookmark_id}"),
+            None,
+        ),
+        (
+            "POST",
+            format!("/api/workspaces/{ws_id}/huddles"),
+            Some(json!({ "channel_id": ch_id })),
+        ),
+        ("DELETE", format!("/api/messages/{msg_id}"), None),
+    ];
+    for (method, path, body) in attempts {
+        let (status, body) = send(&app, method, &path, Some(&token), body).await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "{method} {path}: {body:?}");
+    }
+
+    let (content, pinned): (String, bool) = sqlx::query_as(
+        "SELECT content, is_pinned FROM messages WHERE id = $1::uuid AND deleted_at IS NULL",
+    )
+    .bind(&msg_id)
+    .fetch_one(&state.pool)
+    .await
+    .expect("the message is still there");
+    assert_eq!((content.as_str(), pinned), ("before", false));
+    let members: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM channel_members WHERE channel_id = $1")
+            .bind(ch_id)
+            .fetch_one(&state.pool)
+            .await
+            .expect("members");
+    assert_eq!(members, 2, "nobody joined or left");
+
+    assert_eq!(unarchive(&app, &token, ch_id).await, StatusCode::OK);
+    let (status, body) = send(
+        &app,
+        "PATCH",
+        &format!("/api/messages/{msg_id}"),
+        Some(&token),
+        Some(json!({ "content": "rewritten" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "editing works again: {body:?}");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_member_finds_an_archived_private_channel_in_browse_and_an_outsider_does_not(
+    pool: PgPool,
+) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "hr-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Browse WS").await;
+    let hr = seed_channel(&state, ws_id, owner_id, "hr", true).await;
+    let secret = seed_channel(&state, ws_id, owner_id, "secret", true).await;
+    let (outsider_id, _, outsider_token) = seed_and_login(&app, &state, "hr-outsider", false).await;
+    add_ws_member(&state, ws_id, outsider_id, "member").await;
+
+    assert_eq!(archive(&app, &owner_token, hr).await, StatusCode::OK);
+
+    let theirs = browse_ids(&app, &owner_token, ws_id).await;
+    assert_eq!(
+        theirs.last(),
+        Some(&hr.to_string()),
+        "the archived private channel is listed last: {theirs:?}"
+    );
+    assert!(
+        !theirs.contains(&secret.to_string()),
+        "an open private channel is in the sidebar, not here"
+    );
+    let outsiders = browse_ids(&app, &outsider_token, ws_id).await;
+    assert!(!outsiders.contains(&hr.to_string()));
+}
+
+async fn browse_ids(app: &axum::Router, token: &str, ws_id: Uuid) -> Vec<String> {
+    let (status, body) = send(
+        app,
+        "GET",
+        &format!("/api/workspaces/{ws_id}/channels/browse"),
+        Some(token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    body["data"]
+        .as_array()
+        .expect("data")
+        .iter()
+        .map(|c| c["id"].as_str().expect("id").to_string())
+        .collect()
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn channel_and_workspace_admins_unarchive_and_a_member_cannot(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "arch-owner", false).await;
