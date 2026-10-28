@@ -145,6 +145,7 @@ async fn start_huddle(
             let channel = authz::require_channel_access(&state, channel_id, auth.user_id)
                 .await?
                 .channel;
+            authz::require_not_archived(&channel)?;
             if channel.workspace_id != ws_id {
                 return Err(AppError::BadRequest(
                     "Channel does not belong to workspace".into(),

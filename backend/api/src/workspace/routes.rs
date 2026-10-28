@@ -665,6 +665,7 @@ async fn update_channel(
     req.validate()?;
     let channel = authz::find_channel(&state, ch_id).await?;
     authz::require_channel_moderator(&state, &channel, auth.user_id).await?;
+    authz::require_not_archived(&channel)?;
     let mut updated = state
         .workspace_service
         .repo
@@ -892,6 +893,7 @@ async fn add_channel_member(
     Json(req): Json<AddChannelMemberRequest>,
 ) -> AppResult<Json<ChannelMember>> {
     let channel = authz::find_channel(&state, ch_id).await?;
+    authz::require_not_archived(&channel)?;
     authz::require_workspace_role(
         &state,
         channel.workspace_id,
@@ -937,6 +939,7 @@ async fn update_channel_member_role(
 ) -> AppResult<Json<ChannelMember>> {
     let channel = authz::find_channel(&state, ch_id).await?;
     authz::require_channel_moderator(&state, &channel, auth.user_id).await?;
+    authz::require_not_archived(&channel)?;
     let target = state
         .workspace_service
         .repo
@@ -977,6 +980,7 @@ async fn remove_channel_member(
     if auth.user_id != user_id {
         authz::require_channel_moderator(&state, &channel, auth.user_id).await?;
     }
+    authz::require_not_archived(&channel)?;
     let mut tx = state.pool.begin().await?;
     state
         .workspace_service
@@ -1042,6 +1046,7 @@ async fn create_channel_bookmark(
 ) -> AppResult<Json<ChannelBookmark>> {
     let access = authz::require_channel_access(&state, ch_id, auth.user_id).await?;
     authz::require_channel_moderator(&state, &access.channel, auth.user_id).await?;
+    authz::require_not_archived(&access.channel)?;
 
     req.validate()?;
     let emoji = req
@@ -1067,6 +1072,7 @@ async fn delete_channel_bookmark(
 ) -> AppResult<Json<StatusResponse>> {
     let access = authz::require_channel_access(&state, ch_id, auth.user_id).await?;
     authz::require_channel_moderator(&state, &access.channel, auth.user_id).await?;
+    authz::require_not_archived(&access.channel)?;
 
     let bookmark = state
         .workspace_service

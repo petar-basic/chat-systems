@@ -183,13 +183,17 @@ export const useWebSocketQuerySync = () => {
           if (!shownInChannel(message)) return;
         }
 
-        patchChannel(queryClient, message.channel_id, (cache) =>
-          upsertMessage(
-            message.client_message_id ? removeMessageById(cache, message.client_message_id) : cache,
-            { ...message, pending: false },
-            'lastPage',
-            newestFirst,
-          ),
+        patchChannel(
+          queryClient,
+          message.channel_id,
+          (cache) =>
+            upsertMessage(
+              message.client_message_id ? removeMessageById(cache, message.client_message_id) : cache,
+              { ...message, pending: false },
+              'lastPage',
+              newestFirst,
+            ),
+          true,
         );
 
         const {

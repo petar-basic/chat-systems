@@ -19,6 +19,7 @@ import {
 import { useIsTabStop, useRovingFocus } from './rovingFocus';
 import { useLaterActions, useSavedItemId } from '@/features/later';
 import { useWorkspaceStore } from '@/stores/workspace';
+import { useChannelArchived } from '@/lib/channelArchive';
 import EditHistoryPanel from './EditHistoryPanel';
 import { useCurrentWorkspaceRole } from '@/features/workspace';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog/ConfirmDialog';
@@ -89,9 +90,10 @@ function MessageItem({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
+  const archived = useChannelArchived(message.channel_id);
   const isOwn = currentUserId === message.user_id;
   const isEdited = message.updated_at !== message.created_at;
-  const canEdit = isOwn && !message.metadata?.poll && !message.metadata?.form;
+  const canEdit = isOwn && !archived && !message.metadata?.poll && !message.metadata?.form;
   const pollKeyVote = useRef<PollKeyVote | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const rowRef = useRef<HTMLDivElement>(null);
@@ -109,15 +111,16 @@ function MessageItem({
     : undefined;
   const actions: MessageActionHandlers = {
     saved: !!savedItemId,
-    isOwn,
+    canDelete: isOwn && !archived,
     canEdit,
+    canReact: !archived,
     onThread: onThreadOpen ? () => onThreadOpen(message) : undefined,
     onToggleSave: toggleSave,
     onRemind: onSave ? (at) => later.save.mutate({ messageId: message.id, remindAt: at }) : undefined,
     onCopyLink: onCopyLink ? () => onCopyLink(message.id) : undefined,
     onMarkUnread: onMarkUnread ? () => onMarkUnread(message.id) : undefined,
     onForward: onForward ? () => onForward(message) : undefined,
-    onTogglePin: () => onTogglePin(message.id, message.is_pinned),
+    onTogglePin: archived ? undefined : () => onTogglePin(message.id, message.is_pinned),
     onEdit: () => setEditing(true),
     onDelete: () => setConfirmDelete(true),
   };
@@ -170,7 +173,7 @@ function MessageItem({
     : {
         edit: canEdit ? () => setEditing(true) : undefined,
         thread: actions.onThread,
-        react: () => setShowEmojiPicker(true),
+        react: archived ? undefined : () => setShowEmojiPicker(true),
         later: toggleSave,
         pin: actions.onTogglePin,
       };
@@ -425,7 +428,11 @@ function MessageItem({
             </button>
           )}
 
-          <MessageReactions message={message} currentUserId={currentUserId} onToggle={handleReactionToggle} />
+          <MessageReactions
+            message={message}
+            currentUserId={currentUserId}
+            onToggle={archived ? undefined : handleReactionToggle}
+          />
         </div>
 
         {!editing && !confirmDelete && !unsent && (
@@ -441,7 +448,7 @@ function MessageItem({
         {sheetOpen && (
           <MessageActionSheet
             quickReactions={QUICK_REACTIONS}
-            onReact={(emoji) => handleReactionToggle(emoji)}
+            onReact={archived ? undefined : (emoji) => handleReactionToggle(emoji)}
             actions={sheetActionsFor(message, actions)}
             onClose={() => setSheetOpen(false)}
           />

@@ -46,9 +46,18 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   Private channels never merge now; a taken name becomes `<name>-slack`.
 - **A re-import leaves a merged channel open.** Running an import again, or *Start again*,
   archived a local channel the first run had merged an archived Slack channel into.
+- **An archived channel is read-only all the way.** Editing, deleting and pinning a message,
+  voting in a poll, adding or removing members, bookmarks, renaming and starting a huddle still
+  changed an archived channel; every one answers 403 now, and the client hides them.
 
 ### Fixed
 
+- **An archived private channel can be found again.** The sidebar leaves archived channels out
+  and *Browse channels* listed public ones only, so nobody could reach one to unarchive it. Browse
+  now lists those you are a member of, under the archived public ones.
+- **A message that arrives while a channel opens is shown.** The first page of a channel was
+  still loading when a new message came in over the socket, so the message was dropped until
+  the next reload. It now reloads the page instead.
 - **A failed send stays where you sent it.** A reply from the *Threads* view that failed
   vanished from its card, a failed message was lost on reload, a send the server took just before
   the request failed showed twice, and scheduling dropped a file that had failed to upload. The

@@ -2,6 +2,7 @@ import { useEffect, type RefObject } from 'react';
 import { BarChart3, Check } from 'lucide-react';
 import type { Message } from '@/stores/workspace';
 import { useWorkspaceStore } from '@/stores/workspace';
+import { useChannelArchived } from '@/lib/channelArchive';
 import { useUserCache } from '@/stores/users';
 import { displayNameOf } from '@/lib/userHelpers';
 import { formatDateTime } from '@/lib/datetime';
@@ -40,16 +41,17 @@ export function PollCard({ message, poll, currentUserId, keyVoteRef }: Props) {
   const voters = usePollVoters(poll, instanceUrl).data;
   const vote = useVote(message, poll, instanceUrl);
   const close = useClosePoll(message, poll.id, instanceUrl);
-  const closed = !!poll.closed_at;
+  const archived = useChannelArchived(message.channel_id);
+  const locked = !!poll.closed_at || archived;
 
   const choose = (optionId: string) => {
-    if (closed) return;
+    if (locked) return;
     vote.mutate(nextChoice(poll, mine, optionId));
   };
 
   useEffect(() => {
     if (!keyVoteRef) return undefined;
-    keyVoteRef.current = closed
+    keyVoteRef.current = locked
       ? null
       : (index) => {
           const option = poll.options[index];
@@ -90,10 +92,10 @@ export function PollCard({ message, poll, currentUserId, keyVoteRef }: Props) {
               <button
                 type="button"
                 aria-pressed={chosen}
-                disabled={closed}
+                disabled={locked}
                 onClick={() => choose(option.id)}
                 data-qa="poll-option"
-                title={closed ? undefined : `${index + 1} on the keyboard`}
+                title={locked ? undefined : `${index + 1} on the keyboard`}
                 className={`relative flex w-full items-center gap-2 overflow-hidden rounded-lg border px-3 py-2 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 disabled:cursor-default ${
                   chosen
                     ? 'border-purple-500 text-fg'
@@ -139,7 +141,7 @@ export function PollCard({ message, poll, currentUserId, keyVoteRef }: Props) {
         <span className="text-xs text-muted" data-qa="poll-footer">
           {footerText(poll)}
         </span>
-        {!closed && poll.created_by === currentUserId && (
+        {!locked && poll.created_by === currentUserId && (
           <Button size="sm" variant="ghost" loading={close.isPending} onClick={() => close.mutate()}>
             Close poll
           </Button>

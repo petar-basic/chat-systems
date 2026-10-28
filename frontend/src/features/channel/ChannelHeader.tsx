@@ -93,7 +93,7 @@ export default function ChannelHeader({
           )}
 
           <div className="ml-auto flex items-center gap-1">
-            <HuddleBar channelId={channel.id} />
+            {!channel.is_archived && <HuddleBar channelId={channel.id} />}
             <NotificationLevelButton channelId={channel.id} direct={false} className="max-sm:hidden" />
             <HeaderToggle
               label="Channel members"
@@ -200,7 +200,7 @@ export default function ChannelHeader({
           {details && (
             <ChannelDetailsModal
               channel={channel}
-              canModerate={canModerate}
+              canModerate={canModerate && !channel.is_archived}
               initialTab={details}
               onOpenWorkflow={onOpenWorkflow}
               onClose={() => setDetails(null)}

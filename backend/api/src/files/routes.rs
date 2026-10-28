@@ -475,6 +475,7 @@ async fn delete_file(
     if moderated {
         require_file_moderator(&state, &record, auth.user_id, &member).await?;
     }
+    require_open_channel(&state, &record).await?;
 
     service::purge_objects(&state, std::slice::from_ref(&record)).await;
 
@@ -499,6 +500,15 @@ async fn delete_file(
     .await;
 
     Ok(Json(StatusResponse::new("deleted")))
+}
+
+async fn require_open_channel(state: &AppState, record: &FileRecord) -> AppResult<()> {
+    if let Some(message_id) = record.message_id {
+        if let Some(channel_id) = state.file_repo.channel_id_for_message(message_id).await? {
+            authz::require_not_archived(&authz::find_channel(state, channel_id).await?)?;
+        }
+    }
+    Ok(())
 }
 
 async fn detach_from_message(state: &AppState, message_id: Uuid, file_id: Uuid) -> AppResult<()> {

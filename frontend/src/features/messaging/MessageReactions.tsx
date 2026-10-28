@@ -32,7 +32,7 @@ export function MessageReactions({
 }: {
   message: Message;
   currentUserId: string;
-  onToggle: (emoji: string) => void;
+  onToggle?: (emoji: string) => void;
 }) {
   const groups = groupReactions(message, currentUserId);
   if (groups.length === 0) return null;
@@ -52,7 +52,7 @@ function ReactionPill({
 }: {
   group: ReactionGroup;
   currentUserId: string;
-  onToggle: (emoji: string) => void;
+  onToggle?: (emoji: string) => void;
 }) {
   const getUser = useUserCache((s) => s.getUser);
   const names = reactorNames(group.userIds, currentUserId, (id) => {
@@ -77,7 +77,8 @@ function ReactionPill({
       }
     >
       <button
-        onClick={() => onToggle(group.emoji)}
+        onClick={() => onToggle?.(group.emoji)}
+        disabled={!onToggle}
         aria-pressed={group.hasOwn}
         aria-label={`${joinReactors(names)} reacted`}
         data-qa="message-reaction"

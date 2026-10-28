@@ -952,9 +952,15 @@ impl WorkspaceRepo {
             FROM channels c
             LEFT JOIN channel_members cm ON cm.channel_id = c.id
             WHERE c.workspace_id = $1
-              AND c.channel_type = 'public'
+              AND (
+                    c.channel_type = 'public'
+                 OR (c.channel_type = 'private'
+                     AND c.is_archived
+                     AND EXISTS (SELECT 1 FROM channel_members m
+                                  WHERE m.channel_id = c.id AND m.user_id = $2))
+              )
             GROUP BY c.id
-            ORDER BY c.is_archived, c.name
+            ORDER BY c.is_archived, c.channel_type = 'private', c.name
             "#,
             workspace_id,
             user_id

@@ -187,6 +187,7 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - **Steps:** channel admin renames/archives a channel from the header's ⋯ → *Channel details → About*; a non-admin sees the topic and description as text and no *Settings* tab.
 - **Expected:** archived channel is read-only/hidden; permission enforced. A plain member's header has no ⋯ on desktop.
 - 🔴 **Edge — archived stays closed:** with Bob viewing the channel in a second window, Admin archives it. Both see *archived this channel* and the composer turns into the *Archived* bar at once; Bob's bar has no *Unarchive*. *Browse channels* lists it with *Archived* and no *Join*. A scheduled message into it fails, and its incoming webhook answers 403. Admin's *Unarchive* brings the composer back for both, with *unarchived this channel*.
+- 🔴 **Edge — read-only all the way:** in an archived channel, hovering a message shows no reactions, *Pin*, *Edit* or *Delete*; reaction pills and poll options do not respond; the header has no huddle button, *Channel members* has no *Add people*, *Remove* or admin toggle, and the bookmark bar no *Add a bookmark*. Archive a private channel: it leaves the sidebar, and *Browse channels* lists it last as *Archived private channel* for its members only; opening it shows *Unarchive* to its admins.
 - 🟢 **Header:** the people count is the one members button and toggles the panel; the pin button shows how many are pinned. Every header icon has a tooltip.
 
 ---

@@ -18,3 +18,9 @@ export function applyChannelArchived(
     useWorkspaceStore.setState({ currentChannel: { ...currentChannel, is_archived: isArchived } });
   }
 }
+
+export function useChannelArchived(channelId: string | null | undefined): boolean {
+  return useWorkspaceStore(
+    (s) => !!channelId && s.currentChannel?.id === channelId && !!s.currentChannel.is_archived,
+  );
+}

@@ -19,15 +19,16 @@ export const QUICK_REACTIONS = ['👍', '✅', '🎉'];
 
 export interface MessageActionHandlers {
   saved: boolean;
-  isOwn: boolean;
+  canDelete: boolean;
   canEdit: boolean;
+  canReact: boolean;
   onThread?: () => void;
   onToggleSave?: () => void;
   onRemind?: (at: Date) => void;
   onCopyLink?: () => void;
   onMarkUnread?: () => void;
   onForward?: () => void;
-  onTogglePin: () => void;
+  onTogglePin?: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }
@@ -58,14 +59,18 @@ export function sheetActionsFor(message: Message, a: MessageActionHandlers): She
       ? [{ key: 'mark-unread', label: 'Mark unread', Icon: MailOpen, onSelect: a.onMarkUnread }]
       : []),
     ...(a.onForward ? [{ key: 'forward', label: 'Forward', Icon: Forward, onSelect: a.onForward }] : []),
-    {
-      key: 'pin',
-      label: message.is_pinned ? 'Unpin from channel' : 'Pin to channel',
-      Icon: Pin,
-      onSelect: a.onTogglePin,
-    },
+    ...(a.onTogglePin
+      ? [
+          {
+            key: 'pin',
+            label: message.is_pinned ? 'Unpin from channel' : 'Pin to channel',
+            Icon: Pin,
+            onSelect: a.onTogglePin,
+          },
+        ]
+      : []),
     ...(a.canEdit ? [{ key: 'edit', label: 'Edit message', Icon: Pencil, onSelect: a.onEdit }] : []),
-    ...(a.isOwn
+    ...(a.canDelete
       ? [{ key: 'delete', label: 'Delete message', Icon: Trash2, onSelect: a.onDelete, destructive: true }]
       : []),
   ];
