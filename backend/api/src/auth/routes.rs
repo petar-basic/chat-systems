@@ -370,6 +370,12 @@ async fn update_me(
     Json(req): Json<UpdateProfileRequest>,
 ) -> AppResult<Json<UserPublic>> {
     req.validate()?;
+    let before = state
+        .auth_service
+        .repo()
+        .find_by_id(auth.user_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("User not found".into()))?;
     let user = state
         .auth_service
         .repo()
@@ -381,6 +387,9 @@ async fn update_me(
             req.timezone.as_deref(),
         )
         .await?;
+    if before.avatar_url != user.avatar_url {
+        crate::profile::avatar::forget(&state, auth.user_id, before.avatar_url.as_deref()).await;
+    }
     Ok(Json(user.into()))
 }
 

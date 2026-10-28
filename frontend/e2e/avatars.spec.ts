@@ -23,14 +23,10 @@ test('an uploaded avatar replaces the initials fallback across the app', async (
 
   const { workspace, general } = await generalChannel(alice);
 
-  const upload = await alice.post(`${API}/files/upload/${workspace.id}`, {
+  const upload = await alice.post(`${API}/users/me/avatar`, {
     multipart: { file: { name: 'avatar.png', mimeType: 'image/png', buffer: PNG } },
   });
   expect(upload.status(), 'avatar upload').toBe(200);
-  const avatarUrl = (await upload.json())[0].url as string;
-
-  const saved = await alice.patch(`${API}/users/me`, { data: { avatar_url: avatarUrl } });
-  expect(saved.status(), 'saving the avatar on the profile').toBe(200);
 
   try {
     const separator = await admin.post(`${API}/channels/${general.id}/messages`, {

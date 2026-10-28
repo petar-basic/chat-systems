@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT EXISTS(\n              SELECT 1 FROM workspace_members\n              WHERE avatar_url IS NOT NULL\n                AND position($1 in avatar_url) > 0\n            ) AS \"exists!\"\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "exists!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "f771e6c727905f918653ab6b7217ace1b4ef77d6f6642a0e87832b6456682628"
+}

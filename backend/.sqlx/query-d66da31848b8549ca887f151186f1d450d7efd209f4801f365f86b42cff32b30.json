@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE users SET avatar_url = $3 WHERE id = $1 AND avatar_url = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Varchar"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d66da31848b8549ca887f151186f1d450d7efd209f4801f365f86b42cff32b30"
+}

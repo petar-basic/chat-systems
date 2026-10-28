@@ -1961,3 +1961,25 @@ invite page when the provider's address is not the invited one. `forgot_password
 whether the account is still waiting on an invite, and the route re-sends that invite;
 password-less accounts get a note about SSO instead; `reset_password` validates before it
 consumes the token.
+
+### [CS-087] A photo that shows everywhere ✅ shipped
+An account photo was uploaded as a file of whichever workspace was open, so the others got
+`403` for it and that workspace's file retention deleted it with its old files. `is_avatar`
+made the file readable inside its own workspace by matching `users.avatar_url`, which is the
+one place an account photo was never needed alone.
+
+`POST /users/me/avatar` takes the photo itself: sniffed, decoded and stripped of metadata like
+any image, shrunk to 720 px when wider, and stored as `avatars/{user_id}/{uuid}.{ext}` with no
+`files` row, which is what keeps retention, file search and attachments away from it. It is
+set on the account in the same call and the previous object is deleted, as it is when
+`PATCH /users/me` replaces or clears a photo and when an account is erased, so no orphan is
+left behind. The download route reads the owner out of the key and lets through the owner
+and anyone who shares a workspace with them. `is_avatar` now only matches workspace photos,
+which stay workspace files (CS-076). The move of existing photos needs the object store, so it
+is a worker start-up task rather than a SQL migration: it copies each account photo still
+under a workspace prefix, swaps the URL only if it has not changed meanwhile, and leaves the
+original to its workspace's retention; it runs to nothing on the next start.
+
+CI caught a race in *Edit profile* on the way: with the profile query not yet enabled the
+fields rendered empty, and the profile's arrival reset the status a person had started to
+pick. The form now waits for the profile, as its *Save* button already did.

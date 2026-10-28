@@ -705,6 +705,17 @@ still wanted but untouched for longer than the window goes too. Run a pass with
 `RETENTION_DRY_RUN=true` first; `retention_rows_deleted_total{table="list_items"}` and
 `{table="lists"}` count what it would remove.
 
+## Upgrade note: account photos get a place of their own
+
+An account photo used to be a file of whichever workspace was open when it was uploaded, so
+other workspaces could not show it and that workspace's file retention deleted it. Photos
+now live under `avatars/<user id>/` in the object store, outside retention, and are shown to
+anyone who shares a workspace with the person. On its first start the worker copies each
+existing account photo there and points the account at the copy; a photo whose object is
+already gone is left as it was and logged as `photo of <id> was not moved`. The originals stay
+where they were and go with their workspace's files. Nothing to do beyond deploying the
+`api` and `worker` images together; `storage-backup` already copies the whole bucket.
+
 ## Audit log
 
 `GET /api/workspaces/:ws_id/audit-log` (workspace admin) and `GET /api/admin/audit-log`

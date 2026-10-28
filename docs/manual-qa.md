@@ -574,3 +574,7 @@ dialog becomes a sheet from the bottom).
       *You* menu pauses notifications; switch to the other: the account's name, no status,
       notifications on. *Preferences → Account* changes the name both show where neither has
       its own; *Preferences → Notifications* names the workspace it changes.
+- [ ] **An account photo everywhere.** *Preferences → Account → Upload photo* shows *Photo
+      updated.* at once; switch workspace and the photo is there too, and someone who shares
+      only the other workspace sees it on your messages. Set a file retention of one day in the
+      workspace you uploaded from and run the worker: the photo stays.

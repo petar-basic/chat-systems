@@ -304,7 +304,7 @@ unverified in the survey are checked first in their ticket and dropped if they d
 | CS-084 ✅ | Reconnecting, presence and new versions | frontend · realtime · ops |
 | CS-085 ✅ | Archive, export and retention that say what they did | backend · frontend |
 | CS-086 ✅ | Getting people in | frontend · backend |
-| [CS-087](CS-087-account-photos.md) | A photo that shows everywhere | backend · frontend |
+| CS-087 ✅ | A photo that shows everywhere | backend · frontend |
 | [CS-088](CS-088-slack-import-fidelity.md) | A Slack import that keeps what it found | backend |
 
 ### Still open

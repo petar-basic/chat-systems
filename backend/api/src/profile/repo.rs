@@ -126,4 +126,48 @@ impl ProfileRepo {
             .next()
             .map(|(_, name)| name))
     }
+
+    pub async fn shares_a_workspace(&self, a: Uuid, b: Uuid) -> sqlx::Result<bool> {
+        sqlx::query_scalar!(
+            r#"
+            SELECT EXISTS(
+              SELECT 1 FROM workspace_members mine
+                JOIN workspace_members theirs ON theirs.workspace_id = mine.workspace_id
+               WHERE mine.user_id = $1 AND theirs.user_id = $2
+            ) AS "exists!"
+            "#,
+            a,
+            b
+        )
+        .fetch_one(&self.pool)
+        .await
+    }
+
+    pub async fn photos_outside_avatars(&self) -> sqlx::Result<Vec<(Uuid, String)>> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT id, avatar_url AS "avatar_url!" FROM users
+             WHERE avatar_url LIKE '%/api/files/download/%'
+               AND avatar_url NOT LIKE '%/api/files/download/avatars/%'
+            "#
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows
+            .into_iter()
+            .map(|row| (row.id, row.avatar_url))
+            .collect())
+    }
+
+    pub async fn move_photo(&self, user_id: Uuid, from: &str, to: &str) -> sqlx::Result<bool> {
+        let done = sqlx::query!(
+            "UPDATE users SET avatar_url = $3 WHERE id = $1 AND avatar_url = $2",
+            user_id,
+            from,
+            to
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(done.rows_affected() == 1)
+    }
 }
