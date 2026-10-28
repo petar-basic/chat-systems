@@ -358,6 +358,7 @@ async fn update_message(
     }
 
     let channel = authz::find_channel(&state, existing.channel_id).await?;
+    authz::require_not_archived(&channel)?;
 
     let mut tx = state.pool.begin().await?;
     let mut msg = state
@@ -410,6 +411,7 @@ async fn refresh_unfurls(
         ));
     }
     let channel = authz::find_channel(&state, existing.channel_id).await?;
+    authz::require_not_archived(&channel)?;
 
     let mut tx = state.pool.begin().await?;
     let msg = state.message_repo.reset_unfurls_in(&mut tx, msg_id).await?;
@@ -444,6 +446,7 @@ async fn hide_unfurls(
         ));
     }
     let channel = authz::find_channel(&state, existing.channel_id).await?;
+    authz::require_not_archived(&channel)?;
 
     let mut tx = state.pool.begin().await?;
     let msg = state.message_repo.hide_unfurls_in(&mut tx, msg_id).await?;
@@ -530,6 +533,7 @@ async fn delete_message(
     }
 
     let channel = authz::find_channel(&state, existing.channel_id).await?;
+    authz::require_not_archived(&channel)?;
     if let Err(e) = state
         .message_repo
         .drop_unread_for_message(existing.channel_id, msg_id, existing.user_id)
@@ -607,6 +611,7 @@ async fn pin_message(
     }
 
     let channel = authz::find_channel(&state, existing.channel_id).await?;
+    authz::require_not_archived(&channel)?;
     let mut tx = state.pool.begin().await?;
     let msg = state
         .message_repo
@@ -646,6 +651,7 @@ async fn unpin_message(
     }
 
     let channel = authz::find_channel(&state, existing.channel_id).await?;
+    authz::require_not_archived(&channel)?;
     let mut tx = state.pool.begin().await?;
     let msg = state
         .message_repo

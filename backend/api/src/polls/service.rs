@@ -103,6 +103,7 @@ pub async fn vote(
     option_ids: &[Uuid],
 ) -> AppResult<(Vec<Uuid>, PollSummary)> {
     let place = find_readable(state, poll_id, user_id).await?;
+    authz::require_not_archived(&authz::find_channel(state, place.channel_id).await?)?;
 
     let mut tx = state.pool.begin().await?;
     let poll = state.poll_repo.lock_in(&mut tx, poll_id).await?;
@@ -144,12 +145,16 @@ pub async fn close_by(state: &AppState, user_id: Uuid, poll_id: Uuid) -> AppResu
         .await?
         .filter(|place| !place.message_deleted)
         .ok_or_else(|| AppError::NotFound("Poll not found".into()))?;
-    if place.poll.created_by == user_id {
-        authz::require_channel_access(state, place.channel_id, user_id).await?;
+    let channel = if place.poll.created_by == user_id {
+        authz::require_channel_access(state, place.channel_id, user_id)
+            .await?
+            .channel
     } else {
         let channel = authz::find_channel(state, place.channel_id).await?;
         authz::require_channel_moderator(state, &channel, user_id).await?;
-    }
+        channel
+    };
+    authz::require_not_archived(&channel)?;
     close(state, &place)
         .await?
         .ok_or_else(|| AppError::Conflict("This poll is already closed".into()))

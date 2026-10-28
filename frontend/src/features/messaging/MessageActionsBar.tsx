@@ -36,21 +36,25 @@ export function MessageActionsBar({ message, actions: a, pickerOpen, onPickerCha
         showOverflow ? 'opacity-100 pointer-events-auto' : ''
       }`}
     >
-      {/* Slack surfaces a few emoji inline because reacting is the most
-        common action in the product, and a picker turns one tap into
-        three. These are the three this instance uses most. */}
-      {QUICK_REACTIONS.map((emoji) => (
-        <button
-          key={emoji}
-          onClick={() => onReact(emoji)}
-          aria-label={`React with ${emoji}`}
-          data-qa="message-quick-reaction"
-          className="px-1 py-0.5 text-sm leading-none hover:bg-raised rounded transition"
-        >
-          {emoji}
-        </button>
-      ))}
-      <div className="w-px h-4 bg-raised mx-0.5" />
+      {a.canReact && (
+        <>
+          {/* Slack surfaces a few emoji inline because reacting is the most
+            common action in the product, and a picker turns one tap into
+            three. These are the three this instance uses most. */}
+          {QUICK_REACTIONS.map((emoji) => (
+            <button
+              key={emoji}
+              onClick={() => onReact(emoji)}
+              aria-label={`React with ${emoji}`}
+              data-qa="message-quick-reaction"
+              className="px-1 py-0.5 text-sm leading-none hover:bg-raised rounded transition"
+            >
+              {emoji}
+            </button>
+          ))}
+          <div className="w-px h-4 bg-raised mx-0.5" />
+        </>
+      )}
       {a.onThread && (
         <button
           onClick={a.onThread}
@@ -61,27 +65,29 @@ export function MessageActionsBar({ message, actions: a, pickerOpen, onPickerCha
           <MessageSquare className="w-3.5 h-3.5" />
         </button>
       )}
-      <div className="relative">
-        <button
-          ref={reactBtnRef}
-          onClick={() => onPickerChange(!pickerOpen)}
-          aria-label="Add reaction"
-          data-qa="message-action-react"
-          className="p-1 text-muted hover:text-fg hover:bg-raised rounded transition"
-        >
-          <SmilePlus className="w-3.5 h-3.5" />
-        </button>
-        {pickerOpen && (
-          <EmojiPicker
-            anchorRef={reactBtnRef}
-            onSelect={(emoji) => {
-              onReact(emoji);
-              onPickerChange(false);
-            }}
-            onClose={() => onPickerChange(false)}
-          />
-        )}
-      </div>
+      {a.canReact && (
+        <div className="relative">
+          <button
+            ref={reactBtnRef}
+            onClick={() => onPickerChange(!pickerOpen)}
+            aria-label="Add reaction"
+            data-qa="message-action-react"
+            className="p-1 text-muted hover:text-fg hover:bg-raised rounded transition"
+          >
+            <SmilePlus className="w-3.5 h-3.5" />
+          </button>
+          {pickerOpen && (
+            <EmojiPicker
+              anchorRef={reactBtnRef}
+              onSelect={(emoji) => {
+                onReact(emoji);
+                onPickerChange(false);
+              }}
+              onClose={() => onPickerChange(false)}
+            />
+          )}
+        </div>
+      )}
       {a.onToggleSave && (
         <button
           onClick={a.onToggleSave}
@@ -114,16 +120,18 @@ export function MessageActionsBar({ message, actions: a, pickerOpen, onPickerCha
             dataQa="message-overflow"
             className="w-44 bg-surface border border-line rounded-lg shadow-xl py-1"
           >
-            <button
-              onClick={() => {
-                a.onTogglePin();
-                setShowOverflow(false);
-              }}
-              data-qa="message-action-pin"
-              className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2"
-            >
-              <Pin className="w-3.5 h-3.5" /> {message.is_pinned ? 'Unpin' : 'Pin'}
-            </button>
+            {a.onTogglePin && (
+              <button
+                onClick={() => {
+                  a.onTogglePin?.();
+                  setShowOverflow(false);
+                }}
+                data-qa="message-action-pin"
+                className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2"
+              >
+                <Pin className="w-3.5 h-3.5" /> {message.is_pinned ? 'Unpin' : 'Pin'}
+              </button>
+            )}
             {a.onMarkUnread && !message.pending && (
               <button
                 onClick={() => {
@@ -191,7 +199,7 @@ export function MessageActionsBar({ message, actions: a, pickerOpen, onPickerCha
                 <Pencil className="w-3.5 h-3.5" /> Edit
               </button>
             )}
-            {a.isOwn && (
+            {a.canDelete && (
               <button
                 onClick={() => {
                   a.onDelete();

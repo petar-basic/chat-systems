@@ -85,6 +85,28 @@ describe('BrowseChannelsModal', () => {
     expect(props.onOpenChannel).toHaveBeenCalledWith('ch-old');
   });
 
+  it('shelves archived channels last, the private ones a member kept under the public ones', () => {
+    listed = [
+      {
+        ...channels[0],
+        id: 'ch-hr',
+        name: 'aa-hr',
+        channel_type: 'private',
+        is_archived: true,
+        is_member: true,
+      },
+      { ...channels[0], id: 'ch-old', name: 'old-launch', is_archived: true },
+      channels[0],
+    ];
+    renderModal();
+
+    const order = screen
+      .getAllByTestId('browse-channel-row')
+      .map((row) => row.getAttribute('data-channel-id'));
+    expect(order).toEqual(['ch-open', 'ch-old', 'ch-hr']);
+    expect(screen.getByText(/Archived private channel/)).toBeInTheDocument();
+  });
+
   it('counts, sorts by name, members and age, and offers to create one', () => {
     const props = renderModal({ onCreateChannel: vi.fn() });
     const names = () =>

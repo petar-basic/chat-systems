@@ -46,3 +46,39 @@ test('an archived channel takes no posts until an admin unarchives it', async ({
     await bob.dispose();
   }
 });
+
+test('a member finds an archived private channel in Browse and unarchives it', async ({ page }) => {
+  const { ctx: admin } = await userContext('admin@dev.local');
+  const { ctx: bob } = await userContext('bob@dev.local');
+  const workspace = await devWorkspace(admin);
+  const created = await admin.post(`${API}/workspaces/${workspace.id}/channels`, {
+    data: { name: `hr-${Date.now()}`, channel_type: 'private' },
+  });
+  expect(created.status()).toBe(200);
+  const channel = (await created.json()) as { id: string; name: string };
+
+  try {
+    expect((await admin.delete(`${API}/channels/${channel.id}`)).status()).toBe(200);
+
+    const outsider = await bob.get(`${API}/workspaces/${workspace.id}/channels/browse`);
+    const listed = ((await outsider.json()) as { data: { id: string }[] }).data.map((c) => c.id);
+    expect(listed, 'an outsider never sees it').not.toContain(channel.id);
+
+    await login(page, 'admin@dev.local');
+    await page.getByTestId('browse-channels-open').click();
+    await page.getByTestId('browse-channels-search').fill(channel.name);
+    const row = page.locator(`[data-qa="browse-channel-row"][data-channel-id="${channel.id}"]`);
+    await expect(row).toContainText('Archived private channel');
+    await row.getByTestId('browse-channel-open').click();
+
+    const bar = page.getByTestId('channel-archived');
+    await expect(bar).toContainText(`#${channel.name} is archived`);
+    await page.getByTestId('channel-unarchive').click();
+    await expect(bar).toBeHidden();
+    await expect(page.locator('[data-message-pane] .ProseMirror[contenteditable="true"]')).toBeVisible();
+  } finally {
+    await admin.delete(`${API}/channels/${channel.id}`);
+    await admin.dispose();
+    await bob.dispose();
+  }
+});

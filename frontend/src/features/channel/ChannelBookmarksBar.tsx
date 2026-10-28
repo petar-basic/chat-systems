@@ -10,6 +10,7 @@ import {
 import { useChannelModeration } from './hooks/useChannelModeration';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { ChannelListsMenu } from '@/features/lists';
+import { useChannelArchived } from '@/lib/channelArchive';
 
 interface Props {
   workspaceId: string;
@@ -29,7 +30,9 @@ export default function ChannelBookmarksBar({
   onAddingChange,
 }: Props) {
   const { data: bookmarks = [] } = useChannelBookmarks(channelId, instanceUrl);
-  const { canModerate } = useChannelModeration(channelId);
+  const { canModerate: moderates } = useChannelModeration(channelId);
+  const archived = useChannelArchived(channelId);
+  const canModerate = moderates && !archived;
   const createBookmark = useCreateChannelBookmark(channelId, instanceUrl);
   const deleteBookmark = useDeleteChannelBookmark(channelId, instanceUrl);
 
@@ -64,7 +67,7 @@ export default function ChannelBookmarksBar({
         workspaceId={workspaceId}
         channelId={channelId}
         instanceUrl={instanceUrl}
-        canCreate={canPost}
+        canCreate={canPost && !archived}
       />
       {bookmarks.map((bookmark) => (
         <span

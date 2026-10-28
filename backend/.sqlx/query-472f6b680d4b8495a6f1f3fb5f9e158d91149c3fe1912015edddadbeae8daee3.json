@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT c.id,\n                   c.workspace_id,\n                   c.name,\n                   c.channel_type AS \"channel_type: ChannelType\",\n                   c.topic,\n                   c.description,\n                   c.is_default AS \"is_default!\",\n                   c.is_archived AS \"is_archived!\",\n                   c.created_at,\n                   COUNT(cm.user_id) AS \"member_count!\",\n                   COALESCE(BOOL_OR(cm.user_id = $2), false) AS \"is_member!\"\n            FROM channels c\n            LEFT JOIN channel_members cm ON cm.channel_id = c.id\n            WHERE c.workspace_id = $1\n              AND c.channel_type = 'public'\n            GROUP BY c.id\n            ORDER BY c.is_archived, c.name\n            ",
+  "query": "\n            SELECT c.id,\n                   c.workspace_id,\n                   c.name,\n                   c.channel_type AS \"channel_type: ChannelType\",\n                   c.topic,\n                   c.description,\n                   c.is_default AS \"is_default!\",\n                   c.is_archived AS \"is_archived!\",\n                   c.created_at,\n                   COUNT(cm.user_id) AS \"member_count!\",\n                   COALESCE(BOOL_OR(cm.user_id = $2), false) AS \"is_member!\"\n            FROM channels c\n            LEFT JOIN channel_members cm ON cm.channel_id = c.id\n            WHERE c.workspace_id = $1\n              AND (\n                    c.channel_type = 'public'\n                 OR (c.channel_type = 'private'\n                     AND c.is_archived\n                     AND EXISTS (SELECT 1 FROM channel_members m\n                                  WHERE m.channel_id = c.id AND m.user_id = $2))\n              )\n            GROUP BY c.id\n            ORDER BY c.is_archived, c.channel_type = 'private', c.name\n            ",
   "describe": {
     "columns": [
       {
@@ -147,5 +147,5 @@
       null
     ]
   },
-  "hash": "20037f6edcd45f18c525ff8ca5d5190c9033350c46a8d65f37b26e444b4381ff"
+  "hash": "472f6b680d4b8495a6f1f3fb5f9e158d91149c3fe1912015edddadbeae8daee3"
 }

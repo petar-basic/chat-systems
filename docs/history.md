@@ -2044,3 +2044,24 @@ says a private channel never joins one already here. Migration 80 adds
 and the reuse path archives only a channel the import made. `AuthRepo::reactivate`, used by the
 admin *Activate* and SCIM `active: true`, sets an account with no password and no
 `oauth_accounts` row to `pending`, where the invite flow finishes it.
+
+### [CS-091] An archived channel is read-only all the way ✅ shipped
+CS-085 closed posting, reacting, scheduling and incoming webhooks in an archived channel and
+left the rest: editing, deleting and pinning a message, its link previews, poll votes and
+closing, file deletion, renaming, members and their roles, bookmarks and huddles all still
+wrote. And an archived private channel had no way back, since the sidebar leaves archived
+channels out and *Browse channels* listed public ones only.
+
+Every one of those writers calls `authz::require_not_archived` after its permission check, so
+the refusal is the same 403 in each. The client reads `is_archived` off the open channel
+(`useChannelArchived`) and drops the controls: message actions lose reacting, pinning, editing
+and deleting, reaction pills and poll options go inert, and the header, members panel and
+bookmark bar lose their writers. `list_browsable_channels` adds archived private channels the
+caller is a member of, ordered under the archived public ones, and opening one lands on the
+archived bar with *Unarchive* for its admins.
+
+The on-screen mention E2E turned up a race on the way: the messages query resolves only after
+`settleChannelNotifications`, so a `message.new` arriving between the GET and that settling found
+no cache, and `patchChannel` dropped it while the page it was waiting for had been read before
+the message existed. `message.new` now invalidates the channel's messages when there is no cache
+yet, which refetches an open channel and leaves one nobody is looking at alone.

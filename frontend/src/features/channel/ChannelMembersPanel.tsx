@@ -7,6 +7,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useUserCache } from '@/stores/users';
 import { useWorkspaceStore } from '@/stores/workspace';
+import { useChannelArchived } from '@/lib/channelArchive';
 import { useUpdateChannelMemberRole } from './hooks/useChannels';
 import { useChannelModeration } from '@/features/channel/hooks/useChannelModeration';
 import { canAddChannelMembers, type ChannelRole } from '@/lib/channelPermissions';
@@ -28,6 +29,7 @@ function MemberRow({
   member,
   isSelf,
   canModerate,
+  locked,
   busy,
   onSetRole,
   onRemove,
@@ -35,6 +37,7 @@ function MemberRow({
   member: ChannelMember;
   isSelf: boolean;
   canModerate: boolean;
+  locked: boolean;
   busy: boolean;
   onSetRole: (userId: string, role: ChannelRole) => void;
   onRemove: (userId: string) => void;
@@ -61,7 +64,7 @@ function MemberRow({
           <span data-qa="channel-member-role">{isAdmin ? 'Channel admin' : 'Member'}</span>
         </div>
       </div>
-      {canModerate && (
+      {canModerate && !locked && (
         <button
           onClick={() => onSetRole(member.user_id, isAdmin ? 'member' : 'admin')}
           disabled={busy}
@@ -77,7 +80,7 @@ function MemberRow({
           <Shield className="w-4 h-4" />
         </button>
       )}
-      {(canModerate || isSelf) && (
+      {!locked && (canModerate || isSelf) && (
         <button
           onClick={() => onRemove(member.user_id)}
           disabled={busy}
@@ -134,7 +137,8 @@ export default function ChannelMembersPanel({
   const currentWorkspace = useWorkspaceStore((s) => s.currentWorkspace);
   const apiClient = currentWorkspace?.instanceUrl ? getApiForInstance(currentWorkspace.instanceUrl) : api;
 
-  const canAdd = canAddChannelMembers(workspaceRole, myRole, channelType);
+  const archived = useChannelArchived(channelId);
+  const canAdd = !archived && canAddChannelMembers(workspaceRole, myRole, channelType);
 
   const failWith = (fallback: string) => (err: unknown) =>
     setError((err as { message?: string })?.message || fallback);
@@ -218,6 +222,7 @@ export default function ChannelMembersPanel({
                 member={m}
                 isSelf={m.user_id === currentUserId}
                 canModerate={canModerate}
+                locked={archived}
                 busy={busy}
                 onSetRole={(userId, role) => roleMutation.mutate({ userId, role })}
                 onRemove={(id) => removeMemberMutation.mutate(id)}

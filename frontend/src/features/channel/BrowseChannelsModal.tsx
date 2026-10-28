@@ -21,6 +21,8 @@ const SORTS: Record<SortKey, (a: BrowsableChannel, b: BrowsableChannel) => numbe
   newest: (a, b) => b.created_at.localeCompare(a.created_at),
 };
 
+const shelf = (c: BrowsableChannel) => (c.is_archived ? (c.channel_type === 'private' ? 2 : 1) : 0);
+
 interface Props {
   workspaceId: string;
   instanceUrl?: string;
@@ -64,7 +66,9 @@ function ChannelRow({
           <span className="block truncate text-sm font-medium text-fg-soft">{channel.name || 'Channel'}</span>
           <span className="block truncate text-xs text-muted">
             {channel.is_archived ? (
-              <span data-qa="browse-channel-archived">Archived · </span>
+              <span data-qa="browse-channel-archived">
+                {channel.channel_type === 'private' ? 'Archived private channel · ' : 'Archived · '}
+              </span>
             ) : (
               channel.is_member && (
                 <span className="text-success">
@@ -119,7 +123,7 @@ export default function BrowseChannelsModal({
             (c.description ?? '').toLowerCase().includes(q),
         )
       : channels;
-    return [...found].sort(SORTS[sort]);
+    return [...found].sort((a, b) => shelf(a) - shelf(b) || SORTS[sort](a, b));
   }, [channels, query, sort]);
 
   const handleJoin = async (channelId: string) => {

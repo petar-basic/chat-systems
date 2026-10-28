@@ -13,7 +13,7 @@ export interface SheetAction {
 
 interface Props {
   quickReactions: string[];
-  onReact: (emoji: string) => void;
+  onReact?: (emoji: string) => void;
   actions: SheetAction[];
   onClose: () => void;
   dataQa?: string;
@@ -30,47 +30,49 @@ export default function MessageActionSheet({
   const pickerAnchorRef = useRef<HTMLButtonElement>(null);
 
   const react = (emoji: string) => {
-    onReact(emoji);
+    onReact?.(emoji);
     onClose();
   };
 
   return (
     <ActionSheet onClose={onClose} dataQa={dataQa} title="Message actions">
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-line">
-        {quickReactions.map((emoji) => (
+      {onReact && (
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-line">
+          {quickReactions.map((emoji) => (
+            <button
+              key={emoji}
+              type="button"
+              onClick={() => react(emoji)}
+              aria-label={`React with ${emoji}`}
+              data-qa="sheet-quick-reaction"
+              className="w-11 h-11 rounded-full bg-raised/60 hover:bg-raised text-xl flex items-center justify-center transition"
+            >
+              {emoji}
+            </button>
+          ))}
           <button
-            key={emoji}
+            ref={pickerAnchorRef}
             type="button"
-            onClick={() => react(emoji)}
-            aria-label={`React with ${emoji}`}
-            data-qa="sheet-quick-reaction"
-            className="w-11 h-11 rounded-full bg-raised/60 hover:bg-raised text-xl flex items-center justify-center transition"
+            onClick={() => setShowPicker((open) => !open)}
+            aria-label="More reactions"
+            aria-expanded={showPicker}
+            data-qa="sheet-more-reactions"
+            className="w-11 h-11 rounded-full bg-raised/60 hover:bg-raised text-muted flex items-center justify-center transition"
           >
-            {emoji}
+            <Plus className="w-5 h-5" />
           </button>
-        ))}
-        <button
-          ref={pickerAnchorRef}
-          type="button"
-          onClick={() => setShowPicker((open) => !open)}
-          aria-label="More reactions"
-          aria-expanded={showPicker}
-          data-qa="sheet-more-reactions"
-          className="w-11 h-11 rounded-full bg-raised/60 hover:bg-raised text-muted flex items-center justify-center transition"
-        >
-          <Plus className="w-5 h-5" />
-        </button>
-        {showPicker && (
-          <EmojiPicker
-            anchorRef={pickerAnchorRef}
-            onSelect={(emoji) => {
-              setShowPicker(false);
-              react(emoji);
-            }}
-            onClose={() => setShowPicker(false)}
-          />
-        )}
-      </div>
+          {showPicker && (
+            <EmojiPicker
+              anchorRef={pickerAnchorRef}
+              onSelect={(emoji) => {
+                setShowPicker(false);
+                react(emoji);
+              }}
+              onClose={() => setShowPicker(false)}
+            />
+          )}
+        </div>
+      )}
 
       <div className="py-1">
         {actions.map(({ key, label, Icon, onSelect, destructive }) => (
