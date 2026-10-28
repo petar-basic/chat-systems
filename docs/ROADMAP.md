@@ -9,6 +9,7 @@ ticket in [`docs/tickets/`](./tickets/INDEX.md); a ticket's file is deleted when
 
 | Ticket | What | Status |
 |---|---|---|
+| [CS-089 – CS-096](./tickets/INDEX.md#wave-27--what-the-second-survey-found) | Wave 27: the 2026-10-28 survey of 3.6.0 — access kept after SSO, erase or demotion, Slack import boundaries, archived channels, read state, failed sends, email case and workspace photos, push | Wave 27, for 3.7.0 |
 | [CS-037](./tickets/CS-037-huddle-sfu.md) | SFU (LiveKit) for huddles above the mesh's six-to-eight ceiling, promoted mid-call without dropping anybody | Held for the next major release (4.0.0), decided 2026-10-23 when 3.2.0 shipped CS-059 alone. Adds an optional media server beside the stack. Until then a huddle is capped at eight people |
 
 Waves 21–23 were chosen in the 2026-10-23 review and shipped together in 3.3.0, before
