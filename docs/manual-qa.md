@@ -78,6 +78,9 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - **Expected:** account is created **and you're joined to the inviting workspace** (land inside it). The invite email link works (verify endpoint returns the invite info, not a 404).
 - 🟠 **Edge — reused link:** click the same invite link again after registering → it should fail cleanly ("invalid/expired"), not create a duplicate or 500.
 - 🟠 **Edge — tampered token:** change a character in the `/invite/<token>` URL → "invalid invite", no crash.
+- 🔴 **Edge — no email:** with `SMTP_HOST=` empty, invite somebody → the form says email is not set up and shows the link with a copy button; nothing reaches MailHog. The copied link registers them as above. Under *Members* the invite sits in *pending invites* until used; its link icon copies a working link, and *Revoke* (confirmed) removes the row and kills every copy of the link.
+- 🔴 **Edge — SSO from the invite:** with SSO configured, invite `sso@dev.local` to a workspace it is not in and open the link in a private window → *Continue with SSO* → you land inside that workspace, signed in.
+- 🟠 **Edge — forgot password:** *Forgot password* for an invited address that never registered → MailHog gets the invite again, not a reset. For `sso@dev.local` → a note to use *Sign in with SSO*. On a reset link, a 5-character password is refused and the same link then works with a proper one.
 - 🟠 **Edge — password too short:** enter <8 chars → validation error, no submit.
 
 ### 1.3 🟢 Forgot / reset password
@@ -132,6 +135,7 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - **Reach:** *Workspace settings* → *Data retention*, *Exports*, *SCIM provisioning*; *Members* rows.
 - **Steps:** as Admin (owner and instance admin): in *Data retention* choose *For a number of days* for messages and type 30, wait, then *Save retention*; set it back to *Forever* and save. In *Exports* tick nothing and *Export workspace*, wait for *complete*, *Download*. In *Members* use the export icon on Bob's row, then the erase icon on a throwaway account's row. In *SCIM provisioning* create a token, *I have stored it*, rotate it, revoke it.
 - **Expected:** the retention form says *About N messages and M files would be removed now* before anything is saved, and *Saved* after. The export row goes pending → running → complete (the worker polls every 10 s); the archive downloads once, after which the row says *Downloaded*, and the link opened again answers 404. Bob's export shows up under *Exports* with his name. Erase names what goes and stays disabled until the person's name is typed exactly; afterwards the row reads *Deleted user*. A token is visible only until it is put away; rotate shows the replacement the same way, and the revoked one is struck through with no buttons.
+- 🔴 **Edge — what an export holds:** post a file in a DM, then *Export workspace* without DMs: `files.jsonl` in the tar lists no file from the DM. With two workspaces on a retention period, each one's *Retention purge* row in the audit log counts only its own messages.
 - 🔴 **Edge — who:** Alice (admin) sees *Exports* but no *Export workspace* button, no *Download* on the owner's exports, and no export/erase icons; `GET /api/workspaces/<id>/retention/preview` answers her 403.
 
 ### 3.1d 🔴 Retention per channel
@@ -182,6 +186,7 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 ### 4.2 🟠 Channel admin / archive
 - **Steps:** channel admin renames/archives a channel from the header's ⋯ → *Channel details → About*; a non-admin sees the topic and description as text and no *Settings* tab.
 - **Expected:** archived channel is read-only/hidden; permission enforced. A plain member's header has no ⋯ on desktop.
+- 🔴 **Edge — archived stays closed:** with Bob viewing the channel in a second window, Admin archives it. Both see *archived this channel* and the composer turns into the *Archived* bar at once; Bob's bar has no *Unarchive*. *Browse channels* lists it with *Archived* and no *Join*. A scheduled message into it fails, and its incoming webhook answers 403. Admin's *Unarchive* brings the composer back for both, with *unarchived this channel*.
 - 🟢 **Header:** the people count is the one members button and toggles the panel; the pin button shows how many are pinned. Every header icon has a tooltip.
 
 ---
@@ -574,3 +579,7 @@ dialog becomes a sheet from the bottom).
       *You* menu pauses notifications; switch to the other: the account's name, no status,
       notifications on. *Preferences → Account* changes the name both show where neither has
       its own; *Preferences → Notifications* names the workspace it changes.
+- [ ] **An account photo everywhere.** *Preferences → Account → Upload photo* shows *Photo
+      updated.* at once; switch workspace and the photo is there too, and someone who shares
+      only the other workspace sees it on your messages. Set a file retention of one day in the
+      workspace you uploaded from and run the worker: the photo stays.

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT c.id,\n                   c.workspace_id,\n                   c.name,\n                   c.channel_type AS \"channel_type: ChannelType\",\n                   c.topic,\n                   c.description,\n                   c.is_default AS \"is_default!\",\n                   c.created_at,\n                   COUNT(cm.user_id) AS \"member_count!\",\n                   COALESCE(BOOL_OR(cm.user_id = $2), false) AS \"is_member!\"\n            FROM channels c\n            LEFT JOIN channel_members cm ON cm.channel_id = c.id\n            WHERE c.workspace_id = $1\n              AND c.channel_type = 'public'\n              AND c.is_archived = false\n            GROUP BY c.id\n            ORDER BY c.name\n            ",
+  "query": "\n            SELECT c.id,\n                   c.workspace_id,\n                   c.name,\n                   c.channel_type AS \"channel_type: ChannelType\",\n                   c.topic,\n                   c.description,\n                   c.is_default AS \"is_default!\",\n                   c.is_archived AS \"is_archived!\",\n                   c.created_at,\n                   COUNT(cm.user_id) AS \"member_count!\",\n                   COALESCE(BOOL_OR(cm.user_id = $2), false) AS \"is_member!\"\n            FROM channels c\n            LEFT JOIN channel_members cm ON cm.channel_id = c.id\n            WHERE c.workspace_id = $1\n              AND c.channel_type = 'public'\n            GROUP BY c.id\n            ORDER BY c.is_archived, c.name\n            ",
   "describe": {
     "columns": [
       {
@@ -94,6 +94,17 @@
       },
       {
         "ordinal": 7,
+        "name": "is_archived!",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "channels",
+            "name": "is_archived"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -104,13 +115,13 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "member_count!",
         "type_info": "Int8",
         "origin": "Expression"
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "is_member!",
         "type_info": "Bool",
         "origin": "Expression"
@@ -130,10 +141,11 @@
       true,
       true,
       true,
+      true,
       false,
       null,
       null
     ]
   },
-  "hash": "7e95f766dda9179d77224458c23544debfe874c36259edc7aa7da2551a30cfa8"
+  "hash": "20037f6edcd45f18c525ff8ca5d5190c9033350c46a8d65f37b26e444b4381ff"
 }

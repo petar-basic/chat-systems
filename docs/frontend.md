@@ -206,7 +206,18 @@ webhooks and slash commands scoped to it, and the workflows that start from it o
 it. When the server says `can_add_webhook`, the viewer adds an incoming webhook, makes a new
 URL for one or removes it; a URL is shown once, under its webhook, after it is made. A
 workflow row opens the workflow in the *Workflows* panel for someone who may build them
-(`useRightPanel().openWorkflow`).
+(`useRightPanel().openWorkflow`). Archiving closes the modal and leaves the person in the
+channel, now read-only.
+
+### `channel/ChannelArchivedBar`
+Takes the composer's place, ahead of the preview bar and the announcement notice, while the
+current channel has `is_archived`. *Unarchive* is there for a channel moderator
+(`useChannelModeration().canModerate`). `lib/channelArchive.applyChannelArchived` patches the
+open channel and its `channel` query and refreshes the channel list and *Browse channels*; the
+archive and unarchive mutations call it, and so does `wsQuerySync` on `channel.updated`, so
+everyone viewing the channel switches at once. *Browse channels* lists archived channels with
+*Archived* in place of *Joined*; a row opens the channel to read, with no *Join* or *Leave*. The
+thread panel of an archived channel says so in place of its composer.
 
 **Reads:** current channel
 **Emits:** `onToggleSearch()`, `onTogglePins()`, `onToggleFiles()`, `onToggleChannelMembers()`
@@ -481,7 +492,13 @@ in the address opens it at that section and is then removed (`useSettingsDialog`
 *General* saves as you change it, like *Preferences*: a name or description when the field is
 left, the icon on upload, the switches at once, each PATCH carrying only that field; a status
 line says *Saving…*, *Saved* or why not. Deleting the workspace stays a danger zone at the
-bottom. *Members* shows the invite form to admins only, since inviting is admin-only.
+bottom. *Members* shows the invite form to admins only, since inviting is admin-only. After an
+invite it shows the invite's link with a copy button, and says so when email is not set up and
+nothing was sent. Above the members, `PendingInvites` lists the email invites still waiting to
+be used, each with *Copy invite link* (GET `/workspaces/{id}/invites/{invite_id}/link`, then the clipboard) and
+*Revoke* behind a confirmation. The invite page (`/invite/:token`) offers *Continue with SSO*
+when the instance has it, starting `/api/auth/oidc/start?invite=<token>`, and so does the
+sign-in page when it was reached from an invite.
 
 **API calls:** PATCH `/workspaces/{id}`, DELETE `/workspaces/{id}` (optionally `?hard=true`),
 POST `/workspaces/{id}/invites` `{ email, role }`, and each section's own.
@@ -495,6 +512,8 @@ so an untouched one keeps its expiry. An empty name, bio or photo shows the acco
 placeholder, and *Use account photo* drops the workspace's. *Preferences* is a vertical tab
 list — *Notifications*, *Appearance*, *Account*, *Security* — over panels that save as they
 change, except *Account*, the account's name, bio and photo, which has its own save button.
+A photo picked under *Account* is uploaded to `POST /users/me/avatar` and set on the account at
+once, so every workspace shows it; *Edit profile*'s photo stays a file of its workspace.
 The *You* row reads the person from the users cache, so it shows the workspace profile. *Notifications* opens with `NotifyDefaultPanel`, the
 workspace default level (*All new messages*, *Mentions*, *Nothing*), and ends with this device's
 push, *Desktop notifications while the app is open* (`DesktopNotificationsPanel`, the
@@ -538,7 +557,7 @@ counters are written with the message, and matching every member's keywords ther
 regex scan on the send path. It shows up in Activity, as a push and as a desktop
 notification. This is intended.
 
-**API calls:** GET / PATCH `/workspaces/{id}/profile`, PUT / DELETE `/workspaces/{id}/profile/status`, GET / PATCH `/users/me` (*Account*), POST `/files/upload/{workspaceId}` (photo upload)
+**API calls:** GET / PATCH `/workspaces/{id}/profile`, PUT / DELETE `/workspaces/{id}/profile/status`, GET / PATCH `/users/me` (*Account*), POST `/users/me/avatar` (account photo), POST `/files/upload/{workspaceId}` (workspace photo)
 
 ---
 

@@ -261,19 +261,31 @@ async fn download_file(
     Path(key): Path<String>,
     headers: HeaderMap,
 ) -> AppResult<Response> {
-    let filename = match state.file_repo.find_by_storage_key(&key).await? {
-        Some(record) => {
-            require_file_access(&state, &record, auth.user_id).await?;
-            record.filename
-        }
-        None => {
-            let emoji = state
-                .emoji_repo
-                .find_by_storage_key(&key)
+    let filename = if let Some(owner) = crate::profile::avatar::owner(&key) {
+        if owner != auth.user_id
+            && !state
+                .profile_repo
+                .shares_a_workspace(auth.user_id, owner)
                 .await?
-                .ok_or_else(|| AppError::NotFound("File not found".into()))?;
-            authz::require_workspace_member(&state, emoji.workspace_id, auth.user_id).await?;
-            emoji.name
+        {
+            return Err(AppError::Forbidden("Not allowed to see this photo".into()));
+        }
+        "photo".to_string()
+    } else {
+        match state.file_repo.find_by_storage_key(&key).await? {
+            Some(record) => {
+                require_file_access(&state, &record, auth.user_id).await?;
+                record.filename
+            }
+            None => {
+                let emoji = state
+                    .emoji_repo
+                    .find_by_storage_key(&key)
+                    .await?
+                    .ok_or_else(|| AppError::NotFound("File not found".into()))?;
+                authz::require_workspace_member(&state, emoji.workspace_id, auth.user_id).await?;
+                emoji.name
+            }
         }
     };
 

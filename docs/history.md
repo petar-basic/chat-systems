@@ -1916,6 +1916,74 @@ missing surfaces instead of looping), and the release image copies the previous 
 chunks in beside its own, listed in `release-assets.txt` so they last one release and do not
 pile up.
 
+### [CS-085] Archive, export and retention that say what they did ✅ shipped
+Archiving a channel only hid it from the sidebar: the composer stayed, posts, reactions,
+scheduled messages and webhooks still landed, nobody else viewing it heard, and there was no
+way back. An export without DMs still listed the files posted in them, and ignored its own
+date range for files. The retention job added each workspace's purge to one running total and
+audited that total, so every workspace's row also counted the ones purged before it.
+
+`authz::can_post` refuses an archived channel and `require_not_archived` guards reactions and
+incoming webhooks; the scheduled executor fails such a message with `channel_archived`.
+Archiving (`DELETE /channels/{id}`) and the new `POST /channels/{id}/unarchive` share one
+transaction that flips `is_archived` only if it changes, posts a system line
+(`channel_archived` / `channel_unarchived`) and stages `channel.updated`; the audit log gains
+`channel.unarchived`. The client patches the open channel from that frame, so the composer
+becomes an *Archived* bar with *Unarchive* for workspace and channel admins, and the person who
+archives stays in the channel instead of being sent to `#general`. *Browse channels* lists
+archived channels to read, without *Join*. `files.jsonl` joins each file to its message's
+channel and applies the same DM filter and `since`/`until` as `messages.jsonl`. The purge
+counts each workspace on its own, audits that, and adds it to the run's total only for the log
+and the metrics.
+
+Checking it live turned up an older gap: opening a channel you are not in sends `channel.join`,
+which the gateway refuses, but the client remembered the channel as joined, so after *Join
+channel* it never asked again and the channel stayed silent until a reconnect. A successful
+join now calls `rejoinChannel`, which forgets the refused id and sends it again, and refetches
+the messages the preview could not hear.
+
+### [CS-086] Getting people in ✅ shipped
+An instance without SMTP said *Invite sent* and the link existed only in a log line. An invite
+link signed in through SSO forgot the invite on the way to the provider, so a new SSO user
+landed in no workspace. *Forgot password* sent a reset to people who had never set a password
+(the invited but unregistered, who it could not let in, and SSO accounts), and the reset
+spent its link before checking the new password, so a typo of a short password burned it.
+Pending invites could not be seen or revoked in the app.
+
+Creating an email invite returns its `invite_url` and `email_sent`; `can_send_email` is false
+for an empty `SMTP_HOST`, which is now how an instance runs without email. A pending email
+invite's link can be fetched again (`/invites/{id}/link`), minted from the invite's own expiry
+so revoking it still ends every copy. *Members* shows the link after inviting and a list of
+pending invites with *Copy invite link* and *Revoke*. `/auth/oidc/start?invite=` stores the
+link token with the pending login in Redis; the callback redeems it for the account that came
+back, which SSO activates if it was still pending, and lands on the workspace — or back on the
+invite page when the provider's address is not the invited one. `forgot_password` returns
+whether the account is still waiting on an invite, and the route re-sends that invite;
+password-less accounts get a note about SSO instead; `reset_password` validates before it
+consumes the token.
+
+### [CS-087] A photo that shows everywhere ✅ shipped
+An account photo was uploaded as a file of whichever workspace was open, so the others got
+`403` for it and that workspace's file retention deleted it with its old files. `is_avatar`
+made the file readable inside its own workspace by matching `users.avatar_url`, which is the
+one place an account photo was never needed alone.
+
+`POST /users/me/avatar` takes the photo itself: sniffed, decoded and stripped of metadata like
+any image, shrunk to 720 px when wider, and stored as `avatars/{user_id}/{uuid}.{ext}` with no
+`files` row, which is what keeps retention, file search and attachments away from it. It is
+set on the account in the same call and the previous object is deleted, as it is when
+`PATCH /users/me` replaces or clears a photo and when an account is erased, so no orphan is
+left behind. The download route reads the owner out of the key and lets through the owner
+and anyone who shares a workspace with them. `is_avatar` now only matches workspace photos,
+which stay workspace files (CS-076). The move of existing photos needs the object store, so it
+is a worker start-up task rather than a SQL migration: it copies each account photo still
+under a workspace prefix, swaps the URL only if it has not changed meanwhile, and leaves the
+original to its workspace's retention; it runs to nothing on the next start.
+
+CI caught a race in *Edit profile* on the way: with the profile query not yet enabled the
+fields rendered empty, and the profile's arrival reset the status a person had started to
+pick. The form now waits for the profile, as its *Save* button already did.
+
 ### [CS-088] A Slack import that keeps what it found ✅ shipped
 The import made Slack's guests full members and skipped every deleted account with no address,
 taking its messages with it. Archived channels came in open, reactions knew fifteen standard

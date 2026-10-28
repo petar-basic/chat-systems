@@ -459,16 +459,13 @@ impl FileRepo {
             .await
     }
 
-    /// Avatars are uploaded like any other file and never posted to a message,
-    /// so they land in the "nothing owns it" bucket. They are meant to be seen.
+    /// Workspace photos are uploaded like any other file and never posted to a
+    /// message, so they land in the "nothing owns it" bucket. They are meant to
+    /// be seen.
     pub async fn is_avatar(&self, storage_key: &str) -> sqlx::Result<bool> {
         sqlx::query_scalar!(
             r#"
             SELECT EXISTS(
-              SELECT 1 FROM users
-              WHERE avatar_url IS NOT NULL
-                AND position($1 in avatar_url) > 0
-            ) OR EXISTS(
               SELECT 1 FROM workspace_members
               WHERE avatar_url IS NOT NULL
                 AND position($1 in avatar_url) > 0

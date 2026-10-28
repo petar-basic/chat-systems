@@ -302,9 +302,9 @@ unverified in the survey are checked first in their ticket and dropped if they d
 | CS-082 ✅ | Unread, Activity and the badge agree | frontend · backend |
 | CS-083 ✅ | Notifications that arrive once, where they should | backend · frontend · realtime |
 | CS-084 ✅ | Reconnecting, presence and new versions | frontend · realtime · ops |
-| [CS-085](CS-085-channel-lifecycle-data.md) | Archive, export and retention that say what they did | backend · frontend |
-| [CS-086](CS-086-getting-people-in.md) | Getting people in | frontend · backend |
-| [CS-087](CS-087-account-photos.md) | A photo that shows everywhere | backend · frontend |
+| CS-085 ✅ | Archive, export and retention that say what they did | backend · frontend |
+| CS-086 ✅ | Getting people in | frontend · backend |
+| CS-087 ✅ | A photo that shows everywhere | backend · frontend |
 | CS-088 ✅ | A Slack import that keeps what it found | backend |
 
 ### Still open
@@ -342,7 +342,7 @@ Tickets that touch the same files, and the order that avoids rework:
 | *Channel settings* / *Channel details* | CS-070 ✅ → CS-074 ✅ → CS-075 ✅ |
 | *Integrations* panel and hook permissions | CS-070 ✅ → CS-074 ✅ |
 | `workspace_members` profile and notification columns | CS-076 ✅ |
-| invite tokens and *Members* invite list | CS-077 ✅ → CS-086 |
+| invite tokens and *Members* invite list | CS-077 ✅ → CS-086 ✅ |
 | message route resolution | CS-079 ✅ → CS-080 ✅ → CS-082 ✅ |
-| Slack import channel mapping | CS-077 ✅ → CS-088 |
-| archived channels | CS-085 → CS-088 |
+| Slack import channel mapping | CS-077 ✅ → CS-088 ✅ |
+| archived channels | CS-085 ✅ → CS-088 ✅ |

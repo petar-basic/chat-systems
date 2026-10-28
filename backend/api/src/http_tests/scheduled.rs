@@ -484,7 +484,7 @@ async fn a_message_to_an_archived_channel_is_not_delivered(pool: PgPool) {
     state
         .workspace_service
         .repo
-        .archive_channel(ch_id)
+        .set_archived(&mut state.pool.acquire().await.expect("conn"), ch_id, true)
         .await
         .expect("archive");
 
@@ -572,7 +572,7 @@ async fn a_refused_delivery_tells_the_author(pool: PgPool) {
     state
         .workspace_service
         .repo
-        .archive_channel(ch_id)
+        .set_archived(&mut state.pool.acquire().await.expect("conn"), ch_id, true)
         .await
         .expect("archive");
     let _ = deliver_now(&state, &scheduled).await;
@@ -602,7 +602,7 @@ async fn a_failed_message_stays_visible_to_its_author(pool: PgPool) {
     state
         .workspace_service
         .repo
-        .archive_channel(ch_id)
+        .set_archived(&mut state.pool.acquire().await.expect("conn"), ch_id, true)
         .await
         .expect("archive");
     let _ = deliver_now(&state, &scheduled).await;

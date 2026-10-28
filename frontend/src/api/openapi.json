@@ -1910,6 +1910,36 @@
         }
       }
     },
+    "/channels/{ch_id}/unarchive": {
+      "post": {
+        "tags": [
+          "channels"
+        ],
+        "operationId": "unarchive_channel",
+        "parameters": [
+          {
+            "name": "ch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/channels/{ch_id}/unread": {
       "post": {
         "tags": [
@@ -4499,6 +4529,36 @@
         }
       }
     },
+    "/users/me/avatar": {
+      "post": {
+        "tags": [
+          "users"
+        ],
+        "operationId": "upload_account_photo",
+        "requestBody": {
+          "description": "A `file` field: a PNG, JPEG, GIF or WebP image of at most 10 MB",
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPublic"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/users/me/password": {
       "patch": {
         "tags": [
@@ -6515,7 +6575,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WorkspaceInvite"
+                  "$ref": "#/components/schemas/CreatedInvite"
                 }
               }
             }
@@ -6555,6 +6615,45 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/invites/{invite_id}/link": {
+      "get": {
+        "tags": [
+          "workspaces"
+        ],
+        "operationId": "invite_link",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "invite_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InviteLink"
                 }
               }
             }
@@ -8646,6 +8745,7 @@
           "workspace_id",
           "channel_type",
           "is_default",
+          "is_archived",
           "created_at",
           "member_count",
           "is_member"
@@ -8667,6 +8767,9 @@
           "id": {
             "type": "string",
             "format": "uuid"
+          },
+          "is_archived": {
+            "type": "boolean"
           },
           "is_default": {
             "type": "boolean"
@@ -10100,6 +10203,30 @@
           }
         }
       },
+      "CreatedInvite": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkspaceInvite"
+          },
+          {
+            "type": "object",
+            "required": [
+              "email_sent"
+            ],
+            "properties": {
+              "email_sent": {
+                "type": "boolean"
+              },
+              "invite_url": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        ]
+      },
       "DataItem_ImportRun": {
         "type": "object",
         "required": [
@@ -10388,6 +10515,7 @@
                 "workspace_id",
                 "channel_type",
                 "is_default",
+                "is_archived",
                 "created_at",
                 "member_count",
                 "is_member"
@@ -10409,6 +10537,9 @@
                 "id": {
                   "type": "string",
                   "format": "uuid"
+                },
+                "is_archived": {
+                  "type": "boolean"
                 },
                 "is_default": {
                   "type": "boolean"
@@ -13404,6 +13535,17 @@
             "format": "uuid"
           },
           "workspace_name": {
+            "type": "string"
+          }
+        }
+      },
+      "InviteLink": {
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "properties": {
+          "url": {
             "type": "string"
           }
         }

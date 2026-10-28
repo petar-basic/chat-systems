@@ -9,6 +9,7 @@ import { useCompleteRegistration } from '@/features/instance/hooks/useAuth';
 import { useInstanceStore } from '@/stores/instances';
 import { instanceManager } from '@/lib/instances';
 import { QUERY_KEYS, PENDING_INVITE_KEY } from '@/shared/constants';
+import { SsoInviteButton } from '@/features/instance/SsoInviteButton';
 import type { components } from '@/api/schema';
 
 type InviteInfo = components['schemas']['InvitePreview'];
@@ -176,6 +177,7 @@ export default function CompleteRegistrationPage() {
                   <LogIn className="w-4 h-4" />
                   Sign in to join
                 </Button>
+                {token && <SsoInviteButton token={token} />}
               </>
             )}
           </div>
@@ -252,6 +254,7 @@ export default function CompleteRegistrationPage() {
           >
             Create account
           </Button>
+          {token && <SsoInviteButton token={token} />}
         </form>
       </div>
     </Shell>

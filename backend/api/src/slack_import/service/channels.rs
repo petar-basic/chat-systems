@@ -251,11 +251,12 @@ impl Import<'_> {
             self.report.channels_archived += archived.len();
             return Ok(());
         }
+        let mut conn = self.state.pool.acquire().await?;
         for channel_id in archived {
             self.state
                 .workspace_service
                 .repo
-                .archive_channel(channel_id)
+                .set_archived(&mut conn, channel_id, true)
                 .await?;
             self.report.channels_archived += 1;
         }

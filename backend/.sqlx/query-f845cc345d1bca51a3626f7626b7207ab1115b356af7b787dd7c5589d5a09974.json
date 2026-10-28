@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT to_jsonb(f) AS \"row!\" FROM files f\n          LEFT JOIN messages m ON m.id = f.message_id\n          LEFT JOIN channels c ON c.id = m.channel_id\n         WHERE f.workspace_id = $1\n           AND f.draft_until IS NULL\n           AND ($2::timestamptz IS NULL OR f.created_at >= $2)\n           AND ($3::timestamptz IS NULL OR f.created_at <= $3)\n           AND ($4::bool OR c.channel_type IN ('public', 'private'))\n         ORDER BY f.created_at\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "row!",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz",
+        "Timestamptz",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "f845cc345d1bca51a3626f7626b7207ab1115b356af7b787dd7c5589d5a09974"
+}

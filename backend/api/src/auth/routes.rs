@@ -11,6 +11,7 @@ use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
 use super::models::*;
+use super::service::PasswordRecovery;
 use crate::audit::{self, AuditAction, AuditEntry};
 use crate::dto::StatusResponse;
 use crate::middleware::AuthUser;
@@ -297,7 +298,17 @@ async fn forgot_password(
 ) -> AppResult<Json<StatusResponse>> {
     let key = format!("rate_limit:forgot:{}", req.email.to_lowercase());
     check_rate_limit(&state, &key, 5, 900).await?;
-    state.auth_service.forgot_password(&req.email).await?;
+    if let PasswordRecovery::AwaitingInvite(user) =
+        state.auth_service.forgot_password(&req.email).await?
+    {
+        if let Err(e) = state
+            .workspace_service
+            .resend_invite(&user.email, &state.auth_service)
+            .await
+        {
+            tracing::warn!("failed to re-send an invite: {}", e);
+        }
+    }
     Ok(Json(StatusResponse::new("sent")))
 }
 
@@ -359,6 +370,12 @@ async fn update_me(
     Json(req): Json<UpdateProfileRequest>,
 ) -> AppResult<Json<UserPublic>> {
     req.validate()?;
+    let before = state
+        .auth_service
+        .repo()
+        .find_by_id(auth.user_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("User not found".into()))?;
     let user = state
         .auth_service
         .repo()
@@ -370,6 +387,9 @@ async fn update_me(
             req.timezone.as_deref(),
         )
         .await?;
+    if before.avatar_url != user.avatar_url {
+        crate::profile::avatar::forget(&state, auth.user_id, before.avatar_url.as_deref()).await;
+    }
     Ok(Json(user.into()))
 }
 

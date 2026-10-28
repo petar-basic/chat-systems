@@ -602,7 +602,7 @@ async fn an_unposted_upload_belongs_to_whoever_uploaded_it(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
-async fn an_avatar_stays_readable_to_the_workspace(pool: PgPool) {
+async fn a_workspace_photo_stays_readable_to_the_workspace(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (alice_id, _, alice) = seed_and_login(&app, &state, "avatar-alice", false).await;
     let ws_id = seed_workspace(&state, alice_id, "Avatar WS").await;
@@ -624,7 +624,7 @@ async fn an_avatar_stays_readable_to_the_workspace(pool: PgPool) {
     let (status, body) = send(
         &app,
         "PATCH",
-        "/api/users/me",
+        &format!("/api/workspaces/{ws_id}/profile"),
         Some(&alice),
         Some(json!({ "avatar_url": download.clone() })),
     )
