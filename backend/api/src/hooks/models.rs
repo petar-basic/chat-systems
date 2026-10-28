@@ -49,6 +49,11 @@ pub struct CreateHookRequest {
     pub config: Option<serde_json::Value>,
 }
 
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct UpdateHookRequest {
+    pub is_active: bool,
+}
+
 #[derive(Debug, Deserialize, garde::Validate, ToSchema)]
 #[garde(allow_unvalidated)]
 pub struct IncomingWebhookPayload {

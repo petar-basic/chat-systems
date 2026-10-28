@@ -262,12 +262,22 @@ async fn download_file(
     headers: HeaderMap,
 ) -> AppResult<Response> {
     let filename = if let Some(owner) = crate::profile::avatar::owner(&key) {
-        if owner != auth.user_id
-            && !state
-                .profile_repo
-                .shares_a_workspace(auth.user_id, owner)
-                .await?
-        {
+        let allowed = owner == auth.user_id
+            || match crate::profile::avatar::workspace_of(&key) {
+                Some(workspace_id) => state
+                    .workspace_service
+                    .repo
+                    .get_member(workspace_id, auth.user_id)
+                    .await?
+                    .is_some(),
+                None => {
+                    state
+                        .profile_repo
+                        .shares_a_workspace(auth.user_id, owner)
+                        .await?
+                }
+            };
+        if !allowed {
             return Err(AppError::Forbidden("Not allowed to see this photo".into()));
         }
         "photo".to_string()
@@ -573,10 +583,9 @@ async fn require_file_access(
         }
     }
 
-    // Nothing owns it: a draft nobody posted, or an avatar. A draft belongs to
-    // whoever wrote it — workspace membership alone is not a reason to read
-    // somebody else's file. An avatar is the exception: it exists to be shown.
-    if record.user_id == user_id || state.file_repo.is_avatar(&record.storage_key).await? {
+    // Nothing owns it: a draft nobody posted. A draft belongs to whoever wrote
+    // it — workspace membership alone is not a reason to read somebody else's file.
+    if record.user_id == user_id {
         authz::require_workspace_member(state, record.workspace_id, user_id).await?;
         return Ok(());
     }

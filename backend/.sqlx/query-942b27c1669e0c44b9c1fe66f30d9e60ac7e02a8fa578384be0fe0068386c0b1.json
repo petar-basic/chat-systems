@@ -1,0 +1,50 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT workspace_id, user_id, avatar_url AS \"avatar_url!\" FROM workspace_members\n             WHERE avatar_url LIKE '%/api/files/download/%'\n               AND avatar_url NOT LIKE '%/api/files/download/avatars/%'\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "workspace_members",
+            "name": "workspace_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "workspace_members",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "avatar_url!",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "workspace_members",
+            "name": "avatar_url"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "942b27c1669e0c44b9c1fe66f30d9e60ac7e02a8fa578384be0fe0068386c0b1"
+}

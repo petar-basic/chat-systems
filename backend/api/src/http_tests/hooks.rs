@@ -1261,3 +1261,88 @@ async fn removing_someone_from_the_workspace_turns_off_their_hooks(pool: PgPool)
         .await
         .is_empty());
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_admin_turns_a_stopped_hook_back_on_and_owns_it(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "hook-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Revived WS").await;
+    let ch = seed_channel(&state, ws, owner_id, "deploys", false).await;
+    let (admin_id, _, admin) = seed_and_login(&app, &state, "hook-admin", false).await;
+    add_ws_member(&state, ws, admin_id, "admin").await;
+
+    let (status, hook) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws}/hooks"),
+        Some(&admin),
+        Some(json!({
+            "hook_type": "outgoing_webhook",
+            "name": "Mirror",
+            "config": { "url": "https://example.com/out", "channel_ids": [ch] }
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{hook:?}");
+    let id = hook["id"].as_str().unwrap();
+    sqlx::query(
+        "UPDATE workspace_members SET role = 'member' WHERE workspace_id = $1 AND user_id = $2",
+    )
+    .bind(ws)
+    .bind(admin_id)
+    .execute(&state.pool)
+    .await
+    .expect("demote");
+    assert!(crate::hooks::executor::hooks_to_fire(&state, ws, ch)
+        .await
+        .is_empty());
+    assert!(!hook_state(&state, id).await.0);
+
+    let route = format!("/api/hooks/{id}");
+    let on = json!({ "is_active": true });
+    let (status, _) = send(&app, "PATCH", &route, Some(&admin), Some(on.clone())).await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "a member may not make an outgoing webhook, so may not revive one"
+    );
+    let (_, _, outsider) = seed_and_login(&app, &state, "hook-outsider", false).await;
+    let (status, _) = send(&app, "PATCH", &route, Some(&outsider), Some(on.clone())).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let (status, _) = send(
+        &app,
+        "PATCH",
+        &route,
+        Some(&owner),
+        Some(json!({ "is_active": false })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+
+    let (status, revived) = send(&app, "PATCH", &route, Some(&owner), Some(on)).await;
+    assert_eq!(status, StatusCode::OK, "{revived:?}");
+    assert_eq!(revived["is_active"], true);
+    assert!(revived["disabled_reason"].is_null());
+    assert_eq!(revived["created_by"], owner_id.to_string());
+    assert_eq!(
+        revived["config"]["secret"], "***",
+        "redacted like every other hook read"
+    );
+    assert_eq!(hook_state(&state, id).await, (true, None));
+    assert_eq!(
+        crate::hooks::executor::hooks_to_fire(&state, ws, ch)
+            .await
+            .len(),
+        1,
+        "it fires again, as the admin who turned it on"
+    );
+
+    let audited: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM audit_log WHERE action = 'hook.enabled' AND resource_id = $1::uuid",
+    )
+    .bind(id)
+    .fetch_one(&state.pool)
+    .await
+    .expect("count audit");
+    assert_eq!(audited, 1);
+}

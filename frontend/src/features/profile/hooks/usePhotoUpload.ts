@@ -1,5 +1,8 @@
 import { useState } from 'react';
+import type { components } from '@/api/schema';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
+
+type WorkspaceProfile = components['schemas']['WorkspaceProfile'];
 
 export function usePhotoUpload(instanceUrl?: string, workspaceId?: string) {
   const [uploading, setUploading] = useState(false);
@@ -10,11 +13,11 @@ export function usePhotoUpload(instanceUrl?: string, workspaceId?: string) {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const uploaded = await getApiForInstance(instanceUrl).upload<{ url: string }[]>(
-        `/files/upload/${workspaceId}`,
+      const profile = await getApiForInstance(instanceUrl).upload<WorkspaceProfile>(
+        `/workspaces/${workspaceId}/profile/avatar`,
         formData,
       );
-      return uploaded[0]?.url ?? null;
+      return profile.avatar_url ?? null;
     } catch {
       return null;
     } finally {

@@ -2302,6 +2302,44 @@
             }
           }
         }
+      },
+      "patch": {
+        "tags": [
+          "hooks"
+        ],
+        "operationId": "update_hook",
+        "parameters": [
+          {
+            "name": "hook_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateHookRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Hook"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/hooks/{hook_id}/reveal": {
@@ -7452,6 +7490,47 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/UpdateWorkspaceProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceProfile"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/profile/avatar": {
+      "post": {
+        "tags": [
+          "users"
+        ],
+        "operationId": "upload_workspace_photo",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "A `file` field: a PNG, JPEG, GIF or WebP image of at most 10 MB",
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "string"
               }
             }
           },
@@ -16592,6 +16671,17 @@
           },
           "name": {
             "type": "string"
+          }
+        }
+      },
+      "UpdateHookRequest": {
+        "type": "object",
+        "required": [
+          "is_active"
+        ],
+        "properties": {
+          "is_active": {
+            "type": "boolean"
           }
         }
       },

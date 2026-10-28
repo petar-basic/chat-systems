@@ -1,8 +1,6 @@
-use axum::body::Body;
-use axum::http::{header, Request, StatusCode};
+use axum::http::StatusCode;
 use serde_json::{json, Value};
 use sqlx::PgPool;
-use tower::ServiceExt;
 use uuid::Uuid;
 
 use super::common::*;
@@ -272,62 +270,6 @@ async fn a_name_photo_and_bio_of_its_own_and_the_accounts_otherwise(pool: PgPool
     )
     .await;
     assert_eq!(status, StatusCode::FORBIDDEN);
-}
-
-#[test_macros::db_test(migrations = "../migrations")]
-async fn a_photo_set_in_a_workspace_is_shown_to_it(pool: PgPool) {
-    let (app, state) = app_and_state(pool).await;
-    let (owner_id, _, owner) = seed_and_login(&app, &state, "avatar-owner", false).await;
-    let ws_id = seed_workspace(&state, owner_id, "Avatar WS").await;
-    let (member_id, _, member_token) = seed_and_login(&app, &state, "avatar-member", false).await;
-    add_ws_member(&state, ws_id, member_id, "member").await;
-
-    let boundary = "----avatartest";
-    let mut body = Vec::new();
-    body.extend_from_slice(
-        format!("--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"me.txt\"\r\nContent-Type: text/plain\r\n\r\n").as_bytes(),
-    );
-    body.extend_from_slice(b"not really a png");
-    body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
-    let request = Request::builder()
-        .method("POST")
-        .uri(format!("/api/files/upload/{ws_id}"))
-        .header(header::AUTHORIZATION, format!("Bearer {owner}"))
-        .header(
-            header::CONTENT_TYPE,
-            format!("multipart/form-data; boundary={boundary}"),
-        )
-        .body(Body::from(body))
-        .expect("build request");
-    let response = app.clone().oneshot(request).await.expect("upload");
-    assert_eq!(response.status(), StatusCode::OK);
-    let uploaded: Value = serde_json::from_slice(
-        &axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .expect("body"),
-    )
-    .expect("json");
-    let url = uploaded[0]["url"].as_str().expect("url").to_string();
-    let path = url[url.find("/api/").expect("api path")..].to_string();
-
-    let (status, _) = send(&app, "GET", &path, Some(&member_token), None).await;
-    assert_eq!(
-        status,
-        StatusCode::FORBIDDEN,
-        "an unposted upload is its owner's"
-    );
-
-    let (status, _) = send(
-        &app,
-        "PATCH",
-        &format!("/api/workspaces/{ws_id}/profile"),
-        Some(&owner),
-        Some(json!({ "avatar_url": url })),
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK);
-    let (status, _) = send(&app, "GET", &path, Some(&member_token), None).await;
-    assert_eq!(status, StatusCode::OK, "a photo is there to be seen");
 }
 
 #[test_macros::db_test(migrations = "../migrations")]

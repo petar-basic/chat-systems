@@ -159,6 +159,57 @@ impl ProfileRepo {
             .collect())
     }
 
+    pub async fn workspace_photos(&self, user_id: Uuid) -> sqlx::Result<Vec<(Uuid, String)>> {
+        let rows = sqlx::query!(
+            r#"SELECT workspace_id, avatar_url AS "avatar_url!" FROM workspace_members
+                WHERE user_id = $1 AND avatar_url IS NOT NULL"#,
+            user_id
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows
+            .into_iter()
+            .map(|row| (row.workspace_id, row.avatar_url))
+            .collect())
+    }
+
+    pub async fn workspace_photos_outside_avatars(
+        &self,
+    ) -> sqlx::Result<Vec<(Uuid, Uuid, String)>> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT workspace_id, user_id, avatar_url AS "avatar_url!" FROM workspace_members
+             WHERE avatar_url LIKE '%/api/files/download/%'
+               AND avatar_url NOT LIKE '%/api/files/download/avatars/%'
+            "#
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows
+            .into_iter()
+            .map(|row| (row.workspace_id, row.user_id, row.avatar_url))
+            .collect())
+    }
+
+    pub async fn move_workspace_photo(
+        &self,
+        workspace_id: Uuid,
+        user_id: Uuid,
+        from: &str,
+        to: &str,
+    ) -> sqlx::Result<bool> {
+        let done = sqlx::query!(
+            "UPDATE workspace_members SET avatar_url = $4 WHERE workspace_id = $1 AND user_id = $2 AND avatar_url = $3",
+            workspace_id,
+            user_id,
+            from,
+            to
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(done.rows_affected() == 1)
+    }
+
     pub async fn move_photo(&self, user_id: Uuid, from: &str, to: &str) -> sqlx::Result<bool> {
         let done = sqlx::query!(
             "UPDATE users SET avatar_url = $3 WHERE id = $1 AND avatar_url = $2",

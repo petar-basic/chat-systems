@@ -82,6 +82,7 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - 🔴 **Edge — SSO from the invite:** with SSO configured, invite `sso@dev.local` to a workspace it is not in and open the link in a private window → *Continue with SSO* → you land inside that workspace, signed in.
 - 🟠 **Edge — forgot password:** *Forgot password* for an invited address that never registered → MailHog gets the invite again, not a reset. For `sso@dev.local` → a note to use *Sign in with SSO*. On a reset link, a 5-character password is refused and the same link then works with a proper one.
 - 🟠 **Edge — password too short:** enter <8 chars → validation error, no submit.
+- 🔴 **Edge — mixed case (CS-094):** invite `Mixed.Case@Dev.Local` → register from the link → sign in as `mixed.case@dev.local` and as `MIXED.CASE@DEV.LOCAL` → both work, and *Admin → Users* lists one lowercase account. With SSO, invite `SSO@dev.local` and sign in through the provider → the invited account, not a second one.
 
 ### 1.3 🟢 Forgot / reset password
 - **Reach:** LoginPage → "Forgot password" → enter email.
@@ -447,6 +448,7 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 - 🔴 **Edge — SSRF:** create a webhook pointing at an internal address: `http://127.0.0.1:3000/...`, `http://169.254.169.254/latest/meta-data/` (cloud metadata), `http://10.0.0.5/`, or an IPv6 ULA → dispatch is **rejected/blocked**, the request is never made to the internal target.
 - 🔴 **Edge — authz:** as a non-admin, try to create/list/read/delete hooks (`/api/workspaces/<id>/hooks`) → 403; secret fields are redacted (`***`) on read.
 - 🔴 **Edge — demoted creator:** a second admin creates the webhook, then the owner makes them a *Member* → the next message sends nothing, and *Integrations* shows it *Disabled — its creator is no longer allowed to make it*.
+- 🟢 **Turn on (CS-094):** on that disabled webhook the owner clicks *Turn on* → it is on again, the next message is delivered, and *Audit log* has *Integration turned back on*. The demoted member gets 403 from `PATCH /api/hooks/<id>`.
 
 ### 10.2 🟢 Reminders
 - **Steps:** create a reminder for yourself → it fires around the due time (delivered as a notification).
@@ -594,3 +596,6 @@ dialog becomes a sheet from the bottom).
       updated.* at once; switch workspace and the photo is there too, and someone who shares
       only the other workspace sees it on your messages. Set a file retention of one day in the
       workspace you uploaded from and run the worker: the photo stays.
+- [ ] **A workspace photo stays (CS-094).** *Edit profile → Upload photo* in a workspace with a
+      file retention of one day, save, run the worker: the photo stays, a member sees it, and
+      somebody who shares only another workspace with you gets 403 on its URL.

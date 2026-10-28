@@ -13,6 +13,7 @@ import {
   useHooks,
   useCreateHook,
   useDeleteHook,
+  useEnableHook,
   useRevealHook,
   useRotateHook,
   type Hook,
@@ -56,6 +57,7 @@ function HookRow({
   busy,
   onReveal,
   onRotate,
+  onEnable,
   onDelete,
 }: {
   hook: Hook;
@@ -66,6 +68,7 @@ function HookRow({
   busy: boolean;
   onReveal: () => void;
   onRotate: () => void;
+  onEnable: () => void;
   onDelete: () => Promise<void>;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -96,10 +99,15 @@ function HookRow({
             </div>
           )}
           {!hook.is_active && (
-            <div className="text-xs text-danger" data-qa="hook-inactive">
-              {hook.disabled_reason
-                ? `Disabled — ${hook.disabled_reason.charAt(0).toLowerCase()}${hook.disabled_reason.slice(1)}`
-                : 'Disabled — re-create it with the channels it may read'}
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-xs text-danger" data-qa="hook-inactive">
+                {hook.disabled_reason
+                  ? `Disabled — ${hook.disabled_reason.charAt(0).toLowerCase()}${hook.disabled_reason.slice(1)}`
+                  : 'Disabled'}
+              </span>
+              <Button size="sm" onClick={onEnable} disabled={busy} data-qa="hook-enable">
+                Turn on
+              </Button>
             </div>
           )}
         </div>
@@ -180,6 +188,7 @@ export function IntegrationsSection({ workspaceId, instanceUrl, channels }: Prop
   const deleteHook = useDeleteHook(workspaceId, instanceUrl);
   const revealHook = useRevealHook(instanceUrl);
   const rotateHook = useRotateHook(instanceUrl);
+  const enableHook = useEnableHook(workspaceId, instanceUrl);
 
   const [secretsByHook, setSecretsByHook] = useState<Record<string, HookSecrets>>({});
   const [error, setError] = useState<string | null>(null);
@@ -192,7 +201,12 @@ export function IntegrationsSection({ workspaceId, instanceUrl, channels }: Prop
   const postable = channels.filter((c) => c.channel_type === 'public' || c.channel_type === 'private');
   const incoming = hooks.filter((h) => h.hook_type === 'incoming_webhook');
   const outgoing = hooks.filter((h) => h.hook_type === 'outgoing_webhook');
-  const busy = createHook.isPending || deleteHook.isPending || revealHook.isPending || rotateHook.isPending;
+  const busy =
+    createHook.isPending ||
+    deleteHook.isPending ||
+    revealHook.isPending ||
+    rotateHook.isPending ||
+    enableHook.isPending;
 
   const failWith = (fallback: string) => (err: unknown) =>
     setError((err as { message?: string })?.message || fallback);
@@ -268,6 +282,15 @@ export function IntegrationsSection({ workspaceId, instanceUrl, channels }: Prop
     }
   };
 
+  const handleEnable = async (hookId: string) => {
+    setError(null);
+    try {
+      await enableHook.mutateAsync(hookId);
+    } catch (err: unknown) {
+      failWith('Failed to turn the webhook on')(err);
+    }
+  };
+
   const handleDelete = async (hookId: string) => {
     setError(null);
     await deleteHook.mutateAsync(hookId);
@@ -307,6 +330,7 @@ export function IntegrationsSection({ workspaceId, instanceUrl, channels }: Prop
               busy={busy}
               onReveal={() => void handleReveal(hook.id)}
               onRotate={() => void handleRotate(hook.id)}
+              onEnable={() => void handleEnable(hook.id)}
               onDelete={() => handleDelete(hook.id)}
             />
           ))
@@ -366,6 +390,7 @@ export function IntegrationsSection({ workspaceId, instanceUrl, channels }: Prop
             busy={busy}
             onReveal={() => void handleReveal(hook.id)}
             onRotate={() => void handleRotate(hook.id)}
+            onEnable={() => void handleEnable(hook.id)}
             onDelete={() => handleDelete(hook.id)}
           />
         ))}
