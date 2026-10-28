@@ -29,7 +29,7 @@ export function EditProfileModal({ onClose }: Props) {
   const instanceUrl = workspace?.instanceUrl;
   const { data: user } = useCurrentUser();
   const { data: account } = useAccount(instanceUrl);
-  const { data: profile, isLoading } = useWorkspaceProfile(workspace?.id, instanceUrl);
+  const { data: profile } = useWorkspaceProfile(workspace?.id, instanceUrl);
   const save = useSaveWorkspaceProfile(workspace?.id, instanceUrl);
   const photo = usePhotoUpload(instanceUrl, workspace?.id);
 
@@ -126,7 +126,7 @@ export function EditProfileModal({ onClose }: Props) {
         </Button>
       }
     >
-      {isLoading && !loaded ? (
+      {!loaded ? (
         <div className="flex justify-center py-12 text-accent">
           <Spinner />
         </div>
