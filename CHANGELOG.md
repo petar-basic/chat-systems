@@ -22,6 +22,11 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   `votes`, `comments`, `scheduled` and `files` beside `messages`. Taking over a workflow
   gives it a new `webhook_url`, and `POST /workflows/{id}/rotate` makes one on demand; the
   old URL answers 401 in both cases.
+- Migration 80 adds `slack_channels.created_by_import`. Channels mapped by an earlier import
+  count as ones it merged into, so a re-run never archives them.
+- Reactivating an account that has no password and no SSO link (an imported Slack leaver), from
+  the admin page or with SCIM `active: true`, leaves it `pending` instead of `active`; invite
+  the person to let them in.
 
 ### Security
 
@@ -36,6 +41,11 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   by an admin who is now a member kept sending channel traffic; it turns off, saying why.
 - **A taken-over workflow gets a new URL.** The old owner could still start it from the link
   they knew. *New URL* in the workflow replaces it at any time.
+- **A Slack import keeps out of private channels.** A private Slack channel merged into a local
+  private channel of the same name, adding Slack's members to it and its history to theirs.
+  Private channels never merge now; a taken name becomes `<name>-slack`.
+- **A re-import leaves a merged channel open.** Running an import again, or *Start again*,
+  archived a local channel the first run had merged an archived Slack channel into.
 
 ## [3.6.0] — 2026-10-28
 

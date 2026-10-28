@@ -1,0 +1,1 @@
+ALTER TABLE slack_channels ADD COLUMN created_by_import BOOLEAN NOT NULL DEFAULT FALSE;

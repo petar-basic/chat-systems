@@ -84,12 +84,7 @@ pub async fn reactivate(
     token_id: Uuid,
     ip: &ClientIp,
 ) -> AppResult<()> {
-    sqlx::query!(
-        "UPDATE users SET status = 'active', updated_at = NOW() WHERE id = $1",
-        user_id
-    )
-    .execute(&state.pool)
-    .await?;
+    state.auth_service.repo().reactivate(user_id).await?;
 
     sessions::restore(state, user_id).await;
 

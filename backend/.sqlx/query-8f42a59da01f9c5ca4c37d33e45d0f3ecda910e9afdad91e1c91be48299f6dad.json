@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE users\n               SET status = CASE\n                       WHEN password_hash IS NULL\n                        AND NOT EXISTS (SELECT 1 FROM oauth_accounts o WHERE o.user_id = users.id)\n                       THEN 'pending'::user_status\n                       ELSE 'active'::user_status\n                   END,\n                   updated_at = NOW()\n             WHERE id = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8f42a59da01f9c5ca4c37d33e45d0f3ecda910e9afdad91e1c91be48299f6dad"
+}
