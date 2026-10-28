@@ -4,6 +4,9 @@ import { useWorkspaceStore } from '@/stores/workspace';
 import { useCurrentApi, getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { QUERY_KEYS } from '@/shared/constants';
 import { fromChannelContext } from './channelContext';
+import { applyChannelArchived } from '@/lib/channelArchive';
+import { instanceManager } from '@/lib/instances';
+import { wsClient } from '@/lib/ws';
 import type { Message, Channel } from '@/stores/workspace';
 
 export type BrowsableChannel = components['schemas']['BrowsableChannel'];
@@ -74,10 +77,12 @@ export const useJoinChannel = (workspaceId: string, instanceUrl?: string) => {
       getApiForInstance(instanceUrl).typed((c) =>
         c.POST('/channels/{ch_id}/join', { params: { path: { ch_id: channelId } } }),
       ),
-    onSuccess: async () => {
+    onSuccess: async (_, channelId) => {
+      (instanceUrl ? instanceManager.get(instanceUrl).ws : wsClient).rejoinChannel(channelId);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceChannels(workspaceId) }),
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.channelsBrowse(workspaceId) }),
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.messages(channelId) }),
       ]);
     },
   });
@@ -163,9 +168,19 @@ export const useArchiveChannel = (workspaceId: string) => {
   return useMutation({
     mutationFn: async (channelId: string) =>
       apiClient.typed((c) => c.DELETE('/channels/{ch_id}', { params: { path: { ch_id: channelId } } })),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceChannels(workspaceId) });
-    },
+    onSuccess: (_, channelId) => applyChannelArchived(queryClient, channelId, workspaceId, true),
+  });
+};
+
+export const useUnarchiveChannel = (workspaceId: string) => {
+  const queryClient = useQueryClient();
+  const apiClient = useCurrentApi();
+  return useMutation({
+    mutationFn: async (channelId: string) =>
+      apiClient.typed((c) =>
+        c.POST('/channels/{ch_id}/unarchive', { params: { path: { ch_id: channelId } } }),
+      ),
+    onSuccess: (_, channelId) => applyChannelArchived(queryClient, channelId, workspaceId, false),
   });
 };
 

@@ -44,6 +44,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   you run now>` to keep its chunks for tabs opened before the upgrade, and
   `--build-arg APP_VERSION=<version>` to name the build. A proxy in front of the frontend
   should not cache `index.html` or `version.json`; nginx now sends `no-cache` for both.
+- For API clients: posting, reacting, scheduling and incoming webhooks answer 403 on an
+  archived channel. `POST /channels/{id}/unarchive` undoes `DELETE /channels/{id}`, both
+  publish `channel.updated` (`is_archived`), and *Browse channels* lists archived channels
+  with `is_archived`.
 - For API clients: `POST /workspaces/{id}/invites` returns the invite with `invite_url` and
   `email_sent`, and `GET /workspaces/{id}/invites/{invite_id}/link` hands out a pending email
   invite's link again. An empty `SMTP_HOST` now means no email: invites say so instead of
@@ -120,6 +124,16 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   shows *A new version is available* with *Reload*, a lazy page or the emoji picker whose
   chunk is gone reloads once onto the new build, and release images keep the previous
   release's chunks.
+- **An archived channel is closed.** Nothing can be posted, reacted, scheduled or sent by a
+  webhook into it; its composer becomes an *Archived* bar, and workspace admins and the
+  channel's admins can *Unarchive* it there. Archiving and unarchiving post a line in the
+  channel and reach everyone viewing it at once.
+- **An export without DMs has no DM files.** `files.jsonl` follows the same DM choice and date
+  range as the messages.
+- **A retention audit row counts its own workspace.** Each workspace's *Retention purge* entry
+  used to carry the totals of every workspace purged before it in the same run.
+- **Joining a channel you were looking at goes live.** After *Join channel* on a channel opened
+  without being in it, new messages and changes arrived only after a reconnect.
 - **Inviting works without email.** Every invite shows its link to copy, and the form says
   when email is not set up instead of *Invite sent*. *Workspace settings → Members* lists
   pending invites with *Copy invite link* and *Revoke*.

@@ -213,6 +213,12 @@ pub enum ServerFrame {
         following: bool,
         unread_count: i32,
     },
+    #[serde(rename = "channel.updated")]
+    ChannelUpdated {
+        channel_id: Uuid,
+        workspace_id: Uuid,
+        is_archived: bool,
+    },
     #[serde(rename = "channel.access_revoked")]
     ChannelAccessRevoked {
         channel_id: Uuid,

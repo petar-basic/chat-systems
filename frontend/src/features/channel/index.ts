@@ -3,6 +3,7 @@ export { default as ChannelHeader } from './ChannelHeader';
 export { default as ChannelBookmarksBar } from './ChannelBookmarksBar';
 export { ChannelIntro } from './ChannelIntro';
 export { ChannelPreviewBar } from './ChannelPreviewBar';
+export { ChannelArchivedBar } from './ChannelArchivedBar';
 export { CreateChannelModal } from './components/CreateChannelModal';
 export { default as ChannelFilesPanel } from './ChannelFilesPanel';
 export { default as ChannelMembersPanel } from './ChannelMembersPanel';

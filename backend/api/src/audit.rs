@@ -20,6 +20,7 @@ pub enum AuditAction {
     MessageHistoryRead,
     ChannelCreated,
     ChannelArchived,
+    ChannelUnarchived,
     ChannelUpdated,
     ChannelPostPolicyChanged,
     ChannelBroadcastMentionsChanged,
@@ -86,6 +87,7 @@ impl AuditAction {
             Self::MessageHistoryRead => "message.history_read",
             Self::ChannelCreated => "channel.created",
             Self::ChannelArchived => "channel.archived",
+            Self::ChannelUnarchived => "channel.unarchived",
             Self::ChannelUpdated => "channel.updated",
             Self::ChannelPostPolicyChanged => "channel.post_policy_changed",
             Self::ChannelBroadcastMentionsChanged => "channel.broadcast_mentions_changed",
@@ -150,6 +152,7 @@ impl AuditAction {
             Self::MessageDeleted | Self::MessageHistoryRead => "message",
             Self::ChannelCreated
             | Self::ChannelArchived
+            | Self::ChannelUnarchived
             | Self::ChannelUpdated
             | Self::ChannelPostPolicyChanged
             | Self::ChannelBroadcastMentionsChanged

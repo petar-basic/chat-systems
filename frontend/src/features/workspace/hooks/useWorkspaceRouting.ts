@@ -147,7 +147,7 @@ export function useWorkspaceRouting({
       } else if (preview?.id === urlChannelId) {
         if (preview.workspace_id !== activeWorkspaceId) {
           navigate(ROUTES.workspace(activeWorkspaceId), { replace: true });
-        } else if (preview.channel_type === 'public') {
+        } else if (preview.channel_type === 'public' || preview.is_archived) {
           if (currentChannel?.id !== urlChannelId) selectChannel(preview);
         } else if (preview.channel_type === 'private') {
           navigate(ROUTES.workspace(activeWorkspaceId), { replace: true });

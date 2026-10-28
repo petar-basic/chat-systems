@@ -254,37 +254,45 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
         </div>
 
         <div className="border-t border-line/50">
-          <Checkbox
-            label={channel ? `Also send to #${channel.name}` : 'Also send to the conversation'}
-            checked={alsoToChannel}
-            onChange={setAlsoToChannel}
-            dataQa="thread-also-to-channel"
-            className="px-4 pt-2 text-xs text-muted"
-          />
-          <MessageInput
-            key={`thread:${parentMessage.id}`}
-            channelName=""
-            placeholder="Reply…"
-            members={members}
-            channels={channels}
-            canBroadcast={canBroadcast}
-            channelMemberCount={channelMembers.length}
-            draftKey={`thread:${parentMessage.id}`}
-            onSend={handleSend}
-            attachments={attachments}
-            workspaceId={currentWorkspace?.id}
-            instanceUrl={currentWorkspace?.instanceUrl}
-            scheduleTarget={{
-              channelId: parentMessage.channel_id,
-              threadParentId: parentMessage.id,
-              alsoToChannel,
-            }}
-            pollTarget={{
-              channelId: parentMessage.channel_id,
-              threadParentId: parentMessage.id,
-              instanceUrl: currentWorkspace?.instanceUrl,
-            }}
-          />
+          {channel?.is_archived ? (
+            <p data-qa="thread-archived" className="px-4 py-3 text-sm text-muted">
+              #{channel.name} is archived, so its threads take no new replies.
+            </p>
+          ) : (
+            <>
+              <Checkbox
+                label={channel ? `Also send to #${channel.name}` : 'Also send to the conversation'}
+                checked={alsoToChannel}
+                onChange={setAlsoToChannel}
+                dataQa="thread-also-to-channel"
+                className="px-4 pt-2 text-xs text-muted"
+              />
+              <MessageInput
+                key={`thread:${parentMessage.id}`}
+                channelName=""
+                placeholder="Reply…"
+                members={members}
+                channels={channels}
+                canBroadcast={canBroadcast}
+                channelMemberCount={channelMembers.length}
+                draftKey={`thread:${parentMessage.id}`}
+                onSend={handleSend}
+                attachments={attachments}
+                workspaceId={currentWorkspace?.id}
+                instanceUrl={currentWorkspace?.instanceUrl}
+                scheduleTarget={{
+                  channelId: parentMessage.channel_id,
+                  threadParentId: parentMessage.id,
+                  alsoToChannel,
+                }}
+                pollTarget={{
+                  channelId: parentMessage.channel_id,
+                  threadParentId: parentMessage.id,
+                  instanceUrl: currentWorkspace?.instanceUrl,
+                }}
+              />
+            </>
+          )}
         </div>
       </div>
     </GalleryProvider>

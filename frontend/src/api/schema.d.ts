@@ -764,6 +764,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/channels/{ch_id}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["unarchive_channel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/channels/{ch_id}/unread": {
         parameters: {
             query?: never;
@@ -2921,6 +2937,7 @@ export interface components {
             description?: string | null;
             /** Format: uuid */
             id: string;
+            is_archived: boolean;
             is_default: boolean;
             is_member: boolean;
             /** Format: int64 */
@@ -3386,6 +3403,7 @@ export interface components {
                 description?: string | null;
                 /** Format: uuid */
                 id: string;
+                is_archived: boolean;
                 is_default: boolean;
                 is_member: boolean;
                 /** Format: int64 */
@@ -6502,6 +6520,27 @@ export interface operations {
                 "application/json": components["schemas"]["PlaceChannelRequest"];
             };
         };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    unarchive_channel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             200: {
                 headers: {

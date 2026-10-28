@@ -858,7 +858,7 @@ async fn join_rejects_archived_channels(pool: PgPool) {
     state
         .workspace_service
         .repo
-        .archive_channel(ch_id)
+        .set_archived(&mut state.pool.acquire().await.expect("conn"), ch_id, true)
         .await
         .expect("precondition: archive");
 
@@ -1937,4 +1937,165 @@ async fn moderators_post_and_only_moderators_change_the_policy(pool: PgPool) {
     )
     .await;
     assert_eq!(status, StatusCode::OK, "and it is reversible");
+}
+
+async fn archive(app: &axum::Router, token: &str, ch_id: Uuid) -> StatusCode {
+    send(
+        app,
+        "DELETE",
+        &format!("/api/channels/{ch_id}"),
+        Some(token),
+        None,
+    )
+    .await
+    .0
+}
+
+async fn unarchive(app: &axum::Router, token: &str, ch_id: Uuid) -> StatusCode {
+    send(
+        app,
+        "POST",
+        &format!("/api/channels/{ch_id}/unarchive"),
+        Some(token),
+        None,
+    )
+    .await
+    .0
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_archived_channel_takes_no_writes_from_any_path(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, token) = seed_and_login(&app, &state, "arch-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Archive WS").await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "old-project", false).await;
+
+    let (_, root) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/messages"),
+        Some(&token),
+        Some(json!({ "content": "before" })),
+    )
+    .await;
+    let root_id = root["id"].as_str().expect("id").to_string();
+    let (_, hook) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/hooks"),
+        Some(&token),
+        Some(json!({
+            "hook_type": "incoming_webhook",
+            "name": "ci",
+            "config": { "channel_id": ch_id }
+        })),
+    )
+    .await;
+    let hook_token = hook["config"]["token"].as_str().expect("token").to_string();
+
+    assert_eq!(archive(&app, &token, ch_id).await, StatusCode::OK);
+
+    let attempts = [
+        (
+            "POST",
+            format!("/api/channels/{ch_id}/messages"),
+            Some(json!({ "content": "after" })),
+        ),
+        (
+            "POST",
+            format!("/api/channels/{ch_id}/messages"),
+            Some(json!({ "content": "a reply", "thread_parent_id": root_id })),
+        ),
+        (
+            "POST",
+            format!("/api/messages/{root_id}/reactions"),
+            Some(json!({ "emoji": "👍" })),
+        ),
+        (
+            "POST",
+            format!("/api/workspaces/{ws_id}/scheduled-messages"),
+            Some(json!({
+                "channel_id": ch_id,
+                "content": "later",
+                "send_at": (chrono::Utc::now() + chrono::Duration::hours(1)).to_rfc3339()
+            })),
+        ),
+    ];
+    for (method, path, body) in attempts {
+        let (status, body) = send(&app, method, &path, Some(&token), body).await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "{method} {path}: {body:?}");
+    }
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/hooks/incoming/{hook_token}"),
+        None,
+        Some(json!({ "text": "build passed" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "a hook cannot post either");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn channel_and_workspace_admins_unarchive_and_a_member_cannot(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "arch-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Unarchive WS").await;
+    let ch_id = seed_channel(&state, ws_id, owner_id, "paused", false).await;
+
+    let (manager_id, _, manager_token) = seed_and_login(&app, &state, "arch-manager", false).await;
+    add_ws_member(&state, ws_id, manager_id, "member").await;
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(ch_id, manager_id, &ChannelRole::Admin)
+        .await
+        .expect("precondition: channel admin");
+    let (member_id, _, member_token) = seed_and_login(&app, &state, "arch-member", false).await;
+    add_ws_member(&state, ws_id, member_id, "member").await;
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(ch_id, member_id, &ChannelRole::Member)
+        .await
+        .expect("precondition: plain member");
+
+    assert_eq!(archive(&app, &owner_token, ch_id).await, StatusCode::OK);
+    assert_eq!(
+        unarchive(&app, &member_token, ch_id).await,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(unarchive(&app, &manager_token, ch_id).await, StatusCode::OK);
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/messages"),
+        Some(&member_token),
+        Some(json!({ "content": "back to work" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "posting works again: {body:?}");
+
+    assert_eq!(archive(&app, &manager_token, ch_id).await, StatusCode::OK);
+    assert_eq!(unarchive(&app, &owner_token, ch_id).await, StatusCode::OK);
+
+    let notes: Vec<String> = sqlx::query_scalar(
+        "SELECT metadata->>'kind' FROM messages WHERE channel_id = $1 AND metadata->>'kind' LIKE 'channel_%archived' ORDER BY created_at",
+    )
+    .bind(ch_id)
+    .fetch_all(&state.pool)
+    .await
+    .expect("system messages");
+    assert_eq!(
+        notes,
+        [
+            "channel_archived",
+            "channel_unarchived",
+            "channel_archived",
+            "channel_unarchived"
+        ],
+        "everyone in the channel sees who archived it and who brought it back"
+    );
 }

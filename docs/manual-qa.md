@@ -135,6 +135,7 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - **Reach:** *Workspace settings* → *Data retention*, *Exports*, *SCIM provisioning*; *Members* rows.
 - **Steps:** as Admin (owner and instance admin): in *Data retention* choose *For a number of days* for messages and type 30, wait, then *Save retention*; set it back to *Forever* and save. In *Exports* tick nothing and *Export workspace*, wait for *complete*, *Download*. In *Members* use the export icon on Bob's row, then the erase icon on a throwaway account's row. In *SCIM provisioning* create a token, *I have stored it*, rotate it, revoke it.
 - **Expected:** the retention form says *About N messages and M files would be removed now* before anything is saved, and *Saved* after. The export row goes pending → running → complete (the worker polls every 10 s); the archive downloads once, after which the row says *Downloaded*, and the link opened again answers 404. Bob's export shows up under *Exports* with his name. Erase names what goes and stays disabled until the person's name is typed exactly; afterwards the row reads *Deleted user*. A token is visible only until it is put away; rotate shows the replacement the same way, and the revoked one is struck through with no buttons.
+- 🔴 **Edge — what an export holds:** post a file in a DM, then *Export workspace* without DMs: `files.jsonl` in the tar lists no file from the DM. With two workspaces on a retention period, each one's *Retention purge* row in the audit log counts only its own messages.
 - 🔴 **Edge — who:** Alice (admin) sees *Exports* but no *Export workspace* button, no *Download* on the owner's exports, and no export/erase icons; `GET /api/workspaces/<id>/retention/preview` answers her 403.
 
 ### 3.1d 🔴 Retention per channel
@@ -185,6 +186,7 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 ### 4.2 🟠 Channel admin / archive
 - **Steps:** channel admin renames/archives a channel from the header's ⋯ → *Channel details → About*; a non-admin sees the topic and description as text and no *Settings* tab.
 - **Expected:** archived channel is read-only/hidden; permission enforced. A plain member's header has no ⋯ on desktop.
+- 🔴 **Edge — archived stays closed:** with Bob viewing the channel in a second window, Admin archives it. Both see *archived this channel* and the composer turns into the *Archived* bar at once; Bob's bar has no *Unarchive*. *Browse channels* lists it with *Archived* and no *Join*. A scheduled message into it fails, and its incoming webhook answers 403. Admin's *Unarchive* brings the composer back for both, with *unarchived this channel*.
 - 🟢 **Header:** the people count is the one members button and toggles the panel; the pin button shows how many are pinned. Every header icon has a tooltip.
 
 ---

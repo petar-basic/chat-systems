@@ -14,6 +14,7 @@ const ACTION_LABELS: Record<string, string> = {
   'message.deleted': 'Message deleted',
   'channel.created': 'Channel created',
   'channel.archived': 'Channel archived',
+  'channel.unarchived': 'Channel unarchived',
   'channel.updated': 'Channel updated',
   'channel.member_added': 'Added to channel',
   'channel.member_removed': 'Removed from channel',

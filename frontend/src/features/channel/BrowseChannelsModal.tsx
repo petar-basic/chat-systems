@@ -4,7 +4,7 @@ import { TextInput } from '@/shared/components/Form/TextInput';
 import { Select } from '@/shared/components/Form/Select';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { toUserMessage } from '@/lib/errors';
-import { Check, Hash, Lock, Plus, Search } from 'lucide-react';
+import { Archive, Check, Hash, Lock, Plus, Search } from 'lucide-react';
 import { Modal } from '@/shared/components/Modal/Modal';
 import {
   useBrowsableChannels,
@@ -44,7 +44,8 @@ function ChannelRow({
   onOpen: () => void;
 }) {
   const about = channel.topic || channel.description;
-  const Icon = channel.channel_type === 'private' ? Lock : Hash;
+  const Icon = channel.is_archived ? Archive : channel.channel_type === 'private' ? Lock : Hash;
+  const opens = channel.is_member || channel.is_archived;
   return (
     <div
       data-qa="browse-channel-row"
@@ -53,36 +54,42 @@ function ChannelRow({
     >
       <button
         type="button"
-        onClick={channel.is_member ? onOpen : onJoin}
-        disabled={!channel.is_member && busy}
-        data-qa={channel.is_member ? 'browse-channel-open' : undefined}
+        onClick={opens ? onOpen : onJoin}
+        disabled={!opens && busy}
+        data-qa={opens ? 'browse-channel-open' : undefined}
         className="flex min-w-0 flex-1 items-center gap-3 py-2.5 text-left focus:outline-none"
       >
         <Icon className="h-4 w-4 shrink-0 text-muted" />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-medium text-fg-soft">{channel.name || 'Channel'}</span>
           <span className="block truncate text-xs text-muted">
-            {channel.is_member && (
-              <span className="text-success">
-                <Check className="mr-0.5 inline h-3 w-3 align-[-2px]" />
-                Joined ·{' '}
-              </span>
+            {channel.is_archived ? (
+              <span data-qa="browse-channel-archived">Archived · </span>
+            ) : (
+              channel.is_member && (
+                <span className="text-success">
+                  <Check className="mr-0.5 inline h-3 w-3 align-[-2px]" />
+                  Joined ·{' '}
+                </span>
+              )
             )}
             {channel.member_count} {channel.member_count === 1 ? 'member' : 'members'}
             {about ? ` · ${about}` : ''}
           </span>
         </span>
       </button>
-      <Button
-        size="sm"
-        onClick={channel.is_member ? onLeave : onJoin}
-        disabled={busy}
-        data-qa={channel.is_member ? 'browse-channel-leave' : 'browse-channel-join'}
-        aria-label={`${channel.is_member ? 'Leave' : 'Join'} ${channel.name || 'channel'}`}
-        className="shrink-0 transition-opacity [@media(hover:hover)]:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
-      >
-        {channel.is_member ? 'Leave' : 'Join'}
-      </Button>
+      {!channel.is_archived && (
+        <Button
+          size="sm"
+          onClick={channel.is_member ? onLeave : onJoin}
+          disabled={busy}
+          data-qa={channel.is_member ? 'browse-channel-leave' : 'browse-channel-join'}
+          aria-label={`${channel.is_member ? 'Leave' : 'Join'} ${channel.name || 'channel'}`}
+          className="shrink-0 transition-opacity [@media(hover:hover)]:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+        >
+          {channel.is_member ? 'Leave' : 'Join'}
+        </Button>
+      )}
     </div>
   );
 }

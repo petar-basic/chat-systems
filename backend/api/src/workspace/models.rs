@@ -206,6 +206,7 @@ pub struct BrowsableChannel {
     pub topic: Option<String>,
     pub description: Option<String>,
     pub is_default: bool,
+    pub is_archived: bool,
     pub created_at: DateTime<Utc>,
     pub member_count: i64,
     pub is_member: bool,
