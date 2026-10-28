@@ -218,8 +218,21 @@ async fn export_workspace(
     }
 
     let rows: Vec<serde_json::Value> = sqlx::query_scalar!(
-        r#"SELECT to_jsonb(f) AS "row!" FROM files f WHERE f.workspace_id = $1"#,
-        workspace_id
+        r#"
+        SELECT to_jsonb(f) AS "row!" FROM files f
+          LEFT JOIN messages m ON m.id = f.message_id
+          LEFT JOIN channels c ON c.id = m.channel_id
+         WHERE f.workspace_id = $1
+           AND f.draft_until IS NULL
+           AND ($2::timestamptz IS NULL OR f.created_at >= $2)
+           AND ($3::timestamptz IS NULL OR f.created_at <= $3)
+           AND ($4::bool OR c.channel_type IN ('public', 'private'))
+         ORDER BY f.created_at
+        "#,
+        workspace_id,
+        job.since,
+        job.until,
+        job.include_dms
     )
     .fetch_all(&state.pool)
     .await

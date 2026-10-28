@@ -44,6 +44,9 @@ Setup ends with *Send a test email* to the new admin's address; *Instance admin 
 has the same button later. A failure is named: nothing listening at `SMTP_HOST:SMTP_PORT`,
 a TLS handshake or mode that does not match the port, or credentials the server refused.
 
+With `SMTP_HOST` empty the instance sends no email at all. Invites still work: the invite form
+and *Workspace settings → Members* hand out each invite's link to copy and send yourself.
+
 Scripted installs can still set `ADMIN_EMAIL` and `ADMIN_PASSWORD`; the API creates that
 account on start if it does not exist, and no token is printed. Once the instance is up,
 remove `ADMIN_PASSWORD` from `.env`: it is read only to create the account, and a password
@@ -355,7 +358,10 @@ accounts, or `disabled` to turn the door off without removing the configuration.
 Signing in through the provider **removes the password** from a non-admin account. That is
 deliberate — an SSO account with a working password has a second way in that nobody is
 watching — but it means people cannot fall back to a password if the provider is down.
-Instance admins keep theirs on purpose: that is the break-glass account.
+Instance admins keep theirs on purpose: that is the break-glass account. *Forgot password* on
+an SSO account sends a note pointing at *Sign in with SSO* instead of a reset link. An invite
+link offers *Continue with SSO*; the invite is carried through the provider and used on the
+way back, so `invite_only` provisioning still lets an invited person in.
 
 **`REQUIRE_ADMIN_TOTP=true` will lock out an admin who has not enrolled.** Turn it on only
 after every instance admin has a factor set up (Profile → Two-factor authentication).

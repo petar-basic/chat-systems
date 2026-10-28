@@ -49,6 +49,14 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   you run now>` to keep its chunks for tabs opened before the upgrade, and
   `--build-arg APP_VERSION=<version>` to name the build. A proxy in front of the frontend
   should not cache `index.html` or `version.json`; nginx now sends `no-cache` for both.
+- For API clients: posting, reacting, scheduling and incoming webhooks answer 403 on an
+  archived channel. `POST /channels/{id}/unarchive` undoes `DELETE /channels/{id}`, both
+  publish `channel.updated` (`is_archived`), and *Browse channels* lists archived channels
+  with `is_archived`.
+- For API clients: `POST /workspaces/{id}/invites` returns the invite with `invite_url` and
+  `email_sent`, and `GET /workspaces/{id}/invites/{invite_id}/link` hands out a pending email
+  invite's link again. An empty `SMTP_HOST` now means no email: invites say so instead of
+  claiming they were sent.
 
 ### Security
 
@@ -121,10 +129,30 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   shows *A new version is available* with *Reload*, a lazy page or the emoji picker whose
   chunk is gone reloads once onto the new build, and release images keep the previous
   release's chunks.
+- **An archived channel is closed.** Nothing can be posted, reacted, scheduled or sent by a
+  webhook into it; its composer becomes an *Archived* bar, and workspace admins and the
+  channel's admins can *Unarchive* it there. Archiving and unarchiving post a line in the
+  channel and reach everyone viewing it at once.
+- **An export without DMs has no DM files.** `files.jsonl` follows the same DM choice and date
+  range as the messages.
+- **A retention audit row counts its own workspace.** Each workspace's *Retention purge* entry
+  used to carry the totals of every workspace purged before it in the same run.
+- **Joining a channel you were looking at goes live.** After *Join channel* on a channel opened
+  without being in it, new messages and changes arrived only after a reconnect.
+- **Inviting works without email.** Every invite shows its link to copy, and the form says
+  when email is not set up instead of *Invite sent*. *Workspace settings → Members* lists
+  pending invites with *Copy invite link* and *Revoke*.
+- **SSO from an invite lands in the workspace.** The invite page offers *Continue with SSO*,
+  and the invite is used on the way back from the provider, activating the invited account.
+- **Forgot password does the right thing.** Somebody invited but not registered gets their
+  invite again, an SSO account is told to sign in with SSO, and a too-short new password no
+  longer uses up the reset link.
 - **An account photo shows everywhere and stays.** A photo set under *Preferences → Account*
   is the account's, not a file of the workspace that was open: every workspace you share with
   someone shows it, and file retention no longer deletes it. Replacing or removing a photo
   deletes the old one.
+- **A status picked as *Edit profile* opens is kept.** The form showed before the workspace
+  profile had arrived, and its arrival then reset the emoji already picked.
 
 ## [3.5.0] — 2026-10-27
 

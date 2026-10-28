@@ -796,6 +796,7 @@ async fn add_reaction(
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
 
     let access = authz::require_channel_access(&state, msg.channel_id, auth.user_id).await?;
+    authz::require_not_archived(&access.channel)?;
     if let Some(name) = shared_common::validation::custom_emoji_name(&req.emoji) {
         state
             .emoji_repo
@@ -849,6 +850,7 @@ async fn remove_reaction(
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
 
     let access = authz::require_channel_access(&state, msg.channel_id, auth.user_id).await?;
+    authz::require_not_archived(&access.channel)?;
 
     let mut tx = state.pool.begin().await?;
     state

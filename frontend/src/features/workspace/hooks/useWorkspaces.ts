@@ -91,6 +91,40 @@ export const useWorkspaceInvites = (workspaceId: string | null, instanceUrl?: st
   });
 };
 
+export type WorkspaceInvite = components['schemas']['WorkspaceInvite'];
+
+export const isPendingEmailInvite = (invite: WorkspaceInvite, now = Date.now()) =>
+  !!invite.email &&
+  !!invite.expires_at &&
+  Date.parse(invite.expires_at) > now &&
+  (invite.max_uses == null || invite.use_count < invite.max_uses);
+
+export const useCopyInviteLink = (workspaceId: string, instanceUrl?: string) =>
+  useMutation({
+    mutationFn: async (inviteId: string) => {
+      const { url } = await getApiForInstance(instanceUrl).typed((c) =>
+        c.GET('/workspaces/{ws_id}/invites/{invite_id}/link', {
+          params: { path: { ws_id: workspaceId, invite_id: inviteId } },
+        }),
+      );
+      await navigator.clipboard.writeText(url);
+      return url;
+    },
+  });
+
+export const useRevokeInvite = (workspaceId: string, instanceUrl?: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (inviteId: string) =>
+      getApiForInstance(instanceUrl).typed((c) =>
+        c.DELETE('/workspaces/{ws_id}/invites/{invite_id}', {
+          params: { path: { ws_id: workspaceId, invite_id: inviteId } },
+        }),
+      ),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceInvites(workspaceId) }),
+  });
+};
+
 export const useWorkspaceChannels = (workspaceId: string | null, instanceUrl?: string) => {
   return useQuery({
     queryKey: QUERY_KEYS.workspaceChannels(workspaceId ?? ''),

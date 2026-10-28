@@ -88,6 +88,19 @@ pub struct WorkspaceInvite {
     pub created_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Serialize, ToSchema)]
+pub struct CreatedInvite {
+    #[serde(flatten)]
+    pub invite: WorkspaceInvite,
+    pub invite_url: Option<String>,
+    pub email_sent: bool,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct InviteLink {
+    pub url: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type, PartialEq, ToSchema)]
 #[sqlx(type_name = "channel_type", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
@@ -193,6 +206,7 @@ pub struct BrowsableChannel {
     pub topic: Option<String>,
     pub description: Option<String>,
     pub is_default: bool,
+    pub is_archived: bool,
     pub created_at: DateTime<Utc>,
     pub member_count: i64,
     pub is_member: bool,

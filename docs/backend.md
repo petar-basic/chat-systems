@@ -151,8 +151,9 @@ Handles user identity — login, registration, JWT, and profile.
 | POST | `/auth/complete-registration` | `{ token, password, display_name }` | `AuthSession` — joins the invite's workspace with the invite's role and claims a use; 401 for a revoked, expired or used-up invite |
 | POST | `/auth/refresh` | `{ refresh_token }` (or refresh cookie / Bearer) | `AuthSession` |
 | POST | `/auth/logout` | refresh cookie | `{ status: "logged_out" }` |
-| POST | `/auth/forgot-password` | `{ email }` | `{ status: "sent" }` |
-| POST | `/auth/reset-password` | `{ token, password }` | `{ status: "reset" }` |
+| POST | `/auth/forgot-password` | `{ email }` | `{ status: "sent" }` whoever asks; a password account gets a reset link, an account still waiting on its invite gets that invite again, and an SSO account is told to sign in with SSO |
+| POST | `/auth/reset-password` | `{ token, password }` | `{ status: "reset" }` — the password is checked before the link is spent, so a too-short one leaves it usable |
+| GET | `/auth/oidc/start` | Query: `invite?` | Redirect to the provider. With `invite` (an email invite's link token), the callback redeems it for the account that signed in, activates it if it was waiting on the invite, and lands on `/app/:ws_id`; a link for another address lands back on `/invite/:token` |
 | GET | `/instance/info` | — | `{ name, icon_url, sso_enabled, max_upload_bytes, setup_required }` |
 | POST | `/setup` | `{ token, display_name, email, password, workspace_name }` | `{ session: AuthSession, workspace_id }` and the auth cookies; 403 for a wrong token, 409 once an instance admin exists |
 | GET | `/users/me` | JWT | `UserPublic` |
@@ -177,8 +178,8 @@ feature — see `dm` below.)
 |--------|----------|
 | Read channels/messages, post, react, thread | Member of the workspace; **Guest** additionally must be a member of that channel (Guests never get implicit access to public channels) |
 | Create a channel | `Member` |
-| Browse public channels and self-join one | `Member` — Guests are refused, and private/archived channels are never listed or joinable |
-| Rename/archive a channel, change a channel member's role, remove someone from a channel | **Channel admin** (`channel_members.role = 'admin'`) or workspace `Admin`; a Guest never moderates, even holding the channel-admin row |
+| Browse public channels and self-join one | `Member` — Guests are refused; private channels are never listed, and archived ones are listed to read but cannot be joined |
+| Rename/archive/unarchive a channel, change a channel member's role, remove someone from a channel | **Channel admin** (`channel_members.role = 'admin'`) or workspace `Admin`; a Guest never moderates, even holding the channel-admin row |
 | Add someone to a channel | `Member` of the workspace, and — for a private channel — a member of that channel; the person being added must already be in the workspace |
 | Manage invites and workspace settings | `Admin` |
 | Change a member's role | `Admin`, and the actor must strictly outrank the target and may not grant a role above their own; the Owner cannot be demoted |
@@ -210,7 +211,8 @@ feature — see `dm` below.)
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/invites` | — | `{ data: WorkspaceInvite[] }` |
-| POST | `/workspaces/:ws_id/invites` | `{ email?, role? }` | `WorkspaceInvite` |
+| POST | `/workspaces/:ws_id/invites` | `{ email?, role? }` | `CreatedInvite` — the invite plus `invite_url` (an email invite's registration link) and `email_sent`, false when `SMTP_HOST` is empty or the send failed |
+| GET | `/workspaces/:ws_id/invites/:invite_id/link` | — | `{ url }` — a fresh registration link for a pending email invite; 400 once it is used up or expired |
 | DELETE | `/workspaces/:ws_id/invites/:invite_id` | — | `{ status: "revoked" }` |
 | POST | `/invites/:token/accept` | — | `WorkspaceMember` |
 
@@ -225,11 +227,12 @@ one, and the role is the row's, not the token's.
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/channels` | — | `{ data: ChannelListing[] }` — each channel with the caller's `muted`, `notify_level` (`null` when it follows the default) and `effective_notify_level` |
 | GET | `/workspaces/:ws_id/channels/unread` | — | `{ channel_ids: string[] }` |
-| GET | `/workspaces/:ws_id/channels/browse` | — | `{ data: BrowsableChannel[] }` — every public, unarchived channel with `member_count` and `is_member` (Members and up; Guests are refused) |
+| GET | `/workspaces/:ws_id/channels/browse` | — | `{ data: BrowsableChannel[] }` — every public channel with `member_count`, `is_member` and `is_archived`, archived ones last (Members and up; Guests are refused) |
 | POST | `/workspaces/:ws_id/channels` | `{ name, channel_type?, description?, is_default?, post_policy? }` | `Channel` — Members and up; only admins when `settings.public_channel_creators` (or `private_channel_creators` for a private one) is `admins` |
 | GET | `/channels/:ch_id` | — | `Channel` |
 | PATCH | `/channels/:ch_id` | `{ name?, topic?, description?, post_policy?, allow_broadcast_mentions? }` | `Channel` — channel moderators; `post_policy` and `allow_broadcast_mentions` are merged into `settings` and each change is audited |
-| DELETE | `/channels/:ch_id` | — | `{ status: "archived" }` |
+| DELETE | `/channels/:ch_id` | — | `{ status: "archived" }` — channel moderators; posts a `channel_archived` system line and publishes `channel.updated`. An archived channel refuses posts, replies, reactions, scheduled messages and incoming webhooks with 403 |
+| POST | `/channels/:ch_id/unarchive` | — | `{ status: "unarchived" }` — channel moderators; posts `channel_unarchived` and publishes `channel.updated` |
 | PATCH | `/channels/:ch_id/notifications` | `{ muted }` | `{ muted: bool }` — members only (403 otherwise) |
 
 **Channel members:**
@@ -1064,6 +1067,10 @@ delete is a soft-delete (reversible via restore), audited in the same transactio
 The list holds the workspace's exports and the person exports the caller started for its
 members, which belong to no workspace. `download_url` is there only for whoever asked for the
 export (or an instance admin) and only while the single-use link is unspent and unexpired.
+`files.jsonl` follows the same choices as `messages.jsonl`: without `include_dms` it leaves out
+files posted in DMs, and `since`/`until` bound files by their upload time. Each workspace's
+purge is audited as one `retention.purge` row with that workspace's counts; the run's total
+goes only to the log and the metrics.
 A channel's period change posts a message in the channel and an audit row; direct messages
 keep the workspace's period.
 
@@ -1159,7 +1166,7 @@ A join is authorised against the huddle's own `huddle_sessions` row, never again
 | `events:huddle` | `huddle.started`, `huddle.ended`, `huddle.ring`, `huddle.member_joined`, `huddle.member_left` — lifecycle; also consumed by the API for history + call notifications |
 | `events:list` | `list.upserted`, `list.deleted`, `list.columns_changed`, `list.item_upserted`, `list.item_deleted` — to the list's channel, or to the owner of a personal list |
 | `events:thread` | `thread.read_state` — sent only to the user whose thread state changed (a reply, `/read`, follow or unfollow), with its `following` and `unread_count` |
-| `events:channel` | `channel.read_state` — sent only to the user whose read position moved (by `/read` or `/unread`), so their other tabs and devices update their badges; `channel.member_removed` becomes `channel.access_revoked` for the removed user |
+| `events:channel` | `channel.read_state` — sent only to the user whose read position moved (by `/read` or `/unread`), so their other tabs and devices update their badges; `channel.member_removed` becomes `channel.access_revoked` for the removed user; `channel.updated` (`is_archived`) goes to everyone in the channel when it is archived or unarchived |
 | `events:huddle-signal` | `huddle.offer`, `huddle.answer`, `huddle.ice`, `huddle.mute`, `huddle.camera`, `huddle.screenshare`, `huddle.hand`, `huddle.reaction` — high-frequency relay, realtime-only (kept off `events:huddle` so the API consumers don't parse every ICE candidate) |
 
 All events use the envelope: `{ id, event_type, payload, timestamp }`.

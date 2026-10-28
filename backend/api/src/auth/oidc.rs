@@ -75,6 +75,8 @@ pub struct PendingLogin {
     pub csrf: String,
     pub pkce_verifier: String,
     pub nonce: String,
+    #[serde(default)]
+    pub invite: Option<String>,
 }
 
 pub struct VerifiedIdentity {
@@ -154,6 +156,7 @@ pub async fn start(settings: &OidcSettings) -> AppResult<(String, PendingLogin)>
             csrf: csrf.secret().clone(),
             pkce_verifier: verifier.secret().clone(),
             nonce: nonce.secret().clone(),
+            invite: None,
         },
     ))
 }

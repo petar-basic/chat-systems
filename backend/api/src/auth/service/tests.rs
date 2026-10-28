@@ -331,7 +331,7 @@ async fn forgot_password_does_not_leak_email_existence(pool: PgPool) {
     let missing = service.forgot_password("ghost@test.local").await;
     assert!(
         missing.is_ok(),
-        "forgot_password for an unknown email must return Ok(()) to avoid enumeration, got {missing:?}"
+        "forgot_password for an unknown email must return Ok to avoid enumeration, got {missing:?}"
     );
     let tokens_for_missing: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM password_reset_tokens")
         .fetch_one(&db)
@@ -356,7 +356,7 @@ async fn forgot_password_does_not_leak_email_existence(pool: PgPool) {
 
     let existing = service.forgot_password("real@test.local").await;
     match &existing {
-        Ok(()) => {}
+        Ok(_) => {}
         Err(AppError::Internal(_)) => {}
         other => panic!(
             "forgot_password for an existing user must not reveal existence via error kind, got {other:?}"

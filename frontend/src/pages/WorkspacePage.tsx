@@ -21,6 +21,7 @@ import {
   ChannelBookmarksBar,
   ChannelIntro,
   ChannelPreviewBar,
+  ChannelArchivedBar,
   CreateChannelModal,
 } from '@/features/channel';
 import { canAddChannelMembers, creatableChannelKinds } from '@/lib/channelPermissions';
@@ -204,7 +205,7 @@ export default function WorkspacePage() {
         ) : (
           <FileDropZone
             className="flex-1 flex min-w-0"
-            disabled={!currentChannel || c.previewing || !canPost}
+            disabled={!currentChannel || currentChannel.is_archived || c.previewing || !canPost}
             onFiles={c.attachments.add}
           >
             <main className="flex-1 flex flex-col min-w-0" aria-label="Conversation" data-message-pane>
@@ -310,11 +311,15 @@ export default function WorkspacePage() {
                 </div>
               )}
 
-              {currentChannel && c.previewing && (
+              {currentChannel?.is_archived && (
+                <ChannelArchivedBar channel={currentChannel} canUnarchive={canModerate} />
+              )}
+
+              {currentChannel && !currentChannel.is_archived && c.previewing && (
                 <ChannelPreviewBar channel={currentChannel} instanceUrl={currentWorkspace?.instanceUrl} />
               )}
 
-              {currentChannel && !c.previewing && !canPost && (
+              {currentChannel && !currentChannel.is_archived && !c.previewing && !canPost && (
                 <div
                   data-qa="channel-read-only"
                   className="mx-4 mb-4 px-4 py-3 rounded-lg bg-surface/60 border border-line text-sm text-muted flex items-center gap-2"
@@ -324,7 +329,7 @@ export default function WorkspacePage() {
                 </div>
               )}
 
-              {currentChannel && !c.previewing && canPost && (
+              {currentChannel && !currentChannel.is_archived && !c.previewing && canPost && (
                 <MessageInput
                   key={currentChannel.id}
                   workspaceId={currentWorkspace?.id}

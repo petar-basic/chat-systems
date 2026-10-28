@@ -1071,3 +1071,136 @@ async fn registration_token_accept_joins_an_already_active_account(pool: PgPool)
         "accepting twice must be a no-op, not an error: {resp:?}"
     );
 }
+
+async fn outbound_to(state: &crate::state::AppState, email: &str) -> Vec<(String, String)> {
+    sqlx::query_as(
+        "SELECT subject, text_body FROM outbound_emails WHERE to_address = $1 ORDER BY created_at",
+    )
+    .bind(email)
+    .fetch_all(&state.pool)
+    .await
+    .expect("outbound emails")
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_instance_without_email_still_invites_by_link(pool: PgPool) {
+    let config = crate::config::AppConfig {
+        smtp_host: String::new(),
+        ..test_config()
+    };
+    let (app, state) = app_and_state_with(pool, config).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "inv-nosmtp", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "No Mail WS").await;
+    let invitee = format!("newcomer-{}@test.local", uuid::Uuid::new_v4().simple());
+
+    let (status, created) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/invites"),
+        Some(&owner_token),
+        Some(json!({ "email": invitee, "role": "member" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{created:?}");
+    assert_eq!(
+        created["email_sent"], false,
+        "nothing claims an email went out"
+    );
+    assert!(outbound_to(&state, &invitee).await.is_empty());
+
+    let url = created["invite_url"].as_str().expect("invite url");
+    let token = url.rsplit('/').next().expect("token");
+    let (status, preview) = send(
+        &app,
+        "GET",
+        &format!("/api/auth/invites/{token}/verify"),
+        None,
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "the copied link opens: {preview:?}");
+    assert_eq!(preview["email"], invitee);
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        "/api/auth/complete-registration",
+        None,
+        Some(json!({ "token": token, "password": "longenough123", "display_name": "Newcomer" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    let joined: bool = sqlx::query_scalar(
+        "SELECT EXISTS (SELECT 1 FROM workspace_members m JOIN users u ON u.id = m.user_id WHERE m.workspace_id = $1 AND u.email = $2)",
+    )
+    .bind(ws_id)
+    .bind(&invitee)
+    .fetch_one(&state.pool)
+    .await
+    .expect("membership");
+    assert!(joined, "the link alone gets them in");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_pending_invite_hands_out_its_link_to_admins_until_revoked(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "inv-link-owner", false).await;
+    let (member_id, _, member_token) = seed_and_login(&app, &state, "inv-link-mem", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Link WS").await;
+    add_ws_member(&state, ws_id, member_id, "member").await;
+    let invitee = format!("later-{}@test.local", uuid::Uuid::new_v4().simple());
+
+    let (_, created) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/invites"),
+        Some(&owner_token),
+        Some(json!({ "email": invitee })),
+    )
+    .await;
+    assert_eq!(created["email_sent"], true);
+    let invite_id = created["id"].as_str().expect("id").to_string();
+    let link = format!("/api/workspaces/{ws_id}/invites/{invite_id}/link");
+
+    let (status, _) = send(&app, "GET", &link, Some(&member_token), None).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let (status, body) = send(&app, "GET", &link, Some(&owner_token), None).await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    let token = body["url"]
+        .as_str()
+        .expect("url")
+        .rsplit('/')
+        .next()
+        .expect("token")
+        .to_string();
+    let (status, _) = send(
+        &app,
+        "GET",
+        &format!("/api/auth/invites/{token}/verify"),
+        None,
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, _) = send(
+        &app,
+        "DELETE",
+        &format!("/api/workspaces/{ws_id}/invites/{invite_id}"),
+        Some(&owner_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _) = send(&app, "GET", &link, Some(&owner_token), None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _) = send(
+        &app,
+        "GET",
+        &format!("/api/auth/invites/{token}/verify"),
+        None,
+        None,
+    )
+    .await;
+    assert_ne!(status, StatusCode::OK, "a copied link dies with its invite");
+}

@@ -14,6 +14,7 @@ use super::models::*;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
 use crate::dto::{DataList, StatusResponse};
+use crate::messaging::publisher::EventPublisher;
 use crate::middleware::AuthUser;
 use crate::state::AppState;
 
@@ -29,11 +30,13 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(remove_member))
         .routes(routes!(list_invites, create_invite))
         .routes(routes!(revoke_invite))
+        .routes(routes!(invite_link))
         .routes(routes!(accept_invite))
         .routes(routes!(list_channels, create_channel))
         .routes(routes!(unread_channels))
         .routes(routes!(browse_channels))
         .routes(routes!(get_channel, update_channel, archive_channel))
+        .routes(routes!(unarchive_channel))
         .routes(routes!(set_channel_notifications))
         .routes(routes!(list_channel_members, add_channel_member))
         .routes(routes!(join_channel))
@@ -362,18 +365,18 @@ async fn list_invites(
     Ok(Json(invites.into()))
 }
 
-#[utoipa::path(post, path = "/workspaces/{ws_id}/invites", tag = "workspaces", request_body = CreateInviteRequest, responses((status = 200, body = WorkspaceInvite)))]
+#[utoipa::path(post, path = "/workspaces/{ws_id}/invites", tag = "workspaces", request_body = CreateInviteRequest, responses((status = 200, body = CreatedInvite)))]
 async fn create_invite(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
     Path(ws_id): Path<Uuid>,
     Json(req): Json<CreateInviteRequest>,
-) -> AppResult<Json<WorkspaceInvite>> {
+) -> AppResult<Json<CreatedInvite>> {
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
     req.validate()?;
     let lifetime = InviteLifetime::resolve(&req)?;
-    let invite = state
+    let created = state
         .workspace_service
         .create_invite(
             ws_id,
@@ -389,17 +392,39 @@ async fn create_invite(
         &state,
         AuditEntry::new(AuditAction::InviteCreated, auth.user_id)
             .workspace(ws_id)
-            .resource(invite.id)
+            .resource(created.invite.id)
             .ip(&ip)
             .details(serde_json::json!({
-                "email": invite.email,
-                "role": invite.role,
-                "expires_at": invite.expires_at,
+                "email": created.invite.email,
+                "role": created.invite.role,
+                "expires_at": created.invite.expires_at,
+                "email_sent": created.email_sent,
             })),
     )
     .await;
 
-    Ok(Json(invite))
+    Ok(Json(created))
+}
+
+#[utoipa::path(get, path = "/workspaces/{ws_id}/invites/{invite_id}/link", tag = "workspaces", responses((status = 200, body = InviteLink)))]
+async fn invite_link(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path((ws_id, invite_id)): Path<(Uuid, Uuid)>,
+) -> AppResult<Json<InviteLink>> {
+    authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
+    let invite = state
+        .workspace_service
+        .repo
+        .find_invite_by_id(invite_id)
+        .await?
+        .filter(|invite| invite.workspace_id == ws_id)
+        .ok_or_else(|| AppError::NotFound("Invite not found".into()))?;
+    let url = state
+        .workspace_service
+        .invite_url(&invite, &state.auth_service)
+        .await?;
+    Ok(Json(InviteLink { url }))
 }
 
 #[utoipa::path(
@@ -767,19 +792,80 @@ async fn archive_channel(
 ) -> AppResult<Json<StatusResponse>> {
     let channel = authz::find_channel(&state, ch_id).await?;
     authz::require_channel_moderator(&state, &channel, auth.user_id).await?;
-    state.workspace_service.repo.archive_channel(ch_id).await?;
+    set_archived(&state, &channel, auth.user_id, &ip, true).await?;
+    Ok(Json(StatusResponse::new("archived")))
+}
 
+#[utoipa::path(post, path = "/channels/{ch_id}/unarchive", tag = "channels", responses((status = 200, body = StatusResponse)))]
+async fn unarchive_channel(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    ip: ClientIp,
+    Path(ch_id): Path<Uuid>,
+) -> AppResult<Json<StatusResponse>> {
+    let channel = authz::find_channel(&state, ch_id).await?;
+    authz::require_channel_moderator(&state, &channel, auth.user_id).await?;
+    set_archived(&state, &channel, auth.user_id, &ip, false).await?;
+    Ok(Json(StatusResponse::new("unarchived")))
+}
+
+async fn set_archived(
+    state: &AppState,
+    channel: &Channel,
+    user_id: Uuid,
+    ip: &ClientIp,
+    archived: bool,
+) -> AppResult<()> {
+    let mut tx = state.pool.begin().await?;
+    if !state
+        .workspace_service
+        .repo
+        .set_archived(&mut tx, channel.id, archived)
+        .await?
+    {
+        return Ok(());
+    }
+    let (text, kind) = if archived {
+        ("archived this channel", "channel_archived")
+    } else {
+        ("unarchived this channel", "channel_unarchived")
+    };
+    let msg = state
+        .message_repo
+        .create_system_message_in(
+            &mut tx,
+            channel.id,
+            user_id,
+            text,
+            serde_json::json!({ "kind": kind }),
+        )
+        .await?;
+    let created = state
+        .publisher
+        .stage_message_created(&mut tx, &msg, channel.workspace_id, &[])
+        .await?;
+    let updated =
+        EventPublisher::stage_channel_updated(&mut tx, channel.id, channel.workspace_id, archived)
+            .await?;
+    tx.commit().await?;
+    state.publisher.dispatch(created).await;
+    state.publisher.dispatch(updated).await;
+
+    let action = if archived {
+        AuditAction::ChannelArchived
+    } else {
+        AuditAction::ChannelUnarchived
+    };
     audit::record(
-        &state,
-        AuditEntry::new(AuditAction::ChannelArchived, auth.user_id)
+        state,
+        AuditEntry::new(action, user_id)
             .workspace(channel.workspace_id)
-            .resource(ch_id)
-            .ip(&ip)
+            .resource(channel.id)
+            .ip(ip)
             .details(serde_json::json!({ "name": channel.name })),
     )
     .await;
-
-    Ok(Json(StatusResponse::new("archived")))
+    Ok(())
 }
 
 #[utoipa::path(get, path = "/channels/{ch_id}/members", tag = "channels", responses((status = 200, body = DataList<ChannelMember>)))]

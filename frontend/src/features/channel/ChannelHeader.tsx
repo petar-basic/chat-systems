@@ -3,7 +3,6 @@ import { Hash, Lock, Search, Pin, Users, Menu, Info, Plug, MoreHorizontal, Files
 import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
 import { IconButton } from '@/shared/components/IconButton/IconButton';
 import { useChannelMembers, useChannelPins } from '@/features/channel/hooks/useChannels';
-import { useNavigate } from 'react-router';
 import type { Channel } from '@/stores/workspace';
 import { HuddleBar } from '@/features/huddle';
 import { useChannelModeration } from './hooks/useChannelModeration';
@@ -38,7 +37,6 @@ export default function ChannelHeader({
   onOpenNav,
   onOpenWorkflow,
 }: Props) {
-  const navigate = useNavigate();
   const { canModerate } = useChannelModeration(channel?.id ?? null);
   const { data: hookedChannels } = useHookedChannels(channel?.workspace_id ?? null);
   const [details, setDetails] = useState<ChannelDetailsTab | null>(null);
@@ -206,7 +204,6 @@ export default function ChannelHeader({
               initialTab={details}
               onOpenWorkflow={onOpenWorkflow}
               onClose={() => setDetails(null)}
-              onArchived={() => navigate(`/app/${channel.workspace_id}`)}
             />
           )}
         </>

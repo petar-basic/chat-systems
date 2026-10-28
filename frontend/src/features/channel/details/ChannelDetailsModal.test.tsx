@@ -61,7 +61,6 @@ function renderModal({
         initialTab={initialTab}
         onOpenWorkflow={onOpenWorkflow}
         onClose={onClose}
-        onArchived={vi.fn()}
       />
     </QueryClientProvider>,
   );

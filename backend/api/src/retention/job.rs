@@ -42,6 +42,20 @@ impl PurgeCounts {
             + self.hook_executions
     }
 
+    fn add(&mut self, other: &PurgeCounts) {
+        self.messages += other.messages;
+        self.list_items += other.list_items;
+        self.list_comments += other.list_comments;
+        self.lists += other.lists;
+        self.files += other.files;
+        self.notifications += other.notifications;
+        self.audit += other.audit;
+        self.reset_tokens += other.reset_tokens;
+        self.refresh_tokens += other.refresh_tokens;
+        self.invites += other.invites;
+        self.hook_executions += other.hook_executions;
+    }
+
     fn record_metrics(&self) {
         for (table, count) in [
             ("messages", self.messages),
@@ -128,14 +142,15 @@ pub async fn run_once(state: &AppState) -> PurgeCounts {
     };
 
     for policy in policies {
+        let mut ws = PurgeCounts::default();
         // Files before messages: an attachment whose message is gone is
         // unreachable but still downloadable by key, which is the mistake
         // CS-020 fixed on the request path.
         if let Some(days) = policy.file_days {
-            counts.files += purge_files(state, policy.workspace_id, days, dry_run).await;
+            ws.files += purge_files(state, policy.workspace_id, days, dry_run).await;
         }
         if policy.message_days.is_some() || policy.channel_overrides {
-            counts.messages += purge_loop(dry_run, || async {
+            ws.messages += purge_loop(dry_run, || async {
                 state
                     .retention_repo
                     .purge_messages(
@@ -147,7 +162,7 @@ pub async fn run_once(state: &AppState) -> PurgeCounts {
             })
             .await;
             if dry_run {
-                counts.messages += state
+                ws.messages += state
                     .retention_repo
                     .count_messages_past(
                         policy.workspace_id,
@@ -159,21 +174,21 @@ pub async fn run_once(state: &AppState) -> PurgeCounts {
             }
         }
         if let Some(days) = policy.message_days {
-            counts.list_comments += purge_loop(dry_run, || async {
+            ws.list_comments += purge_loop(dry_run, || async {
                 state
                     .retention_repo
                     .purge_list_comments(policy.workspace_id, days)
                     .await
             })
             .await;
-            counts.list_items += purge_loop(dry_run, || async {
+            ws.list_items += purge_loop(dry_run, || async {
                 state
                     .retention_repo
                     .purge_list_items(policy.workspace_id, days)
                     .await
             })
             .await;
-            counts.lists += purge_loop(dry_run, || async {
+            ws.lists += purge_loop(dry_run, || async {
                 state
                     .retention_repo
                     .purge_deleted_lists(policy.workspace_id, days)
@@ -186,13 +201,13 @@ pub async fn run_once(state: &AppState) -> PurgeCounts {
                     .count_lists_past(policy.workspace_id, days)
                     .await
                     .unwrap_or((0, 0, 0));
-                counts.list_items += items as u64;
-                counts.list_comments += comments as u64;
-                counts.lists += lists as u64;
+                ws.list_items += items as u64;
+                ws.list_comments += comments as u64;
+                ws.lists += lists as u64;
             }
         }
 
-        counts.notifications += purge_loop(dry_run, || async {
+        ws.notifications += purge_loop(dry_run, || async {
             state
                 .retention_repo
                 .purge_notifications(policy.workspace_id, policy.notification_days)
@@ -200,7 +215,7 @@ pub async fn run_once(state: &AppState) -> PurgeCounts {
         })
         .await;
 
-        counts.audit += purge_loop(dry_run, || async {
+        ws.audit += purge_loop(dry_run, || async {
             state
                 .retention_repo
                 .purge_audit(policy.workspace_id, policy.audit_days)
@@ -208,23 +223,24 @@ pub async fn run_once(state: &AppState) -> PurgeCounts {
         })
         .await;
 
-        if !dry_run && counts.total() > 0 {
+        if !dry_run && ws.total() > 0 {
             audit::record(
                 state,
                 AuditEntry::new(AuditAction::RetentionPurge, policy.workspace_id)
                     .workspace(policy.workspace_id)
                     .details(serde_json::json!({
-                        "messages": counts.messages,
-                        "list_items": counts.list_items,
-                        "list_comments": counts.list_comments,
-                        "lists": counts.lists,
-                        "files": counts.files,
-                        "notifications": counts.notifications,
-                        "audit": counts.audit,
+                        "messages": ws.messages,
+                        "list_items": ws.list_items,
+                        "list_comments": ws.list_comments,
+                        "lists": ws.lists,
+                        "files": ws.files,
+                        "notifications": ws.notifications,
+                        "audit": ws.audit,
                     })),
             )
             .await;
         }
+        counts.add(&ws);
     }
 
     counts.record_metrics();

@@ -459,3 +459,106 @@ async fn a_person_export_an_admin_started_is_listed_with_the_workspace(pool: PgP
     assert_eq!(rows.len(), 1, "only the member of this workspace: {body:?}");
     assert_eq!(rows[0]["export"]["subject_user_id"], json!(member_id));
 }
+
+async fn attach_file(
+    state: &crate::state::AppState,
+    ws: Uuid,
+    user_id: Uuid,
+    message_id: &str,
+    name: &str,
+    age_days: i32,
+) {
+    sqlx::query(
+        "INSERT INTO files (message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, created_at)
+         VALUES ($1::uuid, $2, $3, $4, $4, 'text/plain', 1, NOW() - make_interval(days => $5))",
+    )
+    .bind(message_id)
+    .bind(user_id)
+    .bind(ws)
+    .bind(name)
+    .bind(age_days)
+    .execute(&state.pool)
+    .await
+    .expect("file");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn files_follow_the_same_dm_rule_and_dates_as_messages(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "exp-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Export WS").await;
+    let ch = seed_channel(&state, ws, owner_id, "main", false).await;
+    let (other_id, _) = seed(&state, "exp-other", false).await;
+    add_ws_member(&state, ws, other_id, "member").await;
+
+    let (_, conv) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws}/conversations"),
+        Some(&owner),
+        Some(json!({ "participant_ids": [other_id] })),
+    )
+    .await;
+    let conv_id = conv["id"].as_str().expect("id").to_string();
+    let (_, in_dm) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{conv_id}/messages"),
+        Some(&owner),
+        Some(json!({ "content": "the contract, privately" })),
+    )
+    .await;
+    let (_, in_channel) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch}/messages"),
+        Some(&owner),
+        Some(json!({ "content": "the plan" })),
+    )
+    .await;
+    let in_dm = in_dm["id"].as_str().expect("id");
+    let in_channel = in_channel["id"].as_str().expect("id");
+    attach_file(&state, ws, owner_id, in_dm, "private.pdf", 0).await;
+    attach_file(&state, ws, owner_id, in_channel, "plan.pdf", 0).await;
+    attach_file(&state, ws, owner_id, in_channel, "old-plan.pdf", 30).await;
+
+    send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws}/exports"),
+        Some(&owner),
+        Some(json!({})),
+    )
+    .await;
+    let without = manifest_of(&state, run_pending_export(&state).await).await;
+    assert_eq!(
+        without["files"]["files.jsonl"]["rows"], 2,
+        "a file posted in a DM is as private as the DM"
+    );
+
+    send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws}/exports"),
+        Some(&owner),
+        Some(json!({ "include_dms": true })),
+    )
+    .await;
+    let with = manifest_of(&state, run_pending_export(&state).await).await;
+    assert_eq!(with["files"]["files.jsonl"]["rows"], 3);
+
+    let since = (chrono::Utc::now() - chrono::Duration::days(7)).to_rfc3339();
+    send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws}/exports"),
+        Some(&owner),
+        Some(json!({ "since": since })),
+    )
+    .await;
+    let recent = manifest_of(&state, run_pending_export(&state).await).await;
+    assert_eq!(
+        recent["files"]["files.jsonl"]["rows"], 1,
+        "the date range applies to files too"
+    );
+}

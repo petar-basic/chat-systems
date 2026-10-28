@@ -764,6 +764,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/channels/{ch_id}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["unarchive_channel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/channels/{ch_id}/unread": {
         parameters: {
             query?: never;
@@ -2307,6 +2323,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{ws_id}/invites/{invite_id}/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["invite_link"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{ws_id}/later": {
         parameters: {
             query?: never;
@@ -2921,6 +2953,7 @@ export interface components {
             description?: string | null;
             /** Format: uuid */
             id: string;
+            is_archived: boolean;
             is_default: boolean;
             is_member: boolean;
             /** Format: int64 */
@@ -3300,6 +3333,10 @@ export interface components {
             description?: string | null;
             name: string;
         };
+        CreatedInvite: components["schemas"]["WorkspaceInvite"] & {
+            email_sent: boolean;
+            invite_url?: string | null;
+        };
         DataItem_ImportRun: {
             data: {
                 dry_run: boolean;
@@ -3382,6 +3419,7 @@ export interface components {
                 description?: string | null;
                 /** Format: uuid */
                 id: string;
+                is_archived: boolean;
                 is_default: boolean;
                 is_member: boolean;
                 /** Format: int64 */
@@ -4221,6 +4259,9 @@ export interface components {
             /** Format: uuid */
             workspace_id: string;
             workspace_name: string;
+        };
+        InviteLink: {
+            url: string;
         };
         InvitePreview: {
             already_registered: boolean;
@@ -6495,6 +6536,27 @@ export interface operations {
                 "application/json": components["schemas"]["PlaceChannelRequest"];
             };
         };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    unarchive_channel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             200: {
                 headers: {
@@ -9408,7 +9470,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["WorkspaceInvite"];
+                    "application/json": components["schemas"]["CreatedInvite"];
                 };
             };
         };
@@ -9431,6 +9493,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    invite_link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+                invite_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteLink"];
                 };
             };
         };

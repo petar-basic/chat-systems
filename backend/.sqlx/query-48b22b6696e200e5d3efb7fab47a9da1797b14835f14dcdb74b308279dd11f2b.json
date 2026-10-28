@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE users\n            SET status = 'active',\n                display_name = COALESCE(display_name, split_part(email, '@', 1)),\n                updated_at = NOW()\n            WHERE id = $1 AND status = 'pending'\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "48b22b6696e200e5d3efb7fab47a9da1797b14835f14dcdb74b308279dd11f2b"
+}

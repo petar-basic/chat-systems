@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE channels SET is_archived = $2, updated_at = NOW() WHERE id = $1 AND is_archived <> $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a3d9142c843bd772bd7f77b5351a815d8509118fceeda91ffd7721e29170e630"
+}
