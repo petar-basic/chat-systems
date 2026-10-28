@@ -1,14 +1,15 @@
 use std::sync::Arc;
 
-use axum::extract::{Path, Query, State};
+use axum::extract::{DefaultBodyLimit, Multipart, Path, Query, State};
 use axum::Json;
 use garde::Validate;
-use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::router::{OpenApiRouter, UtoipaMethodRouterExt};
 use utoipa_axum::routes;
 use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
 
+use super::icon;
 use super::membership;
 use super::models::*;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
@@ -23,6 +24,9 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(list_workspaces, create_workspace))
         .routes(routes!(list_deleted_workspaces))
         .routes(routes!(get_workspace, update_workspace, delete_workspace))
+        .routes(routes!(upload_icon).layer(DefaultBodyLimit::max(
+            crate::profile::avatar::MAX_AVATAR_BYTES + 64 * 1024,
+        )))
         .routes(routes!(restore_workspace))
         .routes(routes!(list_audit_log))
         .routes(routes!(list_members))
@@ -112,6 +116,12 @@ async fn update_workspace(
 ) -> AppResult<Json<Workspace>> {
     req.validate()?;
     authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
+    let before = state
+        .workspace_service
+        .repo
+        .find_workspace_by_id(ws_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Workspace not found".into()))?;
     let workspace = state
         .workspace_service
         .repo
@@ -123,6 +133,42 @@ async fn update_workspace(
             &req.settings_patch(),
         )
         .await?;
+    if workspace.icon_url != before.icon_url {
+        icon::forget(&state, ws_id, before.icon_url.as_deref()).await;
+    }
+    Ok(Json(workspace))
+}
+
+#[utoipa::path(post, path = "/workspaces/{ws_id}/icon", tag = "workspaces", request_body(content = String, content_type = "multipart/form-data", description = "A `file` field: a PNG, JPEG, GIF or WebP image of at most 10 MB"), responses((status = 200, body = Workspace)))]
+async fn upload_icon(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(ws_id): Path<Uuid>,
+    multipart: Multipart,
+) -> AppResult<Json<Workspace>> {
+    authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
+    let image = crate::profile::avatar::image_field(multipart).await?;
+    let before = state
+        .workspace_service
+        .repo
+        .find_workspace_by_id(ws_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Workspace not found".into()))?;
+    let key = icon::store(&state, ws_id, image).await?;
+    let url = state.file_storage.public_url(&key);
+    let workspace = match state
+        .workspace_service
+        .repo
+        .update_workspace(ws_id, None, None, Some(&url), &serde_json::json!({}))
+        .await
+    {
+        Ok(workspace) => workspace,
+        Err(e) => {
+            let _ = state.file_storage.delete(&key).await;
+            return Err(e.into());
+        }
+    };
+    icon::forget(&state, ws_id, before.icon_url.as_deref()).await;
     Ok(Json(workspace))
 }
 
@@ -140,6 +186,12 @@ async fn delete_workspace(
         authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Owner).await?;
     }
     let hard = params.hard.unwrap_or(false);
+    let icon_url = state
+        .workspace_service
+        .repo
+        .find_workspace_by_id(ws_id)
+        .await?
+        .and_then(|workspace| workspace.icon_url);
     let entry = AuditEntry::new(AuditAction::WorkspaceDeleted, auth.user_id)
         .workspace(ws_id)
         .resource(ws_id)
@@ -167,6 +219,9 @@ async fn delete_workspace(
         .await?;
     tx.commit().await?;
     state.publisher.dispatch(staged).await;
+    if hard {
+        icon::forget(&state, ws_id, icon_url.as_deref()).await;
+    }
     audit::record(&state, entry).await;
     Ok(Json(StatusResponse::new(if hard {
         "hard_deleted"

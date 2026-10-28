@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE workspaces SET icon_url = $3 WHERE id = $1 AND icon_url = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Varchar"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "941c3bb0f0e8eb5e92ae2f22294bb0195be9b0f1e84457aeb9e04d4a080a4893"
+}

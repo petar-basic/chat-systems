@@ -490,7 +490,7 @@ the former right panel's content (`MembersSection`, `IntegrationsSection`, …).
 in the address opens it at that section and is then removed (`useSettingsDialog`).
 
 *General* saves as you change it, like *Preferences*: a name or description when the field is
-left, the icon on upload, the switches at once, each PATCH carrying only that field; a status
+left, the icon on upload (`POST /workspaces/{id}/icon`, which stores and sets it), the switches at once, each PATCH carrying only that field; a status
 line says *Saving…*, *Saved* or why not. Deleting the workspace stays a danger zone at the
 bottom. *Members* shows the invite form to admins only, since inviting is admin-only. After an
 invite it shows the invite's link with a copy button, and says so when email is not set up and

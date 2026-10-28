@@ -329,7 +329,7 @@ or data they should have lost comes first.
 | CS-094 ✅ | Addresses, workspace photos and hooks that keep working | backend · frontend |
 | CS-095 ✅ | Push to the right device, from the right server | realtime · backend · frontend |
 | [CS-096](CS-096-survey-small-things.md) | The survey's small things | backend · frontend · realtime |
-| [CS-097](CS-097-workspace-icon.md) | A workspace icon everyone sees, and that stays | backend · frontend |
+| CS-097 ✅ | A workspace icon everyone sees, and that stays | backend · frontend |
 
 ### Still open
 

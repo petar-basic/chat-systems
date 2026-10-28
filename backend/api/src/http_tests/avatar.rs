@@ -415,3 +415,148 @@ async fn the_migration_moves_a_workspace_photo_once(pool: PgPool) {
     crate::profile::avatar::migrate(&state).await;
     assert_eq!(photo().await, moved, "a second run has nothing to do");
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_workspace_icon_shows_to_its_members_outlives_retention_and_goes_when_replaced(
+    pool: PgPool,
+) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "icon-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Iconic").await;
+    let (member_id, _, member) = seed_and_login(&app, &state, "icon-member", false).await;
+    add_ws_member(&state, ws_id, member_id, "member").await;
+    let (_, _, outsider) = seed_and_login(&app, &state, "icon-outsider", false).await;
+    state
+        .retention_repo
+        .upsert(
+            ws_id,
+            &crate::retention::repo::UpdateRetentionRequest {
+                message_days: None,
+                file_days: Some(1),
+                audit_days: Some(730),
+                notification_days: Some(90),
+                channel_overrides: false,
+            },
+            owner_id,
+        )
+        .await
+        .expect("set policy");
+    let icon_route = format!("/api/workspaces/{ws_id}/icon");
+
+    let (status, _) = upload_photo_to(&app, &member, &icon_route, PNG).await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "only an admin sets the icon");
+
+    let (status, workspace) = upload_photo_to(&app, &owner, &icon_route, PNG).await;
+    assert_eq!(status, StatusCode::OK, "{workspace:?}");
+    let first = workspace["icon_url"]
+        .as_str()
+        .expect("icon url")
+        .to_string();
+    assert!(
+        first.contains(&format!("/api/files/download/icons/{ws_id}/")),
+        "{first}"
+    );
+    let path = download_path(&first);
+    assert_eq!(fetch(&app, &path, &member).await, StatusCode::OK);
+    assert_eq!(fetch(&app, &path, &outsider).await, StatusCode::FORBIDDEN);
+
+    let old_key = format!("{ws_id}/{}/old.txt", Uuid::new_v4());
+    state
+        .file_storage
+        .upload(&old_key, b"old".to_vec(), "text/plain")
+        .await
+        .expect("store old file");
+    sqlx::query(
+        "INSERT INTO files (user_id, workspace_id, filename, storage_key, mime_type, size_bytes, created_at)
+         VALUES ($1, $2, 'old.txt', $3, 'text/plain', 3, NOW() - interval '10 days')",
+    )
+    .bind(owner_id)
+    .bind(ws_id)
+    .bind(&old_key)
+    .execute(&state.pool)
+    .await
+    .expect("old file row");
+    let counts = crate::retention::job::run_once(&state).await;
+    assert_eq!(counts.files, 1, "retention ran");
+    assert_eq!(
+        fetch(&app, &path, &member).await,
+        StatusCode::OK,
+        "the icon is still there"
+    );
+
+    let (status, workspace) = upload_photo_to(&app, &owner, &icon_route, PNG).await;
+    assert_eq!(status, StatusCode::OK);
+    let second = workspace["icon_url"]
+        .as_str()
+        .expect("icon url")
+        .to_string();
+    assert_eq!(
+        fetch(&app, &path, &owner).await,
+        StatusCode::NOT_FOUND,
+        "the replaced icon is gone"
+    );
+
+    let (status, _) = send(
+        &app,
+        "PATCH",
+        &format!("/api/workspaces/{ws_id}"),
+        Some(&owner),
+        Some(json!({ "icon_url": "" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        fetch(&app, &download_path(&second), &owner).await,
+        StatusCode::NOT_FOUND,
+        "a removed icon is gone"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn the_migration_moves_a_workspace_icon_once(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "icon-moved", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Old icon").await;
+    let (member_id, _, member) = seed_and_login(&app, &state, "icon-viewer", false).await;
+    add_ws_member(&state, ws_id, member_id, "member").await;
+
+    let old_key = format!("{ws_id}/{}/logo.png", Uuid::new_v4());
+    state
+        .file_storage
+        .upload(&old_key, PNG.to_vec(), "image/png")
+        .await
+        .expect("store old icon");
+    let old_url = format!("/api/files/download/{old_key}");
+    sqlx::query("UPDATE workspaces SET icon_url = $2 WHERE id = $1")
+        .bind(ws_id)
+        .bind(&old_url)
+        .execute(&state.pool)
+        .await
+        .expect("old icon");
+
+    crate::workspace::icon::migrate(&state).await;
+
+    let moved: String = sqlx::query_scalar("SELECT icon_url FROM workspaces WHERE id = $1")
+        .bind(ws_id)
+        .fetch_one(&state.pool)
+        .await
+        .expect("icon url");
+    assert!(
+        moved.contains(&format!("/api/files/download/icons/{ws_id}/")),
+        "{moved}"
+    );
+    assert!(moved.ends_with(".png"), "{moved}");
+    assert_eq!(
+        fetch(&app, &download_path(&moved), &member).await,
+        StatusCode::OK,
+        "every member sees the moved icon"
+    );
+
+    crate::workspace::icon::migrate(&state).await;
+    let again: String = sqlx::query_scalar("SELECT icon_url FROM workspaces WHERE id = $1")
+        .bind(ws_id)
+        .fetch_one(&state.pool)
+        .await
+        .expect("icon url");
+    assert_eq!(again, moved, "a second run has nothing to do");
+}

@@ -745,6 +745,14 @@ members. On its first start the worker copies each existing one there, as it did
 photos; one whose object is already gone is left as it was and logged as
 `workspace photo of <id> was not moved`.
 
+## Upgrade note: workspace icons get a place of their own
+
+A workspace icon was uploaded as an ordinary file with no message, so only the admin who
+uploaded it could load it and file retention could delete it. Icons now live under
+`icons/<workspace id>/`, outside retention, and are shown to the workspace's members. On its
+first start the worker copies each existing one there; one whose object is already gone is left
+as it was and logged as `icon of workspace <id> was not moved`.
+
 ## Audit log
 
 `GET /api/workspaces/:ws_id/audit-log` (workspace admin) and `GET /api/admin/audit-log`

@@ -83,10 +83,8 @@ export function GeneralSection({ workspace, onDeleted }: Props) {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const uploaded = await client.upload<{ url: string }[]>(`/files/upload/${workspace.id}`, formData);
-      const url = uploaded[0]?.url;
-      if (url) save.mutate({ icon_url: url });
-      else toast.error('Failed to upload the icon');
+      await client.upload<components['schemas']['Workspace']>(`/workspaces/${workspace.id}/icon`, formData);
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaces() });
     } catch (err) {
       toast.error(toUserMessage(err));
     } finally {

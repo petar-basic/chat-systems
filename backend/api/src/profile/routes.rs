@@ -32,32 +32,13 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         )
 }
 
-async fn photo_field(mut multipart: Multipart) -> AppResult<axum::body::Bytes> {
-    let mut photo = None;
-    while let Some(field) = multipart
-        .next_field()
-        .await
-        .map_err(|e| AppError::BadRequest(format!("Invalid multipart: {e}")))?
-    {
-        if field.name() == Some("file") {
-            photo = Some(
-                field
-                    .bytes()
-                    .await
-                    .map_err(|e| AppError::BadRequest(format!("Could not read the photo: {e}")))?,
-            );
-        }
-    }
-    photo.ok_or_else(|| AppError::Validation("Choose a photo to upload".into()))
-}
-
 #[utoipa::path(post, path = "/users/me/avatar", tag = "users", request_body(content = String, content_type = "multipart/form-data", description = "A `file` field: a PNG, JPEG, GIF or WebP image of at most 10 MB"), responses((status = 200, body = UserPublic)))]
 async fn upload_account_photo(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     multipart: Multipart,
 ) -> AppResult<Json<UserPublic>> {
-    let photo = photo_field(multipart).await?;
+    let photo = avatar::image_field(multipart).await?;
 
     let before = state
         .auth_service
@@ -91,7 +72,7 @@ async fn upload_workspace_photo(
     multipart: Multipart,
 ) -> AppResult<Json<WorkspaceProfile>> {
     authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
-    let photo = photo_field(multipart).await?;
+    let photo = avatar::image_field(multipart).await?;
     let before = current(&state, ws_id, auth.user_id).await?;
     let key = avatar::store(&state, auth.user_id, Some(ws_id), photo).await?;
     let url = state.file_storage.public_url(&key);

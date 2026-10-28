@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT id, icon_url AS \"icon_url!\" FROM workspaces\n             WHERE icon_url LIKE '%/api/files/download/%'\n               AND icon_url NOT LIKE '%/api/files/download/icons/%'\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "workspaces",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "icon_url!",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "workspaces",
+            "name": "icon_url"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "15d16766156e674f0a92c31790146afc18964b2df181edb987fe21f2cf6995bf"
+}

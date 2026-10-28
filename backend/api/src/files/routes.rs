@@ -281,6 +281,9 @@ async fn download_file(
             return Err(AppError::Forbidden("Not allowed to see this photo".into()));
         }
         "photo".to_string()
+    } else if let Some(workspace_id) = crate::workspace::icon::workspace_of(&key) {
+        authz::require_workspace_member(&state, workspace_id, auth.user_id).await?;
+        "icon".to_string()
     } else {
         match state.file_repo.find_by_storage_key(&key).await? {
             Some(record) => {

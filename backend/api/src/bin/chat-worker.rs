@@ -56,6 +56,7 @@ async fn main() -> anyhow::Result<()> {
         let photo_state = state.clone();
         tokio::spawn(async move {
             chat_api::profile::avatar::migrate(&photo_state).await;
+            chat_api::workspace::icon::migrate(&photo_state).await;
         });
     }
 

@@ -129,7 +129,7 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 ### 3.1b 🟢 Workspace settings in one dialog
 - **Reach:** workspace menu → *Workspace settings*.
 - **Steps:** as Admin, go through every section; in *General* rename the workspace and click away, flip *Link previews*, set *Who can build workflows*. Open `/app/<ws id>?settings=audit-log`. As Bob (member), open *Workspace settings*.
-- **Expected:** the menu holds *Invite people*, *Workflows*, *Workspace settings* (and *Instance admin* for one). *General* says *Saving…* then *Saved* after each change, with no save button; the sidebar shows the new name. The link opens the dialog on *Audit log* and the `?settings=` leaves the address. Bob sees *Members*, *User groups*, *Custom emoji* and *Apps* only, and no invite form. Alice (admin, not owner) has no *Data retention*; only an instance admin sees *SCIM provisioning*.
+- **Expected:** the menu holds *Invite people*, *Workflows*, *Workspace settings* (and *Instance admin* for one). *General* says *Saving…* then *Saved* after each change, with no save button; the sidebar shows the new name. The link opens the dialog on *Audit log* and the `?settings=` leaves the address. Bob sees *Members*, *User groups*, *Custom emoji* and *Apps* only, and no invite form. An icon Admin uploads in *General* shows in Bob's sidebar and switcher too; Admin replaces it, then *Remove* → the old URL answers 404 each time. Alice (admin, not owner) has no *Data retention*; only an instance admin sees *SCIM provisioning*.
 - 🟠 **Edge — Escape:** in *Integrations*, *Delete* a webhook to open its confirmation, press Escape → only the confirmation closes; Escape again closes the dialog.
 
 ### 3.1c 🔴 Retention, exports, erasure and SCIM

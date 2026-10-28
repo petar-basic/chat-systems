@@ -38,6 +38,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   one uploaded through `/files/upload` is an ordinary file again and no longer readable by the
   workspace. `PATCH /hooks/{id}` with `{ "is_active": true }` turns a stopped hook back on.
 
+- Workspace icons move to `icons/<workspace id>/` in the object store on the worker's first
+  start, outside retention (see the RUNBOOK). For API clients: `POST /workspaces/{id}/icon`
+  uploads and sets the icon.
+
 ### Security
 
 - **SSO lets nobody around a suspension.** An account already linked to the provider was
@@ -93,6 +97,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   and leaving or hiding the page says so at once. The push badge counted notifications from
   workspaces you had left, and a desktop notification from a second server opened nothing. The
   badge now matches the app's, and the click opens the message on its server.
+- **Everyone sees the workspace icon, and it stays.** It was an ordinary file with no message,
+  so only the admin who uploaded it could load it, file retention could delete it, and a
+  replaced one was never removed. It has a place of its own now, shown to the workspace's
+  members.
 
 ## [3.6.0] — 2026-10-28
 
