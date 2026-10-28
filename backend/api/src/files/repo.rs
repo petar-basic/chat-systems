@@ -477,6 +477,19 @@ impl FileRepo {
         .await
     }
 
+    pub async fn uploaded_by(&self, user_id: Uuid) -> sqlx::Result<Vec<FileRecord>> {
+        sqlx::query_as!(FileRecord, "SELECT id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, created_at FROM files WHERE user_id = $1", user_id)
+            .fetch_all(&self.pool)
+            .await
+    }
+
+    pub async fn delete_many(&self, ids: &[Uuid]) -> sqlx::Result<u64> {
+        Ok(sqlx::query!("DELETE FROM files WHERE id = ANY($1)", ids)
+            .execute(&self.pool)
+            .await?
+            .rows_affected())
+    }
+
     pub async fn delete(&self, id: Uuid) -> sqlx::Result<Option<FileRecord>> {
         sqlx::query_as!(FileRecord, "DELETE FROM files WHERE id = $1 RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, created_at", id)
             .fetch_optional(&self.pool)

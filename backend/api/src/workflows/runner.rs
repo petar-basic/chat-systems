@@ -266,6 +266,7 @@ async fn steps(state: &AppState, workflow: &WorkflowRow, run: &RunRow) -> Result
                 Stopped::LeftWorkspace | Stopped::LostChannel => {
                     "The person who built it is no longer in this workspace".into()
                 }
+                Stopped::Demoted => "The person who built it is no longer allowed to".into(),
             });
         }
     }

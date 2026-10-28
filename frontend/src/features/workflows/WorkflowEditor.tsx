@@ -75,6 +75,7 @@ export function WorkflowEditor({
     actions.enable.isPending ||
     actions.disable.isPending ||
     actions.takeOver.isPending ||
+    actions.rotate.isPending ||
     actions.remove.isPending;
 
   const body = (): SaveWorkflow => ({
@@ -122,6 +123,11 @@ export function WorkflowEditor({
     run(async () => {
       if (workflow) setWorkflow(await actions.takeOver.mutateAsync(workflow.id));
     }, "Couldn't take the workflow over");
+
+  const handleRotate = () =>
+    run(async () => {
+      if (workflow) setWorkflow(await actions.rotate.mutateAsync(workflow.id));
+    }, "Couldn't make a new URL");
 
   const setStep = (index: number, step: Definition['steps'][number]) =>
     setDefinition((d) => ({ ...d, steps: d.steps.map((s, i) => (i === index ? step : s)) }));
@@ -246,6 +252,8 @@ export function WorkflowEditor({
             channels={postable}
             webhookUrl={workflow?.webhook_url ?? null}
             readOnly={readOnly}
+            onRotate={workflow ? handleRotate : undefined}
+            rotating={actions.rotate.isPending}
             onChange={(trigger) => setDefinition((d) => ({ ...d, trigger }))}
           />
           <ol className="space-y-3" aria-label="Steps">

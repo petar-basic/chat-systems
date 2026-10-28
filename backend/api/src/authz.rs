@@ -202,6 +202,7 @@ pub enum Stopped {
     Inactive,
     LeftWorkspace,
     LostChannel,
+    Demoted,
 }
 
 impl Stopped {
@@ -210,6 +211,7 @@ impl Stopped {
             Self::Inactive => "Its creator's account is suspended",
             Self::LeftWorkspace => "Its creator left the workspace",
             Self::LostChannel => "Its creator can no longer read the channel",
+            Self::Demoted => "Its creator is no longer allowed to make it",
         }
     }
 }
@@ -248,6 +250,20 @@ pub async fn still_acting(
         }
     }
     Ok(None)
+}
+
+pub async fn hook_still_acting(
+    state: &AppState,
+    hook_type: &HookType,
+    workspace_id: Uuid,
+    user_id: Uuid,
+    channel_id: Uuid,
+) -> AppResult<Option<Stopped>> {
+    if let Some(stopped) = still_acting(state, workspace_id, user_id, Some(channel_id)).await? {
+        return Ok(Some(stopped));
+    }
+    let access = require_channel_access(state, channel_id, user_id).await?;
+    Ok((!access.can_manage_hook(hook_type)).then_some(Stopped::Demoted))
 }
 
 pub async fn can_moderate_channel(state: &AppState, channel: &Channel, user_id: Uuid) -> bool {

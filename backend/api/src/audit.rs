@@ -77,6 +77,7 @@ pub enum AuditAction {
     WorkflowDisabled,
     WorkflowDeleted,
     WorkflowTakenOver,
+    WorkflowLinkRotated,
 }
 
 impl AuditAction {
@@ -144,6 +145,7 @@ impl AuditAction {
             Self::WorkflowDisabled => "workflow.disabled",
             Self::WorkflowDeleted => "workflow.deleted",
             Self::WorkflowTakenOver => "workflow.taken_over",
+            Self::WorkflowLinkRotated => "workflow.link_rotated",
         }
     }
 
@@ -200,7 +202,8 @@ impl AuditAction {
             | Self::WorkflowEnabled
             | Self::WorkflowDisabled
             | Self::WorkflowDeleted
-            | Self::WorkflowTakenOver => "workflow",
+            | Self::WorkflowTakenOver
+            | Self::WorkflowLinkRotated => "workflow",
         }
     }
 }

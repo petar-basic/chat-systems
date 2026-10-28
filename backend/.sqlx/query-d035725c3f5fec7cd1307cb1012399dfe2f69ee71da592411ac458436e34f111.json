@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM pending_mention_emails WHERE message_id IN (SELECT id FROM messages WHERE user_id = $1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d035725c3f5fec7cd1307cb1012399dfe2f69ee71da592411ac458436e34f111"
+}

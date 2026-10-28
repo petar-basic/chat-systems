@@ -322,7 +322,10 @@ pub async fn take_over(
             "Only a workflow whose creator left or was suspended can be taken over".into(),
         ));
     }
-    state.workflow_repo.set_owner(id, user_id).await?;
+    state
+        .workflow_repo
+        .set_owner(id, user_id, &generate_token())
+        .await?;
     audit::record(
         state,
         AuditEntry::new(AuditAction::WorkflowTakenOver, user_id)
@@ -330,6 +333,37 @@ pub async fn take_over(
             .resource(id)
             .ip(ip)
             .details(serde_json::json!({ "name": row.name, "from": row.created_by })),
+    )
+    .await;
+    reload(state, id).await
+}
+
+pub async fn rotate_link(
+    state: &AppState,
+    id: Uuid,
+    user_id: Uuid,
+    ip: &ClientIp,
+) -> AppResult<Workflow> {
+    let (row, _) = find_manageable(state, id, user_id).await?;
+    if !state
+        .workflow_repo
+        .rotate_token(id, &generate_token())
+        .await?
+    {
+        return Err(AppError::Conflict(
+            "Only a workflow started by a webhook has a link to rotate".into(),
+        ));
+    }
+    audit::record(
+        state,
+        audit_entry(
+            AuditAction::WorkflowLinkRotated,
+            user_id,
+            row.workspace_id,
+            id,
+            &row.name,
+        )
+        .ip(ip),
     )
     .await;
     reload(state, id).await

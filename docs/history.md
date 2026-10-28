@@ -2005,6 +2005,29 @@ into a resume.
 
 ## Wave 27 — What the second survey found
 
+### [CS-089] Gone means gone: SSO, erase, demotion, workflow links ✅ shipped
+A survey of 3.6.0 found four ways to keep what had been taken away. `link_or_create` returned an
+account found through its `oauth_accounts` link before looking at its status, so a suspended or
+erased person signed in through the provider got an access token for its whole lifetime. A hard
+erase kept an answered message as a tombstone but left its `message_edits`, so every earlier
+version of the text was still there, along with the person's files (objects included), reactions
+and the rest. The hook executor's `still_acting` asked whether the creator was active, a member
+and able to read the channel, not whether they still held the role the hook needed. And a
+taken-over workflow kept its `webhook_token`.
+
+`link_or_create` refuses a suspended account whichever way it found it, and erasing one deletes
+its SSO links. The hard erase moved from `MessageRepo::erase_author` to
+`ExportRepo::erase_writing`, one transaction that removes the notifications quoting the person's
+messages, their pending mention emails, every edit of their messages, their reactions, poll
+votes, list comments, scheduled messages and *Later* items, then tombstones or deletes the
+messages as before; `files::service::erase_uploads` then deletes their stored objects and file
+rows. `removed` in the response and the audit row counts each. `authz::hook_still_acting` adds
+`can_manage_hook` to the creator check and stops a hook with `Stopped::Demoted`; the executor and
+the incoming webhook use it. Taking over a workflow mints a new token, and
+`POST /workflows/{id}/rotate` (*New URL* in the editor, `workflow.link_rotated` in the audit log)
+mints one on demand. The ticket said the old URL would answer 404; it answers 401, as any unknown
+token always has.
+
 ### [CS-090] A Slack import that respects what is already here ✅ shipped
 CS-077 stopped a private Slack channel merging into a public one, not into a private one: a
 private Slack `#hr` landed in the local private `#hr`, its Slack members were added, and both

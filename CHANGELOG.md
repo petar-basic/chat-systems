@@ -18,6 +18,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ### Upgrading from 3.6.0
 
+- For API clients: `DELETE /admin/users/{id}/data` reports `removed.edits`, `reactions`,
+  `votes`, `comments`, `scheduled` and `files` beside `messages`. Taking over a workflow
+  gives it a new `webhook_url`, and `POST /workflows/{id}/rotate` makes one on demand; the
+  old URL answers 401 in both cases.
 - Migration 80 adds `slack_channels.created_by_import`. Channels mapped by an earlier import
   count as ones it merged into, so a re-run never archives them.
 - Reactivating an account that has no password and no SSO link (an imported Slack leaver), from
@@ -26,6 +30,17 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ### Security
 
+- **SSO lets nobody around a suspension.** An account already linked to the provider was
+  signed in without its status being checked, so a suspended or erased person got a session
+  through SSO. Erasing an account now also removes its SSO link.
+- **A hard erase removes everything they wrote.** A message others answered kept every earlier
+  version in its edit history, and their files, reactions, votes, list comments, scheduled
+  messages and the notifications quoting them stayed. All of it goes now, files with their
+  stored objects.
+- **A hook stops when its creator loses the role.** An outgoing webhook or slash command made
+  by an admin who is now a member kept sending channel traffic; it turns off, saying why.
+- **A taken-over workflow gets a new URL.** The old owner could still start it from the link
+  they knew. *New URL* in the workflow replaces it at any time.
 - **A Slack import keeps out of private channels.** A private Slack channel merged into a local
   private channel of the same name, adding Slack's members to it and its history to theirs.
   Private channels never merge now; a taken name becomes `<name>-slack`.
