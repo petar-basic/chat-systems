@@ -327,7 +327,7 @@ or data they should have lost comes first.
 | CS-092 ✅ | Read state that matches what you read | backend · frontend |
 | CS-093 ✅ | A failed send stays where you sent it | frontend |
 | [CS-094](CS-094-addresses-photos-hooks.md) | Addresses, workspace photos and hooks that keep working | backend · frontend |
-| [CS-095](CS-095-push-right-device-server.md) | Push to the right device, from the right server | realtime · backend · frontend |
+| CS-095 ✅ | Push to the right device, from the right server | realtime · backend · frontend |
 | [CS-096](CS-096-survey-small-things.md) | The survey's small things | backend · frontend · realtime |
 
 ### Still open

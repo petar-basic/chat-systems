@@ -55,4 +55,13 @@ describe('activity', () => {
     document.dispatchEvent(new Event('visibilitychange'));
     expect(isActive()).toBe(true);
   });
+
+  it('is idle as soon as the page goes away', async () => {
+    const { isActive } = await freshTracker();
+    window.dispatchEvent(new KeyboardEvent('keydown'));
+    expect(isActive()).toBe(true);
+
+    window.dispatchEvent(new Event('pagehide'));
+    expect(isActive()).toBe(false);
+  });
 });

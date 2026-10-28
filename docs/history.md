@@ -2107,3 +2107,21 @@ storage on every change and reads it back at start; `useUnsent` shows only the c
 so another account on the same browser does not see them. Attachments are already uploaded,
 so a kept message refers to its files by id and no file content is stored. `handleSchedule` refuses a
 tray with a failed file in the words sending uses.
+
+### [CS-095] Push to the right device, from the right server ✅ shipped
+Push is held while a session is active, and three things made that rule miss. The gateway's
+heartbeat renewed `active:user:{user}` whatever the socket did, and a dead socket is noticed only
+after the 90-second pong timeout, so a laptop shut mid-use held push to the phone for two to two
+and a half minutes. `unread_count_everywhere` counted every unread notification, the app only
+those of workspaces the person is in. And the event bus did not say which server a frame came
+from, so a desktop notification from a second instance located its message through the current
+one's API, got 404 and called it deleted.
+
+The heartbeat now goes through `renew_activity`, which renews the connection's entry when a frame
+arrived within the last interval and removes it when none did — removing, not just leaving it to
+expire, is what brings a mention to the phone within about a heartbeat. `lib/activity.ts` goes
+idle on `pagehide` as it already did on hiding. The badge query joins `workspace_members`.
+`globalEventBus.emit` takes the instance URL the `WebSocketClient` was built for, handlers get
+it as a second argument, and `useOpenMessage` takes an optional instance to locate through;
+navigating to the message's workspace then switches the active instance as any workspace
+switch does.

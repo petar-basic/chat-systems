@@ -433,6 +433,58 @@ async fn nothing_is_pushed_under_dnd_a_mute_or_an_active_session(pool: PgPool) {
     );
 }
 
+#[test_macros::db_test(migrations = "../migrations")]
+async fn after_leaving_a_workspace_the_push_badge_agrees_with_the_app(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner, _, _) = seed_and_login(&app, &state, "badge-owner", false).await;
+    let (target, _, target_token) = seed_and_login(&app, &state, "badge-target", false).await;
+    let kept = seed_workspace(&state, owner, "Kept WS").await;
+    let left = seed_workspace(&state, owner, "Left WS").await;
+    for ws_id in [kept, left] {
+        add_ws_member(&state, ws_id, target, "member").await;
+        state
+            .notification_repo
+            .create(
+                target,
+                ws_id,
+                &NotificationType::Mention,
+                "You were mentioned",
+                None,
+                &json!({ "message_id": Uuid::new_v4() }),
+            )
+            .await
+            .expect("an unread notification");
+    }
+
+    let (status, _) = send(
+        &app,
+        "DELETE",
+        &format!("/workspaces/{left}/members/{target}"),
+        Some(&target_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, body) = send(
+        &app,
+        "GET",
+        &format!("/workspaces/{kept}/notifications/unread-count"),
+        Some(&target_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let in_app = body["unread_count"].as_i64().expect("unread_count");
+    let badge = state
+        .notification_repo
+        .unread_count_everywhere(target)
+        .await
+        .expect("badge");
+    assert_eq!(in_app, 1);
+    assert_eq!(badge, in_app, "the phone counts what the app counts");
+}
+
 /// `410 Gone` is the only reliable signal that a subscription is dead, and a
 /// dead subscription that is never pruned is a request per notification forever.
 #[test_macros::db_test(migrations = "../migrations")]

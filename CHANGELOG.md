@@ -73,6 +73,11 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   card shows the failed reply with *Retry* and *Discard*, failed messages survive a reload, a
   delivered message never keeps a failed copy, and scheduling refuses a failed file as sending
   does.
+- **Push goes to the device you are using.** A laptop shut mid-use counted as active for up to
+  two and a half minutes, holding back push to the phone; it now stops within about 30 seconds,
+  and leaving or hiding the page says so at once. The push badge counted notifications from
+  workspaces you had left, and a desktop notification from a second server opened nothing. The
+  badge now matches the app's, and the click opens the message on its server.
 
 ## [3.6.0] — 2026-10-28
 

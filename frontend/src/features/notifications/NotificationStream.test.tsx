@@ -110,7 +110,7 @@ describe('NotificationStream', () => {
 
     const onClick = showNotification.mock.calls[0][3] as () => void;
     onClick();
-    expect(openMessage).toHaveBeenCalledWith('m-1', false);
+    expect(openMessage).toHaveBeenCalledWith('m-1', false, undefined);
   });
 
   it('opens a reply in its thread', () => {
@@ -118,7 +118,15 @@ describe('NotificationStream', () => {
 
     const onClick = showNotification.mock.calls[0][3] as () => void;
     onClick();
-    expect(openMessage).toHaveBeenCalledWith('m-1', true);
+    expect(openMessage).toHaveBeenCalledWith('m-1', true, undefined);
+  });
+
+  it('opens a message from another server on that server', () => {
+    globalEventBus.emit({ ...frame('dm', 'dm-1'), workspace_id: 'ws-elsewhere' }, 'https://other.example');
+
+    const onClick = showNotification.mock.calls[0][3] as () => void;
+    onClick();
+    expect(openMessage).toHaveBeenCalledWith('m-1', false, 'https://other.example');
   });
 
   it('marks a mention on the channel it came from', () => {

@@ -395,6 +395,39 @@ async fn a_session_reports_itself_active_and_idle(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn a_heartbeat_without_a_pong_does_not_keep_a_session_active(pool: PgPool) {
+    let cm = manager(pool).await;
+    let user = seed_user(cm.db()).await;
+    let (conn_id, _rx) = fake_conn(&cm, user);
+    let mut state = inbound();
+    let mut redis = cm.redis();
+    let key = format!("active:user:{user}");
+
+    crate::ws_handler::handle_client_message(
+        r#"{"type":"activity","active":true}"#,
+        &conn_id,
+        user,
+        &cm,
+        &mut state,
+    )
+    .await;
+
+    let answered = std::time::Instant::now();
+    crate::ws_handler::renew_activity(&cm, user, conn_id, &state, answered).await;
+    let expires_at: Option<i64> = redis::AsyncCommands::hget(&mut redis, &key, conn_id.to_string())
+        .await
+        .expect("read");
+    assert!(expires_at.is_some(), "a pong this interval renews");
+
+    let silent = std::time::Instant::now() - Duration::from_secs(31);
+    crate::ws_handler::renew_activity(&cm, user, conn_id, &state, silent).await;
+    let expires_at: Option<i64> = redis::AsyncCommands::hget(&mut redis, &key, conn_id.to_string())
+        .await
+        .expect("read");
+    assert_eq!(expires_at, None, "no pong for an interval is not active");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn invalid_json_is_ignored(pool: PgPool) {
     let cm = manager(pool).await;
     let user = seed_user(cm.db()).await;

@@ -213,9 +213,7 @@ pub async fn handle_ws(socket: WebSocket, claims: crate::Claims, cm: Arc<Connect
                     break;
                 }
                 cm.presence_refresh(user_id, &inbound.presence_workspaces).await;
-                if inbound.active {
-                    cm.activity_set(user_id, conn_id, true).await;
-                }
+                renew_activity(&cm, user_id, conn_id, &inbound, last_pong).await;
                 cm.huddle_redis_refresh_conn(&conn_id, user_id).await;
             }
         }
@@ -227,6 +225,19 @@ pub async fn handle_ws(socket: WebSocket, claims: crate::Claims, cm: Arc<Connect
     writer.abort();
 
     info!("WS disconnected: user={}, conn={}", user_id, conn_id);
+}
+
+pub(crate) async fn renew_activity(
+    cm: &ConnectionManager,
+    user_id: Uuid,
+    conn_id: Uuid,
+    inbound: &InboundState,
+    last_pong: Instant,
+) {
+    if inbound.active {
+        cm.activity_set(user_id, conn_id, last_pong.elapsed() <= HEARTBEAT_INTERVAL)
+            .await;
+    }
 }
 
 async fn cleanup(
