@@ -9,13 +9,12 @@ ticket in [`docs/tickets/`](./tickets/INDEX.md); a ticket's file is deleted when
 
 | Ticket | What | Status |
 |---|---|---|
-| [CS-077 – CS-088](./tickets/INDEX.md#wave-26--what-the-survey-found) | Wave 26: the 2026-10-27 product survey's findings — access holes, messages that open on the wrong screen, threads, failed sends, unread, notifications, reconnects, archive and export, invites, photos, Slack import | Wave 26, for 3.6.0 |
 | [CS-037](./tickets/CS-037-huddle-sfu.md) | SFU (LiveKit) for huddles above the mesh's six-to-eight ceiling, promoted mid-call without dropping anybody | Held for the next major release (4.0.0), decided 2026-10-23 when 3.2.0 shipped CS-059 alone. Adds an optional media server beside the stack. Until then a huddle is capped at eight people |
 
 Waves 21–23 were chosen in the 2026-10-23 review and shipped together in 3.3.0, before
 4.0.0. Wave 24 came out of the 2026-10-26 review, which walked the app the way a company
 trying it would, and shipped in 3.4.0. Wave 25, raised on 2026-10-27 after 3.4.2, shipped in
-3.5.0. Two decisions were considered on 2026-09-02 and deferred
+3.5.0. Wave 26, the findings of the 2026-10-27 product survey, shipped in 3.6.0. Two decisions were considered on 2026-09-02 and deferred
 with their reasoning below: versioning the API path and asymmetric JWT signing.
 
 ## How the order was chosen
@@ -67,8 +66,9 @@ was pencilled in for it was absorbed into 9 and 11.
 | [Wave 21 — Notifications that fit how a team works](./history.md#wave-21--notifications-that-fit-how-a-team-works--shipped) | CS-060 · CS-061 · CS-062 |
 | [Wave 22 — Finding files](./history.md#wave-22--finding-files--shipped) | CS-063 · CS-064 |
 | [Wave 23 — Structured work: polls, lists, workflows](./history.md#wave-23--structured-work-polls-lists-workflows--shipped) | CS-065 · CS-066 · CS-067 |
-| [Wave 24 — Ready for a company](./history.md#wave-24--ready-for-a-company) | CS-068, CS-069, CS-070, CS-071, CS-072, CS-073, CS-074, CS-075 |
-| [Wave 25 — One person, several workspaces](./history.md#wave-25--one-person-several-workspaces) | CS-076 |
+| [Wave 24 — Ready for a company](./history.md#wave-24--ready-for-a-company--shipped) | CS-068, CS-069, CS-070, CS-071, CS-072, CS-073, CS-074, CS-075 |
+| [Wave 25 — One person, several workspaces](./history.md#wave-25--one-person-several-workspaces--shipped) | CS-076 |
+| [Wave 26 — What the survey found](./history.md#wave-26--what-the-survey-found--shipped) | CS-077 – CS-088 |
 
 ---
 

@@ -1745,7 +1745,7 @@ huddle ring and the member list pass the workspace they are about. `/dnd` pauses
 workspace of the channel it is typed in. The routes moved under `/workspaces/{id}/notifications/`,
 and *Preferences → Notifications* names the workspace it changes.
 
-## Wave 26 — What the survey found
+## Wave 26 — What the survey found ✅ shipped
 
 ### [CS-077] Access that holds: huddles, email invites, private channels ✅ shipped
 A product survey after 3.5.0 found four checks that did not hold. The gateway authorised
