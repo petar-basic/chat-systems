@@ -459,7 +459,7 @@ async fn after_leaving_a_workspace_the_push_badge_agrees_with_the_app(pool: PgPo
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/workspaces/{left}/members/{target}"),
+        &format!("/api/workspaces/{left}/members/{target}"),
         Some(&target_token),
         None,
     )
@@ -469,7 +469,7 @@ async fn after_leaving_a_workspace_the_push_badge_agrees_with_the_app(pool: PgPo
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/workspaces/{kept}/notifications/unread-count"),
+        &format!("/api/workspaces/{kept}/notifications/unread-count"),
         Some(&target_token),
         None,
     )
