@@ -30,6 +30,7 @@ const hit = (id: string, filename: string, mime_type: string, kind: string) => (
   url: `https://chat.test/api/files/download/ws/${id}/${filename}`,
   message_id: `m-${id}`,
   channel_id: 'c-1',
+  channel_name: 'finance',
   user_id: 'u-1',
   created_at: '2026-10-22T10:00:00Z',
 });
@@ -139,6 +140,7 @@ describe('SearchPanel', () => {
     const message = (n: number) => ({
       id: `m-${n}`,
       channel_id: 'c-1',
+      channel_name: 'finance',
       user_id: 'u-1',
       content: `budget ${n}`,
       created_at: '2026-10-22T10:00:00Z',
@@ -158,5 +160,23 @@ describe('SearchPanel', () => {
     expect(get).toHaveBeenLastCalledWith('/search', expect.objectContaining({ q: 'budget', offset: 20 }));
     expect(screen.getByTestId('search-summary')).toHaveTextContent('22 results');
     expect(screen.queryByTestId('search-show-more')).toBeNull();
+  });
+
+  it('names a channel the person is not in', async () => {
+    get.mockImplementation(async () => ({
+      data: [
+        {
+          id: 'm-elsewhere',
+          channel_id: 'c-9',
+          channel_name: 'design',
+          user_id: 'u-1',
+          content: 'budget review',
+          created_at: '2026-10-22T10:00:00Z',
+        },
+      ],
+    }));
+    renderPanel();
+    typeAndSubmit('budget');
+    await waitFor(() => expect(screen.getByTestId('search-result')).toHaveTextContent('#design'));
   });
 });

@@ -88,12 +88,20 @@ pub struct WorkspaceInvite {
     pub created_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum InviteEmailStatus {
+    Sent,
+    NotConfigured,
+    Failed,
+}
+
 #[derive(Debug, Serialize, ToSchema)]
 pub struct CreatedInvite {
     #[serde(flatten)]
     pub invite: WorkspaceInvite,
     pub invite_url: Option<String>,
-    pub email_sent: bool,
+    pub email_status: Option<InviteEmailStatus>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]

@@ -19,6 +19,7 @@ import { useErasePerson, useStartPersonExport } from '@/features/workspace/hooks
 import { ErasePersonDialog } from './ErasePersonDialog';
 import { ReactionEmoji } from '@/shared/components/ReactionEmoji';
 import { CopyField } from '@/shared/components/CopyField/CopyField';
+import { inviteMessage } from './inviteMessage';
 import { PendingInvites } from './PendingInvites';
 
 interface Props {
@@ -262,9 +263,7 @@ export function MembersSection({ workspaceId, openInvite, isInstanceAdmin }: Pro
         }),
       );
       setInviteResult({
-        message: created.email_sent
-          ? `Invite sent to ${email}. You can also send them the link yourself.`
-          : `Email is not set up on this instance, so nothing was sent. Send ${email} this link yourself.`,
+        message: inviteMessage(created.email_status, email),
         url: created.invite_url,
       });
       setInviteEmail('');

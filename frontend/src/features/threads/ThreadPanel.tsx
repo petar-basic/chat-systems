@@ -29,6 +29,7 @@ import { useChannelModeration } from '@/features/channel';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUnsent, withUnsent } from '@/stores/unsent';
 import { discardUnsent } from '@/lib/unsent';
+import { isClosedThread } from './closedThread';
 
 interface Props {
   parentMessage: Message;
@@ -257,6 +258,10 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
           {channel?.is_archived ? (
             <p data-qa="thread-archived" className="px-4 py-3 text-sm text-muted">
               #{channel.name} is archived, so its threads take no new replies.
+            </p>
+          ) : isClosedThread(parentMessage, loaded, loading) ? (
+            <p data-qa="thread-closed" className="px-4 py-3 text-sm text-muted">
+              This thread was deleted, so it takes no new replies.
             </p>
           ) : (
             <>

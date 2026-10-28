@@ -10289,12 +10289,16 @@
           },
           {
             "type": "object",
-            "required": [
-              "email_sent"
-            ],
             "properties": {
-              "email_sent": {
-                "type": "boolean"
+              "email_status": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/InviteEmailStatus"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "invite_url": {
                 "type": [
@@ -11123,6 +11127,12 @@
                     "channel_id": {
                       "type": "string",
                       "format": "uuid"
+                    },
+                    "channel_name": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "created_at": {
                       "type": "string",
@@ -13075,6 +13085,12 @@
                 "type": "string",
                 "format": "uuid"
               },
+              "channel_name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "created_at": {
                 "type": "string",
                 "format": "date-time"
@@ -13653,6 +13669,14 @@
             "type": "string"
           }
         }
+      },
+      "InviteEmailStatus": {
+        "type": "string",
+        "enum": [
+          "sent",
+          "not_configured",
+          "failed"
+        ]
       },
       "InviteLink": {
         "type": "object",
@@ -15470,6 +15494,24 @@
           }
         }
       },
+      "SearchHit": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Message"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "channel_name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        ]
+      },
       "SearchResponse": {
         "type": "object",
         "required": [
@@ -15479,7 +15521,7 @@
           "data": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/Message"
+              "$ref": "#/components/schemas/SearchHit"
             }
           }
         }

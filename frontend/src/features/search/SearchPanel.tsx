@@ -5,7 +5,8 @@ import { toUserMessage } from '@/lib/errors';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { useUserCache } from '@/stores/users';
 import { useWorkspaceStore } from '@/stores/workspace';
-import type { Message, WorkspaceMember } from '@/stores/workspace';
+import type { WorkspaceMember } from '@/stores/workspace';
+import type { components } from '@/api/schema';
 import { SearchFilterBar } from '@/features/search/SearchFilterBar';
 import {
   extractFilters,
@@ -29,6 +30,8 @@ import { toPlainText } from '@/lib/plainText';
 import { formatDateTime } from '@/lib/datetime';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { Button } from '@/shared/components/Button/Button';
+
+type SearchHit = components['schemas']['SearchHit'];
 
 interface Props {
   members: WorkspaceMember[];
@@ -90,7 +93,7 @@ export default function SearchPanel({ members, onClose, onOpenMessage }: Props) 
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState<SearchFilters>({});
   const [tab, setTab] = useState<SearchTab>('messages');
-  const [results, setResults] = useState<Message[]>([]);
+  const [results, setResults] = useState<SearchHit[]>([]);
   const [files, setFiles] = useState<FileSearchHit[]>([]);
   const [viewing, setViewing] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -105,7 +108,6 @@ export default function SearchPanel({ members, onClose, onOpenMessage }: Props) 
   const { data: conversations = [] } = useConversations(workspaceId ?? null, instanceUrl);
   const [today] = useState(() => new Date());
   const context: FilterContext = { members, channels, conversations, currentUserId, today };
-  const channelNames = new Map(channels.map((ch) => [ch.id, ch.name]));
   const conversationIds = new Set(conversations.map((c) => c.id));
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -199,12 +201,8 @@ export default function SearchPanel({ members, onClose, onOpenMessage }: Props) 
   const count = tab === 'files' ? files.length : results.length;
   const showMore = () => void doSearch(query, filters, tab, count);
   const images = files.filter((file) => isRenderableImage(file.mime_type));
-  const placeOf = (channelId: string) =>
-    channelNames.has(channelId)
-      ? `#${channelNames.get(channelId)}`
-      : conversationIds.has(channelId)
-        ? 'Direct message'
-        : undefined;
+  const placeOf = (channelName: string | null | undefined) =>
+    channelName ? `#${channelName}` : 'Direct message';
   const openFile = (file: FileSearchHit) => {
     if (isRenderableImage(file.mime_type)) return () => setViewing(images.indexOf(file));
     return onOpenMessage ? () => onOpenMessage(file.message_id) : undefined;
@@ -307,7 +305,7 @@ export default function SearchPanel({ members, onClose, onOpenMessage }: Props) 
                 key={file.id}
                 hit={file}
                 query={query}
-                context={placeOf(file.channel_id)}
+                context={placeOf(file.channel_name)}
                 onOpen={openFile(file)}
               />
             ))}
@@ -335,7 +333,7 @@ export default function SearchPanel({ members, onClose, onOpenMessage }: Props) 
                   userId={msg.user_id}
                   content={msg.content}
                   createdAt={msg.created_at}
-                  context={placeOf(msg.channel_id)}
+                  context={placeOf(msg.channel_name)}
                   onClick={onOpenMessage ? () => onOpenMessage(msg.id) : undefined}
                 />
               );

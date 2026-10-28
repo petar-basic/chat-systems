@@ -1103,7 +1103,7 @@ async fn an_instance_without_email_still_invites_by_link(pool: PgPool) {
     .await;
     assert_eq!(status, StatusCode::OK, "{created:?}");
     assert_eq!(
-        created["email_sent"], false,
+        created["email_status"], "not_configured",
         "nothing claims an email went out"
     );
     assert!(outbound_to(&state, &invitee).await.is_empty());
@@ -1142,6 +1142,32 @@ async fn an_instance_without_email_still_invites_by_link(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn an_invite_whose_email_could_not_go_says_so(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "inv-fail", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Failing Mail WS").await;
+    sqlx::raw_sql(
+        "CREATE FUNCTION refuse_mail() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'mail is down'; END $$;
+         CREATE TRIGGER refuse_mail BEFORE INSERT ON outbound_emails FOR EACH ROW EXECUTE FUNCTION refuse_mail();",
+    )
+    .execute(&state.pool)
+    .await
+    .expect("break the outbox");
+
+    let (status, created) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/invites"),
+        Some(&owner_token),
+        Some(json!({ "email": format!("unlucky-{}@test.local", uuid::Uuid::new_v4().simple()) })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{created:?}");
+    assert_eq!(created["email_status"], "failed");
+    assert!(created["invite_url"].is_string(), "the link still works");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_pending_invite_hands_out_its_link_to_admins_until_revoked(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "inv-link-owner", false).await;
@@ -1158,7 +1184,7 @@ async fn a_pending_invite_hands_out_its_link_to_admins_until_revoked(pool: PgPoo
         Some(json!({ "email": invitee })),
     )
     .await;
-    assert_eq!(created["email_sent"], true);
+    assert_eq!(created["email_status"], "sent");
     let invite_id = created["id"].as_str().expect("id").to_string();
     let link = format!("/api/workspaces/{ws_id}/invites/{invite_id}/link");
 
