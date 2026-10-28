@@ -226,7 +226,7 @@ one, and the role is the row's, not the token's.
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/channels` | — | `{ data: ChannelListing[] }` — each channel with the caller's `muted`, `notify_level` (`null` when it follows the default) and `effective_notify_level` |
-| GET | `/workspaces/:ws_id/channels/unread` | — | `{ channel_ids: string[] }` |
+| GET | `/workspaces/:ws_id/channels/unread` | — | `{ channel_ids: string[], counts: { channel_id, unread_count, mention_count, last_read_msg, last_read_at }[] }` — `last_read_msg` is where the *New* line goes; a list that has paged back past `last_read_at` without finding it stops paging and draws no line |
 | GET | `/workspaces/:ws_id/channels/browse` | — | `{ data: BrowsableChannel[] }` — every public channel, and every archived private channel the caller is a member of, with `member_count`, `is_member` and `is_archived`; archived ones last, the private ones under the public ones, so an archived private channel, which the sidebar leaves out, can still be reached and unarchived (Members and up; Guests are refused) |
 | POST | `/workspaces/:ws_id/channels` | `{ name, channel_type?, description?, is_default?, post_policy? }` | `Channel` — Members and up; only admins when `settings.public_channel_creators` (or `private_channel_creators` for a private one) is `admins` |
 | GET | `/channels/:ch_id` | — | `Channel` |
@@ -271,7 +271,6 @@ counts them.
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/conversations` | — | `{ data: ConversationSummary[] }` — newest message first, with `participant_ids`, `last_message_at` and the caller's `last_read_at` |
 | POST | `/workspaces/:ws_id/conversations` | `{ participant_ids }` | `Conversation` — one other person returns the existing `direct` thread if there is one; more create a `group` |
-| POST | `/conversations/:conv_id/read` | — | `{ status: "ok" }` — clears the caller's unread and mention counters for it and its notifications, and announces `channel.read_state` |
 
 Creating one publishes `conversation.created`, which the gateway delivers to every participant
 so the new thread shows up for the other side; messages in it are ordinary `message.*` and
@@ -310,7 +309,7 @@ Sends and manages messages, threads, reactions, pins, read tracking, and search.
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
-| GET | `/channels/:ch_id/messages` | Query: `limit=50, cursor?, mark_read?` | `{ data: Message[], unread_notifications?, last_read_before? }` — with `mark_read=true` and no cursor, the newest message becomes the caller's read position (as `POST /channels/:ch_id/read`), `unread_notifications` is the workspace's count afterwards, and `last_read_before` is the message the caller had read up to when anything after it was unread (where the *New* line goes) |
+| GET | `/channels/:ch_id/messages` | Query: `limit=50, cursor?, mark_read?` | `{ data: Message[], unread_notifications?, last_read_before?, last_read_before_at? }` — with `mark_read=true` and no cursor, the newest message becomes the caller's read position (as `POST /channels/:ch_id/read`), `unread_notifications` is the workspace's count afterwards, and `last_read_before` is the message the caller had read up to when anything after it was unread (where the *New* line goes), read at `last_read_before_at` |
 | POST | `/channels/:ch_id/messages` | `{ content, thread_parent_id?, also_to_channel?, client_message_id?, attachment_ids?, forwarded_from? }` | `Message` — the one send path; a `thread_parent_id` makes it a reply (one level deep, same channel), `also_to_channel` shows that reply in the channel too (`metadata.also_in_channel`), and `client_message_id` makes a retry idempotent. `attachment_ids` (at most 10, the sender's own drafts) are linked in the message's transaction and listed in `metadata.attachments`; `content` may then be empty. `forwarded_from` (a forward) copies that message's files, if the sender can read it, and records `metadata.forwarded_from`; the quoted lines (`>`) of a forward neither mention nor broadcast, only the sender's own words do |
 | PATCH | `/messages/:msg_id` | `{ content, attachment_ids? }` | `Message` — `attachment_ids` is the set of files to keep; the rest are deleted |
 | DELETE | `/messages/:msg_id` | — | `{ status: "deleted" }` |
@@ -349,7 +348,7 @@ root and replies together, and erasing a person tombstones their roots that othe
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/messages/:msg_id/thread` | Query: `limit=50 (≤200), cursor?` (the last reply of the previous page) | `{ data: MessageWithReactions[] }` — newest reply first, with reactions; the root may be a tombstone |
-| GET | `/messages/:msg_id/location` | — | `{ workspace_id, channel_id, kind: channel \| dm \| group_dm, thread_parent_id?, joined }` — where a message lives, for opening it from a link, a notification or a search hit; `joined` is false for a public channel the caller can read but is not in. A message the caller cannot read is a 404, as is a deleted one |
+| GET | `/messages/:msg_id/location` | — | `{ workspace_id, channel_id, kind: channel \| dm \| group_dm, thread_parent_id?, joined }` — where a message lives, for opening it from a link, a notification or a search hit; `joined` is false for a public channel the caller can read but is not in. A message the caller cannot read is a 404, as is a deleted one, unless it is a thread root that still has replies |
 
 **Mentions.** Sending a channel message or thread reply expands the mentions in its body
 into the `mentioned_user_ids` carried by `message.created`, which the notifications
@@ -387,8 +386,8 @@ posts, but `expand_mentions` leaves the broadcast out and nobody is notified by 
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
-| POST | `/channels/:ch_id/read` | `{ message_id }` | `{ status: "read" }` — also marks the channel's own notifications read; its threads' notifications stay until each thread is read |
-| POST | `/workspaces/:ws_id/read` | — | `{ status: "read" }` — moves the caller to the newest message in every unread channel and conversation of the workspace, one `channel.read_state` per channel, and marks their notifications read (not threads') |
+| POST | `/channels/:ch_id/read` | `{ message_id }` | `{ status: "read" }` — for channels and conversations alike; the read position becomes the newest message the channel shows (top level, or a reply also sent to it) at or before `message_id`. Also marks the channel's own notifications read, a reply's that was also sent to the channel among them; its threads' other notifications stay until each thread is read |
+| POST | `/workspaces/:ws_id/read` | — | `{ status: "read" }` — moves the caller to the newest message shown in every unread channel and conversation of the workspace, by the same rule, one `channel.read_state` per channel, and marks their notifications read (not threads') |
 | GET | `/workspaces/:ws_id/unreads` | Query: `limit=20 (≤50), offset=0` | `{ data: UnreadGroup[], next_offset }` — every channel and DM the caller has unread messages in, muted last and otherwise newest activity first, each with its newest 20 unread messages (oldest first, the caller's own left out) |
 | POST | `/channels/:ch_id/unread` | `{ message_id }` | `ReadState` — moves the caller's read position to just before that message and recomputes their unread and mention counts for the channel |
 | GET | `/search` | Query: `q?, workspace_id, channel_id?, user_id?, has? (file \| image \| link), after?, before?, scope?, limit=20, offset=0` | `{ data: Message[] }` — `q` may be empty when a filter is set (newest first); `channel_id` takes a channel or a conversation; `after` is inclusive and `before` exclusive (RFC 3339 instants); `has=file` counts images too |
@@ -577,7 +576,8 @@ consumer decides each recipient's reason for one `message.created`:
 The first row that applies wins, so a message is one notification per person. Keywords live
 in `notification_keywords`, stored with `normalized = lower(search_normalize(keyword))`, the
 same folding search uses. One query per message finds the channel members whose keyword
-appears in `lower(search_normalize(content))` as a whole word: `keyword_pattern()` escapes the
+appears in `lower(search_normalize(content))` as a whole word, the quoted lines of a forward
+left out as they are for mentions: `keyword_pattern()` escapes the
 regex characters and requires a non-word character or the text's edge on both sides, so
 `deploy` matches "Deploy!" and "deploý" but not "redeployed", and `c++` matches literally.
 A keyword does not bump the unread or mention counters, which are written with the message —

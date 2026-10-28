@@ -1138,6 +1138,19 @@ async fn reading_a_channel_a_thread_or_a_dm_clears_only_what_was_read(pool: PgPo
     .await;
     assert_eq!(status, StatusCode::OK, "{dm:?}");
     let dm_id = dm["id"].as_str().expect("dm id").to_string();
+    let (status, dm_message) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{dm_id}/messages"),
+        Some(&token),
+        Some(json!({ "content": "hello" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{dm_message:?}");
+    let dm_message_id = dm_message["id"]
+        .as_str()
+        .expect("dm message id")
+        .to_string();
 
     seed_about(
         &state,
@@ -1157,10 +1170,17 @@ async fn reading_a_channel_a_thread_or_a_dm_clears_only_what_was_read(pool: PgPo
         &state,
         uid,
         ws,
-        json!({ "channel_id": dm_id, "message_id": uuid::Uuid::new_v4() }),
+        json!({ "channel_id": channel.to_string(), "message_id": uuid::Uuid::new_v4(), "thread_parent_id": root_id, "in_channel": true }),
     )
     .await;
-    assert_eq!(unread_count(&app, &token, ws).await, 3);
+    seed_about(
+        &state,
+        uid,
+        ws,
+        json!({ "channel_id": dm_id, "message_id": dm_message_id }),
+    )
+    .await;
+    assert_eq!(unread_count(&app, &token, ws).await, 4);
 
     let (status, page) = send(
         &app,
@@ -1174,7 +1194,7 @@ async fn reading_a_channel_a_thread_or_a_dm_clears_only_what_was_read(pool: PgPo
     assert_eq!(
         page["unread_notifications"].as_i64(),
         Some(2),
-        "reading the channel leaves its thread's notification and the DM's: {page:?}"
+        "reading the channel clears a reply sent to it and leaves the thread's notification and the DM's: {page:?}"
     );
 
     let (status, _) = send(
@@ -1195,9 +1215,9 @@ async fn reading_a_channel_a_thread_or_a_dm_clears_only_what_was_read(pool: PgPo
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/conversations/{dm_id}/read"),
+        &format!("/api/channels/{dm_id}/read"),
         Some(&token),
-        None,
+        Some(json!({ "message_id": dm_message_id })),
     )
     .await;
     assert_eq!(status, StatusCode::OK);

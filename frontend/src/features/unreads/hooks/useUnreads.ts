@@ -77,6 +77,7 @@ export function useMarkWorkspaceRead(workspaceId: string | undefined) {
     onSuccess: () => {
       useWorkspaceStore.getState().markEverythingRead();
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.unreads(workspaceId ?? '') });
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.channelsUnread(workspaceId ?? '') });
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.conversations(workspaceId ?? '') });
       toast.success(ActionLabels.MarkedAllRead);
     },

@@ -276,7 +276,7 @@ async fn sending_bumps_the_conversation_and_read_state_clears_it(pool: PgPool) {
     .await;
     let conv_id = conv["id"].as_str().expect("id").to_string();
 
-    send(
+    let (_, ping) = send(
         &app,
         "POST",
         &format!("/api/channels/{conv_id}/messages"),
@@ -301,9 +301,9 @@ async fn sending_bumps_the_conversation_and_read_state_clears_it(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/conversations/{conv_id}/read"),
+        &format!("/api/channels/{conv_id}/read"),
         Some(&second_token),
-        None,
+        Some(json!({ "message_id": ping["id"] })),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
@@ -317,6 +317,34 @@ async fn sending_bumps_the_conversation_and_read_state_clears_it(pool: PgPool) {
     )
     .await;
     assert!(!after["data"][0]["last_read_at"].is_null());
+
+    send(
+        &app,
+        "POST",
+        &format!("/api/channels/{conv_id}/messages"),
+        Some(&owner_token),
+        Some(json!({ "content": "pong" })),
+    )
+    .await;
+    let (_, unread) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws_id}/channels/unread"),
+        Some(&second_token),
+        None,
+    )
+    .await;
+    let count = unread["counts"]
+        .as_array()
+        .expect("counts")
+        .iter()
+        .find(|c| c["channel_id"] == conv_id.as_str())
+        .expect("the conversation's count");
+    assert_eq!(count["unread_count"], 1, "{count:?}");
+    assert_eq!(
+        count["last_read_msg"], ping["id"],
+        "the New line sits after the message that was read"
+    );
 }
 
 #[test_macros::db_test(migrations = "../migrations")]

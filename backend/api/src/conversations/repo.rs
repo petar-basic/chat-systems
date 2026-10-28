@@ -206,19 +206,4 @@ impl ConversationRepo {
         .fetch_all(&self.pool)
         .await
     }
-
-    pub async fn mark_read(&self, conversation_id: Uuid, user_id: Uuid) -> sqlx::Result<()> {
-        sqlx::query!(
-            r"
-            UPDATE channel_members
-               SET last_read_at = NOW(), unread_count = 0, mention_count = 0
-             WHERE channel_id = $1 AND user_id = $2
-            ",
-            conversation_id,
-            user_id
-        )
-        .execute(&self.pool)
-        .await?;
-        Ok(())
-    }
 }

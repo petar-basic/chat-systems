@@ -2010,36 +2010,6 @@
         }
       }
     },
-    "/conversations/{conv_id}/read": {
-      "post": {
-        "tags": [
-          "conversations"
-        ],
-        "operationId": "conversations_mark_read",
-        "parameters": [
-          {
-            "name": "conv_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StatusResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/exports/{id}": {
       "get": {
         "tags": [
@@ -14540,6 +14510,13 @@
             ],
             "format": "uuid"
           },
+          "last_read_before_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
           "unread_notifications": {
             "type": [
               "integer",
@@ -16371,6 +16348,13 @@
           "channel_id": {
             "type": "string",
             "format": "uuid"
+          },
+          "last_read_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           },
           "last_read_msg": {
             "type": [

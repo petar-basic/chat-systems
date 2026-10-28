@@ -72,6 +72,7 @@ pub struct Origin<'a> {
     pub channel_uuid: Option<uuid::Uuid>,
     pub message_id: Option<&'a str>,
     pub thread_parent_id: Option<&'a str>,
+    pub in_channel: bool,
     pub sender_id: Option<&'a str>,
     pub content: &'a str,
     pub list_item: Option<(uuid::Uuid, uuid::Uuid)>,
@@ -86,6 +87,7 @@ impl<'a> Origin<'a> {
             channel_uuid: text("channel_id").and_then(|v| v.parse().ok()),
             message_id: text("id"),
             thread_parent_id: text("thread_parent_id"),
+            in_channel: also_in_channel(payload),
             sender_id: text("user_id"),
             content,
             list_item: None,
@@ -300,7 +302,7 @@ pub async fn notify_message(
                 mentioned: mentioned.contains(&r.user_id),
                 following: followers.contains(&r.user_id),
                 keyword: keywords.contains_key(&r.user_id),
-                in_thread: root.is_some() && !also_in_channel(event_payload),
+                in_thread: root.is_some() && !origin.in_channel,
             };
             reason_for(r, signals).map(|reason| (r.user_id, reason))
         })
@@ -335,14 +337,17 @@ async fn keyword_matches(
     author: Option<uuid::Uuid>,
     payload: &serde_json::Value,
 ) -> HashMap<uuid::Uuid, String> {
-    let content = payload
-        .get("content")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+    let content = crate::messaging::routes::addressed_text(
+        payload
+            .get("content")
+            .and_then(|v| v.as_str())
+            .unwrap_or(""),
+        payload.pointer("/metadata/forwarded_from").is_some(),
+    );
     if content.trim().is_empty() {
         return HashMap::new();
     }
-    match repo.keyword_matches(channel_id, author, content).await {
+    match repo.keyword_matches(channel_id, author, &content).await {
         Ok(matches) => matches
             .into_iter()
             .map(|m| (m.user_id, m.keyword))
@@ -381,6 +386,9 @@ async fn deliver(
         "message_id": message_id,
         "thread_parent_id": origin.thread_parent_id,
     });
+    if origin.in_channel {
+        data_json["in_channel"] = serde_json::json!(true);
+    }
     let mut payload = serde_json::json!({
         "user_id": uid.to_string(),
         "workspace_id": ws_id.to_string(),
@@ -624,6 +632,7 @@ pub async fn notify_list(
         channel_uuid: uuid("channel_id"),
         message_id: None,
         thread_parent_id: None,
+        in_channel: false,
         sender_id: actor,
         content: &body,
         list_item: Some((list_id, item_id)),

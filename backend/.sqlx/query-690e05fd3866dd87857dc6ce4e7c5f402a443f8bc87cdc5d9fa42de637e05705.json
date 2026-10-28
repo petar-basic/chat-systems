@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT cm.channel_id, cm.unread_count, cm.mention_count, cm.last_read_msg\n              FROM channel_members cm\n              JOIN channels c ON c.id = cm.channel_id\n             WHERE c.workspace_id = $1 AND cm.user_id = $2 AND c.is_archived = false\n            ",
+  "query": "\n            SELECT cm.channel_id, cm.unread_count, cm.mention_count, cm.last_read_msg, cm.last_read_at\n              FROM channel_members cm\n              JOIN channels c ON c.id = cm.channel_id\n             WHERE c.workspace_id = $1 AND cm.user_id = $2 AND c.is_archived = false\n            ",
   "describe": {
     "columns": [
       {
@@ -46,6 +46,17 @@
             "name": "last_read_msg"
           }
         }
+      },
+      {
+        "ordinal": 4,
+        "name": "last_read_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "channel_members",
+            "name": "last_read_at"
+          }
+        }
       }
     ],
     "parameters": {
@@ -58,8 +69,9 @@
       false,
       false,
       false,
+      true,
       true
     ]
   },
-  "hash": "1fb6cf9db7933fdb8b92c14d181aa8763a326e57e330fa85b3cdc1740b91578b"
+  "hash": "690e05fd3866dd87857dc6ce4e7c5f402a443f8bc87cdc5d9fa42de637e05705"
 }

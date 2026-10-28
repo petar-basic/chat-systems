@@ -1,0 +1,44 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH before AS (\n                SELECT last_read_msg, last_read_at, unread_count\n                  FROM channel_members\n                 WHERE channel_id = $1 AND user_id = $2\n                   FOR UPDATE\n            ),\n            boundary AS (\n                SELECT m.id FROM messages m, messages t\n                 WHERE t.id = $3 AND t.channel_id = $1\n                   AND m.channel_id = $1\n                   AND m.deleted_at IS NULL\n                   AND (m.thread_parent_id IS NULL OR m.metadata->>'also_in_channel' = 'true')\n                   AND (m.created_at, m.id) <= (t.created_at, t.id)\n                 ORDER BY m.created_at DESC, m.id DESC\n                 LIMIT 1\n            )\n            UPDATE channel_members cm\n            SET last_read_at = NOW(),\n                last_read_msg = (SELECT id FROM boundary),\n                last_read_message_id = (SELECT id FROM boundary),\n                unread_count = 0,\n                mention_count = 0\n            FROM before\n            WHERE cm.channel_id = $1 AND cm.user_id = $2\n            RETURNING cm.last_read_msg AS boundary,\n                      CASE WHEN before.unread_count > 0 AND before.last_read_msg IS DISTINCT FROM cm.last_read_msg\n                           THEN before.last_read_msg END AS \"before?\",\n                      CASE WHEN before.unread_count > 0 AND before.last_read_msg IS DISTINCT FROM cm.last_read_msg\n                           THEN before.last_read_at END AS \"before_at?\"\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "boundary",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "channel_members",
+            "name": "last_read_msg"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "before?",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "before_at?",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      null,
+      null
+    ]
+  },
+  "hash": "8ebe8e0175154a0b1d8729c0736c213d59a5af8eca7ed99fa8c08d503d971689"
+}

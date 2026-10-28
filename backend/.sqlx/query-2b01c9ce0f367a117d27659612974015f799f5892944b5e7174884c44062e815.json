@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE notifications SET is_read = true WHERE user_id = $1 AND workspace_id = $2 AND is_read = false AND data->>'channel_id' IS NOT NULL AND (data->>'thread_parent_id' IS NULL OR data @> '{\"in_channel\": true}')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2b01c9ce0f367a117d27659612974015f799f5892944b5e7174884c44062e815"
+}

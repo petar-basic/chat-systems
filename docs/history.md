@@ -2066,6 +2066,28 @@ no cache, and `patchChannel` dropped it while the page it was waiting for had be
 the message existed. `message.new` now invalidates the channel's messages when there is no cache
 yet, which refetches an open channel and leaves one nobody is looking at alone.
 
+### [CS-092] Read state that matches what you read ✅ shipped
+The read position is the message the *New* line is drawn after, and three writers each had their
+own idea of it. `mark_workspace_read` took the channel's newest message, a thread-only reply
+included, which the list never finds, so it paged back to the start of the channel looking. The
+conversation read route moved the counters and left the position where it was, so a DM opened at
+an old line. And a mention in a reply also sent to the channel kept its notification after the
+channel was read, because reading a channel cleared only notifications with no thread, which is
+also what the mention email checks before it goes out.
+
+Both writers now take the newest message the channel shows, top level or sent to the channel,
+not deleted: `mark_workspace_read` per channel, and `mark_read` at or before the message it is
+given, so a client cannot leave it on something the list does not show either. DMs read through
+`POST /channels/{id}/read`, and the conversation route is gone; a conversation's list asks the
+first page to mark it read as a channel's does. The notification for a reply sent to the channel
+records `in_channel`, and both channel reads clear it, so the digest finds it read. For a
+position written before this, or a message deleted since, unread counts carry `last_read_at` and
+the first page `last_read_before_at`: once a page reaches back past that time without finding
+the boundary, the list stops and draws no line. `/location` looks a message up with `find_root`,
+so a deleted root that still has replies opens its thread, and keyword matching gets the
+forwarder's own words, as mentions do. *Mark all read* also refetches the unread counts, which
+had kept the old position for up to half a minute.
+
 ### [CS-093] A failed send stays where you sent it ✅ shipped
 CS-081 kept a failed message in the channel and the thread panel, and three paths still lost
 one. A reply from a *Threads* card failed into the thread panel's cache, which the card does not
