@@ -291,6 +291,7 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - **Expected:** curl answers 202; within seconds "billing is down" appears in #general from *Alert relay*, tagged *Workflow*. *Run history* shows *Succeeded* with *Step 1 · Send a message*. The scheduled one posts at its minute, once. Admin's panel lists both with "Built by Bob".
 - 🟠 **Edge — retries:** send the same curl twice with `-H 'Idempotency-Key: x'` → one message. *Turn off* the workflow and call it → 409; *Turn on* → 202 again. There is no *Save draft*: a new workflow runs as soon as it is created. 31 calls in a minute → 429.
 - 🟠 **Edge — authority:** a step to a private channel, then remove Bob from it and call the webhook → *Failed*, "Step 1 (Send a message): Its creator can no longer post in that channel". Remove Bob from the workspace → his workflows turn off and the admins' Activity says so.
+- 🔴 **Edge — the link moves on:** open "Alert relay" → *New URL* → the old URL answers 401, the new one 202, and the audit log has *Workflow URL replaced*. Suspend Bob, *Take over* as Admin → the URL changes again and the one Bob knew answers 401.
 - 🔴 **Edge — who builds:** *Workspace settings → General* → *Who can build workflows* → *Admins only* → Bob's *New* is gone and `POST /api/workspaces/<id>/workflows` answers 403; a guest never sees *Workflows*.
 - 🟢 **Event triggers:** as Bob, build "Welcome": *When someone joins a channel* → #random; step *Send a DM* to *The person who joined*, "Welcome {{trigger.user}} to {{trigger.channel}}". Build "Incident": *When a reaction is added* in #general, emoji 🚨; step *Send a message* to #random with "{{trigger.user}} flagged {{trigger.message_link}}". Create both. Ana joins #random, Ana adds 🚨 to a message in #general.
 - **Expected:** within seconds Ana has a DM from *Welcome*, tagged *Workflow*, mentioning her; #random gets the flag with a link that opens the message. Ana joining again, 👍 instead of 🚨, or 🚨 in another channel starts nothing. Bob joining #random himself is a succeeded run that sent no DM.
@@ -439,6 +440,7 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 - **Expected:** the bin receives the event with an `X-ChatSystems-Signature: sha256=…` HMAC header; the execution is logged.
 - 🔴 **Edge — SSRF:** create a webhook pointing at an internal address: `http://127.0.0.1:3000/...`, `http://169.254.169.254/latest/meta-data/` (cloud metadata), `http://10.0.0.5/`, or an IPv6 ULA → dispatch is **rejected/blocked**, the request is never made to the internal target.
 - 🔴 **Edge — authz:** as a non-admin, try to create/list/read/delete hooks (`/api/workspaces/<id>/hooks`) → 403; secret fields are redacted (`***`) on read.
+- 🔴 **Edge — demoted creator:** a second admin creates the webhook, then the owner makes them a *Member* → the next message sends nothing, and *Integrations* shows it *Disabled — its creator is no longer allowed to make it*.
 
 ### 10.2 🟢 Reminders
 - **Steps:** create a reminder for yourself → it fires around the due time (delivered as a notification).
@@ -485,6 +487,8 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 | 11.5 🟠 | Graceful shutdown | `docker stop` the api with an in-flight request | request drains (not abruptly cut); api `/readyz` flips to 503 when DB/Redis down. Realtime `/readyz` additionally 503s if the event consumer stalls (>60s since last heartbeat) — see §9.4. |
 | 11.6 🟠 | Body limit | POST a >100 MB JSON/file | rejected, not OOM |
 | 11.7 🔴 | Missing/invalid token | call any `/api/...` (non-auth) without a token, or with a garbage token | **401**, flat "invalid or expired token" (no library internals) |
+| 11.8 🔴 | SSO after suspension | sign in once with *Continue with SSO*, suspend the account in *Instance admin*, sign in with SSO again | refused, "This account is suspended"; no session |
+| 11.9 🔴 | Hard erase | as Ana, edit a message Bob then answers, react to Bob's, attach a file; *Instance admin* → erase Ana with *hard delete* | her answered message is an empty tombstone with no edit history, her reaction and file are gone, and the file's download link answers 404 |
 
 ---
 

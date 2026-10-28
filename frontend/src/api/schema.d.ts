@@ -1790,6 +1790,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workflows/{workflow_id}/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["rotate_workflow_link"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workflows/{workflow_id}/runs": {
         parameters: {
             query?: never;
@@ -4039,7 +4055,19 @@ export interface components {
         };
         ErasedCounts: {
             /** Format: int64 */
+            comments: number;
+            /** Format: int64 */
+            edits: number;
+            /** Format: int64 */
+            files: number;
+            /** Format: int64 */
             messages: number;
+            /** Format: int64 */
+            reactions: number;
+            /** Format: int64 */
+            scheduled: number;
+            /** Format: int64 */
+            votes: number;
         };
         ExportCreated: {
             export: components["schemas"]["ExportJob"];
@@ -8448,6 +8476,27 @@ export interface operations {
         };
     };
     take_over_workflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workflow_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Workflow"];
+                };
+            };
+        };
+    };
+    rotate_workflow_link: {
         parameters: {
             query?: never;
             header?: never;

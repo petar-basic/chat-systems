@@ -512,8 +512,10 @@ is the only way back to the plaintext value, and it leaves an audit trail. Creat
 (the delivery path still runs the full SSRF check per request).
 
 **A hook acts for the person who made it.** Every time an outgoing webhook would fire and every
-time an incoming webhook is called, `authz::still_acting` asks whether its creator's account is
-active, they are still in the workspace and they can still read the channel. If not, the hook is
+time an incoming webhook is called, `authz::hook_still_acting` asks whether its creator's
+account is active, they are still in the workspace, they can still read the channel, and they
+still hold the role it takes to make that hook (an admin for outgoing webhooks and slash
+commands, a channel moderator for incoming ones). If not, the hook is
 turned off with the reason in `Hook.disabled_reason` and nothing is sent or posted. Suspending
 or erasing an account turns off all of that person's hooks and workflows at once
 (`hook.disabled` / `workflow.disabled`, by the admin who did it); removing someone from a
@@ -973,7 +975,8 @@ webhook values or the reacted message.
 | PUT | `/workflows/:workflow_id` | as POST | `Workflow`, `version` + 1, on or off as it was — its builder only |
 | POST | `/workflows/:workflow_id/enable` | — | `Workflow`, `enabled`, `next_run_at` for a schedule — its builder only, re-checked |
 | POST | `/workflows/:workflow_id/disable` | — | `Workflow` — its builder or an admin |
-| POST | `/workflows/:workflow_id/owner` | — | `Workflow`, now the caller's and off — a workspace admin, only when `creator_gone` (its builder left the workspace or is suspended; 409 otherwise) |
+| POST | `/workflows/:workflow_id/owner` | — | `Workflow`, now the caller's and off, with a new `webhook_url` — a workspace admin, only when `creator_gone` (its builder left the workspace or is suspended; 409 otherwise) |
+| POST | `/workflows/:workflow_id/rotate` | — | `Workflow` with a new `webhook_url`; the old one answers 401 — its builder or an admin; 409 for a workflow not started by a webhook |
 | DELETE | `/workflows/:workflow_id` | — | `{ status: "deleted" }` — its builder or an admin |
 | GET | `/workflows/:workflow_id/runs` | — | `{ data: WorkflowRun[] }`, the last 50, newest first, each with its steps |
 | POST | `/workflows/:workflow_id/start` | header `Idempotency-Key` optional | 202 `{ status: "accepted", run_id }` — a shortcut, by someone who can post in its channel; 404 otherwise, 409 turned off, 429 above 30 a minute |
@@ -1059,7 +1062,7 @@ Instance-level administration. Requires `is_instance_admin = true`.
 | PATCH | `/admin/users/:user_id/instance-role` | `{ is_instance_admin: bool }` | `{ is_instance_admin: bool }` |
 | GET | `/admin/workspaces` | Query: `limit?, offset?` | `{ data: Workspace[] }` |
 | DELETE | `/admin/workspaces/:ws_id` | — | `{ status: "deleted" }` |
-| DELETE | `/admin/users/:user_id/data` | `{ hard_delete?: bool }` | `{ status: "erased", hard_delete, removed }` — the person's messages go, except a thread root someone else answered, which stays as an empty tombstone |
+| DELETE | `/admin/users/:user_id/data` | `{ hard_delete?: bool }` | `{ status: "erased", hard_delete, removed }` — either way the account is tombstoned, signed out and unlinked from SSO. `hard_delete` also removes what they wrote: their messages (a thread root someone else answered stays as an empty tombstone), every earlier version of them, the notifications that quote them, their reactions, poll votes, list comments, scheduled messages and *Later* items, and their files with the stored objects; `removed` counts `messages`, `edits`, `reactions`, `votes`, `comments`, `scheduled` and `files` |
 | GET | `/admin/scim/tokens` | — | `{ data: ScimToken[] }` |
 | POST | `/admin/scim/tokens` | `{ description? }` | `{ id, description, token }`, the token only here |
 | POST | `/admin/scim/tokens/:id/rotate` | — | `{ id, description, token }`; the old one is revoked |

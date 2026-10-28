@@ -237,8 +237,8 @@ async fn erasing_a_parent_keeps_the_answers_in_their_thread(pool: PgPool) {
     let lone = post(&room, &room.owner.1, "just me", None, false).await;
 
     room.state
-        .message_repo
-        .erase_author(room.owner.0)
+        .export_repo
+        .erase_writing(room.owner.0)
         .await
         .expect("erase");
 

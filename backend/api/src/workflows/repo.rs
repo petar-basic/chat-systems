@@ -706,19 +706,33 @@ impl WorkflowRepo {
         .await
     }
 
-    pub async fn set_owner(&self, id: Uuid, owner: Uuid) -> sqlx::Result<()> {
+    pub async fn set_owner(&self, id: Uuid, owner: Uuid, token: &str) -> sqlx::Result<()> {
         sqlx::query!(
             r"
             UPDATE workflows
-               SET created_by = $2, enabled = false, next_run_at = NULL, updated_at = NOW()
+               SET created_by = $2, enabled = false, next_run_at = NULL,
+                   webhook_token = CASE WHEN webhook_token IS NULL THEN NULL ELSE $3 END,
+                   updated_at = NOW()
              WHERE id = $1
             ",
             id,
-            owner
+            owner,
+            token
         )
         .execute(&self.pool)
         .await?;
         Ok(())
+    }
+
+    pub async fn rotate_token(&self, id: Uuid, token: &str) -> sqlx::Result<bool> {
+        let result = sqlx::query!(
+            "UPDATE workflows SET webhook_token = $2, updated_at = NOW() WHERE id = $1 AND webhook_token IS NOT NULL",
+            id,
+            token
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected() > 0)
     }
 
     pub async fn admin_ids(&self, workspace_id: Uuid) -> sqlx::Result<Vec<Uuid>> {

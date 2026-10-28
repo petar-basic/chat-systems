@@ -471,48 +471,6 @@ impl MessageRepo {
         Ok(parent)
     }
 
-    pub async fn erase_author(&self, user_id: Uuid) -> sqlx::Result<u64> {
-        let mut tx = self.pool.begin().await?;
-        let kept = sqlx::query!(
-            r#"
-            UPDATE messages m
-               SET content = '', metadata = '{}'::jsonb, deleted_at = COALESCE(m.deleted_at, NOW())
-             WHERE m.user_id = $1
-               AND EXISTS (SELECT 1 FROM messages r WHERE r.thread_parent_id = m.id AND r.user_id <> $1 AND r.deleted_at IS NULL)
-            "#,
-            user_id
-        )
-        .execute(&mut *tx)
-        .await?
-        .rows_affected();
-        sqlx::query!(
-            r#"
-            UPDATE messages p
-               SET reply_count = GREATEST(p.reply_count - c.n::int, 0)
-              FROM (SELECT thread_parent_id, COUNT(*) AS n FROM messages
-                     WHERE user_id = $1 AND thread_parent_id IS NOT NULL AND deleted_at IS NULL
-                     GROUP BY thread_parent_id) c
-             WHERE p.id = c.thread_parent_id
-            "#,
-            user_id
-        )
-        .execute(&mut *tx)
-        .await?;
-        let removed = sqlx::query!(
-            r#"
-            DELETE FROM messages m
-             WHERE m.user_id = $1
-               AND NOT EXISTS (SELECT 1 FROM messages r WHERE r.thread_parent_id = m.id AND r.user_id <> $1 AND r.deleted_at IS NULL)
-            "#,
-            user_id
-        )
-        .execute(&mut *tx)
-        .await?
-        .rows_affected();
-        tx.commit().await?;
-        Ok(kept + removed)
-    }
-
     pub async fn set_pinned_in(
         &self,
         conn: &mut PgConnection,

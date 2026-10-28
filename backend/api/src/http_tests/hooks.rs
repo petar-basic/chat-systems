@@ -1062,6 +1062,60 @@ async fn a_hook_stops_when_its_creator_can_no_longer_read_its_channel(pool: PgPo
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn an_admin_hook_stops_when_its_creator_is_no_longer_an_admin(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "hook-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Demoted WS").await;
+    let ch = seed_channel(&state, ws, owner_id, "deploys", false).await;
+    let (admin_id, _, admin) = seed_and_login(&app, &state, "hook-admin", false).await;
+    add_ws_member(&state, ws, admin_id, "admin").await;
+
+    let (status, hook) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws}/hooks"),
+        Some(&admin),
+        Some(json!({
+            "hook_type": "outgoing_webhook",
+            "name": "Mirror",
+            "config": { "url": "https://example.com/out", "channel_ids": [ch] }
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{hook:?}");
+    let id = hook["id"].as_str().unwrap();
+    assert_eq!(
+        crate::hooks::executor::hooks_to_fire(&state, ws, ch)
+            .await
+            .len(),
+        1
+    );
+
+    sqlx::query(
+        "UPDATE workspace_members SET role = 'member' WHERE workspace_id = $1 AND user_id = $2",
+    )
+    .bind(ws)
+    .bind(admin_id)
+    .execute(&state.pool)
+    .await
+    .expect("demote");
+
+    assert!(
+        crate::hooks::executor::hooks_to_fire(&state, ws, ch)
+            .await
+            .is_empty(),
+        "a member cannot make an outgoing webhook, so one made as an admin stops with the role"
+    );
+    assert_eq!(
+        hook_state(&state, id).await,
+        (
+            false,
+            Some("Its creator is no longer allowed to make it".to_string())
+        )
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn an_incoming_webhook_from_a_suspended_creator_posts_nothing(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "hook-owner", false).await;

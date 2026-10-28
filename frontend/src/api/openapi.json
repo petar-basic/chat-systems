@@ -4903,6 +4903,36 @@
         }
       }
     },
+    "/workflows/{workflow_id}/rotate": {
+      "post": {
+        "tags": [
+          "workflows"
+        ],
+        "operationId": "rotate_workflow_link",
+        "parameters": [
+          {
+            "name": "workflow_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Workflow"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workflows/{workflow_id}/runs": {
       "get": {
         "tags": [
@@ -12687,10 +12717,46 @@
       "ErasedCounts": {
         "type": "object",
         "required": [
-          "messages"
+          "messages",
+          "edits",
+          "reactions",
+          "votes",
+          "comments",
+          "scheduled",
+          "files"
         ],
         "properties": {
+          "comments": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "edits": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "files": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
           "messages": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "reactions": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "scheduled": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "votes": {
             "type": "integer",
             "format": "int64",
             "minimum": 0

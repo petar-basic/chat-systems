@@ -124,6 +124,13 @@ impl UserRepo {
             .await
     }
 
+    pub async fn unlink_sso(&self, id: Uuid) -> sqlx::Result<()> {
+        sqlx::query!("DELETE FROM oauth_accounts WHERE user_id = $1", id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
     pub async fn activate_sso(&self, id: Uuid) -> sqlx::Result<()> {
         sqlx::query!(
             r"

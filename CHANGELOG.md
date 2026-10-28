@@ -14,6 +14,29 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
+## [Unreleased]
+
+### Upgrading from 3.6.0
+
+- For API clients: `DELETE /admin/users/{id}/data` reports `removed.edits`, `reactions`,
+  `votes`, `comments`, `scheduled` and `files` beside `messages`. Taking over a workflow
+  gives it a new `webhook_url`, and `POST /workflows/{id}/rotate` makes one on demand; the
+  old URL answers 401 in both cases.
+
+### Security
+
+- **SSO lets nobody around a suspension.** An account already linked to the provider was
+  signed in without its status being checked, so a suspended or erased person got a session
+  through SSO. Erasing an account now also removes its SSO link.
+- **A hard erase removes everything they wrote.** A message others answered kept every earlier
+  version in its edit history, and their files, reactions, votes, list comments, scheduled
+  messages and the notifications quoting them stayed. All of it goes now, files with their
+  stored objects.
+- **A hook stops when its creator loses the role.** An outgoing webhook or slash command made
+  by an admin who is now a member kept sending channel traffic; it turns off, saying why.
+- **A taken-over workflow gets a new URL.** The old owner could still start it from the link
+  they knew. *New URL* in the workflow replaces it at any time.
+
 ## [3.6.0] — 2026-10-28
 
 ### Upgrading from 3.5.0

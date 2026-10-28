@@ -127,7 +127,9 @@ pub(crate) async fn hooks_to_fire(state: &AppState, ws_id: Uuid, channel_id: Uui
     };
     let mut firing = Vec::with_capacity(hooks.len());
     for hook in hooks {
-        match authz::still_acting(state, ws_id, hook.created_by, Some(channel_id)).await {
+        match authz::hook_still_acting(state, &hook.hook_type, ws_id, hook.created_by, channel_id)
+            .await
+        {
             Ok(None) => firing.push(hook),
             Ok(Some(why)) => {
                 info!(hook_id = %hook.id, "Hook disabled: {}", why.reason());

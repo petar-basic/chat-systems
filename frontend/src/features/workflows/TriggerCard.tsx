@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Clock, Plus, SmilePlus, Trash2, UserPlus, Webhook, Zap } from 'lucide-react';
+import { Clock, Plus, RefreshCw, SmilePlus, Trash2, UserPlus, Webhook, Zap } from 'lucide-react';
 import { EmojiPicker } from '@/features/messaging';
 import { ReactionEmoji } from '@/shared/components/ReactionEmoji';
 import type { Channel } from '@/stores/workspace';
@@ -30,6 +30,8 @@ interface Props {
   webhookUrl: string | null;
   readOnly: boolean;
   onChange: (trigger: Trigger) => void;
+  onRotate?: () => void;
+  rotating?: boolean;
 }
 
 const ICONS: Record<Trigger['type'], typeof Clock> = {
@@ -40,7 +42,15 @@ const ICONS: Record<Trigger['type'], typeof Clock> = {
   shortcut: Zap,
 };
 
-export function TriggerCard({ trigger, channels, webhookUrl, readOnly, onChange }: Props) {
+export function TriggerCard({
+  trigger,
+  channels,
+  webhookUrl,
+  readOnly,
+  onChange,
+  onRotate,
+  rotating,
+}: Props) {
   const Icon = ICONS[trigger.type];
   return (
     <section className="rounded-xl border border-line bg-raised/30 p-4" data-qa="workflow-trigger">
@@ -66,7 +76,14 @@ export function TriggerCard({ trigger, channels, webhookUrl, readOnly, onChange 
           <ScheduleFields trigger={trigger} readOnly={readOnly} onChange={onChange} />
         )}
         {trigger.type === 'webhook' && (
-          <WebhookFields trigger={trigger} webhookUrl={webhookUrl} readOnly={readOnly} onChange={onChange} />
+          <WebhookFields
+            trigger={trigger}
+            webhookUrl={webhookUrl}
+            readOnly={readOnly}
+            onChange={onChange}
+            onRotate={onRotate}
+            rotating={rotating}
+          />
         )}
         {(trigger.type === 'reaction_added' ||
           trigger.type === 'member_joined' ||
@@ -222,17 +239,36 @@ function WebhookFields({
   webhookUrl,
   readOnly,
   onChange,
+  onRotate,
+  rotating,
 }: {
   trigger: Hook;
   webhookUrl: string | null;
   readOnly: boolean;
   onChange: (trigger: Trigger) => void;
+  onRotate?: () => void;
+  rotating?: boolean;
 }) {
   const setVariables = (variables: string[]) => onChange({ ...trigger, variables });
   return (
     <div className="space-y-3">
       {webhookUrl ? (
-        <CopyField label="Webhook URL" value={webhookUrl} valueQa="workflow-webhook-url" />
+        <div className="space-y-2">
+          <CopyField label="Webhook URL" value={webhookUrl} valueQa="workflow-webhook-url" />
+          {onRotate && (
+            <Button
+              size="sm"
+              icon={<RefreshCw className="h-3.5 w-3.5" />}
+              onClick={onRotate}
+              loading={rotating}
+              disabled={rotating}
+              title="The old URL stops working at once"
+              data-qa="workflow-rotate"
+            >
+              New URL
+            </Button>
+          )}
+        </div>
       ) : (
         <p className="text-xs text-muted">Save the workflow to get its URL.</p>
       )}
