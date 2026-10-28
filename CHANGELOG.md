@@ -55,6 +55,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - **An archived private channel can be found again.** The sidebar leaves archived channels out
   and *Browse channels* listed public ones only, so nobody could reach one to unarchive it. Browse
   now lists those you are a member of, under the archived public ones.
+- **A message that arrives while a channel opens is shown.** The first page of a channel was
+  still loading when a new message came in over the socket, so the message was dropped until
+  the next reload. It now reloads the page instead.
 
 ## [3.6.0] — 2026-10-28
 

@@ -2059,3 +2059,9 @@ and deleting, reaction pills and poll options go inert, and the header, members 
 bookmark bar lose their writers. `list_browsable_channels` adds archived private channels the
 caller is a member of, ordered under the archived public ones, and opening one lands on the
 archived bar with *Unarchive* for its admins.
+
+The on-screen mention E2E turned up a race on the way: the messages query resolves only after
+`settleChannelNotifications`, so a `message.new` arriving between the GET and that settling found
+no cache, and `patchChannel` dropped it while the page it was waiting for had been read before
+the message existed. `message.new` now invalidates the channel's messages when there is no cache
+yet, which refetches an open channel and leaves one nobody is looking at alone.
