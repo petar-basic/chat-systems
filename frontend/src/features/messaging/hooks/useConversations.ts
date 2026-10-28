@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { components } from '@/api/schema';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { logger } from '@/lib/logger';
+import { newestSentIn } from '@/lib/readOnScreen';
 import { QUERY_KEYS } from '@/shared/constants';
 
 export type Conversation = components['schemas']['ConversationSummary'];
@@ -40,10 +41,16 @@ export const useOpenConversation = (workspaceId: string, instanceUrl?: string) =
 export const useMarkConversationRead = (workspaceId: string, instanceUrl?: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (conversationId: string) =>
-      getApiForInstance(instanceUrl).typed((c) =>
-        c.POST('/conversations/{conv_id}/read', { params: { path: { conv_id: conversationId } } }),
-      ),
+    mutationFn: async (conversationId: string) => {
+      const newest = newestSentIn(queryClient, conversationId);
+      if (!newest) return;
+      await getApiForInstance(instanceUrl).typed((c) =>
+        c.POST('/channels/{ch_id}/read', {
+          params: { path: { ch_id: conversationId } },
+          body: { message_id: newest },
+        }),
+      );
+    },
     onMutate: (conversationId) => {
       queryClient.setQueryData<Conversation[]>(QUERY_KEYS.conversations(workspaceId), (old) =>
         old?.map((c) => (c.id === conversationId ? { ...c, last_read_at: new Date().toISOString() } : c)),

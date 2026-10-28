@@ -62,14 +62,14 @@ async fn list_messages(
     let data = with_reactions(&state, messages).await?;
 
     let newest = data.first().map(|m| m.message.id);
-    let (unread_notifications, last_read_before) = match newest {
+    let (unread_notifications, marked) = match newest {
         Some(newest) if params.mark_read == Some(true) && params.cursor.is_none() => {
-            let before = read_up_to(&state, &access, auth.user_id, newest).await?;
+            let marked = read_up_to(&state, &access, auth.user_id, newest).await?;
             let unread = state
                 .notification_repo
                 .unread_count(auth.user_id, access.channel.workspace_id)
                 .await?;
-            (Some(unread), before)
+            (Some(unread), marked)
         }
         _ => (None, None),
     };
@@ -77,7 +77,8 @@ async fn list_messages(
     Ok(Json(MessagePage {
         data,
         unread_notifications,
-        last_read_before,
+        last_read_before: marked.as_ref().and_then(|m| m.before),
+        last_read_before_at: marked.and_then(|m| m.before_at),
     }))
 }
 
@@ -86,9 +87,9 @@ async fn read_up_to(
     access: &authz::ChannelAccess,
     user_id: Uuid,
     message_id: Uuid,
-) -> AppResult<Option<Uuid>> {
+) -> AppResult<Option<MarkedRead>> {
     let ch_id = access.channel.id;
-    let before = state
+    let marked = state
         .message_repo
         .mark_read(ch_id, user_id, message_id)
         .await?;
@@ -100,7 +101,7 @@ async fn read_up_to(
         channel_id: ch_id,
         unread_count: 0,
         mention_count: 0,
-        last_read_message_id: Some(message_id),
+        last_read_message_id: marked.as_ref().and_then(|m| m.boundary),
     };
     if let Err(e) = state
         .publisher
@@ -109,7 +110,7 @@ async fn read_up_to(
     {
         tracing::warn!(channel_id = %ch_id, "failed to announce the read position: {e}");
     }
-    Ok(before)
+    Ok(marked)
 }
 
 /// Threads are one level deep and stay in their channel: replying to a reply
@@ -742,7 +743,7 @@ async fn locate_message(
     let not_found = || AppError::NotFound("Message not found".into());
     let message = state
         .message_repo
-        .find_by_id(msg_id)
+        .find_root(msg_id)
         .await?
         .ok_or_else(not_found)?;
     let access = match authz::require_channel_access(&state, message.channel_id, auth.user_id).await
@@ -1064,7 +1065,7 @@ impl BroadcastMentions {
     }
 }
 
-fn addressed_text(content: &str, forwarded: bool) -> std::borrow::Cow<'_, str> {
+pub(crate) fn addressed_text(content: &str, forwarded: bool) -> std::borrow::Cow<'_, str> {
     if !forwarded {
         return std::borrow::Cow::Borrowed(content);
     }

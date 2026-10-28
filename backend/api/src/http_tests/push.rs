@@ -1324,3 +1324,148 @@ async fn a_hook_message_notifies_its_creator_under_the_bot_name(pool: PgPool) {
             .expect("pending");
     assert_eq!(sender, "Deploybot", "named after the bot, not the creator");
 }
+
+#[sqlx::test(migrations = "../migrations")]
+async fn a_mention_in_a_reply_sent_to_the_channel_is_read_with_the_channel(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (author, _, author_token) = seed_and_login(&app, &state, "mail-author", false).await;
+    let (target, _, target_token) = seed_and_login(&app, &state, "mail-target", false).await;
+    let ws_id = seed_workspace(&state, author, "Mail WS").await;
+    add_ws_member(&state, ws_id, target, "member").await;
+    let ch_id = seed_channel(&state, ws_id, author, "quiet", false).await;
+    join_channel(&state, ch_id, target).await;
+
+    let (_, root) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/messages"),
+        Some(&author_token),
+        Some(json!({ "content": "root" })),
+    )
+    .await;
+    let (status, reply) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/messages"),
+        Some(&author_token),
+        Some(json!({ "content": "look @target", "thread_parent_id": root["id"], "also_to_channel": true })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{reply:?}");
+
+    let mut conn = state.redis.clone();
+    notify_message(
+        &state,
+        &state.notification_repo,
+        &sender_for(&state),
+        &mut conn,
+        &json!({
+            "user_id": author.to_string(),
+            "workspace_id": ws_id.to_string(),
+            "channel_id": ch_id.to_string(),
+            "id": reply["id"],
+            "thread_parent_id": root["id"],
+            "metadata": { "also_in_channel": true },
+            "content": "look @target",
+            "mentioned_user_ids": [target.to_string()],
+        }),
+    )
+    .await;
+    assert_eq!(pending_for(&state, target).await, 1);
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/read"),
+        Some(&target_token),
+        Some(json!({ "message_id": reply["id"] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let unread: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND NOT is_read")
+            .bind(target)
+            .fetch_one(&state.pool)
+            .await
+            .expect("count");
+    assert_eq!(unread, 0, "reading the channel reads the reply sent to it");
+
+    sqlx::query("UPDATE pending_mention_emails SET created_at = NOW() - INTERVAL '10 minutes'")
+        .execute(&state.pool)
+        .await
+        .expect("age the queue");
+    assert_eq!(crate::notifications::email::flush_due(&state).await, 0);
+    assert_eq!(pending_for(&state, target).await, 0, "and no email follows");
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn a_keyword_inside_a_forwarded_quote_alerts_nobody(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (author, _, _) = seed_and_login(&app, &state, "kw-author", false).await;
+    let (target, _, target_token) = seed_and_login(&app, &state, "kw-target", false).await;
+    let ws_id = seed_workspace(&state, author, "Keyword WS").await;
+    add_ws_member(&state, ws_id, target, "member").await;
+    let ch_id = seed_channel(&state, ws_id, author, "ops", false).await;
+    join_channel(&state, ch_id, target).await;
+    let (status, _) = send(
+        &app,
+        "PUT",
+        &format!("/api/workspaces/{ws_id}/notification-keywords"),
+        Some(&target_token),
+        Some(json!({ "keywords": ["deploy"] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let keyword_alerts = || async {
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND notification_type = 'keyword'",
+        )
+        .bind(target)
+        .fetch_one(&state.pool)
+        .await
+        .expect("count")
+    };
+    let mut conn = state.redis.clone();
+    let event = |content: &str, forwarded: bool| {
+        let mut event = json!({
+            "user_id": author.to_string(),
+            "workspace_id": ws_id.to_string(),
+            "channel_id": ch_id.to_string(),
+            "id": Uuid::new_v4().to_string(),
+            "content": content,
+        });
+        if forwarded {
+            event["metadata"] = json!({ "forwarded_from": { "message_id": Uuid::new_v4() } });
+        }
+        event
+    };
+
+    notify_message(
+        &state,
+        &state.notification_repo,
+        &sender_for(&state),
+        &mut conn,
+        &event("> the deploy is done\n\nfyi", true),
+    )
+    .await;
+    assert_eq!(
+        keyword_alerts().await,
+        0,
+        "the quote is somebody else's words"
+    );
+
+    notify_message(
+        &state,
+        &state.notification_repo,
+        &sender_for(&state),
+        &mut conn,
+        &event("fyi, deploy at noon\n\n> earlier words", true),
+    )
+    .await;
+    assert_eq!(
+        keyword_alerts().await,
+        1,
+        "what the forwarder wrote still counts"
+    );
+}

@@ -7,7 +7,7 @@ import MessageItem from './MessageItem';
 import VirtualMessageList from './VirtualMessageList';
 import { GalleryProvider } from './GalleryProvider';
 import { RovingContext, createRovingStore } from './rovingFocus';
-import { buildMessageRows, type MessageRow } from './messageRows';
+import { boundaryReached, buildMessageRows, type MessageRow, type ReadBoundary } from './messageRows';
 import { useWorkspaceStore, type Message, type WorkspaceMember, type Channel } from '@/stores/workspace';
 import {
   useMessages,
@@ -95,31 +95,37 @@ export default function MessageList({
   // reading, or the line jumps down the list as each message is marked read.
   const workspace = useWorkspaceStore((s) => s.currentWorkspace);
   const { data: unread } = useUnreadChannels(workspace?.id ?? null, workspace?.instanceUrl);
-  const [readBoundary, setReadBoundary] = useState<string | null | undefined>(undefined);
+  const [readBoundary, setReadBoundary] = useState<ReadBoundary | null | undefined>(undefined);
   const [boundaryChannel, setBoundaryChannel] = useState<string | null>(null);
   const [landed, setLanded] = useState(false);
   if (boundaryChannel !== channelId) {
     setBoundaryChannel(channelId);
     setLanded(false);
+    const count = unread?.counts.find((c) => c.channel_id === channelId && c.unread_count > 0);
     setReadBoundary(
       unread
-        ? (unread.counts.find((c) => c.channel_id === channelId && c.unread_count > 0)?.last_read_msg ?? null)
+        ? count?.last_read_msg
+          ? { id: count.last_read_msg, at: count.last_read_at ?? null }
+          : null
         : undefined,
     );
   } else if (readBoundary === undefined && data) {
-    setReadBoundary(data.pages[0]?.last_read_before ?? null);
+    const page = data.pages[0];
+    setReadBoundary(
+      page?.last_read_before ? { id: page.last_read_before, at: page.last_read_before_at ?? null } : null,
+    );
   }
 
-  const rows = useMemo(() => buildMessageRows(messages, readBoundary), [messages, readBoundary]);
+  const rows = useMemo(() => buildMessageRows(messages, readBoundary?.id), [messages, readBoundary]);
   const dividerKey = rows.find((row) => row.kind === 'unread')?.key;
 
   const landing = !landed && !highlightMessageId && !!readBoundary && !!data && !isFetching;
-  const boundaryLoaded = landing && messages.some((m) => m.id === readBoundary);
-  if (landing && (dividerKey || boundaryLoaded)) {
+  const reached = landing && boundaryReached(messages, readBoundary);
+  if (landing && (dividerKey || reached)) {
     setLanded(true);
     if (dividerKey) setScrollTarget(dividerKey);
   }
-  const needOlder = landing && !boundaryLoaded;
+  const needOlder = landing && !reached;
   useEffect(() => {
     if (needOlder && hasNextPage) fetchNextPage();
   }, [needOlder, hasNextPage, fetchNextPage]);

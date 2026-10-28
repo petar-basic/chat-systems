@@ -163,6 +163,12 @@ pub struct MarkReadRequest {
     pub message_id: Uuid,
 }
 
+pub struct MarkedRead {
+    pub boundary: Option<Uuid>,
+    pub before: Option<Uuid>,
+    pub before_at: Option<DateTime<Utc>>,
+}
+
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct ReadState {
     pub channel_id: Uuid,
@@ -291,6 +297,8 @@ pub struct MessagePage {
     pub unread_notifications: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_read_before: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_read_before_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]

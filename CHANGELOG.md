@@ -27,6 +27,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - Reactivating an account that has no password and no SSO link (an imported Slack leaver), from
   the admin page or with SCIM `active: true`, leaves it `pending` instead of `active`; invite
   the person to let them in.
+- For API clients: `POST /conversations/{id}/read` is gone; a conversation is read like a
+  channel, `POST /channels/{id}/read` with the message read up to. Unread counts carry
+  `last_read_at` and a first message page `last_read_before_at`, the time of the read.
 
 ### Security
 
@@ -58,6 +61,12 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - **A message that arrives while a channel opens is shown.** The first page of a channel was
   still loading when a new message came in over the socket, so the message was dropped until
   the next reload. It now reloads the page instead.
+- **Read state matches what you read.** *Mark all read* could leave a channel's read position
+  on a reply kept in its thread, so opening it loaded the whole history looking for it. A
+  mention in a reply also sent to the channel stayed unread after reading the channel, and its
+  email went out. A reply notification under a deleted message opened nothing, a DM opened at
+  an old *New* line, and a keyword quoted in a forward alerted its owner. Each now behaves as
+  it does in a channel.
 
 ## [3.6.0] — 2026-10-28
 

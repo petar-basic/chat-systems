@@ -919,33 +919,46 @@ impl MessageRepo {
         channel_id: Uuid,
         user_id: Uuid,
         message_id: Uuid,
-    ) -> sqlx::Result<Option<Uuid>> {
-        let before = sqlx::query_scalar!(
+    ) -> sqlx::Result<Option<MarkedRead>> {
+        sqlx::query_as!(
+            MarkedRead,
             r#"
             WITH before AS (
-                SELECT last_read_msg, unread_count
+                SELECT last_read_msg, last_read_at, unread_count
                   FROM channel_members
                  WHERE channel_id = $1 AND user_id = $2
                    FOR UPDATE
+            ),
+            boundary AS (
+                SELECT m.id FROM messages m, messages t
+                 WHERE t.id = $3 AND t.channel_id = $1
+                   AND m.channel_id = $1
+                   AND m.deleted_at IS NULL
+                   AND (m.thread_parent_id IS NULL OR m.metadata->>'also_in_channel' = 'true')
+                   AND (m.created_at, m.id) <= (t.created_at, t.id)
+                 ORDER BY m.created_at DESC, m.id DESC
+                 LIMIT 1
             )
             UPDATE channel_members cm
             SET last_read_at = NOW(),
-                last_read_msg = $3,
-                last_read_message_id = $3,
+                last_read_msg = (SELECT id FROM boundary),
+                last_read_message_id = (SELECT id FROM boundary),
                 unread_count = 0,
                 mention_count = 0
             FROM before
             WHERE cm.channel_id = $1 AND cm.user_id = $2
-            RETURNING CASE WHEN before.unread_count > 0 AND before.last_read_msg IS DISTINCT FROM $3
-                           THEN before.last_read_msg END AS "last_read_before?"
+            RETURNING cm.last_read_msg AS boundary,
+                      CASE WHEN before.unread_count > 0 AND before.last_read_msg IS DISTINCT FROM cm.last_read_msg
+                           THEN before.last_read_msg END AS "before?",
+                      CASE WHEN before.unread_count > 0 AND before.last_read_msg IS DISTINCT FROM cm.last_read_msg
+                           THEN before.last_read_at END AS "before_at?"
             "#,
             channel_id,
             user_id,
             message_id
         )
         .fetch_optional(&self.pool)
-        .await?;
-        Ok(before.flatten())
+        .await
     }
 
     pub async fn mark_workspace_read(
@@ -959,7 +972,9 @@ impl MessageRepo {
             WITH newest AS (
                 SELECT cm.channel_id,
                        (SELECT m.id FROM messages m
-                         WHERE m.channel_id = cm.channel_id AND m.deleted_at IS NULL
+                         WHERE m.channel_id = cm.channel_id
+                           AND m.deleted_at IS NULL
+                           AND (m.thread_parent_id IS NULL OR m.metadata->>'also_in_channel' = 'true')
                          ORDER BY m.created_at DESC, m.id DESC
                          LIMIT 1) AS message_id
                   FROM channel_members cm
@@ -1155,10 +1170,11 @@ impl MessageRepo {
         &self,
         workspace_id: Uuid,
         user_id: Uuid,
-    ) -> sqlx::Result<Vec<(Uuid, i32, i32, Option<Uuid>)>> {
-        let rows = sqlx::query!(
+    ) -> sqlx::Result<Vec<crate::workspace::models::UnreadCount>> {
+        sqlx::query_as!(
+            crate::workspace::models::UnreadCount,
             r"
-            SELECT cm.channel_id, cm.unread_count, cm.mention_count, cm.last_read_msg
+            SELECT cm.channel_id, cm.unread_count, cm.mention_count, cm.last_read_msg, cm.last_read_at
               FROM channel_members cm
               JOIN channels c ON c.id = cm.channel_id
              WHERE c.workspace_id = $1 AND cm.user_id = $2 AND c.is_archived = false
@@ -1167,18 +1183,7 @@ impl MessageRepo {
             user_id
         )
         .fetch_all(&self.pool)
-        .await?;
-        Ok(rows
-            .into_iter()
-            .map(|r| {
-                (
-                    r.channel_id,
-                    r.unread_count,
-                    r.mention_count,
-                    r.last_read_msg,
-                )
-            })
-            .collect())
+        .await
     }
 
     /// Recomputes what the counters should be and reports the rows that were

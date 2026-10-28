@@ -36,16 +36,9 @@ export function readOnScreen(queryClient: QueryClient, channelId: string) {
     channelId,
     setTimeout(() => {
       pending.delete(channelId);
-      const api = getApiForInstance(instanceUrl);
-      if (where === 'conversation') {
-        api
-          .typed((c) => c.POST('/conversations/{conv_id}/read', { params: { path: { conv_id: channelId } } }))
-          .catch((err) => logger.error('readOnScreen', where, err));
-        return;
-      }
       const newest = newestSentIn(queryClient, channelId);
       if (!newest) return;
-      api
+      getApiForInstance(instanceUrl)
         .typed((c) =>
           c.POST('/channels/{ch_id}/read', {
             params: { path: { ch_id: channelId } },

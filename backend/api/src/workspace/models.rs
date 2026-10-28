@@ -189,6 +189,7 @@ pub struct UnreadCount {
     pub unread_count: i32,
     pub mention_count: i32,
     pub last_read_msg: Option<Uuid>,
+    pub last_read_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]

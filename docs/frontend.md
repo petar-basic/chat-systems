@@ -696,7 +696,7 @@ Token refresh is **not** a hook — `ApiClient` refreshes automatically on 401 /
 |------|------|-------------|
 | `useConversations(wsId, instanceUrl?)` | GET `/workspaces/{id}/conversations` | Direct and group conversations, newest message first, with participants and the caller's `last_read_at` |
 | `useOpenConversation(wsId, instanceUrl?)` | POST `/workspaces/{id}/conversations` `{ participant_ids }` | Finds or creates one; the result's id is a channel id |
-| `useMarkConversationRead(wsId, instanceUrl?)` | POST `/conversations/{id}/read` | Clears the caller's unread counters |
+| `useMarkConversationRead(wsId, instanceUrl?)` | POST `/channels/{id}/read` | Reads the conversation up to its newest loaded message, as a channel |
 
 Messages, threads, reactions, edits, pins, saved items and scheduled sends in a conversation
 use the channel hooks above with the conversation id as `channelId`.

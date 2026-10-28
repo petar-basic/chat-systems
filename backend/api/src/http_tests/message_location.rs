@@ -103,6 +103,28 @@ async fn a_reply_names_its_thread(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn a_deleted_root_that_still_has_replies_is_found(pool: PgPool) {
+    let (place, state) = place(pool).await;
+    let ch_id = seed_channel(&state, place.ws_id, place.owner.0, "tombstone", false).await;
+    let root = post(&place, &place.owner.1, ch_id, None).await;
+    post(&place, &place.owner.1, ch_id, Some(root)).await;
+    let (status, _) = send(
+        &place.app,
+        "DELETE",
+        &format!("/api/messages/{root}"),
+        Some(&place.owner.1),
+        None,
+    )
+    .await;
+    assert!(status.is_success(), "{status}");
+
+    let (status, body) = locate(&place, &place.owner.1, root).await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(body["channel_id"], ch_id.to_string());
+    assert_eq!(body["thread_parent_id"], Value::Null);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_public_channel_not_joined_is_found_but_not_joined(pool: PgPool) {
     let (place, state) = place(pool).await;
     let ch_id = seed_channel(&state, place.ws_id, place.owner.0, "open-door", false).await;

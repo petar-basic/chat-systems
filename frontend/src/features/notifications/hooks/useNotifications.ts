@@ -23,6 +23,7 @@ export interface AppNotification {
   channel_id: string | null;
   message_id: string | null;
   thread_parent_id: string | null;
+  in_channel: boolean;
   list_id: string | null;
   item_id: string | null;
   is_read: boolean;
@@ -31,12 +32,12 @@ export interface AppNotification {
 
 type DeepLink = Pick<
   AppNotification,
-  'channel_id' | 'message_id' | 'thread_parent_id' | 'list_id' | 'item_id'
+  'channel_id' | 'message_id' | 'thread_parent_id' | 'in_channel' | 'list_id' | 'item_id'
 >;
 
 function deepLink(data: unknown): DeepLink {
   const fields: Record<string, unknown> = typeof data === 'object' && data !== null ? { ...data } : {};
-  const text = (key: keyof DeepLink) => {
+  const text = (key: Exclude<keyof DeepLink, 'in_channel'>) => {
     const value = fields[key];
     return typeof value === 'string' ? value : null;
   };
@@ -44,6 +45,7 @@ function deepLink(data: unknown): DeepLink {
     channel_id: text('channel_id'),
     message_id: text('message_id'),
     thread_parent_id: text('thread_parent_id'),
+    in_channel: fields.in_channel === true,
     list_id: text('list_id'),
     item_id: text('item_id'),
   };
@@ -215,7 +217,9 @@ export async function settleChannelNotifications(
   queryClient.setQueryData<number>(countKey, unread);
   queryClient.setQueryData<AppNotification[]>(QUERY_KEYS.notifications(workspaceId), (old) =>
     old?.map((n) =>
-      n.channel_id === channelId && !n.thread_parent_id && !n.is_read ? { ...n, is_read: true } : n,
+      n.channel_id === channelId && (!n.thread_parent_id || n.in_channel) && !n.is_read
+        ? { ...n, is_read: true }
+        : n,
     ),
   );
 }
