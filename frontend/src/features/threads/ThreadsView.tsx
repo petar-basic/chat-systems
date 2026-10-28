@@ -3,6 +3,7 @@ import { Hash, Lock, Menu, MessageCircle, MessagesSquare } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { RichTextDisplay, MessageInput, asAttachments, useComposerAttachments } from '@/features/messaging';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
+import { Checkbox } from '@/shared/components/Form/Checkbox';
 import { useUserCache } from '@/stores/users';
 import type { Channel, Message, WorkspaceMember } from '@/stores/workspace';
 import { displayNameOf } from '@/lib/userHelpers';
@@ -88,6 +89,7 @@ export function ThreadsView({
     if (channel) {
       return {
         title: channel.name ?? 'channel',
+        alsoTo: `Also send to #${channel.name}`,
         icon:
           channel.channel_type === 'private' ? (
             <Lock className="w-4 h-4 text-muted shrink-0" />
@@ -102,6 +104,7 @@ export function ThreadsView({
       title: conversation
         ? conversationTitle(conversation, currentUserId, (id) => getUser(id)?.display_name)
         : 'Direct message',
+      alsoTo: 'Also send to the conversation',
       icon: <MessageCircle className="w-4 h-4 text-muted shrink-0" />,
       open: () => onOpenConversation(root.channel_id),
     };
@@ -171,7 +174,7 @@ export function ThreadsView({
 interface CardProps {
   thread: ThreadSummary;
   seen?: Seen;
-  place: { title: string; icon: ReactNode; open: () => void };
+  place: { title: string; alsoTo: string; icon: ReactNode; open: () => void };
   workspaceId: string;
   instanceUrl?: string;
   currentUserId: string;
@@ -201,15 +204,17 @@ function ThreadCard({
   const newIds = new Set(fresh > 0 ? others.slice(-fresh).map((reply) => reply.id) : []);
 
   const unsent = useUnsent(root.id);
+  const [alsoToChannel, setAlsoToChannel] = useState(false);
   const refreshThreads = {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.followedThreads(workspaceId) }),
   };
 
   const handleSend = async (content: string) => {
     sendReply.mutate(
-      { content, id: crypto.randomUUID(), attachments: asAttachments(attachments.take()) },
+      { content, id: crypto.randomUUID(), attachments: asAttachments(attachments.take()), alsoToChannel },
       refreshThreads,
     );
+    setAlsoToChannel(false);
   };
   const retry = (reply: Message) =>
     sendReply.mutate(
@@ -270,6 +275,13 @@ function ThreadCard({
         ))}
       </ol>
       <div className="border-t border-line/50" data-qa="thread-card-reply">
+        <Checkbox
+          label={place.alsoTo}
+          checked={alsoToChannel}
+          onChange={setAlsoToChannel}
+          dataQa="thread-card-also-to-channel"
+          className="px-3 pt-2 text-xs text-muted"
+        />
         <MessageInput
           channelName=""
           placeholder="Reply…"
@@ -278,6 +290,9 @@ function ThreadCard({
           draftKey={`thread:${root.id}`}
           onSend={handleSend}
           attachments={attachments}
+          workspaceId={workspaceId}
+          instanceUrl={instanceUrl}
+          scheduleTarget={{ channelId: root.channel_id, threadParentId: root.id, alsoToChannel }}
           pollTarget={{ channelId: root.channel_id, threadParentId: root.id, instanceUrl }}
         />
       </div>

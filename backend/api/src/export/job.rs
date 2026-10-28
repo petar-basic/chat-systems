@@ -176,10 +176,14 @@ async fn export_workspace(
           JOIN channels c ON c.id = m.channel_id
          WHERE c.workspace_id = $1
            AND ($2::bool OR c.channel_type NOT IN ('dm', 'group_dm'))
+           AND ($3::timestamptz IS NULL OR m.created_at >= $3)
+           AND ($4::timestamptz IS NULL OR m.created_at <= $4)
          ORDER BY e.edited_at
         "#,
         workspace_id,
-        job.include_dms
+        job.include_dms,
+        job.since,
+        job.until
     )
     .fetch_all(&state.pool)
     .await
@@ -195,9 +199,13 @@ async fn export_workspace(
           JOIN channels c ON c.id = m.channel_id
          WHERE c.workspace_id = $1
            AND ($2::bool OR c.channel_type NOT IN ('dm', 'group_dm'))
+           AND ($3::timestamptz IS NULL OR m.created_at >= $3)
+           AND ($4::timestamptz IS NULL OR m.created_at <= $4)
         "#,
         workspace_id,
-        job.include_dms
+        job.include_dms,
+        job.since,
+        job.until
     )
     .fetch_all(&state.pool)
     .await
@@ -254,10 +262,14 @@ async fn export_workspace(
           JOIN channels c ON c.id = m.channel_id
          WHERE c.workspace_id = $1
            AND ($2::bool OR c.channel_type NOT IN ('dm', 'group_dm'))
+           AND ($3::timestamptz IS NULL OR m.created_at >= $3)
+           AND ($4::timestamptz IS NULL OR m.created_at <= $4)
          ORDER BY p.created_at
         "#,
         workspace_id,
-        job.include_dms
+        job.include_dms,
+        job.since,
+        job.until
     )
     .fetch_all(&state.pool)
     .await
@@ -275,10 +287,14 @@ async fn export_workspace(
          WHERE c.workspace_id = $1
            AND NOT p.anonymous
            AND ($2::bool OR c.channel_type NOT IN ('dm', 'group_dm'))
+           AND ($3::timestamptz IS NULL OR m.created_at >= $3)
+           AND ($4::timestamptz IS NULL OR m.created_at <= $4)
          ORDER BY v.created_at
         "#,
         workspace_id,
-        job.include_dms
+        job.include_dms,
+        job.since,
+        job.until
     )
     .fetch_all(&state.pool)
     .await

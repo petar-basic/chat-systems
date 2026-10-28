@@ -100,16 +100,16 @@ impl WorkspaceService {
             return Ok(CreatedInvite {
                 invite,
                 invite_url: None,
-                email_sent: false,
+                email_status: None,
             });
         }
 
         let invite_url = self.invite_url(&invite, auth_service).await?;
-        let email_sent = self.email_invite(&invite, &invite_url, auth_service).await;
+        let email_status = self.email_invite(&invite, &invite_url, auth_service).await;
         Ok(CreatedInvite {
             invite,
             invite_url: Some(invite_url),
-            email_sent,
+            email_status: Some(email_status),
         })
     }
 
@@ -143,22 +143,22 @@ impl WorkspaceService {
         invite: &WorkspaceInvite,
         invite_url: &str,
         auth_service: &AuthService,
-    ) -> bool {
+    ) -> InviteEmailStatus {
         let (Some(email), true) = (invite.email.as_deref(), auth_service.can_send_email()) else {
-            return false;
+            return InviteEmailStatus::NotConfigured;
         };
         let workspace = match self.repo.find_workspace_by_id(invite.workspace_id).await {
             Ok(Some(ws)) => ws,
-            _ => return false,
+            _ => return InviteEmailStatus::Failed,
         };
         match auth_service
             .send_invite_email(email, &workspace.name, invite_url)
             .await
         {
-            Ok(()) => true,
+            Ok(()) => InviteEmailStatus::Sent,
             Err(e) => {
                 tracing::warn!("Failed to send invite email: {}", e);
-                false
+                InviteEmailStatus::Failed
             }
         }
     }

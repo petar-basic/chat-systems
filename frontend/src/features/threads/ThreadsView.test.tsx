@@ -5,6 +5,7 @@ import type { ThreadSummary } from '@/features/threads/hooks/useThreads';
 import { ThreadsView } from './ThreadsView';
 
 const markRead = vi.fn();
+let composer: Record<string, unknown> = {};
 const sendReply = vi.fn();
 let threads: ThreadSummary[] = [];
 
@@ -48,11 +49,14 @@ vi.mock('@/features/threads/hooks/useThreads', () => ({
 }));
 
 vi.mock('@/features/messaging/MessageInput', () => ({
-  default: ({ onSend }: { onSend: (content: string) => Promise<void> }) => (
-    <button type="button" onClick={() => void onSend('on it')}>
-      send
-    </button>
-  ),
+  default: (props: { onSend: (content: string) => Promise<void> }) => {
+    composer = props;
+    return (
+      <button type="button" onClick={() => void props.onSend('on it')}>
+        send
+      </button>
+    );
+  },
 }));
 
 vi.mock('@/features/messaging/useComposerAttachments', () => ({
@@ -112,6 +116,24 @@ describe('ThreadsView', () => {
     renderView();
     fireEvent.click(screen.getByText('send'));
     expect(sendReply).toHaveBeenCalledWith(expect.objectContaining({ content: 'on it' }), expect.anything());
+  });
+
+  it('schedules and sends to the channel as the thread panel does', () => {
+    threads = [thread(0)];
+    renderView();
+    expect(composer.scheduleTarget).toEqual({
+      channelId: 'ch-1',
+      threadParentId: 'root',
+      alsoToChannel: false,
+    });
+
+    fireEvent.click(screen.getByLabelText('Also send to #design'));
+    expect(composer.scheduleTarget).toEqual(expect.objectContaining({ alsoToChannel: true }));
+    fireEvent.click(screen.getByText('send'));
+    expect(sendReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: 'on it', alsoToChannel: true }),
+      expect.anything(),
+    );
   });
 
   it('says so when nothing is followed', () => {

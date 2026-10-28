@@ -121,19 +121,23 @@ pub(crate) async fn thread_root(
     channel_id: Uuid,
     parent_id: Uuid,
 ) -> AppResult<Message> {
-    let not_here = || AppError::Validation("Thread parent is not in this channel".into());
+    let gone = || AppError::NotFound("This thread was deleted".into());
     let parent = state
         .message_repo
         .find_root(parent_id)
         .await?
-        .filter(|parent| parent.channel_id == channel_id)
-        .ok_or_else(not_here)?;
+        .ok_or_else(gone)?;
+    if parent.channel_id != channel_id {
+        return Err(AppError::Validation(
+            "Thread parent is not in this channel".into(),
+        ));
+    }
     match parent.thread_parent_id {
         Some(root_id) => state
             .message_repo
             .find_root(root_id)
             .await?
-            .ok_or_else(not_here),
+            .ok_or_else(gone),
         None => Ok(parent),
     }
 }
@@ -1049,8 +1053,17 @@ async fn search_messages(
             offset,
         })
         .await?;
+    let ids: Vec<Uuid> = messages.iter().map(|m| m.channel_id).collect();
+    let names = state.workspace_service.repo.channel_names(&ids).await?;
+    let data = messages
+        .into_iter()
+        .map(|message| SearchHit {
+            channel_name: names.get(&message.channel_id).cloned(),
+            message,
+        })
+        .collect();
 
-    Ok(Json(SearchResponse { data: messages }))
+    Ok(Json(SearchResponse { data }))
 }
 
 #[derive(Debug, Default, PartialEq)]

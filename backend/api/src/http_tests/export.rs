@@ -682,3 +682,65 @@ async fn files_follow_the_same_dm_rule_and_dates_as_messages(pool: PgPool) {
         "the date range applies to files too"
     );
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn edits_and_reactions_follow_their_messages_dates(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "exp-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Export WS").await;
+    let ch = seed_channel(&state, ws, owner_id, "main", false).await;
+
+    for (content, age_days) in [("this week", 0), ("last month", 30)] {
+        let (_, message) = send(
+            &app,
+            "POST",
+            &format!("/api/channels/{ch}/messages"),
+            Some(&owner),
+            Some(json!({ "content": content })),
+        )
+        .await;
+        let id = Uuid::parse_str(message["id"].as_str().expect("id")).expect("uuid");
+        sqlx::query(
+            "UPDATE messages SET created_at = NOW() - make_interval(days => $2) WHERE id = $1",
+        )
+        .bind(id)
+        .bind(age_days)
+        .execute(&state.pool)
+        .await
+        .expect("backdate");
+        sqlx::query("INSERT INTO reactions (message_id, user_id, emoji) VALUES ($1, $2, '👍')")
+            .bind(id)
+            .bind(owner_id)
+            .execute(&state.pool)
+            .await
+            .expect("reaction");
+        sqlx::query(
+            "INSERT INTO message_edits (message_id, previous_content, edited_by) VALUES ($1, 'draft', $2)",
+        )
+        .bind(id)
+        .bind(owner_id)
+        .execute(&state.pool)
+        .await
+        .expect("edit");
+    }
+
+    let since = (chrono::Utc::now() - chrono::Duration::days(7)).to_rfc3339();
+    send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws}/exports"),
+        Some(&owner),
+        Some(json!({ "since": since })),
+    )
+    .await;
+    let recent = manifest_of(&state, run_pending_export(&state).await).await;
+    assert_eq!(recent["files"]["messages.jsonl"]["rows"], 1);
+    assert_eq!(
+        recent["files"]["reactions.jsonl"]["rows"], 1,
+        "a reaction goes with its message"
+    );
+    assert_eq!(
+        recent["files"]["message_edits.jsonl"]["rows"], 1,
+        "and so does its edit history"
+    );
+}

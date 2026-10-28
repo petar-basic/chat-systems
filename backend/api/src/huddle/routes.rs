@@ -14,6 +14,7 @@ use shared_common::errors::{AppError, AppResult};
 
 use super::models::{IceServer, IceServersResponse, InviteRequest, StartHuddleRequest};
 use crate::authz;
+use crate::conversations::routes::require_reachable;
 use crate::dto::{DataList, StatusResponse};
 use crate::huddle::models::{ActiveHuddle, HuddleStarted};
 use crate::middleware::AuthUser;
@@ -88,7 +89,7 @@ async fn invite_to_huddle(
     Path((ws_id, huddle_id)): Path<(Uuid, Uuid)>,
     Json(req): Json<InviteRequest>,
 ) -> AppResult<Json<StatusResponse>> {
-    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
+    let inviter = authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
     state
         .huddle_repo
         .find_open(ws_id, huddle_id)
@@ -112,11 +113,7 @@ async fn invite_to_huddle(
         if invitee == auth.user_id {
             continue;
         }
-        if !state
-            .workspace_service
-            .is_workspace_member(ws_id, invitee)
-            .await?
-        {
+        if require_reachable(&state, &inviter, invitee).await.is_err() {
             continue;
         }
         state
@@ -136,7 +133,7 @@ async fn start_huddle(
     Path(ws_id): Path<Uuid>,
     Json(req): Json<StartHuddleRequest>,
 ) -> AppResult<Json<HuddleStarted>> {
-    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
+    let starter = authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
 
     let huddle_id = Uuid::new_v4();
 
@@ -192,7 +189,7 @@ async fn start_huddle(
                 .await;
         }
         (None, Some(partner_id)) => {
-            authz::require_workspace_member(&state, ws_id, partner_id).await?;
+            require_reachable(&state, &starter, partner_id).await?;
             state
                 .huddle_repo
                 .start_session(huddle_id, ws_id, None, Some(partner_id), auth.user_id)

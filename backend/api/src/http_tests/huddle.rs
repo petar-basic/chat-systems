@@ -116,6 +116,80 @@ async fn start_huddle_partner_not_member_forbidden(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn a_guest_rings_only_somebody_they_could_message(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "huddle-guest-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Guest huddles").await;
+    let (mate_id, _, _) = seed_and_login(&app, &state, "huddle-mate", false).await;
+    add_ws_member(&state, ws_id, mate_id, "member").await;
+    let (stranger_id, _, _) = seed_and_login(&app, &state, "huddle-stranger", false).await;
+    add_ws_member(&state, ws_id, stranger_id, "member").await;
+    let (guest_id, _, guest_token) = seed_and_login(&app, &state, "huddle-guest", false).await;
+    add_ws_member(&state, ws_id, guest_id, "guest").await;
+
+    let shared = seed_channel(&state, ws_id, owner_id, "guest-room", true).await;
+    for member in [mate_id, guest_id] {
+        state
+            .workspace_service
+            .repo
+            .add_channel_member(
+                shared,
+                member,
+                &crate::workspace::models::ChannelRole::Member,
+            )
+            .await
+            .expect("add to the shared channel");
+    }
+
+    let path = format!("/api/workspaces/{ws_id}/huddles");
+    let start = |partner: uuid::Uuid| {
+        send(
+            &app,
+            "POST",
+            &path,
+            Some(&guest_token),
+            Some(json!({ "dm_partner_id": partner })),
+        )
+    };
+    let (status, body) = start(mate_id).await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "somebody they share a room with: {body:?}"
+    );
+    let (status, _) = start(stranger_id).await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "somebody they do not");
+
+    let huddle_id = body["huddle_id"].as_str().expect("huddle id");
+    let mut conn = state.redis.clone();
+    let _: () = redis::AsyncCommands::sadd(
+        &mut conn,
+        format!("huddle:{huddle_id}:members"),
+        guest_id.to_string(),
+    )
+    .await
+    .expect("join");
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/huddles/{huddle_id}/invite"),
+        Some(&guest_token),
+        Some(json!({ "user_ids": [stranger_id] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let invited: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM huddle_invites WHERE huddle_id = $1 AND user_id = $2",
+    )
+    .bind(uuid::Uuid::parse_str(huddle_id).expect("uuid"))
+    .bind(stranger_id)
+    .fetch_one(&state.pool)
+    .await
+    .expect("count invites");
+    assert_eq!(invited, 0, "nor invite them into a huddle");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn start_huddle_channel_happy_path(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, token) = seed_and_login(&app, &state, "huddle-owner", false).await;

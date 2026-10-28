@@ -444,13 +444,17 @@ Side panel showing thread replies for a parent message.
 **Reads:** `useThreadMessages(parentId)`, `useUserCache`
 **API calls:** GET `/messages/{id}/thread`, POST `/messages/{id}/thread`
 
+A deleted root with no replies left takes none: the composer gives way to *This thread was
+deleted* (`isClosedThread`). A card in *Threads* replies as the panel does, with *Also send to*
+and scheduling.
+
 ---
 
 ### `SearchPanel`
 Debounced search with **Messages | Files** tabs over one query and filter bar. On *Files*
 the *Has* chip gives way to *Type* (`type:pdf` typed in the box does the same and switches to
 *Files*). A file result (`features/search/FileHit`) shows the thumbnail or kind icon, the name
-with the typed fragment marked, size, uploader, place and date, and for a match inside the file the server's snippet under the name, its matched words in `<mark>` (the snippet arrives as `{ text, hit }` parts and is rendered as text, never as HTML); an image opens the gallery,
+with the typed fragment marked, size, uploader, place (the hit's `channel_name`, or *Direct message*) and date, and for a match inside the file the server's snippet under the name, its matched words in `<mark>` (the snippet arrives as `{ text, hit }` parts and is rendered as text, never as HTML); an image opens the gallery,
 anything else its message, and download is a hover action. The channel files panel's *Filter
 by name* box asks the same route with `channel_id`.
 
@@ -493,8 +497,8 @@ in the address opens it at that section and is then removed (`useSettingsDialog`
 left, the icon on upload, the switches at once, each PATCH carrying only that field; a status
 line says *Saving…*, *Saved* or why not. Deleting the workspace stays a danger zone at the
 bottom. *Members* shows the invite form to admins only, since inviting is admin-only. After an
-invite it shows the invite's link with a copy button, and says so when email is not set up and
-nothing was sent. Above the members, `PendingInvites` lists the email invites still waiting to
+invite it shows the invite's link with a copy button, and says whether the email went, was not
+sent because email is not set up, or could not be sent (`inviteMessage`). Above the members, `PendingInvites` lists the email invites still waiting to
 be used, each with *Copy invite link* (GET `/workspaces/{id}/invites/{invite_id}/link`, then the clipboard) and
 *Revoke* behind a confirmation. The invite page (`/invite/:token`) offers *Continue with SSO*
 when the instance has it, starting `/api/auth/oidc/start?invite=<token>`, and so does the

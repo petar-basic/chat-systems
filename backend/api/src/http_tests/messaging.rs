@@ -697,6 +697,94 @@ async fn search_member_succeeds(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn a_deleted_thread_with_no_replies_left_takes_none(pool: PgPool) {
+    let (app, _state, _owner, token, _ws, ch_id) = setup_channel(pool).await;
+    let root = create_message(&app, &token, ch_id, "root").await;
+    let path = format!("/api/channels/{ch_id}/messages");
+    let reply = |content: &'static str| {
+        send(
+            &app,
+            "POST",
+            &path,
+            Some(&token),
+            Some(json!({ "content": content, "thread_parent_id": root })),
+        )
+    };
+    let (status, body) = reply("first").await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+
+    let (status, _) = send(
+        &app,
+        "DELETE",
+        &format!("/api/messages/{root}"),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _) = reply("still here").await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "a deleted root with replies stays open"
+    );
+
+    let (status, body) = send(
+        &app,
+        "GET",
+        &format!("/api/messages/{root}/thread"),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    for reply in body["data"].as_array().expect("replies") {
+        let id = reply["id"].as_str().expect("id");
+        let (status, _) = send(
+            &app,
+            "DELETE",
+            &format!("/api/messages/{id}"),
+            Some(&token),
+            None,
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+    }
+
+    let (status, _) = reply("too late").await;
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "the last reply took the thread with it"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_hit_from_a_channel_you_are_not_in_says_where_it_is(pool: PgPool) {
+    let (app, state, _owner, token, ws_id, ch_id) = setup_channel(pool).await;
+    create_message(&app, &token, ch_id, "needle over there").await;
+    let (member_id, _email, member_token) = seed_and_login(&app, &state, "browser", false).await;
+    add_ws_member(&state, ws_id, member_id, "member").await;
+    let name: String = sqlx::query_scalar("SELECT name FROM channels WHERE id = $1")
+        .bind(ch_id)
+        .fetch_one(&state.pool)
+        .await
+        .expect("channel name");
+
+    let (status, body) = send(
+        &app,
+        "GET",
+        &format!("/api/search?q=needle&workspace_id={ws_id}"),
+        Some(&member_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(body["data"][0]["channel_id"], json!(ch_id));
+    assert_eq!(body["data"][0]["channel_name"], json!(name));
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn search_excludes_private_channels_for_non_channel_member(pool: PgPool) {
     let (app, state, owner_id, owner_token, ws_id, _ch_id) = setup_channel(pool).await;
     let private_ch = seed_channel(
