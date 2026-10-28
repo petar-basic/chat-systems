@@ -3382,7 +3382,7 @@ export interface components {
             name: string;
         };
         CreatedInvite: components["schemas"]["WorkspaceInvite"] & {
-            email_sent: boolean;
+            email_status?: components["schemas"]["InviteEmailStatus"] | null;
             invite_url?: string | null;
         };
         DataItem_ImportRun: {
@@ -3598,6 +3598,7 @@ export interface components {
             data: (components["schemas"]["Attachment"] & {
                 /** Format: uuid */
                 channel_id: string;
+                channel_name?: string | null;
                 /** Format: date-time */
                 created_at: string;
                 kind: components["schemas"]["FileKind"];
@@ -4155,6 +4156,7 @@ export interface components {
         FileSearchHit: components["schemas"]["Attachment"] & {
             /** Format: uuid */
             channel_id: string;
+            channel_name?: string | null;
             /** Format: date-time */
             created_at: string;
             kind: components["schemas"]["FileKind"];
@@ -4323,6 +4325,8 @@ export interface components {
             workspace_id: string;
             workspace_name: string;
         };
+        /** @enum {string} */
+        InviteEmailStatus: "sent" | "not_configured" | "failed";
         InviteLink: {
             url: string;
         };
@@ -4843,8 +4847,11 @@ export interface components {
             /** Format: date-time */
             revoked_at?: string | null;
         };
+        SearchHit: components["schemas"]["Message"] & {
+            channel_name?: string | null;
+        };
         SearchResponse: {
-            data: components["schemas"]["Message"][];
+            data: components["schemas"]["SearchHit"][];
         };
         /**
          * @description A direct message is a channel too, but somebody searching "the channels" is

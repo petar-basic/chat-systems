@@ -453,7 +453,7 @@ async fn create_invite(
                 "email": created.invite.email,
                 "role": created.invite.role,
                 "expires_at": created.invite.expires_at,
-                "email_sent": created.email_sent,
+                "email_status": created.email_status,
             })),
     )
     .await;

@@ -333,6 +333,20 @@ impl WorkspaceRepo {
         .await
     }
 
+    pub async fn channel_names(
+        &self,
+        ids: &[Uuid],
+    ) -> sqlx::Result<std::collections::HashMap<Uuid, String>> {
+        let rows = sqlx::query!(
+            r#"SELECT id, name AS "name!" FROM channels
+                WHERE id = ANY($1) AND channel_type NOT IN ('dm', 'group_dm') AND name IS NOT NULL"#,
+            ids
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().map(|row| (row.id, row.name)).collect())
+    }
+
     /// Whether these two people are in any channel together. The predicate a
     /// guest's reach is measured by, on both the reading side (the directory)
     /// and the writing side (opening a conversation) -- one rule, asked twice.

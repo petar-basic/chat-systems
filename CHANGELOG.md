@@ -38,6 +38,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   one uploaded through `/files/upload` is an ordinary file again and no longer readable by the
   workspace. `PATCH /hooks/{id}` with `{ "is_active": true }` turns a stopped hook back on.
 
+- For API clients: `POST /workspaces/{id}/invites` answers `email_status` (`sent`,
+  `not_configured`, `failed`, or `null` for a link invite) instead of `email_sent`. Search hits
+  from `/search` and `/search/files` carry `channel_name`. A reply to a deleted root with no
+  replies left answers 404 instead of 422.
 - Workspace icons move to `icons/<workspace id>/` in the object store on the worker's first
   start, outside retention (see the RUNBOOK). For API clients: `POST /workspaces/{id}/icon`
   uploads and sets the icon.
@@ -63,6 +67,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - **An archived channel is read-only all the way.** Editing, deleting and pinning a message,
   voting in a poll, adding or removing members, bookmarks, renaming and starting a huddle still
   changed an archived channel; every one answers 403 now, and the client hides them.
+- **A guest calls only whom they could message.** Starting a DM huddle checked only that the
+  other person was in the workspace, so a guest could ring a member they could not message, and
+  invite them into a huddle. Both follow the DM rule now.
 
 ### Fixed
 
@@ -97,6 +104,11 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   and leaving or hiding the page says so at once. The push badge counted notifications from
   workspaces you had left, and a desktop notification from a second server opened nothing. The
   badge now matches the app's, and the click opens the message on its server.
+- **The survey's small things.** A search hit from a public channel you are not in names its
+  channel. A thread whose deleted root lost its last reply shows no composer. An export's date
+  range covers edits, reactions, polls and votes, not only messages and files. An invite whose
+  email failed says so instead of claiming email is not set up. A card in *Threads* has
+  *Also send to* and scheduling, as the thread panel does.
 - **Everyone sees the workspace icon, and it stays.** It was an ordinary file with no message,
   so only the admin who uploaded it could load it, file retention could delete it, and a
   replaced one was never removed. It has a place of its own now, shown to the workspace's

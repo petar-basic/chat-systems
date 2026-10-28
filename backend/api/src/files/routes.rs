@@ -455,6 +455,8 @@ async fn search_files(
             offset: params.offset.unwrap_or(0).max(0),
         })
         .await?;
+    let ids: Vec<Uuid> = matches.iter().map(|found| found.channel_id).collect();
+    let names = state.workspace_service.repo.channel_names(&ids).await?;
     let data = matches
         .into_iter()
         .map(|found| FileSearchHit {
@@ -462,6 +464,7 @@ async fn search_files(
             kind: found.kind,
             message_id: found.message_id,
             channel_id: found.channel_id,
+            channel_name: names.get(&found.channel_id).cloned(),
             user_id: found.record.user_id,
             created_at: found.record.created_at,
             snippet: found.snippet,

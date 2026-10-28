@@ -142,6 +142,7 @@ pub struct FileSearchHit {
     pub kind: FileKind,
     pub message_id: Uuid,
     pub channel_id: Uuid,
+    pub channel_name: Option<String>,
     pub user_id: Uuid,
     pub created_at: DateTime<Utc>,
     pub snippet: Option<Vec<super::text::SnippetPart>>,

@@ -326,8 +326,15 @@ pub struct MessageLocation {
 }
 
 #[derive(Debug, Serialize, ToSchema)]
+pub struct SearchHit {
+    #[serde(flatten)]
+    pub message: Message,
+    pub channel_name: Option<String>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
 pub struct SearchResponse {
-    pub data: Vec<Message>,
+    pub data: Vec<SearchHit>,
 }
 
 pub struct NewMessage<'a> {

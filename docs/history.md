@@ -2150,6 +2150,38 @@ it as a second argument, and `useOpenMessage` takes an optional instance to loca
 navigating to the message's workspace then switches the active instance as any workspace
 switch does.
 
+### [CS-096] The survey's small things ✅ shipped
+Eight smaller findings from the survey. Six held and are fixed; two were dropped.
+
+Fixed:
+- **Guest huddles.** A DM huddle checked only that the partner was in the workspace. It now goes
+  through `require_reachable`, the rule a conversation is opened by, and so does inviting into
+  a huddle, which skips an invitee the caller could not message.
+- **Channel names in search.** `/search` returns `SearchHit` (a `Message` plus `channel_name`)
+  and `FileSearchHit` gained the same field, both from one `channel_names` lookup over the page's
+  channels. `SearchPanel` labels a hit by it rather than by the sidebar's channels, so a public
+  channel the person is not in is named too.
+- **A deleted thread with no replies.** `find_root` already hid a deleted root with no replies;
+  `thread_root` turned that into 422, the answer for a parent in another channel. It is 404 now,
+  and `ThreadPanel` swaps the composer for *This thread was deleted* when `isClosedThread`
+  holds: the root is deleted, nothing is loading and no delivered reply is left.
+- **Export ranges.** `message_edits`, `reactions`, `polls` and `poll_votes` take the message's
+  `created_at` against `since`/`until`, as messages do.
+- **Invite email.** `email_sent: bool` became `email_status`: `sent`, `not_configured` or
+  `failed`, which is now possible only when queueing to the outbox fails. *Members* words each
+  through `inviteMessage`.
+- **Threads view composer.** The card had neither scheduling nor *Also send to*. It now passes
+  `scheduleTarget`, the workspace and instance to `MessageInput`, and sends `alsoToChannel` from
+  a checkbox worded as the panel's.
+
+Dropped:
+- **Huddle Activity under a pause.** Writing the *Incoming huddle* row before the pause check
+  is the rule every notification follows. A mention or a DM under DND also lands in Activity
+  and only the push is held, and manual QA 8.5 asks for exactly that for a ring.
+- **Presence on joining.** The claim does not hold. Opening the new workspace sends
+  `subscribe`, which adds it to the connection's presence set, writes presence there and
+  publishes `presence.changed` to its members at once.
+
 ### [CS-097] A workspace icon everyone sees, and that stays ✅ shipped
 CS-094 gave workspace photos their own storage place and left the workspace icon for later.
 *General* uploaded the icon through `/files/upload` and saved its URL. The file had no message,
