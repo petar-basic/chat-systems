@@ -16,7 +16,7 @@ export function NotificationStream() {
   const openMessage = useOpenMessage();
 
   useEffect(() => {
-    return globalEventBus.on('notification', (event) => {
+    return globalEventBus.on('notification', (event, instanceUrl) => {
       const { workspace_id, channel_id, message_id, thread_parent_id, list_id, item_id, title, body, kind } =
         event;
       const isMention = kind === NotificationType.mention;
@@ -58,7 +58,7 @@ export function NotificationStream() {
           wsId && isList && list_id
             ? () => navigate(`${ROUTES.list(wsId, list_id)}${item_id ? `?item=${item_id}` : ''}`)
             : message_id
-              ? () => void openMessage(message_id, !!thread_parent_id)
+              ? () => void openMessage(message_id, !!thread_parent_id, instanceUrl)
               : wsId && channel_id
                 ? () => navigate(ROUTES.channel(wsId, channel_id))
                 : undefined;

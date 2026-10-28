@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COUNT(*) AS \"count!\" FROM notifications n\n                JOIN workspace_members wm ON wm.workspace_id = n.workspace_id AND wm.user_id = n.user_id\n               WHERE n.user_id = $1 AND n.is_read = false",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "6c42e1d40ef1ca7c7c66da75b276c5535251e2891e66245d2d9d4ca5ebd1aaf6"
+}

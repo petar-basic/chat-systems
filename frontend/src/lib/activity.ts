@@ -26,13 +26,17 @@ function sawInput() {
   set(true);
 }
 
+function idle() {
+  clearTimeout(idleTimer);
+  set(false);
+}
+
 function visibilityChanged() {
   if (document.visibilityState === 'visible') {
     sawInput();
     return;
   }
-  clearTimeout(idleTimer);
-  set(false);
+  idle();
 }
 
 function start() {
@@ -40,6 +44,7 @@ function start() {
   started = true;
   for (const name of INPUT_EVENTS) window.addEventListener(name, sawInput, { passive: true, capture: true });
   document.addEventListener('visibilitychange', visibilityChanged);
+  window.addEventListener('pagehide', idle);
   if (document.visibilityState === 'visible' && document.hasFocus()) sawInput();
 }
 

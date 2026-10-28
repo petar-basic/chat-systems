@@ -453,7 +453,9 @@ impl NotificationRepo {
 
     pub async fn unread_count_everywhere(&self, user_id: Uuid) -> sqlx::Result<i64> {
         sqlx::query_scalar!(
-            r#"SELECT COUNT(*) AS "count!" FROM notifications WHERE user_id = $1 AND is_read = false"#,
+            r#"SELECT COUNT(*) AS "count!" FROM notifications n
+                JOIN workspace_members wm ON wm.workspace_id = n.workspace_id AND wm.user_id = n.user_id
+               WHERE n.user_id = $1 AND n.is_read = false"#,
             user_id
         )
         .fetch_one(&self.pool)
@@ -486,6 +488,14 @@ mod tests {
         .fetch_one(pool)
         .await
         .expect("insert workspace");
+        sqlx::query(
+            "INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1, $2, 'owner')",
+        )
+        .bind(row.0)
+        .bind(owner_id)
+        .execute(pool)
+        .await
+        .expect("insert member");
         row.0
     }
 

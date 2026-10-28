@@ -314,7 +314,7 @@ export class WebSocketClient {
     if (all) {
       all.forEach((h) => h(event));
     }
-    globalEventBus.emit(event);
+    globalEventBus.emit(event, this.instanceUrl);
   }
 }
 
