@@ -67,6 +67,12 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   email went out. A reply notification under a deleted message opened nothing, a DM opened at
   an old *New* line, and a keyword quoted in a forward alerted its owner. Each now behaves as
   it does in a channel.
+- **A failed send stays where you sent it.** A reply from the *Threads* view that failed
+  vanished from its card, a failed message was lost on reload, a send the server took just before
+  the request failed showed twice, and scheduling dropped a file that had failed to upload. The
+  card shows the failed reply with *Retry* and *Discard*, failed messages survive a reload, a
+  delivered message never keeps a failed copy, and scheduling refuses a failed file as sending
+  does.
 
 ## [3.6.0] — 2026-10-28
 

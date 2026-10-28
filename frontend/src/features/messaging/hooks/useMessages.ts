@@ -123,7 +123,7 @@ export const useSendMessage = (channelId: string, userId: string) => {
       toast.error(refusalOr(err, ErrorLabels.SendFailed));
     },
     onSuccess: (message, { id }) => {
-      useUnsentStore.getState().drop({ id, channel_id: channelId, thread_parent_id: null });
+      useUnsentStore.getState().deliver({ id, channel_id: channelId, thread_parent_id: null });
       // The optimistic row was keyed on the client id, the stored row is keyed
       // on the server's. Swapping them here is what stops the websocket echo
       // from arriving as a second copy of the same message.

@@ -161,7 +161,7 @@ export const useSendThreadReply = (parentMessageId: string, channelId: string, u
       toast.error(refusalOr(err, ErrorLabels.SendFailed));
     },
     onSuccess: (newMessage, { id }) => {
-      useUnsentStore.getState().drop({ id, channel_id: channelId, thread_parent_id: parentMessageId });
+      useUnsentStore.getState().deliver({ id, channel_id: channelId, thread_parent_id: parentMessageId });
       const sent = { ...(newMessage as Message), pending: false, failed: false };
       placeReply(queryClient, sent, id);
       if (shownInChannel(sent)) {
