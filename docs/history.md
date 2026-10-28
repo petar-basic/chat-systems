@@ -1941,3 +1941,23 @@ which the gateway refuses, but the client remembered the channel as joined, so a
 channel* it never asked again and the channel stayed silent until a reconnect. A successful
 join now calls `rejoinChannel`, which forgets the refused id and sends it again, and refetches
 the messages the preview could not hear.
+
+### [CS-086] Getting people in ✅ shipped
+An instance without SMTP said *Invite sent* and the link existed only in a log line. An invite
+link signed in through SSO forgot the invite on the way to the provider, so a new SSO user
+landed in no workspace. *Forgot password* sent a reset to people who had never set a password
+(the invited but unregistered, who it could not let in, and SSO accounts), and the reset
+spent its link before checking the new password, so a typo of a short password burned it.
+Pending invites could not be seen or revoked in the app.
+
+Creating an email invite returns its `invite_url` and `email_sent`; `can_send_email` is false
+for an empty `SMTP_HOST`, which is now how an instance runs without email. A pending email
+invite's link can be fetched again (`/invites/{id}/link`), minted from the invite's own expiry
+so revoking it still ends every copy. *Members* shows the link after inviting and a list of
+pending invites with *Copy invite link* and *Revoke*. `/auth/oidc/start?invite=` stores the
+link token with the pending login in Redis; the callback redeems it for the account that came
+back, which SSO activates if it was still pending, and lands on the workspace — or back on the
+invite page when the provider's address is not the invited one. `forgot_password` returns
+whether the account is still waiting on an invite, and the route re-sends that invite;
+password-less accounts get a note about SSO instead; `reset_password` validates before it
+consumes the token.

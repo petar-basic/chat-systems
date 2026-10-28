@@ -107,6 +107,22 @@ impl UserRepo {
             .await
     }
 
+    pub async fn activate_sso(&self, id: Uuid) -> sqlx::Result<()> {
+        sqlx::query!(
+            r"
+            UPDATE users
+            SET status = 'active',
+                display_name = COALESCE(display_name, split_part(email, '@', 1)),
+                updated_at = NOW()
+            WHERE id = $1 AND status = 'pending'
+            ",
+            id
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
     pub async fn activate(
         &self,
         id: Uuid,

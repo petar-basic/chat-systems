@@ -69,7 +69,7 @@ impl WorkspaceService {
         role: Option<WorkspaceRole>,
         lifetime: InviteLifetime,
         auth_service: &AuthService,
-    ) -> AppResult<WorkspaceInvite> {
+    ) -> AppResult<CreatedInvite> {
         let role = role.unwrap_or(WorkspaceRole::Member);
 
         let token: String = rand::rng()
@@ -78,11 +78,9 @@ impl WorkspaceService {
             .map(char::from)
             .collect();
 
-        let provisioned = if let Some(email_addr) = email {
-            Some(auth_service.provision_user(email_addr).await?)
-        } else {
-            None
-        };
+        if let Some(email_addr) = email {
+            auth_service.provision_user(email_addr).await?;
+        }
 
         let expires_at = chrono::Utc::now() + chrono::Duration::hours(lifetime.expires_in_hours);
         let invite = self
@@ -98,22 +96,80 @@ impl WorkspaceService {
             })
             .await?;
 
-        if let (Some(email_addr), Some(user)) = (email, provisioned.as_ref()) {
-            let workspace = self.repo.find_workspace_by_id(workspace_id).await?;
-            if let Some(ws) = workspace {
-                let reg_token = auth_service
-                    .generate_registration_token(user.id, email_addr, invite.id, expires_at)?;
-                let invite_url = format!("{}/invite/{}", self.config.public_url, reg_token);
-                if let Err(e) = auth_service
-                    .send_invite_email(email_addr, &ws.name, &invite_url)
-                    .await
-                {
-                    tracing::warn!("Failed to send invite email: {}", e);
-                }
-            }
+        if invite.email.is_none() {
+            return Ok(CreatedInvite {
+                invite,
+                invite_url: None,
+                email_sent: false,
+            });
         }
 
-        Ok(invite)
+        let invite_url = self.invite_url(&invite, auth_service).await?;
+        let email_sent = self.email_invite(&invite, &invite_url, auth_service).await;
+        Ok(CreatedInvite {
+            invite,
+            invite_url: Some(invite_url),
+            email_sent,
+        })
+    }
+
+    pub async fn invite_url(
+        &self,
+        invite: &WorkspaceInvite,
+        auth_service: &AuthService,
+    ) -> AppResult<String> {
+        let email = invite.email.as_deref().ok_or_else(|| {
+            AppError::BadRequest("Only an email invite has a link of its own".into())
+        })?;
+        let expires_at = invite
+            .expires_at
+            .filter(|e| *e >= chrono::Utc::now())
+            .ok_or_else(|| AppError::BadRequest("This invite has expired".into()))?;
+        if invite.max_uses.is_some_and(|max| invite.use_count >= max) {
+            return Err(AppError::BadRequest("This invite was already used".into()));
+        }
+        let user = auth_service
+            .repo()
+            .find_by_email(email)
+            .await?
+            .ok_or_else(|| AppError::NotFound("Nobody holds this invite any more".into()))?;
+        let token =
+            auth_service.generate_registration_token(user.id, email, invite.id, expires_at)?;
+        Ok(format!("{}/invite/{}", self.config.public_url, token))
+    }
+
+    async fn email_invite(
+        &self,
+        invite: &WorkspaceInvite,
+        invite_url: &str,
+        auth_service: &AuthService,
+    ) -> bool {
+        let (Some(email), true) = (invite.email.as_deref(), auth_service.can_send_email()) else {
+            return false;
+        };
+        let workspace = match self.repo.find_workspace_by_id(invite.workspace_id).await {
+            Ok(Some(ws)) => ws,
+            _ => return false,
+        };
+        match auth_service
+            .send_invite_email(email, &workspace.name, invite_url)
+            .await
+        {
+            Ok(()) => true,
+            Err(e) => {
+                tracing::warn!("Failed to send invite email: {}", e);
+                false
+            }
+        }
+    }
+
+    pub async fn resend_invite(&self, email: &str, auth_service: &AuthService) -> AppResult<()> {
+        let Some(invite) = self.repo.find_live_email_invite(email).await? else {
+            return Ok(());
+        };
+        let invite_url = self.invite_url(&invite, auth_service).await?;
+        self.email_invite(&invite, &invite_url, auth_service).await;
+        Ok(())
     }
 
     pub async fn join_workspace(

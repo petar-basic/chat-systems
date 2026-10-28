@@ -6545,7 +6545,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WorkspaceInvite"
+                  "$ref": "#/components/schemas/CreatedInvite"
                 }
               }
             }
@@ -6585,6 +6585,45 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/invites/{invite_id}/link": {
+      "get": {
+        "tags": [
+          "workspaces"
+        ],
+        "operationId": "invite_link",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "invite_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InviteLink"
                 }
               }
             }
@@ -10095,6 +10134,30 @@
           }
         }
       },
+      "CreatedInvite": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkspaceInvite"
+          },
+          {
+            "type": "object",
+            "required": [
+              "email_sent"
+            ],
+            "properties": {
+              "email_sent": {
+                "type": "boolean"
+              },
+              "invite_url": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        ]
+      },
       "DataItem_ImportRun": {
         "type": "object",
         "required": [
@@ -13391,6 +13454,17 @@
             "format": "uuid"
           },
           "workspace_name": {
+            "type": "string"
+          }
+        }
+      },
+      "InviteLink": {
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "properties": {
+          "url": {
             "type": "string"
           }
         }

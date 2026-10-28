@@ -7,6 +7,7 @@ import { useInstanceStore } from '@/stores/instances';
 import { useInstanceInfo } from '@/features/instance/hooks/useInstanceInfo';
 import { isTotpRequired } from '@/lib/errors';
 import { PENDING_INVITE_KEY } from '@/shared/constants';
+import { ssoStartUrl } from '@/features/instance/ssoStart';
 
 /// A sign-in that started from an invite link owes the person the workspace
 /// they were invited to, not the generic app shell.
@@ -186,7 +187,8 @@ export default function AddInstancePage() {
                 <div className="h-px flex-1 bg-raised" />
               </div>
               <a
-                href={`${window.location.origin}/api/auth/oidc/start`}
+                href={ssoStartUrl(sessionStorage.getItem(PENDING_INVITE_KEY))}
+                onClick={() => sessionStorage.removeItem(PENDING_INVITE_KEY)}
                 data-qa="sso-start"
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-raised hover:bg-elevated text-fg font-medium rounded-lg transition"
               >

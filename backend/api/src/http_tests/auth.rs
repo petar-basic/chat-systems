@@ -922,3 +922,127 @@ async fn a_revocation_store_that_cannot_answer_refuses_the_request(pool: PgPool)
         "the revoked session is refused on the healthy path"
     );
 }
+
+async fn emails_to(state: &crate::state::AppState, email: &str) -> Vec<(String, String)> {
+    sqlx::query_as(
+        "SELECT subject, text_body FROM outbound_emails WHERE to_address = $1 ORDER BY created_at",
+    )
+    .bind(email)
+    .fetch_all(&state.pool)
+    .await
+    .expect("outbound emails")
+}
+
+async fn reset_tokens_of(state: &crate::state::AppState, email: &str) -> i64 {
+    sqlx::query_scalar(
+        "SELECT COUNT(*) FROM password_reset_tokens t JOIN users u ON u.id = t.user_id WHERE u.email = $1",
+    )
+    .bind(email)
+    .fetch_one(&state.pool)
+    .await
+    .expect("count")
+}
+
+async fn forgot(app: &Router, email: &str) {
+    let (status, _) = send(
+        app,
+        "POST",
+        "/api/auth/forgot-password",
+        None,
+        Some(json!({ "email": email })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_short_password_does_not_burn_the_reset_link(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (_, email) = seed(&state, "short-reset", false).await;
+
+    forgot(&app, &email).await;
+    let (_, body) = emails_to(&state, &email).await.pop().expect("reset email");
+    let token = body
+        .split("token=")
+        .nth(1)
+        .and_then(|rest| rest.split_whitespace().next())
+        .expect("token in the email")
+        .to_string();
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        "/api/auth/reset-password",
+        None,
+        Some(json!({ "token": token, "password": "short" })),
+    )
+    .await;
+    assert!(status.is_client_error());
+    assert_ne!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "the password is what was wrong"
+    );
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        "/api/auth/reset-password",
+        None,
+        Some(json!({ "token": token, "password": "long-enough-now-123" })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "the same link still works: {body:?}"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn forgetting_a_password_never_set_sends_the_invite_again(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "pending-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Pending WS").await;
+    let invitee = format!("pending-{}@test.local", Uuid::new_v4().simple());
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/invites"),
+        Some(&owner_token),
+        Some(json!({ "email": invitee })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    forgot(&app, &invitee).await;
+
+    let sent = emails_to(&state, &invitee).await;
+    assert_eq!(sent.len(), 2, "the invite, then the invite again: {sent:?}");
+    assert!(sent[1].0.starts_with("Join "), "{sent:?}");
+    assert!(sent[1].1.contains("/invite/"));
+    assert_eq!(
+        reset_tokens_of(&state, &invitee).await,
+        0,
+        "a reset would not let them in"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_sso_account_is_told_to_use_sso_instead_of_a_reset(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let email = format!("sso-{}@test.local", Uuid::new_v4().simple());
+    state
+        .auth_service
+        .repo()
+        .create_sso_user(&email)
+        .await
+        .expect("sso user");
+
+    forgot(&app, &email).await;
+
+    let sent = emails_to(&state, &email).await;
+    assert_eq!(sent.len(), 1);
+    assert_eq!(sent[0].0, "You sign in with SSO");
+    assert_eq!(reset_tokens_of(&state, &email).await, 0);
+}

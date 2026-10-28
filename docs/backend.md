@@ -151,8 +151,9 @@ Handles user identity — login, registration, JWT, and profile.
 | POST | `/auth/complete-registration` | `{ token, password, display_name }` | `AuthSession` — joins the invite's workspace with the invite's role and claims a use; 401 for a revoked, expired or used-up invite |
 | POST | `/auth/refresh` | `{ refresh_token }` (or refresh cookie / Bearer) | `AuthSession` |
 | POST | `/auth/logout` | refresh cookie | `{ status: "logged_out" }` |
-| POST | `/auth/forgot-password` | `{ email }` | `{ status: "sent" }` |
-| POST | `/auth/reset-password` | `{ token, password }` | `{ status: "reset" }` |
+| POST | `/auth/forgot-password` | `{ email }` | `{ status: "sent" }` whoever asks; a password account gets a reset link, an account still waiting on its invite gets that invite again, and an SSO account is told to sign in with SSO |
+| POST | `/auth/reset-password` | `{ token, password }` | `{ status: "reset" }` — the password is checked before the link is spent, so a too-short one leaves it usable |
+| GET | `/auth/oidc/start` | Query: `invite?` | Redirect to the provider. With `invite` (an email invite's link token), the callback redeems it for the account that signed in, activates it if it was waiting on the invite, and lands on `/app/:ws_id`; a link for another address lands back on `/invite/:token` |
 | GET | `/instance/info` | — | `{ name, icon_url, sso_enabled, max_upload_bytes, setup_required }` |
 | POST | `/setup` | `{ token, display_name, email, password, workspace_name }` | `{ session: AuthSession, workspace_id }` and the auth cookies; 403 for a wrong token, 409 once an instance admin exists |
 | GET | `/users/me` | JWT | `UserPublic` |
@@ -209,7 +210,8 @@ feature — see `dm` below.)
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/invites` | — | `{ data: WorkspaceInvite[] }` |
-| POST | `/workspaces/:ws_id/invites` | `{ email?, role? }` | `WorkspaceInvite` |
+| POST | `/workspaces/:ws_id/invites` | `{ email?, role? }` | `CreatedInvite` — the invite plus `invite_url` (an email invite's registration link) and `email_sent`, false when `SMTP_HOST` is empty or the send failed |
+| GET | `/workspaces/:ws_id/invites/:invite_id/link` | — | `{ url }` — a fresh registration link for a pending email invite; 400 once it is used up or expired |
 | DELETE | `/workspaces/:ws_id/invites/:invite_id` | — | `{ status: "revoked" }` |
 | POST | `/invites/:token/accept` | — | `WorkspaceMember` |
 

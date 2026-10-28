@@ -48,6 +48,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   archived channel. `POST /channels/{id}/unarchive` undoes `DELETE /channels/{id}`, both
   publish `channel.updated` (`is_archived`), and *Browse channels* lists archived channels
   with `is_archived`.
+- For API clients: `POST /workspaces/{id}/invites` returns the invite with `invite_url` and
+  `email_sent`, and `GET /workspaces/{id}/invites/{invite_id}/link` hands out a pending email
+  invite's link again. An empty `SMTP_HOST` now means no email: invites say so instead of
+  claiming they were sent.
 
 ### Security
 
@@ -130,6 +134,14 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   used to carry the totals of every workspace purged before it in the same run.
 - **Joining a channel you were looking at goes live.** After *Join channel* on a channel opened
   without being in it, new messages and changes arrived only after a reconnect.
+- **Inviting works without email.** Every invite shows its link to copy, and the form says
+  when email is not set up instead of *Invite sent*. *Workspace settings → Members* lists
+  pending invites with *Copy invite link* and *Revoke*.
+- **SSO from an invite lands in the workspace.** The invite page offers *Continue with SSO*,
+  and the invite is used on the way back from the provider, activating the invited account.
+- **Forgot password does the right thing.** Somebody invited but not registered gets their
+  invite again, an SSO account is told to sign in with SSO, and a too-short new password no
+  longer uses up the reset link.
 
 ## [3.5.0] — 2026-10-27
 

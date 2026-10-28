@@ -548,6 +548,26 @@ impl WorkspaceRepo {
         .await
     }
 
+    pub async fn find_live_email_invite(
+        &self,
+        email: &str,
+    ) -> sqlx::Result<Option<WorkspaceInvite>> {
+        sqlx::query_as!(
+            WorkspaceInvite,
+            r#"SELECT id, workspace_id, created_by, email, role AS "role: WorkspaceRole", token, max_uses,
+                   use_count AS "use_count!", expires_at, created_at
+                 FROM workspace_invites
+                WHERE lower(email) = lower($1)
+                  AND expires_at >= NOW()
+                  AND (max_uses IS NULL OR use_count < max_uses)
+                ORDER BY created_at DESC
+                LIMIT 1"#,
+            email
+        )
+        .fetch_optional(&self.pool)
+        .await
+    }
+
     pub async fn delete_invite(&self, id: Uuid) -> sqlx::Result<()> {
         sqlx::query!("DELETE FROM workspace_invites WHERE id = $1", id)
             .execute(&self.pool)

@@ -42,6 +42,15 @@ impl AuthService {
             .await
     }
 
+    pub(super) async fn send_sso_reminder(&self, to_email: &str) -> AppResult<()> {
+        let body = format!(
+            "Somebody asked to reset the password for this address on {}.\n\nThis account signs in with single sign-on, so it has no password to reset. Open {} and choose Sign in with SSO.\n",
+            self.config.instance_name, self.config.public_url
+        );
+        self.queue_email(to_email, "You sign in with SSO", &body, None)
+            .await
+    }
+
     pub async fn send_invite_email(
         &self,
         to_email: &str,
@@ -101,7 +110,7 @@ impl AuthService {
     /// than erroring when SMTP is unconfigured, the same way Web Push is off
     /// without VAPID keys.
     pub fn can_send_email(&self) -> bool {
-        self.mailer.is_some()
+        !self.config.smtp_host.trim().is_empty() && self.mailer.is_some()
     }
 
     pub async fn deliver(
