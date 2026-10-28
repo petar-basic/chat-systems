@@ -391,6 +391,9 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 ### 8.5 🟢 Notifications once (CS-083)
 - 🟢 **Email:** B has mention emails on, no app open. A @-mentions B → five minutes later (mailhog) one email, "You were mentioned", whose link opens the message. A @-mentions B again and B opens the channel within five minutes → no email. Redelivering the event (restart `worker` mid-batch) still gives one email.
 - 🟢 **Idle tab:** B has push on and the app open in a background tab. A @-mentions B → B's push arrives. B brings the tab to the front and moves the mouse; A mentions again → no push, the in-app notification only. Leave it untouched for two minutes → push again.
+- 🟢 **Shut laptop:** B uses the app on a laptop and has push on a phone. B shuts the lid mid-use; A @-mentions B 40 seconds later → the phone gets it.
+- 🟢 **Badge after leaving:** B has unread mentions in workspaces X and Y and leaves Y. A mentions B in X with B's app closed → the phone's badge equals the app's badge.
+- 🟢 **Second server:** B is signed in to two instances, viewing the first. A mentions B on the second with another app in front → clicking the desktop notification opens the message on the second instance.
 - 🟢 **Ring under pause:** B pauses workspace X (*You* menu → *Pause notifications in X* → *For 1 hour*). A starts a DM huddle with B in X → B's app does not ring; Activity shows the call. Resume → the next ring rings.
 - 🟢 **Bot:** B creates an incoming webhook for a channel B has on *All new messages*, then posts to it with B's app in the background → B's push reads "<bot name> in #channel", not B's name.
 - 🟢 **Desktop switch:** *Preferences → Notifications → Desktop notifications while the app is open* → *Turn off*; with another app in front a mention plays a sound but shows no desktop notification. *Turn on* asks the browser when it has not been asked.

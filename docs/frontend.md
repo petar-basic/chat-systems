@@ -519,7 +519,9 @@ workspace default level (*All new messages*, *Mentions*, *Nothing*), and ends wi
 push, *Desktop notifications while the app is open* (`DesktopNotificationsPanel`, the
 `notificationPrefs.desktopEnabled` switch, asking the browser first) and the workspace's
 mention emails. An in-tab desktop notification is tagged with its channel, as the push is, so
-one replaces the other instead of showing twice. Both open from the *You*
+one replaces the other instead of showing twice. It carries the instance whose socket sent it,
+and a click locates the message through that instance's API, so a notification from a second
+server opens its message there. Both open from the *You*
 menu; the sidebar avatar opens *Edit profile*.
 
 ### `notifications/NotificationLevelMenu`
@@ -741,14 +743,14 @@ Reconnecting WebSocket wrapper. Reconnect uses exponential backoff with jitter (
 cap 30s).
 - `connect()` — resolves a valid token via `getToken()` and opens the socket with `['bearer', token]` as the subprotocol (no subprotocol if no token, falling back to the cookie)
 - On (re)open it replays state: `subscribe` for the last workspace and `channel.join` for every joined channel, and `activity` when the person is active (a new socket starts idle)
-- `lib/activity.ts` decides active: the page is visible and has had input (pointer, key, wheel, touch) in the last two minutes; hiding the tab is idle at once. Every client reports each change as `{ type: 'activity', active }`, and the server holds push only while a session is active
+- `lib/activity.ts` decides active: the page is visible and has had input (pointer, key, wheel, touch) in the last two minutes; hiding the tab or leaving the page (`pagehide`) is idle at once. Every client reports each change as `{ type: 'activity', active }`, and the server holds push only while a session is active
 - `send(event)` — sends JSON (only when the socket is OPEN)
 - `subscribe(wsId)`, `joinChannel(chId)`, `leaveChannel(chId)` — send `subscribe` / `channel.join` / `channel.leave` and remember the desired state for replay
 - `addReconnectListener(fn)` — fires after a *reconnect* (used to wire `backfillAfterReconnect`)
 - Waking up does not wait for the backoff: `online`, and the tab becoming visible, reconnect at once when the socket is closed. A socket that still looks open is sent a `ping`; if nothing arrives within two seconds (a laptop's half-open socket after sleep) it is replaced. `disconnect()` and a revoked session stop all of this
 - `lib/realtimeBackfill.ts`: after every reconnect `backfillAfterReconnect` refetches the open views (messages, Activity, conversations, active huddles) and leaves counters to the replayed events, since a refetched unread count already includes a message the replay then bumps again. On `sync.refetch_required`, when there is no replay, `refetchAfterGap` also invalidates threads and their state, followed threads, every `['channels', …]` key (pins, unread counts, members), `unreads`, the sidebar and *Later*
 - `on(type, handler)` — subscribe to event type (returns unsub fn)
-- All received events are forwarded to `globalEventBus`
+- All received events are forwarded to `globalEventBus` with the client's instance URL, which a handler gets as its second argument
 - Singleton `wsClient` for default; `instanceManager.get(url).ws` for others
 
 Message types the client **sends**: `subscribe`, `channel.join`, `channel.leave`, `typing.start`, `typing.stop`, `activity`.

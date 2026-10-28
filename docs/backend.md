@@ -607,9 +607,13 @@ for itself. Channel listings and conversation summaries carry the caller's `noti
 **Active, not just connected.** An open socket is not someone looking: a tab left in the
 background, or a phone that kept its socket for a while, used to hold back every push. The
 client sends `{ "type": "activity", "active": bool }` — active while its page is visible and
-has had input in the last two minutes, idle the moment it is hidden — and the gateway keeps
-`active:user:{user}`, a hash of connection → expiry refreshed on each heartbeat and removed
-on idle or disconnect. Push is held only while some entry has not expired.
+has had input in the last two minutes, idle the moment it is hidden or unloaded — and the
+gateway keeps `active:user:{user}`, a hash of connection → expiry refreshed on each heartbeat
+and removed on idle or disconnect. A heartbeat renews only a connection that answered within
+the last interval and removes one that did not, so a laptop shut mid-use stops holding push
+back within about 30 seconds. Push is held only while some entry has not expired. Its badge is
+the person's unread notifications in the workspaces they are still a member of, the number
+the app shows.
 
 **Paused.** A pause belongs to one workspace: `notifications_paused_until(workspace, user,
 at)` is the later of the `/dnd` timer (`workspace_members.dnd_until`) and

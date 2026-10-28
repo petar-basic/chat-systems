@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { components } from '@/api/schema';
 import type { ApiClient } from '@/lib/api';
-import { useCurrentApi } from '@/shared/hooks/useCurrentApi';
+import { getApiForInstance, useCurrentApi } from '@/shared/hooks/useCurrentApi';
 import { QUERY_KEYS, ROUTES } from '@/shared/constants';
 import { toast } from '@/shared/components/Toast';
 
@@ -35,9 +35,10 @@ export function useOpenMessage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   return useCallback(
-    async (messageId: string, thread = false) => {
+    async (messageId: string, thread = false, instanceUrl?: string) => {
       try {
-        const location = await queryClient.fetchQuery(locate(apiClient, messageId));
+        const client = instanceUrl ? getApiForInstance(instanceUrl) : apiClient;
+        const location = await queryClient.fetchQuery(locate(client, messageId));
         navigate(messagePath(location, messageId, thread));
       } catch {
         toast.error('That message was deleted or you can no longer see it');
