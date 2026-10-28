@@ -23,7 +23,7 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
     OpenApiRouter::new()
         .routes(routes!(list_hooked_channels))
         .routes(routes!(list_hooks, create_hook))
-        .routes(routes!(get_hook, delete_hook))
+        .routes(routes!(get_hook, update_hook, delete_hook))
         .routes(routes!(reveal_hook))
         .routes(routes!(rotate_hook))
 }
@@ -66,11 +66,7 @@ async fn create_hook(
     Path(ws_id): Path<Uuid>,
     Json(req): Json<CreateHookRequest>,
 ) -> AppResult<Json<Hook>> {
-    if req.hook_type == HookType::IncomingWebhook {
-        authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
-    } else {
-        authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
-    }
+    require_hook_role(&state, ws_id, &req.hook_type, auth.user_id).await?;
     req.validate()?;
     let mut config = req.config.unwrap_or(serde_json::json!({}));
 
@@ -190,6 +186,39 @@ async fn create_hook(
     Ok(Json(hook))
 }
 
+async fn require_hook_role(
+    state: &AppState,
+    ws_id: Uuid,
+    hook_type: &HookType,
+    user_id: Uuid,
+) -> AppResult<()> {
+    if *hook_type == HookType::IncomingWebhook {
+        authz::require_workspace_member(state, ws_id, user_id).await?;
+    } else {
+        authz::require_workspace_role(state, ws_id, user_id, &WorkspaceRole::Admin).await?;
+    }
+    Ok(())
+}
+
+async fn require_hook_maker(state: &AppState, hook: &Hook, user_id: Uuid) -> AppResult<()> {
+    require_hook_role(state, hook.workspace_id, &hook.hook_type, user_id).await?;
+    let channel_ids = match hook.hook_type {
+        HookType::IncomingWebhook => bound_channel(&hook.config).into_iter().collect(),
+        HookType::OutgoingWebhook | HookType::SlashCommand => parse_channel_ids(&hook.config)?,
+    };
+    for channel_id in channel_ids {
+        require_hook_channel(
+            state,
+            hook.workspace_id,
+            channel_id,
+            &hook.hook_type,
+            user_id,
+        )
+        .await?;
+    }
+    Ok(())
+}
+
 async fn require_hook_channel(
     state: &AppState,
     ws_id: Uuid,
@@ -307,6 +336,63 @@ async fn require_hook_manager(state: &AppState, hook_id: Uuid, user_id: Uuid) ->
     let channel = authz::find_channel(state, channel_id).await?;
     authz::require_channel_hook_manager(state, &hook.hook_type, &channel, user_id).await?;
     Ok(hook)
+}
+
+#[utoipa::path(patch, path = "/hooks/{hook_id}", tag = "hooks", request_body = UpdateHookRequest, responses((status = 200, body = Hook)))]
+async fn update_hook(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    ip: ClientIp,
+    Path(hook_id): Path<Uuid>,
+    Json(req): Json<UpdateHookRequest>,
+) -> AppResult<Json<Hook>> {
+    let hook = state
+        .hook_repo
+        .find_hook_by_id(hook_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Hook not found".into()))?;
+    if !req.is_active {
+        return Err(AppError::Validation(
+            "A hook is turned off by deleting it".into(),
+        ));
+    }
+    require_hook_maker(&state, &hook, auth.user_id).await?;
+    if hook.is_active {
+        return Ok(Json(redacted(hook)));
+    }
+    if hook.hook_type == HookType::SlashCommand {
+        let command = hook
+            .config
+            .get("command")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default();
+        if state
+            .hook_repo
+            .find_slash_command(hook.workspace_id, command)
+            .await?
+            .is_some_and(|other| other.id != hook.id)
+        {
+            return Err(AppError::Conflict(format!(
+                "/{command} is already registered in this workspace"
+            )));
+        }
+    }
+
+    let enabled = state.hook_repo.enable(hook.id, auth.user_id).await?;
+    audit::record(
+        &state,
+        AuditEntry::new(AuditAction::HookEnabled, auth.user_id)
+            .workspace(hook.workspace_id)
+            .resource(hook.id)
+            .ip(&ip)
+            .details(serde_json::json!({
+                "name": hook.name,
+                "previous_creator": hook.created_by,
+                "disabled_reason": hook.disabled_reason,
+            })),
+    )
+    .await;
+    Ok(Json(redacted(enabled)))
 }
 
 #[utoipa::path(post, path = "/hooks/{hook_id}/reveal", tag = "hooks", responses((status = 200, body = HookSecrets)))]

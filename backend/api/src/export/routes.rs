@@ -265,6 +265,7 @@ async fn erase_user_data(
         .find_by_id(user_id)
         .await?
         .and_then(|user| user.avatar_url);
+    let workspace_photos = state.profile_repo.workspace_photos(user_id).await?;
     sqlx::query!(
         r"
         UPDATE workspace_members
@@ -297,7 +298,10 @@ async fn erase_user_data(
     .execute(&state.pool)
     .await?;
 
-    crate::profile::avatar::forget(&state, user_id, photo.as_deref()).await;
+    crate::profile::avatar::forget(&state, user_id, None, photo.as_deref()).await;
+    for (workspace_id, url) in workspace_photos {
+        crate::profile::avatar::forget(&state, user_id, Some(workspace_id), Some(&url)).await;
+    }
 
     crate::sessions::revoke(
         &state,

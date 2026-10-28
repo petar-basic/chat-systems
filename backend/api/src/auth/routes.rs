@@ -388,7 +388,8 @@ async fn update_me(
         )
         .await?;
     if before.avatar_url != user.avatar_url {
-        crate::profile::avatar::forget(&state, auth.user_id, before.avatar_url.as_deref()).await;
+        crate::profile::avatar::forget(&state, auth.user_id, None, before.avatar_url.as_deref())
+            .await;
     }
     Ok(Json(user.into()))
 }

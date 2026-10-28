@@ -2107,3 +2107,27 @@ storage on every change and reads it back at start; `useUnsent` shows only the c
 so another account on the same browser does not see them. Attachments are already uploaded,
 so a kept message refers to its files by id and no file content is stored. `handleSchedule` refuses a
 tray with a failed file in the words sending uses.
+
+### [CS-094] Addresses, workspace photos and hooks that keep working ✅ shipped
+Three leftovers that each broke something a while after it worked. Nothing but SSO lowercased an
+address, so an invite to `Ana@Firma.com` stored that spelling, the provider's `ana@firma.com`
+missed it in `find_by_email`, and SSO refused or made a second account; a password sign-in in
+another case failed too. A workspace photo went through `/files/upload` as an ordinary file,
+readable only because `is_avatar` searched every profile for its key, and the workspace's file
+retention deleted it with the old attachments, the problem CS-087 fixed for account photos. And
+a hook switched off because its creator left or lost the channel could only be deleted and made
+again.
+
+Migration 81 refuses to run while two accounts differ only in case, naming both, and otherwise
+lowercases users and invites and adds a `CHECK (email = lower(email))` to each; the existing
+unique index then covers case. `AuthRepo` lowercases in SQL on every insert and on
+`find_by_email`, and invites are stored lowercase. Workspace photos go through
+`POST /workspaces/{id}/profile/avatar`, the account photo's `avatar::store` with the workspace
+in the key, `avatars/{user}/{workspace}/`; the download checks membership of that workspace,
+`forget` only deletes a key of the workspace it is asked about, so clearing a workspace photo
+never removes the account's, and `avatar::migrate` copies existing workspace photos on the
+worker's start. Erasing an account deletes its workspace photos too. `is_avatar` is gone, so a
+file uploaded the old way is a draft again. `PATCH /hooks/{id}` with `is_active: true` checks
+what creating that hook would (`require_hook_maker`: the type's role and every bound channel),
+refuses a slash command whose name was taken meanwhile, and hands the hook to the caller, which
+is what keeps it on the next time `hooks_to_fire` checks its creator.

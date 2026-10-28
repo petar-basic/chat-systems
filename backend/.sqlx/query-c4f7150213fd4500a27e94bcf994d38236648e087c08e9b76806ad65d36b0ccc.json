@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO workspace_invites\n                (workspace_id, created_by, email, role, token, max_uses, expires_at)\n            VALUES ($1, $2, $3, $4, $5, $6, $7)\n            RETURNING id, workspace_id, created_by, email, role AS \"role: WorkspaceRole\", token, max_uses,\n                   use_count AS \"use_count!\", expires_at, created_at\n            ",
+  "query": "\n            INSERT INTO workspace_invites\n                (workspace_id, created_by, email, role, token, max_uses, expires_at)\n            VALUES ($1, $2, lower($3), $4, $5, $6, $7)\n            RETURNING id, workspace_id, created_by, email, role AS \"role: WorkspaceRole\", token, max_uses,\n                   use_count AS \"use_count!\", expires_at, created_at\n            ",
   "describe": {
     "columns": [
       {
@@ -130,7 +130,7 @@
       "Left": [
         "Uuid",
         "Uuid",
-        "Varchar",
+        "Text",
         {
           "Custom": {
             "name": "workspace_role",
@@ -162,5 +162,5 @@
       false
     ]
   },
-  "hash": "4cd93b5199fc61f14fbe7163c66c067a24ec46c48fa8cb35e067e18b1aa2dac8"
+  "hash": "c4f7150213fd4500a27e94bcf994d38236648e087c08e9b76806ad65d36b0ccc"
 }

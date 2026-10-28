@@ -69,6 +69,20 @@ export const useDeleteHook = (workspaceId: string, instanceUrl?: string) => {
   });
 };
 
+export const useEnableHook = (workspaceId: string, instanceUrl?: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (hookId: string) =>
+      getApiForInstance(instanceUrl).typed((c) =>
+        c.PATCH('/hooks/{hook_id}', { params: { path: { hook_id: hookId } }, body: { is_active: true } }),
+      ),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.hooks(workspaceId) });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.hookedChannels(workspaceId) });
+    },
+  });
+};
+
 export const useRevealHook = (instanceUrl?: string) => {
   return useMutation({
     mutationFn: async (hookId: string) =>

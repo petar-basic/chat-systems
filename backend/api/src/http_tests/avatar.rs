@@ -18,6 +18,15 @@ const PNG: &[u8] = &[
 ];
 
 async fn upload_photo(app: &axum::Router, token: &str, bytes: &[u8]) -> (StatusCode, Value) {
+    upload_photo_to(app, token, "/api/users/me/avatar", bytes).await
+}
+
+async fn upload_photo_to(
+    app: &axum::Router,
+    token: &str,
+    uri: &str,
+    bytes: &[u8],
+) -> (StatusCode, Value) {
     let mut body = format!(
         "--{BOUNDARY}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"me.png\"\r\nContent-Type: image/png\r\n\r\n"
     )
@@ -26,7 +35,7 @@ async fn upload_photo(app: &axum::Router, token: &str, bytes: &[u8]) -> (StatusC
     body.extend_from_slice(format!("\r\n--{BOUNDARY}--\r\n").as_bytes());
     let request = Request::builder()
         .method("POST")
-        .uri("/api/users/me/avatar")
+        .uri(uri)
         .header(header::AUTHORIZATION, format!("Bearer {token}"))
         .header(
             header::CONTENT_TYPE,
@@ -253,4 +262,156 @@ async fn the_migration_moves_a_photo_out_of_its_workspace_once(pool: PgPool) {
         .await
         .expect("avatar url");
     assert_eq!(again, moved, "a second run has nothing to do");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_workspace_photo_outlives_retention_and_shows_to_that_workspace_only(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (alice_id, _, alice) = seed_and_login(&app, &state, "ws-photo-alice", false).await;
+    let ws_id = seed_workspace(&state, alice_id, "Short memory").await;
+    let (bob_id, _, bob) = seed_and_login(&app, &state, "ws-photo-bob", false).await;
+    add_ws_member(&state, ws_id, bob_id, "member").await;
+    let (carol_id, _, carol) = seed_and_login(&app, &state, "ws-photo-carol", false).await;
+    let elsewhere = seed_workspace(&state, carol_id, "Elsewhere").await;
+    add_ws_member(&state, elsewhere, alice_id, "member").await;
+    state
+        .retention_repo
+        .upsert(
+            ws_id,
+            &crate::retention::repo::UpdateRetentionRequest {
+                message_days: None,
+                file_days: Some(1),
+                audit_days: Some(730),
+                notification_days: Some(90),
+                channel_overrides: false,
+            },
+            alice_id,
+        )
+        .await
+        .expect("set policy");
+
+    let route = format!("/api/workspaces/{ws_id}/profile/avatar");
+    let (status, profile) = upload_photo_to(&app, &alice, &route, PNG).await;
+    assert_eq!(status, StatusCode::OK, "{profile:?}");
+    let first = profile["avatar_url"]
+        .as_str()
+        .expect("avatar url")
+        .to_string();
+    assert!(
+        first.contains(&format!("/api/files/download/avatars/{alice_id}/{ws_id}/")),
+        "{first}"
+    );
+    let path = download_path(&first);
+    let files: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM files WHERE user_id = $1")
+        .bind(alice_id)
+        .fetch_one(&state.pool)
+        .await
+        .expect("count files");
+    assert_eq!(files, 0, "a photo is not a workspace file");
+
+    assert_eq!(
+        fetch(&app, &path, &bob).await,
+        StatusCode::OK,
+        "a member sees it"
+    );
+    assert_eq!(
+        fetch(&app, &path, &carol).await,
+        StatusCode::FORBIDDEN,
+        "somebody who shares another workspace with alice does not"
+    );
+
+    sqlx::query("UPDATE files SET created_at = NOW() - interval '10 days' WHERE workspace_id = $1")
+        .bind(ws_id)
+        .execute(&state.pool)
+        .await
+        .expect("age the workspace's files");
+    crate::retention::job::run_once(&state).await;
+    assert_eq!(
+        fetch(&app, &path, &bob).await,
+        StatusCode::OK,
+        "retention leaves it alone"
+    );
+
+    let (status, profile) = upload_photo_to(&app, &alice, &route, PNG).await;
+    assert_eq!(status, StatusCode::OK, "{profile:?}");
+    assert_eq!(
+        fetch(&app, &path, &alice).await,
+        StatusCode::NOT_FOUND,
+        "the replaced photo is gone"
+    );
+    let second = download_path(profile["avatar_url"].as_str().expect("avatar url"));
+
+    let (status, _) = send(
+        &app,
+        "PATCH",
+        &format!("/api/workspaces/{ws_id}/profile"),
+        Some(&alice),
+        Some(json!({ "avatar_url": "" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        fetch(&app, &second, &alice).await,
+        StatusCode::NOT_FOUND,
+        "a removed photo is gone"
+    );
+
+    let (status, _) = upload_photo_to(&app, &carol, &route, PNG).await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "only a member has a profile here"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn the_migration_moves_a_workspace_photo_once(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (alice_id, _, _) = seed_and_login(&app, &state, "ws-photo-moved", false).await;
+    let ws_id = seed_workspace(&state, alice_id, "Where it was uploaded").await;
+    let (bob_id, _, bob) = seed_and_login(&app, &state, "ws-photo-viewer", false).await;
+    add_ws_member(&state, ws_id, bob_id, "member").await;
+
+    let old_key = format!("{ws_id}/{}/face.png", Uuid::new_v4());
+    state
+        .file_storage
+        .upload(&old_key, PNG.to_vec(), "image/png")
+        .await
+        .expect("store old photo");
+    let old_url = format!("/api/files/download/{old_key}");
+    sqlx::query(
+        "UPDATE workspace_members SET avatar_url = $3 WHERE workspace_id = $1 AND user_id = $2",
+    )
+    .bind(ws_id)
+    .bind(alice_id)
+    .bind(&old_url)
+    .execute(&state.pool)
+    .await
+    .expect("old workspace photo");
+
+    crate::profile::avatar::migrate(&state).await;
+
+    let photo = || async {
+        sqlx::query_scalar::<_, String>(
+            "SELECT avatar_url FROM workspace_members WHERE workspace_id = $1 AND user_id = $2",
+        )
+        .bind(ws_id)
+        .bind(alice_id)
+        .fetch_one(&state.pool)
+        .await
+        .expect("avatar url")
+    };
+    let moved = photo().await;
+    assert!(
+        moved.contains(&format!("/api/files/download/avatars/{alice_id}/{ws_id}/")),
+        "{moved}"
+    );
+    assert!(moved.ends_with(".png"), "{moved}");
+    assert_eq!(
+        fetch(&app, &download_path(&moved), &bob).await,
+        StatusCode::OK
+    );
+
+    crate::profile::avatar::migrate(&state).await;
+    assert_eq!(photo().await, moved, "a second run has nothing to do");
 }

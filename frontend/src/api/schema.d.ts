@@ -905,7 +905,7 @@ export interface paths {
         delete: operations["delete_hook"];
         options?: never;
         head?: never;
-        patch?: never;
+        patch: operations["update_hook"];
         trace?: never;
     };
     "/hooks/{hook_id}/reveal": {
@@ -2566,6 +2566,22 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["update_workspace_profile"];
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/profile/avatar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["upload_workspace_photo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/workspaces/{ws_id}/profile/status": {
@@ -5123,6 +5139,9 @@ export interface components {
             description?: string | null;
             name: string;
         };
+        UpdateHookRequest: {
+            is_active: boolean;
+        };
         UpdateInstanceRoleRequest: {
             is_instance_admin: boolean;
         };
@@ -6827,6 +6846,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    update_hook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                hook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateHookRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Hook"];
                 };
             };
         };
@@ -10048,6 +10092,32 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["UpdateWorkspaceProfileRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceProfile"];
+                };
+            };
+        };
+    };
+    upload_workspace_photo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        /** @description A `file` field: a PNG, JPEG, GIF or WebP image of at most 10 MB */
+        requestBody: {
+            content: {
+                "multipart/form-data": string;
             };
         };
         responses: {

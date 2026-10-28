@@ -716,6 +716,35 @@ already gone is left as it was and logged as `photo of <id> was not moved`. The 
 where they were and go with their workspace's files. Nothing to do beyond deploying the
 `api` and `worker` images together; `storage-backup` already copies the whole bucket.
 
+## Upgrade note: addresses are lowercase
+
+Migration 81 lowercases every account's and invite's email address and refuses a mixed-case
+one from then on, so `Ana@Firma.com` and `ana@firma.com` are one person to sign-in, invites and
+SSO. If two accounts already differ only in case the migration stops before changing anything,
+and the `api` does not start, with the error naming both spellings and their ids:
+
+```
+accounts whose addresses differ only in case: Ana@Firma.com (…), ana@firma.com (…)
+```
+
+Keep the account the person uses. Either erase the other from *Admin → Users* (or
+`DELETE /admin/users/{id}/data`), or give it an address of its own:
+
+```sql
+UPDATE users SET email = 'ana+old@firma.com' WHERE id = '<the other id>';
+```
+
+then start the `api` again. The workspace photos move in the same release; see the next note.
+
+## Upgrade note: workspace photos get a place of their own
+
+A photo set for one workspace's profile was uploaded as an ordinary file of that workspace, so
+its file retention deleted it with the old attachments. Workspace photos now live under
+`avatars/<user id>/<workspace id>/`, outside retention, and are shown to that workspace's
+members. On its first start the worker copies each existing one there, as it did for account
+photos; one whose object is already gone is left as it was and logged as
+`workspace photo of <id> was not moved`.
+
 ## Audit log
 
 `GET /api/workspaces/:ws_id/audit-log` (workspace admin) and `GET /api/admin/audit-log`

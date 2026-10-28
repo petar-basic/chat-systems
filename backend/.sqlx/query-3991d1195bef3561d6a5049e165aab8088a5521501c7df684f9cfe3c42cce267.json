@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, email, password_hash, display_name, avatar_url, bio, timezone AS \"timezone!\",\n                   status AS \"status: UserStatus\",\n                   is_instance_admin AS \"is_instance_admin!\", created_at, updated_at\n                 FROM users WHERE email = $1",
+  "query": "\n            INSERT INTO users (email, display_name, status)\n            VALUES (lower($1::text), split_part($1::text, '@', 1), 'active')\n            RETURNING id, email, password_hash, display_name, avatar_url, bio, timezone AS \"timezone!\",\n                   status AS \"status: UserStatus\",\n                   is_instance_admin AS \"is_instance_admin!\", created_at, updated_at\n            ",
   "describe": {
     "columns": [
       {
@@ -155,5 +155,5 @@
       false
     ]
   },
-  "hash": "621cf0014436d5317510f50b60102cd45ec77696d782e2c1e8b01e919682ffc5"
+  "hash": "3991d1195bef3561d6a5049e165aab8088a5521501c7df684f9cfe3c42cce267"
 }

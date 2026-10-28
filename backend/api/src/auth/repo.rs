@@ -28,7 +28,7 @@ impl UserRepo {
             User,
             r#"
             INSERT INTO users (email, password_hash, display_name, is_instance_admin)
-            VALUES ($1, $2, $3, $4)
+            VALUES (lower($1), $2, $3, $4)
             RETURNING id, email, password_hash, display_name, avatar_url, bio, timezone AS "timezone!",
                    status AS "status: UserStatus",
                    is_instance_admin AS "is_instance_admin!", created_at, updated_at
@@ -50,7 +50,7 @@ impl UserRepo {
             User,
             r#"
             INSERT INTO users (email, display_name, status)
-            VALUES ($1, $2, 'suspended')
+            VALUES (lower($1), $2, 'suspended')
             RETURNING id, email, password_hash, display_name, avatar_url, bio, timezone AS "timezone!",
                    status AS "status: UserStatus",
                    is_instance_admin AS "is_instance_admin!", created_at, updated_at
@@ -87,7 +87,7 @@ impl UserRepo {
             User,
             r#"
             INSERT INTO users (email, display_name, status)
-            VALUES ($1::text, split_part($1::text, '@', 1), 'active')
+            VALUES (lower($1::text), split_part($1::text, '@', 1), 'active')
             RETURNING id, email, password_hash, display_name, avatar_url, bio, timezone AS "timezone!",
                    status AS "status: UserStatus",
                    is_instance_admin AS "is_instance_admin!", created_at, updated_at
@@ -117,7 +117,7 @@ impl UserRepo {
             r#"SELECT id, email, password_hash, display_name, avatar_url, bio, timezone AS "timezone!",
                    status AS "status: UserStatus",
                    is_instance_admin AS "is_instance_admin!", created_at, updated_at
-                 FROM users WHERE email = $1"#,
+                 FROM users WHERE email = lower($1)"#,
             email
         )
         .fetch_optional(&self.pool)

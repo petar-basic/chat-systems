@@ -91,8 +91,12 @@ export function EditProfileModal({ onClose }: Props) {
   const handlePhoto = async (file: File) => {
     setError(null);
     const url = await photo.upload(file);
-    if (url) setAvatarUrl(url);
-    else setError('Could not upload that photo.');
+    if (!url) {
+      setError('Could not upload that photo.');
+      return;
+    }
+    setAvatarUrl(url);
+    void save.refresh();
   };
 
   const accountName = account?.display_name ?? '';
