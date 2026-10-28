@@ -329,6 +329,7 @@ or data they should have lost comes first.
 | CS-094 ✅ | Addresses, workspace photos and hooks that keep working | backend · frontend |
 | CS-095 ✅ | Push to the right device, from the right server | realtime · backend · frontend |
 | [CS-096](CS-096-survey-small-things.md) | The survey's small things | backend · frontend · realtime |
+| [CS-097](CS-097-workspace-icon.md) | A workspace icon everyone sees, and that stays | backend · frontend |
 
 ### Still open
 
@@ -374,3 +375,4 @@ Tickets that touch the same files, and the order that avoids rework:
 | channel writers' archive checks in `messaging/routes.rs` | CS-091 → CS-092 |
 | `notifications/repo.rs` read and badge queries | CS-092 → CS-095 |
 | `stores/unsent.ts` and `MessageInput.tsx` | CS-093 → CS-096 |
+| `profile/avatar.rs` and the download route's photo keys | CS-094 → CS-097 |
