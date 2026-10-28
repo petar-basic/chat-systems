@@ -10,6 +10,7 @@ const update = vi.fn<(vars: { id: string; body: SaveWorkflow }) => Promise<Workf
 const enable = vi.fn<(id: string) => Promise<Workflow>>();
 const disable = vi.fn<(id: string) => Promise<Workflow>>();
 const takeOver = vi.fn<(id: string) => Promise<Workflow>>();
+const rotate = vi.fn<(id: string) => Promise<Workflow>>();
 const remove = vi.fn<(id: string) => Promise<unknown>>();
 
 vi.mock('./useWorkflows', () => ({
@@ -19,6 +20,7 @@ vi.mock('./useWorkflows', () => ({
     enable: { mutateAsync: enable, isPending: false },
     disable: { mutateAsync: disable, isPending: false },
     takeOver: { mutateAsync: takeOver, isPending: false },
+    rotate: { mutateAsync: rotate, isPending: false },
     remove: { mutateAsync: remove, isPending: false },
   }),
   useWorkflowRuns: () => ({
@@ -151,6 +153,7 @@ beforeEach(() => {
   update.mockReset();
   enable.mockReset();
   disable.mockReset();
+  rotate.mockReset();
   remove.mockReset();
 });
 
@@ -484,6 +487,26 @@ describe('WorkflowEditor', () => {
     await waitFor(() => expect(screen.getByTestId('workflow-name')).not.toBeDisabled());
     expect(screen.getByTestId('workflow-enable')).toBeInTheDocument();
     expect(screen.queryByTestId('workflow-take-over')).toBeNull();
+  });
+
+  it('replaces a webhook workflow’s URL and shows the new one', async () => {
+    const hook = { type: 'webhook' as const, variables: [] };
+    rotate.mockResolvedValue(
+      saved({
+        webhook_url: 'https://chat.test/api/workflows/webhook/new',
+        definition: { trigger: hook, steps: [] },
+      }),
+    );
+    renderEditor(
+      saved({
+        webhook_url: 'https://chat.test/api/workflows/webhook/old',
+        definition: { trigger: hook, steps: [] },
+      }),
+    );
+    expect(screen.getByTestId('workflow-webhook-url')).toHaveTextContent('/webhook/old');
+    fireEvent.click(screen.getByTestId('workflow-rotate'));
+    await waitFor(() => expect(rotate).toHaveBeenCalledWith('w-1'));
+    await waitFor(() => expect(screen.getByTestId('workflow-webhook-url')).toHaveTextContent('/webhook/new'));
   });
 
   it('shows the run history with each step’s outcome', () => {

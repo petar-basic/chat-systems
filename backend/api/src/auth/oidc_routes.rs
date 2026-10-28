@@ -205,10 +205,12 @@ pub(crate) async fn link_or_create(
     // An existing link wins: the provider's subject is stable even when somebody
     // changes their email there.
     if let Some(user_id) = find_linked_user(state, &identity.subject).await? {
-        return repo
+        let user = repo
             .find_by_id(user_id)
             .await?
-            .ok_or_else(|| AppError::Unauthorized("Linked account no longer exists".into()));
+            .ok_or_else(|| AppError::Unauthorized("Linked account no longer exists".into()))?;
+        refuse_suspended(&user)?;
+        return Ok(user);
     }
 
     let existing = repo.find_by_email(&identity.email).await?;
@@ -224,9 +226,7 @@ pub(crate) async fn link_or_create(
         }
     };
 
-    if user.status == crate::auth::models::UserStatus::Suspended {
-        return Err(AppError::Unauthorized("This account is suspended".into()));
-    }
+    refuse_suspended(&user)?;
     if user.status == crate::auth::models::UserStatus::Pending {
         repo.activate_sso(user.id).await?;
     }
@@ -267,6 +267,13 @@ pub(crate) async fn link_or_create(
     repo.find_by_id(user.id)
         .await?
         .ok_or_else(|| AppError::Internal("User vanished mid-login".into()))
+}
+
+fn refuse_suspended(user: &crate::auth::models::User) -> AppResult<()> {
+    if user.status == crate::auth::models::UserStatus::Suspended {
+        return Err(AppError::Unauthorized("This account is suspended".into()));
+    }
+    Ok(())
 }
 
 async fn find_linked_user(state: &AppState, subject: &str) -> AppResult<Option<uuid::Uuid>> {

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE workflows SET webhook_token = $2, updated_at = NOW() WHERE id = $1 AND webhook_token IS NOT NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6a7eaf45070390162183f902ab21a54f07d998a0ec877c710a67aad13fe5fdfe"
+}

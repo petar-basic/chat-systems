@@ -943,6 +943,32 @@ async fn a_suspended_creators_workflow_stops_and_an_admin_can_take_it_over(pool:
     assert_eq!(audited, 1);
     let (status, _) = act(&app, &owner, &taken, "enable").await;
     assert_eq!(status, StatusCode::OK);
+
+    assert_ne!(hook_path(&taken), hook_path(&workflow));
+    let (status, _) = call(&app, &hook_path(&workflow), None, json!({})).await;
+    assert_eq!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "the link the old owner knew is retired with the take-over"
+    );
+    let (status, _) = call(&app, &hook_path(&taken), None, json!({})).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+
+    let (status, rotated) = act(&app, &owner, &taken, "rotate").await;
+    assert_eq!(status, StatusCode::OK, "{rotated:?}");
+    assert_ne!(hook_path(&rotated), hook_path(&taken));
+    let (status, _) = call(&app, &hook_path(&taken), None, json!({})).await;
+    assert_eq!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "rotating retires the link"
+    );
+    let (status, _) = act(&app, &member, &rotated, "rotate").await;
+    assert_ne!(
+        status,
+        StatusCode::OK,
+        "only its owner or an admin rotates it"
+    );
 }
 
 #[test_macros::db_test(migrations = "../migrations")]

@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE workflows\n               SET created_by = $2, enabled = false, next_run_at = NULL,\n                   webhook_token = CASE WHEN webhook_token IS NULL THEN NULL ELSE $3 END,\n                   updated_at = NOW()\n             WHERE id = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "87ff9a9ef87d3e7c313a9c05bf0abe738581748bdafbf83f68e81acdd7bc910a"
+}

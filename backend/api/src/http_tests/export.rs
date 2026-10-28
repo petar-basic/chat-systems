@@ -358,6 +358,126 @@ async fn hard_delete_removes_the_messages(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn hard_delete_leaves_nothing_they_wrote_reacted_or_uploaded(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "exp-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Erase WS").await;
+    let ch = seed_channel(&state, ws, owner_id, "main", false).await;
+    let (subject_id, subject_email) = seed(&state, "exp-subject", false).await;
+    add_ws_member(&state, ws, subject_id, "member").await;
+    let subject = login(&app, &subject_email, PASSWORD).await;
+
+    let (_, question) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch}/messages"),
+        Some(&subject),
+        Some(json!({ "content": "my first draft" })),
+    )
+    .await;
+    let question_id = question["id"].as_str().unwrap().to_string();
+    let (status, _) = send(
+        &app,
+        "PATCH",
+        &format!("/api/messages/{question_id}"),
+        Some(&subject),
+        Some(json!({ "content": "my second draft" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch}/messages"),
+        Some(&owner),
+        Some(json!({ "content": "an answer", "thread_parent_id": question_id })),
+    )
+    .await;
+    let (_, theirs) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch}/messages"),
+        Some(&owner),
+        Some(json!({ "content": "someone else's" })),
+    )
+    .await;
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/messages/{}/reactions", theirs["id"].as_str().unwrap()),
+        Some(&subject),
+        Some(json!({ "emoji": "👍" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let file_id = super::file_search::upload_bytes(
+        &app,
+        ws,
+        &subject,
+        "notes.txt",
+        "text/plain",
+        b"private notes",
+    )
+    .await;
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch}/messages"),
+        Some(&subject),
+        Some(json!({ "content": "attached", "attachment_ids": [file_id] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let storage_key: String =
+        sqlx::query_scalar("SELECT storage_key FROM files WHERE user_id = $1")
+            .bind(subject_id)
+            .fetch_one(&state.pool)
+            .await
+            .expect("the upload");
+
+    let (_, _, instance_admin) = seed_and_login(&app, &state, "exp-instance", true).await;
+    let (status, erased) = send(
+        &app,
+        "DELETE",
+        &format!("/api/admin/users/{subject_id}/data"),
+        Some(&instance_admin),
+        Some(json!({ "hard_delete": true })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{erased:?}");
+    assert_eq!(erased["removed"]["edits"], 1);
+    assert_eq!(erased["removed"]["reactions"], 1);
+    assert_eq!(erased["removed"]["files"], 1);
+
+    let question_uuid = Uuid::parse_str(&question_id).unwrap();
+    let (content, edits): (String, i64) = sqlx::query_as(
+        "SELECT m.content, (SELECT COUNT(*) FROM message_edits e WHERE e.message_id = m.id) FROM messages m WHERE m.id = $1",
+    )
+    .bind(question_uuid)
+    .fetch_one(&state.pool)
+    .await
+    .expect("the answered question stays as a tombstone");
+    assert_eq!(content, "");
+    assert_eq!(edits, 0, "and its earlier versions go with the text");
+    let reactions: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM reactions WHERE user_id = $1")
+        .bind(subject_id)
+        .fetch_one(&state.pool)
+        .await
+        .expect("count");
+    assert_eq!(reactions, 0);
+    let files: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM files WHERE user_id = $1")
+        .bind(subject_id)
+        .fetch_one(&state.pool)
+        .await
+        .expect("count");
+    assert_eq!(files, 0);
+    assert!(
+        state.file_storage.download(&storage_key).await.is_err(),
+        "the object goes with the row"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn an_admin_lists_the_workspaces_exports_and_nobody_elses(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner) = seed_and_login(&app, &state, "exp-owner", false).await;

@@ -231,3 +231,78 @@ async fn a_suspended_account_cannot_sign_in_around_the_suspension(pool: sqlx::Pg
         Err(shared_common::errors::AppError::Unauthorized(_))
     ));
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_linked_account_suspended_later_cannot_sign_in_through_its_link(pool: sqlx::PgPool) {
+    let (_app, state) = app_and_state(pool).await;
+    let (user_id, email) = seed(&state, "linked-suspended", false).await;
+    link_or_create(
+        &state,
+        &settings(Provisioning::InviteOnly),
+        &identity("subject-linked", &email),
+        &ClientIp(None),
+    )
+    .await
+    .expect("first sign-in links the account");
+
+    sqlx::query("UPDATE users SET status = 'suspended' WHERE id = $1")
+        .bind(user_id)
+        .execute(&state.pool)
+        .await
+        .expect("suspend");
+
+    let result = link_or_create(
+        &state,
+        &settings(Provisioning::InviteOnly),
+        &identity("subject-linked", "changed@elsewhere.test"),
+        &ClientIp(None),
+    )
+    .await;
+    assert!(matches!(
+        result,
+        Err(shared_common::errors::AppError::Unauthorized(_))
+    ));
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_erased_account_loses_its_sso_link(pool: sqlx::PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (user_id, email) = seed(&state, "linked-erased", false).await;
+    link_or_create(
+        &state,
+        &settings(Provisioning::InviteOnly),
+        &identity("subject-erased", &email),
+        &ClientIp(None),
+    )
+    .await
+    .expect("first sign-in links the account");
+
+    let (_, _, instance_admin) = seed_and_login(&app, &state, "linked-erase-admin", true).await;
+    let (status, _) = send(
+        &app,
+        "DELETE",
+        &format!("/api/admin/users/{user_id}/data"),
+        Some(&instance_admin),
+        Some(serde_json::json!({ "hard_delete": false })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let links: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM oauth_accounts WHERE user_id = $1")
+        .bind(user_id)
+        .fetch_one(&state.pool)
+        .await
+        .expect("count links");
+    assert_eq!(links, 0);
+    let result = link_or_create(
+        &state,
+        &settings(Provisioning::InviteOnly),
+        &identity("subject-erased", &email),
+        &ClientIp(None),
+    )
+    .await;
+    assert!(matches!(
+        result,
+        Err(shared_common::errors::AppError::Forbidden(_))
+    ));
+}

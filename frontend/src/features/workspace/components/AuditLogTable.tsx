@@ -36,6 +36,7 @@ const ACTION_LABELS: Record<string, string> = {
   'workflow.enabled': 'Workflow published',
   'workflow.disabled': 'Workflow turned off',
   'workflow.taken_over': 'Workflow taken over',
+  'workflow.link_rotated': 'Workflow URL replaced',
   'workflow.deleted': 'Workflow deleted',
   'hook.deleted': 'Integration deleted',
   'hook.revealed': 'Integration secret revealed',

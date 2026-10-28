@@ -107,6 +107,7 @@ pub async fn stand_down(
         Stopped::LeftWorkspace | Stopped::LostChannel => {
             "the person who built it left the workspace"
         }
+        Stopped::Demoted => "the person who built it is no longer allowed to",
     };
     let workflows =
         crate::workflows::service::stop_creators_workflows(state, workspace_id, user_id, because)

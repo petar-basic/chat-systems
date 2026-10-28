@@ -281,6 +281,13 @@ pub async fn delete_for_channel_message(state: &AppState, message_id: Uuid) {
     }
 }
 
+pub async fn erase_uploads(state: &AppState, user_id: Uuid) -> AppResult<u64> {
+    let records = state.file_repo.uploaded_by(user_id).await?;
+    purge_objects(state, &records).await;
+    let ids: Vec<Uuid> = records.iter().map(|record| record.id).collect();
+    Ok(state.file_repo.delete_many(&ids).await?)
+}
+
 pub async fn sweep_expired_drafts(state: &AppState) -> usize {
     let mut swept = 0;
     loop {

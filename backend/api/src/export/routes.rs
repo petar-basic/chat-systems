@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
 
-use super::repo::{CreateExportRequest, ExportJob, ExportScope, NewExport};
+use super::repo::{CreateExportRequest, ErasedCounts, ExportJob, ExportScope, NewExport};
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
 use crate::dto::DataList;
@@ -51,11 +51,6 @@ pub struct ExportCreated {
 pub struct ExportDetail {
     pub export: ExportJob,
     pub download_url: Option<String>,
-}
-
-#[derive(Debug, serde::Serialize, utoipa::ToSchema)]
-pub struct ErasedCounts {
-    pub messages: u64,
 }
 
 #[derive(Debug, serde::Serialize, utoipa::ToSchema)]
@@ -255,10 +250,11 @@ async fn erase_user_data(
     }
 
     let removed = if req.hard_delete {
-        let messages = state.message_repo.erase_author(user_id).await?;
-        ErasedCounts { messages }
+        let mut erased = state.export_repo.erase_writing(user_id).await?;
+        erased.files = crate::files::service::erase_uploads(&state, user_id).await?;
+        erased
     } else {
-        ErasedCounts { messages: 0 }
+        ErasedCounts::default()
     };
 
     // The account is tombstoned either way: the profile is what identifies a
@@ -314,6 +310,7 @@ async fn erase_user_data(
         .integration_repo
         .delete_user_connections(user_id)
         .await?;
+    state.auth_service.repo().unlink_sso(user_id).await?;
     crate::workspace::membership::suspend_creations(&state, user_id, auth.user_id, &ip).await;
 
     audit::record(
@@ -323,7 +320,7 @@ async fn erase_user_data(
             .ip(&ip)
             .details(serde_json::json!({
                 "hard_delete": req.hard_delete,
-                "removed": { "messages": removed.messages },
+                "removed": removed,
             })),
     )
     .await;
