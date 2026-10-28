@@ -58,6 +58,7 @@ describe('activity', () => {
 
   it('is idle as soon as the page goes away', async () => {
     const { isActive } = await freshTracker();
+    expect(isActive()).toBe(false);
     window.dispatchEvent(new KeyboardEvent('keydown'));
     expect(isActive()).toBe(true);
 
