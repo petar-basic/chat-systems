@@ -111,6 +111,18 @@ describe('WebSocketClient waking up', () => {
     expect(FakeSocket.all).toHaveLength(1);
   });
 
+  it('asks again for a channel it was refused while only previewing it, once it is joined', async () => {
+    const client = await connectedClient();
+    const socket = FakeSocket.all[0];
+    client.joinChannels(['c1']);
+    client.joinChannels(['c1']);
+    expect(socket.sent.filter((f) => JSON.stringify(f).includes('c1'))).toHaveLength(1);
+
+    client.rejoinChannel('c1');
+
+    expect(socket.sent.filter((f) => JSON.stringify(f).includes('c1'))).toHaveLength(2);
+  });
+
   it('stays down after a deliberate disconnect', async () => {
     const client = await connectedClient();
     client.disconnect();

@@ -11,12 +11,11 @@ interface Props {
   channel: Channel;
   canModerate: boolean;
   onClose: () => void;
-  onArchived: () => void;
 }
 
-export function AboutSection({ channel, canModerate, onClose, onArchived }: Props) {
+export function AboutSection({ channel, canModerate, onClose }: Props) {
   if (!canModerate) return <AboutText channel={channel} />;
-  return <AboutForm channel={channel} onClose={onClose} onArchived={onArchived} />;
+  return <AboutForm channel={channel} onClose={onClose} />;
 }
 
 function AboutText({ channel }: { channel: Channel }) {
@@ -38,7 +37,7 @@ function AboutText({ channel }: { channel: Channel }) {
   );
 }
 
-function AboutForm({ channel, onClose, onArchived }: Omit<Props, 'canModerate'>) {
+function AboutForm({ channel, onClose }: Omit<Props, 'canModerate'>) {
   const [name, setName] = useState(channel.name ?? '');
   const [topic, setTopic] = useState(channel.topic ?? '');
   const [description, setDescription] = useState(channel.description ?? '');
@@ -65,7 +64,6 @@ function AboutForm({ channel, onClose, onArchived }: Omit<Props, 'canModerate'>)
 
   const handleArchive = async () => {
     await archiveChannel.mutateAsync(channel.id);
-    onArchived();
     onClose();
   };
 
@@ -125,7 +123,7 @@ function AboutForm({ channel, onClose, onArchived }: Omit<Props, 'canModerate'>)
       {confirmArchive && (
         <ConfirmDialog
           title={`Archive #${channel.name ?? 'channel'}?`}
-          description="It leaves the channel list and Browse channels, and nobody can join it any more."
+          description="It leaves the channel list and nobody can post in it, until an admin unarchives it. Its history stays readable."
           confirmLabel="Archive channel"
           onConfirm={handleArchive}
           onClose={() => setConfirmArchive(false)}

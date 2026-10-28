@@ -26,7 +26,6 @@ interface Props {
   initialTab?: ChannelDetailsTab;
   onOpenWorkflow?: (workflowId: string) => void;
   onClose: () => void;
-  onArchived: () => void;
 }
 
 export function ChannelDetailsModal({
@@ -35,7 +34,6 @@ export function ChannelDetailsModal({
   initialTab = 'about',
   onOpenWorkflow,
   onClose,
-  onArchived,
 }: Props) {
   const sections = canModerate ? [ABOUT, SETTINGS, INTEGRATIONS] : [ABOUT, INTEGRATIONS];
   const [chosen, setChosen] = useState(initialTab);
@@ -50,9 +48,7 @@ export function ChannelDetailsModal({
       onClose={onClose}
       qaPrefix="channel-details"
     >
-      {active === 'about' && (
-        <AboutSection channel={channel} canModerate={canModerate} onClose={onClose} onArchived={onArchived} />
-      )}
+      {active === 'about' && <AboutSection channel={channel} canModerate={canModerate} onClose={onClose} />}
       {active === 'settings' && <SettingsSection channel={channel} onClose={onClose} />}
       {active === 'integrations' && (
         <IntegrationsSection

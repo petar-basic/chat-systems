@@ -442,6 +442,7 @@ async fn incoming_webhook(
         state.hook_repo.disable(hook.id, why.reason()).await?;
         return Err(AppError::Unauthorized("Invalid webhook token".into()));
     }
+    authz::require_not_archived(&authz::find_channel(&state, channel_id).await?)?;
 
     let metadata = serde_json::json!({ "bot": {
         "hook_id": hook.id,

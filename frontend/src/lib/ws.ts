@@ -268,6 +268,11 @@ export class WebSocketClient {
     if (fresh.length > 0) this.send({ type: 'channel.join', channel_ids: fresh });
   }
 
+  rejoinChannel(channel_id: string) {
+    this.joinedChannels.delete(channel_id);
+    this.joinChannels([channel_id]);
+  }
+
   leaveChannel(channel_id: string) {
     this.joinedChannels.delete(channel_id);
     this.send({ type: 'channel.leave', channel_id });

@@ -130,12 +130,14 @@ async fn authorize_channel(
     {
         return Err(DeliveryFailure::AuthorInactive);
     }
-    let access = authz::require_channel_post(state, channel_id, scheduled.user_id)
+    let access = authz::require_channel_access(state, channel_id, scheduled.user_id)
         .await
         .map_err(|_| DeliveryFailure::NotAuthorized)?;
-
     if access.channel.is_archived {
         return Err(DeliveryFailure::ChannelArchived);
+    }
+    if !access.can_post() {
+        return Err(DeliveryFailure::NotAuthorized);
     }
 
     let workspace = state
