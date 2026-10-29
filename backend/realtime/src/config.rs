@@ -2,6 +2,8 @@ use tracing::info;
 
 use shared_common::session_keys::VerifyingKeys;
 
+use crate::connection_manager::{HuddleSfu, HUDDLE_MAX_PARTICIPANTS};
+
 #[derive(Debug, Clone)]
 pub struct RealtimeConfig {
     pub redis_url: String,
@@ -10,6 +12,7 @@ pub struct RealtimeConfig {
     pub port: u16,
     pub cors_origins: String,
     pub pg_pool_max: u32,
+    pub huddle_sfu: Option<HuddleSfu>,
 }
 
 impl RealtimeConfig {
@@ -24,6 +27,7 @@ impl RealtimeConfig {
             port: parse_env("PORT", 3004),
             cors_origins: env_or("CORS_ORIGINS", "http://localhost:3001"),
             pg_pool_max: parse_env("PG_POOL_MAX", 5),
+            huddle_sfu: huddle_sfu_from_env(),
         };
         info!("Config loaded: port={}", config.port);
         config
@@ -37,6 +41,23 @@ fn jwt_public_keys_from_env() -> VerifyingKeys {
             "JWT_PUBLIC_KEYS must list the public half of every key in the API's \
              JWT_SIGNING_KEYS ({e}). The API logs the line to copy when it starts."
         )
+    })
+}
+
+fn huddle_sfu_from_env() -> Option<HuddleSfu> {
+    if env_or("LIVEKIT_URL", "").is_empty() {
+        return None;
+    }
+    let threshold = parse_env("HUDDLE_SFU_THRESHOLD", 6);
+    if threshold >= HUDDLE_MAX_PARTICIPANTS {
+        panic!(
+            "HUDDLE_SFU_THRESHOLD must be below {HUDDLE_MAX_PARTICIPANTS}, the most a mesh holds, \
+             or a huddle fills up before it ever moves to the SFU"
+        );
+    }
+    Some(HuddleSfu {
+        threshold,
+        max_participants: parse_env("HUDDLE_SFU_MAX_PARTICIPANTS", 100),
     })
 }
 
@@ -117,6 +138,41 @@ mod tests {
         assert_eq!(config.jwt_public_keys.ids(), vec!["k1", "k0"]);
 
         restore(saved);
+    }
+
+    #[test]
+    fn the_sfu_is_on_only_with_livekit_and_a_threshold_the_mesh_can_reach() {
+        let _guard = ENV_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+
+        let saved = vec![
+            set_saved("JWT_PUBLIC_KEYS", PUBLIC_KEYS),
+            unset_saved("LIVEKIT_URL"),
+            unset_saved("HUDDLE_SFU_THRESHOLD"),
+            unset_saved("HUDDLE_SFU_MAX_PARTICIPANTS"),
+        ];
+
+        let off = RealtimeConfig::from_env().huddle_sfu;
+        std::env::set_var("LIVEKIT_URL", "wss://sfu.example.com");
+        let on = RealtimeConfig::from_env().huddle_sfu;
+        std::env::set_var("HUDDLE_SFU_THRESHOLD", HUDDLE_MAX_PARTICIPANTS.to_string());
+        let unreachable = std::panic::catch_unwind(RealtimeConfig::from_env);
+
+        restore(saved);
+
+        assert_eq!(off, None);
+        assert_eq!(
+            on,
+            Some(HuddleSfu {
+                threshold: 6,
+                max_participants: 100,
+            })
+        );
+        assert!(
+            unreachable.is_err(),
+            "a threshold the mesh never reaches must refuse to start"
+        );
     }
 
     #[test]

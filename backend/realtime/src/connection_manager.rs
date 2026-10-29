@@ -8,7 +8,7 @@ use tokio::sync::mpsc;
 use tracing::warn;
 use uuid::Uuid;
 
-use shared_events::frames::Presence;
+use shared_events::frames::{HuddleTransport, Presence};
 
 pub const WRITER_CHANNEL_CAP: usize = 256;
 
@@ -38,6 +38,23 @@ pub const BACKPRESSURE_CLOSE_CODE: u16 = 4003;
 pub const HUDDLE_TTL_SECS: i64 = 120;
 
 pub const HUDDLE_MAX_PARTICIPANTS: usize = 8;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HuddleSfu {
+    pub threshold: usize,
+    pub max_participants: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HuddleJoin {
+    Full {
+        limit: usize,
+    },
+    Joined {
+        transport: HuddleTransport,
+        promoted: bool,
+    },
+}
 
 pub const SESSION_REVOKED_CLOSE_CODE: u16 = 4001;
 
@@ -93,6 +110,7 @@ pub struct ConnectionManager {
     user_connections: DashMap<Uuid, HashSet<Uuid>>,
     db: PgPool,
     redis: redis::aio::ConnectionManager,
+    sfu: Option<HuddleSfu>,
 }
 
 impl std::fmt::Debug for ConnectionManager {
@@ -111,7 +129,13 @@ impl ConnectionManager {
             user_connections: DashMap::new(),
             db,
             redis,
+            sfu: None,
         }
+    }
+
+    pub fn with_sfu(mut self, sfu: Option<HuddleSfu>) -> Self {
+        self.sfu = sfu;
+        self
     }
 
     pub fn db(&self) -> &PgPool {
@@ -838,39 +862,76 @@ impl ConnectionManager {
         format!("huddle:{huddle_id}:members")
     }
 
+    fn huddle_transport_key(huddle_id: &Uuid) -> String {
+        format!("huddle:{huddle_id}:transport")
+    }
+
     pub async fn huddle_redis_join(&self, huddle_id: Uuid, user_id: Uuid) {
         let mut conn = self.redis.clone();
         let key = Self::huddle_members_key(&huddle_id);
         let _: redis::RedisResult<()> = conn.sadd(&key, user_id.to_string()).await;
         let _: redis::RedisResult<()> = conn.expire(&key, HUDDLE_TTL_SECS).await;
+        let _: redis::RedisResult<()> = conn
+            .expire(Self::huddle_transport_key(&huddle_id), HUDDLE_TTL_SECS)
+            .await;
     }
 
-    pub async fn huddle_redis_try_join(&self, huddle_id: Uuid, user_id: Uuid) -> bool {
+    pub async fn huddle_redis_try_join(&self, huddle_id: Uuid, user_id: Uuid) -> HuddleJoin {
         let script = redis::Script::new(
             r"
+            local on_sfu = redis.call('EXISTS', KEYS[2]) == 1
+            local limit = tonumber(ARGV[2])
+            if on_sfu then limit = tonumber(ARGV[4]) end
             if redis.call('SISMEMBER', KEYS[1], ARGV[1]) == 0
-                and redis.call('SCARD', KEYS[1]) >= tonumber(ARGV[2]) then
-                return 0
+                and redis.call('SCARD', KEYS[1]) >= limit then
+                return -limit
             end
             redis.call('SADD', KEYS[1], ARGV[1])
             redis.call('EXPIRE', KEYS[1], tonumber(ARGV[3]))
+            if on_sfu then
+                redis.call('EXPIRE', KEYS[2], tonumber(ARGV[3]))
+                return 2
+            end
+            local threshold = tonumber(ARGV[5])
+            if threshold >= 0 and redis.call('SCARD', KEYS[1]) > threshold then
+                redis.call('SET', KEYS[2], 'sfu', 'EX', tonumber(ARGV[3]))
+                return 3
+            end
             return 1
             ",
         );
+        let (threshold, sfu_limit) = match self.sfu {
+            Some(sfu) => (sfu.threshold as i64, sfu.max_participants),
+            None => (-1, HUDDLE_MAX_PARTICIPANTS),
+        };
         let mut conn = self.redis.clone();
         let joined: redis::RedisResult<i64> = script
             .key(Self::huddle_members_key(&huddle_id))
+            .key(Self::huddle_transport_key(&huddle_id))
             .arg(user_id.to_string())
             .arg(HUDDLE_MAX_PARTICIPANTS)
             .arg(HUDDLE_TTL_SECS)
+            .arg(sfu_limit)
+            .arg(threshold)
             .invoke_async(&mut conn)
             .await;
-        match joined {
-            Ok(joined) => joined == 1,
+        let (transport, promoted) = match joined {
+            Ok(code) if code < 0 => {
+                return HuddleJoin::Full {
+                    limit: code.unsigned_abs() as usize,
+                }
+            }
+            Ok(2) => (HuddleTransport::Sfu, false),
+            Ok(3) => (HuddleTransport::Sfu, true),
+            Ok(_) => (HuddleTransport::Mesh, false),
             Err(e) => {
                 warn!("huddle_redis_try_join redis error huddle={huddle_id}: {e}");
-                true
+                (HuddleTransport::Mesh, false)
             }
+        };
+        HuddleJoin::Joined {
+            transport,
+            promoted,
         }
     }
 

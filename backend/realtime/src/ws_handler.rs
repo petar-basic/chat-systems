@@ -8,9 +8,9 @@ use tokio::sync::mpsc;
 use tokio::time::interval;
 use tracing::{info, warn};
 
-use shared_events::frames::{Presence, PresenceEntry, ServerFrame};
+use shared_events::frames::{HuddleTransport, Presence, PresenceEntry, ServerFrame};
 
-use crate::connection_manager::{Audience, HUDDLE_MAX_PARTICIPANTS};
+use crate::connection_manager::{Audience, HuddleJoin};
 use uuid::Uuid;
 
 use crate::connection_manager::{ConnectionManager, WRITER_CHANNEL_CAP};
@@ -449,28 +449,40 @@ pub(crate) async fn handle_client_message(
                 );
                 return;
             }
-            if !cm.huddle_redis_try_join(huddle_id, user_id).await {
-                let full = ServerFrame::HuddleFull {
-                    huddle_id,
-                    limit: HUDDLE_MAX_PARTICIPANTS,
-                };
-                cm.send_to_conn(*conn_id, &frame_text(&full));
-                info!(
-                    "User {} turned away from full huddle {}",
-                    user_id, huddle_id
-                );
-                return;
-            }
+            let (transport, promoted) = match cm.huddle_redis_try_join(huddle_id, user_id).await {
+                HuddleJoin::Full { limit } => {
+                    let full = ServerFrame::HuddleFull { huddle_id, limit };
+                    cm.send_to_conn(*conn_id, &frame_text(&full));
+                    info!(
+                        "User {} turned away from full huddle {}",
+                        user_id, huddle_id
+                    );
+                    return;
+                }
+                HuddleJoin::Joined {
+                    transport,
+                    promoted,
+                } => (transport, promoted),
+            };
             cm.join_huddle(conn_id, huddle_id);
             cm.publish_huddle(
                 "huddle.member_joined",
                 serde_json::json!({ "huddle_id": huddle_id, "user_id": user_id }),
             )
             .await;
+            if promoted {
+                cm.publish_huddle(
+                    "huddle.transport",
+                    serde_json::json!({ "huddle_id": huddle_id, "transport": HuddleTransport::Sfu }),
+                )
+                .await;
+                info!("Huddle {} moved to the SFU", huddle_id);
+            }
             let members = cm.huddle_redis_members(huddle_id).await;
             let snapshot = ServerFrame::HuddleMembers {
                 huddle_id,
                 user_ids: members,
+                transport,
             };
             cm.send_to_user(Audience::Everyone, user_id, &frame_text(&snapshot))
                 .await;

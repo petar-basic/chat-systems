@@ -735,9 +735,14 @@ over the gateway on both, so nothing else cares which one carries the media. Who
 comes from `useSpeaking` on the mesh and from LiveKit on the SFU (`useHuddleStore.transport`
 says which).
 
-`openTransport` picks one. Every huddle starts on the mesh; until promotion mid-call lands,
-`localStorage.setItem('chat_huddle_sfu', '1')` puts that browser on the SFU, and a browser that
-cannot get a token or reach LiveKit falls back to the mesh.
+Every huddle starts on the mesh. When the gateway moves it (`huddle.transport`, or `transport:
+"sfu"` in the `huddle.members` snapshot a late joiner gets), the controller swaps in a
+`Promotion`: it opens the SFU with `openSfu`, publishes the same microphone, camera, screen and
+mute there, and sends every change to both while it waits. Tracks arriving from LiveKit are
+held back, and the mesh keeps playing, until it has the audio of everybody it was meshed with,
+or eight seconds pass for someone who never arrives; then it closes the mesh and plays the
+held tracks in the same moment. Nobody new is meshed with once the move has started. A browser
+that cannot reach the SFU keeps its mesh with whoever is still on it and says so.
 
 ---
 

@@ -204,6 +204,9 @@ services:
       JWT_PUBLIC_KEYS: ${JWT_PUBLIC_KEYS:?JWT_PUBLIC_KEYS must be set}
       CORS_ORIGINS: https://${DOMAIN}
       PG_POOL_MAX: ${PG_POOL_MAX:-3}
+      LIVEKIT_URL: ${LIVEKIT_URL:-}
+      HUDDLE_SFU_THRESHOLD: ${HUDDLE_SFU_THRESHOLD:-6}
+      HUDDLE_SFU_MAX_PARTICIPANTS: ${HUDDLE_SFU_MAX_PARTICIPANTS:-100}
       RUST_LOG: ${RUST_LOG:-info}
     depends_on:
       postgres:
