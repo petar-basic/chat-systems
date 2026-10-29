@@ -6,6 +6,7 @@ import { AppIcon } from '@/shared/components/AppIcon/AppIcon';
 import { useApps, useAppActions, type AppStatus } from '@/features/workspace/hooks/useApps';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { Checkbox } from '@/shared/components/Form/Checkbox';
+import { BotAppsSection } from './BotAppsSection';
 
 interface Props {
   workspaceId: string;
@@ -19,6 +20,8 @@ export function AppsSection({ workspaceId, isAdmin }: Props) {
   return (
     <div className="-mx-4 flex flex-col" data-qa="apps-panel">
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <BotAppsSection workspaceId={workspaceId} isAdmin={isAdmin} />
+        <h3 className="text-sm font-semibold text-fg-soft">Connected apps</h3>
         <p className="text-xs text-muted">
           Connected apps turn links into cards with live details. Each person connects their own account, so a
           card only ever shows what the person who posted the link can see.

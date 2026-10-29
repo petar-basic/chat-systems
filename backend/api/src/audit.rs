@@ -79,6 +79,11 @@ pub enum AuditAction {
     WorkflowDeleted,
     WorkflowTakenOver,
     WorkflowLinkRotated,
+    BotAppCreated,
+    BotAppUpdated,
+    BotAppTokenRotated,
+    BotAppRemoved,
+    BotAppCalled,
 }
 
 impl AuditAction {
@@ -148,6 +153,11 @@ impl AuditAction {
             Self::WorkflowDeleted => "workflow.deleted",
             Self::WorkflowTakenOver => "workflow.taken_over",
             Self::WorkflowLinkRotated => "workflow.link_rotated",
+            Self::BotAppCreated => "bot_app.created",
+            Self::BotAppUpdated => "bot_app.updated",
+            Self::BotAppTokenRotated => "bot_app.token_rotated",
+            Self::BotAppRemoved => "bot_app.removed",
+            Self::BotAppCalled => "bot_app.called",
         }
     }
 
@@ -207,6 +217,11 @@ impl AuditAction {
             | Self::WorkflowDeleted
             | Self::WorkflowTakenOver
             | Self::WorkflowLinkRotated => "workflow",
+            Self::BotAppCreated
+            | Self::BotAppUpdated
+            | Self::BotAppTokenRotated
+            | Self::BotAppRemoved
+            | Self::BotAppCalled => "bot_app",
         }
     }
 }

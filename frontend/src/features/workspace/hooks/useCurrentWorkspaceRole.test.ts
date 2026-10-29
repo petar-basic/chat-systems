@@ -10,6 +10,7 @@ const member = (user_id: string, role: WorkspaceRole, workspace_id = 'ws1'): Wor
   email: `${user_id}@test.local`,
   display_name: user_id,
   avatar_url: null,
+  is_bot: false,
 });
 
 describe('resolveCurrentWorkspaceRole', () => {

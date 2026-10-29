@@ -169,6 +169,7 @@ export default function MessageList({
           senderStatusEmoji={row.message.metadata?.bot ? null : sender?.status_emoji}
           senderStatusText={row.message.metadata?.bot ? null : sender?.status_text}
           senderAvatarUrl={row.message.metadata?.bot?.icon_url ?? sender?.avatar_url}
+          senderIsApp={sender?.is_bot}
           isHighlighted={row.message.id === highlightMessageId}
           onThreadOpen={openThread}
           onToggleReaction={actions.toggleReaction}

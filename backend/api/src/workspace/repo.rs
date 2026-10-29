@@ -245,7 +245,8 @@ impl WorkspaceRepo {
             INSERT INTO workspace_members (workspace_id, user_id, role)
             VALUES ($1, $2, $3)
             ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = $3
-            RETURNING workspace_id, user_id, role AS "role: WorkspaceRole", joined_at
+            RETURNING workspace_id, user_id, role AS "role: WorkspaceRole", joined_at,
+                      (SELECT u.is_bot FROM users u WHERE u.id = $2) AS "is_bot!"
             "#,
             workspace_id,
             user_id,
@@ -267,7 +268,8 @@ impl WorkspaceRepo {
             INSERT INTO workspace_members (workspace_id, user_id, role)
             VALUES ($1, $2, $3)
             ON CONFLICT (workspace_id, user_id) DO NOTHING
-            RETURNING workspace_id, user_id, role AS "role: WorkspaceRole", joined_at
+            RETURNING workspace_id, user_id, role AS "role: WorkspaceRole", joined_at,
+                      (SELECT u.is_bot FROM users u WHERE u.id = $2) AS "is_bot!"
             "#,
             workspace_id,
             user_id,
@@ -289,7 +291,8 @@ impl WorkspaceRepo {
             INSERT INTO workspace_members (workspace_id, user_id, role)
             VALUES ($1, $2, $3)
             ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = workspace_members.role
-            RETURNING workspace_id, user_id, role AS "role: WorkspaceRole", joined_at
+            RETURNING workspace_id, user_id, role AS "role: WorkspaceRole", joined_at,
+                      (SELECT u.is_bot FROM users u WHERE u.id = $2) AS "is_bot!"
             "#,
             workspace_id,
             user_id,
@@ -324,8 +327,9 @@ impl WorkspaceRepo {
     ) -> sqlx::Result<Option<WorkspaceMember>> {
         sqlx::query_as!(
             WorkspaceMember,
-            r#"SELECT workspace_id, user_id, role AS "role: WorkspaceRole", joined_at
-                 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2"#,
+            r#"SELECT wm.workspace_id, wm.user_id, wm.role AS "role: WorkspaceRole", wm.joined_at, u.is_bot
+                 FROM workspace_members wm JOIN users u ON u.id = wm.user_id
+                WHERE wm.workspace_id = $1 AND wm.user_id = $2"#,
             workspace_id,
             user_id
         )
@@ -391,7 +395,8 @@ impl WorkspaceRepo {
                         THEN wm.status_emoji END AS "status_emoji?",
                    CASE WHEN wm.status_expires_at IS NULL OR wm.status_expires_at > NOW()
                         THEN wm.status_text END AS "status_text?",
-                   public.notifications_paused_until(wm.workspace_id, u.id, NOW()) AS notifications_paused_until
+                   public.notifications_paused_until(wm.workspace_id, u.id, NOW()) AS notifications_paused_until,
+                   u.is_bot
             FROM workspace_members wm
             JOIN users u ON u.id = wm.user_id
             WHERE wm.workspace_id = $1
@@ -422,7 +427,7 @@ impl WorkspaceRepo {
             MemberWithUser,
             r#"
             SELECT wm.workspace_id, wm.user_id, wm.role AS "role: WorkspaceRole", wm.joined_at,
-                   u.email,
+                   CASE WHEN u.is_bot THEN '' ELSE u.email END AS "email!",
                    COALESCE(wm.display_name, u.display_name) AS display_name,
                    COALESCE(wm.avatar_url, u.avatar_url) AS avatar_url,
                    COALESCE(wm.bio, u.bio) AS bio,
@@ -430,7 +435,8 @@ impl WorkspaceRepo {
                         THEN wm.status_emoji END AS "status_emoji?",
                    CASE WHEN wm.status_expires_at IS NULL OR wm.status_expires_at > NOW()
                         THEN wm.status_text END AS "status_text?",
-                   public.notifications_paused_until(wm.workspace_id, u.id, NOW()) AS notifications_paused_until
+                   public.notifications_paused_until(wm.workspace_id, u.id, NOW()) AS notifications_paused_until,
+                   u.is_bot
             FROM workspace_members wm
             JOIN users u ON u.id = wm.user_id
             WHERE wm.workspace_id = $1
@@ -451,7 +457,8 @@ impl WorkspaceRepo {
         sqlx::query_as!(
             WorkspaceMember,
             r#"UPDATE workspace_members SET role = $3 WHERE workspace_id = $1 AND user_id = $2
-               RETURNING workspace_id, user_id, role AS "role: WorkspaceRole", joined_at"#,
+               RETURNING workspace_id, user_id, role AS "role: WorkspaceRole", joined_at,
+                         (SELECT u.is_bot FROM users u WHERE u.id = $2) AS "is_bot!""#,
             workspace_id,
             user_id,
             role.clone() as WorkspaceRole

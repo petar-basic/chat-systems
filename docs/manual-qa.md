@@ -492,7 +492,18 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 - 🔴 **Edge — used up:** two more `curl`s work, the sixth → **404** *This response URL has expired or been used up*; changing one character of the token → **404** *Unknown response URL*.
 - 🟠 **Edge — app down:** point the command at `https://httpbin.org/status/503` → the composer shows */deploy is taking a moment…*, and about ten seconds later */deploy could not be reached*. Point it at `https://httpbin.org/status/500` → an error at once, one attempt.
 
-### 10.6 🟢 A Slack import that looks like Slack did
+### 10.6 🟢 An app with a bot user
+- **Reach:** workspace Admin → *Workspace settings → Apps → Built for this workspace*.
+- **Steps:** create *Echo* with `chat:write`, `channels:read` and `channels:history`, copy the token, then *I have stored it*. In #general `/invite @Echo` and post `echo hello`. Run the example bot once:
+  ```bash
+  CHAT_API_URL=http://localhost:3000/api CHAT_BOT_TOKEN=<TOKEN> node examples/echo-bot/echo-bot.mjs --once
+  ```
+- **Expected:** the token is shown once and is gone after *I have stored it*; *Members* lists Echo with an *APP* label and no address. The bot answers *hello* in the thread, with *APP* next to its name. *Audit log* has *App created* and *App called the API*.
+- 🔴 **Edge — scopes:** `curl -s -X POST localhost:3000/api/messages/<MSG_ID>/reactions -H "Authorization: Bearer <TOKEN>" -H 'Content-Type: application/json' -d '{"emoji":"👍"}'` → **403** naming `reactions:write`; `GET /api/users/me` with the token → **403** *does not accept a bot token*.
+- 🔴 **Edge — membership:** post as the bot to a channel it was not invited to → **403**, public or not.
+- 🔴 **Edge — removal:** *New token* → the old token gets **401** at once; *Remove* → the new one gets **401** too, the app's slash commands are gone, and its messages keep their author.
+
+### 10.7 🟢 A Slack import that looks like Slack did
 - **Reach:** *Workspace settings → Slack import*.
 - **Steps:** import an export whose `users.json` has a guest (`is_restricted`), an account with `deleted: true`, an archived channel in `channels.json`, and reactions such as `:face_with_rolling_eyes:`, `:+1::skin-tone-4:` and a custom `:shipit:` (with `SLACK_TOKEN` set or an `emoji.json` in the zip). Then start another import, restart the worker (`docker compose restart worker`) while it says *running*, and wait five minutes.
 - **Expected:** the counts show guests, *who left Slack* and *archived*. The guest is a guest under *Members* and sees only its channels; the deleted person's messages carry their name and the account is suspended in the instance admin page; the archived channel shows its history with the archived bar; the reactions are 🙄, 👍🏽 and the custom image, and an unknown one is listed under *not imported*. The interrupted run turns *failed* with *The import stopped when the worker did*; *Start again* queues it and it completes without duplicating messages.

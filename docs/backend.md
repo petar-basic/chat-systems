@@ -500,7 +500,7 @@ Incoming/outgoing webhooks, bots and slash commands. A background task executes 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/hooks` | — | `{ data: Hook[] }` |
-| POST | `/workspaces/:ws_id/hooks` | `{ hook_type, name, description?, config? }` | `Hook` |
+| POST | `/workspaces/:ws_id/hooks` | `{ hook_type, name, description?, config?, app_id? }` | `Hook` — `app_id` hangs it off an app of the workspace (admin; a slash command needs the app's `commands` scope), and it is removed with the app |
 | GET | `/hooks/:hook_id` | — | `Hook` |
 | PATCH | `/hooks/:hook_id` | `{ is_active: true }` | `Hook` — turns a stopped hook back on for someone allowed to make it (its type's role and every channel it is bound to), who becomes its creator; `disabled_reason` clears and `hook.enabled` is audited. `false` is a 422: a hook is turned off by deleting it |
 | POST | `/hooks/:hook_id/reveal` | — | `{ hook_id, hook_type, config, incoming_url }` — config unredacted, written to `audit_log` |
@@ -1080,6 +1080,47 @@ and its card joins the page with its space and the owner's and last editor's nam
 | PUT | `/workspaces/:ws_id/apps/:provider/prompts` | — | `{ status: "off" }` — *Never ask me again*: the caller's links to that app fall back to the OpenGraph preview; connecting turns prompts back on |
 | DELETE | `/workspaces/:ws_id/apps/:provider/prompts` | — | `{ status: "on" }` |
 | POST | `/messages/:msg_id/unfurls/refresh` | — | `{ status: "refreshing" }` — author; re-runs the previews |
+
+### bots
+
+Apps a workspace builds for itself, each with a bot user and a token; the guide for whoever
+writes one is [bot-api.md](./bot-api.md).
+
+| Method | Route | Input | Output |
+|--------|-------|-------|--------|
+| GET | `/workspaces/:ws_id/bot-apps` | — | `{ data: BotApp[] }` — any member |
+| POST | `/workspaces/:ws_id/bot-apps` | `{ name, description?, icon_url?, scopes }` | `BotApp & { token }` — admin; 409 for a name the workspace already has |
+| GET | `/bot-apps/me` | bot token | `BotApp` — the app the token belongs to |
+| GET | `/bot-apps/:app_id` | — | `BotApp` — any member of its workspace |
+| PATCH | `/bot-apps/:app_id` | `{ name?, description?, icon_url?, scopes? }` | `BotApp` — admin; the bot user's name and photo follow |
+| POST | `/bot-apps/:app_id/rotate` | — | `BotApp & { token }` — admin; the old token stops at once |
+| DELETE | `/bot-apps/:app_id` | — | `{ status: "deleted" }` — admin |
+
+Creating an app inserts a `users` row with `is_bot = true`, an address under `bots.invalid`,
+no password and status `active`, makes it a `member` of the workspace, and stores the app in
+`bot_apps` with the SHA-256 of a `cbot-` token. `find_by_email` and the instance's user list
+leave bots out, so nothing that starts from an address (sign-in, password reset, SSO, SCIM,
+invites) can reach one, and the mention digest skips them. Removing the app deletes the row
+(and with it, by `ON DELETE CASCADE`, every hook whose `app_id` is the app), suspends the bot
+user and takes it out of the workspace and its channels.
+
+**A bot token is refused everywhere by default.** `auth_middleware` resolves a `cbot-` bearer
+token through `BotRepo::authenticate` (the workspace must not be deleted) and puts an
+`AuthUser` with `bot: Some(BotToken { app_id, workspace_id, scopes })` in the request. The
+`AuthUser` extractor then answers 403 for it, so a handler accepts a bot only by taking
+`bots::Caller` instead and calling `caller.scoped(Scope::…)`, which is a no-op for a person
+and a 403 naming the scope for a bot without it. Those handlers carry `tags = [.., "bot"]` and
+a `bot` security requirement listing the scope, and `every_route_a_bot_may_call_names_its_scope`
+keeps the two together. The history routes pick the scope after loading the channel:
+`channels:history` for a public one, `groups:history` for anything else.
+
+`WorkspaceMember.is_bot` makes `ChannelAccess::requires_explicit_membership` true for a bot, so
+it reads and writes only where it is a channel member. `authz::require_channel_post_as` is the
+one exception: with `chat:write.public` a bot posts in a public channel it has not joined.
+`bots::audit_bot_writes` (inside `protected`, after the rate limit) writes `bot_app.called`
+with the method and route template for every successful write a bot token makes. Writes count
+against the person budgets keyed by the bot user; reads by a bot token add a `bot-read` budget
+of 300 a minute.
 
 ### sidebar
 

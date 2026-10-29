@@ -96,9 +96,10 @@ async fn send_test_email(
 
 #[utoipa::path(get, path = "/admin/stats", tag = "admin", responses((status = 200, body = InstanceStats)))]
 async fn stats(State(state): State<Arc<AppState>>) -> AppResult<Json<InstanceStats>> {
-    let user_count = sqlx::query_scalar!(r#"SELECT COUNT(*) AS "count!" FROM users"#)
-        .fetch_one(&state.pool)
-        .await?;
+    let user_count =
+        sqlx::query_scalar!(r#"SELECT COUNT(*) AS "count!" FROM users WHERE NOT is_bot"#)
+            .fetch_one(&state.pool)
+            .await?;
 
     let workspace_count = sqlx::query_scalar!(r#"SELECT COUNT(*) AS "count!" FROM workspaces"#)
         .fetch_one(&state.pool)
@@ -139,7 +140,7 @@ async fn list_users(
         AdminUser,
         r#"SELECT id, email, display_name, status::text AS "status!",
                   is_instance_admin AS "is_instance_admin!", created_at
-             FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2"#,
+             FROM users WHERE NOT is_bot ORDER BY created_at DESC LIMIT $1 OFFSET $2"#,
         params.limit(),
         params.offset()
     )

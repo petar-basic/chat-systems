@@ -11,8 +11,10 @@ use uuid::Uuid;
 use shared_common::errors::{AppError, AppResult};
 
 use super::models::*;
+use super::repo::NewHook;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
+use crate::bots::models::Scope;
 use crate::dto::{DataList, StatusResponse};
 use crate::middleware::AuthUser;
 use crate::middleware::PeerAddr;
@@ -68,6 +70,9 @@ async fn create_hook(
 ) -> AppResult<Json<Hook>> {
     require_hook_role(&state, ws_id, &req.hook_type, auth.user_id).await?;
     req.validate()?;
+    if let Some(app_id) = req.app_id {
+        require_app_hook(&state, ws_id, app_id, &req.hook_type, auth.user_id).await?;
+    }
     let mut config = req.config.unwrap_or(serde_json::json!({}));
 
     if req.hook_type == HookType::IncomingWebhook {
@@ -159,14 +164,15 @@ async fn create_hook(
 
     let hook = state
         .hook_repo
-        .create_hook(
-            ws_id,
-            auth.user_id,
-            &req.hook_type,
-            &req.name,
-            req.description.as_deref(),
-            &config,
-        )
+        .create_hook(NewHook {
+            workspace_id: ws_id,
+            created_by: auth.user_id,
+            hook_type: &req.hook_type,
+            name: &req.name,
+            description: req.description.as_deref(),
+            config: &config,
+            app_id: req.app_id,
+        })
         .await?;
 
     audit::record(
@@ -184,6 +190,29 @@ async fn create_hook(
     .await;
 
     Ok(Json(hook))
+}
+
+async fn require_app_hook(
+    state: &AppState,
+    ws_id: Uuid,
+    app_id: Uuid,
+    hook_type: &HookType,
+    user_id: Uuid,
+) -> AppResult<()> {
+    authz::require_workspace_role(state, ws_id, user_id, &WorkspaceRole::Admin).await?;
+    let app = state
+        .bot_repo
+        .find(app_id)
+        .await?
+        .filter(|app| app.workspace_id == ws_id)
+        .ok_or_else(|| AppError::Validation("app_id is not an app in this workspace".into()))?;
+    if *hook_type == HookType::SlashCommand && !app.scopes.contains(&Scope::Commands) {
+        return Err(AppError::Validation(format!(
+            "{} needs the commands scope to own a slash command",
+            app.name
+        )));
+    }
+    Ok(())
 }
 
 async fn require_hook_role(

@@ -13,6 +13,7 @@ use shared_common::errors::{AppError, AppResult};
 use super::models::*;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
+use crate::bots::{self, models::Scope, Caller};
 use crate::files::service as files;
 use crate::middleware::AuthUser;
 use crate::state::AppState;
@@ -43,16 +44,18 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
 
 #[utoipa::path(
     operation_id = "messaging_list_messages",
-    get, path = "/channels/{ch_id}/messages", tag = "messages",
+    get, path = "/channels/{ch_id}/messages", tags = ["messages", "bot"],
     params(ListMessagesQuery),
+    security(("bearer" = []), ("bot" = ["channels:history", "groups:history"])),
     responses((status = 200, body = MessagePage)))]
 async fn list_messages(
     State(state): State<Arc<AppState>>,
-    auth: AuthUser,
+    caller: Caller,
     Path(ch_id): Path<Uuid>,
     Query(params): Query<ListMessagesQuery>,
 ) -> AppResult<Json<MessagePage>> {
-    let access = authz::require_channel_access(&state, ch_id, auth.user_id).await?;
+    let access = authz::require_channel_access(&state, ch_id, caller.user_id()).await?;
+    let auth = caller.scoped(bots::history_scope(&access.channel))?;
     let limit = params.limit.unwrap_or(50).clamp(1, 200);
     let messages = state
         .message_repo
@@ -144,19 +147,21 @@ pub(crate) async fn thread_root(
 
 #[utoipa::path(
     operation_id = "messaging_send_message",
-    post, path = "/channels/{ch_id}/messages", tag = "messages",
+    post, path = "/channels/{ch_id}/messages", tags = ["messages", "bot"],
     request_body = SendMessageRequest,
+    security(("bearer" = []), ("bot" = ["chat:write"])),
     responses((status = 200, body = Message)))]
 async fn send_message(
     State(state): State<Arc<AppState>>,
-    auth: AuthUser,
+    caller: Caller,
     Path(ch_id): Path<Uuid>,
     Json(req): Json<SendMessageRequest>,
 ) -> AppResult<Json<Message>> {
+    let auth = caller.scoped(Scope::ChatWrite)?;
     req.validate()?;
     files::check_attachment_ids(&req.attachment_ids)?;
 
-    let channel = authz::require_channel_post(&state, ch_id, auth.user_id)
+    let channel = authz::require_channel_post_as(&state, ch_id, &auth)
         .await?
         .channel;
     let addressed = addressed_text(&req.content, req.forwarded_from.is_some());
@@ -320,15 +325,17 @@ pub(crate) async fn attach_in(
         .await?)
 }
 
-#[utoipa::path(patch, path = "/messages/{msg_id}", tag = "messages",
+#[utoipa::path(patch, path = "/messages/{msg_id}", tags = ["messages", "bot"],
     request_body = UpdateMessageRequest,
+    security(("bearer" = []), ("bot" = ["chat:write"])),
     responses((status = 200, body = Message)))]
 async fn update_message(
     State(state): State<Arc<AppState>>,
-    auth: AuthUser,
+    caller: Caller,
     Path(msg_id): Path<Uuid>,
     Json(req): Json<UpdateMessageRequest>,
 ) -> AppResult<Json<Message>> {
+    let auth = caller.scoped(Scope::ChatWrite)?;
     req.validate()?;
 
     let existing = state
@@ -511,14 +518,16 @@ async fn message_history(
 
 #[utoipa::path(
     operation_id = "messaging_delete_message",
-    delete, path = "/messages/{msg_id}", tag = "messages",
+    delete, path = "/messages/{msg_id}", tags = ["messages", "bot"],
+    security(("bearer" = []), ("bot" = ["chat:write"])),
     responses((status = 200, body = StatusResponse)))]
 async fn delete_message(
     State(state): State<Arc<AppState>>,
-    auth: AuthUser,
+    caller: Caller,
     ip: ClientIp,
     Path(msg_id): Path<Uuid>,
 ) -> AppResult<Json<StatusResponse>> {
+    let auth = caller.scoped(Scope::ChatWrite)?;
     let existing = state
         .message_repo
         .find_by_id(msg_id)
@@ -713,12 +722,13 @@ async fn with_reactions(
 
 #[utoipa::path(
     operation_id = "messaging_list_thread",
-    get, path = "/messages/{msg_id}/thread", tag = "messages",
+    get, path = "/messages/{msg_id}/thread", tags = ["messages", "bot"],
     params(ThreadQuery),
+    security(("bearer" = []), ("bot" = ["channels:history", "groups:history"])),
     responses((status = 200, body = DataList<MessageWithReactions>)))]
 async fn list_thread(
     State(state): State<Arc<AppState>>,
-    auth: AuthUser,
+    caller: Caller,
     Path(msg_id): Path<Uuid>,
     Query(params): Query<ThreadQuery>,
 ) -> AppResult<Json<DataList<MessageWithReactions>>> {
@@ -728,7 +738,8 @@ async fn list_thread(
         .await?
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?
         .channel_id;
-    authz::require_channel_access(&state, channel_id, auth.user_id).await?;
+    let access = authz::require_channel_access(&state, channel_id, caller.user_id()).await?;
+    caller.scoped(bots::history_scope(&access.channel))?;
     let limit = params.limit.unwrap_or(50).clamp(1, 200);
     let messages = state
         .message_repo
@@ -790,15 +801,17 @@ async fn list_reactions(
 
 #[utoipa::path(
     operation_id = "messaging_add_reaction",
-    post, path = "/messages/{msg_id}/reactions", tag = "messages",
+    post, path = "/messages/{msg_id}/reactions", tags = ["messages", "bot"],
     request_body = AddReactionRequest,
+    security(("bearer" = []), ("bot" = ["reactions:write"])),
     responses((status = 200, body = Reaction)))]
 async fn add_reaction(
     State(state): State<Arc<AppState>>,
-    auth: AuthUser,
+    caller: Caller,
     Path(msg_id): Path<Uuid>,
     Json(req): Json<AddReactionRequest>,
 ) -> AppResult<Json<Reaction>> {
+    let auth = caller.scoped(Scope::ReactionsWrite)?;
     req.validate()?;
     let msg = state
         .message_repo
@@ -847,13 +860,15 @@ async fn add_reaction(
 
 #[utoipa::path(
     operation_id = "messaging_remove_reaction",
-    delete, path = "/messages/{msg_id}/reactions/{emoji}", tag = "messages",
+    delete, path = "/messages/{msg_id}/reactions/{emoji}", tags = ["messages", "bot"],
+    security(("bearer" = []), ("bot" = ["reactions:write"])),
     responses((status = 200, body = StatusResponse)))]
 async fn remove_reaction(
     State(state): State<Arc<AppState>>,
-    auth: AuthUser,
+    caller: Caller,
     Path((msg_id, emoji)): Path<(Uuid, String)>,
 ) -> AppResult<Json<StatusResponse>> {
+    let auth = caller.scoped(Scope::ReactionsWrite)?;
     let msg = state
         .message_repo
         .find_by_id(msg_id)

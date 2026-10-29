@@ -2,6 +2,7 @@ pub mod admin;
 pub mod audit;
 pub mod auth;
 pub mod authz;
+pub mod bots;
 pub mod channel_context;
 pub mod channel_integrations;
 pub mod commands;
@@ -112,6 +113,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
     let file_repo = FileRepo::new(pool.clone());
     let hook_repo = HookRepo::new(pool.clone());
     let command_repo = commands::repo::CommandRepo::new(pool.clone());
+    let bot_repo = bots::repo::BotRepo::new(pool.clone());
     let notification_repo = NotificationRepo::new(pool.clone());
     let conversation_repo = ConversationRepo::new(pool.clone());
     let later_repo = later::repo::LaterRepo::new(pool.clone());
@@ -154,6 +156,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
         file_storage,
         hook_repo,
         command_repo,
+        bot_repo,
         notification_repo,
         conversation_repo,
         later_repo,
@@ -203,6 +206,7 @@ pub fn build_app(state: Arc<AppState>) -> Router {
         .merge(openapi::router())
         .layer(axum::middleware::from_fn(metrics::track_metrics))
         .layer(Extension(revocation))
+        .layer(Extension(state.bot_repo.clone()))
         .layer(Extension(SessionVerifier(verifier)))
         .layer(shared_common::cors::cors_layer(&cors_origins))
         .layer(CompressionLayer::new())
@@ -221,6 +225,10 @@ pub fn build_app(state: Arc<AppState>) -> Router {
 /// feature router goes through here.
 pub fn protected(state: Arc<AppState>, routes: Router<Arc<AppState>>) -> Router {
     routes
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            bots::audit_bot_writes,
+        ))
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
             rate_limit::write_rate_limit,

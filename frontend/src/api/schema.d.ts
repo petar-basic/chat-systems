@@ -451,6 +451,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/bot-apps/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["this_bot_app"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bot-apps/{app_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_bot_app"];
+        put?: never;
+        post?: never;
+        delete: operations["remove_bot_app"];
+        options?: never;
+        head?: never;
+        patch: operations["update_bot_app"];
+        trace?: never;
+    };
+    "/bot-apps/{app_id}/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["rotate_bot_token"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/channels/{ch_id}": {
         parameters: {
             query?: never;
@@ -2014,6 +2062,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{ws_id}/bot-apps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_bot_apps"];
+        put?: never;
+        post: operations["create_bot_app"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{ws_id}/channels": {
         parameters: {
             query?: never;
@@ -3018,6 +3082,27 @@ export interface components {
             refresh_token: string;
             user: components["schemas"]["UserPublic"];
         };
+        BotApp: {
+            /** Format: uuid */
+            bot_user_id: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            created_by?: string | null;
+            description?: string | null;
+            icon_url?: string | null;
+            /** Format: uuid */
+            id: string;
+            name: string;
+            scopes: components["schemas"]["Scope"][];
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: uuid */
+            workspace_id: string;
+        };
+        BotAppWithToken: components["schemas"]["BotApp"] & {
+            token: string;
+        };
         BotIdentity: {
             /** Format: uuid */
             hook_id?: string | null;
@@ -3317,6 +3402,12 @@ export interface components {
             /** Format: int64 */
             converted: number;
         };
+        CreateBotAppRequest: {
+            description?: string | null;
+            icon_url?: string | null;
+            name: string;
+            scopes: components["schemas"]["Scope"][];
+        };
         CreateChannelBookmarkRequest: {
             emoji?: string | null;
             label: string;
@@ -3345,6 +3436,8 @@ export interface components {
             name?: string | null;
         };
         CreateHookRequest: {
+            /** Format: uuid */
+            app_id?: string | null;
             config?: unknown;
             description?: string | null;
             hook_type: components["schemas"]["HookType"];
@@ -3498,6 +3591,26 @@ export interface components {
                 workspace_id?: string | null;
             }[];
         };
+        DataList_BotApp: {
+            data: {
+                /** Format: uuid */
+                bot_user_id: string;
+                /** Format: date-time */
+                created_at: string;
+                /** Format: uuid */
+                created_by?: string | null;
+                description?: string | null;
+                icon_url?: string | null;
+                /** Format: uuid */
+                id: string;
+                name: string;
+                scopes: components["schemas"]["Scope"][];
+                /** Format: date-time */
+                updated_at: string;
+                /** Format: uuid */
+                workspace_id: string;
+            }[];
+        };
         DataList_BrowsableChannel: {
             data: {
                 channel_type: components["schemas"]["ChannelType"];
@@ -3649,6 +3762,8 @@ export interface components {
         };
         DataList_Hook: {
             data: {
+                /** Format: uuid */
+                app_id?: string | null;
                 config: unknown;
                 /** Format: date-time */
                 created_at: string;
@@ -3807,6 +3922,7 @@ export interface components {
                 bio?: string | null;
                 display_name?: string | null;
                 email: string;
+                is_bot: boolean;
                 /** Format: date-time */
                 joined_at: string;
                 /** Format: date-time */
@@ -4259,6 +4375,8 @@ export interface components {
             data: string[];
         };
         Hook: {
+            /** Format: uuid */
+            app_id?: string | null;
             config: unknown;
             /** Format: date-time */
             created_at: string;
@@ -4549,6 +4667,7 @@ export interface components {
             bio?: string | null;
             display_name?: string | null;
             email: string;
+            is_bot: boolean;
             /** Format: date-time */
             joined_at: string;
             /** Format: date-time */
@@ -4888,6 +5007,8 @@ export interface components {
             /** Format: date-time */
             revoked_at?: string | null;
         };
+        /** @enum {string} */
+        Scope: "chat:write" | "chat:write.public" | "channels:read" | "channels:history" | "groups:history" | "im:write" | "reactions:write" | "files:write" | "users:read" | "commands";
         SearchHit: components["schemas"]["Message"] & {
             channel_name?: string | null;
         };
@@ -5179,6 +5300,12 @@ export interface components {
         };
         UnsubscribeRequest: {
             endpoint: string;
+        };
+        UpdateBotAppRequest: {
+            description?: string | null;
+            icon_url?: string | null;
+            name?: string | null;
+            scopes?: components["schemas"]["Scope"][] | null;
         };
         UpdateChannelMemberRoleRequest: {
             role: components["schemas"]["ChannelRole"];
@@ -6056,6 +6183,113 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TotpEnrolment"];
+                };
+            };
+        };
+    };
+    this_bot_app: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BotApp"];
+                };
+            };
+        };
+    };
+    get_bot_app: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                app_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BotApp"];
+                };
+            };
+        };
+    };
+    remove_bot_app: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                app_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    update_bot_app: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                app_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateBotAppRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BotApp"];
+                };
+            };
+        };
+    };
+    rotate_bot_token: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                app_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BotAppWithToken"];
                 };
             };
         };
@@ -9020,6 +9254,52 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DataList_AuditRow"];
+                };
+            };
+        };
+    };
+    list_bot_apps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_BotApp"];
+                };
+            };
+        };
+    };
+    create_bot_app: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBotAppRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BotAppWithToken"];
                 };
             };
         };

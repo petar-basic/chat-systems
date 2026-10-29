@@ -27,7 +27,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   the HS256 sessions 3.7.0 issued are refused. Remove `JWT_SECRET` once the `api` has logged
   that every stored secret is on a `SECRETS_KEYS` key.
 - Migration 82 adds `users.manual_away`; migration 83 adds a key id beside every sealed
-  secret; migration 84 adds `command_invocations`.
+  secret; migration 84 adds `command_invocations`; migration 85 adds `users.is_bot`,
+  `bot_apps` and `hooks.app_id`.
 - For WebSocket clients: `presence.batch` and `presence.changed` carry `away` as well as
   `online` and `offline`, and `presence.changed` now also reaches the person it is about.
   For API clients: `PUT /users/me/presence` with `{ "away": true }` sets yourself away.
@@ -35,6 +36,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   whoever ran it. For slash-command apps: the payload has `request_id` and `response_url`,
   the request an `X-Chat-Request-Id` header, and an empty 2xx body now means *answering
   later* instead of an error.
+- For API clients: `MemberWithUser` has `is_bot`, `Hook` has `app_id`, and the routes a bot
+  token may call carry the `bot` tag and security scheme in `/api/openapi.json`.
 
 ### Added
 
@@ -45,6 +48,13 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   and answer up to five times in the next 30 minutes through a `response_url`, in the channel
   or only to whoever ran it. An app that does not answer in three seconds is tried twice more
   with the same request id, and the person sees *taking a moment…* instead of an error.
+- **Apps with a bot user.** An admin makes an app in *Workspace settings → Apps* with the
+  scopes it needs and gets a token for it. With that token the app posts, replies in threads,
+  reacts, uploads, reads history, opens DMs and looks people up through the same API the web
+  client uses, only in the channels it has been added to. Its messages carry an *APP* label,
+  what it changes is in the audit log under the app, and removing it revokes the token and
+  its slash commands. [docs/bot-api.md](docs/bot-api.md) is the guide, and
+  [examples/echo-bot](examples/echo-bot/) a bot in one file.
 
 ### Security
 

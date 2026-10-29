@@ -57,6 +57,8 @@ pub struct WorkspaceMember {
     pub user_id: Uuid,
     pub role: WorkspaceRole,
     pub joined_at: DateTime<Utc>,
+    #[serde(skip)]
+    pub is_bot: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -72,6 +74,7 @@ pub struct MemberWithUser {
     pub status_emoji: Option<String>,
     pub status_text: Option<String>,
     pub notifications_paused_until: Option<DateTime<Utc>>,
+    pub is_bot: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

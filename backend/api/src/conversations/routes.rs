@@ -10,6 +10,7 @@ use shared_common::errors::{AppError, AppResult};
 
 use super::models::*;
 use crate::authz;
+use crate::bots::{models::Scope, Caller};
 use crate::dto::DataList;
 use crate::messaging::publisher::{EventPublisher, Staged};
 use crate::middleware::AuthUser;
@@ -52,13 +53,14 @@ async fn list_conversations(
     Ok(Json(conversations.into()))
 }
 
-#[utoipa::path(post, path = "/workspaces/{ws_id}/conversations", tag = "conversations", request_body = CreateConversationRequest, responses((status = 200, body = Conversation)))]
+#[utoipa::path(post, path = "/workspaces/{ws_id}/conversations", tags = ["conversations", "bot"], request_body = CreateConversationRequest, security(("bearer" = []), ("bot" = ["im:write"])), responses((status = 200, body = Conversation)))]
 async fn create_conversation(
     State(state): State<Arc<AppState>>,
-    auth: AuthUser,
+    caller: Caller,
     Path(ws_id): Path<Uuid>,
     Json(req): Json<CreateConversationRequest>,
 ) -> AppResult<Json<Conversation>> {
+    let auth = caller.scoped(Scope::ImWrite)?;
     let mut participants: Vec<Uuid> = req
         .participant_ids
         .into_iter()

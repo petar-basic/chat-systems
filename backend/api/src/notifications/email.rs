@@ -103,6 +103,7 @@ pub async fn flush_due(state: &AppState) -> usize {
           FROM pending_mention_emails p
           JOIN users u ON u.id = p.user_id
          WHERE p.created_at <= $1
+           AND NOT u.is_bot
            AND public.notifications_paused_until(p.workspace_id, p.user_id, $2) IS NULL
          GROUP BY p.user_id, p.workspace_id, u.email
         "#,

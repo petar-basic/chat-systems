@@ -23,6 +23,7 @@ pub struct Hook {
     pub config: serde_json::Value,
     pub is_active: bool,
     pub disabled_reason: Option<String>,
+    pub app_id: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -47,6 +48,7 @@ pub struct CreateHookRequest {
     #[garde(inner(custom(shared_common::validation::rules::description)))]
     pub description: Option<String>,
     pub config: Option<serde_json::Value>,
+    pub app_id: Option<Uuid>,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]

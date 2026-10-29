@@ -59,7 +59,11 @@ function MemberRow({
   const actorLevel = actorRole ? (ROLE_LEVEL[actorRole] ?? 0) : 0;
   const targetLevel = ROLE_LEVEL[member.role] ?? 0;
   const canManage =
-    !isSelf && actorLevel >= ROLE_LEVEL.admin && actorLevel > targetLevel && member.role !== 'owner';
+    !isSelf &&
+    !member.is_bot &&
+    actorLevel >= ROLE_LEVEL.admin &&
+    actorLevel > targetLevel &&
+    member.role !== 'owner';
   const grantable = ASSIGNABLE_ROLES.filter((r) => ROLE_LEVEL[r] <= actorLevel);
 
   const roleIcon = () => {
@@ -87,6 +91,14 @@ function MemberRow({
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium text-fg-soft truncate">
           {displayName}
+          {member.is_bot && (
+            <span
+              data-qa="member-app-tag"
+              className="ml-1.5 px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-raised text-fg-dim rounded"
+            >
+              App
+            </span>
+          )}
           {member.status_emoji && (
             <span className="ml-1.5" data-qa="member-status-emoji" title={member.status_text ?? undefined}>
               <ReactionEmoji emoji={member.status_emoji} />
@@ -122,7 +134,7 @@ function MemberRow({
           </div>
         )}
       </div>
-      {canHandleData && !isSelf && (
+      {canHandleData && !isSelf && !member.is_bot && (
         <div className="flex items-center gap-0.5 shrink-0">
           <button
             onClick={() => onExport(member.user_id)}

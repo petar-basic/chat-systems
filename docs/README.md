@@ -9,6 +9,7 @@
   WebSocket API reference.
 - **[frontend.md](./frontend.md)** — frontend architecture & rationale, plus pages,
   components, stores, hooks, and data flow.
+- **[bot-api.md](./bot-api.md)** — writing an app: bot tokens, scopes, the routes a bot may call.
 - **[manual-qa.md](./manual-qa.md)** — end-to-end manual test checklist.
 
 For a high-level overview of what the project is and how to start it, see the

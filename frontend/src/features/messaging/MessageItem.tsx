@@ -37,6 +37,7 @@ interface MessageItemProps {
   senderStatusEmoji?: string | null;
   senderStatusText?: string | null;
   senderAvatarUrl?: string | null;
+  senderIsApp?: boolean;
   isHighlighted?: boolean;
   grouped?: boolean;
   members?: WorkspaceMember[];
@@ -64,6 +65,7 @@ function MessageItem({
   senderStatusEmoji,
   senderStatusText,
   senderAvatarUrl,
+  senderIsApp,
   isHighlighted,
   grouped,
   members,
@@ -325,6 +327,14 @@ function MessageItem({
                   className="px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-raised text-fg-dim rounded"
                 >
                   {message.metadata.bot.workflow_id ? 'Workflow' : 'Bot'}
+                </span>
+              )}
+              {!message.metadata?.bot && senderIsApp && (
+                <span
+                  data-qa="app-tag"
+                  className="px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-raised text-fg-dim rounded"
+                >
+                  App
                 </span>
               )}
               <span className="text-xs text-muted">{time}</span>

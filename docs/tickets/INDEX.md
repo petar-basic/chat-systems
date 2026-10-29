@@ -349,7 +349,7 @@ come before events and events before the directory, which lists both.
 | CS-100 ✅ | Stored secrets get a key of their own | backend · ops |
 | CS-101 ✅ | Sessions signed with EdDSA, with keys that rotate | backend · realtime · ops |
 | CS-102 ✅ | Slash commands that may take their time | backend · frontend |
-| [CS-103](CS-103-bots.md) | Apps with bot users and a Web API | backend · frontend · docs |
+| CS-103 ✅ | Apps with bot users and a Web API | backend · frontend · docs |
 | [CS-104](CS-104-events.md) | Events for apps, over HTTP or a socket | backend · realtime · docs |
 | [CS-105](CS-105-app-directory.md) | An app directory | frontend · backend · docs |
 | [CS-037](CS-037-huddle-sfu.md) | SFU for large huddles, promoted mid-call | backend · frontend · ops |

@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM bot_apps WHERE id = $1 RETURNING bot_user_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "bot_user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "bot_user_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "9e9a9e0e5b277922e0db59f123f0f02caaa0a8acc73bc347c0089bcbe9b98d49"
+}

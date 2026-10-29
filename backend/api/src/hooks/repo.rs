@@ -4,6 +4,16 @@ use uuid::Uuid;
 
 use super::models::*;
 
+pub struct NewHook<'a> {
+    pub workspace_id: Uuid,
+    pub created_by: Uuid,
+    pub hook_type: &'a HookType,
+    pub name: &'a str,
+    pub description: Option<&'a str>,
+    pub config: &'a serde_json::Value,
+    pub app_id: Option<Uuid>,
+}
+
 #[derive(Clone)]
 pub struct HookRepo {
     pool: PgPool,
@@ -14,29 +24,22 @@ impl HookRepo {
         Self { pool }
     }
 
-    pub async fn create_hook(
-        &self,
-        workspace_id: Uuid,
-        created_by: Uuid,
-        hook_type: &HookType,
-        name: &str,
-        description: Option<&str>,
-        config: &serde_json::Value,
-    ) -> sqlx::Result<Hook> {
+    pub async fn create_hook(&self, hook: NewHook<'_>) -> sqlx::Result<Hook> {
         sqlx::query_as!(
             Hook,
             r#"
-            INSERT INTO hooks (workspace_id, created_by, hook_type, name, description, config)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO hooks (workspace_id, created_by, hook_type, name, description, config, app_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING id, workspace_id, created_by, hook_type AS "hook_type: HookType", name, description,
-                   config, is_active AS "is_active!", disabled_reason, created_at, updated_at
+                   config, is_active AS "is_active!", disabled_reason, app_id, created_at, updated_at
             "#,
-            workspace_id,
-            created_by,
-            hook_type.clone() as HookType,
-            name,
-            description,
-            config
+            hook.workspace_id,
+            hook.created_by,
+            hook.hook_type.clone() as HookType,
+            hook.name,
+            hook.description,
+            hook.config,
+            hook.app_id
         )
         .fetch_one(&self.pool)
         .await
@@ -46,7 +49,7 @@ impl HookRepo {
         sqlx::query_as!(
             Hook,
             r#"SELECT id, workspace_id, created_by, hook_type AS "hook_type: HookType", name, description,
-                   config, is_active AS "is_active!", disabled_reason, created_at, updated_at
+                   config, is_active AS "is_active!", disabled_reason, app_id, created_at, updated_at
                  FROM hooks WHERE id = $1"#,
             id
         )
@@ -58,7 +61,7 @@ impl HookRepo {
         sqlx::query_as!(
             Hook,
             r#"SELECT id, workspace_id, created_by, hook_type AS "hook_type: HookType", name, description,
-                   config, is_active AS "is_active!", disabled_reason, created_at, updated_at
+                   config, is_active AS "is_active!", disabled_reason, app_id, created_at, updated_at
                  FROM hooks WHERE workspace_id = $1 ORDER BY created_at DESC"#,
             workspace_id
         )
@@ -75,7 +78,7 @@ impl HookRepo {
             Hook,
             r#"UPDATE hooks SET config = $2, updated_at = NOW() WHERE id = $1
                RETURNING id, workspace_id, created_by, hook_type AS "hook_type: HookType", name, description,
-                   config, is_active AS "is_active!", disabled_reason, created_at, updated_at"#,
+                   config, is_active AS "is_active!", disabled_reason, app_id, created_at, updated_at"#,
             id,
             config
         )
@@ -97,7 +100,7 @@ impl HookRepo {
         sqlx::query_as!(
             Hook,
             r#"SELECT id, workspace_id, created_by, hook_type AS "hook_type: HookType", name, description,
-                   config, is_active AS "is_active!", disabled_reason, created_at, updated_at
+                   config, is_active AS "is_active!", disabled_reason, app_id, created_at, updated_at
                  FROM hooks WHERE hook_type = 'incoming_webhook' AND is_active = true AND config->>'token' = $1"#,
             token
         )
@@ -116,7 +119,7 @@ impl HookRepo {
         sqlx::query_as!(
             Hook,
             r#"SELECT id, workspace_id, created_by, hook_type AS "hook_type: HookType", name, description,
-                   config, is_active AS "is_active!", disabled_reason, created_at, updated_at
+                   config, is_active AS "is_active!", disabled_reason, app_id, created_at, updated_at
                  FROM hooks
                 WHERE workspace_id = $1
                   AND hook_type = 'outgoing_webhook'
@@ -139,7 +142,7 @@ impl HookRepo {
         sqlx::query_as!(
             Hook,
             r#"SELECT id, workspace_id, created_by, hook_type AS "hook_type: HookType", name, description,
-                   config, is_active AS "is_active!", disabled_reason, created_at, updated_at
+                   config, is_active AS "is_active!", disabled_reason, app_id, created_at, updated_at
                  FROM hooks
                 WHERE workspace_id = $1
                   AND hook_type = 'slash_command'
@@ -156,7 +159,7 @@ impl HookRepo {
         sqlx::query_as!(
             Hook,
             r#"SELECT id, workspace_id, created_by, hook_type AS "hook_type: HookType", name, description,
-                   config, is_active AS "is_active!", disabled_reason, created_at, updated_at
+                   config, is_active AS "is_active!", disabled_reason, app_id, created_at, updated_at
                  FROM hooks
                 WHERE workspace_id = $1
                   AND hook_type = 'slash_command'
@@ -268,7 +271,7 @@ impl HookRepo {
                   SET is_active = true, disabled_reason = NULL, created_by = $2, updated_at = NOW()
                 WHERE id = $1
             RETURNING id, workspace_id, created_by, hook_type AS "hook_type: HookType", name, description,
-                      config, is_active AS "is_active!", disabled_reason, created_at, updated_at"#,
+                      config, is_active AS "is_active!", disabled_reason, app_id, created_at, updated_at"#,
             id,
             created_by
         )
