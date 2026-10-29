@@ -1,9 +1,8 @@
+import { globalEventBus } from '@/lib/globalEventBus';
 import { logger } from '@/lib/logger';
-
-export type TrackKind = 'audio' | 'camera' | 'screen';
+import type { HuddleTransport, TrackKind, TransportHandlers } from './HuddleTransport';
 
 type SendFn = (msg: Record<string, unknown>) => void;
-type TrackHandler = (peerId: string, stream: MediaStream, kind: TrackKind) => void;
 
 interface PeerState {
   pc: RTCPeerConnection;
@@ -16,39 +15,49 @@ interface PeerState {
   screenTx: RTCRtpTransceiver;
 }
 
-export class MeshManager {
+const SLOT = { audio: 'audioTx', camera: 'cameraTx', screen: 'screenTx' } as const satisfies Record<
+  TrackKind,
+  keyof PeerState
+>;
+
+export class MeshManager implements HuddleTransport {
+  readonly kind = 'mesh';
   private peers = new Map<string, PeerState>();
-  private audioTrack: MediaStreamTrack | null = null;
-  private cameraTrack: MediaStreamTrack | null = null;
-  private screenTrack: MediaStreamTrack | null = null;
+  private tracks: Record<TrackKind, MediaStreamTrack | null> = { audio: null, camera: null, screen: null };
+  private muted = false;
+  private readonly unsubscribe: (() => void)[];
 
   constructor(
     private readonly huddleId: string,
     private readonly selfUserId: string,
     private readonly iceServers: RTCIceServer[],
     private readonly send: SendFn,
-    private readonly onTrack: TrackHandler,
-  ) {}
+    private readonly handlers: TransportHandlers,
+  ) {
+    this.unsubscribe = [
+      globalEventBus.on('huddle.offer', (event) => {
+        if (event.huddle_id === this.huddleId) void this.handleOffer(event.from_user_id, event.sdp);
+      }),
+      globalEventBus.on('huddle.answer', (event) => {
+        if (event.huddle_id === this.huddleId) void this.handleAnswer(event.from_user_id, event.sdp);
+      }),
+      globalEventBus.on('huddle.ice', (event) => {
+        if (event.huddle_id === this.huddleId) void this.handleCandidate(event.from_user_id, event.candidate);
+      }),
+    ];
+  }
 
-  setAudioTrack(track: MediaStreamTrack | null): void {
-    this.audioTrack = track;
-    for (const { audioTx } of this.peers.values()) {
-      void audioTx.sender.replaceTrack(track);
+  setTrack(kind: TrackKind, track: MediaStreamTrack | null): void {
+    this.tracks[kind] = track;
+    if (kind === 'audio' && track) track.enabled = !this.muted;
+    for (const peer of this.peers.values()) {
+      void peer[SLOT[kind]].sender.replaceTrack(track);
     }
   }
 
-  setCameraTrack(track: MediaStreamTrack | null): void {
-    this.cameraTrack = track;
-    for (const { cameraTx } of this.peers.values()) {
-      void cameraTx.sender.replaceTrack(track);
-    }
-  }
-
-  setScreenTrack(track: MediaStreamTrack | null): void {
-    this.screenTrack = track;
-    for (const { screenTx } of this.peers.values()) {
-      void screenTx.sender.replaceTrack(track);
-    }
+  setMuted(muted: boolean): void {
+    this.muted = muted;
+    if (this.tracks.audio) this.tracks.audio.enabled = !muted;
   }
 
   addPeer(peerId: string): void {
@@ -78,16 +87,16 @@ export class MeshManager {
     };
     this.peers.set(peerId, state);
 
-    void audioTx.sender.replaceTrack(this.audioTrack);
-    void cameraTx.sender.replaceTrack(this.cameraTrack);
-    void screenTx.sender.replaceTrack(this.screenTrack);
+    void audioTx.sender.replaceTrack(this.tracks.audio);
+    void cameraTx.sender.replaceTrack(this.tracks.camera);
+    void screenTx.sender.replaceTrack(this.tracks.screen);
 
     pc.ontrack = (event) => {
       const kind: TrackKind =
         event.transceiver === cameraTx ? 'camera' : event.transceiver === screenTx ? 'screen' : 'audio';
       // A track handed over by replaceTrack carries no msid, so `event.streams`
       // is empty and the stream has to be built here.
-      this.onTrack(peerId, new MediaStream([event.track]), kind);
+      this.handlers.onTrack(peerId, new MediaStream([event.track]), kind);
     };
 
     pc.onicecandidate = ({ candidate }) => {
@@ -136,7 +145,7 @@ export class MeshManager {
     }
   }
 
-  async handleOffer(peerId: string, sdp: RTCSessionDescriptionInit): Promise<void> {
+  private async handleOffer(peerId: string, sdp: RTCSessionDescriptionInit): Promise<void> {
     if (!this.peers.has(peerId)) this.addPeer(peerId);
     const state = this.peers.get(peerId);
     if (!state) return;
@@ -157,14 +166,14 @@ export class MeshManager {
     });
   }
 
-  async handleAnswer(peerId: string, sdp: RTCSessionDescriptionInit): Promise<void> {
+  private async handleAnswer(peerId: string, sdp: RTCSessionDescriptionInit): Promise<void> {
     const state = this.peers.get(peerId);
     if (!state || state.pc.signalingState === 'stable') return;
     await state.pc.setRemoteDescription(sdp);
     await this.flushCandidates(state);
   }
 
-  async handleCandidate(peerId: string, candidate: RTCIceCandidateInit): Promise<void> {
+  private async handleCandidate(peerId: string, candidate: RTCIceCandidateInit): Promise<void> {
     const state = this.peers.get(peerId);
     if (!state) return;
     if (!state.pc.remoteDescription) {
@@ -189,7 +198,12 @@ export class MeshManager {
     this.peers.delete(peerId);
   }
 
-  close(): void {
+  restart(): void {
     for (const peerId of [...this.peers.keys()]) this.removePeer(peerId);
+  }
+
+  close(): void {
+    this.restart();
+    for (const off of this.unsubscribe) off();
   }
 }

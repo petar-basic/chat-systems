@@ -81,7 +81,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   and can ask the admins for an app.
 - **LiveKit beside the stack, for large huddles.** `docker-compose.livekit.yml` runs a
   LiveKit SFU next to the app, and the API signs a ten-minute token for one huddle's room
-  after the same check the realtime gateway runs on join. Huddles do not use it yet.
+  after the same check the realtime gateway runs on join. A browser joins a huddle over it
+  only with the `chat_huddle_sfu` flag for now; everybody else stays on the mesh.
 
 ### Security
 

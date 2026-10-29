@@ -1122,6 +1122,11 @@ The container is limited to 2 CPUs and 1 GB.
 If the host sits behind NAT with a private address, LiveKit finds its public one over STUN
 (`use_external_ip`); where that fails, set `rtc.node_ip` in `docker/livekit/livekit.yaml`.
 
+Huddles do not move to the SFU on their own yet. To try it, run
+`localStorage.setItem('chat_huddle_sfu', '1')` in the console of **every** browser in the call
+and reload: a browser on the SFU and one on the mesh do not hear each other. A browser that
+cannot get a token or reach LiveKit logs `openTransport.sfu` and stays on the mesh.
+
 ## Importing a Slack export
 
 Slack gives you a ZIP. **The ordinary way is the app**: as a workspace admin, *Workspace settings

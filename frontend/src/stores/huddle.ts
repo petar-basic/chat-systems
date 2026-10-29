@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { TrackKind } from '@/features/huddle/lib/MeshManager';
+import type { TrackKind, TransportKind } from '@/features/huddle/lib/HuddleTransport';
 
 const STREAM_FIELD = {
   audio: 'audioStream',
@@ -49,6 +49,7 @@ export interface SelectedDevices {
 
 interface HuddleState {
   active: ActiveHuddle | null;
+  transport: TransportKind;
   localStream: MediaStream | null;
   localVideoStream: MediaStream | null;
   localScreenStream: MediaStream | null;
@@ -65,6 +66,7 @@ interface HuddleState {
   incomingCalls: IncomingCall[];
 
   setActive: (active: ActiveHuddle | null) => void;
+  setTransport: (transport: TransportKind) => void;
   setLocalStream: (stream: MediaStream | null) => void;
   setLocalVideoStream: (stream: MediaStream | null) => void;
   setLocalScreenStream: (stream: MediaStream | null) => void;
@@ -74,13 +76,14 @@ interface HuddleState {
   setLocalHand: (raised: boolean) => void;
   setBackground: (mode: 'none' | 'blur') => void;
   upsertParticipant: (userId: string) => void;
-  setParticipantStream: (userId: string, kind: TrackKind, stream: MediaStream) => void;
+  setParticipantStream: (userId: string, kind: TrackKind, stream: MediaStream | null) => void;
   setParticipantMuted: (userId: string, muted: boolean) => void;
   setParticipantCamera: (userId: string, on: boolean) => void;
   setParticipantSharing: (userId: string, sharing: boolean) => void;
   setParticipantHand: (userId: string, raised: boolean) => void;
   removeParticipant: (userId: string) => void;
   setSpeaking: (userId: string, speaking: boolean) => void;
+  setSpeakers: (userIds: string[]) => void;
   setPinned: (userId: string | null) => void;
   setDevice: (kind: keyof SelectedDevices, id: string | null) => void;
   addReaction: (reaction: HuddleReaction) => void;
@@ -103,6 +106,7 @@ const emptyParticipant = (userId: string): HuddleParticipant => ({
 
 export const useHuddleStore = create<HuddleState>((set) => ({
   active: null,
+  transport: 'mesh',
   localStream: null,
   localVideoStream: null,
   localScreenStream: null,
@@ -119,6 +123,7 @@ export const useHuddleStore = create<HuddleState>((set) => ({
   incomingCalls: [],
 
   setActive: (active) => set({ active }),
+  setTransport: (transport) => set({ transport }),
   setLocalStream: (localStream) => set({ localStream }),
   setLocalVideoStream: (localVideoStream) => set({ localVideoStream }),
   setLocalScreenStream: (localScreenStream) => set({ localScreenStream }),
@@ -136,15 +141,19 @@ export const useHuddleStore = create<HuddleState>((set) => ({
     ),
 
   setParticipantStream: (userId, kind, stream) =>
-    set((s) => ({
-      participants: {
-        ...s.participants,
-        [userId]: {
-          ...(s.participants[userId] ?? emptyParticipant(userId)),
-          [STREAM_FIELD[kind]]: stream,
-        },
-      },
-    })),
+    set((s) =>
+      !stream && !s.participants[userId]
+        ? s
+        : {
+            participants: {
+              ...s.participants,
+              [userId]: {
+                ...(s.participants[userId] ?? emptyParticipant(userId)),
+                [STREAM_FIELD[kind]]: stream,
+              },
+            },
+          },
+    ),
 
   setParticipantMuted: (userId, audioMuted) =>
     set((s) =>
@@ -198,6 +207,8 @@ export const useHuddleStore = create<HuddleState>((set) => ({
       else speaking.delete(userId);
       return { speaking };
     }),
+
+  setSpeakers: (userIds) => set({ speaking: new Set(userIds) }),
 
   setPinned: (pinnedUserId) => set({ pinnedUserId }),
 

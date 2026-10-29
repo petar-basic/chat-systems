@@ -18,17 +18,17 @@ export function HuddleStage({ tiles, self, layout, expanded }: Props) {
   const pinnedUserId = useHuddleStore((s) => s.pinnedUserId);
   const speakerId = useHuddleStore((s) => s.devices.speakerId);
   const reactions = useHuddleStore((s) => s.reactions);
+  const detectSpeaking = useHuddleStore((s) => s.transport === 'mesh');
 
   const focusTile = focusTileOf(tiles, self, speaking, pinnedUserId);
   const stripTiles = tiles.filter((t) => t.tileId !== focusTile.tileId);
 
   return (
     <>
-      {tiles
-        .filter((t) => t.audioStream)
-        .map((t) => (
-          <SpeakingDetector key={`spk-${t.tileId}`} userId={t.userId} stream={t.audioStream} />
-        ))}
+      {detectSpeaking &&
+        tiles
+          .filter((t) => t.audioStream)
+          .map((t) => <SpeakingDetector key={`spk-${t.tileId}`} userId={t.userId} stream={t.audioStream} />)}
 
       <div className={`relative ${expanded ? 'flex-1 min-h-0 overflow-y-auto' : ''}`}>
         {layout === 'focus' ? (
