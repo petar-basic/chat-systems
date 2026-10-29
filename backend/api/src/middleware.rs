@@ -10,6 +10,9 @@ use uuid::Uuid;
 use shared_common::errors::AppError;
 use shared_common::session_keys::VerifyingKeys;
 
+use crate::bots::models::BotToken;
+use crate::bots::repo::BotRepo;
+
 fn default_token_type() -> String {
     "access".to_string()
 }
@@ -56,6 +59,7 @@ pub struct AuthUser {
     pub user_id: Uuid,
     pub is_instance_admin: bool,
     pub jti: Option<Uuid>,
+    pub bot: Option<BotToken>,
 }
 
 pub async fn auth_middleware(request: Request, next: Next) -> Result<Response, AppError> {
@@ -78,6 +82,25 @@ pub async fn auth_middleware(request: Request, next: Next) -> Result<Response, A
                 .map(std::string::ToString::to_string)
         })
         .ok_or_else(|| AppError::Unauthorized("Missing authentication".into()))?;
+
+    if token.starts_with(crate::bots::TOKEN_PREFIX) {
+        let bots = parts
+            .extensions
+            .get::<BotRepo>()
+            .ok_or_else(|| AppError::Internal("Bot tokens not configured".into()))?
+            .clone();
+        let (bot_user_id, bot) = bots
+            .authenticate(&crate::bots::hash_token(&token))
+            .await?
+            .ok_or_else(|| AppError::Unauthorized("Invalid bot token".into()))?;
+        parts.extensions.insert(AuthUser {
+            user_id: bot_user_id,
+            is_instance_admin: false,
+            jti: None,
+            bot: Some(bot),
+        });
+        return Ok(next.run(Request::from_parts(parts, body)).await);
+    }
 
     let claims = verifier
         .decode::<Claims>(&token)
@@ -108,6 +131,7 @@ pub async fn auth_middleware(request: Request, next: Next) -> Result<Response, A
         user_id: claims.sub,
         is_instance_admin: claims.is_instance_admin,
         jti: claims.jti,
+        bot: None,
     };
 
     parts.extensions.insert(auth_user);
@@ -281,11 +305,17 @@ where
     type Rejection = AppError;
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        parts
+        let auth = parts
             .extensions
             .get::<AuthUser>()
             .cloned()
-            .ok_or_else(|| AppError::Unauthorized("Not authenticated".into()))
+            .ok_or_else(|| AppError::Unauthorized("Not authenticated".into()))?;
+        if auth.bot.is_some() {
+            return Err(AppError::Forbidden(
+                "This route does not accept a bot token".into(),
+            ));
+        }
+        Ok(auth)
     }
 }
 

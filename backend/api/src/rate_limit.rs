@@ -60,6 +60,11 @@ const DEFAULT: Budget = Budget {
     max: 120,
     window_secs: 60,
 };
+pub const BOT_READ: Budget = Budget {
+    name: "bot-read",
+    max: 300,
+    window_secs: 60,
+};
 
 pub fn budget_for(method: &Method, path: &str) -> Option<Budget> {
     if !matches!(
@@ -145,9 +150,11 @@ pub async fn write_rate_limit(
     request: Request,
     next: Next,
 ) -> Result<Response, AppError> {
-    let budget = budget_for(request.method(), request.uri().path());
+    let auth = request.extensions().get::<AuthUser>();
+    let budget = budget_for(request.method(), request.uri().path())
+        .or_else(|| auth.and_then(|a| a.bot.as_ref()).map(|_| BOT_READ));
 
-    if let (Some(budget), Some(auth)) = (budget, request.extensions().get::<AuthUser>()) {
+    if let (Some(budget), Some(auth)) = (budget, auth) {
         let key = format!("rate_limit:write:{}:{}", budget.name, auth.user_id);
         let mut conn = state.redis.clone();
         enforce(

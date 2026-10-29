@@ -117,7 +117,7 @@ impl UserRepo {
             r#"SELECT id, email, password_hash, display_name, avatar_url, bio, timezone AS "timezone!",
                    status AS "status: UserStatus",
                    is_instance_admin AS "is_instance_admin!", created_at, updated_at
-                 FROM users WHERE email = lower($1)"#,
+                 FROM users WHERE email = lower($1) AND NOT is_bot"#,
             email
         )
         .fetch_optional(&self.pool)
@@ -130,7 +130,7 @@ impl UserRepo {
             r#"SELECT id, email, password_hash, display_name, avatar_url, bio, timezone AS "timezone!",
                    status AS "status: UserStatus",
                    is_instance_admin AS "is_instance_admin!", created_at, updated_at
-                 FROM users ORDER BY created_at, id OFFSET $1 LIMIT $2"#,
+                 FROM users WHERE NOT is_bot ORDER BY created_at, id OFFSET $1 LIMIT $2"#,
             offset,
             limit
         )
@@ -139,7 +139,7 @@ impl UserRepo {
     }
 
     pub async fn count(&self) -> sqlx::Result<i64> {
-        sqlx::query_scalar!(r#"SELECT COUNT(*) AS "count!" FROM users"#)
+        sqlx::query_scalar!(r#"SELECT COUNT(*) AS "count!" FROM users WHERE NOT is_bot"#)
             .fetch_one(&self.pool)
             .await
     }

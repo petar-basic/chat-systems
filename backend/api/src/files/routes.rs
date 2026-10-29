@@ -26,6 +26,7 @@ use super::service;
 use super::storage::Opening;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
+use crate::bots::{models::Scope, Caller};
 use crate::dto::{DataList, StatusResponse};
 use crate::files::models::FileMeta;
 use crate::middleware::AuthUser;
@@ -48,14 +49,15 @@ pub fn download_router() -> Router<Arc<AppState>> {
     Router::new().route("/files/download/{*key}", get(download_file))
 }
 
-#[utoipa::path(post, path = "/files/upload/{ws_id}", tag = "files", params(UploadQuery), request_body(content = String, content_type = "multipart/form-data", description = "One or more files as multipart fields"), responses((status = 200, body = Vec<FileUploadResponse>)))]
+#[utoipa::path(post, path = "/files/upload/{ws_id}", tags = ["files", "bot"], params(UploadQuery), request_body(content = String, content_type = "multipart/form-data", description = "One or more files as multipart fields"), security(("bearer" = []), ("bot" = ["files:write"])), responses((status = 200, body = Vec<FileUploadResponse>)))]
 async fn upload_file(
     State(state): State<Arc<AppState>>,
-    auth: AuthUser,
+    caller: Caller,
     Path(ws_id): Path<Uuid>,
     Query(query): Query<UploadQuery>,
     mut multipart: Multipart,
 ) -> AppResult<Json<Vec<FileUploadResponse>>> {
+    let auth = caller.scoped(Scope::FilesWrite)?;
     authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
 
     let mut responses = Vec::new();

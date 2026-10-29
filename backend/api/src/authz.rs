@@ -3,7 +3,9 @@ use uuid::Uuid;
 use shared_common::errors::{AppError, AppResult};
 
 use crate::auth::models::UserStatus;
+use crate::bots::models::Scope;
 use crate::hooks::models::HookType;
+use crate::middleware::AuthUser;
 use crate::state::AppState;
 use crate::workspace::models::{
     Channel, ChannelMember, ChannelRole, ChannelType, PostPolicy, WhoMay, WorkspaceMember,
@@ -22,7 +24,9 @@ impl ChannelAccess {
     }
 
     pub fn requires_explicit_membership(&self) -> bool {
-        self.is_guest() || !matches!(self.channel.channel_type, ChannelType::Public)
+        self.is_guest()
+            || self.member.is_bot
+            || !matches!(self.channel.channel_type, ChannelType::Public)
     }
 
     pub fn is_channel_admin(&self) -> bool {
@@ -149,6 +153,15 @@ pub async fn require_channel_access(
     channel_id: Uuid,
     user_id: Uuid,
 ) -> AppResult<ChannelAccess> {
+    channel_access(state, channel_id, user_id, false).await
+}
+
+async fn channel_access(
+    state: &AppState,
+    channel_id: Uuid,
+    user_id: Uuid,
+    posts_publicly: bool,
+) -> AppResult<ChannelAccess> {
     let channel = find_channel(state, channel_id).await?;
     let member = require_workspace_member(state, channel.workspace_id, user_id).await?;
     let channel_member = state
@@ -163,7 +176,13 @@ pub async fn require_channel_access(
         channel_member,
     };
 
-    if access.requires_explicit_membership() && access.channel_member.is_none() {
+    let public_to_this_bot = posts_publicly
+        && access.member.is_bot
+        && matches!(access.channel.channel_type, ChannelType::Public);
+    if access.requires_explicit_membership()
+        && access.channel_member.is_none()
+        && !public_to_this_bot
+    {
         return Err(AppError::Forbidden("Not a member of this channel".into()));
     }
 
@@ -181,6 +200,23 @@ pub async fn require_channel_post(
     user_id: Uuid,
 ) -> AppResult<ChannelAccess> {
     let access = require_channel_access(state, channel_id, user_id).await?;
+    require_posting(access)
+}
+
+pub async fn require_channel_post_as(
+    state: &AppState,
+    channel_id: Uuid,
+    auth: &AuthUser,
+) -> AppResult<ChannelAccess> {
+    let posts_publicly = auth
+        .bot
+        .as_ref()
+        .is_some_and(|bot| bot.allows(Scope::ChatWritePublic));
+    let access = channel_access(state, channel_id, auth.user_id, posts_publicly).await?;
+    require_posting(access)
+}
+
+fn require_posting(access: ChannelAccess) -> AppResult<ChannelAccess> {
     require_not_archived(&access.channel)?;
     if !access.can_post() {
         return Err(AppError::Forbidden(
@@ -447,6 +483,7 @@ mod tests {
                 user_id,
                 role,
                 joined_at: chrono::Utc::now(),
+                is_bot: false,
             },
             channel_member: channel_admin.then(|| ChannelMember {
                 channel_id,

@@ -238,6 +238,7 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
                     currentUserId={currentUserId}
                     senderName={displayNameOf(sender?.display_name)}
                     senderAvatarUrl={sender?.avatar_url}
+                    senderIsApp={sender?.is_bot}
                     members={members}
                     channels={channels}
                     onToggleReaction={toggleReaction}

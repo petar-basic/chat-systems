@@ -14,6 +14,7 @@ use super::membership;
 use super::models::*;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
+use crate::bots::{models::Scope, Caller};
 use crate::dto::{DataList, StatusResponse};
 use crate::messaging::publisher::EventPublisher;
 use crate::middleware::AuthUser;
@@ -294,12 +295,15 @@ async fn list_deleted_workspaces(
 
 #[utoipa::path(
     operation_id = "workspace_list_members",
-    get, path = "/workspaces/{ws_id}/members", tag = "workspaces", responses((status = 200, body = DataList<MemberWithUser>)))]
+    get, path = "/workspaces/{ws_id}/members", tags = ["workspaces", "bot"],
+    security(("bearer" = []), ("bot" = ["users:read"])),
+    responses((status = 200, body = DataList<MemberWithUser>)))]
 async fn list_members(
     State(state): State<Arc<AppState>>,
-    auth: AuthUser,
+    caller: Caller,
     Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<DataList<MemberWithUser>>> {
+    let auth = caller.scoped(Scope::UsersRead)?;
     let member = authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
 
     // A guest is somebody from outside who was let into a room. Handing them the
@@ -540,12 +544,15 @@ async fn revoke_invite(
     Ok(Json(StatusResponse::new("revoked")))
 }
 
-#[utoipa::path(get, path = "/workspaces/{ws_id}/channels", tag = "channels", responses((status = 200, body = DataList<ChannelListing>)))]
+#[utoipa::path(get, path = "/workspaces/{ws_id}/channels", tags = ["channels", "bot"],
+    security(("bearer" = []), ("bot" = ["channels:read"])),
+    responses((status = 200, body = DataList<ChannelListing>)))]
 async fn list_channels(
     State(state): State<Arc<AppState>>,
-    auth: AuthUser,
+    caller: Caller,
     Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<DataList<ChannelListing>>> {
+    let auth = caller.scoped(Scope::ChannelsRead)?;
     authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
     let channels = state
         .workspace_service

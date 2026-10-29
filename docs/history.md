@@ -2318,3 +2318,32 @@ that dies mid-call leaves the row to the next. Every attempt carries the same
 `X-Chat-Request-Id`, which is what lets an app that did the work but answered too slowly drop
 the repeat. A 500 or a 4xx is not retried: the app answered, and calling again could run the
 command twice.
+
+### [CS-103] Apps with bot users and a Web API ✅ shipped
+Integrations were separate parts: an incoming webhook posts to one channel, an outgoing
+webhook and a slash command call out, and a workflow runs steps. None of them could read a
+channel, answer in a thread or look a person up, so the small internal tools a team builds on
+Slack had nothing to stand on.
+
+An app is a `bot_apps` row with a bot user, a `users` row with `is_bot` set, no password and
+an address under `bots.invalid` that nothing which starts from an address can find. The token
+is `cbot-` and 32 random bytes, stored as its SHA-256 like the SCIM tokens: there is nothing to
+guess, and every request looks it up by value. The bot is a workspace `member`, so the rules
+that already govern a member govern it, and `WorkspaceMember.is_bot` adds the one difference
+that matters: it needs explicit channel membership even in a public channel, the way a guest
+does. `chat:write.public` lifts that for posting only.
+
+The Web API is the existing API rather than a second set of routes. The risk of that is a bot
+token reaching a route nobody meant it to, so the default is closed: `auth_middleware` admits
+the token, but the `AuthUser` extractor every handler already takes refuses it. A handler
+opens to bots only by taking `bots::Caller` and naming a scope, and the OpenAPI test makes the
+`bot` tag and the scope travel together, so the documentation cannot claim a route the code
+refuses or miss one it allows. Twelve routes take a bot token: post, edit, delete, thread,
+history, reactions, upload, channels, members, DMs and `/bot-apps/me`.
+
+Every successful write is audited as `bot_app.called` with the route template, by a layer
+rather than in each handler, so a route opened to bots later is audited without anyone
+remembering to. Writes already had per-user budgets, which for a bot user are per token;
+reads by a bot get a budget of their own. An app's slash commands and webhooks carry its id
+and go with it. Removing an app suspends the bot user rather than deleting it, so what it
+posted keeps its author.

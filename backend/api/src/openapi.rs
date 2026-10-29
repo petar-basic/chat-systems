@@ -48,7 +48,9 @@ use crate::state::AppState;
         (name = "retention", description = "Retention policies"),
         (name = "totp", description = "Two-factor enrolment"),
         (name = "slack-import", description = "Importing a Slack export"),
-        (name = "scim", description = "SCIM provisioning tokens")
+        (name = "scim", description = "SCIM provisioning tokens"),
+        (name = "bot-apps", description = "Apps with a bot user, made per workspace"),
+        (name = "bot", description = "Routes a bot token may call, each with the scope it needs")
     )
 )]
 struct ApiDoc;
@@ -68,6 +70,21 @@ impl Modify for BearerAuth {
                         .bearer_format("JWT")
                         .description(Some(
                             "Same-origin clients are authenticated by the httpOnly cookie instead.",
+                        ))
+                        .build(),
+                ),
+            );
+        openapi
+            .components
+            .get_or_insert_default()
+            .add_security_scheme(
+                "bot",
+                SecurityScheme::Http(
+                    HttpBuilder::new()
+                        .scheme(HttpAuthScheme::Bearer)
+                        .bearer_format("cbot")
+                        .description(Some(
+                            "An app's bot token. Each route tagged `bot` lists the scope it needs.",
                         ))
                         .build(),
                 ),
@@ -108,6 +125,7 @@ pub fn typed_routes() -> OpenApiRouter<Arc<AppState>> {
         .merge(crate::auth::totp_routes::router())
         .merge(crate::slack_import::routes::router())
         .merge(crate::workflows::routes::router())
+        .merge(crate::bots::routes::router())
 }
 
 /// Reachable without a session: signing in, accepting an invite, and what an
@@ -217,6 +235,43 @@ mod tests {
                     );
                 }
             }
+        }
+    }
+
+    #[test]
+    fn every_route_a_bot_may_call_names_its_scope() {
+        let json = serde_json::to_value(super::spec()).unwrap();
+        assert!(json["components"]["securitySchemes"]["bot"].is_object());
+        let mut bot_routes = Vec::new();
+        for (path, item) in json["paths"].as_object().unwrap() {
+            for (method, op) in item.as_object().unwrap() {
+                let tagged = op["tags"]
+                    .as_array()
+                    .is_some_and(|tags| tags.iter().any(|t| t == "bot"));
+                let scoped = op["security"]
+                    .as_array()
+                    .is_some_and(|reqs| reqs.iter().any(|r| r.get("bot").is_some()));
+                assert_eq!(
+                    tagged, scoped,
+                    "{method} {path}: the bot tag and the bot security go together"
+                );
+                if tagged {
+                    bot_routes.push(format!("{method} {path}"));
+                }
+            }
+        }
+        for route in [
+            "post /channels/{ch_id}/messages",
+            "get /channels/{ch_id}/messages",
+            "post /messages/{msg_id}/reactions",
+            "post /files/upload/{ws_id}",
+            "get /workspaces/{ws_id}/members",
+            "post /workspaces/{ws_id}/conversations",
+        ] {
+            assert!(
+                bot_routes.contains(&route.to_string()),
+                "{route} takes a bot token"
+            );
         }
     }
 

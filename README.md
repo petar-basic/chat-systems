@@ -54,6 +54,7 @@ integration-test suite and a real CI pipeline.
 
 **Integrations**
 - Incoming webhooks (Slack-compatible), signed outgoing webhooks, slash commands that may answer later
+- Apps with a bot user and a scoped token that call the same API the client uses ([bot API](docs/bot-api.md))
 - A Slack importer that brings your history with you
 
 **Admin and compliance**

@@ -51,6 +51,7 @@ export const QUERY_KEYS = {
   sidebarAll: () => ['sidebar'] as const,
   sidebar: (workspaceId: string) => ['sidebar', workspaceId] as const,
   apps: (workspaceId: string) => ['apps', workspaceId] as const,
+  botApps: (workspaceId: string) => ['bot-apps', workspaceId] as const,
 
   scheduledMessages: (workspaceId: string) => ['scheduled-messages', workspaceId] as const,
 
