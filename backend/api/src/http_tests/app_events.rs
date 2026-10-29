@@ -169,13 +169,13 @@ impl Setup {
     }
 
     async fn fan_out(&self) {
-        let rows = sqlx::query_as::<_, (Uuid, String, Value, DateTime<Utc>)>(
-            "SELECT event_id, event_type, payload, created_at FROM event_outbox ORDER BY id",
+        let rows = sqlx::query_as::<_, (Uuid, String, Uuid, Value, DateTime<Utc>)>(
+            "SELECT event_id, event_type, workspace_id, payload, created_at FROM event_outbox ORDER BY id",
         )
         .fetch_all(&self.state.pool)
         .await
         .expect("outbox");
-        for (id, event_type, payload, timestamp) in rows {
+        for (id, event_type, workspace_id, payload, timestamp) in rows {
             let event = shared_events::Event {
                 id,
                 event_type,
@@ -183,7 +183,7 @@ impl Setup {
                 timestamp,
                 stream_id: None,
             };
-            assert!(consumer::fan_out(&self.state, &event).await);
+            assert!(consumer::fan_out(&self.state, workspace_id, &event).await);
         }
     }
 

@@ -32,9 +32,12 @@ fn uuid_at(payload: &serde_json::Value, field: &str) -> Option<Uuid> {
     payload.get(field)?.as_str()?.parse().ok()
 }
 
-pub fn translate(event: &Event) -> Option<Translated> {
+pub fn workspace_of_stream(key: &str) -> Option<Uuid> {
+    key.strip_prefix("stream:ws:")?.parse().ok()
+}
+
+pub fn translate(workspace_id: Uuid, event: &Event) -> Option<Translated> {
     let p = &event.payload;
-    let workspace_id = uuid_at(p, "workspace_id")?;
     let channel_id = uuid_at(p, "channel_id")?;
     let (actor, text, events) = match event.event_type.as_str() {
         "message.created" => {
@@ -228,4 +231,36 @@ pub async fn deliver_command(
     Ok(Some(CommandResponse::pending(format!(
         "/{command} is working on it…"
     ))))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_stream_key_names_its_workspace() {
+        let workspace_id = Uuid::new_v4();
+        assert_eq!(
+            workspace_of_stream(&shared_events::workspace_stream(workspace_id)),
+            Some(workspace_id)
+        );
+        assert_eq!(workspace_of_stream("stream:index"), None);
+    }
+
+    #[test]
+    fn a_reaction_is_translated_without_a_workspace_in_its_payload() {
+        let workspace_id = Uuid::new_v4();
+        let event = Event::new(
+            "reaction.added",
+            serde_json::json!({
+                "message_id": Uuid::new_v4(),
+                "channel_id": Uuid::new_v4(),
+                "user_id": Uuid::new_v4(),
+                "emoji": "🚀",
+            }),
+        );
+        let translated = translate(workspace_id, &event).expect("translated");
+        assert_eq!(translated.workspace_id, workspace_id);
+        assert_eq!(translated.events[0].0, AppEvent::ReactionAdded);
+    }
 }

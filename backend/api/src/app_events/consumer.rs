@@ -1,11 +1,14 @@
 use std::sync::Arc;
 
 use tracing::{info, warn};
+use uuid::Uuid;
 
 use shared_events::Event;
 
 use super::repo::NewDelivery;
-use super::{envelope, event_id, hears, translate, EVENT_TTL_SECS, KIND_EVENT};
+use super::{
+    envelope, event_id, hears, translate, workspace_of_stream, EVENT_TTL_SECS, KIND_EVENT,
+};
 use crate::messaging::stream_group::StreamGroup;
 use crate::state::AppState;
 
@@ -16,15 +19,19 @@ pub async fn start_consumer(redis_url: &str, state: Arc<AppState>) {
     info!("App event consumer started");
     loop {
         for delivery in group.next_batch().await {
-            if fan_out(&state, &delivery.event).await {
+            let handled = match workspace_of_stream(&delivery.key) {
+                Some(workspace_id) => fan_out(&state, workspace_id, &delivery.event).await,
+                None => true,
+            };
+            if handled {
                 group.ack(&delivery.key, &delivery.id).await;
             }
         }
     }
 }
 
-pub async fn fan_out(state: &AppState, event: &Event) -> bool {
-    let Some(translated) = translate(event) else {
+pub async fn fan_out(state: &AppState, workspace_id: Uuid, event: &Event) -> bool {
+    let Some(translated) = translate(workspace_id, event) else {
         return true;
     };
     let subscribers = match state
