@@ -8,6 +8,8 @@ use tokio::sync::mpsc;
 use tracing::warn;
 use uuid::Uuid;
 
+use shared_events::frames::Presence;
+
 pub const WRITER_CHANNEL_CAP: usize = 256;
 
 /// Matches the API side: short enough that a healthy Redis is never noticed,
@@ -25,6 +27,9 @@ pub enum RevocationState {
 
 const PRESENCE_TTL_SECS: u64 = 60;
 const ACTIVE_TTL_SECS: u64 = 60;
+const AWAY_AFTER_IDLE_SECS: i64 = 8 * 60;
+const LAST_ACTIVE_TTL_SECS: i64 = 7 * 24 * 3600;
+const PRESENCE_STATUS_TTL_SECS: i64 = 24 * 3600;
 
 /// Distinct from the revocation code so the client can tell "you are too slow"
 /// from "you may not connect" and reconnect immediately in the first case.
@@ -531,22 +536,134 @@ impl ConnectionManager {
     pub async fn activity_set(&self, user_id: Uuid, conn_id: Uuid, active: bool) {
         let mut conn = self.redis.clone();
         let key = format!("active:user:{user_id}");
+        let now = Self::now_secs();
         let mut pipe = redis::pipe();
         if active {
-            pipe.hset(
-                &key,
-                conn_id.to_string(),
-                Self::now_secs() + ACTIVE_TTL_SECS as i64,
-            )
-            .ignore()
-            .expire(&key, ACTIVE_TTL_SECS as i64)
-            .ignore();
+            pipe.hset(&key, conn_id.to_string(), now + ACTIVE_TTL_SECS as i64)
+                .ignore()
+                .expire(&key, ACTIVE_TTL_SECS as i64)
+                .ignore()
+                .set_ex(
+                    Self::last_active_key(user_id),
+                    now,
+                    LAST_ACTIVE_TTL_SECS as u64,
+                )
+                .ignore();
         } else {
             pipe.hdel(&key, conn_id.to_string()).ignore();
         }
         if let Err(e) = pipe.query_async::<()>(&mut conn).await {
             warn!("activity_set redis error user={}: {}", user_id, e);
         }
+    }
+
+    fn last_active_key(user_id: Uuid) -> String {
+        format!("last_active:user:{user_id}")
+    }
+
+    fn presence_status_key(user_id: Uuid) -> String {
+        format!("presence:status:{user_id}")
+    }
+
+    pub async fn presence_arrived(&self, user_id: Uuid) {
+        let mut conn = self.redis.clone();
+        let res: redis::RedisResult<()> = redis::cmd("SET")
+            .arg(Self::last_active_key(user_id))
+            .arg(Self::now_secs())
+            .arg("NX")
+            .arg("EX")
+            .arg(LAST_ACTIVE_TTL_SECS)
+            .query_async(&mut conn)
+            .await;
+        if let Err(e) = res {
+            warn!("presence_arrived redis error user={}: {}", user_id, e);
+        }
+    }
+
+    pub async fn presence_of_connected(&self, user_ids: &[Uuid]) -> Vec<(Uuid, Presence)> {
+        if user_ids.is_empty() {
+            return Vec::new();
+        }
+        let away_on_purpose: HashSet<Uuid> = match sqlx::query_scalar!(
+            "SELECT id FROM users WHERE id = ANY($1) AND manual_away",
+            user_ids
+        )
+        .fetch_all(&self.db)
+        .await
+        {
+            Ok(ids) => ids.into_iter().collect(),
+            Err(e) => {
+                warn!("manual away lookup failed: {}", e);
+                HashSet::new()
+            }
+        };
+
+        let mut conn = self.redis.clone();
+        let keys: Vec<String> = user_ids
+            .iter()
+            .map(|id| Self::last_active_key(*id))
+            .collect();
+        let last_active: Vec<Option<i64>> =
+            match redis::cmd("MGET").arg(&keys).query_async(&mut conn).await {
+                Ok(values) => values,
+                Err(e) => {
+                    warn!("last activity lookup failed: {}", e);
+                    vec![None; user_ids.len()]
+                }
+            };
+
+        let idle_before = Self::now_secs() - AWAY_AFTER_IDLE_SECS;
+        user_ids
+            .iter()
+            .zip(last_active)
+            .map(|(id, last)| {
+                let idle = last.is_none_or(|at| at <= idle_before);
+                let presence = if away_on_purpose.contains(id) || idle {
+                    Presence::Away
+                } else {
+                    Presence::Online
+                };
+                (*id, presence)
+            })
+            .collect()
+    }
+
+    pub async fn presence_sync(&self, user_id: Uuid) {
+        let presence = self
+            .presence_of_connected(&[user_id])
+            .await
+            .first()
+            .map_or(Presence::Online, |(_, presence)| *presence);
+        let _ = self.presence_settle(user_id, presence).await;
+    }
+
+    pub async fn presence_settle(&self, user_id: Uuid, presence: Presence) -> bool {
+        let mut conn = self.redis.clone();
+        let previous: redis::RedisResult<Option<String>> = redis::cmd("SET")
+            .arg(Self::presence_status_key(user_id))
+            .arg(presence.as_str())
+            .arg("GET")
+            .arg("EX")
+            .arg(PRESENCE_STATUS_TTL_SECS)
+            .query_async(&mut conn)
+            .await;
+        let changed = match previous {
+            Ok(previous) => previous.as_deref().and_then(Presence::parse) != Some(presence),
+            Err(e) => {
+                warn!("presence_settle redis error user={}: {}", user_id, e);
+                true
+            }
+        };
+        if changed {
+            self.publish_presence(user_id, presence).await;
+        }
+        changed
+    }
+
+    pub fn has_local_connection(&self, user_id: Uuid) -> bool {
+        self.user_connections
+            .get(&user_id)
+            .is_some_and(|conns| !conns.is_empty())
     }
 
     pub async fn presence_refresh(&self, user_id: Uuid, workspace_ids: &[Uuid]) {
@@ -640,16 +757,15 @@ impl ConnectionManager {
         }
     }
 
-    pub fn send_to_workspace_members(&self, exclude: Uuid, workspace_ids: &[Uuid], message: &str) {
+    pub fn send_to_workspace_members(&self, workspace_ids: &[Uuid], message: &str) {
         self.fan_out(message, |c| {
-            c.user_id != exclude
-                && c.subscribed_workspaces
-                    .iter()
-                    .any(|w| workspace_ids.contains(w))
+            c.subscribed_workspaces
+                .iter()
+                .any(|w| workspace_ids.contains(w))
         });
     }
 
-    pub async fn publish_presence(&self, user_id: Uuid, status: &str) {
+    pub async fn publish_presence(&self, user_id: Uuid, status: Presence) {
         let workspace_ids = self.user_workspace_ids(user_id).await;
         self.publish_event(
             "events:presence",

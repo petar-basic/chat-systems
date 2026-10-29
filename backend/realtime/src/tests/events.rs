@@ -1,6 +1,7 @@
 use super::common::*;
 use crate::connection_manager::Audience;
 use serde_json::json;
+use shared_events::frames::Presence;
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -759,4 +760,71 @@ async fn a_personal_lists_frames_reach_only_its_owner(pool: PgPool) {
 #[test]
 fn the_consumer_listens_where_list_changes_are_published() {
     assert!(crate::event_consumer::SUBSCRIBED_CHANNELS.contains(&"events:list"));
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_person_sees_their_own_presence_change(pool: PgPool) {
+    let cm = manager(pool).await;
+    let subject = Uuid::new_v4();
+    let ws = Uuid::new_v4();
+    let (subject_conn, mut subject_rx) = fake_conn(&cm, subject);
+    cm.subscribe_workspace(&subject_conn, ws);
+
+    let payload = json!({
+        "user_id": subject.to_string(),
+        "status": "away",
+        "workspace_ids": [ws.to_string()],
+    });
+    crate::event_consumer::handle_event("presence.changed", &payload, &cm).await;
+
+    let frame = next_json(&mut subject_rx).expect("their other devices learn it too");
+    assert_eq!(frame["type"], "presence.changed");
+    assert_eq!(frame["status"], "away");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_status_is_announced_only_when_it_changes(pool: PgPool) {
+    let cm = manager(pool).await;
+    let user = seed_user(cm.db()).await;
+
+    assert!(cm.presence_settle(user, Presence::Online).await);
+    assert!(!cm.presence_settle(user, Presence::Online).await);
+    assert!(cm.presence_settle(user, Presence::Away).await);
+    assert!(cm.presence_settle(user, Presence::Offline).await);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_recompute_is_worked_out_where_the_person_is_connected(pool: PgPool) {
+    let cm = manager(pool).await;
+    let connected = seed_user(cm.db()).await;
+    let elsewhere = seed_user(cm.db()).await;
+    let _conn = fake_conn(&cm, connected);
+    for user in [connected, elsewhere] {
+        sqlx::query("UPDATE users SET manual_away = true WHERE id = $1")
+            .bind(user)
+            .execute(cm.db())
+            .await
+            .expect("set away");
+        crate::event_consumer::handle_event(
+            "presence.recompute",
+            &json!({ "user_id": user.to_string() }),
+            &cm,
+        )
+        .await;
+    }
+
+    let mut redis = cm.redis();
+    let connected_status: Option<String> =
+        redis::AsyncCommands::get(&mut redis, format!("presence:status:{connected}"))
+            .await
+            .expect("read");
+    let elsewhere_status: Option<String> =
+        redis::AsyncCommands::get(&mut redis, format!("presence:status:{elsewhere}"))
+            .await
+            .expect("read");
+    assert_eq!(connected_status.as_deref(), Some("away"));
+    assert_eq!(
+        elsewhere_status, None,
+        "a node holding no socket for the person has nothing to say about them"
+    );
 }

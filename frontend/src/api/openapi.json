@@ -4596,6 +4596,35 @@
         }
       }
     },
+    "/users/me/presence": {
+      "put": {
+        "tags": [
+          "users"
+        ],
+        "operationId": "set_presence",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Presence"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Presence"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/users/{user_id}/exports": {
       "post": {
         "tags": [
@@ -15039,6 +15068,17 @@
           "everyone",
           "moderators"
         ]
+      },
+      "Presence": {
+        "type": "object",
+        "required": [
+          "away"
+        ],
+        "properties": {
+          "away": {
+            "type": "boolean"
+          }
+        }
       },
       "Provider": {
         "type": "string",

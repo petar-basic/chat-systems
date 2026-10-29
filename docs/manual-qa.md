@@ -411,6 +411,8 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 - 🟠 **Edge — multi-tab:** B opens two tabs, closes one → B stays **online** (other tab/connection holds presence). Close the last → goes offline. (Presence is keyed per connection/node, so one tab closing doesn't flip you offline.)
 - 🔴 **Edge — presence is workspace-scoped:** A and B share **no** workspace (C is in a workspace with B but A is not). A should **never** see B's presence — neither the initial `presence.batch` snapshot on subscribe nor live `presence.changed` updates reach A. Verify B going online/offline shows up for C (shared workspace) but not for A. (`presence.changed` carries the subject's `workspace_ids` and is delivered only to connections subscribed to a shared workspace.)
 - 🟠 **Edge — a workspace joined after connecting:** A accepts an invite to a workspace B is in, without reloading, and switches to it → B sees A online at once.
+- 🟢 **Away on purpose:** B picks *You → Set yourself away* → A sees B's dot turn amber at once, in every workspace they share. B types and clicks around → still away. B reloads, and opens the app on a phone → away on both. *Set yourself active* (or `/away` again) → A sees B online.
+- 🟢 **Away when idle:** B leaves the app untouched (or hides the tab) for ten minutes → A sees B away within about thirty seconds after that. B moves the mouse → A sees B online within a second or two. B closes the last tab → offline.
 
 ### 9.2 🟢 Typing indicators
 - **Steps:** A types in a channel → B (viewing it) sees "A is typing…" → stops → indicator clears.

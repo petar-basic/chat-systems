@@ -94,6 +94,26 @@ impl ProfileRepo {
         Ok(())
     }
 
+    pub async fn set_away(&self, user_id: Uuid, away: bool) -> sqlx::Result<()> {
+        sqlx::query!(
+            "UPDATE users SET manual_away = $2 WHERE id = $1",
+            user_id,
+            away
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn toggle_away(&self, user_id: Uuid) -> sqlx::Result<bool> {
+        sqlx::query_scalar!(
+            "UPDATE users SET manual_away = NOT manual_away WHERE id = $1 RETURNING manual_away",
+            user_id
+        )
+        .fetch_one(&self.pool)
+        .await
+    }
+
     pub async fn names(
         &self,
         workspace_id: Uuid,

@@ -1,10 +1,13 @@
 import { useRef, useState } from 'react';
-import { Bell, Bookmark, Clock, LogOut, SlidersHorizontal, User } from 'lucide-react';
+import { Bell, Bookmark, CircleDot, Clock, LogOut, SlidersHorizontal, User } from 'lucide-react';
 import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { displayNameOf } from '@/lib/userHelpers';
 import { PauseMenuItems } from '@/features/notifications';
 import { ReactionEmoji } from '@/shared/components/ReactionEmoji';
+import PresenceDot from '@/shared/components/PresenceDot';
+import { usePresenceStore } from '@/stores/presence';
+import { useSetAway } from '@/features/profile';
 
 interface Props {
   user: { id: string; display_name: string; email: string; avatar_url: string | null } | null;
@@ -37,6 +40,9 @@ export function YouMenu({
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useOnClickOutside(ref, () => setOpen(false), open);
+  const userId = user?.id ?? '';
+  const away = usePresenceStore((s) => s.getStatus(userId) === 'away');
+  const setAway = useSetAway(userId);
 
   const pick = (action: () => void) => () => {
     action();
@@ -49,7 +55,7 @@ export function YouMenu({
         onClick={onOpenProfile}
         aria-label="Edit profile"
         data-qa="sidebar-profile-avatar"
-        className="rounded-full shrink-0 hover:ring-2 hover:ring-purple-400 transition cursor-pointer"
+        className="relative rounded-full shrink-0 hover:ring-2 hover:ring-purple-400 transition cursor-pointer"
         title="Edit profile"
       >
         <Avatar
@@ -57,6 +63,7 @@ export function YouMenu({
           name={displayNameOf(user?.display_name)}
           avatarUrl={user?.avatar_url}
         />
+        {user && <PresenceDot userId={user.id} className="absolute -bottom-0.5 -right-0.5" />}
       </button>
       <div className="relative flex-1 min-w-0" ref={ref}>
         <button
@@ -84,6 +91,11 @@ export function YouMenu({
             className="absolute bottom-full left-0 mb-1 w-64 bg-surface border border-line rounded-lg shadow-xl z-20 py-1"
             data-qa="you-menu"
           >
+            <button className={ITEM} data-qa="toggle-away" onClick={pick(() => setAway.mutate(!away))}>
+              <CircleDot className="w-4 h-4 shrink-0" />
+              {away ? 'Set yourself active' : 'Set yourself away'}
+            </button>
+            <div className="my-1 h-px bg-raised" />
             <button className={ITEM} data-qa="open-profile" onClick={pick(onOpenProfile)}>
               <User className="w-4 h-4 shrink-0" /> Profile
             </button>

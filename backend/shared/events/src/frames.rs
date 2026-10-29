@@ -3,10 +3,38 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use uuid::Uuid;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "lowercase")]
+pub enum Presence {
+    Online,
+    Away,
+    Offline,
+}
+
+impl Presence {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Presence::Online => "online",
+            Presence::Away => "away",
+            Presence::Offline => "offline",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "online" => Some(Presence::Online),
+            "away" => Some(Presence::Away),
+            "offline" => Some(Presence::Offline),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 pub struct PresenceEntry {
     pub user_id: Uuid,
-    pub status: String,
+    #[ts(inline)]
+    pub status: Presence,
 }
 
 /// Every frame the gateway sends to a client. The `type` tag is the wire
@@ -33,7 +61,11 @@ pub enum ServerFrame {
         users: Vec<PresenceEntry>,
     },
     #[serde(rename = "presence.changed")]
-    PresenceChanged { user_id: Uuid, status: String },
+    PresenceChanged {
+        user_id: Uuid,
+        #[ts(inline)]
+        status: Presence,
+    },
     #[serde(rename = "typing.indicator")]
     TypingIndicator {
         channel_id: Uuid,

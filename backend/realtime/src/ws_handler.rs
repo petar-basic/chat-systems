@@ -8,7 +8,7 @@ use tokio::sync::mpsc;
 use tokio::time::interval;
 use tracing::{info, warn};
 
-use shared_events::frames::{PresenceEntry, ServerFrame};
+use shared_events::frames::{Presence, PresenceEntry, ServerFrame};
 
 use crate::connection_manager::{Audience, HUDDLE_MAX_PARTICIPANTS};
 use uuid::Uuid;
@@ -126,7 +126,7 @@ pub async fn handle_ws(socket: WebSocket, claims: crate::Claims, cm: Arc<Connect
     let (tx, rx) = mpsc::channel::<Message>(WRITER_CHANNEL_CAP);
     let writer = spawn_writer(sink, rx);
 
-    let first_local = cm.add_connection(conn_id, user_id, claims.jti, tx.clone());
+    cm.add_connection(conn_id, user_id, claims.jti, tx.clone());
 
     let mut guard = ConnGuard {
         conn_id,
@@ -141,9 +141,8 @@ pub async fn handle_ws(socket: WebSocket, claims: crate::Claims, cm: Arc<Connect
 
     cm.presence_set_online(user_id, &inbound.presence_workspaces)
         .await;
-    if first_local {
-        cm.publish_presence(user_id, "online").await;
-    }
+    cm.presence_arrived(user_id).await;
+    cm.presence_sync(user_id).await;
 
     let hello = ServerFrame::Hello {
         user_id,
@@ -214,6 +213,7 @@ pub async fn handle_ws(socket: WebSocket, claims: crate::Claims, cm: Arc<Connect
                 }
                 cm.presence_refresh(user_id, &inbound.presence_workspaces).await;
                 renew_activity(&cm, user_id, conn_id, &inbound, last_pong).await;
+                cm.presence_sync(user_id).await;
                 cm.huddle_redis_refresh_conn(&conn_id, user_id).await;
             }
         }
@@ -266,7 +266,7 @@ async fn cleanup(
         if was_last {
             let fully_offline = cm.presence_clear(uid, presence_workspaces).await;
             if fully_offline {
-                cm.publish_presence(uid, "offline").await;
+                let _ = cm.presence_settle(uid, Presence::Offline).await;
             }
         }
     }
@@ -346,20 +346,25 @@ pub(crate) async fn handle_client_message(
                         inbound.presence_workspaces.push(ws_id);
                     }
                     cm.presence_set_online(user_id, &[ws_id]).await;
+                    cm.presence_arrived(user_id).await;
                     let online = cm.online_users_in_workspace(ws_id).await;
+                    let statuses = cm.presence_of_connected(&online).await;
+                    let own = statuses
+                        .iter()
+                        .find(|(id, _)| *id == user_id)
+                        .map_or(Presence::Online, |(_, presence)| *presence);
                     let batch = ServerFrame::PresenceBatch {
-                        users: online
-                            .iter()
-                            .map(|u| PresenceEntry {
-                                user_id: *u,
-                                status: "online".to_string(),
-                            })
+                        users: statuses
+                            .into_iter()
+                            .map(|(user_id, status)| PresenceEntry { user_id, status })
                             .collect(),
                     };
                     cm.send_to_user(Audience::Everyone, user_id, &frame_text(&batch))
                         .await;
 
-                    cm.publish_presence(user_id, "online").await;
+                    if !cm.presence_settle(user_id, own).await {
+                        cm.publish_presence(user_id, own).await;
+                    }
                 }
             }
         }
@@ -623,6 +628,7 @@ pub(crate) async fn handle_client_message(
             let active = msg.get("active").and_then(|v| v.as_bool()).unwrap_or(false);
             inbound.active = active;
             cm.activity_set(user_id, *conn_id, active).await;
+            cm.presence_sync(user_id).await;
         }
         "ping" => {
             cm.send_to_user(Audience::Everyone, user_id, &frame_text(&ServerFrame::Pong))

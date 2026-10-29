@@ -1,0 +1,1 @@
+ALTER TABLE users ADD COLUMN manual_away BOOLEAN NOT NULL DEFAULT false;

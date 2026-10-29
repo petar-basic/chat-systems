@@ -1,4 +1,5 @@
 use crate::connection_manager::Audience;
+use shared_events::frames::Presence;
 use std::time::Duration;
 
 use futures_util::StreamExt;
@@ -530,5 +531,126 @@ async fn a_workspace_full_of_channels_joins_in_one_frame(pool: PgPool) {
             .iter()
             .any(|f| f.get("type").and_then(|v| v.as_str()) == Some("message.new")),
         "the last channel in the batch is joined too, got: {frames:?}"
+    );
+}
+
+async fn last_active_minutes_ago(
+    cm: &crate::connection_manager::ConnectionManager,
+    user: Uuid,
+    minutes: i64,
+) {
+    let mut redis = cm.redis();
+    let at = chrono::Utc::now().timestamp() - minutes * 60;
+    let _: () = redis::AsyncCommands::set(&mut redis, format!("last_active:user:{user}"), at)
+        .await
+        .expect("set last activity");
+}
+
+async fn set_manual_away(pool: &PgPool, user: Uuid, away: bool) {
+    sqlx::query("UPDATE users SET manual_away = $2 WHERE id = $1")
+        .bind(user)
+        .bind(away)
+        .execute(pool)
+        .await
+        .expect("set manual_away");
+}
+
+fn presence_of(frames: &[serde_json::Value], user: Uuid) -> Option<String> {
+    frames
+        .iter()
+        .filter(|f| f["type"] == "presence.batch")
+        .flat_map(|f| f["users"].as_array().cloned().unwrap_or_default())
+        .find(|u| u["user_id"] == user.to_string())
+        .and_then(|u| u["status"].as_str().map(str::to_string))
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn the_batch_shows_who_is_away_on_purpose_or_idle(pool: PgPool) {
+    let cm = manager(pool).await;
+    let viewer = seed_user(cm.db()).await;
+    let on_purpose = seed_user(cm.db()).await;
+    let idle = seed_user(cm.db()).await;
+    let working = seed_user(cm.db()).await;
+    let ws = seed_workspace(cm.db(), viewer).await;
+    for user in [viewer, on_purpose, idle, working] {
+        add_ws_member(cm.db(), ws, user).await;
+        cm.presence_set_online(user, &[ws]).await;
+    }
+    set_manual_away(cm.db(), on_purpose, true).await;
+    last_active_minutes_ago(&cm, on_purpose, 0).await;
+    last_active_minutes_ago(&cm, idle, 9).await;
+    last_active_minutes_ago(&cm, working, 1).await;
+
+    let (conn_id, mut rx) = fake_conn(&cm, viewer);
+    let text = serde_json::json!({ "type": "subscribe", "workspace_id": ws }).to_string();
+    crate::ws_handler::handle_client_message(&text, &conn_id, viewer, &cm, &mut inbound()).await;
+
+    let frames = drain_json(&mut rx);
+    assert_eq!(presence_of(&frames, on_purpose).as_deref(), Some("away"));
+    assert_eq!(presence_of(&frames, idle).as_deref(), Some("away"));
+    assert_eq!(presence_of(&frames, working).as_deref(), Some("online"));
+    assert_eq!(
+        presence_of(&frames, viewer).as_deref(),
+        Some("online"),
+        "arriving counts as being there"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn input_after_a_long_idle_shows_the_person_online_again(pool: PgPool) {
+    let cm = manager(pool).await;
+    let user = seed_user(cm.db()).await;
+    let (conn_id, _rx) = fake_conn(&cm, user);
+    last_active_minutes_ago(&cm, user, 20).await;
+    assert_eq!(
+        cm.presence_of_connected(&[user]).await,
+        vec![(user, Presence::Away)]
+    );
+
+    crate::ws_handler::handle_client_message(
+        r#"{"type":"activity","active":true}"#,
+        &conn_id,
+        user,
+        &cm,
+        &mut inbound(),
+    )
+    .await;
+
+    assert_eq!(
+        cm.presence_of_connected(&[user]).await,
+        vec![(user, Presence::Online)]
+    );
+    let mut redis = cm.redis();
+    let settled: Option<String> =
+        redis::AsyncCommands::get(&mut redis, format!("presence:status:{user}"))
+            .await
+            .expect("read status");
+    assert_eq!(
+        settled.as_deref(),
+        Some("online"),
+        "and the change was announced"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn away_on_purpose_holds_through_input(pool: PgPool) {
+    let cm = manager(pool).await;
+    let user = seed_user(cm.db()).await;
+    let (conn_id, _rx) = fake_conn(&cm, user);
+    set_manual_away(cm.db(), user, true).await;
+
+    crate::ws_handler::handle_client_message(
+        r#"{"type":"activity","active":true}"#,
+        &conn_id,
+        user,
+        &cm,
+        &mut inbound(),
+    )
+    .await;
+
+    assert_eq!(
+        cm.presence_of_connected(&[user]).await,
+        vec![(user, Presence::Away)],
+        "typing does not undo a choice the person made"
     );
 }

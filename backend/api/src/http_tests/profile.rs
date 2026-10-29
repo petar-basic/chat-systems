@@ -307,3 +307,115 @@ async fn erasing_a_person_clears_their_profile_in_every_workspace(pool: PgPool) 
     .expect("the membership");
     assert_eq!(left, (None, None, None));
 }
+
+async fn manual_away(state: &crate::state::AppState, user_id: Uuid) -> bool {
+    sqlx::query_scalar!("SELECT manual_away FROM users WHERE id = $1", user_id)
+        .fetch_one(&state.pool)
+        .await
+        .expect("read manual_away")
+}
+
+async fn presence_event_for(
+    stream: &mut (impl futures_util::Stream<Item = redis::Msg> + Unpin),
+    user_id: Uuid,
+) -> Option<Value> {
+    use futures_util::StreamExt;
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(2);
+    loop {
+        let message = tokio::time::timeout_at(deadline, stream.next())
+            .await
+            .ok()??;
+        let Ok(payload) = message.get_payload::<String>() else {
+            continue;
+        };
+        let Ok(event) = serde_json::from_str::<Value>(&payload) else {
+            continue;
+        };
+        if event["payload"]["user_id"] == user_id.to_string() {
+            return Some(event);
+        }
+    }
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn setting_yourself_away_is_kept_and_tells_the_gateway(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (user_id, _, token) = seed_and_login(&app, &state, "away-user", false).await;
+
+    let url = std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".into());
+    let mut pubsub = redis::Client::open(url)
+        .expect("redis client")
+        .get_async_pubsub()
+        .await
+        .expect("pubsub");
+    pubsub
+        .subscribe("events:presence")
+        .await
+        .expect("subscribe");
+    let mut events = pubsub.into_on_message();
+
+    let (status, body) = send(
+        &app,
+        "PUT",
+        "/api/users/me/presence",
+        Some(&token),
+        Some(json!({ "away": true })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(body["away"], true);
+    assert!(
+        manual_away(&state, user_id).await,
+        "kept across devices and restarts"
+    );
+
+    let event = presence_event_for(&mut events, user_id)
+        .await
+        .expect("the gateway is asked to work the status out again");
+    assert_eq!(event["event_type"], "presence.recompute");
+
+    let (status, body) = send(
+        &app,
+        "PUT",
+        "/api/users/me/presence",
+        Some(&token),
+        Some(json!({ "away": false })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert!(!manual_away(&state, user_id).await);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn the_away_command_switches_between_away_and_active(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (user_id, _, token) = seed_and_login(&app, &state, "away-cmd", false).await;
+    let ws_id = seed_workspace(&state, user_id, "Away").await;
+    let ch_id = seed_channel(&state, ws_id, user_id, "main", false).await;
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/commands"),
+        Some(&token),
+        Some(json!({ "command": "/away", "text": "" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(body["response_type"], "ephemeral", "nobody else is told");
+    assert!(manual_away(&state, user_id).await);
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch_id}/commands"),
+        Some(&token),
+        Some(json!({ "command": "away", "text": "" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        !manual_away(&state, user_id).await,
+        "a second /away sets you active"
+    );
+}
