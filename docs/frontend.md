@@ -725,6 +725,20 @@ use the channel hooks above with the conversation id as `channelId`.
 ### Huddles (`features/huddle/hooks/useHuddle.ts`)
 `useActiveHuddles(wsId, instanceUrl?)` backfills currently-active huddles for the workspace.
 
+`HuddleController` carries the media over a `HuddleTransport` (`features/huddle/lib`) and
+sees nothing else of it: set a microphone, camera or screen track, mute, add or drop a peer,
+start over after a reconnect, close. `MeshManager` is the peer-to-peer one and does its own
+offer, answer and ICE signalling over the gateway. `SfuTransport` joins the huddle's LiveKit
+room with a token from `POST /huddles/{id}/sfu-token`, through the same ICE servers, and is
+loaded only when it is used. Mute, camera, screen share, raised hand and reactions still go
+over the gateway on both, so nothing else cares which one carries the media. Who is speaking
+comes from `useSpeaking` on the mesh and from LiveKit on the SFU (`useHuddleStore.transport`
+says which).
+
+`openTransport` picks one. Every huddle starts on the mesh; until promotion mid-call lands,
+`localStorage.setItem('chat_huddle_sfu', '1')` puts that browser on the SFU, and a browser that
+cannot get a token or reach LiveKit falls back to the mesh.
+
 ---
 
 ## Infrastructure (`src/lib/`)
