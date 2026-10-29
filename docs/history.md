@@ -2196,3 +2196,21 @@ key to members of its workspace. The upload, a `PATCH` that changes `icon_url` a
 call `icon::forget`, which deletes only a key of the same workspace. `icon::migrate` runs after
 the photo migration on the worker's start and copies each `/api/files/download/` icon outside
 `icons/` into place.
+
+## Wave 28 — What 4.0.0 needs
+
+### [CS-098] A project people can find ✅ shipped
+Feedback on 3.7.0 found the repository had no description, website or topics, so it did not
+come up in GitHub search, and that the README's image example named 3.3.0 while 3.7.0 was out.
+There was also no page that showed what the app looks like.
+
+`site/index.html` is the homepage: one static page with no build step and no third-party
+requests, in the app's own palette with light and dark themes. It covers what the project is,
+the features, the stack, how to run it, and what differs from Slack. `pages.yml` publishes it
+to GitHub Pages from `main` and, on a pull request, checks that every local link resolves. The
+app is drawn in HTML rather than shown in screenshots. A screenshot shows a real instance's data,
+needs a copy per theme and goes stale with every change to the interface; the drawing follows
+the theme and stays sharp at any size. The README, the RUNBOOK and `.env.example` now point at the
+latest release instead of naming one. CONTRIBUTING says so, and that a change a team would notice
+updates the README's *Features* and the homepage. The repository's description, website and
+topics are set in its settings, not in the code.

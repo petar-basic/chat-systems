@@ -334,6 +334,8 @@ store, say — is a minor release with an upgrade note at the top of its CHANGEL
    release's section in [CHANGELOG.md](../CHANGELOG.md) (`## [X.Y.Z] — YYYY-MM-DD`) and make
    sure every operator-facing change has an upgrade note in [RUNBOOK.md](RUNBOOK.md). Merge
    it.
+   No document names the release to run: the README and the RUNBOOK point at the latest
+   release instead, so nothing goes stale when the next one ships.
 2. Tag the merge commit on `main` and push the tag:
    `git tag -a vX.Y.Z -m "Chat Systems X.Y.Z" && git push origin vX.Y.Z`.
 
@@ -349,6 +351,13 @@ runs the `latest` images unless Coolify's `VERSION` pins one. A merge to `main` 
 nothing; to put an unreleased build on staging, run the workflow by hand after setting
 `VERSION` in Coolify to an image tag that exists. Coolify still reads the compose file
 from `main` at deploy time, so a compose change takes effect on the next deploy.
+
+## The homepage
+
+[`site/index.html`](../site/index.html) is the project's homepage, one static page with no build
+step, published to GitHub Pages by [`pages.yml`](../.github/workflows/pages.yml) when a change
+to `site/` reaches `main`. A pull request that adds or removes something a team would notice
+updates the README's *Features* and the homepage with it.
 
 ## Commits & PRs
 

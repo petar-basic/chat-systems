@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chat Systems — team chat you run yourself</title>
+<meta name="description" content="Self-hosted team chat: channels, threads, huddles, search inside files, SSO and a Slack importer, on your own server with one docker compose command. Rust and React, MIT licensed.">
+<meta property="og:title" content="Chat Systems — team chat you run yourself">
+<meta property="og:description" content="Channels, threads, huddles, search inside files, SSO and a Slack importer, on your own server. MIT licensed.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://petar-basic.github.io/chat-systems/">
+<meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#eef1f6" media="(prefers-color-scheme: light)">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<style>
+:root {
+  color-scheme: light;
+  --bg: #eef1f6;
+  --surface: #ffffff;
+  --raised: #eef2f7;
+  --rail: #dbe1ea;
+  --line: #dfe5ee;
+  --line-strong: #c3ccda;
+  --fg: #0b1220;
+  --fg-soft: #1e293b;
+  --muted: #5b6b7c;
+  --subtle: #7c8798;
+  --accent: #6d28d9;
+  --accent-strong: #5b21b6;
+  --accent-tint: #ede9fe;
+  --on-accent: #ffffff;
+  --success: #15803d;
+  --warning: #b45309;
+  --code-bg: #0f172a;
+  --code-fg: #e2e8f0;
+  --shadow: 0 1px 2px rgb(15 23 42 / 6%), 0 12px 32px rgb(15 23 42 / 10%);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --raised: #334155;
+    --rail: #020617;
+    --line: #334155;
+    --line-strong: #475569;
+    --fg: #ffffff;
+    --fg-soft: #e2e8f0;
+    --muted: #94a3b8;
+    --subtle: #64748b;
+    --accent: #a78bfa;
+    --accent-strong: #c4b5fd;
+    --accent-tint: #2e1065;
+    --on-accent: #1e1b4b;
+    --success: #4ade80;
+    --warning: #fbbf24;
+    --code-bg: #020617;
+    --code-fg: #e2e8f0;
+    --shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 16px 40px rgb(0 0 0 / 35%);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f172a;
+  --surface: #1e293b;
+  --raised: #334155;
+  --rail: #020617;
+  --line: #334155;
+  --line-strong: #475569;
+  --fg: #ffffff;
+  --fg-soft: #e2e8f0;
+  --muted: #94a3b8;
+  --subtle: #64748b;
+  --accent: #a78bfa;
+  --accent-strong: #c4b5fd;
+  --accent-tint: #2e1065;
+  --on-accent: #1e1b4b;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --code-bg: #020617;
+  --code-fg: #e2e8f0;
+  --shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 16px 40px rgb(0 0 0 / 35%);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg-soft);
+  font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--accent); }
+a:hover { color: var(--accent-strong); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+@media (max-width: 640px) { .wrap { padding: 0 16px; } }
+
+.top {
+  position: sticky; top: 0; z-index: 10;
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+.top .wrap { display: flex; align-items: center; gap: 24px; height: 60px; }
+.brand { display: flex; align-items: center; gap: 10px; color: var(--fg); font-weight: 700; text-decoration: none; }
+.brand img { width: 28px; height: 28px; }
+.top nav { display: flex; gap: 20px; margin-left: auto; align-items: center; }
+.top nav a { color: var(--muted); text-decoration: none; font-size: 15px; }
+.top nav a:hover { color: var(--fg); }
+.theme {
+  border: 1px solid var(--line-strong); background: var(--surface); color: var(--fg-soft);
+  border-radius: 8px; height: 34px; width: 34px; cursor: pointer; display: grid; place-items: center;
+}
+.theme svg { width: 16px; height: 16px; }
+@media (max-width: 720px) { .top nav a.hide-sm { display: none; } }
+
+.hero { padding-top: 72px; padding-bottom: 40px; text-align: center; }
+@media (max-width: 640px) { .hero { padding-top: 48px; } }
+.pill {
+  display: inline-flex; gap: 8px; align-items: center; padding: 4px 12px; border-radius: 999px;
+  background: var(--accent-tint); color: var(--accent); font-size: 14px; font-weight: 600; text-decoration: none;
+}
+h1 {
+  color: var(--fg); font-size: clamp(36px, 6vw, 60px); line-height: 1.08; letter-spacing: -0.02em;
+  margin: 20px auto 16px; max-width: 14ch;
+}
+.lede { font-size: clamp(17px, 2.2vw, 20px); color: var(--muted); max-width: 640px; margin: 0 auto 32px; }
+.lede code { white-space: nowrap; }
+.ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 10px;
+  font-weight: 600; text-decoration: none; border: 1px solid transparent;
+}
+.btn.primary { background: var(--accent); color: var(--on-accent); }
+.btn.primary:hover { background: var(--accent-strong); color: var(--on-accent); }
+.btn.ghost { border-color: var(--line-strong); color: var(--fg); background: var(--surface); }
+.btn.ghost:hover { border-color: var(--accent); color: var(--fg); }
+.btn svg { width: 18px; height: 18px; }
+
+.shot { margin: 56px auto 0; max-width: 1040px; }
+.app {
+  display: grid; grid-template-columns: 56px 220px 1fr; height: 460px; text-align: left;
+  border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--surface);
+  box-shadow: var(--shadow); font-size: 14px;
+}
+.rail { background: var(--rail); display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 12px 0; }
+.ws { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; font-weight: 700; font-size: 13px; color: #fff; }
+.ws.a { background: #7c3aed; box-shadow: 0 0 0 2px var(--rail), 0 0 0 4px var(--accent); }
+.ws.b { background: #0e7490; }
+.ws.c { background: #b45309; }
+.side { background: var(--raised); border-right: 1px solid var(--line); padding: 14px 10px; overflow: hidden; }
+.side .name { color: var(--fg); font-weight: 700; padding: 0 8px 12px; }
+.side .label { color: var(--subtle); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; padding: 10px 8px 4px; }
+.row { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 6px; color: var(--muted); white-space: nowrap; }
+.row.on { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.row.bold { color: var(--fg); font-weight: 600; }
+.row .badge { margin-left: auto; background: var(--accent); color: var(--on-accent); border-radius: 999px; font-size: 11px; padding: 0 7px; font-weight: 700; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); flex: none; }
+.dot.off { background: transparent; border: 1.5px solid var(--subtle); }
+.main { display: flex; flex-direction: column; min-width: 0; }
+.head { display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-bottom: 1px solid var(--line); }
+.head b { color: var(--fg); }
+.head .topic { color: var(--subtle); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.huddle {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
+  background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); font-weight: 600; font-size: 12px; white-space: nowrap;
+}
+.msgs { flex: 1; padding: 14px 18px; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
+.msg { display: grid; grid-template-columns: 36px 1fr; gap: 10px; }
+.av { width: 36px; height: 36px; border-radius: 8px; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px; }
+.who { color: var(--fg); font-weight: 700; }
+.when { color: var(--subtle); font-size: 12px; margin-left: 6px; font-weight: 400; }
+.msg p { margin: 2px 0 0; color: var(--fg-soft); }
+.mention { background: var(--accent-tint); color: var(--accent); border-radius: 4px; padding: 0 3px; font-weight: 600; }
+.chips { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.chip { border: 1px solid var(--line-strong); border-radius: 999px; padding: 1px 8px; font-size: 12px; color: var(--muted); }
+.chip.mine { border-color: var(--accent); background: var(--accent-tint); color: var(--accent); }
+.thread { margin-top: 6px; color: var(--accent); font-weight: 600; font-size: 13px; }
+.card {
+  margin-top: 8px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 8px;
+  padding: 8px 12px; background: var(--raised); max-width: 420px;
+}
+.card .t { color: var(--fg); font-weight: 600; }
+.card .s { color: var(--subtle); font-size: 12px; }
+.compose { margin: 0 18px 16px; border: 1px solid var(--line-strong); border-radius: 10px; padding: 10px 12px; color: var(--subtle); }
+@media (max-width: 900px) { .app { grid-template-columns: 52px 1fr; } .side { display: none; } }
+@media (max-width: 560px) { .app { grid-template-columns: 1fr; height: auto; } .rail { display: none; } .head .topic { display: none; } }
+
+section { padding: 88px 0 0; }
+.kicker { color: var(--accent); font-weight: 700; font-size: 14px; text-transform: uppercase; letter-spacing: .06em; }
+h2 { color: var(--fg); font-size: clamp(28px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.01em; margin: 8px 0 12px; }
+.intro { color: var(--muted); max-width: 680px; margin: 0 0 36px; font-size: 18px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
+.feat { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 22px; }
+.feat .ic { width: 40px; height: 40px; border-radius: 10px; background: var(--accent-tint); color: var(--accent); display: grid; place-items: center; margin-bottom: 14px; }
+.feat .ic svg { width: 22px; height: 22px; }
+.feat h3 { color: var(--fg); margin: 0 0 6px; font-size: 18px; }
+.feat p { margin: 0; color: var(--muted); font-size: 15px; }
+
+.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; align-items: start; }
+.split.run { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }
+@media (max-width: 860px) { .split, .split.run { grid-template-columns: minmax(0, 1fr); } }
+.list { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
+.list li { display: grid; grid-template-columns: 24px 1fr; gap: 10px; }
+.list li svg { width: 20px; height: 20px; color: var(--success); margin-top: 3px; }
+.list b { color: var(--fg); }
+.stack { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.stack div { display: flex; justify-content: space-between; gap: 16px; padding: 12px 18px; border-top: 1px solid var(--line); }
+.stack div:first-child { border-top: 0; }
+.stack span:first-child { color: var(--fg); font-weight: 600; }
+.stack span:last-child { color: var(--muted); text-align: right; }
+
+pre {
+  background: var(--code-bg); color: var(--code-fg); border-radius: 12px; padding: 20px 22px; margin: 0;
+  overflow-x: auto; font-size: 13px; line-height: 1.7; border: 1px solid var(--line);
+}
+pre .c { color: #94a3b8; }
+pre .p { color: #a78bfa; user-select: none; }
+.steps { display: grid; gap: 12px; margin-top: 20px; color: var(--muted); }
+
+.compare { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; font-size: 15px; }
+.compare th, .compare td { text-align: left; padding: 12px 16px; border-top: 1px solid var(--line); vertical-align: top; }
+.compare th { color: var(--fg); background: var(--raised); border-top: 0; }
+.compare td:first-child { color: var(--fg); font-weight: 600; width: 34%; }
+.compare td { color: var(--muted); }
+.tablewrap { overflow-x: auto; }
+
+.end { margin: 96px 0 0; padding: 56px 24px; text-align: center; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; }
+.end h2 { margin-top: 0; }
+.end p { color: var(--muted); margin: 0 auto 24px; max-width: 560px; }
+footer { padding: 48px 0 40px; color: var(--subtle); font-size: 14px; }
+footer .wrap { display: flex; gap: 24px; flex-wrap: wrap; justify-content: space-between; }
+footer nav { display: flex; gap: 18px; flex-wrap: wrap; }
+footer a { color: var(--muted); text-decoration: none; }
+footer a:hover { color: var(--fg); }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#"><img src="favicon.svg" alt="">Chat Systems</a>
+    <nav aria-label="Main">
+      <a class="hide-sm" href="#features">Features</a>
+      <a class="hide-sm" href="#run">Run it</a>
+      <a class="hide-sm" href="https://github.com/petar-basic/chat-systems#readme">Docs</a>
+      <a href="https://github.com/petar-basic/chat-systems">GitHub</a>
+      <button class="theme" type="button" aria-label="Switch between light and dark" title="Switch between light and dark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <a class="pill" href="https://github.com/petar-basic/chat-systems/releases/latest">Open source · MIT · see the latest release →</a>
+    <h1>Team chat you run yourself</h1>
+    <p class="lede">Channels, threads, huddles, search inside files, SSO and a Slack importer — on your own server, behind your own domain, from one <code>docker compose</code> command. No per-seat pricing, and nobody else holding your messages.</p>
+    <div class="ctas">
+      <a class="btn primary" href="#run">Run it in five minutes</a>
+      <a class="btn ghost" href="https://github.com/petar-basic/chat-systems">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg>
+        Source on GitHub
+      </a>
+    </div>
+
+    <div class="shot" role="img" aria-label="The app: a workspace sidebar with channels and direct messages, and a channel with messages, a thread, reactions, a link preview and a huddle in progress">
+      <div class="app" aria-hidden="true">
+        <div class="rail">
+          <div class="ws a">AC</div>
+          <div class="ws b">OS</div>
+          <div class="ws c">LB</div>
+        </div>
+        <div class="side">
+          <div class="name">Acme Studio</div>
+          <div class="row">Threads</div>
+          <div class="row">Later</div>
+          <div class="label">Channels</div>
+          <div class="row"># general</div>
+          <div class="row on"># product</div>
+          <div class="row bold"># design <span class="badge">3</span></div>
+          <div class="row"># releases</div>
+          <div class="row"># random</div>
+          <div class="label">Direct messages</div>
+          <div class="row"><span class="dot"></span>Mila Jovanović</div>
+          <div class="row bold"><span class="dot"></span>Jonas Weber <span class="badge">1</span></div>
+          <div class="row"><span class="dot off"></span>Priya Nair</div>
+        </div>
+        <div class="main">
+          <div class="head"><b># product</b><span class="topic">Roadmap, launches and the weekly review</span><span class="huddle">● Huddle · 4</span></div>
+          <div class="msgs">
+            <div class="msg">
+              <div class="av" style="background:#0e7490">MJ</div>
+              <div>
+                <span class="who">Mila Jovanović</span><span class="when">10:42</span>
+                <p>Release notes for Thursday are in the doc. <span class="mention">@Jonas</span> can you check the upgrade section?</p>
+                <div class="card"><div class="t">Upgrade checklist · v2.4</div><div class="s">Google Drive · edited 12 minutes ago</div></div>
+                <div class="thread">5 replies · last reply 2 min ago</div>
+              </div>
+            </div>
+            <div class="msg">
+              <div class="av" style="background:#b45309">JW</div>
+              <div>
+                <span class="who">Jonas Weber</span><span class="when">10:47</span>
+                <p>Looks good. Search found the old migration notes inside last year's PDF, linking them in the thread.</p>
+                <div class="chips"><span class="chip mine">👍 4</span><span class="chip">🚀 2</span><span class="chip">👀 1</span></div>
+              </div>
+            </div>
+            <div class="msg">
+              <div class="av" style="background:#7c3aed">PN</div>
+              <div>
+                <span class="who">Priya Nair</span><span class="when">10:51</span>
+                <p>Jumping into the huddle for the review — screen share in a minute.</p>
+              </div>
+            </div>
+          </div>
+          <div class="compose">Message #product</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section id="features">
+    <div class="wrap">
+      <div class="kicker">Features</div>
+      <h2>What a team uses every day</h2>
+      <p class="intro">Most of what a team moving from Slack reaches for on day one is here, and the Slack importer brings its people, channels and history along.</p>
+      <div class="grid">
+        <div class="feat">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+          <h3>Channels and threads</h3>
+          <p>Public and private channels, threads, DMs and group DMs, reactions, pins, edit history, forwarding, scheduled send and announcement channels.</p>
+        </div>
+        <div class="feat">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v4"/></svg></div>
+          <h3>Huddles</h3>
+          <p>Voice and video with screen sharing, raised hands and reactions, started from any channel or DM.</p>
+        </div>
+        <div class="feat">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></div>
+          <h3>Search inside files</h3>
+          <p>Messages, file names and the text inside PDF, Word, Excel and PowerPoint files, with filters by person, channel and date.</p>
+        </div>
+        <div class="feat">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div>
+          <h3>Notifications that fit</h3>
+          <p>Per-channel levels, keywords, a schedule and do not disturb, desktop and Web Push that go to the device you are using.</p>
+        </div>
+        <div class="feat">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></div>
+          <h3>Polls, lists, workflows</h3>
+          <p>Polls in a message, lists with typed columns, and no-code workflows triggered by a schedule, a webhook, a reaction or a shortcut.</p>
+        </div>
+        <div class="feat">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></div>
+          <h3>Connected apps</h3>
+          <p>Rich previews from GitHub, Jira, Confluence, Figma and Google Drive; Slack-compatible incoming webhooks, signed outgoing webhooks and slash commands.</p>
+        </div>
+        <div class="feat">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+          <h3>Admin and compliance</h3>
+          <p>SSO (OIDC), TOTP, SCIM deprovisioning, guests who see only their channels, an audit log, retention, export and erasure.</p>
+        </div>
+        <div class="feat">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></div>
+          <h3>On every screen</h3>
+          <p>A responsive app that installs as a PWA with push, and one client for several workspaces and several servers.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="own">
+    <div class="wrap split">
+      <div>
+        <div class="kicker">Yours to run</div>
+        <h2>Your server, your data, your domain</h2>
+        <ul class="list">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span><b>Every message stays on hardware you control.</b> Files go to local disk or any S3-compatible store; backups are verified by restoring them.</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span><b>Automatic HTTPS</b> through Caddy, and several workspaces on one instance.</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span><b>Released images</b> for every version on GHCR, with upgrade notes for each one.</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span><b>Built to be read.</b> A stateless Rust API, a WebSocket gateway that scales out over Redis Streams, a strictly typed React client, and a CI that runs the end-to-end suite on every change.</span></li>
+        </ul>
+      </div>
+      <div class="stack" aria-label="The stack">
+        <div><span>API</span><span>Rust · Axum, stateless</span></div>
+        <div><span>Realtime</span><span>Rust WebSocket gateway</span></div>
+        <div><span>Worker</span><span>Rust · notifications, webhooks, email, search</span></div>
+        <div><span>Client</span><span>React 19 · TypeScript · PWA</span></div>
+        <div><span>Database</span><span>PostgreSQL 16</span></div>
+        <div><span>Bus</span><span>Redis 7 streams and pub/sub</span></div>
+        <div><span>Edge</span><span>Caddy, automatic HTTPS</span></div>
+        <div><span>Calls</span><span>WebRTC, coturn</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="run">
+    <div class="wrap split run">
+      <div>
+        <div class="kicker">Run it</div>
+        <h2>Five minutes to a working instance</h2>
+        <p class="intro">Docker is all it needs. Fill in the secrets <code>.env</code> asks for, start the stack, and open the setup page with the token it prints.</p>
+        <div class="steps">
+          <span>Production behind your own domain, backups and upgrades are in the <a href="https://github.com/petar-basic/chat-systems/blob/main/docs/RUNBOOK.md">runbook</a>.</span>
+          <span>What each release changed is in the <a href="https://github.com/petar-basic/chat-systems/blob/main/CHANGELOG.md">changelog</a>.</span>
+        </div>
+      </div>
+      <pre><code><span class="p">$ </span>git clone https://github.com/petar-basic/chat-systems.git
+<span class="p">$ </span>cd chat-systems &amp;&amp; cp .env.example .env
+<span class="c"># set the secrets .env asks for</span>
+<span class="p">$ </span>docker compose --profile frontend up -d --build
+<span class="p">$ </span>docker compose logs api | grep "setup token"
+<span class="c"># open http://localhost:8080 and paste it</span></code></pre>
+    </div>
+  </section>
+
+  <section id="slack">
+    <div class="wrap">
+      <div class="kicker">Coming from Slack</div>
+      <h2>What is different, plainly</h2>
+      <p class="intro">The trade for owning your data, so nobody finds out on day two.</p>
+      <div class="tablewrap">
+        <table class="compare">
+          <thead><tr><th>Different</th><th>Where it stands</th></tr></thead>
+          <tbody>
+            <tr><td>No app-store mobile app</td><td>The web app is responsive and installs as a PWA with push.</td></tr>
+            <tr><td>Huddles up to eight people</td><td>Calls are peer-to-peer; a media server for large calls is planned for 4.0.</td></tr>
+            <tr><td>No shared channels between organisations</td><td>One instance serves several workspaces, each its own.</td></tr>
+            <tr><td>Search reads text, not pictures</td><td>Text inside documents is searched; scanned pages and screenshots are not.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <div class="wrap">
+    <div class="end">
+      <h2>Try it on your own machine</h2>
+      <p>MIT licensed. Read the code, run it, change it.</p>
+      <div class="ctas">
+        <a class="btn primary" href="#run">Get started</a>
+        <a class="btn ghost" href="https://github.com/petar-basic/chat-systems/releases">Releases</a>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Chat Systems · MIT License</span>
+    <nav aria-label="Project">
+      <a href="https://github.com/petar-basic/chat-systems">Repository</a>
+      <a href="https://github.com/petar-basic/chat-systems/blob/main/docs/RUNBOOK.md">Runbook</a>
+      <a href="https://github.com/petar-basic/chat-systems/blob/main/docs/ROADMAP.md">Roadmap</a>
+      <a href="https://github.com/petar-basic/chat-systems/blob/main/CHANGELOG.md">Changelog</a>
+      <a href="https://github.com/petar-basic/chat-systems/blob/main/docs/CONTRIBUTING.md">Contributing</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  try {
+    var saved = localStorage.getItem('theme');
+    if (saved === 'light' || saved === 'dark') root.setAttribute('data-theme', saved);
+  } catch (e) {}
+  document.querySelector('.theme').addEventListener('click', function () {
+    var current = root.getAttribute('data-theme') ||
+      (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    var next = current === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('theme', next); } catch (e) {}
+  });
+})();
+</script>
+</body>
+</html>

@@ -1173,18 +1173,18 @@ docker compose ... exec db-backup sh -c '
   PGPASSWORD="$POSTGRES_PASSWORD" pg_dump -h postgres -U chat -d chatsystems > "$f" &&
   gzip "$f" && gzip -t "$f.gz" && ls -lh "$f.gz"'
 
-# 2a. Release images (recommended): set in .env
+# 2a. Release images (recommended): set in .env, X.Y.Z being the release you upgrade to
 #       BACKEND_IMAGE=ghcr.io/petar-basic/chat-systems-backend
 #       FRONTEND_IMAGE=ghcr.io/petar-basic/chat-systems-frontend
-#       VERSION=2.0.0
+#       VERSION=X.Y.Z
 docker compose -f docker-compose.yml -f docker-compose.prod.yml \
   --profile frontend --profile s3 pull api worker realtime frontend
 docker compose -f docker-compose.yml -f docker-compose.prod.yml \
   --profile frontend --profile s3 up -d
 
 # 2b. Or build from source at a release tag
-git fetch --tags && git checkout v2.0.0
-VERSION=2.0.0 docker compose \
+git fetch --tags && git checkout vX.Y.Z
+VERSION=X.Y.Z docker compose \
   -f docker-compose.yml -f docker-compose.prod.yml --profile frontend --profile s3 \
   up -d --build
 
