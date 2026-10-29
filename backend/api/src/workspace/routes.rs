@@ -678,6 +678,21 @@ async fn create_channel(
         None => channel,
     };
 
+    state
+        .publisher
+        .publish_scoped(
+            "channel.created",
+            ws_id,
+            serde_json::json!({
+                "channel_id": channel.id,
+                "workspace_id": ws_id,
+                "name": channel.name,
+                "channel_type": channel.channel_type,
+                "created_by": auth.user_id,
+            }),
+        )
+        .await?;
+
     audit::record(
         &state,
         AuditEntry::new(AuditAction::ChannelCreated, auth.user_id)

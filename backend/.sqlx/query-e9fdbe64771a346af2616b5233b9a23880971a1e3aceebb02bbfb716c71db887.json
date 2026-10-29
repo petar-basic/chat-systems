@@ -1,0 +1,113 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH heads AS (\n                   SELECT DISTINCT ON (d.app_id, d.channel_id)\n                          d.id, d.next_attempt_at, d.leased_until, d.expires_at\n                     FROM app_deliveries d\n                     JOIN bot_apps b ON b.id = d.app_id\n                    WHERE d.delivered_at IS NULL AND d.failed_at IS NULL\n                      AND d.kind = 'event'\n                      AND NOT b.socket_mode AND b.request_url IS NOT NULL\n                    ORDER BY d.app_id, d.channel_id, d.seq\n               ), due AS (\n                   SELECT id FROM heads\n                    WHERE next_attempt_at <= NOW() AND expires_at > NOW()\n                      AND (leased_until IS NULL OR leased_until < NOW())\n                    LIMIT $2\n               )\n               UPDATE app_deliveries d\n                  SET leased_until = NOW() + make_interval(secs => $1),\n                      attempts = d.attempts + 1\n                 FROM due, bot_apps b\n                WHERE d.id = due.id AND b.id = d.app_id\n                  AND d.delivered_at IS NULL\n                  AND (d.leased_until IS NULL OR d.leased_until < NOW())\n               RETURNING d.id, d.app_id, d.body, d.attempts,\n                         b.request_url AS \"request_url?\",\n                         b.signing_secret_encrypted AS \"signing_secret_encrypted?\",\n                         b.signing_secret_nonce AS \"signing_secret_nonce?\",\n                         b.signing_secret_key_id AS \"signing_secret_key_id?\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "app_deliveries",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "app_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "app_deliveries",
+            "name": "app_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "body",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "app_deliveries",
+            "name": "body"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "attempts",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "app_deliveries",
+            "name": "attempts"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "request_url?",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "request_url"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "signing_secret_encrypted?",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "signing_secret_encrypted"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "signing_secret_nonce?",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "signing_secret_nonce"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "signing_secret_key_id?",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "signing_secret_key_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Float8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "e9fdbe64771a346af2616b5233b9a23880971a1e3aceebb02bbfb716c71db887"
+}

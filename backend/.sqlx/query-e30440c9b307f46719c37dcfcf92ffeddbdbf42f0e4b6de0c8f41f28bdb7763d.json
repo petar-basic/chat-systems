@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE app_sockets s\n                 SET ticket_hash = NULL, connected_at = NOW(), seen_at = NOW()\n                FROM bot_apps b\n               WHERE s.ticket_hash = encode(sha256(convert_to($1, 'UTF8')), 'hex')\n                 AND s.connected_at IS NULL\n                 AND s.opened_at > NOW() - INTERVAL '30 seconds'\n                 AND b.id = s.app_id AND b.socket_mode AND b.app_token_hash IS NOT NULL\n              RETURNING s.id, s.app_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "app_sockets",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "app_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "app_sockets",
+            "name": "app_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "e30440c9b307f46719c37dcfcf92ffeddbdbf42f0e4b6de0c8f41f28bdb7763d"
+}

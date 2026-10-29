@@ -89,6 +89,21 @@ impl Modify for BearerAuth {
                         .build(),
                 ),
             );
+        openapi
+            .components
+            .get_or_insert_default()
+            .add_security_scheme(
+                "app",
+                SecurityScheme::Http(
+                    HttpBuilder::new()
+                        .scheme(HttpAuthScheme::Bearer)
+                        .bearer_format("capp")
+                        .description(Some(
+                            "An app-level token, which only opens socket-mode connections.",
+                        ))
+                        .build(),
+                ),
+            );
     }
 }
 
@@ -126,6 +141,7 @@ pub fn typed_routes() -> OpenApiRouter<Arc<AppState>> {
         .merge(crate::slack_import::routes::router())
         .merge(crate::workflows::routes::router())
         .merge(crate::bots::routes::router())
+        .merge(crate::app_events::routes::router())
 }
 
 /// Reachable without a session: signing in, accepting an invite, and what an
@@ -137,6 +153,7 @@ pub fn public_routes() -> OpenApiRouter<Arc<AppState>> {
         .merge(crate::hooks::routes::public_router())
         .merge(crate::workflows::routes::public_router())
         .merge(crate::commands::routes::public_router())
+        .merge(crate::app_events::routes::public_router())
 }
 
 pub fn spec() -> utoipa::openapi::OpenApi {

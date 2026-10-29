@@ -1,0 +1,217 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE bot_apps\n                 SET name = COALESCE($2, name),\n                     description = CASE WHEN $3::text IS NULL THEN description ELSE NULLIF($3, '') END,\n                     icon_url = CASE WHEN $4::text IS NULL THEN icon_url ELSE NULLIF($4, '') END,\n                     scopes = COALESCE($5, scopes),\n                     events = COALESCE($6, events),\n                     request_url = CASE WHEN $7::text IS NULL THEN request_url ELSE NULLIF($7, '') END,\n                     socket_mode = COALESCE($8, socket_mode),\n                     failing_since = CASE WHEN $7::text IS NULL AND $8::bool IS NULL THEN failing_since END,\n                     last_failure = CASE WHEN $7::text IS NULL AND $8::bool IS NULL THEN last_failure END,\n                     updated_at = NOW()\n               WHERE id = $1\n              RETURNING id, workspace_id, bot_user_id, name, description, icon_url, scopes, events,\n                        request_url, socket_mode,\n                        (app_token_hash IS NOT NULL) AS \"has_app_token!\",\n                        (SELECT COUNT(*) FROM app_sockets s\n                          WHERE s.app_id = bot_apps.id AND s.connected_at IS NOT NULL\n                            AND s.seen_at > NOW() - INTERVAL '30 seconds') AS \"connected_sockets!\",\n                        failing_since, last_failure,\n                        created_by, created_at, updated_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "workspace_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "bot_user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "bot_user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "name",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "description",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "description"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "icon_url",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "icon_url"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "scopes",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "scopes"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "events",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "events"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "request_url",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "request_url"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "socket_mode",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "socket_mode"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "has_app_token!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 11,
+        "name": "connected_sockets!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 12,
+        "name": "failing_since",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "failing_since"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "last_failure",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "last_failure"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "created_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "created_by"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Varchar",
+        "Text",
+        "Text",
+        "TextArray",
+        "TextArray",
+        "Text",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      true,
+      false,
+      null,
+      null,
+      true,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "7a7f4a981cfee8851d52b6382f63531cb6ee6750c8e6ebe8d7d5f9bcb8693c78"
+}

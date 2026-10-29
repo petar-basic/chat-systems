@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH failed AS (\n                 UPDATE app_deliveries\n                    SET failed_at = NOW(), leased_until = NULL\n                  WHERE delivered_at IS NULL AND failed_at IS NULL\n                    AND expires_at <= NOW()\n                    AND (leased_until IS NULL OR leased_until < NOW())\n                 RETURNING app_id, last_error, seq\n             ), latest AS (\n                 SELECT DISTINCT ON (app_id) app_id, last_error\n                   FROM failed ORDER BY app_id, seq DESC\n             )\n             UPDATE bot_apps b\n                SET failing_since = COALESCE(b.failing_since, NOW()),\n                    last_failure = COALESCE(l.last_error, 'Nothing took the event within an hour')\n               FROM latest l\n              WHERE b.id = l.app_id",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "a071d0b76e25ac39aeddde6999399fdae43367fb61ebbcb2aed56104ef847410"
+}

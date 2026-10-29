@@ -229,3 +229,56 @@ pub async fn reseal_totp_secret(
     .await?;
     Ok(result.rows_affected() == 1)
 }
+
+pub struct StoredBotSecret {
+    pub app_id: Uuid,
+    pub stored: Stored,
+}
+
+pub async fn bot_signing_secrets_off(
+    pool: &PgPool,
+    current: &str,
+) -> sqlx::Result<Vec<StoredBotSecret>> {
+    let rows = sqlx::query!(
+        r#"SELECT id, signing_secret_encrypted AS "ciphertext!", signing_secret_nonce AS "nonce!",
+                  signing_secret_key_id
+             FROM bot_apps
+            WHERE signing_secret_encrypted IS NOT NULL
+              AND signing_secret_key_id IS DISTINCT FROM $1"#,
+        current
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|r| StoredBotSecret {
+            stored: Stored {
+                id: format!("signing secret of app {}", r.id),
+                ciphertext: r.ciphertext,
+                nonce: r.nonce,
+                key_id: r.signing_secret_key_id,
+            },
+            app_id: r.id,
+        })
+        .collect())
+}
+
+pub async fn reseal_bot_signing_secret(
+    pool: &PgPool,
+    secret: &StoredBotSecret,
+    sealed: &Sealed,
+) -> sqlx::Result<bool> {
+    let result = sqlx::query!(
+        "UPDATE bot_apps
+            SET signing_secret_encrypted = $3, signing_secret_nonce = $4, signing_secret_key_id = $5
+          WHERE id = $1 AND signing_secret_key_id IS NOT DISTINCT FROM $2",
+        secret.app_id,
+        secret.stored.key_id,
+        sealed.ciphertext,
+        sealed.nonce,
+        sealed.key_id
+    )
+    .execute(pool)
+    .await?;
+    Ok(result.rows_affected() == 1)
+}

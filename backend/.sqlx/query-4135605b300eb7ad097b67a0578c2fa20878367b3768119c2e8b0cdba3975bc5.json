@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM app_deliveries\n              WHERE (delivered_at IS NOT NULL OR failed_at IS NOT NULL)\n                AND created_at < NOW() - make_interval(secs => $1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4135605b300eb7ad097b67a0578c2fa20878367b3768119c2e8b0cdba3975bc5"
+}

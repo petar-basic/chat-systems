@@ -584,6 +584,30 @@
         }
       }
     },
+    "/apps/connections.open": {
+      "post": {
+        "tags": [
+          "bot-apps"
+        ],
+        "operationId": "open_connection",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SocketUrl"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "app": []
+          }
+        ]
+      }
+    },
     "/auth/complete-registration": {
       "post": {
         "tags": [
@@ -1036,6 +1060,64 @@
         }
       }
     },
+    "/bot-apps/{app_id}/app-token": {
+      "post": {
+        "tags": [
+          "bot-apps"
+        ],
+        "operationId": "make_app_token",
+        "parameters": [
+          {
+            "name": "app_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppToken"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "bot-apps"
+        ],
+        "operationId": "revoke_app_token",
+        "parameters": [
+          {
+            "name": "app_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/bot-apps/{app_id}/rotate": {
       "post": {
         "tags": [
@@ -1059,6 +1141,36 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/BotAppWithToken"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bot-apps/{app_id}/signing-secret": {
+      "get": {
+        "tags": [
+          "bot-apps"
+        ],
+        "operationId": "reveal_signing_secret",
+        "parameters": [
+          {
+            "name": "app_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SigningSecret"
                 }
               }
             }
@@ -9020,6 +9132,18 @@
           }
         }
       },
+      "AppEvent": {
+        "type": "string",
+        "enum": [
+          "message",
+          "app_mention",
+          "reaction_added",
+          "reaction_removed",
+          "member_joined_channel",
+          "channel_created",
+          "channel_archived"
+        ]
+      },
       "AppList": {
         "type": "object",
         "required": [
@@ -9095,6 +9219,22 @@
             }
           },
           "summary": {
+            "type": "string"
+          }
+        }
+      },
+      "AppToken": {
+        "type": "object",
+        "required": [
+          "app_id",
+          "app_token"
+        ],
+        "properties": {
+          "app_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "app_token": {
             "type": "string"
           }
         }
@@ -9248,6 +9388,10 @@
           "bot_user_id",
           "name",
           "scopes",
+          "events",
+          "socket_mode",
+          "has_app_token",
+          "connected_sockets",
           "created_at",
           "updated_at"
         ],
@@ -9255,6 +9399,10 @@
           "bot_user_id": {
             "type": "string",
             "format": "uuid"
+          },
+          "connected_sockets": {
+            "type": "integer",
+            "format": "int64"
           },
           "created_at": {
             "type": "string",
@@ -9273,6 +9421,22 @@
               "null"
             ]
           },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AppEvent"
+            }
+          },
+          "failing_since": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "has_app_token": {
+            "type": "boolean"
+          },
           "icon_url": {
             "type": [
               "string",
@@ -9283,14 +9447,29 @@
             "type": "string",
             "format": "uuid"
           },
+          "last_failure": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "name": {
             "type": "string"
+          },
+          "request_url": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "scopes": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/Scope"
             }
+          },
+          "socket_mode": {
+            "type": "boolean"
           },
           "updated_at": {
             "type": "string",
@@ -11190,6 +11369,10 @@
                 "bot_user_id",
                 "name",
                 "scopes",
+                "events",
+                "socket_mode",
+                "has_app_token",
+                "connected_sockets",
                 "created_at",
                 "updated_at"
               ],
@@ -11197,6 +11380,10 @@
                 "bot_user_id": {
                   "type": "string",
                   "format": "uuid"
+                },
+                "connected_sockets": {
+                  "type": "integer",
+                  "format": "int64"
                 },
                 "created_at": {
                   "type": "string",
@@ -11215,6 +11402,22 @@
                     "null"
                   ]
                 },
+                "events": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AppEvent"
+                  }
+                },
+                "failing_since": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "has_app_token": {
+                  "type": "boolean"
+                },
                 "icon_url": {
                   "type": [
                     "string",
@@ -11225,14 +11428,29 @@
                   "type": "string",
                   "format": "uuid"
                 },
+                "last_failure": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
                 "name": {
                   "type": "string"
+                },
+                "request_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "scopes": {
                   "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/Scope"
                   }
+                },
+                "socket_mode": {
+                  "type": "boolean"
                 },
                 "updated_at": {
                   "type": "string",
@@ -16536,6 +16754,22 @@
           }
         }
       },
+      "SigningSecret": {
+        "type": "object",
+        "required": [
+          "app_id",
+          "signing_secret"
+        ],
+        "properties": {
+          "app_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "signing_secret": {
+            "type": "string"
+          }
+        }
+      },
       "SnippetPart": {
         "type": "object",
         "required": [
@@ -16547,6 +16781,17 @@
             "type": "boolean"
           },
           "text": {
+            "type": "string"
+          }
+        }
+      },
+      "SocketUrl": {
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "properties": {
+          "url": {
             "type": "string"
           }
         }
@@ -17319,6 +17564,15 @@
               "null"
             ]
           },
+          "events": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/AppEvent"
+            }
+          },
           "icon_url": {
             "type": [
               "string",
@@ -17326,6 +17580,12 @@
             ]
           },
           "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "request_url": {
             "type": [
               "string",
               "null"
@@ -17339,6 +17599,12 @@
             "items": {
               "$ref": "#/components/schemas/Scope"
             }
+          },
+          "socket_mode": {
+            "type": [
+              "boolean",
+              "null"
+            ]
           }
         }
       },
@@ -18398,6 +18664,12 @@
       }
     },
     "securitySchemes": {
+      "app": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "capp",
+        "description": "An app-level token, which only opens socket-mode connections."
+      },
       "bearer": {
         "type": "http",
         "scheme": "bearer",

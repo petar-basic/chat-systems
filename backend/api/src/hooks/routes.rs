@@ -123,17 +123,22 @@ async fn create_hook(
                 })?,
         )?;
 
-        let url = config
-            .get("url")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| AppError::Validation("slash_command requires a url in config".into()))?
-            .to_string();
-        let parsed = reqwest::Url::parse(&url)
-            .map_err(|e| AppError::Validation(format!("Invalid command URL: {e}")))?;
-        if !matches!(parsed.scheme(), "http" | "https") {
-            return Err(AppError::Validation(
-                "Command URL must be http or https".into(),
-            ));
+        match config.get("url").and_then(|v| v.as_str()) {
+            Some(url) => {
+                let parsed = reqwest::Url::parse(url)
+                    .map_err(|e| AppError::Validation(format!("Invalid command URL: {e}")))?;
+                if !matches!(parsed.scheme(), "http" | "https") {
+                    return Err(AppError::Validation(
+                        "Command URL must be http or https".into(),
+                    ));
+                }
+            }
+            None if req.app_id.is_some() => {}
+            None => {
+                return Err(AppError::Validation(
+                    "slash_command requires a url in config".into(),
+                ))
+            }
         }
 
         // Scoped like an outgoing webhook, because it is one: invoking it sends

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO bot_apps (workspace_id, bot_user_id, name, description, icon_url, scopes, token_hash, created_by)\n              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)\n              RETURNING id, workspace_id, bot_user_id, name, description, icon_url, scopes,\n                        created_by, created_at, updated_at",
+  "query": "SELECT id, workspace_id, bot_user_id, name, description, icon_url, scopes, events,\n                     request_url, socket_mode,\n                     (app_token_hash IS NOT NULL) AS \"has_app_token!\",\n                     (SELECT COUNT(*) FROM app_sockets s\n                       WHERE s.app_id = bot_apps.id AND s.connected_at IS NOT NULL\n                         AND s.seen_at > NOW() - INTERVAL '30 seconds') AS \"connected_sockets!\",\n                     failing_since, last_failure,\n                     created_by, created_at, updated_at\n                FROM bot_apps WHERE workspace_id = $1 ORDER BY lower(name), id",
   "describe": {
     "columns": [
       {
@@ -82,6 +82,73 @@
       },
       {
         "ordinal": 7,
+        "name": "events",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "events"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "request_url",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "request_url"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "socket_mode",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "socket_mode"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "has_app_token!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 11,
+        "name": "connected_sockets!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 12,
+        "name": "failing_since",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "failing_since"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "last_failure",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "last_failure"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
         "name": "created_by",
         "type_info": "Uuid",
         "origin": {
@@ -92,7 +159,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 15,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -103,7 +170,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 16,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -116,13 +183,6 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Uuid",
-        "Varchar",
-        "Text",
-        "Varchar",
-        "TextArray",
-        "Varchar",
         "Uuid"
       ]
     },
@@ -134,10 +194,17 @@
       true,
       true,
       false,
+      false,
+      true,
+      false,
+      null,
+      null,
+      true,
+      true,
       true,
       false,
       false
     ]
   },
-  "hash": "727b19482a6d83fff1285f087383b563e0676a65e45749b8b8ee1d7130ecd833"
+  "hash": "b95437460ca57ce07cbe6ad3103d672e4f45070b131ec438b856431aca278f3d"
 }

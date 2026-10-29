@@ -1,3 +1,4 @@
+mod app_socket;
 mod config;
 mod connection_manager;
 mod event_consumer;
@@ -33,6 +34,7 @@ use crate::connection_manager::ConnectionManager;
 #[derive(Clone)]
 struct AppState {
     cm: Arc<ConnectionManager>,
+    apps: Arc<crate::app_socket::AppSockets>,
     jwt_public_keys: VerifyingKeys,
     consumer_heartbeat: Arc<AtomicI64>,
     cors_origins: String,
@@ -87,7 +89,9 @@ async fn main() -> anyhow::Result<()> {
     let redis_conn = redis::aio::ConnectionManager::new(redis_client).await?;
     info!("Connected to Redis");
 
+    let apps = Arc::new(crate::app_socket::AppSockets::new(db.clone()));
     let cm = Arc::new(ConnectionManager::new(db, redis_conn));
+    tokio::spawn(apps.clone().run());
 
     let prometheus = PrometheusBuilder::new()
         .install_recorder()
@@ -129,6 +133,7 @@ async fn main() -> anyhow::Result<()> {
 
     let state = AppState {
         cm,
+        apps,
         jwt_public_keys: config.jwt_public_keys.clone(),
         consumer_heartbeat,
         cors_origins: config.cors_origins.clone(),
@@ -152,6 +157,7 @@ async fn main() -> anyhow::Result<()> {
 pub(crate) fn build_app(state: AppState) -> Router {
     Router::new()
         .route("/ws", get(ws_upgrade))
+        .route("/ws/apps", get(app_socket_upgrade))
         .route("/livez", get(livez))
         .route("/readyz", get(readyz))
         .with_state(state)
@@ -266,6 +272,35 @@ async fn ws_upgrade(
         .max_frame_size(64 * 1024)
         .protocols(["bearer"])
         .on_upgrade(move |socket| ws_handler::handle_ws(socket, claims, cm)))
+}
+
+#[derive(serde::Deserialize)]
+struct AppSocketQuery {
+    ticket: String,
+}
+
+async fn app_socket_upgrade(
+    State(state): State<AppState>,
+    axum::extract::Query(query): axum::extract::Query<AppSocketQuery>,
+    request: axum::extract::Request,
+) -> Result<Response, AppError> {
+    let admitted = state
+        .apps
+        .admit(&query.ticket)
+        .await
+        .ok_or_else(|| AppError::Unauthorized("Invalid or expired socket ticket".into()))?;
+    let ws = match WebSocketUpgrade::from_request(request, &state).await {
+        Ok(ws) => ws,
+        Err(_) => {
+            state.apps.remove(admitted.app_id, admitted.socket_id).await;
+            return Err(AppError::BadRequest("Expected a WebSocket upgrade".into()));
+        }
+    };
+    let apps = state.apps.clone();
+    Ok(ws
+        .max_message_size(64 * 1024)
+        .max_frame_size(64 * 1024)
+        .on_upgrade(move |socket| app_socket::handle(socket, admitted, apps)))
 }
 
 async fn livez() -> impl IntoResponse {

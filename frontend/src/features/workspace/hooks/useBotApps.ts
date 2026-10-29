@@ -6,6 +6,13 @@ import { QUERY_KEYS } from '@/shared/constants';
 export type BotApp = components['schemas']['BotApp'];
 export type BotAppWithToken = components['schemas']['BotAppWithToken'];
 export type BotScope = components['schemas']['Scope'];
+export type AppEvent = components['schemas']['AppEvent'];
+
+export interface EventSettings {
+  events: AppEvent[];
+  request_url: string;
+  socket_mode: boolean;
+}
 
 export interface NewBotApp {
   name: string;
@@ -57,5 +64,37 @@ export function useBotAppActions(workspaceId: string | undefined) {
     onSuccess: refetch,
   });
 
-  return { create, rotate, remove };
+  const configure = useMutation({
+    mutationFn: ({ appId, settings }: { appId: string; settings: EventSettings }) =>
+      apiClient.typed((c) =>
+        c.PATCH('/bot-apps/{app_id}', {
+          params: { path: { app_id: appId } },
+          body: settings,
+        }),
+      ),
+    onSuccess: refetch,
+  });
+
+  const makeAppToken = useMutation({
+    mutationFn: (appId: string) =>
+      apiClient.typed((c) => c.POST('/bot-apps/{app_id}/app-token', { params: { path: { app_id: appId } } })),
+    onSuccess: refetch,
+  });
+
+  const revokeAppToken = useMutation({
+    mutationFn: (appId: string) =>
+      apiClient.typed((c) =>
+        c.DELETE('/bot-apps/{app_id}/app-token', { params: { path: { app_id: appId } } }),
+      ),
+    onSuccess: refetch,
+  });
+
+  const revealSecret = useMutation({
+    mutationFn: (appId: string) =>
+      apiClient.typed((c) =>
+        c.GET('/bot-apps/{app_id}/signing-secret', { params: { path: { app_id: appId } } }),
+      ),
+  });
+
+  return { create, rotate, remove, configure, makeAppToken, revokeAppToken, revealSecret };
 }
