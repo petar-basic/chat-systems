@@ -14,37 +14,39 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
-## [Unreleased]
+## [3.7.0] — 2026-10-29
 
 ### Upgrading from 3.6.0
 
+- Pull both images and restart `api`, `realtime`, `worker` and `frontend` together; the API
+  runs migrations 80–81 on start, which add `slack_channels.created_by_import` and lowercase
+  every email address, so snapshot first. On its first start the worker moves workspace photos
+  into the object store's `avatars/` prefix and workspace icons into `icons/`, outside file
+  retention (see the RUNBOOK upgrade notes); going back to 3.6.0 means restoring the snapshot.
+- **Check for addresses that differ only in case.** Migration 81 refuses mixed-case addresses
+  from then on. If two accounts differ only in case it stops before changing anything and names
+  them, and the `api` does not start until one is erased or given an address of its own; the
+  RUNBOOK says how.
+- Channels mapped by an earlier Slack import count as ones it merged into, so a re-run never
+  archives them.
+- Reactivating an account that has no password and no SSO link (an imported Slack leaver), from
+  the admin page or with SCIM `active: true`, leaves it `pending` instead of `active`; invite
+  the person to let them in.
 - For API clients: `DELETE /admin/users/{id}/data` reports `removed.edits`, `reactions`,
   `votes`, `comments`, `scheduled` and `files` beside `messages`. Taking over a workflow
   gives it a new `webhook_url`, and `POST /workflows/{id}/rotate` makes one on demand; the
   old URL answers 401 in both cases.
-- Migration 80 adds `slack_channels.created_by_import`. Channels mapped by an earlier import
-  count as ones it merged into, so a re-run never archives them.
-- Reactivating an account that has no password and no SSO link (an imported Slack leaver), from
-  the admin page or with SCIM `active: true`, leaves it `pending` instead of `active`; invite
-  the person to let them in.
 - For API clients: `POST /conversations/{id}/read` is gone; a conversation is read like a
   channel, `POST /channels/{id}/read` with the message read up to. Unread counts carry
   `last_read_at` and a first message page `last_read_before_at`, the time of the read.
-- Migration 81 lowercases every email address and refuses mixed case from then on. If two
-  accounts differ only in case it stops and names them, and the `api` does not start until one
-  is merged or renamed; the RUNBOOK says how. The worker moves workspace photos out of their
-  workspace's files on its first start, as it did account photos.
-- For API clients: a workspace photo is uploaded with `POST /workspaces/{id}/profile/avatar`;
-  one uploaded through `/files/upload` is an ordinary file again and no longer readable by the
-  workspace. `PATCH /hooks/{id}` with `{ "is_active": true }` turns a stopped hook back on.
-
+- For API clients: a workspace photo is uploaded with `POST /workspaces/{id}/profile/avatar`
+  and a workspace icon with `POST /workspaces/{id}/icon`; either uploaded through
+  `/files/upload` is an ordinary file and no longer readable by the workspace.
+  `PATCH /hooks/{id}` with `{ "is_active": true }` turns a stopped hook back on.
 - For API clients: `POST /workspaces/{id}/invites` answers `email_status` (`sent`,
   `not_configured`, `failed`, or `null` for a link invite) instead of `email_sent`. Search hits
   from `/search` and `/search/files` carry `channel_name`. A reply to a deleted root with no
   replies left answers 404 instead of 422.
-- Workspace icons move to `icons/<workspace id>/` in the object store on the worker's first
-  start, outside retention (see the RUNBOOK). For API clients: `POST /workspaces/{id}/icon`
-  uploads and sets the icon.
 
 ### Security
 

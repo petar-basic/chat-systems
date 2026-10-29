@@ -2003,7 +2003,7 @@ each claim, fails `running` rows silent for five minutes. Since a failed run kee
 `POST …/retry` puts it back to `pending`, and the import's idempotency turns the second attempt
 into a resume.
 
-## Wave 27 — What the second survey found
+## Wave 27 — What the second survey found ✅ shipped
 
 ### [CS-089] Gone means gone: SSO, erase, demotion, workflow links ✅ shipped
 A survey of 3.6.0 found four ways to keep what had been taken away. `link_or_create` returned an

@@ -9,13 +9,13 @@ ticket in [`docs/tickets/`](./tickets/INDEX.md); a ticket's file is deleted when
 
 | Ticket | What | Status |
 |---|---|---|
-| [CS-089 – CS-096](./tickets/INDEX.md#wave-27--what-the-second-survey-found) | Wave 27: the 2026-10-28 survey of 3.6.0 — access kept after SSO, erase or demotion, Slack import boundaries, archived channels, read state, failed sends, email case and workspace photos, push | Wave 27, for 3.7.0 |
 | [CS-037](./tickets/CS-037-huddle-sfu.md) | SFU (LiveKit) for huddles above the mesh's six-to-eight ceiling, promoted mid-call without dropping anybody | Held for the next major release (4.0.0), decided 2026-10-23 when 3.2.0 shipped CS-059 alone. Adds an optional media server beside the stack. Until then a huddle is capped at eight people |
 
 Waves 21–23 were chosen in the 2026-10-23 review and shipped together in 3.3.0, before
 4.0.0. Wave 24 came out of the 2026-10-26 review, which walked the app the way a company
 trying it would, and shipped in 3.4.0. Wave 25, raised on 2026-10-27 after 3.4.2, shipped in
-3.5.0. Wave 26, the findings of the 2026-10-27 product survey, shipped in 3.6.0. Two decisions were considered on 2026-09-02 and deferred
+3.5.0. Wave 26, the findings of the 2026-10-27 product survey, shipped in 3.6.0, and Wave 27, from
+the 2026-10-28 survey of 3.6.0, in 3.7.0. Two decisions were considered on 2026-09-02 and deferred
 with their reasoning below: versioning the API path and asymmetric JWT signing.
 
 ## How the order was chosen
@@ -70,6 +70,7 @@ was pencilled in for it was absorbed into 9 and 11.
 | [Wave 24 — Ready for a company](./history.md#wave-24--ready-for-a-company--shipped) | CS-068, CS-069, CS-070, CS-071, CS-072, CS-073, CS-074, CS-075 |
 | [Wave 25 — One person, several workspaces](./history.md#wave-25--one-person-several-workspaces--shipped) | CS-076 |
 | [Wave 26 — What the survey found](./history.md#wave-26--what-the-survey-found--shipped) | CS-077 – CS-088 |
+| [Wave 27 — What the second survey found](./history.md#wave-27--what-the-second-survey-found--shipped) | CS-089 – CS-097 |
 
 ---
 
