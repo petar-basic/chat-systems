@@ -1131,6 +1131,45 @@ LiveKit, at most eight seconds, so nobody goes silent. A browser that cannot get
 reach LiveKit logs `HuddleController.sfu`, tells the person, and keeps the mesh with whoever is
 still on it. To try it with two browsers, set `HUDDLE_SFU_THRESHOLD=1` on `realtime`.
 
+### How many people one LiveKit holds
+
+Measured on the deployed host, with the container at its limit of 2 CPUs and 1 GB. Each row is
+one huddle in which everybody sends and receives; *CPU* is LiveKit's share of its two CPUs,
+*out* what the host sends.
+
+| Huddle | People | CPU | Memory | Out (Mbit/s) | Holds? |
+|--------|-------:|----:|-------:|-------------:|--------|
+| Microphones only | 25 | — | — | — | — |
+| Microphones only | 50 | — | — | — | — |
+| Microphones only | 100 | — | — | — | — |
+| Every camera on (720p, simulcast) | 10 | — | — | — | — |
+| Every camera on | 25 | — | — | — | — |
+| 50 microphones, 1 screen share | 51 | — | — | — | — |
+
+*Holds* means no dropped participant and no stalled audio for the five minutes of the run.
+`HUDDLE_SFU_MAX_PARTICIPANTS` is set to the largest microphone-only room that held with CPU
+under 70%, which leaves room for cameras being turned on. The media ports bound it too: every
+person takes two UDP ports (one to send, one to receive), so `50000–50200` is about 100 people
+however fast the CPU is; widen the range in `docker/livekit/livekit.yaml` and on the firewall
+before raising the limit past that.
+
+To measure again, on another machine with plenty of CPU and upload (the load generator has to
+send everybody's media):
+
+```bash
+ulimit -n 65535
+lk load-test --url wss://sfu.example.com --api-key chat --api-secret <LIVEKIT_API_SECRET> \
+  --room load-test --audio-publishers 50 --subscribers 50 --duration 5m
+lk load-test --url wss://sfu.example.com --api-key chat --api-secret <LIVEKIT_API_SECRET> \
+  --room load-test --video-publishers 25 --subscribers 25 --duration 5m
+```
+
+`lk` is LiveKit's CLI (`brew install livekit-cli`). Watch `docker stats livekit` on the host for
+CPU and memory, and the host's network graph (or `ifstat`) for what goes out; the CLI prints
+the tracks it received and any it lost. The load test talks to LiveKit directly with the API
+key, so it measures the SFU alone, not the gateway or the browsers; the ten-person call in
+`docs/manual-qa.md` (9.7) is the check that the whole thing works.
+
 ## Importing a Slack export
 
 Slack gives you a ZIP. **The ordinary way is the app**: as a workspace admin, *Workspace settings

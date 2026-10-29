@@ -441,6 +441,24 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 - 🟠 **Edge — a chunk that is gone:** with a tab from the old build still open, open something lazy you had not opened yet (*Preferences*, the emoji picker) → it loads, from the previous release's chunks or after one automatic reload; it never stays blank.
 - 🟢 **Headers:** `curl -sI localhost:8080/ | grep -i cache-control` → `no-cache`; the same for `/version.json`; an `/assets/*.js` file is `public, immutable`.
 
+### 9.7 🔴 A ten-person huddle that moves to the SFU
+- **Reach:** the deployed instance with LiveKit up and `LIVEKIT_URL` on the api and `realtime` (RUNBOOK, *Huddle SFU (LiveKit)*), `HUDDLE_SFU_THRESHOLD` at its default of 6. Ten accounts in one workspace, all in #general.
+- **Setup:** at least two real people with headsets on their own machines (they judge the audio). The other eight can be Chrome profiles on one or two machines with fake media, which sends a beep and a test pattern:
+  ```bash
+  open -na "Google Chrome" --args --user-data-dir=/tmp/qa-huddle-3 \
+    --use-fake-device-for-media-stream --use-fake-ui-for-media-stream
+  ```
+  One profile directory per person (`qa-huddle-3` … `qa-huddle-10`), each signed in as a different account. Keep `docker compose logs -f realtime` open, and `chrome://webrtc-internals` in the two real people's browsers.
+- **Steps and expected:**
+  1. The two real people start a huddle in #general and talk; four more join. Six on the mesh: each browser has five peer connections in webrtc-internals, and the realtime log says nothing about the SFU.
+  2. The seventh joins while the real people keep talking. The log says `Huddle … moved to the SFU` **once**. Nobody hears a gap: the mesh plays until LiveKit carries everybody, then within eight seconds every browser has LiveKit's two connections (one sends, one receives) and the mesh ones close. The speaking ring still follows whoever talks.
+  3. The eighth, ninth and tenth join: they go straight onto LiveKit, never open a mesh connection, and everybody sees ten tiles. A ninth person is not turned away.
+  4. One person shares a screen, two turn their cameras on, one mutes and unmutes, one raises a hand and one sends a reaction: everybody sees each, and a muted person is silent.
+  5. One fake participant leaves and joins again; one real person reloads the tab mid-call: both come back on LiveKit and hear everybody.
+  6. Everybody leaves: the huddle ends, the #general header loses its huddle badge, and the *started a huddle* message no longer offers *Join*.
+- 🟠 **Edge — a browser that cannot reach LiveKit:** before the seventh joins, block the LiveKit host in one fake profile (DevTools → *Network request blocking*, `sfu.example.com`). When the huddle moves, that browser says *This huddle moved to the media server and you couldn't reach it*, logs `HuddleController.sfu`, and keeps its mesh connections; the others stop hearing it within eight seconds. Nobody else's call is affected.
+- 🟢 **Edge — no SFU:** with `LIVEKIT_URL` unset on `realtime`, the same ten join: the first eight stay on the mesh and the ninth gets *This huddle is full. It holds up to 8 people.*
+
 ---
 
 ## 10. Webhooks & reminders (admin integrations)
@@ -552,7 +570,7 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 - Presence is eventually-consistent across nodes (≤60s TTL on hard node crash) — a clean disconnect is immediate.
 - Webhook dispatch validates DNS at request time (DNS-rebinding is out of scope); redirects are disabled.
 - File search reads text inside PDF, Office and text files, not text in images (no OCR), and not in a file over 25 MB or a password-protected PDF.
-- A huddle holds at most eight people until the SFU (CS-037): a ninth person who presses *Join* gets "This huddle is full" and no call starts; the eight already in it see nobody join or leave.
+- Without LiveKit a huddle holds at most eight people: a ninth person who presses *Join* gets "This huddle is full" and no call starts; the eight already in it see nobody join or leave. With it, a huddle moves to the SFU at seven and never moves back (9.7).
 
 ---
 
