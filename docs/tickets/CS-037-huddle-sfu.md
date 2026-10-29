@@ -1,6 +1,6 @@
 # CS-037 — SFU for large huddles
 
-**Wave:** 20 — dialogs and large calls
+**Wave:** 20 — dialogs and large calls; ships with Wave 28 in 4.0.0
 **Area:** backend · frontend · ops
 **Blocked by:** —
 **Blocks:** —
@@ -32,9 +32,8 @@ Four parts, each its own PR, in this order.
   mesh, as today.
 - **The API mints LiveKit access tokens**: `POST /huddles/{id}/sfu-token` signs a token for
   the room and the caller, after the same check the realtime gateway runs on `huddle.join`
-  ([`ws_handler.rs`](../../backend/realtime/src/ws_handler.rs), `"huddle.join"`: channel
-  membership, or both people in the workspace for a DM) — moved into `authz` so the two
-  cannot drift. The SFU never makes an access decision; it validates a token this API signed.
+  (the huddle's own `huddle_sessions` row, CS-077: open, in its workspace, and in its channel,
+  one of a DM's two people, or invited) — one function both call, so the two cannot drift. The SFU never makes an access decision; it validates a token this API signed.
   An SFU with its own permission model is a second authorization system to keep in sync.
 - **The room** is named after the huddle and recorded in `huddles.livekit_room`, the column
   the initial schema already carries for it and nothing has used.
