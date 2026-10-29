@@ -2197,7 +2197,7 @@ call `icon::forget`, which deletes only a key of the same workspace. `icon::migr
 the photo migration on the worker's start and copies each `/api/files/download/` icon outside
 `icons/` into place.
 
-## Wave 28 — What 4.0.0 needs
+## Wave 28 — What 4.0.0 needs ✅ shipped
 
 ### [CS-098] A project people can find ✅ shipped
 Feedback on 3.7.0 found the repository had no description, website or topics, so it did not
