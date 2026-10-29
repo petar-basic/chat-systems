@@ -288,7 +288,7 @@ async fn a_member_sees_what_touches_the_channels_they_can_see(pool: PgPool) {
         "Mine",
         vec![json!({
             "type": "send_dm",
-            "to": { "kind": "person", "user_id": member_id },
+            "to": { "kind": "person", "user_id": owner_id },
             "text": "hello",
         })],
     )
