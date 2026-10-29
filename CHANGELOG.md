@@ -18,7 +18,11 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ### Upgrading from 3.7.0
 
-- Migration 82 adds `users.manual_away`.
+- **Set `SECRETS_KEYS` before you upgrade**: `echo "k1:$(openssl rand -base64 32)"`, on the
+  `api` and the `worker`. Both refuse to start without it. Keep `JWT_SECRET` unchanged for
+  this start: the `api` re-seals what 3.7.0 sealed with it (see the RUNBOOK upgrade note).
+- Migration 82 adds `users.manual_away`; migration 83 adds a key id beside every sealed
+  secret.
 - For WebSocket clients: `presence.batch` and `presence.changed` carry `away` as well as
   `online` and `offline`, and `presence.changed` now also reaches the person it is about.
   For API clients: `PUT /users/me/presence` with `{ "away": true }` sets yourself away.
@@ -28,6 +32,14 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - **Away.** *You → Set yourself away* (or `/away`) shows you away to everyone, in every
   workspace and on every device, until you set yourself active. Ten minutes without using the
   app shows you away too, and the next keystroke shows you active.
+
+### Security
+
+- **Stored secrets have keys of their own.** Connected apps' client secrets and tokens, TOTP
+  secrets and the setup token are sealed with `SECRETS_KEYS` instead of `JWT_SECRET`.
+  Rotating `JWT_SECRET` no longer breaks every connected app and second factor, and
+  `SECRETS_KEYS` rotates on its own: add a key, put it first, restart, and the API re-seals
+  everything, so nobody sets an app up again or reconnects.
 
 ## [3.7.0] — 2026-10-29
 

@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE app_connections\n            SET refresh_token_encrypted = $5, refresh_token_nonce = $6, refresh_token_key_id = $7\n          WHERE workspace_id = $1 AND user_id = $2 AND provider = $3\n            AND refresh_token_key_id IS NOT DISTINCT FROM $4",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Bytea",
+        "Bytea",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bbaf592e5984799fb08045355a116bac41f4b8c41f818ebab0475a4986a18df5"
+}

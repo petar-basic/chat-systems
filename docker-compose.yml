@@ -4,7 +4,7 @@
 # SECRETS: this file reads required secrets from the environment / a .env file.
 # Before running, copy the template and fill in strong values:
 #   cp .env.example .env
-#   # then set JWT_SECRET, POSTGRES_PASSWORD, etc.
+#   # then set JWT_SECRET, SECRETS_KEYS, POSTGRES_PASSWORD, etc.
 # Docker Compose auto-loads a .env file in this directory. The `${VAR:?msg}`
 # syntax below fails fast with a clear error if a required var is missing.
 # =============================================================================
@@ -184,6 +184,7 @@ services:
       DATABASE_URL: postgres://chat:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set (see .env.example)}@postgres:5432/chatsystems
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set (see .env.example)}
+      SECRETS_KEYS: ${SECRETS_KEYS:?SECRETS_KEYS must be set (see .env.example)}
       OIDC_ISSUER: ${OIDC_ISSUER:-}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
@@ -268,6 +269,7 @@ services:
       DATABASE_URL: postgres://chat:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set (see .env.example)}@postgres:5432/chatsystems
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set (see .env.example)}
+      SECRETS_KEYS: ${SECRETS_KEYS:?SECRETS_KEYS must be set (see .env.example)}
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
       # The worker is what sends the pushes, so it needs the pair too.
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}

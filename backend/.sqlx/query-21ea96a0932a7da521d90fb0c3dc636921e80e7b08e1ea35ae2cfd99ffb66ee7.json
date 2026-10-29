@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE app_connections\n                SET access_token_encrypted = $4,\n                    access_token_nonce = $5,\n                    access_token_key_id = $6,\n                    refresh_token_encrypted = COALESCE($7, refresh_token_encrypted),\n                    refresh_token_nonce = COALESCE($8, refresh_token_nonce),\n                    refresh_token_key_id = COALESCE($9, refresh_token_key_id),\n                    expires_at = $10\n              WHERE workspace_id = $1 AND user_id = $2 AND provider = $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Bytea",
+        "Bytea",
+        "Text",
+        "Bytea",
+        "Bytea",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "21ea96a0932a7da521d90fb0c3dc636921e80e7b08e1ea35ae2cfd99ffb66ee7"
+}

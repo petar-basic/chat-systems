@@ -4,8 +4,8 @@
 # Layers TLS (Caddy auto-HTTPS), restart policies, resource limits, hardened
 # config, and automated Postgres backups on top of docker-compose.yml.
 #
-#   # required in .env: DOMAIN, ACME_EMAIL, JWT_SECRET, POSTGRES_PASSWORD,
-#   #                   MINIO_ROOT_PASSWORD, SMTP_*
+#   # required in .env: DOMAIN, ACME_EMAIL, JWT_SECRET, SECRETS_KEYS,
+#   #                   POSTGRES_PASSWORD, MINIO_ROOT_PASSWORD, SMTP_*
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml \
 #     --profile frontend --profile s3 up -d --build
 #

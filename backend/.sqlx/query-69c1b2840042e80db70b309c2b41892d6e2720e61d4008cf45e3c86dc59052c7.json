@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO app_connections\n                 (workspace_id, user_id, provider, external_account, access_token_encrypted, access_token_nonce,\n                  access_token_key_id, refresh_token_encrypted, refresh_token_nonce, refresh_token_key_id,\n                  expires_at, resources)\n             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)\n             ON CONFLICT (workspace_id, user_id, provider) DO UPDATE\n                SET external_account = EXCLUDED.external_account,\n                    access_token_encrypted = EXCLUDED.access_token_encrypted,\n                    access_token_nonce = EXCLUDED.access_token_nonce,\n                    access_token_key_id = EXCLUDED.access_token_key_id,\n                    refresh_token_encrypted = EXCLUDED.refresh_token_encrypted,\n                    refresh_token_nonce = EXCLUDED.refresh_token_nonce,\n                    refresh_token_key_id = EXCLUDED.refresh_token_key_id,\n                    expires_at = EXCLUDED.expires_at,\n                    resources = EXCLUDED.resources,\n                    connected_at = NOW()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Bytea",
+        "Bytea",
+        "Text",
+        "Bytea",
+        "Bytea",
+        "Text",
+        "Timestamptz",
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "69c1b2840042e80db70b309c2b41892d6e2720e61d4008cf45e3c86dc59052c7"
+}

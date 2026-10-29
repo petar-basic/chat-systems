@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT workspace_id, provider, client_id, client_secret_encrypted, client_secret_nonce, enabled\n               FROM workspace_apps WHERE workspace_id = $1 AND provider = $2",
+  "query": "SELECT workspace_id, user_id, provider, access_token_encrypted, access_token_nonce, access_token_key_id\n           FROM app_connections\n          WHERE access_token_key_id IS DISTINCT FROM $1",
   "describe": {
     "columns": [
       {
@@ -9,70 +9,69 @@
         "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "workspace_apps",
+            "table": "app_connections",
             "name": "workspace_id"
           }
         }
       },
       {
         "ordinal": 1,
-        "name": "provider",
-        "type_info": "Text",
+        "name": "user_id",
+        "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "workspace_apps",
-            "name": "provider"
+            "table": "app_connections",
+            "name": "user_id"
           }
         }
       },
       {
         "ordinal": 2,
-        "name": "client_id",
+        "name": "provider",
         "type_info": "Text",
         "origin": {
           "Table": {
-            "table": "workspace_apps",
-            "name": "client_id"
+            "table": "app_connections",
+            "name": "provider"
           }
         }
       },
       {
         "ordinal": 3,
-        "name": "client_secret_encrypted",
+        "name": "access_token_encrypted",
         "type_info": "Bytea",
         "origin": {
           "Table": {
-            "table": "workspace_apps",
-            "name": "client_secret_encrypted"
+            "table": "app_connections",
+            "name": "access_token_encrypted"
           }
         }
       },
       {
         "ordinal": 4,
-        "name": "client_secret_nonce",
+        "name": "access_token_nonce",
         "type_info": "Bytea",
         "origin": {
           "Table": {
-            "table": "workspace_apps",
-            "name": "client_secret_nonce"
+            "table": "app_connections",
+            "name": "access_token_nonce"
           }
         }
       },
       {
         "ordinal": 5,
-        "name": "enabled",
-        "type_info": "Bool",
+        "name": "access_token_key_id",
+        "type_info": "Text",
         "origin": {
           "Table": {
-            "table": "workspace_apps",
-            "name": "enabled"
+            "table": "app_connections",
+            "name": "access_token_key_id"
           }
         }
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid",
         "Text"
       ]
     },
@@ -82,8 +81,8 @@
       false,
       false,
       false,
-      false
+      true
     ]
   },
-  "hash": "394df538c7c8225f8abdf20a759251f13e2a4c96dfac9c3df63c75b63987a89a"
+  "hash": "8d2e7d62e251de77e714410ab6253d9dd60f432b13bd2a418184cad530567e0d"
 }

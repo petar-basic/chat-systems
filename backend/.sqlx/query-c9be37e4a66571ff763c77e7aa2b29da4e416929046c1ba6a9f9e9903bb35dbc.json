@@ -1,0 +1,88 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT workspace_id, user_id, provider,\n                  refresh_token_encrypted AS \"refresh_token_encrypted!\",\n                  refresh_token_nonce AS \"refresh_token_nonce!\",\n                  refresh_token_key_id\n             FROM app_connections\n            WHERE refresh_token_encrypted IS NOT NULL\n              AND refresh_token_nonce IS NOT NULL\n              AND refresh_token_key_id IS DISTINCT FROM $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "app_connections",
+            "name": "workspace_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "app_connections",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "provider",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "app_connections",
+            "name": "provider"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "refresh_token_encrypted!",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "app_connections",
+            "name": "refresh_token_encrypted"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "refresh_token_nonce!",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "app_connections",
+            "name": "refresh_token_nonce"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "refresh_token_key_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "app_connections",
+            "name": "refresh_token_key_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "c9be37e4a66571ff763c77e7aa2b29da4e416929046c1ba6a9f9e9903bb35dbc"
+}

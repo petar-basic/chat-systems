@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT user_id, secret_encrypted, nonce, confirmed_at, last_used_step, created_at\n               FROM user_totp WHERE user_id = $1",
+  "query": "SELECT user_id, secret_encrypted, nonce, key_id\n           FROM user_totp\n          WHERE key_id IS DISTINCT FROM $1",
   "describe": {
     "columns": [
       {
@@ -38,51 +38,27 @@
       },
       {
         "ordinal": 3,
-        "name": "confirmed_at",
-        "type_info": "Timestamptz",
+        "name": "key_id",
+        "type_info": "Text",
         "origin": {
           "Table": {
             "table": "user_totp",
-            "name": "confirmed_at"
-          }
-        }
-      },
-      {
-        "ordinal": 4,
-        "name": "last_used_step",
-        "type_info": "Int8",
-        "origin": {
-          "Table": {
-            "table": "user_totp",
-            "name": "last_used_step"
-          }
-        }
-      },
-      {
-        "ordinal": 5,
-        "name": "created_at",
-        "type_info": "Timestamptz",
-        "origin": {
-          "Table": {
-            "table": "user_totp",
-            "name": "created_at"
+            "name": "key_id"
           }
         }
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Text"
       ]
     },
     "nullable": [
       false,
       false,
       false,
-      true,
-      true,
-      false
+      true
     ]
   },
-  "hash": "65d3c35daa92165fb031f5aeed928c96db15da1d42cfbebe62560833c4b6c4e1"
+  "hash": "437a635460cc9f7a2df13cded0f75d05d7e87400881b44aac90399ecce6a272c"
 }

@@ -79,10 +79,10 @@ async fn enrol(
         .ok_or_else(|| AppError::NotFound("User not found".into()))?;
 
     let secret = totp::generate_secret();
-    let (ciphertext, nonce) = totp::encrypt_secret(&state.config.jwt_secret, &secret)?;
+    let sealed = totp::encrypt_secret(&state.config.secrets_keys, &secret)?;
     state
         .totp_repo
-        .start_enrolment(auth.user_id, &ciphertext, &nonce)
+        .start_enrolment(auth.user_id, &sealed)
         .await?;
 
     let uri = totp::provisioning_uri(&secret, &user.email, &state.config.instance_name)?;
@@ -111,11 +111,7 @@ async fn confirm(
         .await?
         .ok_or_else(|| AppError::BadRequest("Start an enrolment first".into()))?;
 
-    let secret = totp::decrypt_secret(
-        &state.config.jwt_secret,
-        &enrolment.secret_encrypted,
-        &enrolment.nonce,
-    )?;
+    let secret = totp::decrypt_secret(&state.config.secrets_keys, &enrolment)?;
     let Some(step) = totp::matching_step(
         &secret,
         &user.email,
@@ -191,11 +187,7 @@ async fn disable(
         .find(auth.user_id)
         .await?
         .ok_or_else(|| AppError::BadRequest("No second factor is enrolled".into()))?;
-    let secret = totp::decrypt_secret(
-        &state.config.jwt_secret,
-        &enrolment.secret_encrypted,
-        &enrolment.nonce,
-    )?;
+    let secret = totp::decrypt_secret(&state.config.secrets_keys, &enrolment)?;
 
     // Proving possession before removal: an attacker with a live session should
     // not be able to strip the factor that would have stopped them.

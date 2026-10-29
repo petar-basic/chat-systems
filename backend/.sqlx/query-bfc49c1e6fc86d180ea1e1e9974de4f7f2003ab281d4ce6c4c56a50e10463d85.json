@@ -1,0 +1,100 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT user_id, secret_encrypted, nonce, key_id, confirmed_at, last_used_step, created_at\n               FROM user_totp WHERE user_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "user_totp",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "secret_encrypted",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "user_totp",
+            "name": "secret_encrypted"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "nonce",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "user_totp",
+            "name": "nonce"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "key_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "user_totp",
+            "name": "key_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "confirmed_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "user_totp",
+            "name": "confirmed_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "last_used_step",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "user_totp",
+            "name": "last_used_step"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "user_totp",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "bfc49c1e6fc86d180ea1e1e9974de4f7f2003ab281d4ce6c4c56a50e10463d85"
+}

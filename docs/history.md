@@ -2236,3 +2236,27 @@ away / active* and the dot on your own avatar.
 
 The ticket named the states `active`/`away`/`offline`. The wire already said `online`, and
 the client already handled `online`, so the names stayed as they were.
+
+### [CS-100] Stored secrets get a key of their own ✅ shipped
+Connected apps' client secrets and tokens and every TOTP secret were sealed with a key hashed
+from `JWT_SECRET`, and the setup token was an HMAC under it. Rotating the session secret, the
+first thing to do when it leaks, made every connected app unreadable and locked everyone with
+two-factor out.
+
+`SECRETS_KEYS` is a list of `id:base64` 32-byte keys; the first seals, any listed one opens.
+The API and the worker refuse to start without it, or with a key of the wrong length.
+`sealed/` is now the one sealing module: `seal` returns the key id with the ciphertext, each
+table stores it beside the nonce (migration 83), and `open` uses the key the row names and
+fails with that id when the list no longer has it. TOTP uses the same module with its own
+purpose, and the setup token is an HMAC under a key derived from the current one. After this,
+`JWT_SECRET` signs sessions and nothing else, which is what CS-101 needs to replace it.
+
+The ticket had the worker re-seal in the background, in batches. The API does it on start,
+straight after migrations, instead. Every secret is one row per app or person, so it takes
+milliseconds. Doing it before the API serves means no request ever meets a value on a key that
+is about to go, and an instance upgraded from 3.7.0 is fully converted before anybody uses it.
+A value with no key id is one 3.7.0 sealed: only the startup re-seal opens it, with
+`JWT_SECRET`, and at runtime it is an error rather than a second code path. Each update is
+conditional on the key id it read, so two replicas starting together do not overwrite each
+other. A value neither key can open is logged by name and left alone. The RUNBOOK has the
+upgrade note and the three-step rotation.

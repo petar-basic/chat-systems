@@ -125,6 +125,7 @@ pub struct WorkspaceApp {
     pub client_id: String,
     pub client_secret_encrypted: Vec<u8>,
     pub client_secret_nonce: Vec<u8>,
+    pub client_secret_key_id: Option<String>,
     pub enabled: bool,
 }
 
@@ -133,8 +134,10 @@ pub struct AppConnection {
     pub external_account: String,
     pub access_token_encrypted: Vec<u8>,
     pub access_token_nonce: Vec<u8>,
+    pub access_token_key_id: Option<String>,
     pub refresh_token_encrypted: Option<Vec<u8>>,
     pub refresh_token_nonce: Option<Vec<u8>>,
+    pub refresh_token_key_id: Option<String>,
     pub expires_at: Option<DateTime<Utc>>,
     pub resources: serde_json::Value,
 }

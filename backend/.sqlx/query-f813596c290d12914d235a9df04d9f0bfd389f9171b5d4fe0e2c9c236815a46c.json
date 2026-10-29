@@ -1,0 +1,100 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT workspace_id, provider, client_id, client_secret_encrypted, client_secret_nonce, client_secret_key_id, enabled\n               FROM workspace_apps WHERE workspace_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "workspace_apps",
+            "name": "workspace_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "provider",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "workspace_apps",
+            "name": "provider"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "client_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "workspace_apps",
+            "name": "client_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "client_secret_encrypted",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "workspace_apps",
+            "name": "client_secret_encrypted"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "client_secret_nonce",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "workspace_apps",
+            "name": "client_secret_nonce"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "client_secret_key_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "workspace_apps",
+            "name": "client_secret_key_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "enabled",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "workspace_apps",
+            "name": "enabled"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "f813596c290d12914d235a9df04d9f0bfd389f9171b5d4fe0e2c9c236815a46c"
+}

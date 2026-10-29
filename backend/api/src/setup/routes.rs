@@ -35,7 +35,7 @@ async fn complete_setup(
         .setup_repo
         .current_nonce()
         .await?
-        .filter(|nonce| super::token_matches(&state.config.jwt_secret, nonce, &req.token))
+        .filter(|nonce| super::token_matches(&state.config.secrets_keys, nonce, &req.token))
         .ok_or_else(|| {
             AppError::Forbidden(
                 "That setup token is not right. Copy it again from the API log".into(),

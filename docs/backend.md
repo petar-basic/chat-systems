@@ -85,6 +85,11 @@ in `main.rs`.
   claim. Refresh tokens are DB-backed, single-use, and rotated; password reset is single-use
   and revokes all sessions. Auth cookies are `HttpOnly; SameSite=Lax`, and `Secure` whenever
   `PUBLIC_URL` is https.
+- **Secrets at rest.** Connected apps' client secrets and tokens and TOTP secrets are sealed
+  with ChaCha20-Poly1305 by `sealed/`, under a per-purpose key derived from `SECRETS_KEYS`
+  (a list of `id:base64` keys, the first one current). Each row stores the key id beside the
+  nonce; on start the API re-seals any row not on the current key (`sealed::reseal`), including
+  rows 3.7.0 sealed under `JWT_SECRET`. The setup token is an HMAC under the same keyring.
 - **Authorization** is re-derived per request from the verified token (`auth.user_id`),
   never trusted from the body — and re-checked against the DB on every WebSocket
   subscribe/join.

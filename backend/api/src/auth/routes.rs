@@ -83,11 +83,7 @@ async fn login(
         };
 
         let enrolment = enrolment.expect("checked above");
-        let secret = crate::auth::totp::decrypt_secret(
-            &state.config.jwt_secret,
-            &enrolment.secret_encrypted,
-            &enrolment.nonce,
-        )?;
+        let secret = crate::auth::totp::decrypt_secret(&state.config.secrets_keys, &enrolment)?;
 
         let matched = crate::auth::totp::matching_step(
             &secret,

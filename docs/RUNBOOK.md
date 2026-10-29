@@ -37,8 +37,8 @@ docker compose logs api | grep "setup token"
 
 Open `PUBLIC_URL` (it moves to `/setup`), paste the token, and give the first admin's name,
 email and password and the first workspace's name. The token works once. The database holds
-only a nonce; the token is derived from it and `JWT_SECRET`, so a database dump does not
-hand anyone the instance, and every API replica prints the same one.
+only a nonce; the token is derived from it and the current `SECRETS_KEYS` key, so a database
+dump does not hand anyone the instance, and every API replica prints the same one.
 
 Setup ends with *Send a test email* to the new admin's address; *Instance admin → Email*
 has the same button later. A failure is named: nothing listening at `SMTP_HOST:SMTP_PORT`,
@@ -753,6 +753,44 @@ uploaded it could load it and file retention could delete it. Icons now live und
 first start the worker copies each existing one there; one whose object is already gone is left
 as it was and logged as `icon of workspace <id> was not moved`.
 
+## Upgrade note: SECRETS_KEYS seals stored secrets (4.0.0)
+
+Until 3.7.0 the connected apps' client secrets, everyone's app tokens, the TOTP secrets and
+the setup token were all keyed from `JWT_SECRET`, so rotating the signing secret meant setting
+every app up again and everyone reconnecting. They now use their own keys:
+
+1. Before upgrading, add `SECRETS_KEYS` to `.env` (or the Coolify resource):
+   `echo "k1:$(openssl rand -base64 32)"`. The `api` and the `worker` refuse to start without
+   it; `realtime` does not read it.
+2. Keep `JWT_SECRET` as it is. On its first start the `api` opens every value sealed the old
+   way with `JWT_SECRET` and seals it again with the first `SECRETS_KEYS` key, logging
+   `stored secrets: N re-sealed, every one is on key "k1"`.
+3. A value it could not read is logged by name (`workspace app <id> <provider>`,
+   `access token <workspace> <user> <provider>`, …) and left as it was; that app or
+   connection has to be set up or connected again. It happens only when `JWT_SECRET` was
+   already changed before the upgrade.
+
+The setup token is derived from `SECRETS_KEYS` too, so an instance still waiting for its first
+admin prints a new one after the upgrade.
+
+## Rotating SECRETS_KEYS
+
+`SECRETS_KEYS` is a comma-separated list of `id:base64-key`, 32 bytes each. The first key
+seals; every key listed can open. Every stored secret records the id of the key that sealed
+it, and on each start the `api` re-seals any value not on the first key.
+
+1. **Add** the new key second, `SECRETS_KEYS=k1:<old>,k2:<new>`, on the `api` and the
+   `worker`, and restart them. Nothing changes yet, but every process can now read both.
+2. **Promote** it, `SECRETS_KEYS=k2:<new>,k1:<old>`, and restart. The `api` re-seals every
+   stored secret with `k2` and logs `every one is on key "k2"`.
+3. **Remove** the old key, `SECRETS_KEYS=k2:<new>`, once that line is in the log, and restart.
+
+Removing a key that something is still sealed with is safe to recover from: the `api` names
+what it could not open, and putting the key back in the list makes it readable again. Doing
+step 2 before step 1 has finished on every replica means a replica on the old list cannot read
+what the new one sealed until it restarts too. Rotating `SECRETS_KEYS` signs nobody out; it is
+`JWT_SECRET` that signs the session tokens.
+
 ## Audit log
 
 `GET /api/workspaces/:ws_id/audit-log` (workspace admin) and `GET /api/admin/audit-log`
@@ -839,8 +877,8 @@ From then on, anyone who posts a Jira link without having connected gets a priva
 Jira to show a preview* under their message; connecting fetches the card for that message.
 
 The client secret and everyone's tokens are stored encrypted (ChaCha20-Poly1305, key derived
-from `JWT_SECRET`); changing `JWT_SECRET` therefore means setting the app up again and
-everyone reconnecting. Turning the app off stops new cards; **Remove app** also disconnects
+from `SECRETS_KEYS`); rotating that key re-seals them on the next start, so nobody sets the
+app up again or reconnects (see *Rotating SECRETS_KEYS*). Turning the app off stops new cards; **Remove app** also disconnects
 everyone. Suspending or erasing a user deletes their connections. `ATLASSIAN_AUTH_URL` and
 `ATLASSIAN_API_URL` exist for an egress proxy and are otherwise left alone.
 
@@ -1095,7 +1133,7 @@ Goal: bring a new machine up from the backup volumes (or off-site copies). Do
 this with the app **stopped** so nothing writes mid-restore.
 
 ### 0. Prerequisites
-- Docker + the repo checked out, `.env` restored with the **same** `POSTGRES_PASSWORD`, `JWT_SECRET`, `MINIO_ROOT_*` as the old host.
+- Docker + the repo checked out, `.env` restored with the **same** `POSTGRES_PASSWORD`, `JWT_SECRET`, `SECRETS_KEYS`, `MINIO_ROOT_*` as the old host. Without the `SECRETS_KEYS` key the dump was sealed with, the connected apps and the second factors cannot be read.
 - The backup files available: a `chatsystems-*.sql.gz` dump and the mirrored bucket tree.
 
 ### 1. Start only the data services
