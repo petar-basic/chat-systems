@@ -12,7 +12,8 @@ use shared_common::errors::{AppError, AppResult};
 use shared_common::validation::custom_emoji_name;
 
 use super::avatar::{self, MAX_AVATAR_BYTES};
-use super::models::{SetStatusRequest, UpdateWorkspaceProfileRequest, WorkspaceProfile};
+use super::models::{Presence, SetStatusRequest, UpdateWorkspaceProfileRequest, WorkspaceProfile};
+use super::presence;
 use crate::auth::models::UserPublic;
 use crate::authz;
 use crate::middleware::AuthUser;
@@ -22,6 +23,7 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
     OpenApiRouter::new()
         .routes(routes!(get_workspace_profile, update_workspace_profile))
         .routes(routes!(set_workspace_status, clear_workspace_status))
+        .routes(routes!(set_presence))
         .routes(
             routes!(upload_account_photo)
                 .layer(DefaultBodyLimit::max(MAX_AVATAR_BYTES + 64 * 1024)),
@@ -30,6 +32,16 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
             routes!(upload_workspace_photo)
                 .layer(DefaultBodyLimit::max(MAX_AVATAR_BYTES + 64 * 1024)),
         )
+}
+
+#[utoipa::path(put, path = "/users/me/presence", tag = "users", request_body = Presence, responses((status = 200, body = Presence)))]
+async fn set_presence(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Json(req): Json<Presence>,
+) -> AppResult<Json<Presence>> {
+    presence::set_away(&state, auth.user_id, req.away).await?;
+    Ok(Json(Presence { away: req.away }))
 }
 
 #[utoipa::path(post, path = "/users/me/avatar", tag = "users", request_body(content = String, content_type = "multipart/form-data", description = "A `file` field: a PNG, JPEG, GIF or WebP image of at most 10 MB"), responses((status = 200, body = UserPublic)))]

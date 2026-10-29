@@ -25,6 +25,11 @@ pub struct UpdateWorkspaceProfileRequest {
     pub bio: Option<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct Presence {
+    pub away: bool,
+}
+
 #[derive(Debug, Deserialize, garde::Validate, ToSchema)]
 #[garde(allow_unvalidated)]
 pub struct SetStatusRequest {

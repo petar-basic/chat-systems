@@ -1662,6 +1662,22 @@ export interface paths {
         patch: operations["change_password"];
         trace?: never;
     };
+    "/users/me/presence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["set_presence"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/users/{user_id}/exports": {
         parameters: {
             query?: never;
@@ -4702,6 +4718,9 @@ export interface components {
          * @enum {string}
          */
         PostPolicy: "everyone" | "moderators";
+        Presence: {
+            away: boolean;
+        };
         /** @enum {string} */
         Provider: "jira" | "github" | "google_drive" | "figma" | "confluence";
         PushKey: {
@@ -8320,6 +8339,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    set_presence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Presence"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Presence"];
                 };
             };
         };

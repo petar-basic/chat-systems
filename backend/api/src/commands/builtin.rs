@@ -11,11 +11,8 @@ use crate::workspace::models::WorkspaceRole;
 
 use super::routes::CommandResponse;
 
-/// `/away` is deliberately absent. Presence here is derived from whether the
-/// gateway holds a socket (CS-027), so there is no flag for a command to set.
-/// What people actually want from `/away` -- saying what they are doing -- is a
-/// custom status, which is set on the profile and is not presence.
 pub const BUILTIN_COMMANDS: &[(&str, &str)] = &[
+    ("away", "/away — set yourself away, or active again"),
     ("dnd", "/dnd [minutes|off] — pause notifications"),
     ("topic", "/topic <text> — set the channel topic"),
     ("invite", "/invite @user — add somebody to this channel"),
@@ -79,6 +76,15 @@ pub async fn run(
                 "Started \u{201c}{}\u{201d}.",
                 shortcut.name
             ))))
+        }
+
+        "away" => {
+            let away = crate::profile::presence::toggle_away(state, user_id).await?;
+            Ok(Some(CommandResponse::ephemeral(if away {
+                "You are set to away. /away again sets you active."
+            } else {
+                "You are active again."
+            })))
         }
 
         "dnd" => {

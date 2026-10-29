@@ -164,6 +164,7 @@ Handles user identity — login, registration, JWT, and profile.
 | PATCH | `/users/me` | `{ display_name?, avatar_url?, bio?, timezone? }` | `UserPublic` — replacing or clearing a photo stored under `avatars/` deletes the old object |
 | POST | `/users/me/avatar` | multipart `file`: PNG, JPEG, GIF or WebP, at most 10 MB | `UserPublic` with the new `avatar_url` — the photo is sniffed, decoded and stripped of metadata (one wider than 720 px is stored at 720), saved as `avatars/{user_id}/{uuid}.{ext}` with no `files` row, so retention never sees it, and set on the account; the previous one is deleted |
 | PATCH | `/users/me/password` | `{ current_password, new_password }` | `{ status: "password_changed" }` |
+| PUT | `/users/me/presence` | `{ away }` | `{ away }` — sets `users.manual_away`, which shows the person away in every workspace and on every device until they set it back; publishes `presence.recompute` for the gateway |
 | GET | `/workspaces/{ws_id}/profile` | — | `WorkspaceProfile` — the caller's own name, photo, bio and live status in that workspace; `null` where the account's is shown |
 | PATCH | `/workspaces/{ws_id}/profile` | `{ display_name?, avatar_url?, bio? }` | `WorkspaceProfile` — a field left out stays; `""` goes back to the account's; replacing or clearing a workspace photo deletes its object |
 | POST | `/workspaces/{ws_id}/profile/avatar` | multipart `file`, as `/users/me/avatar` | `WorkspaceProfile` with the new `avatar_url` — processed like an account photo and stored as `avatars/{user_id}/{ws_id}/{uuid}.{ext}`, outside retention; the previous workspace photo is deleted |
@@ -502,8 +503,8 @@ Incoming/outgoing webhooks, bots and slash commands. A background task executes 
 
 Hook types: `incoming_webhook`, `outgoing_webhook`, `slash_command`
 
-Built-in commands run before any registered one and never leave the instance: `/dnd`,
-`/topic`, `/invite`, `/shrug` and `/remind`. `/remind` understands `me in 30m to ship`,
+Built-in commands run before any registered one and never leave the instance: `/away`,
+`/dnd`, `/topic`, `/invite`, `/shrug` and `/remind`. `/away` switches `manual_away` on or off. `/remind` understands `me in 30m to ship`,
 `me at 15:00 to call back` and `me tomorrow at 9am standup`; clock times are resolved in the
 caller's own timezone and a time already past means tomorrow. Reminding somebody else needs
 workspace admin, the same rule `POST /workspaces/:ws_id/later` applies. A reminder lands in the person's *Later* list.
@@ -1165,6 +1166,18 @@ and a clean disconnect clears it. A workspace joined after the socket opened (ac
 invite, creating one) shows the person online as soon as they switch to it, without a
 reconnect.
 
+**A connected person is `online` or `away`.** Away is either chosen (`users.manual_away`, set
+with `PUT /users/me/presence` or `/away`, and kept until the person sets it back) or idle:
+`last_active:user:{id}` holds the last moment any of their connections reported input
+(`activity` frames, CS-095, renewed by the heartbeat while active), and eight minutes without
+it — about ten after the last keystroke, since a client reports idle after two — shows them
+away. Arriving counts as activity when there is none on record. Every connection works the
+status out on connect, on each `activity` frame and on each heartbeat; `presence:status:{id}`
+holds the last one announced, and `SET … GET` on it means a change is published once however
+many connections or nodes notice it. `presence.recompute` (from the API) is worked out only by
+a node holding one of the person's sockets. `presence.batch` carries each member's status and
+`presence.changed` reaches the person's own connections too, so their other devices follow.
+
 **Replay is bounded twice.** Each workspace stream keeps 10 000 entries and an hour
 (`STREAM_MAXLEN`, the API's stream trimmer); an entry is about 0.8 KB, so a busy workspace
 holds about 8 MB, which is the headroom the worker's consumer group needs when it falls
@@ -1198,7 +1211,7 @@ A join is authorised against the huddle's own `huddle_sessions` row, never again
 | `events:reaction` | `reaction.added`, `reaction.removed` |
 | `events:notification` | `notification.push` |
 | `events:conversation` | `conversation.created` — fanned out to the participants; a conversation's messages are ordinary `message.*` / `reaction.*` events on its channel id |
-| `events:presence` | `presence.changed` (fanned out only to workspaces shared with the subject) |
+| `events:presence` | `presence.changed` (fanned out only to workspaces shared with the subject, the subject included), `presence.recompute` (worked out by the node holding the person's socket) |
 | `events:typing` | `typing.indicator` |
 | `events:workspace` | `workspace.deleted`, `workspace.restored` |
 | `events:user` | `user.suspended` — consumed by the gateway to close the user's sockets (not pushed to clients) |

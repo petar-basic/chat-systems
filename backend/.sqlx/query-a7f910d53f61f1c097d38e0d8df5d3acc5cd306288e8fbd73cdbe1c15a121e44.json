@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE users SET manual_away = NOT manual_away WHERE id = $1 RETURNING manual_away",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "manual_away",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "manual_away"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "a7f910d53f61f1c097d38e0d8df5d3acc5cd306288e8fbd73cdbe1c15a121e44"
+}

@@ -5,7 +5,7 @@ use std::time::Duration;
 use futures_util::StreamExt;
 use tracing::{info, warn};
 
-use shared_events::frames::ServerFrame;
+use shared_events::frames::{Presence, ServerFrame};
 
 use crate::connection_manager::Audience;
 
@@ -278,12 +278,20 @@ pub(crate) async fn handle_event_for(
                 })
                 .unwrap_or_default();
 
-            if let Some(subject_id) = field("user_id") {
+            let status = text("status").as_deref().and_then(Presence::parse);
+            if let (Some(subject_id), Some(status)) = (field("user_id"), status) {
                 let frame = ServerFrame::PresenceChanged {
                     user_id: subject_id,
-                    status: text("status").unwrap_or_default(),
+                    status,
                 };
-                cm.send_to_workspace_members(subject_id, &workspace_ids, &framed(&frame));
+                cm.send_to_workspace_members(&workspace_ids, &framed(&frame));
+            }
+        }
+        "presence.recompute" => {
+            if let Some(user_id) = field("user_id") {
+                if cm.has_local_connection(user_id) {
+                    cm.presence_sync(user_id).await;
+                }
             }
         }
         "typing.indicator" => {

@@ -14,6 +14,21 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
+## [Unreleased]
+
+### Upgrading from 3.7.0
+
+- Migration 82 adds `users.manual_away`.
+- For WebSocket clients: `presence.batch` and `presence.changed` carry `away` as well as
+  `online` and `offline`, and `presence.changed` now also reaches the person it is about.
+  For API clients: `PUT /users/me/presence` with `{ "away": true }` sets yourself away.
+
+### Added
+
+- **Away.** *You → Set yourself away* (or `/away`) shows you away to everyone, in every
+  workspace and on every device, until you set yourself active. Ten minutes without using the
+  app shows you away too, and the next keystroke shows you active.
+
 ## [3.7.0] — 2026-10-29
 
 ### Upgrading from 3.6.0

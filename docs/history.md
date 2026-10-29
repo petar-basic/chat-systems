@@ -2214,3 +2214,25 @@ the theme and stays sharp at any size. The README, the RUNBOOK and `.env.example
 latest release instead of naming one. CONTRIBUTING says so, and that a change a team would notice
 updates the README's *Features* and the homepage. The repository's description, website and
 topics are set in its settings, not in the code.
+
+### [CS-099] Away, on purpose and when idle ✅ shipped
+Presence came only from whether the gateway held a socket, so a laptop left open overnight
+showed green, and nobody could say *I am away* without signing out. The client already
+reported input (`activity` frames, CS-095), but only push routing used it.
+
+`users.manual_away` (migration 82) is set with `PUT /users/me/presence` or the new `/away`,
+which replaces the comment in `commands/builtin.rs` that had ruled `/away` out. The gateway
+now works out `online` or `away` for a connected person. They are away if they chose it, or if
+`last_active:user:{id}` is more than eight minutes old. The client reports idle two minutes
+after the last input, so that is about ten minutes without input. Each connection does this
+on connect, on every `activity` frame and on every heartbeat. `SET presence:status:{id} … GET`
+means a change is announced once, however many connections or nodes see it. The API's
+`presence.recompute` is handled only by a node holding one of the person's sockets.
+`presence.batch` carries each member's status. The frames' status is now a typed `Presence`
+enum, so the generated TypeScript says `"online" | "away" | "offline"`. `presence.changed` now
+also reaches the person themselves, which is how their other devices and their own dot
+follow. The frontend already drew an amber dot for `away`; *You* gained *Set yourself
+away / active* and the dot on your own avatar.
+
+The ticket named the states `active`/`away`/`offline`. The wire already said `online`, and
+the client already handled `online`, so the names stayed as they were.

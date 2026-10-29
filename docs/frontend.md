@@ -634,7 +634,7 @@ Key methods:
 ---
 
 ### `usePresenceStore`
-Maps `userId → 'online' \| 'away' \| 'offline'`. Updated by incoming WebSocket `presence.changed` / `presence.batch` events.
+Maps `userId → 'online' \| 'away' \| 'offline'`. Updated by incoming WebSocket `presence.changed` / `presence.batch` events, which include the signed-in person's own status. *You → Set yourself away / active* (`useSetAway`, `PUT /users/me/presence`) sets it at once and puts it back if the request fails.
 
 ---
 
