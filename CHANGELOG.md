@@ -29,7 +29,7 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - Migration 82 adds `users.manual_away`; migration 83 adds a key id beside every sealed
   secret; migration 84 adds `command_invocations`; migration 85 adds `users.is_bot`,
   `bot_apps` and `hooks.app_id`; migration 86 adds the event settings to `bot_apps`,
-  `app_deliveries` and `app_sockets`.
+  `app_deliveries` and `app_sockets`; migration 87 adds `huddle_sessions.livekit_room`.
 - For WebSocket clients: `presence.batch` and `presence.changed` carry `away` as well as
   `online` and `offline`, and `presence.changed` now also reaches the person it is about.
   For API clients: `PUT /users/me/presence` with `{ "away": true }` sets yourself away.
@@ -44,6 +44,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - If something other than the bundled nginx sits in front of `realtime`, route `/ws/apps` to it
   as you route `/ws`: socket-mode apps connect there. For WebSocket clients: `channel.updated`
   is now in the replay log, and a `channel.created` event is published when a channel is made.
+- Nothing to do for the huddle SFU unless you want it: LiveKit is a separate, optional compose
+  file, and without `LIVEKIT_URL` every huddle stays on the mesh as before (see *Huddle SFU
+  (LiveKit)* in the RUNBOOK). For API clients: `POST /huddles/{id}/sfu-token`.
 
 ### Added
 
@@ -76,6 +79,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   set up, only after an admin agrees to what it may do, and giving an app another scope asks
   again. Members see the directory read-only, without what touches channels they cannot see,
   and can ask the admins for an app.
+- **LiveKit beside the stack, for large huddles.** `docker-compose.livekit.yml` runs a
+  LiveKit SFU next to the app, and the API signs a ten-minute token for one huddle's room
+  after the same check the realtime gateway runs on join. Huddles do not use it yet.
 
 ### Security
 

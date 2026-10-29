@@ -117,6 +117,7 @@ futures-util = { workspace = true }
 # Environment variables
 dotenvy = "0.15"
 web-push = { workspace = true }
+jsonwebtoken = { workspace = true }
 
 [dev-dependencies]
 # `#[tokio::test]` (macros) + a real runtime for async tests.
@@ -125,8 +126,6 @@ tokio = { workspace = true }
 sqlx = { workspace = true }
 test-macros = { path = "../test-macros" }
 shared-common = { path = "../shared/common", features = ["testing"] }
-# Decoding/asserting JWT claims directly in tests.
-jsonwebtoken = { workspace = true }
 uuid = { workspace = true }
 # `ServiceExt::oneshot` for driving the router in HTTP integration tests.
 tower = { workspace = true, features = ["util"] }

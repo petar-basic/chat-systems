@@ -50,6 +50,10 @@ pub struct AppConfig {
     pub stun_urls: String,
     pub turn_ttl_secs: i64,
 
+    pub livekit_url: String,
+    pub livekit_api_key: String,
+    pub livekit_api_secret: String,
+
     pub pg_pool_max: u32,
 
     pub login_attempts_per_email: u64,
@@ -114,6 +118,10 @@ pub enum StorageBackend {
 }
 
 impl AppConfig {
+    pub fn sfu_enabled(&self) -> bool {
+        !self.livekit_url.is_empty()
+    }
+
     pub fn from_env() -> Self {
         let storage_backend = match env_or("STORAGE_BACKEND", "local").to_lowercase().as_str() {
             "s3" | "minio" => StorageBackend::S3,
@@ -160,6 +168,9 @@ impl AppConfig {
             turn_urls: env_or("TURN_URLS", ""),
             stun_urls: env_or("STUN_URLS", "stun:stun.l.google.com:19302"),
             turn_ttl_secs: parse_env("TURN_TTL_SECS", 43200),
+            livekit_url: env_or("LIVEKIT_URL", ""),
+            livekit_api_key: env_or("LIVEKIT_API_KEY", ""),
+            livekit_api_secret: env_or("LIVEKIT_API_SECRET", ""),
             pg_pool_max: parse_env("PG_POOL_MAX", 20),
             login_attempts_per_email: parse_env("LOGIN_ATTEMPTS_PER_EMAIL", 10),
             login_attempts_per_ip: parse_env("LOGIN_ATTEMPTS_PER_IP", 30),
@@ -212,6 +223,14 @@ impl AppConfig {
             tracing::warn!(
                 "SMTP to {} has no transport security. Set SMTP_TLS_MODE=starttls in production.",
                 config.smtp_host
+            );
+        }
+
+        if config.sfu_enabled() {
+            assert!(
+                !config.livekit_api_key.is_empty() && config.livekit_api_secret.len() >= 32,
+                "LIVEKIT_URL is set, so LIVEKIT_API_KEY and a LIVEKIT_API_SECRET of at least 32 \
+                 characters must be set too: LiveKit refuses a shorter secret."
             );
         }
 
@@ -337,6 +356,9 @@ impl AppConfig {
             turn_urls: String::new(),
             stun_urls: String::new(),
             turn_ttl_secs: 43200,
+            livekit_url: String::new(),
+            livekit_api_key: String::new(),
+            livekit_api_secret: String::new(),
             pg_pool_max: 5,
             trusted_proxies: crate::net::parse_trusted_proxies("127.0.0.0/8"),
             max_upload_bytes: 100 * 1024 * 1024,

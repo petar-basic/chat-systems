@@ -1275,6 +1275,9 @@ Live voice/video rooms (Slack-style huddles) over mesh WebRTC. Live membership a
 | GET | `/workspaces/:ws_id/active-huddles` | — | `{ data: { huddle_id, channel_id, initiator_id }[] }` — channels the caller is in only |
 | POST | `/workspaces/:ws_id/huddles` | `{ channel_id }` XOR `{ dm_partner_id }` | `{ huddle_id }` — a DM partner must be someone the caller could message (a guest: someone they share a channel with), else 403 |
 | POST | `/workspaces/:ws_id/huddles/:huddle_id/invite` | `{ user_ids: string[] }` | `{ status: "ok" }` — 404 unless the huddle is open in this workspace, 403 unless the caller is in it; an invitee the caller could not message is skipped |
+| POST | `/huddles/:huddle_id/sfu-token` | — | `{ url, room, token, expires_at }` — 404 while `LIVEKIT_URL` is unset, 403 unless the caller may join the huddle (the gateway's `huddle.join` check) |
+
+**Sfu-token** signs an HS256 LiveKit access token with `LIVEKIT_API_SECRET` for the room `huddle-<huddle_id>` (recorded in `huddle_sessions.livekit_room`) and the caller as identity, valid for ten minutes, allowed to publish and subscribe. Who may join is `shared_common::huddle_access::may_join_huddle`, the same function the realtime gateway calls, so the two cannot drift; LiveKit only checks the signature. See "Huddle SFU (LiveKit)" in the RUNBOOK.
 
 `IceServer` is the WebRTC `RTCIceServer` shape: `{ urls: string[], username?, credential? }`. STUN entries are always returned; a TURN entry with time-limited credentials (TURN REST API, `username = "<expiry-unix>:<user-id>"`, `credential = base64(hmac_sha1(TURN_SECRET, username))`) is added only when `TURN_SECRET` and `TURN_URLS` are configured. See the coturn service in `docker-compose.yml` and the TURN section of `.env.example`.
 

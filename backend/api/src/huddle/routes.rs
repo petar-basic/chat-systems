@@ -12,7 +12,8 @@ use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
 
-use super::models::{IceServer, IceServersResponse, InviteRequest, StartHuddleRequest};
+use super::models::{IceServer, IceServersResponse, InviteRequest, SfuToken, StartHuddleRequest};
+use super::sfu;
 use crate::authz;
 use crate::conversations::routes::require_reachable;
 use crate::dto::{DataList, StatusResponse};
@@ -28,6 +29,7 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(active_huddles))
         .routes(routes!(start_huddle))
         .routes(routes!(invite_to_huddle))
+        .routes(routes!(sfu_token))
 }
 
 #[utoipa::path(get, path = "/workspaces/{ws_id}/active-huddles", tag = "huddles", responses((status = 200, body = DataList<ActiveHuddle>)))]
@@ -204,6 +206,32 @@ async fn start_huddle(
     }
 
     Ok(Json(HuddleStarted { huddle_id }))
+}
+
+#[utoipa::path(post, path = "/huddles/{huddle_id}/sfu-token", tag = "huddles", responses((status = 200, body = SfuToken)))]
+async fn sfu_token(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(huddle_id): Path<Uuid>,
+) -> AppResult<Json<SfuToken>> {
+    if !state.config.sfu_enabled() {
+        return Err(AppError::NotFound("This instance has no SFU".into()));
+    }
+    if !shared_common::huddle_access::may_join_huddle(&state.pool, huddle_id, auth.user_id).await? {
+        return Err(AppError::Forbidden("You can't join this huddle".into()));
+    }
+    let room = state
+        .huddle_repo
+        .ensure_livekit_room(huddle_id, &sfu::room_for(huddle_id))
+        .await?;
+    let (token, expires_at) =
+        sfu::access_token(&state.config, &room, auth.user_id, chrono::Utc::now())?;
+    Ok(Json(SfuToken {
+        url: state.config.livekit_url.clone(),
+        room,
+        token,
+        expires_at,
+    }))
 }
 
 #[utoipa::path(get, path = "/workspaces/{ws_id}/ice-servers", tag = "huddles", responses((status = 200, body = IceServersResponse)))]

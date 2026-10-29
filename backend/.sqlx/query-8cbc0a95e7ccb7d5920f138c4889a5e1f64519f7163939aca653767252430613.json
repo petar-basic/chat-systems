@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE huddle_sessions SET livekit_room = COALESCE(livekit_room, $2)\n                WHERE id = $1\n                RETURNING livekit_room AS \"livekit_room!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "livekit_room!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "huddle_sessions",
+            "name": "livekit_room"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "8cbc0a95e7ccb7d5920f138c4889a5e1f64519f7163939aca653767252430613"
+}
