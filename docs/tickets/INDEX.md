@@ -20,7 +20,8 @@ shipped too. Waves 18 and 19 are shipped too. In Wave 20, CS-059 shipped in 3.2.
 chosen in the 2026-10-23 review, shipped in 3.3.0. Wave 24, from the 2026-10-26 review, shipped
 in 3.4.0. Wave 25, which moves the profile and notification settings to each workspace, shipped
 in 3.5.0. Wave 26, which fixes what the 2026-10-27 product survey found, shipped in 3.6.0.
-Wave 27, which fixes what the 2026-10-28 survey of 3.6.0 found, shipped in 3.7.0.
+Wave 27, which fixes what the 2026-10-28 survey of 3.6.0 found, shipped in 3.7.0. Wave 28 is
+4.0.0: the feedback on 3.7.0 and CS-037. After it, releases are bug fixes only for a while.
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
@@ -331,11 +332,27 @@ or data they should have lost comes first.
 | CS-096 ✅ | The survey's small things | backend · frontend · realtime |
 | CS-097 ✅ | A workspace icon everyone sees, and that stays | backend · frontend |
 
-### Still open
+### Wave 28 — What 4.0.0 needs
 
-| # | Ticket | Area | Why it is not done |
-|---|---|---|---|
-| [CS-037](CS-037-huddle-sfu.md) | SFU for large huddles | backend · frontend · ops | Held for 4.0.0 — it adds a service to the stack, so it ships in a major release |
+Feedback on 3.7.0 on 2026-10-29 named five gaps: a GitHub page nobody can find the project
+from and a README naming an old release, presence with no *away*, an integration story with
+no bots, events or app directory and with slash commands that must answer in three seconds,
+and one secret that signs sessions, encrypts connected apps' tokens and two-factor secrets,
+and is shared with the gateway. With the SFU held since 3.2.0 they make 4.0.0. Key separation
+comes before EdDSA, because removing `JWT_SECRET` needs nothing else to depend on it; bots
+come before events and events before the directory, which lists both.
+
+| # | Ticket | Area |
+|---|---|---|
+| [CS-098](CS-098-findable.md) | A project people can find: homepage, About, topics, README version | docs · ops |
+| [CS-099](CS-099-away.md) | Away, on purpose and when idle | backend · realtime · frontend |
+| [CS-100](CS-100-secrets-key.md) | Stored secrets get a key of their own | backend · ops |
+| [CS-101](CS-101-eddsa.md) | Sessions signed with EdDSA, with keys that rotate | backend · realtime · ops |
+| [CS-102](CS-102-async-commands.md) | Slash commands that may take their time | backend · frontend |
+| [CS-103](CS-103-bots.md) | Apps with bot users and a Web API | backend · frontend · docs |
+| [CS-104](CS-104-events.md) | Events for apps, over HTTP or a socket | backend · realtime · docs |
+| [CS-105](CS-105-app-directory.md) | An app directory | frontend · backend · docs |
+| [CS-037](CS-037-huddle-sfu.md) | SFU for large huddles, promoted mid-call | backend · frontend · ops |
 
 ## Conflict map
 
@@ -356,7 +373,7 @@ Tickets that touch the same files, and the order that avoids rework:
 | message metadata and `message.updated` | CS-029 ✅ → CS-049 ✅ → CS-053 ✅ → CS-054 ✅ → CS-055 ✅ → CS-065 ✅ |
 | `files` and the download route | CS-009 ✅ → CS-011 ✅ → CS-020 ✅ → CS-055 ✅ |
 | `frontend/src/shared/components` dialogs and controls | CS-056 ✅ → CS-059 ✅ |
-| huddle join authorization | CS-041 ✅ → CS-037 |
+| huddle join authorization | CS-041 ✅ → CS-077 ✅ → CS-037 |
 | notification consumer and `is_dnd_active` | CS-046 ✅ → CS-060 ✅ → CS-061 ✅ → CS-062 ✅ |
 | `NotificationStream` and `wsQuerySync` sound/desktop | CS-060 ✅ → CS-061 ✅ |
 | search visibility (`searchable_channels()`) | CS-048 ✅ → CS-063 ✅ → CS-064 ✅ |
@@ -376,3 +393,7 @@ Tickets that touch the same files, and the order that avoids rework:
 | `notifications/repo.rs` read and badge queries | CS-092 → CS-095 |
 | `stores/unsent.ts` and `MessageInput.tsx` | CS-093 → CS-096 |
 | `profile/avatar.rs` and the download route's photo keys | CS-094 → CS-097 |
+| presence sets and `presence.changed` | CS-095 → CS-099 |
+| `sealed.rs`, `auth/totp.rs` and the token signing in `auth/service/tokens.rs` | CS-100 → CS-101 |
+| `commands/routes.rs`, hooks and the *Integrations* section | CS-102 → CS-103 → CS-104 → CS-105 |
+| realtime gateway auth and connection handling | CS-101 → CS-104 → CS-037 |

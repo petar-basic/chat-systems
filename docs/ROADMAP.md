@@ -9,13 +9,15 @@ ticket in [`docs/tickets/`](./tickets/INDEX.md); a ticket's file is deleted when
 
 | Ticket | What | Status |
 |---|---|---|
-| [CS-037](./tickets/CS-037-huddle-sfu.md) | SFU (LiveKit) for huddles above the mesh's six-to-eight ceiling, promoted mid-call without dropping anybody | Held for the next major release (4.0.0), decided 2026-10-23 when 3.2.0 shipped CS-059 alone. Adds an optional media server beside the stack. Until then a huddle is capped at eight people |
+| [CS-098 – CS-105](./tickets/INDEX.md#wave-28--what-400-needs) | Wave 28: the 2026-10-29 feedback on 3.7.0 — a homepage and a findable repository, *away*, a key for stored secrets apart from sessions, EdDSA sessions with rotating keys, slash commands that may answer later, bots with a Web API, events over HTTP or a socket, an app directory | Wave 28, for 4.0.0 |
+| [CS-037](./tickets/CS-037-huddle-sfu.md) | SFU (LiveKit) for huddles above the mesh's six-to-eight ceiling, promoted mid-call without dropping anybody | Wave 28, for 4.0.0, held for a major release since 2026-10-23 because it adds an optional media server beside the stack. Until then a huddle is capped at eight people |
 
 Waves 21–23 were chosen in the 2026-10-23 review and shipped together in 3.3.0, before
 4.0.0. Wave 24 came out of the 2026-10-26 review, which walked the app the way a company
 trying it would, and shipped in 3.4.0. Wave 25, raised on 2026-10-27 after 3.4.2, shipped in
 3.5.0. Wave 26, the findings of the 2026-10-27 product survey, shipped in 3.6.0, and Wave 27, from
-the 2026-10-28 survey of 3.6.0, in 3.7.0. Two decisions were considered on 2026-09-02 and deferred
+the 2026-10-28 survey of 3.6.0, in 3.7.0. Wave 28 is 4.0.0, and after it releases carry bug fixes only for a while: no new
+feature work until the fixes have settled. Two decisions were considered on 2026-09-02 and deferred
 with their reasoning below: versioning the API path and asymmetric JWT signing.
 
 ## How the order was chosen
