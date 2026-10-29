@@ -50,7 +50,7 @@ integration-test suite and a real CI pipeline.
   joining or a shortcut; they post messages, ask with forms and add to lists
 
 **Calls**
-- Huddles: voice and video with screen sharing, for up to eight people
+- Huddles: voice and video with screen sharing; past six people a huddle moves, mid-call, to an optional LiveKit media server
 
 **Integrations**
 - Incoming webhooks (Slack-compatible), signed outgoing webhooks, slash commands that may answer later
@@ -82,9 +82,9 @@ What a team moving from Slack should expect to be missing or different:
 | Missing / different | Where it stands |
 |---|---|
 | **No native mobile app.** The web app is responsive and installs as a PWA with push, but there is nothing in an app store. | Deliberate — see [ROADMAP.md](docs/ROADMAP.md#wave-11--guest-containment-operational-readiness-and-mobile--shipped); React Native only if push reliability or call ringing proves to be the blocker |
-| **Huddles are peer-to-peer mesh**, capped at eight people; not a 30-person all-hands. No recording. | SFU held for 4.0.0 ([CS-037](docs/tickets/CS-037-huddle-sfu.md)); recording deliberately out of scope |
+| **Large huddles need LiveKit.** Without it a huddle is a peer-to-peer mesh capped at eight people. No recording. | LiveKit is an optional compose file (see the RUNBOOK); recording deliberately out of scope |
 | **Search reads text, not pictures.** Messages, file names and the text inside PDF, Word, Excel, PowerPoint and text files are searched; a scanned page or a screenshot is not (no OCR). | Deliberate — OCR needs a model beside the stack |
-| **No app directory or shared channels across organisations.** | Not planned |
+| **No shared channels across organisations.** | Not planned |
 
 The trade for all of that: every message, file and audit row stays on hardware you control,
 and the whole thing is one `docker compose` command. See
@@ -175,8 +175,9 @@ Honest about the edges, since this is a reference codebase:
   replays up to 1 000 events from its cursor; a longer gap, or one older than the stream
   keeps (10 000 entries, an hour), falls back to refetching open views, unread counts, pins
   and the sidebar. Consumers and clients are written to tolerate a duplicate.
-- **Huddles use a WebRTC mesh**, which is great up to ~6–8 participants, so a huddle is
-  capped at eight; large all-hands calls need the SFU planned for 4.0.0.
+- **Huddles start as a WebRTC mesh**, which is great up to ~6–8 participants. With LiveKit
+  beside the stack a huddle moves to it when a seventh person joins; without it a huddle is
+  capped at eight.
 - **One instance is one trust domain.** SSO, TOTP and SCIM are per instance, not per
   workspace, and there is no cross-organisation sharing.
 - **Search reads text, not pictures.** A scanned page or a screenshot is not searched (no
