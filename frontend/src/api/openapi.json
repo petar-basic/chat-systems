@@ -2741,6 +2741,36 @@
         }
       }
     },
+    "/huddles/{huddle_id}/sfu-token": {
+      "post": {
+        "tags": [
+          "huddles"
+        ],
+        "operationId": "sfu_token",
+        "parameters": [
+          {
+            "name": "huddle_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SfuToken"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/instance/info": {
       "get": {
         "tags": [
@@ -16976,6 +17006,30 @@
             "type": "string"
           },
           "workspace_name": {
+            "type": "string"
+          }
+        }
+      },
+      "SfuToken": {
+        "type": "object",
+        "required": [
+          "url",
+          "room",
+          "token",
+          "expires_at"
+        ],
+        "properties": {
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "room": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          },
+          "url": {
             "type": "string"
           }
         }

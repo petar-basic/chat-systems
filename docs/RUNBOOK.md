@@ -1066,6 +1066,62 @@ against the same secret, which is why the two must match exactly. The relay refu
 forward to private, loopback and link-local ranges, so it cannot be turned into an SSRF
 primitive against the host it runs on.
 
+## Huddle SFU (LiveKit)
+
+Huddles are a mesh: everybody sends their audio and video to everybody else, which stops
+working somewhere between six and eight people. LiveKit is the selective forwarding unit that
+takes over above that: each person sends once, to LiveKit, and it forwards. It is optional.
+Without `LIVEKIT_URL` on the api, `POST /api/huddles/{id}/sfu-token` answers 404 and every
+huddle stays on the mesh, as before.
+
+The API decides who may join, with the same check the realtime gateway runs on `huddle.join`,
+and signs a LiveKit access token for that one room and that one person, valid for ten minutes.
+LiveKit only checks the signature, so it has no permission model of its own to keep in step.
+The room is `huddle-<huddle id>` and is recorded in `huddle_sessions.livekit_room`.
+
+It runs from `docker-compose.livekit.yml`, on the host network beside the stack, for the reason
+coturn does: browsers reach its media ports directly. It opens no TURN of its own; a browser
+behind a strict NAT reaches it through the existing coturn.
+
+| Port | Protocol | Open on the firewall | What |
+|------|----------|----------------------|------|
+| 7880 | TCP | **no**, only behind TLS | signalling, proxied as `wss://` |
+| 7881 | TCP | yes | media over TCP, for networks that block UDP |
+| 50000–50200 | UDP | yes | media; bounded in `docker/livekit/livekit.yaml` |
+
+The container is limited to 2 CPUs and 1 GB.
+
+1. Pick a key name and a secret of at least 32 characters, and start it on the server:
+
+   ```bash
+   LIVEKIT_API_KEY=chat LIVEKIT_API_SECRET=$(openssl rand -hex 32) \
+     docker compose -f docker-compose.livekit.yml up -d
+   ```
+
+   Keep the secret: the api needs the same value. LiveKit refuses a shorter one.
+2. Open `7881/tcp` and `50000-50200/udp`. Leave `7880` closed.
+3. Give signalling a name with TLS, e.g. `sfu.example.com` pointing at the host.
+   - **`docker-compose.prod.yml`**: add a site to `docker/Caddyfile` and restart `caddy`
+     (the service can reach the host as `host.docker.internal`):
+
+     ```
+     sfu.example.com {
+     	reverse_proxy host.docker.internal:7880
+     }
+     ```
+
+   - **Coolify**: in *Servers → Proxy → Dynamic configurations*, add a router for
+     `sfu.example.com` to `http://host.docker.internal:7880` (Traefik) or the same Caddy site
+     (Caddy proxy).
+
+   `curl https://sfu.example.com` answers `OK` once it is through.
+4. Set `LIVEKIT_URL=wss://sfu.example.com`, `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` on the
+   api and restart it. It refuses to start with a URL and no key, or with a secret shorter than
+   32 characters.
+
+If the host sits behind NAT with a private address, LiveKit finds its public one over STUN
+(`use_external_ip`); where that fails, set `rtc.node_ip` in `docker/livekit/livekit.yaml`.
+
 ## Importing a Slack export
 
 Slack gives you a ZIP. **The ordinary way is the app**: as a workspace admin, *Workspace settings

@@ -1,0 +1,16 @@
+services:
+  livekit:
+    image: livekit/livekit-server:v1.13.10
+    container_name: chat-livekit
+    restart: unless-stopped
+    network_mode: "host"
+    volumes:
+      - ./docker/livekit/livekit.yaml:/etc/livekit.yaml:ro
+    command: ["--config", "/etc/livekit.yaml"]
+    environment:
+      LIVEKIT_KEYS: "${LIVEKIT_API_KEY:?LIVEKIT_API_KEY must be set}: ${LIVEKIT_API_SECRET:?LIVEKIT_API_SECRET must be set}"
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 1g

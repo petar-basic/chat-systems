@@ -134,4 +134,16 @@ impl HuddleRepo {
         .fetch_optional(&self.pool)
         .await
     }
+
+    pub async fn ensure_livekit_room(&self, huddle_id: Uuid, room: &str) -> sqlx::Result<String> {
+        sqlx::query_scalar!(
+            r#"UPDATE huddle_sessions SET livekit_room = COALESCE(livekit_room, $2)
+                WHERE id = $1
+                RETURNING livekit_room AS "livekit_room!""#,
+            huddle_id,
+            room
+        )
+        .fetch_one(&self.pool)
+        .await
+    }
 }

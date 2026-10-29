@@ -230,6 +230,9 @@ services:
       TURN_URLS: ${TURN_URLS:-}
       STUN_URLS: ${STUN_URLS:-stun:stun.l.google.com:19302}
       TURN_TTL_SECS: ${TURN_TTL_SECS:-43200}
+      LIVEKIT_URL: ${LIVEKIT_URL:-}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-}
       RUST_LOG: ${RUST_LOG:-info}
     volumes:
       - file_data:/data/files

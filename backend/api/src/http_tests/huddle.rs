@@ -696,3 +696,130 @@ async fn a_paused_workspace_is_rung_quietly(pool: PgPool) {
         "the gateway does not ring somebody who paused this workspace"
     );
 }
+
+fn with_sfu() -> crate::config::AppConfig {
+    crate::config::AppConfig {
+        livekit_url: "wss://sfu.example.com".into(),
+        livekit_api_key: "APItest".into(),
+        livekit_api_secret: "t".repeat(32),
+        ..test_config()
+    }
+}
+
+async fn sfu_token(
+    app: &axum::Router,
+    token: &str,
+    huddle_id: &str,
+) -> (StatusCode, serde_json::Value) {
+    send(
+        app,
+        "POST",
+        &format!("/api/huddles/{huddle_id}/sfu-token"),
+        Some(token),
+        None,
+    )
+    .await
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_member_gets_a_token_for_the_huddles_room_and_nobody_else_does(pool: PgPool) {
+    let (app, state) = app_and_state_with(pool, with_sfu()).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "sfu-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "sfu-ws").await;
+    let channel_id = seed_channel(&state, ws_id, owner_id, "all-hands", false).await;
+    let (member_id, _, member) = seed_and_login(&app, &state, "sfu-member", false).await;
+    add_ws_member(&state, ws_id, member_id, "member").await;
+    let (guest_id, _, guest) = seed_and_login(&app, &state, "sfu-guest", false).await;
+    add_ws_member(&state, ws_id, guest_id, "guest").await;
+    let (_, _, outsider) = seed_and_login(&app, &state, "sfu-outsider", false).await;
+
+    let (_, body) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/huddles"),
+        Some(&owner),
+        Some(json!({ "channel_id": channel_id })),
+    )
+    .await;
+    let huddle_id = body["huddle_id"].as_str().expect("huddle_id").to_string();
+    let room = format!("huddle-{huddle_id}");
+
+    let (status, body) = sfu_token(&app, &owner, &huddle_id).await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(body["url"], "wss://sfu.example.com");
+    assert_eq!(body["room"], room.as_str());
+    let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::HS256);
+    validation.set_issuer(&["APItest"]);
+    let claims = jsonwebtoken::decode::<serde_json::Value>(
+        body["token"].as_str().expect("token"),
+        &jsonwebtoken::DecodingKey::from_secret("t".repeat(32).as_bytes()),
+        &validation,
+    )
+    .expect("signed with LIVEKIT_API_SECRET")
+    .claims;
+    assert_eq!(claims["sub"], owner_id.to_string());
+    assert_eq!(claims["video"]["room"], room.as_str());
+    assert_eq!(claims["video"]["roomJoin"], true);
+
+    let recorded: Option<String> =
+        sqlx::query_scalar("SELECT livekit_room FROM huddle_sessions WHERE id = $1::uuid")
+            .bind(&huddle_id)
+            .fetch_one(&state.pool)
+            .await
+            .expect("session");
+    assert_eq!(recorded.as_deref(), Some(room.as_str()));
+
+    for (who, token) in [
+        ("member outside the channel", &member),
+        ("guest", &guest),
+        ("outsider", &outsider),
+    ] {
+        let (status, body) = sfu_token(&app, token, &huddle_id).await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "{who}: {body:?}");
+    }
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{channel_id}/members"),
+        Some(&owner),
+        Some(json!({ "user_id": member_id })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, body) = sfu_token(&app, &member, &huddle_id).await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(body["room"], room.as_str());
+
+    state
+        .huddle_repo
+        .end_session(huddle_id.parse().expect("uuid"))
+        .await
+        .expect("end");
+    let (status, _) = sfu_token(&app, &owner, &huddle_id).await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "an ended huddle has no room to join"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn there_is_no_token_route_without_an_sfu(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "nosfu-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "nosfu-ws").await;
+    let channel_id = seed_channel(&state, ws_id, owner_id, "small-call", false).await;
+    let (_, body) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/huddles"),
+        Some(&owner),
+        Some(json!({ "channel_id": channel_id })),
+    )
+    .await;
+    let huddle_id = body["huddle_id"].as_str().expect("huddle_id").to_string();
+
+    let (status, _) = sfu_token(&app, &owner, &huddle_id).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}

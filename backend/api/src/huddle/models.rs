@@ -51,3 +51,11 @@ pub struct ActiveHuddle {
 pub struct HuddleStarted {
     pub huddle_id: Uuid,
 }
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct SfuToken {
+    pub url: String,
+    pub room: String,
+    pub token: String,
+    pub expires_at: DateTime<Utc>,
+}
