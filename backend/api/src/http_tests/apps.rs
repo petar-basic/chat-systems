@@ -1335,8 +1335,8 @@ async fn confluence_reuses_the_jira_app_without_the_secret_leaving_the_server(po
     assert_eq!(confluence["client_id"], json!("client-1"));
     assert!(!body.to_string().contains("shh"));
 
-    let secrets: Vec<Vec<u8>> = sqlx::query_scalar(
-        "SELECT client_secret_encrypted FROM workspace_apps WHERE workspace_id = $1 ORDER BY provider",
+    let secrets: Vec<(Vec<u8>, Option<String>)> = sqlx::query_as(
+        "SELECT client_secret_encrypted, client_secret_key_id FROM workspace_apps WHERE workspace_id = $1 ORDER BY provider",
     )
     .bind(s.ws_id)
     .fetch_all(&s.state.pool)

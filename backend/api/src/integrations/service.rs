@@ -201,15 +201,15 @@ pub async fn configure(
                 workspace_id,
                 provider.as_str(),
                 &jira.client_id,
-                &seal(
-                    state,
-                    &open(
-                        state,
-                        &jira.client_secret_encrypted,
-                        &jira.client_secret_nonce,
-                        jira.client_secret_key_id.as_deref(),
-                    )?,
-                )?,
+                &Sealed {
+                    ciphertext: jira.client_secret_encrypted,
+                    nonce: jira.client_secret_nonce,
+                    key_id: jira.client_secret_key_id.ok_or_else(|| {
+                        AppError::Internal(
+                            "Jira's secret has not been re-sealed since the upgrade".into(),
+                        )
+                    })?,
+                },
                 req.enabled,
                 admin_id,
             )
