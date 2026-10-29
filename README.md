@@ -6,6 +6,8 @@
 A self-hosted team chat platform — channels, threads, DMs, reactions, files, and
 real-time presence — built with Rust and React. Run it on your own box, behind
 your own domain, with no per-seat pricing and no third party holding your messages.
+**[petar-basic.github.io/chat-systems](https://petar-basic.github.io/chat-systems/)** shows what
+it looks like.
 
 ## What it is
 
@@ -122,12 +124,13 @@ Open **http://localhost:8080**, paste the setup token, and create the first admi
 workspace. For demo users and channels, set `ADMIN_PASSWORD` in `.env` before the first start
 instead and run `ADMIN_PASSWORD=... ./seed.sh`.
 
-To run a published release instead of compiling, add to `.env`:
+To run a published release instead of compiling, add to `.env`, with `VERSION` set to the
+number of the [latest release](https://github.com/petar-basic/chat-systems/releases/latest):
 
 ```bash
 BACKEND_IMAGE=ghcr.io/petar-basic/chat-systems-backend
 FRONTEND_IMAGE=ghcr.io/petar-basic/chat-systems-frontend
-VERSION=3.3.0
+VERSION=X.Y.Z
 ```
 
 then `docker compose --profile frontend pull` and `up -d` without `--build`. What each
