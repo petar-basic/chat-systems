@@ -84,7 +84,7 @@ impl Default for InboundState {
     }
 }
 
-fn spawn_writer(
+pub(crate) fn spawn_writer(
     mut sink: SplitSink<WebSocket, Message>,
     mut rx: mpsc::Receiver<Message>,
 ) -> tokio::task::JoinHandle<()> {

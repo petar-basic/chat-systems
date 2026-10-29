@@ -7,8 +7,8 @@ use tracing::info;
 use chat_api::config::AppConfig;
 use chat_api::state::AppState;
 use chat_api::{
-    build_state, connect_pool, email, export, health, hooks, huddle, init_tracing, later,
-    messaging, metrics, notifications, retention, scheduled, shutdown_signal, slack_import,
+    app_events, build_state, connect_pool, email, export, health, hooks, huddle, init_tracing,
+    later, messaging, metrics, notifications, retention, scheduled, shutdown_signal, slack_import,
     supervise, workflows,
 };
 
@@ -98,6 +98,34 @@ fn spawn_consumers(state: &Arc<AppState>, redis_url: &str) {
                 let hook_state = hook_state.clone();
                 async move {
                     hooks::executor::start_hook_consumer(&redis_url, hook_state).await;
+                }
+            })
+            .await;
+        });
+    }
+
+    {
+        let redis_url = redis_url.to_string();
+        let app_event_state = state.clone();
+        tokio::spawn(async move {
+            supervise("app_event_consumer", || {
+                let redis_url = redis_url.clone();
+                let app_event_state = app_event_state.clone();
+                async move {
+                    app_events::consumer::start_consumer(&redis_url, app_event_state).await;
+                }
+            })
+            .await;
+        });
+    }
+
+    {
+        let sender_state = state.clone();
+        tokio::spawn(async move {
+            supervise("app_event_sender", || {
+                let sender_state = sender_state.clone();
+                async move {
+                    app_events::sender::start_sender(sender_state).await;
                 }
             })
             .await;

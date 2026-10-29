@@ -41,6 +41,7 @@ pub async fn manager(pool: PgPool) -> Arc<ConnectionManager> {
 
 pub fn app(cm: Arc<ConnectionManager>) -> Router {
     build_app(AppState {
+        apps: Arc::new(crate::app_socket::AppSockets::new(cm.db().clone())),
         cm,
         jwt_public_keys: gateway_keys(),
         consumer_heartbeat: Arc::new(std::sync::atomic::AtomicI64::new(crate::now_unix())),

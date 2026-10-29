@@ -215,26 +215,42 @@ async fn invoke(
         })
         .await?;
 
-    let outcome = delivery::call(
-        &hook,
-        &delivery::outgoing(&state, request_id, &payload),
-        request_id,
-        delivery::FIRST_ATTEMPT_TIMEOUT,
-        state.config.webhook_allow_private_targets,
-    )
-    .await?;
-
-    let response = match outcome {
-        Outcome::Refused(why) => return Err(AppError::BadRequest(why)),
-        Outcome::Unreachable => {
-            state
-                .command_repo
-                .schedule_retry(request_id, 1, delivery::first_retry_delay())
-                .await?;
-            CommandResponse::pending(format!("/{command} is taking a moment…"))
+    let outgoing = delivery::outgoing(&state, request_id, &payload);
+    let over_socket = match hook.app_id {
+        Some(app_id) => {
+            crate::app_events::deliver_command(
+                &state, app_id, request_id, ch_id, &command, &outgoing,
+            )
+            .await?
         }
-        Outcome::Acknowledged => CommandResponse::pending(format!("/{command} is working on it…")),
-        Outcome::Answered(response) => response,
+        None => None,
+    };
+    let response = match over_socket {
+        Some(response) => response,
+        None => {
+            let outcome = delivery::call(
+                &hook,
+                &outgoing,
+                request_id,
+                delivery::FIRST_ATTEMPT_TIMEOUT,
+                state.config.webhook_allow_private_targets,
+            )
+            .await?;
+            match outcome {
+                Outcome::Refused(why) => return Err(AppError::BadRequest(why)),
+                Outcome::Unreachable => {
+                    state
+                        .command_repo
+                        .schedule_retry(request_id, 1, delivery::first_retry_delay())
+                        .await?;
+                    CommandResponse::pending(format!("/{command} is taking a moment…"))
+                }
+                Outcome::Acknowledged => {
+                    CommandResponse::pending(format!("/{command} is working on it…"))
+                }
+                Outcome::Answered(response) => response,
+            }
+        }
     };
 
     audit::record(

@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO app_deliveries (app_id, event_id, channel_id, kind, body, expires_at)\n             VALUES ($1, $2, $3, $4, $5, NOW() + make_interval(secs => $6))\n             ON CONFLICT (app_id, event_id) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Varchar",
+        "Jsonb",
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "52137f82779b32ab6602ec3ed333f751e8bb5e55c0ae7cf4f44e1a3c25fb8998"
+}

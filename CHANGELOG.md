@@ -28,7 +28,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   that every stored secret is on a `SECRETS_KEYS` key.
 - Migration 82 adds `users.manual_away`; migration 83 adds a key id beside every sealed
   secret; migration 84 adds `command_invocations`; migration 85 adds `users.is_bot`,
-  `bot_apps` and `hooks.app_id`.
+  `bot_apps` and `hooks.app_id`; migration 86 adds the event settings to `bot_apps`,
+  `app_deliveries` and `app_sockets`.
 - For WebSocket clients: `presence.batch` and `presence.changed` carry `away` as well as
   `online` and `offline`, and `presence.changed` now also reaches the person it is about.
   For API clients: `PUT /users/me/presence` with `{ "away": true }` sets yourself away.
@@ -38,6 +39,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   later* instead of an error.
 - For API clients: `MemberWithUser` has `is_bot`, `Hook` has `app_id`, and the routes a bot
   token may call carry the `bot` tag and security scheme in `/api/openapi.json`.
+- If something other than the bundled nginx sits in front of `realtime`, route `/ws/apps` to it
+  as you route `/ws`: socket-mode apps connect there. For WebSocket clients: `channel.updated`
+  is now in the replay log, and a `channel.created` event is published when a channel is made.
 
 ### Added
 
@@ -55,6 +59,13 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   what it changes is in the audit log under the app, and removing it revokes the token and
   its slash commands. [docs/bot-api.md](docs/bot-api.md) is the guide, and
   [examples/echo-bot](examples/echo-bot/) a bot in one file.
+- **Events for apps, over HTTP or a socket.** An app subscribes to messages, mentions,
+  reactions, people joining, and channels being made or archived, in the channels its bot is
+  in. Events are posted, signed, to a request URL that has answered a challenge, and retried
+  for an hour, after which the app shows as failing; or, in socket mode, an app-level token
+  opens sockets to the instance that share the app's events and its slash commands, so an app
+  behind a firewall needs no public URL. Delivery is at least once and in order per channel,
+  and survives a restart of the worker or the gateway.
 
 ### Security
 

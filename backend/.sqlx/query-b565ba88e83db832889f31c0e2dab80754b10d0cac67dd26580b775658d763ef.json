@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE bot_apps\n            SET signing_secret_encrypted = $3, signing_secret_nonce = $4, signing_secret_key_id = $5\n          WHERE id = $1 AND signing_secret_key_id IS NOT DISTINCT FROM $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Bytea",
+        "Bytea",
+        "Varchar"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b565ba88e83db832889f31c0e2dab80754b10d0cac67dd26580b775658d763ef"
+}

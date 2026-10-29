@@ -2,7 +2,8 @@ use chrono::{DateTime, Utc};
 use sqlx::{PgConnection, PgPool};
 use uuid::Uuid;
 
-use super::models::{BotApp, BotToken, Scope};
+use super::models::{AppEvent, BotApp, BotToken, Scope};
+use crate::sealed::Sealed;
 
 struct BotAppRow {
     id: Uuid,
@@ -12,6 +13,13 @@ struct BotAppRow {
     description: Option<String>,
     icon_url: Option<String>,
     scopes: Vec<String>,
+    events: Vec<String>,
+    request_url: Option<String>,
+    socket_mode: bool,
+    has_app_token: bool,
+    connected_sockets: i64,
+    failing_since: Option<DateTime<Utc>>,
+    last_failure: Option<String>,
     created_by: Option<Uuid>,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
@@ -27,6 +35,13 @@ impl From<BotAppRow> for BotApp {
             description: row.description,
             icon_url: row.icon_url,
             scopes: parse_scopes(&row.scopes),
+            events: parse_events(&row.events),
+            request_url: row.request_url,
+            socket_mode: row.socket_mode,
+            has_app_token: row.has_app_token,
+            connected_sockets: row.connected_sockets,
+            failing_since: row.failing_since,
+            last_failure: row.last_failure,
             created_by: row.created_by,
             created_at: row.created_at,
             updated_at: row.updated_at,
@@ -36,6 +51,18 @@ impl From<BotAppRow> for BotApp {
 
 fn parse_scopes(stored: &[String]) -> Vec<Scope> {
     stored.iter().filter_map(|s| Scope::parse(s)).collect()
+}
+
+pub fn parse_events(stored: &[String]) -> Vec<AppEvent> {
+    stored.iter().filter_map(|s| AppEvent::parse(s)).collect()
+}
+
+fn store_events(events: &[AppEvent]) -> Vec<String> {
+    AppEvent::ALL
+        .into_iter()
+        .filter(|e| events.contains(e))
+        .map(|e| e.as_str().to_string())
+        .collect()
 }
 
 fn store_scopes(scopes: &[Scope]) -> Vec<String> {
@@ -54,6 +81,7 @@ pub struct NewBotApp<'a> {
     pub icon_url: Option<&'a str>,
     pub scopes: &'a [Scope],
     pub token_hash: &'a str,
+    pub signing_secret: &'a Sealed,
 }
 
 pub struct BotAppChanges<'a> {
@@ -61,6 +89,15 @@ pub struct BotAppChanges<'a> {
     pub description: Option<&'a str>,
     pub icon_url: Option<&'a str>,
     pub scopes: Option<&'a [Scope]>,
+    pub events: Option<&'a [AppEvent]>,
+    pub request_url: Option<&'a str>,
+    pub socket_mode: Option<bool>,
+}
+
+pub struct SealedSecret {
+    pub ciphertext: Vec<u8>,
+    pub nonce: Vec<u8>,
+    pub key_id: Option<String>,
 }
 
 #[derive(Clone)]
@@ -100,10 +137,17 @@ impl BotRepo {
 
         let row = sqlx::query_as!(
             BotAppRow,
-            r"INSERT INTO bot_apps (workspace_id, bot_user_id, name, description, icon_url, scopes, token_hash, created_by)
-              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-              RETURNING id, workspace_id, bot_user_id, name, description, icon_url, scopes,
-                        created_by, created_at, updated_at",
+            r#"INSERT INTO bot_apps (workspace_id, bot_user_id, name, description, icon_url, scopes, token_hash, created_by,
+                                     signing_secret_encrypted, signing_secret_nonce, signing_secret_key_id)
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+              RETURNING id, workspace_id, bot_user_id, name, description, icon_url, scopes, events,
+                        request_url, socket_mode,
+                        (app_token_hash IS NOT NULL) AS "has_app_token!",
+                        (SELECT COUNT(*) FROM app_sockets s
+                          WHERE s.app_id = bot_apps.id AND s.connected_at IS NOT NULL
+                            AND s.seen_at > NOW() - INTERVAL '30 seconds') AS "connected_sockets!",
+                        failing_since, last_failure,
+                        created_by, created_at, updated_at"#,
             app.workspace_id,
             bot_user_id,
             app.name,
@@ -111,7 +155,10 @@ impl BotRepo {
             app.icon_url,
             &store_scopes(app.scopes),
             app.token_hash,
-            app.created_by
+            app.created_by,
+            app.signing_secret.ciphertext,
+            app.signing_secret.nonce,
+            app.signing_secret.key_id
         )
         .fetch_one(&mut *conn)
         .await?;
@@ -121,9 +168,15 @@ impl BotRepo {
     pub async fn list(&self, workspace_id: Uuid) -> sqlx::Result<Vec<BotApp>> {
         let rows = sqlx::query_as!(
             BotAppRow,
-            r"SELECT id, workspace_id, bot_user_id, name, description, icon_url, scopes,
+            r#"SELECT id, workspace_id, bot_user_id, name, description, icon_url, scopes, events,
+                     request_url, socket_mode,
+                     (app_token_hash IS NOT NULL) AS "has_app_token!",
+                     (SELECT COUNT(*) FROM app_sockets s
+                       WHERE s.app_id = bot_apps.id AND s.connected_at IS NOT NULL
+                         AND s.seen_at > NOW() - INTERVAL '30 seconds') AS "connected_sockets!",
+                     failing_since, last_failure,
                      created_by, created_at, updated_at
-                FROM bot_apps WHERE workspace_id = $1 ORDER BY lower(name), id",
+                FROM bot_apps WHERE workspace_id = $1 ORDER BY lower(name), id"#,
             workspace_id
         )
         .fetch_all(&self.pool)
@@ -134,9 +187,15 @@ impl BotRepo {
     pub async fn find(&self, id: Uuid) -> sqlx::Result<Option<BotApp>> {
         let row = sqlx::query_as!(
             BotAppRow,
-            r"SELECT id, workspace_id, bot_user_id, name, description, icon_url, scopes,
+            r#"SELECT id, workspace_id, bot_user_id, name, description, icon_url, scopes, events,
+                     request_url, socket_mode,
+                     (app_token_hash IS NOT NULL) AS "has_app_token!",
+                     (SELECT COUNT(*) FROM app_sockets s
+                       WHERE s.app_id = bot_apps.id AND s.connected_at IS NOT NULL
+                         AND s.seen_at > NOW() - INTERVAL '30 seconds') AS "connected_sockets!",
+                     failing_since, last_failure,
                      created_by, created_at, updated_at
-                FROM bot_apps WHERE id = $1",
+                FROM bot_apps WHERE id = $1"#,
             id
         )
         .fetch_optional(&self.pool)
@@ -151,22 +210,37 @@ impl BotRepo {
     ) -> sqlx::Result<Option<BotApp>> {
         let mut tx = self.pool.begin().await?;
         let scopes = changes.scopes.map(store_scopes);
+        let events = changes.events.map(store_events);
         let row = sqlx::query_as!(
             BotAppRow,
-            r"UPDATE bot_apps
+            r#"UPDATE bot_apps
                  SET name = COALESCE($2, name),
                      description = CASE WHEN $3::text IS NULL THEN description ELSE NULLIF($3, '') END,
                      icon_url = CASE WHEN $4::text IS NULL THEN icon_url ELSE NULLIF($4, '') END,
                      scopes = COALESCE($5, scopes),
+                     events = COALESCE($6, events),
+                     request_url = CASE WHEN $7::text IS NULL THEN request_url ELSE NULLIF($7, '') END,
+                     socket_mode = COALESCE($8, socket_mode),
+                     failing_since = CASE WHEN $7::text IS NULL AND $8::bool IS NULL THEN failing_since END,
+                     last_failure = CASE WHEN $7::text IS NULL AND $8::bool IS NULL THEN last_failure END,
                      updated_at = NOW()
                WHERE id = $1
-              RETURNING id, workspace_id, bot_user_id, name, description, icon_url, scopes,
-                        created_by, created_at, updated_at",
+              RETURNING id, workspace_id, bot_user_id, name, description, icon_url, scopes, events,
+                        request_url, socket_mode,
+                        (app_token_hash IS NOT NULL) AS "has_app_token!",
+                        (SELECT COUNT(*) FROM app_sockets s
+                          WHERE s.app_id = bot_apps.id AND s.connected_at IS NOT NULL
+                            AND s.seen_at > NOW() - INTERVAL '30 seconds') AS "connected_sockets!",
+                        failing_since, last_failure,
+                        created_by, created_at, updated_at"#,
             id,
             changes.name,
             changes.description,
             changes.icon_url,
-            scopes.as_deref()
+            scopes.as_deref(),
+            events.as_deref(),
+            changes.request_url,
+            changes.socket_mode
         )
         .fetch_optional(&mut *tx)
         .await?;
@@ -213,6 +287,85 @@ impl BotRepo {
         .execute(&mut *conn)
         .await?;
         Ok(true)
+    }
+
+    pub async fn rotate_app_token(&self, id: Uuid, token_hash: Option<&str>) -> sqlx::Result<bool> {
+        let mut tx = self.pool.begin().await?;
+        let updated = sqlx::query!(
+            "UPDATE bot_apps SET app_token_hash = $2, updated_at = NOW() WHERE id = $1",
+            id,
+            token_hash
+        )
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query!("DELETE FROM app_sockets WHERE app_id = $1", id)
+            .execute(&mut *tx)
+            .await?;
+        tx.commit().await?;
+        Ok(updated.rows_affected() == 1)
+    }
+
+    pub async fn close_sockets(&self, id: Uuid) -> sqlx::Result<()> {
+        sqlx::query!("DELETE FROM app_sockets WHERE app_id = $1", id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn signing_secret(&self, id: Uuid) -> sqlx::Result<Option<SealedSecret>> {
+        let row = sqlx::query!(
+            "SELECT signing_secret_encrypted, signing_secret_nonce, signing_secret_key_id
+               FROM bot_apps WHERE id = $1",
+            id
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row.and_then(|r| {
+            Some(SealedSecret {
+                ciphertext: r.signing_secret_encrypted?,
+                nonce: r.signing_secret_nonce?,
+                key_id: r.signing_secret_key_id,
+            })
+        }))
+    }
+
+    pub async fn set_signing_secret(&self, id: Uuid, sealed: &Sealed) -> sqlx::Result<bool> {
+        let updated = sqlx::query!(
+            "UPDATE bot_apps
+                SET signing_secret_encrypted = $2, signing_secret_nonce = $3, signing_secret_key_id = $4
+              WHERE id = $1",
+            id,
+            sealed.ciphertext,
+            sealed.nonce,
+            sealed.key_id
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(updated.rows_affected() == 1)
+    }
+
+    pub async fn by_app_token(&self, token_hash: &str) -> sqlx::Result<Option<(Uuid, bool)>> {
+        let row = sqlx::query!(
+            r"SELECT b.id, b.socket_mode
+                FROM bot_apps b
+                JOIN workspaces w ON w.id = b.workspace_id
+               WHERE b.app_token_hash = $1 AND w.deleted_at IS NULL",
+            token_hash
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row.map(|r| (r.id, r.socket_mode)))
+    }
+
+    pub async fn open_socket(&self, app_id: Uuid, ticket_hash: &str) -> sqlx::Result<()> {
+        sqlx::query!(
+            "INSERT INTO app_sockets (app_id, ticket_hash) VALUES ($1, $2)",
+            app_id,
+            ticket_hash
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
     }
 
     pub async fn authenticate(&self, token_hash: &str) -> sqlx::Result<Option<(Uuid, BotToken)>> {

@@ -1,11 +1,12 @@
 import { useState, type FormEvent } from 'react';
-import { Bot, RefreshCw, Trash2 } from 'lucide-react';
+import { Bot, Radio, RefreshCw, Trash2 } from 'lucide-react';
 import { Button } from '@/shared/components/Button/Button';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { Checkbox } from '@/shared/components/Form/Checkbox';
 import { CopyField } from '@/shared/components/CopyField/CopyField';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog/ConfirmDialog';
 import { toUserMessage } from '@/lib/errors';
+import { BotAppEvents } from './BotAppEvents';
 import {
   useBotAppActions,
   useBotApps,
@@ -46,54 +47,76 @@ function BotAppRow({
   onRemove: () => Promise<unknown>;
 }) {
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const [eventsOpen, setEventsOpen] = useState(false);
 
   return (
-    <div className="flex items-start gap-3 rounded-lg border border-line/50 p-3" data-qa="bot-app-row">
-      <Bot className="mt-0.5 h-4 w-4 shrink-0 text-accent-soft" />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5 text-sm text-fg-soft">
-          <span className="truncate font-medium">{app.name}</span>
-          <span className="px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-raised text-fg-dim rounded">
-            App
-          </span>
+    <div className="rounded-lg border border-line/50 p-3" data-qa="bot-app-row">
+      <div className="flex items-start gap-3">
+        <Bot className="mt-0.5 h-4 w-4 shrink-0 text-accent-soft" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 text-sm text-fg-soft">
+            <span className="truncate font-medium">{app.name}</span>
+            <span className="px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-raised text-fg-dim rounded">
+              App
+            </span>
+            {app.failing_since && (
+              <span
+                className="px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-danger/10 text-danger rounded"
+                data-qa="bot-app-failing-tag"
+              >
+                Failing
+              </span>
+            )}
+          </div>
+          {app.description && <p className="text-xs text-muted">{app.description}</p>}
+          <div className="mt-1 flex flex-wrap gap-1" data-qa="bot-app-scopes">
+            {app.scopes.length === 0 ? (
+              <span className="text-xs text-muted">No scopes</span>
+            ) : (
+              app.scopes.map((scope) => (
+                <code key={scope} className="rounded bg-raised px-1 text-[11px] text-fg-dim">
+                  {scope}
+                </code>
+              ))
+            )}
+          </div>
         </div>
-        {app.description && <p className="text-xs text-muted">{app.description}</p>}
-        <div className="mt-1 flex flex-wrap gap-1" data-qa="bot-app-scopes">
-          {app.scopes.length === 0 ? (
-            <span className="text-xs text-muted">No scopes</span>
-          ) : (
-            app.scopes.map((scope) => (
-              <code key={scope} className="rounded bg-raised px-1 text-[11px] text-fg-dim">
-                {scope}
-              </code>
-            ))
-          )}
-        </div>
+        {isAdmin && (
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              onClick={() => setEventsOpen((open) => !open)}
+              aria-label={`Events for ${app.name}`}
+              aria-expanded={eventsOpen}
+              title="Events"
+              data-qa="bot-app-events-toggle"
+              className="p-1.5 rounded text-muted hover:text-fg hover:bg-raised transition cursor-pointer"
+            >
+              <Radio className="h-4 w-4" />
+            </button>
+            <button
+              onClick={onRotate}
+              disabled={busy}
+              aria-label={`Make a new token for ${app.name}`}
+              title="New token"
+              data-qa="bot-app-rotate"
+              className="p-1.5 rounded text-muted hover:text-fg hover:bg-raised transition cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setConfirmRemove(true)}
+              disabled={busy}
+              aria-label={`Remove ${app.name}`}
+              title="Remove"
+              data-qa="bot-app-remove"
+              className="p-1.5 rounded text-muted hover:text-danger hover:bg-raised transition cursor-pointer disabled:opacity-50"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        )}
       </div>
-      {isAdmin && (
-        <div className="flex shrink-0 items-center gap-1">
-          <button
-            onClick={onRotate}
-            disabled={busy}
-            aria-label={`Make a new token for ${app.name}`}
-            title="New token"
-            data-qa="bot-app-rotate"
-            className="p-1.5 rounded text-muted hover:text-fg hover:bg-raised transition cursor-pointer disabled:opacity-50"
-          >
-            <RefreshCw className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => setConfirmRemove(true)}
-            disabled={busy}
-            aria-label={`Remove ${app.name}`}
-            title="Remove"
-            data-qa="bot-app-remove"
-            className="p-1.5 rounded text-muted hover:text-danger hover:bg-raised transition cursor-pointer disabled:opacity-50"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
-      )}
+      {isAdmin && eventsOpen && <BotAppEvents app={app} />}
       {confirmRemove && (
         <ConfirmDialog
           title={`Remove ${app.name}?`}

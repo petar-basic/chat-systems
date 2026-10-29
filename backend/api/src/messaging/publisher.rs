@@ -26,7 +26,12 @@ fn is_durable(event_type: &str) -> bool {
     // minutes later is worse than not replaying it.
     if matches!(
         event_type,
-        "huddle.member_joined" | "huddle.member_left" | "huddle.ring" | "channel.member_joined"
+        "huddle.member_joined"
+            | "huddle.member_left"
+            | "huddle.ring"
+            | "channel.member_joined"
+            | "channel.created"
+            | "channel.updated"
     ) {
         return true;
     }

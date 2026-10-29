@@ -12,6 +12,7 @@ use shared_common::errors::{is_unique_violation, AppError, AppResult};
 use super::models::{BotApp, BotAppWithToken, CreateBotAppRequest, UpdateBotAppRequest};
 use super::repo::{BotAppChanges, NewBotApp};
 use super::{generate_token, hash_token, Caller};
+use crate::app_events;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
 use crate::dto::{DataList, StatusResponse};
@@ -75,6 +76,7 @@ async fn create_bot_app(
 
     let token = generate_token();
     let token_hash = hash_token(&token);
+    let signing_secret = app_events::sender::seal_secret(&state, &app_events::generate_secret())?;
     let mut tx = state.pool.begin().await?;
     let app = state
         .bot_repo
@@ -88,6 +90,7 @@ async fn create_bot_app(
                 icon_url: req.icon_url.as_deref().filter(|u| !u.is_empty()),
                 scopes: &req.scopes,
                 token_hash: &token_hash,
+                signing_secret: &signing_secret,
             },
         )
         .await
@@ -143,7 +146,14 @@ async fn update_bot_app(
     Json(req): Json<UpdateBotAppRequest>,
 ) -> AppResult<Json<BotApp>> {
     req.validate()?;
-    find_app_as_admin(&state, app_id, auth.user_id).await?;
+    let current = find_app_as_admin(&state, app_id, auth.user_id).await?;
+
+    let request_url = req.request_url.as_deref().map(str::trim);
+    if let Some(url) = request_url.filter(|u| !u.is_empty()) {
+        if current.request_url.as_deref() != Some(url) {
+            app_events::sender::verify_request_url(&state, app_id, url).await?;
+        }
+    }
 
     let app = state
         .bot_repo
@@ -154,11 +164,17 @@ async fn update_bot_app(
                 description: req.description.as_deref().map(str::trim),
                 icon_url: req.icon_url.as_deref(),
                 scopes: req.scopes.as_deref(),
+                events: req.events.as_deref(),
+                request_url,
+                socket_mode: req.socket_mode,
             },
         )
         .await
         .map_err(name_taken)?
         .ok_or_else(|| AppError::NotFound("App not found".into()))?;
+    if !app.socket_mode {
+        state.bot_repo.close_sockets(app_id).await?;
+    }
 
     audit::record(
         &state,
@@ -166,7 +182,13 @@ async fn update_bot_app(
             .workspace(app.workspace_id)
             .resource(app.id)
             .ip(&ip)
-            .details(serde_json::json!({ "name": app.name, "scopes": app.scopes })),
+            .details(serde_json::json!({
+                "name": app.name,
+                "scopes": app.scopes,
+                "events": app.events,
+                "request_url": app.request_url,
+                "socket_mode": app.socket_mode,
+            })),
     )
     .await;
 

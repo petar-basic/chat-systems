@@ -2347,3 +2347,44 @@ remembering to. Writes already had per-user budgets, which for a bot user are pe
 reads by a bot get a budget of their own. An app's slash commands and webhooks carry its id
 and go with it. Removing an app suspends the bot user rather than deleting it, so what it
 posted keeps its author.
+
+### [CS-104] Events for apps, over HTTP or a socket ✅ shipped
+A bot from CS-103 could act but not listen: the only thing that called out was an outgoing
+webhook, bound to channels by an admin, carrying new messages only and retrying without saying
+so. A bot that answers a mention, watches reactions or welcomes people had nothing to
+subscribe to, and an app behind a firewall could not be reached at all.
+
+The events come from the workspace streams, read by a consumer group of their own in the
+worker, so nothing in the request path changes. Two events had never been in the streams:
+`channel.created` was not published, and `channel.updated` (which carries archiving) went only
+to pub/sub. Both are now durable; the gateway already handled one and ignores the other.
+Whether an app hears an event is decided when the stream entry is read, against the app's
+subscription, its scopes and its bot's membership of the channel at that moment, which is what
+makes *an app never hears about a channel it is not in* true without a second check later.
+`channel_created` is the exception, for public channels only, because no app could ever be in
+a channel that did not exist.
+
+Postgres is the queue, not Redis. Each event becomes an `app_deliveries` row with an id derived
+from the stream event and the event type, unique per app, so a stream redelivery after a worker
+dies queues nothing twice, and the stream entry is acked only once the rows are written. Both
+transports read the same table, which is what makes a restart of either lose nothing: an
+unacknowledged row is leased, and a lease runs out. Order per channel comes from claiming only
+the oldest undelivered row per app and channel. That puts a failing event in front of the rest
+of its channel for up to an hour, which is the price of the ordering the ticket asked for; the
+rows behind it expire with it, and the app is shown failing with the last error until something
+gets through.
+
+Over HTTP the request is signed like an outgoing webhook, with a signing secret sealed under
+`SECRETS_KEYS` rather than kept in plain JSON as the hooks' are, and a URL is saved only after
+it echoes a signed challenge, so a typo fails at the form rather than for an hour. Socket mode
+is in the gateway, which already holds sockets and talks to Postgres. `connections.open` hands
+out a one-use ticket good for 30 seconds, so the long-lived `capp-` token never travels in a
+URL. Each gateway node claims rows only for the apps with a socket on it, with a three-second
+lease that doubles as the ack window, and shares them out between the app's sockets; a node
+that dies takes no events with it, because its leases run out and another node claims the
+rows. Revocation is a row going away: replacing or revoking the token, turning socket mode off
+and removing the app all delete the app's `app_sockets` rows, and the node that holds the
+socket notices within two seconds, says why and closes it. A slash command owned by an app in
+socket mode is queued on the same table instead of being called, which is how an app with no
+public URL has commands; it is refused straight away when the app has no live socket rather
+than leaving the person waiting.

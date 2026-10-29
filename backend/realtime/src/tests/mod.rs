@@ -1,5 +1,6 @@
 mod common;
 
+mod app_sockets;
 mod client_messages;
 mod connection_manager;
 mod events;

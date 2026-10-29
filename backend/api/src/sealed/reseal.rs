@@ -3,7 +3,10 @@ use sqlx::PgPool;
 use shared_common::errors::{AppError, AppResult};
 
 use super::repo::{self, Stored};
-use super::{open, open_with_jwt_secret, seal, Keyring, Sealed, APP_SECRETS, TOTP_SECRETS};
+use super::{
+    open, open_with_jwt_secret, seal, Keyring, Sealed, APP_SECRETS, BOT_SIGNING_SECRETS,
+    TOTP_SECRETS,
+};
 
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct Report {
@@ -92,6 +95,16 @@ pub async fn run(pool: &PgPool, keyring: &Keyring, jwt_secret: Option<&str>) -> 
             Err(e) => Err(e),
         };
         report.record(&totp.stored, outcome);
+    }
+
+    for secret in repo::bot_signing_secrets_off(pool, current).await? {
+        let outcome = match reseal(keyring, jwt_secret, BOT_SIGNING_SECRETS, &secret.stored) {
+            Ok(sealed) => repo::reseal_bot_signing_secret(pool, &secret, &sealed)
+                .await
+                .map_err(Into::into),
+            Err(e) => Err(e),
+        };
+        report.record(&secret.stored, outcome);
     }
 
     if report.unreadable.is_empty() {

@@ -1092,9 +1092,13 @@ writes one is [bot-api.md](./bot-api.md).
 | POST | `/workspaces/:ws_id/bot-apps` | `{ name, description?, icon_url?, scopes }` | `BotApp & { token }` — admin; 409 for a name the workspace already has |
 | GET | `/bot-apps/me` | bot token | `BotApp` — the app the token belongs to |
 | GET | `/bot-apps/:app_id` | — | `BotApp` — any member of its workspace |
-| PATCH | `/bot-apps/:app_id` | `{ name?, description?, icon_url?, scopes? }` | `BotApp` — admin; the bot user's name and photo follow |
+| PATCH | `/bot-apps/:app_id` | `{ name?, description?, icon_url?, scopes?, events?, request_url?, socket_mode? }` | `BotApp` — admin; the bot user's name and photo follow; a new `request_url` must answer the challenge first, `""` clears it |
 | POST | `/bot-apps/:app_id/rotate` | — | `BotApp & { token }` — admin; the old token stops at once |
 | DELETE | `/bot-apps/:app_id` | — | `{ status: "deleted" }` — admin |
+| GET | `/bot-apps/:app_id/signing-secret` | — | `{ app_id, signing_secret }` — admin |
+| POST | `/bot-apps/:app_id/app-token` | — | `{ app_id, app_token }` — admin; replaces the last one and closes its sockets |
+| DELETE | `/bot-apps/:app_id/app-token` | — | `{ status: "revoked" }` — admin |
+| POST | `/apps/connections.open` | `capp-` app-level token | `{ url }` — a `ws(s)://…/ws/apps?ticket=` good once, for 30 seconds; 403 while socket mode is off |
 
 Creating an app inserts a `users` row with `is_bot = true`, an address under `bots.invalid`,
 no password and status `active`, makes it a `member` of the workspace, and stores the app in
@@ -1121,6 +1125,37 @@ one exception: with `chat:write.public` a bot posts in a public channel it has n
 with the method and route template for every successful write a bot token makes. Writes count
 against the person budgets keyed by the bot user; reads by a bot token add a `bot-read` budget
 of 300 a minute.
+
+**Events** (`app_events`). `BotApp` carries `events`, `request_url`, `socket_mode`,
+`has_app_token`, `connected_sockets` and `failing_since`/`last_failure`. The signing secret is
+made with the app and sealed under `bot-app-signing-secrets` (the start-up re-seal covers it).
+The worker's `app_event_consumer` reads the workspace streams in its own group, turns
+`message.created`, `reaction.added/removed`, `channel.member_joined`, `channel.created` and
+`channel.updated` (archived) into envelopes, and for each app subscribed to the event, holding
+its scope and a member of its channel (`channel_created`: any public channel), inserts an
+`app_deliveries` row. The row's `event_id` is derived from the stream event and the event type,
+and `(app_id, event_id)` is unique, so a stream redelivery queues nothing twice. The consumer
+acks the stream entry only after every row is written.
+
+`app_deliveries` is the queue for both transports and outlives a restart of either. Only the
+oldest undelivered row per app and channel may be claimed, which is what keeps a channel in
+order; a claim sets a lease and counts the attempt. The worker's `app_event_sender` claims rows
+of HTTP apps (lease 30 s), posts them signed with `X-ChatSystems-Signature` and, from the
+second attempt, `X-Chat-Retry-Num`, and on anything but a 2xx sets `next_attempt_at` by the
+5 s / 30 s / 2 m / 5 m / 10 m / 15 m ladder. Every 10 seconds it marks rows past `expires_at`
+(an hour for events, a minute for commands) failed, sets the app's `failing_since` and
+`last_failure`, and purges settled rows after a day; a delivery clears the failing state.
+
+Socket mode lives in `chat-realtime` (`app_socket.rs`). `connections.open` stores the SHA-256 of
+a ticket in `app_sockets`; `GET /ws/apps?ticket=` consumes it (30 seconds, once, socket mode on,
+an app-level token present) and marks the row connected. Each gateway node claims the head rows
+of the apps with a socket on it (lease 3 s, the ack window) every 250 ms or as soon as an ack
+arrives, sends each to one of the app's sockets in turn, and settles a row on
+`{ "envelope_id" }`. Every 2 seconds it bumps `seen_at` on its sockets' rows; a row that is
+gone (the token was replaced or revoked, socket mode was turned off, the app was removed: the
+API deletes the rows or the cascade does) gets a `disconnect` frame and close code 4003. A
+command owned by a socket-mode app is queued as a `slash_command` row instead of being called,
+and refused at once when the app has no live socket (`seen_at` within 30 seconds).
 
 ### sidebar
 

@@ -62,6 +62,46 @@ impl Scope {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum AppEvent {
+    Message,
+    AppMention,
+    ReactionAdded,
+    ReactionRemoved,
+    MemberJoinedChannel,
+    ChannelCreated,
+    ChannelArchived,
+}
+
+impl AppEvent {
+    pub const ALL: [AppEvent; 7] = [
+        AppEvent::Message,
+        AppEvent::AppMention,
+        AppEvent::ReactionAdded,
+        AppEvent::ReactionRemoved,
+        AppEvent::MemberJoinedChannel,
+        AppEvent::ChannelCreated,
+        AppEvent::ChannelArchived,
+    ];
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            AppEvent::Message => "message",
+            AppEvent::AppMention => "app_mention",
+            AppEvent::ReactionAdded => "reaction_added",
+            AppEvent::ReactionRemoved => "reaction_removed",
+            AppEvent::MemberJoinedChannel => "member_joined_channel",
+            AppEvent::ChannelCreated => "channel_created",
+            AppEvent::ChannelArchived => "channel_archived",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<AppEvent> {
+        AppEvent::ALL.into_iter().find(|e| e.as_str() == value)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct BotToken {
     pub app_id: Uuid,
@@ -84,9 +124,33 @@ pub struct BotApp {
     pub description: Option<String>,
     pub icon_url: Option<String>,
     pub scopes: Vec<Scope>,
+    pub events: Vec<AppEvent>,
+    pub request_url: Option<String>,
+    pub socket_mode: bool,
+    pub has_app_token: bool,
+    pub connected_sockets: i64,
+    pub failing_since: Option<DateTime<Utc>>,
+    pub last_failure: Option<String>,
     pub created_by: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct AppToken {
+    pub app_id: Uuid,
+    pub app_token: String,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct SigningSecret {
+    pub app_id: Uuid,
+    pub signing_secret: String,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct SocketUrl {
+    pub url: String,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -118,4 +182,10 @@ pub struct UpdateBotAppRequest {
     pub icon_url: Option<String>,
     #[garde(skip)]
     pub scopes: Option<Vec<Scope>>,
+    #[garde(skip)]
+    pub events: Option<Vec<AppEvent>>,
+    #[garde(inner(length(max = 2048)))]
+    pub request_url: Option<String>,
+    #[garde(skip)]
+    pub socket_mode: Option<bool>,
 }

@@ -15,6 +15,7 @@ mod totp;
 mod validation;
 
 mod admin;
+mod app_events;
 mod apps;
 mod audit;
 mod auth;

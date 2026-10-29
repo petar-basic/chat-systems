@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH done AS (\n                 UPDATE app_deliveries SET delivered_at = NOW(), leased_until = NULL\n                  WHERE id = $1 AND delivered_at IS NULL\n                 RETURNING app_id\n             )\n             UPDATE bot_apps SET failing_since = NULL, last_failure = NULL\n              WHERE id IN (SELECT app_id FROM done) AND failing_since IS NOT NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "136ba05079bf8a2fd30f833238fd06e0998052d566fc7a635f57b5e3ea44752c"
+}

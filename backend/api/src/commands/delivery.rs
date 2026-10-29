@@ -90,7 +90,7 @@ pub async fn call(
         .config
         .get("url")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| AppError::Internal("command hook is missing a url".into()))?;
+        .ok_or_else(|| AppError::BadRequest(format!("/{} has no URL to call", hook.name)))?;
 
     let url = ssrf::validate_outbound_url_with(url_str, allow_private)
         .await

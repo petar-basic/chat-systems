@@ -249,6 +249,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/apps/connections.open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["open_connection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/complete-registration": {
         parameters: {
             query?: never;
@@ -483,6 +499,22 @@ export interface paths {
         patch: operations["update_bot_app"];
         trace?: never;
     };
+    "/bot-apps/{app_id}/app-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["make_app_token"];
+        delete: operations["revoke_app_token"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/bot-apps/{app_id}/rotate": {
         parameters: {
             query?: never;
@@ -493,6 +525,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["rotate_bot_token"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bot-apps/{app_id}/signing-secret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["reveal_signing_secret"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3026,6 +3074,8 @@ export interface components {
             owner_id: string;
             slug: string;
         };
+        /** @enum {string} */
+        AppEvent: "message" | "app_mention" | "reaction_added" | "reaction_removed" | "member_joined_channel" | "channel_created" | "channel_archived";
         AppList: {
             data: components["schemas"]["AppStatus"][];
         };
@@ -3042,6 +3092,11 @@ export interface components {
             scopes: string[];
             setup_steps: string[];
             summary: string;
+        };
+        AppToken: {
+            /** Format: uuid */
+            app_id: string;
+            app_token: string;
         };
         Attachment: {
             filename: string;
@@ -3085,16 +3140,25 @@ export interface components {
         BotApp: {
             /** Format: uuid */
             bot_user_id: string;
+            /** Format: int64 */
+            connected_sockets: number;
             /** Format: date-time */
             created_at: string;
             /** Format: uuid */
             created_by?: string | null;
             description?: string | null;
+            events: components["schemas"]["AppEvent"][];
+            /** Format: date-time */
+            failing_since?: string | null;
+            has_app_token: boolean;
             icon_url?: string | null;
             /** Format: uuid */
             id: string;
+            last_failure?: string | null;
             name: string;
+            request_url?: string | null;
             scopes: components["schemas"]["Scope"][];
+            socket_mode: boolean;
             /** Format: date-time */
             updated_at: string;
             /** Format: uuid */
@@ -3595,16 +3659,25 @@ export interface components {
             data: {
                 /** Format: uuid */
                 bot_user_id: string;
+                /** Format: int64 */
+                connected_sockets: number;
                 /** Format: date-time */
                 created_at: string;
                 /** Format: uuid */
                 created_by?: string | null;
                 description?: string | null;
+                events: components["schemas"]["AppEvent"][];
+                /** Format: date-time */
+                failing_since?: string | null;
+                has_app_token: boolean;
                 icon_url?: string | null;
                 /** Format: uuid */
                 id: string;
+                last_failure?: string | null;
                 name: string;
+                request_url?: string | null;
                 scopes: components["schemas"]["Scope"][];
+                socket_mode: boolean;
                 /** Format: date-time */
                 updated_at: string;
                 /** Format: uuid */
@@ -5103,9 +5176,17 @@ export interface components {
             /** Format: int32 */
             position: number;
         };
+        SigningSecret: {
+            /** Format: uuid */
+            app_id: string;
+            signing_secret: string;
+        };
         SnippetPart: {
             hit: boolean;
             text: string;
+        };
+        SocketUrl: {
+            url: string;
         };
         /** @enum {string} */
         SortDirection: "asc" | "desc";
@@ -5303,9 +5384,12 @@ export interface components {
         };
         UpdateBotAppRequest: {
             description?: string | null;
+            events?: components["schemas"]["AppEvent"][] | null;
             icon_url?: string | null;
             name?: string | null;
+            request_url?: string | null;
             scopes?: components["schemas"]["Scope"][] | null;
+            socket_mode?: boolean | null;
         };
         UpdateChannelMemberRoleRequest: {
             role: components["schemas"]["ChannelRole"];
@@ -5931,6 +6015,25 @@ export interface operations {
             };
         };
     };
+    open_connection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SocketUrl"];
+                };
+            };
+        };
+    };
     complete_registration: {
         parameters: {
             query?: never;
@@ -6273,6 +6376,48 @@ export interface operations {
             };
         };
     };
+    make_app_token: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                app_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppToken"];
+                };
+            };
+        };
+    };
+    revoke_app_token: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                app_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
     rotate_bot_token: {
         parameters: {
             query?: never;
@@ -6290,6 +6435,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BotAppWithToken"];
+                };
+            };
+        };
+    };
+    reveal_signing_secret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                app_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SigningSecret"];
                 };
             };
         };
