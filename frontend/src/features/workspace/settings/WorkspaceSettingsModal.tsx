@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Channel, Workspace, WorkspaceMember } from '@/stores/workspace';
+import type { AppRef } from '@/features/workspace/hooks/useAppDirectory';
 import { SectionedModal } from '@/shared/components/Modal/SectionedModal';
 import { isWorkspaceAdmin, sectionsFor, type SettingsSection, type Viewer } from './sections';
 import { GeneralSection } from './GeneralSection';
@@ -19,6 +20,7 @@ interface Props {
   viewer: Viewer;
   initial: SettingsSection;
   inviting?: boolean;
+  app?: AppRef | null;
   members: WorkspaceMember[];
   channels: Channel[];
   onClose: () => void;
@@ -29,6 +31,7 @@ export function WorkspaceSettingsModal({
   viewer,
   initial,
   inviting = false,
+  app = null,
   members,
   channels,
   onClose,
@@ -57,7 +60,7 @@ export function WorkspaceSettingsModal({
         <UserGroupsSection workspaceId={id} instanceUrl={instanceUrl} members={members} isAdmin={isAdmin} />
       )}
       {active === 'custom-emoji' && <CustomEmojiSection workspaceId={id} instanceUrl={instanceUrl} />}
-      {active === 'apps' && <AppsSection workspaceId={id} isAdmin={isAdmin} />}
+      {active === 'apps' && <AppsSection workspaceId={id} initialApp={app} />}
       {active === 'integrations' && (
         <IntegrationsSection workspaceId={id} instanceUrl={instanceUrl} channels={channels} />
       )}

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Info, Plug, SlidersHorizontal } from 'lucide-react';
 import { SectionedModal, type ModalSection } from '@/shared/components/Modal/SectionedModal';
 import type { Channel } from '@/stores/workspace';
+import type { AppRef } from '@/features/workspace';
 import { AboutSection } from './AboutSection';
 import { SettingsSection } from './SettingsSection';
 import { IntegrationsSection } from './IntegrationsSection';
@@ -25,6 +26,7 @@ interface Props {
   canModerate: boolean;
   initialTab?: ChannelDetailsTab;
   onOpenWorkflow?: (workflowId: string) => void;
+  onOpenApp?: (app: AppRef) => void;
   onClose: () => void;
 }
 
@@ -33,6 +35,7 @@ export function ChannelDetailsModal({
   canModerate,
   initialTab = 'about',
   onOpenWorkflow,
+  onOpenApp,
   onClose,
 }: Props) {
   const sections = canModerate ? [ABOUT, SETTINGS, INTEGRATIONS] : [ABOUT, INTEGRATIONS];
@@ -58,6 +61,13 @@ export function ChannelDetailsModal({
             ((workflowId) => {
               onClose();
               onOpenWorkflow(workflowId);
+            })
+          }
+          onOpenApp={
+            onOpenApp &&
+            ((app) => {
+              onClose();
+              onOpenApp(app);
             })
           }
         />

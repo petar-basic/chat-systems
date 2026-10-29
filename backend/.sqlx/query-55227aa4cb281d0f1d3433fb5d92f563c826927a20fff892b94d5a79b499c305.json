@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT wm.user_id\n                 FROM workspace_members wm\n                 JOIN users u ON u.id = wm.user_id\n                WHERE wm.workspace_id = $1\n                  AND wm.role IN ('admin', 'owner')\n                  AND u.status = 'active'\n                  AND NOT u.is_bot",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "workspace_members",
+            "name": "user_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "55227aa4cb281d0f1d3433fb5d92f563c826927a20fff892b94d5a79b499c305"
+}

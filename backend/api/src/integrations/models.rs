@@ -66,6 +66,33 @@ impl Provider {
         }
     }
 
+    pub fn permissions(self) -> &'static [&'static str] {
+        match self {
+            Provider::Jira => &[
+                "See the issues and projects each person who connects can see",
+                "See the name of the account that connected",
+                "Stay connected until that person disconnects",
+            ],
+            Provider::Github => &[
+                "See the pull requests, issues, commits and repositories each person who connects can see",
+                "See the name of the account that connected",
+            ],
+            Provider::GoogleDrive => &[
+                "See the names, owners and thumbnails of the files each person who connects can open, never what is in them",
+            ],
+            Provider::Figma => &[
+                "See the names and thumbnails of the files each person who connects can open",
+                "See the name of the account that connected",
+            ],
+            Provider::Confluence => &[
+                "See the pages, blog posts and spaces each person who connects can see",
+                "See who wrote and last edited them",
+                "See the name of the account that connected",
+                "Stay connected until that person disconnects",
+            ],
+        }
+    }
+
     pub fn console_url(self) -> &'static str {
         match self {
             Provider::Jira => "https://developer.atlassian.com/console/myapps/",

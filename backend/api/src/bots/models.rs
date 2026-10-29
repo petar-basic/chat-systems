@@ -60,6 +60,21 @@ impl Scope {
     pub fn parse(value: &str) -> Option<Scope> {
         Scope::ALL.into_iter().find(|s| s.as_str() == value)
     }
+
+    pub fn text(self) -> &'static str {
+        match self {
+            Scope::ChatWrite => "Post, edit and delete its own messages where it is a member",
+            Scope::ChatWritePublic => "Post in public channels it has not been added to",
+            Scope::ChannelsRead => "List the channels it is in",
+            Scope::ChannelsHistory => "Read the public channels it is in",
+            Scope::GroupsHistory => "Read the private channels and DMs it is in",
+            Scope::ImWrite => "Start direct messages",
+            Scope::ReactionsWrite => "Add and remove reactions",
+            Scope::FilesWrite => "Upload files",
+            Scope::UsersRead => "Look people up in the workspace",
+            Scope::Commands => "Own slash commands",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]

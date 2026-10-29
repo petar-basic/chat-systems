@@ -17,6 +17,7 @@ import {
   useRevealHook,
   useRotateHook,
   useWorkspaceMembers,
+  type AppRef,
 } from '@/features/workspace';
 import { useChannelIntegrations, type ChannelIntegrations } from '../hooks/useChannelIntegrations';
 
@@ -25,9 +26,10 @@ type IncomingWebhook = ChannelIntegrations['incoming_webhooks'][number];
 interface Props {
   channel: Channel;
   onOpenWorkflow?: (workflowId: string) => void;
+  onOpenApp?: (app: AppRef) => void;
 }
 
-export function IntegrationsSection({ channel, onOpenWorkflow }: Props) {
+export function IntegrationsSection({ channel, onOpenWorkflow, onOpenApp }: Props) {
   const instanceUrl = useWorkspaceStore((s) => s.currentWorkspace?.instanceUrl);
   const integrations = useChannelIntegrations(channel.id);
   const { data: members = [] } = useWorkspaceMembers(channel.workspace_id, instanceUrl);
@@ -49,6 +51,19 @@ export function IntegrationsSection({ channel, onOpenWorkflow }: Props) {
     setError((err as { message?: string })?.message || fallback);
 
   const show = (hookId: string, url: string | null | undefined) => setShown(url ? { hookId, url } : null);
+
+  const details = (app: AppRef, name: string) =>
+    onOpenApp && (
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => onOpenApp(app)}
+        aria-label={`Details of ${name}`}
+        data-qa="channel-integration-details"
+      >
+        Details
+      </Button>
+    );
 
   const handleAdd = async (e: FormEvent) => {
     e.preventDefault();
@@ -124,6 +139,7 @@ export function IntegrationsSection({ channel, onOpenWorkflow }: Props) {
             url={shown?.hookId === hook.id ? shown.url : null}
             canManage={canManage}
             busy={busy}
+            details={details({ kind: 'incoming_webhook', id: hook.id }, hook.name)}
             onRotate={() => void handleRotate(hook.id)}
             onRemove={() => handleRemove(hook.id)}
           />
@@ -161,7 +177,13 @@ export function IntegrationsSection({ channel, onOpenWorkflow }: Props) {
         qa="channel-integrations-outgoing"
       >
         {outgoing.map((hook) => (
-          <Row key={hook.id} title={hook.name} detail={hook.description} qa="channel-integration-outgoing" />
+          <Row
+            key={hook.id}
+            title={hook.name}
+            detail={hook.description}
+            qa="channel-integration-outgoing"
+            action={details({ kind: 'outgoing_webhook', id: hook.id }, hook.name)}
+          />
         ))}
       </Group>
 
@@ -179,6 +201,7 @@ export function IntegrationsSection({ channel, onOpenWorkflow }: Props) {
             title={`/${command.command}`}
             detail={command.name}
             qa="channel-integration-command"
+            action={details({ kind: 'slash_command', id: command.id }, `/${command.command}`)}
           />
         ))}
       </Group>
@@ -198,16 +221,19 @@ export function IntegrationsSection({ channel, onOpenWorkflow }: Props) {
             detail={`${workflow.enabled ? 'On' : 'Off'} · built by ${nameOf(workflow.created_by)}`}
             qa="channel-integration-workflow"
             action={
-              onOpenWorkflow && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onOpenWorkflow(workflow.id)}
-                  data-qa="channel-integration-workflow-open"
-                >
-                  Open
-                </Button>
-              )
+              <>
+                {details({ kind: 'workflow', id: workflow.id }, workflow.name)}
+                {onOpenWorkflow && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onOpenWorkflow(workflow.id)}
+                    data-qa="channel-integration-workflow-open"
+                  >
+                    Open
+                  </Button>
+                )}
+              </>
             }
           />
         ))}
@@ -276,6 +302,7 @@ function IncomingRow({
   url,
   canManage,
   busy,
+  details,
   onRotate,
   onRemove,
 }: {
@@ -284,6 +311,7 @@ function IncomingRow({
   url: string | null;
   canManage: boolean;
   busy: boolean;
+  details: ReactNode;
   onRotate: () => void;
   onRemove: () => Promise<void>;
 }) {
@@ -298,6 +326,7 @@ function IncomingRow({
           </div>
           {hook.description && <div className="text-xs text-fg-dim">{hook.description}</div>}
         </div>
+        {details}
         {canManage && (
           <>
             <IconButton

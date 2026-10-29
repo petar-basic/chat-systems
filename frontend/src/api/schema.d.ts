@@ -2014,6 +2014,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{ws_id}/app-directory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["app_directory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/app-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["request_app"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{ws_id}/apps": {
         parameters: {
             query?: never;
@@ -3074,10 +3106,20 @@ export interface components {
             owner_id: string;
             slug: string;
         };
+        AppDirectory: {
+            available: components["schemas"]["AvailableApp"][];
+            bot_scopes: components["schemas"]["Permission"][];
+            can_manage: boolean;
+            installed: components["schemas"]["InstalledApp"][];
+        };
         /** @enum {string} */
         AppEvent: "message" | "app_mention" | "reaction_added" | "reaction_removed" | "member_joined_channel" | "channel_created" | "channel_archived";
         AppList: {
             data: components["schemas"]["AppStatus"][];
+        };
+        AppRequest: {
+            name: string;
+            reason?: string | null;
         };
         AppStatus: {
             client_id?: string | null;
@@ -3136,6 +3178,13 @@ export interface components {
             expires_in: number;
             refresh_token: string;
             user: components["schemas"]["UserPublic"];
+        };
+        AvailableApp: {
+            installed: boolean;
+            name: string;
+            permissions: components["schemas"]["Permission"][];
+            provider: string;
+            summary: string;
         };
         BotApp: {
             /** Format: uuid */
@@ -4251,6 +4300,11 @@ export interface components {
             steps: components["schemas"]["Step"][];
             trigger: components["schemas"]["Trigger"];
         };
+        DirectoryChannel: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
         DndStatus: {
             /** Format: date-time */
             dnd_until?: string | null;
@@ -4447,6 +4501,14 @@ export interface components {
         GroupMembers: {
             data: string[];
         };
+        Health: {
+            reason?: string | null;
+            /** Format: date-time */
+            since?: string | null;
+            state: components["schemas"]["HealthState"];
+        };
+        /** @enum {string} */
+        HealthState: "ok" | "off" | "disabled" | "failing";
         Hook: {
             /** Format: uuid */
             app_id?: string | null;
@@ -4528,6 +4590,27 @@ export interface components {
              */
             username?: string | null;
         };
+        InstalledApp: {
+            /** Format: date-time */
+            added_at: string;
+            /** Format: uuid */
+            added_by?: string | null;
+            added_by_name?: string | null;
+            /** Format: uuid */
+            app_id?: string | null;
+            channels: components["schemas"]["DirectoryChannel"][];
+            description?: string | null;
+            every_channel: boolean;
+            health: components["schemas"]["Health"];
+            /** Format: int64 */
+            hidden_channels: number;
+            id: string;
+            kind: components["schemas"]["InstalledKind"];
+            name: string;
+            permissions: components["schemas"]["Permission"][];
+        };
+        /** @enum {string} */
+        InstalledKind: "connected_app" | "bot_app" | "incoming_webhook" | "outgoing_webhook" | "slash_command" | "workflow";
         InstanceInfo: {
             icon_url?: string | null;
             /** Format: int64 */
@@ -4894,6 +4977,10 @@ export interface components {
             /** Format: uuid */
             option_id: string;
             user_ids: string[];
+        };
+        Permission: {
+            key: string;
+            text: string;
         };
         PlaceChannelRequest: {
             /** Format: uuid */
@@ -9229,6 +9316,52 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DataList_ActiveHuddle"];
+                };
+            };
+        };
+    };
+    app_directory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppDirectory"];
+                };
+            };
+        };
+    };
+    request_app: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
                 };
             };
         };

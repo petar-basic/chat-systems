@@ -3,8 +3,8 @@
 A bot that answers `echo <text>` in a thread with `<text>`. It is one file, runs on Node 22
 with no dependencies, and uses only the [bot API](../../docs/bot-api.md).
 
-1. In *Workspace settings → Apps*, create an app with the scopes `chat:write`,
-   `channels:read` and `channels:history`, and copy its token.
+1. In *Workspace settings → Apps → Build an app*, create an app with the scopes `chat:write`,
+   `channels:read` and `channels:history`, agree to them, and copy its token.
 2. Add the bot to a channel: `/invite @Echo` there, or *Channel details → Members*.
 3. Run it:
 
@@ -21,7 +21,7 @@ against a seeded instance.
 `echo-bot-socket.mjs` answers a mention instead, and needs no public URL: it opens a socket to
 the instance and takes the app's events there.
 
-1. Create an app with `chat:write` and `channels:history`. Open its events (the radio icon),
+1. Create an app with `chat:write` and `channels:history`. Open its page in the directory,
    tick `app_mention` and *Socket mode*, *Save events*, then *Make an app-level token* and
    copy it.
 2. Add the bot to a channel, then run:

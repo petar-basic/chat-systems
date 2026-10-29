@@ -1,267 +1,171 @@
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
+import { ChevronRight, Hammer } from 'lucide-react';
 import { Button } from '@/shared/components/Button/Button';
-import { ExternalLink } from 'lucide-react';
-import { CopyField } from '@/shared/components/CopyField/CopyField';
-import { AppIcon } from '@/shared/components/AppIcon/AppIcon';
-import { useApps, useAppActions, type AppStatus } from '@/features/workspace/hooks/useApps';
-import { TextInput } from '@/shared/components/Form/TextInput';
-import { Checkbox } from '@/shared/components/Form/Checkbox';
-import { BotAppsSection } from './BotAppsSection';
+import { QueryState } from '@/shared/components/QueryState/QueryState';
+import { displayNameOf } from '@/lib/userHelpers';
+import { useApps } from '@/features/workspace/hooks/useApps';
+import {
+  sameApp,
+  useAppDirectory,
+  type AppDirectory,
+  type AppRef,
+  type InstalledApp,
+} from '@/features/workspace/hooks/useAppDirectory';
+import { AppPage } from './apps/AppPage';
+import { channelText } from './apps/channelText';
+import { BuildAnApp } from './apps/BuildAnApp';
+import { ConnectedAppCard } from './apps/ConnectedAppCard';
+import { HealthBadge } from './apps/HealthBadge';
+import { RequestApp } from './apps/RequestApp';
+import { KINDS } from './apps/kinds';
 
 interface Props {
   workspaceId: string;
-  isAdmin: boolean;
+  initialApp?: AppRef | null;
 }
 
-export function AppsSection({ workspaceId, isAdmin }: Props) {
-  const { data, isLoading, isError } = useApps(workspaceId);
-  const apps = data?.data ?? [];
+export function AppsSection({ workspaceId, initialApp = null }: Props) {
+  const directory = useAppDirectory(workspaceId);
+  const [open, setOpen] = useState<AppRef | null>(initialApp);
+  const data = directory.data;
+  const selected = open && data?.installed.find((app) => sameApp(app, open));
 
   return (
     <div className="-mx-4 flex flex-col" data-qa="apps-panel">
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        <BotAppsSection workspaceId={workspaceId} isAdmin={isAdmin} />
-        <h3 className="text-sm font-semibold text-fg-soft">Connected apps</h3>
-        <p className="text-xs text-muted">
-          Connected apps turn links into cards with live details. Each person connects their own account, so a
-          card only ever shows what the person who posted the link can see.
-        </p>
-        {isLoading && <p className="text-sm text-muted">Loading…</p>}
-        {isError && <p className="text-sm text-danger">Couldn't load the apps.</p>}
-        {apps.map((app) => (
-          <AppCardSection
-            key={app.provider}
-            workspaceId={workspaceId}
-            app={app}
-            isAdmin={isAdmin}
-            reusable={
-              app.provider === 'confluence'
-                ? apps.find((other) => other.provider === 'jira' && other.configured)
-                : undefined
-            }
-          />
-        ))}
+      <div className="flex-1 overflow-y-auto p-4 space-y-6">
+        <QueryState
+          isLoading={directory.isLoading}
+          isError={directory.isError}
+          onRetry={() => void directory.refetch()}
+          errorMessage="Couldn't load the apps."
+        >
+          {data &&
+            (selected ? (
+              <AppPage
+                workspaceId={workspaceId}
+                app={selected}
+                directory={data}
+                onOpen={setOpen}
+                onBack={() => setOpen(null)}
+              />
+            ) : (
+              <Directory workspaceId={workspaceId} directory={data} missing={!!open} onOpen={setOpen} />
+            ))}
+        </QueryState>
       </div>
     </div>
   );
 }
 
-function AppCardSection({
+function Directory({
   workspaceId,
-  app,
-  isAdmin,
-  reusable,
+  directory,
+  missing,
+  onOpen,
 }: {
   workspaceId: string;
-  app: AppStatus;
-  isAdmin: boolean;
-  reusable?: AppStatus;
+  directory: AppDirectory;
+  missing: boolean;
+  onOpen: (ref: AppRef) => void;
 }) {
-  const actions = useAppActions(workspaceId);
-  const [setupOpen, setSetupOpen] = useState(!app.configured && isAdmin);
-  const usable = app.configured && app.enabled;
-  const badge = app.connected_account
-    ? 'Connected'
-    : !app.configured
-      ? 'Not set up'
-      : app.enabled
-        ? null
-        : 'Off';
+  const isAdmin = directory.can_manage;
+  const { data } = useApps(workspaceId);
+  const statuses = data?.data ?? [];
+  const [building, setBuilding] = useState(false);
 
   return (
-    <section className="rounded-lg border border-line/60 p-3" data-qa={`app-${app.provider}`}>
-      <div className="flex items-start gap-3">
-        <AppIcon provider={app.provider} size="md" />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="font-semibold text-sm text-fg">{app.name}</h3>
-            {badge && (
-              <span
-                className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium ${
-                  app.connected_account ? 'bg-green-500/15 text-success' : 'bg-raised text-muted'
-                }`}
-              >
-                {badge}
-              </span>
+    <>
+      {missing && (
+        <p className="text-sm text-muted" data-qa="app-directory-missing">
+          That app is no longer installed.
+        </p>
+      )}
+      <section className="space-y-2" data-qa="app-directory-installed">
+        <div>
+          <h3 className="text-sm font-semibold text-fg-soft">Installed</h3>
+          <p className="text-xs text-muted">
+            Everything connected to this workspace: who added it, what it can do and whether it is working.
+          </p>
+        </div>
+        {directory.installed.length === 0 ? (
+          <p className="text-sm text-muted">Nothing is connected yet.</p>
+        ) : (
+          directory.installed.map((app) => (
+            <InstalledRow key={`${app.kind}:${app.id}`} app={app} onOpen={() => onOpen(app)} />
+          ))
+        )}
+      </section>
+
+      <section className="space-y-3" data-qa="app-directory-available">
+        <div>
+          <h3 className="text-sm font-semibold text-fg-soft">Available</h3>
+          <p className="text-xs text-muted">
+            Connected apps turn links into cards with live details. Each person connects their own account, so
+            a card only ever shows what the person who posted the link can see.
+          </p>
+        </div>
+        {statuses.map((status) => (
+          <ConnectedAppCard
+            key={status.provider}
+            workspaceId={workspaceId}
+            app={status}
+            isAdmin={isAdmin}
+            permissions={directory.available.find((a) => a.provider === status.provider)?.permissions ?? []}
+            reusable={
+              status.provider === 'confluence'
+                ? statuses.find((other) => other.provider === 'jira' && other.configured)
+                : undefined
+            }
+          />
+        ))}
+        <section className="rounded-lg border border-line/60 p-3" data-qa="app-directory-build">
+          <div className="flex items-start gap-3">
+            <Hammer className="mt-0.5 h-5 w-5 shrink-0 text-accent-soft" />
+            <div className="min-w-0 flex-1">
+              <h3 className="text-sm font-semibold text-fg">Build an app</h3>
+              <p className="text-xs text-muted">
+                A bot user and a token for something your team writes itself.
+              </p>
+            </div>
+            {isAdmin && !building && (
+              <Button size="sm" onClick={() => setBuilding(true)} data-qa="app-directory-build-open">
+                Build
+              </Button>
             )}
           </div>
-          <p className="text-xs text-muted">{app.summary}</p>
-        </div>
-      </div>
-
-      {usable && (
-        <div className="mt-3 space-y-2 text-sm">
-          {app.connected_account ? (
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-fg-dim truncate" title={app.connected_account}>
-                {app.connected_account}
-              </span>
-              <button
-                onClick={() => actions.disconnect.mutate(app.provider)}
-                disabled={actions.disconnect.isPending}
-                className="text-xs text-danger hover:underline shrink-0"
-              >
-                Disconnect
-              </button>
-            </div>
-          ) : (
-            <Button
-              variant="primary"
-              fullWidth
-              onClick={() => actions.connect.mutate({ provider: app.provider })}
-              disabled={actions.connect.isPending}
-              data-qa="app-connect"
-            >
-              Connect my account
-            </Button>
-          )}
-          {app.prompts_off && !app.connected_account && (
-            <div
-              className="flex items-center justify-between gap-2 text-xs text-muted"
-              data-qa="app-prompts-off"
-            >
-              <span>Prompts off</span>
-              <button
-                onClick={() => actions.prompts.mutate({ provider: app.provider, off: false })}
-                disabled={actions.prompts.isPending}
-                className="text-accent hover:underline"
-              >
-                Turn on
-              </button>
+          {isAdmin && building && (
+            <div className="mt-3">
+              <BuildAnApp workspaceId={workspaceId} scopes={directory.bot_scopes} />
             </div>
           )}
-        </div>
-      )}
-      {app.configured && !app.enabled && !isAdmin && (
-        <p className="mt-2 text-xs text-muted">An admin has turned this app off.</p>
-      )}
-      {!app.configured && !isAdmin && (
-        <p className="mt-2 text-xs text-muted">Ask a workspace admin to set this app up.</p>
-      )}
+        </section>
+      </section>
 
-      {isAdmin && (
-        <div className="mt-3 border-t border-line/50 pt-2">
-          <button
-            onClick={() => setSetupOpen((open) => !open)}
-            className="text-xs text-accent hover:underline"
-          >
-            {setupOpen ? 'Hide setup' : app.configured ? 'Edit setup' : 'Set up'}
-          </button>
-          {setupOpen && (
-            <AppSetupForm
-              workspaceId={workspaceId}
-              app={app}
-              reusable={reusable}
-              onDone={() => setSetupOpen(false)}
-            />
-          )}
-        </div>
-      )}
-    </section>
+      {!isAdmin && <RequestApp workspaceId={workspaceId} />}
+    </>
   );
 }
 
-function AppSetupForm({
-  workspaceId,
-  app,
-  reusable,
-  onDone,
-}: {
-  workspaceId: string;
-  app: AppStatus;
-  reusable?: AppStatus;
-  onDone: () => void;
-}) {
-  const actions = useAppActions(workspaceId);
-  const [clientId, setClientId] = useState(app.client_id ?? '');
-  const [clientSecret, setClientSecret] = useState('');
-  const [enabled, setEnabled] = useState(app.configured ? app.enabled : true);
-  const [confirmRemove, setConfirmRemove] = useState(false);
-  const [reuse, setReuse] = useState(!!reusable && (!app.configured || app.client_id === reusable.client_id));
-
-  const save = (event: FormEvent) => {
-    event.preventDefault();
-    actions.configure.mutate(
-      reuse && reusable
-        ? { provider: app.provider, clientId: '', clientSecret: '', enabled, reuseFrom: reusable.provider }
-        : { provider: app.provider, clientId: clientId.trim(), clientSecret: clientSecret.trim(), enabled },
-      { onSuccess: () => setClientSecret('') },
-    );
-  };
-
+function InstalledRow({ app, onOpen }: { app: InstalledApp; onOpen: () => void }) {
+  const { label, Icon } = KINDS[app.kind];
   return (
-    <form onSubmit={save} className="mt-2 space-y-3" data-qa="app-setup-form">
-      <ol className="list-decimal pl-4 space-y-1 text-xs text-fg-dim">
-        {app.setup_steps.map((step) => (
-          <li key={step}>{step}</li>
-        ))}
-      </ol>
-      <a
-        href={app.console_url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 text-xs text-accent hover:underline"
-      >
-        Open the developer console <ExternalLink className="w-3 h-3" />
-      </a>
-      <CopyField label="Callback URL" value={app.redirect_url} />
-      {app.scopes.length > 0 && <CopyField label="Scopes" value={app.scopes.join(' ')} />}
-
-      {reusable && (
-        <Checkbox
-          label={`Use the ${reusable.name} app`}
-          description={`Add the ${app.name} API to it first.`}
-          checked={reuse}
-          onChange={setReuse}
-          dataQa="app-reuse"
-        />
-      )}
-      {!reuse && (
-        <>
-          <TextInput
-            label="Client ID"
-            compact
-            value={clientId}
-            onChange={(e) => setClientId(e.target.value)}
-            required
-          />
-          <TextInput
-            label="Secret"
-            compact
-            type="password"
-            value={clientSecret}
-            onChange={(e) => setClientSecret(e.target.value)}
-            required={!app.configured}
-            placeholder={app.configured ? 'Stored — leave blank to keep it' : ''}
-            autoComplete="off"
-          />
-        </>
-      )}
-      <Checkbox label="On for this workspace" checked={enabled} onChange={setEnabled} />
-
-      <div className="flex items-center gap-2">
-        <Button variant="primary" type="submit" disabled={actions.configure.isPending}>
-          Save
-        </Button>
-        {app.configured &&
-          (confirmRemove ? (
-            <button
-              type="button"
-              onClick={() => actions.remove.mutate(app.provider, { onSuccess: onDone })}
-              className="text-xs text-danger hover:underline"
-            >
-              Remove, and disconnect everyone
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setConfirmRemove(true)}
-              className="text-xs text-muted hover:text-danger"
-            >
-              Remove app
-            </button>
-          ))}
+    <button
+      onClick={onOpen}
+      className="flex w-full items-center gap-3 rounded-lg border border-line/60 px-3 py-2 text-left hover:bg-raised/40 transition"
+      data-qa="app-directory-row"
+      data-kind={app.kind}
+    >
+      <Icon className="h-4 w-4 shrink-0 text-accent-soft" />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <span className="truncate text-sm font-medium text-fg-soft">{app.name}</span>
+          <HealthBadge health={app.health} />
+        </div>
+        <div className="truncate text-xs text-muted">
+          {label} · {displayNameOf(app.added_by_name)} · {channelText(app)}
+        </div>
       </div>
-    </form>
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted" />
+    </button>
   );
 }

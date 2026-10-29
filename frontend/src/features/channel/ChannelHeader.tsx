@@ -6,7 +6,7 @@ import { useChannelMembers, useChannelPins } from '@/features/channel/hooks/useC
 import type { Channel } from '@/stores/workspace';
 import { HuddleBar } from '@/features/huddle';
 import { useChannelModeration } from './hooks/useChannelModeration';
-import { useHookedChannels } from '@/features/workspace';
+import { useHookedChannels, type AppRef } from '@/features/workspace';
 import { ChannelDetailsModal, type ChannelDetailsTab } from './details/ChannelDetailsModal';
 import { NotificationLevelButton, NotificationLevelMenu } from '@/features/notifications';
 
@@ -22,6 +22,7 @@ interface Props {
   onToggleChannelMembers: () => void;
   onOpenNav?: () => void;
   onOpenWorkflow?: (workflowId: string) => void;
+  onOpenApp?: (app: AppRef) => void;
 }
 
 export default function ChannelHeader({
@@ -36,6 +37,7 @@ export default function ChannelHeader({
   onToggleChannelMembers,
   onOpenNav,
   onOpenWorkflow,
+  onOpenApp,
 }: Props) {
   const { canModerate } = useChannelModeration(channel?.id ?? null);
   const { data: hookedChannels } = useHookedChannels(channel?.workspace_id ?? null);
@@ -203,6 +205,7 @@ export default function ChannelHeader({
               canModerate={canModerate && !channel.is_archived}
               initialTab={details}
               onOpenWorkflow={onOpenWorkflow}
+              onOpenApp={onOpenApp}
               onClose={() => setDetails(null)}
             />
           )}

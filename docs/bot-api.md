@@ -6,10 +6,11 @@ same REST API the web client uses. This page is for whoever writes one.
 
 ## Make an app
 
-A workspace admin makes it in *Workspace settings → Apps → Built for this workspace*: a name,
-an optional description, and the scopes it needs. The token is shown once, when the app is
-made or given a new one; copy it then. It looks like `cbot-` and 43 more characters, and the
-server keeps only its SHA-256.
+A workspace admin makes it in *Workspace settings → Apps → Build an app*: a name, an optional
+description, and the scopes it needs, which the admin agrees to, in plain words, before the
+token exists. Giving the app another scope later asks again. The token is shown once, when the
+app is made or given a new one; copy it then. It looks like `cbot-` and 43 more characters,
+and the server keeps only its SHA-256.
 
 The bot user appears in the member list with an *APP* label. It cannot sign in, has no
 password or address, and is not counted among the instance's accounts.
@@ -95,7 +96,7 @@ reactions a minute); reads are 300 a minute. Past either, the API answers
 
 ## Events
 
-An app hears what happens through **events**. An admin picks them in *Apps → Events*, and the
+An app hears what happens through **events**. An admin picks them on the app's page in *Apps*, and the
 app gets them over HTTP, at a request URL, or over a socket it opens itself (socket mode).
 
 | Event | When | Scope |
@@ -148,7 +149,7 @@ app that has to do something exactly once keeps the ids it has seen.
 
 Each event is a `POST` of the envelope to the app's request URL, signed like an outgoing
 webhook: `X-ChatSystems-Signature` is `sha256=` and the hex HMAC-SHA256 of the body, keyed with
-the app's **signing secret** (*Apps → Events → Show signing secret*). Check it before trusting
+the app's **signing secret** (*Show signing secret* on the app's page). Check it before trusting
 the body, and compare `event_time` with your clock to turn away an old request sent again.
 
 Any 2xx answer delivers the event; answer quickly and do the work afterwards. Anything else,
@@ -170,7 +171,7 @@ webhook's: no private addresses unless the instance allows them.
 ### Over a socket
 
 An app behind a firewall, or one that would rather not run a web server, turns on **socket
-mode** in *Apps → Events* and makes an **app-level token** there. The token starts with
+mode** on the app's page in *Apps* and makes an **app-level token** there. The token starts with
 `capp-`, is shown once, and does one thing: it opens sockets. A new one replaces it and closes
 every socket the old one opened.
 

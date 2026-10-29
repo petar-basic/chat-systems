@@ -2388,3 +2388,32 @@ socket notices within two seconds, says why and closes it. A slash command owned
 socket mode is queued on the same table instead of being called, which is how an app with no
 public URL has commands; it is refused straight away when the app has no live socket rather
 than leaving the person waiting.
+
+### [CS-105] An app directory ✅ shipped
+What a workspace had connected was spread over four places: connected apps in one section,
+webhooks and slash commands in *Integrations*, workflows in their own panel, and the
+workspace's own apps above the connected ones. None of them said in one place who added
+something, what it may do, or whether it still works.
+
+*Workspace settings → Apps* is now that place, fed by one route that builds the listing from a
+query per kind rather than a view or a table of its own, so nothing has to be kept in step when
+an integration is added or removed. What each thing may do is written on the server, in plain
+words: a bot app's scopes through the same text the form shows, a hook's from its type and the
+host it sends to, a workflow's from its trigger and its kinds of step. The server is the one
+place those words live, so the consent step, the app page and the listing cannot drift apart.
+Health reuses what was already stored: a hook's `disabled_reason`, an app's failing state from
+CS-104, a workflow's last run.
+
+The listing is for every member, which raised what a member may learn from it. The rule is the
+one the channel's *Integrations* section already follows: a member sees what touches a channel
+they can see, connected apps and bot apps (both were already visible to members), slash
+commands that work everywhere, and what they added themselves. A channel they cannot see is
+counted, not named, so a workflow posting into a private channel shows as touching *1 private
+channel you are not in* and a webhook only into it does not show at all.
+
+Consent is in the client, before the call that makes a token or a connection: a new app lists
+its scopes and gets a token only once an admin agrees, a scope it did not have asks again, and
+a connected app is set up only after the admin has read what it will see for each person who
+connects. Taking a scope away does not ask. A member who wants something asks for it in the
+directory, which writes a `system` notification for every admin and owner, under a rate budget
+of its own so a request cannot be used to flood them.

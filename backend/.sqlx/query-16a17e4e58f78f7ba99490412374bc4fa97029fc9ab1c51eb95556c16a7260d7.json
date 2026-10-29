@@ -1,0 +1,71 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT a.provider, a.enabled, a.configured_by,\n                      COALESCE(wm.display_name, u.display_name) AS \"configured_by_name?\",\n                      a.configured_at\n                 FROM workspace_apps a\n                 LEFT JOIN users u ON u.id = a.configured_by\n                 LEFT JOIN workspace_members wm\n                        ON wm.workspace_id = a.workspace_id AND wm.user_id = a.configured_by\n                WHERE a.workspace_id = $1\n                ORDER BY a.configured_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "provider",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "workspace_apps",
+            "name": "provider"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "enabled",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "workspace_apps",
+            "name": "enabled"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "configured_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "workspace_apps",
+            "name": "configured_by"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "configured_by_name?",
+        "type_info": "Varchar",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "configured_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "workspace_apps",
+            "name": "configured_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      null,
+      false
+    ]
+  },
+  "hash": "16a17e4e58f78f7ba99490412374bc4fa97029fc9ab1c51eb95556c16a7260d7"
+}

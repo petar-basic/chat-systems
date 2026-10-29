@@ -55,6 +55,11 @@ const CHANNEL: Budget = Budget {
     max: 30,
     window_secs: 3600,
 };
+const APP_REQUEST: Budget = Budget {
+    name: "app-request",
+    max: 10,
+    window_secs: 3600,
+};
 const DEFAULT: Budget = Budget {
     name: "default",
     max: 120,
@@ -88,6 +93,8 @@ pub fn budget_for(method: &Method, path: &str) -> Option<Budget> {
         WORKSPACE
     } else if path.ends_with("/channels") {
         CHANNEL
+    } else if path.ends_with("/app-requests") {
+        APP_REQUEST
     } else if path.ends_with("/messages") || path.ends_with("/thread") {
         MESSAGE
     } else {
@@ -251,6 +258,10 @@ mod tests {
         assert_eq!(
             class(Method::POST, "/api/conversations/abc/messages"),
             Some("message")
+        );
+        assert_eq!(
+            class(Method::POST, "/api/workspaces/abc/app-requests"),
+            Some("app-request")
         );
         assert_eq!(class(Method::DELETE, "/api/files/abc"), Some("default"));
     }

@@ -477,7 +477,7 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 ### 10.4 🟢 A channel's integrations
 - **Reach:** a channel's ⋯ → *Channel details → Integrations*.
 - **Steps:** as Admin, make an incoming webhook for #random in *Workspace settings → Integrations*, an outgoing webhook that forwards #random, and a workflow whose trigger is a reaction in #random. Make Bob a channel admin of #random. As Bob open *Channel details → Integrations* in #random, *Add an incoming webhook* named *Bob's CI*, copy the URL and `curl` `{"text":"from Bob"}` to it. Make a new URL for it, then remove it. As Charlie (plain member) open the same tab.
-- **Expected:** Bob and Charlie both see the incoming webhook (with who added it), the outgoing webhook, the workflow (On/Off, who built it) and any command scoped to #random, never a URL or secret. Bob's URL shows once, under his webhook; the `curl` lands in #random; the old URL stops working after the new one is made. Charlie has no add, rotate or remove. A workflow row has *Open* for someone who may build workflows, which opens it in the *Workflows* panel. Each of Bob's actions is a row in *Audit log*.
+- **Expected:** Bob and Charlie both see the incoming webhook (with who added it), the outgoing webhook, the workflow (On/Off, who built it) and any command scoped to #random, never a URL or secret. Bob's URL shows once, under his webhook; the `curl` lands in #random; the old URL stops working after the new one is made. Charlie has no add, rotate or remove. A workflow row has *Open* for someone who may build workflows, which opens it in the *Workflows* panel. Every row has *Details*, which closes the dialog and opens its page in *Workspace settings → Apps*. Each of Bob's actions is a row in *Audit log*.
 - 🔴 **Edge — authz:** as Bob, `POST /api/workspaces/<id>/hooks` an incoming webhook for a channel he does not run, an outgoing webhook or a slash command → **403**.
 
 ### 10.5 🟢 A slash command that answers later
@@ -493,18 +493,18 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 - 🟠 **Edge — app down:** point the command at `https://httpbin.org/status/503` → the composer shows */deploy is taking a moment…*, and about ten seconds later */deploy could not be reached*. Point it at `https://httpbin.org/status/500` → an error at once, one attempt.
 
 ### 10.6 🟢 An app with a bot user
-- **Reach:** workspace Admin → *Workspace settings → Apps → Built for this workspace*.
-- **Steps:** create *Echo* with `chat:write`, `channels:read` and `channels:history`, copy the token, then *I have stored it*. In #general `/invite @Echo` and post `echo hello`. Run the example bot once:
+- **Reach:** workspace Admin → *Workspace settings → Apps → Build an app → Build*.
+- **Steps:** create *Echo* with `chat:write`, `channels:read` and `channels:history`, agree to its scopes, copy the token, then *I have stored it*. In #general `/invite @Echo` and post `echo hello`. Run the example bot once:
   ```bash
   CHAT_API_URL=http://localhost:3000/api CHAT_BOT_TOKEN=<TOKEN> node examples/echo-bot/echo-bot.mjs --once
   ```
 - **Expected:** the token is shown once and is gone after *I have stored it*; *Members* lists Echo with an *APP* label and no address. The bot answers *hello* in the thread, with *APP* next to its name. *Audit log* has *App created* and *App called the API*.
 - 🔴 **Edge — scopes:** `curl -s -X POST localhost:3000/api/messages/<MSG_ID>/reactions -H "Authorization: Bearer <TOKEN>" -H 'Content-Type: application/json' -d '{"emoji":"👍"}'` → **403** naming `reactions:write`; `GET /api/users/me` with the token → **403** *does not accept a bot token*.
 - 🔴 **Edge — membership:** post as the bot to a channel it was not invited to → **403**, public or not.
-- 🔴 **Edge — removal:** *New token* → the old token gets **401** at once; *Remove* → the new one gets **401** too, the app's slash commands are gone, and its messages keep their author.
+- 🔴 **Edge — removal:** on Echo's page in the directory, *Rotate token* → the old token gets **401** at once; *Remove* → the new one gets **401** too, the app's slash commands are gone, and its messages keep their author.
 
 ### 10.7 🟢 Events for an app, over HTTP and over a socket
-- **Reach:** workspace Admin → *Workspace settings → Apps*, the radio icon on an app's row.
+- **Reach:** workspace Admin → *Workspace settings → Apps*, the app's row → its page.
 - **Steps:** make *Echo* with `chat:write` and `channels:history`, tick `app_mention` and *Socket mode*, *Save events*, then *Make an app-level token* and copy it. `/invite @Echo` in #general and run:
   ```bash
   CHAT_API_URL=http://localhost:3000/api CHAT_BOT_TOKEN=<TOKEN> CHAT_APP_TOKEN=<APP_TOKEN> node examples/echo-bot/echo-bot-socket.mjs
@@ -516,7 +516,14 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 - 🔴 **Edge — HTTP:** turn *Socket mode* off and save `https://example.com` as the request URL → refused, it does not answer the challenge. Save a URL that does (a small server that echoes `challenge`), stop that server, post a message the app hears, and wait an hour (or set `expires_at` in the past in `app_deliveries`) → the app is marked *Failing* with the last error; start the server again and post → the mark goes.
 - 🔴 **Edge — membership:** post in a channel the bot is not in, mentioning it → nothing arrives.
 
-### 10.8 🟢 A Slack import that looks like Slack did
+### 10.8 🟢 The app directory
+- **Reach:** *Workspace settings → Apps*, as Admin and as Charlie (plain member).
+- **Steps:** as Admin, set up Jira, make *Echo* (10.6) and `/invite` it to #general, keep the webhooks and workflow from 10.4, make a private #secret with an incoming webhook and a workflow posting into #secret and #random. Turn an outgoing webhook off in *Integrations*. Open the directory, then a row. On Echo's page tick `users:read` and *Save scopes*; then untick it and save. Set up Confluence from *Available*. As Charlie, open the directory and an app's page, then *Ask for an app* `PagerDuty` with a reason.
+- **Expected:** *Installed* lists Jira, Echo, every webhook, command and workflow with who added it, its channels and a *Turned off* / *Failing* / *Off* tag when it is not working. A page shows what it can do in plain words, its channels, and *Reinstall* (a turned-off hook), *Rotate token*/*Rotate URL* and *Remove*. Adding `users:read` asks for consent naming only that scope; removing it does not ask. Confluence asks for consent before it is saved. Charlie sees no #secret webhook, the #secret/#random workflow as *#random, 1 private channel you are not in*, no *Build*, and a page that says only an admin can change it. Admin and the owner get a notification *… asked for an app* with *PagerDuty: <reason>*; Charlie gets none.
+- 🔴 **Edge — leaks:** as Charlie, `GET /api/workspaces/<id>/app-directory` → no `secret` channel name, no URL path, token or client secret anywhere in the body.
+- 🟠 **Edge — rate:** an 11th request within an hour → **429**.
+
+### 10.9 🟢 A Slack import that looks like Slack did
 - **Reach:** *Workspace settings → Slack import*.
 - **Steps:** import an export whose `users.json` has a guest (`is_restricted`), an account with `deleted: true`, an archived channel in `channels.json`, and reactions such as `:face_with_rolling_eyes:`, `:+1::skin-tone-4:` and a custom `:shipit:` (with `SLACK_TOKEN` set or an `emoji.json` in the zip). Then start another import, restart the worker (`docker compose restart worker`) while it says *running*, and wait five minutes.
 - **Expected:** the counts show guests, *who left Slack* and *archived*. The guest is a guest under *Members* and sees only its channels; the deleted person's messages carry their name and the account is suspended in the instance admin page; the archived channel shows its history with the archived bar; the reactions are 🙄, 👍🏽 and the custom image, and an unknown one is listed under *not imported*. The interrupted run turns *failed* with *The import stopped when the worker did*; *Start again* queues it and it completes without duplicating messages.

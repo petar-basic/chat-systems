@@ -8,6 +8,7 @@ export { useSettingsDialog } from './settings/useSettingsDialog';
 export { WorkspaceChecklist } from './onboarding/WorkspaceChecklist';
 export { useAppActions, useApps } from './hooks/useApps';
 export type { AppProvider } from './hooks/useApps';
+export type { AppRef } from './hooks/useAppDirectory';
 export type { CustomEmoji } from './hooks/useCustomEmoji';
 export {
   useCreateHook,
