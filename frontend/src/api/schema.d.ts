@@ -812,6 +812,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/commands/responses/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["respond"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/exports/{id}": {
         parameters: {
             query?: never;
@@ -3215,6 +3231,11 @@ export interface components {
         ColumnOrder: {
             column_ids: string[];
         };
+        CommandAnswer: {
+            replace_original?: boolean;
+            response_type?: string | null;
+            text: string;
+        };
         CommandInfo: {
             builtin: boolean;
             command: string;
@@ -3225,7 +3246,8 @@ export interface components {
             at?: string | null;
             /**
              * @description `ephemeral` is seen only by whoever ran it; `in_channel` is posted as a
-             *     message from the command.
+             *     message from the command; `pending` means the answer arrives later as a
+             *     `command.response` frame.
              */
             response_type: string;
             text: string;
@@ -6706,6 +6728,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DataList_Shortcut"];
+                };
+            };
+        };
+    };
+    respond: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommandAnswer"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
                 };
             };
         };

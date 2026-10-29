@@ -11,7 +11,7 @@ use crate::connection_manager::Audience;
 
 use crate::connection_manager::ConnectionManager;
 
-pub const SUBSCRIBED_CHANNELS: [&str; 15] = [
+pub const SUBSCRIBED_CHANNELS: [&str; 16] = [
     "events:message",
     "events:reaction",
     "events:notification",
@@ -27,6 +27,7 @@ pub const SUBSCRIBED_CHANNELS: [&str; 15] = [
     "events:later",
     "events:thread",
     "events:list",
+    "events:command",
 ];
 
 pub async fn start_event_consumer(
@@ -375,6 +376,18 @@ pub(crate) async fn handle_event_for(
                 unread_count: count("unread_count"),
                 mention_count: count("mention_count"),
                 last_read_message_id: field("last_read_message_id"),
+            };
+            cm.send_to_user(audience, uid, &framed(&frame)).await;
+        }
+        "command.response" => {
+            let (Some(uid), Some(channel_id)) = (field("user_id"), field("channel_id")) else {
+                return;
+            };
+            let frame = ServerFrame::CommandResponse {
+                channel_id,
+                command: text("command").unwrap_or_default(),
+                response_type: text("response_type").unwrap_or_default(),
+                text: text("text").unwrap_or_default(),
             };
             cm.send_to_user(audience, uid, &framed(&frame)).await;
         }

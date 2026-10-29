@@ -118,6 +118,7 @@ pub fn public_routes() -> OpenApiRouter<Arc<AppState>> {
         .merge(crate::setup::routes::public_router())
         .merge(crate::hooks::routes::public_router())
         .merge(crate::workflows::routes::public_router())
+        .merge(crate::commands::routes::public_router())
 }
 
 pub fn spec() -> utoipa::openapi::OpenApi {

@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 import { asAttachments, useComposerAttachments, useSendMessage } from '@/features/messaging';
 import type { Channel, Workspace } from '@/stores/workspace';
 import { commandResultText, parseCommand, runCommand } from '@/lib/slashCommands';
 import { toUserMessage } from '@/lib/errors';
 import { useTypingSignal, typingTargetOf } from '@/shared/hooks/useTypingSignal';
+import { useCommandAnswerStore } from '@/stores/commandAnswer';
 
 interface Args {
   currentWorkspace: Workspace | null;
@@ -26,14 +27,16 @@ export function useComposer({ currentWorkspace, currentChannel, userId, currentW
     currentWorkspace?.instanceUrl,
   );
 
-  const [commandBanner, setCommandBanner] = useState<{ text: string; channelId: string } | null>(null);
-  const ephemeral = commandBanner?.channelId === currentChannel?.id ? (commandBanner?.text ?? null) : null;
+  const answer = useCommandAnswerStore((s) => s.answer);
+  const showAnswer = useCommandAnswerStore((s) => s.show);
+  const dismissAnswer = useCommandAnswerStore((s) => s.dismiss);
+  const shown = answer && answer.channelId === currentChannel?.id ? answer : null;
 
   useEffect(() => {
-    if (!ephemeral) return undefined;
-    const timer = setTimeout(() => setCommandBanner(null), 10_000);
+    if (!shown || shown.pending) return undefined;
+    const timer = setTimeout(dismissAnswer, 10_000);
     return () => clearTimeout(timer);
-  }, [ephemeral]);
+  }, [shown, dismissAnswer]);
 
   const handleSend = useCallback(
     async (content: string) => {
@@ -46,15 +49,17 @@ export function useComposer({ currentWorkspace, currentChannel, userId, currentW
           // An unknown command falls through to being sent as text; anything
           // else has already done its work on the server.
           if (result) {
-            setCommandBanner(
-              result.response_type === 'ephemeral'
-                ? { text: commandResultText(result), channelId: currentChannel.id }
-                : null,
-            );
+            if (result.response_type === 'in_channel') dismissAnswer();
+            else
+              showAnswer({
+                text: commandResultText(result),
+                channelId: currentChannel.id,
+                pending: result.response_type === 'pending',
+              });
             return;
           }
         } catch (e) {
-          setCommandBanner({ text: toUserMessage(e), channelId: currentChannel.id });
+          showAnswer({ text: toUserMessage(e), channelId: currentChannel.id, pending: false });
           return;
         }
       }
@@ -62,12 +67,22 @@ export function useComposer({ currentWorkspace, currentChannel, userId, currentW
       const id = crypto.randomUUID();
       sendMessageMutation.mutate({ content, id, attachments: asAttachments(attachments.take()) });
     },
-    [currentChannel, userId, stopTyping, sendMessageMutation, currentWsInstanceUrl, attachments],
+    [
+      currentChannel,
+      userId,
+      stopTyping,
+      sendMessageMutation,
+      currentWsInstanceUrl,
+      attachments,
+      showAnswer,
+      dismissAnswer,
+    ],
   );
 
   return {
-    ephemeral,
-    dismissEphemeral: () => setCommandBanner(null),
+    ephemeral: shown?.text ?? null,
+    ephemeralPending: shown?.pending ?? false,
+    dismissEphemeral: dismissAnswer,
     handleTyping: signalTyping,
     handleSend,
     attachments,

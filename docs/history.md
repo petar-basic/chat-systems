@@ -2288,3 +2288,33 @@ only for the CS-100 re-seal, and the worker and the gateway do not take it at al
 refused rather than accepted for a grace period, so upgrading signs everybody out once. The
 alternative was a second verification path kept for the refresh-token lifetime, and an
 instance would carry it for good.
+
+### [CS-102] Slash commands that may take their time ✅ shipped
+A registered command had three seconds to answer in its HTTP response, and anything slower
+was an error in the composer. A deploy, a report or a search cannot answer that fast, and
+Slack's contract, the one app authors already know, is to acknowledge and answer later.
+
+`POST /channels/{id}/commands` records an invocation in `command_invocations` before it calls
+the app, and the payload gains `request_id` and `response_url`. A body is the answer as
+before; an empty 2xx acknowledges, and the composer shows *working on it…* until the answer
+arrives. The URL takes five answers within 30 minutes. It carries the invocation id and an
+HMAC of it under the `command-responses` key that CS-100 derives from `SECRETS_KEYS`, so the
+database holds no token to leak and rotating `SECRETS_KEYS` voids the outstanding ones. The
+uses are spent by one `UPDATE … WHERE uses_left > 0 AND expires_at > now()`, so two answers
+racing for the last use cannot both win. Unknown, forged, used up and expired are all a 404,
+because the app can do nothing different about any of them.
+
+An `in_channel` answer is a bot message like an immediate one, and `replace_original` edits
+the message that invocation posted. An `ephemeral` one existed only as the HTTP response
+before; now it is a `command.response` frame on `events:command`, which the gateway sends to
+the caller's sockets and nobody else's. An `in_channel` answer sends one too, with no text,
+so the caller's *working on it…* clears.
+
+The three seconds stay, because the person is waiting on that request. A connection error, a
+timeout or a 502–504 is retried by the worker, not the API, after 2 and 8 seconds with ten
+seconds each, so a slow deploy of the app does not lose the command; the rows are claimed with
+`FOR UPDATE SKIP LOCKED` and a 60-second lease, so two workers never call twice and a worker
+that dies mid-call leaves the row to the next. Every attempt carries the same
+`X-Chat-Request-Id`, which is what lets an app that did the work but answered too slowly drop
+the repeat. A 500 or a 4xx is not retried: the app answered, and calling again could run the
+command twice.

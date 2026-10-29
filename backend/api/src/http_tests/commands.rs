@@ -480,3 +480,345 @@ async fn only_an_admin_reminds_somebody_else(pool: PgPool) {
     .await;
     assert_eq!(listing["data"].as_array().expect("array").len(), 1);
 }
+
+type Recorded = Arc<std::sync::Mutex<Vec<(Option<String>, serde_json::Value)>>>;
+
+async fn scripted_command_endpoint(script: Vec<(u16, &'static str)>) -> (String, Recorded) {
+    let calls: Recorded = Arc::default();
+    let seen = calls.clone();
+    let script = Arc::new(script);
+
+    let app = axum::Router::new().fallback(move |headers: axum::http::HeaderMap, body: String| {
+        let seen = seen.clone();
+        let script = script.clone();
+        async move {
+            let mut calls = seen.lock().expect("calls");
+            calls.push((
+                headers
+                    .get("x-chat-request-id")
+                    .and_then(|v| v.to_str().ok())
+                    .map(str::to_string),
+                serde_json::from_str(&body).unwrap_or_default(),
+            ));
+            let (status, reply) = script[(calls.len() - 1).min(script.len() - 1)];
+            (StatusCode::from_u16(status).expect("status"), reply)
+        }
+    });
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind the scripted command endpoint");
+    let address = format!("http://{}", listener.local_addr().expect("addr"));
+    tokio::spawn(async move {
+        let _ = axum::serve(listener, app).await;
+    });
+    (address, calls)
+}
+
+async fn closed_port() -> String {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind");
+    let address = format!("http://{}", listener.local_addr().expect("addr"));
+    drop(listener);
+    address
+}
+
+struct Commanded {
+    app: axum::Router,
+    state: Arc<crate::state::AppState>,
+    caller: Uuid,
+    token: String,
+    ch_id: Uuid,
+}
+
+async fn commanded(pool: PgPool, url: &str) -> Commanded {
+    let (app, state) = app_and_state(pool).await;
+    let (caller, _, token) = seed_and_login(&app, &state, "cmd-later", false).await;
+    let ws_id = seed_workspace(&state, caller, &format!("Later {}", Uuid::new_v4())).await;
+    let ch_id = seed_channel(&state, ws_id, caller, "main", false).await;
+    let (status, created) = register_command(&app, &token, ws_id, "deploy", url, vec![ch_id]).await;
+    assert_eq!(status, StatusCode::OK, "{created:?}");
+    Commanded {
+        app,
+        state,
+        caller,
+        token,
+        ch_id,
+    }
+}
+
+async fn run(c: &Commanded) -> (StatusCode, serde_json::Value) {
+    send(
+        &c.app,
+        "POST",
+        &format!("/api/channels/{}/commands", c.ch_id),
+        Some(&c.token),
+        Some(json!({ "command": "deploy", "text": "prod" })),
+    )
+    .await
+}
+
+async fn answer_later(c: &Commanded, url: &str, body: serde_json::Value) -> StatusCode {
+    let path = url
+        .split_once("/api/")
+        .map(|(_, rest)| format!("/api/{rest}"))
+        .expect("an /api/ url");
+    send(&c.app, "POST", &path, None, Some(body)).await.0
+}
+
+async fn bot_messages(c: &Commanded) -> Vec<String> {
+    sqlx::query_scalar(
+        "SELECT content FROM messages WHERE channel_id = $1 AND metadata ? 'bot' ORDER BY created_at",
+    )
+    .bind(c.ch_id)
+    .fetch_all(&c.state.pool)
+    .await
+    .expect("bot messages")
+}
+
+async fn retry_now(c: &Commanded) {
+    sqlx::query("UPDATE command_invocations SET retry_at = NOW() - INTERVAL '1 second' WHERE retry_at IS NOT NULL")
+        .execute(&c.state.pool)
+        .await
+        .expect("make the retry due");
+    crate::commands::delivery::retry_due(&c.state).await;
+}
+
+async fn command_events() -> impl futures_util::Stream<Item = redis::Msg> + Unpin {
+    let url = std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".into());
+    let mut pubsub = redis::Client::open(url)
+        .expect("redis client")
+        .get_async_pubsub()
+        .await
+        .expect("pubsub");
+    pubsub.subscribe("events:command").await.expect("subscribe");
+    pubsub.into_on_message()
+}
+
+async fn answer_for(
+    events: &mut (impl futures_util::Stream<Item = redis::Msg> + Unpin),
+    user_id: Uuid,
+) -> Option<serde_json::Value> {
+    use futures_util::StreamExt;
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(2);
+    loop {
+        let message = tokio::time::timeout_at(deadline, events.next())
+            .await
+            .ok()??;
+        let Ok(raw) = message.get_payload::<String>() else {
+            continue;
+        };
+        let Ok(event) = serde_json::from_str::<serde_json::Value>(&raw) else {
+            continue;
+        };
+        if event["payload"]["user_id"] == user_id.to_string() {
+            return Some(event["payload"].clone());
+        }
+    }
+}
+
+fn response_url_of(calls: &Recorded) -> String {
+    calls.lock().expect("calls")[0].1["response_url"]
+        .as_str()
+        .expect("the request carries a response_url")
+        .to_string()
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_command_that_acknowledges_answers_later_in_the_channel(pool: PgPool) {
+    let (url, calls) = scripted_command_endpoint(vec![(200, "")]).await;
+    let c = commanded(pool, &url).await;
+
+    let (status, body) = run(&c).await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(body["response_type"], "pending");
+    assert!(bot_messages(&c).await.is_empty());
+
+    let response_url = response_url_of(&calls);
+    assert_eq!(
+        answer_later(
+            &c,
+            &response_url,
+            json!({ "text": "deploying", "response_type": "in_channel" })
+        )
+        .await,
+        StatusCode::OK
+    );
+    assert_eq!(bot_messages(&c).await, vec!["deploying".to_string()]);
+
+    assert_eq!(
+        answer_later(
+            &c,
+            &response_url,
+            json!({ "text": "deployed", "response_type": "in_channel", "replace_original": true })
+        )
+        .await,
+        StatusCode::OK
+    );
+    assert_eq!(
+        bot_messages(&c).await,
+        vec!["deployed".to_string()],
+        "replace_original edits the answer instead of adding one"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_ephemeral_answer_later_reaches_only_the_caller(pool: PgPool) {
+    let (url, calls) = scripted_command_endpoint(vec![(200, "")]).await;
+    let c = commanded(pool, &url).await;
+    let mut events = command_events().await;
+
+    run(&c).await;
+    assert_eq!(
+        answer_later(&c, &response_url_of(&calls), json!({ "text": "only you" })).await,
+        StatusCode::OK
+    );
+
+    let event = answer_for(&mut events, c.caller)
+        .await
+        .expect("the caller's sockets are told");
+    assert_eq!(event["response_type"], "ephemeral");
+    assert_eq!(event["text"], "only you");
+    assert_eq!(event["channel_id"], c.ch_id.to_string());
+    assert!(bot_messages(&c).await.is_empty(), "nothing is posted");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_response_url_takes_five_answers_for_thirty_minutes(pool: PgPool) {
+    let (url, calls) = scripted_command_endpoint(vec![(200, "")]).await;
+    let c = commanded(pool, &url).await;
+    run(&c).await;
+    let response_url = response_url_of(&calls);
+
+    for n in 1..=5 {
+        assert_eq!(
+            answer_later(&c, &response_url, json!({ "text": format!("answer {n}") })).await,
+            StatusCode::OK
+        );
+    }
+    assert_eq!(
+        answer_later(&c, &response_url, json!({ "text": "sixth" })).await,
+        StatusCode::NOT_FOUND,
+        "five uses and no more"
+    );
+
+    run(&c).await;
+    let second = calls.lock().expect("calls")[1].1["response_url"]
+        .as_str()
+        .expect("url")
+        .to_string();
+    sqlx::query("UPDATE command_invocations SET expires_at = NOW() - INTERVAL '1 second'")
+        .execute(&c.state.pool)
+        .await
+        .expect("expire");
+    assert_eq!(
+        answer_later(&c, &second, json!({ "text": "too late" })).await,
+        StatusCode::NOT_FOUND,
+        "thirty minutes and no longer"
+    );
+
+    let last = if second.ends_with('x') { 'y' } else { 'x' };
+    let forged = format!("{}{last}", &second[..second.len() - 1]);
+    assert_eq!(
+        answer_later(&c, &forged, json!({ "text": "forged" })).await,
+        StatusCode::NOT_FOUND
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_503_is_retried_with_the_same_request_id(pool: PgPool) {
+    let (url, calls) = scripted_command_endpoint(vec![
+        (503, ""),
+        (200, r#"{"response_type":"ephemeral","text":"deployed"}"#),
+    ])
+    .await;
+    let c = commanded(pool, &url).await;
+    let mut events = command_events().await;
+
+    let (status, body) = run(&c).await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(body["response_type"], "pending");
+    assert!(body["text"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("taking a moment"));
+
+    retry_now(&c).await;
+
+    let calls = calls.lock().expect("calls").clone();
+    assert_eq!(calls.len(), 2);
+    assert!(calls[0].0.is_some());
+    assert_eq!(
+        calls[0].0, calls[1].0,
+        "the app can drop a repeat by its id"
+    );
+    assert_eq!(
+        calls[0].1["request_id"].as_str(),
+        calls[0].0.as_deref(),
+        "the id travels in the body too"
+    );
+
+    let event = answer_for(&mut events, c.caller)
+        .await
+        .expect("the answer reaches the caller");
+    assert_eq!(event["text"], "deployed");
+    let pending: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM command_invocations WHERE retry_at IS NOT NULL")
+            .fetch_one(&c.state.pool)
+            .await
+            .expect("count");
+    assert_eq!(pending, 0);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_unreachable_command_is_tried_three_times_then_reported(pool: PgPool) {
+    let c = commanded(pool, &closed_port().await).await;
+    let mut events = command_events().await;
+
+    let (status, body) = run(&c).await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(body["response_type"], "pending");
+
+    retry_now(&c).await;
+    let attempts: i32 = sqlx::query_scalar("SELECT attempts FROM command_invocations")
+        .fetch_one(&c.state.pool)
+        .await
+        .expect("attempts");
+    assert_eq!(attempts, 2);
+
+    retry_now(&c).await;
+    let (attempts, retry_at): (i32, Option<chrono::DateTime<chrono::Utc>>) =
+        sqlx::query_as("SELECT attempts, retry_at FROM command_invocations")
+            .fetch_one(&c.state.pool)
+            .await
+            .expect("attempts");
+    assert_eq!(attempts, 3);
+    assert!(retry_at.is_none(), "two retries and no more");
+
+    let event = answer_for(&mut events, c.caller)
+        .await
+        .expect("the caller is told");
+    assert_eq!(event["response_type"], "error");
+    assert!(event["text"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("could not be reached"));
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_400_or_a_500_is_an_answer_not_a_retry(pool: PgPool) {
+    for status in [400u16, 500] {
+        let (url, calls) = scripted_command_endpoint(vec![(status, "no")]).await;
+        let c = commanded(pool.clone(), &url).await;
+
+        let (got, body) = run(&c).await;
+        assert_eq!(got, StatusCode::BAD_REQUEST, "{status}: {body:?}");
+        retry_now(&c).await;
+        assert_eq!(
+            calls.lock().expect("calls").len(),
+            1,
+            "{status} is not retried"
+        );
+    }
+}

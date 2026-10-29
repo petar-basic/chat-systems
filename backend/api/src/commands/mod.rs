@@ -1,4 +1,6 @@
 pub mod builtin;
+pub mod delivery;
+pub mod repo;
 pub mod routes;
 
 use shared_common::errors::{AppError, AppResult};

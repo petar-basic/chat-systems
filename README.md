@@ -53,7 +53,7 @@ integration-test suite and a real CI pipeline.
 - Huddles: voice and video with screen sharing, for up to eight people
 
 **Integrations**
-- Incoming webhooks (Slack-compatible), signed outgoing webhooks, slash commands
+- Incoming webhooks (Slack-compatible), signed outgoing webhooks, slash commands that may answer later
 - A Slack importer that brings your history with you
 
 **Admin and compliance**

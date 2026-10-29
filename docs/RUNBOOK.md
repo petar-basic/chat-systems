@@ -789,7 +789,10 @@ Removing a key that something is still sealed with is safe to recover from: the 
 what it could not open, and putting the key back in the list makes it readable again. Doing
 step 2 before step 1 has finished on every replica means a replica on the old list cannot read
 what the new one sealed until it restarts too. Rotating `SECRETS_KEYS` signs nobody out; it is
-`JWT_SIGNING_KEYS` that signs the session tokens.
+`JWT_SIGNING_KEYS` that signs the session tokens. Step 2 does void the slash-command
+`response_url`s handed out in the last 30 minutes, since they are signed with the first key: a
+command still working answers with a 404, so promote outside a deploy window if apps answer
+late.
 
 ## Upgrade note: sessions are signed with Ed25519 (4.0.0)
 

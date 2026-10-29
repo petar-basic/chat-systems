@@ -27,16 +27,24 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   the HS256 sessions 3.7.0 issued are refused. Remove `JWT_SECRET` once the `api` has logged
   that every stored secret is on a `SECRETS_KEYS` key.
 - Migration 82 adds `users.manual_away`; migration 83 adds a key id beside every sealed
-  secret.
+  secret; migration 84 adds `command_invocations`.
 - For WebSocket clients: `presence.batch` and `presence.changed` carry `away` as well as
   `online` and `offline`, and `presence.changed` now also reaches the person it is about.
   For API clients: `PUT /users/me/presence` with `{ "away": true }` sets yourself away.
+- For WebSocket clients: a `command.response` frame carries a slash command's late answer to
+  whoever ran it. For slash-command apps: the payload has `request_id` and `response_url`,
+  the request an `X-Chat-Request-Id` header, and an empty 2xx body now means *answering
+  later* instead of an error.
 
 ### Added
 
 - **Away.** *You → Set yourself away* (or `/away`) shows you away to everyone, in every
   workspace and on every device, until you set yourself active. Ten minutes without using the
   app shows you away too, and the next keystroke shows you active.
+- **Slash commands that take their time.** A command's app may answer at once, or acknowledge
+  and answer up to five times in the next 30 minutes through a `response_url`, in the channel
+  or only to whoever ran it. An app that does not answer in three seconds is tried twice more
+  with the same request id, and the person sees *taking a moment…* instead of an error.
 
 ### Security
 

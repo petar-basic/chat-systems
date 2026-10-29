@@ -542,6 +542,38 @@ under the hook's creator's id with `metadata.bot = { hook_id, name, icon_url }`,
 rate-limited per token. The creator is notified of it like any other member, and a
 notification about it is titled with the bot's name.
 
+**Slash commands:**
+
+| Method | Route | Input | Output |
+|--------|-------|-------|--------|
+| GET | `/workspaces/:ws_id/commands` | — | `{ data: CommandInfo[] }` — built-in and registered commands the caller can run |
+| POST | `/channels/:ch_id/commands` | `{ command, text }` | `CommandResponse` — `{ response_type: "ephemeral" \| "in_channel" \| "pending", text }` |
+| POST | `/commands/responses/:token` | `{ text, response_type?, replace_original? }` | `{ status: "ok" }` — authenticated by the token in the URL, not a session |
+
+A registered command is a `slash_command` hook whose `config.url` receives a signed POST
+(`X-ChatSystems-Signature`, the outgoing-webhook HMAC) with `{ command, text, channel_id,
+workspace_id, user_id, request_id, response_url }` and the header `X-Chat-Request-Id` equal to
+`request_id`. The app has three seconds. A body of `{ text, response_type }` is the answer
+there and then; an empty 2xx body acknowledges, and the caller sees */deploy is working on it…*
+until the app answers through `response_url`. That URL takes up to five answers within 30
+minutes (`command_invocations.uses_left`, `expires_at`); after that, or with a forged token, it
+is a 404. It is `{PUBLIC_URL}/api/commands/responses/{id}.{mac}`, the mac an HMAC of the
+invocation id under the `command-responses` key of `SECRETS_KEYS`, so the token itself is never
+stored. `in_channel` posts a bot message as the caller, if they may post there, and
+`replace_original` edits the one the invocation posted before; `ephemeral` (the default) goes
+as a `command.response` frame to the caller's sockets only. An answer still needs the caller to
+read the channel and the hook to be on (403 otherwise).
+
+A connection error, a timeout or a 502–504 is retried by the worker's `command_retrier` after 2
+and then 8 seconds, with ten seconds each and the same `X-Chat-Request-Id`, so an app can drop
+a repeat; meanwhile the caller sees */deploy is taking a moment…*. After the third failure the
+caller is told */deploy could not be reached*. Any other 4xx or 5xx is the app's answer and is
+never retried: on the first attempt it is a 400 with the reason, on a retry an `error` frame.
+Rows past `expires_at` are purged every five minutes.
+
+**Reminders:**
+
+| Method | Route | Input | Output |
 --------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/reminders` | — | `{ data: Reminder[] }` |
 | POST | `/workspaces/:ws_id/reminders` | `{ target_user_id, content, remind_at, channel_id?, message_id? }` | `Reminder` |

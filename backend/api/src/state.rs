@@ -26,6 +26,7 @@ pub struct AppState {
     pub file_repo: FileRepo,
     pub file_storage: FileStorage,
     pub hook_repo: HookRepo,
+    pub command_repo: crate::commands::repo::CommandRepo,
     pub notification_repo: NotificationRepo,
     pub conversation_repo: ConversationRepo,
     pub later_repo: LaterRepo,
