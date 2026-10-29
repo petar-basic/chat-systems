@@ -20,7 +20,6 @@ use crate::messaging::models::Unfurl;
 use crate::sealed::{self, Sealed};
 use crate::state::AppState;
 
-const SECRET_PURPOSE: &str = "workspace-app-secrets";
 const PENDING_TTL_SECS: u64 = 600;
 const REFRESH_MARGIN_SECS: i64 = 60;
 const PUBLIC_CACHE_SECS: u64 = 600;
@@ -96,11 +95,22 @@ fn figma_client(state: &AppState) -> Figma {
 }
 
 fn seal(state: &AppState, value: &str) -> AppResult<Sealed> {
-    sealed::seal(&state.config.jwt_secret, SECRET_PURPOSE, value)
+    sealed::seal(&state.config.secrets_keys, sealed::APP_SECRETS, value)
 }
 
-fn open(state: &AppState, ciphertext: &[u8], nonce: &[u8]) -> AppResult<String> {
-    sealed::open(&state.config.jwt_secret, SECRET_PURPOSE, ciphertext, nonce)
+fn open(
+    state: &AppState,
+    ciphertext: &[u8],
+    nonce: &[u8],
+    key_id: Option<&str>,
+) -> AppResult<String> {
+    sealed::open(
+        &state.config.secrets_keys,
+        sealed::APP_SECRETS,
+        ciphertext,
+        nonce,
+        key_id,
+    )
 }
 
 fn random(len: usize) -> String {
@@ -194,6 +204,11 @@ pub async fn configure(
                 &Sealed {
                     ciphertext: jira.client_secret_encrypted,
                     nonce: jira.client_secret_nonce,
+                    key_id: jira.client_secret_key_id.ok_or_else(|| {
+                        AppError::Internal(
+                            "Jira's secret has not been re-sealed since the upgrade".into(),
+                        )
+                    })?,
                 },
                 req.enabled,
                 admin_id,
@@ -333,6 +348,7 @@ pub async fn complete_connection(
         state,
         &app.client_secret_encrypted,
         &app.client_secret_nonce,
+        app.client_secret_key_id.as_deref(),
     )?;
 
     let redirect = redirect_url(state);
@@ -445,6 +461,7 @@ async fn access_token(
             state,
             &connection.access_token_encrypted,
             &connection.access_token_nonce,
+            connection.access_token_key_id.as_deref(),
         );
     }
     let (Some(ciphertext), Some(nonce)) = (
@@ -455,11 +472,17 @@ async fn access_token(
             "The connection has expired; connect again".into(),
         ));
     };
-    let refresh_token = open(state, ciphertext, nonce)?;
+    let refresh_token = open(
+        state,
+        ciphertext,
+        nonce,
+        connection.refresh_token_key_id.as_deref(),
+    )?;
     let secret = open(
         state,
         &app.client_secret_encrypted,
         &app.client_secret_nonce,
+        app.client_secret_key_id.as_deref(),
     )?;
     let tokens = match Provider::parse(&app.provider) {
         Some(Provider::Jira | Provider::Confluence) => {

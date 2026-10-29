@@ -1,10 +1,10 @@
-use chacha20poly1305::aead::{Aead, KeyInit};
-use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
 use rand::RngExt;
-use sha2::{Digest, Sha256};
 use totp_rs::{Algorithm, Builder, Secret, Totp};
 
 use shared_common::errors::{AppError, AppResult};
+
+use crate::auth::totp_repo::TotpEnrolment;
+use crate::sealed::{self, Keyring, Sealed};
 
 const STEP_SECS: u64 = 30;
 const DIGITS: u8 = 6;
@@ -12,37 +12,18 @@ const DIGITS: u8 = 6;
 const SKEW: u16 = 1;
 pub const RECOVERY_CODE_COUNT: usize = 10;
 
-/// The TOTP secret is encrypted with a key derived from the instance's JWT
-/// secret. A database dump full of TOTP secrets is the same failure as one full
-/// of passwords, and the second factor is worth nothing if the first breach
-/// hands it over too.
-fn cipher(jwt_secret: &str) -> ChaCha20Poly1305 {
-    let mut hasher = Sha256::new();
-    hasher.update(b"totp-secret-encryption:");
-    hasher.update(jwt_secret.as_bytes());
-    let key = hasher.finalize();
-    ChaCha20Poly1305::new(&Key::try_from(&key[..]).expect("sha256 is a 32-byte key"))
+pub fn encrypt_secret(keyring: &Keyring, secret: &str) -> AppResult<Sealed> {
+    sealed::seal(keyring, sealed::TOTP_SECRETS, secret)
 }
 
-pub fn encrypt_secret(jwt_secret: &str, secret: &str) -> AppResult<(Vec<u8>, Vec<u8>)> {
-    // aead 0.6 dropped the nonce helper; twelve random bytes is what it did.
-    let mut nonce_bytes = [0u8; 12];
-    rand::rng().fill(&mut nonce_bytes[..]);
-    let nonce = Nonce::from(nonce_bytes);
-    let ciphertext = cipher(jwt_secret)
-        .encrypt(&nonce, secret.as_bytes())
-        .map_err(|_| AppError::Internal("Failed to protect the TOTP secret".into()))?;
-    Ok((ciphertext, nonce_bytes.to_vec()))
-}
-
-pub fn decrypt_secret(jwt_secret: &str, ciphertext: &[u8], nonce: &[u8]) -> AppResult<String> {
-    let plaintext = cipher(jwt_secret)
-        .decrypt(
-            &Nonce::try_from(nonce).map_err(|_| AppError::Internal("Corrupt TOTP nonce".into()))?,
-            ciphertext,
-        )
-        .map_err(|_| AppError::Internal("Failed to read the TOTP secret".into()))?;
-    String::from_utf8(plaintext).map_err(|_| AppError::Internal("Corrupt TOTP secret".into()))
+pub fn decrypt_secret(keyring: &Keyring, enrolment: &TotpEnrolment) -> AppResult<String> {
+    sealed::open(
+        keyring,
+        sealed::TOTP_SECRETS,
+        &enrolment.secret_encrypted,
+        &enrolment.nonce,
+        enrolment.key_id.as_deref(),
+    )
 }
 
 pub fn generate_secret() -> String {
@@ -135,24 +116,43 @@ pub fn generate_recovery_codes() -> Vec<String> {
 mod tests {
     use super::*;
 
+    fn ring(id: &str, byte: u8) -> Keyring {
+        use base64::Engine;
+        let key = base64::engine::general_purpose::STANDARD.encode([byte; 32]);
+        Keyring::parse(&format!("{id}:{key}")).expect("ring")
+    }
+
+    fn enrolment(sealed: Sealed) -> TotpEnrolment {
+        TotpEnrolment {
+            user_id: uuid::Uuid::nil(),
+            secret_encrypted: sealed.ciphertext,
+            nonce: sealed.nonce,
+            key_id: Some(sealed.key_id),
+            confirmed_at: None,
+            last_used_step: None,
+            created_at: chrono::Utc::now(),
+        }
+    }
+
     #[test]
     fn a_secret_survives_the_round_trip() {
+        let keyring = ring("k1", 7);
         let secret = generate_secret();
-        let (ciphertext, nonce) = encrypt_secret("instance-secret", &secret).expect("encrypt");
+        let sealed = encrypt_secret(&keyring, &secret).expect("encrypt");
         assert_ne!(
-            ciphertext,
+            sealed.ciphertext,
             secret.as_bytes(),
             "it is not stored in the clear"
         );
-        let back = decrypt_secret("instance-secret", &ciphertext, &nonce).expect("decrypt");
+        let back = decrypt_secret(&keyring, &enrolment(sealed)).expect("decrypt");
         assert_eq!(back, secret);
     }
 
     #[test]
-    fn a_different_instance_secret_cannot_read_it() {
+    fn a_different_key_cannot_read_it() {
         let secret = generate_secret();
-        let (ciphertext, nonce) = encrypt_secret("instance-secret", &secret).expect("encrypt");
-        assert!(decrypt_secret("another-secret", &ciphertext, &nonce).is_err());
+        let sealed = encrypt_secret(&ring("k1", 7), &secret).expect("encrypt");
+        assert!(decrypt_secret(&ring("k1", 8), &enrolment(sealed)).is_err());
     }
 
     #[test]

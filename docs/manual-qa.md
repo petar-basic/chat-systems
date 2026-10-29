@@ -20,6 +20,7 @@ Legend: 🟢 happy path · 🟠 edge case · 🔴 security/abuse case.
 cp .env.example .env
 # edit .env and set strong values:
 #   JWT_SECRET=$(openssl rand -hex 32)
+#   SECRETS_KEYS=k1:$(openssl rand -base64 32)
 #   ADMIN_PASSWORD=<something strong>
 #   POSTGRES_PASSWORD=<something strong>
 docker compose --profile frontend up -d --build
@@ -35,7 +36,7 @@ docker compose --profile frontend up -d --build
 ### Option B — dev mode (hot reload, two API ports)
 ```bash
 # infra only
-JWT_SECRET=dev-secret-key-min-32-chars-1234567890 ADMIN_PASSWORD=admin123456 POSTGRES_PASSWORD=devpassword \
+JWT_SECRET=dev-secret-key-min-32-chars-1234567890 SECRETS_KEYS=dev:ZGV2LXNlY3JldHMta2V5LTAxMjM0NTY3ODlhYmNkZWY= ADMIN_PASSWORD=admin123456 POSTGRES_PASSWORD=devpassword \
   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres redis mailhog
 # api + realtime on host (each in its own terminal), then:
 cd frontend && npm install && npm run dev    # http://localhost:3001

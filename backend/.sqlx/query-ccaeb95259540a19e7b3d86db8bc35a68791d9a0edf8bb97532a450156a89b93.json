@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT external_account, access_token_encrypted, access_token_nonce,\n                    refresh_token_encrypted, refresh_token_nonce, expires_at, resources\n               FROM app_connections WHERE workspace_id = $1 AND user_id = $2 AND provider = $3",
+  "query": "SELECT external_account, access_token_encrypted, access_token_nonce, access_token_key_id,\n                    refresh_token_encrypted, refresh_token_nonce, refresh_token_key_id, expires_at, resources\n               FROM app_connections WHERE workspace_id = $1 AND user_id = $2 AND provider = $3",
   "describe": {
     "columns": [
       {
@@ -38,6 +38,17 @@
       },
       {
         "ordinal": 3,
+        "name": "access_token_key_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "app_connections",
+            "name": "access_token_key_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
         "name": "refresh_token_encrypted",
         "type_info": "Bytea",
         "origin": {
@@ -48,7 +59,7 @@
         }
       },
       {
-        "ordinal": 4,
+        "ordinal": 5,
         "name": "refresh_token_nonce",
         "type_info": "Bytea",
         "origin": {
@@ -59,7 +70,18 @@
         }
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
+        "name": "refresh_token_key_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "app_connections",
+            "name": "refresh_token_key_id"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
         "name": "expires_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -70,7 +92,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 8,
         "name": "resources",
         "type_info": "Jsonb",
         "origin": {
@@ -95,8 +117,10 @@
       true,
       true,
       true,
+      true,
+      true,
       false
     ]
   },
-  "hash": "5f947b16e994c4ae010b320432c15d1bfc1dec8754045f7cf896eb242212db47"
+  "hash": "ccaeb95259540a19e7b3d86db8bc35a68791d9a0edf8bb97532a450156a89b93"
 }

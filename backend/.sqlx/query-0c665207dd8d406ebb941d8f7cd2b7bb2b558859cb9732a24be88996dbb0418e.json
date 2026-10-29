@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE workspace_apps\n            SET client_secret_encrypted = $4, client_secret_nonce = $5, client_secret_key_id = $6\n          WHERE workspace_id = $1 AND provider = $2\n            AND client_secret_key_id IS NOT DISTINCT FROM $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Bytea",
+        "Bytea",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0c665207dd8d406ebb941d8f7cd2b7bb2b558859cb9732a24be88996dbb0418e"
+}

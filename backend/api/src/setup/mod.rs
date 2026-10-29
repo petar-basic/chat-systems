@@ -11,27 +11,28 @@ use tracing::warn;
 
 use shared_common::errors::AppResult;
 
+use crate::sealed::{self, Keyring};
 use crate::state::AppState;
 
 type HmacSha256 = Hmac<Sha256>;
 
 const TOKEN_BYTES: usize = 18;
 
-fn mac(secret: &str, nonce: &str) -> HmacSha256 {
-    let mut mac =
-        HmacSha256::new_from_slice(secret.as_bytes()).expect("HMAC accepts any key length");
+fn mac(keyring: &Keyring, nonce: &str) -> HmacSha256 {
+    let mut mac = HmacSha256::new_from_slice(&keyring.derive(sealed::SETUP_TOKEN))
+        .expect("HMAC accepts any key length");
     mac.update(b"instance-setup:");
     mac.update(nonce.as_bytes());
     mac
 }
 
-pub fn token_for(secret: &str, nonce: &str) -> String {
-    URL_SAFE_NO_PAD.encode(&mac(secret, nonce).finalize().into_bytes()[..TOKEN_BYTES])
+pub fn token_for(keyring: &Keyring, nonce: &str) -> String {
+    URL_SAFE_NO_PAD.encode(&mac(keyring, nonce).finalize().into_bytes()[..TOKEN_BYTES])
 }
 
-pub fn token_matches(secret: &str, nonce: &str, token: &str) -> bool {
+pub fn token_matches(keyring: &Keyring, nonce: &str, token: &str) -> bool {
     URL_SAFE_NO_PAD.decode(token.trim()).is_ok_and(|bytes| {
-        bytes.len() == TOKEN_BYTES && mac(secret, nonce).verify_truncated_left(&bytes).is_ok()
+        bytes.len() == TOKEN_BYTES && mac(keyring, nonce).verify_truncated_left(&bytes).is_ok()
     })
 }
 
@@ -47,7 +48,7 @@ pub async fn announce(state: &AppState) -> AppResult<()> {
         return Ok(());
     }
     let nonce = state.setup_repo.ensure_nonce(&fresh_nonce()).await?;
-    let token = token_for(&state.config.jwt_secret, &nonce);
+    let token = token_for(&state.config.secrets_keys, &nonce);
     warn!(
         "This instance has no admin yet. Open {}/setup and enter the setup token {}",
         state.config.public_url.trim_end_matches('/'),

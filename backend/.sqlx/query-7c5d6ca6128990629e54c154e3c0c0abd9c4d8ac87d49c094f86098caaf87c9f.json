@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO workspace_apps\n                 (workspace_id, provider, client_id, client_secret_encrypted, client_secret_nonce,\n                  client_secret_key_id, enabled, configured_by)\n             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)\n             ON CONFLICT (workspace_id, provider) DO UPDATE\n                SET client_id = EXCLUDED.client_id,\n                    client_secret_encrypted = EXCLUDED.client_secret_encrypted,\n                    client_secret_nonce = EXCLUDED.client_secret_nonce,\n                    client_secret_key_id = EXCLUDED.client_secret_key_id,\n                    enabled = EXCLUDED.enabled,\n                    configured_by = EXCLUDED.configured_by,\n                    configured_at = NOW()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Bytea",
+        "Bytea",
+        "Text",
+        "Bool",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7c5d6ca6128990629e54c154e3c0c0abd9c4d8ac87d49c094f86098caaf87c9f"
+}

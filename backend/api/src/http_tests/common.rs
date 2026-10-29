@@ -16,6 +16,27 @@ use crate::{build_app, build_state};
 
 pub const PASSWORD: &str = "password123";
 
+pub const NEXT_SECRETS_KEY: &str = "next:bmV4dC1zZWNyZXRzLWtleS0wMTIzNDU2Nzg5YWJjZGU=";
+
+pub fn rotated_keyring() -> crate::sealed::Keyring {
+    crate::sealed::Keyring::parse(&format!(
+        "{NEXT_SECRETS_KEY},{}",
+        crate::config::TEST_SECRETS_KEYS
+    ))
+    .expect("rotated keyring")
+}
+
+pub fn sealed_the_3_7_way(jwt_secret: &str, purpose: &str, plaintext: &str) -> (Vec<u8>, Vec<u8>) {
+    use chacha20poly1305::aead::{Aead, KeyInit};
+    use sha2::Digest;
+    let key: [u8; 32] = sha2::Sha256::digest(format!("{purpose}:{jwt_secret}")).into();
+    let nonce = [9u8; 12];
+    let ciphertext = chacha20poly1305::ChaCha20Poly1305::new(&key.into())
+        .encrypt(&nonce.into(), plaintext.as_bytes())
+        .expect("seal");
+    (ciphertext, nonce.to_vec())
+}
+
 pub fn test_config() -> AppConfig {
     AppConfig {
         port: 0,

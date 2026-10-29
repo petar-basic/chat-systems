@@ -13,7 +13,7 @@ async fn setup_token(state: &AppState) -> String {
         .await
         .expect("nonce")
         .expect("a fresh instance has a setup nonce");
-    crate::setup::token_for(&state.config.jwt_secret, &nonce)
+    crate::setup::token_for(&state.config.secrets_keys, &nonce)
 }
 
 fn request(token: &str, email: &str) -> Value {

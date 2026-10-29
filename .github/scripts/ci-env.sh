@@ -17,6 +17,7 @@ rand() { openssl rand -hex 24; }
 
 cat > .env <<ENV
 JWT_SECRET=$(rand)
+SECRETS_KEYS=k1:$(openssl rand -base64 32)
 POSTGRES_PASSWORD=$(rand)
 MINIO_ROOT_PASSWORD=$(rand)
 ADMIN_EMAIL=admin@dev.local

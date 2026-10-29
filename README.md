@@ -61,6 +61,8 @@ integration-test suite and a real CI pipeline.
   see only the people they share a channel with
 - Invite-only sign-up, SSO (OIDC), TOTP with recovery codes, SCIM deprovisioning
 - Audit log, retention policies, workspace and per-person export, erasure
+- App tokens and second factors sealed at rest under keys that rotate without anyone
+  reconnecting
 
 **Running it**
 - One `docker compose` command, automatic HTTPS, several workspaces per instance
@@ -115,7 +117,7 @@ HTTP request → chat-api → PostgreSQL write + outbox row → Redis stream + p
 ## Try it locally
 
 ```bash
-cp .env.example .env          # then set JWT_SECRET, POSTGRES_PASSWORD
+cp .env.example .env          # then set JWT_SECRET, SECRETS_KEYS, POSTGRES_PASSWORD
 docker compose --profile frontend up -d --build
 docker compose logs api | grep "setup token"
 ```

@@ -28,7 +28,7 @@ impl IntegrationRepo {
     pub async fn apps(&self, workspace_id: Uuid) -> sqlx::Result<Vec<WorkspaceApp>> {
         sqlx::query_as!(
             WorkspaceApp,
-            "SELECT workspace_id, provider, client_id, client_secret_encrypted, client_secret_nonce, enabled
+            "SELECT workspace_id, provider, client_id, client_secret_encrypted, client_secret_nonce, client_secret_key_id, enabled
                FROM workspace_apps WHERE workspace_id = $1",
             workspace_id
         )
@@ -43,7 +43,7 @@ impl IntegrationRepo {
     ) -> sqlx::Result<Option<WorkspaceApp>> {
         sqlx::query_as!(
             WorkspaceApp,
-            "SELECT workspace_id, provider, client_id, client_secret_encrypted, client_secret_nonce, enabled
+            "SELECT workspace_id, provider, client_id, client_secret_encrypted, client_secret_nonce, client_secret_key_id, enabled
                FROM workspace_apps WHERE workspace_id = $1 AND provider = $2",
             workspace_id,
             provider
@@ -63,12 +63,14 @@ impl IntegrationRepo {
     ) -> sqlx::Result<()> {
         sqlx::query!(
             "INSERT INTO workspace_apps
-                 (workspace_id, provider, client_id, client_secret_encrypted, client_secret_nonce, enabled, configured_by)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)
+                 (workspace_id, provider, client_id, client_secret_encrypted, client_secret_nonce,
+                  client_secret_key_id, enabled, configured_by)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
              ON CONFLICT (workspace_id, provider) DO UPDATE
                 SET client_id = EXCLUDED.client_id,
                     client_secret_encrypted = EXCLUDED.client_secret_encrypted,
                     client_secret_nonce = EXCLUDED.client_secret_nonce,
+                    client_secret_key_id = EXCLUDED.client_secret_key_id,
                     enabled = EXCLUDED.enabled,
                     configured_by = EXCLUDED.configured_by,
                     configured_at = NOW()",
@@ -77,6 +79,7 @@ impl IntegrationRepo {
             client_id,
             secret.ciphertext,
             secret.nonce,
+            secret.key_id,
             enabled,
             configured_by
         )
@@ -145,8 +148,8 @@ impl IntegrationRepo {
     ) -> sqlx::Result<Option<AppConnection>> {
         sqlx::query_as!(
             AppConnection,
-            "SELECT external_account, access_token_encrypted, access_token_nonce,
-                    refresh_token_encrypted, refresh_token_nonce, expires_at, resources
+            "SELECT external_account, access_token_encrypted, access_token_nonce, access_token_key_id,
+                    refresh_token_encrypted, refresh_token_nonce, refresh_token_key_id, expires_at, resources
                FROM app_connections WHERE workspace_id = $1 AND user_id = $2 AND provider = $3",
             workspace_id,
             user_id,
@@ -160,14 +163,17 @@ impl IntegrationRepo {
         sqlx::query!(
             "INSERT INTO app_connections
                  (workspace_id, user_id, provider, external_account, access_token_encrypted, access_token_nonce,
-                  refresh_token_encrypted, refresh_token_nonce, expires_at, resources)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                  access_token_key_id, refresh_token_encrypted, refresh_token_nonce, refresh_token_key_id,
+                  expires_at, resources)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
              ON CONFLICT (workspace_id, user_id, provider) DO UPDATE
                 SET external_account = EXCLUDED.external_account,
                     access_token_encrypted = EXCLUDED.access_token_encrypted,
                     access_token_nonce = EXCLUDED.access_token_nonce,
+                    access_token_key_id = EXCLUDED.access_token_key_id,
                     refresh_token_encrypted = EXCLUDED.refresh_token_encrypted,
                     refresh_token_nonce = EXCLUDED.refresh_token_nonce,
+                    refresh_token_key_id = EXCLUDED.refresh_token_key_id,
                     expires_at = EXCLUDED.expires_at,
                     resources = EXCLUDED.resources,
                     connected_at = NOW()",
@@ -177,8 +183,10 @@ impl IntegrationRepo {
             new.external_account,
             new.access_token.ciphertext,
             new.access_token.nonce,
+            new.access_token.key_id,
             new.refresh_token.map(|s| s.ciphertext.clone()),
             new.refresh_token.map(|s| s.nonce.clone()),
+            new.refresh_token.map(|s| s.key_id.clone()),
             new.expires_at,
             new.resources
         )
@@ -200,17 +208,21 @@ impl IntegrationRepo {
             "UPDATE app_connections
                 SET access_token_encrypted = $4,
                     access_token_nonce = $5,
-                    refresh_token_encrypted = COALESCE($6, refresh_token_encrypted),
-                    refresh_token_nonce = COALESCE($7, refresh_token_nonce),
-                    expires_at = $8
+                    access_token_key_id = $6,
+                    refresh_token_encrypted = COALESCE($7, refresh_token_encrypted),
+                    refresh_token_nonce = COALESCE($8, refresh_token_nonce),
+                    refresh_token_key_id = COALESCE($9, refresh_token_key_id),
+                    expires_at = $10
               WHERE workspace_id = $1 AND user_id = $2 AND provider = $3",
             workspace_id,
             user_id,
             provider,
             access_token.ciphertext,
             access_token.nonce,
+            access_token.key_id,
             refresh_token.map(|s| s.ciphertext.clone()),
             refresh_token.map(|s| s.nonce.clone()),
+            refresh_token.map(|s| s.key_id.clone()),
             expires_at
         )
         .execute(&self.pool)

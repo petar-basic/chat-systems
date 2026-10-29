@@ -7,6 +7,7 @@ pub struct TotpEnrolment {
     pub user_id: Uuid,
     pub secret_encrypted: Vec<u8>,
     pub nonce: Vec<u8>,
+    pub key_id: Option<String>,
     pub confirmed_at: Option<DateTime<Utc>>,
     pub last_used_step: Option<i64>,
     pub created_at: DateTime<Utc>,
@@ -31,7 +32,7 @@ impl TotpRepo {
     pub async fn find(&self, user_id: Uuid) -> sqlx::Result<Option<TotpEnrolment>> {
         sqlx::query_as!(
             TotpEnrolment,
-            "SELECT user_id, secret_encrypted, nonce, confirmed_at, last_used_step, created_at
+            "SELECT user_id, secret_encrypted, nonce, key_id, confirmed_at, last_used_step, created_at
                FROM user_totp WHERE user_id = $1",
             user_id
         )
@@ -44,23 +45,24 @@ impl TotpRepo {
     pub async fn start_enrolment(
         &self,
         user_id: Uuid,
-        secret_encrypted: &[u8],
-        nonce: &[u8],
+        secret: &crate::sealed::Sealed,
     ) -> sqlx::Result<()> {
         sqlx::query!(
             r"
-            INSERT INTO user_totp (user_id, secret_encrypted, nonce)
-            VALUES ($1, $2, $3)
+            INSERT INTO user_totp (user_id, secret_encrypted, nonce, key_id)
+            VALUES ($1, $2, $3, $4)
             ON CONFLICT (user_id) DO UPDATE SET
                 secret_encrypted = EXCLUDED.secret_encrypted,
                 nonce = EXCLUDED.nonce,
+                key_id = EXCLUDED.key_id,
                 confirmed_at = NULL,
                 last_used_step = NULL,
                 created_at = NOW()
             ",
             user_id,
-            secret_encrypted,
-            nonce
+            secret.ciphertext,
+            secret.nonce,
+            secret.key_id
         )
         .execute(&self.pool)
         .await?;

@@ -1,6 +1,8 @@
 use ipnet::IpNet;
 use tracing::info;
 
+use crate::sealed::Keyring;
+
 #[derive(Debug, Clone)]
 pub struct AppConfig {
     pub port: u16,
@@ -10,6 +12,7 @@ pub struct AppConfig {
     pub redis_url: String,
 
     pub jwt_secret: String,
+    pub secrets_keys: Keyring,
     pub access_token_expiry: i64,
     pub refresh_token_expiry: i64,
 
@@ -122,6 +125,7 @@ impl AppConfig {
             ),
             redis_url: env_or("REDIS_URL", "redis://127.0.0.1:6379"),
             jwt_secret: env_or("JWT_SECRET", "dev-secret-change-me-in-production"),
+            secrets_keys: secrets_keys_from_env(),
             // Fifteen minutes, not an hour: this is the window in which a revoked
             // session keeps working if the revocation store cannot be reached, and
             // the refresh flow already renews it without anybody noticing.
@@ -260,6 +264,16 @@ fn resolve_smtp_tls_mode(host: &str) -> SmtpTlsMode {
     }
 }
 
+fn secrets_keys_from_env() -> Keyring {
+    let raw = std::env::var("SECRETS_KEYS").unwrap_or_default();
+    Keyring::parse(&raw).unwrap_or_else(|e| {
+        panic!(
+            "SECRETS_KEYS must list at least one id:base64 key of 32 bytes ({e}).\n\
+             Generate one with: echo \"k1:$(openssl rand -base64 32)\""
+        )
+    })
+}
+
 fn env_or(key: &str, default: &str) -> String {
     std::env::var(key).unwrap_or_else(|_| default.to_string())
 }
@@ -278,6 +292,9 @@ where
 }
 
 #[cfg(test)]
+pub const TEST_SECRETS_KEYS: &str = "test:dGVzdC1zZWNyZXRzLWtleS0wMTIzNDU2Nzg5YWJjZGU=";
+
+#[cfg(test)]
 impl AppConfig {
     pub fn for_tests() -> Self {
         AppConfig {
@@ -285,6 +302,7 @@ impl AppConfig {
             database_url: String::new(),
             redis_url: String::new(),
             jwt_secret: "test-jwt-secret-0123456789-abcdefghij".to_string(),
+            secrets_keys: Keyring::parse(TEST_SECRETS_KEYS).expect("test keyring"),
             access_token_expiry: 3600,
             refresh_token_expiry: 604_800,
             admin_email: None,
@@ -351,6 +369,7 @@ mod tests {
     static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     const STRONG_SECRET: &str = "0123456789abcdef0123456789abcdef0123456789abcdef";
+    const STRONG_KEYS: &str = "k2:azItc2VjcmV0cy1rZXktMDEyMzQ1Njc4OWFiY2RlZmc=,k1:azEtc2VjcmV0cy1rZXktMDEyMzQ1Njc4OWFiY2RlZmc=";
 
     struct Saved {
         key: &'static str,
@@ -386,6 +405,7 @@ mod tests {
 
         let saved = vec![
             set_saved("JWT_SECRET", STRONG_SECRET),
+            set_saved("SECRETS_KEYS", STRONG_KEYS),
             set_saved(
                 "DATABASE_URL",
                 "postgres://chat:chat@localhost:5432/chatsystems",
@@ -404,6 +424,7 @@ mod tests {
         assert_eq!(config.access_token_expiry, 120i64);
         assert!(config.smtp_use_tls);
         assert_eq!(config.jwt_secret, STRONG_SECRET);
+        assert_eq!(config.secrets_keys.current_id(), "k2");
 
         restore(saved);
     }
@@ -416,6 +437,7 @@ mod tests {
 
         let saved = vec![
             set_saved("JWT_SECRET", "short"),
+            set_saved("SECRETS_KEYS", STRONG_KEYS),
             set_saved(
                 "DATABASE_URL",
                 "postgres://chat:chat@localhost:5432/chatsystems",
@@ -428,5 +450,28 @@ mod tests {
         restore(saved);
 
         assert!(result.is_err(), "weak JWT_SECRET must panic");
+    }
+
+    #[test]
+    fn from_env_panics_without_secrets_keys() {
+        let _guard = ENV_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+
+        let saved = vec![
+            set_saved("JWT_SECRET", STRONG_SECRET),
+            unset_saved("SECRETS_KEYS"),
+            set_saved(
+                "DATABASE_URL",
+                "postgres://chat:chat@localhost:5432/chatsystems",
+            ),
+            set_saved("REDIS_URL", "redis://127.0.0.1:6379"),
+        ];
+
+        let result = std::panic::catch_unwind(AppConfig::from_env);
+
+        restore(saved);
+
+        assert!(result.is_err(), "a missing SECRETS_KEYS must panic");
     }
 }

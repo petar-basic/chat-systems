@@ -22,6 +22,12 @@ async fn main() -> anyhow::Result<()> {
     sqlx::migrate!("../migrations").run(&pool).await?;
     info!("Migrations applied");
 
+    if let Err(e) =
+        chat_api::sealed::reseal::run(&pool, &config.secrets_keys, &config.jwt_secret).await
+    {
+        warn!("Stored secrets could not be re-sealed: {}", e);
+    }
+
     let state = build_state(pool, config).await?;
 
     if let Err(e) = state.auth_service.bootstrap_admin().await {

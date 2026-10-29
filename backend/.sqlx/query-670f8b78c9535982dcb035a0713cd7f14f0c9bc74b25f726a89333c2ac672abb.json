@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE user_totp\n            SET secret_encrypted = $3, nonce = $4, key_id = $5\n          WHERE user_id = $1 AND key_id IS NOT DISTINCT FROM $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Bytea",
+        "Bytea",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "670f8b78c9535982dcb035a0713cd7f14f0c9bc74b25f726a89333c2ac672abb"
+}

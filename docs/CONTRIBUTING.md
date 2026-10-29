@@ -14,11 +14,12 @@ codebase holds itself to. For the *why* behind the design, see
 
 All configuration is via environment variables. Copy the template and fill in the
 secrets — `docker compose` auto-loads `.env`; the API refuses to start with a weak
-or default `JWT_SECRET`.
+or default `JWT_SECRET`, or without `SECRETS_KEYS`.
 
 ```bash
 cp .env.example .env
-openssl rand -hex 32   # use for JWT_SECRET
+openssl rand -hex 32                   # use for JWT_SECRET
+echo "k1:$(openssl rand -base64 32)"   # use for SECRETS_KEYS
 ```
 
 The full list with defaults lives in [`backend/api/src/config.rs`](../backend/api/src/config.rs).
@@ -52,6 +53,7 @@ ADMIN_EMAIL=admin@dev.local
 ADMIN_PASSWORD=${ADMIN_PASSWORD}
 SMTP_HOST=localhost
 JWT_SECRET=${JWT_SECRET}
+SECRETS_KEYS=${SECRETS_KEYS}
 EOF
 
 # 3. Backend (three terminals; chat-worker is optional unless you are working on
@@ -73,7 +75,7 @@ backup sidecars — `db-backup` (verified `pg_dump`) and `storage-backup`
 (`rclone copy` of the upload bucket). Point your domain's DNS at the host first.
 
 ```bash
-# Required in .env: DOMAIN, ACME_EMAIL, JWT_SECRET, POSTGRES_PASSWORD,
+# Required in .env: DOMAIN, ACME_EMAIL, JWT_SECRET, SECRETS_KEYS, POSTGRES_PASSWORD,
 #   MINIO_ROOT_PASSWORD, SMTP_HOST, SMTP_FROM_ADDRESS
 # Optional in .env: VERSION (tags the app images for rollback — set to a git SHA
 #   or release tag), BACKUP_OFFSITE_REMOTE (off-host copy of each verified dump).

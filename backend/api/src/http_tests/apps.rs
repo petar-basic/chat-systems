@@ -9,6 +9,8 @@ use sqlx::PgPool;
 
 use super::common::*;
 use crate::integrations::service::{self, AppUnfurl};
+use crate::sealed::reseal::{self, Report};
+use crate::sealed::Keyring;
 
 async fn fake_atlassian() -> String {
     async fn token(Json(body): Json<Value>) -> (StatusCode, Json<Value>) {
@@ -1333,8 +1335,8 @@ async fn confluence_reuses_the_jira_app_without_the_secret_leaving_the_server(po
     assert_eq!(confluence["client_id"], json!("client-1"));
     assert!(!body.to_string().contains("shh"));
 
-    let secrets: Vec<Vec<u8>> = sqlx::query_scalar(
-        "SELECT client_secret_encrypted FROM workspace_apps WHERE workspace_id = $1 ORDER BY provider",
+    let secrets: Vec<(Vec<u8>, Option<String>)> = sqlx::query_as(
+        "SELECT client_secret_encrypted, client_secret_key_id FROM workspace_apps WHERE workspace_id = $1 ORDER BY provider",
     )
     .bind(s.ws_id)
     .fetch_all(&s.state.pool)
@@ -1479,4 +1481,154 @@ async fn a_confluence_page_needs_its_own_connection_then_gets_a_card(pool: PgPoo
             "{unknown}"
         );
     }
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_new_key_reseals_every_app_secret_and_the_old_one_can_go(pool: PgPool) {
+    let s = google_connected(pool).await;
+    let report = reseal::run(
+        &s.state.pool,
+        &rotated_keyring(),
+        &s.state.config.jwt_secret,
+    )
+    .await
+    .expect("reseal");
+    assert_eq!(
+        report,
+        Report {
+            resealed: 3,
+            unreadable: vec![]
+        },
+        "the client secret, the access token and the refresh token"
+    );
+    let again = reseal::run(
+        &s.state.pool,
+        &rotated_keyring(),
+        &s.state.config.jwt_secret,
+    )
+    .await
+    .expect("reseal");
+    assert_eq!(again.resealed, 0, "a second start has nothing to do");
+
+    let keys: (Option<String>, Option<String>, Option<String>) = sqlx::query_as(
+        "SELECT a.client_secret_key_id, c.access_token_key_id, c.refresh_token_key_id
+           FROM workspace_apps a JOIN app_connections c USING (workspace_id, provider)
+          WHERE a.workspace_id = $1",
+    )
+    .bind(s.ws_id)
+    .fetch_one(&s.state.pool)
+    .await
+    .expect("keys");
+    let next = Some("next".to_string());
+    assert_eq!(keys, (next.clone(), next.clone(), next));
+
+    let (_, state) = app_and_state_with(
+        s.state.pool.clone(),
+        crate::config::AppConfig {
+            secrets_keys: Keyring::parse(NEXT_SECRETS_KEY).expect("ring"),
+            ..s.state.config.clone()
+        },
+    )
+    .await;
+    sqlx::query(
+        "UPDATE app_connections SET expires_at = NOW() - INTERVAL '1 hour' WHERE user_id = $1",
+    )
+    .bind(s.owner)
+    .execute(&state.pool)
+    .await
+    .expect("expire");
+    assert!(
+        matches!(
+            service::unfurl(&state, s.ws_id, s.owner, DOC)
+                .await
+                .expect("unfurl"),
+            AppUnfurl::Card(_)
+        ),
+        "with only the new key the token still refreshes"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn secrets_sealed_by_3_7_are_resealed_when_the_api_starts(pool: PgPool) {
+    let s = google_connected(pool).await;
+    let jwt = s.state.config.jwt_secret.clone();
+    let (secret, secret_nonce) = sealed_the_3_7_way(&jwt, "workspace-app-secrets", "shh");
+    let (access, access_nonce) = sealed_the_3_7_way(&jwt, "workspace-app-secrets", "g-1");
+    let (refresh, refresh_nonce) = sealed_the_3_7_way(&jwt, "workspace-app-secrets", "gr-1");
+    sqlx::query(
+        "UPDATE workspace_apps
+            SET client_secret_encrypted = $2, client_secret_nonce = $3, client_secret_key_id = NULL
+          WHERE workspace_id = $1",
+    )
+    .bind(s.ws_id)
+    .bind(secret)
+    .bind(secret_nonce)
+    .execute(&s.state.pool)
+    .await
+    .expect("legacy app");
+    sqlx::query(
+        "UPDATE app_connections
+            SET access_token_encrypted = $2, access_token_nonce = $3, access_token_key_id = NULL,
+                refresh_token_encrypted = $4, refresh_token_nonce = $5, refresh_token_key_id = NULL,
+                expires_at = NOW() - INTERVAL '1 hour'
+          WHERE workspace_id = $1",
+    )
+    .bind(s.ws_id)
+    .bind(access)
+    .bind(access_nonce)
+    .bind(refresh)
+    .bind(refresh_nonce)
+    .execute(&s.state.pool)
+    .await
+    .expect("legacy connection");
+
+    let report = reseal::run(&s.state.pool, &s.state.config.secrets_keys, &jwt)
+        .await
+        .expect("reseal");
+    assert_eq!(
+        report,
+        Report {
+            resealed: 3,
+            unreadable: vec![]
+        }
+    );
+    assert!(
+        matches!(
+            service::unfurl(&s.state, s.ws_id, s.owner, DOC)
+                .await
+                .expect("unfurl"),
+            AppUnfurl::Card(_)
+        ),
+        "the re-sealed refresh token still refreshes"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_secret_on_a_key_no_longer_listed_is_reported_and_left_alone(pool: PgPool) {
+    let s = google_connected(pool).await;
+    sqlx::query("UPDATE workspace_apps SET client_secret_key_id = 'gone' WHERE workspace_id = $1")
+        .bind(s.ws_id)
+        .execute(&s.state.pool)
+        .await
+        .expect("retire");
+
+    let report = reseal::run(
+        &s.state.pool,
+        &s.state.config.secrets_keys,
+        &s.state.config.jwt_secret,
+    )
+    .await
+    .expect("reseal");
+    assert_eq!(report.resealed, 0);
+    assert_eq!(report.unreadable.len(), 1, "{report:?}");
+    assert!(report.unreadable[0].contains("google_drive"), "{report:?}");
+
+    let key: Option<String> = sqlx::query_scalar(
+        "SELECT client_secret_key_id FROM workspace_apps WHERE workspace_id = $1",
+    )
+    .bind(s.ws_id)
+    .fetch_one(&s.state.pool)
+    .await
+    .expect("key");
+    assert_eq!(key.as_deref(), Some("gone"));
 }

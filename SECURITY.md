@@ -19,9 +19,14 @@ response as soon as possible.
 
 ## Operator notes (self-hosting)
 
-- Generate strong secrets — `JWT_SECRET` (`openssl rand -hex 32`), and the
-  Postgres / object-storage passwords. The app refuses to start with the insecure
-  default `JWT_SECRET`.
+- Generate strong secrets — `JWT_SECRET` (`openssl rand -hex 32`),
+  `SECRETS_KEYS` (`echo "k1:$(openssl rand -base64 32)"`), and the Postgres /
+  object-storage passwords. The app refuses to start with the insecure default
+  `JWT_SECRET` or without `SECRETS_KEYS`.
+- `SECRETS_KEYS` seals the app secrets, the connected accounts' tokens and the
+  TOTP secrets at rest. Rotate it by adding a new key, moving it first and
+  restarting; the API re-seals every stored secret on start. The RUNBOOK has the
+  steps.
 - Never commit `.env` (it is gitignored). If a secret is ever exposed, rotate
   it; rewriting git history alone does not make a leaked key safe.
 - Serve over HTTPS in production (the provided Caddy setup does this), so auth

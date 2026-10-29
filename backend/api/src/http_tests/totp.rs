@@ -5,6 +5,7 @@ use sqlx::PgPool;
 use super::common::*;
 use crate::auth::totp;
 use crate::config::AppConfig;
+use crate::sealed::{reseal, Keyring};
 
 fn authenticator(state: &crate::state::AppState, secret: &str, email: &str) -> totp_rs::Totp {
     totp_rs::Builder::new()
@@ -347,4 +348,83 @@ async fn every_second_factor_event_is_audited(pool: PgPool) {
             .expect("count");
         assert!(count >= 1, "{action} is on the record");
     }
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn the_second_factor_survives_a_key_rotation(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (id, email, token) = seed_and_login(&app, &state, "totp-rotate", false).await;
+    let (status, body) = send(&app, "POST", "/api/auth/totp/enrol", Some(&token), None).await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    let secret = body["secret"].as_str().expect("secret").to_string();
+    let (status, _) = send(
+        &app,
+        "POST",
+        "/api/auth/totp/confirm",
+        Some(&token),
+        Some(json!({ "code": code_for(&state, &secret, &email) })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let report = reseal::run(&state.pool, &rotated_keyring(), &state.config.jwt_secret)
+        .await
+        .expect("reseal");
+    assert_eq!(report.resealed, 1, "{report:?}");
+
+    let next = Keyring::parse(NEXT_SECRETS_KEY).expect("ring");
+    let enrolment = state
+        .totp_repo
+        .find(id)
+        .await
+        .expect("find")
+        .expect("enrolled");
+    assert_eq!(enrolment.key_id.as_deref(), Some("next"));
+    assert_eq!(
+        totp::decrypt_secret(&next, &enrolment).expect("open"),
+        secret
+    );
+    assert!(
+        enrolment.is_active(),
+        "re-sealing does not reset the enrolment"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_second_factor_sealed_by_3_7_is_resealed_when_the_api_starts(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (id, _email, _token) = seed_and_login(&app, &state, "totp-legacy", false).await;
+    let secret = totp::generate_secret();
+    let (ciphertext, nonce) =
+        sealed_the_3_7_way(&state.config.jwt_secret, "totp-secret-encryption", &secret);
+    sqlx::query(
+        "INSERT INTO user_totp (user_id, secret_encrypted, nonce, confirmed_at) VALUES ($1, $2, $3, NOW())",
+    )
+    .bind(id)
+    .bind(ciphertext)
+    .bind(nonce)
+    .execute(&state.pool)
+    .await
+    .expect("legacy enrolment");
+
+    let report = reseal::run(
+        &state.pool,
+        &state.config.secrets_keys,
+        &state.config.jwt_secret,
+    )
+    .await
+    .expect("reseal");
+    assert_eq!(report.resealed, 1, "{report:?}");
+
+    let enrolment = state
+        .totp_repo
+        .find(id)
+        .await
+        .expect("find")
+        .expect("enrolled");
+    assert_eq!(enrolment.key_id.as_deref(), Some("test"));
+    assert_eq!(
+        totp::decrypt_secret(&state.config.secrets_keys, &enrolment).expect("open"),
+        secret
+    );
 }
