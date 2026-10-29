@@ -15,8 +15,12 @@ fi
 
 rand() { openssl rand -hex 24; }
 
+signing_key=$(openssl genpkey -algorithm ed25519 -outform DER | base64 | tr -d '\n')
+public_key=$(echo "$signing_key" | base64 -d | openssl pkey -inform DER -pubout -outform DER | base64 | tr -d '\n')
+
 cat > .env <<ENV
-JWT_SECRET=$(rand)
+JWT_SIGNING_KEYS=k1:${signing_key}
+JWT_PUBLIC_KEYS=k1:${public_key}
 SECRETS_KEYS=k1:$(openssl rand -base64 32)
 POSTGRES_PASSWORD=$(rand)
 MINIO_ROOT_PASSWORD=$(rand)

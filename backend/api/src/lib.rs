@@ -75,7 +75,7 @@ use crate::hooks::repo::HookRepo;
 use crate::huddle::repo::HuddleRepo;
 use crate::messaging::publisher::EventPublisher;
 use crate::messaging::repo::MessageRepo;
-use crate::middleware::{JwtSecret, RevocationStore};
+use crate::middleware::{RevocationStore, SessionVerifier};
 use crate::notifications::repo::NotificationRepo;
 use crate::state::AppState;
 use crate::workspace::repo::WorkspaceRepo;
@@ -178,7 +178,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
 }
 
 pub fn build_app(state: Arc<AppState>) -> Router {
-    let jwt_secret = state.config.jwt_secret.clone();
+    let verifier = state.config.jwt_keys.verifying().clone();
     let cors_origins = state.config.cors_origins.clone();
     let revocation = RevocationStore(state.redis.clone());
 
@@ -201,7 +201,7 @@ pub fn build_app(state: Arc<AppState>) -> Router {
         .merge(openapi::router())
         .layer(axum::middleware::from_fn(metrics::track_metrics))
         .layer(Extension(revocation))
-        .layer(Extension(JwtSecret(jwt_secret)))
+        .layer(Extension(SessionVerifier(verifier)))
         .layer(shared_common::cors::cors_layer(&cors_origins))
         .layer(CompressionLayer::new())
         .layer(DefaultBodyLimit::max(1024 * 1024))

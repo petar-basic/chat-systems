@@ -27,7 +27,6 @@ chrono = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 anyhow = { workspace = true }
-jsonwebtoken = { workspace = true }
 dashmap = { workspace = true }
 futures-util = { workspace = true }
 metrics = { workspace = true }
@@ -39,4 +38,5 @@ dotenvy = "0.15"
 tower = { workspace = true, features = ["util"] }
 # `#[db_test]` clones a migrated template into a database per test.
 test-macros = { path = "../test-macros" }
+jsonwebtoken = { workspace = true }
 shared-common = { path = "../shared/common", features = ["testing"] }

@@ -1,6 +1,6 @@
 use sqlx::PgPool;
 
-use shared_common::errors::AppResult;
+use shared_common::errors::{AppError, AppResult};
 
 use super::repo::{self, Stored};
 use super::{open, open_with_jwt_secret, seal, Keyring, Sealed, APP_SECRETS, TOTP_SECRETS};
@@ -26,7 +26,7 @@ impl Report {
 
 fn reseal(
     keyring: &Keyring,
-    jwt_secret: &str,
+    jwt_secret: Option<&str>,
     purpose: &str,
     stored: &Stored,
 ) -> AppResult<Sealed> {
@@ -38,12 +38,19 @@ fn reseal(
             &stored.nonce,
             Some(key_id),
         )?,
-        None => open_with_jwt_secret(jwt_secret, purpose, &stored.ciphertext, &stored.nonce)?,
+        None => open_with_jwt_secret(
+            jwt_secret.ok_or_else(|| {
+                AppError::Internal("it was sealed with JWT_SECRET, which is no longer set".into())
+            })?,
+            purpose,
+            &stored.ciphertext,
+            &stored.nonce,
+        )?,
     };
     seal(keyring, purpose, &plaintext)
 }
 
-pub async fn run(pool: &PgPool, keyring: &Keyring, jwt_secret: &str) -> AppResult<Report> {
+pub async fn run(pool: &PgPool, keyring: &Keyring, jwt_secret: Option<&str>) -> AppResult<Report> {
     let current = keyring.current_id();
     let mut report = Report::default();
 

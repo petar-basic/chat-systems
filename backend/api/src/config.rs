@@ -1,6 +1,8 @@
 use ipnet::IpNet;
 use tracing::info;
 
+use shared_common::session_keys::SigningKeys;
+
 use crate::sealed::Keyring;
 
 #[derive(Debug, Clone)]
@@ -11,7 +13,8 @@ pub struct AppConfig {
 
     pub redis_url: String,
 
-    pub jwt_secret: String,
+    pub jwt_keys: SigningKeys,
+    pub legacy_jwt_secret: Option<String>,
     pub secrets_keys: Keyring,
     pub access_token_expiry: i64,
     pub refresh_token_expiry: i64,
@@ -124,7 +127,8 @@ impl AppConfig {
                 "postgres://chat:chat@localhost:5432/chatsystems",
             ),
             redis_url: env_or("REDIS_URL", "redis://127.0.0.1:6379"),
-            jwt_secret: env_or("JWT_SECRET", "dev-secret-change-me-in-production"),
+            jwt_keys: jwt_keys_from_env(),
+            legacy_jwt_secret: std::env::var("JWT_SECRET").ok().filter(|s| !s.is_empty()),
             secrets_keys: secrets_keys_from_env(),
             // Fifteen minutes, not an hour: this is the window in which a revoked
             // session keeps working if the revocation store cannot be reached, and
@@ -211,15 +215,6 @@ impl AppConfig {
             );
         }
 
-        if config.jwt_secret == "dev-secret-change-me-in-production" || config.jwt_secret.len() < 32
-        {
-            panic!(
-                "JWT_SECRET must be set to a random value of at least 32 characters.\n\
-                 Current value is either the insecure default or too short.\n\
-                 Generate one with: openssl rand -hex 32"
-            );
-        }
-
         if config.public_url.starts_with("http://")
             && !config.public_url.contains("localhost")
             && !config.public_url.contains("127.0.0.1")
@@ -264,6 +259,16 @@ fn resolve_smtp_tls_mode(host: &str) -> SmtpTlsMode {
     }
 }
 
+fn jwt_keys_from_env() -> SigningKeys {
+    let raw = std::env::var("JWT_SIGNING_KEYS").unwrap_or_default();
+    SigningKeys::parse(&raw).unwrap_or_else(|e| {
+        panic!(
+            "JWT_SIGNING_KEYS must list at least one id:base64 Ed25519 private key ({e}).\n\
+             Generate one with: echo \"k1:$(openssl genpkey -algorithm ed25519 -outform DER | base64)\""
+        )
+    })
+}
+
 fn secrets_keys_from_env() -> Keyring {
     let raw = std::env::var("SECRETS_KEYS").unwrap_or_default();
     Keyring::parse(&raw).unwrap_or_else(|e| {
@@ -301,7 +306,9 @@ impl AppConfig {
             port: 3000,
             database_url: String::new(),
             redis_url: String::new(),
-            jwt_secret: "test-jwt-secret-0123456789-abcdefghij".to_string(),
+            jwt_keys: SigningKeys::parse(shared_common::session_keys::TEST_SIGNING_KEYS)
+                .expect("test signing keys"),
+            legacy_jwt_secret: None,
             secrets_keys: Keyring::parse(TEST_SECRETS_KEYS).expect("test keyring"),
             access_token_expiry: 3600,
             refresh_token_expiry: 604_800,
@@ -369,6 +376,7 @@ mod tests {
     static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     const STRONG_SECRET: &str = "0123456789abcdef0123456789abcdef0123456789abcdef";
+    const SIGNING_KEYS: &str = "k1:MC4CAQAwBQYDK2VwBCIEIGI30Lx2rSsmmyhD7LBOZcQoxLcgnMDiUmMNTIEro7Kk,k0:MC4CAQAwBQYDK2VwBCIEIMmVeJctnPI4cTDrkYWTEXJUa2oijgBEjxlvG4x9LXe/";
     const STRONG_KEYS: &str = "k2:azItc2VjcmV0cy1rZXktMDEyMzQ1Njc4OWFiY2RlZmc=,k1:azEtc2VjcmV0cy1rZXktMDEyMzQ1Njc4OWFiY2RlZmc=";
 
     struct Saved {
@@ -405,6 +413,7 @@ mod tests {
 
         let saved = vec![
             set_saved("JWT_SECRET", STRONG_SECRET),
+            set_saved("JWT_SIGNING_KEYS", SIGNING_KEYS),
             set_saved("SECRETS_KEYS", STRONG_KEYS),
             set_saved(
                 "DATABASE_URL",
@@ -423,20 +432,46 @@ mod tests {
         assert_eq!(config.port, 8080u16);
         assert_eq!(config.access_token_expiry, 120i64);
         assert!(config.smtp_use_tls);
-        assert_eq!(config.jwt_secret, STRONG_SECRET);
+        assert_eq!(config.legacy_jwt_secret.as_deref(), Some(STRONG_SECRET));
+        assert_eq!(config.jwt_keys.current_id(), "k1");
+        assert_eq!(config.jwt_keys.verifying().ids(), vec!["k1", "k0"]);
         assert_eq!(config.secrets_keys.current_id(), "k2");
 
         restore(saved);
     }
 
     #[test]
-    fn from_env_panics_on_weak_jwt_secret() {
+    fn from_env_needs_no_jwt_secret() {
         let _guard = ENV_LOCK
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
 
         let saved = vec![
-            set_saved("JWT_SECRET", "short"),
+            unset_saved("JWT_SECRET"),
+            set_saved("JWT_SIGNING_KEYS", SIGNING_KEYS),
+            set_saved("SECRETS_KEYS", STRONG_KEYS),
+            set_saved(
+                "DATABASE_URL",
+                "postgres://chat:chat@localhost:5432/chatsystems",
+            ),
+            set_saved("REDIS_URL", "redis://127.0.0.1:6379"),
+        ];
+
+        let config = AppConfig::from_env();
+
+        restore(saved);
+
+        assert!(config.legacy_jwt_secret.is_none());
+    }
+
+    #[test]
+    fn from_env_panics_without_a_signing_key() {
+        let _guard = ENV_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+
+        let saved = vec![
+            unset_saved("JWT_SIGNING_KEYS"),
             set_saved("SECRETS_KEYS", STRONG_KEYS),
             set_saved(
                 "DATABASE_URL",
@@ -449,7 +484,30 @@ mod tests {
 
         restore(saved);
 
-        assert!(result.is_err(), "weak JWT_SECRET must panic");
+        assert!(result.is_err(), "a missing JWT_SIGNING_KEYS must panic");
+    }
+
+    #[test]
+    fn from_env_panics_on_a_malformed_signing_key() {
+        let _guard = ENV_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+
+        let saved = vec![
+            set_saved("JWT_SIGNING_KEYS", "k1:bm90LWEta2V5"),
+            set_saved("SECRETS_KEYS", STRONG_KEYS),
+            set_saved(
+                "DATABASE_URL",
+                "postgres://chat:chat@localhost:5432/chatsystems",
+            ),
+            set_saved("REDIS_URL", "redis://127.0.0.1:6379"),
+        ];
+
+        let result = std::panic::catch_unwind(AppConfig::from_env);
+
+        restore(saved);
+
+        assert!(result.is_err(), "a key that is not Ed25519 must panic");
     }
 
     #[test]
@@ -459,7 +517,7 @@ mod tests {
             .unwrap_or_else(std::sync::PoisonError::into_inner);
 
         let saved = vec![
-            set_saved("JWT_SECRET", STRONG_SECRET),
+            set_saved("JWT_SIGNING_KEYS", SIGNING_KEYS),
             unset_saved("SECRETS_KEYS"),
             set_saved(
                 "DATABASE_URL",

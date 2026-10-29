@@ -63,6 +63,7 @@ integration-test suite and a real CI pipeline.
 - Audit log, retention policies, workspace and per-person export, erasure
 - App tokens and second factors sealed at rest under keys that rotate without anyone
   reconnecting
+- Ed25519-signed sessions with rotating keys; the realtime gateway holds only public keys
 
 **Running it**
 - One `docker compose` command, automatic HTTPS, several workspaces per instance
@@ -117,7 +118,7 @@ HTTP request → chat-api → PostgreSQL write + outbox row → Redis stream + p
 ## Try it locally
 
 ```bash
-cp .env.example .env          # then set JWT_SECRET, SECRETS_KEYS, POSTGRES_PASSWORD
+cp .env.example .env          # then set JWT_SIGNING_KEYS, JWT_PUBLIC_KEYS, SECRETS_KEYS, POSTGRES_PASSWORD
 docker compose --profile frontend up -d --build
 docker compose logs api | grep "setup token"
 ```

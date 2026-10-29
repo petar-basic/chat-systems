@@ -4168,8 +4168,11 @@ dependencies = [
 name = "shared-common"
 version = "1.0.0"
 dependencies = [
+ "aws-lc-rs",
  "axum",
+ "base64 0.23.1",
  "garde",
+ "jsonwebtoken",
  "serde",
  "serde_json",
  "sqlx",

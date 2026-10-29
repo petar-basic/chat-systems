@@ -35,8 +35,9 @@ redis = { version = "1.6", features = ["tokio-comp", "connection-manager"] }
 object_store = { version = "0.14", features = ["aws", "fs", "tokio"] }
 
 # Auth — aws_lc_rs provider (reuses the aws-lc-rs already built for rustls) keeps the
-# pure-Rust `rsa` crate (RUSTSEC-2023-0071) out of the tree; we only use HS256.
+# pure-Rust `rsa` crate (RUSTSEC-2023-0071) out of the tree; sessions are EdDSA.
 jsonwebtoken = { version = "11", default-features = false, features = ["use_pem", "aws_lc_rs"] }
+aws-lc-rs = "1.15"
 argon2 = "0.6"
 
 # Crypto (webhook signing + TURN REST credentials)

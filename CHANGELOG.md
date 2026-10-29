@@ -21,6 +21,11 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - **Set `SECRETS_KEYS` before you upgrade**: `echo "k1:$(openssl rand -base64 32)"`, on the
   `api` and the `worker`. Both refuse to start without it. Keep `JWT_SECRET` unchanged for
   this start: the `api` re-seals what 3.7.0 sealed with it (see the RUNBOOK upgrade note).
+- **Set `JWT_SIGNING_KEYS` and `JWT_PUBLIC_KEYS` before you upgrade** (the commands are in
+  `.env.example` and the RUNBOOK): the private keys on the `api` and the `worker`, the public
+  halves on `realtime`. Upgrade all three together. **Everybody is signed out once**, because
+  the HS256 sessions 3.7.0 issued are refused. Remove `JWT_SECRET` once the `api` has logged
+  that every stored secret is on a `SECRETS_KEYS` key.
 - Migration 82 adds `users.manual_away`; migration 83 adds a key id beside every sealed
   secret.
 - For WebSocket clients: `presence.batch` and `presence.changed` carry `away` as well as
@@ -40,6 +45,11 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   Rotating `JWT_SECRET` no longer breaks every connected app and second factor, and
   `SECRETS_KEYS` rotates on its own: add a key, put it first, restart, and the API re-seals
   everything, so nobody sets an app up again or reconnects.
+- **Sessions are signed with Ed25519, and the realtime gateway can no longer sign one.**
+  Tokens are EdDSA with a `kid`; the API and the worker hold the private keys and the gateway
+  only the public halves, so a leaked gateway configuration mints nothing. HS256, unsigned
+  tokens and unknown key ids are refused. Signing keys rotate without signing anybody out:
+  add a key, promote it, retire the old one after the refresh-token lifetime.
 
 ## [3.7.0] — 2026-10-29
 

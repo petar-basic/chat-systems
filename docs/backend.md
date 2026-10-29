@@ -81,15 +81,18 @@ in `main.rs`.
 
 ### Cross-cutting concerns
 
-- **Auth.** Argon2id password hashing; HS256 JWTs with an `access` / `refresh` token-type
-  claim. Refresh tokens are DB-backed, single-use, and rotated; password reset is single-use
+- **Auth.** Argon2id password hashing; Ed25519-signed (EdDSA) JWTs with an `access` /
+  `refresh` token-type claim and a `kid` naming the key. `shared_common::session_keys` signs
+  with the first of `JWT_SIGNING_KEYS` and verifies against every listed key; the gateway
+  gets only `JWT_PUBLIC_KEYS`. Any other algorithm, a missing `kid` or an unlisted one is
+  refused. Refresh tokens are DB-backed, single-use, and rotated; password reset is single-use
   and revokes all sessions. Auth cookies are `HttpOnly; SameSite=Lax`, and `Secure` whenever
   `PUBLIC_URL` is https.
 - **Secrets at rest.** Connected apps' client secrets and tokens and TOTP secrets are sealed
   with ChaCha20-Poly1305 by `sealed/`, under a per-purpose key derived from `SECRETS_KEYS`
   (a list of `id:base64` keys, the first one current). Each row stores the key id beside the
   nonce; on start the API re-seals any row not on the current key (`sealed::reseal`), including
-  rows 3.7.0 sealed under `JWT_SECRET`. The setup token is an HMAC under the same keyring.
+  rows 3.7.0 sealed under `JWT_SECRET`, which is read for nothing else. The setup token is an HMAC under the same keyring.
 - **Authorization** is re-derived per request from the verified token (`auth.user_id`),
   never trusted from the body — and re-checked against the DB on every WebSocket
   subscribe/join.
@@ -1140,7 +1143,7 @@ Live voice/video rooms (Slack-style huddles) over mesh WebRTC. Live membership a
 
 ## chat-realtime (WebSocket Gateway)
 
-Single WebSocket endpoint. Validates the JWT on the upgrade handshake, re-checks channel/workspace membership against the DB on every subscribe/join, then relays events from Redis to connected clients: the live pub/sub channels for latency, and the per-workspace stream for replay after a reconnect. Every frame it sends is a `ServerFrame` variant (`shared/events`), and the frontend's frame union is generated from that enum. The socket is also closed when the access token's `exp` passes, so a long-lived connection can't outlive its token.
+Single WebSocket endpoint. Validates the JWT on the upgrade handshake against `JWT_PUBLIC_KEYS`, so it holds nothing that can sign one, re-checks channel/workspace membership against the DB on every subscribe/join, then relays events from Redis to connected clients: the live pub/sub channels for latency, and the per-workspace stream for replay after a reconnect. Every frame it sends is a `ServerFrame` variant (`shared/events`), and the frontend's frame union is generated from that enum. The socket is also closed when the access token's `exp` passes, so a long-lived connection can't outlive its token.
 
 The upgrade additionally checks the `Origin` against the configured CORS origins and rejects a token covered by a revocation record. A revocation stores the moment it happened rather than a boolean, so it invalidates every token issued up to that point while leaving a later sign-in working, and it can spare one named session (`except_jti`) — which is what lets "log out my other devices" keep the device you are typing on. `session.revoked` closes the matching live sockets with close code `4001` and a reason; suspending a user closes all of theirs. Alongside `/ws`, the gateway serves `/livez`, `/readyz` (DB + Redis + event-consumer liveness — it reports unhealthy if the consumer has stalled), and `/metrics` (Prometheus: connection count, consumer heartbeat age, events, backpressure drops). Presence is workspace-scoped: a client only sees the online roster and status changes for workspaces it shares. See [RUNBOOK.md](RUNBOOK.md) for ops.
 

@@ -20,12 +20,12 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::Router;
-use jsonwebtoken::{decode, DecodingKey, Validation};
 use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
 use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
 
 use shared_common::errors::AppError;
+use shared_common::session_keys::VerifyingKeys;
 
 use crate::config::RealtimeConfig;
 use crate::connection_manager::ConnectionManager;
@@ -33,7 +33,7 @@ use crate::connection_manager::ConnectionManager;
 #[derive(Clone)]
 struct AppState {
     cm: Arc<ConnectionManager>,
-    jwt_secret: String,
+    jwt_public_keys: VerifyingKeys,
     consumer_heartbeat: Arc<AtomicI64>,
     cors_origins: String,
 }
@@ -129,7 +129,7 @@ async fn main() -> anyhow::Result<()> {
 
     let state = AppState {
         cm,
-        jwt_secret: config.jwt_secret.clone(),
+        jwt_public_keys: config.jwt_public_keys.clone(),
         consumer_heartbeat,
         cors_origins: config.cors_origins.clone(),
     };
@@ -195,28 +195,25 @@ fn cookie_token(headers: &axum::http::HeaderMap) -> Option<String> {
 
 pub(crate) fn authenticate_ws(
     headers: &axum::http::HeaderMap,
-    jwt_secret: &str,
+    keys: &VerifyingKeys,
 ) -> Result<Claims, AppError> {
     let token = protocol_token(headers)
         .or_else(|| cookie_token(headers))
         .ok_or_else(|| AppError::Unauthorized("Missing access token".into()))?;
 
-    let token_data = decode::<Claims>(
-        &token,
-        &DecodingKey::from_secret(jwt_secret.as_bytes()),
-        &Validation::default(),
-    )
-    .map_err(|_| AppError::Unauthorized("Invalid or expired token".into()))?;
+    let claims = keys
+        .decode::<Claims>(&token)
+        .map_err(|_| AppError::Unauthorized("Invalid or expired token".into()))?;
 
-    if token_data.claims.token_type != "access" {
+    if claims.token_type != "access" {
         warn!(
             "Rejected WS upgrade: non-access token_type={}",
-            token_data.claims.token_type
+            claims.token_type
         );
         return Err(AppError::Unauthorized("Invalid token type".into()));
     }
 
-    Ok(token_data.claims)
+    Ok(claims)
 }
 
 fn origin_allowed(headers: &axum::http::HeaderMap, allowed: &str) -> bool {
@@ -244,7 +241,7 @@ async fn ws_upgrade(
     if !origin_allowed(&headers, &state.cors_origins) {
         return Err(AppError::Unauthorized("Origin not allowed".into()));
     }
-    let claims = authenticate_ws(&headers, &state.jwt_secret)?;
+    let claims = authenticate_ws(&headers, &state.jwt_public_keys)?;
     match state.cm.revocation_state(&claims).await {
         crate::connection_manager::RevocationState::Valid => {}
         crate::connection_manager::RevocationState::Revoked => {

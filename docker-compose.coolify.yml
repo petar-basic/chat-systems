@@ -85,7 +85,8 @@ services:
       PORT: "3000"
       DATABASE_URL: postgres://chat:${POSTGRES_PASSWORD}@postgres:5432/chatsystems
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      JWT_SIGNING_KEYS: ${JWT_SIGNING_KEYS:?JWT_SIGNING_KEYS must be set}
+      JWT_SECRET: ${JWT_SECRET:-}
       SECRETS_KEYS: ${SECRETS_KEYS:?SECRETS_KEYS must be set}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
@@ -146,7 +147,7 @@ services:
       PORT: "3005"
       DATABASE_URL: postgres://chat:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/chatsystems
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      JWT_SIGNING_KEYS: ${JWT_SIGNING_KEYS:?JWT_SIGNING_KEYS must be set}
       SECRETS_KEYS: ${SECRETS_KEYS:?SECRETS_KEYS must be set}
       PUBLIC_URL: https://${DOMAIN:?DOMAIN must be set}
       SMTP_HOST: ${SMTP_HOST:?SMTP_HOST must be set}
@@ -197,7 +198,7 @@ services:
       PORT: "3004"
       DATABASE_URL: postgres://chat:${POSTGRES_PASSWORD}@postgres:5432/chatsystems
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: ${JWT_SECRET}
+      JWT_PUBLIC_KEYS: ${JWT_PUBLIC_KEYS:?JWT_PUBLIC_KEYS must be set}
       CORS_ORIGINS: https://${DOMAIN}
       PG_POOL_MAX: ${PG_POOL_MAX:-3}
       RUST_LOG: ${RUST_LOG:-info}

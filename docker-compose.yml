@@ -4,7 +4,7 @@
 # SECRETS: this file reads required secrets from the environment / a .env file.
 # Before running, copy the template and fill in strong values:
 #   cp .env.example .env
-#   # then set JWT_SECRET, SECRETS_KEYS, POSTGRES_PASSWORD, etc.
+#   # then set JWT_SIGNING_KEYS, JWT_PUBLIC_KEYS, SECRETS_KEYS, POSTGRES_PASSWORD, etc.
 # Docker Compose auto-loads a .env file in this directory. The `${VAR:?msg}`
 # syntax below fails fast with a clear error if a required var is missing.
 # =============================================================================
@@ -183,7 +183,8 @@ services:
       PORT: "3000"
       DATABASE_URL: postgres://chat:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set (see .env.example)}@postgres:5432/chatsystems
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set (see .env.example)}
+      JWT_SIGNING_KEYS: ${JWT_SIGNING_KEYS:?JWT_SIGNING_KEYS must be set (see .env.example)}
+      JWT_SECRET: ${JWT_SECRET:-}
       SECRETS_KEYS: ${SECRETS_KEYS:?SECRETS_KEYS must be set (see .env.example)}
       OIDC_ISSUER: ${OIDC_ISSUER:-}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
@@ -268,7 +269,7 @@ services:
       PORT: "3005"
       DATABASE_URL: postgres://chat:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set (see .env.example)}@postgres:5432/chatsystems
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set (see .env.example)}
+      JWT_SIGNING_KEYS: ${JWT_SIGNING_KEYS:?JWT_SIGNING_KEYS must be set (see .env.example)}
       SECRETS_KEYS: ${SECRETS_KEYS:?SECRETS_KEYS must be set (see .env.example)}
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
       # The worker is what sends the pushes, so it needs the pair too.
@@ -320,7 +321,7 @@ services:
       PORT: "3004"
       DATABASE_URL: postgres://chat:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set (see .env.example)}@postgres:5432/chatsystems
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set (see .env.example)}
+      JWT_PUBLIC_KEYS: ${JWT_PUBLIC_KEYS:?JWT_PUBLIC_KEYS must be set (see .env.example)}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080,http://localhost:3001}
       RUST_LOG: ${RUST_LOG:-info}
     depends_on:

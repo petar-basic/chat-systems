@@ -347,7 +347,7 @@ come before events and events before the directory, which lists both.
 | CS-098 ✅ | A project people can find: homepage, About, topics, README version | docs · ops |
 | CS-099 ✅ | Away, on purpose and when idle | backend · realtime · frontend |
 | CS-100 ✅ | Stored secrets get a key of their own | backend · ops |
-| [CS-101](CS-101-eddsa.md) | Sessions signed with EdDSA, with keys that rotate | backend · realtime · ops |
+| CS-101 ✅ | Sessions signed with EdDSA, with keys that rotate | backend · realtime · ops |
 | [CS-102](CS-102-async-commands.md) | Slash commands that may take their time | backend · frontend |
 | [CS-103](CS-103-bots.md) | Apps with bot users and a Web API | backend · frontend · docs |
 | [CS-104](CS-104-events.md) | Events for apps, over HTTP or a socket | backend · realtime · docs |

@@ -1489,7 +1489,7 @@ async fn a_new_key_reseals_every_app_secret_and_the_old_one_can_go(pool: PgPool)
     let report = reseal::run(
         &s.state.pool,
         &rotated_keyring(),
-        &s.state.config.jwt_secret,
+        s.state.config.legacy_jwt_secret.as_deref(),
     )
     .await
     .expect("reseal");
@@ -1504,7 +1504,7 @@ async fn a_new_key_reseals_every_app_secret_and_the_old_one_can_go(pool: PgPool)
     let again = reseal::run(
         &s.state.pool,
         &rotated_keyring(),
-        &s.state.config.jwt_secret,
+        s.state.config.legacy_jwt_secret.as_deref(),
     )
     .await
     .expect("reseal");
@@ -1551,10 +1551,10 @@ async fn a_new_key_reseals_every_app_secret_and_the_old_one_can_go(pool: PgPool)
 #[test_macros::db_test(migrations = "../migrations")]
 async fn secrets_sealed_by_3_7_are_resealed_when_the_api_starts(pool: PgPool) {
     let s = google_connected(pool).await;
-    let jwt = s.state.config.jwt_secret.clone();
-    let (secret, secret_nonce) = sealed_the_3_7_way(&jwt, "workspace-app-secrets", "shh");
-    let (access, access_nonce) = sealed_the_3_7_way(&jwt, "workspace-app-secrets", "g-1");
-    let (refresh, refresh_nonce) = sealed_the_3_7_way(&jwt, "workspace-app-secrets", "gr-1");
+    let jwt = LEGACY_JWT_SECRET;
+    let (secret, secret_nonce) = sealed_the_3_7_way(jwt, "workspace-app-secrets", "shh");
+    let (access, access_nonce) = sealed_the_3_7_way(jwt, "workspace-app-secrets", "g-1");
+    let (refresh, refresh_nonce) = sealed_the_3_7_way(jwt, "workspace-app-secrets", "gr-1");
     sqlx::query(
         "UPDATE workspace_apps
             SET client_secret_encrypted = $2, client_secret_nonce = $3, client_secret_key_id = NULL
@@ -1582,7 +1582,7 @@ async fn secrets_sealed_by_3_7_are_resealed_when_the_api_starts(pool: PgPool) {
     .await
     .expect("legacy connection");
 
-    let report = reseal::run(&s.state.pool, &s.state.config.secrets_keys, &jwt)
+    let report = reseal::run(&s.state.pool, &s.state.config.secrets_keys, Some(jwt))
         .await
         .expect("reseal");
     assert_eq!(
@@ -1615,7 +1615,7 @@ async fn a_secret_on_a_key_no_longer_listed_is_reported_and_left_alone(pool: PgP
     let report = reseal::run(
         &s.state.pool,
         &s.state.config.secrets_keys,
-        &s.state.config.jwt_secret,
+        s.state.config.legacy_jwt_secret.as_deref(),
     )
     .await
     .expect("reseal");

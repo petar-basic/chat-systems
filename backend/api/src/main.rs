@@ -22,8 +22,18 @@ async fn main() -> anyhow::Result<()> {
     sqlx::migrate!("../migrations").run(&pool).await?;
     info!("Migrations applied");
 
-    if let Err(e) =
-        chat_api::sealed::reseal::run(&pool, &config.secrets_keys, &config.jwt_secret).await
+    info!(
+        "Sessions are signed with key {:?}; the gateway's JWT_PUBLIC_KEYS={}",
+        config.jwt_keys.current_id(),
+        config.jwt_keys.verifying().listing()
+    );
+
+    if let Err(e) = chat_api::sealed::reseal::run(
+        &pool,
+        &config.secrets_keys,
+        config.legacy_jwt_secret.as_deref(),
+    )
+    .await
     {
         warn!("Stored secrets could not be re-sealed: {}", e);
     }
