@@ -1157,6 +1157,39 @@ API deletes the rows or the cascade does) gets a `disconnect` frame and close co
 command owned by a socket-mode app is queued as a `slash_command` row instead of being called,
 and refused at once when the app has no live socket (`seen_at` within 30 seconds).
 
+### app_directory
+
+One listing of everything connected to a workspace, for *Workspace settings → Apps*.
+
+| Method | Route | Input | Output |
+|--------|-------|-------|--------|
+| GET | `/workspaces/:ws_id/app-directory` | — | `AppDirectory` — any member |
+| POST | `/workspaces/:ws_id/app-requests` | `{ name, reason? }` | `{ status: "requested" }` — member or above; a `system` notification for every admin and owner but the requester |
+
+`AppDirectory` is `{ can_manage, available, installed, bot_scopes }`. `available` is the five
+connected-app providers with what each may see in plain words (`Provider::permissions`) and
+whether it is set up. `installed` is one `InstalledApp` per connected app, bot app, incoming
+webhook, outgoing webhook, slash command and workflow, built from one query per kind:
+`{ kind, id, name, description, added_by, added_by_name, added_at, permissions, every_channel,
+channels, hidden_channels, health, app_id }`. `id` is the provider for a connected app and the
+row's id otherwise; `app_id` is the bot app a hook belongs to. Permissions are `{ key, text }`:
+a bot app's scopes through `Scope::text`, a hook's from its type and the host of its URL (never
+the path or the token), a workflow's from its trigger and its kinds of step. `bot_scopes` is
+every scope with its text, for the form that makes an app.
+
+Channels come from a hook's `channel_id`/`channel_ids`, a bot user's memberships and a
+workflow's trigger and `send_message` steps. One query resolves them against the viewer: a
+public channel or one they are in is named, any other only counted in `hidden_channels`. A slash
+command without `channel_ids` has `every_channel`. `health` is `{ state, reason?, since? }`:
+`disabled` for a hook with a `disabled_reason`, `off` for one turned off or a workflow not
+enabled or a connected app switched off, `failing` for a bot app with `failing_since` or a
+workflow whose last run failed (its `error`), `ok` otherwise.
+
+An admin sees everything. Anyone else sees connected apps, bot apps, slash commands for every
+channel, what they added themselves, and anything touching a channel they can see, so a private
+channel's webhooks and workflows stay out of the listing. Requests have their own rate budget,
+`app-request`, of 10 an hour.
+
 ### sidebar
 
 One person's sidebar layout in one workspace: their own sections, which channel sits in

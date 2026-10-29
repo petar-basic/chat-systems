@@ -40,6 +40,7 @@ export function useBotAppActions(workspaceId: string | undefined) {
     Promise.all([
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.botApps(ws) }),
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceMembers(ws) }),
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.appDirectory(ws) }),
     ]);
 
   const create = useMutation({
@@ -75,6 +76,14 @@ export function useBotAppActions(workspaceId: string | undefined) {
     onSuccess: refetch,
   });
 
+  const setScopes = useMutation({
+    mutationFn: ({ appId, scopes }: { appId: string; scopes: BotScope[] }) =>
+      apiClient.typed((c) =>
+        c.PATCH('/bot-apps/{app_id}', { params: { path: { app_id: appId } }, body: { scopes } }),
+      ),
+    onSuccess: refetch,
+  });
+
   const makeAppToken = useMutation({
     mutationFn: (appId: string) =>
       apiClient.typed((c) => c.POST('/bot-apps/{app_id}/app-token', { params: { path: { app_id: appId } } })),
@@ -96,5 +105,5 @@ export function useBotAppActions(workspaceId: string | undefined) {
       ),
   });
 
-  return { create, rotate, remove, configure, makeAppToken, revokeAppToken, revealSecret };
+  return { create, rotate, remove, configure, setScopes, makeAppToken, revokeAppToken, revealSecret };
 }

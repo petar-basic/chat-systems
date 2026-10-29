@@ -351,7 +351,7 @@ come before events and events before the directory, which lists both.
 | CS-102 ✅ | Slash commands that may take their time | backend · frontend |
 | CS-103 ✅ | Apps with bot users and a Web API | backend · frontend · docs |
 | CS-104 ✅ | Events for apps, over HTTP or a socket | backend · realtime · docs |
-| [CS-105](CS-105-app-directory.md) | An app directory | frontend · backend · docs |
+| CS-105 ✅ | An app directory | frontend · backend · docs |
 | [CS-037](CS-037-huddle-sfu.md) | SFU for large huddles, promoted mid-call | backend · frontend · ops |
 
 ## Conflict map

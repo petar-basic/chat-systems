@@ -16,18 +16,23 @@ test('an app made in the settings gets a token that the example bot answers with
   try {
     await login(page, 'admin@dev.local');
     await openWorkspaceSettings(page, 'apps');
+    await page.locator('[data-qa="app-directory-build-open"]').click();
     const form = page.locator('[data-qa="bot-app-form"]');
     await form.getByLabel('App name').fill(name);
     await page.locator('[data-qa="bot-app-scope-channels:read"]').check();
     await page.locator('[data-qa="bot-app-scope-channels:history"]').check();
     await page.locator('[data-qa="bot-app-create"]').click();
+    await expect(page.locator('[data-qa="app-consent-permissions"]')).toContainText(
+      'Read the public channels it is in',
+    );
+    await page.locator('[data-qa="app-consent-confirm"]').click();
 
     const shown = page.locator('[data-qa="bot-app-token-value"]');
     await expect(shown).toContainText('cbot-');
     const token = (await shown.textContent())?.trim() ?? '';
     await page.locator('[data-qa="bot-app-token-dismiss"]').click();
     await expect(page.getByText(token)).toHaveCount(0);
-    await expect(page.locator('[data-qa="bot-app-row"]').filter({ hasText: name })).toBeVisible();
+    await expect(page.locator('[data-qa="app-directory-row"]').filter({ hasText: name })).toBeVisible();
 
     const bot = await (
       await admin.get(`${API}/bot-apps/me`, { headers: { Authorization: `Bearer ${token}` } })
@@ -73,15 +78,19 @@ test('an app in socket mode answers a mention with no public URL', async ({ page
   try {
     await login(page, 'admin@dev.local');
     await openWorkspaceSettings(page, 'apps');
+    await page.locator('[data-qa="app-directory-build-open"]').click();
     const form = page.locator('[data-qa="bot-app-form"]');
     await form.getByLabel('App name').fill(name);
     await page.locator('[data-qa="bot-app-scope-channels:history"]').check();
     await page.locator('[data-qa="bot-app-create"]').click();
-    const token = ((await page.locator('[data-qa="bot-app-token-value"]').textContent()) ?? '').trim();
+    await page.locator('[data-qa="app-consent-confirm"]').click();
+    const shownToken = page.locator('[data-qa="bot-app-token-value"]');
+    await expect(shownToken).toContainText('cbot-');
+    const token = ((await shownToken.textContent()) ?? '').trim();
     await page.locator('[data-qa="bot-app-token-dismiss"]').click();
 
-    const row = page.locator('[data-qa="bot-app-row"]').filter({ hasText: name });
-    await row.locator('[data-qa="bot-app-events-toggle"]').click();
+    await page.locator('[data-qa="app-directory-row"]').filter({ hasText: name }).click();
+    const row = page.locator('[data-qa="app-page"]');
     await row.locator('[data-qa="bot-app-event-app_mention"]').check();
     await row.locator('[data-qa="bot-app-socket-mode"]').check();
     await row.locator('[data-qa="bot-app-events-save"]').click();

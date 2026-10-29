@@ -51,6 +51,7 @@ export const useCreateHook = (workspaceId: string, instanceUrl?: string) => {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.hooks(workspaceId) });
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.hookedChannels(workspaceId) });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.appDirectory(workspaceId) });
     },
   });
 };
@@ -65,6 +66,7 @@ export const useDeleteHook = (workspaceId: string, instanceUrl?: string) => {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.hooks(workspaceId) });
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.hookedChannels(workspaceId) });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.appDirectory(workspaceId) });
     },
   });
 };
@@ -79,6 +81,7 @@ export const useEnableHook = (workspaceId: string, instanceUrl?: string) => {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.hooks(workspaceId) });
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.hookedChannels(workspaceId) });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.appDirectory(workspaceId) });
     },
   });
 };

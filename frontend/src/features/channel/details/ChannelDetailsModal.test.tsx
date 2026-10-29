@@ -5,6 +5,7 @@ import { ChannelDetailsModal, type ChannelDetailsTab } from './ChannelDetailsMod
 import type { Channel } from '@/stores/workspace';
 import type { ChannelRetention } from '@/features/workspace/hooks/useRetention';
 import type { ChannelIntegrations } from '../hooks/useChannelIntegrations';
+import type { AppRef } from '@/features/workspace';
 
 const updateChannel = vi.fn();
 const setRetention = vi.fn();
@@ -51,7 +52,13 @@ function renderModal({
   canModerate = true,
   initialTab = 'about',
   onOpenWorkflow,
-}: { canModerate?: boolean; initialTab?: ChannelDetailsTab; onOpenWorkflow?: (id: string) => void } = {}) {
+  onOpenApp,
+}: {
+  canModerate?: boolean;
+  initialTab?: ChannelDetailsTab;
+  onOpenWorkflow?: (id: string) => void;
+  onOpenApp?: (app: AppRef) => void;
+} = {}) {
   const onClose = vi.fn();
   render(
     <QueryClientProvider client={new QueryClient()}>
@@ -60,6 +67,7 @@ function renderModal({
         canModerate={canModerate}
         initialTab={initialTab}
         onOpenWorkflow={onOpenWorkflow}
+        onOpenApp={onOpenApp}
         onClose={onClose}
       />
     </QueryClientProvider>,
@@ -250,5 +258,24 @@ describe('ChannelDetailsModal integrations', () => {
     fireEvent.click(screen.getByTestId('channel-integration-workflow-open'));
     expect(onClose).toHaveBeenCalled();
     expect(onOpenWorkflow).toHaveBeenCalledWith('w-1');
+  });
+
+  it('links every entry to its page in the app directory', () => {
+    const onOpenApp = vi.fn();
+    const onClose = renderModal({ canModerate: false, initialTab: 'integrations', onOpenApp });
+    const open = (qa: string) =>
+      fireEvent.click(within(screen.getByTestId(qa)).getByTestId('channel-integration-details'));
+
+    open('channel-integration-incoming');
+    open('channel-integration-outgoing');
+    open('channel-integration-command');
+    open('channel-integration-workflow');
+    expect(onClose).toHaveBeenCalledTimes(4);
+    expect(onOpenApp.mock.calls.map(([app]) => app)).toEqual([
+      { kind: 'incoming_webhook', id: 'h-ci' },
+      { kind: 'outgoing_webhook', id: 'h-out' },
+      { kind: 'slash_command', id: 'h-cmd' },
+      { kind: 'workflow', id: 'w-1' },
+    ]);
   });
 });

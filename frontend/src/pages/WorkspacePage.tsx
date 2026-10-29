@@ -243,6 +243,7 @@ export default function WorkspacePage() {
                 onToggleChannelMembers={() => panel.toggle('channelMembers')}
                 onOpenNav={() => c.setMobileNavOpen(true)}
                 onOpenWorkflow={mayBuildWorkflows ? panel.openWorkflow : undefined}
+                onOpenApp={settings.openApp}
               />
 
               {currentChannel && currentWorkspace && (
@@ -412,6 +413,7 @@ export default function WorkspacePage() {
             viewer={{ role, isInstanceAdmin: user?.is_instance_admin ?? false }}
             initial={settings.dialog.section}
             inviting={settings.dialog.inviting}
+            app={settings.dialog.app}
             members={c.workspaceMembers}
             channels={c.channels}
             onClose={settings.close}

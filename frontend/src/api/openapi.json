@@ -5627,6 +5627,76 @@
         }
       }
     },
+    "/workspaces/{ws_id}/app-directory": {
+      "get": {
+        "tags": [
+          "app-directory"
+        ],
+        "operationId": "app_directory",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppDirectory"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/app-requests": {
+      "post": {
+        "tags": [
+          "app-directory"
+        ],
+        "operationId": "request_app",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workspaces/{ws_id}/apps": {
       "get": {
         "tags": [
@@ -9132,6 +9202,38 @@
           }
         }
       },
+      "AppDirectory": {
+        "type": "object",
+        "required": [
+          "can_manage",
+          "available",
+          "installed",
+          "bot_scopes"
+        ],
+        "properties": {
+          "available": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AvailableApp"
+            }
+          },
+          "bot_scopes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Permission"
+            }
+          },
+          "can_manage": {
+            "type": "boolean"
+          },
+          "installed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InstalledApp"
+            }
+          }
+        }
+      },
       "AppEvent": {
         "type": "string",
         "enum": [
@@ -9155,6 +9257,23 @@
             "items": {
               "$ref": "#/components/schemas/AppStatus"
             }
+          }
+        }
+      },
+      "AppRequest": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -9377,6 +9496,36 @@
           },
           "user": {
             "$ref": "#/components/schemas/UserPublic"
+          }
+        }
+      },
+      "AvailableApp": {
+        "type": "object",
+        "required": [
+          "provider",
+          "name",
+          "summary",
+          "permissions",
+          "installed"
+        ],
+        "properties": {
+          "installed": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Permission"
+            }
+          },
+          "provider": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
           }
         }
       },
@@ -13526,6 +13675,22 @@
           }
         }
       },
+      "DirectoryChannel": {
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "DndStatus": {
         "type": "object",
         "properties": {
@@ -14208,6 +14373,39 @@
           }
         }
       },
+      "Health": {
+        "type": "object",
+        "required": [
+          "state"
+        ],
+        "properties": {
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "since": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "state": {
+            "$ref": "#/components/schemas/HealthState"
+          }
+        }
+      },
+      "HealthState": {
+        "type": "string",
+        "enum": [
+          "ok",
+          "off",
+          "disabled",
+          "failing"
+        ]
+      },
       "Hook": {
         "type": "object",
         "required": [
@@ -14484,6 +14682,94 @@
             "description": "Slack-compatible overrides. A CI hook that posts as \"CI\" and a release\nhook that posts as \"Releases\" are the same integration mechanism with\ndifferent faces, and callers already send these fields."
           }
         }
+      },
+      "InstalledApp": {
+        "type": "object",
+        "required": [
+          "kind",
+          "id",
+          "name",
+          "added_at",
+          "permissions",
+          "every_channel",
+          "channels",
+          "hidden_channels",
+          "health"
+        ],
+        "properties": {
+          "added_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "added_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "added_by_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "app_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "channels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DirectoryChannel"
+            }
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "every_channel": {
+            "type": "boolean"
+          },
+          "health": {
+            "$ref": "#/components/schemas/Health"
+          },
+          "hidden_channels": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/InstalledKind"
+          },
+          "name": {
+            "type": "string"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Permission"
+            }
+          }
+        }
+      },
+      "InstalledKind": {
+        "type": "string",
+        "enum": [
+          "connected_app",
+          "bot_app",
+          "incoming_webhook",
+          "outgoing_webhook",
+          "slash_command",
+          "workflow"
+        ]
       },
       "InstanceInfo": {
         "type": "object",
@@ -15789,6 +16075,21 @@
               "type": "string",
               "format": "uuid"
             }
+          }
+        }
+      },
+      "Permission": {
+        "type": "object",
+        "required": [
+          "key",
+          "text"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
           }
         }
       },
@@ -18805,6 +19106,10 @@
     {
       "name": "bot-apps",
       "description": "Apps with a bot user, made per workspace"
+    },
+    {
+      "name": "app-directory",
+      "description": "Everything connected to a workspace, and requests for more"
     },
     {
       "name": "bot",

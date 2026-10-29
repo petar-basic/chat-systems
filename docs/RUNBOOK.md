@@ -866,9 +866,9 @@ not through the outbox, and says what went wrong if it did not go.
 ## Rate limits and upload size
 
 Writes are limited per user, per class of action: messages 120/min, reactions 240/min,
-invites 20/hour, workspaces 5/hour, channels 30/hour, everything else 120/min. **The
-workspace budget only began to be enforced on 2026-09-04**: the classifier matched
-`/api/workspaces` while `nest("/api", …)` hands the middleware `/workspaces`, so creating
+invites 20/hour, workspaces 5/hour, channels 30/hour, app requests 10/hour, everything else
+120/min. **The workspace budget only began to be enforced on 2026-09-04**: the classifier
+matched `/api/workspaces` while `nest("/api", …)` hands the middleware `/workspaces`, so creating
 workspaces had silently been on the 120/min default class. Nothing else was affected — every
 other class matches on a suffix — but an instance that leaned on the loose behaviour will
 now see a 429 on the sixth workspace in an hour. Auth paths

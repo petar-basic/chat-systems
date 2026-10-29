@@ -39,6 +39,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   later* instead of an error.
 - For API clients: `MemberWithUser` has `is_bot`, `Hook` has `app_id`, and the routes a bot
   token may call carry the `bot` tag and security scheme in `/api/openapi.json`.
+- For API clients: `GET /workspaces/{id}/app-directory` lists what is connected and
+  `POST /workspaces/{id}/app-requests` asks the admins for an app (10 an hour per person).
 - If something other than the bundled nginx sits in front of `realtime`, route `/ws/apps` to it
   as you route `/ws`: socket-mode apps connect there. For WebSocket clients: `channel.updated`
   is now in the replay log, and a `channel.created` event is published when a channel is made.
@@ -66,6 +68,14 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   opens sockets to the instance that share the app's events and its slash commands, so an app
   behind a firewall needs no public URL. Delivery is at least once and in order per channel,
   and survives a restart of the worker or the gateway.
+- **An app directory.** *Workspace settings → Apps* lists everything connected to the
+  workspace: connected apps, the workspace's own apps, webhooks, slash commands and workflows,
+  each with who added it and when, what it can do in plain words, the channels it touches and
+  whether it is working. Each has a page with *Reinstall*, *Rotate token* and *Remove*, and the
+  channel's *Integrations* section links to it. A new app gets its token, and a connected app is
+  set up, only after an admin agrees to what it may do, and giving an app another scope asks
+  again. Members see the directory read-only, without what touches channels they cannot see,
+  and can ask the admins for an app.
 
 ### Security
 

@@ -1,0 +1,126 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT b.id, b.name, b.description, b.scopes, b.created_by,\n                      COALESCE(wm.display_name, u.display_name) AS \"created_by_name?\",\n                      b.created_at, b.failing_since, b.last_failure,\n                      ARRAY(SELECT cm.channel_id\n                              FROM channel_members cm\n                              JOIN channels c ON c.id = cm.channel_id\n                             WHERE cm.user_id = b.bot_user_id\n                               AND c.channel_type IN ('public', 'private')\n                               AND c.is_archived IS NOT TRUE) AS \"channel_ids!\"\n                 FROM bot_apps b\n                 LEFT JOIN users u ON u.id = b.created_by\n                 LEFT JOIN workspace_members wm\n                        ON wm.workspace_id = b.workspace_id AND wm.user_id = b.created_by\n                WHERE b.workspace_id = $1\n                ORDER BY lower(b.name)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "description",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "description"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "scopes",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "scopes"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "created_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "created_by"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "created_by_name?",
+        "type_info": "Varchar",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "failing_since",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "failing_since"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "last_failure",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "last_failure"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "channel_ids!",
+        "type_info": "UuidArray",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      true,
+      null,
+      false,
+      true,
+      true,
+      null
+    ]
+  },
+  "hash": "efd28eeb47e2ff28c09658cc95b464861f961c7d54bb4b2f68e0492f1264bc03"
+}
