@@ -634,6 +634,36 @@ async fn later_updated_reaches_only_its_owner(pool: PgPool) {
     assert!(next_json(&mut other_rx).is_none());
 }
 
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_command_answer_reaches_only_whoever_ran_it(pool: PgPool) {
+    let cm = manager(pool).await;
+    let caller = Uuid::new_v4();
+    let other = Uuid::new_v4();
+    let channel = Uuid::new_v4();
+    let (_caller_conn, mut caller_rx) = fake_conn(&cm, caller);
+    let (_other_conn, mut other_rx) = fake_conn(&cm, other);
+
+    let payload = json!({
+        "user_id": caller.to_string(),
+        "channel_id": channel.to_string(),
+        "command": "deploy",
+        "response_type": "ephemeral",
+        "text": "deployed",
+    });
+    crate::event_consumer::handle_event("command.response", &payload, &cm).await;
+
+    let frame = next_json(&mut caller_rx).expect("the caller hears the answer");
+    assert_eq!(frame["type"], "command.response");
+    assert_eq!(frame["channel_id"], channel.to_string());
+    assert_eq!(frame["command"], "deploy");
+    assert_eq!(frame["text"], "deployed");
+    assert!(next_json(&mut other_rx).is_none());
+    assert!(
+        crate::event_consumer::SUBSCRIBED_CHANNELS.contains(&"events:command"),
+        "command.response is published on events:command"
+    );
+}
+
 #[test]
 fn the_consumer_listens_where_later_updates_are_published() {
     assert!(

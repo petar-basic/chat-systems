@@ -111,6 +111,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
     let publisher = EventPublisher::new(redis_conn.clone(), pool.clone());
     let file_repo = FileRepo::new(pool.clone());
     let hook_repo = HookRepo::new(pool.clone());
+    let command_repo = commands::repo::CommandRepo::new(pool.clone());
     let notification_repo = NotificationRepo::new(pool.clone());
     let conversation_repo = ConversationRepo::new(pool.clone());
     let later_repo = later::repo::LaterRepo::new(pool.clone());
@@ -152,6 +153,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
         file_repo,
         file_storage,
         hook_repo,
+        command_repo,
         notification_repo,
         conversation_repo,
         later_repo,

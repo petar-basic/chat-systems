@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE command_invocations\n                SET attempts = $2, retry_at = NOW() + make_interval(secs => $3)\n              WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1cc89e6ec356c4b974f0029a1cc9ae16ffc545019bc023ad28e385e61bba5c14"
+}

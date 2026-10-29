@@ -236,6 +236,13 @@ pub enum ServerFrame {
         mention_count: i32,
         last_read_message_id: Option<Uuid>,
     },
+    #[serde(rename = "command.response")]
+    CommandResponse {
+        channel_id: Uuid,
+        command: String,
+        response_type: String,
+        text: String,
+    },
     #[serde(rename = "later.updated")]
     LaterUpdated { workspace_id: Uuid },
     #[serde(rename = "thread.read_state")]

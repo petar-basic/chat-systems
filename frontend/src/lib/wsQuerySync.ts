@@ -26,6 +26,7 @@ import { readOnScreen } from './readOnScreen';
 import { patchMessageEverywhere, shownInChannel } from './messagePatch';
 import { dropReply, patchReply, placeReply } from './threadCache';
 import { syncListFrames } from '@/features/lists/listSync';
+import { applyCommandResponse } from './commandAnswers';
 
 type ChannelMessages = InfiniteData<{ data: Message[] }>;
 
@@ -97,6 +98,7 @@ export const useWebSocketQuerySync = () => {
         if (event.unread_count === 0)
           queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notifications(event.workspace_id) });
       }),
+      globalEventBus.on('command.response', applyCommandResponse),
       globalEventBus.on('later.updated', (event) => {
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.later(event.workspace_id) });
       }),

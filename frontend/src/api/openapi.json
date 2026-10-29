@@ -2010,6 +2010,48 @@
         }
       }
     },
+    "/commands/responses/{token}": {
+      "post": {
+        "tags": [
+          "commands"
+        ],
+        "operationId": "respond",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommandAnswer"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
     "/exports/{id}": {
       "get": {
         "tags": [
@@ -9686,6 +9728,26 @@
           }
         }
       },
+      "CommandAnswer": {
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "properties": {
+          "replace_original": {
+            "type": "boolean"
+          },
+          "response_type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
       "CommandInfo": {
         "type": "object",
         "required": [
@@ -9723,7 +9785,7 @@
           },
           "response_type": {
             "type": "string",
-            "description": "`ephemeral` is seen only by whoever ran it; `in_channel` is posted as a\nmessage from the command."
+            "description": "`ephemeral` is seen only by whoever ran it; `in_channel` is posted as a\nmessage from the command; `pending` means the answer arrives later as a\n`command.response` frame."
           },
           "text": {
             "type": "string"

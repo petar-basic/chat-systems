@@ -16,6 +16,7 @@ const KEY_BYTES: usize = 32;
 pub const APP_SECRETS: &str = "workspace-app-secrets";
 pub const TOTP_SECRETS: &str = "totp-secret-encryption";
 pub const SETUP_TOKEN: &str = "setup-token";
+pub const COMMAND_RESPONSES: &str = "command-responses";
 
 #[derive(Clone)]
 pub struct Keyring {

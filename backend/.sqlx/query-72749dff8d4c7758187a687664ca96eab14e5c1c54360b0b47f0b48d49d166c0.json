@@ -1,0 +1,124 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE command_invocations\n                SET retry_at = NOW() + make_interval(secs => $1)\n              WHERE id IN (\n                  SELECT id FROM command_invocations\n                   WHERE retry_at <= NOW()\n                   ORDER BY retry_at\n                   FOR UPDATE SKIP LOCKED\n                   LIMIT 20\n              )\n          RETURNING id, hook_id, workspace_id, channel_id, user_id, command, payload, attempts,\n                    answer_message_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "command_invocations",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "hook_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "command_invocations",
+            "name": "hook_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "command_invocations",
+            "name": "workspace_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "channel_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "command_invocations",
+            "name": "channel_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "command_invocations",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "command",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "command_invocations",
+            "name": "command"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "payload",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "command_invocations",
+            "name": "payload"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "attempts",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "command_invocations",
+            "name": "attempts"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "answer_message_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "command_invocations",
+            "name": "answer_message_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Float8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "72749dff8d4c7758187a687664ca96eab14e5c1c54360b0b47f0b48d49d166c0"
+}
