@@ -42,6 +42,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   `not_configured`, `failed`, or `null` for a link invite) instead of `email_sent`. Search hits
   from `/search` and `/search/files` carry `channel_name`. A reply to a deleted root with no
   replies left answers 404 instead of 422.
+- Workspace icons move to `icons/<workspace id>/` in the object store on the worker's first
+  start, outside retention (see the RUNBOOK). For API clients: `POST /workspaces/{id}/icon`
+  uploads and sets the icon.
 
 ### Security
 
@@ -106,6 +109,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   range covers edits, reactions, polls and votes, not only messages and files. An invite whose
   email failed says so instead of claiming email is not set up. A card in *Threads* has
   *Also send to* and scheduling, as the thread panel does.
+- **Everyone sees the workspace icon, and it stays.** It was an ordinary file with no message,
+  so only the admin who uploaded it could load it, file retention could delete it, and a
+  replaced one was never removed. It has a place of its own now, shown to the workspace's
+  members.
 
 ## [3.6.0] — 2026-10-28
 

@@ -2181,3 +2181,18 @@ Dropped:
 - **Presence on joining.** The claim does not hold. Opening the new workspace sends
   `subscribe`, which adds it to the connection's presence set, writes presence there and
   publishes `presence.changed` to its members at once.
+
+### [CS-097] A workspace icon everyone sees, and that stays ✅ shipped
+CS-094 gave workspace photos their own storage place and left the workspace icon for later.
+*General* uploaded the icon through `/files/upload` and saved its URL. The file had no message,
+so `require_file_access` treated it as the uploader's draft: every other member got 403 and a
+broken image. As a row in `files` it was also within reach of retention, and a replaced or
+removed icon stayed in storage.
+
+`POST /workspaces/{id}/icon` (admin) stores the icon under `icons/{workspace}/` through
+`workspace::icon`. It reuses the photo pipeline, `avatar::shrink` and `avatar::image_field`,
+which were split out of `store` and the profile routes. The download route serves an `icons/`
+key to members of its workspace. The upload, a `PATCH` that changes `icon_url` and a hard delete
+call `icon::forget`, which deletes only a key of the same workspace. `icon::migrate` runs after
+the photo migration on the worker's start and copies each `/api/files/download/` icon outside
+`icons/` into place.

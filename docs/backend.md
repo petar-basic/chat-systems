@@ -198,7 +198,8 @@ feature — see `dm` below.)
 | GET | `/workspaces` | — | `{ data: Workspace[] }` |
 | POST | `/workspaces` | `{ name, description? }` | `Workspace` |
 | GET | `/workspaces/:ws_id` | — | `Workspace` |
-| PATCH | `/workspaces/:ws_id` | `{ name?, description?, icon_url?, link_previews?, workflow_builders?, broadcast_mentions?, public_channel_creators?, private_channel_creators? }` | `Workspace` — admins; each is merged into `settings`. `link_previews` defaults to on; the four rules are `members` (the default) or `admins` |
+| PATCH | `/workspaces/:ws_id` | `{ name?, description?, icon_url?, link_previews?, workflow_builders?, broadcast_mentions?, public_channel_creators?, private_channel_creators? }` | `Workspace` — admins; each is merged into `settings`. `link_previews` defaults to on; the four rules are `members` (the default) or `admins`. `icon_url: ""` removes the icon; a replaced or removed stored icon is deleted |
+| POST | `/workspaces/:ws_id/icon` | multipart `file`, as `/users/me/avatar` | `Workspace` with the new `icon_url` — admins; processed like a photo and stored as `icons/{ws_id}/{uuid}.{ext}`, outside `files` and retention, readable by the workspace's members; the previous icon is deleted, and so is the icon on a hard delete |
 | DELETE | `/workspaces/:ws_id` | Query: `hard=bool` | `{ status: "soft_deleted" \| "hard_deleted" }` |
 | POST | `/workspaces/:ws_id/restore` | — | `Workspace` |
 | GET | `/workspaces/deleted` | — | `{ data: Workspace[] }` |

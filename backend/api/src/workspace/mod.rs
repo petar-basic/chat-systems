@@ -1,3 +1,4 @@
+pub mod icon;
 pub mod membership;
 pub mod models;
 pub mod repo;

@@ -6,6 +6,7 @@ import { GeneralSection } from './GeneralSection';
 import type { Workspace } from '@/stores/workspace';
 
 const patch = vi.fn();
+const upload = vi.fn();
 
 vi.mock('react-router', () => ({ useNavigate: () => vi.fn() }));
 vi.mock('@/features/workspace/hooks/useWorkspaces', () => ({
@@ -14,6 +15,7 @@ vi.mock('@/features/workspace/hooks/useWorkspaces', () => ({
 vi.mock('@/shared/hooks/useCurrentApi', () => ({
   getApiForInstance: () => ({
     typed: (call: (c: { PATCH: typeof patch }) => unknown) => call({ PATCH: patch }),
+    upload: (...args: unknown[]) => upload(...args),
   }),
 }));
 
@@ -35,6 +37,18 @@ describe('GeneralSection', () => {
   beforeEach(() => {
     patch.mockReset();
     patch.mockResolvedValue({ data: {} });
+    upload.mockReset();
+    upload.mockResolvedValue({ ...workspace, icon_url: '/api/files/download/icons/ws-1/logo.png' });
+  });
+
+  it('uploads an icon to the workspace, not as a file of it', async () => {
+    render(<GeneralSection workspace={workspace} onDeleted={vi.fn()} />, { wrapper });
+    const icon = new File([new Uint8Array([1])], 'logo.png', { type: 'image/png' });
+    fireEvent.change(screen.getByLabelText('Workspace icon'), { target: { files: [icon] } });
+    await waitFor(() => expect(upload).toHaveBeenCalledOnce());
+    expect(upload).toHaveBeenCalledWith('/workspaces/ws-1/icon', expect.any(FormData));
+    expect((upload.mock.calls[0][1] as FormData).get('file')).toBe(icon);
+    expect(patch).not.toHaveBeenCalled();
   });
 
   it('saves a renamed workspace when the field is left, and only the name', async () => {

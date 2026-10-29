@@ -6553,6 +6553,47 @@
         }
       }
     },
+    "/workspaces/{ws_id}/icon": {
+      "post": {
+        "tags": [
+          "workspaces"
+        ],
+        "operationId": "upload_icon",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "A `file` field: a PNG, JPEG, GIF or WebP image of at most 10 MB",
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Workspace"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workspaces/{ws_id}/invites": {
       "get": {
         "tags": [

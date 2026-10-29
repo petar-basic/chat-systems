@@ -1,4 +1,5 @@
 use axum::body::Bytes;
+use axum::extract::Multipart;
 use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
@@ -44,32 +45,72 @@ fn extension(kind: ImageKind) -> &'static str {
     }
 }
 
+pub struct Shrunk {
+    pub body: Vec<u8>,
+    pub mime: &'static str,
+    pub extension: &'static str,
+}
+
+pub async fn shrink(bytes: Bytes) -> AppResult<Shrunk> {
+    if bytes.len() > MAX_AVATAR_BYTES {
+        return Err(AppError::Validation(format!(
+            "An image is at most {} MB",
+            MAX_AVATAR_BYTES / 1024 / 1024
+        )));
+    }
+    let kind = imaging::sniff(&bytes)
+        .ok_or_else(|| AppError::Validation("An image is a PNG, JPEG, GIF or WebP file".into()))?;
+    let processed = tokio::task::spawn_blocking(move || imaging::process(kind, bytes))
+        .await
+        .map_err(|e| AppError::Internal(format!("Image processing did not finish: {e}")))?
+        .map_err(|e| AppError::Validation(format!("That image could not be read: {e}")))?;
+
+    Ok(match processed.thumbnail {
+        Some(small) => Shrunk {
+            body: small.bytes,
+            mime: small.mime,
+            extension: small.extension,
+        },
+        None => Shrunk {
+            body: processed.original,
+            mime: kind.mime(),
+            extension: extension(kind),
+        },
+    })
+}
+
 pub async fn store(
     state: &AppState,
     user_id: Uuid,
     workspace_id: Option<Uuid>,
     bytes: Bytes,
 ) -> AppResult<String> {
-    if bytes.len() > MAX_AVATAR_BYTES {
-        return Err(AppError::Validation(format!(
-            "A photo is at most {} MB",
-            MAX_AVATAR_BYTES / 1024 / 1024
-        )));
-    }
-    let kind = imaging::sniff(&bytes)
-        .ok_or_else(|| AppError::Validation("A photo is a PNG, JPEG, GIF or WebP image".into()))?;
-    let processed = tokio::task::spawn_blocking(move || imaging::process(kind, bytes))
-        .await
-        .map_err(|e| AppError::Internal(format!("Photo processing did not finish: {e}")))?
-        .map_err(|e| AppError::Validation(format!("That photo could not be read: {e}")))?;
-
-    let (body, mime, extension) = match processed.thumbnail {
-        Some(small) => (small.bytes, small.mime, small.extension),
-        None => (processed.original, kind.mime(), extension(kind)),
-    };
-    let key = key(user_id, workspace_id, extension);
-    state.file_storage.upload(&key, body, mime).await?;
+    let image = shrink(bytes).await?;
+    let key = key(user_id, workspace_id, image.extension);
+    state
+        .file_storage
+        .upload(&key, image.body, image.mime)
+        .await?;
     Ok(key)
+}
+
+pub async fn image_field(mut multipart: Multipart) -> AppResult<Bytes> {
+    let mut image = None;
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|e| AppError::BadRequest(format!("Invalid multipart: {e}")))?
+    {
+        if field.name() == Some("file") {
+            image = Some(
+                field
+                    .bytes()
+                    .await
+                    .map_err(|e| AppError::BadRequest(format!("Could not read the image: {e}")))?,
+            );
+        }
+    }
+    image.ok_or_else(|| AppError::Validation("Choose an image to upload".into()))
 }
 
 pub async fn forget(

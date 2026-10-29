@@ -208,6 +208,31 @@ impl WorkspaceRepo {
         .await
     }
 
+    pub async fn icons_outside_icons(&self) -> sqlx::Result<Vec<(Uuid, String)>> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT id, icon_url AS "icon_url!" FROM workspaces
+             WHERE icon_url LIKE '%/api/files/download/%'
+               AND icon_url NOT LIKE '%/api/files/download/icons/%'
+            "#
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().map(|row| (row.id, row.icon_url)).collect())
+    }
+
+    pub async fn move_icon(&self, id: Uuid, from: &str, to: &str) -> sqlx::Result<bool> {
+        let done = sqlx::query!(
+            "UPDATE workspaces SET icon_url = $3 WHERE id = $1 AND icon_url = $2",
+            id,
+            from,
+            to
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(done.rows_affected() == 1)
+    }
+
     pub async fn add_member_tx(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         workspace_id: Uuid,
