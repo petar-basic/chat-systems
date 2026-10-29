@@ -3,7 +3,6 @@ use axum::http::header::{COOKIE, SET_COOKIE};
 use axum::http::{Request, StatusCode};
 use axum::Router;
 use chrono::{Duration, Utc};
-use jsonwebtoken::{encode, EncodingKey, Header};
 use serde_json::json;
 use sqlx::PgPool;
 use tower::ServiceExt;
@@ -12,8 +11,6 @@ use uuid::Uuid;
 use super::common::*;
 use crate::middleware::Claims;
 use crate::workspace::models::WorkspaceRole;
-
-const TEST_JWT_SECRET: &str = "integration-test-secret-key-0123456789-abcdef";
 
 #[test_macros::db_test(migrations = "../migrations")]
 async fn instance_info_is_public(pool: PgPool) {
@@ -390,9 +387,10 @@ async fn an_email_invite_link_lives_and_dies_with_its_invite(pool: PgPool) {
 
     let (stale_id, stale_email) = pending("stale").await;
     let now = Utc::now();
-    let stale = encode(
-        &Header::default(),
-        &Claims {
+    let stale = state
+        .config
+        .jwt_keys
+        .encode(&Claims {
             sub: stale_id,
             email: stale_email,
             is_instance_admin: false,
@@ -401,10 +399,8 @@ async fn an_email_invite_link_lives_and_dies_with_its_invite(pool: PgPool) {
             jti: None,
             token_type: "registration".to_string(),
             invite_id: None,
-        },
-        &EncodingKey::from_secret(state.config.jwt_secret.as_bytes()),
-    )
-    .expect("encode");
+        })
+        .expect("encode");
     assert_eq!(
         verify(stale).await,
         StatusCode::UNAUTHORIZED,
@@ -430,12 +426,11 @@ async fn reset_password_changes_password_and_is_single_use(pool: PgPool) {
         token_type: "reset".to_string(),
         invite_id: None,
     };
-    let reset_token = encode(
-        &Header::default(),
-        &claims,
-        &EncodingKey::from_secret(TEST_JWT_SECRET.as_bytes()),
-    )
-    .expect("encode reset token");
+    let reset_token = state
+        .config
+        .jwt_keys
+        .encode(&claims)
+        .expect("encode reset token");
     state
         .auth_service
         .repo()

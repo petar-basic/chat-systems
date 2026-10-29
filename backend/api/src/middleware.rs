@@ -3,12 +3,12 @@ use axum::http::header::{AUTHORIZATION, COOKIE};
 use axum::http::request::Parts;
 use axum::middleware::Next;
 use axum::response::Response;
-use jsonwebtoken::{decode, DecodingKey, Validation};
 use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use shared_common::errors::AppError;
+use shared_common::session_keys::VerifyingKeys;
 
 fn default_token_type() -> String {
     "access".to_string()
@@ -61,10 +61,10 @@ pub struct AuthUser {
 pub async fn auth_middleware(request: Request, next: Next) -> Result<Response, AppError> {
     let (mut parts, body) = request.into_parts();
 
-    let jwt_secret = parts
+    let verifier = parts
         .extensions
-        .get::<JwtSecret>()
-        .ok_or_else(|| AppError::Internal("JWT secret not configured".into()))?
+        .get::<SessionVerifier>()
+        .ok_or_else(|| AppError::Internal("Session keys not configured".into()))?
         .0
         .clone();
 
@@ -79,19 +79,16 @@ pub async fn auth_middleware(request: Request, next: Next) -> Result<Response, A
         })
         .ok_or_else(|| AppError::Unauthorized("Missing authentication".into()))?;
 
-    let token_data = decode::<Claims>(
-        &token,
-        &DecodingKey::from_secret(jwt_secret.as_bytes()),
-        &Validation::default(),
-    )
-    .map_err(|_| AppError::Unauthorized("Invalid or expired token".into()))?;
+    let claims = verifier
+        .decode::<Claims>(&token)
+        .map_err(|_| AppError::Unauthorized("Invalid or expired token".into()))?;
 
-    if token_data.claims.token_type != "access" {
+    if claims.token_type != "access" {
         return Err(AppError::Unauthorized("Invalid or expired token".into()));
     }
 
     if let Some(revocation) = parts.extensions.get::<RevocationStore>() {
-        match revocation.revocation_state(&token_data.claims).await {
+        match revocation.revocation_state(&claims).await {
             RevocationState::Valid => {}
             RevocationState::Revoked => {
                 return Err(AppError::Unauthorized("Session revoked".into()));
@@ -108,9 +105,9 @@ pub async fn auth_middleware(request: Request, next: Next) -> Result<Response, A
     }
 
     let auth_user = AuthUser {
-        user_id: token_data.claims.sub,
-        is_instance_admin: token_data.claims.is_instance_admin,
-        jti: token_data.claims.jti,
+        user_id: claims.sub,
+        is_instance_admin: claims.is_instance_admin,
+        jti: claims.jti,
     };
 
     parts.extensions.insert(auth_user);
@@ -134,7 +131,7 @@ pub async fn admin_middleware(request: Request, next: Next) -> Result<Response, 
 }
 
 #[derive(Debug, Clone)]
-pub struct JwtSecret(pub String);
+pub struct SessionVerifier(pub VerifyingKeys);
 
 /// A revocation cuts off every token issued up to the moment it happened.
 /// Storing that moment rather than a boolean is what lets a user sign in again

@@ -19,10 +19,15 @@ response as soon as possible.
 
 ## Operator notes (self-hosting)
 
-- Generate strong secrets — `JWT_SECRET` (`openssl rand -hex 32`),
-  `SECRETS_KEYS` (`echo "k1:$(openssl rand -base64 32)"`), and the Postgres /
-  object-storage passwords. The app refuses to start with the insecure default
-  `JWT_SECRET` or without `SECRETS_KEYS`.
+- Generate strong secrets — `JWT_SIGNING_KEYS`
+  (`echo "k1:$(openssl genpkey -algorithm ed25519 -outform DER | base64)"`), its public
+  half for `JWT_PUBLIC_KEYS`, `SECRETS_KEYS` (`echo "k1:$(openssl rand -base64 32)"`),
+  and the Postgres / object-storage passwords. The app refuses to start without them.
+- Sessions are Ed25519-signed JWTs naming their key (`kid`). The API and the worker
+  hold the private keys; the realtime gateway holds only the public halves, so its
+  configuration cannot mint a session. HS256 and unsigned tokens are refused. Rotate
+  by adding a key, promoting it, and retiring the old one once its refresh tokens
+  have expired; nobody is signed out.
 - `SECRETS_KEYS` seals the app secrets, the connected accounts' tokens and the
   TOTP secrets at rest. Rotate it by adding a new key, moving it first and
   restarting; the API re-seals every stored secret on start. The RUNBOOK has the

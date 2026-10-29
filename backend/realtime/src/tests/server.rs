@@ -56,30 +56,58 @@ async fn ws_upgrade_allowed_origin_and_token_passes_auth_gates(pool: PgPool) {
 
 #[test]
 fn ws_auth_rejects_missing_cookie() {
-    assert!(authenticate_ws(&HeaderMap::new(), JWT_SECRET).is_err());
+    assert!(authenticate_ws(&HeaderMap::new(), &gateway_keys()).is_err());
 }
 
 #[test]
 fn ws_auth_rejects_undecodable_token() {
-    assert!(authenticate_ws(&cookie_header("garbage.token.value"), JWT_SECRET).is_err());
+    assert!(authenticate_ws(&cookie_header("garbage.token.value"), &gateway_keys()).is_err());
+}
+
+fn access_claims() -> serde_json::Value {
+    serde_json::json!({ "sub": Uuid::new_v4(), "exp": 9_999_999_999i64, "token_type": "access" })
 }
 
 #[test]
-fn ws_auth_rejects_token_signed_with_wrong_secret() {
-    let other = jsonwebtoken::encode(
-        &jsonwebtoken::Header::default(),
-        &serde_json::json!({ "sub": Uuid::new_v4(), "exp": 9_999_999_999i64, "token_type": "access" }),
-        &jsonwebtoken::EncodingKey::from_secret(b"a-different-secret-key-that-is-32+chars"),
+fn ws_auth_rejects_token_signed_with_another_key_under_the_same_id() {
+    let impostor = shared_common::session_keys::SigningKeys::parse(
+        "test:MC4CAQAwBQYDK2VwBCIEIMmVeJctnPI4cTDrkYWTEXJUa2oijgBEjxlvG4x9LXe/",
+    )
+    .expect("keys")
+    .encode(&access_claims())
+    .expect("encode");
+    assert!(authenticate_ws(&cookie_header(&impostor), &gateway_keys()).is_err());
+}
+
+#[test]
+fn ws_auth_rejects_a_key_it_does_not_list() {
+    let unknown = shared_common::session_keys::SigningKeys::parse(
+        "elsewhere:MC4CAQAwBQYDK2VwBCIEIMmVeJctnPI4cTDrkYWTEXJUa2oijgBEjxlvG4x9LXe/",
+    )
+    .expect("keys")
+    .encode(&access_claims())
+    .expect("encode");
+    assert!(authenticate_ws(&cookie_header(&unknown), &gateway_keys()).is_err());
+}
+
+#[test]
+fn ws_auth_rejects_hs256() {
+    let mut header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::HS256);
+    header.kid = Some("test".into());
+    let forged = jsonwebtoken::encode(
+        &header,
+        &access_claims(),
+        &jsonwebtoken::EncodingKey::from_secret(b"integration-test-secret-key-0123456789-abcdef"),
     )
     .unwrap();
-    assert!(authenticate_ws(&cookie_header(&other), JWT_SECRET).is_err());
+    assert!(authenticate_ws(&cookie_header(&forged), &gateway_keys()).is_err());
 }
 
 #[test]
 fn ws_auth_rejects_non_access_token_type() {
     let token = mint_token(Uuid::new_v4(), "reset");
     assert!(
-        authenticate_ws(&cookie_header(&token), JWT_SECRET).is_err(),
+        authenticate_ws(&cookie_header(&token), &gateway_keys()).is_err(),
         "a reset token must not open a socket"
     );
 }
@@ -88,7 +116,7 @@ fn ws_auth_rejects_non_access_token_type() {
 fn ws_auth_accepts_genuine_access_token() {
     let user = Uuid::new_v4();
     let token = mint_token(user, "access");
-    let claims = authenticate_ws(&cookie_header(&token), JWT_SECRET)
+    let claims = authenticate_ws(&cookie_header(&token), &gateway_keys())
         .expect("access token should be accepted");
     assert_eq!(claims.sub, user);
 }
@@ -97,7 +125,7 @@ fn ws_auth_accepts_genuine_access_token() {
 fn ws_auth_accepts_subprotocol_token() {
     let user = Uuid::new_v4();
     let token = mint_token(user, "access");
-    let claims = authenticate_ws(&protocol_header(&token), JWT_SECRET)
+    let claims = authenticate_ws(&protocol_header(&token), &gateway_keys())
         .expect("subprotocol access token should be accepted");
     assert_eq!(claims.sub, user);
 }
@@ -106,7 +134,7 @@ fn ws_auth_accepts_subprotocol_token() {
 fn ws_auth_rejects_non_access_subprotocol_token() {
     let token = mint_token(Uuid::new_v4(), "refresh");
     assert!(
-        authenticate_ws(&protocol_header(&token), JWT_SECRET).is_err(),
+        authenticate_ws(&protocol_header(&token), &gateway_keys()).is_err(),
         "a refresh token must not open a socket via subprotocol"
     );
 }

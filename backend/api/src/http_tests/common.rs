@@ -16,6 +16,8 @@ use crate::{build_app, build_state};
 
 pub const PASSWORD: &str = "password123";
 
+pub const LEGACY_JWT_SECRET: &str = "integration-test-secret-key-0123456789-abcdef";
+
 pub const NEXT_SECRETS_KEY: &str = "next:bmV4dC1zZWNyZXRzLWtleS0wMTIzNDU2Nzg5YWJjZGU=";
 
 pub fn rotated_keyring() -> crate::sealed::Keyring {
@@ -42,7 +44,7 @@ pub fn test_config() -> AppConfig {
         port: 0,
         database_url: "postgres://unused/in/tests".into(),
         redis_url: std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".into()),
-        jwt_secret: "integration-test-secret-key-0123456789-abcdef".into(),
+        legacy_jwt_secret: Some(LEGACY_JWT_SECRET.into()),
         public_url: "http://localhost".into(),
         cors_origins: "http://localhost".into(),
         local_storage_path: std::env::temp_dir()

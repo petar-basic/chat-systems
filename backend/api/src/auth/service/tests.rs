@@ -2,7 +2,7 @@ use super::*;
 use crate::config::AppConfig;
 use crate::middleware::Claims;
 use chrono::{Duration, Utc};
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use shared_common::session_keys::{SigningKeys, TEST_SIGNING_KEYS};
 use sqlx::PgPool;
 
 fn test_config() -> AppConfig {
@@ -11,13 +11,11 @@ fn test_config() -> AppConfig {
 
 fn decode_claims(token: &str) -> Claims {
     let config = test_config();
-    decode::<Claims>(
-        token,
-        &DecodingKey::from_secret(config.jwt_secret.as_bytes()),
-        &Validation::default(),
-    )
-    .expect("token should decode with the test secret")
-    .claims
+    config
+        .jwt_keys
+        .verifying()
+        .decode::<Claims>(token)
+        .expect("token should decode with the test key")
 }
 
 fn dummy_user() -> User {
@@ -63,7 +61,6 @@ async fn generate_tokens_stamps_token_type() {
     let now = Utc::now();
     let access_exp = now + Duration::seconds(config.access_token_expiry);
     let refresh_exp = now + Duration::seconds(config.refresh_token_expiry);
-    let secret = EncodingKey::from_secret(config.jwt_secret.as_bytes());
     // One session, one jti: `sessions::revoke` identifies the session to spare
     // by the access token's jti, and must be able to spare its refresh token too.
     let jti = Uuid::new_v4();
@@ -78,7 +75,7 @@ async fn generate_tokens_stamps_token_type() {
         token_type: "access".to_string(),
         invite_id: None,
     };
-    let access_token = encode(&Header::default(), &access_claims, &secret).unwrap();
+    let access_token = config.jwt_keys.encode(&access_claims).unwrap();
 
     let refresh_claims = Claims {
         sub: user.id,
@@ -90,7 +87,7 @@ async fn generate_tokens_stamps_token_type() {
         token_type: "refresh".to_string(),
         invite_id: None,
     };
-    let refresh_token = encode(&Header::default(), &refresh_claims, &secret).unwrap();
+    let refresh_token = config.jwt_keys.encode(&refresh_claims).unwrap();
 
     let access = decode_claims(&access_token);
     assert_eq!(
@@ -157,6 +154,92 @@ async fn refresh_rotation_is_single_use(pool: PgPool) {
         wrong_type.is_err(),
         "an access token must not be accepted by refresh_access_token"
     );
+}
+
+const NEXT_SIGNING_KEY: &str =
+    "next:MC4CAQAwBQYDK2VwBCIEIJlzZeAYLOLTfgdCekopwots4ZstU8cXNWHFshdahL1z";
+
+fn rotated_config() -> AppConfig {
+    AppConfig {
+        jwt_keys: SigningKeys::parse(&format!("{NEXT_SIGNING_KEY},{TEST_SIGNING_KEYS}"))
+            .expect("rotated keys"),
+        ..test_config()
+    }
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_session_survives_a_new_signing_key_and_the_old_one_retiring(pool: PgPool) {
+    let before = AuthService::new(UserRepo::new(pool.clone()), test_config());
+    let hash = AuthService::hash_password("hunter2hunter2").expect("hash");
+    let created = before
+        .repo()
+        .create("keys@test.local", Some(&hash), Some("Keys"), false)
+        .await
+        .expect("create user");
+    let user = before
+        .repo()
+        .activate(created.id, &hash, "Keys")
+        .await
+        .expect("activate user");
+    let tokens = before.generate_tokens(&user).await.expect("tokens");
+
+    let during = AuthService::new(UserRepo::new(pool.clone()), rotated_config());
+    assert!(
+        during.verify_token(&tokens.access_token).is_ok(),
+        "a token the old key signed still verifies while it is listed"
+    );
+    let refreshed = during
+        .refresh_access_token(&tokens.refresh_token)
+        .await
+        .expect("refresh across the rotation");
+    let header = jsonwebtoken::decode_header(&refreshed.access_token).expect("header");
+    assert_eq!(header.alg, jsonwebtoken::Algorithm::EdDSA);
+    assert_eq!(header.kid.as_deref(), Some("next"));
+
+    let after = AuthService::new(
+        UserRepo::new(pool),
+        AppConfig {
+            jwt_keys: SigningKeys::parse(NEXT_SIGNING_KEY).expect("next key"),
+            ..test_config()
+        },
+    );
+    assert!(
+        after.verify_token(&refreshed.access_token).is_ok(),
+        "the refreshed session outlives the old key"
+    );
+    assert!(
+        after.verify_token(&tokens.access_token).is_err(),
+        "a token signed by a retired key is refused"
+    );
+}
+
+#[test]
+fn an_hs256_token_is_refused() {
+    let service_config = test_config();
+    let now = Utc::now();
+    let claims = Claims {
+        sub: Uuid::new_v4(),
+        email: "user@test.local".into(),
+        is_instance_admin: true,
+        iat: now.timestamp(),
+        exp: (now + Duration::minutes(5)).timestamp(),
+        jti: Some(Uuid::new_v4()),
+        token_type: "access".into(),
+        invite_id: None,
+    };
+    let mut header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::HS256);
+    header.kid = Some(service_config.jwt_keys.current_id().to_string());
+    let forged = jsonwebtoken::encode(
+        &header,
+        &claims,
+        &jsonwebtoken::EncodingKey::from_secret(b"integration-test-secret-key-0123456789-abcdef"),
+    )
+    .expect("encode");
+    assert!(service_config
+        .jwt_keys
+        .verifying()
+        .decode::<Claims>(&forged)
+        .is_err());
 }
 
 #[test_macros::db_test(migrations = "../migrations")]

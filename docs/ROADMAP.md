@@ -109,9 +109,3 @@ was pencilled in for it was absorbed into 9 and 11.
   only materialises when a second, incompatible version exists. The OpenAPI document is
   the contract in the meantime; revisit when a breaking API change is actually planned,
   and do the version bump as part of it.
-- **Asymmetric JWT signing (EdDSA) instead of a shared HS256 secret.** Considered
-  2026-09-02 and deferred. It is the better design — the realtime gateway would hold only
-  the public key, and a leaked gateway config could no longer mint tokens — but it makes
-  every deployment generate and distribute a keypair, and changes `ci-env.sh`, compose and
-  the runbook. Revisit if the gateway ever runs on a less trusted host than the API, or if
-  a security review asks for it.

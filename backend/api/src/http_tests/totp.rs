@@ -367,9 +367,13 @@ async fn the_second_factor_survives_a_key_rotation(pool: PgPool) {
     .await;
     assert_eq!(status, StatusCode::OK);
 
-    let report = reseal::run(&state.pool, &rotated_keyring(), &state.config.jwt_secret)
-        .await
-        .expect("reseal");
+    let report = reseal::run(
+        &state.pool,
+        &rotated_keyring(),
+        state.config.legacy_jwt_secret.as_deref(),
+    )
+    .await
+    .expect("reseal");
     assert_eq!(report.resealed, 1, "{report:?}");
 
     let next = Keyring::parse(NEXT_SECRETS_KEY).expect("ring");
@@ -396,7 +400,7 @@ async fn a_second_factor_sealed_by_3_7_is_resealed_when_the_api_starts(pool: PgP
     let (id, _email, _token) = seed_and_login(&app, &state, "totp-legacy", false).await;
     let secret = totp::generate_secret();
     let (ciphertext, nonce) =
-        sealed_the_3_7_way(&state.config.jwt_secret, "totp-secret-encryption", &secret);
+        sealed_the_3_7_way(LEGACY_JWT_SECRET, "totp-secret-encryption", &secret);
     sqlx::query(
         "INSERT INTO user_totp (user_id, secret_encrypted, nonce, confirmed_at) VALUES ($1, $2, $3, NOW())",
     )
@@ -410,7 +414,7 @@ async fn a_second_factor_sealed_by_3_7_is_resealed_when_the_api_starts(pool: PgP
     let report = reseal::run(
         &state.pool,
         &state.config.secrets_keys,
-        &state.config.jwt_secret,
+        state.config.legacy_jwt_secret.as_deref(),
     )
     .await
     .expect("reseal");

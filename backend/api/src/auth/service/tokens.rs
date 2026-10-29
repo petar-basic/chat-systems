@@ -1,5 +1,4 @@
 use chrono::{DateTime, Duration, Utc};
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, TokenData, Validation};
 use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
@@ -58,12 +57,11 @@ impl AuthService {
             token_type: "access".to_string(),
             invite_id: None,
         };
-        let access_token = encode(
-            &Header::default(),
-            &access_claims,
-            &EncodingKey::from_secret(self.config.jwt_secret.as_bytes()),
-        )
-        .map_err(|e| AppError::Internal(format!("Token generation failed: {e}")))?;
+        let access_token = self
+            .config
+            .jwt_keys
+            .encode(&access_claims)
+            .map_err(|e| AppError::Internal(format!("Token generation failed: {e}")))?;
 
         let refresh_claims = Claims {
             sub: user.id,
@@ -75,12 +73,11 @@ impl AuthService {
             token_type: "refresh".to_string(),
             invite_id: None,
         };
-        let new_refresh_token = encode(
-            &Header::default(),
-            &refresh_claims,
-            &EncodingKey::from_secret(self.config.jwt_secret.as_bytes()),
-        )
-        .map_err(|e| AppError::Internal(format!("Token generation failed: {e}")))?;
+        let new_refresh_token = self
+            .config
+            .jwt_keys
+            .encode(&refresh_claims)
+            .map_err(|e| AppError::Internal(format!("Token generation failed: {e}")))?;
 
         let mut tx = self.repo.begin().await?;
         UserRepo::delete_refresh_token_tx(&mut tx, &jti.to_string()).await?;
@@ -113,12 +110,11 @@ impl AuthService {
             invite_id: None,
         };
 
-        let access_token = encode(
-            &Header::default(),
-            &access_claims,
-            &EncodingKey::from_secret(self.config.jwt_secret.as_bytes()),
-        )
-        .map_err(|e| AppError::Internal(format!("Token generation failed: {e}")))?;
+        let access_token = self
+            .config
+            .jwt_keys
+            .encode(&access_claims)
+            .map_err(|e| AppError::Internal(format!("Token generation failed: {e}")))?;
 
         let refresh_claims = Claims {
             sub: user.id,
@@ -131,12 +127,11 @@ impl AuthService {
             invite_id: None,
         };
 
-        let refresh_token = encode(
-            &Header::default(),
-            &refresh_claims,
-            &EncodingKey::from_secret(self.config.jwt_secret.as_bytes()),
-        )
-        .map_err(|e| AppError::Internal(format!("Token generation failed: {e}")))?;
+        let refresh_token = self
+            .config
+            .jwt_keys
+            .encode(&refresh_claims)
+            .map_err(|e| AppError::Internal(format!("Token generation failed: {e}")))?;
 
         self.repo
             .store_refresh_token(user.id, &jti.to_string(), refresh_exp)
@@ -151,14 +146,11 @@ impl AuthService {
     }
 
     pub fn verify_token(&self, token: &str) -> AppResult<Claims> {
-        let token_data: TokenData<Claims> = decode(
-            token,
-            &DecodingKey::from_secret(self.config.jwt_secret.as_bytes()),
-            &Validation::default(),
-        )
-        .map_err(|_| AppError::Unauthorized("Invalid or expired token".into()))?;
-
-        Ok(token_data.claims)
+        self.config
+            .jwt_keys
+            .verifying()
+            .decode::<Claims>(token)
+            .map_err(|_| AppError::Unauthorized("Invalid or expired token".into()))
     }
 
     #[cfg(test)]
@@ -180,12 +172,11 @@ impl AuthService {
             token_type: "reset".to_string(),
             invite_id: None,
         };
-        let token = encode(
-            &Header::default(),
-            &claims,
-            &EncodingKey::from_secret(self.config.jwt_secret.as_bytes()),
-        )
-        .map_err(|e| AppError::Internal(format!("Reset token generation failed: {e}")))?;
+        let token = self
+            .config
+            .jwt_keys
+            .encode(&claims)
+            .map_err(|e| AppError::Internal(format!("Reset token generation failed: {e}")))?;
 
         self.repo.store_reset_jti(jti, user_id, exp).await?;
 
@@ -209,12 +200,10 @@ impl AuthService {
             token_type: "registration".to_string(),
             invite_id: Some(invite_id),
         };
-        encode(
-            &Header::default(),
-            &claims,
-            &EncodingKey::from_secret(self.config.jwt_secret.as_bytes()),
-        )
-        .map_err(|e| AppError::Internal(format!("Registration token generation failed: {e}")))
+        self.config
+            .jwt_keys
+            .encode(&claims)
+            .map_err(|e| AppError::Internal(format!("Registration token generation failed: {e}")))
     }
 
     pub fn verify_registration_token(&self, token: &str) -> AppResult<Claims> {

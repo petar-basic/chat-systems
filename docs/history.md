@@ -2260,3 +2260,31 @@ A value with no key id is one 3.7.0 sealed: only the startup re-seal opens it, w
 conditional on the key id it read, so two replicas starting together do not overwrite each
 other. A value neither key can open is logged by name and left alone. The RUNBOOK has the
 upgrade note and the three-step rotation.
+
+### [CS-101] Sessions signed with EdDSA, with keys that rotate ✅ shipped
+Sessions were HS256 under `JWT_SECRET`, and the realtime gateway held that secret to verify
+them, so anybody who could read the gateway's configuration could mint a session for an
+instance admin. There was one key and no way to tell which key had signed a token, so
+rotating it signed everybody out. The ROADMAP had deferred this on 2026-09-02 until a security
+review asked for it, and the feedback on 3.7.0 did.
+
+`shared_common::session_keys` holds both halves. `SigningKeys` parses `JWT_SIGNING_KEYS`, a
+list of `id:base64` Ed25519 private keys in PKCS#8 DER (what `openssl genpkey -algorithm
+ed25519 -outform DER` writes). It signs with the first and writes its id into the token's
+`kid`, and it derives every key's public half, so the API verifies its own tokens without a
+second setting. `VerifyingKeys` parses `JWT_PUBLIC_KEYS`, the same ids with SubjectPublicKeyInfo
+DER, which is what `openssl pkey -pubout` writes. It looks the key up by `kid` and checks with
+EdDSA only. A token with another algorithm, no `kid` or an unlisted one fails before its
+signature is checked. The gateway is given `VerifyingKeys` and nothing else. The API logs the
+gateway's line on start, because deriving a public key by hand is the step most likely to go
+wrong.
+
+Keys are single-line base64 rather than PEM, because a multi-line value does not survive a
+`.env` file or a Coolify field. Rotation is add, promote, then retire after
+`REFRESH_TOKEN_EXPIRY`: a refresh re-signs with the current key, so an active session moves
+to the new key within one access-token lifetime, and a dormant one stops needing the old key
+once its refresh token expires. Nothing verifies with `JWT_SECRET` any more. The API reads it
+only for the CS-100 re-seal, and the worker and the gateway do not take it at all. HS256 is
+refused rather than accepted for a grace period, so upgrading signs everybody out once. The
+alternative was a second verification path kept for the refresh-token lifetime, and an
+instance would carry it for good.

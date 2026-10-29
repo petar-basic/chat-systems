@@ -8,17 +8,24 @@ use axum::extract::ws::Message;
 use axum::http::{header, Request, StatusCode};
 use axum::Router;
 use chrono::Utc;
-use jsonwebtoken::{encode, EncodingKey, Header};
 use serde_json::{json, Value};
 use sqlx::PgPool;
 use tokio::sync::mpsc;
 use tower::ServiceExt;
 use uuid::Uuid;
 
+use shared_common::session_keys::{SigningKeys, VerifyingKeys, TEST_SIGNING_KEYS};
+
 use crate::connection_manager::ConnectionManager;
 use crate::{build_app, AppState};
 
-pub const JWT_SECRET: &str = "integration-test-secret-key-0123456789-abcdef";
+pub fn signing_keys() -> SigningKeys {
+    SigningKeys::parse(TEST_SIGNING_KEYS).expect("test signing keys")
+}
+
+pub fn gateway_keys() -> VerifyingKeys {
+    VerifyingKeys::parse(&signing_keys().verifying().listing()).expect("public keys")
+}
 
 pub async fn redis_conn() -> redis::aio::ConnectionManager {
     let url = std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".into());
@@ -35,7 +42,7 @@ pub async fn manager(pool: PgPool) -> Arc<ConnectionManager> {
 pub fn app(cm: Arc<ConnectionManager>) -> Router {
     build_app(AppState {
         cm,
-        jwt_secret: JWT_SECRET.to_string(),
+        jwt_public_keys: gateway_keys(),
         consumer_heartbeat: Arc::new(std::sync::atomic::AtomicI64::new(crate::now_unix())),
         cors_origins: "http://localhost".to_string(),
     })
@@ -176,12 +183,7 @@ pub async fn invite_to_huddle(pool: &PgPool, huddle: Uuid, user: Uuid, by: Uuid)
 pub fn mint_token(sub: Uuid, token_type: &str) -> String {
     let exp = (Utc::now() + chrono::Duration::hours(1)).timestamp();
     let claims = json!({ "sub": sub, "exp": exp, "token_type": token_type });
-    encode(
-        &Header::default(),
-        &claims,
-        &EncodingKey::from_secret(JWT_SECRET.as_bytes()),
-    )
-    .expect("mint token")
+    signing_keys().encode(&claims).expect("mint token")
 }
 
 pub fn cookie_header(token: &str) -> axum::http::HeaderMap {

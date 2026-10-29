@@ -789,7 +789,51 @@ Removing a key that something is still sealed with is safe to recover from: the 
 what it could not open, and putting the key back in the list makes it readable again. Doing
 step 2 before step 1 has finished on every replica means a replica on the old list cannot read
 what the new one sealed until it restarts too. Rotating `SECRETS_KEYS` signs nobody out; it is
-`JWT_SECRET` that signs the session tokens.
+`JWT_SIGNING_KEYS` that signs the session tokens.
+
+## Upgrade note: sessions are signed with Ed25519 (4.0.0)
+
+Until 3.7.0 sessions were HS256 tokens under `JWT_SECRET`, which the realtime gateway held
+too, so whoever could read the gateway's configuration could mint a session for anybody.
+Sessions are now signed with Ed25519 keys only the `api` and the `worker` hold; the gateway
+gets the public halves.
+
+1. Generate a key and its public half:
+   ```bash
+   key=$(openssl genpkey -algorithm ed25519 -outform DER | base64)
+   echo "JWT_SIGNING_KEYS=k1:$key"
+   echo "JWT_PUBLIC_KEYS=k1:$(echo "$key" | base64 -d | openssl pkey -inform DER -pubout -outform DER | base64)"
+   ```
+   Set `JWT_SIGNING_KEYS` on the `api` and the `worker` and `JWT_PUBLIC_KEYS` on `realtime`.
+   Each refuses to start without its own.
+2. Upgrade all three together. **Everybody is signed out once**: an HS256 token is refused,
+   so every browser goes back to the sign-in page. Schedule the upgrade for a quiet hour.
+3. Leave `JWT_SECRET` on the `api` for this start, for the re-seal in the note above. Once the
+   `api` has logged `every one is on key …`, remove `JWT_SECRET` everywhere; nothing else
+   reads it, and `realtime` and the `worker` no longer take it at all.
+
+The `api` logs the gateway's line on every start, `Sessions are signed with key "k1"; the
+gateway's JWT_PUBLIC_KEYS=k1:…`, so the public half can also be copied from there.
+
+## Rotating the session signing keys
+
+`JWT_SIGNING_KEYS` is a comma-separated list of `id:base64` Ed25519 private keys (PKCS#8 DER);
+`JWT_PUBLIC_KEYS` lists the same ids with their public halves. The first signing key signs;
+every listed key verifies. Each token names its key in its `kid` header, and a token naming a
+key that is not listed is refused, so the order of the steps matters:
+
+1. **Add** the new key last on the `api` and the `worker`, `JWT_SIGNING_KEYS=k1:<old>,k2:<new>`,
+   and its public half on `realtime`, `JWT_PUBLIC_KEYS=k1:<old>,k2:<new>`. Restart all three.
+   Nothing is signed with `k2` yet, but every process can verify it.
+2. **Promote** it: `JWT_SIGNING_KEYS=k2:<new>,k1:<old>` on the `api` and the `worker`, and
+   restart them. New sessions, and every session as it refreshes, are signed with `k2`.
+   Anyone using the app is on `k2` within the access-token lifetime (15 minutes by default).
+3. **Retire** the old key once `REFRESH_TOKEN_EXPIRY` (seven days by default) has passed
+   since step 2: drop `k1` from both lists and restart. A refresh token `k1` signed has
+   expired by then, so nobody is signed out.
+
+To cut a leaked key off at once, skip the wait in step 3: everyone still on it signs in again,
+and nobody else does.
 
 ## Audit log
 
@@ -1133,7 +1177,7 @@ Goal: bring a new machine up from the backup volumes (or off-site copies). Do
 this with the app **stopped** so nothing writes mid-restore.
 
 ### 0. Prerequisites
-- Docker + the repo checked out, `.env` restored with the **same** `POSTGRES_PASSWORD`, `JWT_SECRET`, `SECRETS_KEYS`, `MINIO_ROOT_*` as the old host. Without the `SECRETS_KEYS` key the dump was sealed with, the connected apps and the second factors cannot be read.
+- Docker + the repo checked out, `.env` restored with the **same** `POSTGRES_PASSWORD`, `JWT_SIGNING_KEYS`, `JWT_PUBLIC_KEYS`, `SECRETS_KEYS`, `MINIO_ROOT_*` as the old host. Without the `SECRETS_KEYS` key the dump was sealed with, the connected apps and the second factors cannot be read.
 - The backup files available: a `chatsystems-*.sql.gz` dump and the mirrored bucket tree.
 
 ### 1. Start only the data services

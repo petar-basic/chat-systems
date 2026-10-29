@@ -13,13 +13,15 @@ codebase holds itself to. For the *why* behind the design, see
 ## Configuration
 
 All configuration is via environment variables. Copy the template and fill in the
-secrets — `docker compose` auto-loads `.env`; the API refuses to start with a weak
-or default `JWT_SECRET`, or without `SECRETS_KEYS`.
+secrets — `docker compose` auto-loads `.env`; the API and the worker refuse to start
+without `JWT_SIGNING_KEYS` or `SECRETS_KEYS`, and the gateway without `JWT_PUBLIC_KEYS`.
 
 ```bash
 cp .env.example .env
-openssl rand -hex 32                   # use for JWT_SECRET
-echo "k1:$(openssl rand -base64 32)"   # use for SECRETS_KEYS
+key=$(openssl genpkey -algorithm ed25519 -outform DER | base64)
+echo "JWT_SIGNING_KEYS=k1:$key"
+echo "JWT_PUBLIC_KEYS=k1:$(echo "$key" | base64 -d | openssl pkey -inform DER -pubout -outform DER | base64)"
+echo "SECRETS_KEYS=k1:$(openssl rand -base64 32)"
 ```
 
 The full list with defaults lives in [`backend/api/src/config.rs`](../backend/api/src/config.rs).
@@ -52,7 +54,8 @@ REDIS_URL=redis://127.0.0.1:6380
 ADMIN_EMAIL=admin@dev.local
 ADMIN_PASSWORD=${ADMIN_PASSWORD}
 SMTP_HOST=localhost
-JWT_SECRET=${JWT_SECRET}
+JWT_SIGNING_KEYS=${JWT_SIGNING_KEYS}
+JWT_PUBLIC_KEYS=${JWT_PUBLIC_KEYS}
 SECRETS_KEYS=${SECRETS_KEYS}
 EOF
 
@@ -75,7 +78,7 @@ backup sidecars — `db-backup` (verified `pg_dump`) and `storage-backup`
 (`rclone copy` of the upload bucket). Point your domain's DNS at the host first.
 
 ```bash
-# Required in .env: DOMAIN, ACME_EMAIL, JWT_SECRET, SECRETS_KEYS, POSTGRES_PASSWORD,
+# Required in .env: DOMAIN, ACME_EMAIL, JWT_SIGNING_KEYS, JWT_PUBLIC_KEYS, SECRETS_KEYS, POSTGRES_PASSWORD,
 #   MINIO_ROOT_PASSWORD, SMTP_HOST, SMTP_FROM_ADDRESS
 # Optional in .env: VERSION (tags the app images for rollback — set to a git SHA
 #   or release tag), BACKUP_OFFSITE_REMOTE (off-host copy of each verified dump).

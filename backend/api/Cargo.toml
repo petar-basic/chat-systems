@@ -61,7 +61,6 @@ thiserror = { workspace = true }
 unicode-normalization = "0.1"
 
 # Auth
-jsonwebtoken = { workspace = true }
 argon2 = { workspace = true }
 
 # Async traits (FileStorage)

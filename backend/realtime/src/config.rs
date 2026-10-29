@@ -1,10 +1,12 @@
 use tracing::info;
 
+use shared_common::session_keys::VerifyingKeys;
+
 #[derive(Debug, Clone)]
 pub struct RealtimeConfig {
     pub redis_url: String,
     pub database_url: String,
-    pub jwt_secret: String,
+    pub jwt_public_keys: VerifyingKeys,
     pub port: u16,
     pub cors_origins: String,
     pub pg_pool_max: u32,
@@ -18,21 +20,24 @@ impl RealtimeConfig {
                 "DATABASE_URL",
                 "postgres://chat:chat@localhost:5432/chatsystems",
             ),
-            jwt_secret: env_or("JWT_SECRET", "dev-secret-change-me-in-production"),
+            jwt_public_keys: jwt_public_keys_from_env(),
             port: parse_env("PORT", 3004),
             cors_origins: env_or("CORS_ORIGINS", "http://localhost:3001"),
             pg_pool_max: parse_env("PG_POOL_MAX", 5),
         };
-        if config.jwt_secret == "dev-secret-change-me-in-production" || config.jwt_secret.len() < 32
-        {
-            panic!(
-                "JWT_SECRET must be set to a random value of at least 32 characters \
-                 (must match chat-api). Generate one with: openssl rand -hex 32"
-            );
-        }
         info!("Config loaded: port={}", config.port);
         config
     }
+}
+
+fn jwt_public_keys_from_env() -> VerifyingKeys {
+    let raw = std::env::var("JWT_PUBLIC_KEYS").unwrap_or_default();
+    VerifyingKeys::parse(&raw).unwrap_or_else(|e| {
+        panic!(
+            "JWT_PUBLIC_KEYS must list the public half of every key in the API's \
+             JWT_SIGNING_KEYS ({e}). The API logs the line to copy when it starts."
+        )
+    })
 }
 
 fn env_or(key: &str, default: &str) -> String {
@@ -59,7 +64,8 @@ mod tests {
 
     static ENV_LOCK: Mutex<()> = Mutex::new(());
 
-    const STRONG_SECRET: &str = "0123456789abcdef0123456789abcdef0123456789abcdef";
+    const PUBLIC_KEYS: &str = "k1:MCowBQYDK2VwAyEApxzjT5NaCoM2MEpVGExZHIEbu4Q9d860CyDsO1lqJQs=,k0:MCowBQYDK2VwAyEAnQEMGgN/qh38DOoqO5rmPogWyV7Z6k0dK6TC7ew9YpU=";
+    const PRIVATE_KEY: &str = "k1:MC4CAQAwBQYDK2VwBCIEIGI30Lx2rSsmmyhD7LBOZcQoxLcgnMDiUmMNTIEro7Kk";
 
     struct Saved {
         key: &'static str,
@@ -94,7 +100,7 @@ mod tests {
             .unwrap_or_else(std::sync::PoisonError::into_inner);
 
         let saved = vec![
-            set_saved("JWT_SECRET", STRONG_SECRET),
+            set_saved("JWT_PUBLIC_KEYS", PUBLIC_KEYS),
             set_saved(
                 "DATABASE_URL",
                 "postgres://chat:chat@localhost:5432/chatsystems",
@@ -108,19 +114,19 @@ mod tests {
 
         assert_eq!(config.cors_origins, "http://localhost:3001");
         assert_eq!(config.port, 9090u16);
-        assert_eq!(config.jwt_secret, STRONG_SECRET);
+        assert_eq!(config.jwt_public_keys.ids(), vec!["k1", "k0"]);
 
         restore(saved);
     }
 
     #[test]
-    fn from_env_panics_on_weak_jwt_secret() {
+    fn from_env_refuses_a_private_key() {
         let _guard = ENV_LOCK
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
 
         let saved = vec![
-            set_saved("JWT_SECRET", "short"),
+            set_saved("JWT_PUBLIC_KEYS", PRIVATE_KEY),
             set_saved(
                 "DATABASE_URL",
                 "postgres://chat:chat@localhost:5432/chatsystems",
@@ -132,6 +138,31 @@ mod tests {
 
         restore(saved);
 
-        assert!(result.is_err(), "weak JWT_SECRET must panic");
+        assert!(
+            result.is_err(),
+            "the gateway takes public keys only, never something that can sign"
+        );
+    }
+
+    #[test]
+    fn from_env_panics_without_public_keys() {
+        let _guard = ENV_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+
+        let saved = vec![
+            unset_saved("JWT_PUBLIC_KEYS"),
+            set_saved(
+                "DATABASE_URL",
+                "postgres://chat:chat@localhost:5432/chatsystems",
+            ),
+            set_saved("REDIS_URL", "redis://127.0.0.1:6379"),
+        ];
+
+        let result = std::panic::catch_unwind(RealtimeConfig::from_env);
+
+        restore(saved);
+
+        assert!(result.is_err(), "a missing JWT_PUBLIC_KEYS must panic");
     }
 }
