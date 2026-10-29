@@ -537,7 +537,7 @@ async fn commanded(pool: PgPool, url: &str) -> Commanded {
     let (caller, _, token) = seed_and_login(&app, &state, "cmd-later", false).await;
     let ws_id = seed_workspace(&state, caller, &format!("Later {}", Uuid::new_v4())).await;
     let ch_id = seed_channel(&state, ws_id, caller, "main", false).await;
-    let (status, created) = register_command(&app, &token, ws_id, "deploy", url, vec![]).await;
+    let (status, created) = register_command(&app, &token, ws_id, "deploy", url, vec![ch_id]).await;
     assert_eq!(status, StatusCode::OK, "{created:?}");
     Commanded {
         app,
