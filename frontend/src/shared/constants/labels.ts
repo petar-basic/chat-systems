@@ -32,6 +32,8 @@ export const ErrorLabels = {
   MicFailed: "Couldn't open the microphone.",
   HuddleSetupFailed: "Couldn't set up the call. Try again in a moment.",
   huddleFull: (limit: number) => `This huddle is full. It holds up to ${limit} people.`,
+  HuddleSfuUnreachable:
+    "This huddle moved to the media server and you couldn't reach it. You can still hear the people you were already connected to.",
 } as const;
 
 export const EmptyLabels = {

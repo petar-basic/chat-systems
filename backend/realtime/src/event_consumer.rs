@@ -329,7 +329,8 @@ pub(crate) async fn handle_event_for(
         | "huddle.camera"
         | "huddle.screenshare"
         | "huddle.reaction"
-        | "huddle.hand" => {
+        | "huddle.hand"
+        | "huddle.transport" => {
             let (Some(hid), Some(frame)) = (field("huddle_id"), typed(event_type, payload)) else {
                 return;
             };

@@ -455,3 +455,184 @@ async fn an_ended_huddle_admits_nobody(pool: PgPool) {
 
     assert!(!joined(&cm, huddle, owner, json!({})).await);
 }
+
+async fn join_frames(
+    cm: &std::sync::Arc<crate::connection_manager::ConnectionManager>,
+    huddle: Uuid,
+    user: Uuid,
+) -> Vec<Value> {
+    let (conn_id, mut rx) = fake_conn(cm, user);
+    let msg = json!({ "type": "huddle.join", "huddle_id": huddle }).to_string();
+    crate::ws_handler::handle_client_message(&msg, &conn_id, user, cm, &mut inbound()).await;
+    drain_json(&mut rx)
+}
+
+fn snapshot_transport(frames: &[Value]) -> Option<&str> {
+    frames
+        .iter()
+        .find(|f| f["type"] == "huddle.members")
+        .and_then(|f| f["transport"].as_str())
+}
+
+async fn channel_member(pool: &PgPool, ws: Uuid, ch: Uuid) -> Uuid {
+    let user = seed_user(pool).await;
+    add_ws_member(pool, ws, user).await;
+    add_ch_member(pool, ch, user).await;
+    user
+}
+
+async fn empty(cm: &crate::connection_manager::ConnectionManager, huddle: Uuid) {
+    for member in cm.huddle_redis_members(huddle).await {
+        cm.huddle_redis_leave(huddle, member).await;
+    }
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn the_join_past_the_threshold_moves_the_huddle_to_the_sfu_once(pool: PgPool) {
+    let cm = manager_with_sfu(pool, 2, 50).await;
+    let (first, ws, ch) = seed_member_in_channel(cm.db()).await;
+    let huddle = seed_huddle(cm.db(), ws, Some(ch), first, None).await;
+    let second = channel_member(cm.db(), ws, ch).await;
+    let third = channel_member(cm.db(), ws, ch).await;
+    let fourth = channel_member(cm.db(), ws, ch).await;
+
+    let signal = tokio::spawn(collect_on(
+        "events:huddle-signal",
+        huddle,
+        Duration::from_millis(800),
+    ));
+    settle().await;
+
+    assert_eq!(
+        snapshot_transport(&join_frames(&cm, huddle, first).await),
+        Some("mesh")
+    );
+    assert_eq!(
+        snapshot_transport(&join_frames(&cm, huddle, second).await),
+        Some("mesh")
+    );
+    assert_eq!(
+        snapshot_transport(&join_frames(&cm, huddle, third).await),
+        Some("sfu")
+    );
+    assert_eq!(
+        snapshot_transport(&join_frames(&cm, huddle, fourth).await),
+        Some("sfu")
+    );
+
+    let moves: Vec<Value> = signal
+        .await
+        .expect("signal task")
+        .into_iter()
+        .filter(|e| e["event_type"] == "huddle.transport")
+        .collect();
+    assert_eq!(
+        moves.len(),
+        1,
+        "the third person crosses the threshold of two, and only once: {moves:?}"
+    );
+    assert_eq!(moves[0]["payload"]["transport"], "sfu");
+
+    empty(&cm, huddle).await;
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_huddle_at_the_threshold_stays_on_the_mesh(pool: PgPool) {
+    let cm = manager_with_sfu(pool, 2, 50).await;
+    let (first, ws, ch) = seed_member_in_channel(cm.db()).await;
+    let huddle = seed_huddle(cm.db(), ws, Some(ch), first, None).await;
+    let second = channel_member(cm.db(), ws, ch).await;
+
+    let signal = tokio::spawn(collect_on(
+        "events:huddle-signal",
+        huddle,
+        Duration::from_millis(300),
+    ));
+    settle().await;
+
+    join_frames(&cm, huddle, first).await;
+    let frames = join_frames(&cm, huddle, second).await;
+    assert_eq!(snapshot_transport(&frames), Some("mesh"));
+
+    let events = signal.await.expect("signal task");
+    assert!(
+        !has_event(&events, "huddle.transport"),
+        "two people are not past a threshold of two, got: {events:?}"
+    );
+
+    empty(&cm, huddle).await;
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn without_an_sfu_a_huddle_never_moves(pool: PgPool) {
+    let cm = manager(pool).await;
+    let (first, ws, ch) = seed_member_in_channel(cm.db()).await;
+    let huddle = seed_huddle(cm.db(), ws, Some(ch), first, None).await;
+
+    let signal = tokio::spawn(collect_on(
+        "events:huddle-signal",
+        huddle,
+        Duration::from_millis(800),
+    ));
+    settle().await;
+
+    join_frames(&cm, huddle, first).await;
+    for _ in 1..crate::connection_manager::HUDDLE_MAX_PARTICIPANTS {
+        let member = channel_member(cm.db(), ws, ch).await;
+        assert_eq!(
+            snapshot_transport(&join_frames(&cm, huddle, member).await),
+            Some("mesh")
+        );
+    }
+
+    let events = signal.await.expect("signal task");
+    assert!(!has_event(&events, "huddle.transport"), "got: {events:?}");
+
+    empty(&cm, huddle).await;
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_huddle_on_the_sfu_holds_more_than_the_mesh_and_then_is_full(pool: PgPool) {
+    let limit = crate::connection_manager::HUDDLE_MAX_PARTICIPANTS + 2;
+    let cm = manager_with_sfu(pool, 1, limit).await;
+    let (first, ws, ch) = seed_member_in_channel(cm.db()).await;
+    let huddle = seed_huddle(cm.db(), ws, Some(ch), first, None).await;
+
+    join_frames(&cm, huddle, first).await;
+    for _ in 1..limit {
+        let member = channel_member(cm.db(), ws, ch).await;
+        assert_eq!(
+            snapshot_transport(&join_frames(&cm, huddle, member).await),
+            Some("sfu")
+        );
+    }
+    assert_eq!(cm.huddle_redis_members(huddle).await.len(), limit);
+
+    let late = channel_member(cm.db(), ws, ch).await;
+    let frames = join_frames(&cm, huddle, late).await;
+    let full = frames
+        .iter()
+        .find(|f| f["type"] == "huddle.full")
+        .unwrap_or_else(|| panic!("past the SFU's limit the huddle is full, got: {frames:?}"));
+    assert_eq!(full["limit"].as_u64(), Some(limit as u64));
+    assert!(!cm.huddle_redis_is_member(huddle, late).await);
+
+    empty(&cm, huddle).await;
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn huddle_transport_broadcasts_to_huddle_subscribers(pool: PgPool) {
+    let cm = manager(pool).await;
+    let member = Uuid::new_v4();
+    let huddle = Uuid::new_v4();
+
+    let (conn_id, mut rx) = fake_conn(&cm, member);
+    cm.join_huddle(&conn_id, huddle);
+
+    let payload = json!({ "huddle_id": huddle.to_string(), "transport": "sfu" });
+    crate::event_consumer::handle_event("huddle.transport", &payload, &cm).await;
+
+    let frame = next_json(&mut rx).expect("huddle subscriber should receive a frame");
+    assert_eq!(frame["type"], "huddle.transport");
+    assert_eq!(frame["transport"], "sfu");
+}

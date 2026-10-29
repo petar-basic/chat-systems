@@ -1116,16 +1116,20 @@ The container is limited to 2 CPUs and 1 GB.
 
    `curl https://sfu.example.com` answers `OK` once it is through.
 4. Set `LIVEKIT_URL=wss://sfu.example.com`, `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` on the
-   api and restart it. It refuses to start with a URL and no key, or with a secret shorter than
-   32 characters.
+   api, and `LIVEKIT_URL` on `realtime`, and restart both. The api refuses to start with a URL
+   and no key, or with a secret shorter than 32 characters.
 
 If the host sits behind NAT with a private address, LiveKit finds its public one over STUN
 (`use_external_ip`); where that fails, set `rtc.node_ip` in `docker/livekit/livekit.yaml`.
 
-Huddles do not move to the SFU on their own yet. To try it, run
-`localStorage.setItem('chat_huddle_sfu', '1')` in the console of **every** browser in the call
-and reload: a browser on the SFU and one on the mesh do not hear each other. A browser that
-cannot get a token or reach LiveKit logs `openTransport.sfu` and stays on the mesh.
+Every huddle starts on the mesh. When a join takes it past `HUDDLE_SFU_THRESHOLD` people
+(default 6, and it must be below 8, the most a mesh holds), the gateway moves it to the SFU and
+tells everybody in it; it never moves back, and from then on it holds
+`HUDDLE_SFU_MAX_PARTICIPANTS` (default 100) instead of eight. The gateway logs `Huddle … moved
+to the SFU`. Each browser joins LiveKit and keeps the mesh playing until it hears everyone over
+LiveKit, at most eight seconds, so nobody goes silent. A browser that cannot get a token or
+reach LiveKit logs `HuddleController.sfu`, tells the person, and keeps the mesh with whoever is
+still on it. To try it with two browsers, set `HUDDLE_SFU_THRESHOLD=1` on `realtime`.
 
 ## Importing a Slack export
 

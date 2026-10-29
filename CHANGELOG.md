@@ -46,7 +46,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   is now in the replay log, and a `channel.created` event is published when a channel is made.
 - Nothing to do for the huddle SFU unless you want it: LiveKit is a separate, optional compose
   file, and without `LIVEKIT_URL` every huddle stays on the mesh as before (see *Huddle SFU
-  (LiveKit)* in the RUNBOOK). For API clients: `POST /huddles/{id}/sfu-token`.
+  (LiveKit)* in the RUNBOOK). To turn it on, set `LIVEKIT_URL` on `realtime` as well as on the
+  `api`; `HUDDLE_SFU_THRESHOLD` (6) and `HUDDLE_SFU_MAX_PARTICIPANTS` (100) are optional.
+  For API clients: `POST /huddles/{id}/sfu-token`. For WebSocket clients: `huddle.members`
+  carries the huddle's `transport`, and `huddle.transport` says a huddle moved to the SFU.
 
 ### Added
 
@@ -81,8 +84,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   and can ask the admins for an app.
 - **LiveKit beside the stack, for large huddles.** `docker-compose.livekit.yml` runs a
   LiveKit SFU next to the app, and the API signs a ten-minute token for one huddle's room
-  after the same check the realtime gateway runs on join. A browser joins a huddle over it
-  only with the `chat_huddle_sfu` flag for now; everybody else stays on the mesh.
+  after the same check the realtime gateway runs on join. A huddle moves to it mid-call when
+  a join takes it past six people, and nobody's audio drops on the way: each browser keeps
+  the mesh playing until it hears everyone over LiveKit. On LiveKit a huddle holds up to 100.
 
 ### Security
 

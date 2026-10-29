@@ -39,6 +39,21 @@ pub async fn manager(pool: PgPool) -> Arc<ConnectionManager> {
     Arc::new(ConnectionManager::new(pool, redis_conn().await))
 }
 
+pub async fn manager_with_sfu(
+    pool: PgPool,
+    threshold: usize,
+    max_participants: usize,
+) -> Arc<ConnectionManager> {
+    Arc::new(
+        ConnectionManager::new(pool, redis_conn().await).with_sfu(Some(
+            crate::connection_manager::HuddleSfu {
+                threshold,
+                max_participants,
+            },
+        )),
+    )
+}
+
 pub fn app(cm: Arc<ConnectionManager>) -> Router {
     build_app(AppState {
         apps: Arc::new(crate::app_socket::AppSockets::new(cm.db().clone())),

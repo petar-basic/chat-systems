@@ -326,6 +326,9 @@ services:
       REDIS_URL: redis://redis:6379
       JWT_PUBLIC_KEYS: ${JWT_PUBLIC_KEYS:?JWT_PUBLIC_KEYS must be set (see .env.example)}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080,http://localhost:3001}
+      LIVEKIT_URL: ${LIVEKIT_URL:-}
+      HUDDLE_SFU_THRESHOLD: ${HUDDLE_SFU_THRESHOLD:-6}
+      HUDDLE_SFU_MAX_PARTICIPANTS: ${HUDDLE_SFU_MAX_PARTICIPANTS:-100}
       RUST_LOG: ${RUST_LOG:-info}
     depends_on:
       postgres:

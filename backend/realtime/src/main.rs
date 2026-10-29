@@ -90,7 +90,7 @@ async fn main() -> anyhow::Result<()> {
     info!("Connected to Redis");
 
     let apps = Arc::new(crate::app_socket::AppSockets::new(db.clone()));
-    let cm = Arc::new(ConnectionManager::new(db, redis_conn));
+    let cm = Arc::new(ConnectionManager::new(db, redis_conn).with_sfu(config.huddle_sfu));
     tokio::spawn(apps.clone().run());
 
     let prometheus = PrometheusBuilder::new()

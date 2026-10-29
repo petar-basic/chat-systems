@@ -6,7 +6,9 @@ import { useWorkspaceStore } from '@/stores/workspace';
 import { useHuddleStore, type ActiveHuddle } from '@/stores/huddle';
 import { logger } from '@/lib/logger';
 import type { HuddleTransport, TrackKind, TransportHandlers } from './lib/HuddleTransport';
-import { openTransport } from './lib/openTransport';
+import { MeshManager } from './lib/MeshManager';
+import { openSfu } from './lib/openSfu';
+import { Promotion, type LocalMedia } from './lib/Promotion';
 import { acquireCamera, acquireLocalAudio, acquireScreen, micErrorLabel, stopStream } from './lib/media';
 import { toast } from '@/shared/components/Toast';
 import { ErrorLabels } from '@/shared/constants';
@@ -54,6 +56,19 @@ export function HuddleController() {
     [],
   );
 
+  const localMedia = useCallback((): LocalMedia => {
+    const store = useHuddleStore.getState();
+    return {
+      audio: micStreamRef.current?.getAudioTracks()[0] ?? null,
+      camera: store.localCameraOn
+        ? store.background === 'blur' && processedTrackRef.current
+          ? processedTrackRef.current
+          : camTrackRef.current
+        : null,
+      screen: store.localSharing ? screenTrackRef.current : null,
+    };
+  }, []);
+
   const announceLocalState = useCallback(() => {
     const a = useHuddleStore.getState().active;
     if (!a) return;
@@ -85,9 +100,29 @@ export function HuddleController() {
     let cancelled = false;
     const ws = wsFor(active);
     const send = (msg: Record<string, unknown>) => ws.send(msg);
+    let iceServers: RTCIceServer[] = [];
+    let promoting = false;
+
+    const promote = async () => {
+      const mesh = transportRef.current;
+      if (promoting || !mesh) return;
+      promoting = true;
+      const store = useHuddleStore.getState();
+      const peers = Object.keys(store.participants).filter((id) => id !== active.selfUserId);
+      const promotion = new Promotion(mesh, peers, handlers, store.localMuted, localMedia());
+      transportRef.current = promotion;
+      try {
+        await promotion.run((sfuHandlers) => openSfu(active, iceServers, sfuHandlers));
+      } catch (err) {
+        logger.error('HuddleController', 'sfu', err);
+        if (transportRef.current === promotion) transportRef.current = mesh;
+        if (!cancelled) toast.error(ErrorLabels.HuddleSfuUnreachable);
+        return;
+      }
+      if (!cancelled) useHuddleStore.getState().setTransport('sfu');
+    };
 
     const start = async () => {
-      let iceServers: RTCIceServer[];
       try {
         const res = await getApiForInstance(active.instanceUrl).typed((c) =>
           c.GET('/workspaces/{ws_id}/ice-servers', { params: { path: { ws_id: active.workspaceId } } }),
@@ -129,15 +164,10 @@ export function HuddleController() {
       micStreamRef.current = stream;
       useHuddleStore.getState().setLocalStream(stream);
 
-      const transport = await openTransport(active, iceServers, send, handlers);
-      if (cancelled) {
-        transport.close();
-        return;
-      }
-      transport.setMuted(useHuddleStore.getState().localMuted);
-      transport.setTrack('audio', stream.getAudioTracks()[0] ?? null);
-      transportRef.current = transport;
-      useHuddleStore.getState().setTransport(transport.kind);
+      const mesh = new MeshManager(active.huddleId, active.selfUserId, iceServers, send, handlers);
+      mesh.setMuted(useHuddleStore.getState().localMuted);
+      mesh.setTrack('audio', stream.getAudioTracks()[0] ?? null);
+      transportRef.current = mesh;
 
       send(joinMessage(active));
       joinedRef.current = true;
@@ -154,8 +184,12 @@ export function HuddleController() {
         toast.error(ErrorLabels.huddleFull(event.limit));
         useHuddleStore.getState().setActive(null);
       }),
+      globalEventBus.on('huddle.transport', (event) => {
+        if (event.huddle_id === active.huddleId && event.transport === 'sfu') void promote();
+      }),
       globalEventBus.on('huddle.members', (event) => {
         if (event.huddle_id !== active.huddleId) return;
+        if (event.transport === 'sfu') void promote();
         for (const uid of event.user_ids) {
           if (uid === active.selfUserId) continue;
           useHuddleStore.getState().upsertParticipant(uid);
@@ -227,7 +261,7 @@ export function HuddleController() {
       store.resetParticipants();
       store.setTransport('mesh');
     };
-  }, [active, handlers, announceLocalState]);
+  }, [active, handlers, announceLocalState, localMedia]);
 
   const toggleMute = useCallback(() => {
     const a = useHuddleStore.getState().active;
@@ -244,19 +278,13 @@ export function HuddleController() {
     const transport = transportRef.current;
     if (!transport) return;
     const store = useHuddleStore.getState();
-
-    const camera = store.localCameraOn
-      ? store.background === 'blur' && processedTrackRef.current
-        ? processedTrackRef.current
-        : camTrackRef.current
-      : null;
-    const screen = store.localSharing ? screenTrackRef.current : null;
+    const { camera, screen } = localMedia();
 
     transport.setTrack('camera', camera);
     transport.setTrack('screen', screen);
     store.setLocalVideoStream(camera ? new MediaStream([camera]) : null);
     store.setLocalScreenStream(screen ? new MediaStream([screen]) : null);
-  }, []);
+  }, [localMedia]);
 
   const startBlur = useCallback(async () => {
     if (!camTrackRef.current) return;

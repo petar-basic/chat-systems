@@ -30,6 +30,13 @@ impl Presence {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "lowercase")]
+pub enum HuddleTransport {
+    Mesh,
+    Sfu,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 pub struct PresenceEntry {
     pub user_id: Uuid,
@@ -142,6 +149,14 @@ pub enum ServerFrame {
     HuddleMembers {
         huddle_id: Uuid,
         user_ids: Vec<Uuid>,
+        #[ts(inline)]
+        transport: HuddleTransport,
+    },
+    #[serde(rename = "huddle.transport")]
+    HuddleTransport {
+        huddle_id: Uuid,
+        #[ts(inline)]
+        transport: HuddleTransport,
     },
     #[serde(rename = "huddle.full")]
     HuddleFull { huddle_id: Uuid, limit: usize },
