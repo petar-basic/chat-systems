@@ -10,6 +10,7 @@ import { Modal } from '@/shared/components/Modal/Modal';
 import { useWorkspaceUnreadCounts } from '@/features/notifications';
 import { avatarColorFor } from '@/lib/userHelpers';
 import { workspaceInitials } from './workspaceTile';
+import { WorkspaceIcon } from './components/WorkspaceIcon';
 
 interface Props {
   workspaces: Workspace[];
@@ -125,20 +126,18 @@ export default function WorkspaceSidebar({
                       aria-label={ws.name}
                       aria-current={currentWorkspaceId === ws.id ? 'true' : undefined}
                       data-qa="workspace-tile"
-                      className={`w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center text-sm font-bold text-white transition cursor-pointer ${
-                        ws.icon_url ? 'bg-raised' : avatarColorFor(ws.id)
-                      } ${
+                      className={`w-10 h-10 rounded-xl overflow-hidden text-sm font-bold text-white transition cursor-pointer ${
                         currentWorkspaceId === ws.id
                           ? 'ring-2 ring-purple-400 ring-offset-2 ring-offset-rail'
                           : 'opacity-80 hover:opacity-100'
                       }`}
                       title={`${ws.name} · ${instanceLabel(group.instance.url)}${showBadge ? ` · ${unread} unread` : ''}`}
                     >
-                      {ws.icon_url ? (
-                        <img src={ws.icon_url} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        workspaceInitials(ws.name)
-                      )}
+                      <WorkspaceIcon
+                        workspace={ws}
+                        className="w-full h-full"
+                        initialsClassName={avatarColorFor(ws.id)}
+                      />
                     </button>
                     {/* Outside the button: the icon needs `overflow-hidden` to
                         stay in its rounded box, which would clip a badge that

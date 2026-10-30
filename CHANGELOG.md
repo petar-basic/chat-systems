@@ -29,6 +29,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   thread's reply box, they open leftwards instead of running off screen.
 - A deleted message disappears at once, as it does after a reload. Only a message with
   replies stays behind as "This message was deleted", so its thread can still be opened.
+- A workspace icon that fails to load shows the workspace's initials instead of a broken
+  image, in the workspace rail and in workspace settings.
 
 ### Changed
 

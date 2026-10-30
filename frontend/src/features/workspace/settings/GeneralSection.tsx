@@ -21,7 +21,7 @@ import { Select } from '@/shared/components/Form/Select';
 import type { Workspace } from '@/stores/workspace';
 import { ruleOf, type WhoMay, type WorkspaceRule } from '@/lib/workspaceRules';
 import { linkPreviewsEnabled } from '../linkPreviews';
-import { workspaceInitials } from '../workspaceTile';
+import { WorkspaceIcon } from '../components/WorkspaceIcon';
 
 type Changes = components['schemas']['UpdateWorkspaceRequest'];
 type DeleteType = 'soft' | 'hard';
@@ -125,13 +125,11 @@ export function GeneralSection({ workspace, onDeleted }: Props) {
     <>
       <div className="space-y-4" data-qa="workspace-general">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl overflow-hidden bg-raised flex items-center justify-center shrink-0">
-            {workspace.icon_url ? (
-              <img src={workspace.icon_url} alt="" className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-lg font-bold text-fg-dim">{workspaceInitials(workspace.name)}</span>
-            )}
-          </div>
+          <WorkspaceIcon
+            workspace={workspace}
+            className="w-12 h-12 rounded-xl shrink-0"
+            initialsClassName="bg-raised text-lg font-bold text-fg-dim"
+          />
           <div className="flex items-center gap-2">
             <FilePicker
               label="Workspace icon"
