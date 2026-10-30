@@ -14,7 +14,12 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
-## [Unreleased]
+## [4.0.1] — 2026-10-30
+
+### Upgrading from 4.0.0
+
+- Pull both images and restart `api`, `realtime`, `worker` and `frontend` together so all four
+  run 4.0.1; there is no migration.
 
 ### Fixed
 
