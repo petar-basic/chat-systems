@@ -16,17 +16,30 @@ async function addEmoji(ctx: APIRequestContext, workspaceId: string, name: strin
   return (await res.json()) as { id: string; name: string; url: string };
 }
 
-function syncedIn(page: Page, workspaceId: string): Promise<void> {
+function liveIn(page: Page, workspaceId: string, channelId: string): Promise<void> {
   return new Promise((resolve) => {
     page.on('websocket', (socket) => {
+      let joined = false;
+      let synced = false;
+      socket.on('framesent', ({ payload }) => {
+        if (
+          typeof payload === 'string' &&
+          payload.includes('"channel.join"') &&
+          payload.includes(channelId)
+        ) {
+          joined = true;
+        }
+        if (joined && synced) resolve();
+      });
       socket.on('framereceived', ({ payload }) => {
         if (
           typeof payload === 'string' &&
           payload.includes('"sync.complete"') &&
           payload.includes(workspaceId)
         ) {
-          resolve();
+          synced = true;
         }
+        if (joined && synced) resolve();
       });
     });
   });
@@ -48,10 +61,10 @@ test('an emoji added by someone else renders without a reload', async ({ page })
   try {
     await admin.post(`${API}/channels/${channel.id}/members`, { data: { user_id: bobId } });
     await login(page, 'bob@dev.local');
-    const synced = syncedIn(page, workspace.id);
+    const live = liveIn(page, workspace.id, channel.id);
     await page.goto(`/app/${workspace.id}/${channel.id}`);
     await expect(page.locator('[data-qa="channel-header-name"]')).toHaveText(channel.name);
-    await synced;
+    await live;
 
     emojiId = (await addEmoji(admin, workspace.id, name)).id;
     const res = await admin.post(`${API}/channels/${channel.id}/messages`, {
@@ -85,7 +98,7 @@ test("the picker offers only the open workspace's emoji", async ({ page }) => {
     await expect(page.locator('[data-qa="channel-header-name"]')).toHaveText('general');
 
     await searchPicker(page, emoji.name);
-    await expect(page.locator(`em-emoji-picker img[src="${emoji.url}"]`)).toBeVisible();
+    await expect(page.locator(`em-emoji-picker img[src="${emoji.url}"]`).first()).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.locator('em-emoji-picker')).toHaveCount(0);
 
