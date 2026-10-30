@@ -20,8 +20,9 @@ shipped too. Waves 18 and 19 are shipped too. In Wave 20, CS-059 shipped in 3.2.
 chosen in the 2026-10-23 review, shipped in 3.3.0. Wave 24, from the 2026-10-26 review, shipped
 in 3.4.0. Wave 25, which moves the profile and notification settings to each workspace, shipped
 in 3.5.0. Wave 26, which fixes what the 2026-10-27 product survey found, shipped in 3.6.0.
-Wave 27, which fixes what the 2026-10-28 survey of 3.6.0 found, shipped in 3.7.0. Wave 28 is
-4.0.0: the feedback on 3.7.0 and CS-037. After it, releases are bug fixes only for a while.
+Wave 27, which fixes what the 2026-10-28 survey of 3.6.0 found, shipped in 3.7.0. Wave 28, the
+feedback on 3.7.0 and CS-037, shipped in 4.0.0; CS-037 stays open for its measured ceiling.
+After it, releases are bug fixes only for a while.
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
