@@ -3,7 +3,7 @@ import { ChevronRight, Hammer } from 'lucide-react';
 import { Button } from '@/shared/components/Button/Button';
 import { QueryState } from '@/shared/components/QueryState/QueryState';
 import { displayNameOf } from '@/lib/userHelpers';
-import { useApps } from '@/features/workspace/hooks/useApps';
+import { useApps, type AppStatus } from '@/features/workspace/hooks/useApps';
 import {
   sameApp,
   useAppDirectory,
@@ -26,6 +26,7 @@ interface Props {
 
 export function AppsSection({ workspaceId, initialApp = null }: Props) {
   const directory = useAppDirectory(workspaceId);
+  const apps = useApps(workspaceId);
   const [open, setOpen] = useState<AppRef | null>(initialApp);
   const data = directory.data;
   const selected = open && data?.installed.find((app) => sameApp(app, open));
@@ -34,9 +35,12 @@ export function AppsSection({ workspaceId, initialApp = null }: Props) {
     <div className="-mx-4 flex flex-col" data-qa="apps-panel">
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
         <QueryState
-          isLoading={directory.isLoading}
-          isError={directory.isError}
-          onRetry={() => void directory.refetch()}
+          isLoading={directory.isLoading || apps.isLoading}
+          isError={directory.isError || apps.isError}
+          onRetry={() => {
+            void directory.refetch();
+            void apps.refetch();
+          }}
           errorMessage="Couldn't load the apps."
         >
           {data &&
@@ -49,7 +53,13 @@ export function AppsSection({ workspaceId, initialApp = null }: Props) {
                 onBack={() => setOpen(null)}
               />
             ) : (
-              <Directory workspaceId={workspaceId} directory={data} missing={!!open} onOpen={setOpen} />
+              <Directory
+                workspaceId={workspaceId}
+                directory={data}
+                statuses={apps.data?.data ?? []}
+                missing={!!open}
+                onOpen={setOpen}
+              />
             ))}
         </QueryState>
       </div>
@@ -60,17 +70,17 @@ export function AppsSection({ workspaceId, initialApp = null }: Props) {
 function Directory({
   workspaceId,
   directory,
+  statuses,
   missing,
   onOpen,
 }: {
   workspaceId: string;
   directory: AppDirectory;
+  statuses: AppStatus[];
   missing: boolean;
   onOpen: (ref: AppRef) => void;
 }) {
   const isAdmin = directory.can_manage;
-  const { data } = useApps(workspaceId);
-  const statuses = data?.data ?? [];
   const [building, setBuilding] = useState(false);
 
   return (
