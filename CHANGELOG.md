@@ -33,6 +33,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   image, in the workspace rail and in workspace settings.
 - Opening a workspace no longer flashes "No channels yet" while its channels are still
   loading.
+- The getting-started checklist lays its steps out by its own width, so they no longer wrap
+  beside a side panel, and on a phone it starts folded to one line with "Show steps".
 
 ### Changed
 

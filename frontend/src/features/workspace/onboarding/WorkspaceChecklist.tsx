@@ -32,6 +32,7 @@ export function WorkspaceChecklist({
   onSetIcon,
 }: Props) {
   const [dismissed, setDismissed] = useState(() => wasDismissed(workspace.id));
+  const [expanded, setExpanded] = useState(() => !window.matchMedia?.('(max-width: 767px)')?.matches);
   const gettingStarted = !dismissed && members.length > 0 && isGettingStarted(members.length, channels);
   const { data: invites = [] } = useWorkspaceInvites(workspace.id, workspace.instanceUrl, gettingStarted);
   const { data: info } = useInstanceInfo(workspace.instanceUrl);
@@ -84,7 +85,7 @@ export function WorkspaceChecklist({
   return (
     <section
       aria-labelledby="workspace-checklist-title"
-      className="mx-4 mt-3 rounded-xl border border-line bg-surface/60 p-4 shrink-0"
+      className="@container mx-4 mt-3 rounded-xl border border-line bg-surface/60 p-4 shrink-0"
       data-qa="workspace-checklist"
     >
       <div className="flex items-start gap-3">
@@ -92,8 +93,21 @@ export function WorkspaceChecklist({
           <h2 id="workspace-checklist-title" className="text-sm font-semibold text-fg">
             Get {workspace.name} going
           </h2>
-          <p className="text-xs text-muted" data-qa="checklist-progress">
-            {done} of {steps.length} done
+          <p className="text-xs text-muted">
+            <span data-qa="checklist-progress">
+              {done} of {steps.length} done
+            </span>
+            {' · '}
+            <button
+              type="button"
+              onClick={() => setExpanded((open) => !open)}
+              aria-expanded={expanded}
+              aria-controls="workspace-checklist-steps"
+              className="text-accent hover:underline cursor-pointer"
+              data-qa="checklist-toggle"
+            >
+              {expanded ? 'Hide steps' : 'Show steps'}
+            </button>
           </p>
         </div>
         <IconButton
@@ -103,7 +117,7 @@ export function WorkspaceChecklist({
           data-qa="checklist-dismiss"
         />
       </div>
-      <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+      <ul id="workspace-checklist-steps" hidden={!expanded} className="mt-3 grid gap-2 @lg:grid-cols-2">
         {steps.map((step) => (
           <li
             key={step.key}
