@@ -241,10 +241,12 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
       };
       clients.ws.addReconnectListener(backfillAfterReconnect);
 
-      const res = await clients.api.typed((c) =>
-        c.POST('/auth/login', {
-          body: { email, password, ...(totpCode ? { totp_code: totpCode } : {}) },
-        }),
+      const res = await clients.api.typed(
+        (c) =>
+          c.POST('/auth/login', {
+            body: { email, password, ...(totpCode ? { totp_code: totpCode } : {}) },
+          }),
+        { anonymous: true },
       );
 
       if (normalized !== window.location.origin) {

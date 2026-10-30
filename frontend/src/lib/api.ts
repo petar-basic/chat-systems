@@ -8,6 +8,10 @@ export interface TypedResult<D> {
   response: Response;
 }
 
+export interface TypedOptions {
+  anonymous?: boolean;
+}
+
 function errorMessage(error: unknown, response: Response): string {
   if (error && typeof error === 'object') {
     const body = error as { error?: unknown; message?: unknown };
@@ -94,13 +98,23 @@ export class ApiClient {
     return this.typedClient;
   }
 
-  async typed<D>(op: (client: Client<paths>) => Promise<TypedResult<D>>, isRetry = false): Promise<D> {
+  typed<D>(
+    op: (client: Client<paths>) => Promise<TypedResult<D>>,
+    { anonymous = false }: TypedOptions = {},
+  ): Promise<D> {
+    return this.send(op, !anonymous);
+  }
+
+  private async send<D>(
+    op: (client: Client<paths>) => Promise<TypedResult<D>>,
+    mayRefresh: boolean,
+  ): Promise<D> {
     const { data, error, response } = await op(this.client);
 
-    if (response.status === 401 && !isRetry) {
+    if (response.status === 401 && mayRefresh) {
       const refreshed = await this.refresh();
       if (refreshed) {
-        return this.typed(op, true);
+        return this.send(op, false);
       }
       this.onSessionExpired?.();
       throw new ApiError(401, 'Session expired. Please log in again.');
