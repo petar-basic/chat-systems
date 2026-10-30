@@ -9,6 +9,7 @@ import {
   newestFirst,
   claimReplyCount,
   removeMessageById,
+  deleteMessageById,
 } from './messageCache';
 import type { Message, WorkspaceMember } from '@/stores/workspace';
 import type { Conversation } from '@/features/messaging/hooks/useConversations';
@@ -268,11 +269,7 @@ export const useWebSocketQuerySync = () => {
         patchChannel(
           queryClient,
           event.channel_id,
-          (cache) =>
-            patchMessageById(cache, event.message_id, (m) => ({
-              ...m,
-              deleted_at: new Date().toISOString(),
-            })),
+          (cache) => deleteMessageById(cache, event.message_id),
           true,
         );
       }),

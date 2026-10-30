@@ -7,7 +7,13 @@ import { useCurrentApi } from '@/shared/hooks/useCurrentApi';
 import { applyReadState } from '@/lib/readState';
 import { settleChannelNotifications } from '@/features/notifications';
 import { QUERY_KEYS, MESSAGES_PAGE_SIZE, ErrorLabels } from '@/shared/constants';
-import { upsertMessage, patchMessageById, newestFirst, removeMessageById } from '@/lib/messageCache';
+import {
+  upsertMessage,
+  patchMessageById,
+  newestFirst,
+  removeMessageById,
+  deleteMessageById,
+} from '@/lib/messageCache';
 import { toast } from '@/shared/components/Toast';
 import { logger } from '@/lib/logger';
 import { refusalOr } from '@/lib/errors';
@@ -201,7 +207,7 @@ export const useDeleteMessage = () => {
     },
     onSuccess: (_data, { messageId, channelId }) => {
       queryClient.setQueryData<MessagesInfiniteData>(QUERY_KEYS.messages(channelId), (old) =>
-        patchMessageById(old, messageId, (m) => ({ ...m, deleted_at: new Date().toISOString() })),
+        deleteMessageById(old, messageId),
       );
     },
     onError: (err) => {

@@ -1,12 +1,22 @@
 import { describe, it, expect } from 'vitest';
 import type { InfiniteData } from '@tanstack/react-query';
-import { hasMessage, upsertMessage, patchMessageById, removeMessageById, newestFirst } from './messageCache';
+import {
+  hasMessage,
+  upsertMessage,
+  patchMessageById,
+  removeMessageById,
+  deleteMessageById,
+  newestFirst,
+} from './messageCache';
 
 interface Msg {
   id: string;
   content: string;
   pending?: boolean;
   created_at: string;
+  thread_parent_id?: string | null;
+  reply_count?: number;
+  deleted_at?: string | null;
 }
 type Page = { data: Msg[]; next_cursor?: string | null };
 type Cache = InfiniteData<Page>;
@@ -108,5 +118,26 @@ describe('messageCache.removeMessageById', () => {
     const next = removeMessageById(c, 'b')!;
     expect(next.pages[0].data.map((x) => x.id)).toEqual(['a']);
     expect(next.pages[1].data.map((x) => x.id)).toEqual(['c']);
+  });
+});
+
+describe('messageCache.deleteMessageById', () => {
+  it('removes a message nobody replied to', () => {
+    const c = cache([[m('a'), m('b')]]);
+    const next = deleteMessageById(c, 'b')!;
+    expect(next.pages[0].data.map((x) => x.id)).toEqual(['a']);
+  });
+
+  it('keeps a thread root with replies as a tombstone', () => {
+    const c = cache([[m('a'), m('b', 'b', { reply_count: 2 })]]);
+    const next = deleteMessageById(c, 'b')!;
+    expect(next.pages[0].data.map((x) => x.id)).toEqual(['a', 'b']);
+    expect(next.pages[0].data[1].deleted_at).toBeTruthy();
+  });
+
+  it('removes a reply that was also sent to the channel', () => {
+    const c = cache([[m('a'), m('b', 'b', { thread_parent_id: 'a', reply_count: 0 })]]);
+    const next = deleteMessageById(c, 'b')!;
+    expect(next.pages[0].data.map((x) => x.id)).toEqual(['a']);
   });
 });

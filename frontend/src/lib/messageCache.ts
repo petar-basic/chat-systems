@@ -91,6 +91,23 @@ export function removeMessageById<P extends Page>(
   };
 }
 
+interface Deletable extends WithId {
+  thread_parent_id?: string | null;
+  reply_count?: number | null;
+  deleted_at?: string | null;
+}
+
+export function deleteMessageById<P extends { data: Deletable[] }>(
+  cache: InfiniteData<P> | undefined,
+  id: string,
+): InfiniteData<P> | undefined {
+  const message = cache?.pages.flatMap((p) => p.data).find((m) => m.id === id);
+  if (message && !message.thread_parent_id && (message.reply_count ?? 0) > 0) {
+    return patchMessageById(cache, id, (m) => ({ ...m, deleted_at: new Date().toISOString() }));
+  }
+  return removeMessageById(cache, id);
+}
+
 const REPLY_LEDGER_LIMIT = 500;
 const countedReplies = new Set<string>();
 
