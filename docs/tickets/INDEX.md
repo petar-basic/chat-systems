@@ -15,13 +15,13 @@ green — desktop and a phone viewport — and the `e2e` job blocks merges. CS-0
 system at 500,000 messages and closed with Wave 12; what its numbers justified, CS-048, is
 Wave 13 and is shipped too. Wave 14 closes the daily-use gaps a team arriving from Slack
 notices first, Waves 15 and 16 (connected-app previews) and Wave 17 (files and images) are
-shipped too. Waves 18 and 19 are shipped too. In Wave 20, CS-059 shipped in 3.2.0;
-[CS-037](CS-037-huddle-sfu.md) is held for the next major release, 4.0.0. Waves 21–23,
+shipped too. Waves 18 and 19 are shipped too. Wave 20 is shipped too: CS-059 in 3.2.0,
+and CS-037 in 4.0.0. Waves 21–23,
 chosen in the 2026-10-23 review, shipped in 3.3.0. Wave 24, from the 2026-10-26 review, shipped
 in 3.4.0. Wave 25, which moves the profile and notification settings to each workspace, shipped
 in 3.5.0. Wave 26, which fixes what the 2026-10-27 product survey found, shipped in 3.6.0.
 Wave 27, which fixes what the 2026-10-28 survey of 3.6.0 found, shipped in 3.7.0. Wave 28, the
-feedback on 3.7.0 and CS-037, shipped in 4.0.0; CS-037 stays open for its measured ceiling.
+feedback on 3.7.0 and CS-037, shipped in 4.0.0.
 After it, releases are bug fixes only for a while.
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
@@ -152,7 +152,7 @@ importer are shipped — see
 
 | # | Ticket | Area |
 |---|---|---|
-| CS-037 → Wave 20 | SFU for large huddles | backend · frontend |
+| CS-037 ✅ → Wave 20 | SFU for large huddles | backend · frontend |
 
 ### Wave 11 — Guest containment, operational readiness and mobile ✅ done
 
@@ -211,7 +211,7 @@ week and does not find. The activity view a review might add to this list alread
 |---|---|---|
 | CS-058 ✅ | Getting around like in Slack: keyboard, search filters, Threads | backend · frontend |
 
-### Wave 20 — Dialogs and large calls
+### Wave 20 — Dialogs and large calls ✅ done
 
 The dialogs first: they are the part of the app every user sees each day, the work is
 frontend only, and it lands in a few days. The SFU follows; it is the one ticket that adds a
@@ -221,7 +221,7 @@ note.
 | # | Ticket | Area |
 |---|---|---|
 | CS-059 ✅ | Dialogs that look finished: sizes, fields, confirmations, profile and preferences | frontend |
-| [CS-037](CS-037-huddle-sfu.md) | SFU (LiveKit) for huddles above the mesh's ceiling, with promotion mid-call | backend · frontend · ops |
+| CS-037 ✅ | SFU (LiveKit) for huddles above the mesh's ceiling, with promotion mid-call | backend · frontend · ops |
 
 ### Wave 21 — Notifications that fit how a team works
 
@@ -353,7 +353,7 @@ come before events and events before the directory, which lists both.
 | CS-103 ✅ | Apps with bot users and a Web API | backend · frontend · docs |
 | CS-104 ✅ | Events for apps, over HTTP or a socket | backend · realtime · docs |
 | CS-105 ✅ | An app directory | frontend · backend · docs |
-| [CS-037](CS-037-huddle-sfu.md) | SFU for large huddles, promoted mid-call | backend · frontend · ops |
+| CS-037 ✅ | SFU for large huddles, promoted mid-call | backend · frontend · ops |
 
 ## Conflict map
 
@@ -374,7 +374,7 @@ Tickets that touch the same files, and the order that avoids rework:
 | message metadata and `message.updated` | CS-029 ✅ → CS-049 ✅ → CS-053 ✅ → CS-054 ✅ → CS-055 ✅ → CS-065 ✅ |
 | `files` and the download route | CS-009 ✅ → CS-011 ✅ → CS-020 ✅ → CS-055 ✅ |
 | `frontend/src/shared/components` dialogs and controls | CS-056 ✅ → CS-059 ✅ |
-| huddle join authorization | CS-041 ✅ → CS-077 ✅ → CS-037 |
+| huddle join authorization | CS-041 ✅ → CS-077 ✅ → CS-037 ✅ |
 | notification consumer and `is_dnd_active` | CS-046 ✅ → CS-060 ✅ → CS-061 ✅ → CS-062 ✅ |
 | `NotificationStream` and `wsQuerySync` sound/desktop | CS-060 ✅ → CS-061 ✅ |
 | search visibility (`searchable_channels()`) | CS-048 ✅ → CS-063 ✅ → CS-064 ✅ |
@@ -397,4 +397,4 @@ Tickets that touch the same files, and the order that avoids rework:
 | presence sets and `presence.changed` | CS-095 → CS-099 |
 | `sealed.rs`, `auth/totp.rs` and the token signing in `auth/service/tokens.rs` | CS-100 → CS-101 |
 | `commands/routes.rs`, hooks and the *Integrations* section | CS-102 → CS-103 → CS-104 → CS-105 |
-| realtime gateway auth and connection handling | CS-101 → CS-104 → CS-037 |
+| realtime gateway auth and connection handling | CS-101 ✅ → CS-104 ✅ → CS-037 ✅ |
