@@ -62,8 +62,10 @@ export const useCompleteRegistration = () => {
       const clients = instanceManager.get(instanceUrl);
       clients.api.onSessionExpired = () => useInstanceStore.getState().removeInstance(instanceUrl);
 
-      const res = await clients.api.typed((c) =>
-        c.POST('/auth/complete-registration', { body: { token, password, display_name: displayName } }),
+      const res = await clients.api.typed(
+        (c) =>
+          c.POST('/auth/complete-registration', { body: { token, password, display_name: displayName } }),
+        { anonymous: true },
       );
 
       clients.api.setTokens(res.access_token, res.refresh_token);
@@ -98,16 +100,18 @@ export const useCompleteSetup = () => {
       const clients = instanceManager.get(instanceUrl);
       clients.api.onSessionExpired = () => useInstanceStore.getState().removeInstance(instanceUrl);
 
-      const res = await clients.api.typed((c) =>
-        c.POST('/setup', {
-          body: {
-            token: draft.token.trim(),
-            display_name: draft.displayName,
-            email: draft.email,
-            password: draft.password,
-            workspace_name: draft.workspaceName,
-          },
-        }),
+      const res = await clients.api.typed(
+        (c) =>
+          c.POST('/setup', {
+            body: {
+              token: draft.token.trim(),
+              display_name: draft.displayName,
+              email: draft.email,
+              password: draft.password,
+              workspace_name: draft.workspaceName,
+            },
+          }),
+        { anonymous: true },
       );
 
       clients.api.setTokens(res.session.access_token, res.session.refresh_token);

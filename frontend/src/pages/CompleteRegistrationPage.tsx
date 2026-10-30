@@ -51,7 +51,9 @@ export default function CompleteRegistrationPage() {
     if (!token) return;
     instanceManager
       .get(originUrl)
-      .api.typed((c) => c.GET('/auth/invites/{token}/verify', { params: { path: { token } } }))
+      .api.typed((c) => c.GET('/auth/invites/{token}/verify', { params: { path: { token } } }), {
+        anonymous: true,
+      })
       .then(setInviteInfo)
       .catch(() => setVerifyError('This invite link is invalid or has expired.'));
   }, [token, originUrl]);

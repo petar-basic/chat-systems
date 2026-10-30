@@ -140,4 +140,22 @@ describe('ApiClient single-flight refresh', () => {
     const refreshCalls = fetchMock.mock.calls.filter(isRefreshCall);
     expect(refreshCalls.length).toBe(1);
   });
+
+  it('treats a 401 from an anonymous call as the answer, without refreshing or expiring a session', async () => {
+    const client = new ApiClient('http://api.test');
+    const onExpired = vi.fn();
+    client.onSessionExpired = onExpired;
+
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(makeResponse(401, { error: 'Invalid email or password' })),
+    );
+
+    await expect(
+      client.typed((c) => c.POST('/auth/login', { body: { email: 'a@b.test', password: 'wrong' } }), {
+        anonymous: true,
+      }),
+    ).rejects.toMatchObject({ status: 401, message: 'Invalid email or password' });
+    expect(onExpired).not.toHaveBeenCalled();
+    expect(fetchMock.mock.calls.filter(isRefreshCall)).toHaveLength(0);
+  });
 });
