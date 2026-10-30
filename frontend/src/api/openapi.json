@@ -1386,7 +1386,7 @@
         "tags": [
           "commands"
         ],
-        "summary": "Built-ins first, then anything registered. An unknown command is a 404 by\ndesign: the client falls back to sending what was typed as an ordinary\nmessage, so a typo does not vanish into an error dialog.",
+        "summary": "Built-ins first, then anything registered. An unknown command is a 404 by\ndesign: the client says so and keeps what was typed in the composer.",
         "operationId": "invoke",
         "parameters": [
           {
