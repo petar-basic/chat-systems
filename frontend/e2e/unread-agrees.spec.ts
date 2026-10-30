@@ -17,9 +17,9 @@ async function unreadActivity(
 
 function liveIn(page: Page, workspaceId: string, channelId: string): Promise<void> {
   return new Promise((resolve) => {
-    let joined = false;
-    let synced = false;
     page.on('websocket', (socket) => {
+      let joined = false;
+      let synced = false;
       socket.on('framesent', ({ payload }) => {
         if (
           typeof payload === 'string' &&
