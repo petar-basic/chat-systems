@@ -6,6 +6,7 @@ import { searchEmojis, type EmojiSuggestionItem } from '@/lib/emojiData';
 import { matchCustomEmoji } from '@/lib/customEmoji';
 import { useCustomEmojiStore } from '@/stores/customEmoji';
 import { EmojiSuggestionDropdown, type EmojiSuggestionHandle } from './EmojiSuggestionDropdown';
+import { placeSuggestion } from './suggestionPosition';
 
 export const emojiSuggestionPluginKey = new PluginKey('emojiSuggestion');
 
@@ -51,12 +52,12 @@ export const EmojiSuggestion = Extension.create({
                 editor: props.editor,
               });
               container.appendChild(renderer.element);
-              positionContainer(container, props.clientRect?.());
+              placeSuggestion(container, props.clientRect?.(), 260);
             },
 
             onUpdate(props) {
               renderer.updateProps(props);
-              positionContainer(container, props.clientRect?.());
+              placeSuggestion(container, props.clientRect?.(), 260);
             },
 
             onKeyDown(props) {
@@ -78,16 +79,3 @@ export const EmojiSuggestion = Extension.create({
     ];
   },
 });
-
-function positionContainer(el: HTMLDivElement, rect?: DOMRect | null) {
-  if (!rect) return;
-  const spaceBelow = window.innerHeight - rect.bottom;
-  if (spaceBelow < 260) {
-    el.style.top = '';
-    el.style.bottom = `${window.innerHeight - rect.top + 4}px`;
-  } else {
-    el.style.bottom = '';
-    el.style.top = `${rect.bottom + 4}px`;
-  }
-  el.style.left = `${rect.left}px`;
-}

@@ -2,6 +2,7 @@ import { ReactRenderer } from '@tiptap/react';
 import { PluginKey } from '@tiptap/pm/state';
 import type { SuggestionOptions } from '@tiptap/suggestion';
 import { MentionDropdown, type MentionDropdownHandle, type MentionItem } from './MentionDropdown';
+import { placeSuggestion } from './suggestionPosition';
 
 export const mentionSuggestionPluginKey = new PluginKey('mentionSuggestion');
 
@@ -28,12 +29,12 @@ export function createMentionSuggestion(
             editor: props.editor,
           });
           container.appendChild(renderer.element);
-          positionContainer(container, props.clientRect?.());
+          placeSuggestion(container, props.clientRect?.(), 200);
         },
 
         onUpdate(props) {
           renderer.updateProps(props);
-          positionContainer(container, props.clientRect?.());
+          placeSuggestion(container, props.clientRect?.(), 200);
         },
 
         onKeyDown(props) {
@@ -52,17 +53,4 @@ export function createMentionSuggestion(
       };
     },
   };
-}
-
-function positionContainer(el: HTMLDivElement, rect?: DOMRect | null) {
-  if (!rect) return;
-  const spaceBelow = window.innerHeight - rect.bottom;
-  if (spaceBelow < 200) {
-    el.style.top = '';
-    el.style.bottom = `${window.innerHeight - rect.top + 4}px`;
-  } else {
-    el.style.bottom = '';
-    el.style.top = `${rect.bottom + 4}px`;
-  }
-  el.style.left = `${rect.left}px`;
 }
