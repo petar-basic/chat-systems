@@ -181,6 +181,8 @@ async fn upload_emoji(
         }
     };
 
+    announce_change(&state, ws_id).await?;
+
     audit::record(
         &state,
         AuditEntry::new(AuditAction::EmojiCreated, auth.user_id)
@@ -222,6 +224,7 @@ async fn delete_emoji(
 
     state.emoji_repo.delete(emoji.id).await?;
     let _ = state.file_storage.delete(&emoji.storage_key).await;
+    announce_change(&state, ws_id).await?;
 
     audit::record(
         &state,
@@ -234,6 +237,17 @@ async fn delete_emoji(
     .await;
 
     Ok(Json(StatusResponse::new("deleted")))
+}
+
+async fn announce_change(state: &AppState, ws_id: Uuid) -> AppResult<()> {
+    state
+        .publisher
+        .publish_scoped(
+            "workspace.emoji_changed",
+            ws_id,
+            serde_json::json!({ "workspace_id": ws_id }),
+        )
+        .await
 }
 
 #[cfg(test)]

@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { matchCustomEmoji, pickedEmojiText, pickerCategories, splitCustomEmoji } from './customEmoji';
+import {
+  matchCustomEmoji,
+  pickedEmojiText,
+  pickerCategories,
+  scopePickerData,
+  splitCustomEmoji,
+  type PickerData,
+} from './customEmoji';
 import type { CustomEmoji } from '@/features/workspace/hooks/useCustomEmoji';
 
 const shipit: CustomEmoji = {
@@ -71,6 +78,31 @@ describe('the emoji picker', () => {
       },
     ]);
     expect(pickerCategories(new Map())).toEqual([]);
+  });
+
+  it("keeps only the open workspace's emoji in the picker's shared data", () => {
+    const elsewhere = { id: 'workspace', name: 'Workspace', emojis: [{ id: 'partyparrot' }] };
+    const data: PickerData = {
+      emojis: { rocket: {}, partyparrot: {} },
+      originalCategories: [{ id: 'frequent', emojis: [] }, { id: 'people', emojis: ['rocket'] }, elsewhere],
+    };
+    const here = pickerCategories(byName);
+
+    scopePickerData(data, here);
+
+    expect(data.emojis).toEqual({ rocket: {} });
+    expect(data.originalCategories).toEqual([
+      { id: 'frequent', emojis: [] },
+      { id: 'people', emojis: ['rocket'] },
+      ...here,
+    ]);
+  });
+
+  it('leaves the data alone before the picker has loaded it once', () => {
+    const fresh: PickerData = { emojis: { partyparrot: {} } };
+    scopePickerData(fresh, pickerCategories(byName));
+    expect(fresh).toEqual({ emojis: { partyparrot: {} } });
+    expect(() => scopePickerData(undefined, [])).not.toThrow();
   });
 
   it('gives a standard emoji as its character and a custom one as its shortcode', () => {

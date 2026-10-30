@@ -251,6 +251,13 @@ pub(crate) async fn handle_event_for(
                 cm.broadcast_to_all(audience, &framed(&frame)).await;
             }
         }
+        "workspace.emoji_changed" => {
+            if let Some(workspace_id) = field("workspace_id") {
+                let frame = ServerFrame::WorkspaceEmojiChanged { workspace_id };
+                cm.broadcast_to_workspace(audience, workspace_id, &framed(&frame))
+                    .await;
+            }
+        }
         "notification.push" => {
             if let Some(uid) = field("user_id") {
                 let frame = ServerFrame::Notification {

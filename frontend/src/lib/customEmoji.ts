@@ -57,6 +57,29 @@ export function pickerCategories(byName: Map<string, CustomEmoji>) {
   ];
 }
 
+type PickerEmoji = string | { id: string };
+
+interface PickerCategory {
+  id?: string;
+  name?: string;
+  emojis: PickerEmoji[];
+}
+
+export interface PickerData {
+  emojis: Record<string, unknown>;
+  originalCategories?: PickerCategory[];
+}
+
+export function scopePickerData(data: PickerData | undefined, custom: PickerCategory[]) {
+  const categories = data?.originalCategories;
+  if (!data || !categories) return;
+  for (const category of categories) {
+    if (!category.name) continue;
+    for (const emoji of category.emojis) delete data.emojis[typeof emoji === 'string' ? emoji : emoji.id];
+  }
+  data.originalCategories = [...categories.filter((category) => !category.name), ...custom];
+}
+
 export function pickedEmojiText(picked: { id: string; native?: string }): string {
   return picked.native ?? `:${picked.id}:`;
 }

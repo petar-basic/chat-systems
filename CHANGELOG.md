@@ -36,6 +36,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - The getting-started checklist lays its steps out by its own width, so they no longer wrap
   beside a side panel, and on a phone it starts folded to one line with "Show steps".
 - Creating a workspace opens it, instead of sending you back to the workspace you were in.
+- A custom emoji added or removed by someone else shows for everyone at once, instead of as
+  its `:name:` until a reload.
+- The emoji picker offers only the open workspace's custom emoji. After visiting another
+  workspace it used to keep offering the first one's.
 
 ### Changed
 

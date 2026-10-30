@@ -313,6 +313,24 @@ async fn workspace_restored_broadcasts_to_all_connections(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn an_emoji_change_reaches_only_its_workspace(pool: PgPool) {
+    let cm = manager(pool).await;
+    let workspace = Uuid::new_v4();
+    let (member, mut member_rx) = fake_conn(&cm, Uuid::new_v4());
+    cm.subscribe_workspace(&member, workspace);
+    let (outsider, mut outsider_rx) = fake_conn(&cm, Uuid::new_v4());
+    cm.subscribe_workspace(&outsider, Uuid::new_v4());
+
+    let payload = json!({ "workspace_id": workspace.to_string() });
+    crate::event_consumer::handle_event("workspace.emoji_changed", &payload, &cm).await;
+
+    let frame = next_json(&mut member_rx).expect("a member hears about it");
+    assert_eq!(frame["type"], "workspace.emoji_changed");
+    assert_eq!(frame["workspace_id"], workspace.to_string());
+    assert!(next_json(&mut outsider_rx).is_none());
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn notification_push_delivers_to_target_user(pool: PgPool) {
     let cm = manager(pool).await;
     let target = Uuid::new_v4();
