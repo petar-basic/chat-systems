@@ -16,6 +16,11 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ## [Unreleased]
 
+### Fixed
+
+- Renaming a workspace shows the new name at once in the sidebar header, the tab title, the
+  checklist and the notifications menu, instead of after a reload.
+
 ### Changed
 
 - The RUNBOOK's *Huddle SFU (LiveKit)* covers a Coolify host: fetching the compose file without
