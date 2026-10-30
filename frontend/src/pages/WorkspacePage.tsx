@@ -360,7 +360,7 @@ export default function WorkspacePage() {
 
               {!currentChannel && (
                 <div className="flex-1 flex flex-col items-center justify-center text-muted gap-3 px-6 text-center">
-                  {c.channels.length === 0 ? (
+                  {!c.channelsPending && c.channels.length === 0 ? (
                     <>
                       <Hash className="w-12 h-12 text-faint" />
                       <p className="text-lg font-medium">{EmptyLabels.NoChannels}</p>

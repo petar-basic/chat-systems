@@ -31,6 +31,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   replies stays behind as "This message was deleted", so its thread can still be opened.
 - A workspace icon that fails to load shows the workspace's initials instead of a broken
   image, in the workspace rail and in workspace settings.
+- Opening a workspace no longer flashes "No channels yet" while its channels are still
+  loading.
 
 ### Changed
 
