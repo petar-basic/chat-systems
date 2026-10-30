@@ -43,6 +43,7 @@ interface WorkspaceState {
   activeHuddleChannels: Map<string, { huddleId: string; initiatorId: string }>;
 
   selectWorkspace: (ws: Workspace) => Promise<void>;
+  refreshWorkspace: (ws: Workspace) => void;
   selectChannel: (ch: Channel) => void;
   selectConversation: (conversationId: string | null) => void;
   setCurrentUserId: (id: string | null) => void;
@@ -90,6 +91,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
     useInstanceStore.getState().setActiveInstance(ws.instanceUrl);
   },
+
+  refreshWorkspace: (ws) => set((s) => (s.currentWorkspace?.id === ws.id ? { currentWorkspace: ws } : s)),
 
   selectChannel: (ch) => {
     set({ currentChannel: ch, currentConversationId: null });

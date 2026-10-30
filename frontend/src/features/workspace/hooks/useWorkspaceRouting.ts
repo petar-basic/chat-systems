@@ -43,6 +43,7 @@ export function useWorkspaceRouting({
     currentChannel,
     currentConversationId,
     selectWorkspace,
+    refreshWorkspace,
     selectChannel,
     selectConversation,
     markChannelRead,
@@ -53,6 +54,7 @@ export function useWorkspaceRouting({
       currentChannel: s.currentChannel,
       currentConversationId: s.currentConversationId,
       selectWorkspace: s.selectWorkspace,
+      refreshWorkspace: s.refreshWorkspace,
       selectChannel: s.selectChannel,
       selectConversation: s.selectConversation,
       markChannelRead: s.markChannelRead,
@@ -75,6 +77,7 @@ export function useWorkspaceRouting({
         const needsUpdate =
           currentWorkspace?.id !== target.id || currentWorkspace?.deleted_at !== target.deleted_at;
         if (needsUpdate) selectWorkspace(target);
+        else if (currentWorkspace !== target) refreshWorkspace(target);
       } else if (workspaces.length > 0) {
         navigate(`/app/${workspaces[0].id}`, { replace: true });
       }
@@ -82,7 +85,15 @@ export function useWorkspaceRouting({
       const ws = currentWorkspace || workspaces[0];
       if (ws) navigate(`/app/${ws.id}`, { replace: true });
     }
-  }, [workspaces, deletedWorkspaces, workspaceId, currentWorkspace, selectWorkspace, navigate]);
+  }, [
+    workspaces,
+    deletedWorkspaces,
+    workspaceId,
+    currentWorkspace,
+    selectWorkspace,
+    refreshWorkspace,
+    navigate,
+  ]);
 
   const workspaceReady = !!workspaceId && currentWorkspace?.id === workspaceId;
   const { data: place, isError: placeMissing } = useMessageLocation(
