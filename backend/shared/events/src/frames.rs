@@ -118,6 +118,8 @@ pub enum ServerFrame {
     },
     #[serde(rename = "workspace.restored")]
     WorkspaceRestored { workspace_id: Uuid },
+    #[serde(rename = "workspace.emoji_changed")]
+    WorkspaceEmojiChanged { workspace_id: Uuid },
     #[serde(rename = "notification")]
     Notification {
         workspace_id: Option<Uuid>,

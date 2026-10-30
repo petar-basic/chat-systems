@@ -4,7 +4,7 @@ import { autoUpdate, flip, offset, shift, useFloating } from '@floating-ui/react
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
 import { useThemeStore } from '@/stores/theme';
 import { useCustomEmojiStore } from '@/stores/customEmoji';
-import { pickedEmojiText, pickerCategories } from '@/lib/customEmoji';
+import { pickedEmojiText, pickerCategories, scopePickerData } from '@/lib/customEmoji';
 
 interface Props {
   anchorRef: RefObject<HTMLElement | null>;
@@ -57,11 +57,14 @@ export default function EmojiPicker({ anchorRef, onSelect, onClose }: Props) {
       const mart = await import('emoji-mart');
       const data = (await import('@emoji-mart/data')).default;
       if (cancelled || !host) return;
+      const categories = pickerCategories(custom);
+      scopePickerData(mart.Data, categories);
+      mart.SearchIndex.reset();
       const Picker = mart.Picker as unknown as PickerCtor;
       const el = new Picker({
         data,
         theme,
-        custom: pickerCategories(custom),
+        custom: categories,
         categories: CATEGORIES,
         previewPosition: 'bottom',
         skinTonePosition: 'search',

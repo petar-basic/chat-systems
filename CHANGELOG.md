@@ -38,6 +38,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - Creating a workspace opens it, instead of sending you back to the workspace you were in.
 - A message that arrives while a channel is still loading its history shows up at once,
   instead of only after the channel is opened again.
+- A custom emoji added or removed by someone else shows for everyone at once, instead of as
+  its `:name:` until a reload.
+- The emoji picker offers only the open workspace's custom emoji. After visiting another
+  workspace it used to keep offering the first one's.
 
 ### Changed
 

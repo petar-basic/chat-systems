@@ -823,6 +823,7 @@ typing, and `notification` events are handled separately — by `usePresenceStor
 | `member.added` / `member.removed` | Invalidate workspace members query |
 | `workspace.created` / `workspace.restored` | Invalidate workspaces list |
 | `workspace.deleted` | Invalidate workspaces + deleted list; navigate away unless workspace/instance admin |
+| `workspace.emoji_changed` | Invalidate that workspace's custom emoji, so `:name:` renders and the picker offers it without a reload |
 | `workspace.updated` | Invalidate single workspace + workspaces list |
 | `conversation.created` | Invalidate the conversation list and join the new channel on the socket |
 | `huddle.started` / `huddle.ended` | Set/clear the channel's active-huddle entry in `useWorkspaceStore` |

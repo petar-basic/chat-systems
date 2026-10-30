@@ -28,6 +28,7 @@ import { patchMessageEverywhere, shownInChannel } from './messagePatch';
 import { dropReply, patchReply, placeReply } from './threadCache';
 import { syncListFrames } from '@/features/lists/listSync';
 import { applyCommandResponse } from './commandAnswers';
+import { customEmojiKey } from '@/features/workspace/hooks/useCustomEmoji';
 
 type ChannelMessages = InfiniteData<{ data: Message[] }>;
 
@@ -139,6 +140,9 @@ export const useWebSocketQuerySync = () => {
           useWorkspaceStore.setState({ currentWorkspace: null, currentChannel: null });
           window.history.pushState({}, '', '/app');
         }
+      }),
+      globalEventBus.on('workspace.emoji_changed', (event) => {
+        queryClient.invalidateQueries({ queryKey: customEmojiKey(event.workspace_id) });
       }),
       globalEventBus.on('workspace.restored', () => {
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaces() });
