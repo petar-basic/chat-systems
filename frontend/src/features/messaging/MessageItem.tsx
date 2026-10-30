@@ -339,7 +339,6 @@ function MessageItem({
               )}
               <span className="text-xs text-muted">{time}</span>
               {message.pending && <span className="text-xs text-muted italic">Sending…</span>}
-              {editedMarker}
               {pinnedMarker}
             </div>
           )}
@@ -358,11 +357,11 @@ function MessageItem({
               currentUserId={currentUserId}
               pollKeyVote={pollKeyVote}
               markers={
-                grouped && (editedMarker || pinnedMarker) ? (
-                  <>
+                editedMarker || (grouped && pinnedMarker) ? (
+                  <span className="inline-flex items-center gap-2">
                     {editedMarker}
-                    {pinnedMarker}
-                  </>
+                    {grouped && pinnedMarker}
+                  </span>
                 ) : undefined
               }
               onHidePreviews={onHidePreviews}
@@ -424,6 +423,12 @@ function MessageItem({
               </p>
             ))}
 
+          <MessageReactions
+            message={message}
+            currentUserId={currentUserId}
+            onToggle={archived ? undefined : handleReactionToggle}
+          />
+
           {message.reply_count > 0 && onThreadOpen && (
             <button
               onClick={() => onThreadOpen(message)}
@@ -437,12 +442,6 @@ function MessageItem({
               <span className="text-muted group-hover/thread:text-accent transition">View thread</span>
             </button>
           )}
-
-          <MessageReactions
-            message={message}
-            currentUserId={currentUserId}
-            onToggle={archived ? undefined : handleReactionToggle}
-          />
         </div>
 
         {!editing && !confirmDelete && !unsent && (

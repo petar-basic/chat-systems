@@ -45,8 +45,18 @@ describe('ConnectedAppCard', () => {
     configureMutate.mockReset().mockResolvedValue({});
   });
 
+  it('keeps the setup of an app nobody has set up folded until asked for', () => {
+    renderCard();
+    expect(screen.getByText('Not set up')).toBeInTheDocument();
+    expect(screen.queryByTestId('app-setup-form')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Set up'));
+    expect(screen.getByTestId('app-setup-form')).toBeInTheDocument();
+  });
+
   it('installs only after an admin agrees to what it can see', async () => {
     renderCard();
+    fireEvent.click(screen.getByText('Set up'));
     fireEvent.change(screen.getByLabelText(/Client ID/), { target: { value: 'client-1' } });
     fireEvent.change(screen.getByLabelText(/Secret/), { target: { value: 'shh' } });
     fireEvent.submit(screen.getByTestId('app-setup-form'));

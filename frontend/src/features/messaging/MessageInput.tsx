@@ -10,12 +10,15 @@ import Mention from '@tiptap/extension-mention';
 import { createEditorExtensions } from '@/lib/tiptapExtensions';
 import { createMentionSuggestion, mentionSuggestionPluginKey } from './mentionSuggestion';
 import { emojiSuggestionPluginKey } from './emojiSuggestion';
+import { CommandSuggestion } from './commandSuggestion';
+import { useSlashCommands, type SlashCommand } from './hooks/useSlashCommands';
 import type { MentionItem } from './MentionDropdown';
 import EmojiPicker from './EmojiPicker';
 import FormattingToolbar from '@/features/messaging/FormattingToolbar';
 import type { WorkspaceMember, Channel } from '@/stores/workspace';
 import { BarChart3, Clock, Paperclip, Send, SmilePlus, Type } from 'lucide-react';
-import { MENTION_SUGGESTION_LIMIT, DRAFT_SAVE_DEBOUNCE_MS } from '@/shared/constants';
+import { MENTION_SUGGESTION_LIMIT, DRAFT_SAVE_DEBOUNCE_MS, QUERY_KEYS } from '@/shared/constants';
+import { useQueryClient } from '@tanstack/react-query';
 import { transferFiles } from '@/lib/fileUploads';
 import { AttachmentTray } from './AttachmentTray';
 import type { ComposerAttachments } from './useComposerAttachments';
@@ -71,6 +74,7 @@ interface Props {
   scheduleTarget?: ScheduleTarget;
   pollTarget?: PollTarget;
   shortcutChannelId?: string;
+  slashCommands?: boolean;
 }
 
 export default function MessageInput({
@@ -95,6 +99,7 @@ export default function MessageInput({
   scheduleTarget,
   pollTarget,
   shortcutChannelId,
+  slashCommands = false,
 }: Props) {
   const attachmentsRef = useRef(attachments);
   const allowEmptyRef = useRef(allowEmpty);
@@ -132,6 +137,15 @@ export default function MessageInput({
     mentionItemsRef.current = mentionItems;
   }, [mentionItems]);
 
+  useSlashCommands(workspace?.id, workspace?.instanceUrl, slashCommands);
+  const queryClient = useQueryClient();
+  const [commandExtension] = useState(() =>
+    CommandSuggestion.configure({
+      commands: () =>
+        queryClient.getQueryData<SlashCommand[]>(QUERY_KEYS.slashCommands(workspace?.id ?? '')) ?? [],
+    }),
+  );
+
   const mentionExtension = useMemo(
     () =>
       MentionNode.configure({
@@ -159,6 +173,8 @@ export default function MessageInput({
               const emoji = emojiSuggestionPluginKey.getState(this.editor.state) as
                 { active?: boolean } | undefined;
               if (mention?.active || emoji?.active) return false;
+              const command = this.editor.storage.commandSuggestion;
+              if (command?.open && !command.exact) return false;
               sendRef.current();
               return true;
             },
@@ -209,6 +225,7 @@ export default function MessageInput({
       }),
       submitExtension,
       ...(isDm ? [] : [mentionExtension]),
+      ...(slashCommands ? [commandExtension] : []),
     ],
     content: editing
       ? flattenMentions(initialContent ?? '')

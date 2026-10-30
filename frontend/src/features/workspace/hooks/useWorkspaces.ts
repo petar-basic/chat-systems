@@ -191,9 +191,7 @@ export const useCreateWorkspace = () => {
         .api.typed((c) => c.POST('/workspaces', { body: { name } }));
       return { ...ws, instanceUrl };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaces() });
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaces() }),
   });
 };
 

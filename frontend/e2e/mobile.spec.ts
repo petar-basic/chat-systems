@@ -1,12 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { API, authHeaders, login } from './helpers';
+import { API, authHeaders, devWorkspace, login } from './helpers';
 import type { APIRequestContext } from '@playwright/test';
 
-/// Picks a channel and makes sure it has something in it: the message list only
-/// mounts when there are messages, and which workspace `data[0]` returns depends
-/// on what earlier specs left behind.
+/// Picks the seeded workspace's #general and makes sure it has something in it:
+/// the message list only mounts when there are messages.
 async function seededChannel(admin: APIRequestContext) {
-  const workspace = (await (await admin.get(`${API}/workspaces`)).json()).data[0];
+  const workspace = await devWorkspace(admin);
   const channels = (await (await admin.get(`${API}/workspaces/${workspace.id}/channels`)).json()).data;
   const channel = channels.find((c: { name: string }) => c.name === 'general') ?? channels[0];
 

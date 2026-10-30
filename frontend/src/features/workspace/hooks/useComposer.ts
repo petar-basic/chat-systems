@@ -43,25 +43,31 @@ export function useComposer({ currentWorkspace, currentChannel, userId, currentW
       if (!currentChannel || !userId) return;
       stopTyping();
 
-      if (parseCommand(content)) {
+      const command = parseCommand(content);
+      if (command) {
+        let result;
         try {
-          const result = await runCommand(currentChannel.id, content, currentWsInstanceUrl);
-          // An unknown command falls through to being sent as text; anything
-          // else has already done its work on the server.
-          if (result) {
-            if (result.response_type === 'in_channel') dismissAnswer();
-            else
-              showAnswer({
-                text: commandResultText(result),
-                channelId: currentChannel.id,
-                pending: result.response_type === 'pending',
-              });
-            return;
-          }
+          result = await runCommand(currentChannel.id, content, currentWsInstanceUrl);
         } catch (e) {
           showAnswer({ text: toUserMessage(e), channelId: currentChannel.id, pending: false });
           return;
         }
+        if (!result) {
+          showAnswer({
+            text: `/${command.command} is not a command here. To post it as text, put it in \`backticks\`.`,
+            channelId: currentChannel.id,
+            pending: false,
+          });
+          throw new Error(`Unknown command /${command.command}`);
+        }
+        if (result.response_type === 'in_channel') dismissAnswer();
+        else
+          showAnswer({
+            text: commandResultText(result),
+            channelId: currentChannel.id,
+            pending: result.response_type === 'pending',
+          });
+        return;
       }
 
       const id = crypto.randomUUID();

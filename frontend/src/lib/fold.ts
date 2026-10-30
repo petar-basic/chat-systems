@@ -25,3 +25,28 @@ export function fragmentRange(text: string, fragment: string): [number, number] 
   const idx = folded.indexOf(wanted);
   return idx === -1 ? null : [offsets[idx], offsets[idx + wanted.length]];
 }
+
+export function wordRanges(text: string, query: string): [number, number][] {
+  const words = new Set(
+    fold(query)
+      .split(/\s+/)
+      .map((word) => word.replace(/^["'(]+|["'),.!?]+$/g, ''))
+      .filter((word) => word.length > 1),
+  );
+  if (words.size === 0) return [];
+  const { folded, offsets } = foldWithOffsets(text);
+  const found: [number, number][] = [];
+  for (const word of words) {
+    for (let at = folded.indexOf(word); at !== -1; at = folded.indexOf(word, at + word.length)) {
+      found.push([at, at + word.length]);
+    }
+  }
+  found.sort((a, b) => a[0] - b[0]);
+  const merged: [number, number][] = [];
+  for (const [start, end] of found) {
+    const last = merged[merged.length - 1];
+    if (last && start <= last[1]) last[1] = Math.max(last[1], end);
+    else merged.push([start, end]);
+  }
+  return merged.map(([start, end]) => [offsets[start], offsets[end]]);
+}

@@ -15,15 +15,17 @@ export function ConnectedAppCard({
   isAdmin,
   reusable,
   permissions,
+  setupFirst = false,
 }: {
   workspaceId: string;
   app: AppStatus;
   isAdmin: boolean;
   reusable?: AppStatus;
   permissions: AppPermission[];
+  setupFirst?: boolean;
 }) {
   const actions = useAppActions(workspaceId);
-  const [setupOpen, setSetupOpen] = useState(!app.configured && isAdmin);
+  const [setupOpen, setSetupOpen] = useState(setupFirst && !app.configured && isAdmin);
   const usable = app.configured && app.enabled;
   const badge = app.connected_account
     ? 'Connected'

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, type ReactNode } from 'react';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
 import { toUserMessage } from '@/lib/errors';
@@ -27,6 +27,7 @@ import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
 import { useWorkspaceChannels } from '@/features/workspace';
 import { toPlainText } from '@/lib/plainText';
+import { wordRanges } from '@/lib/fold';
 import { formatDateTime } from '@/lib/datetime';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { Button } from '@/shared/components/Button/Button';
@@ -46,9 +47,28 @@ const TABS: { tab: SearchTab; label: string }[] = [
 
 const LIMIT = 20;
 
+function Highlighted({ text, query }: { text: string; query: string }) {
+  const ranges = wordRanges(text, query);
+  if (ranges.length === 0) return <>{text}</>;
+  const parts: ReactNode[] = [];
+  let at = 0;
+  for (const [start, end] of ranges) {
+    parts.push(text.slice(at, start));
+    parts.push(
+      <mark key={start} className="bg-warning/25 text-fg rounded-sm" data-qa="search-result-match">
+        {text.slice(start, end)}
+      </mark>,
+    );
+    at = end;
+  }
+  parts.push(text.slice(at));
+  return <>{parts}</>;
+}
+
 function Hit({
   userId,
   content,
+  query,
   createdAt,
   context,
   onClick,
@@ -56,6 +76,7 @@ function Hit({
 }: {
   userId: string;
   content: string;
+  query: string;
   createdAt: string;
   context?: string;
   onClick?: () => void;
@@ -75,15 +96,19 @@ function Hit({
     >
       <div className="flex items-center gap-2 mb-0.5 min-w-0">
         <Avatar userId={userId} name={displayName} avatarUrl={sender?.avatar_url} size="xs" />
-        <span className="text-sm font-semibold text-fg-soft">{displayName}</span>
+        <span className="max-w-[60%] shrink-0 truncate text-sm font-semibold text-fg-soft">
+          {displayName}
+        </span>
         {context && (
-          <span className="text-xs text-accent truncate" data-qa="search-result-context">
+          <span className="min-w-0 text-xs text-accent truncate" data-qa="search-result-context">
             {context}
           </span>
         )}
         <span className="text-xs text-muted shrink-0">{formatDateTime(createdAt)}</span>
       </div>
-      <p className="text-sm text-muted line-clamp-2">{toPlainText(content)}</p>
+      <p className="text-sm text-muted line-clamp-2">
+        <Highlighted text={toPlainText(content)} query={query} />
+      </p>
     </button>
   );
 }
@@ -332,6 +357,7 @@ export default function SearchPanel({ members, onClose, onOpenMessage }: Props) 
                   qa={conversation ? 'search-result-conversation' : 'search-result'}
                   userId={msg.user_id}
                   content={msg.content}
+                  query={query}
                   createdAt={msg.created_at}
                   context={placeOf(msg.channel_name)}
                   onClick={onOpenMessage ? () => onOpenMessage(msg.id) : undefined}

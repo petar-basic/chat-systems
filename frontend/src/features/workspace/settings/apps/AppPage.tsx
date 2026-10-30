@@ -130,6 +130,7 @@ function Controls({
           workspaceId={workspaceId}
           app={status}
           isAdmin
+          setupFirst
           permissions={permissions}
           reusable={
             status.provider === 'confluence'

@@ -346,6 +346,7 @@ export default function WorkspacePage() {
                   scheduleTarget={{ channelId: currentChannel.id }}
                   pollTarget={{ channelId: currentChannel.id, instanceUrl: currentWorkspace?.instanceUrl }}
                   shortcutChannelId={currentChannel.id}
+                  slashCommands
                   channelName={currentChannel.name ?? undefined}
                   draftKey={currentChannel.id}
                   members={c.workspaceMembers}

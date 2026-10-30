@@ -5,7 +5,8 @@ import { defineConfig, devices } from '@playwright/test';
 // seeded user mid-run, and one posts 120 messages spread over three authors to
 // stay under that same limiter, and one restarts the API with no admin. They
 // run as their own batch, one worker.
-const SOLO = /(qa-flow|qa-flow2|qa-flow4|durable-delivery|message-pagination|first-run)\.spec\.ts$/;
+const SOLO =
+  /(qa-flow|qa-flow2|qa-flow4|durable-delivery|message-pagination|first-run|create-workspace)\.spec\.ts$/;
 
 export default defineConfig({
   testDir: './e2e',

@@ -116,4 +116,21 @@ describe('MessageContent', () => {
   it('marks nothing for somebody with no keywords', () => {
     expect(renderContent('deploy now').querySelector('[data-qa="keyword-match"]')).toBeNull();
   });
+  it('puts a trailing marker at the end of the last line of text', () => {
+    const { container } = render(
+      <MessageContent content={'first\n\nlast line'} trailing={<span data-qa="edited">(edited)</span>} />,
+    );
+    const paragraphs = container.querySelectorAll('p');
+    expect(paragraphs).toHaveLength(2);
+    expect(paragraphs[1]).toHaveTextContent('last line (edited)');
+    expect(paragraphs[0].querySelector('[data-qa="edited"]')).toBeNull();
+  });
+
+  it('puts a trailing marker after a block that is not a paragraph', () => {
+    const { container } = render(
+      <MessageContent content={'- a\n- b'} trailing={<span data-qa="edited">(edited)</span>} />,
+    );
+    expect(container.querySelector('ul [data-qa="edited"]')).toBeNull();
+    expect(container.querySelector('.tiptap-content > span [data-qa="edited"]')).toBeInTheDocument();
+  });
 });
