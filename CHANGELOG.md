@@ -22,6 +22,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   checklist and the notifications menu, instead of after a reload.
 - *Workspace settings → Apps* waits for the connected apps before showing the directory, so the
   list no longer jumps under the pointer while it loads.
+- Opening a thread puts the cursor in its reply box, so what you type next goes to the thread
+  instead of the channel. On a touch screen it waits for a tap, so the keyboard does not cover the
+  thread.
 
 ### Changed
 

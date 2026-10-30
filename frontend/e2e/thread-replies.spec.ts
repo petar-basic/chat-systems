@@ -122,3 +122,39 @@ test('the thread composer keeps its controls inside the panel', async ({ page })
     await alice.dispose();
   }
 });
+
+test('opening a thread puts the cursor in its reply box', async ({ page }) => {
+  const { ctx: alice } = await userContext('alice@dev.local');
+  const workspace = await devWorkspace(alice);
+  const channel = await createChannel(alice, workspace.id, 'thread-focus');
+  const parentText = `thread-focus-parent-${stamp()}`;
+  const posted = await alice.post(`${API}/channels/${channel.id}/messages`, {
+    data: { content: parentText },
+  });
+  expect(posted.status(), 'seed the parent message').toBe(200);
+
+  try {
+    await login(page, 'alice@dev.local');
+    await page.goto(`/app/${workspace.id}/${channel.id}`);
+
+    const parent = page.locator('[data-qa="message-row"]', { hasText: parentText });
+    await expect(parent).toBeVisible({ timeout: 20_000 });
+    await page.locator('.ProseMirror[contenteditable="true"]').first().click();
+    await parent.hover();
+    await parent.locator('[data-qa="message-action-thread"]').click();
+
+    const panel = page.locator('[data-qa="thread-panel"]');
+    await expect(panel.locator('.ProseMirror[contenteditable="true"]')).toBeFocused();
+
+    const replyText = `thread-focus-reply-${stamp()}`;
+    await page.keyboard.type(replyText);
+    await page.keyboard.press('Enter');
+    await expect(panel.locator('[data-qa="thread-reply"]').getByText(replyText)).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.locator('[data-qa="message-row"]', { hasText: replyText })).toHaveCount(0);
+  } finally {
+    await alice.delete(`${API}/channels/${channel.id}`);
+    await alice.dispose();
+  }
+});
