@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Trash2, AlertTriangle, RotateCcw } from 'lucide-react';
@@ -63,6 +63,26 @@ export function GeneralSection({ workspace, onDeleted }: Props) {
       ),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaces() }),
   });
+
+  const { isSuccess: saved, reset: resetSave } = save;
+  useEffect(() => {
+    if (!saved) return undefined;
+    const timer = setTimeout(resetSave, 2000);
+    return () => clearTimeout(timer);
+  }, [saved, resetSave]);
+
+  const statusOf = (field: keyof Changes) =>
+    save.variables && field in save.variables ? (
+      <p aria-live="polite" className="-mt-2 text-xs" data-qa="workspace-save-status">
+        {save.isPending ? (
+          <span className="text-muted">Saving…</span>
+        ) : save.isError ? (
+          <span className="text-danger">{toUserMessage(save.error, 'Failed to save settings')}</span>
+        ) : save.isSuccess ? (
+          <span className="text-success">Saved</span>
+        ) : null}
+      </p>
+    ) : null;
 
   const saveName = () => {
     const trimmed = name.trim();
@@ -161,6 +181,7 @@ export function GeneralSection({ workspace, onDeleted }: Props) {
           dataQa="workspace-name"
           required
         />
+        {statusOf('name')}
 
         <TextArea
           label="Description"
@@ -170,6 +191,7 @@ export function GeneralSection({ workspace, onDeleted }: Props) {
           onBlur={saveDescription}
           placeholder="What is this workspace about?"
         />
+        {statusOf('description')}
 
         <Checkbox
           label="Link previews"
@@ -181,36 +203,29 @@ export function GeneralSection({ workspace, onDeleted }: Props) {
           }}
           dataQa="workspace-link-previews"
         />
+        {statusOf('link_previews')}
 
         <fieldset className="space-y-3" data-qa="workspace-permissions">
           <legend className="mb-2 text-sm font-semibold text-fg">Permissions</legend>
           {PERMISSIONS.map(({ rule, label }) => (
-            <Select
-              key={rule}
-              label={label}
-              value={rules[rule]}
-              onChange={(e) => {
-                const who = e.target.value as WhoMay;
-                setRules((current) => ({ ...current, [rule]: who }));
-                save.mutate({ [rule]: who });
-              }}
-              dataQa={`workspace-${rule.replaceAll('_', '-')}`}
-            >
-              <option value="members">Every member</option>
-              <option value="admins">Admins only</option>
-            </Select>
+            <Fragment key={rule}>
+              <Select
+                label={label}
+                value={rules[rule]}
+                onChange={(e) => {
+                  const who = e.target.value as WhoMay;
+                  setRules((current) => ({ ...current, [rule]: who }));
+                  save.mutate({ [rule]: who });
+                }}
+                dataQa={`workspace-${rule.replaceAll('_', '-')}`}
+              >
+                <option value="members">Every member</option>
+                <option value="admins">Admins only</option>
+              </Select>
+              {statusOf(rule)}
+            </Fragment>
           ))}
         </fieldset>
-
-        <p aria-live="polite" className="min-h-5 text-xs" data-qa="workspace-save-status">
-          {save.isPending ? (
-            <span className="text-muted">Saving…</span>
-          ) : save.isError ? (
-            <span className="text-danger">{toUserMessage(save.error, 'Failed to save settings')}</span>
-          ) : save.isSuccess ? (
-            <span className="text-success">Saved</span>
-          ) : null}
-        </p>
 
         <div className="border border-red-500/30 rounded-lg p-4">
           <h3 className="text-sm font-semibold text-danger mb-2 flex items-center gap-1.5">

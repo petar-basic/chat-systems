@@ -35,9 +35,23 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   loading.
 - The getting-started checklist lays its steps out by its own width, so they no longer wrap
   beside a side panel, and on a phone it starts folded to one line with "Show steps".
+- Creating a workspace opens it, instead of sending you back to the workspace you were in.
 
 ### Changed
 
+- Typing `/` at the start of a message lists the slash commands this workspace knows, with
+  what each one takes. An unknown command is no longer posted as a message: it is refused with
+  a note, and stays in the composer to fix.
+- *Workspace settings → Apps* keeps the setup of an app nobody has set up folded behind
+  "Set up", so five setup forms no longer fill the page.
+- Preferences, Workspace settings and Channel details keep one height whichever tab is open,
+  and their tabs stay in view while the section scrolls. A workspace setting that saves on its
+  own says "Saved" beside the field that changed.
+- "(edited)" sits at the end of the message text, and reactions sit above the "1 reply" link.
+- Search marks the words that matched in each result, and a long channel name no longer
+  pushes the sender's name onto two lines.
+- The sidebar's People section says when you are the only one there, with *Invite people* for
+  admins.
 - The RUNBOOK's *Huddle SFU (LiveKit)* covers a Coolify host: fetching the compose file without
   a checkout, the `ufw` rule that lets the proxy reach LiveKit (without it, `504` after thirty
   seconds), a DNS name that bypasses Cloudflare's proxy, and the Traefik file. *How many people

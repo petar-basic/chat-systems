@@ -23,8 +23,7 @@ export function parseCommand(content: string): { command: string; text: string }
 
 /**
  * Returns the answer, or `null` when the server does not know the command — the
- * caller then sends what was typed as an ordinary message, so a typo is visible
- * rather than swallowed by an error dialog.
+ * caller then says so and keeps what was typed in the composer to fix.
  */
 export async function runCommand(
   channelId: string,

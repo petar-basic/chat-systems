@@ -24,6 +24,7 @@ import { acceptsChannelDrop } from './components/channelDrag';
 import { SectionNameInput } from './components/SectionNameInput';
 import { creatableChannelKinds } from '@/lib/channelPermissions';
 import { useSidebarLayout, useSidebarActions } from '@/features/channel/hooks/useSidebarLayout';
+import { EmptyLabels } from '@/shared/constants';
 
 interface Props {
   currentWorkspace: Workspace | null;
@@ -105,6 +106,7 @@ export default function ChannelSidebar({
   const currentInstance = instances.find((i) => i.url === activeInstanceUrl);
   const isInstanceAdmin = currentInstance?.user.is_instance_admin ?? false;
   const isWorkspaceAdmin = currentUserRole === 'admin' || currentUserRole === 'owner';
+  const otherMembers = workspaceMembers.filter((m) => m.user_id !== currentUserId);
   const creatableKinds = creatableChannelKinds(currentUserRole, currentWorkspace?.settings);
 
   const { data: layout } = useSidebarLayout(currentWorkspace?.id);
@@ -311,7 +313,7 @@ export default function ChannelSidebar({
             className="mt-4"
           />
           {collapsed.dms ? null : conversations.length === 0 ? (
-            <div className="px-3 py-1.5 text-xs text-muted">No conversations yet</div>
+            <div className="px-3 py-1.5 text-xs text-muted">{EmptyLabels.NoConversations}</div>
           ) : (
             conversations.map((conv) => (
               <ConversationRow
@@ -334,12 +336,28 @@ export default function ChannelSidebar({
                 onToggle={toggleSection}
                 className="mt-4"
               />
-              {!collapsed.people &&
-                workspaceMembers
-                  .filter((m) => m.user_id !== currentUserId)
-                  .map((m) => (
-                    <MemberRow key={m.user_id} userId={m.user_id} onOpenDm={(id) => void onOpenWith([id])} />
-                  ))}
+              {collapsed.people ? null : otherMembers.length === 0 ? (
+                <div className="px-3 py-1.5 text-xs text-muted" data-qa="sidebar-people-empty">
+                  {EmptyLabels.NoPeople}
+                  {isWorkspaceAdmin && (
+                    <>
+                      {' '}
+                      <button
+                        type="button"
+                        onClick={onInvite}
+                        data-qa="sidebar-people-invite"
+                        className="text-accent hover:underline cursor-pointer"
+                      >
+                        Invite people
+                      </button>
+                    </>
+                  )}
+                </div>
+              ) : (
+                otherMembers.map((m) => (
+                  <MemberRow key={m.user_id} userId={m.user_id} onOpenDm={(id) => void onOpenWith([id])} />
+                ))
+              )}
             </>
           )}
         </div>

@@ -13,6 +13,7 @@ import { useKeywordStore } from '@/stores/keywords';
 interface Props {
   content: string;
   className?: string;
+  trailing?: ReactNode;
 }
 
 interface RenderContext {
@@ -134,7 +135,22 @@ function renderNode(node: MessageNode, ctx: RenderContext, key: string): ReactNo
  * anywhere on this path, so the XSS posture holds by construction rather than by
  * getting a sanitiser's configuration right.
  */
-function MessageContent({ content, className }: Props) {
+function withTrailing(nodes: MessageNode[], rendered: ReactNode[], ctx: RenderContext, trailing: ReactNode) {
+  const lastIndex = nodes.length - 1;
+  const last = nodes[lastIndex];
+  if (last?.kind !== 'paragraph') {
+    return [...rendered, <span key="trailing"> {trailing}</span>];
+  }
+  const key = `n.${lastIndex}`;
+  return [
+    ...rendered.slice(0, lastIndex),
+    <p key={key}>
+      {renderNodes(last.children, ctx, key)} {trailing}
+    </p>,
+  ];
+}
+
+function MessageContent({ content, className, trailing }: Props) {
   const { data: user } = useCurrentUser();
   const selfId = user?.id;
 
@@ -145,10 +161,11 @@ function MessageContent({ content, className }: Props) {
   const nodes = useMemo(() => parseMessage(flattenMentions(content)), [content]);
   const mentions = useMemo(() => parseMentions(content), [content]);
 
-  const rendered = useMemo(
-    () => renderNodes(nodes, { selfId, mentions, emoji, selfGroupIds, keywords }, 'n'),
-    [nodes, selfId, mentions, emoji, selfGroupIds, keywords],
+  const ctx = useMemo<RenderContext>(
+    () => ({ selfId, mentions, emoji, selfGroupIds, keywords }),
+    [selfId, mentions, emoji, selfGroupIds, keywords],
   );
+  const rendered = useMemo(() => renderNodes(nodes, ctx, 'n'), [nodes, ctx]);
 
   const jumbo = useMemo(() => isJumboEmoji(content, emoji), [content, emoji]);
 
@@ -157,7 +174,7 @@ function MessageContent({ content, className }: Props) {
       className={`tiptap-content${jumbo ? ' emoji-jumbo' : ''}${className ? ` ${className}` : ''}`}
       data-qa={jumbo ? 'jumbo-emoji' : undefined}
     >
-      {rendered}
+      {trailing ? withTrailing(nodes, rendered, ctx, trailing) : rendered}
     </div>
   );
 }

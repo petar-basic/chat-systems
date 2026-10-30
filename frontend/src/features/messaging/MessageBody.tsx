@@ -28,6 +28,7 @@ export function MessageBody({
   const answers = message.deleted_at ? null : (message.metadata?.fields ?? null);
   const intro = answers ? introOf(message.content, answers) : null;
   const attachments = message.metadata?.attachments ?? [];
+  const plain = !poll && !(form && !message.deleted_at) && !(answers && intro !== null);
 
   return (
     <>
@@ -41,7 +42,7 @@ export function MessageBody({
           <FormAnswers fields={answers} />
         </>
       ) : (
-        <RichTextDisplay content={message.content} attachments={attachments} />
+        <RichTextDisplay content={message.content} attachments={attachments} trailing={markers} />
       )}
       {!message.deleted_at && !!message.metadata?.unfurls?.length && (
         <LinkPreviews
@@ -61,7 +62,7 @@ export function MessageBody({
         !!message.metadata?.app_prompts?.length && (
           <AppConnectPrompt providers={message.metadata.app_prompts} messageId={message.id} />
         )}
-      {markers && <div className="flex items-center gap-2">{markers}</div>}
+      {markers && !plain && <div className="flex items-center gap-2">{markers}</div>}
     </>
   );
 }

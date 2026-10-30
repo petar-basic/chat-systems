@@ -27,7 +27,7 @@ export function SectionedModal<K extends string>({
   active,
   onSelect,
   onClose,
-  size = 'lg',
+  size = 'tall',
   qaPrefix,
   children,
 }: Props<K>) {
@@ -59,7 +59,7 @@ export function SectionedModal<K extends string>({
           aria-label={title}
           aria-orientation="vertical"
           onKeyDown={onKeyDown}
-          className="flex gap-1 max-sm:overflow-x-auto sm:flex-col"
+          className="sticky top-0 z-10 flex gap-1 bg-surface max-sm:overflow-x-auto max-sm:py-1 sm:flex-col sm:self-start"
         >
           {sections.map(({ key, label, Icon }) => {
             const selected = key === section.key;

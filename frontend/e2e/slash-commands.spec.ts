@@ -46,9 +46,7 @@ test('a built-in command answers only the person who ran it, and does the thing'
   }
 });
 
-/// The decision that keeps a typo visible: anything the server does not
-/// recognise is sent as what was typed.
-test('an unknown command reaches the channel as an ordinary message', async ({ page, playwright }) => {
+test('an unknown command is refused and stays in the composer to fix', async ({ page, playwright }) => {
   const admin = await playwright.request.newContext({
     extraHTTPHeaders: await authHeaders(await playwright.request.newContext(), 'admin@dev.local'),
   });
@@ -57,7 +55,35 @@ test('an unknown command reaches the channel as an ordinary message', async ({ p
     await openGeneral(page, admin);
     const typed = `/nosuchcommand ${Date.now()}`;
     await send(page, typed);
-    await expect(page.locator('[data-qa="message-list"]').getByText(typed)).toBeVisible();
+
+    await expect(page.locator('[data-qa="command-response"]')).toContainText(
+      '/nosuchcommand is not a command here',
+    );
+    await expect(page.locator('.ProseMirror[contenteditable="true"]').last()).toHaveText(typed);
+    await expect(page.locator('[data-qa="message-list"]').getByText(typed)).toHaveCount(0);
+  } finally {
+    await admin.dispose();
+  }
+});
+
+test('typing a slash offers the commands, and picking one fills it in', async ({ page, playwright }) => {
+  const admin = await playwright.request.newContext({
+    extraHTTPHeaders: await authHeaders(await playwright.request.newContext(), 'admin@dev.local'),
+  });
+
+  try {
+    await openGeneral(page, admin);
+    const editor = page.locator('.ProseMirror[contenteditable="true"]').last();
+    await editor.click();
+    await editor.pressSequentially('/sh');
+
+    const suggestions = page.getByTestId('command-suggestion');
+    await expect(suggestions).toHaveCount(1);
+    await expect(suggestions.first()).toContainText('/shrug');
+
+    await editor.press('Enter');
+    await expect(page.getByTestId('command-suggestions')).toHaveCount(0);
+    await expect(editor).toHaveText('/shrug');
   } finally {
     await admin.dispose();
   }

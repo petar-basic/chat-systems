@@ -131,8 +131,7 @@ async fn list_commands(
 }
 
 /// Built-ins first, then anything registered. An unknown command is a 404 by
-/// design: the client falls back to sending what was typed as an ordinary
-/// message, so a typo does not vanish into an error dialog.
+/// design: the client says so and keeps what was typed in the composer.
 #[utoipa::path(post, path = "/channels/{ch_id}/commands", tag = "commands", request_body = InvokeRequest, responses((status = 200, body = CommandResponse)))]
 async fn invoke(
     State(state): State<Arc<AppState>>,

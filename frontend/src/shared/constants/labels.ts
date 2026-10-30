@@ -42,6 +42,7 @@ export const EmptyLabels = {
   NoNotifications: 'No notifications',
   NoNotificationsHint: "You're all caught up!",
   NoConversations: 'No conversations yet',
+  NoPeople: 'Just you so far.',
   NoChannels: 'No channels yet',
   NoChannelsHint: 'Create one to start the conversation.',
   DmBeginning: (name: string) => `This is the beginning of your conversation with ${name}.`,

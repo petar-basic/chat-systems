@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { components } from '@/api/schema';
 import { MessageAttachments } from './MessageAttachments';
 import MessageContent from './MessageContent';
@@ -9,13 +10,16 @@ interface Props {
   attachments?: Attachment[] | null;
   compact?: boolean;
   className?: string;
+  trailing?: ReactNode;
 }
 
-export default function RichTextDisplay({ content, attachments, compact, className }: Props) {
+export default function RichTextDisplay({ content, attachments, compact, className, trailing }: Props) {
+  const hasText = !!content.trim();
   return (
     <>
-      {content.trim() && <MessageContent content={content} className={className} />}
+      {hasText && <MessageContent content={content} className={className} trailing={trailing} />}
       {!!attachments?.length && <MessageAttachments attachments={attachments} compact={compact} />}
+      {!hasText && trailing && <div className="flex items-center gap-2">{trailing}</div>}
     </>
   );
 }
