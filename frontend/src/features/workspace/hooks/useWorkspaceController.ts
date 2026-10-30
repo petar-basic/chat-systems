@@ -215,6 +215,7 @@ export function useWorkspaceController() {
     workspaces: data.workspaces,
     deletedWorkspaces: data.deletedWorkspaces,
     channels: data.channels,
+    channelsPending: data.channelsPending,
     workspaceMembers: data.workspaceMembers,
     conversations: data.conversations,
     currentWorkspace,
