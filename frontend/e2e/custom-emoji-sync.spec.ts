@@ -99,10 +99,9 @@ test("the picker offers only the open workspace's emoji", async ({ page }) => {
 
     await searchPicker(page, emoji.name);
     await expect(page.locator(`em-emoji-picker img[src="${emoji.url}"]`).first()).toBeVisible();
-    await page.keyboard.press('Escape');
-    await expect(page.locator('em-emoji-picker')).toHaveCount(0);
 
     await page.getByRole('button', { name: other.name, exact: true }).click();
+    await expect(page.locator('em-emoji-picker')).toHaveCount(0);
     await expect(page).toHaveURL(new RegExp(`/app/${other.id}`));
     await expect(page.locator('[data-qa="channel-header-name"]')).toHaveText('general');
 
