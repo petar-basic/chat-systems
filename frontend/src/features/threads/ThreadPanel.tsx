@@ -277,6 +277,7 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
                 key={`thread:${parentMessage.id}`}
                 channelName=""
                 placeholder="Reply…"
+                autoFocus
                 members={members}
                 channels={channels}
                 canBroadcast={canBroadcast}

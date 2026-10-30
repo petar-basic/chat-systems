@@ -60,6 +60,7 @@ interface Props {
   draftKey?: string;
   initialContent?: string;
   editing?: boolean;
+  autoFocus?: boolean;
   allowEmpty?: boolean;
   onSend: (content: string) => Promise<void>;
   onCancel?: () => void;
@@ -83,6 +84,7 @@ export default function MessageInput({
   draftKey,
   initialContent,
   editing = false,
+  autoFocus = false,
   allowEmpty = false,
   onSend,
   onCancel,
@@ -339,6 +341,11 @@ export default function MessageInput({
   useEffect(() => {
     if (editing && editor) editor.commands.focus('end');
   }, [editing, editor]);
+
+  useEffect(() => {
+    if (autoFocus && editor && !window.matchMedia?.('(pointer: coarse)')?.matches)
+      editor.commands.focus('end');
+  }, [autoFocus, editor]);
 
   useEffect(() => {
     if (!editor || !draftKey) return undefined;
