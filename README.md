@@ -9,6 +9,8 @@ your own domain, with no per-seat pricing and no third party holding your messag
 **[petar-basic.github.io/chat-systems](https://petar-basic.github.io/chat-systems/)** shows what
 it looks like.
 
+![A message is sent, two people react to it at once, a teammate types a reply that arrives live, and a thread opens beside the channel](site/img/demo.gif)
+
 ## What it is
 
 Think of it as a small, self-hostable Slack alternative for a team that wants to
@@ -18,6 +20,24 @@ the whole thing runs from a single `docker compose` command behind automatic HTT
 It's also a deliberately well-engineered reference codebase: a stateless Rust API,
 a horizontally-scalable WebSocket gateway, and a strictly-typed React SPA, with an
 integration-test suite and a real CI pipeline.
+
+## Screenshots
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="site/img/hero-dark.webp">
+  <img src="site/img/hero-light.webp" alt="A workspace with its channels, people and their statuses, and the #product channel with a chart, a code block, a poll and reactions, with a thread open beside it">
+</picture>
+
+<table>
+  <tr>
+    <td width="70%"><img src="site/img/search-files.webp" alt="File search finding a PDF by the words inside it, with the matching passage under the file name"></td>
+    <td><img src="site/img/mobile-channel.webp" alt="The same channel on a phone"></td>
+  </tr>
+  <tr>
+    <td>Search reads the text inside PDF, Word, Excel and PowerPoint files</td>
+    <td>The same app on a phone, installable as a PWA</td>
+  </tr>
+</table>
 
 ## Features
 

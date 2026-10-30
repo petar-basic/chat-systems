@@ -9,6 +9,11 @@
 <meta property="og:description" content="Channels, threads, huddles, search inside files, SSO and a Slack importer, on your own server. MIT licensed.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://petar-basic.github.io/chat-systems/">
+<meta property="og:image" content="https://petar-basic.github.io/chat-systems/img/og-image.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="Chat Systems: team chat you run yourself, beside a screenshot of the app">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)">
 <meta name="theme-color" content="#eef1f6" media="(prefers-color-scheme: light)">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -141,53 +146,14 @@ h1 {
 .btn svg { width: 18px; height: 18px; }
 
 .shot { margin: 56px auto 0; max-width: 1040px; }
-.app {
-  display: grid; grid-template-columns: 56px 220px 1fr; height: 460px; text-align: left;
-  border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--surface);
-  box-shadow: var(--shadow); font-size: 14px;
+.shot img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
+.shot .dark { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .shot .light { display: none; }
+  :root:not([data-theme="light"]) .shot .dark { display: block; }
 }
-.rail { background: var(--rail); display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 12px 0; }
-.ws { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; font-weight: 700; font-size: 13px; color: #fff; }
-.ws.a { background: #7c3aed; box-shadow: 0 0 0 2px var(--rail), 0 0 0 4px var(--accent); }
-.ws.b { background: #0e7490; }
-.ws.c { background: #b45309; }
-.side { background: var(--raised); border-right: 1px solid var(--line); padding: 14px 10px; overflow: hidden; }
-.side .name { color: var(--fg); font-weight: 700; padding: 0 8px 12px; }
-.side .label { color: var(--subtle); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; padding: 10px 8px 4px; }
-.row { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 6px; color: var(--muted); white-space: nowrap; }
-.row.on { background: var(--accent); color: var(--on-accent); font-weight: 600; }
-.row.bold { color: var(--fg); font-weight: 600; }
-.row .badge { margin-left: auto; background: var(--accent); color: var(--on-accent); border-radius: 999px; font-size: 11px; padding: 0 7px; font-weight: 700; }
-.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); flex: none; }
-.dot.off { background: transparent; border: 1.5px solid var(--subtle); }
-.main { display: flex; flex-direction: column; min-width: 0; }
-.head { display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-bottom: 1px solid var(--line); }
-.head b { color: var(--fg); }
-.head .topic { color: var(--subtle); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.huddle {
-  margin-left: auto; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
-  background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); font-weight: 600; font-size: 12px; white-space: nowrap;
-}
-.msgs { flex: 1; padding: 14px 18px; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
-.msg { display: grid; grid-template-columns: 36px 1fr; gap: 10px; }
-.av { width: 36px; height: 36px; border-radius: 8px; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px; }
-.who { color: var(--fg); font-weight: 700; }
-.when { color: var(--subtle); font-size: 12px; margin-left: 6px; font-weight: 400; }
-.msg p { margin: 2px 0 0; color: var(--fg-soft); }
-.mention { background: var(--accent-tint); color: var(--accent); border-radius: 4px; padding: 0 3px; font-weight: 600; }
-.chips { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
-.chip { border: 1px solid var(--line-strong); border-radius: 999px; padding: 1px 8px; font-size: 12px; color: var(--muted); }
-.chip.mine { border-color: var(--accent); background: var(--accent-tint); color: var(--accent); }
-.thread { margin-top: 6px; color: var(--accent); font-weight: 600; font-size: 13px; }
-.card {
-  margin-top: 8px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 8px;
-  padding: 8px 12px; background: var(--raised); max-width: 420px;
-}
-.card .t { color: var(--fg); font-weight: 600; }
-.card .s { color: var(--subtle); font-size: 12px; }
-.compose { margin: 0 18px 16px; border: 1px solid var(--line-strong); border-radius: 10px; padding: 10px 12px; color: var(--subtle); }
-@media (max-width: 900px) { .app { grid-template-columns: 52px 1fr; } .side { display: none; } }
-@media (max-width: 560px) { .app { grid-template-columns: 1fr; height: auto; } .rail { display: none; } .head .topic { display: none; } }
+:root[data-theme="dark"] .shot .light { display: none; }
+:root[data-theme="dark"] .shot .dark { display: block; }
 
 section { padding: 88px 0 0; }
 .kicker { color: var(--accent); font-weight: 700; font-size: 14px; text-transform: uppercase; letter-spacing: .06em; }
@@ -267,60 +233,10 @@ footer a:hover { color: var(--fg); }
       </a>
     </div>
 
-    <div class="shot" role="img" aria-label="The app: a workspace sidebar with channels and direct messages, and a channel with messages, a thread, reactions, a link preview and a huddle in progress">
-      <div class="app" aria-hidden="true">
-        <div class="rail">
-          <div class="ws a">AC</div>
-          <div class="ws b">OS</div>
-          <div class="ws c">LB</div>
-        </div>
-        <div class="side">
-          <div class="name">Acme Studio</div>
-          <div class="row">Threads</div>
-          <div class="row">Later</div>
-          <div class="label">Channels</div>
-          <div class="row"># general</div>
-          <div class="row on"># product</div>
-          <div class="row bold"># design <span class="badge">3</span></div>
-          <div class="row"># releases</div>
-          <div class="row"># random</div>
-          <div class="label">Direct messages</div>
-          <div class="row"><span class="dot"></span>Mila Jovanović</div>
-          <div class="row bold"><span class="dot"></span>Jonas Weber <span class="badge">1</span></div>
-          <div class="row"><span class="dot off"></span>Priya Nair</div>
-        </div>
-        <div class="main">
-          <div class="head"><b># product</b><span class="topic">Roadmap, launches and the weekly review</span><span class="huddle">● Huddle · 4</span></div>
-          <div class="msgs">
-            <div class="msg">
-              <div class="av" style="background:#0e7490">MJ</div>
-              <div>
-                <span class="who">Mila Jovanović</span><span class="when">10:42</span>
-                <p>Release notes for Thursday are in the doc. <span class="mention">@Jonas</span> can you check the upgrade section?</p>
-                <div class="card"><div class="t">Upgrade checklist · v2.4</div><div class="s">Google Drive · edited 12 minutes ago</div></div>
-                <div class="thread">5 replies · last reply 2 min ago</div>
-              </div>
-            </div>
-            <div class="msg">
-              <div class="av" style="background:#b45309">JW</div>
-              <div>
-                <span class="who">Jonas Weber</span><span class="when">10:47</span>
-                <p>Looks good. Search found the old migration notes inside last year's PDF, linking them in the thread.</p>
-                <div class="chips"><span class="chip mine">👍 4</span><span class="chip">🚀 2</span><span class="chip">👀 1</span></div>
-              </div>
-            </div>
-            <div class="msg">
-              <div class="av" style="background:#7c3aed">PN</div>
-              <div>
-                <span class="who">Priya Nair</span><span class="when">10:51</span>
-                <p>Jumping into the huddle for the review — screen share in a minute.</p>
-              </div>
-            </div>
-          </div>
-          <div class="compose">Message #product</div>
-        </div>
-      </div>
-    </div>
+    <figure class="shot">
+      <img class="light" src="img/hero-light.webp" width="1440" height="960" alt="The app: a workspace sidebar with channels, people and their statuses, and the #product channel with a chart, a code block, a poll and reactions, with a thread open beside it">
+      <img class="dark" src="img/hero-dark.webp" width="1440" height="960" alt="The app: a workspace sidebar with channels, people and their statuses, and the #product channel with a chart, a code block, a poll and reactions, with a thread open beside it">
+    </figure>
   </div>
 
   <section id="features">
