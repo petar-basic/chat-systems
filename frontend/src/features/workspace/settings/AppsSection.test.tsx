@@ -8,6 +8,7 @@ const requestMutate = vi.fn();
 const createMutate = vi.fn();
 const enableMutate = vi.fn();
 let directory: AppDirectory;
+let appsLoading = false;
 
 vi.mock('@/features/workspace/hooks/useAppDirectory', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/features/workspace/hooks/useAppDirectory')>()),
@@ -15,7 +16,12 @@ vi.mock('@/features/workspace/hooks/useAppDirectory', async (importOriginal) => 
   useRequestApp: () => ({ mutate: requestMutate, isPending: false, error: null }),
 }));
 vi.mock('@/features/workspace/hooks/useApps', () => ({
-  useApps: () => ({ data: { data: [] } }),
+  useApps: () => ({
+    data: appsLoading ? undefined : { data: [] },
+    isLoading: appsLoading,
+    isError: false,
+    refetch: vi.fn(),
+  }),
   useAppActions: () => ({}),
 }));
 vi.mock('@/features/workspace/hooks/useBotApps', () => ({
@@ -48,6 +54,7 @@ const installed = (over: Partial<InstalledApp>): InstalledApp => ({
 const rows = () => screen.getAllByTestId('app-directory-row');
 
 beforeEach(() => {
+  appsLoading = false;
   requestMutate.mockReset();
   enableMutate.mockReset();
   createMutate
@@ -79,6 +86,14 @@ beforeEach(() => {
 });
 
 describe('AppsSection', () => {
+  it('shows nothing of the directory until the connected apps have loaded too', () => {
+    appsLoading = true;
+    render(<AppsSection workspaceId="ws-1" />);
+
+    expect(screen.getByTestId('query-loading')).toBeInTheDocument();
+    expect(screen.queryByTestId('app-directory-build-open')).not.toBeInTheDocument();
+  });
+
   it('lists everything installed with who added it, where, and whether it works', () => {
     render(<AppsSection workspaceId="ws-1" />);
 

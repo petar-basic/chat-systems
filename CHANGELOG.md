@@ -20,6 +20,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 - Renaming a workspace shows the new name at once in the sidebar header, the tab title, the
   checklist and the notifications menu, instead of after a reload.
+- *Workspace settings → Apps* waits for the connected apps before showing the directory, so the
+  list no longer jumps under the pointer while it loads.
 
 ### Changed
 
