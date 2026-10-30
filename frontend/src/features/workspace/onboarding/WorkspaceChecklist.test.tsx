@@ -124,4 +124,29 @@ describe('WorkspaceChecklist', () => {
     renderChecklist({ workspace: workspace({ id: 'ws-2' }) });
     expect(screen.getByTestId('workspace-checklist')).toBeInTheDocument();
   });
+
+  it('folds its steps away and back', () => {
+    renderChecklist({});
+    const toggle = screen.getByTestId('checklist-toggle');
+    expect(screen.getByTestId('checklist-invite')).toBeVisible();
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByTestId('checklist-invite')).not.toBeVisible();
+
+    fireEvent.click(toggle);
+    expect(screen.getByTestId('checklist-invite')).toBeVisible();
+  });
+
+  it('starts folded on a phone, keeping the progress in view', () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true }));
+    try {
+      renderChecklist({});
+      expect(screen.getByTestId('checklist-progress')).toHaveTextContent('0 of 4 done');
+      expect(screen.getByTestId('checklist-toggle')).toHaveTextContent('Show steps');
+      expect(screen.getByTestId('checklist-invite')).not.toBeVisible();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });

@@ -147,3 +147,29 @@ test('holding a message opens the action sheet', async ({ page, playwright }) =>
     await admin.dispose();
   }
 });
+
+test('the getting-started checklist starts folded on a phone', async ({ page, playwright }) => {
+  const admin = await playwright.request.newContext({
+    extraHTTPHeaders: await authHeaders(await playwright.request.newContext(), 'admin@dev.local'),
+  });
+  const created = await admin.post(`${API}/workspaces`, { data: { name: `Fold ${Date.now()}` } });
+  expect(created.status(), 'create a fresh workspace').toBe(200);
+  const workspace = await created.json();
+
+  try {
+    await login(page, 'admin@dev.local');
+    await page.goto(`/app/${workspace.id}`);
+
+    const checklist = page.getByTestId('workspace-checklist');
+    await expect(checklist).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId('checklist-invite')).toBeHidden();
+    const folded = await checklist.boundingBox();
+    expect(folded!.height).toBeLessThan(100);
+
+    await page.getByTestId('checklist-toggle').click();
+    await expect(page.getByTestId('checklist-invite')).toBeVisible();
+  } finally {
+    await admin.delete(`${API}/workspaces/${workspace.id}`);
+    await admin.dispose();
+  }
+});
