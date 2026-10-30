@@ -39,7 +39,7 @@ test('a private channel is created from the visibility cards, named the way it w
   }
 });
 
-test('deleting a message asks first and shows the message', async ({ page }) => {
+test('deleting a message asks first and leaves no trace', async ({ page }) => {
   const { ctx: admin } = await userContext('admin@dev.local');
   const workspace = await devWorkspace(admin);
   const channel = await createChannel(admin, workspace.id, 'delete-confirm');
@@ -73,6 +73,7 @@ test('deleting a message asks first and shows the message', async ({ page }) => 
     await page.getByTestId('message-delete-confirm').click();
     await expect(dialog).toBeHidden();
     await expect(row).toHaveCount(0, { timeout: 10_000 });
+    await expect(page.getByTestId('message-deleted')).toHaveCount(0);
   } finally {
     await admin.delete(`${API}/channels/${channel.id}`);
     await admin.dispose();

@@ -27,6 +27,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   thread.
 - The @mention and :emoji: suggestions stay inside the window: near the right edge, as in a
   thread's reply box, they open leftwards instead of running off screen.
+- A deleted message disappears at once, as it does after a reload. Only a message with
+  replies stays behind as "This message was deleted", so its thread can still be opened.
 
 ### Changed
 
