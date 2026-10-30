@@ -195,8 +195,11 @@ test('a status set in the profile shows next to your name, in that workspace onl
     await page.locator('[data-qa="sidebar-profile-avatar"]').click();
     await expect(editor).toBeVisible();
     await editor.locator('[data-qa="status-emoji"]').click();
-    await page.locator('em-emoji-picker input[type="search"]').fill('pizza');
-    await page.locator('em-emoji-picker button[aria-label="🍕"]').click();
+    const search = page.locator('em-emoji-picker input[type="search"]');
+    await search.fill('pizza');
+    await expect(page.locator('em-emoji-picker button[aria-label="🍕"]')).toBeVisible();
+    await search.press('Enter');
+    await expect(editor.locator('[data-qa="status-emoji"]')).toHaveAccessibleName('Status emoji 🍕');
     await editor.locator('[data-qa="status-text"]').fill('at lunch');
     await page.getByTestId('profile-save').click();
     await expect(dialog).toBeHidden();

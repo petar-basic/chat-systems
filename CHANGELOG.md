@@ -36,6 +36,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - The getting-started checklist lays its steps out by its own width, so they no longer wrap
   beside a side panel, and on a phone it starts folded to one line with "Show steps".
 - Creating a workspace opens it, instead of sending you back to the workspace you were in.
+- A message that arrives while a channel is still loading its history shows up at once,
+  instead of only after the channel is opened again.
 
 ### Changed
 

@@ -57,7 +57,11 @@ function patchChannel(
   const key = QUERY_KEYS.messages(channelId);
   const existing = queryClient.getQueryData<ChannelMessages>(key);
   if (!existing) {
-    if (invalidateIfAbsent) queryClient.invalidateQueries({ queryKey: key });
+    if (invalidateIfAbsent) {
+      void queryClient
+        .cancelQueries({ queryKey: key })
+        .then(() => queryClient.invalidateQueries({ queryKey: key }));
+    }
     return;
   }
   queryClient.setQueryData(key, updater(existing));
