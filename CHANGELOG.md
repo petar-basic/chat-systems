@@ -25,6 +25,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - Opening a thread puts the cursor in its reply box, so what you type next goes to the thread
   instead of the channel. On a touch screen it waits for a tap, so the keyboard does not cover the
   thread.
+- The @mention and :emoji: suggestions stay inside the window: near the right edge, as in a
+  thread's reply box, they open leftwards instead of running off screen.
 
 ### Changed
 
