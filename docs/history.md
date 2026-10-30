@@ -1269,7 +1269,7 @@ latest three replies, *N new replies* and a reply box, and reads them as they ar
 
 ---
 
-## Wave 20 — Dialogs and large calls
+## Wave 20 — Dialogs and large calls ✅ shipped
 
 ### [CS-059] Dialogs that look finished ✅ shipped
 CS-056 had given every dialog the same buttons and close button, but side by side they still
@@ -2417,3 +2417,42 @@ a connected app is set up only after the admin has read what it will see for eac
 connects. Taking a scope away does not ask. A member who wants something asks for it in the
 directory, which writes a `system` notification for every admin and owner, under a rate budget
 of its own so a request cannot be used to flood them.
+
+### [CS-037] SFU for large huddles ✅ shipped
+A huddle was a mesh: everybody sent their audio and video to everybody else, so each person's
+upload and CPU grew with every other person, and a call stopped working somewhere between six
+and eight. Four PRs added LiveKit for the calls above that. The mesh stays, because the two-
+and three-person calls most huddles are need no media server at all.
+
+**Tokens, not a second permission model.** LiveKit runs beside the stack from its own compose
+file, on the host network as coturn does, and only checks signatures.
+`POST /huddles/{id}/sfu-token` runs the same check the gateway runs on `huddle.join`, through
+one function both call, and signs a ten-minute token for one room and one person. Without
+`LIVEKIT_URL` the route is 404 and every huddle stays on the mesh.
+
+**One huddle, two transports.** `MeshManager` and `SfuTransport` both implement
+`HuddleTransport`, and `HuddleController` sees only the interface. Mute, raised hands,
+reactions and the huddle history stay on the gateway, so none of them care which transport
+carries the media.
+
+**Promotion.** The decision lives in the join script that already counted members: it sets
+`huddle:{id}:transport` in the same atomic step, so two people joining at the threshold
+promote the huddle once and the gateway sends `huddle.transport` once. `huddle.members` carries
+the transport, so whoever joins later goes straight to LiveKit. On the SFU the cap is
+`HUDDLE_SFU_MAX_PARTICIPANTS` instead of eight, and the gateway refuses to start with a
+threshold of eight or more, because a full mesh could then never move. In the browser,
+`Promotion` holds the LiveKit tracks and keeps the mesh playing until everybody it was
+connected to is heard over LiveKit, or eight seconds pass, and only then closes the mesh, so
+nobody hears a gap. A browser that cannot reach LiveKit keeps the mesh and says so. A huddle
+never moves back.
+
+**The ceiling.** The ticket asked for measured numbers. A load test on the staging host would
+have measured one two-CPU machine and the upload of whoever ran the load generator: a number
+nobody else could reuse. The RUNBOOK keeps what is fixed instead. Every person takes two UDP
+ports, so the `50000–50200` range bounds one LiveKit at about a hundred people, which is the
+default cap. For the rest it gives the commands and the rule for measuring on your own host.
+What was checked on the deployed 4.0.0 is the path: with `HUDDLE_SFU_THRESHOLD=1`, a second
+person joining moved the huddle, both browsers joined LiveKit, and audio and video crossed in
+both directions. Bringing LiveKit up there found three things the RUNBOOK lacked, and now has:
+`ufw` filters the proxy's way to port 7880 on the host network, the DNS name has to bypass
+Cloudflare's proxy, and the Coolify Traefik file.

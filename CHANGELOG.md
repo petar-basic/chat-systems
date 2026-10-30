@@ -14,6 +14,15 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
+## [Unreleased]
+
+### Changed
+
+- The RUNBOOK's *Huddle SFU (LiveKit)* covers a Coolify host: fetching the compose file without
+  a checkout, the `ufw` rule that lets the proxy reach LiveKit (without it, `504` after thirty
+  seconds), a DNS name that bypasses Cloudflare's proxy, and the Traefik file. *How many people
+  one LiveKit holds* explains the hundred-person bound and how to measure your own host.
+
 ## [4.0.0] — 2026-10-29
 
 ### Upgrading from 3.7.0

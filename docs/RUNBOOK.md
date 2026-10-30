@@ -1099,8 +1099,29 @@ The container is limited to 2 CPUs and 1 GB.
    ```
 
    Keep the secret: the api needs the same value. LiveKit refuses a shorter one.
-2. Open `7881/tcp` and `50000-50200/udp`. Leave `7880` closed.
-3. Give signalling a name with TLS, e.g. `sfu.example.com` pointing at the host.
+   On a host with no checkout, such as a Coolify server, fetch the two files first:
+
+   ```bash
+   mkdir -p ~/livekit/docker/livekit && cd ~/livekit
+   curl -fsSLO https://raw.githubusercontent.com/petar-basic/chat-systems/main/docker-compose.livekit.yml
+   curl -fsSL -o docker/livekit/livekit.yaml \
+     https://raw.githubusercontent.com/petar-basic/chat-systems/main/docker/livekit/livekit.yaml
+   ```
+
+   `curl localhost:7880` on the host answers `OK` once it is up.
+2. Open `7881/tcp` and `50000-50200/udp`, on the provider's firewall and on the host's own.
+   Leave `7880` closed to the world, but let the proxy reach it: LiveKit is on the host network,
+   so `ufw` filters what the proxy container sends to it, and without this rule the proxy
+   answers `504` after thirty seconds:
+
+   ```bash
+   ufw allow 7881/tcp
+   ufw allow 50000:50200/udp
+   ufw allow from 10.0.0.0/8 to any port 7880 proto tcp
+   ufw allow from 172.16.0.0/12 to any port 7880 proto tcp
+   ```
+3. Give signalling a name with TLS, e.g. `sfu.example.com` pointing at the host. Behind
+   Cloudflare the record must be *DNS only*: its proxy carries no UDP and no `7881`.
    - **`docker-compose.prod.yml`**: add a site to `docker/Caddyfile` and restart `caddy`
      (the service can reach the host as `host.docker.internal`):
 
@@ -1110,9 +1131,27 @@ The container is limited to 2 CPUs and 1 GB.
      }
      ```
 
-   - **Coolify**: in *Servers → Proxy → Dynamic configurations*, add a router for
-     `sfu.example.com` to `http://host.docker.internal:7880` (Traefik) or the same Caddy site
-     (Caddy proxy).
+   - **Coolify** with Traefik: *Servers → your server → Proxy → Dynamic Configurations →
+     Add*, a file named `livekit.yaml`:
+
+     ```yaml
+     http:
+       routers:
+         livekit:
+           rule: Host(`sfu.example.com`)
+           entryPoints:
+             - https
+           service: livekit
+           tls:
+             certResolver: letsencrypt
+       services:
+         livekit:
+           loadBalancer:
+             servers:
+               - url: http://host.docker.internal:7880
+     ```
+
+     With the Caddy proxy, the same site as above.
 
    `curl https://sfu.example.com` answers `OK` once it is through.
 4. Set `LIVEKIT_URL=wss://sfu.example.com`, `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` on the
@@ -1130,6 +1169,44 @@ to the SFU`. Each browser joins LiveKit and keeps the mesh playing until it hear
 LiveKit, at most eight seconds, so nobody goes silent. A browser that cannot get a token or
 reach LiveKit logs `HuddleController.sfu`, tells the person, and keeps the mesh with whoever is
 still on it. To try it with two browsers, set `HUDDLE_SFU_THRESHOLD=1` on `realtime`.
+
+### How many people one LiveKit holds
+
+That depends on the host, so there is no number here to copy. What is fixed is the port range:
+every person takes two UDP ports (one to send, one to receive), so `50000–50200` is about 100
+people however fast the CPU is, which is why `HUDDLE_SFU_MAX_PARTICIPANTS` defaults to 100. To
+go past it, widen the range in `docker/livekit/livekit.yaml` and on both firewalls first.
+
+Below that, the CPU decides. The container is limited to 2 CPUs; measure on your own host
+before you promise a size, from another machine with plenty of upload (the load generator
+sends everybody's media, and a hundred people listening to a hundred microphones is about
+300 Mbit/s to it):
+
+```bash
+ulimit -n 65535
+lk load-test --url wss://sfu.example.com --api-key chat --api-secret <LIVEKIT_API_SECRET> \
+  --room load-test --audio-publishers 50 --subscribers 50 --duration 5m
+lk load-test --url wss://sfu.example.com --api-key chat --api-secret <LIVEKIT_API_SECRET> \
+  --room load-test --video-publishers 25 --subscribers 25 --duration 5m
+```
+
+`lk` is LiveKit's CLI (`brew install livekit-cli`). While it runs, log CPU and memory on the
+host:
+
+```bash
+while true; do echo "$(date +%T) $(docker stats chat-livekit --no-stream \
+  --format '{{.CPUPerc}} {{.MemUsage}}')"; sleep 5; done | tee lk-stats.log
+```
+
+`docker stats` shows no network for a container on the host network; the CLI prints what each
+subscriber received and lost, and their sum is what LiveKit sent. A size holds when nobody
+drops, no track loses more than 1% of its packets for the five minutes, and CPU stays under
+70%, which leaves room for cameras being turned on. Set `HUDDLE_SFU_MAX_PARTICIPANTS` to the
+largest microphone-only size that held, or move LiveKit to a bigger host.
+
+The load test talks to LiveKit directly with the API key, so it measures the SFU alone. That
+the gateway moves a huddle and the browsers follow is checked with two browsers and
+`HUDDLE_SFU_THRESHOLD=1` (`docs/manual-qa.md`, 9.7).
 
 ## Importing a Slack export
 
