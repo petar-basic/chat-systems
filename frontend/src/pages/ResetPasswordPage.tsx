@@ -1,8 +1,10 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
+import { KeyRound } from 'lucide-react';
 import { buttonStyles } from '@/shared/components/Button/buttonStyles';
 import { Button } from '@/shared/components/Button/Button';
 import { TextInput } from '@/shared/components/Form/TextInput';
-import { useSearchParams, Link } from 'react-router';
+import { useSearchParams, useLocation, Link } from 'react-router';
+import { ROUTES } from '@/shared/constants';
 import { api } from '../lib/api';
 
 export default function ResetPasswordPage() {
@@ -16,8 +18,42 @@ export default function ResetPasswordPage() {
   return <ResetForm token={token} />;
 }
 
+function emailFrom(state: unknown): string {
+  if (state && typeof state === 'object' && 'email' in state && typeof state.email === 'string')
+    return state.email;
+  return '';
+}
+
+const CARD = 'bg-surface/50 backdrop-blur-xl border border-line rounded-2xl p-8 shadow-2xl';
+
+function Shell({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-app via-accent-deep to-app flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-600 rounded-2xl mb-4">
+            <KeyRound className="w-8 h-8 text-fg" />
+          </div>
+          <h1 className="text-3xl font-bold text-fg">{title}</h1>
+          {subtitle && <p className="text-muted mt-2">{subtitle}</p>}
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function BackToSignIn() {
+  return (
+    <Link to={ROUTES.addInstance} className="text-accent hover:text-accent-soft text-sm">
+      Back to sign in
+    </Link>
+  );
+}
+
 function ForgotPasswordForm() {
-  const [email, setEmail] = useState('');
+  const location = useLocation();
+  const [email, setEmail] = useState(() => emailFrom(location.state));
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -32,50 +68,48 @@ function ForgotPasswordForm() {
     setLoading(false);
   };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-app px-4">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <div className="w-12 h-12 rounded-2xl bg-purple-600 flex items-center justify-center text-2xl font-bold text-white mx-auto mb-4">
-            C
-          </div>
-          <h1 className="text-2xl font-bold text-fg">Reset password</h1>
-          <p className="text-muted mt-2">Enter your email to receive a reset link</p>
+  if (submitted) {
+    return (
+      <Shell title="Check your email">
+        <div className={`${CARD} text-center space-y-4`} data-qa="forgot-password-sent">
+          <p className="text-fg-dim">
+            If an account exists for <span className="font-medium text-fg">{email.trim()}</span>, a link to
+            set a new password is on its way. It works for one hour.
+          </p>
+          <BackToSignIn />
         </div>
+      </Shell>
+    );
+  }
 
-        {submitted ? (
-          <div className="bg-surface border border-line rounded-2xl p-6 text-center">
-            <p className="text-success mb-4">
-              If an account exists with that email, a password reset link has been sent.
-            </p>
-            <Link to="/login" className="text-accent hover:text-accent-soft text-sm">
-              Back to Login
-            </Link>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="bg-surface border border-line rounded-2xl p-6 space-y-4">
-            <TextInput
-              label="Email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@company.com"
-              autoComplete="email"
-              required
-              autoFocus
-            />
-            <Button variant="primary" fullWidth type="submit" disabled={loading || !email.trim()}>
-              {loading ? 'Sending…' : 'Send reset link'}
-            </Button>
-            <div className="text-center">
-              <Link to="/login" className="text-accent hover:text-accent-soft text-sm">
-                Back to Login
-              </Link>
-            </div>
-          </form>
-        )}
-      </div>
-    </div>
+  return (
+    <Shell title="Reset password" subtitle="We'll email you a link to set a new one">
+      <form onSubmit={handleSubmit} className={`${CARD} space-y-5`}>
+        <TextInput
+          label="Email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@company.com"
+          autoComplete="email"
+          dataQa="forgot-password-email"
+          required
+          autoFocus
+        />
+        <Button
+          variant="primary"
+          fullWidth
+          type="submit"
+          disabled={loading || !email.trim()}
+          loading={loading}
+        >
+          Send reset link
+        </Button>
+        <div className="text-center">
+          <BackToSignIn />
+        </div>
+      </form>
+    </Shell>
   );
 }
 
@@ -107,56 +141,58 @@ function ResetForm({ token }: { token: string }) {
     setLoading(false);
   };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-app px-4">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <div className="w-12 h-12 rounded-2xl bg-purple-600 flex items-center justify-center text-2xl font-bold text-white mx-auto mb-4">
-            C
-          </div>
-          <h1 className="text-2xl font-bold text-fg">Set new password</h1>
+  if (success) {
+    return (
+      <Shell title="Password changed">
+        <div className={`${CARD} text-center space-y-5`}>
+          <p className="text-fg-dim">
+            Your new password is set, and every device that was signed in has been signed out.
+          </p>
+          <Link to={ROUTES.addInstance} className={buttonStyles({ variant: 'primary' })}>
+            Sign in
+          </Link>
         </div>
+      </Shell>
+    );
+  }
 
-        {success ? (
-          <div className="bg-surface border border-line rounded-2xl p-6 text-center">
-            <p className="text-success mb-4">Password has been reset successfully!</p>
-            <Link to="/login" className={buttonStyles({ variant: 'primary' })}>
-              Go to login
-            </Link>
+  return (
+    <Shell title="Set a new password">
+      <form onSubmit={handleSubmit} className={`${CARD} space-y-5`}>
+        {error && (
+          <div
+            role="alert"
+            className="bg-red-500/10 border border-red-500/30 text-danger px-4 py-3 rounded-lg text-sm"
+          >
+            {error}
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="bg-surface border border-line rounded-2xl p-6 space-y-4">
-            <TextInput
-              label="New password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              hint="At least 8 characters."
-              autoComplete="new-password"
-              required
-              minLength={8}
-              autoFocus
-            />
-            <TextInput
-              label="Confirm new password"
-              type="password"
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              autoComplete="new-password"
-              required
-              minLength={8}
-            />
-            {error && (
-              <p role="alert" className="text-danger text-sm">
-                {error}
-              </p>
-            )}
-            <Button variant="primary" fullWidth type="submit" disabled={loading}>
-              {loading ? 'Resetting…' : 'Reset password'}
-            </Button>
-          </form>
         )}
-      </div>
-    </div>
+        <TextInput
+          label="New password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          hint="At least 8 characters."
+          autoComplete="new-password"
+          dataQa="reset-password-new"
+          required
+          minLength={8}
+          autoFocus
+        />
+        <TextInput
+          label="Confirm new password"
+          type="password"
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+          autoComplete="new-password"
+          dataQa="reset-password-confirm"
+          required
+          minLength={8}
+        />
+        <Button variant="primary" fullWidth type="submit" disabled={loading} loading={loading}>
+          Reset password
+        </Button>
+      </form>
+    </Shell>
   );
 }
