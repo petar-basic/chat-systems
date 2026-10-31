@@ -14,6 +14,25 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
+## [4.0.2] — 2026-10-31
+
+### Upgrading from 4.0.1
+
+- Set `VERSION=4.0.2`, pull both images and restart. Only the frontend changed, and there is no
+  migration.
+
+### Fixed
+
+- A failed sign-in says why: a wrong password reads "Invalid email or password" and a wrong
+  second-factor code "That code did not match", instead of "Your session expired" for every
+  failure. The same goes for an invalid invite or reset link.
+
+### Added
+
+- *Forgot password?* on the sign-in form. It opens the reset page with the email already filled
+  in; the emailed link works for an hour, and setting a new password signs out every device. The
+  reset pages match the sign-in page.
+
 ## [4.0.1] — 2026-10-30
 
 ### Upgrading from 4.0.0
