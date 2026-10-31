@@ -1,12 +1,12 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { Button } from '@/shared/components/Button/Button';
 import { TextInput } from '@/shared/components/Form/TextInput';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { KeyRound, ServerCrash, LogIn } from 'lucide-react';
 import { useInstanceStore } from '@/stores/instances';
 import { useInstanceInfo } from '@/features/instance/hooks/useInstanceInfo';
 import { isTotpRequired } from '@/lib/errors';
-import { PENDING_INVITE_KEY } from '@/shared/constants';
+import { PENDING_INVITE_KEY, ROUTES } from '@/shared/constants';
 import { ssoStartUrl } from '@/features/instance/ssoStart';
 
 /// A sign-in that started from an invite link owes the person the workspace
@@ -152,6 +152,19 @@ export default function AddInstancePage() {
               dataQa="login-password"
               required
             />
+
+            {sameOrigin && (
+              <div className="-mt-2 text-right">
+                <Link
+                  to={ROUTES.forgotPassword}
+                  state={{ email: email.trim() }}
+                  data-qa="forgot-password"
+                  className="text-sm text-accent hover:text-accent-soft"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+            )}
 
             {needsTotp && (
               <TextInput
