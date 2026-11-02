@@ -2,6 +2,7 @@ import { useState, useEffect, type FormEvent } from 'react';
 import { Button } from '@/shared/components/Button/Button';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { Link, useNavigate } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { KeyRound, ServerCrash, LogIn } from 'lucide-react';
 import { useInstanceStore } from '@/stores/instances';
 import { useInstanceInfo } from '@/features/instance/hooks/useInstanceInfo';
@@ -19,6 +20,7 @@ function afterSignIn(): string {
 }
 
 export default function AddInstancePage() {
+  const { t } = useTranslation('auth');
   const navigate = useNavigate();
   const { addInstance, instances, hydrated, loading, error, clearError } = useInstanceStore();
 
@@ -74,12 +76,10 @@ export default function AddInstancePage() {
             <ServerCrash className="w-8 h-8 text-fg" />
           </div>
           <h1 className="text-3xl font-bold text-fg">
-            {isFirstInstance ? 'Welcome to Chat Systems' : 'Add Instance'}
+            {isFirstInstance ? t('signIn.welcome') : t('signIn.addInstance')}
           </h1>
           <p className="text-muted mt-2">
-            {isFirstInstance
-              ? 'Connect to your Chat Systems server'
-              : 'Connect to another Chat Systems server'}
+            {isFirstInstance ? t('signIn.connectFirst') : t('signIn.connectAnother')}
           </p>
         </div>
 
@@ -95,13 +95,13 @@ export default function AddInstancePage() {
 
           {needsTotp && (
             <div className="bg-purple-500/10 border border-purple-500/30 text-accent-soft px-4 py-3 rounded-lg mb-6 text-sm">
-              Enter the six-digit code from your authenticator app, or one of your recovery codes.
+              {t('signIn.totpPrompt')}
             </div>
           )}
 
           <div className="space-y-5 mb-6">
             <TextInput
-              label="Server URL"
+              label={t('signIn.serverUrl')}
               type="url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
@@ -115,13 +115,13 @@ export default function AddInstancePage() {
                 onClick={() => setShowAdvanced(!showAdvanced)}
                 className="text-xs text-muted hover:text-fg-dim transition flex items-center gap-1"
               >
-                <span>{showAdvanced ? '▾' : '▸'}</span> Advanced options
+                <span>{showAdvanced ? '▾' : '▸'}</span> {t('signIn.advancedOptions')}
               </button>
               {showAdvanced && (
                 <TextInput
-                  label="WebSocket URL"
+                  label={t('signIn.websocketUrl')}
                   optional
-                  hint="Only needed if the WebSocket server runs on a different port."
+                  hint={t('signIn.websocketUrlHint')}
                   type="url"
                   value={wsUrl}
                   onChange={(e) => setWsUrl(e.target.value)}
@@ -132,7 +132,7 @@ export default function AddInstancePage() {
             </div>
 
             <TextInput
-              label="Email"
+              label={t('signIn.email')}
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -143,11 +143,11 @@ export default function AddInstancePage() {
             />
 
             <TextInput
-              label="Password"
+              label={t('signIn.password')}
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
+              placeholder={t('signIn.passwordPlaceholder')}
               autoComplete="current-password"
               dataQa="login-password"
               required
@@ -161,14 +161,14 @@ export default function AddInstancePage() {
                   data-qa="forgot-password"
                   className="text-sm text-accent hover:text-accent-soft"
                 >
-                  Forgot password?
+                  {t('signIn.forgotPassword')}
                 </Link>
               </div>
             )}
 
             {needsTotp && (
               <TextInput
-                label="Authentication code"
+                label={t('signIn.totpCode')}
                 inputMode="text"
                 autoComplete="one-time-code"
                 autoFocus
@@ -188,15 +188,16 @@ export default function AddInstancePage() {
             disabled={loading}
             loading={loading}
             icon={<LogIn className="h-4 w-4" />}
+            data-qa="login-submit"
           >
-            Connect
+            {t('signIn.submit')}
           </Button>
 
           {instance?.sso_enabled && sameOrigin && (
             <>
               <div className="flex items-center gap-3 my-6">
                 <div className="h-px flex-1 bg-raised" />
-                <span className="text-xs uppercase tracking-wide text-subtle">or</span>
+                <span className="text-xs uppercase tracking-wide text-subtle">{t('signIn.or')}</span>
                 <div className="h-px flex-1 bg-raised" />
               </div>
               <a
@@ -206,7 +207,7 @@ export default function AddInstancePage() {
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-raised hover:bg-elevated text-fg font-medium rounded-lg transition"
               >
                 <KeyRound className="w-4 h-4" />
-                Sign in with SSO
+                {t('signIn.sso')}
               </a>
             </>
           )}
@@ -217,13 +218,11 @@ export default function AddInstancePage() {
             onClick={() => navigate(-1)}
             className="mt-4 w-full text-center text-muted text-sm hover:text-fg-dim transition"
           >
-            Cancel
+            {t('signIn.cancel')}
           </button>
         )}
 
-        <p className="text-center text-muted text-sm mt-6">
-          Invite-only platform. Contact your admin for access.
-        </p>
+        <p className="text-center text-muted text-sm mt-6">{t('signIn.inviteOnly')}</p>
       </div>
     </div>
   );

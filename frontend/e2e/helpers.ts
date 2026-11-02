@@ -85,7 +85,7 @@ export async function login(page: Page, email: string) {
     (r) => r.url().includes('/api/auth/login') && r.request().method() === 'POST',
     { timeout: 20_000 },
   );
-  await page.getByRole('button', { name: 'Connect' }).click();
+  await page.locator('[data-qa="login-submit"]').click();
   const signIn = await response;
   expect(signIn.status(), `sign-in for ${email} returned ${signIn.status()}`).toBe(200);
 

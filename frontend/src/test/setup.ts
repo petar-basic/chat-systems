@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { configure } from '@testing-library/dom';
+import '@/lib/i18n';
 
 configure({ testIdAttribute: 'data-qa' });
 

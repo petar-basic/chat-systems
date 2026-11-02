@@ -40,5 +40,5 @@ test('the sign-in page offers SSO only when the instance has it', async ({ page 
   const info = await page.request.get(`${API}/instance/info`);
   const { sso_enabled: ssoEnabled } = await info.json();
   expect(ssoEnabled).toBe(true);
-  await expect(page.getByRole('link', { name: 'Sign in with SSO' })).toBeVisible();
+  await expect(page.locator('[data-qa="sso-start"]')).toBeVisible();
 });

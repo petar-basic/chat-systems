@@ -50,6 +50,18 @@ installable from any Chromium browser (address-bar install icon) or Safari
 (*File → Add to Dock*). Installed windows get the unread-count badge on the app
 icon via the Badging API; nothing extra to build or sign.
 
+## Translations
+
+Strings live in `src/locales/<lang>/<namespace>.json`, one namespace per feature, and
+components read them with `useTranslation('<namespace>')`. English is the source: add a new
+string to `en` only. A string missing from another language shows in English, so a feature
+never waits on a translation.
+
+- Keys are typed from the English files, so a misspelled key fails `npx tsc -b`.
+- Text with markup inside it uses `<Trans>` with named tags (`<email>{{email}}</email>`).
+- The language follows the browser for now; English is the fallback.
+- Tests and E2E select elements by `data-qa`, so a translation never breaks one.
+
 ## Notes
 
 - Path alias `@` → `src/` (configured in `vite.config.ts` and `vitest.config.ts`).
