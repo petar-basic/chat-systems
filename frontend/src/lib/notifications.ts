@@ -100,11 +100,18 @@ function listenForClicks(shell: DesktopShell) {
   });
 }
 
+export interface NotificationOrigin {
+  place: string;
+  workspaceId: string | null;
+}
+
+const NOWHERE: NotificationOrigin = { place: '', workspaceId: null };
+
 function notifyDesktop(
   shell: DesktopShell,
   title: string,
-  subtitle: string,
   body: string,
+  origin: NotificationOrigin,
   onClick?: () => void,
 ) {
   const key = (nextKey++).toString(16);
@@ -114,15 +121,21 @@ function notifyDesktop(
     const oldest = pendingClicks.keys().next().value;
     if (pendingClicks.size > MOST_PENDING_CLICKS && oldest !== undefined) pendingClicks.delete(oldest);
   }
-  shell.notify({ key, title, subtitle, body });
+  shell.notify({ key, title, subtitle: origin.place, body, workspace_id: origin.workspaceId });
 }
 
-export function showNotification(title: string, body: string, tag: string, onClick?: () => void, place = '') {
+export function showNotification(
+  title: string,
+  body: string,
+  tag: string,
+  onClick?: () => void,
+  origin: NotificationOrigin = NOWHERE,
+) {
   if (document.hasFocus()) return;
 
   const shell = desktopShell();
   if (shell) {
-    notifyDesktop(shell, title, place, body, onClick);
+    notifyDesktop(shell, title, body, origin, onClick);
     return;
   }
 

@@ -10,7 +10,8 @@ use std::sync::Mutex;
 use notify_rust::{Notification, NotificationResponse, Timeout};
 use serde::Serialize;
 use tauri::ipc::CapabilityBuilder;
-use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
+use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
+use tauri::tray::TrayIconBuilder;
 use tauri::utils::config::BackgroundThrottlingPolicy;
 use tauri::webview::{DownloadEvent, NewWindowFeatures, NewWindowResponse, WebviewBuilder};
 use tauri::window::WindowBuilder;
@@ -18,7 +19,9 @@ use tauri::{
     AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, RunEvent, Runtime, State, Webview,
     WebviewUrl, WebviewWindowBuilder, Window, WindowEvent,
 };
+use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 use tauri_plugin_opener::OpenerExt;
+use tauri_plugin_window_state::StateFlags;
 use url::Url;
 
 use servers::{Server, Store};
@@ -27,6 +30,8 @@ use workspaces::Workspace;
 const MAIN: &str = "main";
 const RAIL: &str = "rail";
 const PICKER: &str = "picker";
+const TRAY: &str = "tray";
+const STARTED_HIDDEN: &str = "--hidden";
 const RAIL_WIDTH: f64 = 72.0;
 const NOTIFICATION_LINGERS_MS: u32 = 60 * 60 * 1000;
 
@@ -97,9 +102,14 @@ fn overview<R: Runtime>(app: &AppHandle<R>) -> Overview {
         .into_iter()
         .map(|server| {
             let report = reports.get(&server.url).cloned().unwrap_or_default();
+            let workspaces = report
+                .workspaces
+                .into_iter()
+                .filter(|w| !server.hidden.contains(&w.id))
+                .collect();
             ServerView {
                 server,
-                workspaces: report.workspaces,
+                workspaces,
                 current: report.current,
             }
         })
@@ -115,6 +125,14 @@ fn badge<R: Runtime>(app: &AppHandle<R>, servers: &[ServerView]) {
         .fold(0, u32::saturating_add);
     if let Ok(window) = main_window(app) {
         let _ = window.set_badge_count((unread > 0).then_some(i64::from(unread)));
+    }
+    if let Some(tray) = app.tray_by_id(TRAY) {
+        let _ = tray.set_title((unread > 0).then(|| unread.to_string()));
+        let _ = tray.set_tooltip(Some(match unread {
+            0 => "Chat Systems".to_owned(),
+            1 => "Chat Systems: 1 unread".to_owned(),
+            n => format!("Chat Systems: {n} unread"),
+        }));
     }
 }
 
@@ -384,10 +402,12 @@ async fn add_server(
     Ok(server)
 }
 
-#[tauri::command]
-fn remove_server(app: AppHandle, servers: State<'_, Servers>, url: String) -> Result<(), String> {
-    servers.lock().map_err(|e| e.to_string())?.remove(&url)?;
-    let label = webview_label(&url);
+fn forget_server<R: Runtime>(app: &AppHandle<R>, url: &str) -> Result<(), String> {
+    app.state::<Servers>()
+        .lock()
+        .map_err(|e| e.to_string())?
+        .remove(url)?;
+    let label = webview_label(url);
     let was_showing = app
         .state::<Showing>()
         .0
@@ -398,13 +418,101 @@ fn remove_server(app: AppHandle, servers: State<'_, Servers>, url: String) -> Re
         let _ = webview.close();
     }
     if let Ok(mut reports) = app.state::<Reports>().0.lock() {
-        reports.remove(&url);
+        reports.remove(url);
     }
     if was_showing {
-        return open_last(&app);
+        return open_last(app);
     }
-    announce(&app);
+    announce(app);
     Ok(())
+}
+
+#[tauri::command]
+fn remove_server(app: AppHandle, url: String) -> Result<(), String> {
+    forget_server(&app, &url)
+}
+
+fn confirm_remove<R: Runtime>(app: &AppHandle<R>, url: &str) -> Result<(), String> {
+    let server = find(app, url)?;
+    let answer = rfd::MessageDialog::new()
+        .set_level(rfd::MessageLevel::Warning)
+        .set_title(format!("Remove {}?", server.name))
+        .set_description(format!(
+            "{url} leaves the sidebar. You can add it again with its address."
+        ))
+        .set_buttons(rfd::MessageButtons::OkCancelCustom(
+            "Remove".into(),
+            "Cancel".into(),
+        ))
+        .show();
+    match answer {
+        rfd::MessageDialogResult::Ok => forget_server(app, url),
+        rfd::MessageDialogResult::Custom(label) if label == "Remove" => forget_server(app, url),
+        _ => Ok(()),
+    }
+}
+
+fn change_hidden<R: Runtime>(
+    app: &AppHandle<R>,
+    change: impl FnOnce(&mut Store) -> Result<(), String>,
+) -> Result<(), String> {
+    change(&mut *app.state::<Servers>().lock().map_err(|e| e.to_string())?)?;
+    announce(app);
+    Ok(())
+}
+
+fn build_rail_menu<R: Runtime>(
+    app: &AppHandle<R>,
+    server: &Server,
+    workspace_id: Option<&str>,
+) -> tauri::Result<Menu<R>> {
+    let menu = Menu::new(app)?;
+    if let Some(id) = workspace_id {
+        menu.append(&MenuItem::with_id(
+            app,
+            format!("hide:{id}:{}", server.url),
+            "Hide from Sidebar",
+            true,
+            None::<&str>,
+        )?)?;
+    }
+    if !server.hidden.is_empty() {
+        let shown = match server.hidden.len() {
+            1 => "Show 1 Hidden Workspace".to_owned(),
+            n => format!("Show {n} Hidden Workspaces"),
+        };
+        menu.append(&MenuItem::with_id(
+            app,
+            format!("show-hidden:{}", server.url),
+            shown,
+            true,
+            None::<&str>,
+        )?)?;
+    }
+    if !menu.items()?.is_empty() {
+        menu.append(&PredefinedMenuItem::separator(app)?)?;
+    }
+    menu.append(&MenuItem::with_id(
+        app,
+        format!("remove:{}", server.url),
+        format!("Remove {}…", server.name),
+        true,
+        None::<&str>,
+    )?)?;
+    Ok(menu)
+}
+
+#[tauri::command]
+fn rail_menu(
+    app: AppHandle,
+    window: Window,
+    url: String,
+    workspace_id: Option<String>,
+) -> Result<(), String> {
+    let server = find(&app, &url)?;
+    let workspace = workspace_id.filter(|id| workspaces::is_id(id));
+    let menu = build_rail_menu(&app, &server, workspace.as_deref()).map_err(|e| e.to_string())?;
+    window.popup_menu(&menu).map_err(|e| e.to_string())
 }
 
 fn dispatch<R: Runtime>(app: &AppHandle<R>, url: &str, command: serde_json::Value) {
@@ -486,6 +594,13 @@ fn notify(
     let server = server_of(&app, &webview)?;
     let note = notifications::accept(notification)
         .ok_or_else(|| "A notification needs a key and a title".to_owned())?;
+    if note
+        .workspace_id
+        .as_ref()
+        .is_some_and(|id| server.hidden.contains(id))
+    {
+        return Ok(());
+    }
     std::thread::Builder::new()
         .name("notification".into())
         .spawn(move || show_notification(&app, &server, &note))
@@ -528,10 +643,64 @@ fn show_add_server(app: AppHandle) -> Result<(), String> {
     open_picker(&app)
 }
 
+fn bring_back<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
+    let window = main_window(app)?;
+    let _ = window.unminimize();
+    let _ = window.show();
+    let _ = window.set_focus();
+    Ok(())
+}
+
+fn build_tray_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
+    let at_login = app.autolaunch().is_enabled().unwrap_or(false);
+    Menu::with_items(
+        app,
+        &[
+            &MenuItem::with_id(app, "show", "Open Chat Systems", true, None::<&str>)?,
+            &PredefinedMenuItem::separator(app)?,
+            &CheckMenuItem::with_id(
+                app,
+                "open-at-login",
+                "Open at Login",
+                true,
+                at_login,
+                None::<&str>,
+            )?,
+            &PredefinedMenuItem::separator(app)?,
+            &MenuItem::with_id(app, "quit", "Quit Chat Systems", true, None::<&str>)?,
+        ],
+    )
+}
+
+fn toggle_open_at_login<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
+    let autolaunch = app.autolaunch();
+    let changed = if autolaunch.is_enabled().unwrap_or(false) {
+        autolaunch.disable()
+    } else {
+        autolaunch.enable()
+    };
+    if let (Some(tray), Ok(menu)) = (app.tray_by_id(TRAY), build_tray_menu(app)) {
+        let _ = tray.set_menu(Some(menu));
+    }
+    changed.map_err(|e| e.to_string())
+}
+
 fn on_menu<R: Runtime>(app: &AppHandle<R>, id: &str) {
-    let result = match (id, id.strip_prefix("server:")) {
-        ("add-server", _) => open_picker(app),
-        (_, Some(url)) => find(app, url).and_then(|server| open_server(app, &server)),
+    let result = match id.split_once(':') {
+        None if id == "add-server" => open_picker(app),
+        None if id == "show" => bring_back(app),
+        None if id == "open-at-login" => toggle_open_at_login(app),
+        None if id == "quit" => {
+            app.exit(0);
+            Ok(())
+        }
+        Some(("server", url)) => find(app, url).and_then(|server| open_server(app, &server)),
+        Some(("remove", url)) => confirm_remove(app, url),
+        Some(("show-hidden", url)) => change_hidden(app, |store| store.show_hidden(url)),
+        Some(("hide", rest)) => match rest.split_once(':') {
+            Some((workspace, url)) => change_hidden(app, |store| store.hide(url, workspace)),
+            None => Ok(()),
+        },
         _ => Ok(()),
     };
     if let Err(e) = result {
@@ -542,7 +711,15 @@ fn on_menu<R: Runtime>(app: &AppHandle<R>, id: &str) {
 pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(StateFlags::all() - StateFlags::VISIBLE)
+                .build(),
+        )
+        .plugin(tauri_plugin_autostart::init(
+            MacosLauncher::LaunchAgent,
+            Some(vec![STARTED_HIDDEN]),
+        ))
         .invoke_handler(tauri::generate_handler![
             list_servers,
             add_server,
@@ -551,6 +728,7 @@ pub fn run() {
             show_add_server,
             report_workspaces,
             notify,
+            rail_menu,
             open_workspace,
             create_workspace
         ])
@@ -577,17 +755,35 @@ pub fn run() {
                 LogicalPosition::new(0.0, 0.0),
                 LogicalSize::new(RAIL_WIDTH, size.height),
             )?;
-            let resized = window.clone();
-            window.on_window_event(move |event| {
-                if let WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } = event {
-                    layout(&resized);
+            let watched = window.clone();
+            window.on_window_event(move |event| match event {
+                WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => {
+                    layout(&watched)
                 }
+                WindowEvent::CloseRequested { api, .. } => {
+                    api.prevent_close();
+                    let _ = watched.hide();
+                }
+                _ => {}
             });
+
+            let mut tray = TrayIconBuilder::with_id(TRAY)
+                .tooltip("Chat Systems")
+                .menu(&build_tray_menu(app.handle())?)
+                .show_menu_on_left_click(true);
+            if let Some(icon) = app.default_window_icon() {
+                tray = tray.icon(icon.clone());
+            }
+            tray.build(app)?;
 
             app.set_menu(build_menu(app.handle())?)?;
             app.on_menu_event(|app, event| on_menu(app, event.id().as_ref()));
             load_all(app.handle())?;
-            open_last(app.handle()).map_err(|e| e.into())
+            open_last(app.handle())?;
+            if std::env::args().any(|arg| arg == STARTED_HIDDEN) {
+                window.hide()?;
+            }
+            Ok(())
         })
         .build(tauri::generate_context!())
         .expect("the desktop app failed to start");
@@ -599,10 +795,7 @@ pub fn run() {
             ..
         } = event
         {
-            if let Ok(window) = main_window(app) {
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
+            let _ = bring_back(app);
         }
         #[cfg(not(target_os = "macos"))]
         let _ = (app, event);

@@ -13,6 +13,8 @@ pub struct Requested {
     subtitle: String,
     #[serde(default)]
     body: String,
+    #[serde(default)]
+    workspace_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -21,6 +23,7 @@ pub struct Note {
     pub title: String,
     pub subtitle: String,
     pub body: String,
+    pub workspace_id: Option<String>,
 }
 
 fn cut(text: &str, most: usize) -> String {
@@ -34,6 +37,7 @@ pub fn accept(requested: Requested) -> Option<Note> {
         title,
         subtitle: cut(&requested.subtitle, LONGEST_TITLE),
         body: cut(&requested.body, LONGEST_BODY),
+        workspace_id: requested.workspace_id.filter(|id| workspaces::is_id(id)),
     })
 }
 
@@ -47,6 +51,7 @@ mod tests {
             title: title.into(),
             subtitle: "  Northwind · #general  ".into(),
             body: body.into(),
+            workspace_id: Some("a1');x//".into()),
         }
     }
 
@@ -56,6 +61,7 @@ mod tests {
         assert_eq!(note.title, "Maya");
         assert_eq!(note.subtitle, "Northwind · #general");
         assert_eq!(note.body.chars().count(), LONGEST_BODY);
+        assert_eq!(note.workspace_id, None);
     }
 
     #[test]

@@ -39,5 +39,13 @@ Every server's page is loaded at start and keeps running while it is hidden
 (`background_throttling` is off), so a server you are not looking at still raises
 notifications and keeps its unread count on the rail and the Dock.
 
+Closing the window hides it and the app keeps running, so notifications still arrive; the
+tray menu opens it again, turns *Open at Login* on or off, and quits. Opened at login, the
+app starts with its window hidden.
+
+Right-clicking the rail hides a workspace from it, shows the hidden ones again, or removes the
+server after asking. A hidden workspace stays hidden in `servers.json`; it no longer counts
+toward the Dock badge or raises notifications, and you stay a member of it.
+
 The servers you add are kept in `servers.json` in the app's config directory
 (`~/Library/Application Support/com.chatsystems.desktop` on macOS).

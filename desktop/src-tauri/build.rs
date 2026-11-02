@@ -8,6 +8,7 @@ fn main() {
             "show_add_server",
             "report_workspaces",
             "notify",
+            "rail_menu",
             "open_workspace",
             "create_workspace",
         ]),
