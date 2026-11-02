@@ -75,6 +75,11 @@ renders lives in `features/messaging`, even when it is small and general-looking
   notification only for a `notification` frame, and only when the person is not already
   looking at that channel or conversation. The app badge is always the total of unread
   Activity across every workspace; a push sends the same total for its instance.
+- **Inside the desktop app** (`desktop/`, which injects `window.chatSystemsDesktop`) the
+  workspace rail is the app's, not the page's: `useDesktopRail` reports this server's
+  workspaces and their unread Activity to the app and opens the workspace, or the create
+  dialog, that the app's rail asks for, and `WorkspaceSidebar` draws no rail and no *Add
+  instance*. In a browser nothing changes.
 
 ### The read rule
 
