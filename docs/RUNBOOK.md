@@ -68,6 +68,173 @@ checklist ticks *Connect SSO*. Signing in through the provider removes the passw
 non-admin account, so nobody has a second way in; instance admins keep theirs as the
 break-glass account.
 
+### authentik in front of an LDAP directory
+
+To sign people in with their directory password and a second factor, put
+[authentik](https://goauthentik.io) between the directory and Chat Systems. authentik binds
+to the directory and asks for the code; Chat Systems sees an ordinary OIDC provider, and
+nothing in it changes. This was tested with authentik 2026.8.5 against
+[lldap](https://github.com/lldap/lldap). Active Directory was not tested.
+
+**The second factor belongs in authentik.** An SSO sign-in goes straight to a session:
+Chat Systems' own TOTP and `REQUIRE_ADMIN_TOTP` apply to password sign-in only. Set the
+validation stage of authentik's authentication flow to TOTP with *Not configured action* on
+*Configure*, so somebody without a device enrols on their next sign-in. This applies to
+every authentik sign-in, its own admin included.
+
+Three provider settings took some finding:
+
+- **`email_verified`.** Chat Systems refuses an address the provider has not verified,
+  because linking on one would hand somebody's account to whoever can claim their address.
+  Since 2025.10 authentik's default `email` scope mapping returns `false`. Add an `email`
+  mapping that returns `true`, but only when the address comes from the directory and people
+  cannot change it in authentik.
+- **Grant types.** A provider created from a blueprint without `grant_types` has an empty
+  list and refuses every grant. Set `authorization_code`.
+- **Signing key.** Without one, authentik signs the ID token with HS256, which Chat Systems
+  does not accept. Choose a certificate, the self-signed one authentik creates will do, and
+  the token is signed with RS256.
+
+A blueprint holds all of it. Mount it at `/blueprints/custom` in both `server` and `worker`,
+and set `AUTHENTIK_OIDC_CLIENT_SECRET` and `LDAP_BIND_PASSWORD` in their environment:
+
+```yaml
+version: 1
+metadata:
+  name: Chat Systems
+entries:
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: System - OAuth2 Provider - Scopes
+      required: true
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: System - LDAP Source - Mappings
+      required: true
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: Default - Authentication flow
+      required: true
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: Default - TOTP MFA setup flow
+      required: true
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: Default - Provider authorization flow (implicit consent)
+      required: true
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: Default - Provider invalidation flow
+      required: true
+
+  - model: authentik_sources_ldap.ldapsource
+    identifiers:
+      slug: directory
+    attrs:
+      name: Directory
+      enabled: true
+      server_uri: ldaps://ldap.example.com:636
+      bind_cn: uid=chat-systems,ou=people,dc=example,dc=com
+      bind_password: !Env LDAP_BIND_PASSWORD
+      base_dn: dc=example,dc=com
+      additional_user_dn: ou=people
+      additional_group_dn: ou=groups
+      user_object_filter: (objectClass=person)
+      group_object_filter: (objectClass=groupOfUniqueNames)
+      object_uniqueness_field: uid
+      sync_users: true
+      sync_groups: false
+      sync_users_password: false
+      password_login_update_internal_password: false
+      user_property_mappings:
+        - !Find [authentik_sources_ldap.ldapsourcepropertymapping, [managed, goauthentik.io/sources/ldap/default-mail]]
+        - !Find [authentik_sources_ldap.ldapsourcepropertymapping, [managed, goauthentik.io/sources/ldap/openldap-uid]]
+        - !Find [authentik_sources_ldap.ldapsourcepropertymapping, [managed, goauthentik.io/sources/ldap/openldap-cn]]
+
+  - model: authentik_providers_oauth2.scopemapping
+    id: scope-email-verified
+    identifiers:
+      name: "Chat Systems: email (verified by the directory)"
+    attrs:
+      scope_name: email
+      description: Email address
+      expression: |
+        return {
+            "email": request.user.email,
+            "email_verified": True,
+        }
+  - model: authentik_providers_oauth2.oauth2provider
+    id: provider
+    identifiers:
+      name: chat-systems
+    attrs:
+      client_type: confidential
+      client_id: chat-systems
+      client_secret: !Env AUTHENTIK_OIDC_CLIENT_SECRET
+      grant_types:
+        - authorization_code
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      issuer_mode: per_provider
+      include_claims_in_id_token: true
+      signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
+      redirect_uris:
+        - matching_mode: strict
+          url: https://chat.example.com/api/auth/oidc/callback
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-openid]]
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-profile]]
+        - !KeyOf scope-email-verified
+  - model: authentik_core.application
+    identifiers:
+      slug: chat-systems
+    attrs:
+      name: Chat Systems
+      provider: !KeyOf provider
+      meta_launch_url: https://chat.example.com
+
+  - model: authentik_stages_authenticator_validate.authenticatorvalidatestage
+    identifiers:
+      name: default-authentication-mfa-validation
+    attrs:
+      device_classes:
+        - totp
+      not_configured_action: configure
+      configuration_stages:
+        - !Find [authentik_stages_authenticator_totp.authenticatortotpstage, [name, default-authenticator-totp-setup]]
+```
+
+The source is written for an OpenLDAP-style directory. For Active Directory, the user
+filter, the uniqueness field and the property mappings differ; authentik's Active Directory
+guide lists them. The test used plain `ldap://` inside one compose network; over `ldaps://`,
+authentik must trust the certificate the directory presents. `sync_users_password` and
+`password_login_update_internal_password` stay off either way, so the directory keeps the only
+copy of every password and authentik writes none back.
+
+Then point Chat Systems at the provider. With `issuer_mode: per_provider` the issuer is the
+application's path, and the `api` container must reach it under the same name the browser
+uses, or the issuer in the discovery document does not match:
+
+```bash
+OIDC_ISSUER=https://auth.example.com/application/o/chat-systems/
+OIDC_CLIENT_ID=chat-systems
+OIDC_CLIENT_SECRET=<the value of AUTHENTIK_OIDC_CLIENT_SECRET>
+```
+
+**Leaving the directory does not end a session.** Disabling somebody there stops their next
+sign-in once authentik has synced, but a session already open in Chat Systems lasts until its
+refresh token expires (`REFRESH_TOKEN_EXPIRY`, seven days by default). Connect authentik's
+SCIM provider to end it at once; see
+[Upgrade note: Wave 8](#upgrade-note-wave-8-turns-on-cleanup-sso-totp-and-scim) for what
+deprovisioning does. This part was not tested.
+
 ## What self-hosting actually costs
 
 ### Footprint
