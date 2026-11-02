@@ -9,7 +9,7 @@ function host(url) {
   return new URL(url).host;
 }
 
-function tile({ title, current, onClick, image, text, color, className }) {
+function tile({ title, current, onClick, onMenu, image, text, color, className }) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = `server ${className ?? ''}`.trim();
@@ -28,6 +28,10 @@ function tile({ title, current, onClick, image, text, color, className }) {
     button.append(fallback());
   }
   button.addEventListener('click', onClick);
+  button.addEventListener('contextmenu', (event) => {
+    event.preventDefault();
+    onMenu();
+  });
   return button;
 }
 
@@ -51,6 +55,7 @@ function workspaceItem(server, workspace, active) {
       color: colorFor(workspace.id),
       className: workspace.deleted ? 'deleted' : 'workspace',
       onClick: () => invoke('open_workspace', { url: server.url, workspaceId: workspace.id }),
+      onMenu: () => invoke('rail_menu', { url: server.url, workspaceId: workspace.id }),
     }),
   );
   if (workspace.unread > 0 && !current) item.append(badge(workspace.unread));
@@ -75,6 +80,7 @@ function group(server, index, servers, active) {
         image: server.icon,
         text: label(server, servers),
         onClick: () => invoke('switch_server', { url: server.url }),
+        onMenu: () => invoke('rail_menu', { url: server.url }),
       }),
     );
     items.push(item);
@@ -89,6 +95,7 @@ function group(server, index, servers, active) {
       text: '+',
       className: 'create',
       onClick: () => invoke('create_workspace', { url: server.url }),
+      onMenu: () => invoke('rail_menu', { url: server.url }),
     }),
   );
   items.push(create);

@@ -11,6 +11,7 @@ export interface DesktopNotification {
   title: string;
   subtitle: string;
   body: string;
+  workspace_id: string | null;
 }
 
 export type DesktopCommand =
