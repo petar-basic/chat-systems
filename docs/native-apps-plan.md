@@ -20,16 +20,18 @@ distribution through MDM, builds from source; that is documented, not the defaul
 
 ## Desktop: a Tauri 2 shell around the server's own web app
 
-- **The app does not bundle the frontend.** Each server's window loads that server's web
+- **One window, a webview per server.** A rail down the left edge lists the servers; each
+  server is a webview of its own in the same window, kept alive while another one is shown,
+  so every server's socket stays open.
+- **The app does not bundle the frontend.** Each server's webview loads that server's web
   app from its URL. The app is therefore always the same version as the server it talks
   to, whether that server runs 3.7 or 5.0, and no API compatibility promise is needed for
   desktop. It also means sign-in, cookies and the realtime socket are exactly what the
   browser does today: same origin, nothing new on the server.
-- **Tauri 2, not Electron.** The project is Rust already, the installer is around 10 MB
-  instead of around 150 MB, and the web view is the system's (WebView2 on Windows,
-  WKWebView on macOS). The risk is WKWebView's support for camera, microphone and screen
-  sharing in huddles; CS-106 checks it before anything else is built, and Electron is the
-  fallback if it fails.
+- **Tauri 2, not Electron.** The project is Rust already, the bundle is around 12 MB instead
+  of around 150 MB, and the web view is the system's (WebView2 on Windows, WKWebView on
+  macOS). The risk was WKWebView's support for camera, microphone and screen sharing in
+  huddles; CS-106 checked it first (below), and it holds.
 - **No push relay.** While the app runs, in the tray if its window is closed, it holds the
   realtime socket and raises native notifications itself. Web Push stays for browsers and
   the installed PWA.
@@ -42,6 +44,32 @@ distribution through MDM, builds from source; that is documented, not the defaul
   update-signing key. Signing with an Apple Developer ID and a Windows certificate is
   decided separately (see below); until then macOS asks for *right-click → Open* once and
   Windows shows a SmartScreen warning.
+
+## What the spike found (CS-106)
+
+A throwaway Tauri 2.12 app (wry 0.57) on macOS 26.6, one window on the staging server, with
+the camera and microphone descriptions in `Info.plist`, tested on 2026-11-02:
+
+| Check | Result |
+|---|---|
+| Password sign-in, and still signed in after the app restarts | works |
+| A huddle with voice and camera, both ways, on LiveKit (staging promotes at once) | works |
+| Sharing the screen in a huddle | works |
+| The in-app sound for a new message while the app is in the background | works |
+| A macOS notification banner | missing: `Notification` exists but never shows one |
+| The unread badge on the Dock icon | missing: `navigator.setAppBadge` is undefined |
+
+`getUserMedia`, `getDisplayMedia`, `RTCPeerConnection` and service workers are all present;
+`PushManager` is not, which the plan already assumed. Two things worth knowing for CS-107 and
+CS-108:
+
+- **macOS asks for the camera on behalf of whoever launched the app.** Started from a
+  terminal or another app, the request is refused at once with `NotAllowedError`; started
+  as an app (Finder, Dock, `open`), it asks and then works. Test the app the way people start it.
+- **Tauri's bridge reaches a remote page** (`__TAURI_INTERNALS__` is there), but calling an
+  app command from it needs that command allowed in the capability for those origins.
+
+The banner and the badge are exactly what CS-108 bridges, so nothing changes in the plan.
 
 ## Mobile, later
 

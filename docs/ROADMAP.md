@@ -7,7 +7,7 @@ ticket in [`docs/tickets/`](./tickets/INDEX.md); a ticket's file is deleted when
 
 ## Open
 
-**Wave 29 — a desktop app** is open: CS-106 – CS-110, planned on 2026-11-02 in
+**Wave 29 — a desktop app** is open: CS-108 – CS-110 (the CS-106 spike and the CS-107 shell are done), planned on 2026-11-02 in
 [native-apps-plan.md](./native-apps-plan.md). One app we publish opens any server, built on
 Tauri 2 around each server's own web app. Mobile apps come after it and are not ticketed yet.
 
