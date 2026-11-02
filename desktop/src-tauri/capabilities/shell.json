@@ -10,6 +10,7 @@
     "allow-remove-server",
     "allow-switch-server",
     "allow-show-add-server",
+    "allow-rail-menu",
     "allow-open-workspace",
     "allow-create-workspace"
   ]

@@ -43,5 +43,9 @@ Closing the window hides it and the app keeps running, so notifications still ar
 tray menu opens it again, turns *Open at Login* on or off, and quits. Opened at login, the
 app starts with its window hidden.
 
+Right-clicking the rail hides a workspace from it, shows the hidden ones again, or removes the
+server after asking. A hidden workspace stays hidden in `servers.json`; it no longer counts
+toward the Dock badge or raises notifications, and you stay a member of it.
+
 The servers you add are kept in `servers.json` in the app's config directory
 (`~/Library/Application Support/com.chatsystems.desktop` on macOS).

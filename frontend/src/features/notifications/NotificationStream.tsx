@@ -87,7 +87,7 @@ export function NotificationStream() {
           flattenMentions(body ?? ''),
           channel_id ?? 'chat-systems',
           onClick,
-          placeOf(queryClient, wsId, channel_id),
+          { place: placeOf(queryClient, wsId, channel_id), workspaceId: wsId ?? null },
         );
       }
     });

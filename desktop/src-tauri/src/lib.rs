@@ -102,9 +102,14 @@ fn overview<R: Runtime>(app: &AppHandle<R>) -> Overview {
         .into_iter()
         .map(|server| {
             let report = reports.get(&server.url).cloned().unwrap_or_default();
+            let workspaces = report
+                .workspaces
+                .into_iter()
+                .filter(|w| !server.hidden.contains(&w.id))
+                .collect();
             ServerView {
                 server,
-                workspaces: report.workspaces,
+                workspaces,
                 current: report.current,
             }
         })
@@ -397,10 +402,12 @@ async fn add_server(
     Ok(server)
 }
 
-#[tauri::command]
-fn remove_server(app: AppHandle, servers: State<'_, Servers>, url: String) -> Result<(), String> {
-    servers.lock().map_err(|e| e.to_string())?.remove(&url)?;
-    let label = webview_label(&url);
+fn forget_server<R: Runtime>(app: &AppHandle<R>, url: &str) -> Result<(), String> {
+    app.state::<Servers>()
+        .lock()
+        .map_err(|e| e.to_string())?
+        .remove(url)?;
+    let label = webview_label(url);
     let was_showing = app
         .state::<Showing>()
         .0
@@ -411,13 +418,101 @@ fn remove_server(app: AppHandle, servers: State<'_, Servers>, url: String) -> Re
         let _ = webview.close();
     }
     if let Ok(mut reports) = app.state::<Reports>().0.lock() {
-        reports.remove(&url);
+        reports.remove(url);
     }
     if was_showing {
-        return open_last(&app);
+        return open_last(app);
     }
-    announce(&app);
+    announce(app);
     Ok(())
+}
+
+#[tauri::command]
+fn remove_server(app: AppHandle, url: String) -> Result<(), String> {
+    forget_server(&app, &url)
+}
+
+fn confirm_remove<R: Runtime>(app: &AppHandle<R>, url: &str) -> Result<(), String> {
+    let server = find(app, url)?;
+    let answer = rfd::MessageDialog::new()
+        .set_level(rfd::MessageLevel::Warning)
+        .set_title(format!("Remove {}?", server.name))
+        .set_description(format!(
+            "{url} leaves the sidebar. You can add it again with its address."
+        ))
+        .set_buttons(rfd::MessageButtons::OkCancelCustom(
+            "Remove".into(),
+            "Cancel".into(),
+        ))
+        .show();
+    match answer {
+        rfd::MessageDialogResult::Ok => forget_server(app, url),
+        rfd::MessageDialogResult::Custom(label) if label == "Remove" => forget_server(app, url),
+        _ => Ok(()),
+    }
+}
+
+fn change_hidden<R: Runtime>(
+    app: &AppHandle<R>,
+    change: impl FnOnce(&mut Store) -> Result<(), String>,
+) -> Result<(), String> {
+    change(&mut *app.state::<Servers>().lock().map_err(|e| e.to_string())?)?;
+    announce(app);
+    Ok(())
+}
+
+fn build_rail_menu<R: Runtime>(
+    app: &AppHandle<R>,
+    server: &Server,
+    workspace_id: Option<&str>,
+) -> tauri::Result<Menu<R>> {
+    let menu = Menu::new(app)?;
+    if let Some(id) = workspace_id {
+        menu.append(&MenuItem::with_id(
+            app,
+            format!("hide:{id}:{}", server.url),
+            "Hide from Sidebar",
+            true,
+            None::<&str>,
+        )?)?;
+    }
+    if !server.hidden.is_empty() {
+        let shown = match server.hidden.len() {
+            1 => "Show 1 Hidden Workspace".to_owned(),
+            n => format!("Show {n} Hidden Workspaces"),
+        };
+        menu.append(&MenuItem::with_id(
+            app,
+            format!("show-hidden:{}", server.url),
+            shown,
+            true,
+            None::<&str>,
+        )?)?;
+    }
+    if !menu.items()?.is_empty() {
+        menu.append(&PredefinedMenuItem::separator(app)?)?;
+    }
+    menu.append(&MenuItem::with_id(
+        app,
+        format!("remove:{}", server.url),
+        format!("Remove {}…", server.name),
+        true,
+        None::<&str>,
+    )?)?;
+    Ok(menu)
+}
+
+#[tauri::command]
+fn rail_menu(
+    app: AppHandle,
+    window: Window,
+    url: String,
+    workspace_id: Option<String>,
+) -> Result<(), String> {
+    let server = find(&app, &url)?;
+    let workspace = workspace_id.filter(|id| workspaces::is_id(id));
+    let menu = build_rail_menu(&app, &server, workspace.as_deref()).map_err(|e| e.to_string())?;
+    window.popup_menu(&menu).map_err(|e| e.to_string())
 }
 
 fn dispatch<R: Runtime>(app: &AppHandle<R>, url: &str, command: serde_json::Value) {
@@ -499,6 +594,13 @@ fn notify(
     let server = server_of(&app, &webview)?;
     let note = notifications::accept(notification)
         .ok_or_else(|| "A notification needs a key and a title".to_owned())?;
+    if note
+        .workspace_id
+        .as_ref()
+        .is_some_and(|id| server.hidden.contains(id))
+    {
+        return Ok(());
+    }
     std::thread::Builder::new()
         .name("notification".into())
         .spawn(move || show_notification(&app, &server, &note))
@@ -584,15 +686,21 @@ fn toggle_open_at_login<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
 }
 
 fn on_menu<R: Runtime>(app: &AppHandle<R>, id: &str) {
-    let result = match (id, id.strip_prefix("server:")) {
-        ("add-server", _) => open_picker(app),
-        ("show", _) => bring_back(app),
-        ("open-at-login", _) => toggle_open_at_login(app),
-        ("quit", _) => {
+    let result = match id.split_once(':') {
+        None if id == "add-server" => open_picker(app),
+        None if id == "show" => bring_back(app),
+        None if id == "open-at-login" => toggle_open_at_login(app),
+        None if id == "quit" => {
             app.exit(0);
             Ok(())
         }
-        (_, Some(url)) => find(app, url).and_then(|server| open_server(app, &server)),
+        Some(("server", url)) => find(app, url).and_then(|server| open_server(app, &server)),
+        Some(("remove", url)) => confirm_remove(app, url),
+        Some(("show-hidden", url)) => change_hidden(app, |store| store.show_hidden(url)),
+        Some(("hide", rest)) => match rest.split_once(':') {
+            Some((workspace, url)) => change_hidden(app, |store| store.hide(url, workspace)),
+            None => Ok(()),
+        },
         _ => Ok(()),
     };
     if let Err(e) = result {
@@ -620,6 +728,7 @@ pub fn run() {
             show_add_server,
             report_workspaces,
             notify,
+            rail_menu,
             open_workspace,
             create_workspace
         ])
