@@ -10,7 +10,8 @@ use std::sync::Mutex;
 use notify_rust::{Notification, NotificationResponse, Timeout};
 use serde::Serialize;
 use tauri::ipc::CapabilityBuilder;
-use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
+use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
+use tauri::tray::TrayIconBuilder;
 use tauri::utils::config::BackgroundThrottlingPolicy;
 use tauri::webview::{DownloadEvent, NewWindowFeatures, NewWindowResponse, WebviewBuilder};
 use tauri::window::WindowBuilder;
@@ -18,7 +19,9 @@ use tauri::{
     AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, RunEvent, Runtime, State, Webview,
     WebviewUrl, WebviewWindowBuilder, Window, WindowEvent,
 };
+use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 use tauri_plugin_opener::OpenerExt;
+use tauri_plugin_window_state::StateFlags;
 use url::Url;
 
 use servers::{Server, Store};
@@ -27,6 +30,8 @@ use workspaces::Workspace;
 const MAIN: &str = "main";
 const RAIL: &str = "rail";
 const PICKER: &str = "picker";
+const TRAY: &str = "tray";
+const STARTED_HIDDEN: &str = "--hidden";
 const RAIL_WIDTH: f64 = 72.0;
 const NOTIFICATION_LINGERS_MS: u32 = 60 * 60 * 1000;
 
@@ -115,6 +120,14 @@ fn badge<R: Runtime>(app: &AppHandle<R>, servers: &[ServerView]) {
         .fold(0, u32::saturating_add);
     if let Ok(window) = main_window(app) {
         let _ = window.set_badge_count((unread > 0).then_some(i64::from(unread)));
+    }
+    if let Some(tray) = app.tray_by_id(TRAY) {
+        let _ = tray.set_title((unread > 0).then(|| unread.to_string()));
+        let _ = tray.set_tooltip(Some(match unread {
+            0 => "Chat Systems".to_owned(),
+            1 => "Chat Systems: 1 unread".to_owned(),
+            n => format!("Chat Systems: {n} unread"),
+        }));
     }
 }
 
@@ -528,9 +541,57 @@ fn show_add_server(app: AppHandle) -> Result<(), String> {
     open_picker(&app)
 }
 
+fn bring_back<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
+    let window = main_window(app)?;
+    let _ = window.unminimize();
+    let _ = window.show();
+    let _ = window.set_focus();
+    Ok(())
+}
+
+fn build_tray_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
+    let at_login = app.autolaunch().is_enabled().unwrap_or(false);
+    Menu::with_items(
+        app,
+        &[
+            &MenuItem::with_id(app, "show", "Open Chat Systems", true, None::<&str>)?,
+            &PredefinedMenuItem::separator(app)?,
+            &CheckMenuItem::with_id(
+                app,
+                "open-at-login",
+                "Open at Login",
+                true,
+                at_login,
+                None::<&str>,
+            )?,
+            &PredefinedMenuItem::separator(app)?,
+            &MenuItem::with_id(app, "quit", "Quit Chat Systems", true, None::<&str>)?,
+        ],
+    )
+}
+
+fn toggle_open_at_login<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
+    let autolaunch = app.autolaunch();
+    let changed = if autolaunch.is_enabled().unwrap_or(false) {
+        autolaunch.disable()
+    } else {
+        autolaunch.enable()
+    };
+    if let (Some(tray), Ok(menu)) = (app.tray_by_id(TRAY), build_tray_menu(app)) {
+        let _ = tray.set_menu(Some(menu));
+    }
+    changed.map_err(|e| e.to_string())
+}
+
 fn on_menu<R: Runtime>(app: &AppHandle<R>, id: &str) {
     let result = match (id, id.strip_prefix("server:")) {
         ("add-server", _) => open_picker(app),
+        ("show", _) => bring_back(app),
+        ("open-at-login", _) => toggle_open_at_login(app),
+        ("quit", _) => {
+            app.exit(0);
+            Ok(())
+        }
         (_, Some(url)) => find(app, url).and_then(|server| open_server(app, &server)),
         _ => Ok(()),
     };
@@ -542,7 +603,15 @@ fn on_menu<R: Runtime>(app: &AppHandle<R>, id: &str) {
 pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(StateFlags::all() - StateFlags::VISIBLE)
+                .build(),
+        )
+        .plugin(tauri_plugin_autostart::init(
+            MacosLauncher::LaunchAgent,
+            Some(vec![STARTED_HIDDEN]),
+        ))
         .invoke_handler(tauri::generate_handler![
             list_servers,
             add_server,
@@ -577,17 +646,35 @@ pub fn run() {
                 LogicalPosition::new(0.0, 0.0),
                 LogicalSize::new(RAIL_WIDTH, size.height),
             )?;
-            let resized = window.clone();
-            window.on_window_event(move |event| {
-                if let WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } = event {
-                    layout(&resized);
+            let watched = window.clone();
+            window.on_window_event(move |event| match event {
+                WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => {
+                    layout(&watched)
                 }
+                WindowEvent::CloseRequested { api, .. } => {
+                    api.prevent_close();
+                    let _ = watched.hide();
+                }
+                _ => {}
             });
+
+            let mut tray = TrayIconBuilder::with_id(TRAY)
+                .tooltip("Chat Systems")
+                .menu(&build_tray_menu(app.handle())?)
+                .show_menu_on_left_click(true);
+            if let Some(icon) = app.default_window_icon() {
+                tray = tray.icon(icon.clone());
+            }
+            tray.build(app)?;
 
             app.set_menu(build_menu(app.handle())?)?;
             app.on_menu_event(|app, event| on_menu(app, event.id().as_ref()));
             load_all(app.handle())?;
-            open_last(app.handle()).map_err(|e| e.into())
+            open_last(app.handle())?;
+            if std::env::args().any(|arg| arg == STARTED_HIDDEN) {
+                window.hide()?;
+            }
+            Ok(())
         })
         .build(tauri::generate_context!())
         .expect("the desktop app failed to start");
@@ -599,10 +686,7 @@ pub fn run() {
             ..
         } = event
         {
-            if let Ok(window) = main_window(app) {
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
+            let _ = bring_back(app);
         }
         #[cfg(not(target_os = "macos"))]
         let _ = (app, event);
