@@ -45,6 +45,20 @@ describe('TwoFactorPanel', () => {
     expect(post).not.toHaveBeenCalledWith('/auth/totp/confirm', expect.anything());
   });
 
+  it('shows a QR code to scan while enrolling, and none before', async () => {
+    get.mockResolvedValue({ enrolled: false, recovery_codes_remaining: 0, required: false });
+    post.mockResolvedValue({ secret: 'JBSWY3DPEHPK3PXP', provisioning_uri: 'otpauth://totp/x' });
+    renderPanel();
+
+    const start = await screen.findByTestId('totp-start');
+    expect(screen.queryByTestId('totp-qr')).not.toBeInTheDocument();
+
+    fireEvent.click(start);
+
+    const qr = await screen.findByTestId('totp-qr');
+    expect(qr.querySelector('svg')).toBeInTheDocument();
+  });
+
   it('shows the recovery codes once the code is confirmed', async () => {
     get.mockResolvedValue({ enrolled: false, recovery_codes_remaining: 0, required: false });
     post.mockImplementation(async (path: string) =>

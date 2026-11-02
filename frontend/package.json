@@ -44,6 +44,7 @@
     "lucide-react": "^1.56.0",
     "markdown-it": "^15.0.2",
     "openapi-fetch": "0.17.0",
+    "qrcode.react": "4.2.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-router": "^8.4.0",
