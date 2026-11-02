@@ -22,7 +22,7 @@ in 3.4.0. Wave 25, which moves the profile and notification settings to each wor
 in 3.5.0. Wave 26, which fixes what the 2026-10-27 product survey found, shipped in 3.6.0.
 Wave 27, which fixes what the 2026-10-28 survey of 3.6.0 found, shipped in 3.7.0. Wave 28, the
 feedback on 3.7.0 and CS-037, shipped in 4.0.0.
-After it, releases are bug fixes only for a while.
+After it, releases are bug fixes only for a while. Wave 29, a desktop app, is open.
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
@@ -354,6 +354,21 @@ come before events and events before the directory, which lists both.
 | CS-104 ✅ | Events for apps, over HTTP or a socket | backend · realtime · docs |
 | CS-105 ✅ | An app directory | frontend · backend · docs |
 | CS-037 ✅ | SFU for large huddles, promoted mid-call | backend · frontend · ops |
+
+### Wave 29 — A desktop app
+
+Decided on 2026-11-02 ([plan](../native-apps-plan.md)): one app we publish, which opens any
+server, built on Tauri 2 around each server's own web app. The spike comes first because a
+desktop app that cannot hold a huddle on macOS changes the choice of framework; the shell
+comes next because everything else lives inside it.
+
+| # | Ticket | Area |
+|---|---|---|
+| CS-106 | Does a Tauri shell hold a huddle? | desktop |
+| CS-107 | A desktop app that opens any server | desktop |
+| CS-108 | Notifications, badge and tray | desktop · frontend |
+| CS-109 | SSO that finishes in the app | desktop · backend |
+| CS-110 | Desktop builds with every release | desktop · ops · docs |
 
 ## Conflict map
 
