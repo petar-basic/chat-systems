@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/shared/components/Button/Button';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ShieldCheck, ShieldOff, Copy, Check } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import { api } from '@/lib/api';
 import { toUserMessage } from '@/lib/errors';
 import { toast } from '@/shared/components/Toast';
@@ -115,9 +116,12 @@ export default function TwoFactorPanel() {
       {enrolment && (
         <div className="space-y-3">
           <p className="text-xs text-muted">
-            Add this to your authenticator app, then enter the code it shows. Nothing changes until you do —
-            an enrolment you never finished cannot lock you out.
+            Scan this with your authenticator app or add the setup key, then enter the code it shows. Nothing
+            changes until you do — an enrolment you never finished cannot lock you out.
           </p>
+          <div className="inline-block rounded-lg bg-white p-3" data-qa="totp-qr">
+            <QRCodeSVG value={enrolment.provisioning_uri} size={176} title="Setup QR code" />
+          </div>
           <div className="flex items-center gap-2">
             <code className="flex-1 px-3 py-2 bg-app border border-line rounded-lg text-xs text-fg-soft break-all">
               {enrolment.secret}
