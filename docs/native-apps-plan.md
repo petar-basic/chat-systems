@@ -20,7 +20,10 @@ distribution through MDM, builds from source; that is documented, not the defaul
 
 ## Desktop: a Tauri 2 shell around the server's own web app
 
-- **The app does not bundle the frontend.** Each server's window loads that server's web
+- **One window, a webview per server.** A rail down the left edge lists the servers; each
+  server is a webview of its own in the same window, kept alive while another one is shown,
+  so every server's socket stays open.
+- **The app does not bundle the frontend.** Each server's webview loads that server's web
   app from its URL. The app is therefore always the same version as the server it talks
   to, whether that server runs 3.7 or 5.0, and no API compatibility promise is needed for
   desktop. It also means sign-in, cookies and the realtime socket are exactly what the

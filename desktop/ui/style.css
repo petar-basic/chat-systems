@@ -1,0 +1,177 @@
+:root {
+  color-scheme: light dark;
+  --bg: #f5f3ff;
+  --rail: #ede9fe;
+  --surface: #ffffff;
+  --line: #e4e1f0;
+  --fg: #1e1b2e;
+  --muted: #6b6880;
+  --accent: #7c3aed;
+  --accent-hover: #6d28d9;
+  --danger: #dc2626;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f172a;
+    --rail: #020617;
+    --surface: #1e293b;
+    --line: #334155;
+    --fg: #f1f5f9;
+    --muted: #94a3b8;
+    --accent: #8b5cf6;
+    --accent-hover: #a78bfa;
+    --danger: #f87171;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--fg);
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+main {
+  max-width: 400px;
+  margin: 0 auto;
+  padding: 40px 24px;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+header img {
+  border-radius: 14px;
+}
+
+h1 {
+  margin: 12px 0 4px;
+  font-size: 22px;
+}
+
+header p,
+.address {
+  margin: 0;
+  color: var(--muted);
+}
+
+form,
+#saved {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 20px;
+}
+
+label,
+h2 {
+  display: block;
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+input:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+#error {
+  margin: 10px 0 0;
+  color: var(--danger);
+}
+
+button {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 12px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+button.primary {
+  width: 100%;
+  margin-top: 14px;
+  padding: 10px;
+  border: 0;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+button.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+button.remove {
+  color: var(--danger);
+}
+
+#saved {
+  margin-top: 16px;
+}
+
+ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+
+li:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+li .who {
+  flex: 1;
+  min-width: 0;
+}
+
+li .name {
+  font-weight: 600;
+}
+
+li .name,
+li .address {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
