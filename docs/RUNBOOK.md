@@ -86,9 +86,13 @@ Three provider settings took some finding:
 
 - **`email_verified`.** Chat Systems refuses an address the provider has not verified,
   because linking on one would hand somebody's account to whoever can claim their address.
-  Since 2025.10 authentik's default `email` scope mapping returns `false`. Add an `email`
-  mapping that returns `true`, but only when the address comes from the directory and people
-  cannot change it in authentik.
+  Since 2025.10 authentik's default `email` scope mapping returns `false`. Do not replace it
+  with one that returns `true` for everybody: a subject that is not linked yet is linked to
+  the account with the same address, so a local authentik user given somebody's address
+  could take over an account that never signed in through SSO, an instance admin's for one,
+  and skip its TOTP. The mapping below vouches only for users the LDAP source synced. Keep
+  *Allow users to change email* off in authentik's system settings (the default in 2026.8),
+  and do not let people edit their own `mail` in the directory.
 - **Grant types.** A provider created from a blueprint without `grant_types` has an empty
   list and refuses every grant. Set `authorization_code`.
 - **Signing key.** Without one, authentik signs the ID token with HS256, which Chat Systems
@@ -166,9 +170,13 @@ entries:
       scope_name: email
       description: Email address
       expression: |
+        from authentik.sources.ldap.models import UserLDAPSourceConnection
+
         return {
             "email": request.user.email,
-            "email_verified": True,
+            "email_verified": UserLDAPSourceConnection.objects.filter(
+                user=request.user, source__slug="directory"
+            ).exists(),
         }
   - model: authentik_providers_oauth2.oauth2provider
     id: provider
