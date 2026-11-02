@@ -10,6 +10,8 @@ pub struct Server {
     pub name: String,
     #[serde(default)]
     pub icon: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hidden: Vec<String>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -51,7 +53,10 @@ impl Store {
 
     pub fn upsert(&mut self, server: Server) -> Result<(), String> {
         match self.saved.servers.iter_mut().find(|s| s.url == server.url) {
-            Some(existing) => *existing = server,
+            Some(existing) => {
+                existing.name = server.name;
+                existing.icon = server.icon;
+            }
             None => self.saved.servers.push(server),
         }
         self.save()
@@ -61,6 +66,23 @@ impl Store {
         self.saved.servers.retain(|s| s.url != url);
         if self.saved.last.as_deref() == Some(url) {
             self.saved.last = None;
+        }
+        self.save()
+    }
+
+    pub fn hide(&mut self, url: &str, workspace_id: &str) -> Result<(), String> {
+        let Some(server) = self.saved.servers.iter_mut().find(|s| s.url == url) else {
+            return Ok(());
+        };
+        if !server.hidden.iter().any(|id| id == workspace_id) {
+            server.hidden.push(workspace_id.to_owned());
+        }
+        self.save()
+    }
+
+    pub fn show_hidden(&mut self, url: &str) -> Result<(), String> {
+        if let Some(server) = self.saved.servers.iter_mut().find(|s| s.url == url) {
+            server.hidden.clear();
         }
         self.save()
     }
@@ -148,6 +170,7 @@ pub async fn probe(origin: &Url) -> Result<Server, String> {
         url: address,
         name: info.name,
         icon,
+        hidden: Vec::new(),
     })
 }
 
@@ -209,6 +232,7 @@ mod tests {
             url: "https://chat.example.com".into(),
             name: name.into(),
             icon: None,
+            hidden: Vec::new(),
         };
 
         store.upsert(server("Old")).unwrap();
@@ -219,6 +243,28 @@ mod tests {
 
         store.remove("https://chat.example.com").unwrap();
         assert!(Store::load(&dir).last().is_none());
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn a_hidden_workspace_stays_hidden_when_its_server_is_added_again() {
+        let dir = std::env::temp_dir().join(format!("chat-systems-hidden-{}", std::process::id()));
+        let mut store = Store::load(&dir);
+        let server = Server {
+            url: "https://chat.example.com".into(),
+            name: "Chat".into(),
+            icon: None,
+            hidden: Vec::new(),
+        };
+
+        store.upsert(server.clone()).unwrap();
+        store.hide("https://chat.example.com", "a1").unwrap();
+        store.hide("https://chat.example.com", "a1").unwrap();
+        store.upsert(server).unwrap();
+        assert_eq!(Store::load(&dir).servers()[0].hidden, ["a1"]);
+
+        store.show_hidden("https://chat.example.com").unwrap();
+        assert!(Store::load(&dir).servers()[0].hidden.is_empty());
         std::fs::remove_dir_all(&dir).ok();
     }
 }

@@ -74,7 +74,7 @@ describe('NotificationStream', () => {
       'deploy finished',
       'ch-1',
       expect.any(Function),
-      '',
+      { place: '', workspaceId: 'ws-1' },
     );
   });
 
@@ -92,7 +92,7 @@ describe('NotificationStream', () => {
       '@Tom Becker can you look?',
       'ch-1',
       expect.any(Function),
-      'Northwind · #random',
+      { place: 'Northwind · #random', workspaceId: 'ws-1' },
     );
   });
 
@@ -162,7 +162,7 @@ describe('NotificationStream', () => {
       'deploy finished',
       'ch-1',
       expect.any(Function),
-      '',
+      { place: '', workspaceId: 'ws-1' },
     );
   });
 

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-rail-menu"
+description = "Enables the rail_menu command without any pre-configured scope."
+commands.allow = ["rail_menu"]
+
+[[permission]]
+identifier = "deny-rail-menu"
+description = "Denies the rail_menu command without any pre-configured scope."
+commands.deny = ["rail_menu"]

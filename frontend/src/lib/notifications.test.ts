@@ -52,13 +52,17 @@ describe('notifications', () => {
 
     expect(notificationPermission()).toBe('granted');
     expect(await requestNotificationPermission()).toBe(true);
-    showNotification('Maya', 'hello', 'general', onClick, 'Northwind · #general');
+    showNotification('Maya', 'hello', 'general', onClick, {
+      place: 'Northwind · #general',
+      workspaceId: 'ws-1',
+    });
 
     expect(shell.notify).toHaveBeenCalledWith({
       key: expect.any(String),
       title: 'Maya',
       subtitle: 'Northwind · #general',
       body: 'hello',
+      workspace_id: 'ws-1',
     });
     const { key } = vi.mocked(shell.notify).mock.calls[0][0];
     send({ kind: 'open-notification', key });
