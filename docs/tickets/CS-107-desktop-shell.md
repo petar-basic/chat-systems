@@ -2,7 +2,7 @@
 
 **Wave:** 29 — a desktop app (2026-11-02)
 **Area:** desktop
-**Blocked by:** CS-106
+**Blocked by:** —
 **Blocks:** CS-108, CS-109, CS-110
 
 ## Problem
