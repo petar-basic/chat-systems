@@ -28,6 +28,13 @@ li {
   position: relative;
 }
 
+li.divider {
+  width: 32px;
+  height: 1px;
+  margin: 2px auto;
+  background: var(--line);
+}
+
 .server {
   display: grid;
   place-items: center;
@@ -42,6 +49,51 @@ li {
   font-weight: 700;
   font-size: 15px;
   letter-spacing: 0.02em;
+}
+
+.server.workspace,
+.server.deleted {
+  background: var(--tile, var(--surface));
+  color: #fff;
+}
+
+.server.deleted {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+
+.server.create {
+  width: 28px;
+  height: 28px;
+  margin: 0 auto;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 18px;
+  font-weight: 400;
+}
+
+.server.create:hover {
+  background: var(--surface);
+  color: var(--fg);
+}
+
+.badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--rail);
+  pointer-events: none;
 }
 
 .server img {

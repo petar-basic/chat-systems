@@ -13,7 +13,9 @@ in [docs/native-apps-plan.md](../docs/native-apps-plan.md).
 | `src-tauri/src/lib.rs` | The window, its webviews, the menu and the commands the app's pages call |
 | `src-tauri/src/servers.rs` | Normalising an address, checking it is a Chat Systems server, and the saved list |
 | `src-tauri/src/navigation.rs` | Which links stay in the app, and where downloads go |
-| `src-tauri/capabilities/` | Which pages may call the app: the rail and *Add a server*, never a server's page |
+| `src-tauri/src/bridge.js` | `window.chatSystemsDesktop`, injected into each server's page: how the page reports its workspaces and hears the rail's clicks |
+| `src-tauri/src/workspaces.rs` | What the app accepts from a page's report: ids, names, unread counts, icons from that server only |
+| `src-tauri/capabilities/` | Which pages may call the app: the rail and *Add a server*; a server's page gets only `report_workspaces`, granted at run time for its own origin |
 
 ## Run and build
 

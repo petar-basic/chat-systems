@@ -1,10 +1,13 @@
 mod navigation;
 mod servers;
+mod workspaces;
 
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
 
 use serde::Serialize;
+use tauri::ipc::CapabilityBuilder;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::webview::{DownloadEvent, NewWindowFeatures, NewWindowResponse, WebviewBuilder};
 use tauri::window::WindowBuilder;
@@ -16,22 +19,43 @@ use tauri_plugin_opener::OpenerExt;
 use url::Url;
 
 use servers::{Server, Store};
+use workspaces::Workspace;
 
 const MAIN: &str = "main";
 const RAIL: &str = "rail";
 const PICKER: &str = "picker";
 const RAIL_WIDTH: f64 = 72.0;
 
+const BRIDGE: &str = include_str!("bridge.js");
+
 static VIEWERS: AtomicUsize = AtomicUsize::new(0);
+static GRANTS: AtomicUsize = AtomicUsize::new(0);
 
 type Servers = Mutex<Store>;
 
 #[derive(Default)]
 struct Showing(Mutex<String>);
 
+#[derive(Clone, Default)]
+struct Report {
+    workspaces: Vec<Workspace>,
+    current: Option<String>,
+}
+
+#[derive(Default)]
+struct Reports(Mutex<HashMap<String, Report>>);
+
+#[derive(Clone, Serialize)]
+struct ServerView {
+    #[serde(flatten)]
+    server: Server,
+    workspaces: Vec<Workspace>,
+    current: Option<String>,
+}
+
 #[derive(Clone, Serialize)]
 struct Overview {
-    servers: Vec<Server>,
+    servers: Vec<ServerView>,
     active: Option<String>,
 }
 
@@ -59,6 +83,23 @@ fn overview<R: Runtime>(app: &AppHandle<R>) -> Overview {
         .iter()
         .find(|s| webview_label(&s.url) == showing)
         .map(|s| s.url.clone());
+    let reports = app
+        .state::<Reports>()
+        .0
+        .lock()
+        .map(|r| r.clone())
+        .unwrap_or_default();
+    let servers = servers
+        .into_iter()
+        .map(|server| {
+            let report = reports.get(&server.url).cloned().unwrap_or_default();
+            ServerView {
+                server,
+                workspaces: report.workspaces,
+                current: report.current,
+            }
+        })
+        .collect();
     Overview { servers, active }
 }
 
@@ -180,7 +221,15 @@ fn open_server<R: Runtime>(app: &AppHandle<R>, server: &Server) -> Result<(), St
     let label = webview_label(&server.url);
     if window.webviews().iter().all(|w| w.label() != label) {
         let origin = Url::parse(&server.url).map_err(|e| e.to_string())?;
+        let _ = app.add_capability(
+            CapabilityBuilder::new(format!("server-{}", GRANTS.fetch_add(1, Ordering::Relaxed)))
+                .local(false)
+                .remote(format!("{}/*", server.url))
+                .webview(&label)
+                .permission("allow-report-workspaces"),
+        );
         let builder = WebviewBuilder::new(&label, WebviewUrl::External(origin.clone()))
+            .initialization_script(BRIDGE)
             .on_navigation(stay_on(app, origin.clone()))
             .on_new_window(popups(app, origin))
             .on_download(save_downloads);
@@ -306,10 +355,76 @@ fn remove_server(app: AppHandle, servers: State<'_, Servers>, url: String) -> Re
     if let Some(webview) = app.get_webview(&label) {
         let _ = webview.close();
     }
+    if let Ok(mut reports) = app.state::<Reports>().0.lock() {
+        reports.remove(&url);
+    }
     if was_showing {
         return open_last(&app);
     }
     announce(&app);
+    Ok(())
+}
+
+fn dispatch<R: Runtime>(app: &AppHandle<R>, url: &str, command: serde_json::Value) {
+    if let Some(webview) = app.get_webview(&webview_label(url)) {
+        let _ = webview.eval(format!(
+            "window.chatSystemsDesktop && window.chatSystemsDesktop.dispatch({command})"
+        ));
+    }
+}
+
+#[tauri::command]
+fn report_workspaces(
+    app: AppHandle,
+    webview: Webview,
+    workspaces: Vec<workspaces::Reported>,
+    current: Option<String>,
+) -> Result<(), String> {
+    let server = app
+        .state::<Servers>()
+        .lock()
+        .map_err(|e| e.to_string())?
+        .servers()
+        .iter()
+        .find(|s| webview_label(&s.url) == webview.label())
+        .cloned()
+        .ok_or_else(|| "Only a server's own page reports its workspaces".to_owned())?;
+    let origin = Url::parse(&server.url).map_err(|e| e.to_string())?;
+    let report = Report {
+        workspaces: workspaces::accept(&origin, workspaces),
+        current: current.filter(|id| workspaces::is_id(id)),
+    };
+    app.state::<Reports>()
+        .0
+        .lock()
+        .map_err(|e| e.to_string())?
+        .insert(server.url, report);
+    announce(&app);
+    Ok(())
+}
+
+#[tauri::command]
+fn open_workspace(app: AppHandle, url: String, workspace_id: String) -> Result<(), String> {
+    if !workspaces::is_id(&workspace_id) {
+        return Err(format!("{workspace_id} is not a workspace"));
+    }
+    open_server(&app, &find(&app, &url)?)?;
+    dispatch(
+        &app,
+        &url,
+        serde_json::json!({ "kind": "open-workspace", "workspaceId": workspace_id }),
+    );
+    Ok(())
+}
+
+#[tauri::command]
+fn create_workspace(app: AppHandle, url: String) -> Result<(), String> {
+    open_server(&app, &find(&app, &url)?)?;
+    dispatch(
+        &app,
+        &url,
+        serde_json::json!({ "kind": "create-workspace" }),
+    );
     Ok(())
 }
 
@@ -343,12 +458,16 @@ pub fn run() {
             add_server,
             remove_server,
             switch_server,
-            show_add_server
+            show_add_server,
+            report_workspaces,
+            open_workspace,
+            create_workspace
         ])
         .setup(|app| {
             let dir = app.path().app_config_dir()?;
             app.manage::<Servers>(Mutex::new(Store::load(&dir)));
             app.manage(Showing::default());
+            app.manage(Reports::default());
 
             let window = WindowBuilder::new(app, MAIN)
                 .title("Chat Systems")
