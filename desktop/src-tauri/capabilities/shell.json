@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "shell",
-  "description": "Only the app's own pages, the server rail and the add-server page, may call the app. A server's page gets one permission at run time, to report its own workspaces, and only from its own origin.",
+  "description": "Only the app's own pages, the server rail and the add-server page, may call the app. A server's page gets two permissions at run time, to report its own workspaces and to raise a notification, and only from its own origin.",
   "webviews": ["rail", "picker"],
   "permissions": [
     "core:default",

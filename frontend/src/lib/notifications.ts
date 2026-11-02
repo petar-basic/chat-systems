@@ -1,9 +1,15 @@
 import { useNotificationPrefs } from '@/stores/notificationPrefs';
 import { NOTIFICATION_SOUND_THROTTLE_MS, NOTIFICATION_AUTO_CLOSE_MS } from '@/shared/constants';
+import { desktopShell, type DesktopShell } from '@/lib/desktopShell';
+
+const MOST_PENDING_CLICKS = 50;
 
 let permissionGranted = false;
 let audioCtx: AudioContext | null = null;
 let lastSoundAt = 0;
+let nextKey = 0;
+const pendingClicks = new Map<string, () => void>();
+const listening = new WeakSet<DesktopShell>();
 
 function getAudioContext(): AudioContext | null {
   try {
@@ -59,7 +65,16 @@ export function playMessageSound() {
   playNotificationSound();
 }
 
+export function notificationPermission(): NotificationPermission | null {
+  if (desktopShell()) return 'granted';
+  return 'Notification' in window ? Notification.permission : null;
+}
+
 export async function requestNotificationPermission(): Promise<boolean> {
+  if (desktopShell()) {
+    permissionGranted = true;
+    return true;
+  }
   if (!('Notification' in window)) return false;
 
   if (Notification.permission === 'granted') {
@@ -74,8 +89,42 @@ export async function requestNotificationPermission(): Promise<boolean> {
   return permissionGranted;
 }
 
-export function showNotification(title: string, body: string, tag: string, onClick?: () => void) {
+function listenForClicks(shell: DesktopShell) {
+  if (listening.has(shell)) return;
+  listening.add(shell);
+  shell.onCommand((command) => {
+    if (command.kind !== 'open-notification') return;
+    const onClick = pendingClicks.get(command.key);
+    pendingClicks.delete(command.key);
+    onClick?.();
+  });
+}
+
+function notifyDesktop(
+  shell: DesktopShell,
+  title: string,
+  subtitle: string,
+  body: string,
+  onClick?: () => void,
+) {
+  const key = (nextKey++).toString(16);
+  if (onClick) {
+    listenForClicks(shell);
+    pendingClicks.set(key, onClick);
+    const oldest = pendingClicks.keys().next().value;
+    if (pendingClicks.size > MOST_PENDING_CLICKS && oldest !== undefined) pendingClicks.delete(oldest);
+  }
+  shell.notify({ key, title, subtitle, body });
+}
+
+export function showNotification(title: string, body: string, tag: string, onClick?: () => void, place = '') {
   if (document.hasFocus()) return;
+
+  const shell = desktopShell();
+  if (shell) {
+    notifyDesktop(shell, title, place, body, onClick);
+    return;
+  }
 
   if (!permissionGranted || !('Notification' in window)) return;
   if (Notification.permission !== 'granted') return;

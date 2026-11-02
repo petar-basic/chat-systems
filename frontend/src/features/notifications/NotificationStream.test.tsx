@@ -3,6 +3,8 @@ import { render } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { globalEventBus } from '@/lib/globalEventBus';
 import { useWorkspaceStore } from '@/stores/workspace';
+import { useInstanceStore } from '@/stores/instances';
+import { QUERY_KEYS } from '@/shared/constants';
 import { NotificationStream } from './NotificationStream';
 
 const navigate = vi.fn();
@@ -21,6 +23,8 @@ vi.mock('@/lib/readOnScreen', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/readOnScreen')>()),
   readOnScreen: (...args: unknown[]) => readOnScreen(...args),
 }));
+
+let queryClient: QueryClient;
 
 function frame(kind: string, channelId = 'ch-1') {
   return {
@@ -53,8 +57,9 @@ describe('NotificationStream', () => {
       unreadChannels: new Set(),
       mentionChannels: new Set(),
     });
+    queryClient = new QueryClient();
     render(
-      <QueryClientProvider client={new QueryClient()}>
+      <QueryClientProvider client={queryClient}>
         <NotificationStream />
       </QueryClientProvider>,
     );
@@ -69,6 +74,25 @@ describe('NotificationStream', () => {
       'deploy finished',
       'ch-1',
       expect.any(Function),
+      '',
+    );
+  });
+
+  it('says where a notification comes from and shows a mention by name', () => {
+    useInstanceStore.setState({ instances: [{ url: 'https://chat.example' }] as never });
+    queryClient.setQueryData(QUERY_KEYS.workspacesList('https://chat.example'), [
+      { id: 'ws-1', name: 'Northwind' },
+    ]);
+    queryClient.setQueryData(QUERY_KEYS.workspaceChannels('ws-1'), [{ id: 'ch-1', name: 'random' }]);
+
+    globalEventBus.emit({ ...frame('mention'), body: '@[Tom Becker](u-1) can you look?' });
+
+    expect(showNotification).toHaveBeenCalledWith(
+      '🔔 Ana in #general',
+      '@Tom Becker can you look?',
+      'ch-1',
+      expect.any(Function),
+      'Northwind · #random',
     );
   });
 
@@ -138,6 +162,7 @@ describe('NotificationStream', () => {
       'deploy finished',
       'ch-1',
       expect.any(Function),
+      '',
     );
   });
 

@@ -39,6 +39,7 @@ export function useDesktopRail(shell: DesktopShell | null, rail: Rail) {
       rail.onCreateWorkspace(origin);
       return;
     }
+    if (command.kind !== 'open-workspace') return;
     const ws = [...rail.workspaces, ...rail.deletedWorkspaces].find((w) => w.id === command.workspaceId);
     if (ws) rail.onSelectWorkspace(ws);
   });

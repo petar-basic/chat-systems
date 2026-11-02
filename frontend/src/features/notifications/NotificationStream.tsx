@@ -1,14 +1,34 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { globalEventBus } from '@/lib/globalEventBus';
-import { useWorkspaceStore } from '@/stores/workspace';
+import { useWorkspaceStore, type Channel, type Workspace } from '@/stores/workspace';
+import { useInstanceStore } from '@/stores/instances';
+import { flattenMentions } from '@/lib/mentions';
 import { useNotificationPrefs } from '@/stores/notificationPrefs';
 import { showNotification, playMessageSound } from '@/lib/notifications';
 import { QUERY_KEYS, ROUTES } from '@/shared/constants';
 import { useOpenMessage } from '@/features/messaging';
 import { NotificationType } from '@/shared/models/enums';
 import { onScreen, readOnScreen } from '@/lib/readOnScreen';
+
+function placeOf(queryClient: QueryClient, workspaceId: string | undefined, channelId: string | null) {
+  if (!workspaceId) return '';
+  const instanceUrls = useInstanceStore
+    .getState()
+    .instances.map((i) => i.url)
+    .sort()
+    .join(',');
+  const workspace = queryClient
+    .getQueryData<Workspace[]>(QUERY_KEYS.workspacesList(instanceUrls))
+    ?.find((ws) => ws.id === workspaceId);
+  const channel = channelId
+    ? queryClient
+        .getQueryData<Channel[]>(QUERY_KEYS.workspaceChannels(workspaceId))
+        ?.find((ch) => ch.id === channelId)
+    : undefined;
+  return [workspace?.name, channel && `#${channel.name}`].filter(Boolean).join(' · ');
+}
 
 export function NotificationStream() {
   const navigate = useNavigate();
@@ -64,9 +84,10 @@ export function NotificationStream() {
                 : undefined;
         showNotification(
           isMention ? `🔔 ${title}` : title,
-          body ?? '',
+          flattenMentions(body ?? ''),
           channel_id ?? 'chat-systems',
           onClick,
+          placeOf(queryClient, wsId, channel_id),
         );
       }
     });
