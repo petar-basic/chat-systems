@@ -1,4 +1,5 @@
 mod navigation;
+mod notifications;
 mod servers;
 mod workspaces;
 
@@ -6,9 +7,11 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
 
+use notify_rust::{Notification, NotificationResponse, Timeout};
 use serde::Serialize;
 use tauri::ipc::CapabilityBuilder;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
+use tauri::utils::config::BackgroundThrottlingPolicy;
 use tauri::webview::{DownloadEvent, NewWindowFeatures, NewWindowResponse, WebviewBuilder};
 use tauri::window::WindowBuilder;
 use tauri::{
@@ -25,6 +28,7 @@ const MAIN: &str = "main";
 const RAIL: &str = "rail";
 const PICKER: &str = "picker";
 const RAIL_WIDTH: f64 = 72.0;
+const NOTIFICATION_LINGERS_MS: u32 = 60 * 60 * 1000;
 
 const BRIDGE: &str = include_str!("bridge.js");
 
@@ -103,8 +107,20 @@ fn overview<R: Runtime>(app: &AppHandle<R>) -> Overview {
     Overview { servers, active }
 }
 
+fn badge<R: Runtime>(app: &AppHandle<R>, servers: &[ServerView]) {
+    let unread = servers
+        .iter()
+        .flat_map(|s| &s.workspaces)
+        .map(|w| w.unread)
+        .fold(0, u32::saturating_add);
+    if let Ok(window) = main_window(app) {
+        let _ = window.set_badge_count((unread > 0).then_some(i64::from(unread)));
+    }
+}
+
 fn announce<R: Runtime>(app: &AppHandle<R>) {
     let now = overview(app);
+    badge(app, &now.servers);
     let _ = app.emit_to(RAIL, "servers-changed", now.clone());
     let _ = app.emit_to(PICKER, "servers-changed", now);
     if let Ok(menu) = build_menu(app) {
@@ -216,8 +232,11 @@ fn show_content<R: Runtime>(window: &Window<R>, label: &str) {
     let _ = window.set_focus();
 }
 
-fn open_server<R: Runtime>(app: &AppHandle<R>, server: &Server) -> Result<(), String> {
-    let window = main_window(app)?;
+fn load_server<R: Runtime>(
+    app: &AppHandle<R>,
+    window: &Window<R>,
+    server: &Server,
+) -> Result<String, String> {
     let label = webview_label(&server.url);
     if window.webviews().iter().all(|w| w.label() != label) {
         let origin = Url::parse(&server.url).map_err(|e| e.to_string())?;
@@ -226,18 +245,27 @@ fn open_server<R: Runtime>(app: &AppHandle<R>, server: &Server) -> Result<(), St
                 .local(false)
                 .remote(format!("{}/*", server.url))
                 .webview(&label)
-                .permission("allow-report-workspaces"),
+                .permission("allow-report-workspaces")
+                .permission("allow-notify"),
         );
         let builder = WebviewBuilder::new(&label, WebviewUrl::External(origin.clone()))
             .initialization_script(BRIDGE)
+            .background_throttling(BackgroundThrottlingPolicy::Disabled)
             .on_navigation(stay_on(app, origin.clone()))
             .on_new_window(popups(app, origin))
             .on_download(save_downloads);
-        let (position, size) = content_bounds(&window);
-        window
+        let (position, size) = content_bounds(window);
+        let webview = window
             .add_child(builder, position, size)
             .map_err(|e| e.to_string())?;
+        let _ = webview.hide();
     }
+    Ok(label)
+}
+
+fn open_server<R: Runtime>(app: &AppHandle<R>, server: &Server) -> Result<(), String> {
+    let window = main_window(app)?;
+    let label = load_server(app, &window, server)?;
     show_content(&window, &label);
     let _ = window.set_title(&server.name);
     app.state::<Servers>()
@@ -263,6 +291,20 @@ fn open_picker<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
     show_content(&window, PICKER);
     let _ = window.set_title("Chat Systems");
     announce(app);
+    Ok(())
+}
+
+fn load_all<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
+    let window = main_window(app)?;
+    let servers = app
+        .state::<Servers>()
+        .lock()
+        .map_err(|e| e.to_string())?
+        .servers()
+        .to_vec();
+    for server in &servers {
+        load_server(app, &window, server)?;
+    }
     Ok(())
 }
 
@@ -373,6 +415,17 @@ fn dispatch<R: Runtime>(app: &AppHandle<R>, url: &str, command: serde_json::Valu
     }
 }
 
+fn server_of<R: Runtime>(app: &AppHandle<R>, webview: &Webview<R>) -> Result<Server, String> {
+    app.state::<Servers>()
+        .lock()
+        .map_err(|e| e.to_string())?
+        .servers()
+        .iter()
+        .find(|s| webview_label(&s.url) == webview.label())
+        .cloned()
+        .ok_or_else(|| "Only a server's own page can ask this".to_owned())
+}
+
 #[tauri::command]
 fn report_workspaces(
     app: AppHandle,
@@ -380,15 +433,7 @@ fn report_workspaces(
     workspaces: Vec<workspaces::Reported>,
     current: Option<String>,
 ) -> Result<(), String> {
-    let server = app
-        .state::<Servers>()
-        .lock()
-        .map_err(|e| e.to_string())?
-        .servers()
-        .iter()
-        .find(|s| webview_label(&s.url) == webview.label())
-        .cloned()
-        .ok_or_else(|| "Only a server's own page reports its workspaces".to_owned())?;
+    let server = server_of(&app, &webview)?;
     let origin = Url::parse(&server.url).map_err(|e| e.to_string())?;
     let report = Report {
         workspaces: workspaces::accept(&origin, workspaces),
@@ -400,6 +445,51 @@ fn report_workspaces(
         .map_err(|e| e.to_string())?
         .insert(server.url, report);
     announce(&app);
+    Ok(())
+}
+
+fn show_notification<R: Runtime>(app: &AppHandle<R>, server: &Server, note: &notifications::Note) {
+    #[cfg(target_os = "macos")]
+    if !notify_rust::request_auth_blocking().unwrap_or(false) {
+        return;
+    }
+    let Ok(handle) = Notification::new()
+        .summary(&note.title)
+        .subtitle(if note.subtitle.is_empty() {
+            &server.name
+        } else {
+            &note.subtitle
+        })
+        .body(&note.body)
+        .timeout(Timeout::Milliseconds(NOTIFICATION_LINGERS_MS))
+        .show()
+    else {
+        return;
+    };
+    let _ = handle.wait_for_response(|response: &NotificationResponse| {
+        if matches!(response, NotificationResponse::Default) && open_server(app, server).is_ok() {
+            dispatch(
+                app,
+                &server.url,
+                serde_json::json!({ "kind": "open-notification", "key": note.key }),
+            );
+        }
+    });
+}
+
+#[tauri::command]
+fn notify(
+    app: AppHandle,
+    webview: Webview,
+    notification: notifications::Requested,
+) -> Result<(), String> {
+    let server = server_of(&app, &webview)?;
+    let note = notifications::accept(notification)
+        .ok_or_else(|| "A notification needs a key and a title".to_owned())?;
+    std::thread::Builder::new()
+        .name("notification".into())
+        .spawn(move || show_notification(&app, &server, &note))
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -460,6 +550,7 @@ pub fn run() {
             switch_server,
             show_add_server,
             report_workspaces,
+            notify,
             open_workspace,
             create_workspace
         ])
@@ -468,6 +559,10 @@ pub fn run() {
             app.manage::<Servers>(Mutex::new(Store::load(&dir)));
             app.manage(Showing::default());
             app.manage(Reports::default());
+            #[cfg(target_os = "macos")]
+            std::thread::spawn(|| {
+                let _ = notify_rust::request_auth_blocking();
+            });
 
             let window = WindowBuilder::new(app, MAIN)
                 .title("Chat Systems")
@@ -491,6 +586,7 @@ pub fn run() {
 
             app.set_menu(build_menu(app.handle())?)?;
             app.on_menu_event(|app, event| on_menu(app, event.id().as_ref()));
+            load_all(app.handle())?;
             open_last(app.handle()).map_err(|e| e.into())
         })
         .build(tauri::generate_context!())

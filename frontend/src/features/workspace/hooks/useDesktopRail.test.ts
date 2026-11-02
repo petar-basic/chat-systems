@@ -13,6 +13,7 @@ function fakeShell() {
   const shell: DesktopShell = {
     version: 1,
     reportWorkspaces: vi.fn(),
+    notify: vi.fn(),
     onCommand: (h) => {
       handler = h;
       return () => {

@@ -2,13 +2,11 @@ import { useState } from 'react';
 import { AppWindow } from 'lucide-react';
 import { Button } from '@/shared/components/Button/Button';
 import { useNotificationPrefs } from '@/stores/notificationPrefs';
-import { requestNotificationPermission } from '@/lib/notifications';
+import { notificationPermission, requestNotificationPermission } from '@/lib/notifications';
 
 export default function DesktopNotificationsPanel() {
   const { desktopEnabled, toggleDesktop } = useNotificationPrefs();
-  const [permission, setPermission] = useState(() =>
-    'Notification' in window ? Notification.permission : null,
-  );
+  const [permission, setPermission] = useState(notificationPermission);
 
   if (!permission) return null;
 
@@ -21,7 +19,7 @@ export default function DesktopNotificationsPanel() {
       return;
     }
     const granted = await requestNotificationPermission();
-    setPermission(Notification.permission);
+    setPermission(notificationPermission());
     if (granted && !desktopEnabled) toggleDesktop();
   };
 

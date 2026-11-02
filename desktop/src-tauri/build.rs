@@ -7,6 +7,7 @@ fn main() {
             "switch_server",
             "show_add_server",
             "report_workspaces",
+            "notify",
             "open_workspace",
             "create_workspace",
         ]),

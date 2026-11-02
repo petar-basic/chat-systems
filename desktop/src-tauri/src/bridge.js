@@ -6,6 +6,7 @@
     value: Object.freeze({
       version: 1,
       reportWorkspaces: (workspaces, current) => invoke('report_workspaces', { workspaces, current }),
+      notify: (notification) => invoke('notify', { notification }),
       onCommand: (handler) => {
         handlers.add(handler);
         return () => handlers.delete(handler);

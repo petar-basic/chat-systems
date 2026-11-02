@@ -79,7 +79,9 @@ renders lives in `features/messaging`, even when it is small and general-looking
   workspace rail is the app's, not the page's: `useDesktopRail` reports this server's
   workspaces and their unread Activity to the app and opens the workspace, or the create
   dialog, that the app's rail asks for, and `WorkspaceSidebar` draws no rail and no *Add
-  instance*. In a browser nothing changes.
+  instance*. `showNotification` hands the notification to the app, which raises a native
+  one and, on a click, shows this server and runs the click handler; the Dock badge is the
+  sum of the unread counts every server reported. In a browser nothing changes.
 
 ### The read rule
 
