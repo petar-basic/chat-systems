@@ -50,8 +50,13 @@ describe('custom schedule input', () => {
 
   it('hints just the time today and adds the day otherwise', () => {
     const now = new Date(2026, 2, 9, 8, 0);
+    const today = new Date(2026, 2, 9, 17, 30);
+    const later = new Date(2026, 2, 12, 9, 0);
+    const time = (at: Date) => at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const month = later.toLocaleDateString([], { month: 'short' });
 
-    expect(formatScheduleHint(new Date(2026, 2, 9, 17, 30), now)).not.toMatch(/Mar/);
-    expect(formatScheduleHint(new Date(2026, 2, 12, 9, 0), now)).toMatch(/Mar/);
+    expect(formatScheduleHint(today, now)).toBe(time(today));
+    expect(formatScheduleHint(later, now)).toContain(time(later));
+    expect(formatScheduleHint(later, now)).toContain(month);
   });
 });
