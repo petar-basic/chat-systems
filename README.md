@@ -164,10 +164,18 @@ release changed is in **[CHANGELOG.md](CHANGELOG.md)**.
 Full setup — local development, production deployment with HTTPS and backups, and
 the contribution workflow — lives in **[docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)**.
 
+## Desktop app
+
+The [desktop app](desktop/README.md) for macOS and Windows opens any Chat Systems server, and
+several at once: one rail of every workspace you are in, native notifications, a Dock or
+taskbar badge, the tray, and SSO through the system browser. Download it from the
+[latest release](https://github.com/petar-basic/chat-systems/releases/latest); it updates
+itself from then on.
+
 ## Install as an app (PWA)
 
-The web app is an installable PWA — no separate desktop build, no installers, no
-unsigned-binary warnings, and it updates the moment you deploy:
+The web app is also an installable PWA — no installers, no unsigned-binary warnings, and it
+updates the moment you deploy:
 
 - **Chrome / Edge** — open your instance, then click the install icon in the address
   bar (or menu → *Install app*). You get a standalone window, dock/taskbar icon, and

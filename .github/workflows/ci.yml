@@ -18,6 +18,7 @@ jobs:
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
+      desktop: ${{ steps.filter.outputs.desktop }}
       e2e: ${{ steps.filter.outputs.e2e }}
     steps:
       - uses: actions/checkout@v7
@@ -34,6 +35,10 @@ jobs:
             frontend:
               - 'frontend/**'
               - '.github/workflows/ci.yml'
+            desktop:
+              - 'desktop/**'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/desktop-release.yml'
             # The E2E job drives the whole stack, so the compose topology and
             # the seed script are inputs to it even though neither language job
             # depends on them.
@@ -192,6 +197,64 @@ jobs:
 
       - name: Test
         run: npm run test
+
+  desktop:
+    name: Desktop (${{ matrix.name }})
+    needs: changes
+    if: needs.changes.outputs.desktop == 'true'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS
+            runner: macos-latest
+            bundles: app
+          - name: Windows
+            runner: windows-latest
+            bundles: nsis
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@1.98.0
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Format check
+        if: runner.os == 'macOS'
+        working-directory: desktop/src-tauri
+        run: cargo fmt --check
+
+      - name: Clippy
+        working-directory: desktop/src-tauri
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Test
+        working-directory: desktop/src-tauri
+        run: cargo test
+
+      - name: Build the ${{ matrix.bundles }} bundle
+        run: npx tauri build --debug --ci --bundles ${{ matrix.bundles }}
 
   # Drives the real topology (nginx in front of api/worker/realtime) rather than
   # a bespoke service matrix, because the specs assume it — one of them restarts
@@ -358,7 +421,7 @@ jobs:
   # run of the same commit superseded this one.
   gate:
     name: All checks
-    needs: [changes, backend, frontend, e2e]
+    needs: [changes, backend, frontend, desktop, e2e]
     if: always()
     runs-on: ubuntu-latest
     permissions:

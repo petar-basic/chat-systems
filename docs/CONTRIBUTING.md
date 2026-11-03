@@ -105,6 +105,7 @@ backend/
 frontend/
   src/        React SPA (features/, components/, hooks/, stores/, lib/, shared/)
   e2e/        Playwright end-to-end tests
+desktop/      Tauri 2 app for macOS and Windows (see desktop/README.md)
 docker/       Caddyfile, bucket init, Postgres + upload backup scripts, MinIO → RustFS migration
 docs/         this folder
 ```
@@ -302,10 +303,12 @@ migrations, and drive the full Axum stack — including the authorization matrix
   (against live Postgres + Redis service containers), then `cargo audit`.
 - **Frontend:** `npm audit --audit-level=high`, `prettier --check`, `eslint`,
   `tsc -b`, `vite build`, `vitest`.
+- **Desktop:** on macOS and Windows, `cargo fmt --check` (macOS), `clippy -D warnings`,
+  `cargo test`, then a debug build of the `.app` and of the NSIS installer.
 
-Both jobs are **path-filtered**: a `changes` job resolves which trees the PR touched,
+These jobs are **path-filtered**: a `changes` job resolves which trees the PR touched,
 and each language job runs only when its tree changed. A docs-only PR runs neither.
-Editing `ci.yml` itself re-runs both, so a broken filter cannot silently disable the
+Editing `ci.yml` itself re-runs all of them, so a broken filter cannot silently disable the
 checks it selects.
 
 - **E2E:** boots the real stack with `docker compose --profile frontend`, seeds it,
@@ -348,6 +351,15 @@ store, say — is a minor release with an upgrade note at the top of its CHANGEL
 that is not on `main` or has no dated CHANGELOG section, builds both images from the
 tagged commit, pushes them to GHCR as `X.Y.Z`, `X.Y` and `latest`, and creates the GitHub
 release with that CHANGELOG section as its notes.
+
+When it succeeds, [`desktop-release.yml`](../.github/workflows/desktop-release.yml) builds the
+desktop app at version `X.Y.Z` (universal macOS and the Windows installer) and attaches it to
+that release, with the signed update bundles and the `latest.json` installed apps update
+from. It needs the `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
+repository secrets, the update key whose public half is in
+`desktop/src-tauri/tauri.release.conf.json`; losing that key means installed apps can no
+longer update. If it fails, run it by hand with the tag once fixed; a failure there does
+not hold back the images or staging.
 
 Staging follows releases, not `main`:
 [`deploy-staging.yml`](../.github/workflows/deploy-staging.yml) runs when the Release

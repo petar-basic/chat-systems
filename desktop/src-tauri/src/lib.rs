@@ -2,6 +2,7 @@ mod navigation;
 mod notifications;
 mod servers;
 mod sso;
+mod updates;
 mod workspaces;
 
 use std::collections::HashMap;
@@ -18,8 +19,8 @@ use tauri::utils::config::BackgroundThrottlingPolicy;
 use tauri::webview::{DownloadEvent, NewWindowFeatures, NewWindowResponse, WebviewBuilder};
 use tauri::window::WindowBuilder;
 use tauri::{
-    AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, RunEvent, Runtime, State, Theme,
-    Webview, WebviewUrl, WebviewWindowBuilder, Window, WindowEvent,
+    AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, Runtime, State, Theme, Webview,
+    WebviewUrl, WebviewWindowBuilder, Window, WindowEvent,
 };
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -925,6 +926,11 @@ pub fn run() {
             app.on_menu_event(|app, event| on_menu(app, event.id().as_ref()));
             load_all(app.handle())?;
             open_last(app.handle())?;
+            if updates::is_configured(app.handle()) {
+                app.handle()
+                    .plugin(tauri_plugin_updater::Builder::new().build())?;
+                updates::keep_updated(app.handle());
+            }
             if std::env::args().any(|arg| arg == STARTED_HIDDEN) {
                 window.hide()?;
             }
@@ -935,7 +941,7 @@ pub fn run() {
 
     app.run(|app, event| {
         #[cfg(target_os = "macos")]
-        if let RunEvent::Reopen {
+        if let tauri::RunEvent::Reopen {
             has_visible_windows: false,
             ..
         } = event
