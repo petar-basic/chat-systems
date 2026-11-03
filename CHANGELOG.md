@@ -25,6 +25,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   the rail's order. They used to switch between servers, so with two servers only ⌘1 and ⌘2 did
   anything. The *Workspaces* menu lists the same entries, and each rail tooltip shows its
   shortcut.
+- The desktop rail shows each workspace's uploaded icon instead of its initials. The rail
+  loaded the icon without the server's session, which the server refuses; the server's page now
+  draws it and hands it to the rail.
 
 ## [4.1.0] — 2026-11-03
 
