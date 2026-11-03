@@ -43,12 +43,16 @@ function badge(count) {
   return el;
 }
 
-function workspaceItem(server, workspace, active) {
+function shortcut(index) {
+  return index < 9 ? ` (⌘${index + 1})` : '';
+}
+
+function workspaceItem(server, workspace, active, index) {
   const item = document.createElement('li');
   const current = active && server.current === workspace.id;
   item.append(
     tile({
-      title: `${workspace.name}${workspace.deleted ? ' (deleted)' : ''} · ${server.name}`,
+      title: `${workspace.name}${workspace.deleted ? ' (deleted)' : ''} · ${server.name}${shortcut(index)}`,
       current,
       image: workspace.icon,
       text: initials(workspace.name),
@@ -66,7 +70,7 @@ function serverItem(server, index, servers, active) {
   const item = document.createElement('li');
   item.append(
     tile({
-      title: `${server.name} · ${host(server.url)}${index < 9 ? ` (⌘${index + 1})` : ''}`,
+      title: `${server.name} · ${host(server.url)}${shortcut(index)}`,
       current: server.url === active,
       image: server.icon,
       text: label(server, servers),
@@ -77,15 +81,22 @@ function serverItem(server, index, servers, active) {
   return item;
 }
 
-function items(server, index, servers, active) {
-  if (server.workspaces.length === 0) return [serverItem(server, index, servers, active)];
-  return server.workspaces.map((workspace) => workspaceItem(server, workspace, server.url === active));
+function entries(servers) {
+  return servers.flatMap((server) =>
+    server.workspaces.length === 0 ? [{ server }] : server.workspaces.map((workspace) => ({ server, workspace })),
+  );
 }
 
 function render({ servers, active, theme }) {
   if (theme) document.documentElement.dataset.theme = theme;
   else delete document.documentElement.dataset.theme;
-  list.replaceChildren(...servers.flatMap((server, i) => items(server, i, servers, active)));
+  list.replaceChildren(
+    ...entries(servers).map(({ server, workspace }, index) =>
+      workspace
+        ? workspaceItem(server, workspace, server.url === active, index)
+        : serverItem(server, index, servers, active),
+    ),
+  );
 }
 
 document.getElementById('add').addEventListener('click', () => invoke('add_menu'));
