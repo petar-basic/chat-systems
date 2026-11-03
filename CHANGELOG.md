@@ -34,6 +34,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   workspace in their other tabs and in the desktop rail without a reload, and the members who
   stay see the member list change when someone joins or leaves. Before, only the person who
   left was told.
+- A channel's member count and member list refresh when they change. The channel header loads
+  its members, pins and bookmarks in one request and kept that answer for five minutes, so
+  after the first half minute a refresh got the old list back.
 
 ## [4.1.0] — 2026-11-03
 

@@ -10,6 +10,7 @@ const FRESH_FOR = 1000 * 30;
 function fetchChannelContext(queryClient: QueryClient, api: ApiClient, channelId: string) {
   return queryClient.fetchQuery({
     queryKey: QUERY_KEYS.channelContext(channelId),
+    staleTime: FRESH_FOR,
     queryFn: async (): Promise<ChannelContext> => {
       const context = await api.typed((c) =>
         c.GET('/channels/{ch_id}/context', { params: { path: { ch_id: channelId } } }),
