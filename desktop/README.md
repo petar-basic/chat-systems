@@ -86,7 +86,8 @@ system.
 The rail lists workspaces, not servers: every workspace you are in on every server, with
 the server's name in its tooltip. A server shows as a tile of its own only while it has no
 workspace on the rail, such as before you sign in. *+* at the bottom creates a workspace on
-one of your servers or adds a server.
+one of your servers or adds a server. ⌘1 to ⌘9 (Ctrl on Windows) open the first nine entries on
+the rail, which the *Workspaces* menu lists too.
 
 Right-clicking the rail hides a workspace from it, shows the hidden ones again, leaves a
 workspace, creates a workspace on that server, or removes the server after asking. A hidden workspace stays hidden in `servers.json`;

@@ -14,6 +14,15 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
+## [Unreleased]
+
+### Fixed
+
+- In the desktop app, ⌘1 to ⌘9 (Ctrl on Windows) open the first nine workspaces on the rail, in
+  the rail's order. They used to switch between servers, so with two servers only ⌘1 and ⌘2 did
+  anything. The *Workspaces* menu lists the same entries, and each rail tooltip shows its
+  shortcut.
+
 ## [4.1.0] — 2026-11-03
 
 ### Upgrading from 4.0.2
