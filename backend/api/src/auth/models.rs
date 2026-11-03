@@ -100,6 +100,16 @@ pub struct RegisterCompleteRequest {
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
+pub struct SsoExchangeRequest {
+    pub code: String,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct SsoExchanged {
+    pub landing: String,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct ForgotPasswordRequest {
     pub email: String,
 }

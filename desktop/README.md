@@ -49,5 +49,12 @@ it no longer counts toward the Dock badge or raises notifications, and you stay 
 *Leave Workspace…* opens the workspace and asks there, in the page, which knows whether you are
 allowed to leave and is the one signed in to do it.
 
+*Sign in with SSO* opens the system browser, since providers such as Google refuse to sign in
+inside an embedded web view. The app starts the sign-in with a random nonce; the server's
+callback hands the browser a code that lives a minute, and its `/sso/desktop` page opens
+`chat-systems://sso?code=…&nonce=…`. The app accepts that link only for a nonce it issued in
+the last ten minutes, once, and loads `/sso/complete` in that server's window, which trades the
+code for the session cookies there.
+
 The servers you add are kept in `servers.json` in the app's config directory
 (`~/Library/Application Support/com.chatsystems.desktop` on macOS).

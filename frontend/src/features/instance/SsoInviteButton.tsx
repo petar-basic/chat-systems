@@ -1,6 +1,6 @@
 import { KeyRound } from 'lucide-react';
 import { useInstanceInfo } from './hooks/useInstanceInfo';
-import { ssoStartUrl } from './ssoStart';
+import { ssoStartUrl, startSsoInDesktop } from './ssoStart';
 
 export function SsoInviteButton({ token }: { token: string }) {
   const { data: instance } = useInstanceInfo(window.location.origin);
@@ -14,6 +14,7 @@ export function SsoInviteButton({ token }: { token: string }) {
       </div>
       <a
         href={ssoStartUrl(token)}
+        onClick={(event) => startSsoInDesktop(event, token)}
         data-qa="invite-sso-start"
         className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-raised hover:bg-elevated text-fg font-medium rounded-lg transition"
       >

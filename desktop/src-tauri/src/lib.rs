@@ -1,11 +1,13 @@
 mod navigation;
 mod notifications;
 mod servers;
+mod sso;
 mod workspaces;
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
+use std::time::Instant;
 
 use notify_rust::{Notification, NotificationResponse, Timeout};
 use serde::Serialize;
@@ -20,6 +22,7 @@ use tauri::{
     WebviewUrl, WebviewWindowBuilder, Window, WindowEvent,
 };
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
+use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_opener::OpenerExt;
 use tauri_plugin_window_state::StateFlags;
 use url::Url;
@@ -264,7 +267,8 @@ fn load_server<R: Runtime>(
                 .remote(format!("{}/*", server.url))
                 .webview(&label)
                 .permission("allow-report-workspaces")
-                .permission("allow-notify"),
+                .permission("allow-notify")
+                .permission("allow-start-sso"),
         );
         let builder = WebviewBuilder::new(&label, WebviewUrl::External(origin.clone()))
             .initialization_script(BRIDGE)
@@ -633,6 +637,45 @@ fn ask_about_workspace<R: Runtime>(
     Ok(())
 }
 
+type PendingSso = Mutex<sso::Pending>;
+
+#[tauri::command]
+fn start_sso(app: AppHandle, webview: Webview, invite: Option<String>) -> Result<(), String> {
+    let server = server_of(&app, &webview)?;
+    let origin = Url::parse(&server.url).map_err(|e| e.to_string())?;
+    let nonce = sso::new_nonce()?;
+    let start = sso::start_url(&origin, &nonce, invite.as_deref())
+        .ok_or_else(|| format!("{} has no sign-in address", server.url))?;
+    app.state::<PendingSso>()
+        .lock()
+        .map_err(|e| e.to_string())?
+        .begin(&server.url, &nonce, Instant::now());
+    app.opener()
+        .open_url(start.as_str(), None::<&str>)
+        .map_err(|e| e.to_string())
+}
+
+fn finish_sso<R: Runtime>(app: &AppHandle<R>, link: &Url) -> Result<(), String> {
+    let Some(finished) = app
+        .state::<PendingSso>()
+        .lock()
+        .map_err(|e| e.to_string())?
+        .finish(link, Instant::now())
+    else {
+        return Ok(());
+    };
+    let server = find(app, &finished.server)?;
+    let origin = Url::parse(&server.url).map_err(|e| e.to_string())?;
+    let complete = sso::complete_url(&origin, &finished.code)
+        .ok_or_else(|| format!("{} has no sign-in address", server.url))?;
+    open_server(app, &server)?;
+    bring_back(app)?;
+    app.get_webview(&webview_label(&server.url))
+        .ok_or_else(|| format!("{} is not open", server.url))?
+        .navigate(complete)
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn open_workspace(app: AppHandle, url: String, workspace_id: String) -> Result<(), String> {
     ask_about_workspace(&app, &url, "open-workspace", &workspace_id)
@@ -730,6 +773,10 @@ fn on_menu<R: Runtime>(app: &AppHandle<R>, id: &str) {
 
 pub fn run() {
     let app = tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            let _ = bring_back(app);
+        }))
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(
             tauri_plugin_window_state::Builder::default()
@@ -750,13 +797,23 @@ pub fn run() {
             notify,
             rail_menu,
             open_workspace,
-            create_workspace
+            create_workspace,
+            start_sso
         ])
         .setup(|app| {
             let dir = app.path().app_config_dir()?;
             app.manage::<Servers>(Mutex::new(Store::load(&dir)));
             app.manage(Showing::default());
             app.manage(Reports::default());
+            app.manage(PendingSso::default());
+            let links = app.handle().clone();
+            app.deep_link().on_open_url(move |event| {
+                for link in event.urls() {
+                    if let Err(e) = finish_sso(&links, &link) {
+                        eprintln!("sso: {e}");
+                    }
+                }
+            });
             #[cfg(target_os = "macos")]
             std::thread::spawn(|| {
                 let _ = notify_rust::request_auth_blocking();
