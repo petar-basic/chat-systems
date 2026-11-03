@@ -4,6 +4,8 @@ import { buttonStyles } from '@/shared/components/Button/buttonStyles';
 import { Button } from '@/shared/components/Button/Button';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { useSearchParams, useLocation, Link } from 'react-router';
+import { useTranslation } from 'react-i18next';
+import { Trans } from '@/shared/components/Trans/Trans';
 import { ROUTES } from '@/shared/constants';
 import { api } from '../lib/api';
 
@@ -44,14 +46,16 @@ function Shell({ title, subtitle, children }: { title: string; subtitle?: string
 }
 
 function BackToSignIn() {
+  const { t } = useTranslation('auth');
   return (
     <Link to={ROUTES.addInstance} className="text-accent hover:text-accent-soft text-sm">
-      Back to sign in
+      {t('backToSignIn')}
     </Link>
   );
 }
 
 function ForgotPasswordForm() {
+  const { t } = useTranslation('auth');
   const location = useLocation();
   const [email, setEmail] = useState(() => emailFrom(location.state));
   const [submitted, setSubmitted] = useState(false);
@@ -70,11 +74,15 @@ function ForgotPasswordForm() {
 
   if (submitted) {
     return (
-      <Shell title="Check your email">
+      <Shell title={t('forgotPassword.sentTitle')}>
         <div className={`${CARD} text-center space-y-4`} data-qa="forgot-password-sent">
           <p className="text-fg-dim">
-            If an account exists for <span className="font-medium text-fg">{email.trim()}</span>, a link to
-            set a new password is on its way. It works for one hour.
+            <Trans
+              t={t}
+              i18nKey="forgotPassword.sentBody"
+              values={{ email: email.trim() }}
+              components={{ email: <span className="font-medium text-fg" /> }}
+            />
           </p>
           <BackToSignIn />
         </div>
@@ -83,10 +91,10 @@ function ForgotPasswordForm() {
   }
 
   return (
-    <Shell title="Reset password" subtitle="We'll email you a link to set a new one">
+    <Shell title={t('forgotPassword.title')} subtitle={t('forgotPassword.subtitle')}>
       <form onSubmit={handleSubmit} className={`${CARD} space-y-5`}>
         <TextInput
-          label="Email"
+          label={t('forgotPassword.email')}
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -103,7 +111,7 @@ function ForgotPasswordForm() {
           disabled={loading || !email.trim()}
           loading={loading}
         >
-          Send reset link
+          {t('forgotPassword.submit')}
         </Button>
         <div className="text-center">
           <BackToSignIn />
@@ -114,6 +122,7 @@ function ForgotPasswordForm() {
 }
 
 function ResetForm({ token }: { token: string }) {
+  const { t } = useTranslation('auth');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -123,11 +132,11 @@ function ResetForm({ token }: { token: string }) {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (password.length < 8) {
-      setError('Password must be at least 8 characters');
+      setError(t('resetPassword.tooShort'));
       return;
     }
     if (password !== confirm) {
-      setError('Passwords do not match');
+      setError(t('resetPassword.mismatch'));
       return;
     }
     setLoading(true);
@@ -138,20 +147,18 @@ function ResetForm({ token }: { token: string }) {
       });
       setSuccess(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to reset password');
+      setError(err instanceof Error ? err.message : t('resetPassword.failed'));
     }
     setLoading(false);
   };
 
   if (success) {
     return (
-      <Shell title="Password changed">
+      <Shell title={t('resetPassword.doneTitle')}>
         <div className={`${CARD} text-center space-y-5`}>
-          <p className="text-fg-dim">
-            Your new password is set, and every device that was signed in has been signed out.
-          </p>
+          <p className="text-fg-dim">{t('resetPassword.doneBody')}</p>
           <Link to={ROUTES.addInstance} className={buttonStyles({ variant: 'primary' })}>
-            Sign in
+            {t('resetPassword.signIn')}
           </Link>
         </div>
       </Shell>
@@ -159,7 +166,7 @@ function ResetForm({ token }: { token: string }) {
   }
 
   return (
-    <Shell title="Set a new password">
+    <Shell title={t('resetPassword.title')}>
       <form onSubmit={handleSubmit} className={`${CARD} space-y-5`}>
         {error && (
           <div
@@ -170,11 +177,11 @@ function ResetForm({ token }: { token: string }) {
           </div>
         )}
         <TextInput
-          label="New password"
+          label={t('resetPassword.newPassword')}
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          hint="At least 8 characters."
+          hint={t('resetPassword.newPasswordHint')}
           autoComplete="new-password"
           dataQa="reset-password-new"
           required
@@ -182,7 +189,7 @@ function ResetForm({ token }: { token: string }) {
           autoFocus
         />
         <TextInput
-          label="Confirm new password"
+          label={t('resetPassword.confirmPassword')}
           type="password"
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
@@ -192,7 +199,7 @@ function ResetForm({ token }: { token: string }) {
           minLength={8}
         />
         <Button variant="primary" fullWidth type="submit" disabled={loading} loading={loading}>
-          Reset password
+          {t('resetPassword.submit')}
         </Button>
       </form>
     </Shell>
