@@ -145,7 +145,10 @@ conversation id as the channel id.
 - **`features/workspace/hooks/useWorkspaceController`** — composes the page's hooks and
   returns one object the view consumes: `useWorkspaceData` (queries, store hydration,
   socket joins), `useWorkspaceRouting` (URL↔store sync), `useComposer` (send, slash
-  commands, uploads, typing) and `useMessageActions` (save, forward).
+  commands, uploads, typing) and `useMessageActions` (save, forward). `noWorkspaces` is
+  true once both workspace lists have loaded empty: routing then moves a workspace url to
+  `/app`, and the page says *You're not in a workspace yet* instead of waiting on channels
+  that will never load.
 - **`features/workspace/hooks/useRightPanel`** — open-panel state (members / settings /
   thread / search / pins / channel members / notifications), Esc-to-close, reset on
   conversation change.

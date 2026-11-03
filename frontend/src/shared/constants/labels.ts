@@ -45,6 +45,8 @@ export const EmptyLabels = {
   NoPeople: 'Just you so far.',
   NoChannels: 'No channels yet',
   NoChannelsHint: 'Create one to start the conversation.',
+  NoWorkspaces: "You're not in a workspace yet",
+  NoWorkspacesHint: 'Create one with + in the sidebar, or ask someone to invite you.',
   DmBeginning: (name: string) => `This is the beginning of your conversation with ${name}.`,
 } as const;
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Hash, Megaphone } from 'lucide-react';
+import { Hash, LayoutGrid, Megaphone } from 'lucide-react';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { ROUTES, EmptyLabels } from '@/shared/constants';
 import { ConnectionBanner } from '@/shared/components/ConnectionBanner/ConnectionBanner';
@@ -366,7 +366,13 @@ export default function WorkspacePage() {
 
               {!currentChannel && (
                 <div className="flex-1 flex flex-col items-center justify-center text-muted gap-3 px-6 text-center">
-                  {!c.channelsPending && c.channels.length === 0 ? (
+                  {c.noWorkspaces ? (
+                    <div data-qa="no-workspaces" className="contents">
+                      <LayoutGrid className="w-12 h-12 text-faint" />
+                      <p className="text-lg font-medium">{EmptyLabels.NoWorkspaces}</p>
+                      <p className="text-sm">{EmptyLabels.NoWorkspacesHint}</p>
+                    </div>
+                  ) : !c.channelsPending && c.channels.length === 0 ? (
                     <>
                       <Hash className="w-12 h-12 text-faint" />
                       <p className="text-lg font-medium">{EmptyLabels.NoChannels}</p>
