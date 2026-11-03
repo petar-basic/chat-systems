@@ -3,6 +3,7 @@ import type { components } from '@/api/schema';
 import { useInstanceStore } from '@/stores/instances';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { instanceManager } from '@/lib/instances';
+import { forgetWorkspace } from '@/lib/forgetWorkspace';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { QUERY_KEYS } from '@/shared/constants';
 import type { Workspace, Channel } from '@/stores/workspace';
@@ -177,6 +178,23 @@ export const useRestoreWorkspace = () => {
         ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaces() });
+    },
+  });
+};
+
+export const useLeaveWorkspace = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ workspace, userId }: { workspace: Workspace; userId: string }) =>
+      getApiForInstance(workspace.instanceUrl).typed((c) =>
+        c.DELETE('/workspaces/{ws_id}/members/{user_id}', {
+          params: { path: { ws_id: workspace.id, user_id: userId } },
+        }),
+      ),
+    onSuccess: (_, { workspace }) => {
+      forgetWorkspace(queryClient, workspace.id);
+      return queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaces() });
     },
   });
 };

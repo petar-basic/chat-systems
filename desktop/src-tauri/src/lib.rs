@@ -1,11 +1,13 @@
 mod navigation;
 mod notifications;
 mod servers;
+mod sso;
 mod workspaces;
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
+use std::time::Instant;
 
 use notify_rust::{Notification, NotificationResponse, Timeout};
 use serde::Serialize;
@@ -16,10 +18,11 @@ use tauri::utils::config::BackgroundThrottlingPolicy;
 use tauri::webview::{DownloadEvent, NewWindowFeatures, NewWindowResponse, WebviewBuilder};
 use tauri::window::WindowBuilder;
 use tauri::{
-    AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, RunEvent, Runtime, State, Webview,
-    WebviewUrl, WebviewWindowBuilder, Window, WindowEvent,
+    AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, RunEvent, Runtime, State, Theme,
+    Webview, WebviewUrl, WebviewWindowBuilder, Window, WindowEvent,
 };
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
+use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_opener::OpenerExt;
 use tauri_plugin_window_state::StateFlags;
 use url::Url;
@@ -54,6 +57,9 @@ struct Report {
 #[derive(Default)]
 struct Reports(Mutex<HashMap<String, Report>>);
 
+#[derive(Default)]
+struct Themes(Mutex<HashMap<String, Theme>>);
+
 #[derive(Clone, Serialize)]
 struct ServerView {
     #[serde(flatten)]
@@ -66,6 +72,7 @@ struct ServerView {
 struct Overview {
     servers: Vec<ServerView>,
     active: Option<String>,
+    theme: Option<Theme>,
 }
 
 fn webview_label(url: &str) -> String {
@@ -114,7 +121,18 @@ fn overview<R: Runtime>(app: &AppHandle<R>) -> Overview {
             }
         })
         .collect();
-    Overview { servers, active }
+    let theme = active.as_ref().and_then(|url| {
+        app.state::<Themes>()
+            .0
+            .lock()
+            .ok()
+            .and_then(|themes| themes.get(url).copied())
+    });
+    Overview {
+        servers,
+        active,
+        theme,
+    }
 }
 
 fn badge<R: Runtime>(app: &AppHandle<R>, servers: &[ServerView]) {
@@ -139,6 +157,9 @@ fn badge<R: Runtime>(app: &AppHandle<R>, servers: &[ServerView]) {
 fn announce<R: Runtime>(app: &AppHandle<R>) {
     let now = overview(app);
     badge(app, &now.servers);
+    if let Ok(window) = main_window(app) {
+        let _ = window.set_theme(now.theme);
+    }
     let _ = app.emit_to(RAIL, "servers-changed", now.clone());
     let _ = app.emit_to(PICKER, "servers-changed", now);
     if let Ok(menu) = build_menu(app) {
@@ -264,7 +285,9 @@ fn load_server<R: Runtime>(
                 .remote(format!("{}/*", server.url))
                 .webview(&label)
                 .permission("allow-report-workspaces")
-                .permission("allow-notify"),
+                .permission("allow-notify")
+                .permission("allow-start-sso")
+                .permission("allow-report-theme"),
         );
         let builder = WebviewBuilder::new(&label, WebviewUrl::External(origin.clone()))
             .initialization_script(BRIDGE)
@@ -420,6 +443,9 @@ fn forget_server<R: Runtime>(app: &AppHandle<R>, url: &str) -> Result<(), String
     if let Ok(mut reports) = app.state::<Reports>().0.lock() {
         reports.remove(url);
     }
+    if let Ok(mut themes) = app.state::<Themes>().0.lock() {
+        themes.remove(url);
+    }
     if was_showing {
         return open_last(app);
     }
@@ -475,6 +501,13 @@ fn build_rail_menu<R: Runtime>(
             true,
             None::<&str>,
         )?)?;
+        menu.append(&MenuItem::with_id(
+            app,
+            format!("leave:{id}:{}", server.url),
+            "Leave Workspace…",
+            true,
+            None::<&str>,
+        )?)?;
     }
     if !server.hidden.is_empty() {
         let shown = match server.hidden.len() {
@@ -492,6 +525,7 @@ fn build_rail_menu<R: Runtime>(
     if !menu.items()?.is_empty() {
         menu.append(&PredefinedMenuItem::separator(app)?)?;
     }
+    menu.append(&create_item(app, server)?)?;
     menu.append(&MenuItem::with_id(
         app,
         format!("remove:{}", server.url),
@@ -500,6 +534,47 @@ fn build_rail_menu<R: Runtime>(
         None::<&str>,
     )?)?;
     Ok(menu)
+}
+
+fn create_item<R: Runtime>(app: &AppHandle<R>, server: &Server) -> tauri::Result<MenuItem<R>> {
+    MenuItem::with_id(
+        app,
+        format!("create:{}", server.url),
+        format!("Create Workspace on {}…", server.name),
+        true,
+        None::<&str>,
+    )
+}
+
+fn build_add_menu<R: Runtime>(app: &AppHandle<R>, servers: &[Server]) -> tauri::Result<Menu<R>> {
+    let menu = Menu::new(app)?;
+    for server in servers {
+        menu.append(&create_item(app, server)?)?;
+    }
+    menu.append(&PredefinedMenuItem::separator(app)?)?;
+    menu.append(&MenuItem::with_id(
+        app,
+        "add-server",
+        "Add Server…",
+        true,
+        None::<&str>,
+    )?)?;
+    Ok(menu)
+}
+
+#[tauri::command]
+fn add_menu(app: AppHandle, window: Window) -> Result<(), String> {
+    let servers = app
+        .state::<Servers>()
+        .lock()
+        .map_err(|e| e.to_string())?
+        .servers()
+        .to_vec();
+    if servers.is_empty() {
+        return open_picker(&app);
+    }
+    let menu = build_add_menu(&app, &servers).map_err(|e| e.to_string())?;
+    window.popup_menu(&menu).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -556,6 +631,18 @@ fn report_workspaces(
     Ok(())
 }
 
+#[tauri::command]
+fn report_theme(app: AppHandle, webview: Webview, theme: Theme) -> Result<(), String> {
+    let server = server_of(&app, &webview)?;
+    app.state::<Themes>()
+        .0
+        .lock()
+        .map_err(|e| e.to_string())?
+        .insert(server.url, theme);
+    announce(&app);
+    Ok(())
+}
+
 fn show_notification<R: Runtime>(app: &AppHandle<R>, server: &Server, note: &notifications::Note) {
     #[cfg(target_os = "macos")]
     if !notify_rust::request_auth_blocking().unwrap_or(false) {
@@ -608,39 +695,77 @@ fn notify(
     Ok(())
 }
 
-#[tauri::command]
-fn open_workspace(app: AppHandle, url: String, workspace_id: String) -> Result<(), String> {
-    if !workspaces::is_id(&workspace_id) {
+fn ask_about_workspace<R: Runtime>(
+    app: &AppHandle<R>,
+    url: &str,
+    kind: &str,
+    workspace_id: &str,
+) -> Result<(), String> {
+    if !workspaces::is_id(workspace_id) {
         return Err(format!("{workspace_id} is not a workspace"));
     }
-    open_server(&app, &find(&app, &url)?)?;
+    open_server(app, &find(app, url)?)?;
     dispatch(
-        &app,
-        &url,
-        serde_json::json!({ "kind": "open-workspace", "workspaceId": workspace_id }),
+        app,
+        url,
+        serde_json::json!({ "kind": kind, "workspaceId": workspace_id }),
     );
     Ok(())
 }
 
+type PendingSso = Mutex<sso::Pending>;
+
 #[tauri::command]
-fn create_workspace(app: AppHandle, url: String) -> Result<(), String> {
-    open_server(&app, &find(&app, &url)?)?;
-    dispatch(
-        &app,
-        &url,
-        serde_json::json!({ "kind": "create-workspace" }),
-    );
+fn start_sso(app: AppHandle, webview: Webview, invite: Option<String>) -> Result<(), String> {
+    let server = server_of(&app, &webview)?;
+    let origin = Url::parse(&server.url).map_err(|e| e.to_string())?;
+    let nonce = sso::new_nonce()?;
+    let start = sso::start_url(&origin, &nonce, invite.as_deref())
+        .ok_or_else(|| format!("{} has no sign-in address", server.url))?;
+    app.state::<PendingSso>()
+        .lock()
+        .map_err(|e| e.to_string())?
+        .begin(&server.url, &nonce, Instant::now());
+    app.opener()
+        .open_url(start.as_str(), None::<&str>)
+        .map_err(|e| e.to_string())
+}
+
+fn finish_sso<R: Runtime>(app: &AppHandle<R>, link: &Url) -> Result<(), String> {
+    let Some(finished) = app
+        .state::<PendingSso>()
+        .lock()
+        .map_err(|e| e.to_string())?
+        .finish(link, Instant::now())
+    else {
+        return Ok(());
+    };
+    let server = find(app, &finished.server)?;
+    let origin = Url::parse(&server.url).map_err(|e| e.to_string())?;
+    let complete = sso::complete_url(&origin, &finished.code)
+        .ok_or_else(|| format!("{} has no sign-in address", server.url))?;
+    open_server(app, &server)?;
+    bring_back(app)?;
+    app.get_webview(&webview_label(&server.url))
+        .ok_or_else(|| format!("{} is not open", server.url))?
+        .navigate(complete)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn open_workspace(app: AppHandle, url: String, workspace_id: String) -> Result<(), String> {
+    ask_about_workspace(&app, &url, "open-workspace", &workspace_id)
+}
+
+fn create_workspace<R: Runtime>(app: &AppHandle<R>, url: &str) -> Result<(), String> {
+    open_server(app, &find(app, url)?)?;
+    dispatch(app, url, serde_json::json!({ "kind": "create-workspace" }));
     Ok(())
 }
 
 #[tauri::command]
 fn switch_server(app: AppHandle, url: String) -> Result<(), String> {
     open_server(&app, &find(&app, &url)?)
-}
-
-#[tauri::command]
-fn show_add_server(app: AppHandle) -> Result<(), String> {
-    open_picker(&app)
 }
 
 fn bring_back<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
@@ -696,9 +821,14 @@ fn on_menu<R: Runtime>(app: &AppHandle<R>, id: &str) {
         }
         Some(("server", url)) => find(app, url).and_then(|server| open_server(app, &server)),
         Some(("remove", url)) => confirm_remove(app, url),
+        Some(("create", url)) => create_workspace(app, url),
         Some(("show-hidden", url)) => change_hidden(app, |store| store.show_hidden(url)),
         Some(("hide", rest)) => match rest.split_once(':') {
             Some((workspace, url)) => change_hidden(app, |store| store.hide(url, workspace)),
+            None => Ok(()),
+        },
+        Some(("leave", rest)) => match rest.split_once(':') {
+            Some((workspace, url)) => ask_about_workspace(app, url, "leave-workspace", workspace),
             None => Ok(()),
         },
         _ => Ok(()),
@@ -710,6 +840,10 @@ fn on_menu<R: Runtime>(app: &AppHandle<R>, id: &str) {
 
 pub fn run() {
     let app = tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            let _ = bring_back(app);
+        }))
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(
             tauri_plugin_window_state::Builder::default()
@@ -725,18 +859,29 @@ pub fn run() {
             add_server,
             remove_server,
             switch_server,
-            show_add_server,
             report_workspaces,
+            report_theme,
             notify,
             rail_menu,
+            add_menu,
             open_workspace,
-            create_workspace
+            start_sso
         ])
         .setup(|app| {
             let dir = app.path().app_config_dir()?;
             app.manage::<Servers>(Mutex::new(Store::load(&dir)));
             app.manage(Showing::default());
             app.manage(Reports::default());
+            app.manage(Themes::default());
+            app.manage(PendingSso::default());
+            let links = app.handle().clone();
+            app.deep_link().on_open_url(move |event| {
+                for link in event.urls() {
+                    if let Err(e) = finish_sso(&links, &link) {
+                        eprintln!("sso: {e}");
+                    }
+                }
+            });
             #[cfg(target_os = "macos")]
             std::thread::spawn(|| {
                 let _ = notify_rust::request_auth_blocking();

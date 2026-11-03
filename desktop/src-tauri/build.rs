@@ -5,12 +5,13 @@ fn main() {
             "add_server",
             "remove_server",
             "switch_server",
-            "show_add_server",
             "report_workspaces",
+            "report_theme",
             "notify",
             "rail_menu",
+            "add_menu",
             "open_workspace",
-            "create_workspace",
+            "start_sso",
         ]),
     ))
     .expect("tauri build script");

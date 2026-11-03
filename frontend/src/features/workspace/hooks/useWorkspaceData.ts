@@ -51,8 +51,10 @@ export function useWorkspaceData(workspaceId: string | undefined, currentUserId:
   );
   const storeWorkspaceId = currentWorkspace?.id;
 
-  const { data: workspaces = [] } = useWorkspaces();
-  const { data: deletedWorkspaces = [] } = useDeletedWorkspaces();
+  const { data: workspaces = [], isSuccess: workspacesLoaded } = useWorkspaces();
+  const { data: deletedWorkspaces = [], isSuccess: deletedLoaded } = useDeletedWorkspaces();
+  const noWorkspaces =
+    workspacesLoaded && deletedLoaded && workspaces.length === 0 && deletedWorkspaces.length === 0;
   const currentWsInstanceUrl =
     workspaces.find((w) => w.id === workspaceId)?.instanceUrl ?? activeInstanceUrl ?? undefined;
   const { data: channels = [], isPending: channelsPending } = useWorkspaceChannels(
@@ -172,6 +174,7 @@ export function useWorkspaceData(workspaceId: string | undefined, currentUserId:
   return {
     workspaces,
     deletedWorkspaces,
+    noWorkspaces,
     currentWsInstanceUrl,
     channels,
     channelsPending,

@@ -20,6 +20,7 @@ interface Props {
   currentWorkspaceId: string | undefined;
   onSelectWorkspace: (ws: Workspace) => void;
   onCreateWorkspace: (name: string, instanceUrl: string) => Promise<void>;
+  onLeaveWorkspace: (ws: Workspace) => void;
   onAddInstance: () => void;
   onImportFromSlack: (instanceUrl: string) => void;
 }
@@ -30,6 +31,7 @@ export default function WorkspaceSidebar({
   currentWorkspaceId,
   onSelectWorkspace,
   onCreateWorkspace,
+  onLeaveWorkspace,
   onAddInstance,
   onImportFromSlack,
 }: Props) {
@@ -62,6 +64,7 @@ export default function WorkspaceSidebar({
     currentWorkspaceId,
     onSelectWorkspace,
     onCreateWorkspace: openCreateModal,
+    onLeaveWorkspace,
   });
 
   const groups = instances.map((inst) => ({

@@ -81,7 +81,9 @@ renders lives in `features/messaging`, even when it is small and general-looking
   dialog, that the app's rail asks for, and `WorkspaceSidebar` draws no rail and no *Add
   instance*. `showNotification` hands the notification to the app, which raises a native
   one and, on a click, shows this server and runs the click handler; the Dock badge is the
-  sum of the unread counts every server reported. In a browser nothing changes.
+  sum of the unread counts every server reported. The theme store reports the theme the page
+  shows, at start and on every change, and the app paints its rail and title bar to match
+  the server in front. In a browser nothing changes.
 
 ### The read rule
 
@@ -145,7 +147,10 @@ conversation id as the channel id.
 - **`features/workspace/hooks/useWorkspaceController`** — composes the page's hooks and
   returns one object the view consumes: `useWorkspaceData` (queries, store hydration,
   socket joins), `useWorkspaceRouting` (URL↔store sync), `useComposer` (send, slash
-  commands, uploads, typing) and `useMessageActions` (save, forward).
+  commands, uploads, typing) and `useMessageActions` (save, forward). `noWorkspaces` is
+  true once both workspace lists have loaded empty: routing then moves a workspace url to
+  `/app`, and the page says *You're not in a workspace yet* instead of waiting on channels
+  that will never load.
 - **`features/workspace/hooks/useRightPanel`** — open-panel state (members / settings /
   thread / search / pins / channel members / notifications), Esc-to-close, reset on
   conversation change.
@@ -674,6 +679,7 @@ Token refresh is **not** a hook — `ApiClient` refreshes automatically on 401 /
 | `useDeletedWorkspaces()` | GET `/workspaces/deleted` | Soft-deleted workspaces |
 | `useRestoreWorkspace()` | POST `/workspaces/{id}/restore` | Restore mutation |
 | `useCreateWorkspace()` | POST `/workspaces` | Create workspace mutation |
+| `useLeaveWorkspace()` | DELETE `/workspaces/{id}/members/{userId}` with your own id | *Leave workspace…* in the workspace menu; an owner can't leave |
 | `useCreateChannel()` | POST `/workspaces/{id}/channels` | Create channel mutation |
 
 ### Messages
@@ -829,7 +835,9 @@ typing, and `notification` events are handled separately — by `usePresenceStor
 | `channel.member_added` / `channel.member_removed` | Invalidate channel members query |
 | `member.added` / `member.removed` | Invalidate workspace members query |
 | `workspace.created` / `workspace.restored` | Invalidate workspaces list |
-| `workspace.deleted` | Invalidate workspaces + deleted list; navigate away unless workspace/instance admin |
+| `workspace.deleted` | Invalidate workspaces + deleted list; unless workspace/instance admin, `forgetWorkspace` it |
+| `workspace.access_revoked` | `forgetWorkspace`: drop it from the cached lists, forget its channels and members, clear it from the store. Routing then sees the url's workspace is gone and moves on; nothing here touches the url, which belongs to the router |
+| `channel.access_revoked` | Drop the channel from the workspace's cached list and forget its messages and members; routing finds the url's channel unlisted, previews it, and falls back to the workspace |
 | `workspace.emoji_changed` | Invalidate that workspace's custom emoji, so `:name:` renders and the picker offers it without a reload |
 | `workspace.updated` | Invalidate single workspace + workspaces list |
 | `conversation.created` | Invalidate the conversation list and join the new channel on the socket |

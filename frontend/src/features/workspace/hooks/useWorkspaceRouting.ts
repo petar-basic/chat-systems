@@ -11,6 +11,7 @@ import type { useRightPanel } from './useRightPanel';
 interface Args {
   workspaces: Workspace[];
   deletedWorkspaces: Workspace[];
+  noWorkspaces: boolean;
   channels: Channel[];
   markConversationReadServer: (conversationId: string) => void;
   panel: ReturnType<typeof useRightPanel>;
@@ -22,6 +23,7 @@ interface Args {
 export function useWorkspaceRouting({
   workspaces,
   deletedWorkspaces,
+  noWorkspaces,
   channels,
   markConversationReadServer,
   panel,
@@ -68,7 +70,10 @@ export function useWorkspaceRouting({
   const activeWorkspaceId = workspaceId ?? currentWorkspace?.id;
 
   useEffect(() => {
-    if (workspaces.length === 0 && deletedWorkspaces.length === 0) return;
+    if (workspaces.length === 0 && deletedWorkspaces.length === 0) {
+      if (noWorkspaces && workspaceId) navigate(ROUTES.app, { replace: true });
+      return;
+    }
     if (workspaceId) {
       const target =
         workspaces.find((ws) => ws.id === workspaceId) ??
@@ -88,6 +93,7 @@ export function useWorkspaceRouting({
   }, [
     workspaces,
     deletedWorkspaces,
+    noWorkspaces,
     workspaceId,
     currentWorkspace,
     selectWorkspace,

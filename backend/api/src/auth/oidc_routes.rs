@@ -3,14 +3,18 @@ use std::sync::Arc;
 use axum::extract::{Query, State};
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::get;
-use axum::Router;
+use axum::{Json, Router};
 use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
 use rand::RngExt;
 use redis::AsyncCommands;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::routes;
+use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
 
+use super::models::{SsoExchangeRequest, SsoExchanged};
 use super::oidc::{self, OidcSettings, PendingLogin, Provisioning};
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::state::AppState;
@@ -19,6 +23,8 @@ const HANDLE_COOKIE: &str = "oidc_handle";
 /// Long enough to type a password at the provider, short enough that an
 /// abandoned attempt is not a standing invitation.
 const PENDING_TTL_SECS: u64 = 600;
+const DESKTOP_CLIENT: &str = "desktop";
+const DESKTOP_CODE_TTL_SECS: u64 = 60;
 
 pub fn router(state: Arc<AppState>) -> Router {
     // Outside `auth_middleware`: nobody has a session yet, that being the point.
@@ -26,6 +32,10 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/auth/oidc/start", get(start))
         .route("/auth/oidc/callback", get(callback))
         .with_state(state)
+}
+
+pub fn public_router() -> OpenApiRouter<Arc<AppState>> {
+    OpenApiRouter::new().routes(routes!(exchange))
 }
 
 pub fn settings_from(config: &crate::config::AppConfig) -> OidcSettings {
@@ -49,9 +59,28 @@ fn pending_key(handle: &str) -> String {
     format!("oidc:pending:{handle}")
 }
 
+pub(crate) fn desktop_code_key(code: &str) -> String {
+    format!("oidc:desktop:{code}")
+}
+
+fn is_token(value: &str) -> bool {
+    (16..=128).contains(&value.len())
+        && value
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+}
+
 #[derive(Debug, Deserialize)]
 struct StartQuery {
     invite: Option<String>,
+    client: Option<String>,
+    nonce: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct DesktopSignIn {
+    user_id: Uuid,
+    landing: String,
 }
 
 async fn start(
@@ -69,8 +98,20 @@ async fn start(
         ));
     }
 
+    let desktop_nonce = match query.client.as_deref() {
+        None => None,
+        Some(DESKTOP_CLIENT) => Some(
+            query
+                .nonce
+                .filter(|nonce| is_token(nonce))
+                .ok_or_else(|| AppError::BadRequest("A desktop sign-in needs its nonce".into()))?,
+        ),
+        Some(_) => return Err(AppError::BadRequest("Unknown sign-in client".into())),
+    };
+
     let (url, mut pending) = oidc::start(&settings).await?;
     pending.invite = query.invite.filter(|token| !token.is_empty());
+    pending.desktop_nonce = desktop_nonce;
 
     let handle = handle();
     let mut conn = state.redis.clone();
@@ -141,14 +182,23 @@ async fn callback(
     let identity = oidc::exchange(&settings, &pending, &code).await?;
 
     let user = link_or_create(&state, &settings, &identity, &ip).await?;
-    let tokens = state.auth_service.tokens_for(&user).await?;
     let landing = match pending.invite.as_deref() {
         Some(token) => join_from_invite(&state, &user, token).await,
         None => "/app".to_string(),
     };
-
-    let secure = state.config.public_url.starts_with("https://");
     let jar = jar.remove(Cookie::from(HANDLE_COOKIE));
+
+    if let Some(nonce) = pending.desktop_nonce {
+        let code = issue_desktop_code(&state, user.id, &landing).await?;
+        let handoff = format!(
+            "{}/sso/desktop?code={code}&nonce={nonce}",
+            state.config.public_url
+        );
+        return Ok((jar, Redirect::temporary(&handoff)).into_response());
+    }
+
+    let tokens = state.auth_service.tokens_for(&user).await?;
+    let secure = state.config.public_url.starts_with("https://");
     let jar = super::routes::set_auth_cookies(jar, &tokens, secure);
 
     Ok((
@@ -156,6 +206,67 @@ async fn callback(
         Redirect::temporary(&format!("{}{landing}?sso=1", state.config.public_url)),
     )
         .into_response())
+}
+
+pub(crate) async fn issue_desktop_code(
+    state: &AppState,
+    user_id: Uuid,
+    landing: &str,
+) -> AppResult<String> {
+    let code = handle();
+    let payload = serde_json::to_string(&DesktopSignIn {
+        user_id,
+        landing: landing.to_string(),
+    })
+    .map_err(|e| AppError::Internal(format!("Could not store the sign-in: {e}")))?;
+    let mut conn = state.redis.clone();
+    let _: () = conn
+        .set_ex(desktop_code_key(&code), payload, DESKTOP_CODE_TTL_SECS)
+        .await
+        .map_err(|e| AppError::Internal(format!("Could not store the sign-in: {e}")))?;
+    Ok(code)
+}
+
+#[utoipa::path(
+    operation_id = "sso_exchange",
+    post, path = "/auth/oidc/exchange", tag = "auth", request_body = SsoExchangeRequest,
+    responses((status = 200, body = SsoExchanged)), security(()))]
+async fn exchange(
+    State(state): State<Arc<AppState>>,
+    jar: CookieJar,
+    Json(req): Json<SsoExchangeRequest>,
+) -> AppResult<(CookieJar, Json<SsoExchanged>)> {
+    let refused = || AppError::Unauthorized("This sign-in expired, please try again".into());
+    if !is_token(&req.code) {
+        return Err(refused());
+    }
+
+    let mut conn = state.redis.clone();
+    let stored: Option<String> = conn
+        .get_del(desktop_code_key(&req.code))
+        .await
+        .map_err(|e| AppError::Internal(format!("Could not read the sign-in: {e}")))?;
+    let sign_in: DesktopSignIn = stored
+        .and_then(|raw| serde_json::from_str(&raw).ok())
+        .ok_or_else(refused)?;
+
+    let user = state
+        .auth_service
+        .repo()
+        .find_by_id(sign_in.user_id)
+        .await?
+        .ok_or_else(refused)?;
+    refuse_suspended(&user)?;
+
+    let tokens = state.auth_service.tokens_for(&user).await?;
+    let secure = state.config.public_url.starts_with("https://");
+    let jar = super::routes::set_auth_cookies(jar, &tokens, secure);
+    Ok((
+        jar,
+        Json(SsoExchanged {
+            landing: sign_in.landing,
+        }),
+    ))
 }
 
 async fn join_from_invite(
