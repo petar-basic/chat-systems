@@ -639,9 +639,8 @@ fn report_workspaces(
     current: Option<String>,
 ) -> Result<(), String> {
     let server = server_of(&app, &webview)?;
-    let origin = Url::parse(&server.url).map_err(|e| e.to_string())?;
     let report = Report {
-        workspaces: workspaces::accept(&origin, workspaces),
+        workspaces: workspaces::accept(workspaces),
         current: current.filter(|id| workspaces::is_id(id)),
     };
     app.state::<Reports>()

@@ -1,7 +1,7 @@
 export interface DesktopWorkspace {
   id: string;
   name: string;
-  icon_url: string | null;
+  icon: string | null;
   unread: number;
   deleted: boolean;
 }

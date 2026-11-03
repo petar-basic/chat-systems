@@ -31,7 +31,7 @@ system warns the first time you open it:
 | `src-tauri/src/servers.rs` | Normalising an address, checking it is a Chat Systems server, and the saved list |
 | `src-tauri/src/navigation.rs` | Which links stay in the app, and where downloads go |
 | `src-tauri/src/bridge.js` | `window.chatSystemsDesktop`, injected into each server's page: how the page reports its workspaces and its theme, raises a notification, starts SSO and hears the rail's and the notifications' clicks |
-| `src-tauri/src/workspaces.rs` | What the app accepts from a page's report: ids, names, unread counts, icons from that server only |
+| `src-tauri/src/workspaces.rs` | What the app accepts from a page's report: ids, names, unread counts, and an icon only as a small PNG the page drew |
 | `src-tauri/src/updates.rs` | Checking for an update, and asking to restart into it |
 | `src-tauri/tauri.release.conf.json` | What a release build adds: the updater, its endpoint and public key, and signed update bundles |
 | `src-tauri/src/notifications.rs` | What the app accepts from a page's notification: a key it can hand back, a title and a body cut to banner length |

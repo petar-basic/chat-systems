@@ -77,7 +77,8 @@ renders lives in `features/messaging`, even when it is small and general-looking
   Activity across every workspace; a push sends the same total for its instance.
 - **Inside the desktop app** (`desktop/`, which injects `window.chatSystemsDesktop`) the
   workspace rail is the app's, not the page's: `useDesktopRail` reports this server's
-  workspaces and their unread Activity to the app and opens the workspace, or the create
+  workspaces, their icons drawn by the page as small PNGs (the rail has no session to load
+  them with), and their unread Activity to the app and opens the workspace, or the create
   dialog, that the app's rail asks for, and `WorkspaceSidebar` draws no rail and no *Add
   instance*. `showNotification` hands the notification to the app, which raises a native
   one and, on a click, shows this server and runs the click handler; the Dock badge is the
