@@ -830,7 +830,9 @@ typing, and `notification` events are handled separately — by `usePresenceStor
 | `channel.member_added` / `channel.member_removed` | Invalidate channel members query |
 | `member.added` / `member.removed` | Invalidate workspace members query |
 | `workspace.created` / `workspace.restored` | Invalidate workspaces list |
-| `workspace.deleted` | Invalidate workspaces + deleted list; navigate away unless workspace/instance admin |
+| `workspace.deleted` | Invalidate workspaces + deleted list; unless workspace/instance admin, `forgetWorkspace` it |
+| `workspace.access_revoked` | `forgetWorkspace`: drop it from the cached lists, forget its channels and members, clear it from the store. Routing then sees the url's workspace is gone and moves on; nothing here touches the url, which belongs to the router |
+| `channel.access_revoked` | Drop the channel from the workspace's cached list and forget its messages and members; routing finds the url's channel unlisted, previews it, and falls back to the workspace |
 | `workspace.emoji_changed` | Invalidate that workspace's custom emoji, so `:name:` renders and the picker offers it without a reload |
 | `workspace.updated` | Invalidate single workspace + workspaces list |
 | `conversation.created` | Invalidate the conversation list and join the new channel on the socket |
