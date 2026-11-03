@@ -9,7 +9,7 @@ in [docs/native-apps-plan.md](../docs/native-apps-plan.md).
 
 | Path | What it is |
 |---|---|
-| `ui/` | The app's own pages: the server rail (`rail.html`) and *Add a server* (`index.html`) |
+| `ui/` | The app's own pages: the workspace rail (`rail.html`) and *Add a server* (`index.html`) |
 | `src-tauri/src/lib.rs` | The window, its webviews, the menu and the commands the app's pages call |
 | `src-tauri/src/servers.rs` | Normalising an address, checking it is a Chat Systems server, and the saved list |
 | `src-tauri/src/navigation.rs` | Which links stay in the app, and where downloads go |
@@ -47,8 +47,13 @@ The rail and the title bar follow the theme of the server in front, which its pa
 whenever it changes; until a page has reported one, and on *Add a server*, they follow the
 system.
 
+The rail lists workspaces, not servers: every workspace you are in on every server, with
+the server's name in its tooltip. A server shows as a tile of its own only while it has no
+workspace on the rail, such as before you sign in. *+* at the bottom creates a workspace on
+one of your servers or adds a server.
+
 Right-clicking the rail hides a workspace from it, shows the hidden ones again, leaves a
-workspace, or removes the server after asking. A hidden workspace stays hidden in `servers.json`;
+workspace, creates a workspace on that server, or removes the server after asking. A hidden workspace stays hidden in `servers.json`;
 it no longer counts toward the Dock badge or raises notifications, and you stay a member of it.
 *Leave Workspace…* opens the workspace and asks there, in the page, which knows whether you are
 allowed to leave and is the one signed in to do it.
