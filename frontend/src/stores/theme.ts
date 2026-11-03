@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { logger } from '@/lib/logger';
+import { desktopShell } from '@/lib/desktopShell';
 
 const STORAGE_KEY = 'chat_theme';
 
@@ -34,6 +35,7 @@ function apply(resolved: ResolvedTheme) {
   if (typeof document === 'undefined') return;
   document.documentElement.dataset.theme = resolved;
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEME_COLOR[resolved]);
+  desktopShell()?.reportTheme?.(resolved);
 }
 
 interface ThemeState {

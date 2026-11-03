@@ -81,7 +81,9 @@ renders lives in `features/messaging`, even when it is small and general-looking
   dialog, that the app's rail asks for, and `WorkspaceSidebar` draws no rail and no *Add
   instance*. `showNotification` hands the notification to the app, which raises a native
   one and, on a click, shows this server and runs the click handler; the Dock badge is the
-  sum of the unread counts every server reported. In a browser nothing changes.
+  sum of the unread counts every server reported. The theme store reports the theme the page
+  shows, at start and on every change, and the app paints its rail and title bar to match
+  the server in front. In a browser nothing changes.
 
 ### The read rule
 

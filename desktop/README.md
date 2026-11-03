@@ -13,10 +13,10 @@ in [docs/native-apps-plan.md](../docs/native-apps-plan.md).
 | `src-tauri/src/lib.rs` | The window, its webviews, the menu and the commands the app's pages call |
 | `src-tauri/src/servers.rs` | Normalising an address, checking it is a Chat Systems server, and the saved list |
 | `src-tauri/src/navigation.rs` | Which links stay in the app, and where downloads go |
-| `src-tauri/src/bridge.js` | `window.chatSystemsDesktop`, injected into each server's page: how the page reports its workspaces, raises a notification and hears the rail's and the notifications' clicks |
+| `src-tauri/src/bridge.js` | `window.chatSystemsDesktop`, injected into each server's page: how the page reports its workspaces and its theme, raises a notification, starts SSO and hears the rail's and the notifications' clicks |
 | `src-tauri/src/workspaces.rs` | What the app accepts from a page's report: ids, names, unread counts, icons from that server only |
 | `src-tauri/src/notifications.rs` | What the app accepts from a page's notification: a key it can hand back, a title and a body cut to banner length |
-| `src-tauri/capabilities/` | Which pages may call the app: the rail and *Add a server*; a server's page gets only `report_workspaces` and `notify`, granted at run time for its own origin |
+| `src-tauri/capabilities/` | Which pages may call the app: the rail and *Add a server*; a server's page gets only `report_workspaces`, `report_theme`, `notify` and `start_sso`, granted at run time for its own origin |
 
 ## Run and build
 
@@ -42,6 +42,10 @@ notifications and keeps its unread count on the rail and the Dock.
 Closing the window hides it and the app keeps running, so notifications still arrive; the
 tray menu opens it again, turns *Open at Login* on or off, and quits. Opened at login, the
 app starts with its window hidden.
+
+The rail and the title bar follow the theme of the server in front, which its page reports
+whenever it changes; until a page has reported one, and on *Add a server*, they follow the
+system.
 
 Right-clicking the rail hides a workspace from it, shows the hidden ones again, leaves a
 workspace, or removes the server after asking. A hidden workspace stays hidden in `servers.json`;
