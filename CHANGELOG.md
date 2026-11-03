@@ -18,6 +18,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ### Fixed
 
+- Notifications from the desktop app pop up on Windows. They were sent under PowerShell's app id
+  instead of the app's own, which Windows does not show as the app's banner.
 - In the desktop app the sign-in page reads "Sign in to" the server's name and asks only for
   your email and password, or SSO. It used to ask for the server's address again, which the
   app already had, and offered to connect to a different server from inside this one's window.
