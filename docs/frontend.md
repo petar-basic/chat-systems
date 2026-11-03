@@ -77,9 +77,11 @@ renders lives in `features/messaging`, even when it is small and general-looking
   Activity across every workspace; a push sends the same total for its instance.
 - **Inside the desktop app** (`desktop/`, which injects `window.chatSystemsDesktop`) the
   workspace rail is the app's, not the page's: `useDesktopRail` reports this server's
-  workspaces and their unread Activity to the app and opens the workspace, or the create
+  workspaces, their icons drawn by the page as small PNGs (the rail has no session to load
+  them with), and their unread Activity to the app and opens the workspace, or the create
   dialog, that the app's rail asks for, and `WorkspaceSidebar` draws no rail and no *Add
-  instance*. `showNotification` hands the notification to the app, which raises a native
+  instance*. The sign-in page signs in to the server the window shows, with no *Server URL*
+  field. `showNotification` hands the notification to the app, which raises a native
   one and, on a click, shows this server and runs the click handler; the Dock badge is the
   sum of the unread counts every server reported. The theme store reports the theme the page
   shows, at start and on every change, and the app paints its rail and title bar to match
@@ -812,7 +814,7 @@ from all instances publish here.
 - `on(type, handler)` — subscribe, narrowed to the event variant (returns unsub fn)
 - `emit(event)` — broadcast
 
-Event types include: `workspace.created/updated/deleted/restored`, `member.added/removed`,
+Event types include: `workspace.created/updated/deleted/restored/joined/members_changed`,
 `channel.created/updated/member_added/member_removed`, `message.new/updated/deleted/pinned`,
 `reaction.added/removed`, `conversation.created`, `notification`,
 `presence.changed`, `presence.batch`, `typing.indicator`, and the `huddle.*` signaling/lifecycle
@@ -833,8 +835,9 @@ typing, and `notification` events are handled separately — by `usePresenceStor
 | `channel.created` | Invalidate workspace channels list |
 | `channel.updated` | Invalidate single channel query |
 | `channel.member_added` / `channel.member_removed` | Invalidate channel members query |
-| `member.added` / `member.removed` | Invalidate workspace members query |
+| `workspace.members_changed` | Someone joined or left: invalidate that workspace's members and every cached channel member list (`membershipSync.ts`) |
 | `workspace.created` / `workspace.restored` | Invalidate workspaces list |
+| `workspace.joined` | This user was added to a workspace, sent to them wherever they are: invalidate the workspaces list, so other tabs and the desktop rail show it |
 | `workspace.deleted` | Invalidate workspaces + deleted list; unless workspace/instance admin, `forgetWorkspace` it |
 | `workspace.access_revoked` | `forgetWorkspace`: drop it from the cached lists, forget its channels and members, clear it from the store. Routing then sees the url's workspace is gone and moves on; nothing here touches the url, which belongs to the router |
 | `channel.access_revoked` | Drop the channel from the workspace's cached list and forget its messages and members; routing finds the url's channel unlisted, previews it, and falls back to the workspace |

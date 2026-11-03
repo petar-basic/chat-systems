@@ -635,6 +635,60 @@ async fn workspace_member_removed_unsubscribes_that_user(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn workspace_member_removed_tells_the_members_who_stay(pool: PgPool) {
+    let cm = manager(pool).await;
+    let removed = Uuid::new_v4();
+    let staying = Uuid::new_v4();
+    let workspace_id = Uuid::new_v4();
+
+    let (removed_conn, mut removed_rx) = fake_conn(&cm, removed);
+    let (staying_conn, mut staying_rx) = fake_conn(&cm, staying);
+    cm.subscribe_workspace(&removed_conn, workspace_id);
+    cm.subscribe_workspace(&staying_conn, workspace_id);
+
+    let payload = serde_json::json!({ "workspace_id": workspace_id, "user_id": removed });
+    crate::event_consumer::handle_event("workspace.member_removed", &payload, &cm).await;
+
+    assert_eq!(
+        drain_types(&mut removed_rx),
+        vec!["workspace.access_revoked".to_string()],
+        "the one who left hears only that they left"
+    );
+    assert_eq!(
+        drain_types(&mut staying_rx),
+        vec!["workspace.members_changed".to_string()],
+        "everyone who stays refreshes the member list"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn workspace_member_joined_reaches_the_new_member_outside_the_workspace(pool: PgPool) {
+    let cm = manager(pool).await;
+    let joined = Uuid::new_v4();
+    let member = Uuid::new_v4();
+    let workspace_id = Uuid::new_v4();
+
+    let (joined_conn, mut joined_rx) = fake_conn(&cm, joined);
+    let (member_conn, mut member_rx) = fake_conn(&cm, member);
+    cm.subscribe_workspace(&joined_conn, Uuid::new_v4());
+    cm.subscribe_workspace(&member_conn, workspace_id);
+
+    let payload = serde_json::json!({ "workspace_id": workspace_id, "user_id": joined });
+    crate::event_consumer::handle_event("workspace.member_joined", &payload, &cm).await;
+
+    assert_eq!(
+        drain_types(&mut joined_rx),
+        vec!["workspace.joined".to_string()],
+        "the new member hears it while looking at another workspace"
+    );
+    assert_eq!(
+        drain_types(&mut member_rx),
+        vec!["workspace.members_changed".to_string()],
+        "the members already there refresh the member list"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn later_updated_reaches_only_its_owner(pool: PgPool) {
     let cm = manager(pool).await;
     let owner = Uuid::new_v4();

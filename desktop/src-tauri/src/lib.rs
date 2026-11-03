@@ -2,6 +2,7 @@ mod navigation;
 mod notifications;
 mod servers;
 mod sso;
+mod updates;
 mod workspaces;
 
 use std::collections::HashMap;
@@ -18,8 +19,8 @@ use tauri::utils::config::BackgroundThrottlingPolicy;
 use tauri::webview::{DownloadEvent, NewWindowFeatures, NewWindowResponse, WebviewBuilder};
 use tauri::window::WindowBuilder;
 use tauri::{
-    AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, RunEvent, Runtime, State, Theme,
-    Webview, WebviewUrl, WebviewWindowBuilder, Window, WindowEvent,
+    AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, Runtime, State, Theme, Webview,
+    WebviewUrl, WebviewWindowBuilder, Window, WindowEvent,
 };
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -160,11 +161,11 @@ fn announce<R: Runtime>(app: &AppHandle<R>) {
     if let Ok(window) = main_window(app) {
         let _ = window.set_theme(now.theme);
     }
-    let _ = app.emit_to(RAIL, "servers-changed", now.clone());
-    let _ = app.emit_to(PICKER, "servers-changed", now);
-    if let Ok(menu) = build_menu(app) {
+    if let Ok(menu) = build_menu(app, &now.servers) {
         let _ = app.set_menu(menu);
     }
+    let _ = app.emit_to(RAIL, "servers-changed", now.clone());
+    let _ = app.emit_to(PICKER, "servers-changed", now);
 }
 
 fn open_externally<R: Runtime>(app: &AppHandle<R>, target: &Url) {
@@ -362,26 +363,47 @@ fn open_last<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
     }
 }
 
-fn build_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
-    let menu = Menu::default(app)?;
-    let servers = app
-        .state::<Servers>()
-        .lock()
-        .map(|store| store.servers().to_vec())
-        .unwrap_or_default();
+struct Shortcut {
+    id: String,
+    label: String,
+}
 
-    let submenu = Submenu::new(app, "Servers", true)?;
-    for (i, server) in servers.iter().enumerate() {
+fn shortcuts(servers: &[ServerView]) -> Vec<Shortcut> {
+    servers
+        .iter()
+        .flat_map(|view| {
+            if view.workspaces.is_empty() {
+                return vec![Shortcut {
+                    id: format!("server:{}", view.server.url),
+                    label: view.server.name.clone(),
+                }];
+            }
+            view.workspaces
+                .iter()
+                .map(|workspace| Shortcut {
+                    id: format!("open:{}:{}", workspace.id, view.server.url),
+                    label: workspace.name.clone(),
+                })
+                .collect()
+        })
+        .collect()
+}
+
+fn build_menu<R: Runtime>(app: &AppHandle<R>, servers: &[ServerView]) -> tauri::Result<Menu<R>> {
+    let menu = Menu::default(app)?;
+    let submenu = Submenu::new(app, "Workspaces", true)?;
+    let entries = shortcuts(servers);
+    for (i, entry) in entries.iter().enumerate() {
         let accelerator = (i < 9).then(|| format!("CmdOrCtrl+{}", i + 1));
         submenu.append(&MenuItem::with_id(
             app,
-            format!("server:{}", server.url),
-            &server.name,
+            &entry.id,
+            &entry.label,
             true,
             accelerator.as_deref(),
         )?)?;
     }
-    if !servers.is_empty() {
+    if !entries.is_empty() {
         submenu.append(&PredefinedMenuItem::separator(app)?)?;
     }
     submenu.append(&MenuItem::with_id(
@@ -617,9 +639,8 @@ fn report_workspaces(
     current: Option<String>,
 ) -> Result<(), String> {
     let server = server_of(&app, &webview)?;
-    let origin = Url::parse(&server.url).map_err(|e| e.to_string())?;
     let report = Report {
-        workspaces: workspaces::accept(&origin, workspaces),
+        workspaces: workspaces::accept(workspaces),
         current: current.filter(|id| workspaces::is_id(id)),
     };
     app.state::<Reports>()
@@ -648,7 +669,8 @@ fn show_notification<R: Runtime>(app: &AppHandle<R>, server: &Server, note: &not
     if !notify_rust::request_auth_blocking().unwrap_or(false) {
         return;
     }
-    let Ok(handle) = Notification::new()
+    let mut notification = Notification::new();
+    notification
         .summary(&note.title)
         .subtitle(if note.subtitle.is_empty() {
             &server.name
@@ -656,9 +678,10 @@ fn show_notification<R: Runtime>(app: &AppHandle<R>, server: &Server, note: &not
             &note.subtitle
         })
         .body(&note.body)
-        .timeout(Timeout::Milliseconds(NOTIFICATION_LINGERS_MS))
-        .show()
-    else {
+        .timeout(Timeout::Milliseconds(NOTIFICATION_LINGERS_MS));
+    #[cfg(target_os = "windows")]
+    notification.app_id(&app.config().identifier);
+    let Ok(handle) = notification.show() else {
         return;
     };
     let _ = handle.wait_for_response(|response: &NotificationResponse| {
@@ -827,6 +850,10 @@ fn on_menu<R: Runtime>(app: &AppHandle<R>, id: &str) {
             Some((workspace, url)) => change_hidden(app, |store| store.hide(url, workspace)),
             None => Ok(()),
         },
+        Some(("open", rest)) => match rest.split_once(':') {
+            Some((workspace, url)) => ask_about_workspace(app, url, "open-workspace", workspace),
+            None => Ok(()),
+        },
         Some(("leave", rest)) => match rest.split_once(':') {
             Some((workspace, url)) => ask_about_workspace(app, url, "leave-workspace", workspace),
             None => Ok(()),
@@ -921,10 +948,15 @@ pub fn run() {
             }
             tray.build(app)?;
 
-            app.set_menu(build_menu(app.handle())?)?;
+            app.set_menu(build_menu(app.handle(), &overview(app.handle()).servers)?)?;
             app.on_menu_event(|app, event| on_menu(app, event.id().as_ref()));
             load_all(app.handle())?;
             open_last(app.handle())?;
+            if updates::is_configured(app.handle()) {
+                app.handle()
+                    .plugin(tauri_plugin_updater::Builder::new().build())?;
+                updates::keep_updated(app.handle());
+            }
             if std::env::args().any(|arg| arg == STARTED_HIDDEN) {
                 window.hide()?;
             }
@@ -935,7 +967,7 @@ pub fn run() {
 
     app.run(|app, event| {
         #[cfg(target_os = "macos")]
-        if let RunEvent::Reopen {
+        if let tauri::RunEvent::Reopen {
             has_visible_windows: false,
             ..
         } = event
@@ -945,4 +977,50 @@ pub fn run() {
         #[cfg(not(target_os = "macos"))]
         let _ = (app, event);
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn server(url: &str, name: &str, workspaces: &[(&str, &str)]) -> ServerView {
+        ServerView {
+            server: Server {
+                url: url.into(),
+                name: name.into(),
+                icon: None,
+                hidden: Vec::new(),
+            },
+            workspaces: workspaces
+                .iter()
+                .map(|(id, name)| Workspace {
+                    id: (*id).into(),
+                    name: (*name).into(),
+                    icon: None,
+                    unread: 0,
+                    deleted: false,
+                })
+                .collect(),
+            current: None,
+        }
+    }
+
+    #[test]
+    fn shortcuts_follow_the_rail_across_servers() {
+        let servers = [
+            server("https://a.example", "A", &[("a1", "Acme"), ("a2", "Beta")]),
+            server("https://b.example", "B", &[]),
+            server("https://c.example", "C", &[("c1", "Core")]),
+        ];
+        let ids: Vec<String> = shortcuts(&servers).into_iter().map(|s| s.id).collect();
+        assert_eq!(
+            ids,
+            [
+                "open:a1:https://a.example",
+                "open:a2:https://a.example",
+                "server:https://b.example",
+                "open:c1:https://c.example",
+            ]
+        );
+    }
 }

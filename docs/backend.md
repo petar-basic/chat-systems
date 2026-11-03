@@ -1366,7 +1366,7 @@ A join is authorised against the huddle's own `huddle_sessions` row, never again
 | `events:conversation` | `conversation.created` — fanned out to the participants; a conversation's messages are ordinary `message.*` / `reaction.*` events on its channel id |
 | `events:presence` | `presence.changed` (fanned out only to workspaces shared with the subject, the subject included), `presence.recompute` (worked out by the node holding the person's socket) |
 | `events:typing` | `typing.indicator` |
-| `events:workspace` | `workspace.deleted`, `workspace.restored`, `workspace.emoji_changed` — a custom emoji was added or removed; members refetch the set |
+| `events:workspace` | `workspace.deleted`, `workspace.restored`, `workspace.emoji_changed` — a custom emoji was added or removed; members refetch the set; `workspace.member_joined` becomes `workspace.joined` for the new member on every socket, `workspace.member_removed` becomes `workspace.access_revoked` for the one who left, and both send `workspace.members_changed` to the members subscribed to the workspace |
 | `events:user` | `user.suspended` — consumed by the gateway to close the user's sockets (not pushed to clients) |
 | `events:huddle` | `huddle.started`, `huddle.ended`, `huddle.ring`, `huddle.member_joined`, `huddle.member_left` — lifecycle; also consumed by the API for history + call notifications |
 | `events:list` | `list.upserted`, `list.deleted`, `list.columns_changed`, `list.item_upserted`, `list.item_deleted` — to the list's channel, or to the owner of a personal list |

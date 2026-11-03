@@ -9,6 +9,7 @@ import { useInstanceInfo } from '@/features/instance/hooks/useInstanceInfo';
 import { isTotpRequired } from '@/lib/errors';
 import { PENDING_INVITE_KEY, ROUTES } from '@/shared/constants';
 import { ssoStartUrl, startSsoInDesktop } from '@/features/instance/ssoStart';
+import { desktopShell } from '@/lib/desktopShell';
 
 /// A sign-in that started from an invite link owes the person the workspace
 /// they were invited to, not the generic app shell.
@@ -33,6 +34,7 @@ export default function AddInstancePage() {
   const [needsTotp, setNeedsTotp] = useState(false);
 
   const { data: instance } = useInstanceInfo(window.location.origin);
+  const inDesktop = desktopShell() !== null;
 
   const sameOrigin = url.trim().replace(/\/$/, '') === window.location.origin;
 
@@ -67,6 +69,16 @@ export default function AddInstancePage() {
   };
 
   const isFirstInstance = instances.length === 0;
+  const title = inDesktop
+    ? t('signIn.desktopTitle', { name: instance?.name ?? 'Chat Systems' })
+    : isFirstInstance
+      ? t('signIn.welcome')
+      : t('signIn.addInstance');
+  const subtitle = inDesktop
+    ? window.location.host
+    : isFirstInstance
+      ? t('signIn.connectFirst')
+      : t('signIn.connectAnother');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-app via-accent-deep to-app flex items-center justify-center p-4">
@@ -75,12 +87,8 @@ export default function AddInstancePage() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-600 rounded-2xl mb-4">
             <ServerCrash className="w-8 h-8 text-fg" />
           </div>
-          <h1 className="text-3xl font-bold text-fg">
-            {isFirstInstance ? t('signIn.welcome') : t('signIn.addInstance')}
-          </h1>
-          <p className="text-muted mt-2">
-            {isFirstInstance ? t('signIn.connectFirst') : t('signIn.connectAnother')}
-          </p>
+          <h1 className="text-3xl font-bold text-fg">{title}</h1>
+          <p className="text-muted mt-2">{subtitle}</p>
         </div>
 
         <form
@@ -100,36 +108,40 @@ export default function AddInstancePage() {
           )}
 
           <div className="space-y-5 mb-6">
-            <TextInput
-              label={t('signIn.serverUrl')}
-              type="url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://chat.yourcompany.com"
-              required
-            />
-
-            <div>
-              <button
-                type="button"
-                onClick={() => setShowAdvanced(!showAdvanced)}
-                className="text-xs text-muted hover:text-fg-dim transition flex items-center gap-1"
-              >
-                <span>{showAdvanced ? '▾' : '▸'}</span> {t('signIn.advancedOptions')}
-              </button>
-              {showAdvanced && (
+            {!inDesktop && (
+              <>
                 <TextInput
-                  label={t('signIn.websocketUrl')}
-                  optional
-                  hint={t('signIn.websocketUrlHint')}
+                  label={t('signIn.serverUrl')}
                   type="url"
-                  value={wsUrl}
-                  onChange={(e) => setWsUrl(e.target.value)}
-                  placeholder="ws://localhost:3004"
-                  className="mt-3"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="https://chat.yourcompany.com"
+                  required
                 />
-              )}
-            </div>
+
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvanced(!showAdvanced)}
+                    className="text-xs text-muted hover:text-fg-dim transition flex items-center gap-1"
+                  >
+                    <span>{showAdvanced ? '▾' : '▸'}</span> {t('signIn.advancedOptions')}
+                  </button>
+                  {showAdvanced && (
+                    <TextInput
+                      label={t('signIn.websocketUrl')}
+                      optional
+                      hint={t('signIn.websocketUrlHint')}
+                      type="url"
+                      value={wsUrl}
+                      onChange={(e) => setWsUrl(e.target.value)}
+                      placeholder="ws://localhost:3004"
+                      className="mt-3"
+                    />
+                  )}
+                </div>
+              </>
+            )}
 
             <TextInput
               label={t('signIn.email')}
@@ -190,7 +202,7 @@ export default function AddInstancePage() {
             icon={<LogIn className="h-4 w-4" />}
             data-qa="login-submit"
           >
-            {t('signIn.submit')}
+            {inDesktop ? t('signIn.desktopSubmit') : t('signIn.submit')}
           </Button>
 
           {instance?.sso_enabled && sameOrigin && (
@@ -216,7 +228,7 @@ export default function AddInstancePage() {
           )}
         </form>
 
-        {!isFirstInstance && (
+        {!isFirstInstance && !inDesktop && (
           <button
             onClick={() => navigate(-1)}
             className="mt-4 w-full text-center text-muted text-sm hover:text-fg-dim transition"
