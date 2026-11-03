@@ -1,8 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import type { Workspace } from '@/stores/workspace';
 import type { DesktopCommand, DesktopShell } from '@/lib/desktopShell';
 import { useDesktopRail } from './useDesktopRail';
+
+const { railIcon } = vi.hoisted(() => ({ railIcon: vi.fn() }));
+vi.mock('@/lib/railIcon', () => ({ railIcon }));
 
 function workspace(id: string, instanceUrl = window.location.origin): Workspace {
   return { id, name: `Workspace ${id}`, icon_url: null, instanceUrl } as Workspace;
@@ -41,10 +44,42 @@ describe('useDesktopRail', () => {
 
     expect(shell.reportWorkspaces).toHaveBeenLastCalledWith(
       [
-        { id: 'a1', name: 'Workspace a1', icon_url: null, unread: 4, deleted: false },
-        { id: 'c3', name: 'Workspace c3', icon_url: null, unread: 0, deleted: true },
+        { id: 'a1', name: 'Workspace a1', icon: null, unread: 4, deleted: false },
+        { id: 'c3', name: 'Workspace c3', icon: null, unread: 0, deleted: true },
       ],
       'a1',
+    );
+  });
+
+  it('hands the rail an icon the page drew, since the rail cannot load it signed out', async () => {
+    railIcon.mockResolvedValue('data:image/png;base64,iVBORw0KGgo=');
+    const { shell } = fakeShell();
+    renderHook(() =>
+      useDesktopRail(shell, {
+        workspaces: [{ ...workspace('a1'), icon_url: '/api/files/download/icons/a1.png' }],
+        deletedWorkspaces: [],
+        unreadByWorkspace: {},
+        currentWorkspaceId: 'a1',
+        onSelectWorkspace: vi.fn(),
+        onCreateWorkspace: vi.fn(),
+        onLeaveWorkspace: vi.fn(),
+      }),
+    );
+
+    expect(railIcon).toHaveBeenCalledWith('/api/files/download/icons/a1.png');
+    await waitFor(() =>
+      expect(shell.reportWorkspaces).toHaveBeenLastCalledWith(
+        [
+          {
+            id: 'a1',
+            name: 'Workspace a1',
+            icon: 'data:image/png;base64,iVBORw0KGgo=',
+            unread: 0,
+            deleted: false,
+          },
+        ],
+        'a1',
+      ),
     );
   });
 
