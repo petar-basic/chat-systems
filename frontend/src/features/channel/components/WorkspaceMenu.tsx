@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { ChevronDown, Settings, ShieldCheck, UserPlus, Workflow } from 'lucide-react';
+import { ChevronDown, LogOut, Settings, ShieldCheck, UserPlus, Workflow } from 'lucide-react';
 import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
 
@@ -8,10 +8,12 @@ interface Props {
   isWorkspaceAdmin: boolean;
   isInstanceAdmin: boolean;
   canUseWorkflows: boolean;
+  canLeave: boolean;
   onOpenSettings: () => void;
   onInvite: () => void;
   onOpenWorkflows: () => void;
   onOpenInstanceAdmin: () => void;
+  onLeave: () => void;
 }
 
 const ITEM =
@@ -22,10 +24,12 @@ export function WorkspaceMenu({
   isWorkspaceAdmin,
   isInstanceAdmin,
   canUseWorkflows,
+  canLeave,
   onOpenSettings,
   onInvite,
   onOpenWorkflows,
   onOpenInstanceAdmin,
+  onLeave,
 }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -63,6 +67,11 @@ export function WorkspaceMenu({
           <button className={ITEM} data-qa="open-workspace-settings" onClick={pick(onOpenSettings)}>
             <Settings className="w-4 h-4" /> Workspace settings
           </button>
+          {canLeave && (
+            <button className={ITEM} data-qa="leave-workspace" onClick={pick(onLeave)}>
+              <LogOut className="w-4 h-4" /> Leave workspace…
+            </button>
+          )}
           {isInstanceAdmin && (
             <button
               className="w-full px-4 py-2 text-left text-sm text-accent-soft hover:bg-raised flex items-center gap-2 cursor-pointer border-t border-line"

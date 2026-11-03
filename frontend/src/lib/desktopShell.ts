@@ -16,6 +16,7 @@ export interface DesktopNotification {
 
 export type DesktopCommand =
   | { kind: 'open-workspace'; workspaceId: string }
+  | { kind: 'leave-workspace'; workspaceId: string }
   | { kind: 'create-workspace' }
   | { kind: 'open-notification'; key: string };
 

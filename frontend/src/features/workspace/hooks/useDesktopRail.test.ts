@@ -35,6 +35,7 @@ describe('useDesktopRail', () => {
         currentWorkspaceId: 'a1',
         onSelectWorkspace: vi.fn(),
         onCreateWorkspace: vi.fn(),
+        onLeaveWorkspace: vi.fn(),
       }),
     );
 
@@ -59,6 +60,7 @@ describe('useDesktopRail', () => {
         currentWorkspaceId: undefined,
         onSelectWorkspace,
         onCreateWorkspace,
+        onLeaveWorkspace: vi.fn(),
       }),
     );
 
@@ -73,6 +75,30 @@ describe('useDesktopRail', () => {
     expect(subscribed()).toBe(false);
   });
 
+  it('opens a workspace before asking whether to leave it', () => {
+    const { shell, send } = fakeShell();
+    const onSelectWorkspace = vi.fn();
+    const onLeaveWorkspace = vi.fn();
+    renderHook(() =>
+      useDesktopRail(shell, {
+        workspaces: [workspace('a1')],
+        deletedWorkspaces: [],
+        unreadByWorkspace: {},
+        currentWorkspaceId: undefined,
+        onSelectWorkspace,
+        onCreateWorkspace: vi.fn(),
+        onLeaveWorkspace,
+      }),
+    );
+
+    act(() => send({ kind: 'leave-workspace', workspaceId: 'a1' }));
+    act(() => send({ kind: 'leave-workspace', workspaceId: 'missing' }));
+
+    expect(onSelectWorkspace).toHaveBeenCalledOnce();
+    expect(onLeaveWorkspace).toHaveBeenCalledOnce();
+    expect(onLeaveWorkspace.mock.calls[0][0].id).toBe('a1');
+  });
+
   it('does nothing outside the desktop app', () => {
     expect(() =>
       renderHook(() =>
@@ -83,6 +109,7 @@ describe('useDesktopRail', () => {
           currentWorkspaceId: 'a1',
           onSelectWorkspace: vi.fn(),
           onCreateWorkspace: vi.fn(),
+          onLeaveWorkspace: vi.fn(),
         }),
       ),
     ).not.toThrow();

@@ -674,6 +674,7 @@ Token refresh is **not** a hook — `ApiClient` refreshes automatically on 401 /
 | `useDeletedWorkspaces()` | GET `/workspaces/deleted` | Soft-deleted workspaces |
 | `useRestoreWorkspace()` | POST `/workspaces/{id}/restore` | Restore mutation |
 | `useCreateWorkspace()` | POST `/workspaces` | Create workspace mutation |
+| `useLeaveWorkspace()` | DELETE `/workspaces/{id}/members/{userId}` with your own id | *Leave workspace…* in the workspace menu; an owner can't leave |
 | `useCreateChannel()` | POST `/workspaces/{id}/channels` | Create channel mutation |
 
 ### Messages
