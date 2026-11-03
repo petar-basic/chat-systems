@@ -2,6 +2,7 @@ mod navigation;
 mod notifications;
 mod servers;
 mod sso;
+mod updates;
 mod workspaces;
 
 use std::collections::HashMap;
@@ -925,6 +926,11 @@ pub fn run() {
             app.on_menu_event(|app, event| on_menu(app, event.id().as_ref()));
             load_all(app.handle())?;
             open_last(app.handle())?;
+            if updates::is_configured(app.handle()) {
+                app.handle()
+                    .plugin(tauri_plugin_updater::Builder::new().build())?;
+                updates::keep_updated(app.handle());
+            }
             if std::env::args().any(|arg| arg == STARTED_HIDDEN) {
                 window.hide()?;
             }

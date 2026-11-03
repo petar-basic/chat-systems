@@ -22,7 +22,7 @@ in 3.4.0. Wave 25, which moves the profile and notification settings to each wor
 in 3.5.0. Wave 26, which fixes what the 2026-10-27 product survey found, shipped in 3.6.0.
 Wave 27, which fixes what the 2026-10-28 survey of 3.6.0 found, shipped in 3.7.0. Wave 28, the
 feedback on 3.7.0 and CS-037, shipped in 4.0.0.
-After it, releases are bug fixes only for a while. Wave 29, a desktop app, is open; its spike, CS-106, the shell, CS-107, the rail, notifications and tray, CS-108, and SSO in the app, CS-109, are done.
+After it, releases are bug fixes only for a while. Wave 29, a desktop app, is done and ships with the next release.
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
@@ -368,7 +368,7 @@ comes next because everything else lives inside it.
 | CS-107 ✅ | A desktop app that opens any server | desktop |
 | CS-108 ✅ | One rail for servers and workspaces, notifications, badge and tray | desktop · frontend |
 | CS-109 ✅ | SSO that finishes in the app | desktop · backend |
-| CS-110 | Desktop builds with every release | desktop · ops · docs |
+| CS-110 ✅ | Desktop builds with every release | desktop · ops · docs |
 
 ## Conflict map
 

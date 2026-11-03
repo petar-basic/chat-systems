@@ -7,9 +7,12 @@ ticket in [`docs/tickets/`](./tickets/INDEX.md); a ticket's file is deleted when
 
 ## Open
 
-**Wave 29 — a desktop app** is open: CS-110 (the CS-106 spike, the CS-107 shell, CS-108's rail, notifications and tray, and CS-109's SSO in the app are done), planned on 2026-11-02 in
-[native-apps-plan.md](./native-apps-plan.md). One app we publish opens any server, built on
-Tauri 2 around each server's own web app. Mobile apps come after it and are not ticketed yet.
+**Wave 29 — a desktop app** is done on `main` and ships with the next release: CS-106 to
+CS-110, planned on 2026-11-02 in [native-apps-plan.md](./native-apps-plan.md). One app we
+publish opens any server, built on Tauri 2 around each server's own web app, and updates
+itself from GitHub Releases. Signing it with an Apple Developer ID and a Windows certificate
+is still an [open decision](./native-apps-plan.md#open-decisions). Mobile apps come after it
+and are not ticketed yet.
 
 Waves 21–23 were chosen in the 2026-10-23 review and shipped together in 3.3.0, before
 4.0.0. Wave 24 came out of the 2026-10-26 review, which walked the app the way a company
