@@ -392,6 +392,20 @@ impl EventPublisher {
         .await
     }
 
+    pub async fn stage_workspace_member_joined(
+        conn: &mut PgConnection,
+        workspace_id: Uuid,
+        user_id: Uuid,
+    ) -> AppResult<Staged> {
+        Self::stage(
+            conn,
+            "workspace.member_joined",
+            workspace_id,
+            serde_json::json!({ "workspace_id": workspace_id, "user_id": user_id }),
+        )
+        .await
+    }
+
     pub async fn stage_channel_member_joined(
         conn: &mut PgConnection,
         channel_id: Uuid,

@@ -181,7 +181,7 @@ impl WorkspaceService {
         let mut tx = self.repo.begin().await?;
 
         WorkspaceRepo::add_member_if_absent_tx(&mut tx, workspace_id, user_id, role).await?;
-        let staged = join_default_channels(&mut tx, workspace_id, user_id).await?;
+        let staged = settle_in(&mut tx, workspace_id, user_id).await?;
 
         tx.commit().await?;
 
@@ -230,7 +230,7 @@ impl WorkspaceService {
             .ok_or_else(invalid_invite)?;
         WorkspaceRepo::add_member_if_absent_tx(&mut tx, invite.workspace_id, user_id, &invite.role)
             .await?;
-        let staged = join_default_channels(&mut tx, invite.workspace_id, user_id).await?;
+        let staged = settle_in(&mut tx, invite.workspace_id, user_id).await?;
         tx.commit().await?;
 
         info!(
@@ -280,7 +280,7 @@ impl WorkspaceService {
             WorkspaceRepo::add_member_tx(&mut tx, invite.workspace_id, user_id, &invite.role)
                 .await?;
 
-        let staged = join_default_channels(&mut tx, invite.workspace_id, user_id).await?;
+        let staged = settle_in(&mut tx, invite.workspace_id, user_id).await?;
 
         tx.commit().await?;
 
@@ -308,6 +308,17 @@ fn ensure_live(invite: &WorkspaceInvite, email: &str) -> AppResult<()> {
     } else {
         Err(invalid_invite())
     }
+}
+
+async fn settle_in(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    workspace_id: Uuid,
+    user_id: Uuid,
+) -> AppResult<Vec<Staged>> {
+    let mut staged =
+        vec![EventPublisher::stage_workspace_member_joined(tx, workspace_id, user_id).await?];
+    staged.extend(join_default_channels(tx, workspace_id, user_id).await?);
+    Ok(staged)
 }
 
 async fn join_default_channels(

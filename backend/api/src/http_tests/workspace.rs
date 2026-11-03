@@ -422,7 +422,7 @@ async fn create_invite_admin_only(pool: PgPool) {
 async fn accept_invite_bogus_token_is_404_and_valid_token_joins(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "inv-acc-owner", false).await;
-    let (_, _, joiner_token) = seed_and_login(&app, &state, "inv-acc-join", false).await;
+    let (joiner_id, _, joiner_token) = seed_and_login(&app, &state, "inv-acc-join", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Accept WS").await;
 
     let (status, _) = send(&app, "POST", "/api/invites/whatever/accept", None, None).await;
@@ -458,6 +458,19 @@ async fn accept_invite_bogus_token_is_404_and_valid_token_joins(pool: PgPool) {
     )
     .await;
     assert_eq!(status, StatusCode::OK, "accept invite: {resp:?}");
+
+    let joined: Vec<serde_json::Value> = sqlx::query_scalar(
+        "SELECT payload FROM event_outbox WHERE event_type = 'workspace.member_joined' AND workspace_id = $1",
+    )
+    .bind(ws_id)
+    .fetch_all(&state.pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        joined,
+        vec![json!({ "workspace_id": ws_id, "user_id": joiner_id })],
+        "joining is announced, so the new member's other apps show the workspace"
+    );
 }
 
 #[test_macros::db_test(migrations = "../migrations")]

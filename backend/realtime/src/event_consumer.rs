@@ -467,6 +467,25 @@ pub(crate) async fn handle_event_for(
                 workspace_id: ws_id,
             };
             cm.send_to_user(audience, uid, &framed(&notice)).await;
+            let changed = ServerFrame::WorkspaceMembersChanged {
+                workspace_id: ws_id,
+            };
+            cm.broadcast_to_workspace(audience, ws_id, &framed(&changed))
+                .await;
+        }
+        "workspace.member_joined" => {
+            let (Some(uid), Some(ws_id)) = (field("user_id"), field("workspace_id")) else {
+                return;
+            };
+            let joined = ServerFrame::WorkspaceJoined {
+                workspace_id: ws_id,
+            };
+            cm.send_to_user(audience, uid, &framed(&joined)).await;
+            let changed = ServerFrame::WorkspaceMembersChanged {
+                workspace_id: ws_id,
+            };
+            cm.broadcast_to_workspace(audience, ws_id, &framed(&changed))
+                .await;
         }
         "list.upserted"
         | "list.deleted"
