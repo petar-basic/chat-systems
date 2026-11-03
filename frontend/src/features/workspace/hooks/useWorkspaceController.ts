@@ -63,6 +63,7 @@ export function useWorkspaceController() {
   const routing = useWorkspaceRouting({
     workspaces: data.workspaces,
     deletedWorkspaces: data.deletedWorkspaces,
+    noWorkspaces: data.noWorkspaces,
     channels: data.channels,
     markConversationReadServer: data.markConversationReadServer,
     panel,
@@ -214,6 +215,7 @@ export function useWorkspaceController() {
     navigate,
     workspaces: data.workspaces,
     deletedWorkspaces: data.deletedWorkspaces,
+    noWorkspaces: data.noWorkspaces,
     channels: data.channels,
     channelsPending: data.channelsPending,
     workspaceMembers: data.workspaceMembers,
