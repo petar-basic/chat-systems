@@ -14,6 +14,47 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
+## [4.1.0] — 2026-11-03
+
+### Upgrading from 4.0.2
+
+- Set `VERSION=4.1.0`, pull both images and restart `api`, `realtime`, `worker` and `frontend`
+  together. There is no migration and no new setting: SSO from the desktop app uses the SSO you
+  already have.
+
+### Added
+
+- A desktop app for macOS and Windows, attached to every release from this one on. It opens
+  any Chat Systems server, and several at once:
+  - one rail with every workspace you are in on every server, the server's name in each tooltip;
+  - native notifications that open the message on a click, and the unread count on the Dock
+    and the tray;
+  - closing the window keeps it running in the tray, and it can open at login;
+  - *Sign in with SSO* goes through the system browser and comes back to the app signed in;
+  - the rail and the title bar follow the page's light or dark theme;
+  - it updates itself from the latest release, and installs only updates signed with the
+    project's key.
+
+  It is not signed with an Apple or a Windows certificate yet, so each system warns the first
+  time you open it; [desktop/README.md](desktop/README.md#download) says how to open it.
+- *Leave workspace…* in the workspace menu and on the desktop rail. An owner cannot leave, and
+  is told so.
+- Setting up two-factor shows a QR code of the setup link, drawn in the browser, so a phone's
+  authenticator can scan it from a computer screen.
+- The RUNBOOK explains [authentik in front of an LDAP directory](docs/RUNBOOK.md#authentik-in-front-of-an-ldap-directory),
+  for signing in with directory accounts through SSO.
+
+### Fixed
+
+- Being removed from a workspace or a private channel, or leaving one, takes you to another
+  workspace or channel at once, instead of leaving "Something went wrong" on the one you lost.
+- Someone in no workspace at all sees "You're not in a workspace yet" and how to create one or
+  be invited, instead of an empty page; an old link to a workspace they left opens the app.
+- The sign-in, invite and password-reset pages follow the light or dark theme you chose. They
+  were always dark until a workspace had been opened.
+- The background blur in a huddle loads the MediaPipe files that match its library (1.2.0)
+  instead of an older version's.
+
 ## [4.0.2] — 2026-10-31
 
 ### Upgrading from 4.0.1

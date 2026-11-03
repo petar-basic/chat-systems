@@ -89,7 +89,7 @@ integration-test suite and a real CI pipeline.
 
 **Running it**
 - One `docker compose` command, automatic HTTPS, several workspaces per instance
-- An installable PWA; the client can connect to several instances
+- A desktop app for macOS and Windows and an installable PWA; both connect to several instances
 
 ## Coming from Slack
 
@@ -101,7 +101,7 @@ What a team moving from Slack should expect to be missing or different:
 
 | Missing / different | Where it stands |
 |---|---|
-| **No native mobile app.** The web app is responsive and installs as a PWA with push, but there is nothing in an app store. | Deliberate — see [ROADMAP.md](docs/ROADMAP.md#wave-11--guest-containment-operational-readiness-and-mobile--shipped); React Native only if push reliability or call ringing proves to be the blocker |
+| **No native mobile app.** The web app is responsive and installs as a PWA with push, but there is nothing in an app store. | Planned after the desktop app, not ticketed yet — see [native-apps-plan.md](docs/native-apps-plan.md#mobile-later) |
 | **Large huddles need LiveKit.** Without it a huddle is a peer-to-peer mesh capped at eight people. No recording. | LiveKit is an optional compose file (see the RUNBOOK); recording deliberately out of scope |
 | **Search reads text, not pictures.** Messages, file names and the text inside PDF, Word, Excel, PowerPoint and text files are searched; a scanned page or a screenshot is not (no OCR). | Deliberate — OCR needs a model beside the stack |
 | **No shared channels across organisations.** | Not planned |
