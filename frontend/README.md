@@ -58,7 +58,9 @@ string to `en` only. A string missing from another language shows in English, so
 never waits on a translation.
 
 - Keys are typed from the English files, so a misspelled key fails `npx tsc -b`.
-- Text with markup inside it uses `<Trans>` with named tags (`<email>{{email}}</email>`).
+- Text with markup inside it uses `<Trans>` with named tags (`<email>{{email}}</email>`), imported
+  from `shared/components/Trans`. It escapes the values before the tags are parsed, so a tag
+  someone types into a name stays text; lint refuses `Trans` from `react-i18next` itself.
 - The language follows the browser for now; English is the fallback.
 - Tests and E2E select elements by `data-qa`, so a translation never breaks one.
 

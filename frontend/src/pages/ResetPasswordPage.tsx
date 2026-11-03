@@ -4,7 +4,8 @@ import { buttonStyles } from '@/shared/components/Button/buttonStyles';
 import { Button } from '@/shared/components/Button/Button';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { useSearchParams, useLocation, Link } from 'react-router';
-import { Trans, useTranslation } from 'react-i18next';
+import { useTranslation } from 'react-i18next';
+import { Trans } from '@/shared/components/Trans/Trans';
 import { ROUTES } from '@/shared/constants';
 import { api } from '../lib/api';
 

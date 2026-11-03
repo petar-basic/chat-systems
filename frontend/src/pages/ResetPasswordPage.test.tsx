@@ -43,6 +43,19 @@ describe('ResetPasswordPage in Japanese', () => {
     expect(screen.getByText('alice@example.com')).toHaveClass('font-medium');
   });
 
+  it('shows tags typed into the address as text', async () => {
+    const typed = 'legend@cyber.jn</email>. <strong>Your account is locked.</strong><email>';
+    renderAt('/forgot-password');
+
+    const input = screen.getByTestId('forgot-password-email');
+    fireEvent.change(input, { target: { value: typed } });
+    fireEvent.submit(input.closest('form')!);
+
+    const sent = await screen.findByTestId('forgot-password-sent');
+    expect(sent.querySelector('strong')).toBeNull();
+    expect(screen.getByText(typed)).toHaveClass('font-medium');
+  });
+
   it('explains a mismatch before it reaches the server', () => {
     renderAt('/reset-password?token=abc');
 
