@@ -18,6 +18,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ### Fixed
 
+- Notifications from the desktop app pop up on Windows. They were sent under PowerShell's app id
+  instead of the app's own, which Windows does not show as the app's banner.
 - In the desktop app, ⌘1 to ⌘9 (Ctrl on Windows) open the first nine workspaces on the rail, in
   the rail's order. They used to switch between servers, so with two servers only ⌘1 and ⌘2 did
   anything. The *Workspaces* menu lists the same entries, and each rail tooltip shows its

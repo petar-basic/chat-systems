@@ -669,7 +669,8 @@ fn show_notification<R: Runtime>(app: &AppHandle<R>, server: &Server, note: &not
     if !notify_rust::request_auth_blocking().unwrap_or(false) {
         return;
     }
-    let Ok(handle) = Notification::new()
+    let mut notification = Notification::new();
+    notification
         .summary(&note.title)
         .subtitle(if note.subtitle.is_empty() {
             &server.name
@@ -677,9 +678,10 @@ fn show_notification<R: Runtime>(app: &AppHandle<R>, server: &Server, note: &not
             &note.subtitle
         })
         .body(&note.body)
-        .timeout(Timeout::Milliseconds(NOTIFICATION_LINGERS_MS))
-        .show()
-    else {
+        .timeout(Timeout::Milliseconds(NOTIFICATION_LINGERS_MS));
+    #[cfg(target_os = "windows")]
+    notification.app_id(&app.config().identifier);
+    let Ok(handle) = notification.show() else {
         return;
     };
     let _ = handle.wait_for_response(|response: &NotificationResponse| {
