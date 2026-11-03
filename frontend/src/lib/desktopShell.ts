@@ -24,6 +24,7 @@ export interface DesktopShell {
   version: number;
   reportWorkspaces: (workspaces: DesktopWorkspace[], current: string | null) => void;
   notify: (notification: DesktopNotification) => void;
+  startSso?: (invite: string | null) => void;
   onCommand: (handler: (command: DesktopCommand) => void) => () => void;
 }
 

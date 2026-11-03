@@ -366,6 +366,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/oidc/exchange": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sso_exchange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/refresh": {
         parameters: {
             query?: never;
@@ -5304,6 +5320,12 @@ export interface components {
             column_id: string;
             direction?: components["schemas"]["SortDirection"];
         };
+        SsoExchangeRequest: {
+            code: string;
+        };
+        SsoExchanged: {
+            landing: string;
+        };
         StartHuddleRequest: {
             /** Format: uuid */
             channel_id?: string | null;
@@ -6269,6 +6291,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    sso_exchange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SsoExchangeRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SsoExchanged"];
                 };
             };
         };

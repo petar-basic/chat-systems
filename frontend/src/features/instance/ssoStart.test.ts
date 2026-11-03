@@ -1,12 +1,39 @@
-import { describe, it, expect } from 'vitest';
-import { ssoStartUrl } from './ssoStart';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import type { MouseEvent } from 'react';
+import type { DesktopShell } from '@/lib/desktopShell';
+import { startSsoInDesktop } from './ssoStart';
 
-describe('ssoStartUrl', () => {
-  it('carries the invite through the sign-in so the join can finish after it', () => {
-    expect(ssoStartUrl('a.b/c')).toBe(`${window.location.origin}/api/auth/oidc/start?invite=a.b%2Fc`);
+function click() {
+  return { preventDefault: vi.fn() } as unknown as MouseEvent;
+}
+
+function shell(extra: Partial<DesktopShell> = {}): DesktopShell {
+  return { version: 1, reportWorkspaces: vi.fn(), notify: vi.fn(), onCommand: () => () => {}, ...extra };
+}
+
+describe('startSsoInDesktop', () => {
+  afterEach(() => {
+    delete window.chatSystemsDesktop;
   });
 
-  it('starts a plain sign-in without one', () => {
-    expect(ssoStartUrl(null)).toBe(`${window.location.origin}/api/auth/oidc/start`);
+  it('asks the desktop app to sign in through the system browser', () => {
+    const startSso = vi.fn();
+    window.chatSystemsDesktop = shell({ startSso });
+    const event = click();
+
+    startSsoInDesktop(event, 'invite-token');
+
+    expect(event.preventDefault).toHaveBeenCalled();
+    expect(startSso).toHaveBeenCalledWith('invite-token');
+  });
+
+  it('leaves the link alone in a browser or a desktop app too old to know SSO', () => {
+    const event = click();
+    startSsoInDesktop(event);
+
+    window.chatSystemsDesktop = shell();
+    startSsoInDesktop(event);
+
+    expect(event.preventDefault).not.toHaveBeenCalled();
   });
 });
