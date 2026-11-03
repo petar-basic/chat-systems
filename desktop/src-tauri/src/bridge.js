@@ -8,6 +8,7 @@
       reportWorkspaces: (workspaces, current) => invoke('report_workspaces', { workspaces, current }),
       notify: (notification) => invoke('notify', { notification }),
       startSso: (invite) => invoke('start_sso', { invite }),
+      reportTheme: (theme) => invoke('report_theme', { theme }),
       onCommand: (handler) => {
         handlers.add(handler);
         return () => handlers.delete(handler);

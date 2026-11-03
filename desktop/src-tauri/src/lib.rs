@@ -18,8 +18,8 @@ use tauri::utils::config::BackgroundThrottlingPolicy;
 use tauri::webview::{DownloadEvent, NewWindowFeatures, NewWindowResponse, WebviewBuilder};
 use tauri::window::WindowBuilder;
 use tauri::{
-    AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, RunEvent, Runtime, State, Webview,
-    WebviewUrl, WebviewWindowBuilder, Window, WindowEvent,
+    AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, RunEvent, Runtime, State, Theme,
+    Webview, WebviewUrl, WebviewWindowBuilder, Window, WindowEvent,
 };
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -57,6 +57,9 @@ struct Report {
 #[derive(Default)]
 struct Reports(Mutex<HashMap<String, Report>>);
 
+#[derive(Default)]
+struct Themes(Mutex<HashMap<String, Theme>>);
+
 #[derive(Clone, Serialize)]
 struct ServerView {
     #[serde(flatten)]
@@ -69,6 +72,7 @@ struct ServerView {
 struct Overview {
     servers: Vec<ServerView>,
     active: Option<String>,
+    theme: Option<Theme>,
 }
 
 fn webview_label(url: &str) -> String {
@@ -117,7 +121,18 @@ fn overview<R: Runtime>(app: &AppHandle<R>) -> Overview {
             }
         })
         .collect();
-    Overview { servers, active }
+    let theme = active.as_ref().and_then(|url| {
+        app.state::<Themes>()
+            .0
+            .lock()
+            .ok()
+            .and_then(|themes| themes.get(url).copied())
+    });
+    Overview {
+        servers,
+        active,
+        theme,
+    }
 }
 
 fn badge<R: Runtime>(app: &AppHandle<R>, servers: &[ServerView]) {
@@ -142,6 +157,9 @@ fn badge<R: Runtime>(app: &AppHandle<R>, servers: &[ServerView]) {
 fn announce<R: Runtime>(app: &AppHandle<R>) {
     let now = overview(app);
     badge(app, &now.servers);
+    if let Ok(window) = main_window(app) {
+        let _ = window.set_theme(now.theme);
+    }
     let _ = app.emit_to(RAIL, "servers-changed", now.clone());
     let _ = app.emit_to(PICKER, "servers-changed", now);
     if let Ok(menu) = build_menu(app) {
@@ -268,7 +286,8 @@ fn load_server<R: Runtime>(
                 .webview(&label)
                 .permission("allow-report-workspaces")
                 .permission("allow-notify")
-                .permission("allow-start-sso"),
+                .permission("allow-start-sso")
+                .permission("allow-report-theme"),
         );
         let builder = WebviewBuilder::new(&label, WebviewUrl::External(origin.clone()))
             .initialization_script(BRIDGE)
@@ -424,6 +443,9 @@ fn forget_server<R: Runtime>(app: &AppHandle<R>, url: &str) -> Result<(), String
     if let Ok(mut reports) = app.state::<Reports>().0.lock() {
         reports.remove(url);
     }
+    if let Ok(mut themes) = app.state::<Themes>().0.lock() {
+        themes.remove(url);
+    }
     if was_showing {
         return open_last(app);
     }
@@ -563,6 +585,18 @@ fn report_workspaces(
         .lock()
         .map_err(|e| e.to_string())?
         .insert(server.url, report);
+    announce(&app);
+    Ok(())
+}
+
+#[tauri::command]
+fn report_theme(app: AppHandle, webview: Webview, theme: Theme) -> Result<(), String> {
+    let server = server_of(&app, &webview)?;
+    app.state::<Themes>()
+        .0
+        .lock()
+        .map_err(|e| e.to_string())?
+        .insert(server.url, theme);
     announce(&app);
     Ok(())
 }
@@ -794,6 +828,7 @@ pub fn run() {
             switch_server,
             show_add_server,
             report_workspaces,
+            report_theme,
             notify,
             rail_menu,
             open_workspace,
@@ -805,6 +840,7 @@ pub fn run() {
             app.manage::<Servers>(Mutex::new(Store::load(&dir)));
             app.manage(Showing::default());
             app.manage(Reports::default());
+            app.manage(Themes::default());
             app.manage(PendingSso::default());
             let links = app.handle().clone();
             app.deep_link().on_open_url(move |event| {

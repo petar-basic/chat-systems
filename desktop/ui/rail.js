@@ -102,7 +102,9 @@ function group(server, index, servers, active) {
   return items;
 }
 
-function render({ servers, active }) {
+function render({ servers, active, theme }) {
+  if (theme) document.documentElement.dataset.theme = theme;
+  else delete document.documentElement.dataset.theme;
   list.replaceChildren(...servers.flatMap((server, i) => group(server, i, servers, active)));
 }
 
