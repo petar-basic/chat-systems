@@ -181,6 +181,24 @@ export const useRestoreWorkspace = () => {
   });
 };
 
+export const useLeaveWorkspace = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ workspace, userId }: { workspace: Workspace; userId: string }) =>
+      getApiForInstance(workspace.instanceUrl).typed((c) =>
+        c.DELETE('/workspaces/{ws_id}/members/{user_id}', {
+          params: { path: { ws_id: workspace.id, user_id: userId } },
+        }),
+      ),
+    onSuccess: (_, { workspace }) => {
+      queryClient.removeQueries({ queryKey: QUERY_KEYS.workspaceChannels(workspace.id) });
+      queryClient.removeQueries({ queryKey: QUERY_KEYS.workspaceMembers(workspace.id) });
+      return queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaces() });
+    },
+  });
+};
+
 export const useCreateWorkspace = () => {
   const queryClient = useQueryClient();
 

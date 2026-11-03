@@ -10,6 +10,7 @@ interface Rail {
   currentWorkspaceId: string | undefined;
   onSelectWorkspace: (ws: Workspace) => void;
   onCreateWorkspace: (instanceUrl: string) => void;
+  onLeaveWorkspace: (ws: Workspace) => void;
 }
 
 export function useDesktopRail(shell: DesktopShell | null, rail: Rail) {
@@ -39,9 +40,11 @@ export function useDesktopRail(shell: DesktopShell | null, rail: Rail) {
       rail.onCreateWorkspace(origin);
       return;
     }
-    if (command.kind !== 'open-workspace') return;
+    if (command.kind !== 'open-workspace' && command.kind !== 'leave-workspace') return;
     const ws = [...rail.workspaces, ...rail.deletedWorkspaces].find((w) => w.id === command.workspaceId);
-    if (ws) rail.onSelectWorkspace(ws);
+    if (!ws) return;
+    rail.onSelectWorkspace(ws);
+    if (command.kind === 'leave-workspace') rail.onLeaveWorkspace(ws);
   });
   useEffect(() => shell?.onCommand(answer), [shell]);
 }

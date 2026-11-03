@@ -4,6 +4,7 @@ export { useWorkspaceController } from './hooks/useWorkspaceController';
 export { useRightPanel } from './hooks/useRightPanel';
 export { useCurrentWorkspaceRole } from './hooks/useCurrentWorkspaceRole';
 export { WorkspaceSettingsModal } from './settings/WorkspaceSettingsModal';
+export { LeaveWorkspaceDialog } from './LeaveWorkspaceDialog';
 export { useSettingsDialog } from './settings/useSettingsDialog';
 export { WorkspaceChecklist } from './onboarding/WorkspaceChecklist';
 export { useAppActions, useApps } from './hooks/useApps';

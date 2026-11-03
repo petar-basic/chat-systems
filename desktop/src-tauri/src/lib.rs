@@ -475,6 +475,13 @@ fn build_rail_menu<R: Runtime>(
             true,
             None::<&str>,
         )?)?;
+        menu.append(&MenuItem::with_id(
+            app,
+            format!("leave:{id}:{}", server.url),
+            "Leave Workspace…",
+            true,
+            None::<&str>,
+        )?)?;
     }
     if !server.hidden.is_empty() {
         let shown = match server.hidden.len() {
@@ -608,18 +615,27 @@ fn notify(
     Ok(())
 }
 
-#[tauri::command]
-fn open_workspace(app: AppHandle, url: String, workspace_id: String) -> Result<(), String> {
-    if !workspaces::is_id(&workspace_id) {
+fn ask_about_workspace<R: Runtime>(
+    app: &AppHandle<R>,
+    url: &str,
+    kind: &str,
+    workspace_id: &str,
+) -> Result<(), String> {
+    if !workspaces::is_id(workspace_id) {
         return Err(format!("{workspace_id} is not a workspace"));
     }
-    open_server(&app, &find(&app, &url)?)?;
+    open_server(app, &find(app, url)?)?;
     dispatch(
-        &app,
-        &url,
-        serde_json::json!({ "kind": "open-workspace", "workspaceId": workspace_id }),
+        app,
+        url,
+        serde_json::json!({ "kind": kind, "workspaceId": workspace_id }),
     );
     Ok(())
+}
+
+#[tauri::command]
+fn open_workspace(app: AppHandle, url: String, workspace_id: String) -> Result<(), String> {
+    ask_about_workspace(&app, &url, "open-workspace", &workspace_id)
 }
 
 #[tauri::command]
@@ -699,6 +715,10 @@ fn on_menu<R: Runtime>(app: &AppHandle<R>, id: &str) {
         Some(("show-hidden", url)) => change_hidden(app, |store| store.show_hidden(url)),
         Some(("hide", rest)) => match rest.split_once(':') {
             Some((workspace, url)) => change_hidden(app, |store| store.hide(url, workspace)),
+            None => Ok(()),
+        },
+        Some(("leave", rest)) => match rest.split_once(':') {
+            Some((workspace, url)) => ask_about_workspace(app, url, "leave-workspace", workspace),
             None => Ok(()),
         },
         _ => Ok(()),

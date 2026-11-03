@@ -10,6 +10,7 @@ import {
   WorkspaceSidebar,
   WorkspaceRightPanels,
   WorkspaceSettingsModal,
+  LeaveWorkspaceDialog,
   WorkspaceChecklist,
   useCurrentWorkspaceRole,
   useSettingsDialog,
@@ -39,6 +40,7 @@ import { useChannelModeration } from '@/features/channel/hooks/useChannelModerat
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
 import { useActiveHuddlesSync } from '@/features/huddle';
 import { FileDropZone } from '@/shared/components/FileDropZone';
+import type { Workspace } from '@/stores/workspace';
 
 export default function WorkspacePage() {
   const c = useWorkspaceController();
@@ -61,6 +63,7 @@ export default function WorkspacePage() {
   const settings = useSettingsDialog();
   const [addingBookmark, setAddingBookmark] = useState(false);
   const [creatingChannel, setCreatingChannel] = useState(false);
+  const [leaving, setLeaving] = useState<Workspace | null>(null);
 
   const inviteToWorkspace = () => settings.open('members', true);
   const aloneInWorkspace = c.workspaceMembers.length < 2;
@@ -93,6 +96,7 @@ export default function WorkspacePage() {
             currentWorkspaceId={currentWorkspace?.id}
             onSelectWorkspace={c.handleSelectWorkspace}
             onCreateWorkspace={c.handleCreateWorkspace}
+            onLeaveWorkspace={setLeaving}
             onImportFromSlack={() => settings.open('slack-import')}
             onAddInstance={() => c.setShowAddInstance(true)}
           />
@@ -119,6 +123,7 @@ export default function WorkspacePage() {
             onOpenSettings={() => settings.open(isAdmin ? 'general' : 'members')}
             onInvite={inviteToWorkspace}
             onOpenWorkflows={() => panel.toggle('workflows')}
+            onLeaveWorkspace={() => setLeaving(currentWorkspace)}
             onOpenScheduled={() => panel.toggle('scheduled')}
             onOpenLater={() => panel.toggle('later')}
             laterActive={panel.active?.kind === 'later'}
@@ -420,6 +425,8 @@ export default function WorkspacePage() {
             onClose={settings.close}
           />
         )}
+
+        {leaving && <LeaveWorkspaceDialog workspace={leaving} onClose={() => setLeaving(null)} />}
 
         {c.accountDialog === 'profile' && <EditProfileModal onClose={() => c.setAccountDialog(null)} />}
         {c.accountDialog === 'preferences' && <PreferencesModal onClose={() => c.setAccountDialog(null)} />}
