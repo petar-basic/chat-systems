@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "shell",
-  "description": "Only the app's own pages, the server rail and the add-server page, may call the app. A server's page gets two permissions at run time, to report its own workspaces and to raise a notification, and only from its own origin.",
+  "description": "Only the app's own pages, the server rail and the add-server page, may call the app. A server's page gets its own permissions at run time, only from its own origin: to report its workspaces and its theme, to raise a notification and to start SSO.",
   "webviews": ["rail", "picker"],
   "permissions": [
     "core:default",
@@ -9,9 +9,8 @@
     "allow-add-server",
     "allow-remove-server",
     "allow-switch-server",
-    "allow-show-add-server",
     "allow-rail-menu",
     "allow-open-workspace",
-    "allow-create-workspace"
+    "allow-add-menu"
   ]
 }

@@ -1,7 +1,7 @@
 export interface DesktopWorkspace {
   id: string;
   name: string;
-  icon_url: string | null;
+  icon: string | null;
   unread: number;
   deleted: boolean;
 }
@@ -16,6 +16,7 @@ export interface DesktopNotification {
 
 export type DesktopCommand =
   | { kind: 'open-workspace'; workspaceId: string }
+  | { kind: 'leave-workspace'; workspaceId: string }
   | { kind: 'create-workspace' }
   | { kind: 'open-notification'; key: string };
 
@@ -23,6 +24,8 @@ export interface DesktopShell {
   version: number;
   reportWorkspaces: (workspaces: DesktopWorkspace[], current: string | null) => void;
   notify: (notification: DesktopNotification) => void;
+  startSso?: (invite: string | null) => void;
+  reportTheme?: (theme: 'light' | 'dark') => void;
   onCommand: (handler: (command: DesktopCommand) => void) => () => void;
 }
 

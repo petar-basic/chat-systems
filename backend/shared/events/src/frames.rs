@@ -282,6 +282,10 @@ pub enum ServerFrame {
     },
     #[serde(rename = "workspace.access_revoked")]
     WorkspaceAccessRevoked { workspace_id: Uuid },
+    #[serde(rename = "workspace.joined")]
+    WorkspaceJoined { workspace_id: Uuid },
+    #[serde(rename = "workspace.members_changed")]
+    WorkspaceMembersChanged { workspace_id: Uuid },
     #[serde(rename = "list.upserted")]
     ListUpserted {
         list_id: Uuid,

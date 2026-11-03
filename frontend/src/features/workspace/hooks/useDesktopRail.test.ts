@@ -1,8 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import type { Workspace } from '@/stores/workspace';
 import type { DesktopCommand, DesktopShell } from '@/lib/desktopShell';
 import { useDesktopRail } from './useDesktopRail';
+
+const { railIcon } = vi.hoisted(() => ({ railIcon: vi.fn() }));
+vi.mock('@/lib/railIcon', () => ({ railIcon }));
 
 function workspace(id: string, instanceUrl = window.location.origin): Workspace {
   return { id, name: `Workspace ${id}`, icon_url: null, instanceUrl } as Workspace;
@@ -35,15 +38,48 @@ describe('useDesktopRail', () => {
         currentWorkspaceId: 'a1',
         onSelectWorkspace: vi.fn(),
         onCreateWorkspace: vi.fn(),
+        onLeaveWorkspace: vi.fn(),
       }),
     );
 
     expect(shell.reportWorkspaces).toHaveBeenLastCalledWith(
       [
-        { id: 'a1', name: 'Workspace a1', icon_url: null, unread: 4, deleted: false },
-        { id: 'c3', name: 'Workspace c3', icon_url: null, unread: 0, deleted: true },
+        { id: 'a1', name: 'Workspace a1', icon: null, unread: 4, deleted: false },
+        { id: 'c3', name: 'Workspace c3', icon: null, unread: 0, deleted: true },
       ],
       'a1',
+    );
+  });
+
+  it('hands the rail an icon the page drew, since the rail cannot load it signed out', async () => {
+    railIcon.mockResolvedValue('data:image/png;base64,iVBORw0KGgo=');
+    const { shell } = fakeShell();
+    renderHook(() =>
+      useDesktopRail(shell, {
+        workspaces: [{ ...workspace('a1'), icon_url: '/api/files/download/icons/a1.png' }],
+        deletedWorkspaces: [],
+        unreadByWorkspace: {},
+        currentWorkspaceId: 'a1',
+        onSelectWorkspace: vi.fn(),
+        onCreateWorkspace: vi.fn(),
+        onLeaveWorkspace: vi.fn(),
+      }),
+    );
+
+    expect(railIcon).toHaveBeenCalledWith('/api/files/download/icons/a1.png');
+    await waitFor(() =>
+      expect(shell.reportWorkspaces).toHaveBeenLastCalledWith(
+        [
+          {
+            id: 'a1',
+            name: 'Workspace a1',
+            icon: 'data:image/png;base64,iVBORw0KGgo=',
+            unread: 0,
+            deleted: false,
+          },
+        ],
+        'a1',
+      ),
     );
   });
 
@@ -59,6 +95,7 @@ describe('useDesktopRail', () => {
         currentWorkspaceId: undefined,
         onSelectWorkspace,
         onCreateWorkspace,
+        onLeaveWorkspace: vi.fn(),
       }),
     );
 
@@ -73,6 +110,30 @@ describe('useDesktopRail', () => {
     expect(subscribed()).toBe(false);
   });
 
+  it('opens a workspace before asking whether to leave it', () => {
+    const { shell, send } = fakeShell();
+    const onSelectWorkspace = vi.fn();
+    const onLeaveWorkspace = vi.fn();
+    renderHook(() =>
+      useDesktopRail(shell, {
+        workspaces: [workspace('a1')],
+        deletedWorkspaces: [],
+        unreadByWorkspace: {},
+        currentWorkspaceId: undefined,
+        onSelectWorkspace,
+        onCreateWorkspace: vi.fn(),
+        onLeaveWorkspace,
+      }),
+    );
+
+    act(() => send({ kind: 'leave-workspace', workspaceId: 'a1' }));
+    act(() => send({ kind: 'leave-workspace', workspaceId: 'missing' }));
+
+    expect(onSelectWorkspace).toHaveBeenCalledOnce();
+    expect(onLeaveWorkspace).toHaveBeenCalledOnce();
+    expect(onLeaveWorkspace.mock.calls[0][0].id).toBe('a1');
+  });
+
   it('does nothing outside the desktop app', () => {
     expect(() =>
       renderHook(() =>
@@ -83,6 +144,7 @@ describe('useDesktopRail', () => {
           currentWorkspaceId: 'a1',
           onSelectWorkspace: vi.fn(),
           onCreateWorkspace: vi.fn(),
+          onLeaveWorkspace: vi.fn(),
         }),
       ),
     ).not.toThrow();

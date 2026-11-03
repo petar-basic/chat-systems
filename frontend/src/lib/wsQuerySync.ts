@@ -11,7 +11,7 @@ import {
   removeMessageById,
   deleteMessageById,
 } from './messageCache';
-import type { Message, WorkspaceMember } from '@/stores/workspace';
+import type { Channel, Message, WorkspaceMember } from '@/stores/workspace';
 import type { Conversation } from '@/features/messaging/hooks/useConversations';
 import { instanceManager } from './instances';
 import { wsClient } from './ws';
@@ -27,7 +27,9 @@ import { readOnScreen } from './readOnScreen';
 import { patchMessageEverywhere, shownInChannel } from './messagePatch';
 import { dropReply, patchReply, placeReply } from './threadCache';
 import { syncListFrames } from '@/features/lists/listSync';
+import { syncMembershipFrames } from './membershipSync';
 import { applyCommandResponse } from './commandAnswers';
+import { forgetWorkspace } from './forgetWorkspace';
 import { customEmojiKey } from '@/features/workspace/hooks/useCustomEmoji';
 
 type ChannelMessages = InfiniteData<{ data: Message[] }>;
@@ -89,8 +91,7 @@ export const useWebSocketQuerySync = () => {
           const isWorkspaceAdmin = role === 'admin' || role === 'owner';
           const isInstanceAdmin = instance?.user.is_instance_admin ?? false;
           if (isWorkspaceAdmin || isInstanceAdmin) return;
-          useWorkspaceStore.setState({ currentWorkspace: null, currentChannel: null });
-          window.history.pushState({}, '', '/app');
+          forgetWorkspace(queryClient, event.workspace_id);
         }
       }),
       // The gateway drops the subscription server-side; the client has to stop
@@ -125,21 +126,18 @@ export const useWebSocketQuerySync = () => {
         queryClient.removeQueries({ queryKey: QUERY_KEYS.messages(event.channel_id) });
         queryClient.removeQueries({ queryKey: QUERY_KEYS.channelMembers(event.channel_id) });
         if (event.workspace_id) {
+          queryClient.setQueryData<Channel[]>(QUERY_KEYS.workspaceChannels(event.workspace_id), (channels) =>
+            channels?.filter((ch) => ch.id !== event.channel_id),
+          );
           queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceChannels(event.workspace_id) });
         }
-        const { currentChannel } = useWorkspaceStore.getState();
-        if (currentChannel?.id === event.channel_id) {
+        if (useWorkspaceStore.getState().currentChannel?.id === event.channel_id) {
           useWorkspaceStore.setState({ currentChannel: null });
-          window.history.pushState({}, '', '/app');
         }
       }),
       globalEventBus.on('workspace.access_revoked', (event) => {
+        forgetWorkspace(queryClient, event.workspace_id);
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaces() });
-        const { currentWorkspace } = useWorkspaceStore.getState();
-        if (currentWorkspace?.id === event.workspace_id) {
-          useWorkspaceStore.setState({ currentWorkspace: null, currentChannel: null });
-          window.history.pushState({}, '', '/app');
-        }
       }),
       globalEventBus.on('workspace.emoji_changed', (event) => {
         queryClient.invalidateQueries({ queryKey: customEmojiKey(event.workspace_id) });
@@ -156,6 +154,7 @@ export const useWebSocketQuerySync = () => {
     );
 
     unsubs.push(...syncListFrames(queryClient));
+    unsubs.push(...syncMembershipFrames(queryClient));
 
     unsubs.push(
       globalEventBus.on('sync.refetch_required', (event) => {

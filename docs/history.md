@@ -2456,3 +2456,71 @@ person joining moved the huddle, both browsers joined LiveKit, and audio and vid
 both directions. Bringing LiveKit up there found three things the RUNBOOK lacked, and now has:
 `ufw` filters the proxy's way to port 7880 on the host network, the DNS name has to bypass
 Cloudflare's proxy, and the Coolify Traefik file.
+
+## Wave 29 — A desktop app ✅ shipped
+
+### [CS-106] Does a Tauri shell hold a huddle? ✅ shipped
+The plan chose Tauri 2 over Electron for a bundle around a tenth the size and the system's own
+web view, and that choice rested on one risk: whether WKWebView on macOS gives a remote page the
+camera, the microphone and the screen. A throwaway app on the staging server answered it before
+any real code: sign-in survives a restart, a huddle carries voice, camera and a shared screen
+both ways on LiveKit, and the in-app sound plays in the background. What was missing, a
+notification banner and a Dock badge, is what the app was going to bridge anyway. The spike
+also found that macOS asks for the camera on behalf of whoever launched the app, so it must be
+tested started from Finder or `open`, never from a terminal.
+
+### [CS-107] A desktop app that opens any server ✅ shipped
+The app bundles no web client. Each server the person adds is a webview of its own in one
+window, loading that server's own web app, so the app is always the version of the server it
+talks to and no API compatibility promise is needed for it. Adding a server checks the address
+answers as a Chat Systems instance before saving it. A link to another origin opens in the
+system browser, a download is saved instead of navigated to, and a server's page may call only
+the commands granted to its own origin at run time, so a page the app shows but does not
+control reaches nothing that touches files or a shell.
+
+### [CS-108] One rail, notifications, badge and tray ✅ shipped
+The web app's own workspace rail could only show one server. In the app the rail is native,
+fed by what each server's page reports through `window.chatSystemsDesktop`: its workspaces,
+their icons from that server only, and their unread Activity. A click on the rail is handed
+back to the page as a command, so opening or creating a workspace still runs the page's own
+code. Every server's page stays loaded with background throttling off, so a server out of
+sight keeps its socket, its unread count on the rail and the Dock, and raises native
+notifications whose click shows that server and runs the page's handler. Closing the window
+hides it to the tray, the app can open at login, and right-clicking the rail hides a workspace,
+leaves one, or removes a server.
+
+### [CS-109] SSO that finishes in the app ✅ shipped
+Providers such as Google refuse to sign in inside an embedded web view, so *Sign in with SSO*
+opens the system browser, and the session has to come back to the app. The app starts the
+sign-in with a nonce it keeps; the callback then sets no cookies but hands the browser a code
+that lives a minute and works once, and the server's `/sso/desktop` page opens
+`chat-systems://sso?code=…&nonce=…`. The app accepts the link only for a nonce it issued, loads
+`/sso/complete` in that server's window, and the page trades the code at
+`POST /auth/oidc/exchange` for the session cookies there. The ticket put the server in the link;
+the nonce replaced it, because the app already knows the server from it and a crafted link can
+no longer sign the app in to somebody else's account. The code lives in the issuing server's
+Redis, so no other server can redeem it.
+
+Two things the first real use found went in before the release. The rail and the title bar
+followed the system's appearance rather than the app's theme, so a light page sat between a
+black rail and a black title bar; the page now reports the theme it shows and the app paints
+both to match. And the rail grouped workspaces under their server with a divider and a create
+tile each, when what a person cares about is the workspace: it is now one list of every
+workspace on every server, with the server's name in the tooltip, and a server shows as a tile
+of its own only before it has a workspace on the rail. Creating a workspace and adding a server
+moved to the *+* menu.
+
+### [CS-110] Desktop builds with every release ✅ shipped
+After the Release workflow succeeds, `desktop-release.yml` builds a universal macOS app and the
+Windows installer at the tag's version and attaches them, with signed update bundles and
+`latest.json`, to the release. It is a workflow of its own because staging deploys only when
+Release succeeds, and a failed app build should hold back neither the images nor staging.
+
+The installed app checks the latest release at start and every six hours, downloads in the
+background and asks to restart. An update must be signed with the project's key and, through
+`requireSignedVersion`, signed for the version it announces, so a tampered `latest.json` cannot
+pair a new version number with an older release. The updater is configured only in the release
+build's extra config, so an app built from source never replaces itself with a release. CI
+builds the app on macOS and Windows for every PR that touches it; the first Windows build found
+an import used only on macOS. The app is not signed with an Apple Developer ID or a Windows
+certificate yet; the README says how to open it on each system until that decision is made.

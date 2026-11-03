@@ -43,12 +43,16 @@ function badge(count) {
   return el;
 }
 
-function workspaceItem(server, workspace, active) {
+function shortcut(index) {
+  return index < 9 ? ` (⌘${index + 1})` : '';
+}
+
+function workspaceItem(server, workspace, active, index) {
   const item = document.createElement('li');
   const current = active && server.current === workspace.id;
   item.append(
     tile({
-      title: `${workspace.name}${workspace.deleted ? ' (deleted)' : ''} · ${host(server.url)}`,
+      title: `${workspace.name}${workspace.deleted ? ' (deleted)' : ''} · ${server.name}${shortcut(index)}`,
       current,
       image: workspace.icon,
       text: initials(workspace.name),
@@ -62,50 +66,39 @@ function workspaceItem(server, workspace, active) {
   return item;
 }
 
-function group(server, index, servers, active) {
-  const items = [];
-  const isActive = server.url === active;
-  if (index > 0) {
-    const divider = document.createElement('li');
-    divider.className = 'divider';
-    divider.setAttribute('role', 'separator');
-    items.push(divider);
-  }
-  if (server.workspaces.length === 0) {
-    const item = document.createElement('li');
-    item.append(
-      tile({
-        title: `${server.name} · ${host(server.url)}${index < 9 ? ` (⌘${index + 1})` : ''}`,
-        current: isActive,
-        image: server.icon,
-        text: label(server, servers),
-        onClick: () => invoke('switch_server', { url: server.url }),
-        onMenu: () => invoke('rail_menu', { url: server.url }),
-      }),
-    );
-    items.push(item);
-    return items;
-  }
-  for (const workspace of server.workspaces) items.push(workspaceItem(server, workspace, isActive));
-  const create = document.createElement('li');
-  create.append(
+function serverItem(server, index, servers, active) {
+  const item = document.createElement('li');
+  item.append(
     tile({
-      title: `Create a workspace on ${host(server.url)}`,
-      current: false,
-      text: '+',
-      className: 'create',
-      onClick: () => invoke('create_workspace', { url: server.url }),
+      title: `${server.name} · ${host(server.url)}${shortcut(index)}`,
+      current: server.url === active,
+      image: server.icon,
+      text: label(server, servers),
+      onClick: () => invoke('switch_server', { url: server.url }),
       onMenu: () => invoke('rail_menu', { url: server.url }),
     }),
   );
-  items.push(create);
-  return items;
+  return item;
 }
 
-function render({ servers, active }) {
-  list.replaceChildren(...servers.flatMap((server, i) => group(server, i, servers, active)));
+function entries(servers) {
+  return servers.flatMap((server) =>
+    server.workspaces.length === 0 ? [{ server }] : server.workspaces.map((workspace) => ({ server, workspace })),
+  );
 }
 
-document.getElementById('add').addEventListener('click', () => invoke('show_add_server'));
+function render({ servers, active, theme }) {
+  if (theme) document.documentElement.dataset.theme = theme;
+  else delete document.documentElement.dataset.theme;
+  list.replaceChildren(
+    ...entries(servers).map(({ server, workspace }, index) =>
+      workspace
+        ? workspaceItem(server, workspace, server.url === active, index)
+        : serverItem(server, index, servers, active),
+    ),
+  );
+}
+
+document.getElementById('add').addEventListener('click', () => invoke('add_menu'));
 listen('servers-changed', (event) => render(event.payload));
 invoke('list_servers').then(render);

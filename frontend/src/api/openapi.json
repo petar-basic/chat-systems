@@ -788,6 +788,38 @@
         ]
       }
     },
+    "/auth/oidc/exchange": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "sso_exchange",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SsoExchangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SsoExchanged"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
     "/auth/refresh": {
       "post": {
         "tags": [
@@ -17170,6 +17202,28 @@
           },
           "direction": {
             "$ref": "#/components/schemas/SortDirection"
+          }
+        }
+      },
+      "SsoExchangeRequest": {
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          }
+        }
+      },
+      "SsoExchanged": {
+        "type": "object",
+        "required": [
+          "landing"
+        ],
+        "properties": {
+          "landing": {
+            "type": "string"
           }
         }
       },

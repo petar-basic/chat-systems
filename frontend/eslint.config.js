@@ -76,6 +76,25 @@ export default defineConfig([
     },
   },
   {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/shared/components/Trans/Trans.tsx'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'react-i18next',
+              importNames: ['Trans', 'TransWithoutContext'],
+              message:
+                'Use Trans from shared/components/Trans: it keeps interpolated values as text, so a tag inside one is never parsed.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // The logger is the one place allowed to touch the console; config files run
     // in Node and may log build diagnostics.
     files: ['src/lib/logger.ts', '*.config.ts', '*.config.js'],

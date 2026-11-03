@@ -1,10 +1,16 @@
-use axum::http::StatusCode;
+use axum::body::Body;
+use axum::http::header::{CONTENT_TYPE, SET_COOKIE};
+use axum::http::{Request, StatusCode};
+use axum::Router;
+use redis::AsyncCommands;
+use serde_json::json;
+use tower::ServiceExt;
 
 use super::common::*;
 use crate::audit::ClientIp;
 use crate::auth::models::UserStatus;
 use crate::auth::oidc::{OidcSettings, Provisioning, VerifiedIdentity};
-use crate::auth::oidc_routes::link_or_create;
+use crate::auth::oidc_routes::{desktop_code_key, issue_desktop_code, link_or_create};
 use crate::config::AppConfig;
 
 fn settings(provisioning: Provisioning) -> OidcSettings {
@@ -333,4 +339,133 @@ async fn an_account_invited_in_mixed_case_is_the_one_sso_signs_in(pool: sqlx::Pg
             .await
             .expect("count");
     assert_eq!(accounts, 1, "no second account");
+}
+
+async fn exchange(app: &Router, code: &str) -> (StatusCode, Vec<String>, serde_json::Value) {
+    let request = Request::builder()
+        .method("POST")
+        .uri("/api/auth/oidc/exchange")
+        .header(CONTENT_TYPE, "application/json")
+        .body(Body::from(json!({ "code": code }).to_string()))
+        .unwrap();
+    let response = app.clone().oneshot(request).await.unwrap();
+    let status = response.status();
+    let cookies = response
+        .headers()
+        .get_all(SET_COOKIE)
+        .iter()
+        .filter_map(|v| v.to_str().ok())
+        .filter_map(|raw| raw.split('=').next().map(str::to_string))
+        .collect();
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    (
+        status,
+        cookies,
+        serde_json::from_slice(&bytes).unwrap_or_default(),
+    )
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_desktop_sign_in_code_signs_in_once(pool: sqlx::PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (user_id, _email) = seed(&state, "desktop", false).await;
+    let code = issue_desktop_code(&state, user_id, "/app/somewhere")
+        .await
+        .expect("issue a code");
+
+    let (status, cookies, body) = exchange(&app, &code).await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(body["landing"], "/app/somewhere");
+    assert!(cookies.iter().any(|c| c == "access_token"));
+    assert!(cookies.iter().any(|c| c == "refresh_token"));
+
+    let (again, cookies, _) = exchange(&app, &code).await;
+    assert_eq!(again, StatusCode::UNAUTHORIZED);
+    assert!(cookies.is_empty());
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_desktop_sign_in_code_lives_a_minute(pool: sqlx::PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (user_id, _email) = seed(&state, "desktop-late", false).await;
+    let code = issue_desktop_code(&state, user_id, "/app")
+        .await
+        .expect("issue a code");
+
+    let mut redis = state.redis.clone();
+    let ttl: i64 = redis
+        .ttl(desktop_code_key(&code))
+        .await
+        .expect("read the lifetime");
+    assert!((1..=60).contains(&ttl), "lives {ttl}s");
+    let _: () = redis
+        .expire(desktop_code_key(&code), 0)
+        .await
+        .expect("let it expire");
+
+    let (status, _, _) = exchange(&app, &code).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_code_this_server_never_issued_is_refused(pool: sqlx::PgPool) {
+    let (app, _state) = app_and_state(pool).await;
+
+    let (foreign, _, _) = exchange(&app, "c29tZS1vdGhlci1zZXJ2ZXJzLWNvZGU").await;
+    assert_eq!(foreign, StatusCode::UNAUTHORIZED);
+    let (malformed, _, _) = exchange(&app, "x');--").await;
+    assert_eq!(malformed, StatusCode::UNAUTHORIZED);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_suspended_account_does_not_sign_in_with_a_code(pool: sqlx::PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (user_id, _email) = seed(&state, "desktop-suspended", false).await;
+    let code = issue_desktop_code(&state, user_id, "/app")
+        .await
+        .expect("issue a code");
+    sqlx::query("UPDATE users SET status = 'suspended' WHERE id = $1")
+        .bind(user_id)
+        .execute(&state.pool)
+        .await
+        .expect("suspend");
+
+    let (status, cookies, _) = exchange(&app, &code).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert!(cookies.is_empty());
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_desktop_sign_in_has_to_bring_its_nonce(pool: sqlx::PgPool) {
+    let (app, _state) = app_and_state_with(pool, configured()).await;
+
+    let (missing, _) = send(
+        &app,
+        "GET",
+        "/api/auth/oidc/start?client=desktop",
+        None,
+        None,
+    )
+    .await;
+    assert_eq!(missing, StatusCode::BAD_REQUEST);
+    let (short, _) = send(
+        &app,
+        "GET",
+        "/api/auth/oidc/start?client=desktop&nonce=abc",
+        None,
+        None,
+    )
+    .await;
+    assert_eq!(short, StatusCode::BAD_REQUEST);
+    let (unknown, _) = send(
+        &app,
+        "GET",
+        "/api/auth/oidc/start?client=watch&nonce=0123456789abcdef0123",
+        None,
+        None,
+    )
+    .await;
+    assert_eq!(unknown, StatusCode::BAD_REQUEST);
 }

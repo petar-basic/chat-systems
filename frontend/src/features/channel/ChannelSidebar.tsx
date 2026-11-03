@@ -48,6 +48,7 @@ interface Props {
   onOpenSettings: () => void;
   onInvite: () => void;
   onOpenWorkflows: () => void;
+  onLeaveWorkspace: () => void;
   onOpenScheduled: () => void;
   onOpenLater: () => void;
   laterActive: boolean;
@@ -83,6 +84,7 @@ export default function ChannelSidebar({
   onOpenSettings,
   onInvite,
   onOpenWorkflows,
+  onLeaveWorkspace,
   onOpenScheduled,
   onOpenLater,
   laterActive,
@@ -172,10 +174,12 @@ export default function ChannelSidebar({
           isWorkspaceAdmin={isWorkspaceAdmin}
           isInstanceAdmin={isInstanceAdmin}
           canUseWorkflows={!!currentUserRole && currentUserRole !== 'guest'}
+          canLeave={!!currentUserRole && currentUserRole !== 'owner'}
           onOpenSettings={onOpenSettings}
           onInvite={onInvite}
           onOpenWorkflows={onOpenWorkflows}
           onOpenInstanceAdmin={() => navigate('/app/admin')}
+          onLeave={onLeaveWorkspace}
         />
 
         <div className="flex-1 overflow-y-auto py-2">

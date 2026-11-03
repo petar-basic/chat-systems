@@ -14,6 +14,77 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
+## [4.1.1] — 2026-11-03
+
+### Upgrading from 4.1.0
+
+- Set `VERSION=4.1.1`, pull both images and restart `api`, `realtime` and `frontend` together.
+  There is no migration and no new setting. The desktop app updates itself to 4.1.1: it finds the
+  release within six hours, or at its next start, and asks to restart.
+
+### Fixed
+
+- Notifications from the desktop app pop up on Windows. They were sent under PowerShell's app id
+  instead of the app's own, which Windows does not show as the app's banner.
+- In the desktop app the sign-in page reads "Sign in to" the server's name and asks only for
+  your email and password, or SSO. It used to ask for the server's address again, which the
+  app already had, and offered to connect to a different server from inside this one's window.
+- In the desktop app, ⌘1 to ⌘9 (Ctrl on Windows) open the first nine workspaces on the rail, in
+  the rail's order. They used to switch between servers, so with two servers only ⌘1 and ⌘2 did
+  anything. The *Workspaces* menu lists the same entries, and each rail tooltip shows its
+  shortcut.
+- The desktop rail shows each workspace's uploaded icon instead of its initials. The rail
+  loaded the icon without the server's session, which the server refuses; the server's page now
+  draws it and hands it to the rail.
+- Joining or leaving a workspace shows up live. Someone who accepts an invite now sees the new
+  workspace in their other tabs and in the desktop rail without a reload, and the members who
+  stay see the member list change when someone joins or leaves. Before, only the person who
+  left was told.
+- A channel's member count and member list refresh when they change. The channel header loads
+  its members, pins and bookmarks in one request and kept that answer for five minutes, so
+  after the first half minute a refresh got the old list back.
+
+## [4.1.0] — 2026-11-03
+
+### Upgrading from 4.0.2
+
+- Set `VERSION=4.1.0`, pull both images and restart `api`, `realtime`, `worker` and `frontend`
+  together. There is no migration and no new setting: SSO from the desktop app uses the SSO you
+  already have.
+
+### Added
+
+- A desktop app for macOS and Windows, attached to every release from this one on. It opens
+  any Chat Systems server, and several at once:
+  - one rail with every workspace you are in on every server, the server's name in each tooltip;
+  - native notifications that open the message on a click, and the unread count on the Dock
+    and the tray;
+  - closing the window keeps it running in the tray, and it can open at login;
+  - *Sign in with SSO* goes through the system browser and comes back to the app signed in;
+  - the rail and the title bar follow the page's light or dark theme;
+  - it updates itself from the latest release, and installs only updates signed with the
+    project's key.
+
+  It is not signed with an Apple or a Windows certificate yet, so each system warns the first
+  time you open it; [desktop/README.md](desktop/README.md#download) says how to open it.
+- *Leave workspace…* in the workspace menu and on the desktop rail. An owner cannot leave, and
+  is told so.
+- Setting up two-factor shows a QR code of the setup link, drawn in the browser, so a phone's
+  authenticator can scan it from a computer screen.
+- The RUNBOOK explains [authentik in front of an LDAP directory](docs/RUNBOOK.md#authentik-in-front-of-an-ldap-directory),
+  for signing in with directory accounts through SSO.
+
+### Fixed
+
+- Being removed from a workspace or a private channel, or leaving one, takes you to another
+  workspace or channel at once, instead of leaving "Something went wrong" on the one you lost.
+- Someone in no workspace at all sees "You're not in a workspace yet" and how to create one or
+  be invited, instead of an empty page; an old link to a workspace they left opens the app.
+- The sign-in, invite and password-reset pages follow the light or dark theme you chose. They
+  were always dark until a workspace had been opened.
+- The background blur in a huddle loads the MediaPipe files that match its library (1.2.0)
+  instead of an older version's.
+
 ## [4.0.2] — 2026-10-31
 
 ### Upgrading from 4.0.1

@@ -29,7 +29,9 @@ const context = {
 };
 
 function setup() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: 1000 * 60 * 5 } },
+  });
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
@@ -92,5 +94,23 @@ describe('channel context', () => {
     expect(get).toHaveBeenCalledTimes(2);
     expect(get).toHaveBeenLastCalledWith('/channels/{ch_id}/pins', { params: { path: { ch_id: 'ch-1' } } });
     expect(view.result.current.members).toEqual(context.members);
+  });
+
+  it('loads the context again once it is older than half a minute', async () => {
+    const { queryClient, view } = setup();
+    await waitFor(() => expect(view.result.current.shortcuts).toBeDefined());
+
+    const left = [{ channel_id: 'ch-1', user_id: 'u-2', role: 'member' }];
+    get.mockImplementation(async () => ({ data: { ...context, members: left } }));
+    const now = Date.now();
+    vi.spyOn(Date, 'now').mockReturnValue(now + 60_000);
+
+    await act(() => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.channelMembers('ch-1') }));
+
+    await waitFor(() => expect(view.result.current.members).toEqual(left));
+    expect(get).toHaveBeenLastCalledWith('/channels/{ch_id}/context', {
+      params: { path: { ch_id: 'ch-1' } },
+    });
+    vi.restoreAllMocks();
   });
 });

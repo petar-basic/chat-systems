@@ -77,6 +77,8 @@ pub struct PendingLogin {
     pub nonce: String,
     #[serde(default)]
     pub invite: Option<String>,
+    #[serde(default)]
+    pub desktop_nonce: Option<String>,
 }
 
 pub struct VerifiedIdentity {
@@ -157,6 +159,7 @@ pub async fn start(settings: &OidcSettings) -> AppResult<(String, PendingLogin)>
             pkce_verifier: verifier.secret().clone(),
             nonce: nonce.secret().clone(),
             invite: None,
+            desktop_nonce: None,
         },
     ))
 }
