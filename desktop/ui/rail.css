@@ -28,13 +28,6 @@ li {
   position: relative;
 }
 
-li.divider {
-  width: 32px;
-  height: 1px;
-  margin: 2px auto;
-  background: var(--line);
-}
-
 .server {
   display: grid;
   place-items: center;
@@ -60,22 +53,6 @@ li.divider {
 .server.deleted {
   opacity: 0.45;
   text-decoration: line-through;
-}
-
-.server.create {
-  width: 28px;
-  height: 28px;
-  margin: 0 auto;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 18px;
-  font-weight: 400;
-}
-
-.server.create:hover {
-  background: var(--surface);
-  color: var(--fg);
 }
 
 .badge {

@@ -525,6 +525,7 @@ fn build_rail_menu<R: Runtime>(
     if !menu.items()?.is_empty() {
         menu.append(&PredefinedMenuItem::separator(app)?)?;
     }
+    menu.append(&create_item(app, server)?)?;
     menu.append(&MenuItem::with_id(
         app,
         format!("remove:{}", server.url),
@@ -533,6 +534,47 @@ fn build_rail_menu<R: Runtime>(
         None::<&str>,
     )?)?;
     Ok(menu)
+}
+
+fn create_item<R: Runtime>(app: &AppHandle<R>, server: &Server) -> tauri::Result<MenuItem<R>> {
+    MenuItem::with_id(
+        app,
+        format!("create:{}", server.url),
+        format!("Create Workspace on {}…", server.name),
+        true,
+        None::<&str>,
+    )
+}
+
+fn build_add_menu<R: Runtime>(app: &AppHandle<R>, servers: &[Server]) -> tauri::Result<Menu<R>> {
+    let menu = Menu::new(app)?;
+    for server in servers {
+        menu.append(&create_item(app, server)?)?;
+    }
+    menu.append(&PredefinedMenuItem::separator(app)?)?;
+    menu.append(&MenuItem::with_id(
+        app,
+        "add-server",
+        "Add Server…",
+        true,
+        None::<&str>,
+    )?)?;
+    Ok(menu)
+}
+
+#[tauri::command]
+fn add_menu(app: AppHandle, window: Window) -> Result<(), String> {
+    let servers = app
+        .state::<Servers>()
+        .lock()
+        .map_err(|e| e.to_string())?
+        .servers()
+        .to_vec();
+    if servers.is_empty() {
+        return open_picker(&app);
+    }
+    let menu = build_add_menu(&app, &servers).map_err(|e| e.to_string())?;
+    window.popup_menu(&menu).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -715,25 +757,15 @@ fn open_workspace(app: AppHandle, url: String, workspace_id: String) -> Result<(
     ask_about_workspace(&app, &url, "open-workspace", &workspace_id)
 }
 
-#[tauri::command]
-fn create_workspace(app: AppHandle, url: String) -> Result<(), String> {
-    open_server(&app, &find(&app, &url)?)?;
-    dispatch(
-        &app,
-        &url,
-        serde_json::json!({ "kind": "create-workspace" }),
-    );
+fn create_workspace<R: Runtime>(app: &AppHandle<R>, url: &str) -> Result<(), String> {
+    open_server(app, &find(app, url)?)?;
+    dispatch(app, url, serde_json::json!({ "kind": "create-workspace" }));
     Ok(())
 }
 
 #[tauri::command]
 fn switch_server(app: AppHandle, url: String) -> Result<(), String> {
     open_server(&app, &find(&app, &url)?)
-}
-
-#[tauri::command]
-fn show_add_server(app: AppHandle) -> Result<(), String> {
-    open_picker(&app)
 }
 
 fn bring_back<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
@@ -789,6 +821,7 @@ fn on_menu<R: Runtime>(app: &AppHandle<R>, id: &str) {
         }
         Some(("server", url)) => find(app, url).and_then(|server| open_server(app, &server)),
         Some(("remove", url)) => confirm_remove(app, url),
+        Some(("create", url)) => create_workspace(app, url),
         Some(("show-hidden", url)) => change_hidden(app, |store| store.show_hidden(url)),
         Some(("hide", rest)) => match rest.split_once(':') {
             Some((workspace, url)) => change_hidden(app, |store| store.hide(url, workspace)),
@@ -826,13 +859,12 @@ pub fn run() {
             add_server,
             remove_server,
             switch_server,
-            show_add_server,
             report_workspaces,
             report_theme,
             notify,
             rail_menu,
+            add_menu,
             open_workspace,
-            create_workspace,
             start_sso
         ])
         .setup(|app| {

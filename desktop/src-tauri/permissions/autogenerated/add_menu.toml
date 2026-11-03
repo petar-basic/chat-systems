@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-add-menu"
+description = "Enables the add_menu command without any pre-configured scope."
+commands.allow = ["add_menu"]
+
+[[permission]]
+identifier = "deny-add-menu"
+description = "Denies the add_menu command without any pre-configured scope."
+commands.deny = ["add_menu"]
