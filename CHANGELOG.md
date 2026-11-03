@@ -30,6 +30,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - The desktop rail shows each workspace's uploaded icon instead of its initials. The rail
   loaded the icon without the server's session, which the server refuses; the server's page now
   draws it and hands it to the rail.
+- Joining or leaving a workspace shows up live. Someone who accepts an invite now sees the new
+  workspace in their other tabs and in the desktop rail without a reload, and the members who
+  stay see the member list change when someone joins or leaves. Before, only the person who
+  left was told.
 
 ## [4.1.0] — 2026-11-03
 

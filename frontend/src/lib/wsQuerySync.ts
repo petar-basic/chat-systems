@@ -27,6 +27,7 @@ import { readOnScreen } from './readOnScreen';
 import { patchMessageEverywhere, shownInChannel } from './messagePatch';
 import { dropReply, patchReply, placeReply } from './threadCache';
 import { syncListFrames } from '@/features/lists/listSync';
+import { syncMembershipFrames } from './membershipSync';
 import { applyCommandResponse } from './commandAnswers';
 import { forgetWorkspace } from './forgetWorkspace';
 import { customEmojiKey } from '@/features/workspace/hooks/useCustomEmoji';
@@ -153,6 +154,7 @@ export const useWebSocketQuerySync = () => {
     );
 
     unsubs.push(...syncListFrames(queryClient));
+    unsubs.push(...syncMembershipFrames(queryClient));
 
     unsubs.push(
       globalEventBus.on('sync.refetch_required', (event) => {
