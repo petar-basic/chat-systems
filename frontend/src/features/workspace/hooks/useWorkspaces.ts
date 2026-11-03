@@ -3,6 +3,7 @@ import type { components } from '@/api/schema';
 import { useInstanceStore } from '@/stores/instances';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { instanceManager } from '@/lib/instances';
+import { forgetWorkspace } from '@/lib/forgetWorkspace';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { QUERY_KEYS } from '@/shared/constants';
 import type { Workspace, Channel } from '@/stores/workspace';
@@ -192,8 +193,7 @@ export const useLeaveWorkspace = () => {
         }),
       ),
     onSuccess: (_, { workspace }) => {
-      queryClient.removeQueries({ queryKey: QUERY_KEYS.workspaceChannels(workspace.id) });
-      queryClient.removeQueries({ queryKey: QUERY_KEYS.workspaceMembers(workspace.id) });
+      forgetWorkspace(queryClient, workspace.id);
       return queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaces() });
     },
   });

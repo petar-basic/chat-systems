@@ -1,9 +1,7 @@
-import { useNavigate } from 'react-router';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog/ConfirmDialog';
-import { ROUTES } from '@/shared/constants';
 import { toUserMessage } from '@/lib/errors';
 import { useInstanceStore } from '@/stores/instances';
-import { useWorkspaceStore, type Workspace } from '@/stores/workspace';
+import type { Workspace } from '@/stores/workspace';
 import { useLeaveWorkspace, useWorkspaceMembers } from './hooks/useWorkspaces';
 
 interface Props {
@@ -12,7 +10,6 @@ interface Props {
 }
 
 export function LeaveWorkspaceDialog({ workspace, onClose }: Props) {
-  const navigate = useNavigate();
   const userId = useInstanceStore((s) => s.instances.find((i) => i.url === workspace.instanceUrl)?.user.id);
   const { data: members } = useWorkspaceMembers(workspace.id, workspace.instanceUrl);
   const role = members?.find((m) => m.user_id === userId)?.role;
@@ -25,9 +22,6 @@ export function LeaveWorkspaceDialog({ workspace, onClose }: Props) {
     } catch (err) {
       throw new Error(toUserMessage(err, 'Could not leave the workspace. Try again.'), { cause: err });
     }
-    if (useWorkspaceStore.getState().currentWorkspace?.id !== workspace.id) return;
-    navigate(ROUTES.app);
-    useWorkspaceStore.setState({ currentWorkspace: null, currentChannel: null });
   };
 
   const owner = role === 'owner';
