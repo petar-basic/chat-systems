@@ -14,6 +14,14 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
+## [Unreleased]
+
+### Fixed
+
+- A workspace icon with a transparent background sits on the rail's own surface, white in the
+  light theme and dark in the dark one, as it does in the web app. The desktop rail used to put
+  the colour it gives a workspace's initials behind it.
+
 ## [4.1.1] — 2026-11-03
 
 ### Upgrading from 4.1.0

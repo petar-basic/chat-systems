@@ -16,8 +16,10 @@ function tile({ title, current, onClick, onMenu, image, text, color, className }
   button.title = title;
   button.setAttribute('aria-label', title);
   button.setAttribute('aria-current', String(current));
-  if (color) button.style.setProperty('--tile', color);
-  const fallback = () => document.createTextNode(text);
+  const fallback = () => {
+    if (color) button.style.setProperty('--tile', color);
+    return document.createTextNode(text);
+  };
   if (image) {
     const img = document.createElement('img');
     img.src = image;
