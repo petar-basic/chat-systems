@@ -181,8 +181,8 @@ Handles user identity — login, registration, JWT, and profile.
 | DELETE | `/workspaces/{ws_id}/profile/status` | — | `WorkspaceProfile` |
 | PUT | `/workspaces/{ws_id}/profile/theme` | `{ theme: { sidebar, selected, presence, badge } \| null }` | `WorkspaceTheme` — the caller's sidebar theme in that workspace, four `#rrggbb` colours kept in lower case (422 otherwise), in `workspace_members.theme`; `null` goes back to the default. Nobody else sees it |
 | GET | `/users/me/themes` | — | `{ data: WorkspaceTheme[] }` — the caller's theme in every active workspace that has one, so switching workspaces needs no request |
-| GET | `/users/me/preferences` | — | `Preferences` — `{ colour_mode, density, previews, enter_key, open_channel_at }` from `users.preferences`, every key at its default until set: `colour_mode` is `null` until the person picks one, `density` `clean`, `previews` `shown`, `enter_key` `send` (or `newline`), `open_channel_at` `where_left` (or `newest`) |
-| PATCH | `/users/me/preferences` | `{ colour_mode?, density?, previews?, enter_key?, open_channel_at? }` | `Preferences` — merged into what is kept, so a key left out stays as it was; an unknown key or value is a 422 and nothing is saved |
+| GET | `/users/me/preferences` | — | `Preferences` — `{ colour_mode, density, previews, enter_key, open_channel_at, language }` from `users.preferences`, every key at its default until set: `colour_mode` is `null` until the person picks one, `density` `clean`, `previews` `shown`, `enter_key` `send` (or `newline`), `open_channel_at` `where_left` (or `newest`), `language` `browser` (or `en`, `ja`) |
+| PATCH | `/users/me/preferences` | `{ colour_mode?, density?, previews?, enter_key?, open_channel_at?, language? }` | `Preferences` — merged into what is kept, so a key left out stays as it was; an unknown key or value is a 422 and nothing is saved |
 
 ---
 

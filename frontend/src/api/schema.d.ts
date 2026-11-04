@@ -5122,8 +5122,8 @@ export interface components {
             density: components["schemas"]["Density"];
             /** @default send */
             enter_key: components["schemas"]["EnterKey"];
-            /** @default null */
-            language: components["schemas"]["Language"] | null;
+            /** @default browser */
+            language: components["schemas"]["Language"];
             /** @default where_left */
             open_channel_at: components["schemas"]["OpenChannelAt"];
             /** @default shown */
