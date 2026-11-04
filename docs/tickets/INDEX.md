@@ -379,7 +379,7 @@ CS-115 because it adds the store their settings are kept in. CS-116 stands alone
 
 | # | Ticket | Area |
 |---|---|---|
-| CS-111 | A theme for each workspace | frontend · backend |
+| CS-111 ✅ | A theme for each workspace | frontend · backend |
 | CS-112 | Custom themes, shared themes, and a desktop window in the workspace's colours | frontend · desktop |
 | CS-113 | Preferences that follow you, and how messages look | backend · frontend |
 | CS-114 | Enter to send or for a new line, and where a channel opens | frontend |

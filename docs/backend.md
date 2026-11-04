@@ -179,6 +179,8 @@ Handles user identity — login, registration, JWT, and profile.
 | POST | `/workspaces/{ws_id}/profile/avatar` | multipart `file`, as `/users/me/avatar` | `WorkspaceProfile` with the new `avatar_url` — processed like an account photo and stored as `avatars/{user_id}/{ws_id}/{uuid}.{ext}`, outside retention; the previous workspace photo is deleted |
 | PUT | `/workspaces/{ws_id}/profile/status` | `{ emoji?, text?, expires_at? }` | `WorkspaceProfile` — a status in that workspace only; needs an emoji or some text, the emoji being a character or a `:shortcode:` that workspace has (422 otherwise), and an expiry in the future. An expired status stops being returned by every read; the row itself is only overwritten the next time the person sets one |
 | DELETE | `/workspaces/{ws_id}/profile/status` | — | `WorkspaceProfile` |
+| PUT | `/workspaces/{ws_id}/profile/theme` | `{ theme: { sidebar, selected, presence, badge } \| null }` | `WorkspaceTheme` — the caller's sidebar theme in that workspace, four `#rrggbb` colours kept in lower case (422 otherwise), in `workspace_members.theme`; `null` goes back to the default. Nobody else sees it |
+| GET | `/users/me/themes` | — | `{ data: WorkspaceTheme[] }` — the caller's theme in every active workspace that has one, so switching workspaces needs no request |
 
 ---
 

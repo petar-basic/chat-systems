@@ -10,6 +10,7 @@ import {
   ScheduleEditor,
 } from '@/features/notifications';
 import ThemePicker from '@/features/profile/ThemePicker';
+import WorkspaceThemePicker from '@/features/profile/WorkspaceThemePicker';
 import TwoFactorPanel from '@/features/profile/TwoFactorPanel';
 import AccountPanel from '@/features/profile/AccountPanel';
 import { useWorkspaceStore } from '@/stores/workspace';
@@ -61,6 +62,7 @@ export function PreferencesModal({ initial = 'notifications', onClose }: Props) 
         <div>
           <p className="mb-3 text-sm text-muted">Pick a theme, or follow your system setting.</p>
           <ThemePicker />
+          <WorkspaceThemePicker />
         </div>
       )}
       {active === 'account' && <AccountPanel />}

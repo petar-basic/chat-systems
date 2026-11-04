@@ -192,6 +192,16 @@ pub fn validate_hook_name(name: &str) -> AppResult<()> {
     Ok(())
 }
 
+pub fn validate_hex_colour(colour: &str) -> AppResult<()> {
+    let digits = colour.strip_prefix('#').unwrap_or_default();
+    if digits.len() != 6 || !digits.chars().all(|c| c.is_ascii_hexdigit()) {
+        return Err(AppError::Validation(
+            "A colour must be # followed by six hex digits".into(),
+        ));
+    }
+    Ok(())
+}
+
 pub fn validate_bio(bio: &str) -> AppResult<()> {
     if bio.len() > 500 {
         return Err(AppError::Validation(
@@ -350,6 +360,7 @@ pub mod rules {
     rule!(description, validate_description);
     rule!(hook_name, validate_hook_name);
     rule!(bio, validate_bio);
+    rule!(hex_colour, validate_hex_colour);
     rule!(timezone, validate_timezone);
     rule!(bookmark_label, validate_bookmark_label);
     rule!(bookmark_url, validate_bookmark_url);
@@ -522,6 +533,17 @@ mod tests {
         assert!(validate_hook_name("Deploy bot").is_ok());
         assert_validation_err(validate_hook_name("   "));
         assert_validation_err(validate_hook_name(&"x".repeat(101)));
+    }
+
+    #[test]
+    fn validate_hex_colour_takes_six_digits_after_a_hash() {
+        assert!(validate_hex_colour("#3f0e40").is_ok());
+        assert!(validate_hex_colour("#1164A3").is_ok());
+        assert_validation_err(validate_hex_colour("3f0e40"));
+        assert_validation_err(validate_hex_colour("#3f0e4"));
+        assert_validation_err(validate_hex_colour("#3f0e40ff"));
+        assert_validation_err(validate_hex_colour("#3g0e40"));
+        assert_validation_err(validate_hex_colour("red"));
     }
 
     #[test]

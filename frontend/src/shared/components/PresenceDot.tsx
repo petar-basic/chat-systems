@@ -6,7 +6,7 @@ interface Props {
 }
 
 const STATUS: Record<PresenceStatus, { cls: string; label: string }> = {
-  online: { cls: 'bg-green-500', label: 'Online' },
+  online: { cls: 'bg-presence', label: 'Online' },
   away: { cls: 'bg-amber-500 ring-2 ring-amber-500/30', label: 'Away' },
   offline: { cls: 'bg-transparent border border-line-strong', label: 'Offline' },
 };

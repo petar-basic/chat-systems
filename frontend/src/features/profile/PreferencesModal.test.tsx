@@ -9,6 +9,9 @@ vi.mock('@/features/notifications/EmailNotificationsPanel', () => ({
   default: () => <div data-qa="email-panel" />,
 }));
 vi.mock('@/features/profile/ThemePicker', () => ({ default: () => <div data-qa="theme-panel" /> }));
+vi.mock('@/features/profile/WorkspaceThemePicker', () => ({
+  default: () => <div data-qa="workspace-theme-panel" />,
+}));
 vi.mock('@/features/notifications/NotifyDefaultPanel', () => ({
   NotifyDefaultPanel: () => <div data-qa="notify-default" />,
 }));
