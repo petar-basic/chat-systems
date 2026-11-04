@@ -84,8 +84,9 @@ renders lives in `features/messaging`, even when it is small and general-looking
   field. `showNotification` hands the notification to the app, which raises a native
   one and, on a click, shows this server and runs the click handler; the Dock badge is the
   sum of the unread counts every server reported. The theme store reports the theme the page
-  shows, at start and on every change, and the app paints its rail and title bar to match
-  the server in front. In a browser nothing changes.
+  shows, at start and on every change, and `useWorkspaceTheme` reports the colours of the
+  workspace's own theme (`desktopColours`), or none; the app paints its rail and title bar to
+  match the server in front. In a browser nothing changes.
 
 ### The read rule
 
@@ -554,6 +555,16 @@ A dropdown drawn inside the sidebar, such as the workspace and *You* menus, carr
 `unthemed` class, which restores the colour mode's tokens. The sidebar's own tokens
 (`--sidebar`, `--sidebar-selected`, `--presence`, `--badge`) default to the colours it had
 before themes.
+
+*Custom* opens `CustomThemeEditor`, seeded with the saved theme: a `ColourInput` (a colour
+picker beside a hex field, which keeps a half-typed value out of the theme) for each of the
+four colours, a warning when the text on one of them cannot reach AA, *Share this theme* (the
+four colours as one line, `shareTheme`), *Import a theme* (`parseTheme`: that line, or a
+theme copied from Slack, whose eight or ten colours give the sidebar, active item, presence
+and mention badge) and *Surprise me* (`surpriseTheme`, four colours that pass the contrast
+rule). While it is open the draft goes to `useThemePreview`, which `useWorkspaceTheme` shows
+over the saved theme, so the sidebar behind the dialog changes with every edit; *Save theme*
+saves it like a preset, and closing the editor drops the preview.
 
 ### `notifications/NotificationLevelMenu`
 `NotificationLevelButton` is the bell in the channel header, in a DM's header and on a sidebar

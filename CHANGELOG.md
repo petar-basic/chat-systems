@@ -22,6 +22,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   the workspace you are in, kept on the server, so they follow you to every browser and to the
   desktop app. Only you see your theme, and each workspace has its own. Messages and dialogs keep
   following light, dark or system.
+- Custom themes. Pick the four colours of a workspace's sidebar yourself and watch the sidebar
+  change as you go, share a theme as one line of colours, import one (a theme copied from Slack
+  works too), or let *Surprise me* pick colours that stay readable. In the desktop app the rail
+  and the title bar take the colours of the workspace in front.
 
 ### Fixed
 

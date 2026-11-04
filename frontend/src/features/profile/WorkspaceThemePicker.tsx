@@ -1,5 +1,8 @@
+import { useState } from 'react';
+import { Pipette } from 'lucide-react';
 import { useWorkspaceStore } from '@/stores/workspace';
-import { useSetWorkspaceTheme, useWorkspaceTheme } from './hooks/useWorkspaceTheme';
+import CustomThemeEditor from './CustomThemeEditor';
+import { useSavedWorkspaceTheme, useSetWorkspaceTheme } from './hooks/useWorkspaceTheme';
 import { THEME_PRESETS, sameTheme, themeStyle, type Theme } from './workspaceThemes';
 
 const OPTIONS: { id: string; name: string; theme: Theme | null }[] = [
@@ -22,11 +25,26 @@ function ThemeSwatch({ theme }: { theme: Theme | null }) {
   );
 }
 
+function optionStyle(checked: boolean): string {
+  return `flex flex-col items-start gap-1.5 p-2 rounded-lg border text-xs font-medium transition cursor-pointer ${
+    checked
+      ? 'border-purple-500 bg-purple-600/15 text-fg'
+      : 'border-line-strong bg-raised/50 text-muted hover:text-fg hover:bg-raised'
+  }`;
+}
+
 export default function WorkspaceThemePicker() {
   const workspace = useWorkspaceStore((s) => s.currentWorkspace);
-  const current = useWorkspaceTheme();
+  const current = useSavedWorkspaceTheme();
   const setTheme = useSetWorkspaceTheme();
+  const [editing, setEditing] = useState(false);
   if (!workspace) return null;
+
+  const custom = current !== null && !THEME_PRESETS.some((preset) => sameTheme(current, preset.theme));
+  const pick = (theme: Theme | null) => {
+    setEditing(false);
+    setTheme.mutate(theme);
+  };
 
   return (
     <section className="mt-6" data-qa="workspace-theme">
@@ -37,10 +55,10 @@ export default function WorkspaceThemePicker() {
       <div
         role="radiogroup"
         aria-label={`Theme for ${workspace.name}`}
-        className="grid grid-cols-2 sm:grid-cols-4 gap-2"
+        className="grid grid-cols-2 sm:grid-cols-3 gap-2"
       >
         {OPTIONS.map(({ id, name, theme }) => {
-          const checked = sameTheme(current, theme);
+          const checked = !editing && sameTheme(current, theme);
           return (
             <button
               key={id}
@@ -48,19 +66,43 @@ export default function WorkspaceThemePicker() {
               role="radio"
               aria-checked={checked}
               data-qa={`workspace-theme-${id}`}
-              onClick={() => setTheme.mutate(theme)}
-              className={`flex flex-col items-start gap-1.5 p-2 rounded-lg border text-xs font-medium transition cursor-pointer ${
-                checked
-                  ? 'border-purple-500 bg-purple-600/15 text-fg'
-                  : 'border-line-strong bg-raised/50 text-muted hover:text-fg hover:bg-raised'
-              }`}
+              onClick={() => pick(theme)}
+              className={optionStyle(checked)}
             >
               <ThemeSwatch theme={theme} />
               <span className="truncate max-w-full">{name}</span>
             </button>
           );
         })}
+        <button
+          type="button"
+          role="radio"
+          aria-checked={editing || custom}
+          data-qa="workspace-theme-custom"
+          onClick={() => setEditing(true)}
+          className={optionStyle(editing || custom)}
+        >
+          {custom ? (
+            <ThemeSwatch theme={current} />
+          ) : (
+            <span
+              aria-hidden="true"
+              className="w-full h-10 rounded-md border border-dashed border-line-strong flex items-center justify-center"
+            >
+              <Pipette className="w-4 h-4" />
+            </span>
+          )}
+          <span className="truncate max-w-full">Custom</span>
+        </button>
       </div>
+      {editing && (
+        <CustomThemeEditor
+          initial={current ?? THEME_PRESETS[0].theme}
+          saving={setTheme.isPending}
+          onSave={pick}
+          onCancel={() => setEditing(false)}
+        />
+      )}
       {setTheme.isError && (
         <p role="alert" className="mt-2 text-sm text-danger">
           The theme could not be saved. Try again.

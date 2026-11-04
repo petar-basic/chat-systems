@@ -63,8 +63,8 @@ li {
   height: 18px;
   padding: 0 4px;
   border-radius: 9px;
-  background: #ef4444;
-  color: #fff;
+  background: var(--badge, #ef4444);
+  color: var(--badge-fg, #fff);
   font-size: 10px;
   font-weight: 700;
   line-height: 18px;

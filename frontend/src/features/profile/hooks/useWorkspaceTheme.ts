@@ -1,9 +1,12 @@
+import { useEffect } from 'react';
+import { create } from 'zustand';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { components } from '@/api/schema';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { QUERY_KEYS } from '@/shared/constants';
 import { useWorkspaceStore } from '@/stores/workspace';
-import type { Theme } from '../workspaceThemes';
+import { desktopShell } from '@/lib/desktopShell';
+import { desktopColours, parseTheme, shareTheme, type Theme } from '../workspaceThemes';
 
 type WorkspaceTheme = components['schemas']['WorkspaceTheme'];
 
@@ -14,11 +17,30 @@ const useWorkspaceThemes = (instanceUrl: string | undefined) =>
       (await getApiForInstance(instanceUrl).typed((c) => c.GET('/users/me/themes'))).data,
   });
 
-export const useWorkspaceTheme = (): Theme | null => {
+export const useThemePreview = create<{ theme: Theme | null; preview: (theme: Theme | null) => void }>(
+  (set) => ({
+    theme: null,
+    preview: (theme) => set({ theme }),
+  }),
+);
+
+export const useSavedWorkspaceTheme = (): Theme | null => {
   const workspace = useWorkspaceStore((s) => s.currentWorkspace);
   const { data } = useWorkspaceThemes(workspace?.instanceUrl);
   if (!workspace) return null;
   return data?.find((entry) => entry.workspace_id === workspace.id)?.theme ?? null;
+};
+
+export const useWorkspaceTheme = (): Theme | null => {
+  const saved = useSavedWorkspaceTheme();
+  const preview = useThemePreview((s) => s.theme);
+  const theme = preview ?? saved;
+  const line = theme ? shareTheme(theme) : null;
+  useEffect(() => {
+    const shown = line ? parseTheme(line) : null;
+    desktopShell()?.reportColours?.(shown ? desktopColours(shown) : null);
+  }, [line]);
+  return theme;
 };
 
 export const useSetWorkspaceTheme = () => {
