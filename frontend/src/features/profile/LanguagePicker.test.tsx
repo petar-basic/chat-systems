@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import LanguagePicker from './LanguagePicker';
 
@@ -47,8 +47,18 @@ beforeEach(() => {
 });
 
 describe('LanguagePicker', () => {
+  it('is its own section of Appearance', async () => {
+    get.mockResolvedValue(saved('browser'));
+    await renderPicker();
+    const section = screen.getByTestId('language');
+    expect(within(section).getByRole('heading', { name: 'Language' })).toBeInTheDocument();
+    expect(within(section).getByRole('combobox', { name: 'Language' })).toBe(
+      screen.getByTestId('language-picker'),
+    );
+  });
+
   it('saves the language that is picked', async () => {
-    get.mockResolvedValue(saved(null));
+    get.mockResolvedValue(saved('browser'));
     patch.mockImplementation(async (_path: string, { body }: { body: { language: string } }) =>
       saved(body.language),
     );

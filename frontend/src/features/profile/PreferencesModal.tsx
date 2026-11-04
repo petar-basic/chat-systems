@@ -76,12 +76,12 @@ export function PreferencesModal({ initial = 'notifications', onClose }: Props) 
       )}
       {active === 'appearance' && (
         <div>
-          <p className="mb-3 text-sm text-muted">Pick a theme, or follow your system setting.</p>
+          <p className="mb-3 text-sm text-muted">
+            Pick a theme and a language, or follow your system and browser settings.
+          </p>
           <ThemePicker />
           <WorkspaceThemePicker />
-          <section className="mt-6">
-            <LanguagePicker />
-          </section>
+          <LanguagePicker />
         </div>
       )}
       {active === 'messages' && <MessagesMediaPanel />}

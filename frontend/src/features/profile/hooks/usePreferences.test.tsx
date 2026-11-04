@@ -26,7 +26,7 @@ const DEFAULTS = {
   previews: 'shown',
   enter_key: 'send',
   open_channel_at: 'where_left',
-  language: null,
+  language: 'browser',
 };
 
 function run() {
@@ -88,6 +88,7 @@ describe('usePreferencesSync', () => {
 
   describe('language', () => {
     afterEach(async () => {
+      localStorage.clear();
       await i18n.changeLanguage('en');
     });
 
@@ -96,6 +97,7 @@ describe('usePreferencesSync', () => {
       run();
 
       await waitFor(() => expect(i18n.language).toBe('ja'));
+      expect(localStorage.getItem('chat_language')).toBe('ja');
     });
 
     it('follows the browser for "browser" and for a value it does not know', async () => {
@@ -105,6 +107,7 @@ describe('usePreferencesSync', () => {
         run();
 
         await waitFor(() => expect(i18n.language, language).toBe('en'));
+        expect(localStorage.getItem('chat_language'), language).toBeNull();
       }
     });
   });

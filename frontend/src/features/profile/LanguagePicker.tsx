@@ -15,10 +15,12 @@ export default function LanguagePicker() {
   const current: Choice = isLanguage(saved) ? saved : 'browser';
 
   return (
-    <div>
+    <section className="mt-6" data-qa="language">
+      <h3 className="text-sm font-semibold text-fg">{t('language.label')}</h3>
+      <p className="mt-1 mb-3 text-sm text-muted">{t('language.hint')}</p>
       <Select
         label={t('language.label')}
-        hint={t('language.hint')}
+        labelHidden
         value={current}
         onChange={(e) => {
           const language = e.target.value;
@@ -39,6 +41,6 @@ export default function LanguagePicker() {
           {t('language.saveFailed')}
         </p>
       )}
-    </div>
+    </section>
   );
 }
