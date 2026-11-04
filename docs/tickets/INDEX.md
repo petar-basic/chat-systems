@@ -22,7 +22,8 @@ in 3.4.0. Wave 25, which moves the profile and notification settings to each wor
 in 3.5.0. Wave 26, which fixes what the 2026-10-27 product survey found, shipped in 3.6.0.
 Wave 27, which fixes what the 2026-10-28 survey of 3.6.0 found, shipped in 3.7.0. Wave 28, the
 feedback on 3.7.0 and CS-037, shipped in 4.0.0.
-After it, releases are bug fixes only for a while. Wave 29, a desktop app, shipped in 4.1.0.
+After it, releases are bug fixes only for a while. Wave 29, a desktop app, shipped in 4.1.0. Wave 30,
+themes per workspace and the preferences a team from Slack looks for, is open.
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
@@ -370,6 +371,21 @@ comes next because everything else lives inside it.
 | CS-109 ✅ | SSO that finishes in the app | desktop · backend |
 | CS-110 ✅ | Desktop builds with every release | desktop · ops · docs |
 
+### Wave 30 — Make it yours
+
+Raised on 2026-11-04 after 4.1.1, from a walk through the app beside Slack's *Preferences*.
+Themes come first because they are what was asked for; CS-113 comes before CS-114 and
+CS-115 because it adds the store their settings are kept in. CS-116 stands alone.
+
+| # | Ticket | Area |
+|---|---|---|
+| CS-111 | A theme for each workspace | frontend · backend |
+| CS-112 | Custom themes, shared themes, and a desktop window in the workspace's colours | frontend · desktop |
+| CS-113 | Preferences that follow you, and how messages look | backend · frontend |
+| CS-114 | Enter to send or for a new line, and where a channel opens | frontend |
+| CS-115 | Time zones and local time | backend · frontend |
+| CS-116 | Title and pronouns on the profile | backend · frontend |
+
 ## Conflict map
 
 Tickets that touch the same files, and the order that avoids rework:
@@ -413,3 +429,8 @@ Tickets that touch the same files, and the order that avoids rework:
 | `sealed.rs`, `auth/totp.rs` and the token signing in `auth/service/tokens.rs` | CS-100 → CS-101 |
 | `commands/routes.rs`, hooks and the *Integrations* section | CS-102 → CS-103 → CS-104 → CS-105 |
 | realtime gateway auth and connection handling | CS-101 ✅ → CS-104 ✅ → CS-037 ✅ |
+| sidebar tokens and *Preferences → Appearance* | CS-111 → CS-112 |
+| `workspace_members` profile columns | CS-111 → CS-116 |
+| `users.preferences` and the *Preferences* tabs | CS-113 → CS-114 → CS-115 |
+| `MessageInput.tsx` key handling | CS-114 |
+| desktop `report_theme` | CS-112 |
