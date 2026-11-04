@@ -1,5 +1,13 @@
 import { useState } from 'react';
-import { Bell, MessageSquare, Palette, ShieldCheck, UserRound } from 'lucide-react';
+import {
+  Bell,
+  CheckCheck,
+  MessageSquare,
+  Palette,
+  ShieldCheck,
+  SlidersHorizontal,
+  UserRound,
+} from 'lucide-react';
 import { SectionedModal, type ModalSection } from '@/shared/components/Modal/SectionedModal';
 import {
   PushNotificationsPanel,
@@ -14,16 +22,21 @@ import WorkspaceThemePicker from '@/features/profile/WorkspaceThemePicker';
 import TwoFactorPanel from '@/features/profile/TwoFactorPanel';
 import MessagesMediaPanel from '@/features/profile/MessagesMediaPanel';
 import AccountPanel from '@/features/profile/AccountPanel';
+import MarkAsReadPanel from '@/features/profile/MarkAsReadPanel';
+import AdvancedPanel from '@/features/profile/AdvancedPanel';
 import { useWorkspaceStore } from '@/stores/workspace';
 
-export type PreferencesSection = 'notifications' | 'appearance' | 'messages' | 'account' | 'security';
+export type PreferencesSection =
+  'notifications' | 'appearance' | 'messages' | 'read' | 'account' | 'security' | 'advanced';
 
 const SECTIONS: ModalSection<PreferencesSection>[] = [
   { key: 'notifications', label: 'Notifications', Icon: Bell },
   { key: 'appearance', label: 'Appearance', Icon: Palette },
   { key: 'messages', label: 'Messages & media', Icon: MessageSquare },
+  { key: 'read', label: 'Mark as read', Icon: CheckCheck },
   { key: 'account', label: 'Account', Icon: UserRound },
   { key: 'security', label: 'Security', Icon: ShieldCheck },
+  { key: 'advanced', label: 'Advanced', Icon: SlidersHorizontal },
 ];
 
 interface Props {
@@ -69,7 +82,9 @@ export function PreferencesModal({ initial = 'notifications', onClose }: Props) 
       )}
       {active === 'messages' && <MessagesMediaPanel />}
       {active === 'account' && <AccountPanel />}
+      {active === 'read' && <MarkAsReadPanel />}
       {active === 'security' && <TwoFactorPanel />}
+      {active === 'advanced' && <AdvancedPanel />}
     </SectionedModal>
   );
 }

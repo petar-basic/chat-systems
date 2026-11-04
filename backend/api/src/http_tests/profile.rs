@@ -555,7 +555,13 @@ async fn preferences_start_at_their_defaults_and_keep_what_is_set(pool: PgPool) 
     assert_eq!(status, StatusCode::OK, "{prefs:?}");
     assert_eq!(
         prefs,
-        json!({ "colour_mode": null, "density": "clean", "previews": "shown" })
+        json!({
+            "colour_mode": null,
+            "density": "clean",
+            "previews": "shown",
+            "enter_key": "send",
+            "open_channel_at": "where_left"
+        })
     );
 
     let (status, prefs) = send(
@@ -579,9 +585,28 @@ async fn preferences_start_at_their_defaults_and_keep_what_is_set(pool: PgPool) 
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{prefs:?}");
+    assert_eq!(prefs["colour_mode"], "dark");
+    assert_eq!(prefs["density"], "compact");
+    assert_eq!(prefs["previews"], "collapsed");
+
+    let (status, prefs) = send(
+        &app,
+        "PATCH",
+        "/api/users/me/preferences",
+        Some(&token),
+        Some(json!({ "enter_key": "newline", "open_channel_at": "newest" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{prefs:?}");
     assert_eq!(
         prefs,
-        json!({ "colour_mode": "dark", "density": "compact", "previews": "collapsed" })
+        json!({
+            "colour_mode": "dark",
+            "density": "compact",
+            "previews": "collapsed",
+            "enter_key": "newline",
+            "open_channel_at": "newest"
+        })
     );
 
     let (_, prefs) = send(&app, "GET", "/api/users/me/preferences", Some(&token), None).await;
@@ -590,7 +615,13 @@ async fn preferences_start_at_their_defaults_and_keep_what_is_set(pool: PgPool) 
     let (_, theirs) = send(&app, "GET", "/api/users/me/preferences", Some(&other), None).await;
     assert_eq!(
         theirs,
-        json!({ "colour_mode": null, "density": "clean", "previews": "shown" }),
+        json!({
+            "colour_mode": null,
+            "density": "clean",
+            "previews": "shown",
+            "enter_key": "send",
+            "open_channel_at": "where_left"
+        }),
         "each account has its own"
     );
 }
@@ -604,6 +635,8 @@ async fn an_unknown_preference_or_value_is_refused(pool: PgPool) {
         json!({ "font": "comic" }),
         json!({ "density": "tiny" }),
         json!({ "colour_mode": "sepia" }),
+        json!({ "enter_key": "shift" }),
+        json!({ "open_channel_at": "oldest" }),
         json!({ "density": "compact", "extra": true }),
     ] {
         let (status, _) = send(

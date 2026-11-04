@@ -529,7 +529,8 @@ POST `/workspaces/{id}/invites` `{ email, role }`, and each section's own.
 *Clear after*), bio and photo, saved with one button; the status is sent only when it changed,
 so an untouched one keeps its expiry. An empty name, bio or photo shows the account's, as its
 placeholder, and *Use account photo* drops the workspace's. *Preferences* is a vertical tab
-list — *Notifications*, *Appearance*, *Messages & media*, *Account*, *Security* — over panels
+list — *Notifications*, *Appearance*, *Messages & media*, *Mark as read*, *Account*, *Security*,
+*Advanced* — over panels
 that save as they change, except *Account*, the account's name, bio and photo, which has its own save button.
 A photo picked under *Account* is uploaded to `POST /users/me/avatar` and set on the account at
 once, so every workspace shows it; *Edit profile*'s photo stays a file of its workspace.
@@ -545,12 +546,20 @@ menu; the sidebar avatar opens *Edit profile*.
 
 The account's preferences live on the server (`usePreferences`, `useUpdatePreferences`).
 `usePreferencesSync`, called by `WorkspacePage`, copies them where they are read:
-light, dark or system into the theme store, and density and previews into `stores/display`,
-which every message row reads without a query of its own. A browser whose account has no colour
+light, dark or system into the theme store, and the rest into `stores/display`, which every
+message row, the composer and the message list read without a query of their own. A browser whose account has no colour
 mode yet sends the one it has, once. *Messages & media* sets the layout: *Clean* groups a run of
 messages under one name and photo, *Compact* puts the time and the sender on every message's
 line. With previews collapsed, `CollapsedPreview` shows a button in place of a message's images
 or link previews until it is opened.
+
+*Advanced* chooses what Enter does in the composer, the thread composer and the edit box.
+`enterOutcome` decides each press: an open mention, emoji or command picker keeps Enter, and so
+do a list and a code block; otherwise ⌘Enter or Ctrl+Enter always sends, and Enter sends or puts
+in the line break Shift+Enter does. The send button's title and *Keyboard shortcuts* name the
+keys that send (`sendKeys`, `newLineKeys`). *Mark as read* chooses where a channel opens:
+where you left off, under the unread line, or at the newest message, with no line; opening a
+channel marks it read either way.
 
 *Appearance* has the colour mode (`ThemePicker`, light, dark or system, the same everywhere)
 and, under it, `WorkspaceThemePicker`: the theme of the current workspace, *Default* or one of

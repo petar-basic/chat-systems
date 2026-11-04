@@ -5,6 +5,9 @@ import { formatDateTime } from '@/lib/datetime';
 import { Extension } from '@tiptap/core';
 import { useEditor, EditorContent } from '@tiptap/react';
 import { editLastOwnMessage } from './messageKeys';
+import { enterOutcome } from './enterKey';
+import { isApplePlatform, sendKeys, shortcutLabel } from '@/features/navigation';
+import { useDisplayStore } from '@/stores/display';
 import Placeholder from '@tiptap/extension-placeholder';
 import Mention from '@tiptap/extension-mention';
 import { createEditorExtensions } from '@/lib/tiptapExtensions';
@@ -116,6 +119,8 @@ export default function MessageInput({
   const emojiBtnRef = useRef<HTMLButtonElement>(null);
   const [showEmoji, setShowEmoji] = useState(false);
   const [showFormatting, setShowFormatting] = useState(false);
+  const enterKey = useDisplayStore((s) => s.enterKey);
+  const sendLabel = shortcutLabel(sendKeys(enterKey), isApplePlatform());
   const editingRef = useRef(editing);
   const cancelRef = useRef(onCancel);
   useEffect(() => {
@@ -166,18 +171,26 @@ export default function MessageInput({
         name: 'submitOnEnter',
         priority: 1000,
         addKeyboardShortcuts() {
+          const press = (mod: boolean) => {
+            const mention = mentionSuggestionPluginKey.getState(this.editor.state) as
+              { active?: boolean } | undefined;
+            const emoji = emojiSuggestionPluginKey.getState(this.editor.state) as
+              { active?: boolean } | undefined;
+            const command = this.editor.storage.commandSuggestion;
+            const outcome = enterOutcome(useDisplayStore.getState().enterKey, {
+              mod,
+              picking: !!mention?.active || !!emoji?.active || (!!command?.open && !command.exact),
+              inBlock: this.editor.isActive('codeBlock') || this.editor.isActive('listItem'),
+            });
+            if (outcome === 'default') return false;
+            if (outcome === 'newline') return this.editor.commands.setHardBreak();
+            sendRef.current();
+            return true;
+          };
           return {
-            Enter: () => {
-              const mention = mentionSuggestionPluginKey.getState(this.editor.state) as
-                { active?: boolean } | undefined;
-              const emoji = emojiSuggestionPluginKey.getState(this.editor.state) as
-                { active?: boolean } | undefined;
-              if (mention?.active || emoji?.active) return false;
-              const command = this.editor.storage.commandSuggestion;
-              if (command?.open && !command.exact) return false;
-              sendRef.current();
-              return true;
-            },
+            Enter: () => press(false),
+            'Mod-Enter': () => press(true),
+            'Ctrl-Enter': () => press(true),
             ArrowUp: () => {
               if (editingRef.current || !this.editor.isEmpty) return false;
               return editLastOwnMessage(this.editor.view.dom);
@@ -574,7 +587,7 @@ export default function MessageInput({
                 disabled={sendBlocked}
                 data-qa="composer-send"
                 className="p-1 text-accent hover:text-accent-soft disabled:text-faint transition cursor-pointer disabled:cursor-not-allowed rounded hover:bg-raised/60"
-                title="Send (Enter)"
+                title={`Send (${sendLabel})`}
                 aria-label="Send"
               >
                 <Send className="w-3.5 h-3.5" />

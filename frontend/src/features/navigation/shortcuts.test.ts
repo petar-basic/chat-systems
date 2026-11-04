@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { shortcutFor, stepSidebar, typingTarget, type ShortcutKey } from './shortcuts';
+import {
+  newLineKeys,
+  sendKeys,
+  shortcutFor,
+  shortcutLabel,
+  stepSidebar,
+  typingTarget,
+  type ShortcutKey,
+} from './shortcuts';
 
 function key(k: string, mods: Partial<ShortcutKey> = {}): ShortcutKey {
   return {
@@ -110,5 +118,15 @@ describe('stepSidebar', () => {
     ]);
     expect(stepSidebar(root, 1, false)?.textContent).toBe('general');
     expect(stepSidebar(root, -1, false)?.textContent).toBe('design');
+  });
+});
+
+describe('the keys that send', () => {
+  it('follow the Enter preference and name the keys of the platform', () => {
+    expect(shortcutLabel(sendKeys('send'), true)).toBe('Enter');
+    expect(shortcutLabel(sendKeys('newline'), true)).toBe('⌘Enter');
+    expect(shortcutLabel(sendKeys('newline'), false)).toBe('Ctrl+Enter');
+    expect(shortcutLabel(newLineKeys('send'), false)).toBe('Shift+Enter');
+    expect(shortcutLabel(newLineKeys('newline'), true)).toBe('Enter');
   });
 });

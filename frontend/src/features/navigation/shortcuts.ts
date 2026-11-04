@@ -1,3 +1,5 @@
+import type { EnterKey } from '@/stores/display';
+
 export type Shortcut =
   | 'quickSwitcher'
   | 'shortcuts'
@@ -57,4 +59,23 @@ export function stepSidebar(root: ParentNode, direction: 1 | -1, unreadOnly: boo
 
 export function isApplePlatform(): boolean {
   return /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
+}
+
+export function keyName(key: string, apple: boolean): string {
+  if (key === 'mod') return apple ? '⌘' : 'Ctrl';
+  if (key === 'alt') return apple ? '⌥' : 'Alt';
+  if (key === 'shift') return apple ? '⇧' : 'Shift';
+  return key;
+}
+
+export function shortcutLabel(keys: string[], apple: boolean): string {
+  return keys.map((key) => keyName(key, apple)).join(apple ? '' : '+');
+}
+
+export function sendKeys(mode: EnterKey): string[] {
+  return mode === 'send' ? ['Enter'] : ['mod', 'Enter'];
+}
+
+export function newLineKeys(mode: EnterKey): string[] {
+  return mode === 'send' ? ['shift', 'Enter'] : ['Enter'];
 }

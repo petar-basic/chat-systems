@@ -1,5 +1,6 @@
 import { Modal } from '@/shared/components/Modal/Modal';
-import { isApplePlatform } from './shortcuts';
+import { useDisplayStore } from '@/stores/display';
+import { isApplePlatform, keyName, newLineKeys, sendKeys } from './shortcuts';
 
 type Key = 'mod' | 'alt' | 'shift' | string;
 
@@ -9,7 +10,7 @@ interface Binding {
   note?: string;
 }
 
-const GROUPS: { title: string; bindings: Binding[] }[] = [
+const GROUPS = (sending: Binding[]): { title: string; bindings: Binding[] }[] => [
   {
     title: 'Getting around',
     bindings: [
@@ -40,6 +41,10 @@ const GROUPS: { title: string; bindings: Binding[] }[] = [
     ],
   },
   {
+    title: 'Writing',
+    bindings: sending,
+  },
+  {
     title: 'Messages',
     bindings: [
       { label: 'Edit your last message', keys: [['↑']], note: 'in an empty message box' },
@@ -54,19 +59,17 @@ const GROUPS: { title: string; bindings: Binding[] }[] = [
   },
 ];
 
-function keyName(key: Key, apple: boolean): string {
-  if (key === 'mod') return apple ? '⌘' : 'Ctrl';
-  if (key === 'alt') return apple ? '⌥' : 'Alt';
-  if (key === 'shift') return apple ? '⇧' : 'Shift';
-  return key;
-}
-
 export function KeyboardShortcutsDialog({ onClose }: { onClose: () => void }) {
   const apple = isApplePlatform();
+  const enterKey = useDisplayStore((s) => s.enterKey);
+  const sending: Binding[] = [
+    { label: 'Send the message', keys: [sendKeys(enterKey)] },
+    { label: 'Start a new line', keys: [newLineKeys(enterKey)] },
+  ];
   return (
     <Modal title="Keyboard shortcuts" onClose={onClose} dataQa="keyboard-shortcuts" size="lg">
       <div className="space-y-5">
-        {GROUPS.map((group) => (
+        {GROUPS(sending).map((group) => (
           <section key={group.title}>
             <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{group.title}</h3>
             <dl className="divide-y divide-line">

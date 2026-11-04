@@ -1,6 +1,7 @@
 import { RadioCards } from '@/shared/components/Form/RadioCards';
 import type { Density, Previews } from '@/stores/display';
 import { usePreferences, useUpdatePreferences } from './hooks/usePreferences';
+import SavedEverywhere from './SavedEverywhere';
 
 export default function MessagesMediaPanel() {
   const { data } = usePreferences();
@@ -46,14 +47,7 @@ export default function MessagesMediaPanel() {
           },
         ]}
       />
-      <p className="text-sm text-muted">
-        These settings are the same in every workspace and on every device.
-      </p>
-      {update.isError && (
-        <p role="alert" className="text-sm text-danger">
-          The setting could not be saved. Try again.
-        </p>
-      )}
+      <SavedEverywhere failed={update.isError} />
     </div>
   );
 }

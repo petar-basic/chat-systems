@@ -30,6 +30,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   or the desktop app opens in the mode you picked. *Preferences → Messages & media* adds a
   compact message layout, with the time and the sender on the same line as every message, and
   can collapse images and link previews until you open them.
+- Enter can start a new line. *Preferences → Advanced* makes Enter start a new line and ⌘Enter
+  or Ctrl+Enter send, in the message box, threads and edits. In both modes Enter keeps working in
+  lists, code blocks and the mention and emoji pickers. *Preferences → Mark as read* can open
+  every channel at its newest message instead of where you left off.
 
 ### Fixed
 
