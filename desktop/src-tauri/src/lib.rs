@@ -1,3 +1,4 @@
+mod colours;
 mod navigation;
 mod notifications;
 mod servers;
@@ -17,7 +18,7 @@ use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::TrayIconBuilder;
 use tauri::utils::config::BackgroundThrottlingPolicy;
 use tauri::webview::{DownloadEvent, NewWindowFeatures, NewWindowResponse, WebviewBuilder};
-use tauri::window::WindowBuilder;
+use tauri::window::{Color, WindowBuilder};
 use tauri::{
     AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, Runtime, State, Theme, Webview,
     WebviewUrl, WebviewWindowBuilder, Window, WindowEvent,
@@ -28,6 +29,7 @@ use tauri_plugin_opener::OpenerExt;
 use tauri_plugin_window_state::StateFlags;
 use url::Url;
 
+use colours::Colours;
 use servers::{Server, Store};
 use workspaces::Workspace;
 
@@ -61,6 +63,9 @@ struct Reports(Mutex<HashMap<String, Report>>);
 #[derive(Default)]
 struct Themes(Mutex<HashMap<String, Theme>>);
 
+#[derive(Default)]
+struct Palettes(Mutex<HashMap<String, Colours>>);
+
 #[derive(Clone, Serialize)]
 struct ServerView {
     #[serde(flatten)]
@@ -74,6 +79,7 @@ struct Overview {
     servers: Vec<ServerView>,
     active: Option<String>,
     theme: Option<Theme>,
+    colours: Option<Colours>,
 }
 
 fn webview_label(url: &str) -> String {
@@ -122,18 +128,66 @@ fn overview<R: Runtime>(app: &AppHandle<R>) -> Overview {
             }
         })
         .collect();
-    let theme = active.as_ref().and_then(|url| {
-        app.state::<Themes>()
+    let colours = active.as_ref().and_then(|url| {
+        app.state::<Palettes>()
             .0
             .lock()
             .ok()
-            .and_then(|themes| themes.get(url).copied())
+            .and_then(|palettes| palettes.get(url).cloned())
+    });
+    let theme = colours.as_ref().map(|c| c.mode).or_else(|| {
+        active.as_ref().and_then(|url| {
+            app.state::<Themes>()
+                .0
+                .lock()
+                .ok()
+                .and_then(|themes| themes.get(url).copied())
+        })
     });
     Overview {
         servers,
         active,
         theme,
+        colours,
     }
+}
+
+fn paint<R: Runtime>(window: &Window<R>, colours: Option<&Colours>) {
+    let rail = colours.and_then(|c| colours::rgb(&c.rail));
+    let _ = window.set_background_color(rail.map(|(r, g, b)| Color(r, g, b, 255)));
+    #[cfg(windows)]
+    caption(window, colours);
+}
+
+#[cfg(windows)]
+fn caption<R: Runtime>(window: &Window<R>, colours: Option<&Colours>) {
+    use windows::Win32::Graphics::Dwm::{
+        DwmSetWindowAttribute, DWMWA_CAPTION_COLOR, DWMWA_TEXT_COLOR, DWMWINDOWATTRIBUTE,
+    };
+    const DEFAULT: u32 = 0xFFFF_FFFF;
+    let Ok(hwnd) = window.hwnd() else {
+        return;
+    };
+    let colorref = |colour: Option<&str>| {
+        colour.and_then(colours::rgb).map_or(DEFAULT, |(r, g, b)| {
+            u32::from(r) | (u32::from(g) << 8) | (u32::from(b) << 16)
+        })
+    };
+    let set = |attribute: DWMWINDOWATTRIBUTE, value: u32| {
+        let _ = unsafe {
+            DwmSetWindowAttribute(
+                hwnd,
+                attribute,
+                std::ptr::from_ref(&value).cast(),
+                std::mem::size_of::<u32>() as u32,
+            )
+        };
+    };
+    set(
+        DWMWA_CAPTION_COLOR,
+        colorref(colours.map(|c| c.rail.as_str())),
+    );
+    set(DWMWA_TEXT_COLOR, colorref(colours.map(|c| c.fg.as_str())));
 }
 
 fn badge<R: Runtime>(app: &AppHandle<R>, servers: &[ServerView]) {
@@ -160,6 +214,7 @@ fn announce<R: Runtime>(app: &AppHandle<R>) {
     badge(app, &now.servers);
     if let Ok(window) = main_window(app) {
         let _ = window.set_theme(now.theme);
+        paint(&window, now.colours.as_ref());
     }
     if let Ok(menu) = build_menu(app, &now.servers) {
         let _ = app.set_menu(menu);
@@ -288,7 +343,8 @@ fn load_server<R: Runtime>(
                 .permission("allow-report-workspaces")
                 .permission("allow-notify")
                 .permission("allow-start-sso")
-                .permission("allow-report-theme"),
+                .permission("allow-report-theme")
+                .permission("allow-report-colours"),
         );
         let builder = WebviewBuilder::new(&label, WebviewUrl::External(origin.clone()))
             .initialization_script(BRIDGE)
@@ -467,6 +523,9 @@ fn forget_server<R: Runtime>(app: &AppHandle<R>, url: &str) -> Result<(), String
     }
     if let Ok(mut themes) = app.state::<Themes>().0.lock() {
         themes.remove(url);
+    }
+    if let Ok(mut palettes) = app.state::<Palettes>().0.lock() {
+        palettes.remove(url);
     }
     if was_showing {
         return open_last(app);
@@ -660,6 +719,27 @@ fn report_theme(app: AppHandle, webview: Webview, theme: Theme) -> Result<(), St
         .lock()
         .map_err(|e| e.to_string())?
         .insert(server.url, theme);
+    announce(&app);
+    Ok(())
+}
+
+#[tauri::command]
+fn report_colours(
+    app: AppHandle,
+    webview: Webview,
+    colours: Option<Colours>,
+) -> Result<(), String> {
+    let server = server_of(&app, &webview)?;
+    let accepted = colours
+        .map(|colours| colours::accept(colours).ok_or("Colours must be hex colours like #1164a3"))
+        .transpose()?;
+    let palettes = app.state::<Palettes>();
+    let mut palettes = palettes.0.lock().map_err(|e| e.to_string())?;
+    match accepted {
+        Some(colours) => palettes.insert(server.url, colours),
+        None => palettes.remove(&server.url),
+    };
+    drop(palettes);
     announce(&app);
     Ok(())
 }
@@ -888,6 +968,7 @@ pub fn run() {
             switch_server,
             report_workspaces,
             report_theme,
+            report_colours,
             notify,
             rail_menu,
             add_menu,
@@ -900,6 +981,7 @@ pub fn run() {
             app.manage(Showing::default());
             app.manage(Reports::default());
             app.manage(Themes::default());
+            app.manage(Palettes::default());
             app.manage(PendingSso::default());
             let links = app.handle().clone();
             app.deep_link().on_open_url(move |event| {
@@ -914,11 +996,13 @@ pub fn run() {
                 let _ = notify_rust::request_auth_blocking();
             });
 
-            let window = WindowBuilder::new(app, MAIN)
+            let builder = WindowBuilder::new(app, MAIN)
                 .title("Chat Systems")
                 .inner_size(1280.0, 860.0)
-                .min_inner_size(560.0, 560.0)
-                .build()?;
+                .min_inner_size(560.0, 560.0);
+            #[cfg(target_os = "macos")]
+            let builder = builder.title_bar_style(tauri::TitleBarStyle::Transparent);
+            let window = builder.build()?;
             let size = window
                 .inner_size()?
                 .to_logical::<f64>(window.scale_factor()?);

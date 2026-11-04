@@ -7,6 +7,7 @@ fn main() {
             "switch_server",
             "report_workspaces",
             "report_theme",
+            "report_colours",
             "notify",
             "rail_menu",
             "add_menu",

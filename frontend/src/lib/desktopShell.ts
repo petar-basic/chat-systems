@@ -14,6 +14,16 @@ export interface DesktopNotification {
   workspace_id: string | null;
 }
 
+export interface DesktopColours {
+  mode: 'light' | 'dark';
+  rail: string;
+  line: string;
+  fg: string;
+  muted: string;
+  badge: string;
+  badge_fg: string;
+}
+
 export type DesktopCommand =
   | { kind: 'open-workspace'; workspaceId: string }
   | { kind: 'leave-workspace'; workspaceId: string }
@@ -26,6 +36,7 @@ export interface DesktopShell {
   notify: (notification: DesktopNotification) => void;
   startSso?: (invite: string | null) => void;
   reportTheme?: (theme: 'light' | 'dark') => void;
+  reportColours?: (colours: DesktopColours | null) => void;
   onCommand: (handler: (command: DesktopCommand) => void) => () => void;
 }
 

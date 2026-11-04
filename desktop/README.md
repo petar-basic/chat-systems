@@ -30,12 +30,12 @@ system warns the first time you open it:
 | `src-tauri/src/lib.rs` | The window, its webviews, the menu and the commands the app's pages call |
 | `src-tauri/src/servers.rs` | Normalising an address, checking it is a Chat Systems server, and the saved list |
 | `src-tauri/src/navigation.rs` | Which links stay in the app, and where downloads go |
-| `src-tauri/src/bridge.js` | `window.chatSystemsDesktop`, injected into each server's page: how the page reports its workspaces and its theme, raises a notification, starts SSO and hears the rail's and the notifications' clicks |
+| `src-tauri/src/bridge.js` | `window.chatSystemsDesktop`, injected into each server's page: how the page reports its workspaces, its theme and its workspace's colours, raises a notification, starts SSO and hears the rail's and the notifications' clicks |
 | `src-tauri/src/workspaces.rs` | What the app accepts from a page's report: ids, names, unread counts, and an icon only as a small PNG the page drew |
 | `src-tauri/src/updates.rs` | Checking for an update, and asking to restart into it |
 | `src-tauri/tauri.release.conf.json` | What a release build adds: the updater, its endpoint and public key, and signed update bundles |
 | `src-tauri/src/notifications.rs` | What the app accepts from a page's notification: a key it can hand back, a title and a body cut to banner length |
-| `src-tauri/capabilities/` | Which pages may call the app: the rail and *Add a server*; a server's page gets only `report_workspaces`, `report_theme`, `notify` and `start_sso`, granted at run time for its own origin |
+| `src-tauri/capabilities/` | Which pages may call the app: the rail and *Add a server*; a server's page gets only `report_workspaces`, `report_theme`, `report_colours`, `notify` and `start_sso`, granted at run time for its own origin |
 
 ## Run and build
 
@@ -81,7 +81,11 @@ app starts with its window hidden.
 
 The rail and the title bar follow the theme of the server in front, which its page reports
 whenever it changes; until a page has reported one, and on *Add a server*, they follow the
-system.
+system. When the workspace in front has a theme of its own, the page reports its colours too
+(`report_colours`), and the rail and the title bar take them: the rail's background, lines,
+text and badges, and the title bar in the rail's colour (on macOS a transparent title bar over
+the window's background, on Windows 11 the caption colour). The app takes `#rrggbb` colours
+and nothing else, and goes back to the colour mode when the page reports none.
 
 The rail lists workspaces, not servers: every workspace you are in on every server, with
 the server's name in its tooltip. A server shows as a tile of its own only while it has no

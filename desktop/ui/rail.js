@@ -89,9 +89,28 @@ function entries(servers) {
   );
 }
 
-function render({ servers, active, theme }) {
+const PAINTED = [
+  ['--rail', 'rail'],
+  ['--line', 'line'],
+  ['--fg', 'fg'],
+  ['--accent', 'fg'],
+  ['--muted', 'muted'],
+  ['--badge', 'badge'],
+  ['--badge-fg', 'badge_fg'],
+];
+
+function paint(colours) {
+  const { style } = document.documentElement;
+  for (const [property, key] of PAINTED) {
+    if (colours) style.setProperty(property, colours[key]);
+    else style.removeProperty(property);
+  }
+}
+
+function render({ servers, active, theme, colours }) {
   if (theme) document.documentElement.dataset.theme = theme;
   else delete document.documentElement.dataset.theme;
+  paint(colours);
   list.replaceChildren(
     ...entries(servers).map(({ server, workspace }, index) =>
       workspace

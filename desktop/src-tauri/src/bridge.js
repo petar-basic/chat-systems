@@ -9,6 +9,7 @@
       notify: (notification) => invoke('notify', { notification }),
       startSso: (invite) => invoke('start_sso', { invite }),
       reportTheme: (theme) => invoke('report_theme', { theme }),
+      reportColours: (colours) => invoke('report_colours', { colours }),
       onCommand: (handler) => {
         handlers.add(handler);
         return () => handlers.delete(handler);
