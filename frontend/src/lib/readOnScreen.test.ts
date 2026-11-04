@@ -97,12 +97,12 @@ describe('readOnScreen', () => {
     const queryClient = seeded();
     keepUnread('ch-1');
     readOnScreen(queryClient, 'ch-1');
-    await vi.runAllTimersAsync();
+    await vi.advanceTimersByTimeAsync(1000);
     expect(post).not.toHaveBeenCalled();
 
     useKeptUnread.setState({ channelId: null });
     readOnScreen(queryClient, 'ch-1');
-    await vi.runAllTimersAsync();
+    await vi.advanceTimersByTimeAsync(1000);
     expect(post).toHaveBeenCalledTimes(1);
   });
 
