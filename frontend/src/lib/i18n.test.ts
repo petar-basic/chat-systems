@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { createInstance } from 'i18next';
-import i18n, { LANGUAGES, i18nOptions, preferredLanguage, resources } from './i18n';
+import i18n, { LANGUAGES, applyLanguage, i18nOptions, preferredLanguage, resources } from './i18n';
 
 function keys(tree: object, prefix = ''): string[] {
   return Object.entries(tree).flatMap(([key, value]) =>
@@ -23,6 +23,33 @@ describe('preferredLanguage', () => {
   it('falls back to English', () => {
     expect(preferredLanguage(['fr-FR', 'de'])).toBe('en');
     expect(preferredLanguage([])).toBe('en');
+  });
+});
+
+describe('applyLanguage', () => {
+  it('switches to a language it has', async () => {
+    await applyLanguage('ja');
+    expect(i18n.language).toBe('ja');
+  });
+
+  it('follows the browser for anything else', async () => {
+    for (const chosen of [
+      null,
+      undefined,
+      '',
+      'browser',
+      'xx',
+      'ja-JP',
+      'JA',
+      '<b>ja</b>',
+      7,
+      ['ja'],
+      { ja: true },
+    ]) {
+      await i18n.changeLanguage('ja');
+      await applyLanguage(chosen);
+      expect(i18n.language, JSON.stringify(chosen)).toBe('en');
+    }
   });
 });
 

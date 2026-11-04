@@ -1,0 +1,8 @@
+{
+  "language": {
+    "label": "Language",
+    "hint": "Used on every device you sign in on. Before you sign in, the page follows your browser.",
+    "browser": "Same as my browser",
+    "saveFailed": "Could not save your language."
+  }
+}

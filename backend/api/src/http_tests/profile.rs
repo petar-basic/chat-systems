@@ -560,7 +560,8 @@ async fn preferences_start_at_their_defaults_and_keep_what_is_set(pool: PgPool) 
             "density": "clean",
             "previews": "shown",
             "enter_key": "send",
-            "open_channel_at": "where_left"
+            "open_channel_at": "where_left",
+            "language": null
         })
     );
 
@@ -605,7 +606,8 @@ async fn preferences_start_at_their_defaults_and_keep_what_is_set(pool: PgPool) 
             "density": "compact",
             "previews": "collapsed",
             "enter_key": "newline",
-            "open_channel_at": "newest"
+            "open_channel_at": "newest",
+            "language": null
         })
     );
 
@@ -620,7 +622,8 @@ async fn preferences_start_at_their_defaults_and_keep_what_is_set(pool: PgPool) 
             "density": "clean",
             "previews": "shown",
             "enter_key": "send",
-            "open_channel_at": "where_left"
+            "open_channel_at": "where_left",
+            "language": null
         }),
         "each account has its own"
     );
@@ -652,4 +655,50 @@ async fn an_unknown_preference_or_value_is_refused(pool: PgPool) {
 
     let (_, prefs) = send(&app, "GET", "/api/users/me/preferences", Some(&token), None).await;
     assert_eq!(prefs["density"], "clean", "nothing refused was saved");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn the_language_is_one_the_app_has_or_the_browser(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (_, _, token) = seed_and_login(&app, &state, "prefs-language", false).await;
+    let patch = |body| {
+        send(
+            &app,
+            "PATCH",
+            "/api/users/me/preferences",
+            Some(&token),
+            Some(body),
+        )
+    };
+
+    let (status, prefs) = patch(json!({ "language": "ja" })).await;
+    assert_eq!(status, StatusCode::OK, "{prefs:?}");
+    assert_eq!(prefs["language"], "ja");
+    assert_eq!(prefs["density"], "clean", "the other preferences stay");
+
+    for hostile in [
+        json!("xx"),
+        json!("ja-JP"),
+        json!("JA"),
+        json!(" ja"),
+        json!("<b>ja</b>"),
+        json!("ja'; DROP TABLE users; --"),
+        json!("j".repeat(10_000)),
+        json!(7),
+        json!(["ja"]),
+        json!({ "ja": true }),
+    ] {
+        let (status, body) = patch(json!({ "language": hostile })).await;
+        assert!(
+            status.is_client_error(),
+            "{hostile} should be refused, got {status}: {body:?}"
+        );
+    }
+
+    let (_, prefs) = send(&app, "GET", "/api/users/me/preferences", Some(&token), None).await;
+    assert_eq!(prefs["language"], "ja", "nothing refused was saved");
+
+    let (status, prefs) = patch(json!({ "language": "browser" })).await;
+    assert_eq!(status, StatusCode::OK, "{prefs:?}");
+    assert_eq!(prefs["language"], "browser");
 }

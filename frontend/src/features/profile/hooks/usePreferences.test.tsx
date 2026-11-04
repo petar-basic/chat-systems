@@ -1,7 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ReactNode } from 'react';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import i18n from '@/lib/i18n';
 import { usePreferencesSync } from './usePreferences';
 import { useThemeStore } from '@/stores/theme';
 import { useDisplayStore } from '@/stores/display';
@@ -25,6 +26,7 @@ const DEFAULTS = {
   previews: 'shown',
   enter_key: 'send',
   open_channel_at: 'where_left',
+  language: null,
 };
 
 function run() {
@@ -82,5 +84,28 @@ describe('usePreferencesSync', () => {
       openChannelAt: 'newest',
     });
     expect(patch).not.toHaveBeenCalled();
+  });
+
+  describe('language', () => {
+    afterEach(async () => {
+      await i18n.changeLanguage('en');
+    });
+
+    it('follows the language kept on the server', async () => {
+      get.mockResolvedValue({ data: { ...DEFAULTS, colour_mode: 'light', language: 'ja' } });
+      run();
+
+      await waitFor(() => expect(i18n.language).toBe('ja'));
+    });
+
+    it('follows the browser for "browser" and for a value it does not know', async () => {
+      for (const language of ['browser', '<b>ja</b>', 'xx']) {
+        await i18n.changeLanguage('ja');
+        get.mockResolvedValue({ data: { ...DEFAULTS, colour_mode: 'light', language } });
+        run();
+
+        await waitFor(() => expect(i18n.language, language).toBe('en'));
+      }
+    });
   });
 });
