@@ -32,7 +32,13 @@ export const useSaveWorkspaceProfile = (workspaceId?: string, instanceUrl?: stri
   };
 
   const profile = useMutation({
-    mutationFn: async (body: { display_name: string; bio: string; avatar_url: string }) =>
+    mutationFn: async (body: {
+      display_name: string;
+      title: string;
+      pronouns: string;
+      bio: string;
+      avatar_url: string;
+    }) =>
       getApiForInstance(instanceUrl).typed((c) => c.PATCH('/workspaces/{ws_id}/profile', { ...path, body })),
   });
 

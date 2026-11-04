@@ -71,6 +71,8 @@ pub struct MemberWithUser {
     pub display_name: Option<String>,
     pub avatar_url: Option<String>,
     pub bio: Option<String>,
+    pub title: Option<String>,
+    pub pronouns: Option<String>,
     pub status_emoji: Option<String>,
     pub status_text: Option<String>,
     pub notifications_paused_until: Option<DateTime<Utc>>,

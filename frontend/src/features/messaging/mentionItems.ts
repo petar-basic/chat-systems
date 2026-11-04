@@ -35,9 +35,15 @@ export function buildMentionItems(
       id: m.user_id,
       label: m.display_name || m.email,
       type: 'user' as const,
+      ...(m.title ? { title: m.title } : {}),
     })),
     ...channels.flatMap((c) => (c.name ? [{ id: c.id, label: c.name, type: 'channel' as const }] : [])),
   ];
+}
+
+export function matchesMention(item: MentionItem, query: string): boolean {
+  const needle = query.toLowerCase();
+  return item.label.toLowerCase().includes(needle) || !!item.title?.toLowerCase().includes(needle);
 }
 
 export function asksBeforeBroadcast(markdown: string, channelMemberCount: number): boolean {

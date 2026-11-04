@@ -6,6 +6,7 @@ export interface MentionItem {
   label: string;
   type: 'user' | 'channel' | 'broadcast' | 'group';
   hint?: string;
+  title?: string;
 }
 
 interface Props {
@@ -80,7 +81,9 @@ export const MentionDropdown = forwardRef<MentionDropdownHandle, Props>(({ items
             <AtSign className="w-3.5 h-3.5 text-muted shrink-0" />
           )}
           <span className="truncate">{item.label}</span>
-          {item.hint && <span className="ml-auto text-[10px] text-subtle shrink-0">{item.hint}</span>}
+          {(item.hint || item.title) && (
+            <span className="ml-auto text-[10px] text-subtle truncate">{item.hint || item.title}</span>
+          )}
         </button>
       ))}
     </div>

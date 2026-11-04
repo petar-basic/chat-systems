@@ -4132,10 +4132,12 @@ export interface components {
                 joined_at: string;
                 /** Format: date-time */
                 notifications_paused_until?: string | null;
+                pronouns?: string | null;
                 role: components["schemas"]["WorkspaceRole"];
                 status_emoji?: string | null;
                 status_text?: string | null;
                 timezone?: string | null;
+                title?: string | null;
                 /** Format: uuid */
                 user_id: string;
                 /** Format: uuid */
@@ -4925,10 +4927,12 @@ export interface components {
             joined_at: string;
             /** Format: date-time */
             notifications_paused_until?: string | null;
+            pronouns?: string | null;
             role: components["schemas"]["WorkspaceRole"];
             status_emoji?: string | null;
             status_text?: string | null;
             timezone?: string | null;
+            title?: string | null;
             /** Format: uuid */
             user_id: string;
             /** Format: uuid */
@@ -5683,7 +5687,9 @@ export interface components {
             avatar_url?: string | null;
             bio?: string | null;
             display_name?: string | null;
+            pronouns?: string | null;
             timezone?: string | null;
+            title?: string | null;
         };
         UpdateRetentionRequest: {
             /** Format: int32 */
@@ -5709,6 +5715,8 @@ export interface components {
             avatar_url?: string | null;
             bio?: string | null;
             display_name?: string | null;
+            pronouns?: string | null;
+            title?: string | null;
         };
         UpdateWorkspaceRequest: {
             broadcast_mentions?: components["schemas"]["WhoMay"] | null;
@@ -5764,8 +5772,10 @@ export interface components {
             /** Format: uuid */
             id: string;
             is_instance_admin: boolean;
+            pronouns?: string | null;
             status: components["schemas"]["UserStatus"];
             timezone?: string | null;
+            title?: string | null;
         };
         /** @enum {string} */
         UserStatus: "pending" | "active" | "suspended";
@@ -5884,10 +5894,12 @@ export interface components {
             avatar_url?: string | null;
             bio?: string | null;
             display_name?: string | null;
+            pronouns?: string | null;
             status_emoji?: string | null;
             /** Format: date-time */
             status_expires_at?: string | null;
             status_text?: string | null;
+            title?: string | null;
             /** Format: uuid */
             workspace_id: string;
         };

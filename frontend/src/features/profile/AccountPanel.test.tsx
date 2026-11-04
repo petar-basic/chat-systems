@@ -85,6 +85,7 @@ describe('AccountPanel', () => {
       target: { value: 'Alice Jones' },
     });
     fireEvent.change(screen.getByRole('textbox', { name: /Bio/ }), { target: { value: ' Hi ' } });
+    fireEvent.change(screen.getByRole('textbox', { name: /Pronouns/ }), { target: { value: 'she/her ' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save account' }));
 
     await waitFor(() =>
@@ -95,6 +96,8 @@ describe('AccountPanel', () => {
     );
     expect(patch).toHaveBeenCalledWith('/users/me', {
       display_name: 'Alice Jones',
+      title: '',
+      pronouns: 'she/her',
       bio: 'Hi',
       avatar_url: '',
     });

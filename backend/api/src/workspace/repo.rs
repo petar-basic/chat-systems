@@ -391,6 +391,8 @@ impl WorkspaceRepo {
                    COALESCE(wm.display_name, u.display_name) AS display_name,
                    COALESCE(wm.avatar_url, u.avatar_url) AS avatar_url,
                    COALESCE(wm.bio, u.bio) AS bio,
+                   COALESCE(wm.title, u.title) AS title,
+                   COALESCE(wm.pronouns, u.pronouns) AS pronouns,
                    CASE WHEN wm.status_expires_at IS NULL OR wm.status_expires_at > NOW()
                         THEN wm.status_emoji END AS "status_emoji?",
                    CASE WHEN wm.status_expires_at IS NULL OR wm.status_expires_at > NOW()
@@ -432,6 +434,8 @@ impl WorkspaceRepo {
                    COALESCE(wm.display_name, u.display_name) AS display_name,
                    COALESCE(wm.avatar_url, u.avatar_url) AS avatar_url,
                    COALESCE(wm.bio, u.bio) AS bio,
+                   COALESCE(wm.title, u.title) AS title,
+                   COALESCE(wm.pronouns, u.pronouns) AS pronouns,
                    CASE WHEN wm.status_expires_at IS NULL OR wm.status_expires_at > NOW()
                         THEN wm.status_emoji END AS "status_emoji?",
                    CASE WHEN wm.status_expires_at IS NULL OR wm.status_expires_at > NOW()

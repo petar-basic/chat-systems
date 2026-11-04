@@ -530,13 +530,13 @@ POST `/workspaces/{id}/invites` `{ email, role }`, and each section's own.
 ---
 
 ### `profile/EditProfileModal` and `profile/PreferencesModal`
-*Edit profile* is the person in the current workspace: display name, status (presets and
-*Clear after*), bio and photo, saved with one button; the status is sent only when it changed,
-so an untouched one keeps its expiry. An empty name, bio or photo shows the account's, as its
+*Edit profile* is the person in the current workspace: display name, title, pronouns, status
+(presets and *Clear after*), bio and photo, saved with one button; the status is sent only when it
+changed, so an untouched one keeps its expiry. An empty field shows the account's, as its
 placeholder, and *Use account photo* drops the workspace's. *Preferences* is a vertical tab
 list — *Notifications*, *Appearance*, *Messages & media*, *Language & region*, *Mark as read*,
 *Account*, *Security*, *Advanced* — over panels
-that save as they change, except *Account*, the account's name, bio and photo, which has its own save button.
+that save as they change, except *Account*, the account's name, title, pronouns, bio and photo, which has its own save button.
 A photo picked under *Account* is uploaded to `POST /users/me/avatar` and set on the account at
 once, so every workspace shows it; *Edit profile*'s photo stays a file of its workspace.
 The *You* row reads the person from the users cache, so it shows the workspace profile. *Notifications* opens with `NotifyDefaultPanel`, the
@@ -575,6 +575,9 @@ preference in `stores/display`; every time on screen goes through `lib/datetime`
 (`formatClock`, `formatTime`, `formatDateTime`), which reads it. Members carry their
 `timezone`, so the hover card shows their local time (`LocalTimeLine`) and a DM's composer
 says when it is before 08:00 or from 21:00 for the other person (`OffHoursNote`).
+They also carry a `title` and `pronouns`: the hover card shows the title under the name and the
+pronouns beside it, and every people search (quick switcher, *New message*, the @mention picker)
+goes through `matchesPerson` or `matchesMention`, which match the title as well as the name.
 
 *Appearance* has the colour mode (`ThemePicker`, light, dark or system, the same everywhere)
 and, under it, `WorkspaceThemePicker`: the theme of the current workspace, *Default* or one of

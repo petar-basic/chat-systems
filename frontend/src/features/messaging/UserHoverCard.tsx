@@ -78,6 +78,8 @@ function UserCardBody({
 
   const isSelf = self?.id === userId;
   const displayName = displayNameOf(cached?.display_name ?? name);
+  const title = cached?.title?.trim();
+  const pronouns = cached?.pronouns?.trim();
   const statusText = cached?.status_text?.trim();
   const statusEmoji = cached?.status_emoji?.trim();
   const paused = currentPause({ dnd_until: cached?.notifications_paused_until });
@@ -119,7 +121,19 @@ function UserCardBody({
       <div className="flex items-start gap-3">
         <Avatar userId={userId} name={displayName} avatarUrl={cached?.avatar_url ?? avatarUrl} size="xl" />
         <div className="min-w-0 flex-1 pt-0.5">
-          <div className="text-sm font-semibold text-fg truncate">{displayName}</div>
+          <div className="flex items-baseline gap-1.5 min-w-0">
+            <span className="text-sm font-semibold text-fg truncate">{displayName}</span>
+            {pronouns && (
+              <span className="text-xs text-muted shrink-0" data-qa="hover-card-pronouns">
+                {pronouns}
+              </span>
+            )}
+          </div>
+          {title && (
+            <div className="text-xs text-fg-dim truncate" data-qa="hover-card-title">
+              {title}
+            </div>
+          )}
           <div className="flex items-center gap-1.5 mt-0.5">
             <PresenceDot userId={userId} className="w-2 h-2" />
             <span className="text-xs text-muted">{PRESENCE_LABEL[presence]}</span>

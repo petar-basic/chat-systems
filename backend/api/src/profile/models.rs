@@ -9,12 +9,14 @@ pub struct WorkspaceProfile {
     pub display_name: Option<String>,
     pub avatar_url: Option<String>,
     pub bio: Option<String>,
+    pub title: Option<String>,
+    pub pronouns: Option<String>,
     pub status_emoji: Option<String>,
     pub status_text: Option<String>,
     pub status_expires_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Deserialize, garde::Validate, ToSchema)]
+#[derive(Debug, Default, Deserialize, garde::Validate, ToSchema)]
 #[garde(allow_unvalidated)]
 pub struct UpdateWorkspaceProfileRequest {
     #[garde(inner(custom(shared_common::validation::rules::display_name_or_blank)))]
@@ -23,6 +25,10 @@ pub struct UpdateWorkspaceProfileRequest {
     pub avatar_url: Option<String>,
     #[garde(inner(custom(shared_common::validation::rules::bio)))]
     pub bio: Option<String>,
+    #[garde(inner(custom(shared_common::validation::rules::title)))]
+    pub title: Option<String>,
+    #[garde(inner(custom(shared_common::validation::rules::pronouns)))]
+    pub pronouns: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]

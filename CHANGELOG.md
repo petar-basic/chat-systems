@@ -40,6 +40,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   language, and a 12-hour or 24-hour clock for every time shown. A profile card shows the
   person's local time, and a DM says when it is late or early for them. The notification
   schedule uses the same time zone.
+- A title and pronouns on your profile. Set them in *Edit profile* for one workspace, or under
+  *Preferences → Account* for every workspace that has none of its own. The profile card shows
+  the title under the name and the pronouns beside it, and finding people in the quick
+  switcher, a new message or an @mention matches their title as well as their name.
 
 ### Fixed
 

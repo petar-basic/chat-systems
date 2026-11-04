@@ -11,6 +11,8 @@ pub struct User {
     pub display_name: Option<String>,
     pub avatar_url: Option<String>,
     pub bio: Option<String>,
+    pub title: Option<String>,
+    pub pronouns: Option<String>,
     pub timezone: Option<String>,
     pub status: UserStatus,
     pub is_instance_admin: bool,
@@ -34,6 +36,8 @@ pub struct UserPublic {
     pub display_name: Option<String>,
     pub avatar_url: Option<String>,
     pub bio: Option<String>,
+    pub title: Option<String>,
+    pub pronouns: Option<String>,
     pub timezone: Option<String>,
     pub status: UserStatus,
     pub is_instance_admin: bool,
@@ -48,6 +52,8 @@ impl From<User> for UserPublic {
             display_name: u.display_name,
             avatar_url: u.avatar_url,
             bio: u.bio,
+            title: u.title,
+            pronouns: u.pronouns,
             timezone: u.timezone,
             status: u.status,
             is_instance_admin: u.is_instance_admin,
@@ -120,7 +126,7 @@ pub struct ResetPasswordRequest {
     pub password: String,
 }
 
-#[derive(Debug, Deserialize, garde::Validate, ToSchema)]
+#[derive(Debug, Default, Deserialize, garde::Validate, ToSchema)]
 #[garde(allow_unvalidated)]
 pub struct UpdateProfileRequest {
     #[garde(inner(custom(shared_common::validation::rules::display_name)))]
@@ -129,6 +135,10 @@ pub struct UpdateProfileRequest {
     pub avatar_url: Option<String>,
     #[garde(inner(custom(shared_common::validation::rules::bio)))]
     pub bio: Option<String>,
+    #[garde(inner(custom(shared_common::validation::rules::title)))]
+    pub title: Option<String>,
+    #[garde(inner(custom(shared_common::validation::rules::pronouns)))]
+    pub pronouns: Option<String>,
     #[garde(inner(custom(shared_common::validation::rules::timezone)))]
     pub timezone: Option<String>,
 }

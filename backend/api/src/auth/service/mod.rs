@@ -18,7 +18,7 @@ mod tokens;
 #[derive(Debug)]
 pub enum PasswordRecovery {
     Handled,
-    AwaitingInvite(User),
+    AwaitingInvite(Box<User>),
 }
 
 pub struct AuthService {
@@ -188,7 +188,7 @@ impl AuthService {
         };
 
         if user.status == UserStatus::Pending {
-            return Ok(PasswordRecovery::AwaitingInvite(user));
+            return Ok(PasswordRecovery::AwaitingInvite(Box::new(user)));
         }
 
         if user.password_hash.is_none() {

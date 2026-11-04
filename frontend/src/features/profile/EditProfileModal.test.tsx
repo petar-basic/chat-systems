@@ -56,7 +56,13 @@ describe('EditProfileModal', () => {
     saveProfile.mockReset().mockResolvedValue(undefined);
     setStatus.mockReset().mockResolvedValue(undefined);
     clearStatus.mockReset().mockResolvedValue(undefined);
-    account = { display_name: 'Alice', bio: 'Backend at Acme', avatar_url: null };
+    account = {
+      display_name: 'Alice',
+      title: 'Engineer',
+      pronouns: null,
+      bio: 'Backend at Acme',
+      avatar_url: null,
+    };
     profile = {
       workspace_id: 'ws-1',
       display_name: null,
@@ -72,12 +78,21 @@ describe('EditProfileModal', () => {
     const onClose = renderModal();
 
     fireEvent.change(screen.getByRole('textbox', { name: /Display name/ }), { target: { value: 'Alice J' } });
+    fireEvent.change(screen.getByRole('textbox', { name: /Title/ }), {
+      target: { value: ' Head of Finance ' },
+    });
     fireEvent.click(screen.getByRole('button', { name: '🍕 At lunch' }));
     expect(screen.getByRole('combobox', { name: 'Clear after' })).toHaveValue('60');
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
 
     await waitFor(() => expect(onClose).toHaveBeenCalled());
-    expect(saveProfile).toHaveBeenCalledWith({ display_name: 'Alice J', bio: '', avatar_url: '' });
+    expect(saveProfile).toHaveBeenCalledWith({
+      display_name: 'Alice J',
+      title: 'Head of Finance',
+      pronouns: '',
+      bio: '',
+      avatar_url: '',
+    });
     expect(setStatus).toHaveBeenCalledWith(expect.objectContaining({ emoji: '🍕', text: 'At lunch' }));
     expect(clearStatus).not.toHaveBeenCalled();
   });
@@ -90,6 +105,7 @@ describe('EditProfileModal', () => {
     expect(name).toHaveValue('');
     expect(name).toHaveAttribute('placeholder', 'Alice');
     expect(screen.getByRole('textbox', { name: /Bio/ })).toHaveAttribute('placeholder', 'Backend at Acme');
+    expect(screen.getByRole('textbox', { name: /Title/ })).toHaveAttribute('placeholder', 'Engineer');
   });
 
   it("goes back to the account's photo", async () => {
@@ -101,7 +117,13 @@ describe('EditProfileModal', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
 
     await waitFor(() => expect(onClose).toHaveBeenCalled());
-    expect(saveProfile).toHaveBeenCalledWith({ display_name: 'Ali', bio: '', avatar_url: '' });
+    expect(saveProfile).toHaveBeenCalledWith({
+      display_name: 'Ali',
+      title: '',
+      pronouns: '',
+      bio: '',
+      avatar_url: '',
+    });
   });
 
   it('picks the status emoji from the picker, a workspace one included', async () => {

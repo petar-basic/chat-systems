@@ -35,6 +35,8 @@ export function EditProfileModal({ onClose }: Props) {
 
   const [loaded, setLoaded] = useState(false);
   const [displayName, setDisplayName] = useState('');
+  const [title, setTitle] = useState('');
+  const [pronouns, setPronouns] = useState('');
   const [bio, setBio] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [status, setStatusDraft] = useState<StatusDraft>(EMPTY_STATUS);
@@ -46,6 +48,8 @@ export function EditProfileModal({ onClose }: Props) {
     const current = { emoji: profile.status_emoji ?? '', text: profile.status_text ?? '', minutes: null };
     setLoaded(true);
     setDisplayName(profile.display_name ?? '');
+    setTitle(profile.title ?? '');
+    setPronouns(profile.pronouns ?? '');
     setBio(profile.bio ?? '');
     setAvatarUrl(profile.avatar_url ?? '');
     setStatusDraft(current);
@@ -76,6 +80,8 @@ export function EditProfileModal({ onClose }: Props) {
     try {
       await save.profile.mutateAsync({
         display_name: displayName.trim(),
+        title: title.trim(),
+        pronouns: pronouns.trim(),
         bio: bio.trim(),
         avatar_url: avatarUrl.trim(),
       });
@@ -148,6 +154,27 @@ export function EditProfileModal({ onClose }: Props) {
               dataQa="profile-display-name"
               data-autofocus
             />
+            <div className="grid gap-5 sm:grid-cols-[1fr_10rem]">
+              <TextInput
+                label="Title"
+                optional
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder={account?.title || 'What you do, e.g. Head of Finance'}
+                maxLength={100}
+                autoComplete="organization-title"
+                dataQa="profile-title"
+              />
+              <TextInput
+                label="Pronouns"
+                optional
+                value={pronouns}
+                onChange={(e) => setPronouns(e.target.value)}
+                placeholder={account?.pronouns || 'e.g. they/them'}
+                maxLength={30}
+                dataQa="profile-pronouns"
+              />
+            </div>
             <StatusFields
               value={status}
               onChange={setStatusDraft}

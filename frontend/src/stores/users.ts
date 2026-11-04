@@ -6,6 +6,8 @@ interface UserInfo {
   display_name: string;
   avatar_url: string | null;
   bio?: string | null;
+  title?: string | null;
+  pronouns?: string | null;
   status_emoji?: string | null;
   status_text?: string | null;
   notifications_paused_until?: string | null;

@@ -382,13 +382,7 @@ async fn update_me(
     let user = state
         .auth_service
         .repo()
-        .update_profile(
-            auth.user_id,
-            req.display_name.as_deref(),
-            req.avatar_url.as_deref(),
-            req.bio.as_deref(),
-            req.timezone.as_deref(),
-        )
+        .update_profile(auth.user_id, &req)
         .await?;
     if before.avatar_url != user.avatar_url {
         crate::profile::avatar::forget(&state, auth.user_id, None, before.avatar_url.as_deref())
