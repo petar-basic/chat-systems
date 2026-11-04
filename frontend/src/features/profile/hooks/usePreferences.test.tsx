@@ -1,0 +1,60 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { ReactNode } from 'react';
+import { renderHook, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { usePreferencesSync } from './usePreferences';
+import { useThemeStore } from '@/stores/theme';
+import { useDisplayStore } from '@/stores/display';
+
+const get = vi.fn();
+const patch = vi.fn();
+const client = {
+  typed: async (call: (c: { GET: typeof get; PATCH: typeof patch }) => Promise<{ data: unknown }>) =>
+    (await call({ GET: get, PATCH: patch })).data,
+};
+
+vi.mock('@/shared/hooks/useCurrentApi', () => ({ getApiForInstance: () => client }));
+vi.mock('@/stores/workspace', () => ({
+  useWorkspaceStore: (select: (state: unknown) => unknown) =>
+    select({ currentWorkspace: { id: 'w-1', instanceUrl: 'http://chat.test' } }),
+}));
+
+function run() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+  renderHook(() => usePreferencesSync(), { wrapper });
+}
+
+describe('usePreferencesSync', () => {
+  beforeEach(() => {
+    get.mockReset();
+    patch.mockReset();
+    patch.mockImplementation(async (_path: string, { body }: { body: object }) => ({
+      data: { colour_mode: null, density: 'clean', previews: 'shown', ...body },
+    }));
+    useThemeStore.getState().setMode('light');
+    useDisplayStore.setState({ density: 'clean', previews: 'shown' });
+  });
+
+  it('writes the colour mode this browser had to the server once', async () => {
+    get.mockResolvedValue({ data: { colour_mode: null, density: 'clean', previews: 'shown' } });
+    run();
+
+    await waitFor(() =>
+      expect(patch).toHaveBeenCalledWith('/users/me/preferences', { body: { colour_mode: 'light' } }),
+    );
+    expect(patch).toHaveBeenCalledTimes(1);
+    expect(useThemeStore.getState().mode).toBe('light');
+  });
+
+  it('follows the colour mode and display settings kept on the server', async () => {
+    get.mockResolvedValue({ data: { colour_mode: 'dark', density: 'compact', previews: 'collapsed' } });
+    run();
+
+    await waitFor(() => expect(useThemeStore.getState().mode).toBe('dark'));
+    expect(useDisplayStore.getState()).toMatchObject({ density: 'compact', previews: 'collapsed' });
+    expect(patch).not.toHaveBeenCalled();
+  });
+});

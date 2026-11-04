@@ -544,3 +544,79 @@ async fn a_theme_is_four_hex_colours_in_a_workspace_you_are_in(pool: PgPool) {
         "only a member sets a theme there"
     );
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn preferences_start_at_their_defaults_and_keep_what_is_set(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (_, _, token) = seed_and_login(&app, &state, "prefs-keep", false).await;
+    let (_, _, other) = seed_and_login(&app, &state, "prefs-other", false).await;
+
+    let (status, prefs) = send(&app, "GET", "/api/users/me/preferences", Some(&token), None).await;
+    assert_eq!(status, StatusCode::OK, "{prefs:?}");
+    assert_eq!(
+        prefs,
+        json!({ "colour_mode": null, "density": "clean", "previews": "shown" })
+    );
+
+    let (status, prefs) = send(
+        &app,
+        "PATCH",
+        "/api/users/me/preferences",
+        Some(&token),
+        Some(json!({ "density": "compact" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{prefs:?}");
+    assert_eq!(prefs["density"], "compact");
+    assert_eq!(prefs["previews"], "shown");
+
+    let (status, prefs) = send(
+        &app,
+        "PATCH",
+        "/api/users/me/preferences",
+        Some(&token),
+        Some(json!({ "colour_mode": "dark", "previews": "collapsed" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{prefs:?}");
+    assert_eq!(
+        prefs,
+        json!({ "colour_mode": "dark", "density": "compact", "previews": "collapsed" })
+    );
+
+    let (_, prefs) = send(&app, "GET", "/api/users/me/preferences", Some(&token), None).await;
+    assert_eq!(prefs["colour_mode"], "dark", "kept on the server");
+
+    let (_, theirs) = send(&app, "GET", "/api/users/me/preferences", Some(&other), None).await;
+    assert_eq!(
+        theirs,
+        json!({ "colour_mode": null, "density": "clean", "previews": "shown" }),
+        "each account has its own"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_unknown_preference_or_value_is_refused(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (_, _, token) = seed_and_login(&app, &state, "prefs-strict", false).await;
+
+    for body in [
+        json!({ "font": "comic" }),
+        json!({ "density": "tiny" }),
+        json!({ "colour_mode": "sepia" }),
+        json!({ "density": "compact", "extra": true }),
+    ] {
+        let (status, _) = send(
+            &app,
+            "PATCH",
+            "/api/users/me/preferences",
+            Some(&token),
+            Some(body.clone()),
+        )
+        .await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    }
+
+    let (_, prefs) = send(&app, "GET", "/api/users/me/preferences", Some(&token), None).await;
+    assert_eq!(prefs["density"], "clean", "nothing refused was saved");
+}

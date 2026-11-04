@@ -34,7 +34,13 @@ import { ListView } from '@/features/lists';
 import { canBuild, workflowBuildersOf } from '@/features/workflows';
 import ForwardMessageModal from '@/features/messaging/ForwardMessageModal';
 import AddInstancePanel from '@/features/instance/AddInstancePanel';
-import { EditProfileModal, PreferencesModal, themeStyle, useWorkspaceTheme } from '@/features/profile';
+import {
+  EditProfileModal,
+  PreferencesModal,
+  themeStyle,
+  usePreferencesSync,
+  useWorkspaceTheme,
+} from '@/features/profile';
 import TypingIndicator from '@/features/messaging/TypingIndicator';
 import { useChannelModeration } from '@/features/channel/hooks/useChannelModeration';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
@@ -49,6 +55,7 @@ export default function WorkspacePage() {
 
   useActiveHuddlesSync(currentWorkspace?.id, currentWorkspace?.instanceUrl);
   const theme = useWorkspaceTheme();
+  usePreferencesSync();
 
   const {
     canPost,

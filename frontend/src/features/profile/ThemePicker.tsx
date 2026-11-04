@@ -1,5 +1,6 @@
 import { Monitor, Moon, Sun } from 'lucide-react';
 import { useThemeStore, type ThemeMode } from '@/stores/theme';
+import { useUpdatePreferences } from './hooks/usePreferences';
 
 const OPTIONS: { mode: ThemeMode; label: string; Icon: typeof Sun }[] = [
   { mode: 'light', label: 'Light', Icon: Sun },
@@ -10,6 +11,11 @@ const OPTIONS: { mode: ThemeMode; label: string; Icon: typeof Sun }[] = [
 export default function ThemePicker() {
   const mode = useThemeStore((s) => s.mode);
   const setMode = useThemeStore((s) => s.setMode);
+  const update = useUpdatePreferences();
+  const pick = (next: ThemeMode) => {
+    setMode(next);
+    update.mutate({ colour_mode: next });
+  };
 
   return (
     <div role="radiogroup" aria-label="Theme" data-qa="theme-picker" className="grid grid-cols-3 gap-2">
@@ -20,7 +26,7 @@ export default function ThemePicker() {
           role="radio"
           aria-checked={mode === value}
           data-qa={`theme-option-${value}`}
-          onClick={() => setMode(value)}
+          onClick={() => pick(value)}
           className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-lg border text-xs font-medium transition cursor-pointer ${
             mode === value
               ? 'border-purple-500 bg-purple-600/15 text-fg'

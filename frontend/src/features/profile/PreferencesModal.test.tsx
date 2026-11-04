@@ -27,6 +27,9 @@ vi.mock('@/stores/workspace', () => ({
     select({ currentWorkspace: { name: 'Dev Team' } }),
 }));
 vi.mock('@/features/profile/AccountPanel', () => ({ default: () => <div data-qa="account-panel" /> }));
+vi.mock('@/features/profile/MessagesMediaPanel', () => ({
+  default: () => <div data-qa="messages-media-panel" />,
+}));
 
 const selected = () => screen.getByRole('tab', { selected: true });
 
@@ -54,8 +57,12 @@ describe('PreferencesModal', () => {
     expect(selected()).toHaveAttribute('tabindex', '0');
 
     fireEvent.keyDown(list, { key: 'ArrowDown' });
-    expect(selected()).toHaveTextContent('Account');
+    expect(selected()).toHaveTextContent('Messages & media');
     expect(selected()).toHaveFocus();
+    expect(screen.getByTestId('messages-media-panel')).toBeInTheDocument();
+
+    fireEvent.keyDown(list, { key: 'ArrowDown' });
+    expect(selected()).toHaveTextContent('Account');
     expect(screen.getByTestId('account-panel')).toBeInTheDocument();
 
     fireEvent.keyDown(list, { key: 'ArrowDown' });

@@ -4,6 +4,7 @@ import type { components } from '@/api/schema';
 import { appName } from '@/lib/appConnect';
 import { AppIcon } from '@/shared/components/AppIcon/AppIcon';
 import { embedSrc } from '@/lib/videoEmbed';
+import { CollapsedPreview } from './CollapsedPreview';
 
 type Unfurl = components['schemas']['Unfurl'];
 type UnfurlField = components['schemas']['UnfurlField'];
@@ -20,17 +21,22 @@ export function LinkPreviews({ unfurls, onHide, onRefresh }: LinkPreviewsProps) 
   );
   if (worthShowing.length === 0) return null;
   return (
-    <div className="mt-1 flex flex-col gap-1.5" data-qa="link-previews">
-      {worthShowing.map((unfurl) =>
-        unfurl.kind === 'app' ? (
-          <AppCard key={unfurl.url} unfurl={unfurl} onHide={onHide} onRefresh={onRefresh} />
-        ) : unfurl.kind === 'video' ? (
-          <VideoCard key={unfurl.url} unfurl={unfurl} onHide={onHide} />
-        ) : (
-          <LinkPreviewCard key={unfurl.url} unfurl={unfurl} onHide={onHide} />
-        ),
-      )}
-    </div>
+    <CollapsedPreview
+      label={worthShowing.length === 1 ? 'Show link preview' : `Show ${worthShowing.length} link previews`}
+      dataQa="link-previews-collapsed"
+    >
+      <div className="mt-1 flex flex-col gap-1.5" data-qa="link-previews">
+        {worthShowing.map((unfurl) =>
+          unfurl.kind === 'app' ? (
+            <AppCard key={unfurl.url} unfurl={unfurl} onHide={onHide} onRefresh={onRefresh} />
+          ) : unfurl.kind === 'video' ? (
+            <VideoCard key={unfurl.url} unfurl={unfurl} onHide={onHide} />
+          ) : (
+            <LinkPreviewCard key={unfurl.url} unfurl={unfurl} onHide={onHide} />
+          ),
+        )}
+      </div>
+    </CollapsedPreview>
   );
 }
 

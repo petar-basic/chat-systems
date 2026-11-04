@@ -529,8 +529,8 @@ POST `/workspaces/{id}/invites` `{ email, role }`, and each section's own.
 *Clear after*), bio and photo, saved with one button; the status is sent only when it changed,
 so an untouched one keeps its expiry. An empty name, bio or photo shows the account's, as its
 placeholder, and *Use account photo* drops the workspace's. *Preferences* is a vertical tab
-list — *Notifications*, *Appearance*, *Account*, *Security* — over panels that save as they
-change, except *Account*, the account's name, bio and photo, which has its own save button.
+list — *Notifications*, *Appearance*, *Messages & media*, *Account*, *Security* — over panels
+that save as they change, except *Account*, the account's name, bio and photo, which has its own save button.
 A photo picked under *Account* is uploaded to `POST /users/me/avatar` and set on the account at
 once, so every workspace shows it; *Edit profile*'s photo stays a file of its workspace.
 The *You* row reads the person from the users cache, so it shows the workspace profile. *Notifications* opens with `NotifyDefaultPanel`, the
@@ -542,6 +542,15 @@ one replaces the other instead of showing twice. It carries the instance whose s
 and a click locates the message through that instance's API, so a notification from a second
 server opens its message there. Both open from the *You*
 menu; the sidebar avatar opens *Edit profile*.
+
+The account's preferences live on the server (`usePreferences`, `useUpdatePreferences`).
+`usePreferencesSync`, called by `WorkspacePage`, copies them where they are read:
+light, dark or system into the theme store, and density and previews into `stores/display`,
+which every message row reads without a query of its own. A browser whose account has no colour
+mode yet sends the one it has, once. *Messages & media* sets the layout: *Clean* groups a run of
+messages under one name and photo, *Compact* puts the time and the sender on every message's
+line. With previews collapsed, `CollapsedPreview` shows a button in place of a message's images
+or link previews until it is opened.
 
 *Appearance* has the colour mode (`ThemePicker`, light, dark or system, the same everywhere)
 and, under it, `WorkspaceThemePicker`: the theme of the current workspace, *Default* or one of

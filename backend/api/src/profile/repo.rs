@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use sqlx::types::Json;
 
-use super::models::{Theme, WorkspaceProfile, WorkspaceTheme};
+use super::models::{Preferences, Theme, UpdatePreferences, WorkspaceProfile, WorkspaceTheme};
 
 #[derive(Clone)]
 pub struct ProfileRepo {
@@ -69,6 +69,35 @@ impl ProfileRepo {
         .execute(&self.pool)
         .await?;
         Ok(())
+    }
+
+    pub async fn preferences(&self, user_id: Uuid) -> sqlx::Result<Option<Preferences>> {
+        let row = sqlx::query_scalar!(
+            r#"SELECT preferences AS "preferences!: Json<Preferences>" FROM users WHERE id = $1"#,
+            user_id
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row.map(|preferences| preferences.0))
+    }
+
+    pub async fn update_preferences(
+        &self,
+        user_id: Uuid,
+        changes: &UpdatePreferences,
+    ) -> sqlx::Result<Option<Preferences>> {
+        let row = sqlx::query_scalar!(
+            r#"
+            UPDATE users SET preferences = preferences || $2
+             WHERE id = $1
+            RETURNING preferences AS "preferences!: Json<Preferences>"
+            "#,
+            user_id,
+            Json(changes) as Json<&UpdatePreferences>
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row.map(|preferences| preferences.0))
     }
 
     pub async fn themes(&self, user_id: Uuid) -> sqlx::Result<Vec<WorkspaceTheme>> {

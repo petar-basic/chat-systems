@@ -1805,6 +1805,22 @@ export interface paths {
         patch: operations["change_password"];
         trace?: never;
     };
+    "/users/me/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_preferences"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["update_preferences"];
+        trace?: never;
+    };
     "/users/me/presence": {
         parameters: {
             query?: never;
@@ -3475,6 +3491,8 @@ export interface components {
             collapsed: boolean;
             section: components["schemas"]["BuiltinSection"];
         };
+        /** @enum {string} */
+        ColourMode: "system" | "light" | "dark";
         ColumnChangePreview: {
             kind: components["schemas"]["ColumnKind"];
             options?: components["schemas"]["ColumnOptionsInput"];
@@ -4370,6 +4388,8 @@ export interface components {
             steps: components["schemas"]["Step"][];
             trigger: components["schemas"]["Trigger"];
         };
+        /** @enum {string} */
+        Density: "clean" | "compact";
         DirectoryChannel: {
             /** Format: uuid */
             id: string;
@@ -5089,9 +5109,19 @@ export interface components {
          * @enum {string}
          */
         PostPolicy: "everyone" | "moderators";
+        Preferences: {
+            /** @default null */
+            colour_mode: components["schemas"]["ColourMode"] | null;
+            /** @default clean */
+            density: components["schemas"]["Density"];
+            /** @default shown */
+            previews: components["schemas"]["Previews"];
+        };
         Presence: {
             away: boolean;
         };
+        /** @enum {string} */
+        Previews: "shown" | "collapsed";
         /** @enum {string} */
         Provider: "jira" | "github" | "google_drive" | "figma" | "confluence";
         PushKey: {
@@ -5621,6 +5651,11 @@ export interface components {
         UpdateMessageRequest: {
             attachment_ids?: string[] | null;
             content: string;
+        };
+        UpdatePreferences: {
+            colour_mode?: components["schemas"]["ColourMode"] | null;
+            density?: components["schemas"]["Density"] | null;
+            previews?: components["schemas"]["Previews"] | null;
         };
         UpdateProfileRequest: {
             avatar_url?: string | null;
@@ -9014,6 +9049,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    get_preferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Preferences"];
+                };
+            };
+        };
+    };
+    update_preferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePreferences"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Preferences"];
                 };
             };
         };

@@ -26,6 +26,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   change as you go, share a theme as one line of colours, import one (a theme copied from Slack
   works too), or let *Surprise me* pick colours that stay readable. In the desktop app the rail
   and the title bar take the colours of the workspace in front.
+- Preferences that follow you. Light, dark or system is kept on your account, so another browser
+  or the desktop app opens in the mode you picked. *Preferences → Messages & media* adds a
+  compact message layout, with the time and the sender on the same line as every message, and
+  can collapse images and link previews until you open them.
 
 ### Fixed
 

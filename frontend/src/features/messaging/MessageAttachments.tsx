@@ -5,6 +5,7 @@ import { formatBytes } from '@/lib/fileSize';
 import { ImageGallery } from './ImageGallery';
 import { useGallery } from './galleryContext';
 import { fileKind, isRenderableImage, playableMedia } from '@/lib/fileKinds';
+import { CollapsedPreview } from './CollapsedPreview';
 
 type Attachment = components['schemas']['Attachment'];
 
@@ -58,7 +59,14 @@ export function MessageAttachments({ attachments, compact = false, onRemove }: P
 
   return (
     <div className="mt-1 flex flex-col gap-1.5" data-qa="message-attachments">
-      {images.length > 0 && <ImageGrid images={images} onOpen={open} />}
+      {images.length > 0 && (
+        <CollapsedPreview
+          label={images.length === 1 ? `Show ${images[0].filename}` : `Show ${images.length} images`}
+          dataQa="attachment-images-collapsed"
+        >
+          <ImageGrid images={images} onOpen={open} />
+        </CollapsedPreview>
+      )}
       {files.map((attachment) => {
         const media = onRemove ? null : playableMedia(attachment.mime_type);
         if (media) return <MediaPlayer key={attachment.id} attachment={attachment} kind={media} />;
