@@ -85,7 +85,8 @@ system.
 
 The rail lists workspaces, not servers: every workspace you are in on every server, with
 the server's name in its tooltip. A server shows as a tile of its own only while it has no
-workspace on the rail, such as before you sign in. *+* at the bottom creates a workspace on
+workspace on the rail, such as before you sign in. A workspace with an icon shows it on the
+theme's surface; one without shows its initials on a colour of its own. *+* at the bottom creates a workspace on
 one of your servers or adds a server. ⌘1 to ⌘9 (Ctrl on Windows) open the first nine entries on
 the rail, which the *Workspaces* menu lists too.
 
