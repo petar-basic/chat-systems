@@ -161,7 +161,7 @@ export default function WorkspaceSidebar({
                       {showBadge && (
                         <span
                           aria-label={`${unread} unread notifications`}
-                          className="pointer-events-none absolute -top-1 -right-1 min-w-4 h-4 px-1 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center leading-none ring-2 ring-rail"
+                          className="pointer-events-none absolute -top-1 -right-1 min-w-4 h-4 px-1 bg-badge text-badge-fg text-[9px] font-bold rounded-full flex items-center justify-center leading-none ring-2 ring-rail"
                         >
                           {unread > 99 ? '99+' : unread}
                         </span>

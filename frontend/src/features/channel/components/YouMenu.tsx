@@ -88,7 +88,7 @@ export function YouMenu({
             so they belong here rather than under a workspace's name. */}
         {open && (
           <div
-            className="absolute bottom-full left-0 mb-1 w-64 bg-surface border border-line rounded-lg shadow-xl z-20 py-1"
+            className="unthemed text-fg absolute bottom-full left-0 mb-1 w-64 bg-surface border border-line rounded-lg shadow-xl z-20 py-1"
             data-qa="you-menu"
           >
             <button className={ITEM} data-qa="toggle-away" onClick={pick(() => setAway.mutate(!away))}>
@@ -121,7 +121,7 @@ export function YouMenu({
       >
         <Bell className="w-4 h-4" />
         {unreadNotifCount > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-3.5 px-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center leading-none">
+          <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-3.5 px-0.5 bg-badge text-badge-fg text-[9px] font-bold rounded-full flex items-center justify-center leading-none">
             {unreadNotifCount > 99 ? '99+' : unreadNotifCount}
           </span>
         )}

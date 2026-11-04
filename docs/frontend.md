@@ -542,6 +542,19 @@ and a click locates the message through that instance's API, so a notification f
 server opens its message there. Both open from the *You*
 menu; the sidebar avatar opens *Edit profile*.
 
+*Appearance* has the colour mode (`ThemePicker`, light, dark or system, the same everywhere)
+and, under it, `WorkspaceThemePicker`: the theme of the current workspace, *Default* or one of
+`THEME_PRESETS` in `workspaceThemes.ts`. A theme is four colours (sidebar, selected item,
+presence dot, badge) saved with `PUT /workspaces/{ws_id}/profile/theme` and read for every
+workspace at once from `GET /users/me/themes`. `WorkspacePage` puts `themeStyle(theme)` on the
+element that holds the rail and the channel sidebar; it redefines the colour tokens for that
+part of the page only, deriving every text colour from the sidebar colour and moving it toward
+full strength until it reaches AA contrast. Messages, threads and dialogs keep the colour mode.
+A dropdown drawn inside the sidebar, such as the workspace and *You* menus, carries the
+`unthemed` class, which restores the colour mode's tokens. The sidebar's own tokens
+(`--sidebar`, `--sidebar-selected`, `--presence`, `--badge`) default to the colours it had
+before themes.
+
 ### `notifications/NotificationLevelMenu`
 `NotificationLevelButton` is the bell in the channel header, in a DM's header and on a sidebar
 row's hover. Its menu sets the caller's level for that channel — *Default (…)*, *All new
@@ -587,7 +600,8 @@ Shows "X is typing..." text. Listens for `typing.indicator` (`{ channel_id, user
 ---
 
 ### `PresenceDot`
-Small colored dot. Reads `usePresenceStore` for the given user ID. No outbound data.
+Small colored dot. Reads `usePresenceStore` for the given user ID. No outbound data. Online is
+`bg-presence`, so it takes the workspace theme's presence colour in the sidebar.
 
 ---
 

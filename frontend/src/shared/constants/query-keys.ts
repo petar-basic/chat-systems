@@ -2,6 +2,7 @@ export const QUERY_KEYS = {
   currentUser: () => ['auth', 'currentUser'] as const,
   instanceInfo: (instanceUrl: string) => ['instance', 'info', instanceUrl] as const,
   account: (instanceUrl: string) => ['auth', 'account', instanceUrl] as const,
+  workspaceThemes: (instanceUrl: string) => ['themes', instanceUrl] as const,
 
   workspaces: () => ['workspaces'] as const,
   workspacesList: (instanceUrls: string) => ['workspaces', instanceUrls] as const,

@@ -2,7 +2,9 @@ use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use super::models::WorkspaceProfile;
+use sqlx::types::Json;
+
+use super::models::{Theme, WorkspaceProfile, WorkspaceTheme};
 
 #[derive(Clone)]
 pub struct ProfileRepo {
@@ -63,6 +65,44 @@ impl ProfileRepo {
             display_name,
             avatar_url,
             bio
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn themes(&self, user_id: Uuid) -> sqlx::Result<Vec<WorkspaceTheme>> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT wm.workspace_id, wm.theme AS "theme!: Json<Theme>"
+              FROM workspace_members wm
+              JOIN workspaces w ON w.id = wm.workspace_id
+             WHERE wm.user_id = $1 AND wm.theme IS NOT NULL AND w.is_active = true
+            "#,
+            user_id
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows
+            .into_iter()
+            .map(|row| WorkspaceTheme {
+                workspace_id: row.workspace_id,
+                theme: Some(row.theme.0),
+            })
+            .collect())
+    }
+
+    pub async fn set_theme(
+        &self,
+        workspace_id: Uuid,
+        user_id: Uuid,
+        theme: Option<&Theme>,
+    ) -> sqlx::Result<()> {
+        sqlx::query!(
+            "UPDATE workspace_members SET theme = $3 WHERE workspace_id = $1 AND user_id = $2",
+            workspace_id,
+            user_id,
+            theme.map(Json) as Option<Json<&Theme>>
         )
         .execute(&self.pool)
         .await?;

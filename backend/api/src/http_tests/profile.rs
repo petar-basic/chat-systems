@@ -419,3 +419,128 @@ async fn the_away_command_switches_between_away_and_active(pool: PgPool) {
         "a second /away sets you active"
     );
 }
+
+async fn themes(app: &axum::Router, token: &str) -> Value {
+    let (status, body) = send(app, "GET", "/api/users/me/themes", Some(token), None).await;
+    assert_eq!(status, StatusCode::OK, "themes: {body:?}");
+    body["data"].clone()
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_theme_belongs_to_one_member_of_one_workspace(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "theme-owner", false).await;
+    let (member_id, _, member) = seed_and_login(&app, &state, "theme-member", false).await;
+    let first = seed_workspace(&state, owner_id, "Theme One").await;
+    let second = seed_workspace(&state, owner_id, "Theme Two").await;
+    add_ws_member(&state, first, member_id, "member").await;
+
+    let aubergine = json!({
+        "sidebar": "#3F0E40",
+        "selected": "#1164a3",
+        "presence": "#2bac76",
+        "badge": "#cd2553",
+    });
+    let (status, body) = send(
+        &app,
+        "PUT",
+        &format!("/api/workspaces/{first}/profile/theme"),
+        Some(&owner),
+        Some(json!({ "theme": aubergine })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "set theme: {body:?}");
+    assert_eq!(
+        body["theme"]["sidebar"], "#3f0e40",
+        "colours are kept in lower case"
+    );
+
+    assert_eq!(
+        themes(&app, &owner).await,
+        json!([{
+            "workspace_id": first,
+            "theme": {
+                "sidebar": "#3f0e40",
+                "selected": "#1164a3",
+                "presence": "#2bac76",
+                "badge": "#cd2553",
+            },
+        }]),
+        "only the workspace with a theme is listed, not {second}"
+    );
+    assert_eq!(
+        themes(&app, &member).await,
+        json!([]),
+        "another member of the same workspace keeps the default"
+    );
+
+    let (status, _) = send(
+        &app,
+        "PUT",
+        &format!("/api/workspaces/{first}/profile/theme"),
+        Some(&owner),
+        Some(json!({ "theme": null })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        themes(&app, &owner).await,
+        json!([]),
+        "null goes back to the default"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_theme_is_four_hex_colours_in_a_workspace_you_are_in(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "theme-strict-owner", false).await;
+    let (_, _, outsider) = seed_and_login(&app, &state, "theme-strict-out", false).await;
+    let ws = seed_workspace(&state, owner_id, "Theme Strict").await;
+    let path = format!("/api/workspaces/{ws}/profile/theme");
+
+    let (status, _) = send(
+        &app,
+        "PUT",
+        &path,
+        Some(&owner),
+        Some(json!({ "theme": {
+            "sidebar": "purple",
+            "selected": "#1164a3",
+            "presence": "#2bac76",
+            "badge": "#cd2553",
+        } })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "a colour name is refused"
+    );
+
+    let (status, _) = send(
+        &app,
+        "PUT",
+        &path,
+        Some(&owner),
+        Some(json!({ "theme": { "sidebar": "#3f0e40" } })),
+    )
+    .await;
+    assert!(
+        status.is_client_error(),
+        "a theme with a colour missing is refused, got {status}"
+    );
+
+    let (status, _) = send(
+        &app,
+        "PUT",
+        &path,
+        Some(&outsider),
+        Some(json!({ "theme": null })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "only a member sets a theme there"
+    );
+}
