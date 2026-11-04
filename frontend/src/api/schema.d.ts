@@ -1821,6 +1821,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/users/me/themes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_themes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/users/{user_id}/exports": {
         parameters: {
             query?: never;
@@ -2818,6 +2834,22 @@ export interface paths {
         put: operations["set_workspace_status"];
         post?: never;
         delete: operations["clear_workspace_status"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/profile/theme": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["set_workspace_theme"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -4327,6 +4359,13 @@ export interface components {
                 workspace_id: string;
             }[];
         };
+        DataList_WorkspaceTheme: {
+            data: {
+                theme?: components["schemas"]["Theme"] | null;
+                /** Format: uuid */
+                workspace_id: string;
+            }[];
+        };
         Definition: {
             steps: components["schemas"]["Step"][];
             trigger: components["schemas"]["Trigger"];
@@ -5263,6 +5302,9 @@ export interface components {
             expires_at?: string | null;
             text?: string | null;
         };
+        SetThemeRequest: {
+            theme?: components["schemas"]["Theme"] | null;
+        };
         SetupComplete: {
             session: components["schemas"]["AuthSession"];
             /** Format: uuid */
@@ -5383,6 +5425,12 @@ export interface components {
         SubscriptionKeys: {
             auth: string;
             p256dh: string;
+        };
+        Theme: {
+            badge: string;
+            presence: string;
+            selected: string;
+            sidebar: string;
         };
         ThreadPage: {
             data: components["schemas"]["ThreadSummary"][];
@@ -5788,6 +5836,11 @@ export interface components {
         };
         /** @enum {string} */
         WorkspaceRole: "guest" | "member" | "admin" | "owner";
+        WorkspaceTheme: {
+            theme?: components["schemas"]["Theme"] | null;
+            /** Format: uuid */
+            workspace_id: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -8988,6 +9041,25 @@ export interface operations {
             };
         };
     };
+    list_themes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_WorkspaceTheme"];
+                };
+            };
+        };
+    };
     create_user_export: {
         parameters: {
             query?: never;
@@ -10978,6 +11050,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkspaceProfile"];
+                };
+            };
+        };
+    };
+    set_workspace_theme: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetThemeRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceTheme"];
                 };
             };
         };

@@ -164,10 +164,7 @@ export default function ChannelSidebar({
       <div
         role="navigation"
         aria-label="Channels and direct messages"
-        // Opaque below `lg`: at that width this is a drawer floating over the
-        // message list, and a translucent panel let the messages read through
-        // the channel names.
-        className="w-60 bg-surface lg:bg-surface/50 flex flex-col border-r border-line/50"
+        className="w-60 bg-sidebar flex flex-col border-r border-line/50"
       >
         <WorkspaceMenu
           workspaceName={currentWorkspace?.name}
@@ -190,7 +187,9 @@ export default function ChannelSidebar({
             title="All unreads (Shift+Alt+A)"
             data-qa="all-unreads-open"
             className={`w-full px-3 py-1.5 mb-2 flex items-center gap-2 text-sm transition cursor-pointer ${
-              unreadsActive ? 'bg-purple-600/20 text-fg' : 'text-fg-dim hover:bg-raised/30 hover:text-fg-soft'
+              unreadsActive
+                ? 'bg-sidebar-selected text-sidebar-selected-fg'
+                : 'text-fg-dim hover:bg-raised/30 hover:text-fg-soft'
             } ${totalUnread > 0 ? 'font-semibold' : ''}`}
           >
             <Inbox className="w-4 h-4 shrink-0" />
@@ -207,7 +206,9 @@ export default function ChannelSidebar({
             aria-current={threadsActive ? 'page' : undefined}
             data-qa="threads-open"
             className={`w-full px-3 py-1.5 mb-2 -mt-1.5 flex items-center gap-2 text-sm transition cursor-pointer ${
-              threadsActive ? 'bg-purple-600/20 text-fg' : 'text-fg-dim hover:bg-raised/30 hover:text-fg-soft'
+              threadsActive
+                ? 'bg-sidebar-selected text-sidebar-selected-fg'
+                : 'text-fg-dim hover:bg-raised/30 hover:text-fg-soft'
             } ${unreadThreads > 0 ? 'font-semibold' : ''}`}
           >
             <MessagesSquare className="w-4 h-4 shrink-0" />
@@ -227,7 +228,9 @@ export default function ChannelSidebar({
             aria-pressed={laterActive}
             data-qa="later-open"
             className={`w-full px-3 py-1.5 mb-2 -mt-1.5 flex items-center gap-2 text-sm transition cursor-pointer ${
-              laterActive ? 'bg-purple-600/20 text-fg' : 'text-fg-dim hover:bg-raised/30 hover:text-fg-soft'
+              laterActive
+                ? 'bg-sidebar-selected text-sidebar-selected-fg'
+                : 'text-fg-dim hover:bg-raised/30 hover:text-fg-soft'
             }`}
           >
             <Bookmark className="w-4 h-4 shrink-0" />

@@ -5082,6 +5082,25 @@
         }
       }
     },
+    "/users/me/themes": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "operationId": "list_themes",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_WorkspaceTheme"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/users/{user_id}/exports": {
       "post": {
         "tags": [
@@ -8308,6 +8327,46 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/WorkspaceProfile"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/profile/theme": {
+      "put": {
+        "tags": [
+          "users"
+        ],
+        "operationId": "set_workspace_theme",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetThemeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceTheme"
                 }
               }
             }
@@ -13719,6 +13778,39 @@
           }
         }
       },
+      "DataList_WorkspaceTheme": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "workspace_id"
+              ],
+              "properties": {
+                "theme": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Theme"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "workspace_id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          }
+        }
+      },
       "Definition": {
         "type": "object",
         "required": [
@@ -16999,6 +17091,21 @@
           }
         }
       },
+      "SetThemeRequest": {
+        "type": "object",
+        "properties": {
+          "theme": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Theme"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
       "SetupComplete": {
         "type": "object",
         "required": [
@@ -17454,6 +17561,29 @@
             "type": "string"
           },
           "p256dh": {
+            "type": "string"
+          }
+        }
+      },
+      "Theme": {
+        "type": "object",
+        "required": [
+          "sidebar",
+          "selected",
+          "presence",
+          "badge"
+        ],
+        "properties": {
+          "badge": {
+            "type": "string"
+          },
+          "presence": {
+            "type": "string"
+          },
+          "selected": {
+            "type": "string"
+          },
+          "sidebar": {
             "type": "string"
           }
         }
@@ -19070,6 +19200,28 @@
           "admin",
           "owner"
         ]
+      },
+      "WorkspaceTheme": {
+        "type": "object",
+        "required": [
+          "workspace_id"
+        ],
+        "properties": {
+          "theme": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Theme"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
       }
     },
     "securitySchemes": {

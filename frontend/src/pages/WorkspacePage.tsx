@@ -34,7 +34,7 @@ import { ListView } from '@/features/lists';
 import { canBuild, workflowBuildersOf } from '@/features/workflows';
 import ForwardMessageModal from '@/features/messaging/ForwardMessageModal';
 import AddInstancePanel from '@/features/instance/AddInstancePanel';
-import { EditProfileModal, PreferencesModal } from '@/features/profile';
+import { EditProfileModal, PreferencesModal, themeStyle, useWorkspaceTheme } from '@/features/profile';
 import TypingIndicator from '@/features/messaging/TypingIndicator';
 import { useChannelModeration } from '@/features/channel/hooks/useChannelModeration';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
@@ -48,6 +48,7 @@ export default function WorkspacePage() {
   const activeConversation = c.conversations.find((conv) => conv.id === c.currentConversationId);
 
   useActiveHuddlesSync(currentWorkspace?.id, currentWorkspace?.instanceUrl);
+  const theme = useWorkspaceTheme();
 
   const {
     canPost,
@@ -86,7 +87,9 @@ export default function WorkspacePage() {
       <InstallAppBanner />
       <div className="flex-1 flex min-h-0 relative">
         <div
-          className={`flex shrink-0 max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:z-40 max-lg:shadow-2xl transition-transform ${
+          style={themeStyle(theme)}
+          data-qa="workspace-chrome"
+          className={`flex shrink-0 text-fg max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:z-40 max-lg:shadow-2xl transition-transform ${
             c.mobileNavOpen ? 'max-lg:translate-x-0' : 'max-lg:-translate-x-full'
           }`}
         >

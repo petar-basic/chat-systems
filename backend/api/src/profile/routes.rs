@@ -12,10 +12,14 @@ use shared_common::errors::{AppError, AppResult};
 use shared_common::validation::custom_emoji_name;
 
 use super::avatar::{self, MAX_AVATAR_BYTES};
-use super::models::{Presence, SetStatusRequest, UpdateWorkspaceProfileRequest, WorkspaceProfile};
+use super::models::{
+    Presence, SetStatusRequest, SetThemeRequest, Theme, UpdateWorkspaceProfileRequest,
+    WorkspaceProfile, WorkspaceTheme,
+};
 use super::presence;
 use crate::auth::models::UserPublic;
 use crate::authz;
+use crate::dto::DataList;
 use crate::middleware::AuthUser;
 use crate::state::AppState;
 
@@ -24,6 +28,8 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(get_workspace_profile, update_workspace_profile))
         .routes(routes!(set_workspace_status, clear_workspace_status))
         .routes(routes!(set_presence))
+        .routes(routes!(list_themes))
+        .routes(routes!(set_workspace_theme))
         .routes(
             routes!(upload_account_photo)
                 .layer(DefaultBodyLimit::max(MAX_AVATAR_BYTES + 64 * 1024)),
@@ -212,4 +218,32 @@ async fn clear_workspace_status(
         .set_status(ws_id, auth.user_id, None, None, None)
         .await?;
     Ok(Json(current(&state, ws_id, auth.user_id).await?))
+}
+
+#[utoipa::path(get, path = "/users/me/themes", tag = "users", responses((status = 200, body = DataList<WorkspaceTheme>)))]
+async fn list_themes(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+) -> AppResult<Json<DataList<WorkspaceTheme>>> {
+    Ok(Json(state.profile_repo.themes(auth.user_id).await?.into()))
+}
+
+#[utoipa::path(put, path = "/workspaces/{ws_id}/profile/theme", tag = "users", request_body = SetThemeRequest, responses((status = 200, body = WorkspaceTheme)))]
+async fn set_workspace_theme(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(ws_id): Path<Uuid>,
+    Json(req): Json<SetThemeRequest>,
+) -> AppResult<Json<WorkspaceTheme>> {
+    req.validate()?;
+    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
+    let theme = req.theme.map(Theme::normalized);
+    state
+        .profile_repo
+        .set_theme(ws_id, auth.user_id, theme.as_ref())
+        .await?;
+    Ok(Json(WorkspaceTheme {
+        workspace_id: ws_id,
+        theme,
+    }))
 }

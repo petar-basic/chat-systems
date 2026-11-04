@@ -66,7 +66,7 @@ export function SidebarChannelRow({
         aria-current={active ? 'page' : undefined}
         className={`flex-1 min-w-0 px-3 py-1.5 flex items-center gap-2 text-sm transition ${
           active
-            ? 'bg-purple-600/20 text-fg'
+            ? 'bg-sidebar-selected text-sidebar-selected-fg'
             : showUnread
               ? 'text-fg font-semibold hover:bg-raised/30'
               : muted
@@ -88,7 +88,7 @@ export function SidebarChannelRow({
             aria-hidden="true"
             data-qa="channel-mention-badge"
             data-channel-id={channel.id}
-            className="ml-auto min-w-5 h-5 px-1 bg-red-500 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold text-white"
+            className="ml-auto min-w-5 h-5 px-1 bg-badge rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold text-badge-fg"
           >
             {mentionCount ? formatBadge(mentionCount) : '@'}
           </span>

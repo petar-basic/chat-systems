@@ -39,3 +39,38 @@ pub struct SetStatusRequest {
     pub text: Option<String>,
     pub expires_at: Option<DateTime<Utc>>,
 }
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, garde::Validate, ToSchema)]
+pub struct Theme {
+    #[garde(custom(shared_common::validation::rules::hex_colour))]
+    pub sidebar: String,
+    #[garde(custom(shared_common::validation::rules::hex_colour))]
+    pub selected: String,
+    #[garde(custom(shared_common::validation::rules::hex_colour))]
+    pub presence: String,
+    #[garde(custom(shared_common::validation::rules::hex_colour))]
+    pub badge: String,
+}
+
+impl Theme {
+    pub fn normalized(self) -> Self {
+        Self {
+            sidebar: self.sidebar.to_ascii_lowercase(),
+            selected: self.selected.to_ascii_lowercase(),
+            presence: self.presence.to_ascii_lowercase(),
+            badge: self.badge.to_ascii_lowercase(),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, garde::Validate, ToSchema)]
+pub struct SetThemeRequest {
+    #[garde(dive)]
+    pub theme: Option<Theme>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct WorkspaceTheme {
+    pub workspace_id: Uuid,
+    pub theme: Option<Theme>,
+}

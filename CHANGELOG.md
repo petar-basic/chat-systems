@@ -16,6 +16,13 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ## [Unreleased]
 
+### Added
+
+- A theme for each workspace. *Preferences → Appearance* offers seven themes for the sidebar of
+  the workspace you are in, kept on the server, so they follow you to every browser and to the
+  desktop app. Only you see your theme, and each workspace has its own. Messages and dialogs keep
+  following light, dark or system.
+
 ### Fixed
 
 - A workspace icon with a transparent background sits on the rail's own surface, white in the

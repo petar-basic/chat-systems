@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT wm.workspace_id, wm.theme AS \"theme!: Json<Theme>\"\n              FROM workspace_members wm\n              JOIN workspaces w ON w.id = wm.workspace_id\n             WHERE wm.user_id = $1 AND wm.theme IS NOT NULL AND w.is_active = true\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "workspace_members",
+            "name": "workspace_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "theme!: Json<Theme>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "workspace_members",
+            "name": "theme"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "4a03caf9144cbe678d78a30663425b97a270bec7897c9cba1ec9033a95923708"
+}

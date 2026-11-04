@@ -52,7 +52,7 @@ export function ConversationRow({
       aria-current={isActive ? 'page' : undefined}
       className={`w-full px-3 py-1.5 flex items-center gap-2 text-sm transition cursor-pointer ${
         isActive
-          ? 'bg-purple-600/20 text-fg'
+          ? 'bg-sidebar-selected text-sidebar-selected-fg'
           : isUnread
             ? 'text-fg font-semibold hover:bg-raised/30'
             : 'text-muted hover:bg-raised/30 hover:text-fg-soft'

@@ -22,9 +22,16 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-info: var(--info);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-selected: var(--sidebar-selected);
+  --color-sidebar-selected-fg: var(--sidebar-selected-fg);
+  --color-presence: var(--presence);
+  --color-badge: var(--badge);
+  --color-badge-fg: var(--badge-fg);
 }
 
-:root {
+:root,
+.unthemed {
   color-scheme: dark;
   --rail: #020617;
   --app: #0f172a;
@@ -56,7 +63,8 @@
   --mention-self-fg: #fbbf24;
 }
 
-:root[data-theme='light'] {
+:root[data-theme='light'],
+:root[data-theme='light'] .unthemed {
   color-scheme: light;
   --rail: #dbe1ea;
   --app: #eef1f6;
@@ -86,6 +94,16 @@
   --link: #1d4ed8;
   --mention-self-bg: rgba(245, 158, 11, 0.18);
   --mention-self-fg: #b45309;
+}
+
+:root,
+.unthemed {
+  --sidebar: color-mix(in srgb, var(--surface) 50%, var(--app));
+  --sidebar-selected: color-mix(in srgb, #9333ea 20%, var(--sidebar));
+  --sidebar-selected-fg: var(--fg);
+  --presence: #22c55e;
+  --badge: #ef4444;
+  --badge-fg: #ffffff;
 }
 
 /* ── Base resets ──────────────────────────────────────────────── */
