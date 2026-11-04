@@ -16,6 +16,7 @@ import { currentPause, formatResume } from '@/lib/pause';
 import { logger } from '@/lib/logger';
 import { ROUTES } from '@/shared/constants';
 import { ReactionEmoji } from '@/shared/components/ReactionEmoji';
+import { LocalTimeLine } from './LocalTimeLine';
 
 interface Props {
   userId: string;
@@ -141,6 +142,8 @@ function UserCardBody({
           )}
         </div>
       </div>
+
+      <LocalTimeLine timezone={cached?.timezone} />
 
       {cached?.bio && (
         <p className="text-xs text-fg-dim whitespace-pre-line line-clamp-4" data-qa="hover-card-bio">

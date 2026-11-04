@@ -123,6 +123,14 @@ pub enum Language {
     Ja,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Clock {
+    #[default]
+    H24,
+    H12,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, ToSchema)]
 #[serde(default)]
 pub struct Preferences {
@@ -132,6 +140,7 @@ pub struct Preferences {
     pub enter_key: EnterKey,
     pub open_channel_at: OpenChannelAt,
     pub language: Option<Language>,
+    pub clock: Clock,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -149,4 +158,6 @@ pub struct UpdatePreferences {
     pub open_channel_at: Option<OpenChannelAt>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub language: Option<Language>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clock: Option<Clock>,
 }

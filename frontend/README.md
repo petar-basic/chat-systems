@@ -61,7 +61,7 @@ never waits on a translation.
 - Text with markup inside it uses `<Trans>` with named tags (`<email>{{email}}</email>`), imported
   from `shared/components/Trans`. It escapes the values before the tags are parsed, so a tag
   someone types into a name stays text; lint refuses `Trans` from `react-i18next` itself.
-- The language is the one picked in *Preferences → Appearance*, kept with the other preferences
+- The language is the one picked in *Preferences → Language & region*, kept with the other preferences
   on the server so it follows the person to every device. Before sign-in, and for anyone who has
   not picked one, it follows the browser; English is the fallback.
 - Tests and E2E select elements by `data-qa`, so a translation never breaks one.

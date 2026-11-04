@@ -74,6 +74,7 @@ pub struct MemberWithUser {
     pub status_emoji: Option<String>,
     pub status_text: Option<String>,
     pub notifications_paused_until: Option<DateTime<Utc>>,
+    pub timezone: Option<String>,
     pub is_bot: bool,
 }
 

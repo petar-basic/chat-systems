@@ -1,3 +1,5 @@
+import { formatClock } from '@/lib/datetime';
+
 export const DAY_LABELS = [
   { day: 1, short: 'Mon', long: 'Monday' },
   { day: 2, short: 'Tue', long: 'Tuesday' },
@@ -13,7 +15,7 @@ export const EVERY_DAY = [1, 2, 3, 4, 5, 6, 7];
 
 export function minuteLabel(minute: number): string {
   const at = new Date(2000, 0, 1, Math.floor(minute / 60), minute % 60);
-  return at.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return formatClock(at, { hour: 'numeric', minute: '2-digit' });
 }
 
 export function timeOptions(current: number): number[] {

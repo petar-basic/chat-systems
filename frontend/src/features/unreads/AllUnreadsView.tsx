@@ -7,6 +7,7 @@ import { displayNameOf } from '@/lib/userHelpers';
 import { conversationTitle } from '@/lib/conversationHelpers';
 import type { Conversation } from '@/features/messaging';
 import { useUnreads, useMarkGroupRead, type UnreadGroup } from '@/features/unreads/hooks/useUnreads';
+import { DAY_AND_TIME, formatClock } from '@/lib/datetime';
 
 interface Props {
   workspaceId: string;
@@ -137,12 +138,7 @@ export function AllUnreadsView({
                       <div className="flex items-baseline gap-2">
                         <span className="text-sm font-semibold text-fg-soft">{name}</span>
                         <span className="text-xs text-muted">
-                          {new Date(message.created_at).toLocaleString([], {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                          {formatClock(message.created_at, DAY_AND_TIME)}
                         </span>
                       </div>
                       <RichTextDisplay

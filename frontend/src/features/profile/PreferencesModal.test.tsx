@@ -12,7 +12,7 @@ vi.mock('@/features/profile/ThemePicker', () => ({ default: () => <div data-qa="
 vi.mock('@/features/profile/WorkspaceThemePicker', () => ({
   default: () => <div data-qa="workspace-theme-panel" />,
 }));
-vi.mock('@/features/profile/LanguagePicker', () => ({ default: () => <div data-qa="language-panel" /> }));
+vi.mock('@/features/profile/RegionPanel', () => ({ default: () => <div data-qa="region-panel" /> }));
 vi.mock('@/features/notifications/NotifyDefaultPanel', () => ({
   NotifyDefaultPanel: () => <div data-qa="notify-default" />,
 }));
@@ -65,6 +65,10 @@ describe('PreferencesModal', () => {
     expect(selected()).toHaveTextContent('Messages & media');
     expect(selected()).toHaveFocus();
     expect(screen.getByTestId('messages-media-panel')).toBeInTheDocument();
+
+    fireEvent.keyDown(list, { key: 'ArrowDown' });
+    expect(selected()).toHaveTextContent('Language & region');
+    expect(screen.getByTestId('region-panel')).toBeInTheDocument();
 
     fireEvent.keyDown(list, { key: 'ArrowDown' });
     expect(selected()).toHaveTextContent('Mark as read');

@@ -1,3 +1,5 @@
+import { formatTime } from '@/lib/datetime';
+
 export interface SchedulePreset {
   label: string;
   at: () => Date;
@@ -35,7 +37,7 @@ export function toLocalInputValue(at: Date): string {
 }
 
 export function formatScheduleHint(at: Date, now: Date = new Date()): string {
-  const time = at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const time = formatTime(at);
   if (at.toDateString() === now.toDateString()) return time;
   return `${at.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })}, ${time}`;
 }

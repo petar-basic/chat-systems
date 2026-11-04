@@ -30,6 +30,7 @@ import { MessageBody } from './MessageBody';
 import { MessageEditor } from './MessageEditor';
 import { MessageReactions } from './MessageReactions';
 import { ReactionEmoji } from '@/shared/components/ReactionEmoji';
+import { TIME, formatClock } from '@/lib/datetime';
 
 interface MessageItemProps {
   message: Message;
@@ -93,6 +94,7 @@ function MessageItem({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const compact = useDisplayStore((s) => s.density === 'compact');
+  const clock = useDisplayStore((s) => s.clock);
   const stacked = !!grouped && !compact;
 
   const archived = useChannelArchived(message.channel_id);
@@ -159,7 +161,7 @@ function MessageItem({
       />
     );
   }
-  const time = new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const time = formatClock(message.created_at, TIME, clock);
   const attachments = message.metadata?.attachments ?? [];
 
   const finishEditing = () => {
@@ -362,7 +364,9 @@ function MessageItem({
           {!stacked && !compact && (
             <div className="flex items-baseline gap-2">
               {sender}
-              <span className="text-xs text-muted">{time}</span>
+              <span className="text-xs text-muted" data-qa="message-header-time">
+                {time}
+              </span>
               {message.pending && <span className="text-xs text-muted italic">Sending…</span>}
               {pinnedMarker}
             </div>

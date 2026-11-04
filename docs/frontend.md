@@ -534,8 +534,8 @@ POST `/workspaces/{id}/invites` `{ email, role }`, and each section's own.
 *Clear after*), bio and photo, saved with one button; the status is sent only when it changed,
 so an untouched one keeps its expiry. An empty name, bio or photo shows the account's, as its
 placeholder, and *Use account photo* drops the workspace's. *Preferences* is a vertical tab
-list — *Notifications*, *Appearance*, *Messages & media*, *Mark as read*, *Account*, *Security*,
-*Advanced* — over panels
+list — *Notifications*, *Appearance*, *Messages & media*, *Language & region*, *Mark as read*,
+*Account*, *Security*, *Advanced* — over panels
 that save as they change, except *Account*, the account's name, bio and photo, which has its own save button.
 A photo picked under *Account* is uploaded to `POST /users/me/avatar` and set on the account at
 once, so every workspace shows it; *Edit profile*'s photo stays a file of its workspace.
@@ -565,6 +565,16 @@ in the line break Shift+Enter does. The send button's title and *Keyboard shortc
 keys that send (`sendKeys`, `newLineKeys`). *Mark as read* chooses where a channel opens:
 where you left off, under the unread line, or at the newest message, with no line; opening a
 channel marks it read either way.
+
+*Language & region* holds the language (`LanguagePicker`), the time zone and the clock. The
+time zone is the account's (`PATCH /users/me`), picked from the browser's IANA names with a
+field that narrows the list (`timezoneChoices`). `TimezonePrompt`, mounted by `WorkspacePage`,
+gives an account with none the browser's zone without asking, and when the two differ asks
+once per browser zone (remembered in `localStorage`). The clock, 24-hour or 12-hour, is a
+preference in `stores/display`; every time on screen goes through `lib/datetime`
+(`formatClock`, `formatTime`, `formatDateTime`), which reads it. Members carry their
+`timezone`, so the hover card shows their local time (`LocalTimeLine`) and a DM's composer
+says when it is before 08:00 or from 21:00 for the other person (`OffHoursNote`).
 
 *Appearance* has the colour mode (`ThemePicker`, light, dark or system, the same everywhere)
 and, under it, `WorkspaceThemePicker`: the theme of the current workspace, *Default* or one of

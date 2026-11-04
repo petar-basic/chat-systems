@@ -35,6 +35,12 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   lists, code blocks and the mention and emoji pickers. *Preferences → Mark as read* can open
   every channel at its newest message instead of where you left off.
 
+- Time zones. Your time zone is set from your browser when you sign in, and if they later
+  differ the app asks once whether to update it. *Preferences → Language & region* holds it, the
+  language, and a 12-hour or 24-hour clock for every time shown. A profile card shows the
+  person's local time, and a DM says when it is late or early for them. The notification
+  schedule uses the same time zone.
+
 ### Fixed
 
 - A message you mark unread in the channel or DM you are reading stays unread until you leave.

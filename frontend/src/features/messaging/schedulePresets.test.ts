@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { formatTime } from '@/lib/datetime';
 import {
   nextMorning,
   nextMondayMorning,
@@ -52,7 +53,7 @@ describe('custom schedule input', () => {
     const now = new Date(2026, 2, 9, 8, 0);
     const today = new Date(2026, 2, 9, 17, 30);
     const later = new Date(2026, 2, 12, 9, 0);
-    const time = (at: Date) => at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const time = (at: Date) => formatTime(at);
     const month = later.toLocaleDateString([], { month: 'short' });
 
     expect(formatScheduleHint(today, now)).toBe(time(today));

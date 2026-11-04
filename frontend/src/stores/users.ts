@@ -9,6 +9,7 @@ interface UserInfo {
   status_emoji?: string | null;
   status_text?: string | null;
   notifications_paused_until?: string | null;
+  timezone?: string | null;
   is_bot?: boolean;
 }
 

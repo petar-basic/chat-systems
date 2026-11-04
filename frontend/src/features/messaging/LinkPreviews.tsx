@@ -5,6 +5,7 @@ import { appName } from '@/lib/appConnect';
 import { AppIcon } from '@/shared/components/AppIcon/AppIcon';
 import { embedSrc } from '@/lib/videoEmbed';
 import { CollapsedPreview } from './CollapsedPreview';
+import { DAY_AND_TIME, formatClock } from '@/lib/datetime';
 
 type Unfurl = components['schemas']['Unfurl'];
 type UnfurlField = components['schemas']['UnfurlField'];
@@ -78,14 +79,7 @@ function AppCard({
   const provider = appName(unfurl.provider ?? '');
   const [imageFailed, setImageFailed] = useState(false);
   const image = !imageFailed && unfurl.image_url?.startsWith('https://') ? unfurl.image_url : null;
-  const fetched = unfurl.fetched_at
-    ? new Date(unfurl.fetched_at).toLocaleString([], {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    : null;
+  const fetched = unfurl.fetched_at ? formatClock(unfurl.fetched_at, DAY_AND_TIME) : null;
   return (
     <div
       data-qa="app-preview"

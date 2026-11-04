@@ -39,6 +39,7 @@ import {
   PreferencesModal,
   themeStyle,
   usePreferencesSync,
+  TimezonePrompt,
   useWorkspaceTheme,
 } from '@/features/profile';
 import TypingIndicator from '@/features/messaging/TypingIndicator';
@@ -446,6 +447,7 @@ export default function WorkspacePage() {
 
         {c.accountDialog === 'profile' && <EditProfileModal onClose={() => c.setAccountDialog(null)} />}
         {c.accountDialog === 'preferences' && <PreferencesModal onClose={() => c.setAccountDialog(null)} />}
+        <TimezonePrompt />
 
         {c.quickSwitcherOpen && currentWorkspace && (
           <QuickSwitcher

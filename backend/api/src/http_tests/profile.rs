@@ -561,7 +561,8 @@ async fn preferences_start_at_their_defaults_and_keep_what_is_set(pool: PgPool) 
             "previews": "shown",
             "enter_key": "send",
             "open_channel_at": "where_left",
-            "language": null
+            "language": null,
+            "clock": "h24"
         })
     );
 
@@ -607,7 +608,8 @@ async fn preferences_start_at_their_defaults_and_keep_what_is_set(pool: PgPool) 
             "previews": "collapsed",
             "enter_key": "newline",
             "open_channel_at": "newest",
-            "language": null
+            "language": null,
+            "clock": "h24"
         })
     );
 
@@ -623,7 +625,8 @@ async fn preferences_start_at_their_defaults_and_keep_what_is_set(pool: PgPool) 
             "previews": "shown",
             "enter_key": "send",
             "open_channel_at": "where_left",
-            "language": null
+            "language": null,
+            "clock": "h24"
         }),
         "each account has its own"
     );
@@ -639,6 +642,7 @@ async fn an_unknown_preference_or_value_is_refused(pool: PgPool) {
         json!({ "density": "tiny" }),
         json!({ "colour_mode": "sepia" }),
         json!({ "enter_key": "shift" }),
+        json!({ "clock": "h25" }),
         json!({ "open_channel_at": "oldest" }),
         json!({ "density": "compact", "extra": true }),
     ] {

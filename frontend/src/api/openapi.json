@@ -10535,6 +10535,13 @@
           }
         }
       },
+      "Clock": {
+        "type": "string",
+        "enum": [
+          "h24",
+          "h12"
+        ]
+      },
       "CodeRequest": {
         "type": "object",
         "required": [
@@ -12969,6 +12976,12 @@
                   ]
                 },
                 "status_text": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "timezone": {
                   "type": [
                     "string",
                     "null"
@@ -15743,6 +15756,12 @@
               "null"
             ]
           },
+          "timezone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "user_id": {
             "type": "string",
             "format": "uuid"
@@ -16444,6 +16463,10 @@
       "Preferences": {
         "type": "object",
         "properties": {
+          "clock": {
+            "$ref": "#/components/schemas/Clock",
+            "default": "h24"
+          },
           "colour_mode": {
             "oneOf": [
               {
@@ -18518,6 +18541,16 @@
       "UpdatePreferences": {
         "type": "object",
         "properties": {
+          "clock": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Clock"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "colour_mode": {
             "oneOf": [
               {
@@ -18886,7 +18919,6 @@
         "required": [
           "id",
           "email",
-          "timezone",
           "status",
           "is_instance_admin",
           "created_at"
@@ -18928,7 +18960,10 @@
             "$ref": "#/components/schemas/UserStatus"
           },
           "timezone": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },

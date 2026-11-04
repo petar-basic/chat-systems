@@ -366,6 +366,13 @@ async fn update_me(
     Json(req): Json<UpdateProfileRequest>,
 ) -> AppResult<Json<UserPublic>> {
     req.validate()?;
+    if let Some(timezone) = req.timezone.as_deref() {
+        if !state.auth_service.repo().timezone_exists(timezone).await? {
+            return Err(AppError::Validation(format!(
+                "\"{timezone}\" isn't a timezone"
+            )));
+        }
+    }
     let before = state
         .auth_service
         .repo()

@@ -172,7 +172,12 @@ pub async fn run(
                         .ok_or_else(|| AppError::NotFound("User not found".into()))?;
                     state
                         .hook_repo
-                        .resolve_local_time(&user.timezone, day_offset, hour, minute)
+                        .resolve_local_time(
+                            user.timezone.as_deref().unwrap_or("UTC"),
+                            day_offset,
+                            hour,
+                            minute,
+                        )
                         .await?
                 }
             };
