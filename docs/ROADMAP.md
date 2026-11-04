@@ -7,10 +7,11 @@ ticket in [`docs/tickets/`](./tickets/INDEX.md); a ticket's file is deleted when
 
 ## Open
 
-**Wave 30 — make it yours** is open: CS-111 – CS-116, raised on 2026-11-04. A theme for each
+**Wave 30 — make it yours** is open: CS-111 – CS-117, raised on 2026-11-04. A theme for each
 workspace, custom and shared themes that also colour the desktop window, preferences kept on
 the server instead of in one browser, Enter to send or for a new line, time zones with local
-time on profiles, and a title and pronouns on the profile.
+time on profiles, a title and pronouns on the profile, and a text size and typeface of your
+own.
 
 **Wave 29 — a desktop app** shipped in 4.1.0: CS-106 to CS-110, planned on 2026-11-02 in [native-apps-plan.md](./native-apps-plan.md). One app we
 publish opens any server, built on Tauri 2 around each server's own web app, and updates

@@ -375,7 +375,8 @@ comes next because everything else lives inside it.
 
 Raised on 2026-11-04 after 4.1.1, from a walk through the app beside Slack's *Preferences*.
 Themes come first because they are what was asked for; CS-113 comes before CS-114 and
-CS-115 because it adds the store their settings are kept in. CS-116 stands alone.
+CS-115 because it adds the store their settings are kept in, and so before CS-117 too.
+CS-116 stands alone.
 
 | # | Ticket | Area |
 |---|---|---|
@@ -385,6 +386,7 @@ CS-115 because it adds the store their settings are kept in. CS-116 stands alone
 | CS-114 | Enter to send or for a new line, and where a channel opens | frontend |
 | CS-115 | Time zones and local time | backend · frontend |
 | CS-116 | Title and pronouns on the profile | backend · frontend |
+| CS-117 | Text size and typeface | frontend · backend |
 
 ## Conflict map
 
@@ -431,6 +433,6 @@ Tickets that touch the same files, and the order that avoids rework:
 | realtime gateway auth and connection handling | CS-101 ✅ → CS-104 ✅ → CS-037 ✅ |
 | sidebar tokens and *Preferences → Appearance* | CS-111 → CS-112 |
 | `workspace_members` profile columns | CS-111 → CS-116 |
-| `users.preferences` and the *Preferences* tabs | CS-113 → CS-114 → CS-115 |
+| `users.preferences` and the *Preferences* tabs | CS-113 → CS-114 → CS-115 → CS-117 |
 | `MessageInput.tsx` key handling | CS-114 |
 | desktop `report_theme` | CS-112 |
