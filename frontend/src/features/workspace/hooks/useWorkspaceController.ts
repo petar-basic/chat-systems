@@ -17,6 +17,7 @@ import { useComposer } from './useComposer';
 import { useWorkspaceShortcuts } from './useWorkspaceShortcuts';
 import { useMarkWorkspaceRead } from '@/features/unreads';
 import { useMessageActions } from './useMessageActions';
+import { releaseUnread } from '@/stores/keptUnread';
 
 export function useWorkspaceController() {
   const { data: user } = useCurrentUser();
@@ -187,9 +188,11 @@ export function useWorkspaceController() {
     allUnreads: handleOpenUnreads,
     markChannelRead: () => {
       if (currentChannel) {
+        releaseUnread(currentChannel.id);
         markChannelRead(currentChannel.id);
         markChannelReadServer(currentChannel.id);
       } else if (currentConversationId) {
+        releaseUnread(currentConversationId);
         data.markConversationReadServer(currentConversationId);
       }
     },

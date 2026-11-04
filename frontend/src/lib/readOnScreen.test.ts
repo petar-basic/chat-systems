@@ -4,6 +4,7 @@ import { QUERY_KEYS } from '@/shared/constants';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { newestSentIn, readOnScreen } from './readOnScreen';
 import { belongsElsewhere } from './channelWorkspace';
+import { keepUnread, useKeptUnread } from '@/stores/keptUnread';
 
 const post = vi.fn();
 vi.mock('@/shared/hooks/useCurrentApi', () => ({
@@ -45,6 +46,7 @@ describe('readOnScreen', () => {
       currentChannel: { id: 'ch-1' } as never,
       currentConversationId: null,
     });
+    useKeptUnread.setState({ channelId: null });
   });
   afterEach(() => {
     vi.useRealTimers();
@@ -89,6 +91,19 @@ describe('readOnScreen', () => {
       params: { path: { ch_id: 'dm-1' } },
       body: { message_id: 'd1' },
     });
+  });
+
+  it('leaves the open channel unread after the person marked it so, until they leave', async () => {
+    const queryClient = seeded();
+    keepUnread('ch-1');
+    readOnScreen(queryClient, 'ch-1');
+    await vi.runAllTimersAsync();
+    expect(post).not.toHaveBeenCalled();
+
+    useKeptUnread.setState({ channelId: null });
+    readOnScreen(queryClient, 'ch-1');
+    await vi.runAllTimersAsync();
+    expect(post).toHaveBeenCalledTimes(1);
   });
 
   it('leaves it unread when the window is not in front or the channel is not open', async () => {

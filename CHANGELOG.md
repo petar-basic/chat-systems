@@ -37,6 +37,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ### Fixed
 
+- A message you mark unread in the channel or DM you are reading stays unread until you leave.
+  A new message arriving there, or the app reconnecting, used to mark it read again at once.
 - A workspace icon with a transparent background sits on the rail's own surface, white in the
   light theme and dark in the dark one, as it does in the web app. The desktop rail used to put
   the colour it gives a workspace's initials behind it.

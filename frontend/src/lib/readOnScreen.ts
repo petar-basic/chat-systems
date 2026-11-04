@@ -2,6 +2,7 @@ import type { InfiniteData, QueryClient } from '@tanstack/react-query';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { useWorkspaceStore, type Message } from '@/stores/workspace';
 import { QUERY_KEYS } from '@/shared/constants';
+import { isKeptUnread } from '@/stores/keptUnread';
 import { logger } from './logger';
 
 const READ_DELAY_MS = 250;
@@ -29,7 +30,7 @@ export function onScreen(channelId: string): 'channel' | 'conversation' | null {
 
 export function readOnScreen(queryClient: QueryClient, channelId: string) {
   const where = onScreen(channelId);
-  if (!where) return;
+  if (!where || isKeptUnread(channelId)) return;
   const instanceUrl = useWorkspaceStore.getState().currentWorkspace?.instanceUrl;
   clearTimeout(pending.get(channelId));
   pending.set(
