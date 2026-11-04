@@ -101,6 +101,11 @@ together:
 - **On screen counts as read.** A message that arrives in the channel or DM open in a focused
   window is read straight away (`readOnScreen`), and so is a notification about it that lands
   after the message; a reply that arrives in the open thread re-reads that thread.
+- **Marked unread stays unread until you leave.** *Mark unread* on a message in the open
+  channel or DM holds it (`stores/keptUnread`): `readOnScreen` skips it, and a refetch of its
+  messages goes without `mark_read`, so a new message or a reconnect does not read it again.
+  Leaving it (the message list unmounts or changes channel) or *Esc* lets go, and the next
+  opening reads it as usual. Marked from anywhere else, nothing is held.
 - **A thread reply is not a channel message.** It does not move the channel's unread or @
   count unless it was also sent to the channel, and reading the channel leaves its
   notification alone.

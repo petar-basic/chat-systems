@@ -18,6 +18,7 @@ import { useOpenMessage } from './hooks/useMessageLocation';
 import { useUnsent, withUnsent } from '@/stores/unsent';
 import { useUserCache } from '@/stores/users';
 import { useDisplayStore } from '@/stores/display';
+import { releaseUnread } from '@/stores/keptUnread';
 import { displayNameOf } from '@/lib/userHelpers';
 import { useMessageActions } from './hooks/useMessageActions';
 import { formatDaySeparator } from './messageGrouping';
@@ -132,6 +133,8 @@ export default function MessageList({
   useEffect(() => {
     if (needOlder && hasNextPage) fetchNextPage();
   }, [needOlder, hasNextPage, fetchNextPage]);
+
+  useEffect(() => () => releaseUnread(channelId), [channelId]);
 
   const [roving] = useState(createRovingStore);
   const lastMessageId = messages.at(-1)?.id ?? null;

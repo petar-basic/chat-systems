@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import MessageList from './MessageList';
 import { useDisplayStore } from '@/stores/display';
+import { isKeptUnread, useKeptUnread } from '@/stores/keptUnread';
 
 const at = (i: number) => new Date(Date.UTC(2026, 0, 2, 12, i)).toISOString();
 const message = (id: string, i: number) => ({ id, user_id: 'u1', content: id, created_at: at(i) });
@@ -45,12 +46,11 @@ vi.mock('./VirtualMessageList', () => ({
 
 function open() {
   const queryClient = new QueryClient();
-  render(
+  return render(
     <QueryClientProvider client={queryClient}>
       <MessageList channelId="c-1" onThreadOpen={vi.fn()} markReadIn="w-1" draftKey="c-1" />
     </QueryClientProvider>,
   );
-  return screen.getByTestId('list');
 }
 
 describe('where a channel opens', () => {
@@ -59,15 +59,25 @@ describe('where a channel opens', () => {
   });
 
   it('starts at the first unread message, under its line, by default', () => {
-    const list = open();
+    open();
+    const list = screen.getByTestId('list');
     expect(list).toHaveAttribute('data-divider', 'yes');
     expect(list.dataset.scrollTo).not.toBe('');
   });
 
   it('starts at the newest message, with no line, when that is the choice', () => {
     useDisplayStore.setState({ openChannelAt: 'newest' });
-    const list = open();
+    open();
+    const list = screen.getByTestId('list');
     expect(list).toHaveAttribute('data-divider', 'no');
     expect(list).toHaveAttribute('data-scroll-to', '');
+  });
+
+  it('lets go of a channel marked unread once it is left', () => {
+    useKeptUnread.setState({ channelId: 'c-1' });
+    const { unmount } = open();
+    expect(isKeptUnread('c-1')).toBe(true);
+    unmount();
+    expect(isKeptUnread('c-1')).toBe(false);
   });
 });

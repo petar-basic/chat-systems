@@ -5,6 +5,7 @@ import type { components } from '@/api/schema';
 type Attachment = components['schemas']['Attachment'];
 import { useCurrentApi } from '@/shared/hooks/useCurrentApi';
 import { applyReadState } from '@/lib/readState';
+import { isKeptUnread, keepUnread } from '@/stores/keptUnread';
 import { settleChannelNotifications } from '@/features/notifications';
 import { QUERY_KEYS, MESSAGES_PAGE_SIZE, ErrorLabels } from '@/shared/constants';
 import {
@@ -60,7 +61,7 @@ export const useMessages = (channelId: string | null, markReadIn?: string) => {
             query: {
               limit: MESSAGES_PAGE_SIZE,
               cursor: pageParam,
-              mark_read: markReadIn && pageParam === undefined ? true : undefined,
+              mark_read: markReadIn && pageParam === undefined && !isKeptUnread(channelId) ? true : undefined,
             },
           },
         }),
@@ -261,7 +262,10 @@ export const useMarkUnread = () => {
           body: { message_id: messageId },
         }),
       ),
-    onSuccess: (state) => applyReadState(queryClient, state),
+    onSuccess: (state, { channelId }) => {
+      keepUnread(channelId);
+      applyReadState(queryClient, state);
+    },
     onError: (err) => {
       logger.error('useMarkUnread', 'mutationFn', err);
       toast.error(ErrorLabels.MarkUnreadFailed);
