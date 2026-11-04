@@ -17,7 +17,7 @@ use super::models::{
     UpdateWorkspaceProfileRequest, WorkspaceProfile, WorkspaceTheme,
 };
 use super::presence;
-use crate::auth::models::UserPublic;
+use crate::auth::models::{UpdateProfileRequest, UserPublic};
 use crate::authz;
 use crate::dto::DataList;
 use crate::middleware::AuthUser;
@@ -70,7 +70,13 @@ async fn upload_account_photo(
     let user = match state
         .auth_service
         .repo()
-        .update_profile(auth.user_id, None, Some(&url), None, None)
+        .update_profile(
+            auth.user_id,
+            &UpdateProfileRequest {
+                avatar_url: Some(url.clone()),
+                ..Default::default()
+            },
+        )
         .await
     {
         Ok(user) => user,
@@ -97,7 +103,14 @@ async fn upload_workspace_photo(
     let url = state.file_storage.public_url(&key);
     if let Err(e) = state
         .profile_repo
-        .update(ws_id, auth.user_id, None, Some(&url), None)
+        .update(
+            ws_id,
+            auth.user_id,
+            &UpdateWorkspaceProfileRequest {
+                avatar_url: Some(url.clone()),
+                ..Default::default()
+            },
+        )
         .await
     {
         let _ = state.file_storage.delete(&key).await;
@@ -141,16 +154,7 @@ async fn update_workspace_profile(
     req.validate()?;
     authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
     let before = current(&state, ws_id, auth.user_id).await?;
-    state
-        .profile_repo
-        .update(
-            ws_id,
-            auth.user_id,
-            req.display_name.as_deref(),
-            req.avatar_url.as_deref(),
-            req.bio.as_deref(),
-        )
-        .await?;
+    state.profile_repo.update(ws_id, auth.user_id, &req).await?;
     let after = current(&state, ws_id, auth.user_id).await?;
     if before.avatar_url != after.avatar_url {
         avatar::forget(

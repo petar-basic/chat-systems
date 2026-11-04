@@ -170,12 +170,12 @@ Handles user identity — login, registration, JWT, and profile.
 | GET | `/instance/info` | — | `{ name, icon_url, sso_enabled, max_upload_bytes, setup_required }` |
 | POST | `/setup` | `{ token, display_name, email, password, workspace_name }` | `{ session: AuthSession, workspace_id }` and the auth cookies; 403 for a wrong token, 409 once an instance admin exists |
 | GET | `/users/me` | JWT | `UserPublic` — `timezone` is `null` until the person or their browser sets one; the notification schedule and `/remind` read `null` as UTC |
-| PATCH | `/users/me` | `{ display_name?, avatar_url?, bio?, timezone? }` | `UserPublic` — a `timezone` Postgres does not know (`pg_timezone_names`) is a 422 and nothing is saved; replacing or clearing a photo stored under `avatars/` deletes the old object |
+| PATCH | `/users/me` | `{ display_name?, avatar_url?, bio?, title?, pronouns?, timezone? }` | `UserPublic` — `title` is at most 100 characters and `pronouns` 30, trimmed, `""` clearing either; a `timezone` Postgres does not know (`pg_timezone_names`) is a 422 and nothing is saved; replacing or clearing a photo stored under `avatars/` deletes the old object |
 | POST | `/users/me/avatar` | multipart `file`: PNG, JPEG, GIF or WebP, at most 10 MB | `UserPublic` with the new `avatar_url` — the photo is sniffed, decoded and stripped of metadata (one wider than 720 px is stored at 720), saved as `avatars/{user_id}/{uuid}.{ext}` with no `files` row, so retention never sees it, and set on the account; the previous one is deleted |
 | PATCH | `/users/me/password` | `{ current_password, new_password }` | `{ status: "password_changed" }` |
 | PUT | `/users/me/presence` | `{ away }` | `{ away }` — sets `users.manual_away`, which shows the person away in every workspace and on every device until they set it back; publishes `presence.recompute` for the gateway |
-| GET | `/workspaces/{ws_id}/profile` | — | `WorkspaceProfile` — the caller's own name, photo, bio and live status in that workspace; `null` where the account's is shown |
-| PATCH | `/workspaces/{ws_id}/profile` | `{ display_name?, avatar_url?, bio? }` | `WorkspaceProfile` — a field left out stays; `""` goes back to the account's; replacing or clearing a workspace photo deletes its object |
+| GET | `/workspaces/{ws_id}/profile` | — | `WorkspaceProfile` — the caller's own name, photo, bio, title, pronouns and live status in that workspace; `null` where the account's is shown |
+| PATCH | `/workspaces/{ws_id}/profile` | `{ display_name?, avatar_url?, bio?, title?, pronouns? }` | `WorkspaceProfile` — a field left out stays; `""` goes back to the account's; `title` is at most 100 characters and `pronouns` 30; replacing or clearing a workspace photo deletes its object |
 | POST | `/workspaces/{ws_id}/profile/avatar` | multipart `file`, as `/users/me/avatar` | `WorkspaceProfile` with the new `avatar_url` — processed like an account photo and stored as `avatars/{user_id}/{ws_id}/{uuid}.{ext}`, outside retention; the previous workspace photo is deleted |
 | PUT | `/workspaces/{ws_id}/profile/status` | `{ emoji?, text?, expires_at? }` | `WorkspaceProfile` — a status in that workspace only; needs an emoji or some text, the emoji being a character or a `:shortcode:` that workspace has (422 otherwise), and an expiry in the future. An expired status stops being returned by every read; the row itself is only overwritten the next time the person sets one |
 | DELETE | `/workspaces/{ws_id}/profile/status` | — | `WorkspaceProfile` |
@@ -222,7 +222,7 @@ feature — see `dm` below.)
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
-| GET | `/workspaces/:ws_id/members` | — | `{ data: MemberWithUser[] }` — name, photo and bio as shown in that workspace (its own, else the account's), its status, `notifications_paused_until` (`null` unless their notifications are paused now), and the account's `timezone` (`null` until set) |
+| GET | `/workspaces/:ws_id/members` | — | `{ data: MemberWithUser[] }` — name, photo, bio, title and pronouns as shown in that workspace (its own, else the account's), its status, `notifications_paused_until` (`null` unless their notifications are paused now), and the account's `timezone` (`null` until set) |
 | PATCH | `/workspaces/:ws_id/members/:user_id/role` | `{ role }` | `WorkspaceMember` |
 | DELETE | `/workspaces/:ws_id/members/:user_id` | — | `{ status: "removed" }` |
 

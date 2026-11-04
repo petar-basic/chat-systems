@@ -12966,6 +12966,12 @@
                   ],
                   "format": "date-time"
                 },
+                "pronouns": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
                 "role": {
                   "$ref": "#/components/schemas/WorkspaceRole"
                 },
@@ -12982,6 +12988,12 @@
                   ]
                 },
                 "timezone": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "title": {
                   "type": [
                     "string",
                     "null"
@@ -15741,6 +15753,12 @@
             ],
             "format": "date-time"
           },
+          "pronouns": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "role": {
             "$ref": "#/components/schemas/WorkspaceRole"
           },
@@ -15757,6 +15775,12 @@
             ]
           },
           "timezone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
             "type": [
               "string",
               "null"
@@ -18628,7 +18652,19 @@
               "null"
             ]
           },
+          "pronouns": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "timezone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
             "type": [
               "string",
               "null"
@@ -18736,6 +18772,18 @@
             ]
           },
           "display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pronouns": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
             "type": [
               "string",
               "null"
@@ -18949,10 +18997,22 @@
           "is_instance_admin": {
             "type": "boolean"
           },
+          "pronouns": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "status": {
             "$ref": "#/components/schemas/UserStatus"
           },
           "timezone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
             "type": [
               "string",
               "null"
@@ -19394,6 +19454,12 @@
               "null"
             ]
           },
+          "pronouns": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "status_emoji": {
             "type": [
               "string",
@@ -19408,6 +19474,12 @@
             "format": "date-time"
           },
           "status_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
             "type": [
               "string",
               "null"

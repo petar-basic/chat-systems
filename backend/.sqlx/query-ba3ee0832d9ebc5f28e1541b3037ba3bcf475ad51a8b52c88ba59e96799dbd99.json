@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT workspace_id, display_name, avatar_url, bio,\n                   CASE WHEN status_expires_at IS NULL OR status_expires_at > NOW()\n                        THEN status_emoji END AS \"status_emoji?\",\n                   CASE WHEN status_expires_at IS NULL OR status_expires_at > NOW()\n                        THEN status_text END AS \"status_text?\",\n                   CASE WHEN status_expires_at > NOW()\n                        THEN status_expires_at END AS \"status_expires_at?\"\n              FROM workspace_members\n             WHERE workspace_id = $1 AND user_id = $2\n            ",
+  "query": "\n            SELECT workspace_id, display_name, avatar_url, bio, title, pronouns,\n                   CASE WHEN status_expires_at IS NULL OR status_expires_at > NOW()\n                        THEN status_emoji END AS \"status_emoji?\",\n                   CASE WHEN status_expires_at IS NULL OR status_expires_at > NOW()\n                        THEN status_text END AS \"status_text?\",\n                   CASE WHEN status_expires_at > NOW()\n                        THEN status_expires_at END AS \"status_expires_at?\"\n              FROM workspace_members\n             WHERE workspace_id = $1 AND user_id = $2\n            ",
   "describe": {
     "columns": [
       {
@@ -49,18 +49,40 @@
       },
       {
         "ordinal": 4,
+        "name": "title",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "workspace_members",
+            "name": "title"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "pronouns",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "workspace_members",
+            "name": "pronouns"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
         "name": "status_emoji?",
         "type_info": "Varchar",
         "origin": "Expression"
       },
       {
-        "ordinal": 5,
+        "ordinal": 7,
         "name": "status_text?",
         "type_info": "Varchar",
         "origin": "Expression"
       },
       {
-        "ordinal": 6,
+        "ordinal": 8,
         "name": "status_expires_at?",
         "type_info": "Timestamptz",
         "origin": "Expression"
@@ -77,10 +99,12 @@
       true,
       true,
       true,
+      true,
+      true,
       null,
       null,
       null
     ]
   },
-  "hash": "6fbc7e75f9238e2d2a3fe33630dec3d332de56ec8e03498e2705879a05a1c259"
+  "hash": "ba3ee0832d9ebc5f28e1541b3037ba3bcf475ad51a8b52c88ba59e96799dbd99"
 }

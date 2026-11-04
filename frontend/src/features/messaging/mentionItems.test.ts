@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { asksBeforeBroadcast, buildMentionItems } from './mentionItems';
+import { asksBeforeBroadcast, buildMentionItems, matchesMention } from './mentionItems';
 import type { Channel, WorkspaceMember } from '@/stores/workspace';
 
 const members = [
@@ -8,6 +8,23 @@ const members = [
 ] as WorkspaceMember[];
 
 const channels = [{ id: 'ch-1', name: 'general' }] as Channel[];
+
+describe('matchesMention', () => {
+  it('finds a person by their title as well as their name, and shows the title', () => {
+    const items = buildMentionItems(
+      [
+        { user_id: 'u-3', display_name: 'Cleo', email: 'cleo@dev.local', title: 'Head of Finance' },
+      ] as WorkspaceMember[],
+      [],
+      true,
+    );
+
+    expect(items.filter((i) => matchesMention(i, 'finance')).map((i) => i.label)).toEqual(['Cleo']);
+    expect(items.filter((i) => matchesMention(i, 'cle')).map((i) => i.label)).toEqual(['Cleo']);
+    expect(items.filter((i) => matchesMention(i, 'design'))).toEqual([]);
+    expect(items[0].title).toBe('Head of Finance');
+  });
+});
 
 describe('buildMentionItems', () => {
   it('offers @channel, @here and @everyone above the people', () => {

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            UPDATE users\n            SET display_name = COALESCE($2, display_name),\n                avatar_url = CASE\n                    WHEN $3::text IS NULL THEN avatar_url\n                    WHEN $3 = '' THEN NULL\n                    ELSE $3\n                END,\n                bio = COALESCE($4, bio),\n                timezone = COALESCE($5, timezone),\n                updated_at = NOW()\n            WHERE id = $1\n            RETURNING id, email, password_hash, display_name, avatar_url, bio, timezone,\n                   status AS \"status: UserStatus\",\n                   is_instance_admin AS \"is_instance_admin!\", created_at, updated_at\n            ",
+  "query": "SELECT id, email, password_hash, display_name, avatar_url, bio, title, pronouns, timezone,\n                   status AS \"status: UserStatus\",\n                   is_instance_admin AS \"is_instance_admin!\", created_at, updated_at\n                 FROM users WHERE email = lower($1) AND NOT is_bot",
   "describe": {
     "columns": [
       {
@@ -71,6 +71,28 @@
       },
       {
         "ordinal": 6,
+        "name": "title",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "title"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "pronouns",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "pronouns"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
         "name": "timezone",
         "type_info": "Varchar",
         "origin": {
@@ -81,7 +103,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 9,
         "name": "status: UserStatus",
         "type_info": {
           "Custom": {
@@ -103,7 +125,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 10,
         "name": "is_instance_admin!",
         "type_info": "Bool",
         "origin": {
@@ -114,7 +136,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 11,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -125,7 +147,7 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 12,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -138,16 +160,14 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Varchar",
-        "Text",
-        "Text",
-        "Varchar"
+        "Text"
       ]
     },
     "nullable": [
       false,
       false,
+      true,
+      true,
       true,
       true,
       true,
@@ -159,5 +179,5 @@
       false
     ]
   },
-  "hash": "ed034bf9dc96d1903862066b9796f25b0493eb750e38242c78cb4a6296fd36af"
+  "hash": "26e2f0c0c46fece784a1574d24a21601031e980012bbc3fcf76fe9e271906427"
 }

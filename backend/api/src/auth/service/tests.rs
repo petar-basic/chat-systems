@@ -27,6 +27,8 @@ fn dummy_user() -> User {
         display_name: Some("Test User".to_string()),
         avatar_url: None,
         bio: None,
+        title: None,
+        pronouns: None,
         timezone: Some("UTC".to_string()),
         status: UserStatus::Active,
         is_instance_admin: false,

@@ -272,6 +272,8 @@ async fn erase_user_data(
            SET display_name = NULL,
                avatar_url = NULL,
                bio = NULL,
+               title = NULL,
+               pronouns = NULL,
                status_emoji = NULL,
                status_text = NULL,
                status_expires_at = NULL
@@ -288,6 +290,8 @@ async fn erase_user_data(
                display_name = 'Deleted user',
                avatar_url = NULL,
                bio = NULL,
+               title = NULL,
+               pronouns = NULL,
                password_hash = NULL,
                status = 'suspended',
                updated_at = NOW()

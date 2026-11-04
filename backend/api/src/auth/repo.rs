@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use super::models::{User, UserStatus};
+use super::models::{UpdateProfileRequest, User, UserStatus};
 
 pub struct UserRepo {
     pool: PgPool,
@@ -29,7 +29,7 @@ impl UserRepo {
             r#"
             INSERT INTO users (email, password_hash, display_name, is_instance_admin)
             VALUES (lower($1), $2, $3, $4)
-            RETURNING id, email, password_hash, display_name, avatar_url, bio, timezone,
+            RETURNING id, email, password_hash, display_name, avatar_url, bio, title, pronouns, timezone,
                    status AS "status: UserStatus",
                    is_instance_admin AS "is_instance_admin!", created_at, updated_at
             "#,
@@ -51,7 +51,7 @@ impl UserRepo {
             r#"
             INSERT INTO users (email, display_name, status)
             VALUES (lower($1), $2, 'suspended')
-            RETURNING id, email, password_hash, display_name, avatar_url, bio, timezone,
+            RETURNING id, email, password_hash, display_name, avatar_url, bio, title, pronouns, timezone,
                    status AS "status: UserStatus",
                    is_instance_admin AS "is_instance_admin!", created_at, updated_at
             "#,
@@ -88,7 +88,7 @@ impl UserRepo {
             r#"
             INSERT INTO users (email, display_name, status)
             VALUES (lower($1::text), split_part($1::text, '@', 1), 'active')
-            RETURNING id, email, password_hash, display_name, avatar_url, bio, timezone,
+            RETURNING id, email, password_hash, display_name, avatar_url, bio, title, pronouns, timezone,
                    status AS "status: UserStatus",
                    is_instance_admin AS "is_instance_admin!", created_at, updated_at
             "#,
@@ -101,7 +101,7 @@ impl UserRepo {
     pub async fn find_by_id(&self, id: Uuid) -> sqlx::Result<Option<User>> {
         sqlx::query_as!(
             User,
-            r#"SELECT id, email, password_hash, display_name, avatar_url, bio, timezone,
+            r#"SELECT id, email, password_hash, display_name, avatar_url, bio, title, pronouns, timezone,
                    status AS "status: UserStatus",
                    is_instance_admin AS "is_instance_admin!", created_at, updated_at
                  FROM users WHERE id = $1"#,
@@ -114,7 +114,7 @@ impl UserRepo {
     pub async fn find_by_email(&self, email: &str) -> sqlx::Result<Option<User>> {
         sqlx::query_as!(
             User,
-            r#"SELECT id, email, password_hash, display_name, avatar_url, bio, timezone,
+            r#"SELECT id, email, password_hash, display_name, avatar_url, bio, title, pronouns, timezone,
                    status AS "status: UserStatus",
                    is_instance_admin AS "is_instance_admin!", created_at, updated_at
                  FROM users WHERE email = lower($1) AND NOT is_bot"#,
@@ -127,7 +127,7 @@ impl UserRepo {
     pub async fn list_page(&self, offset: i64, limit: i64) -> sqlx::Result<Vec<User>> {
         sqlx::query_as!(
             User,
-            r#"SELECT id, email, password_hash, display_name, avatar_url, bio, timezone,
+            r#"SELECT id, email, password_hash, display_name, avatar_url, bio, title, pronouns, timezone,
                    status AS "status: UserStatus",
                    is_instance_admin AS "is_instance_admin!", created_at, updated_at
                  FROM users WHERE NOT is_bot ORDER BY created_at, id OFFSET $1 LIMIT $2"#,
@@ -179,7 +179,7 @@ impl UserRepo {
             UPDATE users
             SET password_hash = $2, display_name = $3, status = 'active', updated_at = NOW()
             WHERE id = $1
-            RETURNING id, email, password_hash, display_name, avatar_url, bio, timezone,
+            RETURNING id, email, password_hash, display_name, avatar_url, bio, title, pronouns, timezone,
                    status AS "status: UserStatus",
                    is_instance_admin AS "is_instance_admin!", created_at, updated_at
             "#,
@@ -194,10 +194,7 @@ impl UserRepo {
     pub async fn update_profile(
         &self,
         id: Uuid,
-        display_name: Option<&str>,
-        avatar_url: Option<&str>,
-        bio: Option<&str>,
-        timezone: Option<&str>,
+        changes: &UpdateProfileRequest,
     ) -> sqlx::Result<User> {
         sqlx::query_as!(
             User,
@@ -210,18 +207,24 @@ impl UserRepo {
                     ELSE $3
                 END,
                 bio = COALESCE($4, bio),
-                timezone = COALESCE($5, timezone),
+                title = CASE WHEN $5::text IS NULL THEN title
+                             ELSE NULLIF(BTRIM($5), '') END,
+                pronouns = CASE WHEN $6::text IS NULL THEN pronouns
+                                ELSE NULLIF(BTRIM($6), '') END,
+                timezone = COALESCE($7, timezone),
                 updated_at = NOW()
             WHERE id = $1
-            RETURNING id, email, password_hash, display_name, avatar_url, bio, timezone,
+            RETURNING id, email, password_hash, display_name, avatar_url, bio, title, pronouns, timezone,
                    status AS "status: UserStatus",
                    is_instance_admin AS "is_instance_admin!", created_at, updated_at
             "#,
             id,
-            display_name,
-            avatar_url,
-            bio,
-            timezone
+            changes.display_name.as_deref(),
+            changes.avatar_url.as_deref(),
+            changes.bio.as_deref(),
+            changes.title.as_deref(),
+            changes.pronouns.as_deref(),
+            changes.timezone.as_deref()
         )
         .fetch_one(&self.pool)
         .await

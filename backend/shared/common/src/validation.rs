@@ -293,6 +293,34 @@ pub fn validate_status_text(text: &str) -> AppResult<()> {
     Ok(())
 }
 
+pub fn validate_title(title: &str) -> AppResult<()> {
+    if title.trim().chars().count() > 100 {
+        return Err(AppError::Validation(
+            "Title must be at most 100 characters".into(),
+        ));
+    }
+    if title.chars().any(char::is_control) {
+        return Err(AppError::Validation(
+            "Title cannot contain control characters".into(),
+        ));
+    }
+    Ok(())
+}
+
+pub fn validate_pronouns(pronouns: &str) -> AppResult<()> {
+    if pronouns.trim().chars().count() > 30 {
+        return Err(AppError::Validation(
+            "Pronouns must be at most 30 characters".into(),
+        ));
+    }
+    if pronouns.chars().any(char::is_control) {
+        return Err(AppError::Validation(
+            "Pronouns cannot contain control characters".into(),
+        ));
+    }
+    Ok(())
+}
+
 pub fn validate_status_emoji(emoji: &str) -> AppResult<()> {
     if custom_emoji_name(emoji).is_some() {
         return Ok(());
@@ -360,6 +388,8 @@ pub mod rules {
     rule!(description, validate_description);
     rule!(hook_name, validate_hook_name);
     rule!(bio, validate_bio);
+    rule!(title, validate_title);
+    rule!(pronouns, validate_pronouns);
     rule!(hex_colour, validate_hex_colour);
     rule!(timezone, validate_timezone);
     rule!(bookmark_label, validate_bookmark_label);

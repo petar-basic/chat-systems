@@ -273,6 +273,127 @@ async fn a_name_photo_and_bio_of_its_own_and_the_accounts_otherwise(pool: PgPool
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn a_title_and_pronouns_of_its_own_and_the_accounts_otherwise(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "title-owner", false).await;
+    let work = seed_workspace(&state, owner_id, "Work").await;
+    let hobby = seed_workspace(&state, owner_id, "Hobby").await;
+    let quiet = seed_workspace(&state, owner_id, "Quiet").await;
+
+    let (status, account) = send(
+        &app,
+        "PATCH",
+        "/api/users/me",
+        Some(&owner),
+        Some(json!({ "title": "Engineer", "pronouns": "she/her" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{account:?}");
+    assert_eq!(account["title"], "Engineer");
+    assert_eq!(account["pronouns"], "she/her");
+
+    let (status, profile) = send(
+        &app,
+        "PATCH",
+        &format!("/api/workspaces/{work}/profile"),
+        Some(&owner),
+        Some(json!({ "title": "  Head of Finance  ", "pronouns": "they/them" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{profile:?}");
+    assert_eq!(profile["title"], "Head of Finance");
+
+    let (status, _) = send(
+        &app,
+        "PATCH",
+        &format!("/api/workspaces/{hobby}/profile"),
+        Some(&owner),
+        Some(json!({ "title": "Goalkeeper" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let at_work = member(&app, &owner, work, owner_id).await;
+    assert_eq!(at_work["title"], "Head of Finance");
+    assert_eq!(at_work["pronouns"], "they/them");
+    let at_hobby = member(&app, &owner, hobby, owner_id).await;
+    assert_eq!(at_hobby["title"], "Goalkeeper");
+    assert_eq!(
+        at_hobby["pronouns"], "she/her",
+        "a field left unset falls back to the account"
+    );
+    let at_quiet = member(&app, &owner, quiet, owner_id).await;
+    assert_eq!(at_quiet["title"], "Engineer");
+
+    let (status, profile) = send(
+        &app,
+        "PATCH",
+        &format!("/api/workspaces/{work}/profile"),
+        Some(&owner),
+        Some(json!({ "title": " " })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(profile["title"].is_null());
+    assert_eq!(profile["pronouns"], "they/them", "a field left out stays");
+    assert_eq!(
+        member(&app, &owner, work, owner_id).await["title"],
+        "Engineer"
+    );
+
+    let (status, account) = send(
+        &app,
+        "PATCH",
+        "/api/users/me",
+        Some(&owner),
+        Some(json!({ "pronouns": "" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(account["pronouns"].is_null());
+    assert_eq!(account["title"], "Engineer");
+
+    for (path, body) in [
+        (
+            format!("/api/workspaces/{work}/profile"),
+            json!({ "title": "x".repeat(101) }),
+        ),
+        (
+            format!("/api/workspaces/{work}/profile"),
+            json!({ "pronouns": "x".repeat(31) }),
+        ),
+        (
+            "/api/users/me".to_string(),
+            json!({ "title": "x".repeat(101) }),
+        ),
+        (
+            "/api/users/me".to_string(),
+            json!({ "pronouns": "x".repeat(31) }),
+        ),
+        (
+            "/api/users/me".to_string(),
+            json!({ "title": "line\nbreak" }),
+        ),
+    ] {
+        let (status, _) = send(&app, "PATCH", &path, Some(&owner), Some(body.clone())).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{path} {body}");
+    }
+    let (status, _) = send(
+        &app,
+        "PATCH",
+        "/api/users/me",
+        Some(&owner),
+        Some(json!({ "title": "é".repeat(100), "pronouns": "ž".repeat(30) })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "the limits count characters, not bytes"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn erasing_a_person_clears_their_profile_in_every_workspace(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (subject_id, _, subject) = seed_and_login(&app, &state, "erase-subject", false).await;
@@ -282,7 +403,7 @@ async fn erasing_a_person_clears_their_profile_in_every_workspace(pool: PgPool) 
         "PATCH",
         &format!("/api/workspaces/{ws_id}/profile"),
         Some(&subject),
-        Some(json!({ "display_name": "Findable", "bio": "about me" })),
+        Some(json!({ "display_name": "Findable", "bio": "about me", "title": "Findable title" })),
     )
     .await;
     set_status(&app, &subject, ws_id, json!({ "text": "here" })).await;
@@ -298,14 +419,19 @@ async fn erasing_a_person_clears_their_profile_in_every_workspace(pool: PgPool) 
     .await;
     assert_eq!(status, StatusCode::OK, "{body:?}");
 
-    let left: (Option<String>, Option<String>, Option<String>) = sqlx::query_as(
-        "SELECT display_name, bio, status_text FROM workspace_members WHERE user_id = $1",
+    let left: (
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+    ) = sqlx::query_as(
+        "SELECT display_name, bio, title, status_text FROM workspace_members WHERE user_id = $1",
     )
     .bind(subject_id)
     .fetch_one(&state.pool)
     .await
     .expect("the membership");
-    assert_eq!(left, (None, None, None));
+    assert_eq!(left, (None, None, None, None));
 }
 
 async fn manual_away(state: &crate::state::AppState, user_id: Uuid) -> bool {

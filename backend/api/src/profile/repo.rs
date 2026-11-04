@@ -4,7 +4,10 @@ use uuid::Uuid;
 
 use sqlx::types::Json;
 
-use super::models::{Preferences, Theme, UpdatePreferences, WorkspaceProfile, WorkspaceTheme};
+use super::models::{
+    Preferences, Theme, UpdatePreferences, UpdateWorkspaceProfileRequest, WorkspaceProfile,
+    WorkspaceTheme,
+};
 
 #[derive(Clone)]
 pub struct ProfileRepo {
@@ -24,7 +27,7 @@ impl ProfileRepo {
         sqlx::query_as!(
             WorkspaceProfile,
             r#"
-            SELECT workspace_id, display_name, avatar_url, bio,
+            SELECT workspace_id, display_name, avatar_url, bio, title, pronouns,
                    CASE WHEN status_expires_at IS NULL OR status_expires_at > NOW()
                         THEN status_emoji END AS "status_emoji?",
                    CASE WHEN status_expires_at IS NULL OR status_expires_at > NOW()
@@ -45,9 +48,7 @@ impl ProfileRepo {
         &self,
         workspace_id: Uuid,
         user_id: Uuid,
-        display_name: Option<&str>,
-        avatar_url: Option<&str>,
-        bio: Option<&str>,
+        changes: &UpdateWorkspaceProfileRequest,
     ) -> sqlx::Result<()> {
         sqlx::query!(
             r#"
@@ -57,14 +58,20 @@ impl ProfileRepo {
                    avatar_url = CASE WHEN $4::text IS NULL THEN avatar_url
                                      ELSE NULLIF(BTRIM($4), '') END,
                    bio = CASE WHEN $5::text IS NULL THEN bio
-                              ELSE NULLIF(BTRIM($5), '') END
+                              ELSE NULLIF(BTRIM($5), '') END,
+                   title = CASE WHEN $6::text IS NULL THEN title
+                                ELSE NULLIF(BTRIM($6), '') END,
+                   pronouns = CASE WHEN $7::text IS NULL THEN pronouns
+                                   ELSE NULLIF(BTRIM($7), '') END
              WHERE workspace_id = $1 AND user_id = $2
             "#,
             workspace_id,
             user_id,
-            display_name,
-            avatar_url,
-            bio
+            changes.display_name.as_deref(),
+            changes.avatar_url.as_deref(),
+            changes.bio.as_deref(),
+            changes.title.as_deref(),
+            changes.pronouns.as_deref()
         )
         .execute(&self.pool)
         .await?;

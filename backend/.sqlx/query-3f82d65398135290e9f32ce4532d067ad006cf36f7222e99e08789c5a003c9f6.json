@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO users (email, display_name, status)\n            VALUES (lower($1::text), split_part($1::text, '@', 1), 'active')\n            RETURNING id, email, password_hash, display_name, avatar_url, bio, timezone,\n                   status AS \"status: UserStatus\",\n                   is_instance_admin AS \"is_instance_admin!\", created_at, updated_at\n            ",
+  "query": "\n            INSERT INTO users (email, password_hash, display_name, is_instance_admin)\n            VALUES (lower($1), $2, $3, $4)\n            RETURNING id, email, password_hash, display_name, avatar_url, bio, title, pronouns, timezone,\n                   status AS \"status: UserStatus\",\n                   is_instance_admin AS \"is_instance_admin!\", created_at, updated_at\n            ",
   "describe": {
     "columns": [
       {
@@ -71,6 +71,28 @@
       },
       {
         "ordinal": 6,
+        "name": "title",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "title"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "pronouns",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "pronouns"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
         "name": "timezone",
         "type_info": "Varchar",
         "origin": {
@@ -81,7 +103,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 9,
         "name": "status: UserStatus",
         "type_info": {
           "Custom": {
@@ -103,7 +125,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 10,
         "name": "is_instance_admin!",
         "type_info": "Bool",
         "origin": {
@@ -114,7 +136,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 11,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -125,7 +147,7 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 12,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -138,12 +160,17 @@
     ],
     "parameters": {
       "Left": [
-        "Text"
+        "Text",
+        "Varchar",
+        "Varchar",
+        "Bool"
       ]
     },
     "nullable": [
       false,
       false,
+      true,
+      true,
       true,
       true,
       true,
@@ -155,5 +182,5 @@
       false
     ]
   },
-  "hash": "f05d0e488a604a300f6cad7213652a7c5f8a7667305ce72185ff8b36a6f4e941"
+  "hash": "3f82d65398135290e9f32ce4532d067ad006cf36f7222e99e08789c5a003c9f6"
 }

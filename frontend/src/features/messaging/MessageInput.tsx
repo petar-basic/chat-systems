@@ -33,7 +33,7 @@ import { toast } from '@/shared/components/Toast';
 import { SCHEDULE_PRESETS, formatScheduleHint, toLocalInputValue } from './schedulePresets';
 import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
-import { asksBeforeBroadcast, buildMentionItems } from './mentionItems';
+import { asksBeforeBroadcast, buildMentionItems, matchesMention } from './mentionItems';
 import { useUserGroups } from '@/features/workspace';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { TextInput } from '@/shared/components/Form/TextInput';
@@ -156,9 +156,8 @@ export default function MessageInput({
       MentionNode.configure({
         HTMLAttributes: { class: 'mention' },
         suggestion: createMentionSuggestion((query) => {
-          const q = query.toLowerCase();
           return mentionItemsRef.current
-            .filter((item) => item.label.toLowerCase().includes(q))
+            .filter((item) => matchesMention(item, query))
             .slice(0, MENTION_SUGGESTION_LIMIT);
         }),
       }),

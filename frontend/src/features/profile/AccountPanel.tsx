@@ -25,6 +25,8 @@ export default function AccountPanel() {
 
   const [loaded, setLoaded] = useState(false);
   const [displayName, setDisplayName] = useState('');
+  const [title, setTitle] = useState('');
+  const [pronouns, setPronouns] = useState('');
   const [bio, setBio] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [saving, setSaving] = useState(false);
@@ -34,6 +36,8 @@ export default function AccountPanel() {
   if (!loaded && account) {
     setLoaded(true);
     setDisplayName(account.display_name ?? '');
+    setTitle(account.title ?? '');
+    setPronouns(account.pronouns ?? '');
     setBio(account.bio ?? '');
     setAvatarUrl(account.avatar_url ?? '');
   }
@@ -63,7 +67,13 @@ export default function AccountPanel() {
     try {
       const updated = await getApiForInstance(instanceUrl).typed((c) =>
         c.PATCH('/users/me', {
-          body: { display_name: displayName.trim(), bio: bio.trim() || null, avatar_url: avatarUrl.trim() },
+          body: {
+            display_name: displayName.trim(),
+            title: title.trim(),
+            pronouns: pronouns.trim(),
+            bio: bio.trim() || null,
+            avatar_url: avatarUrl.trim(),
+          },
         }),
       );
       await applyAccount(updated);
@@ -95,7 +105,7 @@ export default function AccountPanel() {
   return (
     <form onSubmit={(e) => void handleSave(e)} data-qa="account-panel">
       <p className="mb-4 text-sm text-muted">
-        Your name, photo and bio in every workspace where you have not set your own.
+        Your name, title, pronouns, photo and bio in every workspace where you have not set your own.
       </p>
       <div className="grid gap-6 sm:grid-cols-[1fr_auto]">
         <div className="space-y-5">
@@ -108,6 +118,27 @@ export default function AccountPanel() {
             dataQa="account-display-name"
             required
           />
+          <div className="grid gap-5 sm:grid-cols-[1fr_10rem]">
+            <TextInput
+              label="Title"
+              optional
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="What you do, e.g. Head of Finance"
+              maxLength={100}
+              autoComplete="organization-title"
+              dataQa="account-title"
+            />
+            <TextInput
+              label="Pronouns"
+              optional
+              value={pronouns}
+              onChange={(e) => setPronouns(e.target.value)}
+              placeholder="e.g. they/them"
+              maxLength={30}
+              dataQa="account-pronouns"
+            />
+          </div>
           <TextArea
             label="Bio"
             optional

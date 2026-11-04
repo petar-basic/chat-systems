@@ -5,6 +5,7 @@ import { Modal } from '@/shared/components/Modal/Modal';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import type { WorkspaceMember } from '@/stores/workspace';
+import { matchesPerson } from '@/lib/userHelpers';
 
 const MAX_GROUP_OTHERS = 8;
 
@@ -28,10 +29,7 @@ export function NewDmModal({ members, currentUserId, onStart, onClose }: Props) 
           : [...picked, userId],
     );
 
-  const query = search.trim().toLowerCase();
-  const candidates = members.filter(
-    (m) => m.user_id !== currentUserId && (m.display_name || m.email).toLowerCase().includes(query),
-  );
+  const candidates = members.filter((m) => m.user_id !== currentUserId && matchesPerson(m, search));
 
   return (
     <Modal
@@ -89,8 +87,11 @@ export function NewDmModal({ members, currentUserId, onStart, onClose }: Props) 
               >
                 <Avatar userId={m.user_id} name={m.display_name || m.email} avatarUrl={m.avatar_url} />
                 <div className="min-w-0">
-                  <div className="text-sm font-medium truncate">{m.display_name || m.email}</div>
-                  <div className="text-xs text-muted truncate">{m.email}</div>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-sm font-medium truncate">{m.display_name || m.email}</span>
+                    {m.pronouns && <span className="text-xs text-muted shrink-0">{m.pronouns}</span>}
+                  </div>
+                  <div className="text-xs text-muted truncate">{m.title || m.email}</div>
                 </div>
                 {picked && <Check className="w-4 h-4 text-accent-soft ml-auto shrink-0" />}
               </button>

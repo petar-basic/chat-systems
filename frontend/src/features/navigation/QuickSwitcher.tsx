@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Hash, Lock, MessageSquare, Search } from 'lucide-react';
 import type { Channel, WorkspaceMember } from '@/stores/workspace';
-import { displayNameOf } from '@/lib/userHelpers';
+import { displayNameOf, matchesPerson } from '@/lib/userHelpers';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
 import { TextInput } from '@/shared/components/Form/TextInput';
 
@@ -57,11 +57,11 @@ export function QuickSwitcher({
       }));
     const peopleItems: Item[] = members
       .filter((m) => m.user_id !== currentUserId)
-      .filter((m) => (m.display_name || m.email).toLowerCase().includes(q))
+      .filter((m) => matchesPerson(m, q))
       .map((m) => ({
         key: `dm-${m.user_id}`,
         label: displayNameOf(m.display_name),
-        sub: 'Direct message',
+        sub: m.title || 'Direct message',
         icon: <MessageSquare className="w-4 h-4 text-accent" />,
         run: () => onSelectDm(m.user_id),
       }));
