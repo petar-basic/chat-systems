@@ -13,8 +13,8 @@ use shared_common::validation::custom_emoji_name;
 
 use super::avatar::{self, MAX_AVATAR_BYTES};
 use super::models::{
-    Presence, SetStatusRequest, SetThemeRequest, Theme, UpdateWorkspaceProfileRequest,
-    WorkspaceProfile, WorkspaceTheme,
+    Preferences, Presence, SetStatusRequest, SetThemeRequest, Theme, UpdatePreferences,
+    UpdateWorkspaceProfileRequest, WorkspaceProfile, WorkspaceTheme,
 };
 use super::presence;
 use crate::auth::models::UserPublic;
@@ -28,6 +28,7 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(get_workspace_profile, update_workspace_profile))
         .routes(routes!(set_workspace_status, clear_workspace_status))
         .routes(routes!(set_presence))
+        .routes(routes!(get_preferences, update_preferences))
         .routes(routes!(list_themes))
         .routes(routes!(set_workspace_theme))
         .routes(
@@ -218,6 +219,33 @@ async fn clear_workspace_status(
         .set_status(ws_id, auth.user_id, None, None, None)
         .await?;
     Ok(Json(current(&state, ws_id, auth.user_id).await?))
+}
+
+#[utoipa::path(get, path = "/users/me/preferences", tag = "users", responses((status = 200, body = Preferences)))]
+async fn get_preferences(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+) -> AppResult<Json<Preferences>> {
+    state
+        .profile_repo
+        .preferences(auth.user_id)
+        .await?
+        .map(Json)
+        .ok_or_else(|| AppError::NotFound("User not found".into()))
+}
+
+#[utoipa::path(patch, path = "/users/me/preferences", tag = "users", request_body = UpdatePreferences, responses((status = 200, body = Preferences)))]
+async fn update_preferences(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Json(req): Json<UpdatePreferences>,
+) -> AppResult<Json<Preferences>> {
+    state
+        .profile_repo
+        .update_preferences(auth.user_id, &req)
+        .await?
+        .map(Json)
+        .ok_or_else(|| AppError::NotFound("User not found".into()))
 }
 
 #[utoipa::path(get, path = "/users/me/themes", tag = "users", responses((status = 200, body = DataList<WorkspaceTheme>)))]

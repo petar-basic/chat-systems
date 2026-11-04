@@ -74,3 +74,46 @@ pub struct WorkspaceTheme {
     pub workspace_id: Uuid,
     pub theme: Option<Theme>,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ColourMode {
+    System,
+    Light,
+    Dark,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Density {
+    #[default]
+    Clean,
+    Compact,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Previews {
+    #[default]
+    Shown,
+    Collapsed,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, ToSchema)]
+#[serde(default)]
+pub struct Preferences {
+    pub colour_mode: Option<ColourMode>,
+    pub density: Density,
+    pub previews: Previews,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct UpdatePreferences {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub colour_mode: Option<ColourMode>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub density: Option<Density>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub previews: Option<Previews>,
+}

@@ -19,6 +19,7 @@ import {
 import { useIsTabStop, useRovingFocus } from './rovingFocus';
 import { useLaterActions, useSavedItemId } from '@/features/later';
 import { useWorkspaceStore } from '@/stores/workspace';
+import { useDisplayStore } from '@/stores/display';
 import { useChannelArchived } from '@/lib/channelArchive';
 import EditHistoryPanel from './EditHistoryPanel';
 import { useCurrentWorkspaceRole } from '@/features/workspace';
@@ -91,6 +92,8 @@ function MessageItem({
   const later = useLaterActions(workspace?.id, workspace?.instanceUrl);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const compact = useDisplayStore((s) => s.density === 'compact');
+  const stacked = !!grouped && !compact;
 
   const archived = useChannelArchived(message.channel_id);
   const isOwn = currentUserId === message.user_id;
@@ -262,6 +265,41 @@ function MessageItem({
       )
     ) : null;
 
+  const sender = (
+    <>
+      <UserHoverCard userId={message.user_id} name={senderName} avatarUrl={senderAvatarUrl}>
+        <button
+          type="button"
+          data-qa="message-sender"
+          className="text-sm font-semibold text-fg-soft hover:underline cursor-pointer"
+        >
+          {senderName}
+        </button>
+      </UserHoverCard>
+      {senderStatusEmoji && (
+        <span data-qa="message-status-emoji" title={senderStatusText ?? undefined}>
+          <ReactionEmoji emoji={senderStatusEmoji} />
+        </span>
+      )}
+      {message.metadata?.bot && (
+        <span
+          data-qa="bot-tag"
+          className="px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-raised text-fg-dim rounded"
+        >
+          {message.metadata.bot.workflow_id ? 'Workflow' : 'Bot'}
+        </span>
+      )}
+      {!message.metadata?.bot && senderIsApp && (
+        <span
+          data-qa="app-tag"
+          className="px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-raised text-fg-dim rounded"
+        >
+          App
+        </span>
+      )}
+    </>
+  );
+
   return (
     <>
       <div
@@ -281,9 +319,16 @@ function MessageItem({
           e.preventDefault();
           onMarkUnread(message.id);
         }}
-        className={`group relative flex items-start gap-3 px-2 rounded-lg transition-colors hover:bg-surface/50 focus-visible:outline-none focus-visible:bg-surface/50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500 ${grouped ? 'py-0.5' : 'py-1.5'} ${message.pending ? 'opacity-50' : ''} ${isHighlighted ? 'bg-amber-500/10 ring-1 ring-inset ring-amber-500/25' : ''}`}
+        className={`group relative flex items-start gap-3 px-2 rounded-lg transition-colors hover:bg-surface/50 focus-visible:outline-none focus-visible:bg-surface/50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500 ${stacked || compact ? 'py-0.5' : 'py-1.5'} ${message.pending ? 'opacity-50' : ''} ${isHighlighted ? 'bg-amber-500/10 ring-1 ring-inset ring-amber-500/25' : ''}`}
       >
-        {grouped ? (
+        {compact ? (
+          <span
+            data-qa="message-time"
+            className="w-12 shrink-0 text-right text-xs leading-5 text-muted tabular-nums"
+          >
+            {time}
+          </span>
+        ) : stacked ? (
           <div className="w-8 shrink-0 flex justify-end pr-0.5">
             <span className="text-[10px] leading-5 text-muted opacity-0 group-hover:opacity-100 tabular-nums">
               {time}
@@ -305,38 +350,18 @@ function MessageItem({
           </UserHoverCard>
         )}
         <div className="flex-1 min-w-0">
-          {!grouped && (
+          {compact && !editing && (
+            <span
+              data-qa="message-compact-sender"
+              className="float-left mr-2 inline-flex items-baseline gap-2"
+            >
+              {sender}
+              {message.pending && <span className="text-xs text-muted italic">Sending…</span>}
+            </span>
+          )}
+          {!stacked && !compact && (
             <div className="flex items-baseline gap-2">
-              <UserHoverCard userId={message.user_id} name={senderName} avatarUrl={senderAvatarUrl}>
-                <button
-                  type="button"
-                  data-qa="message-sender"
-                  className="text-sm font-semibold text-fg-soft hover:underline cursor-pointer"
-                >
-                  {senderName}
-                </button>
-              </UserHoverCard>
-              {senderStatusEmoji && (
-                <span data-qa="message-status-emoji" title={senderStatusText ?? undefined}>
-                  <ReactionEmoji emoji={senderStatusEmoji} />
-                </span>
-              )}
-              {message.metadata?.bot && (
-                <span
-                  data-qa="bot-tag"
-                  className="px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-raised text-fg-dim rounded"
-                >
-                  {message.metadata.bot.workflow_id ? 'Workflow' : 'Bot'}
-                </span>
-              )}
-              {!message.metadata?.bot && senderIsApp && (
-                <span
-                  data-qa="app-tag"
-                  className="px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-raised text-fg-dim rounded"
-                >
-                  App
-                </span>
-              )}
+              {sender}
               <span className="text-xs text-muted">{time}</span>
               {message.pending && <span className="text-xs text-muted italic">Sending…</span>}
               {pinnedMarker}
@@ -357,10 +382,10 @@ function MessageItem({
               currentUserId={currentUserId}
               pollKeyVote={pollKeyVote}
               markers={
-                editedMarker || (grouped && pinnedMarker) ? (
+                editedMarker || ((stacked || compact) && pinnedMarker) ? (
                   <span className="inline-flex items-center gap-2">
                     {editedMarker}
-                    {grouped && pinnedMarker}
+                    {(stacked || compact) && pinnedMarker}
                   </span>
                 ) : undefined
               }

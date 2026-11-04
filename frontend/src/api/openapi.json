@@ -5053,6 +5053,52 @@
         }
       }
     },
+    "/users/me/preferences": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "operationId": "get_preferences",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Preferences"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "users"
+        ],
+        "operationId": "update_preferences",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePreferences"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Preferences"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/users/me/presence": {
       "put": {
         "tags": [
@@ -10515,6 +10561,14 @@
           }
         }
       },
+      "ColourMode": {
+        "type": "string",
+        "enum": [
+          "system",
+          "light",
+          "dark"
+        ]
+      },
       "ColumnChangePreview": {
         "type": "object",
         "required": [
@@ -13829,6 +13883,13 @@
           }
         }
       },
+      "Density": {
+        "type": "string",
+        "enum": [
+          "clean",
+          "compact"
+        ]
+      },
       "DirectoryChannel": {
         "type": "object",
         "required": [
@@ -16358,6 +16419,30 @@
           "moderators"
         ]
       },
+      "Preferences": {
+        "type": "object",
+        "properties": {
+          "colour_mode": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ColourMode"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "density": {
+            "$ref": "#/components/schemas/Density",
+            "default": "clean"
+          },
+          "previews": {
+            "$ref": "#/components/schemas/Previews",
+            "default": "shown"
+          }
+        }
+      },
       "Presence": {
         "type": "object",
         "required": [
@@ -16368,6 +16453,13 @@
             "type": "boolean"
           }
         }
+      },
+      "Previews": {
+        "type": "string",
+        "enum": [
+          "shown",
+          "collapsed"
+        ]
       },
       "Provider": {
         "type": "string",
@@ -18381,6 +18473,42 @@
             "type": "string"
           }
         }
+      },
+      "UpdatePreferences": {
+        "type": "object",
+        "properties": {
+          "colour_mode": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ColourMode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "density": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Density"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "previews": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Previews"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
       },
       "UpdateProfileRequest": {
         "type": "object",

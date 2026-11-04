@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE users SET preferences = preferences || $2\n             WHERE id = $1\n            RETURNING preferences AS \"preferences!: Json<Preferences>\"\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "preferences!: Json<Preferences>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "preferences"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Jsonb"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "5ca148cecf4fdda52cfd16c2dd9edd44d252fef80aaa1da88728680d0738ef2f"
+}

@@ -110,6 +110,7 @@ test('preferences open from the You menu and show one section at a time', async 
     await page.getByRole('tab', { name: 'Security' }).click();
     await expect(page.getByTestId('two-factor')).toBeVisible();
   } finally {
+    await alice.patch(`${API}/users/me/preferences`, { data: { colour_mode: 'system' } });
     await alice.dispose();
   }
 });
