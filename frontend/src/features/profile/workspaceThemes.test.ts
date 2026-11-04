@@ -105,7 +105,7 @@ describe('workspace themes', () => {
 
   it('names the colours whose text cannot be read', () => {
     expect(unreadable(aubergine)).toEqual([]);
-    expect(unreadable({ ...aubergine, selected: '#888888' })).toEqual(['selected']);
+    expect(unreadable({ ...aubergine, selected: '#797979' })).toEqual(['selected']);
   });
 
   it.each([1, 2, 3, 42, 1234, 99999])('surprises with readable colours (seed %i)', (seed) => {
