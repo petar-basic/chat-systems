@@ -11,7 +11,21 @@ ticket in [`docs/tickets/`](./tickets/INDEX.md); a ticket's file is deleted when
 workspace, custom and shared themes that also colour the desktop window, preferences kept on
 the server instead of in one browser, Enter to send or for a new line, time zones with local
 time on profiles, a title and pronouns on the profile, and a text size and typeface of your
-own.
+own. It goes out as 4.2.0.
+
+Planned after it on 2026-11-04, one release each:
+
+- **Wave 31 — signing in**, 4.3.0 (CS-118, CS-119): passkeys, and a code sent by email in
+  place of a password.
+- **Wave 32 — what an admin can see**, 4.4.0 (CS-120, CS-121): workspace and channel
+  analytics, and quiet channels to archive.
+- **Wave 33 — mobile apps**, 5.0.0 (CS-122 – CS-126): every route under `/api/v1`, a spike
+  for Tauri 2 on iOS and Android, signing in from a bundled client, the apps, and a push
+  relay. The major version is for `/api/v1`, which changes every pasted webhook URL.
+
+Left for much later, decided the same day: channels shared with another server (Slack
+Connect), recorded audio and video clips, and AI summaries and answers. Each is large on
+its own, and none is asked for by a team using the app today.
 
 **Wave 29 — a desktop app** shipped in 4.1.0: CS-106 to CS-110, planned on 2026-11-02 in [native-apps-plan.md](./native-apps-plan.md). One app we
 publish opens any server, built on Tauri 2 around each server's own web app, and updates
@@ -25,7 +39,8 @@ trying it would, and shipped in 3.4.0. Wave 25, raised on 2026-10-27 after 3.4.2
 3.5.0. Wave 26, the findings of the 2026-10-27 product survey, shipped in 3.6.0, and Wave 27, from
 the 2026-10-28 survey of 3.6.0, in 3.7.0. Wave 28 shipped in 4.0.0, and after it releases carry bug fixes only for a while: no new
 feature work until the fixes have settled. Two decisions were considered on 2026-09-02 and deferred
-with their reasoning below: versioning the API path and asymmetric JWT signing.
+with their reasoning below: versioning the API path, now planned as CS-122, and asymmetric JWT
+signing.
 
 ## How the order was chosen
 
@@ -112,9 +127,7 @@ was pencilled in for it was absorbed into 9 and 11.
   diacritic folding, and it should not be smuggled in with it.
 - **SCIM `/Groups`.** `/Users` delivers the whole offboarding value; groups are where SCIM
   implementations go to die. Add only on request.
-- **Versioning the API path (`/api/v1`).** Considered 2026-09-02 and deferred. It would
-  break every incoming-webhook URL already pasted into somebody's CI, and touch nginx,
-  Caddy, the E2E helpers and every route table in `docs/backend.md`, for a benefit that
-  only materialises when a second, incompatible version exists. The OpenAPI document is
-  the contract in the meantime; revisit when a breaking API change is actually planned,
-  and do the version bump as part of it.
+- **Versioning the API path (`/api/v1`).** Considered 2026-09-02 and deferred, because it
+  breaks every incoming-webhook URL already pasted into somebody's CI for a benefit that
+  only comes with a client of another version. The phone apps are that client, so it is
+  now CS-122, in 5.0.0.
