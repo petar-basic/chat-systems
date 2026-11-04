@@ -74,11 +74,15 @@ The banner and the badge are exactly what CS-108 bridges, so nothing changes in 
 
 ## Mobile, later
 
-Not ticketed yet. What it needs that desktop does not:
+Ticketed on 2026-11-04 as Wave 33 (CS-122 – CS-126), for 5.0.0. Decided that day to build
+the phone apps on Tauri 2 too, as iOS and Android targets of the desktop project, if the
+spike (CS-123) finds that a huddle holds in the phone's webview and that a Tauri plugin can
+receive a push; Capacitor around the same React client is the way around it if not. What
+mobile needs that desktop does not:
 
 - **A bundled frontend.** A store app that only loads a remote page is likely to be rejected
-  in review, so the app carries its own copy of the web client (Capacitor around the existing React app; React
-  Native would mean writing the UI again). A bundled client talks to servers of other
+  in review, so the app carries its own copy of the web client (React Native would mean
+  writing the UI again). A bundled client talks to servers of other
   versions, so the API needs a compatibility policy first: this is when the deferred
   `/api/v1` decision in the [roadmap](./ROADMAP.md) comes back.
 - **A push relay.** APNs and FCM accept notifications only from the app's publisher, so a
@@ -93,5 +97,5 @@ Not ticketed yet. What it needs that desktop does not:
 - **Code signing.** Who holds the Apple Developer account (99 $ a year, also needed for
   iOS) and the Windows certificate (Azure Trusted Signing, around 10 $ a month), and when.
   Nothing in Wave 29 waits on it.
-- **The push relay.** Whether the project runs one. Without it, mobile stays the PWA on
+- **The push relay** (CS-126). Whether the project runs one. Without it, mobile stays the PWA on
   iOS and an Android build that receives push through the instance itself.
