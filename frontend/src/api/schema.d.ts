@@ -4428,6 +4428,8 @@ export interface components {
             name: string;
             url: string;
         };
+        /** @enum {string} */
+        EnterKey: "send" | "newline";
         EraseRequest: {
             /**
              * @description Anonymise by default. Hard-deleting one participant's messages makes
@@ -5063,6 +5065,8 @@ export interface components {
         };
         /** @enum {string} */
         NumberStyle: "plain" | "percent" | "currency";
+        /** @enum {string} */
+        OpenChannelAt: "where_left" | "newest";
         OptionVoters: {
             /** Format: uuid */
             option_id: string;
@@ -5114,6 +5118,10 @@ export interface components {
             colour_mode: components["schemas"]["ColourMode"] | null;
             /** @default clean */
             density: components["schemas"]["Density"];
+            /** @default send */
+            enter_key: components["schemas"]["EnterKey"];
+            /** @default where_left */
+            open_channel_at: components["schemas"]["OpenChannelAt"];
             /** @default shown */
             previews: components["schemas"]["Previews"];
         };
@@ -5655,6 +5663,8 @@ export interface components {
         UpdatePreferences: {
             colour_mode?: components["schemas"]["ColourMode"] | null;
             density?: components["schemas"]["Density"] | null;
+            enter_key?: components["schemas"]["EnterKey"] | null;
+            open_channel_at?: components["schemas"]["OpenChannelAt"] | null;
             previews?: components["schemas"]["Previews"] | null;
         };
         UpdateProfileRequest: {

@@ -17,6 +17,7 @@ import {
 import { useOpenMessage } from './hooks/useMessageLocation';
 import { useUnsent, withUnsent } from '@/stores/unsent';
 import { useUserCache } from '@/stores/users';
+import { useDisplayStore } from '@/stores/display';
 import { displayNameOf } from '@/lib/userHelpers';
 import { useMessageActions } from './hooks/useMessageActions';
 import { formatDaySeparator } from './messageGrouping';
@@ -98,6 +99,7 @@ export default function MessageList({
   const [readBoundary, setReadBoundary] = useState<ReadBoundary | null | undefined>(undefined);
   const [boundaryChannel, setBoundaryChannel] = useState<string | null>(null);
   const [landed, setLanded] = useState(false);
+  const openAtNewest = useDisplayStore((s) => s.openChannelAt === 'newest');
   if (boundaryChannel !== channelId) {
     setBoundaryChannel(channelId);
     setLanded(false);
@@ -116,11 +118,12 @@ export default function MessageList({
     );
   }
 
-  const rows = useMemo(() => buildMessageRows(messages, readBoundary?.id), [messages, readBoundary]);
+  const boundary = openAtNewest ? null : readBoundary;
+  const rows = useMemo(() => buildMessageRows(messages, boundary?.id), [messages, boundary]);
   const dividerKey = rows.find((row) => row.kind === 'unread')?.key;
 
-  const landing = !landed && !highlightMessageId && !!readBoundary && !!data && !isFetching;
-  const reached = landing && boundaryReached(messages, readBoundary);
+  const landing = !landed && !highlightMessageId && !!boundary && !!data && !isFetching;
+  const reached = landing && boundaryReached(messages, boundary);
   if (landing && (dividerKey || reached)) {
     setLanded(true);
     if (dividerKey) setScrollTarget(dividerKey);

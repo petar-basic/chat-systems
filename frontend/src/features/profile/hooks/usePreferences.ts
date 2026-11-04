@@ -49,7 +49,13 @@ export function usePreferencesSync() {
   const show = useDisplayStore((s) => s.show);
 
   useEffect(() => {
-    if (data) show({ density: data.density, previews: data.previews });
+    if (data)
+      show({
+        density: data.density,
+        previews: data.previews,
+        enterKey: data.enter_key,
+        openChannelAt: data.open_channel_at,
+      });
   }, [data, show]);
 
   const followColourMode = useEffectEvent((saved: Preferences['colour_mode'] | undefined) => {

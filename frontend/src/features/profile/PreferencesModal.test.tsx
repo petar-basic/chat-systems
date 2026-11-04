@@ -30,6 +30,10 @@ vi.mock('@/features/profile/AccountPanel', () => ({ default: () => <div data-qa=
 vi.mock('@/features/profile/MessagesMediaPanel', () => ({
   default: () => <div data-qa="messages-media-panel" />,
 }));
+vi.mock('@/features/profile/MarkAsReadPanel', () => ({
+  default: () => <div data-qa="mark-as-read-panel" />,
+}));
+vi.mock('@/features/profile/AdvancedPanel', () => ({ default: () => <div data-qa="advanced-panel" /> }));
 
 const selected = () => screen.getByRole('tab', { selected: true });
 
@@ -62,6 +66,10 @@ describe('PreferencesModal', () => {
     expect(screen.getByTestId('messages-media-panel')).toBeInTheDocument();
 
     fireEvent.keyDown(list, { key: 'ArrowDown' });
+    expect(selected()).toHaveTextContent('Mark as read');
+    expect(screen.getByTestId('mark-as-read-panel')).toBeInTheDocument();
+
+    fireEvent.keyDown(list, { key: 'ArrowDown' });
     expect(selected()).toHaveTextContent('Account');
     expect(screen.getByTestId('account-panel')).toBeInTheDocument();
 
@@ -69,10 +77,14 @@ describe('PreferencesModal', () => {
     expect(selected()).toHaveTextContent('Security');
 
     fireEvent.keyDown(list, { key: 'ArrowDown' });
+    expect(selected()).toHaveTextContent('Advanced');
+    expect(screen.getByTestId('advanced-panel')).toBeInTheDocument();
+
+    fireEvent.keyDown(list, { key: 'ArrowDown' });
     expect(selected()).toHaveTextContent('Notifications');
 
     fireEvent.keyDown(list, { key: 'End' });
-    expect(selected()).toHaveTextContent('Security');
+    expect(selected()).toHaveTextContent('Advanced');
 
     fireEvent.keyDown(list, { key: 'Home' });
     expect(selected()).toHaveTextContent('Notifications');

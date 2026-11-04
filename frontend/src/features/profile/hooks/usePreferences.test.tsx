@@ -19,6 +19,14 @@ vi.mock('@/stores/workspace', () => ({
     select({ currentWorkspace: { id: 'w-1', instanceUrl: 'http://chat.test' } }),
 }));
 
+const DEFAULTS = {
+  colour_mode: null,
+  density: 'clean',
+  previews: 'shown',
+  enter_key: 'send',
+  open_channel_at: 'where_left',
+};
+
 function run() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const wrapper = ({ children }: { children: ReactNode }) => (
@@ -32,14 +40,19 @@ describe('usePreferencesSync', () => {
     get.mockReset();
     patch.mockReset();
     patch.mockImplementation(async (_path: string, { body }: { body: object }) => ({
-      data: { colour_mode: null, density: 'clean', previews: 'shown', ...body },
+      data: { ...DEFAULTS, ...body },
     }));
     useThemeStore.getState().setMode('light');
-    useDisplayStore.setState({ density: 'clean', previews: 'shown' });
+    useDisplayStore.setState({
+      density: 'clean',
+      previews: 'shown',
+      enterKey: 'send',
+      openChannelAt: 'where_left',
+    });
   });
 
   it('writes the colour mode this browser had to the server once', async () => {
-    get.mockResolvedValue({ data: { colour_mode: null, density: 'clean', previews: 'shown' } });
+    get.mockResolvedValue({ data: DEFAULTS });
     run();
 
     await waitFor(() =>
@@ -50,11 +63,24 @@ describe('usePreferencesSync', () => {
   });
 
   it('follows the colour mode and display settings kept on the server', async () => {
-    get.mockResolvedValue({ data: { colour_mode: 'dark', density: 'compact', previews: 'collapsed' } });
+    get.mockResolvedValue({
+      data: {
+        colour_mode: 'dark',
+        density: 'compact',
+        previews: 'collapsed',
+        enter_key: 'newline',
+        open_channel_at: 'newest',
+      },
+    });
     run();
 
     await waitFor(() => expect(useThemeStore.getState().mode).toBe('dark'));
-    expect(useDisplayStore.getState()).toMatchObject({ density: 'compact', previews: 'collapsed' });
+    expect(useDisplayStore.getState()).toMatchObject({
+      density: 'compact',
+      previews: 'collapsed',
+      enterKey: 'newline',
+      openChannelAt: 'newest',
+    });
     expect(patch).not.toHaveBeenCalled();
   });
 });

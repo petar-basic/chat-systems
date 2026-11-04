@@ -14018,6 +14018,13 @@
           }
         }
       },
+      "EnterKey": {
+        "type": "string",
+        "enum": [
+          "send",
+          "newline"
+        ]
+      },
       "EraseRequest": {
         "type": "object",
         "properties": {
@@ -16273,6 +16280,13 @@
           "currency"
         ]
       },
+      "OpenChannelAt": {
+        "type": "string",
+        "enum": [
+          "where_left",
+          "newest"
+        ]
+      },
       "OptionVoters": {
         "type": "object",
         "required": [
@@ -16436,6 +16450,14 @@
           "density": {
             "$ref": "#/components/schemas/Density",
             "default": "clean"
+          },
+          "enter_key": {
+            "$ref": "#/components/schemas/EnterKey",
+            "default": "send"
+          },
+          "open_channel_at": {
+            "$ref": "#/components/schemas/OpenChannelAt",
+            "default": "where_left"
           },
           "previews": {
             "$ref": "#/components/schemas/Previews",
@@ -18491,6 +18513,26 @@
             "oneOf": [
               {
                 "$ref": "#/components/schemas/Density"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "enter_key": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/EnterKey"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "open_channel_at": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/OpenChannelAt"
               },
               {
                 "type": "null"

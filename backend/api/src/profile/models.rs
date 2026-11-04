@@ -99,12 +99,30 @@ pub enum Previews {
     Collapsed,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum EnterKey {
+    #[default]
+    Send,
+    Newline,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum OpenChannelAt {
+    #[default]
+    WhereLeft,
+    Newest,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, ToSchema)]
 #[serde(default)]
 pub struct Preferences {
     pub colour_mode: Option<ColourMode>,
     pub density: Density,
     pub previews: Previews,
+    pub enter_key: EnterKey,
+    pub open_channel_at: OpenChannelAt,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -116,4 +134,8 @@ pub struct UpdatePreferences {
     pub density: Option<Density>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub previews: Option<Previews>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enter_key: Option<EnterKey>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub open_channel_at: Option<OpenChannelAt>,
 }
