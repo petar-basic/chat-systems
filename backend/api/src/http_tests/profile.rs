@@ -561,7 +561,7 @@ async fn preferences_start_at_their_defaults_and_keep_what_is_set(pool: PgPool) 
             "previews": "shown",
             "enter_key": "send",
             "open_channel_at": "where_left",
-            "language": null,
+            "language": "browser",
             "clock": "h24"
         })
     );
@@ -608,7 +608,7 @@ async fn preferences_start_at_their_defaults_and_keep_what_is_set(pool: PgPool) 
             "previews": "collapsed",
             "enter_key": "newline",
             "open_channel_at": "newest",
-            "language": null,
+            "language": "browser",
             "clock": "h24"
         })
     );
@@ -625,7 +625,7 @@ async fn preferences_start_at_their_defaults_and_keep_what_is_set(pool: PgPool) 
             "previews": "shown",
             "enter_key": "send",
             "open_channel_at": "where_left",
-            "language": null,
+            "language": "browser",
             "clock": "h24"
         }),
         "each account has its own"

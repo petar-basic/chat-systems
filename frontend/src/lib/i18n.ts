@@ -1,9 +1,12 @@
 import i18n, { type InitOptions } from 'i18next';
 import { initReactI18next } from 'react-i18next';
+import { logger } from '@/lib/logger';
 import enAuth from '@/locales/en/auth.json';
 import enProfile from '@/locales/en/profile.json';
 import jaAuth from '@/locales/ja/auth.json';
 import jaProfile from '@/locales/ja/profile.json';
+
+const STORAGE_KEY = 'chat_language';
 
 export const LANGUAGES = ['en', 'ja'] as const;
 export type Language = (typeof LANGUAGES)[number];
@@ -36,6 +39,24 @@ function browserLanguages(): readonly string[] {
   return navigator.languages?.length ? navigator.languages : [navigator.language];
 }
 
+function storedLanguage(): Language | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return isLanguage(raw) ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+function remember(language: Language | null) {
+  try {
+    if (language) localStorage.setItem(STORAGE_KEY, language);
+    else localStorage.removeItem(STORAGE_KEY);
+  } catch (err) {
+    logger.error('i18n', 'remember', err);
+  }
+}
+
 export const i18nOptions = {
   resources,
   fallbackLng: 'en',
@@ -45,7 +66,9 @@ export const i18nOptions = {
   interpolation: { escapeValue: false },
 } satisfies InitOptions;
 
-void i18n.use(initReactI18next).init({ ...i18nOptions, lng: preferredLanguage(browserLanguages()) });
+void i18n
+  .use(initReactI18next)
+  .init({ ...i18nOptions, lng: storedLanguage() ?? preferredLanguage(browserLanguages()) });
 
 function markDocument(language: string) {
   if (typeof document !== 'undefined') document.documentElement.lang = language;
@@ -55,7 +78,9 @@ markDocument(i18n.language);
 i18n.on('languageChanged', markDocument);
 
 export function applyLanguage(chosen: unknown): Promise<unknown> {
-  const language = isLanguage(chosen) ? chosen : preferredLanguage(browserLanguages());
+  const kept = isLanguage(chosen) ? chosen : null;
+  remember(kept);
+  const language = kept ?? preferredLanguage(browserLanguages());
   if (i18n.language === language) return Promise.resolve();
   return i18n.changeLanguage(language);
 }

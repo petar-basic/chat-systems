@@ -16487,15 +16487,8 @@
             "default": "send"
           },
           "language": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/Language"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null
+            "$ref": "#/components/schemas/Language",
+            "default": "browser"
           },
           "open_channel_at": {
             "$ref": "#/components/schemas/OpenChannelAt",

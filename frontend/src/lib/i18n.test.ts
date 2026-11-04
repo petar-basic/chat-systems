@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { createInstance } from 'i18next';
 import i18n, { LANGUAGES, applyLanguage, i18nOptions, preferredLanguage, resources } from './i18n';
 
@@ -8,9 +8,31 @@ function keys(tree: object, prefix = ''): string[] {
   );
 }
 
+const KEPT = 'chat_language';
+
+const HOSTILE = [
+  '',
+  'browser',
+  'xx',
+  'ja-JP',
+  'JA',
+  ' ja',
+  '"ja"',
+  '<b>ja</b>',
+  "ja'; DROP TABLE users; --",
+  'j'.repeat(10_000),
+];
+
 afterEach(async () => {
+  vi.restoreAllMocks();
+  localStorage.clear();
   await i18n.changeLanguage('en');
 });
+
+async function startFresh() {
+  vi.resetModules();
+  return (await import('./i18n')).default;
+}
 
 describe('preferredLanguage', () => {
   it('takes the first browser language it has, by its base tag', () => {
@@ -47,9 +69,50 @@ describe('applyLanguage', () => {
       { ja: true },
     ]) {
       await i18n.changeLanguage('ja');
+      localStorage.setItem(KEPT, 'ja');
       await applyLanguage(chosen);
       expect(i18n.language, JSON.stringify(chosen)).toBe('en');
+      expect(localStorage.getItem(KEPT), JSON.stringify(chosen)).toBeNull();
     }
+  });
+
+  it('keeps the language it switched to on this device', async () => {
+    await applyLanguage('ja');
+    expect(localStorage.getItem(KEPT)).toBe('ja');
+  });
+
+  it('still switches when this device keeps nothing', async () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('quota');
+    });
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    await applyLanguage('ja');
+    expect(i18n.language).toBe('ja');
+  });
+});
+
+describe('starting up', () => {
+  it('starts in the language this device kept', async () => {
+    localStorage.setItem(KEPT, 'ja');
+    expect((await startFresh()).language).toBe('ja');
+  });
+
+  it('follows the browser when this device kept nothing', async () => {
+    expect((await startFresh()).language).toBe('en');
+  });
+
+  it('follows the browser for a kept value it does not know', async () => {
+    for (const kept of HOSTILE) {
+      localStorage.setItem(KEPT, kept);
+      expect((await startFresh()).language, kept.slice(0, 20)).toBe('en');
+    }
+  });
+
+  it('follows the browser when this device cannot be read', async () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    expect((await startFresh()).language).toBe('en');
   });
 });
 
