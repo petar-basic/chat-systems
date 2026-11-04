@@ -23,7 +23,9 @@ in 3.5.0. Wave 26, which fixes what the 2026-10-27 product survey found, shipped
 Wave 27, which fixes what the 2026-10-28 survey of 3.6.0 found, shipped in 3.7.0. Wave 28, the
 feedback on 3.7.0 and CS-037, shipped in 4.0.0.
 After it, releases are bug fixes only for a while. Wave 29, a desktop app, shipped in 4.1.0. Wave 30,
-themes per workspace and the preferences a team from Slack looks for, is open.
+themes per workspace and the preferences a team from Slack looks for, is open and goes out as
+4.2.0. Waves 31 (signing in, 4.3.0), 32 (analytics, 4.4.0) and 33 (mobile apps, 5.0.0) are
+planned.
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
@@ -388,6 +390,41 @@ CS-116 stands alone.
 | CS-116 | Title and pronouns on the profile | backend · frontend |
 | CS-117 | Text size and typeface | frontend · backend |
 
+### Wave 31 — Signing in
+
+Planned on 2026-11-04, to go out as 4.3.0. Ways to sign in without a password, done before
+the phone apps so those start with them. Passkeys come first because the emailed code takes
+the same second step after it.
+
+| # | Ticket | Area |
+|---|---|---|
+| CS-118 | Passkeys | backend · frontend · desktop |
+| CS-119 | Sign in with a code sent by email | backend · frontend |
+
+### Wave 32 — What an admin can see
+
+Planned on 2026-11-04, to go out as 4.4.0. The numbers an admin is asked for: who uses the
+workspace, which channels carry the work, and which ones nobody posts in any more.
+
+| # | Ticket | Area |
+|---|---|---|
+| CS-120 | Workspace analytics | backend · frontend |
+| CS-121 | Channel analytics and quiet channels | backend · frontend |
+
+### Wave 33 — Mobile apps
+
+Planned on 2026-11-04, to go out as 5.0.0, the major version because CS-122 moves every
+route under `/api/v1`. Phone apps on Tauri 2, like the desktop app, if the spike (CS-123)
+says a huddle and a push work there; the push relay waits on who runs it.
+
+| # | Ticket | Area |
+|---|---|---|
+| CS-122 | `/api/v1`, and a client and a server that know each other's version | backend · frontend · ops · docs |
+| CS-123 | Does a Tauri phone app hold a huddle and receive a push? | mobile |
+| CS-124 | Signing in from a client the server does not serve | backend · frontend · mobile |
+| CS-125 | Phone apps for iOS and Android | mobile · frontend · ops |
+| CS-126 | A push relay for phones | backend · mobile · ops |
+
 ## Conflict map
 
 Tickets that touch the same files, and the order that avoids rework:
@@ -434,5 +471,11 @@ Tickets that touch the same files, and the order that avoids rework:
 | sidebar tokens and *Preferences → Appearance* | CS-111 → CS-112 |
 | `workspace_members` profile columns | CS-111 → CS-116 |
 | `users.preferences` and the *Preferences* tabs | CS-113 → CS-114 → CS-115 → CS-117 |
+| sign-in page, `auth/routes.rs` login and the second step | CS-118 → CS-119 → CS-124 |
+| *Preferences → Security* | CS-118 |
+| worker rollups and *Workspace settings → Analytics* | CS-120 → CS-121 |
+| route prefixes, nginx, Caddy and the E2E helpers | CS-122 |
+| `/auth/oidc/exchange` and the deep link | CS-109 ✅ → CS-118 → CS-124 → CS-125 |
+| the Tauri project's mobile targets | CS-123 → CS-125 → CS-126 |
 | `MessageInput.tsx` key handling | CS-114 |
 | desktop `report_theme` | CS-112 |
