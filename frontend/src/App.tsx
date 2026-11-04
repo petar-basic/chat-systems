@@ -13,6 +13,7 @@ import { HuddleController } from '@/features/huddle';
 import { logger } from '@/lib/logger';
 import { isSessionExpired } from '@/lib/errors';
 import { registerWorker } from '@/lib/push';
+import { applyLanguage } from '@/lib/i18n';
 
 const Router = BrowserRouter;
 
@@ -72,6 +73,11 @@ function AppContent() {
   }, []);
 
   useWebSocketQuerySync();
+
+  const signedIn = instances.length > 0;
+  useEffect(() => {
+    if (hydrated && !signedIn) void applyLanguage(null);
+  }, [hydrated, signedIn]);
 
   if (!hydrated) {
     return <SplashScreen />;

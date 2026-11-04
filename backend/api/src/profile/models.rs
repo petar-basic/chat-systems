@@ -115,6 +115,14 @@ pub enum OpenChannelAt {
     Newest,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Language {
+    Browser,
+    En,
+    Ja,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, ToSchema)]
 #[serde(default)]
 pub struct Preferences {
@@ -123,6 +131,7 @@ pub struct Preferences {
     pub previews: Previews,
     pub enter_key: EnterKey,
     pub open_channel_at: OpenChannelAt,
+    pub language: Option<Language>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -138,4 +147,6 @@ pub struct UpdatePreferences {
     pub enter_key: Option<EnterKey>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub open_channel_at: Option<OpenChannelAt>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub language: Option<Language>,
 }

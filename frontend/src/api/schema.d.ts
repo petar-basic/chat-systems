@@ -4751,6 +4751,8 @@ export interface components {
         KeywordList: {
             keywords: string[];
         };
+        /** @enum {string} */
+        Language: "browser" | "en" | "ja";
         LastRun: {
             /** Format: date-time */
             started_at: string;
@@ -5120,6 +5122,8 @@ export interface components {
             density: components["schemas"]["Density"];
             /** @default send */
             enter_key: components["schemas"]["EnterKey"];
+            /** @default null */
+            language: components["schemas"]["Language"] | null;
             /** @default where_left */
             open_channel_at: components["schemas"]["OpenChannelAt"];
             /** @default shown */
@@ -5664,6 +5668,7 @@ export interface components {
             colour_mode?: components["schemas"]["ColourMode"] | null;
             density?: components["schemas"]["Density"] | null;
             enter_key?: components["schemas"]["EnterKey"] | null;
+            language?: components["schemas"]["Language"] | null;
             open_channel_at?: components["schemas"]["OpenChannelAt"] | null;
             previews?: components["schemas"]["Previews"] | null;
         };
