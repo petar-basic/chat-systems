@@ -1,3 +1,5 @@
+import { formatClock } from './datetime';
+
 export interface DndState {
   dnd_until?: string | null;
   schedule_paused_until?: string | null;
@@ -37,7 +39,7 @@ export function currentPause(state: DndState | null | undefined, now = Date.now(
 
 export function formatResume(iso: string, now = new Date()): string {
   const at = new Date(iso);
-  const time = at.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const time = formatClock(at, { hour: 'numeric', minute: '2-digit' });
   if (at.toDateString() === now.toDateString()) return time;
   return `${at.toLocaleDateString([], { weekday: 'short' })} ${time}`;
 }

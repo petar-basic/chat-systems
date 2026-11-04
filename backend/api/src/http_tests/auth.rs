@@ -68,6 +68,65 @@ async fn update_me_updates_profile(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn a_new_account_has_no_timezone_until_one_is_set_and_members_show_it(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (id, _email, token) = seed_and_login(&app, &state, "tz-new", false).await;
+    let ws_id = seed_workspace(&state, id, "Zones").await;
+
+    let (_, me) = send(&app, "GET", "/api/users/me", Some(&token), None).await;
+    assert_eq!(me["timezone"], serde_json::Value::Null);
+
+    let (status, body) = send(
+        &app,
+        "PATCH",
+        "/api/users/me",
+        Some(&token),
+        Some(json!({ "timezone": "Asia/Tokyo" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+
+    let (_, members) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws_id}/members"),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_eq!(members["data"][0]["timezone"], "Asia/Tokyo");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_unknown_timezone_is_refused(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (_id, _email, token) = seed_and_login(&app, &state, "tz-unknown", false).await;
+
+    for timezone in ["Mars/Olympus_Mons", "Europe/Atlantis", "utc+25"] {
+        let (status, body) = send(
+            &app,
+            "PATCH",
+            "/api/users/me",
+            Some(&token),
+            Some(json!({ "timezone": timezone })),
+        )
+        .await;
+        assert_eq!(
+            status,
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "{timezone}: {body:?}"
+        );
+    }
+
+    let (_, me) = send(&app, "GET", "/api/users/me", Some(&token), None).await;
+    assert_eq!(
+        me["timezone"],
+        serde_json::Value::Null,
+        "nothing refused was saved"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn update_me_sets_clears_and_rejects_avatar_urls(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, _email, token) = seed_and_login(&app, &state, "avatar", false).await;

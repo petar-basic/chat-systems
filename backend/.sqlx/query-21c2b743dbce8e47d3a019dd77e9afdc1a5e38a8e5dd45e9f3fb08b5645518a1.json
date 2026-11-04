@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, email, password_hash, display_name, avatar_url, bio, timezone AS \"timezone!\",\n                   status AS \"status: UserStatus\",\n                   is_instance_admin AS \"is_instance_admin!\", created_at, updated_at\n                 FROM users WHERE id = $1",
+  "query": "SELECT id, email, password_hash, display_name, avatar_url, bio, timezone,\n                   status AS \"status: UserStatus\",\n                   is_instance_admin AS \"is_instance_admin!\", created_at, updated_at\n                 FROM users WHERE id = $1",
   "describe": {
     "columns": [
       {
@@ -71,7 +71,7 @@
       },
       {
         "ordinal": 6,
-        "name": "timezone!",
+        "name": "timezone",
         "type_info": "Varchar",
         "origin": {
           "Table": {
@@ -155,5 +155,5 @@
       false
     ]
   },
-  "hash": "78da4ad6d66999b3d41cbad1b95ac8ae36ef55f98f262184913b784b51dae192"
+  "hash": "21c2b743dbce8e47d3a019dd77e9afdc1a5e38a8e5dd45e9f3fb08b5645518a1"
 }

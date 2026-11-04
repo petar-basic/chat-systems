@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, email, password_hash, display_name, avatar_url, bio, timezone AS \"timezone!\",\n                   status AS \"status: UserStatus\",\n                   is_instance_admin AS \"is_instance_admin!\", created_at, updated_at\n                 FROM users WHERE email = lower($1) AND NOT is_bot",
+  "query": "\n            INSERT INTO users (email, display_name, status)\n            VALUES (lower($1::text), split_part($1::text, '@', 1), 'active')\n            RETURNING id, email, password_hash, display_name, avatar_url, bio, timezone,\n                   status AS \"status: UserStatus\",\n                   is_instance_admin AS \"is_instance_admin!\", created_at, updated_at\n            ",
   "describe": {
     "columns": [
       {
@@ -71,7 +71,7 @@
       },
       {
         "ordinal": 6,
-        "name": "timezone!",
+        "name": "timezone",
         "type_info": "Varchar",
         "origin": {
           "Table": {
@@ -155,5 +155,5 @@
       false
     ]
   },
-  "hash": "e4d22f5e79969bb9308f03384e28a47ad439ee55322ea0e6ef0d853c764d405a"
+  "hash": "f05d0e488a604a300f6cad7213652a7c5f8a7667305ce72185ff8b36a6f4e941"
 }

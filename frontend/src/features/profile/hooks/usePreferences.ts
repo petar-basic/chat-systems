@@ -56,6 +56,7 @@ export function usePreferencesSync() {
         previews: data.previews,
         enterKey: data.enter_key,
         openChannelAt: data.open_channel_at,
+        clock: data.clock,
       });
   }, [data, show]);
 

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            UPDATE users\n            SET display_name = COALESCE($2, display_name),\n                avatar_url = CASE\n                    WHEN $3::text IS NULL THEN avatar_url\n                    WHEN $3 = '' THEN NULL\n                    ELSE $3\n                END,\n                bio = COALESCE($4, bio),\n                timezone = COALESCE($5, timezone),\n                updated_at = NOW()\n            WHERE id = $1\n            RETURNING id, email, password_hash, display_name, avatar_url, bio, timezone AS \"timezone!\",\n                   status AS \"status: UserStatus\",\n                   is_instance_admin AS \"is_instance_admin!\", created_at, updated_at\n            ",
+  "query": "SELECT id, email, password_hash, display_name, avatar_url, bio, timezone,\n                   status AS \"status: UserStatus\",\n                   is_instance_admin AS \"is_instance_admin!\", created_at, updated_at\n                 FROM users WHERE NOT is_bot ORDER BY created_at, id OFFSET $1 LIMIT $2",
   "describe": {
     "columns": [
       {
@@ -71,7 +71,7 @@
       },
       {
         "ordinal": 6,
-        "name": "timezone!",
+        "name": "timezone",
         "type_info": "Varchar",
         "origin": {
           "Table": {
@@ -138,11 +138,8 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Varchar",
-        "Text",
-        "Text",
-        "Varchar"
+        "Int8",
+        "Int8"
       ]
     },
     "nullable": [
@@ -159,5 +156,5 @@
       false
     ]
   },
-  "hash": "98294291692908eef25da8b74ed28c03f2ae910c5e1347e33991e7c031439980"
+  "hash": "852d44fad03841867523278d3a879bb94eff237936c624ec099d0bbd69534661"
 }

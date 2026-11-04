@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT wm.workspace_id, wm.user_id, wm.role AS \"role: WorkspaceRole\", wm.joined_at,\n                   CASE WHEN u.is_bot THEN '' ELSE u.email END AS \"email!\",\n                   COALESCE(wm.display_name, u.display_name) AS display_name,\n                   COALESCE(wm.avatar_url, u.avatar_url) AS avatar_url,\n                   COALESCE(wm.bio, u.bio) AS bio,\n                   CASE WHEN wm.status_expires_at IS NULL OR wm.status_expires_at > NOW()\n                        THEN wm.status_emoji END AS \"status_emoji?\",\n                   CASE WHEN wm.status_expires_at IS NULL OR wm.status_expires_at > NOW()\n                        THEN wm.status_text END AS \"status_text?\",\n                   public.notifications_paused_until(wm.workspace_id, u.id, NOW()) AS notifications_paused_until,\n                   u.is_bot\n            FROM workspace_members wm\n            JOIN users u ON u.id = wm.user_id\n            WHERE wm.workspace_id = $1\n            ORDER BY wm.joined_at\n            ",
+  "query": "\n            SELECT wm.workspace_id, wm.user_id, wm.role AS \"role: WorkspaceRole\", wm.joined_at,\n                   CASE WHEN u.is_bot THEN '' ELSE u.email END AS \"email!\",\n                   COALESCE(wm.display_name, u.display_name) AS display_name,\n                   COALESCE(wm.avatar_url, u.avatar_url) AS avatar_url,\n                   COALESCE(wm.bio, u.bio) AS bio,\n                   CASE WHEN wm.status_expires_at IS NULL OR wm.status_expires_at > NOW()\n                        THEN wm.status_emoji END AS \"status_emoji?\",\n                   CASE WHEN wm.status_expires_at IS NULL OR wm.status_expires_at > NOW()\n                        THEN wm.status_text END AS \"status_text?\",\n                   public.notifications_paused_until(wm.workspace_id, u.id, NOW()) AS notifications_paused_until,\n                   u.timezone,\n                   u.is_bot\n            FROM workspace_members wm\n            JOIN users u ON u.id = wm.user_id\n            WHERE wm.workspace_id = $1\n            ORDER BY wm.joined_at\n            ",
   "describe": {
     "columns": [
       {
@@ -103,6 +103,17 @@
       },
       {
         "ordinal": 11,
+        "name": "timezone",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "timezone"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
         "name": "is_bot",
         "type_info": "Bool",
         "origin": {
@@ -130,8 +141,9 @@
       null,
       null,
       null,
+      true,
       false
     ]
   },
-  "hash": "2f5597c05c9788e176e23af3ccfecea64f5724872f551b9b060aa0302e802747"
+  "hash": "2cc8bd1c2ff70383a75bf48146811141a93f90e4d77eb43568dbe097e19e764c"
 }

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, email, password_hash, display_name, avatar_url, bio, timezone AS \"timezone!\",\n                   status AS \"status: UserStatus\",\n                   is_instance_admin AS \"is_instance_admin!\", created_at, updated_at\n                 FROM users WHERE NOT is_bot ORDER BY created_at, id OFFSET $1 LIMIT $2",
+  "query": "\n            INSERT INTO users (email, password_hash, display_name, is_instance_admin)\n            VALUES (lower($1), $2, $3, $4)\n            RETURNING id, email, password_hash, display_name, avatar_url, bio, timezone,\n                   status AS \"status: UserStatus\",\n                   is_instance_admin AS \"is_instance_admin!\", created_at, updated_at\n            ",
   "describe": {
     "columns": [
       {
@@ -71,7 +71,7 @@
       },
       {
         "ordinal": 6,
-        "name": "timezone!",
+        "name": "timezone",
         "type_info": "Varchar",
         "origin": {
           "Table": {
@@ -138,8 +138,10 @@
     ],
     "parameters": {
       "Left": [
-        "Int8",
-        "Int8"
+        "Text",
+        "Varchar",
+        "Varchar",
+        "Bool"
       ]
     },
     "nullable": [
@@ -156,5 +158,5 @@
       false
     ]
   },
-  "hash": "356b0962a34fe8f338f1da572617731917bfbe24785cc9539e3908fd857c0e03"
+  "hash": "799b5a1815188133f41701e64eb93162881067afe33be4e0b8c6c24d7b14af3b"
 }

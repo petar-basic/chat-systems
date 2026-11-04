@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   Bell,
   CheckCheck,
+  Globe,
   MessageSquare,
   Palette,
   ShieldCheck,
@@ -19,7 +20,7 @@ import {
 } from '@/features/notifications';
 import ThemePicker from '@/features/profile/ThemePicker';
 import WorkspaceThemePicker from '@/features/profile/WorkspaceThemePicker';
-import LanguagePicker from '@/features/profile/LanguagePicker';
+import RegionPanel from '@/features/profile/RegionPanel';
 import TwoFactorPanel from '@/features/profile/TwoFactorPanel';
 import MessagesMediaPanel from '@/features/profile/MessagesMediaPanel';
 import AccountPanel from '@/features/profile/AccountPanel';
@@ -28,12 +29,13 @@ import AdvancedPanel from '@/features/profile/AdvancedPanel';
 import { useWorkspaceStore } from '@/stores/workspace';
 
 export type PreferencesSection =
-  'notifications' | 'appearance' | 'messages' | 'read' | 'account' | 'security' | 'advanced';
+  'notifications' | 'appearance' | 'messages' | 'region' | 'read' | 'account' | 'security' | 'advanced';
 
 const SECTIONS: ModalSection<PreferencesSection>[] = [
   { key: 'notifications', label: 'Notifications', Icon: Bell },
   { key: 'appearance', label: 'Appearance', Icon: Palette },
   { key: 'messages', label: 'Messages & media', Icon: MessageSquare },
+  { key: 'region', label: 'Language & region', Icon: Globe },
   { key: 'read', label: 'Mark as read', Icon: CheckCheck },
   { key: 'account', label: 'Account', Icon: UserRound },
   { key: 'security', label: 'Security', Icon: ShieldCheck },
@@ -76,15 +78,13 @@ export function PreferencesModal({ initial = 'notifications', onClose }: Props) 
       )}
       {active === 'appearance' && (
         <div>
-          <p className="mb-3 text-sm text-muted">
-            Pick a theme and a language, or follow your system and browser settings.
-          </p>
+          <p className="mb-3 text-sm text-muted">Pick a theme, or follow your system setting.</p>
           <ThemePicker />
           <WorkspaceThemePicker />
-          <LanguagePicker />
         </div>
       )}
       {active === 'messages' && <MessagesMediaPanel />}
+      {active === 'region' && <RegionPanel />}
       {active === 'account' && <AccountPanel />}
       {active === 'read' && <MarkAsReadPanel />}
       {active === 'security' && <TwoFactorPanel />}

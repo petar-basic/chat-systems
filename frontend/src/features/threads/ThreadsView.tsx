@@ -18,6 +18,7 @@ import {
 import { QUERY_KEYS } from '@/shared/constants';
 import { useUnsent } from '@/stores/unsent';
 import { discardUnsent } from '@/lib/unsent';
+import { DAY_AND_TIME, formatClock } from '@/lib/datetime';
 
 interface Props {
   workspaceId: string;
@@ -37,8 +38,7 @@ interface Seen {
   fresh: number;
 }
 
-const timeOf = (iso: string) =>
-  new Date(iso).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+const timeOf = (iso: string) => formatClock(iso, DAY_AND_TIME);
 
 export function ThreadsView({
   workspaceId,

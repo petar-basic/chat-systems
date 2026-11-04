@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO users (email, display_name, status)\n            VALUES (lower($1::text), split_part($1::text, '@', 1), 'active')\n            RETURNING id, email, password_hash, display_name, avatar_url, bio, timezone AS \"timezone!\",\n                   status AS \"status: UserStatus\",\n                   is_instance_admin AS \"is_instance_admin!\", created_at, updated_at\n            ",
+  "query": "\n            UPDATE users\n            SET password_hash = $2, display_name = $3, status = 'active', updated_at = NOW()\n            WHERE id = $1\n            RETURNING id, email, password_hash, display_name, avatar_url, bio, timezone,\n                   status AS \"status: UserStatus\",\n                   is_instance_admin AS \"is_instance_admin!\", created_at, updated_at\n            ",
   "describe": {
     "columns": [
       {
@@ -71,7 +71,7 @@
       },
       {
         "ordinal": 6,
-        "name": "timezone!",
+        "name": "timezone",
         "type_info": "Varchar",
         "origin": {
           "Table": {
@@ -138,7 +138,9 @@
     ],
     "parameters": {
       "Left": [
-        "Text"
+        "Uuid",
+        "Varchar",
+        "Varchar"
       ]
     },
     "nullable": [
@@ -155,5 +157,5 @@
       false
     ]
   },
-  "hash": "3991d1195bef3561d6a5049e165aab8088a5521501c7df684f9cfe3c42cce267"
+  "hash": "7cb283ff98d2118958fd551b129df72a0500d9ba3b3b70258eaeb423e7cc2274"
 }

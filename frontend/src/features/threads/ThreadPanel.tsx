@@ -30,6 +30,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useUnsent, withUnsent } from '@/stores/unsent';
 import { discardUnsent } from '@/lib/unsent';
 import { isClosedThread } from './closedThread';
+import { formatTime } from '@/lib/datetime';
 
 interface Props {
   parentMessage: Message;
@@ -177,12 +178,7 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
             <div className="flex-1 min-w-0">
               <div className="flex items-baseline gap-2">
                 <span className="text-sm font-semibold text-fg-soft">{parentName}</span>
-                <span className="text-xs text-muted">
-                  {new Date(parentMessage.created_at).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </span>
+                <span className="text-xs text-muted">{formatTime(parentMessage.created_at)}</span>
               </div>
               {parentMessage.deleted_at ? (
                 <p

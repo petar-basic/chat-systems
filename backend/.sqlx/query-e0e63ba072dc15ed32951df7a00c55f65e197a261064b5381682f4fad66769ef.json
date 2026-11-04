@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT wm.workspace_id, wm.user_id, wm.role AS \"role: WorkspaceRole\", wm.joined_at,\n                   '' AS \"email!\",\n                   COALESCE(wm.display_name, u.display_name) AS display_name,\n                   COALESCE(wm.avatar_url, u.avatar_url) AS avatar_url,\n                   COALESCE(wm.bio, u.bio) AS bio,\n                   CASE WHEN wm.status_expires_at IS NULL OR wm.status_expires_at > NOW()\n                        THEN wm.status_emoji END AS \"status_emoji?\",\n                   CASE WHEN wm.status_expires_at IS NULL OR wm.status_expires_at > NOW()\n                        THEN wm.status_text END AS \"status_text?\",\n                   public.notifications_paused_until(wm.workspace_id, u.id, NOW()) AS notifications_paused_until,\n                   u.is_bot\n            FROM workspace_members wm\n            JOIN users u ON u.id = wm.user_id\n            WHERE wm.workspace_id = $1\n              AND (\n                wm.user_id = $2\n                OR EXISTS (\n                  SELECT 1\n                    FROM channel_members mine\n                    JOIN channel_members theirs ON theirs.channel_id = mine.channel_id\n                   WHERE mine.user_id = $2\n                     AND theirs.user_id = wm.user_id\n                )\n              )\n            ORDER BY wm.joined_at\n            ",
+  "query": "\n            SELECT wm.workspace_id, wm.user_id, wm.role AS \"role: WorkspaceRole\", wm.joined_at,\n                   '' AS \"email!\",\n                   COALESCE(wm.display_name, u.display_name) AS display_name,\n                   COALESCE(wm.avatar_url, u.avatar_url) AS avatar_url,\n                   COALESCE(wm.bio, u.bio) AS bio,\n                   CASE WHEN wm.status_expires_at IS NULL OR wm.status_expires_at > NOW()\n                        THEN wm.status_emoji END AS \"status_emoji?\",\n                   CASE WHEN wm.status_expires_at IS NULL OR wm.status_expires_at > NOW()\n                        THEN wm.status_text END AS \"status_text?\",\n                   public.notifications_paused_until(wm.workspace_id, u.id, NOW()) AS notifications_paused_until,\n                   u.timezone,\n                   u.is_bot\n            FROM workspace_members wm\n            JOIN users u ON u.id = wm.user_id\n            WHERE wm.workspace_id = $1\n              AND (\n                wm.user_id = $2\n                OR EXISTS (\n                  SELECT 1\n                    FROM channel_members mine\n                    JOIN channel_members theirs ON theirs.channel_id = mine.channel_id\n                   WHERE mine.user_id = $2\n                     AND theirs.user_id = wm.user_id\n                )\n              )\n            ORDER BY wm.joined_at\n            ",
   "describe": {
     "columns": [
       {
@@ -103,6 +103,17 @@
       },
       {
         "ordinal": 11,
+        "name": "timezone",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "timezone"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
         "name": "is_bot",
         "type_info": "Bool",
         "origin": {
@@ -131,8 +142,9 @@
       null,
       null,
       null,
+      true,
       false
     ]
   },
-  "hash": "fb775de8e703228fc0de895f611d4a2eff7b3e8ab7877cebe8ac73e5c1872bef"
+  "hash": "e0e63ba072dc15ed32951df7a00c55f65e197a261064b5381682f4fad66769ef"
 }

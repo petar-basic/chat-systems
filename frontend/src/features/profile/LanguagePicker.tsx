@@ -15,7 +15,7 @@ export default function LanguagePicker() {
   const current: Choice = isLanguage(saved) ? saved : 'browser';
 
   return (
-    <section className="mt-6" data-qa="language">
+    <section data-qa="language">
       <h3 className="text-sm font-semibold text-fg">{t('language.label')}</h3>
       <p className="mt-1 mb-3 text-sm text-muted">{t('language.hint')}</p>
       <Select

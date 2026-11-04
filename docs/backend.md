@@ -169,8 +169,8 @@ Handles user identity — login, registration, JWT, and profile.
 | POST | `/auth/oidc/exchange` | `{ code }` | `{ landing }` and the auth cookies, for the desktop app's own window. The code works once, within its minute, on the server that issued it; anything else is a 401 |
 | GET | `/instance/info` | — | `{ name, icon_url, sso_enabled, max_upload_bytes, setup_required }` |
 | POST | `/setup` | `{ token, display_name, email, password, workspace_name }` | `{ session: AuthSession, workspace_id }` and the auth cookies; 403 for a wrong token, 409 once an instance admin exists |
-| GET | `/users/me` | JWT | `UserPublic` |
-| PATCH | `/users/me` | `{ display_name?, avatar_url?, bio?, timezone? }` | `UserPublic` — replacing or clearing a photo stored under `avatars/` deletes the old object |
+| GET | `/users/me` | JWT | `UserPublic` — `timezone` is `null` until the person or their browser sets one; the notification schedule and `/remind` read `null` as UTC |
+| PATCH | `/users/me` | `{ display_name?, avatar_url?, bio?, timezone? }` | `UserPublic` — a `timezone` Postgres does not know (`pg_timezone_names`) is a 422 and nothing is saved; replacing or clearing a photo stored under `avatars/` deletes the old object |
 | POST | `/users/me/avatar` | multipart `file`: PNG, JPEG, GIF or WebP, at most 10 MB | `UserPublic` with the new `avatar_url` — the photo is sniffed, decoded and stripped of metadata (one wider than 720 px is stored at 720), saved as `avatars/{user_id}/{uuid}.{ext}` with no `files` row, so retention never sees it, and set on the account; the previous one is deleted |
 | PATCH | `/users/me/password` | `{ current_password, new_password }` | `{ status: "password_changed" }` |
 | PUT | `/users/me/presence` | `{ away }` | `{ away }` — sets `users.manual_away`, which shows the person away in every workspace and on every device until they set it back; publishes `presence.recompute` for the gateway |
@@ -181,8 +181,8 @@ Handles user identity — login, registration, JWT, and profile.
 | DELETE | `/workspaces/{ws_id}/profile/status` | — | `WorkspaceProfile` |
 | PUT | `/workspaces/{ws_id}/profile/theme` | `{ theme: { sidebar, selected, presence, badge } \| null }` | `WorkspaceTheme` — the caller's sidebar theme in that workspace, four `#rrggbb` colours kept in lower case (422 otherwise), in `workspace_members.theme`; `null` goes back to the default. Nobody else sees it |
 | GET | `/users/me/themes` | — | `{ data: WorkspaceTheme[] }` — the caller's theme in every active workspace that has one, so switching workspaces needs no request |
-| GET | `/users/me/preferences` | — | `Preferences` — `{ colour_mode, density, previews, enter_key, open_channel_at, language }` from `users.preferences`, every key at its default until set: `colour_mode` is `null` until the person picks one, `density` `clean`, `previews` `shown`, `enter_key` `send` (or `newline`), `open_channel_at` `where_left` (or `newest`), `language` `browser` (or `en`, `ja`) |
-| PATCH | `/users/me/preferences` | `{ colour_mode?, density?, previews?, enter_key?, open_channel_at?, language? }` | `Preferences` — merged into what is kept, so a key left out stays as it was; an unknown key or value is a 422 and nothing is saved |
+| GET | `/users/me/preferences` | — | `Preferences` — `{ colour_mode, density, previews, enter_key, open_channel_at, language, clock }` from `users.preferences`, every key at its default until set: `colour_mode` is `null` until the person picks one, `density` `clean`, `previews` `shown`, `enter_key` `send` (or `newline`), `open_channel_at` `where_left` (or `newest`), `language` `browser` (or `en`, `ja`), `clock` `h24` (or `h12`) |
+| PATCH | `/users/me/preferences` | `{ colour_mode?, density?, previews?, enter_key?, open_channel_at?, language?, clock? }` | `Preferences` — merged into what is kept, so a key left out stays as it was; an unknown key or value is a 422 and nothing is saved |
 
 ---
 
@@ -222,7 +222,7 @@ feature — see `dm` below.)
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
-| GET | `/workspaces/:ws_id/members` | — | `{ data: MemberWithUser[] }` — name, photo and bio as shown in that workspace (its own, else the account's), its status, and `notifications_paused_until` (`null` unless their notifications are paused now) |
+| GET | `/workspaces/:ws_id/members` | — | `{ data: MemberWithUser[] }` — name, photo and bio as shown in that workspace (its own, else the account's), its status, `notifications_paused_until` (`null` unless their notifications are paused now), and the account's `timezone` (`null` until set) |
 | PATCH | `/workspaces/:ws_id/members/:user_id/role` | `{ role }` | `WorkspaceMember` |
 | DELETE | `/workspaces/:ws_id/members/:user_id` | — | `{ status: "removed" }` |
 

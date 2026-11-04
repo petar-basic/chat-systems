@@ -16,6 +16,7 @@ import PresenceDot from '@/shared/components/PresenceDot';
 import TypingIndicator from '@/features/messaging/TypingIndicator';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
+import { OffHoursNote } from './OffHoursNote';
 import { asAttachments, useComposerAttachments } from './useComposerAttachments';
 
 interface Props {
@@ -140,6 +141,7 @@ export default function ConversationView({
         />
 
         <TypingIndicator channelId={conversation.id} currentUserId={currentUserId} />
+        {isDirect && partnerId !== currentUserId && <OffHoursNote userId={partnerId} />}
 
         <MessageInput
           key={`conversation:${conversation.id}`}

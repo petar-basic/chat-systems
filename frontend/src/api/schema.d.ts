@@ -3484,6 +3484,8 @@ export interface components {
             id?: string | null;
             label: string;
         };
+        /** @enum {string} */
+        Clock: "h24" | "h12";
         CodeRequest: {
             code: string;
         };
@@ -4133,6 +4135,7 @@ export interface components {
                 role: components["schemas"]["WorkspaceRole"];
                 status_emoji?: string | null;
                 status_text?: string | null;
+                timezone?: string | null;
                 /** Format: uuid */
                 user_id: string;
                 /** Format: uuid */
@@ -4925,6 +4928,7 @@ export interface components {
             role: components["schemas"]["WorkspaceRole"];
             status_emoji?: string | null;
             status_text?: string | null;
+            timezone?: string | null;
             /** Format: uuid */
             user_id: string;
             /** Format: uuid */
@@ -5116,6 +5120,8 @@ export interface components {
          */
         PostPolicy: "everyone" | "moderators";
         Preferences: {
+            /** @default h24 */
+            clock: components["schemas"]["Clock"];
             /** @default null */
             colour_mode: components["schemas"]["ColourMode"] | null;
             /** @default clean */
@@ -5665,6 +5671,7 @@ export interface components {
             content: string;
         };
         UpdatePreferences: {
+            clock?: components["schemas"]["Clock"] | null;
             colour_mode?: components["schemas"]["ColourMode"] | null;
             density?: components["schemas"]["Density"] | null;
             enter_key?: components["schemas"]["EnterKey"] | null;
@@ -5758,7 +5765,7 @@ export interface components {
             id: string;
             is_instance_admin: boolean;
             status: components["schemas"]["UserStatus"];
-            timezone: string;
+            timezone?: string | null;
         };
         /** @enum {string} */
         UserStatus: "pending" | "active" | "suspended";
