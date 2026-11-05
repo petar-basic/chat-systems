@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { RadioCards } from '@/shared/components/Form/RadioCards';
 import { Combobox, type ComboboxOption } from '@/shared/components/Form/Combobox';
 import { useWorkspaceStore } from '@/stores/workspace';
@@ -21,6 +22,7 @@ import SavedEverywhere from './SavedEverywhere';
 const EXAMPLE = new Date(2026, 0, 1, 14, 5);
 
 export default function RegionPanel() {
+  const { t } = useTranslation('profile');
   const instanceUrl = useWorkspaceStore((s) => s.currentWorkspace?.instanceUrl);
   const { data: account } = useAccount(instanceUrl);
   const { data: preferences } = usePreferences();
@@ -30,6 +32,7 @@ export default function RegionPanel() {
   const timezone = account?.timezone ?? browserTimezone();
   const clock = preferences?.clock ?? 'h24';
   const now = localTime(timezone, new Date(), clock);
+  const hint = now ? t('region.now', { time: now }) : undefined;
 
   const choices = useMemo(() => new Map(timezoneChoices(timezone).map((c) => [c.zone, c])), [timezone]);
   const options = useMemo(() => {
@@ -53,8 +56,8 @@ export default function RegionPanel() {
       <LanguagePicker />
       <div className="space-y-2">
         <Combobox
-          label="Time zone"
-          hint={now ? `It is ${now} for you. People see this on your profile.` : undefined}
+          label={t('region.timezone')}
+          hint={hint}
           value={timezone}
           options={options}
           filter={filter}
@@ -62,31 +65,31 @@ export default function RegionPanel() {
             rememberAsked(browserTimezone());
             updateTimezone.mutate(zone);
           }}
-          placeholder="Find a city or an offset, e.g. Tokyo or GMT+9"
-          emptyText="No time zone matches"
+          placeholder={t('region.find')}
+          emptyText={t('region.noMatch')}
           disabled={!account}
           dataQa="timezone-picker"
         />
         {updateTimezone.isError && (
           <p role="alert" className="text-sm text-danger">
-            The time zone could not be saved. Try again.
+            {t('region.saveFailed')}
           </p>
         )}
       </div>
       <RadioCards<Clock>
-        label="Clock"
+        label={t('region.clock')}
         value={clock}
         onChange={(next) => updatePreferences.mutate({ clock: next })}
         options={[
           {
             value: 'h24',
-            label: '24-hour',
+            label: t('region.h24'),
             description: formatClock(EXAMPLE, TIME, 'h24'),
             dataQa: 'clock-h24',
           },
           {
             value: 'h12',
-            label: '12-hour',
+            label: t('region.h12'),
             description: formatClock(EXAMPLE, TIME, 'h12'),
             dataQa: 'clock-h12',
           },

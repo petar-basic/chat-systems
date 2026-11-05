@@ -32,7 +32,7 @@
   },
   "schedule": {
     "label": "Notification schedule",
-    "description": "Outside these hours notifications wait in Activity instead of reaching you.",
+    "description": "Outside these hours notifications wait in Notifications instead of reaching you.",
     "days": "Days",
     "weekdays": "Weekdays",
     "everyDay": "Every day",
@@ -82,11 +82,11 @@
   "desktop": {
     "title": "Desktop notifications while the app is open",
     "on": "On. A message that notifies you shows on the desktop while this window is not in front.",
-    "off": "Off. An open window only plays a sound and updates Activity."
+    "off": "Off. An open window only plays a sound and updates Notifications."
   },
   "email": {
     "title": "Email me what I missed",
     "on": "On. A mention or direct message still unread five minutes later is emailed once, with a link to it.",
-    "off": "Off. Unread mentions wait in Activity until you open the app."
+    "off": "Off. Unread mentions wait in Notifications until you open the app."
   }
 }

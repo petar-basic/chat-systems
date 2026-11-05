@@ -27,7 +27,7 @@ export function KeywordsPanel() {
     const word = draft.trim();
     if (!word) return;
     const problem = keywordProblem(word, keywords);
-    setError(problem);
+    setError(problem && t(`keywords.problems.${problem.kind}`, problem));
     if (problem) return;
     setDraft('');
     store([...keywords, word]);
