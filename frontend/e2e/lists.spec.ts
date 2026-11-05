@@ -148,6 +148,7 @@ test('comments, an assignment and a due date reach the person the item is for', 
   const { ctx: admin } = await userContext('admin@dev.local');
   const { ctx: bob, userId: bobId } = await userContext('bob@dev.local');
   const workspace = await devWorkspace(admin);
+  const title = `Fix login ${Date.now()}`;
   const channel = await createChannel(admin, workspace.id, 'due');
   await admin.post(`${API}/channels/${channel.id}/members`, { data: { user_id: bobId } });
 
@@ -170,7 +171,7 @@ test('comments, an assignment and a due date reach the person the item is for', 
   expect((await admin.patch(`${API}/list-columns/${due}`, { data: { due: true } })).ok()).toBeTruthy();
   const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const added = await admin.post(`${API}/lists/${listId}/items`, {
-    data: { values: { [task]: 'Fix login', [owner]: bobId, [due]: tomorrow } },
+    data: { values: { [task]: title, [owner]: bobId, [due]: tomorrow } },
   });
   expect(added.ok()).toBeTruthy();
   const itemId: string = (await added.json()).id;
@@ -181,7 +182,7 @@ test('comments, an assignment and a due date reach the person the item is for', 
     await login(ben, 'bob@dev.local');
     await ben.goto(`/app/${workspace.id}/${channel.id}`);
     await ben.getByTitle('Notifications').click();
-    const assigned = ben.locator('[data-qa="notification-row"]', { hasText: 'assigned you to Fix login' });
+    const assigned = ben.locator('[data-qa="notification-row"]', { hasText: `assigned you to ${title}` });
     await expect(assigned).toBeVisible({ timeout: 15_000 });
     await assigned.click();
     await expect(ben).toHaveURL(new RegExp(`/lists/${listId}\\?item=${itemId}`));
@@ -207,11 +208,11 @@ test('comments, an assignment and a due date reach the person the item is for', 
       await ben.getByTitle('Notifications').click();
     }
     await expect(
-      ben.locator('[data-qa="notification-row"]', { hasText: 'mentioned you on Fix login' }),
+      ben.locator('[data-qa="notification-row"]', { hasText: `mentioned you on ${title}` }),
     ).toBeVisible({ timeout: 15_000 });
 
     await ben.getByTestId('later-open').click();
-    const reminder = ben.locator('[data-qa="later-panel"] [data-qa="later-row"]', { hasText: 'Fix login' });
+    const reminder = ben.locator('[data-qa="later-panel"] [data-qa="later-row"]', { hasText: title });
     await expect(reminder).toContainText('Release plan');
     await reminder.getByTestId('later-complete').click();
     await expect
