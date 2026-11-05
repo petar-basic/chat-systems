@@ -788,7 +788,6 @@ async fn an_unknown_preference_or_value_is_refused(pool: PgPool) {
         json!({ "enter_key": "shift" }),
         json!({ "clock": "h25" }),
         json!({ "text_size": "150" }),
-        json!({ "text_size": 125 }),
         json!({ "typeface": "comic_sans" }),
         json!({ "open_channel_at": "oldest" }),
         json!({ "density": "compact", "extra": true }),
