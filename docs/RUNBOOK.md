@@ -674,11 +674,11 @@ the same `SMTP_*` settings as the api — an api that can queue and a worker tha
 looks like "the invite never arrived". `outbound_emails` rows with `sent_at IS NULL` and a
 `last_error` are the first thing to look at.
 
-**Mention emails.** If SMTP is configured, somebody who is mentioned while offline, with no
-push subscription, not muted and not in do-not-disturb, gets one digest email five minutes
+**Mention emails.** If SMTP is configured, somebody who has turned mention emails on and is
+mentioned while offline, with no push subscription, not muted and not in do-not-disturb, gets one digest email five minutes
 later — cancelled if they come online first. It carries who and where and a link, never the
-message text. Individuals can turn it off per workspace at
-`PATCH /api/workspaces/{id}/notifications/email`; with SMTP
+message text. It is off for every new member, since the desktop app and push already reach
+them; individuals turn it on per workspace at `PATCH /api/workspaces/{id}/notifications/email`; with SMTP
 unconfigured the whole feature is off and logs nothing.
 
 **Realtime events go through an outbox too.** Every durable event (messages, reactions,

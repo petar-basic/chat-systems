@@ -51,6 +51,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ### Fixed
 
+- Mention emails are off for anyone who joins a workspace from now on, since the desktop app and
+  push notifications already reach them. Turn them on in *Preferences → Notifications*. Members
+  who were already in a workspace keep the setting they had.
 - A message you mark unread in the channel or DM you are reading stays unread until you leave.
   A new message arriving there, or the app reconnecting, used to mark it read again at once.
 - A workspace icon with a transparent background sits on the rail's own surface, white in the

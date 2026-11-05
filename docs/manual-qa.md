@@ -390,7 +390,7 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 - 🟠 **Edge:** the hours follow the timezone in *Edit profile*; changing it moves the window. `PUT /api/workspaces/{id}/notifications/schedule` with start = end, day 0 or 8, or no days → **422**.
 
 ### 8.5 🟢 Notifications once (CS-083)
-- 🟢 **Email:** B has mention emails on, no app open. A @-mentions B → five minutes later (mailhog) one email, "You were mentioned", whose link opens the message. A @-mentions B again and B opens the channel within five minutes → no email. Redelivering the event (restart `worker` mid-batch) still gives one email.
+- 🟢 **Email:** B has turned mention emails on (they are off for a new member), no app open. A @-mentions B → five minutes later (mailhog) one email, "You were mentioned", whose link opens the message. A @-mentions B again and B opens the channel within five minutes → no email. Redelivering the event (restart `worker` mid-batch) still gives one email.
 - 🟢 **Idle tab:** B has push on and the app open in a background tab. A @-mentions B → B's push arrives. B brings the tab to the front and moves the mouse; A mentions again → no push, the in-app notification only. Leave it untouched for two minutes → push again.
 - 🟢 **Shut laptop:** B uses the app on a laptop and has push on a phone. B shuts the lid mid-use; A @-mentions B 40 seconds later → the phone gets it.
 - 🟢 **Badge after leaving:** B has unread mentions in workspaces X and Y and leaves Y. A mentions B in X with B's app closed → the phone's badge equals the app's badge.
