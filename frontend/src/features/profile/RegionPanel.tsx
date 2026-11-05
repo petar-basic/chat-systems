@@ -1,10 +1,16 @@
-import { useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { RadioCards } from '@/shared/components/Form/RadioCards';
-import { Select } from '@/shared/components/Form/Select';
-import { TextInput } from '@/shared/components/Form/TextInput';
+import { Combobox, type ComboboxOption } from '@/shared/components/Form/Combobox';
 import { useWorkspaceStore } from '@/stores/workspace';
 import type { Clock } from '@/stores/display';
-import { TIME, browserTimezone, formatClock, localTime, timezoneChoices } from '@/lib/datetime';
+import {
+  TIME,
+  browserTimezone,
+  formatClock,
+  localTime,
+  matchesTimezone,
+  timezoneChoices,
+} from '@/lib/datetime';
 import { usePreferences, useUpdatePreferences } from './hooks/usePreferences';
 import { useAccount } from './hooks/useProfile';
 import { useUpdateTimezone } from './hooks/useTimezone';
@@ -19,37 +25,43 @@ export default function RegionPanel() {
   const { data: preferences } = usePreferences();
   const updatePreferences = useUpdatePreferences();
   const updateTimezone = useUpdateTimezone();
-  const [search, setSearch] = useState('');
 
   const timezone = account?.timezone ?? browserTimezone();
   const clock = preferences?.clock ?? 'h24';
   const now = localTime(timezone, new Date(), clock);
 
+  const choices = useMemo(() => new Map(timezoneChoices(timezone).map((c) => [c.zone, c])), [timezone]);
+  const options = useMemo(() => {
+    const at = new Date();
+    return [...choices.values()].map((c) => ({
+      value: c.zone,
+      label: c.city,
+      detail: [c.region, c.offset, localTime(c.zone, at, clock)].filter(Boolean).join(' · '),
+    }));
+  }, [choices, clock]);
+  const filter = useCallback(
+    (option: ComboboxOption, query: string) => {
+      const choice = choices.get(option.value);
+      return choice ? matchesTimezone(choice, query) : false;
+    },
+    [choices],
+  );
+
   return (
     <div className="space-y-6" data-qa="region">
       <LanguagePicker />
       <div className="space-y-2">
-        <Select
+        <Combobox
           label="Time zone"
           hint={now ? `It is ${now} for you. People see this on your profile.` : undefined}
           value={timezone}
-          onChange={(e) => updateTimezone.mutate(e.target.value)}
+          options={options}
+          filter={filter}
+          onChange={(zone) => updateTimezone.mutate(zone)}
+          placeholder="Find a city or an offset, e.g. Tokyo or GMT+9"
+          emptyText="No time zone matches"
           disabled={!account}
           dataQa="timezone-picker"
-        >
-          {timezoneChoices(timezone, search).map((zone) => (
-            <option key={zone} value={zone}>
-              {zone.replace(/_/g, ' ')}
-            </option>
-          ))}
-        </Select>
-        <TextInput
-          label="Find a time zone"
-          labelHidden
-          placeholder="Find a time zone, e.g. Tokyo"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          dataQa="timezone-search"
         />
         {updateTimezone.isError && (
           <p role="alert" className="text-sm text-danger">

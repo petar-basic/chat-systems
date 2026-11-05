@@ -1,6 +1,14 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useDisplayStore } from '@/stores/display';
-import { TIME, formatClock, formatTime, localTime, offHours, timezoneChoices } from './datetime';
+import {
+  TIME,
+  formatClock,
+  formatTime,
+  localTime,
+  matchesTimezone,
+  offHours,
+  timezoneChoices,
+} from './datetime';
 
 const at = new Date(Date.UTC(2026, 10, 4, 22, 5));
 
@@ -44,12 +52,64 @@ describe('somebody else’s time', () => {
 });
 
 describe('timezoneChoices', () => {
-  it('finds a zone by a word in its name, spaces or underscores alike', () => {
-    expect(timezoneChoices('UTC', 'new york')).toContain('America/New_York');
-    expect(timezoneChoices('UTC', 'tokyo')).toEqual(['UTC', 'Asia/Tokyo']);
+  const winter = new Date(Date.UTC(2026, 0, 15, 12));
+  const zones = timezoneChoices('Europe/Belgrade', winter);
+  const find = (zone: string) => zones.find((choice) => choice.zone === zone);
+
+  it('names a zone by its city and region, with its offset at that moment', () => {
+    expect(find('Europe/Belgrade')).toEqual({
+      zone: 'Europe/Belgrade',
+      city: 'Belgrade',
+      region: 'Europe',
+      offset: 'GMT+1',
+      minutes: 60,
+    });
+    expect(find('America/Argentina/Buenos_Aires')?.region).toBe('America · Argentina');
+    expect(find('Asia/Kolkata')?.offset ?? find('Asia/Calcutta')?.offset).toBe('GMT+5:30');
   });
 
-  it('keeps the current zone in the list whatever the search', () => {
-    expect(timezoneChoices('Europe/Belgrade', 'tokyo')[0]).toBe('Europe/Belgrade');
+  it('leaves out the Etc zones and keeps one UTC', () => {
+    expect(zones.some((choice) => choice.zone.startsWith('Etc/'))).toBe(false);
+    expect(zones.filter((choice) => choice.city === 'UTC')).toHaveLength(1);
+  });
+
+  it('calls a renamed city by its current name', () => {
+    const kyiv = find('Europe/Kyiv') ?? find('Europe/Kiev');
+    expect(kyiv?.city).toBe('Kyiv');
+    expect(zones.filter((choice) => choice.city === 'Kyiv')).toHaveLength(1);
+  });
+
+  it('orders the zones from west to east', () => {
+    const minutes = zones.map((choice) => choice.minutes);
+    expect(minutes).toEqual([...minutes].sort((a, b) => a - b));
+  });
+
+  it('keeps a saved zone that is not in the list', () => {
+    expect(timezoneChoices('Etc/GMT-3', winter).some((choice) => choice.zone === 'Etc/GMT-3')).toBe(true);
+  });
+});
+
+describe('matchesTimezone', () => {
+  const winter = new Date(Date.UTC(2026, 0, 15, 12));
+  const zones = timezoneChoices('UTC', winter);
+  const found = (query: string) =>
+    zones.filter((choice) => matchesTimezone(choice, query)).map((choice) => choice.zone);
+
+  it('finds a zone by its city, spaces or underscores alike', () => {
+    expect(found('new york')).toContain('America/New_York');
+    expect(found('NEW_YORK')).toContain('America/New_York');
+    expect(found('tokyo')).toEqual(['Asia/Tokyo']);
+  });
+
+  it('finds every zone at an offset, and only those', () => {
+    expect(found('gmt+1')).toContain('Europe/Belgrade');
+    expect(found('UTC+1')).not.toContain('Pacific/Auckland');
+    expect(found('gmt+5:30')).toContain(zones.find((c) => c.city === 'Kolkata')?.zone);
+    expect(found('gmt-5')).toContain('America/New_York');
+    expect(found('utc')).toContain('UTC');
+  });
+
+  it('finds a zone by its region', () => {
+    expect(found('argentina')).toContain('America/Argentina/Buenos_Aires');
   });
 });
