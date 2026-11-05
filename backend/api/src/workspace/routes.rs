@@ -876,7 +876,7 @@ async fn unarchive_channel(
     Ok(Json(StatusResponse::new("unarchived")))
 }
 
-async fn set_archived(
+pub(crate) async fn set_archived(
     state: &AppState,
     channel: &Channel,
     user_id: Uuid,

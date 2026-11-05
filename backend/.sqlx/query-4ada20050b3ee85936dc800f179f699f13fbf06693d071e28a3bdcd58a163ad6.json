@@ -1,0 +1,91 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT q.channel_id AS \"channel_id!\", q.name, q.channel_type AS \"channel_type!: ChannelType\",\n                      q.members AS \"members!\", q.last_message_at, q.created_at AS \"created_at!\"\n                 FROM (\n                     SELECT c.id AS channel_id, c.name, c.channel_type, c.created_at,\n                            (SELECT COUNT(*) FROM channel_members cm\n                               JOIN users u ON u.id = cm.user_id\n                              WHERE cm.channel_id = c.id AND NOT u.is_bot) AS members,\n                            (SELECT MAX(m.created_at) FROM messages m\n                              WHERE m.channel_id = c.id AND m.deleted_at IS NULL) AS last_message_at\n                       FROM channels c\n                      WHERE c.workspace_id = $1\n                        AND c.channel_type IN ('public', 'private')\n                        AND NOT COALESCE(c.is_archived, FALSE)\n                        AND NOT COALESCE(c.is_default, FALSE)\n                 ) q\n                WHERE COALESCE(q.last_message_at, q.created_at) < NOW() - make_interval(days => $2)\n                ORDER BY q.last_message_at NULLS FIRST, q.name",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "channel_id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "channels",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "channels",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "channel_type!: ChannelType",
+        "type_info": {
+          "Custom": {
+            "name": "channel_type",
+            "kind": {
+              "Enum": [
+                "public",
+                "private",
+                "dm",
+                "group_dm"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "channels",
+            "name": "channel_type"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "members!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "last_message_at",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at!",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "channels",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      null,
+      null,
+      false
+    ]
+  },
+  "hash": "4ada20050b3ee85936dc800f179f699f13fbf06693d071e28a3bdcd58a163ad6"
+}

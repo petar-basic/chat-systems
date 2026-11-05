@@ -337,3 +337,259 @@ async fn guests_can_be_left_out(pool: PgPool) {
     assert_eq!(rows.len(), 2);
     assert!(rows.iter().all(|row| row["user_id"] != guest.to_string()));
 }
+
+fn channel_row(body: &Value, channel: Uuid) -> &Value {
+    body["data"]
+        .as_array()
+        .expect("rows")
+        .iter()
+        .find(|row| row["channel_id"] == channel.to_string())
+        .expect("channel row")
+}
+
+async fn age_channel(state: &AppState, channel: Uuid, days: i32) {
+    sqlx::query("UPDATE channels SET created_at = NOW() - make_interval(days => $2) WHERE id = $1")
+        .bind(channel)
+        .bind(days)
+        .execute(&state.pool)
+        .await
+        .expect("age channel");
+    sqlx::query(
+        "UPDATE messages SET created_at = NOW() - make_interval(days => $2) WHERE channel_id = $1",
+    )
+    .bind(channel)
+    .bind(days)
+    .execute(&state.pool)
+    .await
+    .expect("age messages");
+}
+
+async fn quiet(team: &Team, token: &str, days: i32) -> (StatusCode, Value) {
+    send(
+        &team.app,
+        "GET",
+        &format!(
+            "/api/workspaces/{}/analytics/quiet-channels?days={days}",
+            team.ws_id
+        ),
+        Some(token),
+        None,
+    )
+    .await
+}
+
+async fn archive(team: &Team, token: &str, channels: &[Uuid]) -> (StatusCode, Value) {
+    send(
+        &team.app,
+        "POST",
+        &format!(
+            "/api/workspaces/{}/analytics/quiet-channels/archive",
+            team.ws_id
+        ),
+        Some(token),
+        Some(json!({ "channel_ids": channels })),
+    )
+    .await
+}
+
+fn ids(body: &Value) -> Vec<String> {
+    body["data"]
+        .as_array()
+        .expect("rows")
+        .iter()
+        .map(|row| row["channel_id"].as_str().expect("id").to_string())
+        .collect()
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn each_channel_counts_its_posters_and_readers_and_adds_up_to_the_workspace(pool: PgPool) {
+    let team = team(pool).await;
+    let (_, owner_token) = &team.owner;
+    let (_, member_token) = &team.member;
+    let (_, guest_token) = &team.guest;
+
+    let first = post(&team.app, owner_token, team.public, "one").await;
+    post(&team.app, owner_token, team.public, "two").await;
+    post(&team.app, member_token, team.public, "three").await;
+    post(&team.app, owner_token, team.private, "four").await;
+    read(&team.app, guest_token, team.public, first).await;
+    count_everything(&team.state).await;
+    count_everything(&team.state).await;
+
+    let (status, channels) = send(
+        &team.app,
+        "GET",
+        &format!("/api/workspaces/{}/analytics/channels?days=7", team.ws_id),
+        Some(owner_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{channels:?}");
+    let public = channel_row(&channels, team.public);
+    assert_eq!(public["messages"], 3);
+    assert_eq!(public["posters"], 2);
+    assert_eq!(public["readers"], 1);
+    assert_eq!(public["members"], 3);
+    assert_eq!(public["channel_type"], "public");
+    assert!(public["last_message_at"].is_string());
+    let private = channel_row(&channels, team.private);
+    assert_eq!(private["messages"], 1);
+    assert_eq!(private["channel_type"], "private");
+
+    let summed: i64 = channels["data"]
+        .as_array()
+        .expect("rows")
+        .iter()
+        .map(|row| row["messages"].as_i64().expect("messages"))
+        .sum();
+    let (_, workspace) = analytics(&team, owner_token, "days=7").await;
+    let day = today(&workspace);
+    assert_eq!(
+        summed,
+        day["public_messages"].as_i64().expect("public")
+            + day["private_messages"].as_i64().expect("private")
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_channel_is_quiet_after_its_last_message_ages_past_the_threshold(pool: PgPool) {
+    let team = team(pool).await;
+    let (owner, owner_token) = &team.owner;
+    let old = seed_channel(&team.state, team.ws_id, *owner, "old-one", false).await;
+    let older = seed_channel(&team.state, team.ws_id, *owner, "older-one", true).await;
+    post(&team.app, owner_token, old, "a while ago").await;
+    post(&team.app, owner_token, older, "long ago").await;
+    post(&team.app, owner_token, team.public, "today").await;
+    age_channel(&team.state, old, 45).await;
+    age_channel(&team.state, older, 100).await;
+    age_channel(&team.state, team.private, 200).await;
+
+    let (status, month) = quiet(&team, owner_token, 30).await;
+    assert_eq!(status, StatusCode::OK, "{month:?}");
+    assert_eq!(
+        ids(&month),
+        [team.private, older, old].map(|id| id.to_string())
+    );
+    let (_, quarter) = quiet(&team, owner_token, 90).await;
+    assert_eq!(
+        ids(&quarter),
+        [team.private, older].map(|id| id.to_string())
+    );
+    let (_, half) = quiet(&team, owner_token, 180).await;
+    assert_eq!(ids(&half), [team.private.to_string()]);
+    assert!(half["data"][0]["last_message_at"].is_null());
+
+    let (status, _) = quiet(&team, owner_token, 14).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn quiet_channels_archive_together_each_one_audited(pool: PgPool) {
+    let team = team(pool).await;
+    let (owner, owner_token) = &team.owner;
+    let (_, member_token) = &team.member;
+    let old = seed_channel(&team.state, team.ws_id, *owner, "dusty", false).await;
+    age_channel(&team.state, old, 120).await;
+    age_channel(&team.state, team.private, 120).await;
+
+    let (status, _) = archive(&team, member_token, &[old]).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+
+    let general: Uuid =
+        sqlx::query_scalar("SELECT id FROM channels WHERE workspace_id = $1 AND is_default")
+            .bind(team.ws_id)
+            .fetch_one(&team.state.pool)
+            .await
+            .expect("default channel");
+    let (status, _) = archive(&team, owner_token, &[old, general]).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (status, _) = archive(&team, owner_token, &[old, Uuid::new_v4()]).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (_, still) = quiet(&team, owner_token, 90).await;
+    assert_eq!(ids(&still).len(), 2, "a refused batch archives nothing");
+
+    let (status, body) = archive(&team, owner_token, &[old, team.private, old]).await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(body["archived"].as_array().expect("archived").len(), 2);
+
+    let archived: Vec<bool> =
+        sqlx::query_scalar("SELECT is_archived FROM channels WHERE id = ANY($1) ORDER BY id")
+            .bind(vec![old, team.private])
+            .fetch_all(&team.state.pool)
+            .await
+            .expect("archived");
+    assert_eq!(archived, [true, true]);
+    let audited: Vec<Uuid> = sqlx::query_scalar(
+        "SELECT resource_id FROM audit_log WHERE action = 'channel.archived' AND workspace_id = $1 ORDER BY resource_id",
+    )
+    .bind(team.ws_id)
+    .fetch_all(&team.state.pool)
+    .await
+    .expect("audit");
+    let mut expected = vec![old, team.private];
+    expected.sort();
+    assert_eq!(audited, expected);
+    let notes: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM messages WHERE channel_id = ANY($1) AND metadata->>'kind' = 'channel_archived'",
+    )
+    .bind(vec![old, team.private])
+    .fetch_one(&team.state.pool)
+    .await
+    .expect("notes");
+    assert_eq!(notes, 2);
+
+    let (_, after) = quiet(&team, owner_token, 90).await;
+    assert!(ids(&after).is_empty());
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_channel_admin_sees_their_own_channel_and_no_other(pool: PgPool) {
+    let team = team(pool).await;
+    let (owner_token, member) = (&team.owner.1, &team.member);
+    let (_, guest_token) = &team.guest;
+    team.state
+        .workspace_service
+        .repo
+        .add_channel_member(team.public, member.0, &ChannelRole::Admin)
+        .await
+        .expect("make channel admin");
+    post(&team.app, owner_token, team.public, "hello").await;
+    count_everything(&team.state).await;
+
+    let (status, mine) = send(
+        &team.app,
+        "GET",
+        &format!("/api/channels/{}/analytics", team.public),
+        Some(&member.1),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{mine:?}");
+    assert_eq!(mine["channel"]["channel_id"], team.public.to_string());
+    assert_eq!(mine["channel"]["messages"], 1);
+    assert_eq!(
+        mine["from"],
+        (Utc::now().date_naive() - Duration::days(29)).to_string()
+    );
+
+    for (token, channel) in [(&member.1, team.private), (guest_token, team.public)] {
+        let (status, _) = send(
+            &team.app,
+            "GET",
+            &format!("/api/channels/{channel}/analytics"),
+            Some(token),
+            None,
+        )
+        .await;
+        assert_eq!(status, StatusCode::FORBIDDEN);
+    }
+    let (status, _) = send(
+        &team.app,
+        "GET",
+        &format!("/api/workspaces/{}/analytics/channels?days=30", team.ws_id),
+        Some(&member.1),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+}

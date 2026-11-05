@@ -59,10 +59,19 @@ pub(crate) async fn count(repo: &AnalyticsRepo, event: &Event) -> sqlx::Result<(
             Some(reaction_id) => repo.count_reaction(event.id, reaction_id).await,
             None => Ok(()),
         },
-        "channel.read_state" => match (id_at(event, "workspace_id"), id_at(event, "user_id")) {
-            (Some(workspace_id), Some(user_id)) => {
-                repo.mark_active(workspace_id, user_id, event.timestamp.date_naive())
-                    .await
+        "channel.read_state" => match (
+            id_at(event, "workspace_id"),
+            id_at(event, "channel_id"),
+            id_at(event, "user_id"),
+        ) {
+            (Some(workspace_id), Some(channel_id), Some(user_id)) => {
+                repo.mark_read(
+                    workspace_id,
+                    channel_id,
+                    user_id,
+                    event.timestamp.date_naive(),
+                )
+                .await
             }
             _ => Ok(()),
         },
