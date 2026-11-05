@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { TimezonePrompt } from './TimezonePrompt';
+import { rememberAsked } from './timezoneQuestion';
 
 const mutate = vi.fn();
 let account: { timezone: string | null } | undefined;
@@ -47,6 +48,15 @@ describe('TimezonePrompt', () => {
     unmount();
 
     render(<TimezonePrompt />);
+    expect(screen.queryByTestId('timezone-prompt')).toBeNull();
+  });
+
+  it('does not ask about a zone picked by hand in Preferences', () => {
+    account = { timezone: 'Asia/Tokyo' };
+    const { rerender } = render(<TimezonePrompt />);
+    rememberAsked('Asia/Tokyo');
+    account = { timezone: 'America/New_York' };
+    rerender(<TimezonePrompt />);
     expect(screen.queryByTestId('timezone-prompt')).toBeNull();
   });
 

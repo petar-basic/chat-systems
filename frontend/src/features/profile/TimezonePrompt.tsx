@@ -4,31 +4,14 @@ import { useWorkspaceStore } from '@/stores/workspace';
 import { browserTimezone } from '@/lib/datetime';
 import { useAccount } from './hooks/useProfile';
 import { useUpdateTimezone } from './hooks/useTimezone';
-
-const ASKED_KEY = 'chat_timezone_asked';
-
-function askedAbout(): string | null {
-  try {
-    return localStorage.getItem(ASKED_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function rememberAsked(zone: string) {
-  try {
-    localStorage.setItem(ASKED_KEY, zone);
-  } catch {
-    return;
-  }
-}
+import { askedAbout, rememberAsked } from './timezoneQuestion';
 
 export function TimezonePrompt() {
   const instanceUrl = useWorkspaceStore((s) => s.currentWorkspace?.instanceUrl);
   const { data: account } = useAccount(instanceUrl);
   const update = useUpdateTimezone();
   const browser = browserTimezone();
-  const [answered, setAnswered] = useState(() => askedAbout() === browser);
+  const [, setAnswered] = useState(false);
 
   const saved = account?.timezone;
   const unset = account !== undefined && saved == null;
@@ -37,7 +20,7 @@ export function TimezonePrompt() {
     if (unset) fillIn();
   }, [unset]);
 
-  if (!account || saved == null || saved === browser || answered) return null;
+  if (!account || saved == null || saved === browser || askedAbout() === browser) return null;
 
   const close = () => {
     rememberAsked(browser);

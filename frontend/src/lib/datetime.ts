@@ -74,10 +74,70 @@ export function browserTimezone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 }
 
-export function timezoneChoices(current: string, search: string): string[] {
+export interface TimezoneChoice {
+  zone: string;
+  city: string;
+  region: string;
+  offset: string;
+  minutes: number;
+}
+
+const RENAMED: Record<string, string> = {
+  'America/Godthab': 'America/Nuuk',
+  'Asia/Calcutta': 'Asia/Kolkata',
+  'Asia/Katmandu': 'Asia/Kathmandu',
+  'Asia/Rangoon': 'Asia/Yangon',
+  'Asia/Saigon': 'Asia/Ho_Chi_Minh',
+  'Atlantic/Faeroe': 'Atlantic/Faroe',
+  'Europe/Kiev': 'Europe/Kyiv',
+  'Pacific/Enderbury': 'Pacific/Kanton',
+  'Pacific/Ponape': 'Pacific/Pohnpei',
+  'Pacific/Truk': 'Pacific/Chuuk',
+};
+
+function offsetOf(zone: string, at: Date): { offset: string; minutes: number } {
+  const offset =
+    new Intl.DateTimeFormat('en-US', { timeZone: zone, timeZoneName: 'shortOffset' })
+      .formatToParts(at)
+      .find((part) => part.type === 'timeZoneName')?.value ?? 'GMT';
+  const parts = /GMT([+-])(\d{1,2})(?::(\d{2}))?/.exec(offset);
+  const minutes = parts ? (parts[1] === '-' ? -1 : 1) * (Number(parts[2]) * 60 + Number(parts[3] ?? 0)) : 0;
+  return { offset, minutes };
+}
+
+function choiceOf(zone: string, at: Date): TimezoneChoice {
+  const segments = (RENAMED[zone] ?? zone).split('/').map((part) => part.replace(/_/g, ' '));
+  return {
+    zone,
+    city: segments[segments.length - 1],
+    region: segments.slice(0, -1).join(' · '),
+    ...offsetOf(zone, at),
+  };
+}
+
+export function timezoneChoices(current: string, at: Date = new Date()): TimezoneChoice[] {
   const known = typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [];
-  const all = known.includes(current) ? known : [current, ...known];
-  const words = search.trim().toLowerCase().replace(/\s+/g, '_');
-  const found = words ? all.filter((zone) => zone.toLowerCase().includes(words)) : all;
-  return found.includes(current) ? found : [current, ...found];
+  const places = known.filter(
+    (zone) =>
+      zone.includes('/') && !zone.startsWith('Etc/') && !(RENAMED[zone] && known.includes(RENAMED[zone])),
+  );
+  const zones = [...new Set(['UTC', ...places, ...(knownZone(current) ? [current] : [])])];
+  return zones
+    .map((zone) => choiceOf(zone, at))
+    .sort((a, b) => a.minutes - b.minutes || a.city.localeCompare(b.city));
+}
+
+export function matchesTimezone(choice: TimezoneChoice, query: string): boolean {
+  const words = query
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_]+/g, ' ');
+  if (!words) return true;
+  const offset = /^(?:gmt|utc) ?([+-]) ?(\d{1,2})(?::?(\d{2}))?$/.exec(words);
+  if (offset) {
+    const minutes = (offset[1] === '-' ? -1 : 1) * (Number(offset[2]) * 60 + Number(offset[3] ?? 0));
+    return choice.minutes === minutes;
+  }
+  if (words === 'gmt' || words === 'utc') return choice.minutes === 0;
+  return `${choice.city} ${choice.region} ${choice.zone.replace(/_/g, ' ')}`.toLowerCase().includes(words);
 }
