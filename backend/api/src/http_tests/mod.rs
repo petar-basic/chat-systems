@@ -17,6 +17,7 @@ mod totp;
 mod validation;
 
 mod admin;
+mod analytics;
 mod app_directory;
 mod app_events;
 mod apps;

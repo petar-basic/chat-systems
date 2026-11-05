@@ -6169,6 +6169,100 @@
         }
       }
     },
+    "/workspaces/{ws_id}/analytics": {
+      "get": {
+        "tags": [
+          "analytics"
+        ],
+        "operationId": "workspace_analytics",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "guests",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceAnalytics"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/analytics/members": {
+      "get": {
+        "tags": [
+          "analytics"
+        ],
+        "operationId": "member_analytics",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "guests",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_MemberActivity"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workspaces/{ws_id}/app-directory": {
       "get": {
         "tags": [
@@ -11857,6 +11951,58 @@
           }
         ]
       },
+      "DailyActivity": {
+        "type": "object",
+        "required": [
+          "day",
+          "members",
+          "active_members",
+          "joined",
+          "public_messages",
+          "private_messages",
+          "direct_messages",
+          "files",
+          "reactions"
+        ],
+        "properties": {
+          "active_members": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "day": {
+            "type": "string",
+            "format": "date"
+          },
+          "direct_messages": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "files": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "joined": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "members": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "private_messages": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "public_messages": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "reactions": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
       "DataItem_ImportRun": {
         "type": "object",
         "required": [
@@ -13359,6 +13505,50 @@
                 "updated_at": {
                   "type": "string",
                   "format": "date-time"
+                }
+              }
+            }
+          }
+        }
+      },
+      "DataList_MemberActivity": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "user_id",
+                "role",
+                "days_active",
+                "messages"
+              ],
+              "properties": {
+                "days_active": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "last_active": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date"
+                },
+                "messages": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "role": {
+                  "$ref": "#/components/schemas/WorkspaceRole"
+                },
+                "user_id": {
+                  "type": "string",
+                  "format": "uuid"
                 }
               }
             }
@@ -16213,6 +16403,39 @@
         ],
         "properties": {
           "message_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "MemberActivity": {
+        "type": "object",
+        "required": [
+          "user_id",
+          "role",
+          "days_active",
+          "messages"
+        ],
+        "properties": {
+          "days_active": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "last_active": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "messages": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "role": {
+            "$ref": "#/components/schemas/WorkspaceRole"
+          },
+          "user_id": {
             "type": "string",
             "format": "uuid"
           }
@@ -19887,6 +20110,23 @@
           "sun"
         ]
       },
+      "WeeklyActivity": {
+        "type": "object",
+        "required": [
+          "week",
+          "active_members"
+        ],
+        "properties": {
+          "active_members": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "week": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
       "WhoMay": {
         "type": "string",
         "enum": [
@@ -20079,6 +20319,47 @@
           "updated_at": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "WorkspaceAnalytics": {
+        "type": "object",
+        "required": [
+          "from",
+          "to",
+          "members",
+          "active_members",
+          "daily",
+          "weekly"
+        ],
+        "properties": {
+          "active_members": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "daily": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DailyActivity"
+            }
+          },
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "members": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "weekly": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WeeklyActivity"
+            }
           }
         }
       },

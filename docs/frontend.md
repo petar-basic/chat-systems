@@ -514,13 +514,22 @@ Shows members of the current channel with add/remove actions.
 ### `workspace/settings/WorkspaceSettingsModal`
 Everything about the workspace in one `SectionedModal`, opened from the workspace menu's
 *Workspace settings* (or *Invite people*, which opens *Members* with the invite form). An admin
-sees *General*, *Members*, *User groups*, *Custom emoji*, *Apps*, *Integrations*, *Slack
-import* and *Audit log*; a member sees the four they can use (`sections.ts`). *Slack import*
+sees *General*, *Members*, *User groups*, *Custom emoji*, *Apps*, *Integrations*, *Analytics*,
+*Exports*, *Slack import* and *Audit log*; a member sees the four they can use (`sections.ts`). *Slack import*
 lists the last runs with their counts (guests, people who left Slack and archived channels
 among them) and *Start again* under a failed run whose export is still stored
 (`retryable`), which calls `POST /workspaces/{id}/slack-imports/{run}/retry`. Each section is
 the former right panel's content (`MembersSection`, `IntegrationsSection`, …). `?settings=<section>`
 in the address opens it at that section and is then removed (`useSettingsDialog`).
+
+*Analytics* (`AnalyticsSection`) reads GET `/workspaces/{id}/analytics` and
+`/analytics/members` for the last 7, 30 or 90 days, with or without guests. Four totals sit
+above two charts drawn as plain SVG by `analytics/DayChart` (active members per day against
+the member count, then messages per day stacked by public, private and direct), with active
+members per week between them; an empty window says so instead of drawing. `MemberTable`
+sorts by any column, with `aria-sort` on the header, and takes names from the members the
+modal already holds. *Export CSV* above each table writes it with `lib/csv`, which quotes
+commas, quotes and line breaks and keeps a cell that starts like a formula as text.
 
 *General* saves as you change it, like *Preferences*: a name or description when the field is
 left, the icon on upload (`POST /workspaces/{id}/icon`, which stores and sets it), the switches at once, each PATCH carrying only that field; a status

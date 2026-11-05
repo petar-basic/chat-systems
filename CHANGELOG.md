@@ -14,6 +14,18 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
+## [Unreleased]
+
+### Added
+
+- Workspace analytics. *Workspace settings → Analytics*, for admins, shows the last 7, 30 or 90
+  days: members active each day and each week against the total, who joined, and messages each
+  day in public channels, private channels and direct messages. A table lists every member
+  with the days they were active, the messages they posted and the last day they were active,
+  sorted by any column. A member is active on a day they post, react or read a conversation.
+  Guests can be left out, and each table exports as CSV. Only counts are kept, never what
+  anyone wrote, and the history from before the upgrade is counted once when the worker starts.
+
 ## [4.3.0] — 2026-11-05
 
 ### Upgrading from 4.2.1

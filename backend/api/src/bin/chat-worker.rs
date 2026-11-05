@@ -7,9 +7,9 @@ use tracing::info;
 use chat_api::config::AppConfig;
 use chat_api::state::AppState;
 use chat_api::{
-    app_events, build_state, connect_pool, email, export, health, hooks, huddle, init_tracing,
-    later, messaging, metrics, notifications, retention, scheduled, shutdown_signal, slack_import,
-    supervise, workflows,
+    analytics, app_events, build_state, connect_pool, email, export, health, hooks, huddle,
+    init_tracing, later, messaging, metrics, notifications, retention, scheduled, shutdown_signal,
+    slack_import, supervise, workflows,
 };
 
 #[tokio::main]
@@ -49,6 +49,13 @@ async fn main() -> anyhow::Result<()> {
         let backfill_state = state.clone();
         tokio::spawn(async move {
             chat_api::search::backfill(&backfill_state).await;
+        });
+    }
+
+    {
+        let analytics_state = state.clone();
+        tokio::spawn(async move {
+            analytics::backfill(&analytics_state).await;
         });
     }
 
@@ -364,6 +371,21 @@ fn spawn_consumers(state: &Arc<AppState>, redis_url: &str) {
                 let huddle_repo = huddle_repo.clone();
                 async move {
                     huddle::consumer::start_consumer(&redis_url, huddle_repo).await;
+                }
+            })
+            .await;
+        });
+    }
+
+    {
+        let redis_url = redis_url.to_string();
+        let analytics_repo = Arc::new(state.analytics_repo.clone());
+        tokio::spawn(async move {
+            supervise("analytics_consumer", || {
+                let redis_url = redis_url.clone();
+                let analytics_repo = analytics_repo.clone();
+                async move {
+                    analytics::start_consumer(&redis_url, analytics_repo).await;
                 }
             })
             .await;

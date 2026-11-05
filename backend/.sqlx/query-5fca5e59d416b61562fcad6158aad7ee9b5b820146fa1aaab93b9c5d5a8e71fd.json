@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO member_daily_activity (workspace_id, user_id, day)\n             SELECT wm.workspace_id, wm.user_id, $3\n               FROM workspace_members wm\n               JOIN users u ON u.id = wm.user_id\n              WHERE wm.workspace_id = $1 AND wm.user_id = $2 AND NOT u.is_bot\n             ON CONFLICT DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Date"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5fca5e59d416b61562fcad6158aad7ee9b5b820146fa1aaab93b9c5d5a8e71fd"
+}

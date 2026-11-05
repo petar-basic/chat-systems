@@ -2269,6 +2269,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{ws_id}/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["workspace_analytics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/analytics/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["member_analytics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{ws_id}/app-directory": {
         parameters: {
             query?: never;
@@ -3913,6 +3945,26 @@ export interface components {
             email_status?: components["schemas"]["InviteEmailStatus"] | null;
             invite_url?: string | null;
         };
+        DailyActivity: {
+            /** Format: int64 */
+            active_members: number;
+            /** Format: date */
+            day: string;
+            /** Format: int64 */
+            direct_messages: number;
+            /** Format: int64 */
+            files: number;
+            /** Format: int64 */
+            joined: number;
+            /** Format: int64 */
+            members: number;
+            /** Format: int64 */
+            private_messages: number;
+            /** Format: int64 */
+            public_messages: number;
+            /** Format: int64 */
+            reactions: number;
+        };
         DataItem_ImportRun: {
             data: {
                 dry_run: boolean;
@@ -4321,6 +4373,19 @@ export interface components {
                 position: number;
                 /** Format: date-time */
                 updated_at: string;
+            }[];
+        };
+        DataList_MemberActivity: {
+            data: {
+                /** Format: int64 */
+                days_active: number;
+                /** Format: date */
+                last_active?: string | null;
+                /** Format: int64 */
+                messages: number;
+                role: components["schemas"]["WorkspaceRole"];
+                /** Format: uuid */
+                user_id: string;
             }[];
         };
         DataList_MemberWithUser: {
@@ -5133,6 +5198,17 @@ export interface components {
         MarkReadRequest: {
             /** Format: uuid */
             message_id: string;
+        };
+        MemberActivity: {
+            /** Format: int64 */
+            days_active: number;
+            /** Format: date */
+            last_active?: string | null;
+            /** Format: int64 */
+            messages: number;
+            role: components["schemas"]["WorkspaceRole"];
+            /** Format: uuid */
+            user_id: string;
         };
         MemberRequest: {
             /** Format: uuid */
@@ -6084,6 +6160,12 @@ export interface components {
         };
         /** @enum {string} */
         Weekday: "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+        WeeklyActivity: {
+            /** Format: int64 */
+            active_members: number;
+            /** Format: date */
+            week: string;
+        };
         /** @enum {string} */
         WhoMay: "members" | "admins";
         Workflow: {
@@ -6139,6 +6221,18 @@ export interface components {
             slug: string;
             /** Format: date-time */
             updated_at: string;
+        };
+        WorkspaceAnalytics: {
+            /** Format: int64 */
+            active_members: number;
+            daily: components["schemas"]["DailyActivity"][];
+            /** Format: date */
+            from: string;
+            /** Format: int64 */
+            members: number;
+            /** Format: date */
+            to: string;
+            weekly: components["schemas"]["WeeklyActivity"][];
         };
         WorkspaceInvite: {
             /** Format: date-time */
@@ -10179,6 +10273,54 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DataList_ActiveHuddle"];
+                };
+            };
+        };
+    };
+    workspace_analytics: {
+        parameters: {
+            query: {
+                days: number;
+                guests?: boolean;
+            };
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceAnalytics"];
+                };
+            };
+        };
+    };
+    member_analytics: {
+        parameters: {
+            query: {
+                days: number;
+                guests?: boolean;
+            };
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_MemberActivity"];
                 };
             };
         };
