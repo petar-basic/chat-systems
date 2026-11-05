@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Shuffle } from 'lucide-react';
 import { Button } from '@/shared/components/Button/Button';
 import { CopyField } from '@/shared/components/CopyField/CopyField';
@@ -15,13 +16,6 @@ import {
   type ThemeKey,
 } from './workspaceThemes';
 
-const LABELS: Record<ThemeKey, string> = {
-  sidebar: 'Sidebar',
-  selected: 'Selected item',
-  presence: 'Online',
-  badge: 'Mention badge',
-};
-
 interface Props {
   initial: Theme;
   saving: boolean;
@@ -30,6 +24,7 @@ interface Props {
 }
 
 export default function CustomThemeEditor({ initial, saving, onSave, onCancel }: Props) {
+  const { t, i18n } = useTranslation('profile');
   const [draft, setDraft] = useState(initial);
   const [line, setLine] = useState('');
   const [importError, setImportError] = useState<string | null>(null);
@@ -43,7 +38,7 @@ export default function CustomThemeEditor({ initial, saving, onSave, onCancel }:
   const importLine = () => {
     const theme = parseTheme(line);
     if (!theme) {
-      setImportError('That is not a theme. Paste four hex colours separated by commas.');
+      setImportError(t('customTheme.importError'));
       return;
     }
     setDraft(theme);
@@ -51,7 +46,9 @@ export default function CustomThemeEditor({ initial, saving, onSave, onCancel }:
     setImportError(null);
   };
 
-  const hard = unreadable(draft).map((key) => LABELS[key].toLowerCase());
+  const hard = new Intl.ListFormat(i18n.language, { type: 'conjunction' }).format(
+    unreadable(draft).map((key: ThemeKey) => t(`customTheme.partsInSentence.${key}`)),
+  );
 
   return (
     <div className="mt-3 rounded-lg border border-line-strong p-3" data-qa="custom-theme">
@@ -59,20 +56,20 @@ export default function CustomThemeEditor({ initial, saving, onSave, onCancel }:
         {THEME_KEYS.map((key) => (
           <ColourInput
             key={key}
-            label={LABELS[key]}
+            label={t(`customTheme.parts.${key}`)}
             value={draft[key]}
             onChange={(value) => setDraft((theme) => ({ ...theme, [key]: value }))}
             dataQa={`custom-theme-${key}`}
           />
         ))}
       </div>
-      {hard.length > 0 && (
+      {hard && (
         <p className="mt-2 text-xs text-warning" data-qa="custom-theme-unreadable">
-          Text on the {hard.join(' and ')} will be hard to read.
+          {t('customTheme.unreadable', { parts: hard })}
         </p>
       )}
       <CopyField
-        label="Share this theme"
+        label={t('customTheme.share')}
         value={shareTheme(draft)}
         valueQa="custom-theme-share"
         copyQa="custom-theme-copy"
@@ -80,7 +77,7 @@ export default function CustomThemeEditor({ initial, saving, onSave, onCancel }:
       <div className="mt-3 flex items-start gap-2">
         <TextInput
           className="flex-1"
-          label="Import a theme"
+          label={t('customTheme.import')}
           compact
           value={line}
           placeholder="#3f0e40,#1164a3,#2bac76,#cd2553"
@@ -98,7 +95,7 @@ export default function CustomThemeEditor({ initial, saving, onSave, onCancel }:
           }}
         />
         <Button size="sm" className="mt-7" disabled={!line.trim()} onClick={importLine}>
-          Import
+          {t('customTheme.importButton')}
         </Button>
       </div>
       <div className="mt-4 flex items-center justify-between gap-2">
@@ -109,11 +106,11 @@ export default function CustomThemeEditor({ initial, saving, onSave, onCancel }:
           onClick={() => setDraft(surpriseTheme())}
           data-qa="custom-theme-surprise"
         >
-          Surprise me
+          {t('customTheme.surprise')}
         </Button>
         <div className="flex gap-2">
           <Button variant="ghost" size="sm" onClick={onCancel}>
-            Cancel
+            {t('customTheme.cancel')}
           </Button>
           <Button
             variant="primary"
@@ -122,7 +119,7 @@ export default function CustomThemeEditor({ initial, saving, onSave, onCancel }:
             onClick={() => onSave(draft)}
             data-qa="custom-theme-save"
           >
-            Save theme
+            {t('customTheme.save')}
           </Button>
         </div>
       </div>

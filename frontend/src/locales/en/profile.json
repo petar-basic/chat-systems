@@ -17,6 +17,133 @@
       "security": "Security",
       "advanced": "Advanced"
     },
-    "notificationsScope": "Except push and desktop notifications on this device, these are your settings in <workspace>{{name}}</workspace>; each workspace has its own."
+    "notificationsScope": "Except push and desktop notifications on this device, these are your settings in <workspace>{{name}}</workspace>; each workspace has its own.",
+    "appearanceIntro": "Pick a theme, or follow your system setting."
+  },
+  "savedEverywhere": {
+    "note": "These settings are the same in every workspace and on every device.",
+    "failed": "The setting could not be saved. Try again."
+  },
+  "theme": {
+    "label": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "workspaceTheme": {
+    "title": "Theme for {{name}}",
+    "hint": "Colours the sidebar of this workspace. Only you see it, and each workspace has its own.",
+    "presets": {
+      "default": "Default",
+      "aubergine": "Aubergine",
+      "midnight": "Midnight",
+      "ocean": "Ocean",
+      "forest": "Forest",
+      "clementine": "Clementine",
+      "banana": "Banana",
+      "graphite": "Graphite"
+    },
+    "custom": "Custom",
+    "saveFailed": "The theme could not be saved. Try again."
+  },
+  "customTheme": {
+    "parts": {
+      "sidebar": "Sidebar",
+      "selected": "Selected item",
+      "presence": "Online",
+      "badge": "Mention badge"
+    },
+    "partsInSentence": {
+      "sidebar": "sidebar",
+      "selected": "selected item",
+      "presence": "online dot",
+      "badge": "mention badge"
+    },
+    "unreadable": "Text on the {{parts}} will be hard to read.",
+    "share": "Share this theme",
+    "import": "Import a theme",
+    "importButton": "Import",
+    "importError": "That is not a theme. Paste four hex colours separated by commas.",
+    "surprise": "Surprise me",
+    "cancel": "Cancel",
+    "save": "Save theme"
+  },
+  "text": {
+    "size": "Text size",
+    "sizes": {
+      "smaller": "Smaller",
+      "default": "Default",
+      "larger": "Larger",
+      "largest": "Largest"
+    },
+    "typeface": "Typeface",
+    "typefaces": {
+      "system": {
+        "label": "System",
+        "description": "The font your device uses everywhere else."
+      },
+      "inter": {
+        "description": "Clear and even, made for screens."
+      },
+      "atkinson": {
+        "description": "Letters that are hard to mistake for one another, for low vision."
+      },
+      "openDyslexic": {
+        "description": "Weighted letters that some people with dyslexia find easier to read."
+      }
+    },
+    "code": "Code keeps its monospace font."
+  },
+  "messages": {
+    "layout": "Message layout",
+    "clean": {
+      "label": "Clean",
+      "description": "Name and photo above each run of messages."
+    },
+    "compact": {
+      "label": "Compact",
+      "description": "Name and time on the line of every message, with less space between them."
+    },
+    "previews": "Images and link previews",
+    "shown": {
+      "label": "Show in the message",
+      "description": "Pictures and previews of links open as the message arrives."
+    },
+    "collapsed": {
+      "label": "Collapse until clicked",
+      "description": "A line in their place opens them when you want them."
+    }
+  },
+  "read": {
+    "label": "When I open a channel",
+    "whereLeft": {
+      "label": "Start where I left off",
+      "description": "The first message you have not read, under a line that marks it."
+    },
+    "newest": {
+      "label": "Start at the newest message",
+      "description": "The latest message, with everything before it marked read."
+    }
+  },
+  "advanced": {
+    "enter": "When writing a message, Enter",
+    "sends": {
+      "label": "Sends it",
+      "description": "{{keys}} starts a new line."
+    },
+    "newLine": {
+      "label": "Starts a new line",
+      "description": "{{keys}} sends it."
+    }
+  },
+  "region": {
+    "timezone": "Time zone",
+    "now": "It is {{time}} for you. People see this on your profile.",
+    "find": "Find a city or an offset, e.g. Tokyo or GMT+9",
+    "noMatch": "No time zone matches",
+    "saveFailed": "The time zone could not be saved. Try again.",
+    "clock": "Clock",
+    "h24": "24-hour",
+    "h12": "12-hour"
   }
 }

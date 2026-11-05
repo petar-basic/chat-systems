@@ -1,4 +1,3 @@
-import i18n from './i18n';
 import { fold, foldWithOffsets } from './fold';
 
 const WORD = /[\p{L}\p{N}_]/u;
@@ -9,16 +8,20 @@ export function foldKeyword(keyword: string): string {
   return fold(keyword.trim());
 }
 
-export function keywordProblem(keyword: string, listed: string[]): string | null {
+export type KeywordProblem =
+  | { kind: 'length'; min: number; max: number }
+  | { kind: 'prefix' }
+  | { kind: 'duplicate'; keyword: string }
+  | { kind: 'limit'; limit: number };
+
+export function keywordProblem(keyword: string, listed: string[]): KeywordProblem | null {
   const word = keyword.trim();
   const length = [...word].length;
-  if (length < 2 || length > 64) return i18n.t('notifications:keywords.problems.length', { min: 2, max: 64 });
-  if (word.startsWith('@') || word.startsWith('#')) return i18n.t('notifications:keywords.problems.prefix');
+  if (length < 2 || length > 64) return { kind: 'length', min: 2, max: 64 };
+  if (word.startsWith('@') || word.startsWith('#')) return { kind: 'prefix' };
   const folded = foldKeyword(word);
-  if (listed.some((k) => foldKeyword(k) === folded))
-    return i18n.t('notifications:keywords.problems.duplicate', { keyword: word });
-  if (listed.length >= KEYWORD_LIMIT)
-    return i18n.t('notifications:keywords.problems.limit', { limit: KEYWORD_LIMIT });
+  if (listed.some((k) => foldKeyword(k) === folded)) return { kind: 'duplicate', keyword: word };
+  if (listed.length >= KEYWORD_LIMIT) return { kind: 'limit', limit: KEYWORD_LIMIT };
   return null;
 }
 

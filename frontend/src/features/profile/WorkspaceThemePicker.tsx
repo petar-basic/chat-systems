@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Pipette } from 'lucide-react';
 import { useWorkspaceStore } from '@/stores/workspace';
 import CustomThemeEditor from './CustomThemeEditor';
@@ -34,6 +35,7 @@ function optionStyle(checked: boolean): string {
 }
 
 export default function WorkspaceThemePicker() {
+  const { t } = useTranslation('profile');
   const workspace = useWorkspaceStore((s) => s.currentWorkspace);
   const current = useSavedWorkspaceTheme();
   const setTheme = useSetWorkspaceTheme();
@@ -48,13 +50,11 @@ export default function WorkspaceThemePicker() {
 
   return (
     <section className="mt-6" data-qa="workspace-theme">
-      <h3 className="text-sm font-semibold text-fg">Theme for {workspace.name}</h3>
-      <p className="mt-1 mb-3 text-sm text-muted">
-        Colours the sidebar of this workspace. Only you see it, and each workspace has its own.
-      </p>
+      <h3 className="text-sm font-semibold text-fg">{t('workspaceTheme.title', { name: workspace.name })}</h3>
+      <p className="mt-1 mb-3 text-sm text-muted">{t('workspaceTheme.hint')}</p>
       <div
         role="radiogroup"
-        aria-label={`Theme for ${workspace.name}`}
+        aria-label={t('workspaceTheme.title', { name: workspace.name })}
         className="grid grid-cols-2 sm:grid-cols-3 gap-2"
       >
         {OPTIONS.map(({ id, name, theme }) => {
@@ -70,7 +70,9 @@ export default function WorkspaceThemePicker() {
               className={optionStyle(checked)}
             >
               <ThemeSwatch theme={theme} />
-              <span className="truncate max-w-full">{name}</span>
+              <span className="truncate max-w-full">
+                {t(`workspaceTheme.presets.${id}`, { defaultValue: name })}
+              </span>
             </button>
           );
         })}
@@ -92,7 +94,7 @@ export default function WorkspaceThemePicker() {
               <Pipette className="w-4 h-4" />
             </span>
           )}
-          <span className="truncate max-w-full">Custom</span>
+          <span className="truncate max-w-full">{t('workspaceTheme.custom')}</span>
         </button>
       </div>
       {editing && (
@@ -105,7 +107,7 @@ export default function WorkspaceThemePicker() {
       )}
       {setTheme.isError && (
         <p role="alert" className="mt-2 text-sm text-danger">
-          The theme could not be saved. Try again.
+          {t('workspaceTheme.saveFailed')}
         </p>
       )}
     </section>

@@ -1,14 +1,16 @@
+import { useTranslation } from 'react-i18next';
 import { Monitor, Moon, Sun } from 'lucide-react';
 import { useThemeStore, type ThemeMode } from '@/stores/theme';
 import { useUpdatePreferences } from './hooks/usePreferences';
 
-const OPTIONS: { mode: ThemeMode; label: string; Icon: typeof Sun }[] = [
-  { mode: 'light', label: 'Light', Icon: Sun },
-  { mode: 'dark', label: 'Dark', Icon: Moon },
-  { mode: 'system', label: 'System', Icon: Monitor },
+const OPTIONS: { mode: ThemeMode; Icon: typeof Sun }[] = [
+  { mode: 'light', Icon: Sun },
+  { mode: 'dark', Icon: Moon },
+  { mode: 'system', Icon: Monitor },
 ];
 
 export default function ThemePicker() {
+  const { t } = useTranslation('profile');
   const mode = useThemeStore((s) => s.mode);
   const setMode = useThemeStore((s) => s.setMode);
   const update = useUpdatePreferences();
@@ -18,8 +20,13 @@ export default function ThemePicker() {
   };
 
   return (
-    <div role="radiogroup" aria-label="Theme" data-qa="theme-picker" className="grid grid-cols-3 gap-2">
-      {OPTIONS.map(({ mode: value, label, Icon }) => (
+    <div
+      role="radiogroup"
+      aria-label={t('theme.label')}
+      data-qa="theme-picker"
+      className="grid grid-cols-3 gap-2"
+    >
+      {OPTIONS.map(({ mode: value, Icon }) => (
         <button
           key={value}
           type="button"
@@ -34,7 +41,7 @@ export default function ThemePicker() {
           }`}
         >
           <Icon className="w-4 h-4" />
-          {label}
+          {t(`theme.${value}`)}
         </button>
       ))}
     </div>

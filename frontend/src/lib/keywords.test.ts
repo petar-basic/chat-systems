@@ -25,16 +25,16 @@ describe('keywordRanges', () => {
 
 describe('keywordProblem', () => {
   it('refuses what the server would refuse, before it is sent', () => {
-    expect(keywordProblem('a', [])).toMatch(/2 to 64/);
-    expect(keywordProblem('@ana', [])).toMatch(/@ or #/);
-    expect(keywordProblem('#general', [])).toMatch(/@ or #/);
-    expect(keywordProblem('Deplóy', ['deploy'])).toMatch(/already on your list/);
+    expect(keywordProblem('a', [])).toEqual({ kind: 'length', min: 2, max: 64 });
+    expect(keywordProblem('@ana', [])).toEqual({ kind: 'prefix' });
+    expect(keywordProblem('#general', [])).toEqual({ kind: 'prefix' });
+    expect(keywordProblem(' Deplóy ', ['deploy'])).toEqual({ kind: 'duplicate', keyword: 'Deplóy' });
     expect(
       keywordProblem(
         'outage',
         Array.from({ length: 50 }, (_, i) => `word${i}`),
       ),
-    ).toMatch(/up to 50/);
+    ).toEqual({ kind: 'limit', limit: 50 });
     expect(keywordProblem('outage', ['deploy'])).toBeNull();
   });
 });

@@ -1,9 +1,11 @@
+import { useTranslation } from 'react-i18next';
 import { RadioCards } from '@/shared/components/Form/RadioCards';
 import { useTextStore, type TextSize, type Typeface } from '@/stores/text';
 import { useUpdatePreferences } from './hooks/usePreferences';
 import SavedEverywhere from './SavedEverywhere';
 
 export default function TextPicker() {
+  const { t } = useTranslation('profile');
   const size = useTextStore((s) => s.size);
   const typeface = useTextStore((s) => s.typeface);
   const setSize = useTextStore((s) => s.setSize);
@@ -22,48 +24,48 @@ export default function TextPicker() {
   return (
     <div className="mt-6 space-y-6" data-qa="text-picker">
       <RadioCards<TextSize>
-        label="Text size"
+        label={t('text.size')}
         value={size}
         onChange={pickSize}
         options={[
-          { value: '90', label: 'Smaller', description: '90 %', dataQa: 'text-size-90' },
-          { value: '100', label: 'Default', description: '100 %', dataQa: 'text-size-100' },
-          { value: '112', label: 'Larger', description: '112 %', dataQa: 'text-size-112' },
-          { value: '125', label: 'Largest', description: '125 %', dataQa: 'text-size-125' },
+          { value: '90', label: t('text.sizes.smaller'), description: '90 %', dataQa: 'text-size-90' },
+          { value: '100', label: t('text.sizes.default'), description: '100 %', dataQa: 'text-size-100' },
+          { value: '112', label: t('text.sizes.larger'), description: '112 %', dataQa: 'text-size-112' },
+          { value: '125', label: t('text.sizes.largest'), description: '125 %', dataQa: 'text-size-125' },
         ]}
       />
       <RadioCards<Typeface>
-        label="Typeface"
+        label={t('text.typeface')}
         value={typeface}
         onChange={pickTypeface}
         options={[
           {
             value: 'system',
-            label: 'System',
-            description: 'The font your device uses everywhere else.',
+            label: t('text.typefaces.system.label'),
+            description: t('text.typefaces.system.description'),
             dataQa: 'typeface-system',
           },
           {
             value: 'inter',
             label: 'Inter',
-            description: 'Clear and even, made for screens.',
+            description: t('text.typefaces.inter.description'),
             dataQa: 'typeface-inter',
           },
           {
             value: 'atkinson_hyperlegible',
             label: 'Atkinson Hyperlegible',
-            description: 'Letters that are hard to mistake for one another, for low vision.',
+            description: t('text.typefaces.atkinson.description'),
             dataQa: 'typeface-atkinson_hyperlegible',
           },
           {
             value: 'open_dyslexic',
             label: 'OpenDyslexic',
-            description: 'Weighted letters that some people with dyslexia find easier to read.',
+            description: t('text.typefaces.openDyslexic.description'),
             dataQa: 'typeface-open_dyslexic',
           },
         ]}
       />
-      <p className="text-xs text-muted">Code keeps its monospace font.</p>
+      <p className="text-xs text-muted">{t('text.code')}</p>
       <SavedEverywhere failed={update.isError} />
     </div>
   );
