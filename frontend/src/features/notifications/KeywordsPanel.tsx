@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { IconButton } from '@/shared/components/IconButton/IconButton';
@@ -11,6 +12,7 @@ import {
 import { keywordProblem } from '@/lib/keywords';
 
 export function KeywordsPanel() {
+  const { t } = useTranslation('notifications');
   const workspace = useWorkspaceStore((s) => s.currentWorkspace);
   const { data: keywords } = useNotificationKeywords(workspace?.id ?? null, workspace?.instanceUrl);
   const save = useSetNotificationKeywords(workspace?.id ?? '', workspace?.instanceUrl);
@@ -19,7 +21,7 @@ export function KeywordsPanel() {
   if (!workspace || !keywords) return null;
 
   const store = (next: string[]) =>
-    save.mutate(next, { onError: () => toast.error("Couldn't save your keywords. Try again.") });
+    save.mutate(next, { onError: () => toast.error(t('keywords.saveFailed')) });
 
   const add = () => {
     const word = draft.trim();
@@ -34,9 +36,9 @@ export function KeywordsPanel() {
   return (
     <div data-qa="notification-keywords">
       <TextInput
-        label="My keywords"
-        hint="You are notified when one of these is written in a channel you are in, as if you had been mentioned. Press Enter to add one."
-        placeholder="e.g. deploy, outage"
+        label={t('keywords.label')}
+        hint={t('keywords.hint')}
+        placeholder={t('keywords.placeholder')}
         value={draft}
         maxLength={64}
         error={error}
@@ -52,7 +54,7 @@ export function KeywordsPanel() {
         dataQa="notification-keyword-input"
       />
       {keywords.length > 0 && (
-        <ul aria-label="My keywords" className="mt-2 flex flex-wrap gap-1.5">
+        <ul aria-label={t('keywords.label')} className="mt-2 flex flex-wrap gap-1.5">
           {keywords.map((keyword) => (
             <li
               key={keyword}
@@ -61,7 +63,7 @@ export function KeywordsPanel() {
             >
               {keyword}
               <IconButton
-                label={`Remove ${keyword}`}
+                label={t('keywords.remove', { keyword })}
                 icon={<X className="h-3 w-3" />}
                 className="h-5 w-5 rounded-full"
                 onClick={() => store(keywords.filter((k) => k !== keyword))}

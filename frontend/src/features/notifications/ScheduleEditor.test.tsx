@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import i18n from '@/lib/i18n';
 import { ScheduleEditor } from './ScheduleEditor';
 
 const save = vi.fn();
@@ -23,6 +24,24 @@ describe('ScheduleEditor', () => {
   beforeEach(() => {
     save.mockReset();
     schedule = { ...base };
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('in Japanese names the days and the next day, and keeps the time zone as text', async () => {
+    const timezone = '<img src=x onerror="alert(1)">';
+    schedule = { ...base, start_minute: 1320, end_minute: 420, timezone };
+    await i18n.changeLanguage('ja');
+    render(<ScheduleEditor />);
+
+    expect(screen.getByRole('group', { name: '曜日' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '月曜日' })).toHaveTextContent('月');
+    expect(screen.getByRole('button', { name: '平日' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('schedule-end').querySelector('option:checked')).toHaveTextContent('(翌日)');
+    expect(screen.getByTestId('schedule-timezone')).toHaveTextContent(`タイムゾーン(${timezone})`);
+    expect(document.querySelector('img')).toBeNull();
   });
 
   it('shows only the switch until the schedule is on', () => {

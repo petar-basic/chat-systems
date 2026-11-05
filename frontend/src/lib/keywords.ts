@@ -1,3 +1,4 @@
+import i18n from './i18n';
 import { fold, foldWithOffsets } from './fold';
 
 const WORD = /[\p{L}\p{N}_]/u;
@@ -11,11 +12,13 @@ export function foldKeyword(keyword: string): string {
 export function keywordProblem(keyword: string, listed: string[]): string | null {
   const word = keyword.trim();
   const length = [...word].length;
-  if (length < 2 || length > 64) return 'A keyword is 2 to 64 characters.';
-  if (word.startsWith('@') || word.startsWith('#')) return 'A keyword cannot start with @ or #.';
+  if (length < 2 || length > 64) return i18n.t('notifications:keywords.problems.length', { min: 2, max: 64 });
+  if (word.startsWith('@') || word.startsWith('#')) return i18n.t('notifications:keywords.problems.prefix');
   const folded = foldKeyword(word);
-  if (listed.some((k) => foldKeyword(k) === folded)) return `"${word}" is already on your list.`;
-  if (listed.length >= KEYWORD_LIMIT) return `You can keep up to ${KEYWORD_LIMIT} keywords.`;
+  if (listed.some((k) => foldKeyword(k) === folded))
+    return i18n.t('notifications:keywords.problems.duplicate', { keyword: word });
+  if (listed.length >= KEYWORD_LIMIT)
+    return i18n.t('notifications:keywords.problems.limit', { limit: KEYWORD_LIMIT });
   return null;
 }
 

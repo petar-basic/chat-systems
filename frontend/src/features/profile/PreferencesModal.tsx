@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Bell,
   CheckCheck,
@@ -10,6 +11,7 @@ import {
   UserRound,
 } from 'lucide-react';
 import { SectionedModal, type ModalSection } from '@/shared/components/Modal/SectionedModal';
+import { Trans } from '@/shared/components/Trans/Trans';
 import {
   PushNotificationsPanel,
   DesktopNotificationsPanel,
@@ -33,15 +35,15 @@ import { useWorkspaceStore } from '@/stores/workspace';
 export type PreferencesSection =
   'notifications' | 'appearance' | 'messages' | 'region' | 'read' | 'account' | 'security' | 'advanced';
 
-const SECTIONS: ModalSection<PreferencesSection>[] = [
-  { key: 'notifications', label: 'Notifications', Icon: Bell },
-  { key: 'appearance', label: 'Appearance', Icon: Palette },
-  { key: 'messages', label: 'Messages & media', Icon: MessageSquare },
-  { key: 'region', label: 'Language & region', Icon: Globe },
-  { key: 'read', label: 'Mark as read', Icon: CheckCheck },
-  { key: 'account', label: 'Account', Icon: UserRound },
-  { key: 'security', label: 'Security', Icon: ShieldCheck },
-  { key: 'advanced', label: 'Advanced', Icon: SlidersHorizontal },
+const SECTIONS: Omit<ModalSection<PreferencesSection>, 'label'>[] = [
+  { key: 'notifications', Icon: Bell },
+  { key: 'appearance', Icon: Palette },
+  { key: 'messages', Icon: MessageSquare },
+  { key: 'region', Icon: Globe },
+  { key: 'read', Icon: CheckCheck },
+  { key: 'account', Icon: UserRound },
+  { key: 'security', Icon: ShieldCheck },
+  { key: 'advanced', Icon: SlidersHorizontal },
 ];
 
 interface Props {
@@ -52,11 +54,16 @@ interface Props {
 export function PreferencesModal({ initial = 'notifications', onClose }: Props) {
   const [active, setActive] = useState<PreferencesSection>(initial);
   const workspace = useWorkspaceStore((s) => s.currentWorkspace);
+  const { t } = useTranslation('profile');
+  const sections = SECTIONS.map((section) => ({
+    ...section,
+    label: t(`preferences.sections.${section.key}`),
+  }));
 
   return (
     <SectionedModal
-      title="Preferences"
-      sections={SECTIONS}
+      title={t('preferences.title')}
+      sections={sections}
       active={active}
       onSelect={setActive}
       onClose={onClose}
@@ -66,8 +73,12 @@ export function PreferencesModal({ initial = 'notifications', onClose }: Props) 
         <>
           {workspace && (
             <p className="text-sm text-muted" data-qa="notifications-scope">
-              Except push and desktop notifications on this device, these are your settings in{' '}
-              <strong className="text-fg">{workspace.name}</strong>; each workspace has its own.
+              <Trans
+                t={t}
+                i18nKey="preferences.notificationsScope"
+                values={{ name: workspace.name }}
+                components={{ workspace: <strong className="text-fg" /> }}
+              />
             </p>
           )}
           <NotifyDefaultPanel />

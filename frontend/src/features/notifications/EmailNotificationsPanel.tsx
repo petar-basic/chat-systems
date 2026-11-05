@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Mail } from 'lucide-react';
 import { toast } from '@/shared/components/Toast';
 import { toUserMessage } from '@/lib/errors';
@@ -9,6 +10,7 @@ import { useEmailPreference, useSetEmailPreference } from '@/features/notificati
  * to say no from inside the app.
  */
 export default function EmailNotificationsPanel() {
+  const { t } = useTranslation('notifications');
   const { data: preference } = useEmailPreference();
   const save = useSetEmailPreference();
 
@@ -23,12 +25,10 @@ export default function EmailNotificationsPanel() {
       <div>
         <h4 className="text-sm font-medium text-fg flex items-center gap-2">
           <Mail className="w-4 h-4 text-accent" />
-          Email me what I missed
+          {t('email.title')}
         </h4>
         <p className="text-xs text-muted mt-1">
-          {preference.mention_emails
-            ? 'On. A mention or direct message still unread five minutes later is emailed once, with a link to it.'
-            : 'Off. Unread mentions wait in Activity until you open the app.'}
+          {preference.mention_emails ? t('email.on') : t('email.off')}
         </p>
       </div>
       <button
@@ -38,7 +38,7 @@ export default function EmailNotificationsPanel() {
         data-qa="email-notifications-toggle"
         className="px-3 py-2 text-sm bg-raised hover:bg-elevated disabled:bg-raised/50 text-fg rounded-lg transition cursor-pointer whitespace-nowrap"
       >
-        {preference.mention_emails ? 'Turn off' : 'Turn on'}
+        {preference.mention_emails ? t('turnOff') : t('turnOn')}
       </button>
     </div>
   );
