@@ -30,12 +30,12 @@ system warns the first time you open it:
 | `src-tauri/src/lib.rs` | The window, its webviews, the menu and the commands the app's pages call |
 | `src-tauri/src/servers.rs` | Normalising an address, checking it is a Chat Systems server, and the saved list |
 | `src-tauri/src/navigation.rs` | Which links stay in the app, and where downloads go |
-| `src-tauri/src/bridge.js` | `window.chatSystemsDesktop`, injected into each server's page: how the page reports its workspaces, its theme and its workspace's colours, raises a notification, starts SSO and hears the rail's and the notifications' clicks |
+| `src-tauri/src/bridge.js` | `window.chatSystemsDesktop`, injected into each server's page: how the page reports its workspaces, its theme and its workspace's colours, raises a notification, starts SSO or a passkey sign-in and hears the rail's and the notifications' clicks |
 | `src-tauri/src/workspaces.rs` | What the app accepts from a page's report: ids, names, unread counts, and an icon only as a small PNG the page drew |
 | `src-tauri/src/updates.rs` | Checking for an update, and asking to restart into it |
 | `src-tauri/tauri.release.conf.json` | What a release build adds: the updater, its endpoint and public key, and signed update bundles |
 | `src-tauri/src/notifications.rs` | What the app accepts from a page's notification: a key it can hand back, a title and a body cut to banner length |
-| `src-tauri/capabilities/` | Which pages may call the app: the rail and *Add a server*; a server's page gets only `report_workspaces`, `report_theme`, `report_colours`, `notify` and `start_sso`, granted at run time for its own origin |
+| `src-tauri/capabilities/` | Which pages may call the app: the rail and *Add a server*; a server's page gets only `report_workspaces`, `report_theme`, `report_colours`, `notify`, `start_sso` and `start_passkey`, granted at run time for its own origin |
 
 ## Run and build
 
@@ -106,6 +106,11 @@ callback hands the browser a code that lives a minute, and its `/sso/desktop` pa
 `chat-systems://sso?code=…&nonce=…`. The app accepts that link only for a nonce it issued in
 the last ten minutes, once, and loads `/sso/complete` in that server's window, which trades the
 code for the session cookies there.
+
+*Sign in with a passkey* takes the same way back. A webview is not trusted with an arbitrary
+server's passkeys, so the app opens `/passkey/desktop?nonce=…` in the system browser; that page
+runs the passkey, gets the same one-minute code from the server and hands it to the app through
+`/sso/desktop`.
 
 The servers you add are kept in `servers.json` in the app's config directory
 (`~/Library/Application Support/com.chatsystems.desktop` on macOS).

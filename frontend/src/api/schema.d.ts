@@ -462,6 +462,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/passkeys/sign-in/desktop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["passkey_sign_in_for_desktop"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/passkeys/sign-in/start": {
         parameters: {
             query?: never;
@@ -4541,6 +4557,9 @@ export interface components {
             /** Format: uuid */
             user_id: string;
         };
+        DesktopPasskeyCode: {
+            code: string;
+        };
         DirectoryChannel: {
             /** Format: uuid */
             id: string;
@@ -6764,6 +6783,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuthSession"];
+                };
+            };
+        };
+    };
+    passkey_sign_in_for_desktop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasskeyAssertion"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DesktopPasskeyCode"];
                 };
             };
         };

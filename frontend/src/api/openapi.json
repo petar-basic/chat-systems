@@ -991,6 +991,38 @@
         ]
       }
     },
+    "/auth/passkeys/sign-in/desktop": {
+      "post": {
+        "tags": [
+          "passkeys"
+        ],
+        "operationId": "passkey_sign_in_for_desktop",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasskeyAssertion"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesktopPasskeyCode"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
     "/auth/passkeys/sign-in/start": {
       "post": {
         "tags": [
@@ -14252,6 +14284,17 @@
           "user_id": {
             "type": "string",
             "format": "uuid"
+          }
+        }
+      },
+      "DesktopPasskeyCode": {
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
           }
         }
       },

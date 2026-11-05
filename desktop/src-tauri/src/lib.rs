@@ -343,6 +343,7 @@ fn load_server<R: Runtime>(
                 .permission("allow-report-workspaces")
                 .permission("allow-notify")
                 .permission("allow-start-sso")
+                .permission("allow-start-passkey")
                 .permission("allow-report-theme")
                 .permission("allow-report-colours"),
         );
@@ -834,6 +835,22 @@ fn start_sso(app: AppHandle, webview: Webview, invite: Option<String>) -> Result
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn start_passkey(app: AppHandle, webview: Webview) -> Result<(), String> {
+    let server = server_of(&app, &webview)?;
+    let origin = Url::parse(&server.url).map_err(|e| e.to_string())?;
+    let nonce = sso::new_nonce()?;
+    let start = sso::passkey_url(&origin, &nonce)
+        .ok_or_else(|| format!("{} has no sign-in address", server.url))?;
+    app.state::<PendingSso>()
+        .lock()
+        .map_err(|e| e.to_string())?
+        .begin(&server.url, &nonce, Instant::now());
+    app.opener()
+        .open_url(start.as_str(), None::<&str>)
+        .map_err(|e| e.to_string())
+}
+
 fn finish_sso<R: Runtime>(app: &AppHandle<R>, link: &Url) -> Result<(), String> {
     let Some(finished) = app
         .state::<PendingSso>()
@@ -973,7 +990,8 @@ pub fn run() {
             rail_menu,
             add_menu,
             open_workspace,
-            start_sso
+            start_sso,
+            start_passkey
         ])
         .setup(|app| {
             let dir = app.path().app_config_dir()?;

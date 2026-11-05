@@ -13,6 +13,7 @@ fn main() {
             "add_menu",
             "open_workspace",
             "start_sso",
+            "start_passkey",
         ]),
     ))
     .expect("tauri build script");
