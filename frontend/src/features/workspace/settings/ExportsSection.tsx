@@ -47,7 +47,7 @@ function ExportRow({
         <div className="text-sm text-fg-soft truncate" data-qa="export-subject">
           {subject}
           {job.include_dms && job.scope === 'workspace' && (
-            <span className="ml-2 px-1.5 py-0.5 rounded bg-raised text-[10px] uppercase tracking-wide text-fg-dim">
+            <span className="ml-2 px-1.5 py-0.5 rounded bg-raised text-3xs uppercase tracking-wide text-fg-dim">
               with DMs
             </span>
           )}

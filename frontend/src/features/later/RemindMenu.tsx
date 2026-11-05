@@ -47,7 +47,7 @@ export function RemindMenu({ label = 'Remind me', onPick, onClear, dataQa }: Pro
           {REMIND_PRESETS.map((preset) => (
             <button key={preset.label} type="button" className={ITEM} onClick={() => pick(preset.at())}>
               <span>{preset.label}</span>
-              <span className="text-[11px] text-subtle">{formatScheduleHint(preset.at())}</span>
+              <span className="text-2xs text-subtle">{formatScheduleHint(preset.at())}</span>
             </button>
           ))}
           <div className="mt-1 border-t border-line/70 px-3 py-2">

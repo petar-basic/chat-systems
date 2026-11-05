@@ -106,7 +106,7 @@ export default function WorkflowsPanel({
                   <div className="flex items-center gap-2">
                     <span className="flex-1 truncate text-sm font-medium text-fg-soft">{workflow.name}</span>
                     <span
-                      className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                      className={`rounded px-1.5 py-0.5 text-3xs font-semibold ${
                         workflow.enabled ? 'bg-green-500/15 text-success' : 'bg-raised text-muted'
                       }`}
                       data-qa="workflow-state"

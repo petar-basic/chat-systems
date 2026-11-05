@@ -136,7 +136,7 @@ export default function InstanceAdminPage() {
             <div className="mb-4 text-sm text-muted">{users.length} users on this instance</div>
 
             <div className="bg-surface rounded-xl border border-line overflow-x-auto">
-              <table className="w-full min-w-[560px]">
+              <table className="w-full min-w-140">
                 <thead>
                   <tr className="border-b border-line">
                     <th className="text-left px-4 py-3 text-xs font-medium text-muted uppercase tracking-wider">

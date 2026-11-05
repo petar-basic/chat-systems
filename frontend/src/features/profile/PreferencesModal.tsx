@@ -20,6 +20,7 @@ import {
 } from '@/features/notifications';
 import ThemePicker from '@/features/profile/ThemePicker';
 import WorkspaceThemePicker from '@/features/profile/WorkspaceThemePicker';
+import TextPicker from '@/features/profile/TextPicker';
 import RegionPanel from '@/features/profile/RegionPanel';
 import TwoFactorPanel from '@/features/profile/TwoFactorPanel';
 import MessagesMediaPanel from '@/features/profile/MessagesMediaPanel';
@@ -81,6 +82,7 @@ export function PreferencesModal({ initial = 'notifications', onClose }: Props) 
           <p className="mb-3 text-sm text-muted">Pick a theme, or follow your system setting.</p>
           <ThemePicker />
           <WorkspaceThemePicker />
+          <TextPicker />
         </div>
       )}
       {active === 'messages' && <MessagesMediaPanel />}

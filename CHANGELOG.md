@@ -44,6 +44,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   *Preferences → Account* for every workspace that has none of its own. The profile card shows
   the title under the name and the pronouns beside it, and finding people in the quick
   switcher, a new message or an @mention matches their title as well as their name.
+- Text size and typeface. *Preferences → Appearance* makes all text 90, 100, 112 or 125 % and
+  offers Inter, Atkinson Hyperlegible and OpenDyslexic besides the system font; code stays
+  monospace. Both follow you to other browsers and the desktop app, and a reload opens at the
+  size you picked. The fonts come with the app and load only when picked.
 
 ### Fixed
 

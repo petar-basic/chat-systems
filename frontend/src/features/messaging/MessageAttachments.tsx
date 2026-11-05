@@ -118,7 +118,7 @@ function ImageGrid({ images, onOpen }: { images: Attachment[]; onOpen: (image: A
   const shown = images.slice(0, GRID_LIMIT);
   const hidden = images.length - shown.length;
   return (
-    <div className="grid w-full max-w-[360px] grid-cols-2 gap-1" data-qa="attachment-grid">
+    <div className="grid w-full max-w-90 grid-cols-2 gap-1" data-qa="attachment-grid">
       {shown.map((image, index) => (
         <button
           key={image.id}
@@ -169,7 +169,7 @@ function MediaPlayer({ attachment, kind }: { attachment: Attachment; kind: 'vide
   );
   if (kind === 'video') {
     return (
-      <div className="flex w-full max-w-[480px] flex-col gap-1" data-qa="attachment-video">
+      <div className="flex w-full max-w-120 flex-col gap-1" data-qa="attachment-video">
         <video
           src={attachment.url}
           controls

@@ -166,7 +166,7 @@ function dueChip(item: LaterItem) {
     <span
       data-qa="later-due"
       data-overdue={overdue || undefined}
-      className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${
+      className={`rounded px-1.5 py-0.5 text-2xs font-medium ${
         overdue ? 'bg-red-500/15 text-danger' : 'bg-raised text-fg-dim'
       }`}
     >

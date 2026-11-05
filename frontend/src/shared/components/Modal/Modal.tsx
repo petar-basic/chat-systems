@@ -8,11 +8,11 @@ import { useDismiss } from './dismiss';
 export type ModalSize = 'sm' | 'md' | 'lg' | 'tall' | 'full';
 
 const WIDTHS: Record<ModalSize, string> = {
-  sm: 'sm:max-w-[400px]',
-  md: 'sm:max-w-[520px]',
-  lg: 'sm:max-w-[720px]',
-  tall: 'sm:h-[min(44rem,90dvh)] sm:max-w-[720px]',
-  full: 'h-[90dvh] sm:max-w-[880px]',
+  sm: 'sm:max-w-100',
+  md: 'sm:max-w-130',
+  lg: 'sm:max-w-180',
+  tall: 'sm:h-[min(44rem,90dvh)] sm:max-w-180',
+  full: 'h-[90dvh] sm:max-w-220',
 };
 
 interface ModalProps {

@@ -6,6 +6,7 @@ import { QUERY_KEYS } from '@/shared/constants';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useThemeStore } from '@/stores/theme';
 import { useDisplayStore } from '@/stores/display';
+import { useTextStore } from '@/stores/text';
 import { applyLanguage } from '@/lib/i18n';
 
 type Preferences = components['schemas']['Preferences'];
@@ -70,6 +71,15 @@ export function usePreferencesSync() {
   useEffect(() => {
     if (loaded) followColourMode(savedMode);
   }, [loaded, savedMode]);
+
+  const savedSize = data?.text_size;
+  const savedTypeface = data?.typeface;
+  useEffect(() => {
+    if (savedSize) useTextStore.getState().setSize(savedSize);
+  }, [savedSize]);
+  useEffect(() => {
+    if (savedTypeface) useTextStore.getState().setTypeface(savedTypeface);
+  }, [savedTypeface]);
 
   const savedLanguage = data?.language;
   useEffect(() => {

@@ -444,7 +444,7 @@ export function ListGrid({
                       }`}
                       onClick={() => onOpenItem(item.id)}
                       data-qa="list-row-comments"
-                      className="flex h-7 w-7 items-center justify-center gap-0.5 rounded text-[11px] tabular-nums text-muted hover:bg-raised/60 hover:text-fg cursor-pointer"
+                      className="flex h-7 w-7 items-center justify-center gap-0.5 rounded text-2xs tabular-nums text-muted hover:bg-raised/60 hover:text-fg cursor-pointer"
                     >
                       <MessageSquare className="h-3 w-3" />
                       {item.comment_count > 99 ? '99+' : item.comment_count}

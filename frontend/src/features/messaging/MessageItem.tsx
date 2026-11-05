@@ -286,7 +286,7 @@ function MessageItem({
       {message.metadata?.bot && (
         <span
           data-qa="bot-tag"
-          className="px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-raised text-fg-dim rounded"
+          className="px-1 py-0.5 text-3xs font-semibold uppercase tracking-wide bg-raised text-fg-dim rounded"
         >
           {message.metadata.bot.workflow_id ? 'Workflow' : 'Bot'}
         </span>
@@ -294,7 +294,7 @@ function MessageItem({
       {!message.metadata?.bot && senderIsApp && (
         <span
           data-qa="app-tag"
-          className="px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-raised text-fg-dim rounded"
+          className="px-1 py-0.5 text-3xs font-semibold uppercase tracking-wide bg-raised text-fg-dim rounded"
         >
           App
         </span>
@@ -332,7 +332,7 @@ function MessageItem({
           </span>
         ) : stacked ? (
           <div className="w-8 shrink-0 flex justify-end pr-0.5">
-            <span className="text-[10px] leading-5 text-muted opacity-0 group-hover:opacity-100 tabular-nums">
+            <span className="text-3xs leading-5 text-muted opacity-0 group-hover:opacity-100 tabular-nums">
               {time}
             </span>
           </div>

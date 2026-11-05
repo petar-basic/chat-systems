@@ -15,6 +15,16 @@
   var meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', resolved === 'light' ? '#eef1f6' : '#0f172a');
 
+  try {
+    var size = localStorage.getItem('chat_text_size');
+    if (size === '90' || size === '112' || size === '125') document.documentElement.style.fontSize = size + '%';
+    var typeface = localStorage.getItem('chat_typeface');
+    if (typeface === 'inter' || typeface === 'atkinson_hyperlegible' || typeface === 'open_dyslexic')
+      document.documentElement.dataset.typeface = typeface;
+  } catch (e) {
+    size = null;
+  }
+
   window.__installPrompt = null;
   window.addEventListener('beforeinstallprompt', function (event) {
     event.preventDefault();

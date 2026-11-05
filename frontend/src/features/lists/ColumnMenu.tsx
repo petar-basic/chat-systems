@@ -78,7 +78,7 @@ export function ColumnMenu({ column, index, count, canEdit, open, onOpen, onClos
         <span className="truncate">{column.name}</span>
         {column.due && (
           <span
-            className="shrink-0 rounded bg-accent/15 px-1 text-[10px] font-semibold text-accent"
+            className="shrink-0 rounded bg-accent/15 px-1 text-3xs font-semibold text-accent"
             data-qa="list-column-due"
           >
             Due

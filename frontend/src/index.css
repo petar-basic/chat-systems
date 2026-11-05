@@ -30,6 +30,25 @@
   --color-badge-fg: var(--badge-fg);
 }
 
+@theme {
+  --text-2xs: 0.6875rem;
+  --text-3xs: 0.625rem;
+  --text-4xs: 0.5625rem;
+}
+
+:root[data-typeface='inter'] {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+}
+
+:root[data-typeface='atkinson_hyperlegible'] {
+  --font-sans:
+    'Atkinson Hyperlegible', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+}
+
+:root[data-typeface='open_dyslexic'] {
+  --font-sans: 'OpenDyslexic', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+}
+
 :root,
 .unthemed {
   color-scheme: dark;
