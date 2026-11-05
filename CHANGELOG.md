@@ -18,6 +18,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ### Fixed
 
+- On Windows the desktop rail's tooltips name the workspace shortcut as Ctrl+1 to Ctrl+9, the
+  keys that work there. They said ⌘1 to ⌘9 on every system.
 - The time zone in *Preferences → Language & region* is one field you type a city or an offset
   into, such as *Tokyo* or *GMT+9*, with a list of matching zones under it showing each one's
   offset and local time. The separate search field narrowed a long system list you could not
