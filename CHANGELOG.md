@@ -14,6 +14,17 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
+## [Unreleased]
+
+### Added
+
+- Passkeys. *Preferences → Security* adds one (after your password or a code), names, renames and
+  removes them, up to ten. *Sign in with a passkey* on the sign-in page needs no email, and
+  since the device checks your fingerprint, face or PIN it does not then ask for a TOTP code and
+  counts as an admin's second factor under `REQUIRE_ADMIN_TOTP`. After a password, a passkey can
+  stand in for the code. A passkey belongs to the host in `PUBLIC_URL`. SSO accounts are not
+  offered passkeys. Not yet in the desktop app.
+
 ## [4.2.1] — 2026-11-05
 
 ### Upgrading from 4.2.0

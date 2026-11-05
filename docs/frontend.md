@@ -545,6 +545,12 @@ placeholder, and *Use account photo* drops the workspace's. *Preferences* is a v
 list — *Notifications*, *Appearance*, *Messages & media*, *Language & region*, *Mark as read*,
 *Account*, *Security*, *Advanced* — over panels
 that save as they change, except *Account*, the account's name, title, pronouns, bio and photo, which has its own save button.
+*Security* holds two-factor (`TwoFactorPanel`) and `PasskeysPanel`: the account's passkeys with
+when each was added and last used, renamed in place, and added or removed after the password or
+a TOTP code. `lib/webauthn.ts` turns the server's base64url options into what
+`navigator.credentials` takes and the answer back. The sign-in page offers *Sign in with a
+passkey* on its own server in a browser that has `PublicKeyCredential`, and *Use a passkey
+instead* where the server's 409 says a passkey would do; the desktop app offers neither yet.
 A photo picked under *Account* is uploaded to `POST /users/me/avatar` and set on the account at
 once, so every workspace shows it; *Edit profile*'s photo stays a file of its workspace.
 The *You* row reads the person from the users cache, so it shows the workspace profile. *Notifications* opens with `NotifyDefaultPanel`, the

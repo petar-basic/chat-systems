@@ -88,6 +88,11 @@ in `main.rs`.
   refused. Refresh tokens are DB-backed, single-use, and rotated; password reset is single-use
   and revokes all sessions. Auth cookies are `HttpOnly; SameSite=Lax`, and `Secure` whenever
   `PUBLIC_URL` is https.
+- **Passkeys** (`auth/passkey*.rs`, `webauthn-rs`). The relying party is the host of
+  `PUBLIC_URL` and its origin (any port on `localhost`), so a passkey belongs to one server and
+  changing `PUBLIC_URL`'s host strands every passkey on it. A ceremony's state waits in Redis
+  under `passkey:challenge:{id}` for two minutes and is taken on first use, so a replayed or a
+  late answer finds nothing. The credential, its counter included, is a JSONB row in `passkeys`.
 - **Secrets at rest.** Connected apps' client secrets and tokens and TOTP secrets are sealed
   with ChaCha20-Poly1305 by `sealed/`, under a per-purpose key derived from `SECRETS_KEYS`
   (a list of `id:base64` keys, the first one current). Each row stores the key id beside the
@@ -157,7 +162,16 @@ Handles user identity — login, registration, JWT, and profile.
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
-| POST | `/auth/login` | `{ email, password }` | `AuthSession` |
+| POST | `/auth/login` | `{ email, password, totp_code? }` | `AuthSession`. A right password that needs a second factor is a 409 saying which: `totp_required`, `totp_or_passkey_required` when the account also has a passkey, or `passkey_required` for an instance admin under `REQUIRE_ADMIN_TOTP` whose only factor is a passkey |
+| GET | `/auth/passkeys` | JWT | `{ offered, data: PasskeySummary[] }` — `{ id, name, created_at, last_used_at }`; `offered` is false for an SSO account (no password), which is refused every passkey route below |
+| POST | `/auth/passkeys/registration` | `{ password?, code? }` | `{ challenge_id, options }` — the password or a TOTP code first, rate-limited per account; `options` go to `navigator.credentials.create` and ask for a discoverable credential with user verification, excluding the account's own. 409 at ten passkeys |
+| POST | `/auth/passkeys` | `{ challenge_id, name, credential }` | `PasskeySummary` — `name` 1–64 characters; audited `passkey.added` |
+| PATCH | `/auth/passkeys/{id}` | `{ name }` | `{ status: "renamed" }` |
+| POST | `/auth/passkeys/{id}/remove` | `{ password?, code? }` | `{ status: "removed" }`, audited `passkey.removed`; 403 for an admin's last passkey when it is their only factor under `REQUIRE_ADMIN_TOTP` |
+| POST | `/auth/passkeys/sign-in/start` | — | `{ challenge_id, options }` for `navigator.credentials.get` with no credentials named, so the device offers whichever it holds for this server |
+| POST | `/auth/passkeys/sign-in` | `{ challenge_id, credential }` | `AuthSession` and the auth cookies. The device verified the person, so no TOTP code is asked and `REQUIRE_ADMIN_TOTP` is met; a suspended or SSO account is a 401/403. Audited `passkey.used` with `stage: "sign_in"` |
+| POST | `/auth/passkeys/second-factor/start` | `{ email, password }` | `{ challenge_id, options }` naming the account's passkeys, under the login rate limits; 400 for an account with none |
+| POST | `/auth/passkeys/second-factor` | `{ challenge_id, credential }` | `AuthSession`, as a TOTP code would have given; audited `passkey.used` with `stage: "second_factor"` |
 | GET | `/auth/invites/:token/verify` | — | `{ email, workspace_name, workspace_id, already_registered }` — 401 once the invite the link names is revoked, expired or used up |
 | POST | `/auth/invites/:token/accept` | JWT | `{ workspace_id, workspace_name }` — an email invite for an account that already exists; same checks, claims a use |
 | POST | `/auth/complete-registration` | `{ token, password, display_name }` | `AuthSession` — joins the invite's workspace with the invite's role and claims a use; 401 for a revoked, expired or used-up invite |

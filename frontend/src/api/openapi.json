@@ -820,6 +820,279 @@
         ]
       }
     },
+    "/auth/passkeys": {
+      "get": {
+        "tags": [
+          "passkeys"
+        ],
+        "operationId": "list_passkeys",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyList"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "passkeys"
+        ],
+        "operationId": "add_passkey",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddPasskeyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeySummary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/passkeys/registration": {
+      "post": {
+        "tags": [
+          "passkeys"
+        ],
+        "operationId": "start_passkey_registration",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PresenceProof"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyChallenge"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/passkeys/second-factor": {
+      "post": {
+        "tags": [
+          "passkeys"
+        ],
+        "operationId": "passkey_second_factor",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasskeyAssertion"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthSession"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/auth/passkeys/second-factor/start": {
+      "post": {
+        "tags": [
+          "passkeys"
+        ],
+        "operationId": "start_passkey_second_factor",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasskeySecondFactorStart"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyChallenge"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/auth/passkeys/sign-in": {
+      "post": {
+        "tags": [
+          "passkeys"
+        ],
+        "operationId": "passkey_sign_in",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasskeyAssertion"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthSession"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/auth/passkeys/sign-in/start": {
+      "post": {
+        "tags": [
+          "passkeys"
+        ],
+        "operationId": "start_passkey_sign_in",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyChallenge"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/auth/passkeys/{id}": {
+      "patch": {
+        "tags": [
+          "passkeys"
+        ],
+        "operationId": "rename_passkey",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenamePasskeyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/passkeys/{id}/remove": {
+      "post": {
+        "tags": [
+          "passkeys"
+        ],
+        "operationId": "remove_passkey",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PresenceProof"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/auth/refresh": {
       "post": {
         "tags": [
@@ -9270,6 +9543,30 @@
           }
         }
       },
+      "AddPasskeyRequest": {
+        "type": "object",
+        "required": [
+          "challenge_id",
+          "name",
+          "credential"
+        ],
+        "properties": {
+          "challenge_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "credential": {
+            "type": "object",
+            "additionalProperties": {},
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "AddReactionRequest": {
         "type": "object",
         "required": [
@@ -16401,6 +16698,107 @@
           }
         }
       },
+      "PasskeyAssertion": {
+        "type": "object",
+        "required": [
+          "challenge_id",
+          "credential"
+        ],
+        "properties": {
+          "challenge_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "credential": {
+            "type": "object",
+            "additionalProperties": {},
+            "propertyNames": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "PasskeyChallenge": {
+        "type": "object",
+        "required": [
+          "challenge_id",
+          "options"
+        ],
+        "properties": {
+          "challenge_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "options": {
+            "type": "object",
+            "additionalProperties": {},
+            "propertyNames": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "PasskeyList": {
+        "type": "object",
+        "required": [
+          "offered",
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PasskeySummary"
+            }
+          },
+          "offered": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PasskeySecondFactorStart": {
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          }
+        }
+      },
+      "PasskeySummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "last_used_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "Permission": {
         "type": "object",
         "required": [
@@ -16586,6 +16984,23 @@
           }
         }
       },
+      "PresenceProof": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "password": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
       "Previews": {
         "type": "string",
         "enum": [
@@ -16760,6 +17175,17 @@
             "type": "string"
           },
           "token": {
+            "type": "string"
+          }
+        }
+      },
+      "RenamePasskeyRequest": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
             "type": "string"
           }
         }
@@ -19742,6 +20168,10 @@
     {
       "name": "totp",
       "description": "Two-factor enrolment"
+    },
+    {
+      "name": "passkeys",
+      "description": "Passkeys: adding them and signing in with one"
     },
     {
       "name": "slack-import",

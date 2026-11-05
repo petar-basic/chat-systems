@@ -55,6 +55,9 @@ pub enum AuditAction {
     TotpDisabled,
     TotpFailed,
     TotpRecoveryUsed,
+    PasskeyAdded,
+    PasskeyRemoved,
+    PasskeyUsed,
     CommandInvoked,
     GroupCreated,
     GroupUpdated,
@@ -129,6 +132,9 @@ impl AuditAction {
             Self::TotpDisabled => "totp.disabled",
             Self::TotpFailed => "totp.failed",
             Self::TotpRecoveryUsed => "totp.recovery_used",
+            Self::PasskeyAdded => "passkey.added",
+            Self::PasskeyRemoved => "passkey.removed",
+            Self::PasskeyUsed => "passkey.used",
             Self::CommandInvoked => "command.invoked",
             Self::GroupCreated => "group.created",
             Self::GroupUpdated => "group.updated",
@@ -202,7 +208,10 @@ impl AuditAction {
             | Self::TotpEnrolled
             | Self::TotpDisabled
             | Self::TotpFailed
-            | Self::TotpRecoveryUsed => "user",
+            | Self::TotpRecoveryUsed
+            | Self::PasskeyAdded
+            | Self::PasskeyRemoved
+            | Self::PasskeyUsed => "user",
             Self::ScimTokenCreated | Self::ScimTokenRevoked | Self::ScimTokenRotated => "scim",
             Self::RetentionChanged | Self::RetentionPurge => "retention",
             Self::AppConfigured | Self::AppRemoved | Self::AppConnected | Self::AppDisconnected => {

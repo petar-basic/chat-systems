@@ -78,6 +78,9 @@ const ACTION_LABELS: Record<string, string> = {
   'totp.disabled': 'Two-factor disabled',
   'totp.failed': 'Two-factor challenge failed',
   'totp.recovery_used': 'Recovery code used',
+  'passkey.added': 'Passkey added',
+  'passkey.removed': 'Passkey removed',
+  'passkey.used': 'Signed in with a passkey',
 };
 
 function humanizeAction(action: string): string {

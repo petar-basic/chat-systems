@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { instanceManager } from '../lib/instances';
+import { instanceManager, type InstanceClients } from '../lib/instances';
+import { requestPasskey, wasCancelled } from '../lib/webauthn';
 import { useWsStatusStore } from './wsStatus';
 import { backfillAfterReconnect } from '../lib/realtimeBackfill';
 import { toast } from '@/shared/components/Toast';
@@ -98,6 +99,7 @@ interface InstancesState {
     wsUrl?: string,
     totpCode?: string,
   ) => Promise<void>;
+  addInstanceWithPasskey: (url: string, password?: { email: string; password: string }) => Promise<void>;
   addValidatedInstance: (config: InstanceConfig) => void;
   removeInstance: (url: string) => void;
   setActiveInstance: (url: string) => void;
@@ -145,6 +147,62 @@ async function adoptSsoSession(
   } catch {
     instanceManager.remove(origin);
     return null;
+  }
+}
+
+type AuthSession = components['schemas']['AuthSession'];
+type StoreSet = (partial: Partial<InstancesState>) => void;
+
+async function signInTo(
+  set: StoreSet,
+  get: () => InstancesState,
+  url: string,
+  wsUrl: string | undefined,
+  signIn: (api: InstanceClients['api']) => Promise<AuthSession>,
+) {
+  set({ loading: true, error: null });
+  const normalized = instanceManager.normalize(url);
+  const normalizedWsUrl = wsUrl?.trim() || undefined;
+  try {
+    if (normalizedWsUrl) {
+      instanceManager.setWsUrl(normalized, normalizedWsUrl);
+    }
+    const clients = instanceManager.get(normalized);
+    clients.api.onSessionExpired = () => {
+      toast.error(ErrorLabels.SessionExpired);
+      get().removeInstance(normalized);
+    };
+    clients.ws.onStatusChange = (status) => {
+      useWsStatusStore.getState().setStatus(normalized, status);
+    };
+    clients.ws.onSessionRevoked = () => {
+      toast.error(ErrorLabels.SessionRevoked);
+      get().removeInstance(normalized);
+    };
+    clients.ws.addReconnectListener(backfillAfterReconnect);
+
+    const res = await signIn(clients.api);
+
+    if (normalized !== window.location.origin) {
+      clients.api.onTokensChanged = (access, refresh) => saveTokens(normalized, access, refresh);
+    }
+    clients.api.setTokens(res.access_token, res.refresh_token);
+    clients.ws.connect();
+
+    const config: InstanceConfig = {
+      url: normalized,
+      ...(normalizedWsUrl ? { wsUrl: normalizedWsUrl } : {}),
+      user: toInstanceUser(res.user),
+    };
+
+    const existing = get().instances.filter((i) => i.url !== normalized);
+    const instances = [...existing, config];
+    saveToStorage(instances);
+    set({ instances, activeInstanceUrl: normalized, loading: false });
+  } catch (e: unknown) {
+    const msg = wasCancelled(e) ? null : e instanceof Error ? e.message : 'Failed to connect to instance';
+    set({ loading: false, error: msg });
+    throw e;
   }
 }
 
@@ -220,58 +278,45 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
   },
 
   addInstance: async (url, email, password, wsUrl?, totpCode?) => {
-    set({ loading: true, error: null });
-    const normalized = instanceManager.normalize(url);
-    const normalizedWsUrl = wsUrl?.trim() || undefined;
-    try {
-      if (normalizedWsUrl) {
-        instanceManager.setWsUrl(normalized, normalizedWsUrl);
-      }
-      const clients = instanceManager.get(normalized);
-      clients.api.onSessionExpired = () => {
-        toast.error(ErrorLabels.SessionExpired);
-        get().removeInstance(normalized);
-      };
-      clients.ws.onStatusChange = (status) => {
-        useWsStatusStore.getState().setStatus(normalized, status);
-      };
-      clients.ws.onSessionRevoked = () => {
-        toast.error(ErrorLabels.SessionRevoked);
-        get().removeInstance(normalized);
-      };
-      clients.ws.addReconnectListener(backfillAfterReconnect);
-
-      const res = await clients.api.typed(
+    await signInTo(set, get, url, wsUrl, (api) =>
+      api.typed(
         (c) =>
           c.POST('/auth/login', {
             body: { email, password, ...(totpCode ? { totp_code: totpCode } : {}) },
           }),
         { anonymous: true },
-      );
+      ),
+    );
+  },
 
-      if (normalized !== window.location.origin) {
-        clients.api.onTokensChanged = (access, refresh) => saveTokens(normalized, access, refresh);
-        clients.api.setTokens(res.access_token, res.refresh_token);
-      } else {
-        clients.api.setTokens(res.access_token, res.refresh_token);
+  addInstanceWithPasskey: async (url, password?) => {
+    await signInTo(set, get, url, undefined, async (api) => {
+      if (password) {
+        const challenge = await api.typed(
+          (c) => c.POST('/auth/passkeys/second-factor/start', { body: password }),
+          {
+            anonymous: true,
+          },
+        );
+        const credential = await requestPasskey(challenge.options);
+        return api.typed(
+          (c) =>
+            c.POST('/auth/passkeys/second-factor', {
+              body: { challenge_id: challenge.challenge_id, credential },
+            }),
+          { anonymous: true },
+        );
       }
-      clients.ws.connect();
-
-      const config: InstanceConfig = {
-        url: normalized,
-        ...(normalizedWsUrl ? { wsUrl: normalizedWsUrl } : {}),
-        user: toInstanceUser(res.user),
-      };
-
-      const existing = get().instances.filter((i) => i.url !== normalized);
-      const instances = [...existing, config];
-      saveToStorage(instances);
-      set({ instances, activeInstanceUrl: normalized, loading: false });
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Failed to connect to instance';
-      set({ loading: false, error: msg });
-      throw e;
-    }
+      const challenge = await api.typed((c) => c.POST('/auth/passkeys/sign-in/start'), { anonymous: true });
+      const credential = await requestPasskey(challenge.options);
+      return api.typed(
+        (c) =>
+          c.POST('/auth/passkeys/sign-in', {
+            body: { challenge_id: challenge.challenge_id, credential },
+          }),
+        { anonymous: true },
+      );
+    });
   },
 
   addValidatedInstance: (config) => {

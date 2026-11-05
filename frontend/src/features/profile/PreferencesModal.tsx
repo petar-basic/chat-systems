@@ -23,6 +23,7 @@ import WorkspaceThemePicker from '@/features/profile/WorkspaceThemePicker';
 import TextPicker from '@/features/profile/TextPicker';
 import RegionPanel from '@/features/profile/RegionPanel';
 import TwoFactorPanel from '@/features/profile/TwoFactorPanel';
+import PasskeysPanel from '@/features/profile/PasskeysPanel';
 import MessagesMediaPanel from '@/features/profile/MessagesMediaPanel';
 import AccountPanel from '@/features/profile/AccountPanel';
 import MarkAsReadPanel from '@/features/profile/MarkAsReadPanel';
@@ -89,7 +90,12 @@ export function PreferencesModal({ initial = 'notifications', onClose }: Props) 
       {active === 'region' && <RegionPanel />}
       {active === 'account' && <AccountPanel />}
       {active === 'read' && <MarkAsReadPanel />}
-      {active === 'security' && <TwoFactorPanel />}
+      {active === 'security' && (
+        <>
+          <TwoFactorPanel />
+          <PasskeysPanel />
+        </>
+      )}
       {active === 'advanced' && <AdvancedPanel />}
     </SectionedModal>
   );
