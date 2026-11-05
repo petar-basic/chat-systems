@@ -21,6 +21,26 @@ export const resources = {
   ja: { auth: jaAuth, profile: jaProfile },
 } as const;
 
+const ESCAPED: Record<string, string> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;',
+  '/': '&#x2F;',
+  '{': '&#123;',
+  '}': '&#125;',
+};
+const UNESCAPED = Object.fromEntries(Object.entries(ESCAPED).map(([char, entity]) => [entity, char]));
+
+export function escapeText(value: unknown): string {
+  return String(value).replace(/[&<>"'/{}]/g, (char) => ESCAPED[char]);
+}
+
+export function unescapeText(text: string): string {
+  return text.replace(/&(?:amp|lt|gt|quot|#39|#x2F|#123|#125);/g, (entity) => UNESCAPED[entity]);
+}
+
 export function isLanguage(value: unknown): value is Language {
   return LANGUAGES.some((language) => language === value);
 }
@@ -64,6 +84,7 @@ export const i18nOptions = {
   ns: ['auth', 'profile'],
   initAsync: false,
   interpolation: { escapeValue: false },
+  react: { unescape: unescapeText },
 } satisfies InitOptions;
 
 void i18n
