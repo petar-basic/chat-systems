@@ -7,11 +7,11 @@ ticket in [`docs/tickets/`](./tickets/INDEX.md); a ticket's file is deleted when
 
 ## Open
 
-**Wave 30 — make it yours** is open: CS-111 – CS-117, raised on 2026-11-04. A theme for each
-workspace, custom and shared themes that also colour the desktop window, preferences kept on
-the server instead of in one browser, Enter to send or for a new line, time zones with local
-time on profiles, a title and pronouns on the profile, and a text size and typeface of your
-own. It goes out as 4.2.0.
+**Wave 30 — make it yours** shipped in 4.2.0: CS-111 – CS-117a, raised on 2026-11-04. A theme
+for each workspace, custom and shared themes that also colour the desktop window, preferences
+kept on the server instead of in one browser, Enter to send or for a new line, time zones with
+local time on profiles, a title and pronouns on the profile, a text size and typeface of your
+own, and DMs that outlive somebody leaving the workspace.
 
 Planned after it on 2026-11-04, one release each:
 
@@ -97,6 +97,7 @@ was pencilled in for it was absorbed into 9 and 11.
 | [Wave 27 — What the second survey found](./history.md#wave-27--what-the-second-survey-found--shipped) | CS-089 – CS-097 |
 | [Wave 28 — What 4.0.0 needs](./history.md#wave-28--what-400-needs--shipped) | CS-098 – CS-105 |
 | [Wave 29 — A desktop app](./history.md#wave-29--a-desktop-app--shipped) | CS-106 – CS-110 |
+| [Wave 30 — Make it yours](./history.md#wave-30--make-it-yours--shipped) | CS-111 – CS-117a |
 
 ---
 
