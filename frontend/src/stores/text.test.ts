@@ -1,10 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const loaded: string[] = [];
-const font = (name: string) => () => {
-  loaded.push(name);
-  return {};
-};
+const { loaded, font } = vi.hoisted(() => {
+  const loaded: string[] = [];
+  const font = (name: string) => () => {
+    loaded.push(name);
+    return {};
+  };
+  return { loaded, font };
+});
 vi.mock('@fontsource/inter/400.css', font('inter'));
 vi.mock('@fontsource/inter/500.css', font('inter'));
 vi.mock('@fontsource/inter/600.css', font('inter'));
