@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { conversationTitle, otherParticipants, isUnread } from './conversationHelpers';
+import {
+  conversationTitle,
+  departedPartner,
+  departureNote,
+  otherParticipants,
+  isUnread,
+} from './conversationHelpers';
 import type { Conversation } from '@/features/messaging/hooks/useConversations';
 
 const names: Record<string, string> = {
@@ -12,6 +18,10 @@ const names: Record<string, string> = {
 };
 const nameOf = (id: string) => names[id] ?? null;
 
+function gone(userId: string, displayName: string) {
+  return { user_id: userId, display_name: displayName, avatar_url: null, left_at: '2026-01-01T10:00:00Z' };
+}
+
 function conversation(over: Partial<Conversation>): Conversation {
   return {
     id: 'conv-1',
@@ -22,6 +32,7 @@ function conversation(over: Partial<Conversation>): Conversation {
     participant_ids: ['me', 'a'],
     notify_level: null,
     effective_notify_level: 'all',
+    departed: [],
     ...over,
   };
 }
@@ -48,6 +59,31 @@ describe('conversationHelpers', () => {
     const alone = conversation({ participant_ids: ['me'] });
 
     expect(conversationTitle(alone, 'me', nameOf)).toBe('Me');
+  });
+
+  it('keeps the name of somebody who left the workspace', () => {
+    const left = conversation({ participant_ids: ['me'], departed: [gone('b', 'Bob Smith')] });
+
+    expect(conversationTitle(left, 'me', nameOf)).toBe('Bob Smith');
+    expect(departedPartner(left, 'me')?.user_id).toBe('b');
+    expect(departureNote(left)).toBe('Bob Smith is no longer in this workspace');
+  });
+
+  it('names who left a group beside who is still in it', () => {
+    const group = conversation({
+      kind: 'group',
+      participant_ids: ['me', 'a'],
+      departed: [gone('b', 'Bob Smith'), gone('c', 'Charlie Brown')],
+    });
+
+    expect(conversationTitle(group, 'me', nameOf)).toBe('Alice Johnson, Bob Smith, Charlie Brown');
+    expect(departedPartner(group, 'me')).toBeNull();
+    expect(departureNote(group)).toBe('Bob Smith and Charlie Brown are no longer in this workspace');
+  });
+
+  it('has nothing to say about a conversation everybody is still in', () => {
+    expect(departedPartner(conversation({}), 'me')).toBeNull();
+    expect(departureNote(conversation({}))).toBeNull();
   });
 
   it('marks a conversation unread until the read marker catches up', () => {

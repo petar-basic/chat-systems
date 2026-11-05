@@ -1028,3 +1028,161 @@ async fn an_existing_conversation_survives_the_guest_leaving_the_shared_channel(
         "participation still guards reading it"
     );
 }
+
+async fn conversation_in(
+    app: &axum::Router,
+    token: &str,
+    ws_id: Uuid,
+    id: &str,
+) -> serde_json::Value {
+    let (status, list) = send(
+        app,
+        "GET",
+        &format!("/api/workspaces/{ws_id}/conversations"),
+        Some(token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{list:?}");
+    list["data"]
+        .as_array()
+        .expect("conversations")
+        .iter()
+        .find(|c| c["id"] == id)
+        .cloned()
+        .unwrap_or(serde_json::Value::Null)
+}
+
+async fn post_in(app: &axum::Router, token: &str, conversation: &str, content: &str) -> StatusCode {
+    send(
+        app,
+        "POST",
+        &format!("/api/channels/{conversation}/messages"),
+        Some(token),
+        Some(json!({ "content": content })),
+    )
+    .await
+    .0
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_conversation_outlives_a_departure_and_carries_on_when_they_come_back(pool: PgPool) {
+    let (app, state, ws_id, owner_id, owner_token, bob_id, bob_token, carol_id, carol_token) =
+        seed_trio(pool).await;
+
+    let (_, direct) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/conversations"),
+        Some(&owner_token),
+        Some(json!({ "participant_ids": [bob_id] })),
+    )
+    .await;
+    let direct = direct["id"].as_str().expect("direct").to_string();
+    let (_, group) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/conversations"),
+        Some(&owner_token),
+        Some(json!({ "participant_ids": [bob_id, carol_id] })),
+    )
+    .await;
+    let group = group["id"].as_str().expect("group").to_string();
+    assert_eq!(
+        post_in(&app, &bob_token, &direct, "before I go").await,
+        StatusCode::OK
+    );
+
+    let (status, _) = send(
+        &app,
+        "DELETE",
+        &format!("/api/workspaces/{ws_id}/members/{bob_id}"),
+        Some(&bob_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let kept = conversation_in(&app, &owner_token, ws_id, &direct).await;
+    assert_eq!(kept["participant_ids"], json!([owner_id]), "{kept:?}");
+    assert_eq!(kept["departed"][0]["user_id"], json!(bob_id));
+    assert_eq!(kept["departed"][0]["display_name"], "Test User");
+    let still_talking = conversation_in(&app, &carol_token, ws_id, &group).await;
+    assert_eq!(still_talking["departed"][0]["user_id"], json!(bob_id));
+
+    assert_eq!(
+        post_in(&app, &owner_token, &direct, "are you there?").await,
+        StatusCode::FORBIDDEN,
+        "nobody would read it"
+    );
+    assert_eq!(
+        post_in(&app, &carol_token, &group, "carry on").await,
+        StatusCode::OK
+    );
+
+    let memberships: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM channel_members WHERE user_id = $1 AND channel_id IN ($2::uuid, $3::uuid)",
+    )
+    .bind(bob_id)
+    .bind(Uuid::parse_str(&direct).expect("uuid"))
+    .bind(Uuid::parse_str(&group).expect("uuid"))
+    .fetch_one(&state.pool)
+    .await
+    .expect("count");
+    assert_eq!(memberships, 0, "nothing reaches somebody who left");
+
+    let staged = state
+        .workspace_service
+        .join_workspace(
+            ws_id,
+            bob_id,
+            &crate::workspace::models::WorkspaceRole::Member,
+        )
+        .await
+        .expect("come back");
+    state.publisher.dispatch_all(staged).await;
+
+    let (status, again) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/conversations"),
+        Some(&owner_token),
+        Some(json!({ "participant_ids": [bob_id] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(again["id"], json!(direct), "the same DM, not a new one");
+
+    let back = conversation_in(&app, &bob_token, ws_id, &group).await;
+    assert_eq!(back["departed"], json!([]), "{back:?}");
+    assert_eq!(back["participant_ids"].as_array().map(Vec::len), Some(3));
+    let unread: i32 = sqlx::query_scalar(
+        "SELECT unread_count FROM channel_members WHERE user_id = $1 AND channel_id = $2",
+    )
+    .bind(bob_id)
+    .bind(Uuid::parse_str(&group).expect("uuid"))
+    .fetch_one(&state.pool)
+    .await
+    .expect("unread");
+    assert_eq!(unread, 1, "what was said while they were away is unread");
+    assert_eq!(
+        post_in(&app, &owner_token, &direct, "welcome back").await,
+        StatusCode::OK
+    );
+
+    let (status, _) = send(
+        &app,
+        "DELETE",
+        &format!("/api/workspaces/{ws_id}/members/{carol_id}"),
+        Some(&owner_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let removed = conversation_in(&app, &bob_token, ws_id, &group).await;
+    assert_eq!(
+        removed["departed"][0]["user_id"],
+        json!(carol_id),
+        "removed by an admin is the same as leaving"
+    );
+}
