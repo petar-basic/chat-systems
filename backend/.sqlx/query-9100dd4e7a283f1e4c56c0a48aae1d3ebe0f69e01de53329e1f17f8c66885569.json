@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT email_code_sign_in FROM instance_settings",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "email_code_sign_in",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "instance_settings",
+            "name": "email_code_sign_in"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "9100dd4e7a283f1e4c56c0a48aae1d3ebe0f69e01de53329e1f17f8c66885569"
+}

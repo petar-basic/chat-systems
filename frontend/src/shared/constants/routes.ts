@@ -3,6 +3,7 @@ export const ROUTES = {
   completeRegistration: '/complete-registration',
   invite: '/invite/:token',
   forgotPassword: '/forgot-password',
+  emailCode: '/sign-in/code',
   resetPassword: '/reset-password',
   app: '/app',
   admin: '/app/admin',

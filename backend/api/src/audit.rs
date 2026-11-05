@@ -58,6 +58,10 @@ pub enum AuditAction {
     PasskeyAdded,
     PasskeyRemoved,
     PasskeyUsed,
+    EmailCodeSent,
+    EmailCodeUsed,
+    EmailCodeExhausted,
+    InstanceSettingsChanged,
     CommandInvoked,
     GroupCreated,
     GroupUpdated,
@@ -135,6 +139,10 @@ impl AuditAction {
             Self::PasskeyAdded => "passkey.added",
             Self::PasskeyRemoved => "passkey.removed",
             Self::PasskeyUsed => "passkey.used",
+            Self::EmailCodeSent => "email_code.sent",
+            Self::EmailCodeUsed => "email_code.used",
+            Self::EmailCodeExhausted => "email_code.exhausted",
+            Self::InstanceSettingsChanged => "instance.settings_changed",
             Self::CommandInvoked => "command.invoked",
             Self::GroupCreated => "group.created",
             Self::GroupUpdated => "group.updated",
@@ -211,7 +219,11 @@ impl AuditAction {
             | Self::TotpRecoveryUsed
             | Self::PasskeyAdded
             | Self::PasskeyRemoved
-            | Self::PasskeyUsed => "user",
+            | Self::PasskeyUsed
+            | Self::EmailCodeSent
+            | Self::EmailCodeUsed
+            | Self::EmailCodeExhausted => "user",
+            Self::InstanceSettingsChanged => "instance",
             Self::ScimTokenCreated | Self::ScimTokenRevoked | Self::ScimTokenRotated => "scim",
             Self::RetentionChanged | Self::RetentionPurge => "retention",
             Self::AppConfigured | Self::AppRemoved | Self::AppConnected | Self::AppDisconnected => {

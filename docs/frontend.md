@@ -186,10 +186,11 @@ Standard auth flows. POST to their respective `/auth/*` endpoints.
 ### `InstanceAdminPage`
 Instance-admin user management for the active instance (route `/app/admin`). Instance-admin
 gated; redirects non-admins to `/app`.
-**Reads:** GET `/admin/users?limit=200`, GET `/admin/audit-log?limit=200` (through `features/instance/hooks/useAdmin.ts`)
+**Reads:** GET `/admin/users?limit=200`, GET `/admin/audit-log?limit=200`, GET `/admin/settings` (through `features/instance/hooks/useAdmin.ts`)
 **Writes:**
 - POST `/admin/users/{id}/suspend` / `/admin/users/{id}/activate` — toggle account status
 - PATCH `/admin/users/{id}/instance-role` `{ is_instance_admin }` — grant/revoke instance admin
+- PATCH `/admin/settings` `{ email_code_sign_in }` — the *Email* tab's `EmailCodeSetting`, disabled while the instance has no SMTP
 
 (Workspace deletion lives in *Workspace settings → General*, not here.)
 
@@ -554,6 +555,11 @@ instead* where the server's 409 says a passkey would do. In the desktop app the 
 `startPasskey`, and the system browser opens `/passkey/desktop?nonce=` (`DesktopSsoPage`, step
 `passkey`), which signs in through `/auth/passkeys/sign-in/desktop` and goes on to the SSO
 handoff with the code it gets.
+*Email me a sign-in code* on the sign-in page, shown where `/instance/info` says
+`email_code_sign_in`, opens `EmailCodePage` (`/sign-in/code`) with the email typed so far. It asks
+`/auth/email-code`, takes six digits, and signs in through `addInstanceWithEmailCode`; a 409 asks
+for the TOTP code, or offers a passkey that goes to `/auth/passkeys/second-factor/start` with the
+emailed code in place of the password.
 A photo picked under *Account* is uploaded to `POST /users/me/avatar` and set on the account at
 once, so every workspace shows it; *Edit profile*'s photo stays a file of its workspace.
 The *You* row reads the person from the users cache, so it shows the workspace profile. *Notifications* opens with `NotifyDefaultPanel`, the

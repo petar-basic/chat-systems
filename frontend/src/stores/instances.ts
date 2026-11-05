@@ -99,7 +99,8 @@ interface InstancesState {
     wsUrl?: string,
     totpCode?: string,
   ) => Promise<void>;
-  addInstanceWithPasskey: (url: string, password?: { email: string; password: string }) => Promise<void>;
+  addInstanceWithPasskey: (url: string, firstFactor?: PasskeySecondFactorStart) => Promise<void>;
+  addInstanceWithEmailCode: (url: string, email: string, code: string, totpCode?: string) => Promise<void>;
   addValidatedInstance: (config: InstanceConfig) => void;
   removeInstance: (url: string) => void;
   setActiveInstance: (url: string) => void;
@@ -151,6 +152,7 @@ async function adoptSsoSession(
 }
 
 type AuthSession = components['schemas']['AuthSession'];
+type PasskeySecondFactorStart = components['schemas']['PasskeySecondFactorStart'];
 type StoreSet = (partial: Partial<InstancesState>) => void;
 
 async function signInTo(
@@ -289,11 +291,11 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
     );
   },
 
-  addInstanceWithPasskey: async (url, password?) => {
+  addInstanceWithPasskey: async (url, firstFactor?) => {
     await signInTo(set, get, url, undefined, async (api) => {
-      if (password) {
+      if (firstFactor) {
         const challenge = await api.typed(
-          (c) => c.POST('/auth/passkeys/second-factor/start', { body: password }),
+          (c) => c.POST('/auth/passkeys/second-factor/start', { body: firstFactor }),
           {
             anonymous: true,
           },
@@ -317,6 +319,18 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
         { anonymous: true },
       );
     });
+  },
+
+  addInstanceWithEmailCode: async (url, email, code, totpCode?) => {
+    await signInTo(set, get, url, undefined, (api) =>
+      api.typed(
+        (c) =>
+          c.POST('/auth/email-code/verify', {
+            body: { email, code, ...(totpCode ? { totp_code: totpCode } : {}) },
+          }),
+        { anonymous: true },
+      ),
+    );
   },
 
   addValidatedInstance: (config) => {

@@ -276,6 +276,52 @@
         }
       }
     },
+    "/admin/settings": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "operationId": "get_instance_settings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstanceSettings"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "admin"
+        ],
+        "operationId": "update_instance_settings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateInstanceSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstanceSettings"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/admin/stats": {
       "get": {
         "tags": [
@@ -619,6 +665,70 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/RegisterCompleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthSession"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/auth/email-code": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "request_email_code",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailCodeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/auth/email-code/verify": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "verify_email_code",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyEmailCodeRequest"
               }
             }
           },
@@ -14333,6 +14443,17 @@
           }
         }
       },
+      "EmailCodeRequest": {
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string"
+          }
+        }
+      },
       "EmailPreference": {
         "type": "object",
         "required": [
@@ -15406,10 +15527,14 @@
         "required": [
           "name",
           "sso_enabled",
+          "email_code_sign_in",
           "max_upload_bytes",
           "setup_required"
         ],
         "properties": {
+          "email_code_sign_in": {
+            "type": "boolean"
+          },
           "icon_url": {
             "type": [
               "string",
@@ -15439,6 +15564,21 @@
         ],
         "properties": {
           "is_instance_admin": {
+            "type": "boolean"
+          }
+        }
+      },
+      "InstanceSettings": {
+        "type": "object",
+        "required": [
+          "email_code_sign_in",
+          "email_configured"
+        ],
+        "properties": {
+          "email_code_sign_in": {
+            "type": "boolean"
+          },
+          "email_configured": {
             "type": "boolean"
           }
         }
@@ -16802,15 +16942,23 @@
       "PasskeySecondFactorStart": {
         "type": "object",
         "required": [
-          "email",
-          "password"
+          "email"
         ],
         "properties": {
           "email": {
             "type": "string"
           },
+          "email_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "password": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -18998,6 +19146,17 @@
           }
         }
       },
+      "UpdateInstanceSettings": {
+        "type": "object",
+        "required": [
+          "email_code_sign_in"
+        ],
+        "properties": {
+          "email_code_sign_in": {
+            "type": "boolean"
+          }
+        }
+      },
       "UpdateItemRequest": {
         "type": "object",
         "required": [
@@ -19585,6 +19744,27 @@
           "active",
           "suspended"
         ]
+      },
+      "VerifyEmailCodeRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "totp_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
       },
       "VideoEmbed": {
         "type": "object",

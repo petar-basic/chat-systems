@@ -168,6 +168,7 @@ pub struct InstanceInfo {
     pub name: String,
     pub icon_url: Option<String>,
     pub sso_enabled: bool,
+    pub email_code_sign_in: bool,
     pub max_upload_bytes: u64,
     pub setup_required: bool,
 }

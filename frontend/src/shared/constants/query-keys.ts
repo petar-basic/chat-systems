@@ -80,6 +80,7 @@ export const QUERY_KEYS = {
   scimTokens: (instanceUrl: string) => ['admin', 'scim-tokens', instanceUrl] as const,
   adminUsers: (instanceUrl: string) => ['admin', 'users', instanceUrl] as const,
   adminAuditLog: (instanceUrl: string) => ['admin', 'audit-log', instanceUrl] as const,
+  adminSettings: (instanceUrl: string) => ['admin', 'settings', instanceUrl] as const,
 
   editHistory: (messageId: string) => ['edit-history', messageId] as const,
 

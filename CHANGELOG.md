@@ -25,6 +25,11 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   stand in for the code. A passkey belongs to the host in `PUBLIC_URL`. SSO accounts are not
   offered passkeys. In the desktop app *Sign in with a passkey* opens the system browser, which
   hands the app back the sign-in as SSO does; passkeys are added from a browser.
+- Sign in with a code sent by email. *Email me a sign-in code* on the sign-in page emails six
+  digits that work once, for ten minutes and five tries; an account with two-factor still gives
+  its TOTP code or a passkey after it. The answer is the same whether or not the address has an
+  account. *Instance admin → Email* turns it off; it is off while the instance has no SMTP.
+  Asking for a code and using it, and a code that runs out of tries, are in the audit log.
 
 ## [4.2.1] — 2026-11-05
 

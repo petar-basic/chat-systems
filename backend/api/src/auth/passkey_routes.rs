@@ -12,6 +12,7 @@ use webauthn_rs::prelude::{
     AuthenticationResult, Passkey, PublicKeyCredential, RegisterPublicKeyCredential, WebauthnError,
 };
 
+use super::email_code_routes;
 use super::models::{AuthSession, User, UserStatus};
 use super::oidc_routes::issue_desktop_code;
 use super::passkey::{self, Ceremony};
@@ -101,7 +102,10 @@ pub struct DesktopPasskeyCode {
 #[derive(Debug, serde::Deserialize, utoipa::ToSchema)]
 pub struct PasskeySecondFactorStart {
     pub email: String,
-    pub password: String,
+    #[serde(default)]
+    pub password: Option<String>,
+    #[serde(default)]
+    pub email_code: Option<String>,
 }
 
 #[derive(Debug, serde::Serialize, utoipa::ToSchema)]
@@ -340,7 +344,21 @@ async fn start_passkey_second_factor(
     ip: ClientIp,
     Json(req): Json<PasskeySecondFactorStart>,
 ) -> AppResult<Json<PasskeyChallenge>> {
-    let user = first_factor(&state, ip.0.as_deref(), &req.email, &req.password).await?;
+    let (user, email_code_hash) = match (req.password.as_deref(), req.email_code.as_deref()) {
+        (Some(password), _) => (
+            first_factor(&state, ip.0.as_deref(), &req.email, password).await?,
+            None,
+        ),
+        (None, Some(code)) => {
+            let checked = email_code_routes::check_code(&state, &ip, &req.email, code).await?;
+            (checked.user, Some(checked.code_hash))
+        }
+        (None, None) => {
+            return Err(AppError::BadRequest(
+                "Send the password or the emailed code".into(),
+            ))
+        }
+    };
     let keys: Vec<Passkey> = state
         .passkey_repo
         .list(user.id)
@@ -361,6 +379,7 @@ async fn start_passkey_second_factor(
         &Ceremony::SecondFactor {
             user_id: user.id,
             state: second_factor,
+            email_code_hash,
         },
     )
     .await?;
@@ -380,6 +399,7 @@ async fn passkey_second_factor(
     let Ceremony::SecondFactor {
         user_id,
         state: second_factor,
+        email_code_hash,
     } = passkey::take(&state, req.challenge_id).await?
     else {
         return Err(expired());
@@ -397,6 +417,11 @@ async fn passkey_second_factor(
         .ok_or_else(unknown_passkey)?;
 
     let user = signed_in(&state, &ip, row, &result, "second_factor").await?;
+    if let Some(code_hash) = email_code_hash {
+        let checked = email_code_routes::CheckedCode { user, code_hash };
+        email_code_routes::spend_code(&state, &ip, &checked, "second_factor").await?;
+        return session_for(&state, jar, &checked.user).await;
+    }
     session_for(&state, jar, &user).await
 }
 

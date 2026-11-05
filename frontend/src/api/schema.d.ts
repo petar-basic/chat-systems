@@ -105,6 +105,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_instance_settings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["update_instance_settings"];
+        trace?: never;
+    };
     "/admin/stats": {
         parameters: {
             query?: never;
@@ -275,6 +291,38 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["complete_registration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/email-code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["request_email_code"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/email-code/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["verify_email_code"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4571,6 +4619,9 @@ export interface components {
             /** Format: date-time */
             schedule_paused_until?: string | null;
         };
+        EmailCodeRequest: {
+            email: string;
+        };
         EmailPreference: {
             available: boolean;
             mention_emails: boolean;
@@ -4874,6 +4925,7 @@ export interface components {
         /** @enum {string} */
         InstalledKind: "connected_app" | "bot_app" | "incoming_webhook" | "outgoing_webhook" | "slash_command" | "workflow";
         InstanceInfo: {
+            email_code_sign_in: boolean;
             icon_url?: string | null;
             /** Format: int64 */
             max_upload_bytes: number;
@@ -4883,6 +4935,10 @@ export interface components {
         };
         InstanceRoleResponse: {
             is_instance_admin: boolean;
+        };
+        InstanceSettings: {
+            email_code_sign_in: boolean;
+            email_configured: boolean;
         };
         InstanceStats: {
             /** Format: int64 */
@@ -5267,7 +5323,8 @@ export interface components {
         };
         PasskeySecondFactorStart: {
             email: string;
-            password: string;
+            email_code?: string | null;
+            password?: string | null;
         };
         PasskeySummary: {
             /** Format: date-time */
@@ -5862,6 +5919,9 @@ export interface components {
         UpdateInstanceRoleRequest: {
             is_instance_admin: boolean;
         };
+        UpdateInstanceSettings: {
+            email_code_sign_in: boolean;
+        };
         UpdateItemRequest: {
             values: {
                 [key: string]: unknown;
@@ -5992,6 +6052,11 @@ export interface components {
         };
         /** @enum {string} */
         UserStatus: "pending" | "active" | "suspended";
+        VerifyEmailCodeRequest: {
+            code: string;
+            email: string;
+            totp_code?: string | null;
+        };
         VideoEmbed: {
             hash?: string | null;
             id: string;
@@ -6282,6 +6347,48 @@ export interface operations {
             };
         };
     };
+    get_instance_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstanceSettings"];
+                };
+            };
+        };
+    };
+    update_instance_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateInstanceSettings"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstanceSettings"];
+                };
+            };
+        };
+    };
     stats: {
         parameters: {
             query?: never;
@@ -6510,6 +6617,52 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RegisterCompleteRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthSession"];
+                };
+            };
+        };
+    };
+    request_email_code: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailCodeRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    verify_email_code: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyEmailCodeRequest"];
             };
         };
         responses: {

@@ -93,6 +93,13 @@ in `main.rs`.
   changing `PUBLIC_URL`'s host strands every passkey on it. A ceremony's state waits in Redis
   under `passkey:challenge:{id}` for two minutes and is taken on first use, so a replayed or a
   late answer finds nothing. The credential, its counter included, is a JSONB row in `passkeys`.
+- **Emailed sign-in codes** (`auth/email_code*.rs`). One row per account in
+  `email_sign_in_codes`: an Argon2 hash of six digits, good for ten minutes and five tries, a new
+  code replacing the old. Every check claims a try first, so parallel guesses cannot go past
+  five. The code stands in for the password only, so `second_factor` runs after it as after a
+  password, and the code is spent when the whole sign-in is: a 409 for the TOTP step leaves it
+  usable for the retry, and a passkey second step spends it when the passkey is accepted. Off
+  while the instance has no SMTP, and switchable in `instance_settings`.
 - **Secrets at rest.** Connected apps' client secrets and tokens and TOTP secrets are sealed
   with ChaCha20-Poly1305 by `sealed/`, under a per-purpose key derived from `SECRETS_KEYS`
   (a list of `id:base64` keys, the first one current). Each row stores the key id beside the
@@ -102,7 +109,7 @@ in `main.rs`.
   never trusted from the body — and re-checked against the DB on every WebSocket
   subscribe/join.
 - **Rate limiting.** A shared Redis fixed-window limiter (`rate_limit.rs`) guards auth
-  endpoints (per-email and per-IP on login, per-email on forgot-password) and incoming
+  endpoints (per-email and per-IP on login and on checking an emailed code, per-email on forgot-password, per-email and per-IP on asking for a code) and incoming
   webhooks (per-token). A per-user `write_rate_limit` middleware caps write methods on the
   messaging and files routers (120 writes / 60s per user).
 - **Error handling.** `AppError` (`shared/common`) maps to status codes; 500-class errors
@@ -171,7 +178,7 @@ Handles user identity — login, registration, JWT, and profile.
 | POST | `/auth/passkeys/sign-in/start` | — | `{ challenge_id, options }` for `navigator.credentials.get` with no credentials named, so the device offers whichever it holds for this server |
 | POST | `/auth/passkeys/sign-in` | `{ challenge_id, credential }` | `AuthSession` and the auth cookies. The device verified the person, so no TOTP code is asked and `REQUIRE_ADMIN_TOTP` is met; a suspended or SSO account is a 401/403. Audited `passkey.used` with `stage: "sign_in"` |
 | POST | `/auth/passkeys/sign-in/desktop` | `{ challenge_id, credential }` | `{ code }` and no cookies, for the system browser the desktop app sent: the same single-use one-minute code an SSO sign-in hands over, traded at `/auth/oidc/exchange`. Audited `passkey.used` with `stage: "desktop_sign_in"` |
-| POST | `/auth/passkeys/second-factor/start` | `{ email, password }` | `{ challenge_id, options }` naming the account's passkeys, under the login rate limits; 400 for an account with none |
+| POST | `/auth/passkeys/second-factor/start` | `{ email, password?, email_code? }` | `{ challenge_id, options }` naming the account's passkeys, after the password or an emailed code, under the login rate limits; 400 for an account with none |
 | POST | `/auth/passkeys/second-factor` | `{ challenge_id, credential }` | `AuthSession`, as a TOTP code would have given; audited `passkey.used` with `stage: "second_factor"` |
 | GET | `/auth/invites/:token/verify` | — | `{ email, workspace_name, workspace_id, already_registered }` — 401 once the invite the link names is revoked, expired or used up |
 | POST | `/auth/invites/:token/accept` | JWT | `{ workspace_id, workspace_name }` — an email invite for an account that already exists; same checks, claims a use |
@@ -179,10 +186,12 @@ Handles user identity — login, registration, JWT, and profile.
 | POST | `/auth/refresh` | `{ refresh_token }` (or refresh cookie / Bearer) | `AuthSession` |
 | POST | `/auth/logout` | refresh cookie | `{ status: "logged_out" }` |
 | POST | `/auth/forgot-password` | `{ email }` | `{ status: "sent" }` whoever asks; a password account gets a reset link, an account still waiting on its invite gets that invite again, and an SSO account is told to sign in with SSO |
+| POST | `/auth/email-code` | `{ email }` | `{ status: "sent" }` whoever asks, as forgot-password: a password account gets a six-digit code (audited `email_code.sent`), an account still waiting on its invite gets the invite again, and an SSO account is told to sign in with SSO. Five a quarter-hour per address; 400 while the option is off |
+| POST | `/auth/email-code/verify` | `{ email, code, totp_code? }` | `AuthSession` and the auth cookies, audited `email_code.used`. The 409 answers of `/auth/login` follow it for an account with a second factor. A wrong, expired, used or replaced code is a 401; the fifth wrong try is audited `email_code.exhausted` and the code takes no more |
 | POST | `/auth/reset-password` | `{ token, password }` | `{ status: "reset" }` — the password is checked before the link is spent, so a too-short one leaves it usable |
 | GET | `/auth/oidc/start` | Query: `invite?` | Redirect to the provider. With `invite` (an email invite's link token), the callback redeems it for the account that signed in, activates it if it was waiting on the invite, and lands on `/app/:ws_id`; a link for another address lands back on `/invite/:token`. With `client=desktop&nonce=` (16–128 URL-safe characters) the callback sets no cookies: it stores a single-use code for a minute and sends the browser to `/sso/desktop?code=…&nonce=…`, which hands both to the desktop app |
 | POST | `/auth/oidc/exchange` | `{ code }` | `{ landing }` and the auth cookies, for the desktop app's own window. The code works once, within its minute, on the server that issued it; anything else is a 401 |
-| GET | `/instance/info` | — | `{ name, icon_url, sso_enabled, max_upload_bytes, setup_required }` |
+| GET | `/instance/info` | — | `{ name, icon_url, sso_enabled, email_code_sign_in, max_upload_bytes, setup_required }` — `email_code_sign_in` is the admin's switch and an instance that can send email |
 | POST | `/setup` | `{ token, display_name, email, password, workspace_name }` | `{ session: AuthSession, workspace_id }` and the auth cookies; 403 for a wrong token, 409 once an instance admin exists |
 | GET | `/users/me` | JWT | `UserPublic` — `timezone` is `null` until the person or their browser sets one; the notification schedule and `/remind` read `null` as UTC |
 | PATCH | `/users/me` | `{ display_name?, avatar_url?, bio?, title?, pronouns?, timezone? }` | `UserPublic` — `title` is at most 100 characters and `pronouns` 30, trimmed, `""` clearing either; a `timezone` Postgres does not know (`pg_timezone_names`) is a 422 and nothing is saved; replacing or clearing a photo stored under `avatars/` deletes the old object |
@@ -1247,6 +1256,8 @@ Instance-level administration. Requires `is_instance_admin = true`.
 | GET | `/admin/health` | — | `{ status, service, version }` |
 | GET | `/admin/stats` | — | `{ users, workspaces, messages, files }` |
 | POST | `/admin/email/test` | — | `{ sent_to, error }`: sent now to the caller's address; `error` says in words why it did not go |
+| GET | `/admin/settings` | — | `{ email_code_sign_in, email_configured }` |
+| PATCH | `/admin/settings` | `{ email_code_sign_in }` | the same; audited `instance.settings_changed` |
 | GET | `/admin/users` | Query: `limit?, offset?` | `{ data: User[] }` |
 | POST | `/admin/users/:user_id/suspend` | — | `{ status: "suspended" }` — also revokes sessions and app connections and turns off the person's hooks and workflows |
 | POST | `/admin/users/:user_id/activate` | — | `{ status: "activated" }` — an account with no password and no SSO link goes back to `pending`, waiting for its invite; SCIM `active: true` does the same |

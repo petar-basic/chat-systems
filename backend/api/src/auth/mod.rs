@@ -1,3 +1,5 @@
+pub mod email_code_repo;
+pub mod email_code_routes;
 pub mod models;
 pub mod oidc;
 pub mod oidc_routes;

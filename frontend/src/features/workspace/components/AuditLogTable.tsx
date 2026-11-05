@@ -81,6 +81,10 @@ const ACTION_LABELS: Record<string, string> = {
   'passkey.added': 'Passkey added',
   'passkey.removed': 'Passkey removed',
   'passkey.used': 'Signed in with a passkey',
+  'email_code.sent': 'Sign-in code emailed',
+  'email_code.used': 'Signed in with an emailed code',
+  'email_code.exhausted': 'Sign-in code ran out of tries',
+  'instance.settings_changed': 'Instance settings changed',
 };
 
 function humanizeAction(action: string): string {

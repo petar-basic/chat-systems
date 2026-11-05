@@ -155,6 +155,7 @@ pub fn public_routes() -> OpenApiRouter<Arc<AppState>> {
         .merge(crate::auth::routes::public_router())
         .merge(crate::auth::oidc_routes::public_router())
         .merge(crate::auth::passkey_routes::public_router())
+        .merge(crate::auth::email_code_routes::public_router())
         .merge(crate::setup::routes::public_router())
         .merge(crate::hooks::routes::public_router())
         .merge(crate::workflows::routes::public_router())

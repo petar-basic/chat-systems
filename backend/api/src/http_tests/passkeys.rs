@@ -13,15 +13,15 @@ use super::common::*;
 use super::totp::enrol;
 use crate::config::AppConfig;
 
-fn origin() -> Url {
+pub(super) fn origin() -> Url {
     Url::parse("http://localhost").expect("origin")
 }
 
-fn device() -> SoftPasskey {
+pub(super) fn device() -> SoftPasskey {
     SoftPasskey::new(true)
 }
 
-async fn add_passkey(app: &Router, token: &str, device: &mut SoftPasskey) -> String {
+pub(super) async fn add_passkey(app: &Router, token: &str, device: &mut SoftPasskey) -> String {
     let (status, body) = send(
         app,
         "POST",

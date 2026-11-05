@@ -23,10 +23,17 @@ vi.mock('@/stores/instances', () => ({
   }),
 }));
 
-const server = vi.hoisted(() => ({ name: 'Northwind' }));
+const server = vi.hoisted(() => ({ name: 'Northwind', emailCode: false }));
 
 vi.mock('@/features/instance/hooks/useInstanceInfo', () => ({
-  useInstanceInfo: () => ({ data: { name: server.name, sso_enabled: true, setup_required: false } }),
+  useInstanceInfo: () => ({
+    data: {
+      name: server.name,
+      sso_enabled: true,
+      email_code_sign_in: server.emailCode,
+      setup_required: false,
+    },
+  }),
 }));
 
 function openInDesktop() {
@@ -53,6 +60,7 @@ describe('AddInstancePage', () => {
     store.addInstance.mockReset();
     store.addInstanceWithPasskey.mockReset();
     server.name = 'Northwind';
+    server.emailCode = false;
     await i18n.changeLanguage('en');
   });
 
@@ -86,6 +94,18 @@ describe('AddInstancePage', () => {
     expect(screen.getByRole('heading', { name: 'Welcome to Chat Systems' })).toBeInTheDocument();
     expect(screen.getByLabelText('Server URL')).toHaveValue(window.location.origin);
     expect(screen.getByRole('button', { name: 'Connect' })).toBeInTheDocument();
+  });
+
+  it('offers an emailed code only where the server sends them', () => {
+    renderPage();
+    expect(screen.queryByRole('link', { name: 'Email me a sign-in code' })).not.toBeInTheDocument();
+
+    server.emailCode = true;
+    renderPage();
+    expect(screen.getByRole('link', { name: 'Email me a sign-in code' })).toHaveAttribute(
+      'href',
+      '/sign-in/code',
+    );
   });
 
   it('signs in with a passkey and no email when the browser can make one', async () => {
