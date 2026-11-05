@@ -287,9 +287,17 @@ requires membership of a non-public channel, so a conversation is readable by it
 and nobody else. `GET /workspaces/:ws_id/channels` leaves dm channels out; the unread endpoint
 counts them.
 
+Leaving a workspace, or being removed from it, moves the person's rows in its DMs and group
+DMs from `channel_members` to `conversation_departures`, so they receive nothing from them
+while the others keep the history. A `dm` with somebody who left refuses new messages with a
+403 *<name> is no longer in this workspace*; a `group_dm` carries on without them. Joining the
+workspace again, by invite, an admin, SCIM or a Slack import, moves the rows back with the read
+position they left with and a recounted unread, and stages `channel.member_joined` for each, so
+`POST /conversations` finds the same DM again.
+
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
-| GET | `/workspaces/:ws_id/conversations` | — | `{ data: ConversationSummary[] }` — newest message first, with `participant_ids`, `last_message_at` and the caller's `last_read_at` |
+| GET | `/workspaces/:ws_id/conversations` | — | `{ data: ConversationSummary[] }` — newest message first, with `participant_ids`, `last_message_at`, the caller's `last_read_at`, and `departed`: who left the workspace, with the `display_name` and `avatar_url` of their account |
 | POST | `/workspaces/:ws_id/conversations` | `{ participant_ids }` | `Conversation` — one other person returns the existing `direct` thread if there is one; more create a `group` |
 
 Creating one publishes `conversation.created`, which the gateway delivers to every participant

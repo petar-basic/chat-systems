@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO conversation_departures\n                (channel_id, user_id, role, joined_at, last_read_at, last_read_message_id,\n                 is_starred, muted, mention_count, notify_level)\n            SELECT cm.channel_id, cm.user_id, cm.role, cm.joined_at, cm.last_read_at,\n                   cm.last_read_message_id, COALESCE(cm.is_starred, false), cm.muted,\n                   cm.mention_count, cm.notify_level\n              FROM channel_members cm\n              JOIN channels c ON c.id = cm.channel_id\n             WHERE c.workspace_id = $1\n               AND cm.user_id = $2\n               AND c.channel_type IN ('dm', 'group_dm')\n            ON CONFLICT (channel_id, user_id) DO UPDATE SET left_at = NOW()\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c4875b453472814cf0d56bc9270447f91e4659f0fa91fb46642b098d999a0f2c"
+}

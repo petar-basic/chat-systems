@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT c.id,\n                   c.workspace_id,\n                   c.channel_type AS \"channel_type: ChannelType\",\n                   COALESCE((SELECT MAX(m.created_at) FROM messages m WHERE m.channel_id = c.id AND m.deleted_at IS NULL), c.created_at) AS \"last_message_at!\",\n                   mine.last_read_at,\n                   ARRAY(\n                       SELECT p.user_id FROM channel_members p\n                       WHERE p.channel_id = c.id\n                       ORDER BY p.joined_at, p.user_id\n                   ) AS \"participant_ids!\",\n                   mine.notify_level AS \"notify_level: NotifyLevel\",\n                   effective_notify_level(mine.notify_level, wm.notify_default, c.channel_type)\n                       AS \"effective_notify_level!: NotifyLevel\"\n              FROM channels c\n              JOIN channel_members mine ON mine.channel_id = c.id AND mine.user_id = $2\n              JOIN workspace_members wm ON wm.workspace_id = c.workspace_id AND wm.user_id = $2\n             WHERE c.workspace_id = $1 AND c.channel_type IN ('dm', 'group_dm')\n             ORDER BY 4 DESC\n            ",
+  "query": "\n            SELECT c.id,\n                   c.workspace_id,\n                   c.channel_type AS \"channel_type: ChannelType\",\n                   COALESCE((SELECT MAX(m.created_at) FROM messages m WHERE m.channel_id = c.id AND m.deleted_at IS NULL), c.created_at) AS \"last_message_at!\",\n                   mine.last_read_at,\n                   ARRAY(\n                       SELECT p.user_id FROM channel_members p\n                       WHERE p.channel_id = c.id\n                       ORDER BY p.joined_at, p.user_id\n                   ) AS \"participant_ids!\",\n                   COALESCE((\n                       SELECT jsonb_agg(jsonb_build_object(\n                                  'user_id', d.user_id,\n                                  'display_name', u.display_name,\n                                  'avatar_url', u.avatar_url,\n                                  'left_at', d.left_at\n                              ) ORDER BY d.left_at, d.user_id)\n                         FROM conversation_departures d\n                         JOIN users u ON u.id = d.user_id\n                        WHERE d.channel_id = c.id\n                   ), '[]'::jsonb) AS \"departed!: Json<Vec<DepartedParticipant>>\",\n                   mine.notify_level AS \"notify_level: NotifyLevel\",\n                   effective_notify_level(mine.notify_level, wm.notify_default, c.channel_type)\n                       AS \"effective_notify_level!: NotifyLevel\"\n              FROM channels c\n              JOIN channel_members mine ON mine.channel_id = c.id AND mine.user_id = $2\n              JOIN workspace_members wm ON wm.workspace_id = c.workspace_id AND wm.user_id = $2\n             WHERE c.workspace_id = $1 AND c.channel_type IN ('dm', 'group_dm')\n             ORDER BY 4 DESC\n            ",
   "describe": {
     "columns": [
       {
@@ -73,6 +73,12 @@
       },
       {
         "ordinal": 6,
+        "name": "departed!: Json<Vec<DepartedParticipant>>",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
         "name": "notify_level: NotifyLevel",
         "type_info": {
           "Custom": {
@@ -94,7 +100,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "effective_notify_level!: NotifyLevel",
         "type_info": {
           "Custom": {
@@ -124,9 +130,10 @@
       null,
       true,
       null,
+      null,
       true,
       null
     ]
   },
-  "hash": "82b2baccd8369212133f4e91b9d3ae2c2d34129cbf4d47d829270d15ddaed648"
+  "hash": "b1e220b474cbeed39789cbb4545defa913df88d59761cdeb71141b4364c3b2e4"
 }

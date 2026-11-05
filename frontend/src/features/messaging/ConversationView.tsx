@@ -1,10 +1,10 @@
-import { ArrowLeft, Menu } from 'lucide-react';
+import { ArrowLeft, Menu, UserMinus } from 'lucide-react';
 import { useUserCache } from '@/stores/users';
 import { usePresenceStore } from '@/stores/presence';
 import type { Channel, Message, WorkspaceMember } from '@/stores/workspace';
 import type { Conversation } from '@/features/messaging/hooks/useConversations';
 import { useSendMessage } from '@/features/messaging/hooks/useMessages';
-import { conversationTitle } from '@/lib/conversationHelpers';
+import { conversationTitle, departedPartner, departureNote } from '@/lib/conversationHelpers';
 import { displayNameOf } from '@/lib/userHelpers';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { ConnectionBanner } from '@/shared/components/ConnectionBanner/ConnectionBanner';
@@ -60,6 +60,8 @@ export default function ConversationView({
   const partner = getUser(partnerId);
   const status = usePresenceStore((s) => s.getStatus(partnerId));
   const isDirect = conversation.kind === 'direct';
+  const gone = departedPartner(conversation, currentUserId);
+  const note = departureNote(conversation);
 
   const sendMutation = useSendMessage(conversation.id, currentUserId);
   const { signalTyping, stopTyping } = useTypingSignal(typingTargetOf(conversation.id), instanceUrl);
@@ -70,7 +72,7 @@ export default function ConversationView({
   };
 
   return (
-    <FileDropZone className="flex-1 flex min-w-0" onFiles={attachments.add}>
+    <FileDropZone className="flex-1 flex min-w-0" disabled={!!gone} onFiles={attachments.add}>
       <div role="main" aria-label="Direct message" className="flex-1 flex flex-col min-w-0" data-message-pane>
         <ConnectionBanner instanceUrl={instanceUrl} />
         <div className="h-12 px-4 flex items-center gap-3 border-b border-line/50 shrink-0">
@@ -90,7 +92,9 @@ export default function ConversationView({
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
-          {isDirect ? (
+          {gone ? (
+            <Avatar userId={gone.user_id} name={title} avatarUrl={gone.avatar_url} size="sm" />
+          ) : isDirect ? (
             <div className="relative shrink-0">
               <Avatar userId={partnerId} name={title} avatarUrl={partner?.avatar_url} size="sm" />
               <PresenceDot userId={partnerId} className="absolute -bottom-0.5 -right-0.5 ring-2 ring-app" />
@@ -113,10 +117,10 @@ export default function ConversationView({
             {title}
           </span>
           {!isDirect && <span className="text-xs text-muted shrink-0">{participantIds.length} people</span>}
-          {isDirect && status === 'online' && <span className="text-xs text-muted">Active now</span>}
+          {isDirect && !gone && status === 'online' && <span className="text-xs text-muted">Active now</span>}
           <div className="ml-auto flex items-center gap-1">
             <NotificationLevelButton channelId={conversation.id} direct />
-            {isDirect && (
+            {isDirect && !gone && (
               <HuddleStartButton
                 workspaceId={workspaceId}
                 instanceUrl={instanceUrl}
@@ -143,21 +147,37 @@ export default function ConversationView({
         <TypingIndicator channelId={conversation.id} currentUserId={currentUserId} />
         {isDirect && partnerId !== currentUserId && <OffHoursNote userId={partnerId} />}
 
-        <MessageInput
-          key={`conversation:${conversation.id}`}
-          channelName={title}
-          draftKey={`conversation:${conversation.id}`}
-          isDm
-          members={members}
-          channels={channels}
-          onSend={handleSend}
-          attachments={attachments}
-          onTyping={signalTyping}
-          scheduleTarget={{ channelId: conversation.id }}
-          pollTarget={{ channelId: conversation.id, instanceUrl }}
-          workspaceId={workspaceId}
-          instanceUrl={instanceUrl}
-        />
+        {note && (
+          <div
+            data-qa="conversation-departed"
+            className={
+              gone
+                ? 'mx-4 mb-4 px-4 py-3 rounded-lg bg-surface/60 border border-line text-sm text-muted flex items-center gap-2'
+                : 'mx-4 mb-1 text-xs text-muted flex items-center gap-1.5'
+            }
+          >
+            <UserMinus className={gone ? 'w-4 h-4 shrink-0' : 'w-3.5 h-3.5 shrink-0'} />
+            {note}
+          </div>
+        )}
+
+        {!gone && (
+          <MessageInput
+            key={`conversation:${conversation.id}`}
+            channelName={title}
+            draftKey={`conversation:${conversation.id}`}
+            isDm
+            members={members}
+            channels={channels}
+            onSend={handleSend}
+            attachments={attachments}
+            onTyping={signalTyping}
+            scheduleTarget={{ channelId: conversation.id }}
+            pollTarget={{ channelId: conversation.id, instanceUrl }}
+            workspaceId={workspaceId}
+            instanceUrl={instanceUrl}
+          />
+        )}
       </div>
     </FileDropZone>
   );

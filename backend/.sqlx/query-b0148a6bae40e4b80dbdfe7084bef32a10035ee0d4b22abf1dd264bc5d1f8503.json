@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH back AS (\n                DELETE FROM conversation_departures d\n                 USING channels c\n                 WHERE c.id = d.channel_id\n                   AND c.workspace_id = $1\n                   AND d.user_id = $2\n                RETURNING d.channel_id, d.user_id, d.role, d.joined_at, d.last_read_at,\n                          d.last_read_message_id, d.is_starred, d.muted, d.mention_count,\n                          d.notify_level\n            )\n            INSERT INTO channel_members\n                (channel_id, user_id, role, joined_at, last_read_at, last_read_msg,\n                 last_read_message_id, is_starred, muted, mention_count, notify_level,\n                 unread_count)\n            SELECT b.channel_id, b.user_id, b.role, b.joined_at, b.last_read_at,\n                   b.last_read_message_id, b.last_read_message_id, b.is_starred, b.muted,\n                   b.mention_count, b.notify_level,\n                   (SELECT COUNT(*)::int FROM messages m\n                     WHERE m.channel_id = b.channel_id\n                       AND m.deleted_at IS NULL\n                       AND (m.thread_parent_id IS NULL OR m.metadata->>'also_in_channel' = 'true')\n                       AND m.user_id <> b.user_id\n                       AND (b.last_read_at IS NULL OR m.created_at > b.last_read_at))\n              FROM back b\n            ON CONFLICT (channel_id, user_id) DO NOTHING\n            RETURNING channel_id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "channel_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "channel_members",
+            "name": "channel_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "b0148a6bae40e4b80dbdfe7084bef32a10035ee0d4b22abf1dd264bc5d1f8503"
+}

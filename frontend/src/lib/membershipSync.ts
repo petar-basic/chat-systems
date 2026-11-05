@@ -9,6 +9,7 @@ export function syncMembershipFrames(queryClient: QueryClient): Array<() => void
     }),
     globalEventBus.on('workspace.members_changed', (event) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceMembers(event.workspace_id) });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.conversations(event.workspace_id) });
       queryClient.invalidateQueries({
         predicate: ({ queryKey }) => queryKey[0] === 'channels' && queryKey[2] === 'members',
       });

@@ -200,7 +200,7 @@ pub async fn require_channel_post(
     user_id: Uuid,
 ) -> AppResult<ChannelAccess> {
     let access = require_channel_access(state, channel_id, user_id).await?;
-    require_posting(access)
+    require_posting(state, access).await
 }
 
 pub async fn require_channel_post_as(
@@ -213,15 +213,26 @@ pub async fn require_channel_post_as(
         .as_ref()
         .is_some_and(|bot| bot.allows(Scope::ChatWritePublic));
     let access = channel_access(state, channel_id, auth.user_id, posts_publicly).await?;
-    require_posting(access)
+    require_posting(state, access).await
 }
 
-fn require_posting(access: ChannelAccess) -> AppResult<ChannelAccess> {
+async fn require_posting(state: &AppState, access: ChannelAccess) -> AppResult<ChannelAccess> {
     require_not_archived(&access.channel)?;
     if !access.can_post() {
         return Err(AppError::Forbidden(
             "Only moderators can post in this channel".into(),
         ));
+    }
+    if access.channel.channel_type == ChannelType::Dm {
+        if let Some(name) = state
+            .conversation_repo
+            .departed_name(access.channel.id)
+            .await?
+        {
+            return Err(AppError::Forbidden(format!(
+                "{name} is no longer in this workspace"
+            )));
+        }
     }
     Ok(access)
 }

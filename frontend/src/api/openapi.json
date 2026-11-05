@@ -10883,9 +10883,16 @@
           "kind",
           "last_message_at",
           "participant_ids",
+          "departed",
           "effective_notify_level"
         ],
         "properties": {
+          "departed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DepartedParticipant"
+            }
+          },
           "effective_notify_level": {
             "$ref": "#/components/schemas/NotifyLevel"
           },
@@ -12113,9 +12120,16 @@
                 "kind",
                 "last_message_at",
                 "participant_ids",
+                "departed",
                 "effective_notify_level"
               ],
               "properties": {
+                "departed": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DepartedParticipant"
+                  }
+                },
                 "effective_notify_level": {
                   "$ref": "#/components/schemas/NotifyLevel"
                 },
@@ -13914,6 +13928,35 @@
           "clean",
           "compact"
         ]
+      },
+      "DepartedParticipant": {
+        "type": "object",
+        "required": [
+          "user_id",
+          "left_at"
+        ],
+        "properties": {
+          "avatar_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "left_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
       },
       "DirectoryChannel": {
         "type": "object",
