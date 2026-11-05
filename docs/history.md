@@ -2594,3 +2594,28 @@ photo, which the ticket had as bare ids, since the client no longer has them amo
 A DM with somebody who left refuses new messages; a group DM carries on. Migration 93 rebuilt
 the participants lost before the fix from the messages they wrote, but in a group DM only those
 no longer in the workspace, since somebody still in it may have left the group on purpose.
+
+## Wave 31 — Signing in ✅ shipped
+
+### [CS-118] Passkeys ✅ shipped
+`webauthn-rs` with the host of `PUBLIC_URL` as the relying party, and any port on `localhost`.
+A ceremony's state waits in Redis for two minutes and is taken with `GETDEL`, so a replayed or
+late answer is refused. A passkey signs in with no email, since it is discoverable and the
+device verifies the person, and so it asks for no TOTP code and meets `REQUIRE_ADMIN_TOTP`.
+After a password it can stand in for the code, which is why `/auth/login` now says
+`totp_or_passkey_required` or `passkey_required`. Adding or removing one asks for the password
+or a code first, and an admin's last factor is kept. The ticket's tests needed a resident key
+that the soft authenticator cannot hold, so they relax `residentKey` before handing it the
+options, after checking the server asked for a discoverable credential. A webview is not
+trusted with any server's passkeys, so the desktop app runs the ceremony in the system browser
+and comes back through the same one-minute code as SSO; passkeys are added from a browser.
+
+### [CS-119] Sign in with a code sent by email ✅ shipped
+One row per account holds the code's hash, so a new code replaces the old one, and a try is
+counted before the code is checked, so five tries are five even when they race. The code
+stands in for the password only: what follows it is the login's second step, moved into a
+function both share, and the code is spent only once that step passes, so a TOTP prompt does
+not cost it. A passkey after the code takes the code in place of the password. Asking answers
+the same for every address, and a pending or SSO account gets its invitation or an SSO
+reminder instead of a code. The switch is the first row of a new `instance_settings` table,
+not an environment variable, because the ticket wanted the instance admin to turn it off.

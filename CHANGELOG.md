@@ -14,7 +14,18 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
-## [Unreleased]
+## [4.3.0] — 2026-11-05
+
+### Upgrading from 4.2.1
+
+- Set `VERSION=4.3.0`, pull both images and restart `api`, `realtime`, `worker` and `frontend`
+  together. There is no new setting. The desktop app updates itself to 4.3.0 within six hours,
+  or at its next start; only from then on does it offer *Sign in with a passkey*.
+- A passkey belongs to the host in `PUBLIC_URL`, so check that it is the address people open.
+  Browsers make passkeys only over HTTPS, or on `localhost`.
+- Migration 94 adds `passkeys`; migration 95 adds `email_sign_in_codes` and `instance_settings`,
+  with signing in by emailed code on. An instance with SMTP set up offers it at once; turn it
+  off in *Instance admin → Email* if you would rather not.
 
 ### Added
 
@@ -30,6 +41,12 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   its TOTP code or a passkey after it. The answer is the same whether or not the address has an
   account. *Instance admin → Email* turns it off; it is off while the instance has no SMTP.
   Asking for a code and using it, and a code that runs out of tries, are in the audit log.
+
+### Fixed
+
+- The notification schedule and the "Off" lines for desktop and email notifications say that
+  notifications wait in *Notifications*, the list the bell opens. They named an *Activity*
+  screen the app does not have.
 
 ## [4.2.1] — 2026-11-05
 
