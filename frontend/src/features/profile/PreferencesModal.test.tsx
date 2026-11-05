@@ -1,6 +1,9 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import i18n from '@/lib/i18n';
 import { PreferencesModal } from './PreferencesModal';
+
+const workspace = vi.hoisted(() => ({ name: 'Dev Team' }));
 
 vi.mock('@/features/notifications/PushNotificationsPanel', () => ({
   default: () => <div data-qa="push-panel" />,
@@ -25,8 +28,7 @@ vi.mock('@/features/notifications/ScheduleEditor', () => ({
 }));
 vi.mock('@/features/profile/TwoFactorPanel', () => ({ default: () => <div data-qa="security-panel" /> }));
 vi.mock('@/stores/workspace', () => ({
-  useWorkspaceStore: (select: (state: unknown) => unknown) =>
-    select({ currentWorkspace: { name: 'Dev Team' } }),
+  useWorkspaceStore: (select: (state: unknown) => unknown) => select({ currentWorkspace: workspace }),
 }));
 vi.mock('@/features/profile/AccountPanel', () => ({ default: () => <div data-qa="account-panel" /> }));
 vi.mock('@/features/profile/MessagesMediaPanel', () => ({
@@ -40,6 +42,26 @@ vi.mock('@/features/profile/AdvancedPanel', () => ({ default: () => <div data-qa
 const selected = () => screen.getByRole('tab', { selected: true });
 
 describe('PreferencesModal', () => {
+  afterEach(async () => {
+    workspace.name = 'Dev Team';
+    await i18n.changeLanguage('en');
+  });
+
+  it('in Japanese names its sections, and keeps the workspace name as text', async () => {
+    workspace.name = '<img src=x onerror="alert(1)"> <workspace>{{name}}</workspace>';
+    await i18n.changeLanguage('ja');
+    render(<PreferencesModal onClose={vi.fn()} />);
+
+    expect(screen.getByRole('tablist', { name: '設定' })).toBeInTheDocument();
+    expect(selected()).toHaveTextContent('通知');
+    expect(screen.getByRole('tab', { name: 'セキュリティ' })).toBeInTheDocument();
+    const scope = screen.getByTestId('notifications-scope');
+    expect(scope).toHaveTextContent('この端末のプッシュ通知とデスクトップ通知を除き');
+    expect(scope.querySelectorAll('strong')).toHaveLength(1);
+    expect(scope.querySelector('strong')?.textContent).toBe(workspace.name);
+    expect(scope.querySelector('img')).toBeNull();
+  });
+
   it('shows one section at a time, chosen from the list', () => {
     render(<PreferencesModal onClose={vi.fn()} />);
 

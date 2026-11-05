@@ -4,5 +4,19 @@
     "hint": "Used on every device you sign in on. Before you sign in, the page follows your browser.",
     "browser": "Same as my browser",
     "saveFailed": "Could not save your language."
+  },
+  "preferences": {
+    "title": "Preferences",
+    "sections": {
+      "notifications": "Notifications",
+      "appearance": "Appearance",
+      "messages": "Messages & media",
+      "region": "Language & region",
+      "read": "Mark as read",
+      "account": "Account",
+      "security": "Security",
+      "advanced": "Advanced"
+    },
+    "notificationsScope": "Except push and desktop notifications on this device, these are your settings in <workspace>{{name}}</workspace>; each workspace has its own."
   }
 }

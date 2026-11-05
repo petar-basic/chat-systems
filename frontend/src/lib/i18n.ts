@@ -2,8 +2,10 @@ import i18n, { type InitOptions } from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import { logger } from '@/lib/logger';
 import enAuth from '@/locales/en/auth.json';
+import enNotifications from '@/locales/en/notifications.json';
 import enProfile from '@/locales/en/profile.json';
 import jaAuth from '@/locales/ja/auth.json';
+import jaNotifications from '@/locales/ja/notifications.json';
 import jaProfile from '@/locales/ja/profile.json';
 
 const STORAGE_KEY = 'chat_language';
@@ -17,8 +19,8 @@ export const LANGUAGE_NAMES: Record<Language, string> = {
 };
 
 export const resources = {
-  en: { auth: enAuth, profile: enProfile },
-  ja: { auth: jaAuth, profile: jaProfile },
+  en: { auth: enAuth, notifications: enNotifications, profile: enProfile },
+  ja: { auth: jaAuth, notifications: jaNotifications, profile: jaProfile },
 } as const;
 
 const ESCAPED: Record<string, string> = {
@@ -81,7 +83,7 @@ export const i18nOptions = {
   resources,
   fallbackLng: 'en',
   supportedLngs: LANGUAGES,
-  ns: ['auth', 'profile'],
+  ns: ['auth', 'notifications', 'profile'],
   initAsync: false,
   interpolation: { escapeValue: false },
   react: { unescape: unescapeText },

@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import i18n from '@/lib/i18n';
 import { KeywordsPanel } from './KeywordsPanel';
 
 const save = vi.fn();
@@ -20,6 +21,25 @@ describe('KeywordsPanel', () => {
   beforeEach(() => {
     save.mockReset();
     keywords = ['deploy'];
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('in Japanese says why a keyword is refused, with the keyword as text', async () => {
+    const hostile = '<img src=x onerror="alert(1)">';
+    keywords = [hostile];
+    await i18n.changeLanguage('ja');
+    render(<KeywordsPanel />);
+    const field = screen.getByRole('textbox', { name: '通知するキーワード' });
+
+    fireEvent.change(field, { target: { value: hostile } });
+    fireEvent.keyDown(field, { key: 'Enter' });
+
+    expect(screen.getByRole('alert')).toHaveTextContent(`「${hostile}」はすでに登録されています。`);
+    expect(screen.getByRole('button', { name: `${hostile} を削除` })).toBeInTheDocument();
+    expect(document.querySelector('img')).toBeNull();
   });
 
   it('adds a keyword on Enter and on a comma, and clears the field', () => {

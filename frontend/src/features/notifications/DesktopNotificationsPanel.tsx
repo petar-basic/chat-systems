@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AppWindow } from 'lucide-react';
 import { Button } from '@/shared/components/Button/Button';
 import { useNotificationPrefs } from '@/stores/notificationPrefs';
 import { notificationPermission, requestNotificationPermission } from '@/lib/notifications';
 
 export default function DesktopNotificationsPanel() {
+  const { t } = useTranslation('notifications');
   const { desktopEnabled, toggleDesktop } = useNotificationPrefs();
   const [permission, setPermission] = useState(notificationPermission);
 
@@ -28,18 +30,14 @@ export default function DesktopNotificationsPanel() {
       <div>
         <h3 className="text-sm font-medium text-fg flex items-center gap-2">
           <AppWindow className="w-4 h-4 text-accent" />
-          Desktop notifications while the app is open
+          {t('desktop.title')}
         </h3>
         <p className="text-xs text-muted mt-1">
-          {blocked
-            ? 'Your browser has blocked notifications for this site. Allow them in the address bar first.'
-            : on
-              ? 'On. A message that notifies you shows on the desktop while this window is not in front.'
-              : 'Off. An open window only plays a sound and updates Activity.'}
+          {blocked ? t('blocked') : on ? t('desktop.on') : t('desktop.off')}
         </p>
       </div>
       <Button onClick={() => void toggle()} disabled={blocked} data-qa="desktop-notifications-toggle">
-        {on ? 'Turn off' : 'Turn on'}
+        {on ? t('turnOff') : t('turnOn')}
       </Button>
     </div>
   );

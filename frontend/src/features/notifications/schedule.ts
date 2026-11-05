@@ -1,14 +1,14 @@
 import { formatClock } from '@/lib/datetime';
 
 export const DAY_LABELS = [
-  { day: 1, short: 'Mon', long: 'Monday' },
-  { day: 2, short: 'Tue', long: 'Tuesday' },
-  { day: 3, short: 'Wed', long: 'Wednesday' },
-  { day: 4, short: 'Thu', long: 'Thursday' },
-  { day: 5, short: 'Fri', long: 'Friday' },
-  { day: 6, short: 'Sat', long: 'Saturday' },
-  { day: 7, short: 'Sun', long: 'Sunday' },
-];
+  { day: 1, name: 'mon' },
+  { day: 2, name: 'tue' },
+  { day: 3, name: 'wed' },
+  { day: 4, name: 'thu' },
+  { day: 5, name: 'fri' },
+  { day: 6, name: 'sat' },
+  { day: 7, name: 'sun' },
+] as const;
 
 export const WEEKDAYS = [1, 2, 3, 4, 5];
 export const EVERY_DAY = [1, 2, 3, 4, 5, 6, 7];
