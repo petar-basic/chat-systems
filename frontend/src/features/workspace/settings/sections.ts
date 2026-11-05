@@ -1,5 +1,6 @@
 import {
   Archive,
+  ChartColumn,
   Clock,
   KeyRound,
   LayoutGrid,
@@ -22,6 +23,7 @@ export type SettingsSection =
   | 'apps'
   | 'integrations'
   | 'retention'
+  | 'analytics'
   | 'exports'
   | 'slack-import'
   | 'audit-log'
@@ -42,6 +44,7 @@ const SECTIONS: (ModalSection<SettingsSection> & { audience: Audience })[] = [
   { key: 'apps', label: 'Apps', Icon: LayoutGrid, audience: 'everyone' },
   { key: 'integrations', label: 'Integrations', Icon: Plug, audience: 'admin' },
   { key: 'retention', label: 'Data retention', Icon: Clock, audience: 'owner' },
+  { key: 'analytics', label: 'Analytics', Icon: ChartColumn, audience: 'admin' },
   { key: 'exports', label: 'Exports', Icon: Archive, audience: 'admin' },
   { key: 'slack-import', label: 'Slack import', Icon: Upload, audience: 'admin' },
   { key: 'audit-log', label: 'Audit log', Icon: ScrollText, audience: 'admin' },

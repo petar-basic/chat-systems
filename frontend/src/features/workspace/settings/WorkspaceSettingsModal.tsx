@@ -13,6 +13,7 @@ import { SlackImportSection } from './SlackImportSection';
 import { AuditLogSection } from './AuditLogSection';
 import { RetentionSection } from './RetentionSection';
 import { ExportsSection } from './ExportsSection';
+import { AnalyticsSection } from './AnalyticsSection';
 import { ScimSection } from './ScimSection';
 
 interface Props {
@@ -65,6 +66,14 @@ export function WorkspaceSettingsModal({
         <IntegrationsSection workspaceId={id} instanceUrl={instanceUrl} channels={channels} />
       )}
       {active === 'retention' && <RetentionSection workspaceId={id} instanceUrl={instanceUrl} />}
+      {active === 'analytics' && (
+        <AnalyticsSection
+          workspaceId={id}
+          workspaceName={workspace.name}
+          instanceUrl={instanceUrl}
+          members={members}
+        />
+      )}
       {active === 'exports' && (
         <ExportsSection
           workspaceId={id}

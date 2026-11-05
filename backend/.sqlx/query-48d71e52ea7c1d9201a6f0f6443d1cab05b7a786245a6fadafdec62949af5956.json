@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COUNT(DISTINCT a.user_id) AS \"active!\"\n                 FROM member_daily_activity a\n                 LEFT JOIN workspace_members wm\n                   ON wm.workspace_id = a.workspace_id AND wm.user_id = a.user_id\n                WHERE a.workspace_id = $1 AND a.day BETWEEN $2 AND $3\n                  AND ($4 OR wm.role IS DISTINCT FROM 'guest')",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "active!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date",
+        "Date",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "48d71e52ea7c1d9201a6f0f6443d1cab05b7a786245a6fadafdec62949af5956"
+}

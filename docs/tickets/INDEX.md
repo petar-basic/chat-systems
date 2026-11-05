@@ -410,7 +410,7 @@ workspace, which channels carry the work, and which ones nobody posts in any mor
 
 | # | Ticket | Area |
 |---|---|---|
-| CS-120 | Workspace analytics | backend · frontend |
+| CS-120 ✅ | Workspace analytics | backend · frontend |
 | CS-121 | Channel analytics and quiet channels | backend · frontend |
 
 ### Wave 33 — Mobile apps
