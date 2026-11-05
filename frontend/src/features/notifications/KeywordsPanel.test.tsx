@@ -64,6 +64,22 @@ describe('KeywordsPanel', () => {
     expect(input()).toHaveAttribute('aria-invalid', 'true');
   });
 
+  it('says what is wrong for each kind of refused keyword', () => {
+    for (const [listed, typed, message] of [
+      [['deploy'], 'a', 'A keyword is 2 to 64 characters.'],
+      [['deploy'], '#general', 'A keyword cannot start with @ or #.'],
+      [['deploy'], 'Deploy', '"Deploy" is already on your list.'],
+      [Array.from({ length: 50 }, (_, i) => `word${i}`), 'outage', 'You can keep up to 50 keywords.'],
+    ] as const) {
+      keywords = [...listed];
+      const { unmount } = render(<KeywordsPanel />);
+      fireEvent.change(input(), { target: { value: typed } });
+      fireEvent.keyDown(input(), { key: 'Enter' });
+      expect(screen.getByRole('alert')).toHaveTextContent(message);
+      unmount();
+    }
+  });
+
   it('removes a keyword from its chip', () => {
     keywords = ['deploy', 'outage'];
     render(<KeywordsPanel />);
