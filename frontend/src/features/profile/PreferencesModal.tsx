@@ -90,7 +90,7 @@ export function PreferencesModal({ initial = 'notifications', onClose }: Props) 
       )}
       {active === 'appearance' && (
         <div>
-          <p className="mb-3 text-sm text-muted">Pick a theme, or follow your system setting.</p>
+          <p className="mb-3 text-sm text-muted">{t('preferences.appearanceIntro')}</p>
           <ThemePicker />
           <WorkspaceThemePicker />
           <TextPicker />

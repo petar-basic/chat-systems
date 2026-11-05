@@ -1,12 +1,13 @@
+import { useTranslation } from 'react-i18next';
+
 export default function SavedEverywhere({ failed }: { failed: boolean }) {
+  const { t } = useTranslation('profile');
   return (
     <>
-      <p className="text-sm text-muted">
-        These settings are the same in every workspace and on every device.
-      </p>
+      <p className="text-sm text-muted">{t('savedEverywhere.note')}</p>
       {failed && (
         <p role="alert" className="text-sm text-danger">
-          The setting could not be saved. Try again.
+          {t('savedEverywhere.failed')}
         </p>
       )}
     </>

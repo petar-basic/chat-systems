@@ -17,6 +17,133 @@
       "security": "セキュリティ",
       "advanced": "詳細設定"
     },
-    "notificationsScope": "この端末のプッシュ通知とデスクトップ通知を除き、ここでの設定は <workspace>{{name}}</workspace> だけに使われます。ワークスペースごとに別々に設定できます。"
+    "notificationsScope": "この端末のプッシュ通知とデスクトップ通知を除き、ここでの設定は <workspace>{{name}}</workspace> だけに使われます。ワークスペースごとに別々に設定できます。",
+    "appearanceIntro": "テーマ選択、またはシステム設定に合わせる"
+  },
+  "savedEverywhere": {
+    "note": "この設定は、すべてのワークスペースとすべての端末で共通です。",
+    "failed": "設定を保存できませんでした。もう一度お試しください。"
+  },
+  "theme": {
+    "label": "テーマ",
+    "light": "ライト",
+    "dark": "ダーク",
+    "system": "システム"
+  },
+  "workspaceTheme": {
+    "title": "{{name}} のテーマ",
+    "hint": "このワークスペースのサイドバーの色を変更します。ワークスペースごとに個別の色を設定できます。色が変わるのは自分だけで、他ユーザーに影響はありません。",
+    "presets": {
+      "default": "標準",
+      "aubergine": "オーベルジーヌ",
+      "midnight": "ミッドナイト",
+      "ocean": "オーシャン",
+      "forest": "フォレスト",
+      "clementine": "クレメンタイン",
+      "banana": "バナナ",
+      "graphite": "グラファイト"
+    },
+    "custom": "カスタム",
+    "saveFailed": "テーマを保存できませんでした。もう一度お試しください。"
+  },
+  "customTheme": {
+    "parts": {
+      "sidebar": "サイドバー",
+      "selected": "選択中の項目",
+      "presence": "オンライン",
+      "badge": "メンションのバッジ"
+    },
+    "partsInSentence": {
+      "sidebar": "サイドバー",
+      "selected": "選択中の項目",
+      "presence": "オンラインの印",
+      "badge": "メンションのバッジ"
+    },
+    "unreadable": "{{parts}}の文字が読みにくくなります。",
+    "share": "このテーマを共有",
+    "import": "テーマを読み込む",
+    "importButton": "読み込む",
+    "importError": "テーマとして読み込めません。16進数の色を4つ、カンマで区切って貼り付けてください。",
+    "surprise": "おまかせ",
+    "cancel": "キャンセル",
+    "save": "テーマを保存"
+  },
+  "text": {
+    "size": "文字の大きさ",
+    "sizes": {
+      "smaller": "小さめ",
+      "default": "標準",
+      "larger": "大きめ",
+      "largest": "特大"
+    },
+    "typeface": "書体",
+    "typefaces": {
+      "system": {
+        "label": "システム",
+        "description": "この端末が、ほかのアプリでも使っているフォントです。"
+      },
+      "inter": {
+        "description": "画面で読みやすいように作られた、すっきりとした書体です。英数字だけに使われます。"
+      },
+      "atkinson": {
+        "description": "見間違えにくい形の文字で、視力の弱い方に向いた書体です。英数字だけに使われます。"
+      },
+      "openDyslexic": {
+        "description": "文字の下側を太くした書体で、ディスレクシア(読み書きの障害)のある方には読みやすいことがあります。英数字だけに使われます。"
+      }
+    },
+    "code": "コードは、等幅フォントのまま表示されます。"
+  },
+  "messages": {
+    "layout": "メッセージの表示",
+    "clean": {
+      "label": "ゆったり",
+      "description": "続けて送られたメッセージの上に、名前と写真をまとめて表示します。"
+    },
+    "compact": {
+      "label": "コンパクト",
+      "description": "メッセージごとに、同じ行に名前と時刻を表示し、間隔を詰めます。"
+    },
+    "previews": "画像とリンクのプレビュー",
+    "shown": {
+      "label": "メッセージの中に表示",
+      "description": "メッセージが届くと、画像とリンクのプレビューがそのまま表示されます。"
+    },
+    "collapsed": {
+      "label": "クリックするまで閉じておく",
+      "description": "代わりに1行だけ表示し、見たいときにクリックして開きます。"
+    }
+  },
+  "read": {
+    "label": "チャンネルを開いたとき",
+    "whereLeft": {
+      "label": "前回の続きから表示",
+      "description": "まだ読んでいない最初のメッセージを、目印の線の下に表示します。"
+    },
+    "newest": {
+      "label": "最新のメッセージから表示",
+      "description": "最新のメッセージを表示し、それより前はすべて既読にします。"
+    }
+  },
+  "advanced": {
+    "enter": "メッセージを書いているときの Enter キー",
+    "sends": {
+      "label": "送信する",
+      "description": "{{keys}} で改行します。"
+    },
+    "newLine": {
+      "label": "改行する",
+      "description": "{{keys}} で送信します。"
+    }
+  },
+  "region": {
+    "timezone": "タイムゾーン",
+    "now": "あなたの現在時刻は {{time}} です。この時刻は、プロフィールで他の人にも表示されます。",
+    "find": "都市名(英語)か時差で検索。例: Tokyo、GMT+9",
+    "noMatch": "一致するタイムゾーンがありません",
+    "saveFailed": "タイムゾーンを保存できませんでした。もう一度お試しください。",
+    "clock": "時刻の表示",
+    "h24": "24時間表示",
+    "h12": "12時間表示"
   }
 }

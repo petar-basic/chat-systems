@@ -1,15 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
+import i18n from '@/lib/i18n';
 import WorkspaceThemePicker from './WorkspaceThemePicker';
 import { THEME_PRESETS, type Theme } from './workspaceThemes';
 
 const mutate = vi.fn();
 const preview = vi.fn();
 let current: Theme | null = null;
+const workspace = vi.hoisted(() => ({ id: 'w-1', name: 'Dev Team' }));
 
 vi.mock('@/stores/workspace', () => ({
-  useWorkspaceStore: (select: (state: unknown) => unknown) =>
-    select({ currentWorkspace: { id: 'w-1', name: 'Dev Team' } }),
+  useWorkspaceStore: (select: (state: unknown) => unknown) => select({ currentWorkspace: workspace }),
 }));
 vi.mock('./hooks/useWorkspaceTheme', () => ({
   useSavedWorkspaceTheme: () => current,
@@ -25,6 +26,25 @@ describe('WorkspaceThemePicker', () => {
     mutate.mockReset();
     preview.mockReset();
     current = null;
+  });
+
+  afterEach(async () => {
+    workspace.name = 'Dev Team';
+    await i18n.changeLanguage('en');
+  });
+
+  it('in Japanese names the themes, and keeps the workspace name as text', async () => {
+    workspace.name = '<img src=x onerror="alert(1)"> {{name}}';
+    await i18n.changeLanguage('ja');
+    render(<WorkspaceThemePicker />);
+
+    const title = `${workspace.name} のテーマ`;
+    expect(screen.getByRole('heading', { name: title })).toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: title })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: '標準' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: 'オーベルジーヌ' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'カスタム' })).toBeInTheDocument();
+    expect(document.querySelector('img')).toBeNull();
   });
 
   it('says the theme is for this workspace and marks the default when none is set', () => {
