@@ -24,6 +24,7 @@ vi.mock('@/features/notifications/ScheduleEditor', () => ({
   ScheduleEditor: () => <div data-qa="notification-schedule" />,
 }));
 vi.mock('@/features/profile/TwoFactorPanel', () => ({ default: () => <div data-qa="security-panel" /> }));
+vi.mock('@/features/profile/PasskeysPanel', () => ({ default: () => <div data-qa="passkeys-panel" /> }));
 vi.mock('@/stores/workspace', () => ({
   useWorkspaceStore: (select: (state: unknown) => unknown) =>
     select({ currentWorkspace: { name: 'Dev Team' } }),
