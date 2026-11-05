@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Checkbox } from '@/shared/components/Form/Checkbox';
 import { Select } from '@/shared/components/Form/Select';
 import { toast } from '@/shared/components/Toast';
@@ -12,6 +13,7 @@ const CHIP =
   'h-8 min-w-11 px-2 rounded-full border text-xs font-medium transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 disabled:cursor-not-allowed';
 
 export function ScheduleEditor() {
+  const { t } = useTranslation('notifications');
   const { data: schedule } = useNotificationSchedule();
   const save = useSetNotificationSchedule();
   if (!schedule) return null;
@@ -25,7 +27,7 @@ export function ScheduleEditor() {
         end_minute: schedule.end_minute,
         ...patch,
       },
-      { onError: () => toast.error("Couldn't save your schedule. Try again.") },
+      { onError: () => toast.error(t('schedule.saveFailed')) },
     );
 
   const toggleDay = (day: number) =>
@@ -41,29 +43,29 @@ export function ScheduleEditor() {
   return (
     <div data-qa="notification-schedule" className="space-y-3">
       <Checkbox
-        label="Notification schedule"
-        description="Outside these hours notifications wait in Activity instead of reaching you."
+        label={t('schedule.label')}
+        description={t('schedule.description')}
         checked={schedule.enabled}
         onChange={(enabled) => update({ enabled })}
         dataQa="schedule-enabled"
       />
       {schedule.enabled && (
         <>
-          <div role="group" aria-label="Days" className="flex flex-wrap items-center gap-1.5">
-            {DAY_LABELS.map(({ day, short, long }) => {
+          <div role="group" aria-label={t('schedule.days')} className="flex flex-wrap items-center gap-1.5">
+            {DAY_LABELS.map(({ day, name }) => {
               const on = schedule.days.includes(day);
               return (
                 <button
                   key={day}
                   type="button"
                   aria-pressed={on}
-                  aria-label={long}
+                  aria-label={t(`days.${name}.long`)}
                   disabled={on && schedule.days.length === 1}
                   onClick={() => toggleDay(day)}
                   data-qa={`schedule-day-${day}`}
                   className={`${CHIP} ${on ? 'border-purple-500 bg-purple-600/15 text-fg' : 'border-line text-muted hover:text-fg'}`}
                 >
-                  {short}
+                  {t(`days.${name}.short`)}
                 </button>
               );
             })}
@@ -75,7 +77,7 @@ export function ScheduleEditor() {
               data-qa="schedule-weekdays"
               className={`${CHIP} border-line text-fg-dim hover:text-fg aria-pressed:border-purple-500`}
             >
-              Weekdays
+              {t('schedule.weekdays')}
             </button>
             <button
               type="button"
@@ -84,12 +86,12 @@ export function ScheduleEditor() {
               data-qa="schedule-every-day"
               className={`${CHIP} border-line text-fg-dim hover:text-fg aria-pressed:border-purple-500`}
             >
-              Every day
+              {t('schedule.everyDay')}
             </button>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Select
-              label="From"
+              label={t('schedule.from')}
               value={schedule.start_minute}
               onChange={(e) => {
                 const start = Number(e.target.value);
@@ -107,7 +109,7 @@ export function ScheduleEditor() {
               ))}
             </Select>
             <Select
-              label="To"
+              label={t('schedule.to')}
               value={schedule.end_minute}
               onChange={(e) => update({ end_minute: Number(e.target.value) })}
               dataQa="schedule-end"
@@ -116,14 +118,15 @@ export function ScheduleEditor() {
                 .filter((minute) => minute !== schedule.start_minute)
                 .map((minute) => (
                   <option key={minute} value={minute}>
-                    {minuteLabel(minute)}
-                    {minute < schedule.start_minute ? ' (next day)' : ''}
+                    {minute < schedule.start_minute
+                      ? t('schedule.nextDay', { time: minuteLabel(minute) })
+                      : minuteLabel(minute)}
                   </option>
                 ))}
             </Select>
           </div>
           <p className="text-xs text-muted" data-qa="schedule-timezone">
-            Times are in {schedule.timezone}, the timezone in your profile.
+            {t('schedule.timezone', { timezone: schedule.timezone })}
           </p>
         </>
       )}

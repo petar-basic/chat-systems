@@ -4,5 +4,19 @@
     "hint": "サインインしているすべての端末で、この言語で表示されます。サインインする前は、ブラウザの設定に合わせて表示されます。",
     "browser": "ブラウザの設定に合わせる",
     "saveFailed": "表示言語を保存できませんでした。"
+  },
+  "preferences": {
+    "title": "設定",
+    "sections": {
+      "notifications": "通知",
+      "appearance": "表示",
+      "messages": "メッセージとメディア",
+      "region": "言語と地域",
+      "read": "既読",
+      "account": "アカウント",
+      "security": "セキュリティ",
+      "advanced": "詳細設定"
+    },
+    "notificationsScope": "この端末のプッシュ通知とデスクトップ通知を除き、ここでの設定は <workspace>{{name}}</workspace> だけに使われます。ワークスペースごとに別々に設定できます。"
   }
 }

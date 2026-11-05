@@ -1,0 +1,92 @@
+{
+  "turnOn": "Turn on",
+  "turnOff": "Turn off",
+  "blocked": "Your browser has blocked notifications for this site. Allow them in the address bar first.",
+  "levels": {
+    "all": "All new messages",
+    "mentions": "Mentions",
+    "nothing": "Nothing"
+  },
+  "default": {
+    "label": "Notify me about, in {{name}}",
+    "descriptions": {
+      "all": "Every new message in your channels, plus mentions, replies and direct messages.",
+      "mentions": "Direct messages, mentions and replies in threads you follow.",
+      "nothing": "Only direct messages. Channels stay quiet until you open them."
+    },
+    "override": "A channel can override this from its bell menu. Direct messages notify you unless you change them one by one.",
+    "saveFailed": "Couldn't change your notification default. Try again."
+  },
+  "keywords": {
+    "label": "My keywords",
+    "hint": "You are notified when one of these is written in a channel you are in, as if you had been mentioned. Press Enter to add one.",
+    "placeholder": "e.g. deploy, outage",
+    "remove": "Remove {{keyword}}",
+    "saveFailed": "Couldn't save your keywords. Try again.",
+    "problems": {
+      "length": "A keyword is {{min}} to {{max}} characters.",
+      "prefix": "A keyword cannot start with @ or #.",
+      "duplicate": "\"{{keyword}}\" is already on your list.",
+      "limit": "You can keep up to {{limit}} keywords."
+    }
+  },
+  "schedule": {
+    "label": "Notification schedule",
+    "description": "Outside these hours notifications wait in Activity instead of reaching you.",
+    "days": "Days",
+    "weekdays": "Weekdays",
+    "everyDay": "Every day",
+    "from": "From",
+    "to": "To",
+    "nextDay": "{{time}} (next day)",
+    "timezone": "Times are in {{timezone}}, the timezone in your profile.",
+    "saveFailed": "Couldn't save your schedule. Try again."
+  },
+  "days": {
+    "mon": {
+      "short": "Mon",
+      "long": "Monday"
+    },
+    "tue": {
+      "short": "Tue",
+      "long": "Tuesday"
+    },
+    "wed": {
+      "short": "Wed",
+      "long": "Wednesday"
+    },
+    "thu": {
+      "short": "Thu",
+      "long": "Thursday"
+    },
+    "fri": {
+      "short": "Fri",
+      "long": "Friday"
+    },
+    "sat": {
+      "short": "Sat",
+      "long": "Saturday"
+    },
+    "sun": {
+      "short": "Sun",
+      "long": "Sunday"
+    }
+  },
+  "push": {
+    "title": "Notifications on this device",
+    "on": "On. Mentions reach you with the app closed; do not disturb and muted channels still apply.",
+    "off": "Off. Mentions only arrive while a window is open.",
+    "stopped": "This device will stop receiving notifications.",
+    "refused": "Your browser refused notification permission for this site."
+  },
+  "desktop": {
+    "title": "Desktop notifications while the app is open",
+    "on": "On. A message that notifies you shows on the desktop while this window is not in front.",
+    "off": "Off. An open window only plays a sound and updates Activity."
+  },
+  "email": {
+    "title": "Email me what I missed",
+    "on": "On. A mention or direct message still unread five minutes later is emailed once, with a link to it.",
+    "off": "Off. Unread mentions wait in Activity until you open the app."
+  }
+}
