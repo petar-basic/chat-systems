@@ -550,7 +550,10 @@ when each was added and last used, renamed in place, and added or removed after 
 a TOTP code. `lib/webauthn.ts` turns the server's base64url options into what
 `navigator.credentials` takes and the answer back. The sign-in page offers *Sign in with a
 passkey* on its own server in a browser that has `PublicKeyCredential`, and *Use a passkey
-instead* where the server's 409 says a passkey would do; the desktop app offers neither yet.
+instead* where the server's 409 says a passkey would do. In the desktop app the button calls
+`startPasskey`, and the system browser opens `/passkey/desktop?nonce=` (`DesktopSsoPage`, step
+`passkey`), which signs in through `/auth/passkeys/sign-in/desktop` and goes on to the SSO
+handoff with the code it gets.
 A photo picked under *Account* is uploaded to `POST /users/me/avatar` and set on the account at
 once, so every workspace shows it; *Edit profile*'s photo stays a file of its workspace.
 The *You* row reads the person from the users cache, so it shows the workspace profile. *Notifications* opens with `NotifyDefaultPanel`, the

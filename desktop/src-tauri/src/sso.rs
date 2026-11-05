@@ -68,6 +68,12 @@ pub fn start_url(server: &Url, nonce: &str, invite: Option<&str>) -> Option<Url>
     Some(url)
 }
 
+pub fn passkey_url(server: &Url, nonce: &str) -> Option<Url> {
+    let mut url = server.join("/passkey/desktop").ok()?;
+    url.query_pairs_mut().append_pair("nonce", nonce);
+    Some(url)
+}
+
 pub fn complete_url(server: &Url, code: &str) -> Option<Url> {
     let mut url = server.join("/sso/complete").ok()?;
     url.query_pairs_mut().append_pair("code", code);
@@ -148,6 +154,10 @@ mod tests {
         assert_eq!(
             start.as_str(),
             "https://chat.example.com/api/auth/oidc/start?client=desktop&nonce=n0nce&invite=in+vite%26x%3D1"
+        );
+        assert_eq!(
+            passkey_url(&server, "n0nce").unwrap().as_str(),
+            "https://chat.example.com/passkey/desktop?nonce=n0nce"
         );
         assert_eq!(
             complete_url(&server, CODE).unwrap().as_str(),

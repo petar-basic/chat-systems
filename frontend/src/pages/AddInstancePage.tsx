@@ -44,6 +44,7 @@ export default function AddInstancePage() {
 
   const sameOrigin = url.trim().replace(/\/$/, '') === window.location.origin;
   const offerPasskeys = sameOrigin && !inDesktop && passkeysSupported();
+  const startPasskeyInDesktop = desktopShell()?.startPasskey;
 
   useEffect(() => {
     if (instance?.setup_required) navigate('/setup', { replace: true });
@@ -243,11 +244,13 @@ export default function AddInstancePage() {
             {inDesktop ? t('signIn.desktopSubmit') : t('signIn.submit')}
           </Button>
 
-          {offerPasskeys && !needsTotp && !needsPasskey && (
+          {((offerPasskeys && !needsTotp && !needsPasskey) || startPasskeyInDesktop) && (
             <Button
               variant="secondary"
               fullWidth
-              onClick={() => void signInWithPasskey(false)}
+              onClick={() =>
+                startPasskeyInDesktop ? startPasskeyInDesktop() : void signInWithPasskey(false)
+              }
               disabled={loading}
               icon={<Fingerprint className="h-4 w-4" />}
               data-qa="login-passkey"

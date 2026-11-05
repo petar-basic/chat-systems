@@ -23,7 +23,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   since the device checks your fingerprint, face or PIN it does not then ask for a TOTP code and
   counts as an admin's second factor under `REQUIRE_ADMIN_TOTP`. After a password, a passkey can
   stand in for the code. A passkey belongs to the host in `PUBLIC_URL`. SSO accounts are not
-  offered passkeys. Not yet in the desktop app.
+  offered passkeys. In the desktop app *Sign in with a passkey* opens the system browser, which
+  hands the app back the sign-in as SSO does; passkeys are added from a browser.
 
 ## [4.2.1] — 2026-11-05
 

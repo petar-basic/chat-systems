@@ -423,3 +423,50 @@ async fn a_passkey_satisfies_an_instance_that_requires_admins_to_have_a_second_f
         "the admin's only second factor stays until another takes its place"
     );
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_passkey_used_in_the_system_browser_signs_the_desktop_app_in(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (user_id, email, token) = seed_and_login(&app, &state, "passkey-desktop", false).await;
+    enrol(&app, &state, &token, &email).await;
+    let mut device = device();
+    let credential_id = add_passkey(&app, &token, &mut device).await;
+
+    let (challenge_id, options) = start_sign_in(&app).await;
+    let assertion = assert_with(&mut device, options, &credential_id, user_id);
+    let (status, body) = send(
+        &app,
+        "POST",
+        "/api/auth/passkeys/sign-in/desktop",
+        None,
+        Some(json!({ "challenge_id": challenge_id, "credential": assertion })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert!(
+        body.get("access_token").is_none(),
+        "the browser hands the app a code, never a session of its own"
+    );
+    let code = body["code"].as_str().expect("code").to_string();
+
+    let (status, exchanged) = send(
+        &app,
+        "POST",
+        "/api/auth/oidc/exchange",
+        None,
+        Some(json!({ "code": code })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{exchanged:?}");
+    assert_eq!(exchanged["landing"], "/app");
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        "/api/auth/oidc/exchange",
+        None,
+        Some(json!({ "code": code })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED, "the code works once");
+}

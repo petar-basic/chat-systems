@@ -100,7 +100,7 @@ describe('AddInstancePage', () => {
     );
   });
 
-  it('offers no passkey where the browser has none, or in the desktop app', () => {
+  it('offers no passkey where the browser has none, or in a desktop app too old to hand it over', () => {
     renderPage();
     expect(screen.queryByRole('button', { name: 'Sign in with a passkey' })).not.toBeInTheDocument();
 
@@ -108,6 +108,18 @@ describe('AddInstancePage', () => {
     openInDesktop();
     renderPage();
     expect(screen.queryByRole('button', { name: 'Sign in with a passkey' })).not.toBeInTheDocument();
+  });
+
+  it('in the desktop app sends the passkey to the system browser', () => {
+    openInDesktop();
+    const startPasskey = vi.fn();
+    window.chatSystemsDesktop = { ...window.chatSystemsDesktop!, startPasskey };
+    renderPage();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in with a passkey' }));
+
+    expect(startPasskey).toHaveBeenCalled();
+    expect(store.addInstanceWithPasskey).not.toHaveBeenCalled();
   });
 
   it('after the password, lets a passkey stand in for the code', async () => {

@@ -13,6 +13,7 @@ use webauthn_rs::prelude::{
 };
 
 use super::models::{AuthSession, User, UserStatus};
+use super::oidc_routes::issue_desktop_code;
 use super::passkey::{self, Ceremony};
 use super::passkey_repo::StoredPasskey;
 use super::routes::{check_rate_limit, first_factor, set_auth_cookies};
@@ -35,6 +36,7 @@ pub fn public_router() -> OpenApiRouter<Arc<AppState>> {
     OpenApiRouter::new()
         .routes(routes!(start_passkey_sign_in))
         .routes(routes!(passkey_sign_in))
+        .routes(routes!(passkey_sign_in_for_desktop))
         .routes(routes!(start_passkey_second_factor))
         .routes(routes!(passkey_second_factor))
 }
@@ -89,6 +91,11 @@ pub struct PasskeyAssertion {
     pub challenge_id: Uuid,
     #[schema(value_type = std::collections::HashMap<String, serde_json::Value>)]
     pub credential: PublicKeyCredential,
+}
+
+#[derive(Debug, serde::Serialize, utoipa::ToSchema)]
+pub struct DesktopPasskeyCode {
+    pub code: String,
 }
 
 #[derive(Debug, serde::Deserialize, utoipa::ToSchema)]
@@ -283,8 +290,29 @@ async fn passkey_sign_in(
     ip: ClientIp,
     Json(req): Json<PasskeyAssertion>,
 ) -> AppResult<(CookieJar, Json<AuthSession>)> {
-    limit_by_ip(&state, &ip).await?;
-    let Ceremony::SignIn { state: sign_in } = passkey::take(&state, req.challenge_id).await? else {
+    let user = discoverable_sign_in(&state, &ip, &req, "sign_in").await?;
+    session_for(&state, jar, &user).await
+}
+
+#[utoipa::path(post, path = "/auth/passkeys/sign-in/desktop", tag = "passkeys", request_body = PasskeyAssertion, responses((status = 200, body = DesktopPasskeyCode)), security(()))]
+async fn passkey_sign_in_for_desktop(
+    State(state): State<Arc<AppState>>,
+    ip: ClientIp,
+    Json(req): Json<PasskeyAssertion>,
+) -> AppResult<Json<DesktopPasskeyCode>> {
+    let user = discoverable_sign_in(&state, &ip, &req, "desktop_sign_in").await?;
+    let code = issue_desktop_code(&state, user.id, "/app").await?;
+    Ok(Json(DesktopPasskeyCode { code }))
+}
+
+async fn discoverable_sign_in(
+    state: &AppState,
+    ip: &ClientIp,
+    req: &PasskeyAssertion,
+    stage: &str,
+) -> AppResult<User> {
+    limit_by_ip(state, ip).await?;
+    let Ceremony::SignIn { state: sign_in } = passkey::take(state, req.challenge_id).await? else {
         return Err(expired());
     };
 
@@ -303,7 +331,7 @@ async fn passkey_sign_in(
         .finish_discoverable_authentication_v2(&req.credential, sign_in, &row.credential.0)
         .map_err(rejected)?;
 
-    finish_sign_in(&state, jar, &ip, row, &result, "sign_in").await
+    signed_in(state, ip, row, &result, stage).await
 }
 
 #[utoipa::path(post, path = "/auth/passkeys/second-factor/start", tag = "passkeys", request_body = PasskeySecondFactorStart, responses((status = 200, body = PasskeyChallenge)), security(()))]
@@ -368,17 +396,17 @@ async fn passkey_second_factor(
         .filter(|row| row.user_id == user_id)
         .ok_or_else(unknown_passkey)?;
 
-    finish_sign_in(&state, jar, &ip, row, &result, "second_factor").await
+    let user = signed_in(&state, &ip, row, &result, "second_factor").await?;
+    session_for(&state, jar, &user).await
 }
 
-async fn finish_sign_in(
+async fn signed_in(
     state: &AppState,
-    jar: CookieJar,
     ip: &ClientIp,
     row: StoredPasskey,
     result: &AuthenticationResult,
     stage: &str,
-) -> AppResult<(CookieJar, Json<AuthSession>)> {
+) -> AppResult<User> {
     let user = load_user(state, row.user_id).await?;
     match user.status {
         UserStatus::Active => {}
@@ -406,7 +434,15 @@ async fn finish_sign_in(
     )
     .await;
 
-    let tokens = state.auth_service.tokens_for(&user).await?;
+    Ok(user)
+}
+
+async fn session_for(
+    state: &AppState,
+    jar: CookieJar,
+    user: &User,
+) -> AppResult<(CookieJar, Json<AuthSession>)> {
+    let tokens = state.auth_service.tokens_for(user).await?;
     let secure = state.config.public_url.starts_with("https://");
     let jar = set_auth_cookies(jar, &tokens, secure);
     Ok((jar, Json(tokens.into())))

@@ -96,6 +96,7 @@ function AppContent() {
           <Route path="/forgot-password" element={<ResetPasswordPage />} />
           <Route path="/sso/desktop" element={<DesktopSsoPage step="handoff" />} />
           <Route path="/sso/complete" element={<DesktopSsoPage step="complete" />} />
+          <Route path="/passkey/desktop" element={<DesktopSsoPage step="passkey" />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route
             path="/oauth/apps/callback"
