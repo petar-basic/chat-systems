@@ -51,6 +51,11 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ### Fixed
 
+- A DM outlives the other person leaving the workspace, or being removed from it. It keeps
+  their name, photo and the whole history, says they are no longer in the workspace, and takes
+  no new messages until they are back; a group DM carries on without them. When they come back,
+  the same DM carries on instead of a new, empty one. DMs that lost their other side before this
+  release show that person again after the upgrade.
 - Mention emails are off for anyone who joins a workspace from now on, since the desktop app and
   push notifications already reach them. Turn them on in *Preferences → Notifications*. Members
   who were already in a workspace keep the setting they had.

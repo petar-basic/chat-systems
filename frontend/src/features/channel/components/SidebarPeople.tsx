@@ -1,5 +1,5 @@
 import type { Conversation } from '@/features/messaging';
-import { conversationTitle } from '@/lib/conversationHelpers';
+import { conversationTitle, departedPartner } from '@/lib/conversationHelpers';
 import { displayNameOf } from '@/lib/userHelpers';
 import { useUserCache } from '@/stores/users';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
@@ -40,6 +40,7 @@ export function ConversationRow({
   const title = conversationTitle(conversation, currentUserId, (id) => getUser(id)?.display_name);
   const others = conversation.participant_ids.filter((id) => id !== currentUserId);
   const partnerId = others[0] ?? currentUserId ?? '';
+  const gone = departedPartner(conversation, currentUserId);
 
   return (
     <button
@@ -71,6 +72,8 @@ export function ConversationRow({
             />
           ))}
         </span>
+      ) : gone ? (
+        <Avatar userId={gone.user_id} name={title} avatarUrl={gone.avatar_url} size="xs" />
       ) : (
         <UserAvatarWithPresence userId={partnerId} name={title} avatarUrl={getUser(partnerId)?.avatar_url} />
       )}

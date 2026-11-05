@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use sqlx::types::Json;
 use sqlx::{PgConnection, PgPool};
 use uuid::Uuid;
 
@@ -39,6 +40,7 @@ struct SummaryRow {
     last_message_at: DateTime<Utc>,
     last_read_at: Option<DateTime<Utc>>,
     participant_ids: Vec<Uuid>,
+    departed: Json<Vec<DepartedParticipant>>,
     notify_level: Option<NotifyLevel>,
     effective_notify_level: NotifyLevel,
 }
@@ -81,6 +83,7 @@ impl ConversationRepo {
               JOIN channel_members p1 ON p1.channel_id = c.id AND p1.user_id = $2
               JOIN channel_members p2 ON p2.channel_id = c.id AND p2.user_id = $3
              WHERE c.workspace_id = $1 AND c.channel_type = 'dm'
+             ORDER BY c.created_at, c.id
              LIMIT 1
             "#,
             workspace_id,
@@ -167,6 +170,17 @@ impl ConversationRepo {
                        WHERE p.channel_id = c.id
                        ORDER BY p.joined_at, p.user_id
                    ) AS "participant_ids!",
+                   COALESCE((
+                       SELECT jsonb_agg(jsonb_build_object(
+                                  'user_id', d.user_id,
+                                  'display_name', u.display_name,
+                                  'avatar_url', u.avatar_url,
+                                  'left_at', d.left_at
+                              ) ORDER BY d.left_at, d.user_id)
+                         FROM conversation_departures d
+                         JOIN users u ON u.id = d.user_id
+                        WHERE d.channel_id = c.id
+                   ), '[]'::jsonb) AS "departed!: Json<Vec<DepartedParticipant>>",
                    mine.notify_level AS "notify_level: NotifyLevel",
                    effective_notify_level(mine.notify_level, wm.notify_default, c.channel_type)
                        AS "effective_notify_level!: NotifyLevel"
@@ -191,11 +205,30 @@ impl ConversationRepo {
                     last_message_at: r.last_message_at,
                     last_read_at: r.last_read_at,
                     participant_ids: r.participant_ids,
+                    departed: r.departed.0,
                     notify_level: r.notify_level,
                     effective_notify_level: r.effective_notify_level,
                 })
             })
             .collect())
+    }
+
+    pub async fn departed_name(&self, channel_id: Uuid) -> sqlx::Result<Option<String>> {
+        let row = sqlx::query_scalar!(
+            r#"
+            SELECT COALESCE(NULLIF(BTRIM(u.display_name), ''), 'Somebody') AS "name!"
+              FROM conversation_departures d
+              JOIN channels c ON c.id = d.channel_id
+              JOIN users u ON u.id = d.user_id
+             WHERE d.channel_id = $1 AND c.channel_type = 'dm'
+             ORDER BY d.left_at
+             LIMIT 1
+            "#,
+            channel_id
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row)
     }
 
     pub async fn participant_ids(&self, conversation_id: Uuid) -> sqlx::Result<Vec<Uuid>> {

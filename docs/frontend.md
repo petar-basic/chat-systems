@@ -150,7 +150,11 @@ leaves the selected channel as it was.
 A conversation is a channel of type `dm`/`group_dm`, so with a `conversationId` the page
 renders `ConversationView` — a header with the participants over the same `MessageList`,
 `MessageInput`, `TypingIndicator` and `ThreadPanel` a channel uses, keyed on the
-conversation id as the channel id.
+conversation id as the channel id. A participant who left the workspace keeps their name and
+photo from the conversation's `departed`; a DM with them says *<name> is no longer in this
+workspace* in place of the composer, and a group DM says it above the composer.
+`workspace.members_changed` refetches the conversation list, so a departure or a return shows
+at once.
 
 - **`features/workspace/hooks/useWorkspaceController`** — composes the page's hooks and
   returns one object the view consumes: `useWorkspaceData` (queries, store hydration,

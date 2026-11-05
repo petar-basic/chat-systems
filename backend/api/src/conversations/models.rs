@@ -50,8 +50,17 @@ pub struct ConversationSummary {
     pub last_message_at: DateTime<Utc>,
     pub last_read_at: Option<DateTime<Utc>>,
     pub participant_ids: Vec<Uuid>,
+    pub departed: Vec<DepartedParticipant>,
     pub notify_level: Option<NotifyLevel>,
     pub effective_notify_level: NotifyLevel,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct DepartedParticipant {
+    pub user_id: Uuid,
+    pub display_name: Option<String>,
+    pub avatar_url: Option<String>,
+    pub left_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]

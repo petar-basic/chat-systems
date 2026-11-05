@@ -3579,6 +3579,7 @@ export interface components {
          */
         ConversationKind: "direct" | "group";
         ConversationSummary: {
+            departed: components["schemas"]["DepartedParticipant"][];
             effective_notify_level: components["schemas"]["NotifyLevel"];
             /** Format: uuid */
             id: string;
@@ -3894,6 +3895,7 @@ export interface components {
         };
         DataList_ConversationSummary: {
             data: {
+                departed: components["schemas"]["DepartedParticipant"][];
                 effective_notify_level: components["schemas"]["NotifyLevel"];
                 /** Format: uuid */
                 id: string;
@@ -4395,6 +4397,14 @@ export interface components {
         };
         /** @enum {string} */
         Density: "clean" | "compact";
+        DepartedParticipant: {
+            avatar_url?: string | null;
+            display_name?: string | null;
+            /** Format: date-time */
+            left_at: string;
+            /** Format: uuid */
+            user_id: string;
+        };
         DirectoryChannel: {
             /** Format: uuid */
             id: string;

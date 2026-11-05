@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT c.id, c.workspace_id, c.channel_type AS \"channel_type: ChannelType\", c.created_by, c.created_at,\n                   COALESCE((SELECT MAX(m.created_at) FROM messages m WHERE m.channel_id = c.id AND m.deleted_at IS NULL), c.created_at) AS \"last_message_at!\"\n              FROM channels c\n              JOIN channel_members p1 ON p1.channel_id = c.id AND p1.user_id = $2\n              JOIN channel_members p2 ON p2.channel_id = c.id AND p2.user_id = $3\n             WHERE c.workspace_id = $1 AND c.channel_type = 'dm'\n             LIMIT 1\n            ",
+  "query": "\n            SELECT c.id, c.workspace_id, c.channel_type AS \"channel_type: ChannelType\", c.created_by, c.created_at,\n                   COALESCE((SELECT MAX(m.created_at) FROM messages m WHERE m.channel_id = c.id AND m.deleted_at IS NULL), c.created_at) AS \"last_message_at!\"\n              FROM channels c\n              JOIN channel_members p1 ON p1.channel_id = c.id AND p1.user_id = $2\n              JOIN channel_members p2 ON p2.channel_id = c.id AND p2.user_id = $3\n             WHERE c.workspace_id = $1 AND c.channel_type = 'dm'\n             ORDER BY c.created_at, c.id\n             LIMIT 1\n            ",
   "describe": {
     "columns": [
       {
@@ -93,5 +93,5 @@
       null
     ]
   },
-  "hash": "72465a9897a59365a5b3645278a65e949fee758354818a384a62e22aa09c768d"
+  "hash": "44de6e08a909e7d7c3f0c30c7f9201d387e7e0bc3ba980951127d77ec3917b38"
 }

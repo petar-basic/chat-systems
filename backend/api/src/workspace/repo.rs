@@ -483,6 +483,27 @@ impl WorkspaceRepo {
         workspace_id: Uuid,
         user_id: Uuid,
     ) -> sqlx::Result<Vec<Uuid>> {
+        sqlx::query!(
+            r"
+            INSERT INTO conversation_departures
+                (channel_id, user_id, role, joined_at, last_read_at, last_read_message_id,
+                 is_starred, muted, mention_count, notify_level)
+            SELECT cm.channel_id, cm.user_id, cm.role, cm.joined_at, cm.last_read_at,
+                   cm.last_read_message_id, COALESCE(cm.is_starred, false), cm.muted,
+                   cm.mention_count, cm.notify_level
+              FROM channel_members cm
+              JOIN channels c ON c.id = cm.channel_id
+             WHERE c.workspace_id = $1
+               AND cm.user_id = $2
+               AND c.channel_type IN ('dm', 'group_dm')
+            ON CONFLICT (channel_id, user_id) DO UPDATE SET left_at = NOW()
+            ",
+            workspace_id,
+            user_id
+        )
+        .execute(&mut *conn)
+        .await?;
+
         let channel_ids: Vec<Uuid> = sqlx::query_scalar!(
             r"
             DELETE FROM channel_members cm
@@ -507,6 +528,47 @@ impl WorkspaceRepo {
         .await?;
 
         Ok(channel_ids)
+    }
+
+    pub async fn restore_conversations_in(
+        conn: &mut PgConnection,
+        workspace_id: Uuid,
+        user_id: Uuid,
+    ) -> sqlx::Result<Vec<Uuid>> {
+        sqlx::query_scalar!(
+            r#"
+            WITH back AS (
+                DELETE FROM conversation_departures d
+                 USING channels c
+                 WHERE c.id = d.channel_id
+                   AND c.workspace_id = $1
+                   AND d.user_id = $2
+                RETURNING d.channel_id, d.user_id, d.role, d.joined_at, d.last_read_at,
+                          d.last_read_message_id, d.is_starred, d.muted, d.mention_count,
+                          d.notify_level
+            )
+            INSERT INTO channel_members
+                (channel_id, user_id, role, joined_at, last_read_at, last_read_msg,
+                 last_read_message_id, is_starred, muted, mention_count, notify_level,
+                 unread_count)
+            SELECT b.channel_id, b.user_id, b.role, b.joined_at, b.last_read_at,
+                   b.last_read_message_id, b.last_read_message_id, b.is_starred, b.muted,
+                   b.mention_count, b.notify_level,
+                   (SELECT COUNT(*)::int FROM messages m
+                     WHERE m.channel_id = b.channel_id
+                       AND m.deleted_at IS NULL
+                       AND (m.thread_parent_id IS NULL OR m.metadata->>'also_in_channel' = 'true')
+                       AND m.user_id <> b.user_id
+                       AND (b.last_read_at IS NULL OR m.created_at > b.last_read_at))
+              FROM back b
+            ON CONFLICT (channel_id, user_id) DO NOTHING
+            RETURNING channel_id
+            "#,
+            workspace_id,
+            user_id
+        )
+        .fetch_all(&mut *conn)
+        .await
     }
 
     pub async fn remove_member(

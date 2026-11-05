@@ -7,6 +7,7 @@ use super::super::models::*;
 use super::super::source::{read_json, ExportSource};
 use super::Import;
 use crate::workspace::models::WorkspaceRole;
+use crate::workspace::repo::WorkspaceRepo;
 
 impl Import<'_> {
     pub(crate) async fn import_users(&mut self, source: &mut dyn ExportSource) -> AppResult<()> {
@@ -113,6 +114,8 @@ impl Import<'_> {
             .repo
             .add_member(self.workspace_id, user_id, role)
             .await?;
+        let mut conn = self.state.pool.acquire().await?;
+        WorkspaceRepo::restore_conversations_in(&mut conn, self.workspace_id, user_id).await?;
         Ok(())
     }
 }

@@ -17,6 +17,8 @@ describe('syncMembershipFrames', () => {
     queryClient.setQueryData(QUERY_KEYS.workspaceMembers('w-1'), []);
     queryClient.setQueryData(QUERY_KEYS.workspaceMembers('w-2'), []);
     queryClient.setQueryData(QUERY_KEYS.channelMembers('ch-1'), []);
+    queryClient.setQueryData(QUERY_KEYS.conversations('w-1'), []);
+    queryClient.setQueryData(QUERY_KEYS.conversations('w-2'), []);
     queryClient.setQueryData(QUERY_KEYS.messages('ch-1'), { pages: [], pageParams: [] });
   });
 
@@ -36,7 +38,9 @@ describe('syncMembershipFrames', () => {
 
     expect(stale(QUERY_KEYS.workspaceMembers('w-1'))).toBe(true);
     expect(stale(QUERY_KEYS.channelMembers('ch-1'))).toBe(true);
+    expect(stale(QUERY_KEYS.conversations('w-1'))).toBe(true);
     expect(stale(QUERY_KEYS.workspaceMembers('w-2'))).toBe(false);
+    expect(stale(QUERY_KEYS.conversations('w-2'))).toBe(false);
     expect(stale(QUERY_KEYS.messages('ch-1'))).toBe(false);
   });
 });
