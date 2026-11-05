@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE email_sign_in_codes\n                SET attempts = attempts + 1\n              WHERE user_id = $1\n                AND used_at IS NULL\n                AND expires_at > NOW()\n                AND attempts < $2\n          RETURNING code_hash, attempts",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "code_hash",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "email_sign_in_codes",
+            "name": "code_hash"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "attempts",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "email_sign_in_codes",
+            "name": "attempts"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "86cba731d1b9be10370d4042ce7b4b20136eec675887c6efec3a34c325ad74c5"
+}

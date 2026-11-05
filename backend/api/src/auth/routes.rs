@@ -51,6 +51,20 @@ async fn login(
     // The password is only the first half now. Tokens are minted after the
     // second factor, never before — a step-up that hands out a session first has
     // not stepped anything up.
+    second_factor(&state, &user, req.totp_code.as_deref()).await?;
+
+    let tokens = state.auth_service.tokens_for(&user).await?;
+    let secure = state.config.public_url.starts_with("https://");
+    let jar = set_auth_cookies(jar, &tokens, secure);
+
+    Ok((jar, Json(tokens.into())))
+}
+
+pub(crate) async fn second_factor(
+    state: &AppState,
+    user: &User,
+    totp_code: Option<&str>,
+) -> AppResult<()> {
     let enrolment = state.totp_repo.find(user.id).await?;
     let requires_totp = enrolment.as_ref().is_some_and(|e| e.is_active());
     let has_passkeys = state.passkey_repo.count(user.id).await? > 0;
@@ -65,7 +79,7 @@ async fn login(
     }
 
     if requires_totp {
-        let Some(code) = req.totp_code.as_deref().filter(|c| !c.is_empty()) else {
+        let Some(code) = totp_code.filter(|c| !c.is_empty()) else {
             // A distinct answer on purpose: the password was right, and the
             // client needs to know to ask for the code rather than for it again.
             let answer = if has_passkeys {
@@ -93,12 +107,12 @@ async fn login(
             // replay lands in that step or the next one.
             state.totp_repo.claim_step(user.id, step).await?
         } else {
-            consume_recovery_code(&state, user.id, code).await?
+            consume_recovery_code(state, user.id, code).await?
         };
 
         if !accepted {
             audit::record(
-                &state,
+                state,
                 AuditEntry::new(AuditAction::TotpFailed, user.id)
                     .resource(user.id)
                     .details(serde_json::json!({ "stage": "login" })),
@@ -108,11 +122,7 @@ async fn login(
         }
     }
 
-    let tokens = state.auth_service.tokens_for(&user).await?;
-    let secure = state.config.public_url.starts_with("https://");
-    let jar = set_auth_cookies(jar, &tokens, secure);
-
-    Ok((jar, Json(tokens.into())))
+    Ok(())
 }
 
 pub(crate) async fn first_factor(
@@ -121,6 +131,19 @@ pub(crate) async fn first_factor(
     email: &str,
     password: &str,
 ) -> AppResult<User> {
+    limit_sign_in(state, ip, email).await?;
+
+    state
+        .auth_service
+        .verify_password_only(email, password)
+        .await
+}
+
+pub(crate) async fn limit_sign_in(
+    state: &AppState,
+    ip: Option<&str>,
+    email: &str,
+) -> AppResult<()> {
     let key = format!("rate_limit:login:{}", email.to_lowercase());
     let window = state.config.login_attempts_window_secs;
     check_rate_limit(state, &key, state.config.login_attempts_per_email, window).await?;
@@ -133,11 +156,7 @@ pub(crate) async fn first_factor(
         )
         .await?;
     }
-
-    state
-        .auth_service
-        .verify_password_only(email, password)
-        .await
+    Ok(())
 }
 
 /// A recovery code stands in for the authenticator exactly once.
@@ -362,6 +381,7 @@ async fn instance_info(State(state): State<Arc<AppState>>) -> AppResult<Json<Ins
                 &state.config.oidc_allowed_domains,
             )
             .may_sign_in(),
+        email_code_sign_in: super::email_code_routes::offered(&state).await?,
         max_upload_bytes: state.config.max_upload_bytes,
         setup_required,
     }))

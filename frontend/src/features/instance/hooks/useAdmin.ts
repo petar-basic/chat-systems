@@ -5,6 +5,7 @@ import { QUERY_KEYS } from '@/shared/constants';
 
 export type AdminUser = components['schemas']['AdminUser'];
 export type EmailTest = components['schemas']['EmailTest'];
+export type InstanceSettings = components['schemas']['InstanceSettings'];
 
 const PAGE = 200;
 
@@ -81,3 +82,22 @@ export const useSendTestEmail = (instanceUrl: string | null) =>
   useMutation({
     mutationFn: () => getApiForInstance(instanceUrl).typed((c) => c.POST('/admin/email/test')),
   });
+
+export const useInstanceSettings = (instanceUrl: string | null) =>
+  useQuery({
+    queryKey: QUERY_KEYS.adminSettings(instanceUrl ?? ''),
+    queryFn: () => getApiForInstance(instanceUrl).typed((c) => c.GET('/admin/settings')),
+    enabled: !!instanceUrl,
+  });
+
+export const useUpdateInstanceSettings = (instanceUrl: string | null) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: components['schemas']['UpdateInstanceSettings']) =>
+      getApiForInstance(instanceUrl).typed((c) => c.PATCH('/admin/settings', { body })),
+    onSuccess: (settings) => {
+      queryClient.setQueryData<InstanceSettings>(QUERY_KEYS.adminSettings(instanceUrl ?? ''), settings);
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.instanceInfo(instanceUrl ?? '') });
+    },
+  });
+};

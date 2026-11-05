@@ -27,6 +27,7 @@ pub enum Ceremony {
     SecondFactor {
         user_id: Uuid,
         state: PasskeyAuthentication,
+        email_code_hash: Option<String>,
     },
 }
 

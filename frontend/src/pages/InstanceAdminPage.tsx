@@ -15,6 +15,7 @@ import AuditLogTable from '@/features/workspace/components/AuditLogTable';
 import { toUserMessage } from '@/lib/errors';
 import { Select } from '@/shared/components/Form/Select';
 import { TestEmailCheck } from '@/features/setup/TestEmailCheck';
+import { EmailCodeSetting } from '@/features/setup/EmailCodeSetting';
 
 type AdminTab = 'users' | 'audit' | 'email';
 
@@ -120,8 +121,9 @@ export default function InstanceAdminPage() {
         )}
 
         {tab === 'email' ? (
-          <div className="max-w-2xl mx-auto bg-surface rounded-xl border border-line p-6">
+          <div className="max-w-2xl mx-auto bg-surface rounded-xl border border-line p-6 space-y-6">
             <TestEmailCheck instanceUrl={instanceUrl} />
+            <EmailCodeSetting instanceUrl={instanceUrl} />
           </div>
         ) : tab === 'audit' ? (
           <div className="max-w-5xl mx-auto">

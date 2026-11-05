@@ -400,7 +400,7 @@ the same second step after it.
 | # | Ticket | Area |
 |---|---|---|
 | CS-118 ✅ | Passkeys | backend · frontend · desktop |
-| CS-119 | Sign in with a code sent by email | backend · frontend |
+| CS-119 ✅ | Sign in with a code sent by email | backend · frontend |
 
 ### Wave 32 — What an admin can see
 

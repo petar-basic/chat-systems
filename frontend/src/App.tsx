@@ -22,6 +22,7 @@ const SetupPage = lazy(() => import('@/pages/SetupPage'));
 const CompleteRegistrationPage = lazy(() => import('@/pages/CompleteRegistrationPage'));
 const WorkspacePage = lazy(() => import('@/pages/WorkspacePage'));
 const ResetPasswordPage = lazy(() => import('@/pages/ResetPasswordPage'));
+const EmailCodePage = lazy(() => import('@/pages/EmailCodePage'));
 const DesktopSsoPage = lazy(() => import('@/pages/DesktopSsoPage'));
 const InstanceAdminPage = lazy(() => import('@/pages/InstanceAdminPage'));
 const AppConnectCallbackPage = lazy(() => import('@/pages/AppConnectCallbackPage'));
@@ -94,6 +95,7 @@ function AppContent() {
           <Route path="/invite/:token" element={<CompleteRegistrationPage />} />
           <Route path="/complete-registration" element={<CompleteRegistrationPage />} />
           <Route path="/forgot-password" element={<ResetPasswordPage />} />
+          <Route path="/sign-in/code" element={<EmailCodePage />} />
           <Route path="/sso/desktop" element={<DesktopSsoPage step="handoff" />} />
           <Route path="/sso/complete" element={<DesktopSsoPage step="complete" />} />
           <Route path="/passkey/desktop" element={<DesktopSsoPage step="passkey" />} />

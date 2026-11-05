@@ -11,17 +11,7 @@ import { passkeysSupported } from '@/lib/webauthn';
 import { PENDING_INVITE_KEY, ROUTES } from '@/shared/constants';
 import { ssoStartUrl, startSsoInDesktop } from '@/features/instance/ssoStart';
 import { desktopShell } from '@/lib/desktopShell';
-
-/// A sign-in that started from an invite link owes the person the workspace
-/// they were invited to, not the generic app shell.
-const SECOND_FACTOR_ANSWERS = new Set(['totp_required', 'totp_or_passkey_required', 'passkey_required']);
-
-function afterSignIn(): string {
-  const pending = sessionStorage.getItem(PENDING_INVITE_KEY);
-  if (!pending) return '/app';
-  sessionStorage.removeItem(PENDING_INVITE_KEY);
-  return `/invite/${pending}`;
-}
+import { afterSignIn, SECOND_FACTOR_ANSWERS } from '@/lib/signIn';
 
 export default function AddInstancePage() {
   const { t } = useTranslation('auth');
@@ -192,7 +182,17 @@ export default function AddInstancePage() {
             />
 
             {sameOrigin && (
-              <div className="-mt-2 text-right">
+              <div className="-mt-2 flex items-center justify-end gap-4">
+                {instance?.email_code_sign_in && (
+                  <Link
+                    to={ROUTES.emailCode}
+                    state={{ email: email.trim() }}
+                    data-qa="email-code"
+                    className="mr-auto text-sm text-accent hover:text-accent-soft"
+                  >
+                    {t('signIn.emailCode')}
+                  </Link>
+                )}
                 <Link
                   to={ROUTES.forgotPassword}
                   state={{ email: email.trim() }}

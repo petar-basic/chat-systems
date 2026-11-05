@@ -132,6 +132,8 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
     let export_repo = export::repo::ExportRepo::new(pool.clone());
     let totp_repo = auth::totp_repo::TotpRepo::new(pool.clone());
     let passkey_repo = auth::passkey_repo::PasskeyRepo::new(pool.clone());
+    let email_code_repo = auth::email_code_repo::EmailCodeRepo::new(pool.clone());
+    let instance_settings_repo = admin::settings_repo::InstanceSettingsRepo::new(pool.clone());
     let scim_repo = crate::scim::repo::ScimRepo::new(pool.clone());
     let setup_repo = crate::setup::repo::SetupRepo::new(pool.clone());
     let push_repo = crate::push::repo::PushRepo::new(pool.clone());
@@ -178,6 +180,8 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
         export_repo,
         totp_repo,
         passkey_repo,
+        email_code_repo,
+        instance_settings_repo,
         scim_repo,
         setup_repo,
         push_repo,

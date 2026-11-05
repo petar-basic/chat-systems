@@ -21,6 +21,7 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(health))
         .routes(routes!(stats))
         .routes(routes!(send_test_email))
+        .routes(routes!(get_instance_settings, update_instance_settings))
         .routes(routes!(list_audit_log))
         .routes(routes!(list_users))
         .routes(routes!(suspend_user))
@@ -50,6 +51,17 @@ pub struct InstanceStats {
 pub struct EmailTest {
     pub sent_to: String,
     pub error: Option<String>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct InstanceSettings {
+    pub email_code_sign_in: bool,
+    pub email_configured: bool,
+}
+
+#[derive(Debug, serde::Deserialize, ToSchema)]
+pub struct UpdateInstanceSettings {
+    pub email_code_sign_in: bool,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -92,6 +104,41 @@ async fn send_test_email(
         sent_to: user.email,
         error,
     }))
+}
+
+#[utoipa::path(get, path = "/admin/settings", tag = "admin", responses((status = 200, body = InstanceSettings)))]
+async fn get_instance_settings(
+    State(state): State<Arc<AppState>>,
+) -> AppResult<Json<InstanceSettings>> {
+    instance_settings(&state).await.map(Json)
+}
+
+#[utoipa::path(patch, path = "/admin/settings", tag = "admin", request_body = UpdateInstanceSettings, responses((status = 200, body = InstanceSettings)))]
+async fn update_instance_settings(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    ip: ClientIp,
+    Json(body): Json<UpdateInstanceSettings>,
+) -> AppResult<Json<InstanceSettings>> {
+    state
+        .instance_settings_repo
+        .set_email_code_sign_in(body.email_code_sign_in)
+        .await?;
+    audit::record(
+        &state,
+        AuditEntry::new(AuditAction::InstanceSettingsChanged, auth.user_id)
+            .ip(&ip)
+            .details(serde_json::json!({ "email_code_sign_in": body.email_code_sign_in })),
+    )
+    .await;
+    instance_settings(&state).await.map(Json)
+}
+
+async fn instance_settings(state: &AppState) -> AppResult<InstanceSettings> {
+    Ok(InstanceSettings {
+        email_code_sign_in: state.instance_settings_repo.email_code_sign_in().await?,
+        email_configured: state.auth_service.can_send_email(),
+    })
 }
 
 #[utoipa::path(get, path = "/admin/stats", tag = "admin", responses((status = 200, body = InstanceStats)))]

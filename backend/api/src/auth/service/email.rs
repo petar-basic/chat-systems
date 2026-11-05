@@ -42,13 +42,32 @@ impl AuthService {
             .await
     }
 
-    pub(super) async fn send_sso_reminder(&self, to_email: &str) -> AppResult<()> {
+    pub(crate) async fn send_sso_reminder(&self, to_email: &str) -> AppResult<()> {
         let body = format!(
-            "Somebody asked to reset the password for this address on {}.\n\nThis account signs in with single sign-on, so it has no password to reset. Open {} and choose Sign in with SSO.\n",
+            "Somebody asked for a way into this account on {}.\n\nThis account signs in with single sign-on, so it has no password to reset and no sign-in code. Open {} and choose Sign in with SSO.\n",
             self.config.instance_name, self.config.public_url
         );
         self.queue_email(to_email, "You sign in with SSO", &body, None)
             .await
+    }
+
+    pub(crate) async fn send_sign_in_code(
+        &self,
+        to_email: &str,
+        code: &str,
+        lifetime_mins: i32,
+    ) -> AppResult<()> {
+        let name = &self.config.instance_name;
+        let body = format!(
+            "Your code to sign in to {name} is:\n\n{code}\n\nIt works once and expires in {lifetime_mins} minutes. If you did not ask for it, you can ignore this email.\n"
+        );
+        self.queue_email(
+            to_email,
+            &format!("{code} is your {name} sign-in code"),
+            &body,
+            None,
+        )
+        .await
     }
 
     pub async fn send_invite_email(
